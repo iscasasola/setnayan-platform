@@ -4,6 +4,7 @@ import { Briefcase, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchVendorBranches } from '@/lib/vendor-branches';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
@@ -48,6 +49,30 @@ export default async function VendorServicesPage({ searchParams }: Props) {
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
   const selectedCategories = new Set(services.map((s) => s.category));
+
+  // Branch-scoped grouping (Branches V1.x) — only an Enterprise vendor that has
+  // at least one (non-cancelled) branch sees the per-service "Branch" picker.
+  // Everyone else: the form renders byte-for-byte as before (no select → no
+  // branch_id submitted → services stay unassigned).
+  let tier: string | null = null;
+  try {
+    const { data } = await supabase
+      .from('vendor_profiles')
+      .select('tier_state')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    tier = (data as { tier_state?: string } | null)?.tier_state ?? null;
+  } catch {
+    tier = null;
+  }
+  const branches =
+    tier === 'enterprise'
+      ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(
+          (b) => b.status !== 'cancelled',
+        )
+      : [];
+  const showBranchPicker = branches.length > 0;
+  const branchLabelById = new Map(branches.map((b) => [b.branch_id, b.branch_label]));
 
   // The vendor's own category requests (RLS: own rows only) so they can track
   // resolution. A missing table (migration not applied) degrades to [].
@@ -219,6 +244,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     </span>
                   </span>
                 </label>
+                {showBranchPicker ? (
+                  <BranchSelect
+                    id={`new-branch-${addCategory}`}
+                    branches={branches}
+                    defaultValue=""
+                  />
+                ) : null}
                 <div className="flex items-center justify-between">
                   <Link
                     href="/vendor-dashboard/services"
@@ -264,6 +296,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         {svc.is_active ? 'Active' : 'Hidden'} ·{' '}
                         {formatPhp(svc.starting_price_php)} starting
                       </p>
+                      {svc.branch_id && branchLabelById.has(svc.branch_id) ? (
+                        <p className="text-xs text-ink/60">
+                          Branch: {branchLabelById.get(svc.branch_id)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <form action={toggleVendorServiceActive}>
@@ -352,6 +389,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                       />
                       <span>Crew meal required (feeds couple&rsquo;s budget)</span>
                     </label>
+                    {showBranchPicker ? (
+                      <BranchSelect
+                        id={`branch-${svc.vendor_service_id}`}
+                        branches={branches}
+                        defaultValue={svc.branch_id ?? ''}
+                      />
+                    ) : null}
                     <div className="flex justify-end">
                       <SubmitButton
                         className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-4 text-xs font-medium text-ink hover:border-ink/40"
@@ -471,5 +515,33 @@ function Field({
       {children}
       {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
     </label>
+  );
+}
+
+/**
+ * Branch-scoped grouping picker (Branches V1.x). Only rendered for Enterprise
+ * vendors that have branches; otherwise the service forms are unchanged.
+ * Empty value = "Main (no branch)" → the action resolves it to null.
+ */
+function BranchSelect({
+  id,
+  branches,
+  defaultValue,
+}: {
+  id: string;
+  branches: { branch_id: string; branch_label: string }[];
+  defaultValue: string;
+}) {
+  return (
+    <Field label="Branch" htmlFor={id} help="Which location offers this service.">
+      <select id={id} name="branch_id" defaultValue={defaultValue} className="input-field cursor-pointer">
+        <option value="">Main (no branch)</option>
+        {branches.map((b) => (
+          <option key={b.branch_id} value={b.branch_id}>
+            {b.branch_label}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }

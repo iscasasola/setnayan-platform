@@ -20,6 +20,105 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0016 — the music step is now the **search-only Song Bank** over our curated catalogue (Song Bank §5–6) with the iTunes preview/cache wired.
 
+## 2026-06-05 · feat(0022): branch-scoped service grouping (Branches V1.x complete)
+
+**Context:** The second half of the Branches V1.x "yes" — assign each service to a branch so a multi-location Enterprise vendor can organize its catalog per site. (Auto-lapse + Renew + ₱999 shipped in #995.)
+
+**What changed:**
+- Migration `20260825000000_vendor_services_branch_id.sql` (**applied to prod**): nullable `vendor_services.branch_id` → `vendor_branches` **ON DELETE SET NULL** (deleting a branch un-assigns its services, never orphans) + a partial index. NULL = "main / unassigned" = every existing service → additive, **zero change** for the ~all vendors without branches. RLS unchanged (branch_id is organizational, not a security boundary — `vendor_services` already gates owner/admin + agent-by-assignment).
+- `lib/vendor-services.ts`: `branch_id` on the row type + a **resilient select** (falls back to the base columns if the column isn't in the DB yet → renders identically pre-migration).
+- `services/actions.ts`: create + update persist `branch_id` via `resolveBranchId` (coerces a foreign/blank value to null — a service can only be pinned to the vendor's OWN branch).
+- `services/page.tsx`: a "Branch" `<select>` on the add + edit forms, **gated to Enterprise vendors that have ≥1 branch** — every other vendor sees the form byte-for-byte unchanged; each service card shows its branch. Agents inherit branch scoping transitively (scoped to specific services via `vendor_service_agents`, and those services now carry a branch).
+
+**Verify:** `tsc` + `next lint` + `next build` green. Rolled-back impersonation: column added ✓ · owner sets branch_id on a service ✓ · ON DELETE SET NULL un-assigns ✓. Applied to prod via monogram-isolation. (Incidental: the first push also applied another team's already-merged-but-pending `20260824000000_budget_allocation_decisions`; a timestamp collision with it forced renaming mine `20260824`→`20260825`.)
+
+**SPEC IMPACT:** 0022 — branch-scoped service grouping now BUILT; completes the Branches V1.x flag. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-05 · feat(0022): Branches V1.x — ₱999 charm price + auto-lapse + Renew
+
+**Context:** Owner follow-ups to the just-shipped Branches feature (#986): (4) the price is **₱999 (charm)**, not ₱1,000 — aligning the code to Pricing.md §0.C (which already read ₱999); (3) build the deferred V1.x lifecycle — auto-lapse after the 28-day window + a one-tap Renew.
+
+**What changed** (code-only · no migration):
+- **₱999** — `BRANCH_FEE_PHP` 1000 → 999 (centavos follow). Every display (`peso(BRANCH_FEE_PHP)`) + the order/payment amounts update from the constant. (Pricing.md §0.C reconciled to ₱999 + Enterprise gate directly in the corpus per owner authorization.)
+- **Auto-lapse (derived, no cron)** — a branch's live status is now derived from its **latest activation order**: paid + within the 28-day window (`orders.expires_at`, stamped by the admin approval hook) → **Active**; paid + past the window → **Expired**; unpaid → **Pending payment**; plus Cancelled. So lapse happens automatically at read time — no sweep, no cron ([[project_setnayan_cron_free]]). `fetchVendorBranches` now reads each branch's latest order (status + expires_at + ref) and `deriveBranchStatus(branch, order, nowMs)` computes the state.
+- **Renew** — a new `renewBranch` action + an amber "Renew · ₱999" button on Expired branches creates a fresh ₱999 apply-then-pay order for the SAME branch (extracted shared `startBranchPayment` helper, reused by create + renew). On admin approval the existing activation hook reactivates it with a new 28-day window. (Auto-charge is N/A in apply-then-pay — no card on file; renewal is one tap.)
+- New `expired` status (rose pill) + a "Renewal started" banner.
+
+**Verify:** `tsc` + `next lint` + `next build` green. Renew's DB path reuses the create path's order+payment inserts (RLS-proven in #986); the new logic is the pure `deriveBranchStatus` derivation (typecheck-covered). No migration.
+
+**SPEC IMPACT:** 0022 — Branches price = **₱999** (charm, supersedes the ₱1,000 in #986's entry) + auto-lapse/Renew lifecycle now BUILT (was flagged V1.x). Pricing.md §0.C reconciled (₱999 · Enterprise). Logged in DECISION_LOG.
+## 2026-06-05 · feat(budget): median-anchored allocation engine + behavioral capture table (foundation)
+
+**Context:** Owner design session (2026-06-05) — a top-down budget *allocation* layer to sit atop the existing *tracking* ledger (`lib/budget.ts`): recommend a ₱ target + shopping range per service *before* the couple picks anyone, derived from the median of solo vendor prices, proportioned across the chosen services and scaled to budget — a **guide, never a rule**. Full design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`. This PR ships the pure engine + the Layer-1 capture table only (no UI yet).
+
+**What changed** (`apps/web/`, `supabase/`):
+- **`apps/web/lib/budget-allocation.ts`** (new) — pure `computeBudgetAllocation()` (mirrors `lib/compat-score.ts`): median→proportion→₱ spine; **fixed-then-proportion** (known Setnayan SKUs carve off the top); **cushion / slack-first** absorption (surplus parks as a visible cushion; a pin drains cushion → then proportional drain of unpinned leaves — emergent from the slack-vs-tight branch, no ordering loop); **soft-floor** warn-don't-block + feasibility shortfall; **p25–p75 band**; thin-data → admin-benchmark fallback + per-leaf confidence. `surplusMode` config toggles `'park'` (default, the endorsed cushion model) vs `'distribute'` (naive 1-leaf = 100%). Weights/knobs = one admin-tunable constant; **no prices invented** (all caller-supplied or a proportion of the couple's own budget).
+- **`supabase/migrations/20260824000000_budget_allocation_decisions.sql`** (new) — Layer-1 behavioral capture (operational/identified): per-leaf default-vs-final + pin-order + auto-reduced + segment tags. **RLS at CREATE · couple-own-only · admins INTENTIONALLY get no blanket read** (privacy-by-design — gated service-role export only); RA 10173 erasable (event cascade + couple delete); snapshots immutable (no UPDATE policy). De-identified Layer-2 + cron-free rollup = follow-on.
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on the engine · throwaway runtime harness **20/20** (the owner's worked example reproduces exactly: cushion 150k → pin 450 leaves others untouched → pin 550 drains 270/108/27/45; fixed carve-out; soft-floor-warn-not-clamp; over-budget; input-sensitivity). The engine is unimported (additive) so the production build is unaffected; CI covers `next build`.
+
+**⚠ Migration NOT applied to prod.** `supabase db push` is unsafe here — it would co-apply the owner's pending `20260817_event_monogram_style` (theirs to deploy), and the version originally collided with a remote-only `20260823` (the vendor_self_comp_caps RLS migration; renamed mine → `20260824` to fix). Nothing consumes the table yet, so it ships ahead of application; apply deliberately (monogram-isolation) when the planner UI lands.
+
+**SPEC IMPACT:** NEW capability — design landed in corpus `Budget_Planner_Allocation_Engine_2026-06-05.md` + `DECISION_LOG.md` (2026-06-05). Folds into 0007 (planner) / 0025 (privacy) / 0023 (admin) — applied directly to the corpus this session (Cowork direct-edit authorization).
+
+## 2026-06-05 · fix(0022): vendor_self_comp_caps RLS — vendor reads its own comp cap
+
+**Context:** Owner follow-up to the "RLS-enabled-but-no-policy" flag. Investigation: of the 4 flagged objects, **3 are VIEWS** (`vendor_active_ads`, `vendor_active_tools`, `vendor_market_stats`) — views can't carry RLS, so their no-policy state is correct-by-design, not a gap. Only **`vendor_self_comp_caps`** is a real table with RLS enabled + zero policies, so only `service_role` could read it. The vendor self-comp quota reader (`lib/self-purchase.ts:fetchSelfCompQuota`) runs under the vendor's authed client, so an admin-raised cap was invisible (the read returned nothing → the code fell back to the default cap of 12). No data was wrong, but a raised cap never took effect.
+
+**What changed** (`supabase/migrations/20260823000000_vendor_self_comp_caps_rls.sql`, applied to prod):
+- `vendor_self_comp_caps_owner_read` — owner + team-admin of the vendor read their OWN cap (`current_vendor_profile_ids()`).
+- `vendor_self_comp_caps_admin_manage` — platform admin sets / raises caps (`is_admin()`).
+- RLS-only · idempotent (DROP IF EXISTS → CREATE) · no code change (the reader already passes the vendor's client + `vendor_profile_id`).
+
+**Verify:** rolled-back impersonation — 2 policies created · owner reads own cap (25) ✓ · stranger blocked (0) ✓. Applied to prod via monogram-isolation (`20260817` left untouched).
+
+**SPEC IMPACT:** None — RLS hardening of an existing table; the 3 views are not a gap. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-05 · feat(onboarding): name-screen monogram auto-restyles every 30s
+
+**Context:** Owner — *"animation loop will happen every 30 seconds"* (onboarding fix list). The name-screen monogram (`MonoLockup`) only changed style when the couple tapped **"Generate another design"** (`cycleDesign`). It now also cycles through the 5 lockups on its own so couples see the styles without tapping.
+
+**What changed** (`apps/web/`):
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — a new `useEffect` (sibling to the existing 4.5s `monoReplay` self-draw loop) advances `monogramDesign` to the next of the 5 `MONO_DESIGNS` every **30 s** and bumps the pop; the design change re-keys `MonoLockup`, so the Trace self-draw replays for the new lockup and the "n / 5" counter updates. **Gated to step 4 + `prefers-reduced-motion`** (reduced-motion → one static design, no auto-restyle); the interval + pop timeout are cleared on unmount.
+- **`app/_components/event-monogram.tsx`** — corrected a stale comment that claimed the switcher renders "no frame": the `framed` lockup DOES draw its gold frame at chrome size (comment only · behavior unchanged — the switcher already shows the couple's created monogram).
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (no new warnings in the touched files) · the underlying restyle path (`regen`/`cycleDesign`) verified live in the corpus prototype (wreath→oval→crest cycling · no console errors); the 30 s loop reuses that proven path.
+
+**SPEC IMPACT:** 0016 / `Onboarding_Blueprint` — the name-screen monogram now **auto-restyles every 30 s** (was tap-only "Generate another design"). Logged in corpus `DECISION_LOG.md`; blueprint lines 68/95 ("tap the monogram to restyle") should gain "+ auto-cycles every 30 s" — left for the owner's Cowork pass (the blueprint `.md`/`.docx` currently carry owner WIP).
+
+## 2026-06-05 · chore(onboarding): new role-screen photo (bride · groom · maid of honor)
+
+**Context:** Owner — *"change the photo here. we want a photo of a bride (left), groom (center) and the maid of honor (right) chatting and laughing."* The "Who are you in this wedding?" role screen (step 1) hero (`ASSET('role')`).
+
+**What changed:** Replaced `apps/web/public/onboarding/role.webp` with a new image matching the brief — bride on the left (white lace gown + bouquet), groom centre (cream barong tagalog), maid of honor on the right, all chatting and laughing at a warm heritage venue. Generated via Recraft (`realistic_image` · `natural_light`), downscaled to 1280×720 lossy WebP (68 KB) to keep the original's 16:9 footprint and a lean payload. Caption ("You and your people.") and all code unchanged.
+
+**SPEC IMPACT:** None — asset swap only.
+
+---
+
+## 2026-06-05 · fix(onboarding): no prefilled defaults (date / religion / guests / budget) + deliberate venue loading
+
+**Context:** Owner — *"onboarding should have no starting value to any of the pages. no initial date, no initial guests, no initial budget, no initial religion. all inputs should not have a value."* Plus: *"add a loading … as it populates the vendors for the reception venue."* `EMPTY_ONBOARDING_STATE` was already empty (`dateCandidates: []`, `faith: []`, `pax: null`, `budgetBand/Amount: null`) — but each screen seeded a cosmetic default at render time, so the couple saw answers they never gave. The per-step `canContinue` gate already required real values (date ≥1, `pax !== null`, `budgetBand !== null`, etc.), so the seeds were display-only and even produced an inconsistent "looks filled but Continue is disabled" state.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` only):
+- **Date:** `DateCalendar`'s `multi` no longer seeds `[new Date(seed)]` — it opens with no date selected (calendar still shows a month to navigate). `setMode` no longer re-seeds a date when toggling back to *Specific*; the *Flexible window* still seeds a starter range since that responds to an explicit mode choice.
+- **Religion:** choosing a religious *kind* no longer pre-selects `['catholic']` (`selectKind` → `faith: []`); the faith preview photo shows a neutral placeholder ("Pick your tradition") until a chip is tapped, instead of defaulting to the Catholic photo.
+- **Guests:** the count box was already empty when `pax` is null; now the slider rests at min with no fill and the preview photo/caption show a neutral "Drag or type your headcount" state until a number is entered.
+- **Budget:** new `budgetSet = state.budgetBand != null` gate — until the couple sets a budget, the amount box is empty (placeholder "Your budget", no pre-fill on focus), the slider rests at min with no fill, and the feel photo shows a neutral "Set your number to preview the feel it buys" state instead of defaulting to *classic*.
+- **Venue loading:** the reception-venue search already showed a `venuesLoading` skeleton ("Finding the best venues for you…"); it now holds for a minimum ~700ms so the search always reads as a deliberate moment as vendors populate, never a flash.
+
+**Not changed (flagged for owner):** the step-9 "What would you love?" picker still auto-fills a budget-matched starter set (`budgetStarterPicks`). That's a curated suggestion, not a typed value, so I left it — say the word and I'll clear it too so the picker starts empty.
+
+**Verification:** TSX syntax parse clean (0 errors) · no orphaned vars (`seed`/`clampMax`/`budgetView`/etc. still referenced) · empty states are exactly what `canContinue` already assumed (Continue stays disabled until each value is set) · full `tsc`/lint/build/e2e in PR CI + Vercel preview for visual review. Isolated worktree off origin/main (incl. #989).
+
+**SPEC IMPACT:** None — removes cosmetic default-seeding so the UI matches the already-empty `EMPTY_ONBOARDING_STATE` + existing validation; no schema, SKU, copy-of-record, or flow change.
+
+---
+
 ## 2026-06-05 · feat(onboarding/0016): iTunes song preview in the music step — album cover = play button
 
 **Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.
@@ -34,6 +133,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Follow-ups:** full Song Bank — searchable 390-song catalogue (results-on-top / bottom-pinned search) + DB-cache of `apple_track_id`/`preview_url`/`artwork` (§5.4).
 
 **SPEC IMPACT:** 0016 — the music step gains the locked album-cover-play-button + 30-sec iTunes preview (Song Bank §5).
+---
 
 ## 2026-06-05 · fix(onboarding): wedding-date "What your dates share" nugget moved above the calendar
 

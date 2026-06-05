@@ -53,9 +53,10 @@ export function EventMonogram({
     monogram_text: event.monogram_text,
     monogram_color: event.monogram_color,
   });
-  // When the couple designed a monogram in onboarding (frame + font keys),
-  // render their initials in the chosen font + ink — letters-forward, no frame
-  // (the ornate frame is illegible at ~28px). Otherwise keep the legacy
+  // When the couple designed a monogram in onboarding, render their REAL created
+  // mark so the switcher logo IS the onboarding monogram: the `framed` lockup
+  // draws its gold filigree frame + initials (below); the four type-only lockups
+  // render letters-forward in the chosen font + ink. Otherwise keep the legacy
   // serif-italic + color badge so older / non-onboarding events are unchanged.
   const design = resolveMonogramDesign({
     monogram_frame_key: event.monogram_frame_key,

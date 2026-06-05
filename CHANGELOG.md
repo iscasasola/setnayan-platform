@@ -19,6 +19,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** Onboarding picker — the corpus onboarding proto (`Onboarding_Wedding_Flow_2026-06-01.html`) + any 0016/picker spec text still show the old chip picker with a budget-seeded starter set. They should be updated to the **category photo-carousel, start-empty** design + the shared carousel affordances. (Flagged for Cowork / corpus follow-up.)
 
 ---
+## 2026-06-05 · feat(budget): data-driven shopping range — real vendor prices replace the seeded band
+
+**Context:** Owner — *"just have a range when actual data comes in."* The planner's per-service ₱ range was always reading the admin-seeded benchmark band, even once real vendor prices existed. Now the range comes from the **real price distribution** as soon as a service has enough listings.
+
+**What changed** (`lib/budget-allocation-data.ts`):
+- `fetchLeafMedians` now also returns the real **min · p25 · p75** of solo vendor prices per leaf (linear-interpolation percentiles).
+- The resolver uses the **real min/p25/p75** for a leaf's range + floor once it clears `minSampleN` real prices; below that, the admin-seeded benchmark band carries it. So the range is benchmark-seeded on day one and **becomes data-driven automatically as listings accumulate** — no admin action.
+- Leaves with **neither** a benchmark **nor** any real price are now **hidden** (no ₱0 ghost rows); they surface the moment real data arrives.
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on the file. Code-only; no migration.
+
+**SPEC IMPACT:** None on schema. Guide-only (no search effect). The 12 unpriced leaves now stay hidden until real vendor data exists, instead of being seeded by hand.
 
 ## 2026-06-05 · fix(onboarding): slider under the number box on the guest-count + budget steps
 

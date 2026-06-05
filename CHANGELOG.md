@@ -14,6 +14,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None — interaction polish on the existing Your-Plan v2 screen.
 
+## 2026-06-05 · feat(onboarding): surface the "reach my best matches" inquiry opt-in on the congrats screen
+
+**Context:** On the congrats screen ("You did the hard part"), owner wanted "Keep using Setnayan AI to help finish your wedding" + the "how many inquiries (1–5)" question right there. That control already existed one screen later (Your Plan, step 14): a `sendTopInquiries` toggle + a 1–5 `inquiriesPerCategory` stepper (default 3) that auto-inquires the best-fit vendors per category at the terminal commit. Owner picked **"also surface it on congrats"** (over reframe-in-place / leave-as-is).
+
+**What changed** (`app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- Congrats screen (step 13) gains a second instance of the inquiry opt-in — **"Keep Setnayan AI helping finish your wedding"** toggle + the 1–5 **"inquiries per category"** stepper — reusing the existing `.optcard` / `.opt-*` markup and binding the **same** `state.sendTopInquiries` / `state.inquiriesPerCategory`. No new state, no new CSS.
+- Safe by construction: the inquiry fan-out commits **once** at the terminal step (16), so editing the shared state on screen 13 *or* 14 never double-sends. Stays **opt-in** (`sendTopInquiries` default `false`).
+
+**Verify:** `tsc --noEmit` clean; `next lint` clean for the file (only pre-existing warnings elsewhere). No migration.
+
+**SPEC IMPACT:** None — presentation of an already-spec'd control. Owner choice logged in corpus `DECISION_LOG.md` (2026-06-05) for traceability. ("Setnayan AI help" here = the free matching+inquiry engine; the paid Today's Focus/Concierge assistant stays retired.)
+
 ## 2026-06-05 · feat(onboarding): every Style-step selector is a swipeable carousel
 
 **Context:** Owner on the Style sub-stepper: *"make these carousel style. we will not have buttons anymore … the whole onboarding should familiarize the users that we do carousel for our app,"* clarified as *"like the one on service style — they are buttons but we will make them all carousels."* So: keep **Continue**, but every selectable **grid** (Reception, Ceremony) and **chip row** (Service style, dietary, photo-need, coverage) becomes a horizontal swipeable carousel — Catering & Photo/Video cuisine/look strips were already carousels. One consistent swipe idiom across onboarding.
@@ -191,6 +203,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** Onboarding picker — the corpus onboarding proto (`Onboarding_Wedding_Flow_2026-06-01.html`) + any 0016/picker spec text still show the old chip picker with a budget-seeded starter set. They should be updated to the **category photo-carousel, start-empty** design + the shared carousel affordances. (Flagged for Cowork / corpus follow-up.)
 
 ---
+
 ## 2026-06-05 · feat(onboarding): "Set the mood" feel picker → swipeable carousel
 
 **Context:** Owner — *"set the mood must be carousel as well."* The wedding onboarding's Style steps were inconsistent: Cuisine and Photo & Video already used the swipeable photo-card film-strip, but the palette / **"Set the mood"** step still picked the feel with flat text chips.
@@ -203,6 +216,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean. Built in an isolated worktree off `origin/main`. ⚠ Not visually verified — the app dev server needs `NEXT_PUBLIC_SUPABASE_*` to boot; the change reuses the proven `.pgrid.strip` CSS (the vertical-fit rules already special-case `.strip`), so it renders like its sibling steps. Confirm on the Vercel preview.
 
 **SPEC IMPACT:** None (schema / SKU / workflow unchanged). The design prototype `Onboarding_Wedding_Flow_2026-06-01.html` already specifies a carousel for this step — the richer photo-forward `.pgrid.car` variant that fills the screen with no hero; the app ships the lighter **film-strip** per owner's 2026-06-05 pick. Corpus is already ahead — no Cowork action (a `DECISION_LOG.md` trace row can be added directly).
+
 ## 2026-06-05 · chore(pricing/marketing): remove Today's Focus completely (customer-facing)
 
 **Context:** Owner — *"remove the today's focus completely. we do not want this anymore."* The retired AI-planner SKU (already disabled in-app via `CONCIERGE_ENABLED=false`) still lingered on the public marketing surfaces. This scrubs it from everything a customer/vendor sees.
@@ -446,6 +460,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc` + `next lint` + `next build` green. Renew's DB path reuses the create path's order+payment inserts (RLS-proven in #986); the new logic is the pure `deriveBranchStatus` derivation (typecheck-covered). No migration.
 
 **SPEC IMPACT:** 0022 — Branches price = **₱999** (charm, supersedes the ₱1,000 in #986's entry) + auto-lapse/Renew lifecycle now BUILT (was flagged V1.x). Pricing.md §0.C reconciled (₱999 · Enterprise). Logged in DECISION_LOG.
+
 ## 2026-06-05 · feat(budget): median-anchored allocation engine + behavioral capture table (foundation)
 
 **Context:** Owner design session (2026-06-05) — a top-down budget *allocation* layer to sit atop the existing *tracking* ledger (`lib/budget.ts`): recommend a ₱ target + shopping range per service *before* the couple picks anyone, derived from the median of solo vendor prices, proportioned across the chosen services and scaled to budget — a **guide, never a rule**. Full design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`. This PR ships the pure engine + the Layer-1 capture table only (no UI yet).
@@ -621,6 +636,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** 0022 — vendor-team admins reach owner parity across the vendor's owner-only tables (completes "main account holders see everything"). Landing direct in corpus (DECISION_LOG + 0022 .md).
 
 ---
+
 ## 2026-06-05 · assets(onboarding): unify all 8 religious ceremony-tradition hero photos to one inspirational angle
 
 **Context:** Owner gave a reference shot (wide-angle cathedral, couple centered and intimate at the altar, the venue's grandeur filling the frame, bright + awe-inspiring but the couple still reads as real people) and asked for "the angles for all religious ceremony tradition … relatable but inspirational on how a beautiful wedding is." Goal: one cohesive art direction across the whole faith picker, each tradition in its own authentic grand venue. This supersedes the 2026-06-05 dark-smoke Catholic + gold-ballroom Chinese so the set is consistent.
@@ -655,6 +671,7 @@ All wide-angle, symmetrical, couple-centered with the bride's train as a recurri
 **SPEC IMPACT:** 0023 §5 — the admin mobile Queues surface is now a triage action feed (supersedes the card-menu landing). Landing direct in corpus (DECISION_LOG + 0023 .md).
 
 ---
+
 ## 2026-06-05 · chore(dashboard): remove dead PersonalizedMenu component + unused menu builders (0021)
 
 **Context:** PR #978 moved the couple's personalization onto the Services tab (the "Matching you on" strip), leaving the old `PersonalizedMenu` card rendered nowhere — home dropped it in the cockpit refactor and `/for-you` is now a redirect. It survived only because it still exported the `TasteChip` type. This removes the dead code.
@@ -2030,6 +2047,7 @@ Propagates to both the `/add-ons` launcher grid and the Services-tab in-category
 **Verification:** `tsc --noEmit` clean (whole app) · `next lint` clean (changed files; only pre-existing warnings elsewhere) · a runtime `tsx` partition check confirmed the grouping + that nested links resolve to real routes. The authed couple-dashboard surface isn't renderable locally (no env / seed / running server) — visual check belongs on the PR's Vercel preview.
 
 **SPEC IMPACT:** Iteration **0021** couple-dashboard Services tab + the Digital Services cross-surface map §2. Presentation step only; the full **vendor-model convergence** (§3 — source the list from the first-party Setnayan vendor account + choice-driven pre-add on category selection) and **fleshing out Digital Services** (add Pakanta / Pro Website / Live Venue Photo Wall to the catalog with valid setup routes — only the coming-soon Animated Monogram is present today) remain follow-ups. See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0000): event-type picker → swipeable hero-photo carousel (shared)
 
 **Context:** Owner ask (mobile screenshot of the event-switcher add-event sheet): *"change how events look like. we want a carousel but like hero photos. let them scroll all the possible events."* The picker rendered emoji tiles (💍 Wedding, 👑 Debut, …) one-at-a-time behind prev/next arrows.

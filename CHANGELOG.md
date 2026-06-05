@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): monogram screen — reveal only when both initials in · drop "X / N" counter · trim to 3 designs
+
+**Context:** Owner, testing the live "The two of you" name screen (step 5) — *"Shows a monogram with no values. we only want to show a monogram live if we already have both letters. Remove the number 2/5 on the Generate another design. Remove design #2 and #4, we will make more later — keep 1, 3, 5."* The MonoLockup rendered a `· & ·` placeholder before any names were typed, the "Generate another design" control carried a `2 / 5` index counter, and the design library shipped 5 lockups.
+
+**What changed** (`app/onboarding/wedding/`):
+- **Gate the live monogram on both initials** (`onboarding-shell.tsx`) — new `monoReady` (both bride + groom first-name initials present). `<MonoLockup>` renders only when `monoReady`; until then a quiet `.mono-empty` hint ("Your monogram appears here") holds the figure's space (new scoped CSS, sized to the lockup so there's no layout jump on reveal). No more `· & ·` mark with no values.
+- **Removed the `mono-count` "X / N" counter** beside the "Generate another design" button (markup + the now-dead `.mono-count` CSS rule). The button itself is unchanged.
+- **Trimmed `MONO_DESIGNS` 5 → 3** — kept #1 `bar`, #3 `duo`, #5 `infinity`; dropped #2 `script` + #4 `framed` ("more to come"). `MonoLockup` still implements all five styles (the `script`/`framed` branches are retained for the future set); only the cycled list shrank. Existing index guards (`?? MONO_DESIGNS[0]`, `% length`) already handle any persisted out-of-range `monogramDesign`.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing, unrelated warnings). No migration. Visual QA on the PR's Vercel preview (onboarding step 5 — anonymous-reachable, before the account gate).
+
+**SPEC IMPACT:** The app's onboarding monogram (5-lockup "Generate another design", added 2026-06-04) is **app-only** — the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` `#screen-name` still has the older tap-to-cycle / 6-combo mark, so it was already diverged. A `DECISION_LOG.md` row is landing directly in the corpus (authorized direct edit); the prototype's monogram section is flagged stale (a full reconciliation to the app's lockup approach is a separate task). Relates to the open 2026-06-04 monogram items (Trace animation · 0037 · the unapplied `event_monogram_style` migration).
+
 ## 2026-06-05 · feat(onboarding): Your Plan reframed free-first — value slider + two opt-ins
 
 **Context:** Owner — *"fix the your plan part of the onboarding. show what you get for free… in a slider… how much time they save and what free services they get with their price if bought outside. then ask if they want to continue using our AI service to guide them, and if they want us to send inquiries to the top 3 services we found."* Screen 14 led with the paid bundle and listed freebies as one paragraph; it now leads with the free value, quantified, then asks.

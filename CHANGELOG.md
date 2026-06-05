@@ -18,6 +18,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0016 — congrats (13) no longer shows the savings stat-strip / inquiry opt-in / personalization note (recap + countdown stay). Prototype `Onboarding_Wedding_Flow_2026-06-01.html` (statstrip + note) + Blueprint §3.1a row 13 drift further — logged in corpus `DECISION_LOG.md` (2026-06-05), matching this area's drift-log pattern.
 
+## 2026-06-05 · feat(0001): desktop guest list reverts to a row/table layout (mobile stays the photo grid)
+
+**Context:** Owner: *"guest on desktop mode will be row/table style not grid style."*
+
+**What changed:**
+- `dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx` — on **desktop (sm+)** the guest list is now a **row/table** again (re-introduced `DesktopRow` + a small round `RowAvatar` that shows the guest's photo, falling back to side-tinted initials), not the photo-card grid. The **importance order carries over** (Bride #1, Groom #2, then role — it's a sort, independent of layout); when grouped (the importance sort) the table breaks into **tier sections with a header row** (couple / wedding party / … / guests), else a flat table. The thead checkbox is select-all (so the separate desktop select-all header the grid needed is removed). **Mobile (<sm) is unchanged — still the tiered photo grid** (couple 2-up · special roles 2-up · guests 3-up). Both surfaces build from the same `sections` + the same `guestSelection` store, so the SelectionBar / mobile-carousel lockstep / select-all / swipe-to-delete are untouched. Dropped the now-dead desktop grid `cols` from `SECTION_CONFIG`/`buildSections` (`mobileCols` stays).
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean on the changed file · production build green. **No migration / schema change** — pure layout. The photo still shows on desktop (thumbnail per row) and on mobile (card hero); the photo grid is now mobile-only.
+
+**Note:** mobile grid densities left as shipped (couple 2 · roles 2 · guests 3) — the grid is now mobile-only, so the literal "wedding party 3 / guests 4" can be bumped on mobile if wanted (one-liner).
+
+**SPEC IMPACT:** 0001 — desktop guest list = row/table (photo thumbnail per row, importance-ordered, tier section headers); mobile = the tiered photo grid. Logged in corpus `DECISION_LOG.md` (2026-06-05) + the 0001 amendment.
+
 ## 2026-06-05 · feat(0016): onboarding congrats full recap + live countdown · services summary 20% promo + grand total + pick-matched recommendations
 
 **Context:** Owner punch-list on the two end screens. **Congrats (13):** "this must be the summary of the data we gathered" — list everything (couple + helper as +1, type + religion, dates, budget, target locations, taxonomy picks, reception/ceremony/catering/photo-video types, song list, mood board, shortlisted venues) + "show the timer based on the nearest date they picked." **Services summary (16):** add the recommended services for the couple's picks next to the add-ons they added, a **20% onboarding promo** (up from the retired bundle's 10%), a TOTAL of money + time saved "in X minutes" (the onboarding duration), and reword the free link.

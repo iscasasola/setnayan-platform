@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Trash2, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -77,50 +77,41 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
   { label: 'Generic', roles: ['guest'] },
 ];
 
-// Importance-tier sections for the guest grid (owner 2026-06-05: "bride and
-// groom will share same row · wedding party will be 3 per row · Guests will be
-// 4 per row"). The couple shares a 2-up row; every special-role tier (VIP
-// family → officiants) follows the wedding-party 3-up band; plain guests run
-// 4-up. Counts are desktop — mobile scales down one step for readable cards.
-// Sections render in ROLE_IMPORTANCE order and skip empty tiers.
+// Importance-tier sections for the guest list (owner 2026-06-05). DESKTOP is a
+// row/table layout (owner: "guest on desktop mode will be row/table style not
+// grid style") that reuses these sections only for its tier header rows. MOBILE
+// is a tiered photo grid — the couple shares a 2-up row, special-role tiers
+// (VIP family → officiants) run 2-up, plain guests 3-up (`mobileCols`). Sections
+// render in ROLE_IMPORTANCE order and skip empty tiers.
 type SectionGroup = RoleGroup | 'guest';
 
 const SECTION_CONFIG: {
   group: SectionGroup;
   label: string;
-  cols: string;
   mobileCols: string;
 }[] = [
-  { group: 'couple', label: ROLE_GROUP_LABELS.couple, cols: 'grid-cols-2', mobileCols: 'grid-cols-2' },
-  { group: 'vip_family', label: ROLE_GROUP_LABELS.vip_family, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
-  { group: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
-  { group: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
-  { group: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
-  { group: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
-  { group: 'officiants', label: ROLE_GROUP_LABELS.officiants, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
-  { group: 'guest', label: 'Guests', cols: 'grid-cols-4', mobileCols: 'grid-cols-3' },
+  { group: 'couple', label: ROLE_GROUP_LABELS.couple, mobileCols: 'grid-cols-2' },
+  { group: 'vip_family', label: ROLE_GROUP_LABELS.vip_family, mobileCols: 'grid-cols-2' },
+  { group: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party, mobileCols: 'grid-cols-2' },
+  { group: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors, mobileCols: 'grid-cols-2' },
+  { group: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors, mobileCols: 'grid-cols-2' },
+  { group: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl, mobileCols: 'grid-cols-2' },
+  { group: 'officiants', label: ROLE_GROUP_LABELS.officiants, mobileCols: 'grid-cols-2' },
+  { group: 'guest', label: 'Guests', mobileCols: 'grid-cols-3' },
 ];
 
 type GuestSection = {
   key: string;
   label: string | null;
-  cols: string;
   mobileCols: string;
   guests: GuestRow[];
 };
 
 function buildSections(guests: GuestRow[], grouped: boolean): GuestSection[] {
   if (!grouped) {
-    // Non-importance sort → one uniform responsive grid, no tier headers.
-    return [
-      {
-        key: 'all',
-        label: null,
-        cols: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4',
-        mobileCols: 'grid-cols-2',
-        guests,
-      },
-    ];
+    // Non-importance sort → one flat group (flat desktop table · uniform
+    // mobile grid), no tier headers.
+    return [{ key: 'all', label: null, mobileCols: 'grid-cols-2', guests }];
   }
   // `guests` is already importance-sorted, so bucketing preserves order within
   // each tier. A guest buckets under their MOST important role (primary/extra).
@@ -135,7 +126,6 @@ function buildSections(guests: GuestRow[], grouped: boolean): GuestSection[] {
   return SECTION_CONFIG.map((cfg) => ({
     key: cfg.group,
     label: cfg.label,
-    cols: cfg.cols,
     mobileCols: cfg.mobileCols,
     guests: byGroup.get(cfg.group) ?? [],
   })).filter((s) => s.guests.length > 0);
@@ -150,6 +140,128 @@ function TierHeader({ label, count }: { label: string; count: number }) {
       </h3>
       <span className="text-[11px] text-ink/35">{count}</span>
     </div>
+  );
+}
+
+// Small round photo (or side-tinted initials fallback) for a desktop table
+// row — the table's equivalent of the grid card's hero photo.
+function RowAvatar({
+  guest,
+  displayUrl,
+}: {
+  guest: GuestRow;
+  displayUrl?: string;
+}) {
+  if (displayUrl) {
+    return (
+      <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-ink/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={displayUrl}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
+      </span>
+    );
+  }
+  const sideTint: Record<GuestSide, string> = {
+    bride: 'bg-rose-200/60 text-rose-900',
+    groom: 'bg-sky-200/60 text-sky-900',
+    both: 'bg-amber-200/60 text-amber-900',
+  };
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
+    >
+      {guestInitials(guest)}
+    </span>
+  );
+}
+
+// Desktop table row (owner 2026-06-05 "guest on desktop mode will be row/table
+// style not grid style"). Photo thumbnail + name in the first cell, then the
+// side / role / groups / RSVP / contact columns. The checkbox owns selection;
+// the name links to the detail page.
+function DesktopRow({
+  guest,
+  eventId,
+  palette,
+  displayUrl,
+  selected,
+  onToggle,
+  groupIds,
+  groupsById,
+  currentGroupId,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  palette: RolePalette;
+  displayUrl?: string;
+  selected: boolean;
+  onToggle: () => void;
+  groupIds: string[];
+  groupsById: Record<string, GuestGroupWithCount>;
+  currentGroupId: string | null;
+}) {
+  return (
+    <tr
+      className={`border-t border-ink/5 transition-colors ${
+        selected ? 'bg-terracotta/[0.06]' : 'hover:bg-terracotta/[0.04]'
+      }`}
+    >
+      <td className="px-3 py-3">
+        <label className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Select ${guestDisplayName(guest)}`}
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+        </label>
+      </td>
+      <td className="px-4 py-3">
+        <Link
+          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+          className="flex items-center gap-3"
+        >
+          <RowAvatar guest={guest} displayUrl={displayUrl} />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink">
+              {guestDisplayName(guest)}
+            </p>
+            {guest.plus_one_allowed ? (
+              <p className="truncate text-xs text-ink/55">
+                + {guest.plus_one_name ?? 'TBA'}
+              </p>
+            ) : null}
+          </div>
+        </Link>
+      </td>
+      <td className="px-3 py-3">
+        <SidePill side={guest.side} />
+      </td>
+      <td className="px-3 py-3">
+        <RoleChips guest={guest} palette={palette} />
+      </td>
+      <td className="px-3 py-3">
+        <GroupChipList
+          eventId={eventId}
+          guestId={guest.guest_id}
+          groupIds={groupIds}
+          groupsById={groupsById}
+          currentGroupId={currentGroupId}
+        />
+      </td>
+      <td className="px-3 py-3">
+        <RsvpPill status={guest.rsvp_status} />
+      </td>
+      <td className="px-3 py-3 text-xs text-ink/60">
+        {guest.email ?? guest.mobile ?? '—'}
+      </td>
+    </tr>
   );
 }
 
@@ -231,70 +343,74 @@ export function GuestListMultiselect({
         </div>
       ) : null}
 
-      {/* Photo-card grid (owner directive 2026-06-05 — "guest list will be
-          grid style now. since we want them to have photos"). Replaces the
-          prior desktop table + mobile stacked-card list. Cards stay
-          selectable, so the SelectionBar + mobile carousel bulk ops + their
-          select-all lockstep are untouched — only the DOM around the same
-          `guestSelection` store changed. */}
+      {/* Guest list — owner 2026-06-05. DESKTOP is a row/table layout ("guest
+          on desktop mode will be row/table style not grid style"); MOBILE stays
+          the tiered photo grid below. Both are importance-ordered (Bride #1 ·
+          Groom #2 · then role) and built from the SAME `guestSelection` store,
+          so the SelectionBar + select-all + carousel lockstep all hold. */}
 
-      {/* Desktop select-all + count header — replaces the table header-row
-          checkbox the grid drops. Mobile select-all stays in the carousel's
-          Customize panel. */}
-      <div className="hidden items-center gap-3 sm:flex">
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink/70">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            ref={(el) => {
-              if (el) el.indeterminate = someSelected;
-            }}
-            onChange={toggleAll}
-            aria-label={
-              allSelected ? 'Clear selection' : 'Select all guests in view'
-            }
-            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
-          {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
-        </label>
-        <span className="text-xs text-ink/45">
-          {guests.length} {guests.length === 1 ? 'guest' : 'guests'}
-        </span>
-      </div>
-
-      {/* Tiered photo grid (owner 2026-06-05: "bride and groom will share same
-          row · wedding party will be 3 per row · Guests will be 4 per row").
-          When grouped (the importance sort · default) the list breaks into
-          role-tier sections at owner-set densities; any other sort renders one
-          uniform grid. Either way every card uses the SAME `guestSelection`
-          store, so the SelectionBar + carousel lockstep + select-all hold. */}
-
-      {/* Desktop · sectioned grids; checkbox always interactive. */}
-      <div className="hidden space-y-6 sm:block">
-        {sections.map((sec) => (
-          <section key={sec.key}>
-            {sec.label ? (
-              <TierHeader label={sec.label} count={sec.guests.length} />
-            ) : null}
-            <div className={`grid gap-3 ${sec.cols}`}>
-              {sec.guests.map((guest) => (
-                <GuestCard
-                  key={guest.guest_id}
-                  guest={guest}
-                  eventId={eventId}
-                  palette={palette}
-                  displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-                  showCheckbox
-                  selected={selectedSet.has(guest.guest_id)}
-                  onToggle={() => guestSelection.toggle(guest.guest_id)}
-                  groupIds={groupMemberships[guest.guest_id] ?? []}
-                  groupsById={groupsById}
-                  currentGroupId={currentGroupId}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+      {/* Desktop · row/table. Photo thumbnail in the Name cell; when grouped
+          (the importance sort · default) a tier header row precedes each tier's
+          rows, else a flat table. The thead checkbox is select-all. */}
+      <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
+        <table className="w-full table-fixed text-left text-sm">
+          <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+            <tr>
+              <th className="w-10 px-3 py-3">
+                <label className="flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected;
+                    }}
+                    onChange={toggleAll}
+                    aria-label={
+                      allSelected ? 'Clear selection' : 'Select all guests in view'
+                    }
+                    className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                  />
+                </label>
+              </th>
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="w-[10%] px-3 py-3 font-medium">Side</th>
+              <th className="w-[18%] px-3 py-3 font-medium">Role</th>
+              <th className="w-[16%] px-3 py-3 font-medium">Groups</th>
+              <th className="w-[12%] px-3 py-3 font-medium">RSVP</th>
+              <th className="w-[14%] px-3 py-3 font-medium">Contact</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sections.map((sec) => (
+              <Fragment key={sec.key}>
+                {sec.label ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
+                    >
+                      <TierHeader label={sec.label} count={sec.guests.length} />
+                    </td>
+                  </tr>
+                ) : null}
+                {sec.guests.map((guest) => (
+                  <DesktopRow
+                    key={guest.guest_id}
+                    guest={guest}
+                    eventId={eventId}
+                    palette={palette}
+                    displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                    selected={selectedSet.has(guest.guest_id)}
+                    onToggle={() => guestSelection.toggle(guest.guest_id)}
+                    groupIds={groupMemberships[guest.guest_id] ?? []}
+                    groupsById={groupsById}
+                    currentGroupId={currentGroupId}
+                  />
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Mobile · sectioned grids; checkbox only in select mode; swipe kept. */}

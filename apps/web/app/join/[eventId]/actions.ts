@@ -77,6 +77,17 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }
 
+  // Gmail-login avatar (owner directive 2026-06-05 — guest photos come from a
+  // Google avatar OR an RSVP selfie). Supabase puts the Google profile photo on
+  // user_metadata.avatar_url / picture. This is DISPLAY-only: a low-res avatar
+  // is never a face-recognition source, so it never writes a face enrollment —
+  // only a selfie does. Priority selfie > couple_upload > oauth_google is
+  // enforced by every writer's WHERE guard (here, the .or() below).
+  const avatarUrl =
+    (user.user_metadata?.avatar_url as string | undefined) ??
+    (user.user_metadata?.picture as string | undefined) ??
+    null;
+
   // 4. Try to find an existing guests row that matches this user's email — link
   //    them if so. Otherwise create a new guests row with their account info
   //    so they show up on the couple's list immediately.
@@ -89,7 +100,24 @@ export async function joinEventAction(eventId: string, token: string, formData: 
       .ilike('email', user.email)
       .is('deleted_at', null)
       .maybeSingle();
-    if (matchingGuest) guestId = matchingGuest.guest_id;
+    if (matchingGuest) {
+      guestId = matchingGuest.guest_id;
+      // Backfill the avatar as the display photo, but never clobber a real
+      // selfie or a couple-set photo — the .or() guard IS the priority ladder
+      // (only NULL or an existing oauth_google photo is overwritten).
+      if (avatarUrl) {
+        await admin
+          .from('guests')
+          .update({
+            photo_url: avatarUrl,
+            photo_source: 'oauth_google',
+            photo_updated_at: new Date().toISOString(),
+            photo_set_by_user_id: user.id,
+          })
+          .eq('guest_id', matchingGuest.guest_id)
+          .or('photo_url.is.null,photo_source.eq.oauth_google');
+      }
+    }
   }
 
   if (!guestId) {
@@ -114,6 +142,15 @@ export async function joinEventAction(eventId: string, token: string, formData: 
         email: user.email,
         rsvp_status: 'pending',
         photo_consent: true,
+        // Seed the Gmail avatar as the display photo on first join (if any).
+        ...(avatarUrl
+          ? {
+              photo_url: avatarUrl,
+              photo_source: 'oauth_google',
+              photo_updated_at: new Date().toISOString(),
+              photo_set_by_user_id: user.id,
+            }
+          : {}),
       })
       .select('guest_id')
       .single();

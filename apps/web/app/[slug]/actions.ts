@@ -75,6 +75,69 @@ export async function submitRsvp(
     return;
   }
 
+  // Persist the RSVP selfie + face-recognition enrollment (owner directive
+  // 2026-06-05). Gated on EXPLICIT biometric consent (RA 10173): no consent →
+  // no photo, no enrollment. Best-effort + non-fatal — a selfie/enrollment
+  // failure must NEVER roll back the RSVP that already succeeded above.
+  const selfieRef = clean(formData.get('selfie_ref'));
+  const biometricConsent = clean(formData.get('biometric_consent')) === '1';
+  if (selfieRef && biometricConsent) {
+    try {
+      // Selfie is the highest-priority display photo — it always wins over a
+      // Gmail avatar / couple upload.
+      await admin
+        .from('guests')
+        .update({
+          photo_url: selfieRef,
+          photo_source: 'selfie',
+          photo_updated_at: new Date().toISOString(),
+          photo_consent: true,
+        })
+        .eq('guest_id', guestId)
+        .eq('event_id', eventId);
+
+      // Advisory quality meta from the in-browser gate (may be absent if the
+      // gate couldn't run — that's fine, we enroll without it).
+      let qualityScore: number | null = null;
+      let qualityMeta: Record<string, unknown> = {};
+      const rawQuality = clean(formData.get('selfie_quality'));
+      if (rawQuality) {
+        try {
+          const parsed = JSON.parse(rawQuality) as {
+            score?: number | null;
+          } & Record<string, unknown>;
+          if (typeof parsed.score === 'number') qualityScore = parsed.score;
+          qualityMeta = parsed;
+        } catch {
+          // malformed quality blob — enroll without it
+        }
+      }
+
+      // Upsert: the partial unique index allows only one non-revoked enrollment
+      // per (event, guest), so retire any live row before inserting the fresh
+      // one (re-RSVP with a new selfie supersedes the old).
+      await admin
+        .from('guest_face_enrollments')
+        .update({ revoked_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .is('revoked_at', null);
+
+      await admin.from('guest_face_enrollments').insert({
+        event_id: eventId,
+        guest_id: guestId,
+        asset_url: selfieRef,
+        source: 'rsvp_selfie',
+        quality_score: qualityScore,
+        quality_meta: qualityMeta,
+        consent_at: new Date().toISOString(),
+        consent_source: 'rsvp',
+      });
+    } catch {
+      // Selfie/enrollment failure never blocks the RSVP.
+    }
+  }
+
   const { data: ev } = await admin
     .from('events')
     .select('slug, display_name')
@@ -120,4 +183,47 @@ export async function submitRsvp(
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(ev?.slug ? `/${ev.slug}?saved=1` : '/');
+}
+
+/**
+ * Guest withdraws face-recognition consent (RA 10173 — the data subject's
+ * right to withdraw). Revokes the live enrollment and clears the selfie
+ * display photo (reverting to initials); a Gmail avatar, being display-only
+ * and non-biometric, is left intact. Admin-client + guest-session authorized,
+ * the same trust model as submitRsvp.
+ */
+export async function withdrawFaceConsent(
+  eventId: string,
+  guestId: string,
+  _formData: FormData,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
+    return;
+  }
+  const admin = createAdminClient();
+  await admin
+    .from('guest_face_enrollments')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('revoked_at', null);
+  await admin
+    .from('guests')
+    .update({
+      photo_url: null,
+      photo_source: null,
+      photo_updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .eq('photo_source', 'selfie');
+
+  const { data: ev } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(ev?.slug ? `/${ev.slug}?face_removed=1` : '/');
 }

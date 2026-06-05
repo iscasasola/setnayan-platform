@@ -13,7 +13,8 @@ import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitRsvp } from './actions';
+import { submitRsvp, withdrawFaceConsent } from './actions';
+import { SelfieCapture } from './_components/selfie-capture';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
@@ -277,7 +278,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: guest } = await admin
     .from('guests')
     .select(
-      'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, notes, custom_tags, qr_token',
+      'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, notes, custom_tags, qr_token, photo_url, photo_source',
     )
     .eq('guest_id', session.guest_id)
     .is('deleted_at', null)
@@ -405,6 +406,8 @@ type GuestRow = {
   notes: string | null;
   custom_tags: string[];
   qr_token: string;
+  photo_url: string | null;
+  photo_source: 'oauth_google' | 'selfie' | 'couple_upload' | null;
 };
 
 function InvitationShell({ children }: { children: React.ReactNode }) {
@@ -1002,6 +1005,10 @@ function InvitationSite({
           <RsvpWidget guest={guest} eventId={event.event_id} limited={isLimitedPlusOne} />
         ) : null}
 
+        {guest.photo_source === 'selfie' ? (
+          <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
+        ) : null}
+
         {/* Hideable widgets render here in display_order. The host
             controls visibility + order via the widget editor at
             /dashboard/[eventId]/website/widgets — invitation_widgets
@@ -1173,8 +1180,12 @@ function RsvpWidget({
   return (
     <form
       action={action}
-      className="space-y-5 rounded-2xl border border-terracotta/30 bg-gradient-to-b from-terracotta/5 to-cream p-6 sm:p-8"
+      className="rsvp-form space-y-5 rounded-2xl border border-terracotta/30 bg-gradient-to-b from-terracotta/5 to-cream p-6 sm:p-8"
     >
+      {/* The selfie step reveals once the guest picks "I'll be there" — pure
+          CSS :has(), the same pattern as the has-[:checked] ring on the radios
+          below, so this stays a server component with no client state. */}
+      <style>{`.rsvp-form .selfie-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal{display:block}`}</style>
       <header className="flex items-center justify-between">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           RSVP
@@ -1208,6 +1219,10 @@ function RsvpWidget({
             {option.label}
           </label>
         ))}
+      </div>
+
+      <div className="selfie-reveal">
+        <SelfieCapture />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1256,6 +1271,35 @@ function RsvpWidget({
 
       <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving RSVP…">
         Save RSVP
+      </SubmitButton>
+    </form>
+  );
+}
+
+// Guest-facing face-data withdrawal (RA 10173). Shown under the RSVP once the
+// guest has a stored selfie; a separate form so it never nests in the RSVP form.
+function FaceDataNotice({
+  eventId,
+  guestId,
+}: {
+  eventId: string;
+  guestId: string;
+}) {
+  const action = withdrawFaceConsent.bind(null, eventId, guestId);
+  return (
+    <form
+      action={action}
+      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-xs text-ink/60"
+    >
+      <span className="min-w-0">
+        Your photo is set up for face recognition at this wedding, so the
+        couple&rsquo;s photographers can find your candid shots.
+      </span>
+      <SubmitButton
+        className="shrink-0 font-medium text-terracotta underline-offset-2 hover:underline"
+        pendingLabel="Removing…"
+      >
+        Remove my photo &amp; face data
       </SubmitButton>
     </form>
   );

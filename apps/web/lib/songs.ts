@@ -16,6 +16,41 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type Song = { song_id: number; title: string; artist: string };
 
 /**
+ * A Song Bank row carrying the DB-cached iTunes preview/artwork (Song Bank §5.4,
+ * migration 20260823000000). `previewUrl`/`artworkUrl` are present only once the
+ * song has been looked up and cached; null until then (the client falls back to
+ * a live iTunes JSONP lookup). The onboarding picker reads these so production
+ * trends to near-zero live calls.
+ */
+export type SongBankRow = Song & {
+  appleTrackId: number | null;
+  previewUrl: string | null;
+  artworkUrl: string | null;
+};
+
+type SongBankDbRow = {
+  song_id: number;
+  title: string;
+  artist: string;
+  apple_track_id: number | null;
+  preview_url: string | null;
+  artwork_url: string | null;
+};
+
+const SONG_BANK_COLS = 'song_id, title, artist, apple_track_id, preview_url, artwork_url';
+
+function toSongBankRow(r: SongBankDbRow): SongBankRow {
+  return {
+    song_id: r.song_id,
+    title: r.title,
+    artist: r.artist,
+    appleTrackId: r.apple_track_id,
+    previewUrl: r.preview_url,
+    artworkUrl: r.artwork_url,
+  };
+}
+
+/**
  * Canonical taxonomy keys (the `program`-folder music tiles, `lib/taxonomy.ts`)
  * whose vendors perform a song repertoire. Choreographer / host-MC / performers
  * are `program` too but aren't song acts — excluded. The "Your repertoire"
@@ -82,6 +117,101 @@ export async function fetchCuratedSongs(supabase: SupabaseClient): Promise<Song[
     .order('song_id', { ascending: true })
     .limit(60);
   return (data ?? []) as Song[];
+}
+
+// ── Song Bank picker reads (with the §5.4 iTunes cache) ──────────────────────
+// The onboarding music step (Onboarding_Style_and_Song_Bank_2026-06-04 §5)
+// browses + searches the master `songs` table — NOT a hardcoded array — and
+// shows each song's cached preview/artwork when present. These return the cache
+// columns so the client prefers them over a live iTunes lookup.
+
+/** How many curated songs to hand the onboarding picker's default browse. The
+ *  full 390-song seed is the catalogue; the picker preloads a generous slice
+ *  (picked-jump-to-top + the ≥10 gate operate over what's loaded) and the search
+ *  reaches the rest. */
+export const SONG_BANK_CURATED_LIMIT = 390;
+
+/** Curated browse list for the onboarding picker (seed songs), with iTunes
+ *  cache. Ordered by song_id so the seed's deliberate ordering (top wedding
+ *  songs first) is preserved. */
+export async function fetchSongBankCurated(
+  supabase: SupabaseClient,
+  limit = SONG_BANK_CURATED_LIMIT,
+): Promise<SongBankRow[]> {
+  const { data } = await supabase
+    .from('songs')
+    .select(SONG_BANK_COLS)
+    .eq('is_curated_pick', true)
+    .order('song_id', { ascending: true })
+    .limit(limit);
+  return ((data ?? []) as SongBankDbRow[]).map(toSongBankRow);
+}
+
+/** Search the master catalogue by title OR artist (public-read), with the iTunes
+ *  cache. Curated picks first, then alphabetical. Powers the onboarding Song Bank
+ *  search box — searching the WHOLE bank, not just the curated slice. */
+export async function searchSongBank(
+  supabase: SupabaseClient,
+  q: string,
+  limit = 40,
+): Promise<SongBankRow[]> {
+  // Strip the PostgREST wildcard (`*`) too, not just `%`, so a literal one the
+  // couple types can't widen the match.
+  const safe = q.replace(/[%*,()]/g, ' ').trim();
+  if (!safe) return [];
+  // Title OR artist match — a couple may search "Bruno Mars" (artist) as readily
+  // as a title. NOTE: a raw PostgREST `or()` string uses `*` as the ilike
+  // wildcard, NOT `%` — a bare `%` here is treated literally / URL-mangled, so the
+  // search returned NOTHING. (The single-column `.ilike()` method elsewhere can
+  // use `%`; only the raw `.or()` filter needs `*`.)
+  const { data } = await supabase
+    .from('songs')
+    .select(SONG_BANK_COLS)
+    .or(`title.ilike.*${safe}*,artist.ilike.*${safe}*`)
+    .order('is_curated_pick', { ascending: false })
+    .order('title', { ascending: true })
+    .limit(limit);
+  return ((data ?? []) as SongBankDbRow[]).map(toSongBankRow);
+}
+
+/**
+ * Cache a song's resolved iTunes preview/artwork onto its master row (Song Bank
+ * §5.4). Called the first time a song is looked up live so every later
+ * user/session reads the cache instead of hitting iTunes — production trends to
+ * near-zero live calls. Resolves the row by normalized_key and UPDATEs only the
+ * three cache columns; it does NOT create a song (the picker only shows seeded
+ * songs, which already exist) and never overwrites an existing cache. MUST run
+ * with a service-role (admin) client — the `songs` UPDATE policy is admin-only.
+ * Best-effort: returns silently on any miss/error (caching must never disrupt
+ * the picker).
+ */
+export async function cacheSongItunes(
+  admin: SupabaseClient,
+  input: { title: string; artist: string; appleTrackId: number | null; previewUrl: string; artworkUrl: string },
+): Promise<void> {
+  const title = input.title.trim();
+  const artist = input.artist.trim();
+  if (!title || !input.previewUrl) return;
+  const nk = normalizedKey(title, artist);
+
+  // Only cache a song that already exists AND isn't cached yet (idempotent — a
+  // race or a re-lookup is a no-op). One round-trip find, one conditional update.
+  const { data: found } = await admin
+    .from('songs')
+    .select('song_id, preview_url')
+    .eq('normalized_key', nk)
+    .maybeSingle();
+  if (!found?.song_id || (found as { preview_url: string | null }).preview_url) return;
+
+  await admin
+    .from('songs')
+    .update({
+      apple_track_id: input.appleTrackId && input.appleTrackId > 0 ? input.appleTrackId : null,
+      preview_url: input.previewUrl,
+      artwork_url: input.artworkUrl || null,
+    })
+    .eq('song_id', found.song_id)
+    .is('preview_url', null); // don't clobber a value written by a concurrent caller
 }
 
 /**

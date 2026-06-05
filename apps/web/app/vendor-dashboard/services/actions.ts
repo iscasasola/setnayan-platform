@@ -37,6 +37,28 @@ async function ensureProfile() {
   return { supabase, profile };
 }
 
+/**
+ * Resolve a submitted branch_id to a branch the vendor actually owns, else null
+ * ("main / unassigned"). The FK guarantees it's a real branch; this guarantees
+ * it's THIS vendor's branch — a foreign/blank/missing value coerces to null.
+ */
+async function resolveBranchId(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  vendorProfileId: string,
+  raw: FormDataEntryValue | null,
+): Promise<string | null> {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  if (!t) return null;
+  const { data } = await supabase
+    .from('vendor_branches')
+    .select('branch_id')
+    .eq('branch_id', t)
+    .eq('parent_vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  return data ? t : null;
+}
+
 export async function createVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
@@ -53,6 +75,11 @@ export async function createVendorService(formData: FormData) {
     );
   }
   const crew_meal_required = formData.get('crew_meal_required') === 'on';
+  const branch_id = await resolveBranchId(
+    supabase,
+    profile.vendor_profile_id,
+    formData.get('branch_id'),
+  );
 
   const { error } = await supabase.from('vendor_services').insert({
     vendor_profile_id: profile.vendor_profile_id,
@@ -60,6 +87,7 @@ export async function createVendorService(formData: FormData) {
     starting_price_php,
     crew_size,
     crew_meal_required,
+    branch_id,
     is_active: true,
   });
 
@@ -125,6 +153,11 @@ export async function updateVendorService(formData: FormData) {
     );
   }
   const crew_meal_required = formData.get('crew_meal_required') === 'on';
+  const branch_id = await resolveBranchId(
+    supabase,
+    profile.vendor_profile_id,
+    formData.get('branch_id'),
+  );
 
   const { error } = await supabase
     .from('vendor_services')
@@ -132,6 +165,7 @@ export async function updateVendorService(formData: FormData) {
       starting_price_php,
       crew_size,
       crew_meal_required,
+      branch_id,
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)

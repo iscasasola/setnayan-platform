@@ -20,6 +20,219 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): slider under the number box on the guest-count + budget steps
+
+**Context:** Owner — on the wedding onboarding's "How many guests?" and "Your working budget?" screens, the range slider must sit *under* the number box, not above it. (Reverses the 2026-06-02 swap that had put the slider on top.)
+
+**What changed (`apps/web/app/onboarding/wedding`):**
+- `_components/onboarding-shell.tsx` — reordered both `.tapzone` stacks from `slider → ends → numbox` to **`numbox → slider → ends`** (pax screen + budget screen). Pure JSX reorder; all handlers/state (`patch`, `onBudgetAmount`, the slider gradient fill, the two-way slider↔box sync) are unchanged. Rewrote the budget block's stale `2026-06-02` "slider-on-top" comment to describe the new order.
+- `_styles/onboarding.css` — `.paxslider` gains `margin-top:14px` so the slider clears the number box above it (matches the box's existing 14px rhythm). No divider added — the React design uses the bordered `.numbox`, not the prototype's dashed `.paxexactwrap`.
+
+**Verify:** `tsc --noEmit` → 0 errors · `next lint` (onboarding/wedding) → no warnings/errors. Built in an isolated worktree off `origin/main`. Layout (numbox→slider→ends) verified in the corpus prototype render; confirm spacing on the Vercel preview's pax/budget steps.
+
+**SPEC IMPACT:** Matches the design prototype `Onboarding_Wedding_Flow_2026-06-01.html` + `DECISION_LOG.md` — both already updated in the corpus this session with the same reorder. No schema · no SKU · no workflow change. Corpus edits land directly (inbox wound down 2026-06-04).
+
+---
+
+## 2026-06-05 · fix(onboarding/0016): Song Bank search returned no songs (PostgREST `or()` wildcard)
+
+**Context:** Owner — "the search is not showing songs." The Song Bank search (#999) built a raw PostgREST `.or()` filter with `%` wildcards (`title.ilike.%q%,artist.ilike.%q%`). In an `.or()` string PostgREST's ilike wildcard is **`*`, not `%`** — a bare `%` matches literally / is URL-mangled, so every search returned **0 rows** (and `searchSongBankAction` swallows errors → `[]`). RLS + the applied 390-seed were fine.
+
+**Fix** (`apps/web/lib/songs.ts` · `searchSongBank`): `.or(`title.ilike.*${safe}*,artist.ilike.*${safe}*`)`; also strip a literal `*` from the query.
+
+**Verification:** `tsc` + `next lint lib` clean.
+
+**SPEC IMPACT:** None — bug fix to #999.
+
+## 2026-06-05 · chore(budget): seed PH-sourced benchmark prices for the Budget Planner
+
+**Context:** Owner — *"apply this to our website."* Seeds the per-leaf benchmark prices the Budget Planner (#1000) shows couples as their starting allocation. Sourced from storia.ph (PH 2026 per-category ₱ ranges) + eventnest.ph (PH % shape), mid-range ~150-pax Metro Manila; owner-confirmed (**NOT invented**). The admin can override any line in `/admin/budget-planner`.
+
+**What changed:** Migration `20260829000000_seed_budget_benchmarks.sql` (**applied to prod**) — UPDATEs `budget_leaf_benchmarks` for **14 leaves** (reception_venue ₱100k · catering ₱450k · photography ₱90k · florals_decor ₱70k · coordinator ₱50k · live_band ₱45k · music_entertainment / attire / rings ₱40k · host_mc ₱25k · hair_makeup / officiant ₱15k · lights_sound ₱14k · invitations ₱12k) with floor / p25 / p75 bands. The other 12 leaves stay NULL (sources don't price them; owner to seed). Data-only; no schema change; exact-PK UPDATEs against the `20260826` seed rows.
+
+**SPEC IMPACT:** None on schema. The couple planner now shows real PH guidance instead of "not enough data." ⚠ Pax-driven leaves (catering / venue / florals) assume ~150 pax until pax-axis normalization lands. Benchmarks are GUIDE-ONLY — they do not affect vendor search/matching.
+
+## 2026-06-05 · feat(monogram): standalone couple Monogram Maker (`/dashboard/[eventId]/monogram`)
+
+**Context:** Couples had no returnable home to craft their wedding monogram — it was set once in onboarding + an inline wizard card. This adds the dedicated Monogram Maker "place" (`Monogram_Maker_Plan_2026-06-05.md`).
+
+**What changed:**
+- New route `app/dashboard/[eventId]/monogram/{page,monogram-maker,actions}.tsx` — initials + one of the **5 curated lockups** (bar · script · duo · framed · infinity) with a **live `AnimatedMonogramHero` draw-on preview**. `saveMonogram()` persists the SAME columns onboarding writes (`monogram_text/color/style/font_key/frame_key`) so the design round-trips everywhere (chrome switcher · QR center · landing hero). **No migration** — those columns already exist on `events`.
+- `customer-nav-config.ts`: a **Monogram** entry in the "Share" group (mobile: under More; 5-item bottom-nav cap unchanged).
+- "How it animates" section: the shipped draw-on + an ownership-aware upsell to the paid `ANIMATED_MONOGRAM` SKU (₱2,499) and a teaser of the wider animation library.
+
+**Scope note:** the maker consolidates EXISTING monogram config (V1 scope). The 23-style animation **picker** + its `monogram_animation_key` column remain a **tracked expansion** (`Monogram_Maker_Plan_2026-06-05.md`) — staged here as teaser/upsell only, NOT built.
+
+**Verify:** `tsc --noEmit` → 0 errors · `eslint` → exit 0 (4 touched files). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** New couple surface `/dashboard/[eventId]/monogram`. Covered by `Monogram_Maker_Plan_2026-06-05.md` (added + logged in `DECISION_LOG.md` 2026-06-05). Reconcile into the 0037 / monogram spec when Cowork folds the plan in (`0037` is the separate unbuilt bespoke path). Corpus edits land directly (inbox wound down 2026-06-04).
+
+---
+
+## 2026-06-05 · feat(ux): narrate the Guests + Website loading screens
+
+**Context:** Owner follow-up to the narrated Services loader — *"make a loading for website and guests also."* Both routes already had page-shaped skeletons (from the app-wide skeleton pass) but loaded **silently**; the owner wants them to *tell what they're doing* like Services now does.
+
+**What changed (all in `apps/web`):**
+- `components/loading-status.tsx`: new **`LoadingNarration`** — a small drop-in strip (gold spinner + the existing cycling `LoadingStatus`) so any route's `loading.tsx` can narrate over its skeleton. Reduced-motion-safe (the global a11y block freezes the spinner + fade; the JS timer still advances the informative text).
+- `…/guests/loading.tsx`: keeps its bespoke guest-list skeleton, adds a `LoadingNarration` strip — *"Loading your guest list…" → "Counting RSVPs…" → "Organizing tables & sides…" → "Almost ready…"*.
+- `…/site-editor/[eventId]/loading.tsx` (the surface the **"Website"** nav doorway actually opens — `/dashboard/[eventId]/website` is a retired redirect to it): was a bare `export { BoardPageSkeleton as default }`; now renders the board/canvas skeleton **plus** a `LoadingNarration` strip — *"Opening your website editor…" → "Loading your design…" → "Bringing in your photos…" → "Almost ready…"*.
+
+**Verify:** `tsc --noEmit` + `next lint` (all three files) green. No migration.
+
+**SPEC IMPACT:** None (loading-screen UX polish; no schema, pricing, or workflow change). Same family as the 2026-06-05 Services narrated-loading row in corpus DECISION_LOG.
+
+---
+
+## 2026-06-05 · feat(0021): Manual mode — Services accordion deep-gate (PR2 of 2)
+
+**Context:** Completes Manual planning mode (PR1 #1002 shipped the `events.planning_mode` flag + the Guided⇄Manual toggle + Home gating). PR2 makes "off" consistent on the **Services tab** — the personalization still showing inside the plan+budget accordion now turns off too.
+
+**What changed:**
+- **`lib/vendors-plan-budget.ts`** — `buildPlanBudgetModel` gains a `personalizationEnabled` arg (default true), threaded onto `PlanBudgetModel` + each `AccordionChild`. When false (Manual), the "what to lock next" / "Do this next" nudges (`dueList`/`upNext`) are emptied — **the per-child timeline math + budget are untouched.**
+- **`plan-budget-accordion.tsx`** — in Manual mode: the per-candidate **"% match" pills** are hidden (`VendorCardAtom` + `CompareSheet` skip `computeCompatScore`), the per-category **`DeadlineChip`** is hidden, and the **`NextAction` "Do this next"** hero is hidden.
+- **`category-search` action + overlay** — the category-browse overlay's **"% match"** pill is gated too: the action returns `compatScore: null` in Manual; the overlay hides the pill. **Result ORDER unchanged** (the locked tier ladder).
+- **`vendors/page.tsx`** — passes `personalizationEnabled: !planningManual` into the model.
+
+**Result:** Manual mode is now fully consistent — strip collapsed (PR1), Home tasks+deadlines off (PR1), accordion match pills + deadline chips + lock-next nudges off (PR2). The vendor **directory still works** (search · browse · compatibility filters · neutral order).
+
+**Verify:** `tsc --noEmit` + `next lint` green. **No migration** (reuses PR1's `events.planning_mode`).
+
+**SPEC IMPACT:** Completes the 0021 Manual mode (decision already in corpus `DECISION_LOG`). 0021 spec edit pending.
+
+## 2026-06-05 · fix(ci): resolve duplicate migration timestamp 20260826000000 (rename the unapplied songs twin)
+
+**Context:** Two migrations on `main` shared the 14-digit prefix `20260826000000` — `20260826000000_budget_planner_config_benchmarks.sql` (PR #1000) and `20260826000000_songs_itunes_cache_and_390_seed.sql` (song-bank PR). This reddened the **"migration timestamp guard"** CI job (`.github/workflows/ci.yml`) on `main` and therefore on *every* open PR. The guard exists because `supabase db push` keys `supabase_migrations.schema_migrations` on the prefix, so a duplicate crashes the push after one migration's DDL has already run (half-applied prod).
+
+**Which is applied (verified):** `supabase migration list --db-url "$SUPABASE_DB_URL"` shows the `20260826000000` prefix twice — one row with a REMOTE entry (applied), one with a blank REMOTE (pending). The applied one is **budget_planner** (DECISION_LOG: "applied to prod via monogram-isolation"; the planning_mode PR #1002 bumped itself to `20260827` "off a pre-existing `20260826` collision … the songs-twin drift on main is unrelated"; and the budget-planner UI is live in prod). The **songs** migration is the never-applied twin (its DDL was skipped because the prefix was already in `schema_migrations`).
+
+**What changed:** pure `git mv` of `20260826000000_songs_itunes_cache_and_390_seed.sql` → **`20260828000000_songs_itunes_cache_and_390_seed.sql`** (filename only; `git` confirms `R100`, zero content lines changed). budget_planner is left untouched at `20260826000000` so it still matches the remote `schema_migrations` PK. Renaming the songs twin (not budget_planner) is safe twice over: it's the *unapplied* one, AND it's fully idempotent (`ADD COLUMN IF NOT EXISTS` · `CREATE INDEX IF NOT EXISTS` · `INSERT … ON CONFLICT DO NOTHING`), so re-applying it under the new version can't error.
+
+**Verify:** `ls supabase/migrations | grep -oE '^[0-9]{14}' | sort | uniq -d` → empty (guard passes). No code/typecheck surface (migration rename only).
+
+**⚠ Follow-up for the owner:** the songs migration is now a fresh **pending** version — prod is still **missing** `songs.apple_track_id` / `preview_url` / `artwork_url` + the 390-song seed (they were never applied). Apply it on the next push: `supabase db push --db-url "$SUPABASE_DB_URL"` (additive + idempotent + nullable → safe). Separately still pending: the `20260817` monogram migration (merged-but-unapplied) — out of scope here.
+
+**SPEC IMPACT:** None (migration filename rename; no schema, pricing, or workflow change). Finding recorded in corpus DECISION_LOG.
+
+---
+
+## 2026-06-05 · feat(0001): CSV guest import — exact-duplicate skip (within-file + against existing)
+
+**Context:** Follow-up to the guest-name hygiene PR (#1004) — closes the largest remaining gap from that review: CSV import had **no** duplicate detection, so re-importing a file doubled everyone and a file listing the same person twice inserted both.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/guests/`):
+- **`import/actions.ts`** — before insert, builds a set of normalized `first|last` keys already on the event (graceful-degrade to empty on query error) and skips any row whose key is **already on the list** OR **seen earlier in the same file**. Exact-normalized match only (shared `norm` from `lib/guest-dedupe`); fuzzy nickname/typo matches are deliberately NOT auto-skipped — a bulk import shouldn't silently drop a distinct guest on a guess (that judgment stays with the interactive add forms). `skipped` now means invalid-rows only; duplicates are counted + reported separately. An all-duplicates file is a friendly no-op ("Imported 0 · skipped N duplicates"), not a validation error.
+- **`page.tsx`** — import success banner now reads `duplicates` and shows e.g. *"Imported 12 guests · skipped 3 duplicates · skipped 1 invalid row."*
+
+**Verify:** `tsc --noEmit` ✅ · `next lint` ✅ (clean on the guests dir) · `next build` ✅.
+
+**SPEC IMPACT:** 0001 guest list — CSV import now exact-dedupes (within-file + against existing). Completes the name-quality pass (normalize all paths · dedupe on quick-add + detailed form + CSV). Lands in corpus `DECISION_LOG.md` + `0001_creating_guest_list/`.
+
+## 2026-06-05 · feat(0001): Guest-name hygiene — normalize all 3 write paths + dedupe on the detailed form
+
+**Context:** Owner asked what name-quality issues we can prevent at guest-list creation. We already had a nickname/typo duplicate detector, but only on the quick-add sheet, and names were only `.trim()`-ed on save. This lands the two lowest-risk wins: shared name normalization on every write path, and the existing duplicate detector extended to the detailed Add-guest form.
+
+**What changed** (`apps/web/`):
+- **`lib/guest-name.ts` (new)** — `normalizeGuestName()`: NFC-normalize, drop zero-width/BOM/soft-hyphen/bidi chars, fold all C0/C1 controls + Unicode whitespace (NBSP, ideographic space, …) to single ASCII spaces + trim, clamp to 80. **Casing left untouched** (PH names like "de la Cruz" / "Ng" break under naive Title-Case — that's a separate reversible suggestion, not a silent rewrite). Built from explicit numeric code points (no regex `\u` escapes) so the source stays ASCII-clean. Wired into **all 3 server write paths**: `new/actions.ts` (createGuest + plus-one names), `quick-add-actions.ts` (quickAddGuest), `import/actions.ts` (CSV rows + plus-one). Fixes the root cause of dedupe/search/sort misses from pasted spreadsheet/PDF junk.
+- **`lib/guest-dedupe.ts` (new)** — extracted the nickname-map + Levenshtein + `findDuplicates`/`TAG` matcher out of `quick-add-sheet.tsx` into a shared, generic (`NameLike`) module; the sheet re-points to it — **zero behavior change** (verified). Dropped a dead `josê` nickmap key (unreachable — lookups normalize to `a-z`).
+- **Detailed Add-guest form now warns on duplicates** — new client island `_components/guest-name-fields.tsx` renders the first/last inputs (same `name=` attrs → server action unchanged) and runs the shared matcher live, showing a NON-BLOCKING amber warning per match (role·side + "Already added" / "Same person?" / "Typo?" badge + a new-tab "View" link). `new/page.tsx` fetches the existing-guest pool, mapped down to a slim shape so **no guest PII serializes into client props**.
+
+**Verify:** `tsc --noEmit` ✅ · `next lint` ✅ (only pre-existing warnings) · `next build` ✅. Unit tests via `tsx`: normalize **15/15**, dedupe **8/8**.
+
+**SPEC IMPACT:** 0001 guest list — (1) name entry now normalizes on all 3 write paths; (2) duplicate detection, previously quick-add-only, now also runs on the detailed Add-guest form. Neither was documented in the 0001 spec (the dedupe tracker was code-only). Lands directly in corpus `DECISION_LOG.md` + `0001_creating_guest_list/`. **Not built (flagged):** CSV import still has no dedupe (within-file + against-existing) — the largest remaining name-quality gap.
+
+## 2026-06-05 · fix(0021/0022): Services tab — remove coverflow tilt · tap-to-open loading · Vendors route loader
+
+**Context:** Owner UX report on the couple **Services** tab (`/dashboard/[eventId]/vendors` — the Plan + Budget accordion): (1) the service/vendor cards **tilt and "shake"** as the coverflow scroll engine rotates them past rail-center — *"remove that … we can do the enlarge but no need for the tilt"*; (2) *"when we tap, the card enlarges to show that we are digging deeper to that service. make sure to have a loading screen"*; (3) *"from home … to the services, there is a couple of seconds that it is blank … should have a loading state … prevent the user to do any other actions until the load state is done."*
+
+**What changed (all in `apps/web`):**
+- `…/vendors/_components/plan-budget-accordion.tsx`:
+  - **`curveRail`** now writes `scale()` only — the per-frame `perspective + rotateY` coverflow tilt is removed (its sign-flip near rail-center was the "shaking"); the centered-card enlarge (scale + opacity) is kept. Dropped the now-inert `.rail{perspective}`.
+  - **Tap-to-open transition:** a tapped `VendorCardAtom` / `InAppServiceCard` gets an `.opening` enlarge (scale-up on the inner `.v`, never `.card`, so it doesn't fight the scroll-zoom), and a full-screen loading overlay (`ServiceOpenOverlay`, lifted to the root component like `CompareSheet` so its `position:fixed` escapes the curve-transformed `.child-block` ancestors) covers the page; `router.push` fires after the brief enlarge. The `<Link>` is kept (prefetch + ⌘/middle-click new-tab preserved) — only a plain left-click is intercepted. `onOpen` threaded root → FolderSection → ChildRail/DigitalServicesRail → both card atoms.
+- **Narrated loading screens** (`components/loading-status.tsx`, new): a small client `LoadingStatus` cycles a list of status lines on a timer (advances every ~1.4s, holds on the last; entrance fade via `.loading-status-line` in `globals.css`; reduced-motion-safe — the global block freezes the fade, the JS timer still advances the informative text) so each loading screen **tells what it's doing** (owner 2026-06-05). Wired into all three surfaces below + the card-tap overlay (`ServiceOpenOverlay` gains a cycling sub-line under the vendor/service name).
+- `…/vendors/loading.tsx` (**rewritten**): replaces the generic `ListPageSkeleton` with a Vendors-shaped loader that mirrors the real chrome — hides `.shell-topbar` (no header swap), paints the black budget bar (shimmer figs via the shared `<Sk>`), then a spinner + `LoadingStatus` (*"Setting up your planner…" → "Downloading your information…" → "Activating your personalized refinements…" → "Almost ready…"*) filling the content area — so the home → Services hop is a continuous, **narrated** loading state instead of a blank/mismatched flash, with nothing half-rendered tappable until the page streams in.
+- `…/vendors/[eventVendorId]/workspace/loading.tsx` (**new**): a centered gold spinner + `LoadingStatus` (*"Opening the workspace…" → "Loading messages & payments…" → "Bringing in your documents…" → "Almost there…"*) that continues the drill-in loading screen after navigation (the route previously inherited the event-home skeleton — the wrong shape).
+
+**Verify:** `tsc --noEmit` + `next lint` (all three files) green. `prefers-reduced-motion` paths preserved (no enlarge/overlay/spinner motion). Live surface = the PR's Vercel preview (the Services tab is auth-gated and there's no local `.env`).
+
+**SPEC IMPACT:** The prototype `Plan_Budget_Accordion_2026-05-31.html` / `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` describe the rail as a coverflow with a `rotateY` tilt — the tilt is **retired** (scale-only) and a **tap-to-enlarge + loading-screen** transition is **added** per owner 2026-06-05. Recorded in corpus `DECISION_LOG.md` (direct-edit authorized 2026-06-04); deeper `0021`/`0022` `.md`/`.docx` sync of the §4 interaction detail can follow.
+
+---
+
+## 2026-06-05 · feat(0021): Manual planning mode — foundation + toggle (PR1 of 2)
+
+**Context:** Owner — *"can we place a toggle for the personalization to switch off … including the deadlines for each leaf category and other automated tasks."* A self-driven **Manual mode** that turns off Setnayan's automated layer (vendor-match personalization · per-service + statutory deadlines · "Today's Focus" auto-tasks) while the app + a compatibility-scoped vendor directory + messaging stay fully usable. Default **Guided** = today's behavior. Owner explicitly accepted that Manual also hides the LEGAL/statutory dates with no warning — knowingly reversing the locked "statutory dates show to every couple" safety default (recorded in corpus DECISION_LOG).
+
+**What changed (PR1 — foundation + the clean surfaces):**
+- **Migration `20260827000000`** — `events.planning_mode TEXT NOT NULL DEFAULT 'guided' CHECK (… 'guided'|'manual')`. Additive · default = no behavior change for existing rows. (Renamed from a `20260826` collision — main already had two migrations at that timestamp.)
+- **`setPlanningMode` server action** (`…/[eventId]/actions.ts`) — flips the flag (auth + `event_id` update + layout revalidate; mirrors `updateEventDate`).
+- **`match-criteria-strip.tsx`** — the switch's home: **Guided** shows the criteria chips + a subtle "switch to manual"; **Manual** collapses to a slim "you're planning this yourself" bar with a one-tap "Switch to Guided". Server-action `<form>` — no client JS.
+- **Home (`…/[eventId]/page.tsx`)** — in Manual mode, **Today's Focus** + **Upcoming schedules** (the deadline layer) are hidden; the countdown + activity feed stay.
+- **Services (`…/vendors/page.tsx`)** — reads `planning_mode`, passes `manual` to the strip.
+
+**Verify:** `tsc --noEmit` + `next lint` green. Migration applied to prod via `supabase db push`.
+
+**Next (PR2):** the in-accordion deep-gate — hide the "% match" pills + neutralize the taste sort in `plan-budget-accordion.tsx` (`VendorCardAtom` + `CompareSheet`) + `category-search`, plus any per-service deadline chips, so Manual mode is fully consistent on the Services tab.
+
+**SPEC IMPACT:** New 0021 "planning mode" (Guided default ⇄ Manual). Reverses the locked "statutory deadlines show to all couples" safety default (owner-accepted, no warning). Lands in corpus `DECISION_LOG` + `0021`.
+
+## 2026-06-05 · feat(onboarding/0016): Song Bank — search-only music step over OUR catalogue + DB-cache
+
+**Context:** Owner — replace the static 100-song picker with the full Song Bank, then two refinements: *"our songlist must not show. we only want the search bar"* (search-only, no browse) and *"it will search for our list"* (search hits OUR curated bank, never iTunes). Builds on the iTunes preview (PR #990). (Most of the build came from a worktree agent; finished + made search-only here.)
+
+**What changed** (`apps/web/`):
+- **Search-only music step** — new `_components/song-bank-step.tsx`: NO browseable catalogue list. The couple **searches our curated `songs` bank** (`searchSongBankAction` → `lib/songs.searchSongBank`, a DB query — **iTunes is never the search**); matches appear with album-cover previews (reusing `SongPreviewList`), tap to preview + pick. The default (no-query) view shows ONLY the couple's own picks. Search pinned at the bottom.
+- **DB-cache (§5.4)** — `lib/songs.ts` + `actions.ts`: the bank reads the new cache columns; `cacheSongItunesAction` UPSERTs a freshly live-resolved preview/artwork so the next user reads it from the DB. `SongPreviewList` seeds covers from the cached row (instant), else live-resolves + persists.
+- **Migration** `20260826000000_songs_itunes_cache_and_390_seed.sql` (APPLIED to prod) — additive: nullable `apple_track_id`/`preview_url`/`artwork_url` on `songs` + a guarded seed growing the curated list 100 → **390**; `ON CONFLICT (normalized_key) DO NOTHING`.
+- `onboarding-shell.tsx` music dim renders `<SongBankStep>`; `onboarding.css` adds `.songbank` styles.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding lib` clean · migration applied (`supabase migration list` shows 20260826000000 remote).
+
+**SPEC IMPACT:** 0016 — the music step is now the **search-only Song Bank** over our curated catalogue (Song Bank §5–6) with iTunes preview/cache wired.
+
+## 2026-06-05 · feat(budget): Budget Planner UI — couple planner + admin tuning/seeding/insights
+
+**Context:** Owner — *"we want couple and admin pages for this."* The full loop on top of the 2026-06-05 allocation engine + capture table (PR #996): the couple-facing planner that turns the pure engine into a real screen, and the admin surface that fuels + governs it. Design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`.
+
+**What changed** (`apps/web/`, `supabase/`):
+- **Migration `20260826000000_budget_planner_config_benchmarks.sql`** (**APPLIED to prod** via monogram-isolation) — `budget_allocation_config` (singleton engine knobs) + `budget_leaf_benchmarks` (the 26 PLAN_GROUPS, seeded with labels + **NULL prices** for the admin to fill — never invented). RLS: admin-all + authenticated-read (non-PII config).
+- **`lib/budget-allocation-data.ts`** (new) — server resolver `resolveAllocationInputs` (event budget/pax + admin benchmarks + config + thin market medians from solo `vendor_services` → engine-ready `LeafInput`s) + `fetchAllocationAggregates` (service-role, **k-anonymity min-N gated, de-identified** — admins never see raw rows).
+- **Couple planner** `app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx` (new) + wired into the budget page. Runs the **pure engine client-side** (instant tilt, no round-trips): per-service suggested ₱ + range + share + confidence chip, cushion / over-budget / shortfall, peso-pin tilt sheet (Splurge / Standard / Save dial + free ₱ + reset-to-suggested), Save → snapshot. Guide-never-rule throughout. `budget/allocation-actions.ts` (new) writes the snapshot (couple-own RLS).
+- **Admin** `app/admin/budget-planner/page.tsx` + `actions.ts` (new) — benchmark seeding table, engine-knob form, de-identified insights (min-N gated, empty until data). Nav entry in the Money group (sidebar + mobile landing + bottom-nav).
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on all new files. Engine logic 20/20 harness (PR #996). Migration applied to prod via monogram-isolation — the owner's pending `20260817` monogram migration left untouched; `20260824` decisions table already on prod.
+
+**SPEC IMPACT:** Builds the 0007 planner surface + the 0023 admin controls specced 2026-06-05. Corpus 0007/0023 + `DECISION_LOG.md` updated this session (Cowork direct-edit).
+
+## 2026-06-05 · feat(0022): branch-scoped service grouping (Branches V1.x complete)
+
+**Context:** The second half of the Branches V1.x "yes" — assign each service to a branch so a multi-location Enterprise vendor can organize its catalog per site. (Auto-lapse + Renew + ₱999 shipped in #995.)
+
+**What changed:**
+- Migration `20260825000000_vendor_services_branch_id.sql` (**applied to prod**): nullable `vendor_services.branch_id` → `vendor_branches` **ON DELETE SET NULL** (deleting a branch un-assigns its services, never orphans) + a partial index. NULL = "main / unassigned" = every existing service → additive, **zero change** for the ~all vendors without branches. RLS unchanged (branch_id is organizational, not a security boundary — `vendor_services` already gates owner/admin + agent-by-assignment).
+- `lib/vendor-services.ts`: `branch_id` on the row type + a **resilient select** (falls back to the base columns if the column isn't in the DB yet → renders identically pre-migration).
+- `services/actions.ts`: create + update persist `branch_id` via `resolveBranchId` (coerces a foreign/blank value to null — a service can only be pinned to the vendor's OWN branch).
+- `services/page.tsx`: a "Branch" `<select>` on the add + edit forms, **gated to Enterprise vendors that have ≥1 branch** — every other vendor sees the form byte-for-byte unchanged; each service card shows its branch. Agents inherit branch scoping transitively (scoped to specific services via `vendor_service_agents`, and those services now carry a branch).
+
+**Verify:** `tsc` + `next lint` + `next build` green. Rolled-back impersonation: column added ✓ · owner sets branch_id on a service ✓ · ON DELETE SET NULL un-assigns ✓. Applied to prod via monogram-isolation. (Incidental: the first push also applied another team's already-merged-but-pending `20260824000000_budget_allocation_decisions`; a timestamp collision with it forced renaming mine `20260824`→`20260825`.)
+
+**SPEC IMPACT:** 0022 — branch-scoped service grouping now BUILT; completes the Branches V1.x flag. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-05 · feat(0022): Branches V1.x — ₱999 charm price + auto-lapse + Renew
+
+**Context:** Owner follow-ups to the just-shipped Branches feature (#986): (4) the price is **₱999 (charm)**, not ₱1,000 — aligning the code to Pricing.md §0.C (which already read ₱999); (3) build the deferred V1.x lifecycle — auto-lapse after the 28-day window + a one-tap Renew.
+
+**What changed** (code-only · no migration):
+- **₱999** — `BRANCH_FEE_PHP` 1000 → 999 (centavos follow). Every display (`peso(BRANCH_FEE_PHP)`) + the order/payment amounts update from the constant. (Pricing.md §0.C reconciled to ₱999 + Enterprise gate directly in the corpus per owner authorization.)
+- **Auto-lapse (derived, no cron)** — a branch's live status is now derived from its **latest activation order**: paid + within the 28-day window (`orders.expires_at`, stamped by the admin approval hook) → **Active**; paid + past the window → **Expired**; unpaid → **Pending payment**; plus Cancelled. So lapse happens automatically at read time — no sweep, no cron ([[project_setnayan_cron_free]]). `fetchVendorBranches` now reads each branch's latest order (status + expires_at + ref) and `deriveBranchStatus(branch, order, nowMs)` computes the state.
+- **Renew** — a new `renewBranch` action + an amber "Renew · ₱999" button on Expired branches creates a fresh ₱999 apply-then-pay order for the SAME branch (extracted shared `startBranchPayment` helper, reused by create + renew). On admin approval the existing activation hook reactivates it with a new 28-day window. (Auto-charge is N/A in apply-then-pay — no card on file; renewal is one tap.)
+- New `expired` status (rose pill) + a "Renewal started" banner.
+
+**Verify:** `tsc` + `next lint` + `next build` green. Renew's DB path reuses the create path's order+payment inserts (RLS-proven in #986); the new logic is the pure `deriveBranchStatus` derivation (typecheck-covered). No migration.
+
+**SPEC IMPACT:** 0022 — Branches price = **₱999** (charm, supersedes the ₱1,000 in #986's entry) + auto-lapse/Renew lifecycle now BUILT (was flagged V1.x). Pricing.md §0.C reconciled (₱999 · Enterprise). Logged in DECISION_LOG.
 ## 2026-06-05 · feat(budget): median-anchored allocation engine + behavioral capture table (foundation)
 
 **Context:** Owner design session (2026-06-05) — a top-down budget *allocation* layer to sit atop the existing *tracking* ledger (`lib/budget.ts`): recommend a ₱ target + shopping range per service *before* the couple picks anyone, derived from the median of solo vendor prices, proportioned across the chosen services and scaled to budget — a **guide, never a rule**. Full design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`. This PR ships the pure engine + the Layer-1 capture table only (no UI yet).

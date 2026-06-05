@@ -22,6 +22,7 @@ import {
   addRoleToGuest,
   setGuestPrimaryRole,
 } from '../quick-add-actions';
+import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 
 /* ------------------------------------------------------------------ */
 /* Cross-component opener — one sheet, two triggers (desktop header    */
@@ -41,75 +42,10 @@ export function OpenQuickAddButton() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Duplicate detection — nickname + typo fuzzy match. Both first AND   */
-/* last must match so distinct same-first-name guests don't false-fire.*/
-/* ------------------------------------------------------------------ */
-const NICKMAP: Record<string, string> = {
-  // Western
-  mike: 'michael', mick: 'michael', mikey: 'michael',
-  bob: 'robert', rob: 'robert', bobby: 'robert',
-  bill: 'william', will: 'william', billy: 'william',
-  liz: 'elizabeth', beth: 'elizabeth', eliza: 'elizabeth',
-  jim: 'james', jimmy: 'james',
-  tom: 'thomas', tommy: 'thomas',
-  dick: 'richard', rick: 'richard', rich: 'richard',
-  dave: 'david',
-  chris: 'christopher',
-  alex: 'alexander', sandy: 'alexander',
-  kate: 'katherine', kathy: 'katherine', katie: 'katherine',
-  meg: 'margaret', maggie: 'margaret', peggy: 'margaret',
-  // PH
-  kiko: 'francisco', paco: 'francisco', pancho: 'francisco',
-  pepe: 'jose', josê: 'jose',
-  manny: 'emmanuel', noy: 'emmanuel',
-  totoy: 'agustin',
-  inday: 'maria',
-  ising: 'luisa',
-  nene: 'irene',
-  boy: 'benjamin', ben: 'benjamin',
-  jun: 'junior',
-};
-
-const norm = (s: string) => (s || '').trim().toLowerCase().replace(/[^a-z]/g, '');
-const canonFirst = (s: string) => {
-  const n = norm(s);
-  return NICKMAP[n] ?? n;
-};
-function lev(a: string, b: string): number {
-  a = norm(a);
-  b = norm(b);
-  const m = a.length,
-    n = b.length;
-  if (!m) return n;
-  if (!n) return m;
-  let prev: number[] = Array.from({ length: n + 1 }, (_, i) => i);
-  for (let i = 1; i <= m; i++) {
-    const cur: number[] = [i];
-    for (let j = 1; j <= n; j++) {
-      const del = (prev[j] ?? 0) + 1;
-      const ins = (cur[j - 1] ?? 0) + 1;
-      const sub = (prev[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1);
-      cur[j] = Math.min(del, ins, sub);
-    }
-    prev = cur;
-  }
-  return prev[n] ?? 0;
-}
-const lenTol = (s: string) => {
-  const L = norm(s).length;
-  return L <= 4 ? 1 : L <= 7 ? 2 : 3;
-};
-type MatchKind = 'exact' | 'nick' | 'typo' | false;
-function nameMatch(a: string, b: string, allowNick: boolean): MatchKind {
-  const na = norm(a),
-    nb = norm(b);
-  if (!na || !nb) return false;
-  if (na === nb) return 'exact';
-  if (allowNick && canonFirst(a) === canonFirst(b)) return 'nick';
-  if (lev(a, b) <= Math.min(lenTol(a), lenTol(b))) return 'typo';
-  return false;
-}
+/* Duplicate detection (nickname + typo fuzzy match) lives in the shared
+   `lib/guest-dedupe` module so the detailed /guests/new form reuses the
+   exact same matcher — see imports above. ExistingGuest below carries the
+   role/side fields this sheet's warning UI renders on top of the match. */
 
 export type ExistingGuest = {
   guest_id: string;
@@ -118,34 +54,6 @@ export type ExistingGuest = {
   side: GuestSide;
   role: GuestRole;
   extra_roles: GuestRole[];
-};
-
-type Dup = { g: ExistingGuest; kind: 'exact' | 'nick' | 'typo' };
-
-function findDuplicates(fn: string, ln: string, pool: ExistingGuest[]): Dup[] {
-  if (norm(fn).length < 2 || norm(ln).length < 2) return [];
-  const ord: Record<Dup['kind'], number> = { exact: 0, nick: 1, typo: 2 };
-  const out: Dup[] = [];
-  for (const g of pool) {
-    const f = nameMatch(fn, g.first_name, true);
-    const l = nameMatch(ln, g.last_name, false);
-    if (f && l) {
-      const kind: Dup['kind'] =
-        f === 'exact' && l === 'exact'
-          ? 'exact'
-          : f === 'nick' || l === 'nick'
-            ? 'nick'
-            : 'typo';
-      out.push({ g, kind });
-    }
-  }
-  return out.sort((a, b) => ord[a.kind] - ord[b.kind]).slice(0, 3);
-}
-
-const TAG: Record<Dup['kind'], string> = {
-  exact: 'Already added',
-  nick: 'Same person?',
-  typo: 'Typo?',
 };
 
 /* role dropdown order — mirrors new/actions.ts ROLE_VALUES */

@@ -62,7 +62,7 @@ import {
 } from '../types';
 import { LocationStep } from './location-step';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
-import { SongPreviewList } from './song-preview-list';
+import { SongBankStep } from './song-bank-step';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
@@ -357,113 +357,6 @@ const SERVICE_STYLES = ['Plated', 'Buffet', 'Family-style', 'Stations'];
 const PV_LOOKS: [string, string, string][] = [['📸', 'Photojournalistic', 'pv_photojournalistic'], ['🤍', 'Classic', 'pv_classic'], ['📰', 'Editorial', 'pv_editorial'], ['🎞️', 'Fine-art / film', 'pv_fineart'], ['🎬', 'Cinematic', 'pv_cinematic']];
 const PV_NEEDS = ['Both photo & video', 'Photo only', 'Video only'];
 const PV_INCLUDED = ['Pre-nup', 'Wedding day', 'Same-day edit', 'Drone', 'Save-the-date', 'Album'];
-/* Top-100 most-popular Filipino-wedding songs (prototype MUSIC100). */
-const MUSIC100: [string, string][] = `Ikaw|Yeng Constantino
-Perfect|Ed Sheeran
-A Thousand Years|Christina Perri
-Beautiful in White|Shane Filan
-Forevermore|Side A
-Kahit Maputi Na Ang Buhok Ko|Moira Dela Torre
-Thinking Out Loud|Ed Sheeran
-Can't Help Falling in Love|Elvis Presley
-All of Me|John Legend
-Especially for You|MYMP
-Now That I Have You|Side A
-Hawak Kamay|Yeng Constantino
-Marry You|Bruno Mars
-Marry Me|Train
-Til My Heartaches End|Ella Mae Saison
-Just the Way You Are|Bruno Mars
-I'm Yours|Jason Mraz
-You Are My Song|Martin Nievera
-The Way You Look at Me|Christian Bautista
-Since I Found You|Christian Bautista
-Araw-Araw|Ben&Ben
-Pagsamo|Arthur Nery
-With a Smile|Eraserheads
-Buko|Jireh Lim
-Tuwing Umuulan|Basil Valdez
-Saan Darating Ang Umaga|Rey Valera
-Sa'Yo|Silent Sanctuary
-Say You Won't Let Go|James Arthur
-Make You Feel My Love|Adele
-From This Moment On|Shania Twain
-I Don't Want to Miss a Thing|Aerosmith
-Truly Madly Deeply|Savage Garden
-Endless Love|Lionel Richie & Diana Ross
-At Last|Etta James
-Lucky|Jason Mraz & Colbie Caillat
-I Do (Cherish You)|98 Degrees
-Eternal Flame|The Bangles
-The Power of Love|Celine Dion
-Because You Loved Me|Celine Dion
-Got to Believe in Magic|David Pomeranz
-On the Wings of Love|Jeffrey Osborne
-Two Less Lonely People in the World|Air Supply
-Could I Have This Dance|Anne Murray
-The Time of My Life|Medley & Warnes
-I Finally Found Someone|Barbra Streisand
-Always|Atlantic Starr
-Kailan|MYMP
-You|Basil Valdez
-Maybe This Time|Sarah Geronimo
-Pangako|Regine Velasquez
-The Prayer|Celine Dion & Andrea Bocelli
-When You Say Nothing at All|Ronan Keating
-Everything|Michael Bublé
-L-O-V-E|Nat King Cole
-Better Together|Jack Johnson
-First Day of My Life|Bright Eyes
-Speechless|Dan + Shay
-10,000 Hours|Dan + Shay & Justin Bieber
-Die a Happy Man|Thomas Rhett
-Lover|Taylor Swift
-Love Story|Taylor Swift
-Amazed|Lonestar
-This I Promise You|NSYNC
-I Swear|All-4-One
-Wonderful Tonight|Eric Clapton
-Your Song|Elton John
-Have I Told You Lately|Rod Stewart
-Grow Old With You|Adam Sandler
-God Gave Me You|Blake Shelton
-Can You Feel the Love Tonight|Elton John
-Unchained Melody|The Righteous Brothers
-Stand by Me|Ben E. King
-Isn't She Lovely|Stevie Wonder
-Signed, Sealed, Delivered|Stevie Wonder
-Sway|Michael Bublé
-Fly Me to the Moon|Frank Sinatra
-The Way You Look Tonight|Frank Sinatra
-Can't Take My Eyes Off You|Frankie Valli
-You're Still the One|Shania Twain
-Photograph|Ed Sheeran
-Until I Found You|Stephen Sanchez
-A Whole New World|Peabo Bryson & Regina Belle
-My Girl|The Temptations
-How Sweet It Is|James Taylor
-Die With a Smile|Bruno Mars & Lady Gaga
-Best Part|Daniel Caesar & H.E.R.
-Adore You|Harry Styles
-At My Worst|Pink Sweat$
-Beautiful Crazy|Luke Combs
-Heaven|Bryan Adams
-Crazy Little Thing Called Love|Queen
-Three Times a Lady|Commodores
-Tadhana|Up Dharma Down
-Mundo|IV of Spades
-Tahanan|Adie
-Paraluman|Adie
-Maybe the Night|Ben&Ben
-Kathang Isip|Ben&Ben
-Bakit Ngayon Ka Lang|Ariel Rivera
-Kahit Kailan|South Border`
-  .trim()
-  .split('\n')
-  .map((l) => {
-    const [t, a] = l.split('|');
-    return [t ?? '', a ?? ''] as [string, string];
-  });
 
 /** A photo-card option (prototype PGRID .pcard). */
 function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; label: string; photoKey?: string; selected: boolean; onClick: () => void }) {
@@ -581,7 +474,6 @@ function StyleSubStepper({
   prefs: OnboardingState['prefs'];
   onPrefs: (p: Partial<OnboardingState['prefs']>) => void;
 }) {
-  const [songSearch, setSongSearch] = useState('');
   if (queue.length === 0) {
     return (
       <div className="prefstep" data-pi="0" style={{ display: 'flex' }}>
@@ -611,7 +503,7 @@ function StyleSubStepper({
     ceremony: { eb: 'Ceremony', q: 'Where will you hold your ceremony?', sub: 'We’ll match officiants and venues that fit your tradition.' },
     catering: { eb: 'Catering', q: 'Pick your cuisine', sub: 'Open to a few cuisines? Tap them all.' },
     photo_video: { eb: 'Photo & Video', q: 'Your look', sub: 'Mix a couple — we’ll match teams who shoot that way.' },
-    music: { eb: 'Music', q: 'Your songs', sub: 'Tap the ones you love — they jump to the top. Pick at least 10; we’ll build the rest of your playlist.' },
+    music: { eb: 'Music', q: 'Your songs', sub: 'Tap the ones you love — search for any song below. Pick at least 10; we’ll build the rest of your playlist.' },
     palette: { eb: 'Your overall feel', q: 'Set the mood', sub: 'Pick a feel — see it in its colors. It guides your stylist, florist, cake & gown.' },
   };
   const meta = META[dim]!;
@@ -684,37 +576,22 @@ function StyleSubStepper({
       </>
     );
   } else if (dim === 'music') {
-    const picked = new Set(prefs.music);
-    const n = prefs.music.length;
-    const ordered = MUSIC100.map((s, i) => ({ i, title: s[0], artist: s[1], lbl: `${s[0]}|${s[1]}` })).sort((a, b) => {
-      const ap = picked.has(a.lbl), bp = picked.has(b.lbl);
-      if (ap !== bp) return ap ? -1 : 1;
-      if (ap) return prefs.music.indexOf(a.lbl) - prefs.music.indexOf(b.lbl);
-      return a.i - b.i;
-    });
+    // Song Bank — the catalogue is the master `songs` table (390-song seed),
+    // searched server-side via lib/songs.searchSongBank; results-on-top with the
+    // search pinned at the bottom (mirrors the location step). Picks stay as
+    // "Title|Artist" labels in prefs.music — the commit's syncEventSongPicks
+    // contract is unchanged. (Onboarding_Style_and_Song_Bank_2026-06-04 §5.)
     body = (
-      <div className="songpick">
-        <div className="songhead">
-          <div className="songbar">
-            Picked <b>{n}</b> · <span className={n >= 10 ? 'done' : undefined}>{n >= 10 ? '✓ we’ll build the rest of your playlist' : `pick at least ${10 - n} more`}</span>
-          </div>
-          <div className="songsearch">
-            <input id="songq" type="search" placeholder="Search songs or artists…" autoComplete="off" value={songSearch} onChange={(e) => setSongSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }} />
-          </div>
-        </div>
-        <SongPreviewList
-          songs={ordered}
-          pickedLbls={prefs.music}
-          query={songSearch}
-          onToggle={(lbl) =>
-            onPrefs({
-              music: prefs.music.includes(lbl)
-                ? prefs.music.filter((x) => x !== lbl)
-                : [...prefs.music, lbl],
-            })
-          }
-        />
-      </div>
+      <SongBankStep
+        picked={prefs.music}
+        onToggle={(lbl) =>
+          onPrefs({
+            music: prefs.music.includes(lbl)
+              ? prefs.music.filter((x) => x !== lbl)
+              : [...prefs.music, lbl],
+          })
+        }
+      />
     );
   } else if (dim === 'palette') {
     const feel = prefs.feel ?? 'timeless';
@@ -752,7 +629,7 @@ function StyleSubStepper({
     ) : null;
 
   return (
-    <div className="prefstep" data-pi={idx} style={{ display: 'flex' }}>
+    <div className="prefstep" data-pi={idx} data-dim={dim} style={{ display: 'flex' }}>
       <div className={`viewzone${hasHero || feelHero ? ' has-hero' : ''}`}>
         <div className="prefprog">
           <span className="prefcount">Style {idx + 1} of {queue.length}</span>
@@ -2332,17 +2209,7 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              <input
-                type="range"
-                min={10}
-                max={500}
-                value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
-                className="paxslider"
-                aria-label="Guest count slider"
-                style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
-                onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
-              />
-              <div className="paxends"><span>10{'−'}</span><span>500+</span></div>
+              {/* Number box on top, slider beneath it (owner 2026-06-05). */}
               <div className="numbox">
                 <input
                   type="text"
@@ -2359,6 +2226,17 @@ export function OnboardingShell({
                   <span className="numbox-suffix">{state.pax === 1 ? 'guest' : 'guests'}</span>
                 )}
               </div>
+              <input
+                type="range"
+                min={10}
+                max={500}
+                value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
+                className="paxslider"
+                aria-label="Guest count slider"
+                style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
+                onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
+              />
+              <div className="paxends"><span>10{'−'}</span><span>500+</span></div>
             </div>
           </section>
 
@@ -2393,26 +2271,9 @@ export function OnboardingShell({
                 </div>
               ) : (
                 <>
-                  {/* Swapped 2026-06-02 (owner): line picker (slider + its min/No-limit/max
-                      labels) on top, precise amount text box below — matches the guest-count
-                      screen's slider→ends→exact-box order. */}
-                  <input
-                    type="range"
-                    min={budgetFloorV}
-                    max={budgetCeilingV}
-                    step={10000}
-                    value={budgetSet ? budgetSliderVal : budgetFloorV}
-                    className="paxslider"
-                    aria-label="Working budget slider"
-                    style={{
-                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
-                    }}
-                    onChange={(e) => onBudgetAmount(Number(e.target.value))}
-                  />
-                  <div className="paxends">
-                    <span>{fmtPeso(budgetFloorV)} min</span>
-                    <span>{fmtPeso(budgetCeilingV)}+</span>
-                  </div>
+                  {/* Slider under the number box (owner 2026-06-05): precise amount box on top,
+                      line picker (slider + its min/max labels) below — matches the guest-count
+                      screen's numbox→slider→ends order. (Reverses the 2026-06-02 slider-on-top swap.) */}
                   <div className="bdg-row">
                     <div className="numbox numbox--peso">
                       <span className="numbox-prefix">₱</span>
@@ -2437,6 +2298,23 @@ export function OnboardingShell({
                     <button type="button" className="bdg-nolimit" onClick={() => applyBudget('nolimit', null)}>
                       No limit
                     </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={budgetFloorV}
+                    max={budgetCeilingV}
+                    step={10000}
+                    value={budgetSet ? budgetSliderVal : budgetFloorV}
+                    className="paxslider"
+                    aria-label="Working budget slider"
+                    style={{
+                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
+                    }}
+                    onChange={(e) => onBudgetAmount(Number(e.target.value))}
+                  />
+                  <div className="paxends">
+                    <span>{fmtPeso(budgetFloorV)} min</span>
+                    <span>{fmtPeso(budgetCeilingV)}+</span>
                   </div>
                 </>
               )}

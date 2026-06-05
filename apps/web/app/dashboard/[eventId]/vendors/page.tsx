@@ -64,6 +64,9 @@ type EventBudgetRow = {
   date_candidates: string[] | null;
   date_window_start: string | null;
   date_window_end: string | null;
+  // Planning mode (owner 2026-06-05) — 'manual' collapses the strip + (Home)
+  // turns off Today's-Focus + deadlines. Default 'guided'.
+  planning_mode: string | null;
 };
 
 export default async function VendorsPage({ params }: Props) {
@@ -82,7 +85,7 @@ export default async function VendorsPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end',
+        'event_date, event_date_precision, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -324,6 +327,11 @@ export default async function VendorsPage({ params }: Props) {
     ev?.venue_setting ?? null,
   );
 
+  // Planning mode (owner 2026-06-05) — 'manual' = Setnayan Assist OFF: the
+  // strip collapses to a slim "you're driving" bar AND the accordion drops the
+  // per-candidate "% match" pills (neutral browse). Default 'guided'.
+  const planningManual = ev?.planning_mode === 'manual';
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
@@ -335,6 +343,7 @@ export default async function VendorsPage({ params }: Props) {
     eyeingByVendorId,
     enrichmentByVendorId,
     marketPoolCount,
+    personalizationEnabled: !planningManual,
   });
 
   // "Matching you on" strip (owner 2026-06-04) — the couple's curated match
@@ -356,7 +365,7 @@ export default async function VendorsPage({ params }: Props) {
   // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
   return (
     <div className="space-y-4">
-      <MatchCriteriaStrip eventId={eventId} chips={matchChips} />
+      <MatchCriteriaStrip eventId={eventId} chips={matchChips} manual={planningManual} />
       <PlanBudgetAccordion model={model} eventId={eventId} />
     </div>
   );

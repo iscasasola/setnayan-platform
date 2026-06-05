@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { Building2, Lock, MapPin, Trash2 } from 'lucide-react';
+import { Building2, Lock, MapPin, RefreshCw, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -15,22 +15,29 @@ import {
   type BranchStatus,
 } from '@/lib/vendor-branches';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { createBranch, cancelBranch } from './actions';
+import { createBranch, cancelBranch, renewBranch } from './actions';
 
 export const metadata = { title: 'Branches · Vendor' };
 
 type Props = {
-  searchParams: Promise<{ created?: string; cancelled?: string; error?: string }>;
+  searchParams: Promise<{
+    created?: string;
+    cancelled?: string;
+    renewed?: string;
+    error?: string;
+  }>;
 };
 
 const STATUS_TONE: Record<BranchStatus, string> = {
   active: 'bg-emerald-100 text-emerald-800',
   pending_payment: 'bg-amber-100 text-amber-800',
+  expired: 'bg-rose-100 text-rose-800',
   cancelled: 'bg-ink/10 text-ink/55',
 };
 const STATUS_LABEL: Record<BranchStatus, string> = {
   active: 'Active',
   pending_payment: 'Pending payment',
+  expired: 'Expired',
   cancelled: 'Cancelled',
 };
 
@@ -101,6 +108,16 @@ export default async function VendorBranchesPage({ searchParams }: Props) {
           Branch added. Pay {peso(BRANCH_FEE_PHP)} using reference{' '}
           <span className="font-mono font-semibold">{decodeURIComponent(search.created)}</span> — it
           activates once our team confirms your payment (within 24 hours).
+        </p>
+      ) : null}
+      {search.renewed ? (
+        <p
+          role="status"
+          className="rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Renewal started. Pay {peso(BRANCH_FEE_PHP)} using reference{' '}
+          <span className="font-mono font-semibold">{decodeURIComponent(search.renewed)}</span> — the
+          branch reactivates for another {BRANCH_PERIOD_DAYS} days once our team confirms.
         </p>
       ) : null}
       {search.cancelled ? (
@@ -290,16 +307,31 @@ async function EnterpriseBody({
                   </div>
                 </div>
                 {b.status !== 'cancelled' ? (
-                  <form action={cancelBranch}>
-                    <input type="hidden" name="branch_id" value={b.branch_id} />
-                    <button
-                      type="submit"
-                      aria-label="Cancel branch"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta"
-                    >
-                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                    </button>
-                  </form>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {b.status === 'expired' ? (
+                      <form action={renewBranch}>
+                        <input type="hidden" name="branch_id" value={b.branch_id} />
+                        <input type="hidden" name="channel" value="bdo" />
+                        <button
+                          type="submit"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-900 hover:border-amber-500"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                          Renew · {peso(BRANCH_FEE_PHP)}
+                        </button>
+                      </form>
+                    ) : null}
+                    <form action={cancelBranch}>
+                      <input type="hidden" name="branch_id" value={b.branch_id} />
+                      <button
+                        type="submit"
+                        aria-label="Cancel branch"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                      </button>
+                    </form>
+                  </div>
                 ) : null}
               </li>
             ))}

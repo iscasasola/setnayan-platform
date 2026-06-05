@@ -7,6 +7,7 @@ import {
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
+import { normalizeGuestName } from '@/lib/guest-name';
 
 // Mirror of the role enum from new/actions.ts — kept local so this fast
 // path never imports the redirecting form action. Singletons (bride /
@@ -79,8 +80,8 @@ export async function quickAddGuest(
   eventId: string,
   input: QuickAddInput,
 ): Promise<QuickAddResult> {
-  const first_name = (input.first_name ?? '').trim();
-  const last_name = (input.last_name ?? '').trim();
+  const first_name = normalizeGuestName(input.first_name);
+  const last_name = normalizeGuestName(input.last_name);
   const side = input.side as GuestSide;
   const role = (input.role || 'guest') as GuestRole;
 

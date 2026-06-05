@@ -34,9 +34,17 @@
  * offsets below it on mobile via --pba-header-offset).
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
+import { LoadingStatus } from '@/components/loading-status';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
 import { computeCompatScore } from '@/lib/compat-score';
@@ -426,7 +434,8 @@ const PBA_CSS = `
 .pbacc .intro{transform-origin:top center;will-change:transform,opacity;transition:transform .15s var(--ease),opacity .15s var(--ease)}
 .pbacc .child-block{transform-origin:top center;will-change:transform,opacity;transition:transform .12s linear,opacity .12s linear}
 .pbacc .card{will-change:transform,opacity;transition:transform .08s linear,opacity .08s linear}
-.pbacc .rail{perspective:1200px}
+/* No .rail{perspective} — the rotateY coverflow tilt was removed (owner
+   2026-06-05); perspective only mattered for that 3-D rotation. */
 @media (prefers-reduced-motion:reduce){
   .pbacc .intro,.pbacc .child-block,.pbacc .card{transform:none!important;opacity:1!important;transition:none!important}
   .pbacc .intro-eyebrow,.pbacc .intro-h,.pbacc .intro-grid,.pbacc .intro-cta{animation:none!important;opacity:1!important;transform:none!important}
@@ -550,6 +559,28 @@ html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
 html.dark .pbacc .tools-all{color:#C99DB0}
 .pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
 .pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}
+
+/* ---- "Dig deeper" open transition (owner 2026-06-05: "when we tap, the card
+   enlarges to show that we are digging deeper to that service … make sure to
+   have a loading screen"). On tap the card enlarges — scale-up on the inner .v
+   (NOT .card) so it never fights the per-frame scroll-zoom the engine writes to
+   .card — and a full-screen loading overlay covers the page. The overlay is
+   lifted to root (see ServiceOpenOverlay) so its position:fixed escapes the
+   curve-transformed .child-block ancestors. Placed AFTER the :active press rules
+   so .opening wins the tapped card's transform. ---- */
+.pbacc .card.opening{z-index:40}
+.pbacc .card.opening .v{transform:scale(1.06);border-color:var(--gold);box-shadow:0 26px 60px -22px rgba(0,0,0,.5);transition:transform .24s var(--spring),box-shadow .24s var(--ease),border-color .24s var(--ease)}
+.pbacc .pbopen{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:0 28px;background:color-mix(in srgb,var(--paper) 86%,transparent);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:pba-openfade .22s var(--ease) both}
+@keyframes pba-openfade{from{opacity:0}to{opacity:1}}
+.pbacc .pbopen-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(197,160,89,.28);border-top-color:var(--gold);animation:pba-openrot .7s linear infinite}
+@keyframes pba-openrot{to{transform:rotate(360deg)}}
+.pbacc .pbopen-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
+.pbacc .pbopen-nm{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.2;color:var(--ink);text-align:center;max-width:340px}
+.pbacc .pbopen-status{margin-top:1px;font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.01em;color:var(--ink-soft);text-align:center}
+@media (prefers-reduced-motion:reduce){
+  .pbacc .card.opening .v{transition:none}
+  .pbacc .pbopen{animation:none}
+}
 `;
 
 // ── Root ────────────────────────────────────────────────────────────────
@@ -569,6 +600,30 @@ export function PlanBudgetAccordion({
   // (replaces the marketplace jump). Scoped to one plan group.
   const [search, setSearch] = useState<{ groupId: string; label: string } | null>(null);
   const openSearch = (groupId: string, label: string) => setSearch({ groupId, label });
+
+  // ── "Dig deeper" open transition (owner 2026-06-05) ──────────────────────
+  // Tapping a service/vendor card enlarges it (local .opening state on the card)
+  // then opens its detail. The full-screen loading overlay is lifted to root —
+  // like CompareSheet — so its position:fixed escapes the curve-transformed
+  // .child-block ancestors (a transform would make it position relative to the
+  // ancestor, not the viewport). The brief delay lets the tapped card's enlarge
+  // play before we navigate; the destination route's loading.tsx then carries
+  // the same loading screen until the detail page is ready.
+  const router = useRouter();
+  const [opening, setOpening] = useState<{ label: string } | null>(null);
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openService = (href: string, label: string) => {
+    if (opening) return; // a navigation is already in flight — ignore re-taps
+    haptic('select');
+    setOpening({ label });
+    openTimer.current = setTimeout(() => router.push(href), 220);
+  };
+  useEffect(
+    () => () => {
+      if (openTimer.current) clearTimeout(openTimer.current);
+    },
+    [],
+  );
 
   // ── First-run guidance (owner 2026-06-04) ────────────────────────────────
   // The cover only taught the Find→Shortlist→Lock loop on its EMPTY state; once
@@ -621,9 +676,10 @@ export function PlanBudgetAccordion({
   //   · syncStates  — each .child-block curve-zooms (scale + fade by distance
   //                   from a focus line) so child categories visually merge into
   //                   their sticky parent header as you scroll past them.
-  //   · curveRail   — per horizontal rail, cards get a coverflow rotateY/scale/
-  //                   opacity by offset from rail-center + a haptic buzz when the
-  //                   centered card changes.
+  //   · curveRail   — per horizontal rail, cards get a scale/opacity zoom by
+  //                   offset from rail-center (the centered card is largest; NO
+  //                   3-D tilt — owner 2026-06-05 "no need for the tilt … it is
+  //                   shaking") + a haptic buzz when the centered card changes.
   // Fail-safe by construction: every target is always rendered + visible; these
   // are cosmetic transforms set per-frame. A null ref / bad calc degrades to
   // "flat", never "hidden". prefers-reduced-motion → no-op. rAF-throttled; all
@@ -694,7 +750,11 @@ export function PlanBudgetAccordion({
           const cr = card.getBoundingClientRect();
           const d = cr.left + cr.width / 2 - railCenter;
           const n = Math.max(-1, Math.min(1, d / half));
-          card.style.transform = `perspective(1200px) rotateY(${(n * -16).toFixed(2)}deg) scale(${(1 - Math.abs(n) * 0.12).toFixed(4)})`;
+          // Scale-only zoom (owner 2026-06-05). The rotateY coverflow tilt was
+          // removed — its per-frame sign-flip near rail-center read as a wobble
+          // ("it is shaking"). Scale + opacity alone stay smooth and the centred
+          // card still reads as the focused one ("we can do the enlarge").
+          card.style.transform = `scale(${(1 - Math.abs(n) * 0.12).toFixed(4)})`;
           card.style.opacity = (1 - Math.abs(n) * 0.4).toFixed(3);
           const ad = Math.abs(d);
           if (ad < nearestDist) {
@@ -798,6 +858,7 @@ export function PlanBudgetAccordion({
               index={index}
               onCompare={setCompare}
               onOpenSearch={openSearch}
+              onOpen={openService}
               lockHintKey={lockHintKey}
             />
           ))}
@@ -837,7 +898,38 @@ export function PlanBudgetAccordion({
             onClose={() => setSearch(null)}
           />
         )}
+
+        {/* Full-screen loading screen shown while we open a tapped card's
+            detail. Lifted here (root) so position:fixed escapes the
+            curve-transformed .child-block ancestors. */}
+        {opening && <ServiceOpenOverlay label={opening.label} />}
       </div>
+    </div>
+  );
+}
+
+// Full-screen "opening this service" loading overlay (owner 2026-06-05). Shows
+// during the brief enlarge-then-navigate window after a card tap; the
+// destination route's loading.tsx continues the same spinner after the swap, so
+// the hand-off is seamless. role=status + aria-live announce it to AT.
+const OPEN_MESSAGES = [
+  'Setting things up…',
+  'Loading the details…',
+  'Almost there…',
+];
+
+function ServiceOpenOverlay({ label }: { label: string }) {
+  return (
+    <div
+      className="pbopen"
+      role="status"
+      aria-live="polite"
+      aria-label={`Opening ${label}`}
+    >
+      <div className="pbopen-spin" aria-hidden />
+      <div className="pbopen-k">Opening</div>
+      <div className="pbopen-nm">{label}</div>
+      <LoadingStatus className="pbopen-status" messages={OPEN_MESSAGES} />
     </div>
   );
 }
@@ -993,7 +1085,11 @@ function Overview({
       </div>
 
       <div className="intro-grid">
-        <NextAction model={model} eventId={eventId} />
+        {/* "Do this next" deadline hero — hidden in Manual mode (Setnayan
+            Assist off · owner 2026-06-05). */}
+        {model.personalizationEnabled ? (
+          <NextAction model={model} eventId={eventId} />
+        ) : null}
         <LoopLegend />
 
         <div className="irow3">
@@ -1230,6 +1326,7 @@ function FolderSection({
   index,
   onCompare,
   onOpenSearch,
+  onOpen,
   lockHintKey,
 }: {
   folder: AccordionFolder;
@@ -1237,6 +1334,7 @@ function FolderSection({
   index: number;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
+  onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
 }) {
   const hasLocked = folder.lockedTotal > 0;
@@ -1281,6 +1379,7 @@ function FolderSection({
                 folderIndex={index}
                 onCompare={onCompare}
                 onOpenSearch={onOpenSearch}
+                onOpen={onOpen}
                 lockHintKey={lockHintKey}
               />
             </div>
@@ -1292,7 +1391,11 @@ function FolderSection({
             tile (Digital_Services_Cross_Surface_Map §2). */}
         {folder.folder === 'design' && DIGITAL_SVCS.length > 0 && (
           <div className="child-block">
-            <DigitalServicesRail eventId={eventId} services={DIGITAL_SVCS} />
+            <DigitalServicesRail
+              eventId={eventId}
+              services={DIGITAL_SVCS}
+              onOpen={onOpen}
+            />
           </div>
         )}
       </div>
@@ -1308,6 +1411,7 @@ function ChildRail({
   folderIndex,
   onCompare,
   onOpenSearch,
+  onOpen,
   lockHintKey,
 }: {
   child: AccordionChild;
@@ -1319,6 +1423,7 @@ function ChildRail({
   folderIndex: number;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
+  onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
 }) {
   // Setnayan in-app services that belong to this category — prepended to the
@@ -1347,7 +1452,9 @@ function ChildRail({
               ⇄ Compare {child.picks.length}
             </button>
           )}
-          <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
+          {child.personalizationEnabled ? (
+            <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
+          ) : null}
         </span>
       </div>
 
@@ -1371,6 +1478,7 @@ function ChildRail({
               key={`svc-${addon.key}`}
               addon={addon}
               eventId={eventId}
+              onOpen={onOpen}
             />
           ))}
           {child.picks.map((pick) => (
@@ -1380,7 +1488,9 @@ function ChildRail({
               eventId={eventId}
               groupId={child.groupId}
               groupLabel={child.label}
+              onOpen={onOpen}
               lockHintKey={lockHintKey}
+              personalizationEnabled={child.personalizationEnabled}
             />
           ))}
           {/* Collapse on a hard-single finalize: the slot is filled (one
@@ -1433,15 +1543,21 @@ function VendorCardAtom({
   eventId,
   groupId,
   groupLabel,
+  onOpen,
   lockHintKey,
+  personalizationEnabled,
 }: {
   pick: AccordionPick;
   eventId: string;
   groupId: PlanGroupId;
   groupLabel: string;
+  onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
+  /** Setnayan Assist on? When false (Manual mode) the "% match" pill is hidden. */
+  personalizationEnabled: boolean;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [opening, setOpening] = useState(false);
   const locked = isLocked(pick);
   // The one-time "what Lock does" helper attaches to exactly one card — the
   // first lockable pick — while the first-run coachmark is live (see root).
@@ -1482,7 +1598,7 @@ function VendorCardAtom({
   // it today; refinement + date-headroom sit at a neutral baseline until 0044
   // per-service detail data lands, then the spread sharpens on its own.
   const match =
-    pick.marketplace_business_name && !setnayan
+    personalizationEnabled && pick.marketplace_business_name && !setnayan
       ? computeCompatScore({
           distanceKm,
           avgRating: rating,
@@ -1512,11 +1628,33 @@ function VendorCardAtom({
   const stars = rating !== null ? '★★★★★'.slice(0, Math.round(rating)) : null;
   const starsEmpty = rating !== null ? '★★★★★'.slice(Math.round(rating)) : '';
 
+  // Tap the card body → enlarge it + open the workspace behind the loading
+  // overlay. Keep the <Link> (prefetch + ⌘/middle-click open a new tab); only a
+  // plain left-click is intercepted for the enlarge-then-navigate transition.
+  const workspaceHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+  const handleOpen = (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.shiftKey ||
+      e.altKey
+    ) {
+      return;
+    }
+    e.preventDefault();
+    setOpening(true);
+    onOpen(workspaceHref, displayName);
+  };
+
   return (
-    <div className={`card${locked ? ' chosen' : ''}`}>
+    <div className={`card${locked ? ' chosen' : ''}${opening ? ' opening' : ''}`}>
       <Link
-        href={`/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`}
+        href={workspaceHref}
         className="v"
+        onClick={handleOpen}
+        aria-busy={opening || undefined}
       >
         <div className="img">
           {photo ? (
@@ -1686,10 +1824,13 @@ function AddCard({
 function InAppServiceCard({
   addon,
   eventId,
+  onOpen,
 }: {
   addon: AddOnEntry;
   eventId: string;
+  onOpen: (href: string, label: string) => void;
 }) {
+  const [opening, setOpening] = useState(false);
   const motionClass =
     addon.poster.motion === 'drift'
       ? 'poster-motion-drift'
@@ -1697,6 +1838,24 @@ function InAppServiceCard({
         ? 'poster-motion-pulse'
         : 'poster-motion-scan';
   const soon = addon.status === 'coming_soon';
+  const href = addOnHref(addon.key, eventId);
+  // Tap → enlarge + open behind the loading overlay (same transition as the
+  // vendor cards). coming_soon cards have no route, so they stay static below.
+  const handleOpen = (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.shiftKey ||
+      e.altKey
+    ) {
+      return;
+    }
+    e.preventDefault();
+    setOpening(true);
+    onOpen(href, addon.label);
+  };
 
   const inner = (
     <>
@@ -1731,7 +1890,7 @@ function InAppServiceCard({
   );
 
   return (
-    <div className={`card svc${soon ? ' soon' : ''}`}>
+    <div className={`card svc${soon ? ' soon' : ''}${opening ? ' opening' : ''}`}>
       {soon ? (
         <div className="v" aria-label={`${addon.label} — coming soon`}>
           {inner}
@@ -1739,8 +1898,10 @@ function InAppServiceCard({
       ) : (
         <Link
           className="v"
-          href={addOnHref(addon.key, eventId)}
+          href={href}
           aria-label={addon.label}
+          onClick={handleOpen}
+          aria-busy={opening || undefined}
         >
           {inner}
         </Link>
@@ -1756,9 +1917,11 @@ function InAppServiceCard({
 function DigitalServicesRail({
   eventId,
   services,
+  onOpen,
 }: {
   eventId: string;
   services: ReadonlyArray<AddOnEntry>;
+  onOpen: (href: string, label: string) => void;
 }) {
   if (services.length === 0) return null;
   return (
@@ -1772,6 +1935,7 @@ function DigitalServicesRail({
             key={`svc-${addon.key}`}
             addon={addon}
             eventId={eventId}
+            onOpen={onOpen}
           />
         ))}
       </div>
@@ -1865,8 +2029,11 @@ function CompareSheet({
       badges.push(pick.recommended_reason);
     }
     // Same per-candidate compatibility % the cards show (Architecture §2).
+    // Hidden in Manual mode (child.personalizationEnabled === false).
     const match =
-      pick.marketplace_business_name && pick.is_setnayan_service !== true
+      child.personalizationEnabled &&
+      pick.marketplace_business_name &&
+      pick.is_setnayan_service !== true
         ? computeCompatScore({
             distanceKm,
             avgRating: rating,

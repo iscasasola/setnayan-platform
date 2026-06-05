@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+  fetchGuestsByEvent,
   fetchSingletonRoleHolders,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
@@ -15,6 +16,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
+import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
 import { createGuest } from './actions';
 
 export const metadata = { title: 'Add guest' };
@@ -83,6 +85,20 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
     (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
   );
 
+  // Existing-guest pool for live duplicate detection on the name fields.
+  // Mapped down to the slim NamePoolGuest shape so guest PII (email /
+  // mobile / notes) never serializes into the client island's props.
+  const namePool: NamePoolGuest[] = (
+    await fetchGuestsByEvent(supabase, eventId)
+  ).map((g) => ({
+    guest_id: g.guest_id,
+    first_name: g.first_name,
+    last_name: g.last_name,
+    role: g.role,
+    side: g.side,
+    extra_roles: g.extra_roles,
+  }));
+
   const action = createGuest.bind(null, eventId);
 
   return (
@@ -110,10 +126,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
       ) : null}
 
       <form action={action} className="space-y-5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field id="first_name" label="First name *" required placeholder="Maria" />
-          <Field id="last_name" label="Last name *" required placeholder="de la Cruz" />
-        </div>
+        <GuestNameFields eventId={eventId} pool={namePool} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select

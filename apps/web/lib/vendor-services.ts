@@ -10,12 +10,15 @@ export type VendorServiceRow = {
   crew_size: number | null;
   crew_meal_required: boolean;
   is_active: boolean;
+  /** Branch this service belongs to (Branches V1.x); null = main/unassigned. */
+  branch_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
-const SELECT =
+const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
+const FULL_SELECT = `${BASE_COLS},branch_id`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -23,10 +26,24 @@ export async function fetchVendorServices(
 ): Promise<VendorServiceRow[]> {
   const { data, error } = await supabase
     .from('vendor_services')
-    .select(SELECT)
+    .select(FULL_SELECT)
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });
-  if (error) throw new Error(`fetchVendorServices failed: ${error.message}`);
+  if (error) {
+    // Graceful fallback when branch_id isn't in the DB yet (migration
+    // 20260824000000 pending) — read the base columns + default branch_id null
+    // so the page renders identically to a vendor with no branch assignments.
+    const fallback = await supabase
+      .from('vendor_services')
+      .select(BASE_COLS)
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: true });
+    if (fallback.error) throw new Error(`fetchVendorServices failed: ${fallback.error.message}`);
+    return (fallback.data ?? []).map((s) => ({
+      ...(s as Omit<VendorServiceRow, 'branch_id'>),
+      branch_id: null,
+    }));
+  }
   return (data ?? []) as VendorServiceRow[];
 }
 

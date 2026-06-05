@@ -511,13 +511,13 @@ function StyleSubStepper({
     palette: { eb: 'Your overall feel', q: 'Set the mood', sub: 'Swipe a feel — see it in its colors. It guides your stylist, florist, cake & gown.' },
   };
   const meta = META[dim]!;
-  const hasHero = dim === 'catering' || dim === 'photo_video';
+  const hasHero = dim === 'catering' || dim === 'photo_video' || dim === 'reception' || dim === 'ceremony';
 
   // -- bodies --
   let body: ReactNode = null;
   if (dim === 'reception') {
     body = (
-      <Rail className="pgrid car">
+      <Rail className="pgrid strip">
         {RECEPTION_SETTINGS.map(([e, l, k]) => (
           <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.reception.includes(k)} onClick={() => onPrefs({ reception: toggleArr(prefs.reception, k) })} />
         ))}
@@ -526,7 +526,7 @@ function StyleSubStepper({
   } else if (dim === 'ceremony') {
     body = (
       <div data-single>
-        <Rail className="pgrid car">
+        <Rail className="pgrid strip">
           {ceremonyOptsFor(faith).map(([e, l, k]) => (
             <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.ceremony === k} onClick={() => onPrefs({ ceremony: k })} />
           ))}
@@ -542,15 +542,17 @@ function StyleSubStepper({
           ))}
         </Rail>
         <PBlock label="Service style">
-          <Rail className="chips" wrapClassName="chiprail">
-            {SERVICE_STYLES.map((s) => (
+          {/* 2×3 grid of equal-size buttons (owner 2026-06-05 "consistent button
+              height and length") — replaces the two chip carousels. Row 1: Plated ·
+              Buffet · Family-style. Row 2: Halal · Alcohol-free · Stations. */}
+          <div className="svcgrid">
+            {SERVICE_STYLES.slice(0, 3).map((s) => (
               <PrefChip key={s} label={s} selected={prefs.serviceStyle === s} onClick={() => onPrefs({ serviceStyle: s })} />
             ))}
-          </Rail>
-          <Rail className="chips" wrapClassName="chiprail">
-            <PrefChip label="🕌 HALAL-certified" selected={dietSelected('halal')} locked={lockHalal} lk={lockHalal ? 'Muslim' : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'halal') })} />
+            <PrefChip label="🕌 Halal" selected={dietSelected('halal')} locked={lockHalal} lk={lockHalal ? 'Muslim' : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'halal') })} />
             <PrefChip label="Alcohol-free" selected={dietSelected('alcohol_free')} locked={lockAlcoholFree} lk={lockAlcoholFree ? (faith.includes('muslim') ? 'Muslim' : 'INC') : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'alcohol_free') })} />
-          </Rail>
+            <PrefChip key={SERVICE_STYLES[3]} label={SERVICE_STYLES[3]!} selected={prefs.serviceStyle === SERVICE_STYLES[3]} onClick={() => onPrefs({ serviceStyle: SERVICE_STYLES[3]! })} />
+          </div>
         </PBlock>
         <div className="micro" style={{ marginTop: 6 }} dangerouslySetInnerHTML={{ __html: faithLabel ? `Locked on for your <b>${faithLabel}</b> ceremony — every food vendor is pre-filtered.` : 'Tap HALAL / alcohol-free if any guests need it.' }} />
       </>
@@ -621,10 +623,30 @@ function StyleSubStepper({
     );
   }
 
-  // vhero / feel photo (the viewzone hero per dimension)
+  // vhero / feel photo (the viewzone hero per dimension). Reception + ceremony
+  // now lead with the SELECTED option's photo on top + a caption (owner 2026-06-05
+  // "lay them out like the Kind screen"), with the choices as a strip carousel below.
   let hero: ReactNode = null;
   if (dim === 'catering') hero = <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET('catering')})` }} aria-hidden="true" />;
   else if (dim === 'photo_video') hero = <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET('photo_video')})` }} aria-hidden="true" />;
+  else if (dim === 'reception') {
+    const rk = prefs.reception[prefs.reception.length - 1] ?? 'setting_ballroom';
+    const rlbl = RECEPTION_SETTINGS.find((x) => x[2] === rk)?.[1] ?? '';
+    hero = (
+      <figure className="styhero" style={{ backgroundImage: `url(${PREFS_ASSET(rk)})` }}>
+        {rlbl ? <figcaption className="styhcap">{rlbl}</figcaption> : null}
+      </figure>
+    );
+  } else if (dim === 'ceremony') {
+    const copts = ceremonyOptsFor(faith);
+    const ck = prefs.ceremony ?? copts[0]?.[2] ?? 'ceremony_church';
+    const clbl = copts.find((x) => x[2] === ck)?.[1] ?? '';
+    hero = (
+      <figure className="styhero" style={{ backgroundImage: `url(${PREFS_ASSET(ck)})` }}>
+        {clbl ? <figcaption className="styhcap">{clbl}</figcaption> : null}
+      </figure>
+    );
+  }
 
   const feel = prefs.feel ?? 'timeless';
   const feelHero =

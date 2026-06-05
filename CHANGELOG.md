@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0016): onboarding Style steps — reception/ceremony hero-on-top + persistent carousel end-line + service-style 2×3 grid
+
+**Context:** Owner punch-list on the wedding-onboarding picker (screen 9) + Style sub-stepper (screen 10): (1) *"each row should have a vertical line after the last card to show that's the end — even if the card never filled the screen"*; (2) Reception + Ceremony *"must be laid out like the Kind screen — 1 main photo on top and cards on a carousel at the bottom, with the end marker as well"*; (3) catering Service-style *"consistent button height and length · row 1 Plated|Buffet|Family-style · row 2 Halal|Alcohol-free|Stations."*
+
+**What changed (`app/onboarding/wedding`):**
+- **Persistent end-line on photo-card rails** (`onboarding.css`): the shared `<Rail>` already renders a `.railend`, but `.railwrap.flat` hid it whenever the row fit. Now re-shown for `.pickrail` / `.car` / `.strip` (picker · reception · ceremony · cuisine/look/feel) even when flat (chip rails stay clean). `.railend` switched `height:84px;align-self:center` → `align-self:stretch;min-height:44px` so the line matches each row's card height.
+- **Reception + Ceremony → hero-on-top + strip carousel** (`onboarding-shell.tsx`): both dims added to `hasHero`; the viewzone hero is the SELECTED option's photo with a `.styhcap` caption (updates on tap — mirrors the Kind screen), and the choices switched from the big-card `pgrid car` to the smaller `pgrid strip` (same shape as Catering/Photo). New `.styhcap` CSS.
+- **Service-style 2×3 grid** (`onboarding-shell.tsx` + `.svcgrid` CSS): the two chip carousels (4 service styles · 2 dietary) → one `repeat(3,1fr)` grid of equal height/width buttons — row 1 Plated·Buffet·Family-style, row 2 🕌 Halal·Alcohol-free·Stations.
+
+**Verify:** static diff review (no `pgrid car` refs remain) + TS-safe (no type/state-contract changes; `interestedServices` & commit untouched). Local Next preview N/A here (home checkout is 467 commits behind; the running "proto" server serves the corpus HTML prototypes, not the app) — **Vercel preview on the PR is the visual proof.** No migration.
+
+**SPEC IMPACT:** 0016 onboarding Style steps — Reception/Ceremony are now hero-on-top + strip carousel (was big-card `.car` carousel); Service-style is a 2×3 equal-button grid (was two chip carousels); photo-card rows carry a persistent end-line. Prototype `Onboarding_Wedding_Flow_2026-06-01.html` + Blueprint §3.1a (row 11) drift further from the build — logged in corpus `DECISION_LOG.md` (2026-06-05).
+
 ## 2026-06-05 · feat(0001): guest list defaults to importance order — Bride #1, Groom #2, then by role
 
 **Context:** Owner: *"guest is always arranged based on their importance in the wedding. Bride will always be #1 then groom. then everyone else follows depending on their role."*

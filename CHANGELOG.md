@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0001): guest list defaults to importance order — Bride #1, Groom #2, then by role
+
+**Context:** Owner: *"guest is always arranged based on their importance in the wedding. Bride will always be #1 then groom. then everyone else follows depending on their role."*
+
+**What changed:**
+- `lib/role-groups.ts` — new canonical `ROLE_IMPORTANCE` order (Bride → Groom → VIP family → wedding party → principal → secondary sponsors → bearers/flower girl → officiants → plain guest) + `roleImportanceRank()`. Mirrors the existing `RoleGroup` order + `BULK_ROLE_SECTIONS` so the sort, the View sidebar, and the bulk role picker all agree on one hierarchy.
+- `dashboard/[eventId]/guests/page.tsx` — **Importance is the new DEFAULT sort** (no `?sort` → importance; was last-name). New `coupleRank` pins **Bride #1 / Groom #2 first under EVERY sort** (the couple is the event foundation — owner "always"). `guestImportanceRank` ranks a guest by their **most important role** (primary *or* extra), so a Bridesmaid who's also a Principal Sponsor ranks by the higher of the two; ties break by last/first name. The old alphabetical-by-enum "Role" sort was **retired** (A–Z by enum string is meaningless for a wedding) — replaced by this curated importance sort. The photo grid + mobile carousel render whatever order the page hands them, so both pick this up for free.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · production build green. **No migration / schema change** — pure client+server sort logic.
+
+**SPEC IMPACT:** 0001 — the default guest arrangement is now wedding-importance (Bride #1, Groom #2, then by role group), and bride/groom are pinned first under every sort. Logged in corpus `DECISION_LOG.md` (2026-06-05).
+
 ## 2026-06-05 · feat(0001/0012): guest list → photo grid; guest-supplied photos (Gmail avatar + RSVP selfie) feeding Papic face-rec
 
 **Context:** Owner: *"guest list will be grid style now. since we want them to have photos."* Source clarified: *"when they login via gmail. or they take a selfie. so RSVP must have selfie. the selfie will be used for face recognition on papic also. so it needs to be up to standard for face recognition."* Grid **replaces** the list; selfie is **prominent but skippable** (RA 10173 — biometric consent must be freely given, so it can't hard-block an RSVP). One combined change (owner chose ship-once).

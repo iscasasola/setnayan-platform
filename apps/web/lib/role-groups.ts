@@ -55,6 +55,50 @@ export function roleGroupOf(role: GuestRole): RoleGroup | 'guest' {
   return ROLE_TO_GROUP[role];
 }
 
+// Curated wedding-importance order, most → least important (owner directive
+// 2026-06-05 "guest is always arranged based on their importance in the
+// wedding. Bride will always be #1 then groom. then everyone else follows
+// depending on their role."). Bride/Groom lead (the couple = the event
+// foundation), then VIP family → wedding party → principal → secondary
+// sponsors → bearers/flower girl → officiants, with a plain guest last. The
+// order mirrors the RoleGroup order above + BULK_ROLE_SECTIONS so the
+// importance sort, the View sidebar, and the bulk role picker all agree.
+export const ROLE_IMPORTANCE: readonly GuestRole[] = [
+  'bride',
+  'groom',
+  'bride_parents',
+  'groom_parents',
+  'bride_immediate_family',
+  'groom_immediate_family',
+  'maid_of_honor',
+  'matron_of_honor',
+  'best_man',
+  'bridesmaid',
+  'groomsman',
+  'principal_sponsor',
+  'candle_sponsor',
+  'veil_sponsor',
+  'cord_sponsor',
+  'coin_sponsor',
+  'ring_bearer',
+  'bible_bearer',
+  'coin_bearer',
+  'flower_girl',
+  'officiant',
+  'reader_lector',
+  'soloist_musician',
+  'guest',
+];
+
+const ROLE_IMPORTANCE_RANK: Record<GuestRole, number> = Object.fromEntries(
+  ROLE_IMPORTANCE.map((r, i) => [r, i]),
+) as Record<GuestRole, number>;
+
+// Lower = more important. Unknown roles sort after every known role.
+export function roleImportanceRank(role: GuestRole): number {
+  return ROLE_IMPORTANCE_RANK[role] ?? ROLE_IMPORTANCE.length;
+}
+
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
   couple: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',

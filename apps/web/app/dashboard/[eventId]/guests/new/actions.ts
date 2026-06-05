@@ -12,6 +12,7 @@ import {
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
+import { normalizeGuestName } from '@/lib/guest-name';
 
 const ROLE_VALUES: GuestRole[] = [
   'guest',
@@ -84,8 +85,8 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
 }
 
 export async function createGuest(eventId: string, formData: FormData) {
-  const first_name = clean(formData.get('first_name'));
-  const last_name = clean(formData.get('last_name'));
+  const first_name = normalizeGuestName(clean(formData.get('first_name')));
+  const last_name = normalizeGuestName(clean(formData.get('last_name')));
   const side = clean(formData.get('side')) as GuestSide;
   const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
   const role = (clean(formData.get('role')) || 'guest') as GuestRole;
@@ -105,8 +106,8 @@ export async function createGuest(eventId: string, formData: FormData) {
 
   // Plus-one fields (sub-block, only meaningful when plus_one_allowed === true)
   const plus_one_allowed = clean(formData.get('plus_one_allowed')) === 'on';
-  const plus_one_first_name = clean(formData.get('plus_one_first_name'));
-  const plus_one_last_name = clean(formData.get('plus_one_last_name'));
+  const plus_one_first_name = normalizeGuestName(clean(formData.get('plus_one_first_name')));
+  const plus_one_last_name = normalizeGuestName(clean(formData.get('plus_one_last_name')));
   const plus_one_mode_raw = clean(formData.get('plus_one_mode')) || 'full';
   const plus_one_mode = (plus_one_mode_raw === 'limited' ? 'limited' : 'full') as
     | 'full'

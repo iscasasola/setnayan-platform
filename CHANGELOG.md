@@ -6,13 +6,61 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-05 · fix(onboarding/0016): Song Bank search returned no songs (PostgREST `or()` wildcard)
 
-**Context:** Owner — "the search is not showing songs." The Song Bank search (#999) built a raw PostgREST `.or()` filter with `%` wildcards: `title.ilike.%q%,artist.ilike.%q%`. In an `.or()` string PostgREST's ilike wildcard is **`*`, not `%`** — a bare `%` there matches literally / is URL-mangled, so every search returned **0 rows** (and `searchSongBankAction` swallows errors → `[]`, so it failed silently). RLS (anon public-read via `songs_public_select`) and the applied 390-seed were both fine — only the query was wrong.
+**Context:** Owner — "the search is not showing songs." The Song Bank search (#999) built a raw PostgREST `.or()` filter with `%` wildcards (`title.ilike.%q%,artist.ilike.%q%`). In an `.or()` string PostgREST's ilike wildcard is **`*`, not `%`** — a bare `%` matches literally / is URL-mangled, so every search returned **0 rows** (and `searchSongBankAction` swallows errors → `[]`, failing silently). RLS (anon `songs_public_select`) + the applied 390-seed were both fine.
 
-**Fix** (`apps/web/lib/songs.ts` · `searchSongBank`): `.or(`title.ilike.*${safe}*,artist.ilike.*${safe}*`)` — the canonical PostgREST wildcard. (The single-column `.ilike()` method used elsewhere correctly keeps `%`.) Also strip a literal `*` from the couple's query so it can't widen the match.
+**Fix** (`apps/web/lib/songs.ts` · `searchSongBank`): `.or(`title.ilike.*${safe}*,artist.ilike.*${safe}*`)` — the canonical PostgREST wildcard (the `.ilike()` method elsewhere correctly keeps `%`); also strip a literal `*` from the query.
 
-**Verification:** `tsc --noEmit` exit 0 · `next lint lib` clean. Verify on the deploy: `/onboarding/wedding` → Style → "Your songs" → search returns matches from our 390-song bank.
+**Verification:** `tsc --noEmit` exit 0 · `next lint lib` clean.
 
 **SPEC IMPACT:** None — bug fix to the #999 Song Bank.
+
+## 2026-06-05 · feat(monogram): standalone couple Monogram Maker (`/dashboard/[eventId]/monogram`)
+
+**Context:** Couples had no returnable home to craft their wedding monogram — it was set once in onboarding + an inline wizard card. This adds the dedicated Monogram Maker "place" (`Monogram_Maker_Plan_2026-06-05.md`).
+
+**What changed:**
+- New route `app/dashboard/[eventId]/monogram/{page,monogram-maker,actions}.tsx` — initials + one of the **5 curated lockups** (bar · script · duo · framed · infinity) with a **live `AnimatedMonogramHero` draw-on preview**. `saveMonogram()` persists the SAME columns onboarding writes (`monogram_text/color/style/font_key/frame_key`) so the design round-trips everywhere (chrome switcher · QR center · landing hero). **No migration** — those columns already exist on `events`.
+- `customer-nav-config.ts`: a **Monogram** entry in the "Share" group (mobile: under More; 5-item bottom-nav cap unchanged).
+- "How it animates" section: the shipped draw-on + an ownership-aware upsell to the paid `ANIMATED_MONOGRAM` SKU (₱2,499) and a teaser of the wider animation library.
+
+**Scope note:** the maker consolidates EXISTING monogram config (V1 scope). The 23-style animation **picker** + its `monogram_animation_key` column remain a **tracked expansion** (`Monogram_Maker_Plan_2026-06-05.md`) — staged here as teaser/upsell only, NOT built.
+
+**Verify:** `tsc --noEmit` → 0 errors · `eslint` → exit 0 (4 touched files). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** New couple surface `/dashboard/[eventId]/monogram`. Covered by `Monogram_Maker_Plan_2026-06-05.md` (added + logged in `DECISION_LOG.md` 2026-06-05). Reconcile into the 0037 / monogram spec when Cowork folds the plan in (`0037` is the separate unbuilt bespoke path). Corpus edits land directly (inbox wound down 2026-06-04).
+
+---
+
+## 2026-06-05 · feat(ux): narrate the Guests + Website loading screens
+
+**Context:** Owner follow-up to the narrated Services loader — *"make a loading for website and guests also."* Both routes already had page-shaped skeletons (from the app-wide skeleton pass) but loaded **silently**; the owner wants them to *tell what they're doing* like Services now does.
+
+**What changed (all in `apps/web`):**
+- `components/loading-status.tsx`: new **`LoadingNarration`** — a small drop-in strip (gold spinner + the existing cycling `LoadingStatus`) so any route's `loading.tsx` can narrate over its skeleton. Reduced-motion-safe (the global a11y block freezes the spinner + fade; the JS timer still advances the informative text).
+- `…/guests/loading.tsx`: keeps its bespoke guest-list skeleton, adds a `LoadingNarration` strip — *"Loading your guest list…" → "Counting RSVPs…" → "Organizing tables & sides…" → "Almost ready…"*.
+- `…/site-editor/[eventId]/loading.tsx` (the surface the **"Website"** nav doorway actually opens — `/dashboard/[eventId]/website` is a retired redirect to it): was a bare `export { BoardPageSkeleton as default }`; now renders the board/canvas skeleton **plus** a `LoadingNarration` strip — *"Opening your website editor…" → "Loading your design…" → "Bringing in your photos…" → "Almost ready…"*.
+
+**Verify:** `tsc --noEmit` + `next lint` (all three files) green. No migration.
+
+**SPEC IMPACT:** None (loading-screen UX polish; no schema, pricing, or workflow change). Same family as the 2026-06-05 Services narrated-loading row in corpus DECISION_LOG.
+
+---
+
+## 2026-06-05 · feat(0021): Manual mode — Services accordion deep-gate (PR2 of 2)
+
+**Context:** Completes Manual planning mode (PR1 #1002 shipped the `events.planning_mode` flag + the Guided⇄Manual toggle + Home gating). PR2 makes "off" consistent on the **Services tab** — the personalization still showing inside the plan+budget accordion now turns off too.
+
+**What changed:**
+- **`lib/vendors-plan-budget.ts`** — `buildPlanBudgetModel` gains a `personalizationEnabled` arg (default true), threaded onto `PlanBudgetModel` + each `AccordionChild`. When false (Manual), the "what to lock next" / "Do this next" nudges (`dueList`/`upNext`) are emptied — **the per-child timeline math + budget are untouched.**
+- **`plan-budget-accordion.tsx`** — in Manual mode: the per-candidate **"% match" pills** are hidden (`VendorCardAtom` + `CompareSheet` skip `computeCompatScore`), the per-category **`DeadlineChip`** is hidden, and the **`NextAction` "Do this next"** hero is hidden.
+- **`category-search` action + overlay** — the category-browse overlay's **"% match"** pill is gated too: the action returns `compatScore: null` in Manual; the overlay hides the pill. **Result ORDER unchanged** (the locked tier ladder).
+- **`vendors/page.tsx`** — passes `personalizationEnabled: !planningManual` into the model.
+
+**Result:** Manual mode is now fully consistent — strip collapsed (PR1), Home tasks+deadlines off (PR1), accordion match pills + deadline chips + lock-next nudges off (PR2). The vendor **directory still works** (search · browse · compatibility filters · neutral order).
+
+**Verify:** `tsc --noEmit` + `next lint` green. **No migration** (reuses PR1's `events.planning_mode`).
+
+**SPEC IMPACT:** Completes the 0021 Manual mode (decision already in corpus `DECISION_LOG`). 0021 spec edit pending.
 
 ## 2026-06-05 · fix(ci): resolve duplicate migration timestamp 20260826000000 (rename the unapplied songs twin)
 

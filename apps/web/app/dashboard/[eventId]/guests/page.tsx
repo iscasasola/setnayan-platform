@@ -93,6 +93,7 @@ type Props = {
     removed?: string;
     imported?: string;
     skipped?: string;
+    duplicates?: string;
     error?: string;
     bulk_assigned?: string;
     bulk_grouped?: string;
@@ -567,6 +568,7 @@ function pickFlash(search: {
   removed?: string;
   imported?: string;
   skipped?: string;
+  duplicates?: string;
   bulk_assigned?: string;
   bulk_grouped?: string;
   bulk_sided?: string;
@@ -586,9 +588,11 @@ function pickFlash(search: {
   if (search.imported) {
     const n = Number(search.imported);
     const s = Number(search.skipped ?? 0);
-    if (s > 0)
-      return `Imported ${n} guest${n === 1 ? '' : 's'} · skipped ${s} invalid row${s === 1 ? '' : 's'}.`;
-    return `Imported ${n} guest${n === 1 ? '' : 's'}.`;
+    const d = Number(search.duplicates ?? 0);
+    const parts = [`Imported ${n} guest${n === 1 ? '' : 's'}`];
+    if (d > 0) parts.push(`skipped ${d} duplicate${d === 1 ? '' : 's'}`);
+    if (s > 0) parts.push(`skipped ${s} invalid row${s === 1 ? '' : 's'}`);
+    return parts.join(' · ') + '.';
   }
   if (search.bulk_assigned) {
     const n = Number(search.bulk_assigned);

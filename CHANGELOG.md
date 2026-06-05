@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding/0016): Song Bank search returned no songs (PostgREST `or()` wildcard)
+
+**Context:** Owner — "the search is not showing songs." The Song Bank search (#999) built a raw PostgREST `.or()` filter with `%` wildcards: `title.ilike.%q%,artist.ilike.%q%`. In an `.or()` string PostgREST's ilike wildcard is **`*`, not `%`** — a bare `%` there matches literally / is URL-mangled, so every search returned **0 rows** (and `searchSongBankAction` swallows errors → `[]`, so it failed silently). RLS (anon public-read via `songs_public_select`) and the applied 390-seed were both fine — only the query was wrong.
+
+**Fix** (`apps/web/lib/songs.ts` · `searchSongBank`): `.or(`title.ilike.*${safe}*,artist.ilike.*${safe}*`)` — the canonical PostgREST wildcard. (The single-column `.ilike()` method used elsewhere correctly keeps `%`.) Also strip a literal `*` from the couple's query so it can't widen the match.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint lib` clean. Verify on the deploy: `/onboarding/wedding` → Style → "Your songs" → search returns matches from our 390-song bank.
+
+**SPEC IMPACT:** None — bug fix to the #999 Song Bank.
+
 ## 2026-06-05 · fix(ci): resolve duplicate migration timestamp 20260826000000 (rename the unapplied songs twin)
 
 **Context:** Two migrations on `main` shared the 14-digit prefix `20260826000000` — `20260826000000_budget_planner_config_benchmarks.sql` (PR #1000) and `20260826000000_songs_itunes_cache_and_390_seed.sql` (song-bank PR). This reddened the **"migration timestamp guard"** CI job (`.github/workflows/ci.yml`) on `main` and therefore on *every* open PR. The guard exists because `supabase db push` keys `supabase_migrations.schema_migrations` on the prefix, so a duplicate crashes the push after one migration's DDL has already run (half-applied prod).

@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding/0016): Song Bank — search-only music step over OUR catalogue + DB-cache
+
+**Context:** Owner — replace the static 100-song picker with the full Song Bank, then two refinements: *"our songlist must not show. we only want the search bar"* (search-only, no browse) and *"it will search for our list"* (search hits OUR curated bank, never iTunes). Builds on the iTunes preview (PR #990). (Most of the build came from a worktree agent; finished + made search-only here.)
+
+**What changed** (`apps/web/`):
+- **Search-only music step** — new `_components/song-bank-step.tsx`: NO browseable catalogue list. The couple **searches our curated `songs` bank** (`searchSongBankAction` → `lib/songs.searchSongBank`, a DB query — **iTunes is never the search**); matches appear with album-cover previews (reusing `SongPreviewList`), tap to preview + pick. The default (no-query) view shows ONLY the couple's own picks (so they can see/remove their ≥10). Search pinned at the bottom.
+- **DB-cache (§5.4)** — `lib/songs.ts` + `actions.ts`: the bank reads the new cache columns; `cacheSongItunesAction` UPSERTs a freshly live-resolved preview/artwork so the next user reads it from the DB (production trends to near-zero live iTunes calls). `SongPreviewList` seeds covers from the cached row (instant, no JSONP), else falls back to a live lookup + `onCacheSong` persist.
+- **Migration** `20260826000000_songs_itunes_cache_and_390_seed.sql` — additive + idempotent: nullable `apple_track_id`/`preview_url`/`artwork_url` on `songs` + a guarded seed growing the curated list 100 → **390** (disables/re-enables the non-admin trigger; `ON CONFLICT (normalized_key) DO NOTHING`). Builds on the master-songlist foundation; no UNIQUE on `apple_track_id` (dedup is open spec §7.1).
+- `onboarding-shell.tsx` music dim renders `<SongBankStep>` (replacing the static `MUSIC100`); `onboarding.css` adds `.songbank` styles.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding lib` clean. iTunes preview mechanic verified live earlier (covers + audio). Migration applied in-session.
+
+**Follow-ups:** the performer-union / `canonical_song` model + dedup-key decision (spec §7) remain.
+
+**SPEC IMPACT:** 0016 — the music step is now the **search-only Song Bank** over our curated catalogue (Song Bank §5–6) with the iTunes preview/cache wired.
+
 ## 2026-06-05 · feat(onboarding/0016): iTunes song preview in the music step — album cover = play button
 
 **Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.

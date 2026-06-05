@@ -2,7 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { syncEventSongPicks } from '@/lib/songs';
+import {
+  syncEventSongPicks,
+  fetchSongBankCurated,
+  searchSongBank,
+  cacheSongItunes,
+  type SongBankRow,
+} from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
@@ -800,5 +806,88 @@ export async function getOnboardingVendorCounts(input: {
     return { matched, total };
   } catch {
     return null;
+  }
+}
+
+// ── Song Bank picker (onboarding music step · Song Bank §5) ──────────────────
+// The music step browses + searches the master `songs` table (390-song seed),
+// NOT a hardcoded array. Reads are public (songs SELECT is anon-allowed) so the
+// server-scoped client works even before the account gate. The iTunes
+// preview/artwork cache (§5.4) rides along on each row.
+
+export type SongBankItem = {
+  /** "Title|Artist" — the stable pick label stored in prefs.music (unchanged contract). */
+  lbl: string;
+  title: string;
+  artist: string;
+  /** Cached iTunes preview URL, or null → the client resolves live + caches it. */
+  previewUrl: string | null;
+  /** Cached iTunes album artwork URL, or null. */
+  artworkUrl: string | null;
+};
+
+function toSongBankItem(r: SongBankRow): SongBankItem {
+  return {
+    lbl: `${r.title}|${r.artist}`,
+    title: r.title,
+    artist: r.artist,
+    previewUrl: r.previewUrl,
+    artworkUrl: r.artworkUrl,
+  };
+}
+
+/**
+ * fetchSongBankCuratedAction — the picker's default browse list (the curated
+ * 390-song seed), with the iTunes cache. Never throws — returns [] on any error
+ * (e.g. the master-songlist tables not yet migrated) so the music step degrades
+ * to a search-only experience rather than crashing the onboarding.
+ */
+export async function fetchSongBankCuratedAction(): Promise<SongBankItem[]> {
+  try {
+    const supabase = await createClient();
+    const rows = await fetchSongBankCurated(supabase);
+    return rows.map(toSongBankItem);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * searchSongBankAction — title-OR-artist search across the WHOLE master bank
+ * (not just the curated slice), with the iTunes cache. Never throws — [] on
+ * empty query or error.
+ */
+export async function searchSongBankAction(query: string): Promise<SongBankItem[]> {
+  const q = (query ?? '').trim();
+  if (!q) return [];
+  try {
+    const supabase = await createClient();
+    const rows = await searchSongBank(supabase, q);
+    return rows.map(toSongBankItem);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * cacheSongItunesAction — persist a song's first live-resolved iTunes
+ * preview/artwork onto its master row (Song Bank §5.4) so later users read the
+ * cache instead of hitting iTunes. Admin client (the songs UPDATE policy is
+ * admin-only); only touches an already-seeded, not-yet-cached row. Fire-and-
+ * forget from the client — never throws, returns nothing.
+ */
+export async function cacheSongItunesAction(input: {
+  title: string;
+  artist: string;
+  appleTrackId: number | null;
+  previewUrl: string;
+  artworkUrl: string;
+}): Promise<void> {
+  try {
+    if (!input?.title || !input?.previewUrl) return;
+    const admin = createAdminClient();
+    await cacheSongItunes(admin, input);
+  } catch {
+    // best-effort cache write — never disrupt the picker
   }
 }

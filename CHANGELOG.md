@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(monogram): standalone couple Monogram Maker (`/dashboard/[eventId]/monogram`)
+
+**Context:** Couples had no returnable home to craft their wedding monogram — it was set once in onboarding + an inline wizard card. This adds the dedicated Monogram Maker "place" (`Monogram_Maker_Plan_2026-06-05.md`).
+
+**What changed:**
+- New route `app/dashboard/[eventId]/monogram/{page,monogram-maker,actions}.tsx` — initials + one of the **5 curated lockups** (bar · script · duo · framed · infinity) with a **live `AnimatedMonogramHero` draw-on preview**. `saveMonogram()` persists the SAME columns onboarding writes (`monogram_text/color/style/font_key/frame_key`) so the design round-trips everywhere (chrome switcher · QR center · landing hero). **No migration** — those columns already exist on `events`.
+- `customer-nav-config.ts`: a **Monogram** entry in the "Share" group (mobile: under More; 5-item bottom-nav cap unchanged).
+- "How it animates" section: the shipped draw-on + an ownership-aware upsell to the paid `ANIMATED_MONOGRAM` SKU (₱2,499) and a teaser of the wider animation library.
+
+**Scope note:** the maker consolidates EXISTING monogram config (V1 scope). The 23-style animation **picker** + its `monogram_animation_key` column remain a **tracked expansion** (`Monogram_Maker_Plan_2026-06-05.md`) — staged here as teaser/upsell only, NOT built.
+
+**Verify:** `tsc --noEmit` → 0 errors · `eslint` → exit 0 (4 touched files). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** New couple surface `/dashboard/[eventId]/monogram`. Covered by `Monogram_Maker_Plan_2026-06-05.md` (added + logged in `DECISION_LOG.md` 2026-06-05). Reconcile into the 0037 / monogram spec when Cowork folds the plan in (`0037` is the separate unbuilt bespoke path). Corpus edits land directly (inbox wound down 2026-06-04).
+
+---
+
 ## 2026-06-05 · feat(ux): narrate the Guests + Website loading screens
 
 **Context:** Owner follow-up to the narrated Services loader — *"make a loading for website and guests also."* Both routes already had page-shaped skeletons (from the app-wide skeleton pass) but loaded **silently**; the owner wants them to *tell what they're doing* like Services now does.

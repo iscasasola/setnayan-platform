@@ -66,9 +66,13 @@ function canonicalsForGroup(groupId: string): string[] {
 export async function unlockCategoryWithInquiry(input: {
   eventId: string;
   groupId: string;
+  /** How many best-fit vendors to inquire for this group (1–5 · default 1). Onboarding's Your Plan
+   *  fan-out passes the couple's per-category count; the dashboard unlock-more page omits it (→ 1). */
+  count?: number;
 }): Promise<UnlockCategoryResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
+  const want = Math.max(1, Math.min(5, Math.round(input.count ?? 1)));
   if (!eventId || !groupId) return { status: 'invalid_group' };
 
   const canonicals = canonicalsForGroup(groupId);
@@ -101,76 +105,89 @@ export async function unlockCategoryWithInquiry(input: {
     return { status: 'already_active' };
   }
 
-  // Best-fit vendor = top of the locked tier ladder, scoped to this group.
+  // Candidate vendors = top of the locked tier ladder, scoped to this group.
+  // count=1 (dashboard) → the single best-fit; count>1 (onboarding fan-out) → the top-N.
   const search = await searchCategoryVendors({ eventId, groupId });
-  const best = search.results[0];
-  if (!best) return { status: 'no_vendor' };
-  const vendorProfileId = best.vendorProfileId;
+  const candidates = search.results.slice(0, want);
+  if (candidates.length === 0) return { status: 'no_vendor' };
 
-  // Resolve the exact active service + category the vendor serves within the
-  // group. adminClient bypasses vendor_services RLS (same pattern as the
-  // other add actions). Without an active service we can't make a valid pick.
+  // adminClient bypasses vendor_services RLS (same pattern as the other add actions).
   const admin = createAdminClient();
-  const { data: svc } = await admin
-    .from('vendor_services')
-    .select('vendor_service_id, category')
-    .eq('vendor_profile_id', vendorProfileId)
-    .in('category', canonicals)
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle();
-  if (!svc) return { status: 'no_vendor' };
-  const category = svc.category as string;
-  const serviceId = svc.vendor_service_id as string;
+  const done = new Set<string>();
+  let inquiredAny = false;
+  let addedAny = false;
+  let firstVendorName: string | null = null;
 
-  const { data: prof } = await admin
-    .from('vendor_profiles')
-    .select('business_name')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const vendorName = prof?.business_name ?? best.name ?? 'Vendor';
+  for (const cand of candidates) {
+    const vendorProfileId = cand.vendorProfileId;
+    if (done.has(vendorProfileId)) continue;
+    done.add(vendorProfileId);
 
-  // 1. Add the best-fit vendor → the category is now active.
-  const { error: insertErr } = await supabase.from('event_vendors').insert({
-    event_id: eventId,
-    category,
-    vendor_name: vendorName,
-    status: 'considering',
-    marketplace_vendor_id: vendorProfileId,
-    service_id: serviceId,
-  });
-  if (insertErr) return { status: 'error', message: insertErr.message };
+    // Resolve the exact active service + category the vendor serves within the group.
+    const { data: svc } = await admin
+      .from('vendor_services')
+      .select('vendor_service_id, category')
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('category', canonicals)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    if (!svc) continue;
+    const category = svc.category as string;
+    const serviceId = svc.vendor_service_id as string;
 
-  // 2. Auto-inquiry (best-effort). follow → thread → first couple message.
-  let inquired = false;
-  try {
-    await followVendor(vendorProfileId);
-    const { data: thread } = await supabase
-      .from('chat_threads')
-      .upsert(
-        {
-          event_id: eventId,
-          vendor_profile_id: vendorProfileId,
-          created_by_user_id: user.id,
-        },
-        { onConflict: 'event_id,vendor_profile_id' },
-      )
-      .select('thread_id')
-      .single();
-    if (thread?.thread_id) {
-      const msg = new FormData();
-      msg.set('thread_id', thread.thread_id);
-      msg.set('body', INQUIRY_BODY);
-      // sendChatMessage posts as 'couple' + fires vendor_inquiry_received on
-      // the first message. No return_to → it returns without redirecting.
-      await sendChatMessage(msg);
-      inquired = true;
+    const { data: prof } = await admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    const vendorName = prof?.business_name ?? cand.name ?? 'Vendor';
+
+    // 1. Add the vendor → the category is now active.
+    const { error: insertErr } = await supabase.from('event_vendors').insert({
+      event_id: eventId,
+      category,
+      vendor_name: vendorName,
+      status: 'considering',
+      marketplace_vendor_id: vendorProfileId,
+      service_id: serviceId,
+    });
+    if (insertErr) continue;
+    addedAny = true;
+    if (firstVendorName === null) firstVendorName = vendorName;
+
+    // 2. Auto-inquiry (best-effort). follow → thread → first couple message.
+    try {
+      await followVendor(vendorProfileId);
+      const { data: thread } = await supabase
+        .from('chat_threads')
+        .upsert(
+          {
+            event_id: eventId,
+            vendor_profile_id: vendorProfileId,
+            created_by_user_id: user.id,
+          },
+          { onConflict: 'event_id,vendor_profile_id' },
+        )
+        .select('thread_id')
+        .single();
+      if (thread?.thread_id) {
+        const msg = new FormData();
+        msg.set('thread_id', thread.thread_id);
+        msg.set('body', INQUIRY_BODY);
+        // sendChatMessage posts as 'couple' + fires vendor_inquiry_received on
+        // the first message. No return_to → it returns without redirecting.
+        await sendChatMessage(msg);
+        inquiredAny = true;
+      }
+    } catch {
+      /* best-effort — the pick stands even if the message fails */
     }
-  } catch {
-    inquired = false;
   }
+
+  if (!addedAny) return { status: 'no_vendor' };
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}`, 'layout');
-  return { status: 'ok', inquired, vendorName };
+  return { status: 'ok', inquired: inquiredAny, vendorName: firstVendorName };
 }

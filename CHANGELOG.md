@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · refactor(0016): declutter onboarding congrats (13) — remove savings stat-strip · inquiry opt-in · personalization note
+
+**Context:** Owner — strip the "You did the hard part" congrats screen (13) of three blocks layered over the data recap: the **savings stat-strip** (₱ saved · hours saved · "N that fit your wedding · from M"), the **"Keep Setnayan AI helping finish your wedding"** inquiry opt-in card, and the **"✦ Change or switch off … Personalize my matches"** note. The full data recap + live countdown stay. Partly reverses the 2026-06-05 "also surface the inquiry opt-in on congrats" add.
+
+**What changed (`app/onboarding/wedding/_components/onboarding-shell.tsx`):**
+- Removed the `.statstrip` (3 `CountUp` stats) from step 13. `savings.money`/`savings.hours` still render on **Your Plan (14)** (`FreeValueSlider`) and the **services grand total (16)** — savings isn't hidden, just off the congrats moment.
+- Removed the step-13 inquiry **opt-in card** (toggle + 1–5 stepper). The identical control still lives on **Your Plan (14)** binding the same `sendTopInquiries`/`inquiriesPerCategory`; commit-time fan-out unchanged → no lost functionality, no double-send risk.
+- Removed the "Personalize my matches" note (the same phrase on the Style step (10) is untouched).
+- Deleted the now-dead vendor-fit machinery whose only consumer was the removed tile: `vendorCounts`/`vendorCountsTried` state + the step-13 `getOnboardingVendorCounts` fetch effect + its import; trimmed the stale savings-compute comment. (`getOnboardingVendorCounts` stays exported in `actions.ts`, now unused — left for a separate cleanup.)
+
+**Verify:** static diff + grep clean (no residual `vendorCounts`/`getOnboardingVendorCounts`/`statstrip`); deletion-only with no orphaned refs (`savings`/`CountUp` still used). Local Next preview N/A (home checkout 467 behind; fresh worktree has no node_modules) — **typecheck+lint+production build+Vercel preview on the PR = proof.** No migration.
+
+**SPEC IMPACT:** 0016 — congrats (13) no longer shows the savings stat-strip / inquiry opt-in / personalization note (recap + countdown stay). Prototype `Onboarding_Wedding_Flow_2026-06-01.html` (statstrip + note) + Blueprint §3.1a row 13 drift further — logged in corpus `DECISION_LOG.md` (2026-06-05), matching this area's drift-log pattern.
+
 ## 2026-06-05 · feat(0001): desktop guest list reverts to a row/table layout (mobile stays the photo grid)
 
 **Context:** Owner: *"guest on desktop mode will be row/table style not grid style."*

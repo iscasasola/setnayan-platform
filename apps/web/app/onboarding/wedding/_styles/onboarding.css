@@ -457,7 +457,7 @@
 .onbw .railwrap{position:relative;}
 .onbw .rail{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .onbw .rail::-webkit-scrollbar{height:0;display:none;}
-.onbw .railend{flex:0 0 auto;align-self:center;width:2px;height:84px;background:var(--line-2);border-radius:2px;margin:0 2px 0 7px;scroll-snap-align:end;}
+.onbw .railend{flex:0 0 auto;align-self:stretch;width:2px;min-height:44px;background:var(--line-2);border-radius:2px;margin:0 2px 0 7px;scroll-snap-align:end;}
 .onbw .railwrap .fade{position:absolute;top:0;bottom:7px;width:30px;pointer-events:none;opacity:0;transition:opacity .18s;z-index:2;}
 .onbw .railwrap .fade.l{left:0;background:linear-gradient(to right,var(--paper) 28%,transparent);}
 .onbw .railwrap .fade.r{right:0;background:linear-gradient(to left,var(--paper) 28%,transparent);}
@@ -466,6 +466,11 @@
 .onbw .railwrap .chev{position:absolute;top:30px;right:8px;width:28px;height:28px;border-radius:50%;background:var(--surface);border:1px solid var(--line-2);box-shadow:0 3px 10px rgba(0,0,0,.14);display:flex;align-items:center;justify-content:center;color:var(--ink);font-size:18px;line-height:1;z-index:3;opacity:0;transition:opacity .18s;pointer-events:none;}
 .onbw .railwrap.canr .chev{opacity:1;}
 .onbw .railwrap.flat .fade,.onbw .railwrap.flat .chev,.onbw .railwrap.flat .railend{display:none;}
+/* The end-line stays even when a row fits, on the photo-card rails (picker · reception ·
+   ceremony · cuisine/look/feel strips) — "a vertical line after the last card to show
+   that's the end, even if the cards never fill the screen" (owner 2026-06-05). Chip rails
+   stay clean (no end-line when they fit). */
+.onbw .railwrap.flat .rail.pickrail .railend,.onbw .railwrap.flat .rail.car .railend,.onbw .railwrap.flat .rail.strip .railend{display:block;}
 
 /* ── 2026-06-05 (owner): every Style-step selector is a swipeable carousel ──
    "we will not have buttons anymore … make them all carousels" — the Reception &
@@ -494,6 +499,15 @@
 .onbw .railwrap.chiprail{margin-bottom:8px;}
 .onbw .railwrap.chiprail .chev{top:50%;margin-top:-14px;width:24px;height:24px;font-size:16px;}
 .onbw .railwrap.chiprail .fade{bottom:4px;}
+
+/* Service-style + dietary as a 2×3 grid of equal-size buttons (owner 2026-06-05:
+   "consistent button height and length") — replaces the two chip carousels. */
+.onbw .svcgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:8px;}
+.onbw .svcgrid .chip{width:100%;flex:none;min-height:46px;padding:9px 6px;font-size:13px;line-height:1.15;white-space:nowrap;}
+
+/* Reception/ceremony hero caption — the selected setting's name over the photo,
+   mirroring the Kind screen (owner 2026-06-05 "lay them out like photo 2"). */
+.onbw .styhero .styhcap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:24px 14px 11px;background:linear-gradient(to top,rgba(18,16,22,.82),rgba(18,16,22,.3) 55%,transparent);font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.35);}
 
 /* ── "What would you love?" picker — category rows of photo-card carousels ── */
 .onbw #screen-picker .picker-sub{font-size:13.5px;color:var(--ink-soft);line-height:1.45;margin:0 0 2px;}

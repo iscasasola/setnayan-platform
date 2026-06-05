@@ -261,6 +261,13 @@ export type OnboardingCommitPayload = {
   /** screen-14 "reach my top 3 matches" — when true, fan out the first inquiry to the top-3 picked
    *  categories' best-fit vendor at commit (default false · explicit consent · RA 10173). */
   sendTopInquiries: boolean;
+  /** screen-14 "reach my best matches" — best-fit vendors to inquire PER picked category when
+   *  sendTopInquiries is on (1–5 · default 3). */
+  inquiriesPerCategory: number;
+  /** screen-15/16 — paid in-app service keys the couple selected; persisted to
+   *  events.style_preferences.interested_services (no migration). Purchase Now routes to the
+   *  dashboard services tab to pay per service via the existing 0034 apply-then-pay. */
+  interestedServices: string[];
 };
 
 export type OnboardingCommitResult =
@@ -376,7 +383,7 @@ export async function commitOnboardingWedding(
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
-      style_preferences: { ...(payload.stylePreferences ?? {}), guidance_opt_in: payload.guidanceOptIn ?? true },
+      style_preferences: { ...(payload.stylePreferences ?? {}), guidance_opt_in: payload.guidanceOptIn ?? true, interested_services: payload.interestedServices ?? [] },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use
     // events.event_id (UUID). Select + thread event_id, matching the canonical
@@ -518,32 +525,33 @@ export async function commitOnboardingWedding(
     }
   }
 
-  // Inquiry fan-out — OPT-IN + CAPPED (owner 2026-06-05). Fires ONLY when the couple turned ON
-  // "reach my top 3 matches" on Your Plan (screen 14 · default OFF · explicit consent · RA 10173).
-  // This supersedes the unconditional 2026-06-02 per-category fan-out, which silently inquired
-  // every picked category on every commit. Resolve the picker keys → UNIQUE PLAN_GROUP ids, take
-  // the first 3, and fire one inquiry per group via the dashboard unlock-category flow (best-fit
-  // pick → event_vendors 'considering' → follow → chat thread → first inquiry message). ≤3
-  // inquiries; the chat_threads UNIQUE(event_id, vendor_profile_id) upsert dedupes if the same
-  // vendor is best-fit in more than one of the three. Kept synchronous (the capped set is small —
-  // faster than the old all-groups fan-out) so unlockCategoryWithInquiry keeps the committed
-  // user-scoped RLS context; after() would lose the cookie session it reads via auth.getUser().
-  // Best-effort: an inquiry failure must NEVER fail the commit (event + membership already saved;
-  // the couple can inquire from the dashboard any time).
+  // Inquiry fan-out — OPT-IN + PER-CATEGORY COUNT (owner 2026-06-05). Fires ONLY when the couple
+  // turned ON "reach my best matches" on Your Plan (screen 14 · default OFF · explicit consent ·
+  // RA 10173). For EACH picked category we inquire the top-N best-fit vendors, where N is the
+  // couple's 1–5 "inquiries per category" stepper (default 3). One inquiry = the dashboard
+  // unlock-category flow (best-fit pick → event_vendors 'considering' → follow → chat thread →
+  // first inquiry message); chat_threads UNIQUE(event_id, vendor_profile_id) dedupes if the same
+  // vendor is best-fit in more than one category. Founder-only marketplace at pilot caps the real
+  // count well below N×categories. Kept synchronous so unlockCategoryWithInquiry keeps the
+  // committed user-scoped RLS context (after() would lose the cookie session it reads via
+  // auth.getUser()). Best-effort: an inquiry failure must NEVER fail the commit (event +
+  // membership already saved; the couple can inquire from the dashboard any time).
   if (payload.sendTopInquiries) {
+    const perCategory = Math.max(1, Math.min(5, Math.round(payload.inquiriesPerCategory ?? 3)));
     const groupIds = Array.from(
       new Set(
         (payload.picks ?? [])
           .map((p) => PICK_TO_GROUP[p])
           .filter((g): g is string => Boolean(g)),
       ),
-    ).slice(0, 3);
+    );
     if (groupIds.length > 0) {
       await Promise.allSettled(
         groupIds.map((groupId) =>
           unlockCategoryWithInquiry({
             eventId: insertedEvent.event_id,
             groupId,
+            count: perCategory,
           }),
         ),
       );

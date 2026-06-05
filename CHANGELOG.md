@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): Your Plan v2 — à-la-carte in-app services (bundle retired) + 1–5 inquiry stepper
+
+**Context:** Owner punch-list on the shipped Your Plan: drop the one-shot bundle, replace it with a browsable in-app-services flow (carousel + per-service detail + savings → interested summary → Purchase Now), and turn the inquiry opt-in into a 1–5 "inquiries per category" stepper. Mockup-verified at 375px (3 phones) before porting.
+
+**What changed** (`app/onboarding/wedding/` + the shared `unlock-category` action):
+- **Bundle removed** — `MatchedBundle` + all bundle-only constants (tiers/groups/band-map/`bundleItemsFor`) deleted; `BUNDLE_ITEMS/BUNDLE_BENEFIT/SVC/BUNDLE_ASSET` kept + reused by the new screens.
+- **Two new screens** (flow grows 15→17; terminal commit moves 14→16): **15 Boost & enhance** — a focused service detail (benefit + Setnayan price + *"you save ₱X vs hiring [role]"*) over a swipeable carousel; multi-select → `interestedServices`. **16 Services you're interested in** — summary + totals + **Purchase Now** + a quiet **continue-free** link.
+- **Purchase Now** commits the event, persists the picks to `events.style_preferences.interested_services`, and routes to the dashboard **Services** tab to pay per service (existing 0034 apply-then-pay — *no new cart, no mid-onboarding charge*). Continue-free drops the picks + lands on Home.
+- **Inquiry opt-in → "Reach my best matches"** with a **1–5 per-category stepper** (default 3). The commit fan-out now inquires the **top-N best-fit per picked category** (was ≤3 groups) via `unlockCategoryWithInquiry({ count })` — extended with an optional `count` (default 1, so the dashboard unlock-more caller is unchanged); idempotent via `chat_threads UNIQUE`.
+- **Step machine**: `PHASE_SCREENS`/`SCREEN_SEQUENCE`/`NEXT_LABEL`/`CAN_SKIP` extended; screen 16 hides the global CTA + carries its own Purchase/continue-free buttons (same pattern as the account gate).
+
+**Verify:** `tsc --noEmit` + `next lint` + `next build` green. **No migration** (picks ride state → `style_preferences` JSONB; orders use existing 0034). Visual QA on the Vercel preview (screens 14→15→16).
+
+**SPEC IMPACT:** Your Plan back-half — the à-la-carte in-app-services flow replaces the bundle (Blueprint §3.2) + prototype #screen-plan + DECISION_LOG. Corpus mirror to follow. Flagged follow-up: production should read live price + build-status from the v2 customer catalog for the screen-15 cards (SVC is the demo stand-in, same flag the bundle carried).
+
 ## 2026-06-05 · feat(onboarding): Your Plan — powerful Freebies value block (relabels + pill fix)
 
 **Context:** Owner on the shipped Your Plan — *"we want this to be more modern than just frames. create a powerful way to present the Freebies."* Plus: the free **Monogram**/**Website** should read "Basic" (vs the paid Animated Monogram / Pro Website), and the opt-in toggle rendered as a circle, not a pill. Mockup-verified at 375px before porting.

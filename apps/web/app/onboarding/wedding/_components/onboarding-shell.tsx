@@ -66,14 +66,14 @@ import { SongBankStep } from './song-bank-step';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
-const PHASE_SCREENS = 15;
+const PHASE_SCREENS = 17;
 
 /* Primary-button label per screen (prototype nextLabel[]). Index 10 (prefs) is
  * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
  * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
-const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
+const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Continue', 'Review my picks', 'Done'];
 /* Which screens show a Skip button (prototype canSkip[]): picker/name/region/account/congrats/plan not skippable, prefs/find are. */
-const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false];
+const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false, true, false];
 
 const ASSET = (name: string) => `/onboarding/${name}.webp`;
 /* picker per-service photo + prefs photo + bundle thumbnail subdirs (mirror the pax/budget/mono pattern). */
@@ -1059,27 +1059,9 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   indoor_blueprint: "A venue floor map — guests find their seats in seconds. Zero confused tito wandering around looking for table 7.",
   high_res: "Full-quality archive of all your originals, stored safely. Free with Setnayan — yours to keep, no subscription fees.",
 };
-/* JTBD grouping — preparation → the day → memories (research Finding #4). */
-const BUNDLE_GROUPS: Record<string, string> = {
-  advanced_website: 'plan', custom_qr: 'plan', indoor_blueprint: 'plan', animated_monogram: 'plan',
-  papic_guest: 'celebrate', papic_seats: 'celebrate', sde: 'celebrate', guest_stories: 'celebrate', pabati: 'celebrate', panood: 'celebrate', live_background: 'celebrate', live_photowall: 'celebrate',
-  thank_you: 'remember', pakanta: 'remember', high_res: 'remember',
-};
-const BUNDLE_GROUP_ORDER = ['plan', 'celebrate', 'remember'] as const;
-const BUNDLE_GROUP_LABEL: Record<string, string> = { plan: 'Plan it', celebrate: 'Capture & celebrate', remember: 'Remember & share' };
-const BUNDLE_GROUP_INTRO: Record<string, string> = {
-  plan: 'Behind-the-scenes so you arrive ready, not exhausted.',
-  celebrate: "Every angle of the day itself — what you'll feel, what you'll want to look back at.",
-  remember: 'What stays with you long after the lights come down.',
-};
-const HIGH_RES_FREE: Record<string, boolean> = { high_res: true }; // free baseline (2026-06-01) — flagged on the card
-const BUNDLE_TIERS: { key: string; name: string; add: string[] }[] = [
-  { key: 'essential', name: 'Essential Bundle', add: ['advanced_website', 'papic_guest', 'sde'] },
-  { key: 'simple', name: 'Simple Bundle', add: ['guest_stories', 'pabati'] },
-  { key: 'classic', name: 'Classic Bundle', add: ['papic_seats', 'animated_monogram', 'thank_you', 'pakanta', 'custom_qr'] },
-  { key: 'grand', name: 'Grand Bundle', add: ['panood', 'live_background', 'live_photowall', 'indoor_blueprint'] },
-  { key: 'grandfiesta', name: 'Grand Fiesta Bundle', add: ['high_res'] },
-];
+/* Bundle tiers/groups removed 2026-06-05 — Your Plan v2 replaces the one-shot bundle with the
+   à-la-carte in-app-services flow (screens 15–16). BUNDLE_ITEMS/BUNDLE_BENEFIT/SVC/BUNDLE_ASSET
+   stay (above + below) and are reused by INAPP_SERVICES. */
 /* out = market-equivalent "if hired separately" (admin-editable) · set = Setnayan price (pax items scale in admin). */
 const SVC: Record<string, { out: number; set: number }> = {
   advanced_website: { out: 25000, set: 5499 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 3499 }, guest_stories: { out: 8000, set: 1999 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 2499 }, thank_you: { out: 60000, set: 5499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 1499 }, panood: { out: 17500, set: 3499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
@@ -1093,73 +1075,18 @@ const groupDigits = (raw: string) => {
   const d = raw.replace(/[^\d]/g, '');
   return d ? Number(d).toLocaleString('en-US') : '';
 };
-const BUNDLE_INDEX: Record<string, number> = { essential: 0, simple: 1, classic: 2, grand: 3, grandfiesta: 4 };
-const BUNDLE_TAGLINE: Record<string, string> = {
-  essential: 'Plan it and capture it — the must-haves.', simple: 'A fuller set so every guest is part of the story.', classic: 'The complete celebration — planned, captured, scored, styled.', grand: 'A production: planned, livestreamed, lit, and easy to navigate.', grandfiesta: 'Everything, nothing held back — your grandest day.',
+/* In-app paid services offered on screen 15 (Boost & enhance) — replaces the removed bundle.
+   Curated keys reuse BUNDLE_ITEMS (name) · BUNDLE_BENEFIT (blurb) · SVC (set/out) · BUNDLE_ASSET
+   (poster); ordered by savings/wow. high_res excluded (free baseline). PRICE-FOLLOWER (same flag
+   as the retired bundle): production should read live price + build status from the v2 customer
+   catalog (lib/v2-catalog.ts); SVC here is the demo stand-in. */
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'indoor_blueprint', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
+const INAPP_VS: Record<string, string> = {
+  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', sde: 'a same-day-edit crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
-/* 7 budget bands → 5 bundles (elevated+premium→Grand · luxury+nolimit→Grand Fiesta) — FLAGGED for owner. */
-const BAND_TO_BUNDLE: Record<string, string> = { essentials: 'essential', simple: 'simple', classic: 'classic', elevated: 'grand', premium: 'grand', luxury: 'grandfiesta', nolimit: 'grandfiesta' };
-function bundleItemsFor(bk: string): string[] {
-  const idx = BUNDLE_INDEX[bk] ?? 2;
-  const out: string[] = [];
-  for (let t = 0; t <= idx; t++) { const tier = BUNDLE_TIERS[t]; if (tier) tier.add.forEach((k) => out.push(k)); }
-  return out;
-}
 
-/* The budget-matched bundle card (prototype renderMatchedBundle). Pure on `band`; Add CTA calls onAdd. */
-function MatchedBundle({ band, added, onAdd }: { band: string; added: boolean; onAdd: () => void }) {
-  const bk = BAND_TO_BUNDLE[band] ?? 'classic';
-  const tier = BUNDLE_TIERS[BUNDLE_INDEX[bk] ?? 2] ?? BUNDLE_TIERS[2]!;
-  const items = bundleItemsFor(bk);
-  let outTotal = 0;
-  let setTotal = 0;
-  items.forEach((k) => { const p = SVC[k] ?? { out: 0, set: 0 }; outTotal += p.out; setTotal += p.set; });
-  const bundlePrice = Math.round((setTotal * 0.7) / 100) * 100 - 1; // 30% off à la carte, charm-rounded
-  const totalSavings = outTotal - bundlePrice; // headline savings — vs hiring everything elsewhere
-  return (
-    <div className="mbundle">
-      <span className="mb-badge" data-prod-stat="Most-picked at this guest count"><span className="mbb-star">★</span>Picked for your wedding</span>
-      <div className="mb-h"><span className="mb-name">{tier.name}</span><span className="mb-tag">{items.length} picks</span></div>
-      <div className="mb-line">{BUNDLE_TAGLINE[bk] ?? ''}</div>
-      <div className="mb-items">
-        {BUNDLE_GROUP_ORDER.map((g) => {
-          const rows = items.filter((k) => BUNDLE_GROUPS[k] === g);
-          if (rows.length === 0) return null;
-          return (
-            <section className="bli-group" key={g}>
-              <header className="bli-group-head"><span className="bgh-lbl">{BUNDLE_GROUP_LABEL[g] ?? ''}</span><span className="bgh-intro">{BUNDLE_GROUP_INTRO[g] ?? ''}</span></header>
-              {rows.map((k) => (
-                <div className={`bli-rich${HIGH_RES_FREE[k] ? ' free' : ''}`} key={k}>
-                  <div className="bli-thumb" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
-                  <div className="bli-body"><div className="bli-bene">{BUNDLE_BENEFIT[k] ?? ''}</div><div className="bli-prod">{(BUNDLE_ITEMS[k] ?? '') + (HIGH_RES_FREE[k] ? ' · free' : '')}</div></div>
-                </div>
-              ))}
-            </section>
-          );
-        })}
-      </div>
-      <div className="mb-price">
-        <span className="mb-out">{pesoB(outTotal)} if hired separately</span>
-        <div className="mb-save"><span className="ms-lbl">★ You save</span><span className="ms-amt">{pesoB(totalSavings)}</span><span className="ms-vs">vs hiring everything separately</span></div>
-        <div className="mb-now"><b className="mb-amt">{pesoB(bundlePrice)}</b><span className="mb-off">−30% bundle · book now</span></div>
-        <div className="mb-sub">{pesoB(setTotal)} à la carte · the extra 30% holds only if you add it now</div>
-      </div>
-      <button className={`mb-add${added ? ' added' : ''}`} type="button" onClick={onAdd} aria-label="Add this bundle to my plan">
-        {added ? (
-          <>
-            <span className="mb-add-h">✓ Added to your plan</span>
-            <span className="mb-add-sub">You can review it before checkout</span>
-          </>
-        ) : (
-          <>
-            <span className="mb-add-h">Add this to my plan <b>{pesoB(bundlePrice)}</b></span>
-            <span className="mb-add-sub">Save {pesoB(totalSavings)} · book now</span>
-          </>
-        )}
-      </button>
-    </div>
-  );
-}
+/* MatchedBundle removed 2026-06-05 — the paid upsell is now the à-la-carte in-app-services flow on
+   screens 15–16 (browse + detail + savings → interested summary → Purchase Now). See INAPP_* above. */
 
 /* ── Live savings compute — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03) ──
    Per-couple from the onboarding state — REPLACES the hardcoded demo strip (owner 2026-06-02:
@@ -1354,8 +1281,14 @@ export function OnboardingShell({
   const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
   const [prefIdx, setPrefIdx] = useState(0);
-  /* Phase-4 local UI: budget-matched bundle add (screen 14) · BYO bottom-sheet (12) */
-  const [bundleAdded, setBundleAdded] = useState(false);
+  /* Phase-4 local UI: BYO bottom-sheet (12) · in-app-services detail focus (15) */
+  const [focusedService, setFocusedService] = useState('');
+  const toggleInterested = (key: string) =>
+    patch({
+      interestedServices: state.interestedServices.includes(key)
+        ? state.interestedServices.filter((x) => x !== key)
+        : [...state.interestedServices, key],
+    });
   // Your Plan opt-ins (screen 14 · owner 2026-06-05) live in OnboardingState (state.guidanceOptIn
   // default ON · state.sendTopInquiries default OFF) so they reach buildCommitPayload(s) without a
   // stale-closure read — toggled via the shared `patch` helper.
@@ -1745,8 +1678,7 @@ export function OnboardingShell({
 
   /* Continue label: prefs sub-stepper shows "Looks good" on its last focused screen (prototype showPref). */
   const prefsLabel = prefQueue.length === 0 || prefIdx >= prefQueue.length - 1 ? 'Looks good' : 'Continue';
-  const nextLabel =
-    step === 10 ? prefsLabel : step === 14 && bundleAdded ? 'Continue to checkout' : NEXT_LABEL[step] ?? 'Continue';
+  const nextLabel = step === 10 ? prefsLabel : NEXT_LABEL[step] ?? 'Continue';
 
   /* ── kind hero ── */
   const kindPhoto = KIND_PHOTO[kind ?? 'religious'];
@@ -1864,6 +1796,8 @@ export function OnboardingShell({
       // Your Plan opt-ins (screen 14) — free-guidance flag + top-3 inquiry fan-out choice.
       guidanceOptIn: s.guidanceOptIn,
       sendTopInquiries: s.sendTopInquiries,
+      inquiriesPerCategory: s.inquiriesPerCategory,
+      interestedServices: s.interestedServices,
     }),
     [],
   );
@@ -1880,7 +1814,7 @@ export function OnboardingShell({
     return () => window.clearInterval(id);
   }, [finishing]);
 
-  const handleFinish = useCallback(async () => {
+  const handleFinish = useCallback(async (purchase = false) => {
     if (committingRef.current) return;
     setCommitError(null);
 
@@ -1889,8 +1823,11 @@ export function OnboardingShell({
     // overlay covers everything until the dashboard actually swaps in — no flash
     // of the onboarding underneath + no click-lag on Home/Guests/Services/Website/
     // More once they land (owner 2026-06-02).
-    const goToDashboard = (eventId: string) => {
+    const goToDashboard = (eventId: string, toServices = false) => {
       const base = `/dashboard/${eventId}`;
+      // Purchase Now lands on the Services tab to complete payment per service (0034 apply-then-pay);
+      // continue-free lands on Home.
+      const dest = toServices ? `${base}/vendors` : base;
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
@@ -1903,9 +1840,9 @@ export function OnboardingShell({
       // Warm SPA transition after the deliberate hold.
       window.setTimeout(() => {
         try {
-          router.push(base);
+          router.push(dest);
         } catch {
-          window.location.assign(base);
+          window.location.assign(dest);
         }
       }, ANALYZING_HOLD_MS);
       // Stranding watchdog (owner report 2026-06-03: stuck forever on "Creating
@@ -1919,7 +1856,7 @@ export function OnboardingShell({
           typeof window !== 'undefined' &&
           window.location.pathname.startsWith('/onboarding')
         ) {
-          window.location.assign(base);
+          window.location.assign(dest);
         }
       }, ANALYZING_HOLD_MS + 4000);
     };
@@ -1932,7 +1869,7 @@ export function OnboardingShell({
       } catch {
         /* non-fatal */
       }
-      goToDashboard(committedEventId);
+      goToDashboard(committedEventId, purchase);
       return;
     }
 
@@ -1942,7 +1879,11 @@ export function OnboardingShell({
     committingRef.current = true;
     setCommitting(true);
     try {
-      const res = await commitOnboardingWedding(buildCommitPayload(state));
+      const payload = buildCommitPayload(state);
+      // Purchase Now carries the couple's selected paid services into the commit (persisted to
+      // events.style_preferences.interested_services); "continue with the free plan" drops them.
+      if (!purchase) payload.interestedServices = [];
+      const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
       if (res.ok) {
@@ -1958,7 +1899,7 @@ export function OnboardingShell({
         // the onboarding before it proceeded to the dashboard"). Clearing the draft
         // above already makes a re-open blank; the committedEventId guard keeps the
         // persist effect from re-writing it. The overlay stays up, then we navigate.
-        goToDashboard(res.eventId);
+        goToDashboard(res.eventId, purchase);
       } else if (res.error === 'not_authenticated') {
         // Session lost mid-flow — drop the overlay + bounce to the account gate.
         setFinishing(false);
@@ -2634,40 +2575,127 @@ export function OnboardingShell({
               </div>
               <button type="button" role="switch" aria-checked={state.guidanceOptIn} aria-label="Keep guiding me, free" className={`opt-sw${state.guidanceOptIn ? ' on' : ''}`} onClick={() => patch({ guidanceOptIn: !state.guidanceOptIn })}><span className="opt-knob" /></button>
             </div>
-            <div className="optcard">
-              <div className="opt-main">
-                <div className="opt-h">Reach my top 3 matches</div>
-                <div className="opt-d">We&apos;ll send your first inquiry to the 3 best-fit vendors we found. You can always do this yourself later.</div>
+            <div className="optcard optcard-col">
+              <div className="opt-row">
+                <div className="opt-main">
+                  <div className="opt-h">Reach my best matches</div>
+                  <div className="opt-d">We&apos;ll send your first inquiry to the best-fit vendors we found. You can always do this yourself later.</div>
+                </div>
+                <button type="button" role="switch" aria-checked={state.sendTopInquiries} aria-label="Send my first inquiry to my best matches" className={`opt-sw${state.sendTopInquiries ? ' on' : ''}`} onClick={() => patch({ sendTopInquiries: !state.sendTopInquiries })}><span className="opt-knob" /></button>
               </div>
-              <button type="button" role="switch" aria-checked={state.sendTopInquiries} aria-label="Send my first inquiry to my top 3 matches" className={`opt-sw${state.sendTopInquiries ? ' on' : ''}`} onClick={() => patch({ sendTopInquiries: !state.sendTopInquiries })}><span className="opt-knob" /></button>
+              {state.sendTopInquiries && (
+                <div className="opt-step">
+                  <span className="opt-step-l">inquiries per category</span>
+                  <button type="button" className="opt-step-b" aria-label="Fewer inquiries" onClick={() => patch({ inquiriesPerCategory: Math.max(1, state.inquiriesPerCategory - 1) })}>−</button>
+                  <span className="opt-step-v">{state.inquiriesPerCategory}</span>
+                  <button type="button" className="opt-step-b" aria-label="More inquiries" onClick={() => patch({ inquiriesPerCategory: Math.min(5, state.inquiriesPerCategory + 1) })}>+</button>
+                </div>
+              )}
             </div>
-            <div className="grouplbl muted">Want more — matched to your wedding</div>
-            <MatchedBundle band={state.budgetBand ?? 'classic'} added={bundleAdded} onAdd={() => setBundleAdded(true)} />
-            {!bundleAdded && <div className="plan-skip" id="planSkip">or <u>continue with the free plan</u></div>}
+          </section>
+
+          {/* 15 BOOST & ENHANCE — paid in-app services: focused detail + bottom carousel (owner 2026-06-05) */}
+          <section className={`screen${step === 15 ? ' active' : ''}`} id="screen-services">
+            <div className="eyebrow">Boost &amp; enhance your wedding</div>
+            <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Make it unforgettable</h1>
+            <p className="sub">Optional add-ons — each one a tool, priced honestly. Add what you love.</p>
+            {(() => {
+              const fk = focusedService || INAPP_KEYS[0]!;
+              const p = SVC[fk] ?? { out: 0, set: 0 };
+              const save = Math.max(0, p.out - p.set);
+              const added = state.interestedServices.includes(fk);
+              return (
+                <div className="svc-detail">
+                  <div className="svc-poster" style={{ backgroundImage: `url('${BUNDLE_ASSET(fk)}')` }} />
+                  <div className="svc-dpad">
+                    <div className="svc-dnm">{BUNDLE_ITEMS[fk] ?? fk}</div>
+                    <div className="svc-ddesc">{BUNDLE_BENEFIT[fk] ?? ''}</div>
+                    <div className="svc-dprice"><span className="svc-dset">{pesoB(p.set)}</span><span className="svc-dwas">{pesoB(p.out)}</span></div>
+                    {save > 0 && <div className="svc-dsave">You save {pesoB(save)} vs {INAPP_VS[fk] ?? 'hiring it elsewhere'}</div>}
+                    <button type="button" className={`svc-add${added ? ' added' : ''}`} onClick={() => toggleInterested(fk)}>
+                      {added ? '✓ Added to your wedding' : '+ Add to my wedding'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="svc-car">
+              {INAPP_KEYS.map((k) => {
+                const pp = SVC[k] ?? { out: 0, set: 0 };
+                const on = (focusedService || INAPP_KEYS[0]) === k;
+                const added = state.interestedServices.includes(k);
+                return (
+                  <button type="button" key={k} className={`svc-chip${on ? ' on' : ''}`} onClick={() => setFocusedService(k)}>
+                    <div className="svc-chip-p" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }}>{added && <span className="svc-chip-chk">✓</span>}</div>
+                    <div className="svc-chip-i"><div className="svc-chip-n">{BUNDLE_ITEMS[k] ?? k}</div><div className="svc-chip-pr">{pesoB(pp.set)}</div></div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="svc-carlbl">{state.interestedServices.length > 0 ? `${state.interestedServices.length} added · swipe for more →` : 'Swipe to explore · tap a card to view →'}</div>
+          </section>
+
+          {/* 16 SERVICES YOU'RE INTERESTED IN — summary + Purchase Now + continue-free (TERMINAL · owner 2026-06-05) */}
+          <section className={`screen${step === 16 ? ' active' : ''}`} id="screen-services-summary">
+            <div className="eyebrow">Your picks</div>
+            <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
+            <p className="sub" style={{ marginBottom: 12 }}>Pay only when you&apos;re ready — no charge yet.</p>
+            {state.interestedServices.length === 0 ? (
+              <div className="svc-empty">No add-ons selected — and that&apos;s perfectly fine. Your free plan already has everything you need to start.</div>
+            ) : (
+              <>
+                {state.interestedServices.map((k) => {
+                  const p = SVC[k] ?? { out: 0, set: 0 };
+                  const save = Math.max(0, p.out - p.set);
+                  return (
+                    <div className="svc-row" key={k}>
+                      <div className="svc-row-th" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
+                      <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
+                      <div className="svc-row-p">{pesoB(p.set)}</div>
+                      <button type="button" className="svc-row-x" aria-label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)}>×</button>
+                    </div>
+                  );
+                })}
+                {(() => {
+                  const setTotal = state.interestedServices.reduce((s, k) => s + (SVC[k]?.set ?? 0), 0);
+                  const saveTotal = state.interestedServices.reduce((s, k) => s + Math.max(0, (SVC[k]?.out ?? 0) - (SVC[k]?.set ?? 0)), 0);
+                  return (
+                    <div className="svc-totals">
+                      <div className="svc-tot-k">{state.interestedServices.length} {state.interestedServices.length === 1 ? 'service' : 'services'} · total</div>
+                      <div className="svc-tot-a">{pesoB(setTotal)}</div>
+                      {saveTotal > 0 && <div className="svc-tot-s">You save {pesoB(saveTotal)} vs hiring elsewhere</div>}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+            {state.interestedServices.length > 0 ? (
+              <>
+                <button type="button" className="svc-buy" onClick={() => void handleFinish(true)} disabled={committing}>{committing ? 'Setting up…' : 'Purchase Now'}</button>
+                <button type="button" className="svc-freelink" onClick={() => void handleFinish(false)} disabled={committing}>or <u>continue with the free plan</u></button>
+              </>
+            ) : (
+              <button type="button" className="svc-buy" onClick={() => void handleFinish(false)} disabled={committing}>{committing ? 'Setting up…' : 'Go to my dashboard'}</button>
+            )}
           </section>
         </div>
 
-        {/* bottom — primary CTA. Phase-5: step 14 (Your Plan) is terminal — it
-            commits the event + redirects to the dashboard (handleFinish). The
-            account gate (11) hides the primary button for anonymous visitors —
-            the screen's own OAuth/email forms carry the action; authed users
-            skip 11 entirely so its button never renders. */}
+        {/* bottom — primary CTA. Screens 14 & 15 advance via go(1). The TERMINAL
+            commit moved to step 16 (Services summary), which renders its OWN
+            Purchase Now / continue-free buttons → the global button is hidden there
+            (like the account gate at 11, hidden for anonymous visitors). */}
         <div className="bottom">
           {commitError && (
             <p style={{ color: 'var(--mulberry)', fontSize: 13, margin: '0 0 8px', textAlign: 'center' }}>
               {commitError}
             </p>
           )}
-          {!(step === 11 && !authed) && (
+          {!((step === 11 && !authed) || step === 16) && (
             <button
               className="btn btn-primary"
               type="button"
               onClick={() => {
                 if (!canContinue || committing) return;
-                if (step === 14) {
-                  void handleFinish();
-                  return;
-                }
                 go(1);
               }}
               disabled={!canContinue || committing}

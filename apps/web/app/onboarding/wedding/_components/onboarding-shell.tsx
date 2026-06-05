@@ -381,7 +381,7 @@ function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; l
    onboarding carousel (owner 2026-06-05): a "more →" chevron + edge fades while
    there's more to scroll either way, and a vertical end-line once you reach the
    end. Rows that already fit show none of it ('flat'). */
-function Rail({ children, className }: { children: ReactNode; className?: string }) {
+function Rail({ children, className, wrapClassName }: { children: ReactNode; className?: string; wrapClassName?: string }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const sync = useCallback(() => {
@@ -409,7 +409,7 @@ function Rail({ children, className }: { children: ReactNode; className?: string
     };
   }, [sync]);
   return (
-    <div className="railwrap" ref={wrapRef}>
+    <div className={`railwrap${wrapClassName ? ` ${wrapClassName}` : ''}`} ref={wrapRef}>
       <div className={`rail${className ? ` ${className}` : ''}`} ref={railRef}>
         {children}
         <span className="railend" aria-hidden="true" />
@@ -517,20 +517,20 @@ function StyleSubStepper({
   let body: ReactNode = null;
   if (dim === 'reception') {
     body = (
-      <div className="pgrid">
+      <Rail className="pgrid car">
         {RECEPTION_SETTINGS.map(([e, l, k]) => (
           <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.reception.includes(k)} onClick={() => onPrefs({ reception: toggleArr(prefs.reception, k) })} />
         ))}
-      </div>
+      </Rail>
     );
   } else if (dim === 'ceremony') {
     body = (
       <div data-single>
-        <div className="pgrid">
+        <Rail className="pgrid car">
           {ceremonyOptsFor(faith).map(([e, l, k]) => (
             <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.ceremony === k} onClick={() => onPrefs({ ceremony: k })} />
           ))}
-        </div>
+        </Rail>
       </div>
     );
   } else if (dim === 'catering') {
@@ -542,15 +542,15 @@ function StyleSubStepper({
           ))}
         </Rail>
         <PBlock label="Service style">
-          <div className="chips" data-single>
+          <Rail className="chips" wrapClassName="chiprail">
             {SERVICE_STYLES.map((s) => (
               <PrefChip key={s} label={s} selected={prefs.serviceStyle === s} onClick={() => onPrefs({ serviceStyle: s })} />
             ))}
-          </div>
-          <div className="chips" data-diet-row>
+          </Rail>
+          <Rail className="chips" wrapClassName="chiprail">
             <PrefChip label="🕌 HALAL-certified" selected={dietSelected('halal')} locked={lockHalal} lk={lockHalal ? 'Muslim' : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'halal') })} />
             <PrefChip label="Alcohol-free" selected={dietSelected('alcohol_free')} locked={lockAlcoholFree} lk={lockAlcoholFree ? (faith.includes('muslim') ? 'Muslim' : 'INC') : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'alcohol_free') })} />
-          </div>
+          </Rail>
         </PBlock>
         <div className="micro" style={{ marginTop: 6 }} dangerouslySetInnerHTML={{ __html: faithLabel ? `Locked on for your <b>${faithLabel}</b> ceremony — every food vendor is pre-filtered.` : 'Tap HALAL / alcohol-free if any guests need it.' }} />
       </>
@@ -564,18 +564,18 @@ function StyleSubStepper({
           ))}
         </Rail>
         <PBlock label="What do you need?">
-          <div className="chips" data-single>
+          <Rail className="chips" wrapClassName="chiprail">
             {PV_NEEDS.map((s) => (
               <PrefChip key={s} label={s} selected={prefs.pvNeed === s} onClick={() => onPrefs({ pvNeed: s })} />
             ))}
-          </div>
+          </Rail>
         </PBlock>
         <PBlock label="What’s included?">
-          <div className="chips">
+          <Rail className="chips" wrapClassName="chiprail">
             {PV_INCLUDED.map((s) => (
               <PrefChip key={s} label={s} selected={prefs.pvIncluded.includes(s)} onClick={() => onPrefs({ pvIncluded: toggleArr(prefs.pvIncluded, s) })} />
             ))}
-          </div>
+          </Rail>
         </PBlock>
       </>
     );

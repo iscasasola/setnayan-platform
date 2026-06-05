@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): every Style-step selector is a swipeable carousel
+
+**Context:** Owner on the Style sub-stepper: *"make these carousel style. we will not have buttons anymore … the whole onboarding should familiarize the users that we do carousel for our app,"* clarified as *"like the one on service style — they are buttons but we will make them all carousels."* So: keep **Continue**, but every selectable **grid** (Reception, Ceremony) and **chip row** (Service style, dietary, photo-need, coverage) becomes a horizontal swipeable carousel — Catering & Photo/Video cuisine/look strips were already carousels. One consistent swipe idiom across onboarding.
+
+**What changed** (`app/onboarding/wedding/`):
+- **Reception + Ceremony grids → big-card carousels** (`onboarding-shell.tsx`) — the 2-col `.pgrid` becomes `<Rail className="pgrid car">`. New `.pgrid.car` rules (`onboarding.css`): one tall snap-centred venue card at 80% width + a peek of the next, **filling the viewzone** (these steps have no hero) exactly like the grid-fill it replaces. Multi-select (reception) / single-select (ceremony) preserved.
+- **Chip rows → chip rails** — Service style, dietary (catering) and "What do you need? / What's included?" (photo/video) wrap in `<Rail className="chips" wrapClassName="chiprail">`. `.rail` is already nowrap-scroll, so chips now scroll horizontally instead of wrapping (shorter vertically · helps Golden-Rule-1 no-scroll). Reuses the same `<Rail>` fade + chevron "more →" affordance as the cuisine/look strips; when a row already fits, `.railwrap.flat` hides the affordance (e.g. the 2-chip dietary row).
+- `Rail` gained an optional `wrapClassName` (applied to `.railwrap`) so chip rails recentre the chevron for the short row height. Both vestigial `data-single`/`data-diet-row` markers dropped (selection is React-controlled, not attribute-driven).
+- Follows the **faith step**, whose chips were already converted to a horizontal scroll strip (2026-06-04) — this generalises that to the Style steps.
+
+**Verify:** Rendered the real `onboarding.css` against the exact React DOM in a static harness (the onboarding route needs Supabase auth to reach locally). At 402px: Reception shows one immersive swipe card + peek + chevron, **no vertical scroll**; Catering shows hero + cuisine strip + Service-style chip rail (Plated selected · "Stations" behind the › chevron) + flat dietary row, all fitting one viewport. `tsc`/`lint`/`build` via CI + Vercel preview (the change is a `<div>`→`<Rail>` swap + CSS — no new types).
+
+**SPEC IMPACT:** The corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` renders Reception/Ceremony as plain grids and Service-style as wrapping chips — now superseded by carousels everywhere. A `DECISION_LOG.md` row is landing directly in the corpus; the prototype itself is a separate reconciliation (already flagged stale).
+
 ## 2026-06-05 · feat(onboarding): venue search expands by serviceability rings (region rings, not hard-drop)
 
 **Context:** Owner design session on the find-first-vendor step (12), which showed every venue under one "★ Matches your preference" group. Owner's model: surface *everything serviceable* by expanding outward in concentric rings, and hard-cut only the impossible. Region was a **hard filter** (out-of-area venues dropped) — owner locked it to **ring** instead: in-area first, then "Farther afield" behind Expand. Capacity-can't-fit, booked-date, and wrong-ceremony are *already* hard-removed by the leaf-match engine (which matches the owner's remove rule), so this PR only changes region + the presentation.

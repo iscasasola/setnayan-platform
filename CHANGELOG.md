@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0001): CSV guest import — exact-duplicate skip (within-file + against existing)
+
+**Context:** Follow-up to the guest-name hygiene PR (#1004) — closes the largest remaining gap from that review: CSV import had **no** duplicate detection, so re-importing a file doubled everyone and a file listing the same person twice inserted both.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/guests/`):
+- **`import/actions.ts`** — before insert, builds a set of normalized `first|last` keys already on the event (graceful-degrade to empty on query error) and skips any row whose key is **already on the list** OR **seen earlier in the same file**. Exact-normalized match only (shared `norm` from `lib/guest-dedupe`); fuzzy nickname/typo matches are deliberately NOT auto-skipped — a bulk import shouldn't silently drop a distinct guest on a guess (that judgment stays with the interactive add forms). `skipped` now means invalid-rows only; duplicates are counted + reported separately. An all-duplicates file is a friendly no-op ("Imported 0 · skipped N duplicates"), not a validation error.
+- **`page.tsx`** — import success banner now reads `duplicates` and shows e.g. *"Imported 12 guests · skipped 3 duplicates · skipped 1 invalid row."*
+
+**Verify:** `tsc --noEmit` ✅ · `next lint` ✅ (clean on the guests dir) · `next build` ✅.
+
+**SPEC IMPACT:** 0001 guest list — CSV import now exact-dedupes (within-file + against existing). Completes the name-quality pass (normalize all paths · dedupe on quick-add + detailed form + CSV). Lands in corpus `DECISION_LOG.md` + `0001_creating_guest_list/`.
+
 ## 2026-06-05 · feat(0001): Guest-name hygiene — normalize all 3 write paths + dedupe on the detailed form
 
 **Context:** Owner asked what name-quality issues we can prevent at guest-list creation. We already had a nickname/typo duplicate detector, but only on the quick-add sheet, and names were only `.trim()`-ed on save. This lands the two lowest-risk wins: shared name normalization on every write path, and the existing duplicate detector extended to the detailed Add-guest form.

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { parseCsv } from '@/lib/csv';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { norm } from '@/lib/guest-dedupe';
 import type {
   GuestGroupCategory,
   GuestRole,
@@ -74,9 +75,34 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
     );
   }
 
+  const supabase = await createClient();
+
+  // Exact-duplicate keys (normalized first|last) already on this event, so
+  // a re-imported file silently skips the rows already on the list instead
+  // of doubling everyone. Graceful-degrade to "no existing" on error — an
+  // import shouldn't hard-fail just because this pre-check query did.
+  const existingKeys = new Set<string>();
+  {
+    const { data: existing } = await supabase
+      .from('guests')
+      .select('first_name,last_name')
+      .eq('event_id', eventId)
+      .is('deleted_at', null);
+    for (const g of (existing ?? []) as Array<{
+      first_name: string;
+      last_name: string;
+    }>) {
+      existingKeys.add(`${norm(g.first_name)}|${norm(g.last_name)}`);
+    }
+  }
+
   // Validate + shape every row before writing anything.
   const valid: Array<Record<string, unknown>> = [];
   const errors: string[] = [];
+  // Keys seen so far this import — catches the same person listed twice in
+  // the uploaded file itself, not just against the existing list.
+  const seenKeys = new Set<string>();
+  let duplicates = 0;
 
   rows.forEach((row, index) => {
     const lineNo = index + 2; // header is line 1
@@ -119,6 +145,18 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
       return;
     }
 
+    // Exact-duplicate skip (same normalized first+last) — within the file
+    // OR already on the event. Fuzzy nickname/typo matches are deliberately
+    // NOT auto-skipped here: a bulk import shouldn't silently drop a
+    // distinct guest on a guess; that judgment stays with the interactive
+    // add forms (quick-add sheet + detailed form).
+    const dupKey = `${norm(first_name)}|${norm(last_name)}`;
+    if (existingKeys.has(dupKey) || seenKeys.has(dupKey)) {
+      duplicates += 1;
+      return;
+    }
+    seenKeys.add(dupKey);
+
     valid.push({
       event_id: eventId,
       first_name,
@@ -138,13 +176,20 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
   });
 
   if (valid.length === 0) {
+    // Nothing new to insert. Distinguish "everyone was already on the list"
+    // (a harmless no-op re-import) from genuine validation failures, so the
+    // host isn't told their file is broken when it isn't.
+    if (duplicates > 0 && errors.length === 0) {
+      return redirect(
+        `/dashboard/${eventId}/guests?imported=0&duplicates=${duplicates}`,
+      );
+    }
     const payload = errors.slice(0, 5).join(' | ');
     return redirect(
       `/dashboard/${eventId}/guests/import?error=${encodeURIComponent('All rows failed validation: ' + payload)}`,
     );
   }
 
-  const supabase = await createClient();
   const { error: insertErr } = await supabase.from('guests').insert(valid);
   if (insertErr) {
     return redirect(
@@ -153,8 +198,9 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  const skipped = rows.length - valid.length;
-  return redirect(
-    `/dashboard/${eventId}/guests?imported=${valid.length}${skipped > 0 ? `&skipped=${skipped}` : ''}`,
-  );
+  const skipped = errors.length; // invalid rows only (dupes counted separately)
+  const params = new URLSearchParams({ imported: String(valid.length) });
+  if (skipped > 0) params.set('skipped', String(skipped));
+  if (duplicates > 0) params.set('duplicates', String(duplicates));
+  return redirect(`/dashboard/${eventId}/guests?${params.toString()}`);
 }

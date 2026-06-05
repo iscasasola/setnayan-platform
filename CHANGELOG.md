@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): faith step shows a "no religion chosen" hero (wed_none) instead of a blank
+
+**Context:** The ceremony-tradition (faith) step rendered a *blank* hero until a faith was picked — the no-selection default was `firstF ? FAITH_PHOTO[firstF] : { img: '', cap: 'Pick your tradition' }`, and the empty `img` made `HeroImg` show nothing. Owner reported it as "still none."
+
+**What changed** (`app/onboarding/wedding/`):
+- New asset `public/onboarding/wed_none.webp` (760×950, matches the faith-hero frame) — a couple silhouetted indoors looking out a wall of windows, each pane framing one of the 8 ceremony venues at sunset (Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish).
+- `onboarding-shell.tsx`: the no-selection faith default `{ img: '', cap: 'Pick your tradition' }` → `{ img: 'wed_none', cap: 'Pick your tradition' }`. Per-faith `FAITH_PHOTO` heroes (when a tradition IS selected) are unchanged; `HeroImg` already keys on `src` so the swap is clean.
+
+**Verify:** Single type-safe field change (matches the inline `{ img, cap }` shape) + a static asset; tsc/lint/build via CI + Vercel preview.
+
+**SPEC IMPACT:** None new — aligns the app with the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` + `assets/wed_none.webp`, already documented in the spec `DECISION_LOG.md` (2026-06-05 window-panes row).
+
+---
+
 ## 2026-06-05 · feat(onboarding): Your Plan v2 — à-la-carte in-app services (bundle retired) + 1–5 inquiry stepper
 
 **Context:** Owner punch-list on the shipped Your Plan: drop the one-shot bundle, replace it with a browsable in-app-services flow (carousel + per-service detail + savings → interested summary → Purchase Now), and turn the inquiry opt-in into a 1–5 "inquiries per category" stepper. Mockup-verified at 375px (3 phones) before porting. PR #1021.

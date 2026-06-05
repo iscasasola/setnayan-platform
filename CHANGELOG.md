@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(budget): seed PH-sourced benchmark prices for the Budget Planner
+
+**Context:** Owner — *"apply this to our website."* Seeds the per-leaf benchmark prices the Budget Planner (#1000) shows couples as their starting allocation. Sourced from storia.ph (PH 2026 per-category ₱ ranges) + eventnest.ph (PH % shape), mid-range ~150-pax Metro Manila; owner-confirmed (**NOT invented**). The admin can override any line in `/admin/budget-planner`.
+
+**What changed:** Migration `20260829000000_seed_budget_benchmarks.sql` (**applied to prod**) — UPDATEs `budget_leaf_benchmarks` for **14 leaves** (reception_venue ₱100k · catering ₱450k · photography ₱90k · florals_decor ₱70k · coordinator ₱50k · live_band ₱45k · music_entertainment / attire / rings ₱40k · host_mc ₱25k · hair_makeup / officiant ₱15k · lights_sound ₱14k · invitations ₱12k) with floor / p25 / p75 bands. The other 12 leaves stay NULL (sources don't price them; owner to seed). Data-only; no schema change; exact-PK UPDATEs against the `20260826` seed rows.
+
+**SPEC IMPACT:** None on schema. The couple planner now shows real PH guidance instead of "not enough data." ⚠ Pax-driven leaves (catering / venue / florals) assume ~150 pax until pax-axis normalization lands. Benchmarks are GUIDE-ONLY — they do not affect vendor search/matching.
+
 ## 2026-06-05 · feat(monogram): standalone couple Monogram Maker (`/dashboard/[eventId]/monogram`)
 
 **Context:** Couples had no returnable home to craft their wedding monogram — it was set once in onboarding + an inline wizard card. This adds the dedicated Monogram Maker "place" (`Monogram_Maker_Plan_2026-06-05.md`).

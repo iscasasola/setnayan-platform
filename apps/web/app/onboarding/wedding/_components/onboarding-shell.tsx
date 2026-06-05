@@ -2663,14 +2663,18 @@ export function OnboardingShell({
               const added = state.interestedServices.includes(fk);
               return (
                 <div className="svc-detail">
-                  <div className="svc-poster" style={{ backgroundImage: `url('${BUNDLE_ASSET(fk)}')` }} />
+                  <div className="svc-poster" style={{ backgroundImage: `url('${BUNDLE_ASSET(fk)}')` }}>
+                    <button type="button" className={`svc-heart${added ? ' on' : ''}`} aria-pressed={added} aria-label={added ? 'Saved to your wedding' : 'Save to your wedding'} onClick={() => toggleInterested(fk)}>
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill={added ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 21s-7.5-4.6-10-9.3C.6 8.7 2 5.5 5 5.5c1.9 0 3.2 1.1 4 2.3.8-1.2 2.1-2.3 4-2.3 3 0 4.4 3.2 3 6.2C19.5 16.4 12 21 12 21z" /></svg>
+                    </button>
+                  </div>
                   <div className="svc-dpad">
                     <div className="svc-dnm">{BUNDLE_ITEMS[fk] ?? fk}</div>
                     <div className="svc-ddesc">{BUNDLE_BENEFIT[fk] ?? ''}</div>
                     <div className="svc-dprice"><span className="svc-dset">{pesoB(p.set)}</span><span className="svc-dwas">{pesoB(p.out)}</span></div>
                     {save > 0 && <div className="svc-dsave">You save {pesoB(save)} vs {INAPP_VS[fk] ?? 'hiring it elsewhere'}</div>}
                     <button type="button" className={`svc-add${added ? ' added' : ''}`} onClick={() => toggleInterested(fk)}>
-                      {added ? '✓ Added to your wedding' : '+ Add to my wedding'}
+                      {added ? '♥ Saved to your wedding' : '♡ Save to my wedding'}
                     </button>
                   </div>
                 </div>
@@ -2683,7 +2687,7 @@ export function OnboardingShell({
                 const added = state.interestedServices.includes(k);
                 return (
                   <button type="button" key={k} className={`svc-chip${on ? ' on' : ''}`} onClick={() => setFocusedService(k)}>
-                    <div className="svc-chip-p" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }}>{added && <span className="svc-chip-chk">✓</span>}</div>
+                    <div className="svc-chip-p" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }}>{added && <span className="svc-chip-chk" aria-label="Saved">♥</span>}</div>
                     <div className="svc-chip-i"><div className="svc-chip-n">{BUNDLE_ITEMS[k] ?? k}</div><div className="svc-chip-pr">{pesoB(pp.set)}</div></div>
                   </button>
                 );

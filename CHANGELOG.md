@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): heart (save) button on the in-app services carousel
+
+**Context:** On the "Your Plan" upsell, owner wanted each in-app-service poster to carry a heart/save button alongside what-it-does · benefits · outside price · Setnayan price. The "Boost & enhance" carousel (screen 15) already showed all of those — poster, benefit, **struck-through outside price (`SVC.out`) + Setnayan price (`SVC.set`)**, and "save ₱X vs hiring [X]". The only missing affordance was the heart.
+
+**What changed** (`app/onboarding/wedding/`):
+- `_components/onboarding-shell.tsx` — the detail poster gains a **heart-toggle overlay** (top-right); the CTA reworded `+ Add`/`✓ Added` → **`♡ Save`/`♥ Saved`**; the carousel chip's `✓` → `♥`. All three bind the **same** `interestedServices` state (one save mechanic, which already drives the screen-16 summary + Purchase Now).
+- `_styles/onboarding.css` — `.svc-heart` (poster overlay; mulberry when on) + `.svc-poster{position:relative}`.
+
+**Verify:** `tsc --noEmit` clean; `next lint` clean for the files. No new state, no migration.
+
+**SPEC IMPACT:** None — adds a heart affordance to an existing, already-spec'd services carousel; the "saved" signal feeds the existing interested-services capture. Logged in corpus `DECISION_LOG.md`. (NB: owner's screenshot showed the old screen-14 *Classic Bundle* — a deploy lag; the à-la-carte carousel is the current upsell on `main`.)
+
 ## 2026-06-05 · feat(onboarding): surface the "reach my best matches" inquiry opt-in on the congrats screen
 
 **Context:** On the congrats screen ("You did the hard part"), owner wanted "Keep using Setnayan AI to help finish your wedding" + the "how many inquiries (1–5)" question right there. That control already existed one screen later (Your Plan, step 14): a `sendTopInquiries` toggle + a 1–5 `inquiriesPerCategory` stepper (default 3) that auto-inquires the best-fit vendors per category at the terminal commit. Owner picked **"also surface it on congrats"** (over reframe-in-place / leave-as-is).

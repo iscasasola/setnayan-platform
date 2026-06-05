@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0021): Wedding Roadmap — free "things to complete" on Home (manual, no automation)
+
+**Context:** Owner — *"roadmap or things to complete we keep, but the automation of today's focus is what we do not need anymore."* After removing the paid Today's Focus, the couple keeps a simple, free roadmap of the wedding decisions — **minus the automation** (no AI, no data-detection of "done"). Manual check-off only.
+
+**What changed:**
+- **Migration `20260830000000`** — `events.roadmap_completed TEXT[]` (the item keys the couple has marked done). **Applied to prod**; additive · default `'{}'`.
+- **`lib/wedding-roadmap.ts`** — the ordered task list (11 items across the 12+ / 9–12 / 6–9 / 4–6 / 2–4 month bands) + `monthsUntil(earliest)` (plain date math) + `resolveRoadmap(months, completed)` → the open items. **No data-facts / no auto-detection** — only date math + the completed array.
+- **`_components/wedding-roadmap-async.tsx`** — self-fetching Home block that reads ONLY the event's date + `roadmap_completed`: a "**Things to complete**" list, timed by months-to-earliest-date, each item with a manual **Done** button (server-action `<form>`, no client JS, no links). "X/N done" + an on-track empty state.
+- **`toggleRoadmapItem`** action — adds/removes the item key in `roadmap_completed` (manual check-off; validates against the key set).
+- **Home** — replaces the single "Up next" hero (`TodaysOneThing`) with the roadmap; **hidden in Manual mode** like the rest of the assist. Removed the now-unused `pickTodaysOneThing` / `todaysTask` / `weddingDateMissing` (kept `countUnlockedCategories` for the countdown bar).
+
+**Verify:** `tsc --noEmit` + `next lint` green. Migration applied to prod.
+
+**SPEC IMPACT:** New 0021 free "Things to complete" roadmap — manual check-off, **no automation** (replaces the retired Today's Focus automation). Recorded in corpus `DECISION_LOG`.
+
 ## 2026-06-05 · fix(onboarding): monogram screen — reveal only when both initials in · drop "X / N" counter · trim to 3 designs
 
 **Context:** Owner, testing the live "The two of you" name screen (step 5) — *"Shows a monogram with no values. we only want to show a monogram live if we already have both letters. Remove the number 2/5 on the Generate another design. Remove design #2 and #4, we will make more later — keep 1, 3, 5."* The MonoLockup rendered a `· & ·` placeholder before any names were typed, the "Generate another design" control carried a `2 / 5` index counter, and the design library shipped 5 lockups.

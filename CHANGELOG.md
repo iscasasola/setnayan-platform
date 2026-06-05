@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding/0037): monogram Trace animation now loops on the name screen
+
+**Context:** Owner — *"can we make the animation of monogram loop."* The free monogram **Trace** self-draw (PR #971) played once on arrival/remount; the owner wants it to keep replaying while the name screen is shown.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- A `step === 4`-gated interval bumps a `monoReplay` tick every ~4.5s and weaves it into the `MonoLockup` key (`design:replay`), remounting the lockup so the tuned one-shot Trace replays — a clean **draw → hold (~2.6s) → redraw** loop that preserves the existing staggered choreography (letters → ∞/divider → filigree sweep → names). Cleared on leaving the screen; **skipped under `prefers-reduced-motion`** (those users keep the static filled mark). No CSS/keyframe changes.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding` clean. Isolated worktree off origin/main.
+
+**SPEC IMPACT:** 0037 Animated Monogram — the free Trace animation now **loops** on the onboarding name screen (draw → hold → redraw), reduced-motion-gated. Minor refinement of the PR #971 Trace feature; reflected directly in the corpus per the direct-edit authorization.
+
 ## 2026-06-05 · feat(0022): vendor Branches — Enterprise sub-location accounts (apply-then-pay)
 
 **Context:** Owner — *"vendors can have multiple accounts depending on their plans."* The last item of the multi-user vendor workspace. Owner picked: **build now · ₱1,000 / 28 days · Enterprise-only** (resolving the live-site price/gate contradiction). The `vendor_branches` table existed with correct RLS but had zero app code.

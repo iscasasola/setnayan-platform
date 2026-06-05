@@ -10,13 +10,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **What changed** (`app/onboarding/wedding/`):
 - New asset `public/onboarding/wed_none.webp` (760×950, matches the faith-hero frame) — a couple silhouetted indoors looking out a wall of windows, each pane framing one of the 8 ceremony venues at sunset (Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish).
-- `onboarding-shell.tsx`: the no-selection faith default `{ img: '', cap: 'Pick your tradition' }` → `{ img: 'wed_none', cap: 'Pick your tradition' }`. Per-faith `FAITH_PHOTO` heroes (when a tradition IS selected) are unchanged; `HeroImg` already keys on `src` so the swap is clean.
+- `onboarding-shell.tsx`: the no-selection faith default `{ img: '', cap: 'Pick your tradition' }` -> `{ img: 'wed_none', cap: 'Pick your tradition' }`. Per-faith `FAITH_PHOTO` heroes are unchanged; `HeroImg` already keys on `src`.
 
-**Verify:** Single type-safe field change (matches the inline `{ img, cap }` shape) + a static asset; tsc/lint/build via CI + Vercel preview.
+**Verify:** Single type-safe field change + a static asset; tsc/lint/build via CI + Vercel preview.
 
-**SPEC IMPACT:** None new — aligns the app with the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` + `assets/wed_none.webp`, already documented in the spec `DECISION_LOG.md` (2026-06-05 window-panes row).
+**SPEC IMPACT:** None new — aligns the app with the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` + `assets/wed_none.webp` (already in the spec `DECISION_LOG.md`).
 
 ---
+
+## 2026-06-05 · fix(onboarding): require faith/date/pax/budget (remove Skip) + picker cards fill with the photo
+
+**Context:** Owner feedback on the live flow: (1) remove **Skip** from *Your Ceremony Tradition · When's the Big Day · How many guests · Your Working Budget* — these drive matching and shouldn't be bypassable; (2) on **"What would you love?"** the picker photo-cards should have the photo fill the whole card; (3) a reported count bug — *"select adds one on the parent category, but deselect won't go back to 0."*
+
+**What changed** (`app/onboarding/wedding/`):
+- **Skip removed from 4 screens** (`onboarding-shell.tsx`) — `CAN_SKIP` indices 3 (faith) · 5 (date) · 7 (pax) · 8 (budget) flipped to `false`. Only "Set the mood" (prefs) + find-vendors stay skippable (they sort, never gate). `canContinue` already requires an answer for each of the four (faith ≥1 / a date / pax / budget band), so removing Skip makes them required with **no dead-end** — Continue lights up once answered.
+- **Picker cards = full-bleed photo** (`onboarding.css`) — `.svccard` given a fixed 140px height; `.svcph` → `position:absolute;inset:0` (photo fills the card instead of a 90px top strip); `.svclb` → absolute bottom label over a dark gradient scrim with white text (matches the `paxphoto`/`budgetcap` photo-card pattern); check badge gets `z-index:2`. Verified on the dev server (mobile 375): photo fills 116×138 inside the 1px border, label legible.
+- **Count "deselect → 0" bug: investigated, code is correct — no change.** Reproduced on the running app: select → badge `1`, picks `["reception"]`; deselect → badge `0` (hidden), picks `[]`. The badge is a pure render-time derivation (`group.filter(c => picks.includes(c.cat)).length`) and `pickChip` toggles with a functional `setState` (race-proof), so the count always equals the selected-card count. Could not reproduce a stuck count. Likely a stale cache, or deselecting one of *several* selected in a category (count drops by 1, not to 0). Asked the owner to confirm specifics.
+
+**Verify:** `tsc --noEmit` green. Dev-server QA on step 9 (picker) + the 4 gated screens. No migration.
+
+**SPEC IMPACT:** Skip-ability of faith/date/pax/budget + the picker card visual. The corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` is the design source; a `DECISION_LOG.md` row is landing directly in the corpus. The prototype's picker is already an older layout (flagged stale alongside the monogram divergence) — reconciliation is a separate task.
 
 ## 2026-06-05 · feat(onboarding): Your Plan v2 — à-la-carte in-app services (bundle retired) + 1–5 inquiry stepper
 

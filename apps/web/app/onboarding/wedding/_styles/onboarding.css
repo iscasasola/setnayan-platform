@@ -471,14 +471,14 @@
 .onbw .pickcatlbl.has .ct{opacity:1;}
 .onbw .pickcatlbl .rule{flex:1;height:1px;background:var(--line);}
 .onbw .rail.pickrail{gap:11px;padding:2px 0 5px;}
-.onbw .svccard{scroll-snap-align:start;flex:0 0 auto;width:118px;background:var(--surface);border:1px solid var(--line-2);border-radius:15px;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative;padding:0;text-align:left;font-family:inherit;-webkit-appearance:none;appearance:none;}
+.onbw .svccard{scroll-snap-align:start;flex:0 0 auto;width:118px;height:140px;background:var(--gold-wash);border:1px solid var(--line-2);border-radius:15px;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative;padding:0;text-align:left;font-family:inherit;-webkit-appearance:none;appearance:none;}
 .onbw .svccard:active{transform:scale(.97);}
-.onbw .svccard .svcph{display:block;width:100%;height:90px;background:var(--gold-wash) center/cover no-repeat;}
-.onbw .svccard .svclb{display:block;padding:8px 10px 10px;font:600 12.5px/1.25 'Manrope',sans-serif;color:var(--ink);min-height:42px;}
-.onbw .svccard .svcck{position:absolute;top:7px;right:7px;width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.78);border:1.5px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:800;transition:.15s;}
+.onbw .svccard .svcph{position:absolute;inset:0;width:100%;height:100%;background:var(--gold-wash) center/cover no-repeat;}
+.onbw .svccard .svclb{position:absolute;left:0;right:0;bottom:0;padding:24px 10px 9px;font:600 12px/1.2 'Manrope',sans-serif;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.55);background:linear-gradient(to top,rgba(18,16,22,.88) 0%,rgba(18,16,22,.42) 55%,transparent 100%);}
+.onbw .svccard .svcck{position:absolute;top:7px;right:7px;width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.78);border:1.5px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:800;transition:.15s;z-index:2;}
 .onbw .svccard.sel{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold),0 8px 20px rgba(197,160,89,.22);}
 .onbw .svccard.sel .svcck{background:var(--gold);border-color:var(--gold);color:#fff;}
-.onbw .svccard.sel .svclb{color:var(--gold-deep);}
+.onbw .svccard.sel .svclb{color:#fff;}
 /* ── Song Bank — results-on-top, search pinned at the BOTTOM (Onboarding_Style_and_Song_Bank §5; mirrors the location screen) ── */
 .onbw .prefstep[data-dim="music"] .viewzone{flex:0 0 auto;}
 .onbw .prefstep[data-dim="music"] .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}

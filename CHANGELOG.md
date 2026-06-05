@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-06 · feat(0016): onboarding "Purchase Now" jumps to the in-app checkout card
+
+**Context:** Owner — tapping **Purchase Now** on the picks summary (step 16) should land on a payment card, not the generic Services tab. The owner first named the **VendorDirectPay** card; a prod query ruled it out — all **225 `is_setnayan_service` vendors have ZERO payment methods**, so that card would render empty ("coordinate in chat"). The platform BDO/GCash config the **in-app checkout card** (`InlineCheckoutDrawer`) uses works today, so the owner chose that.
+
+**What changed (`app/onboarding/wedding/_components/onboarding-shell.tsx`):**
+- New `INAPP_TO_ADDON_SLUG` map — the **5 picked services with a built checkout page** (`papic_seats→papic` · `animated_monogram→animated-monogram` · `panood→panood` · `custom_qr→custom-qr-guest` · `indoor_blueprint→indoor-blueprint`).
+- `goToDashboard` (the Purchase-Now path) now routes to `/dashboard/[eventId]/add-ons/[slug]` — the `InlineCheckoutDrawer` payment card (BDO/GCash QR + reference + 0034 order/reconciliation) — for the **first** picked service that has one. The couple pays there; the rest stay payable on the Services tab. Falls back to the Services tab when no pick is mappable; continue-free still lands on Home. Prefetches the checkout route.
+
+**Verify:** static review; TS-safe (`paySlug` narrows to string in the route branch · `find(Boolean)`); all 5 slugs map to existing add-on checkout dirs. Local Next preview N/A (app onboarding needs auth + 16 steps) — typecheck+lint+build+**Vercel preview = proof**. No migration.
+
+**SPEC IMPACT:** 0016 — Purchase Now lands on the in-app BDO/GCash checkout card for the picks (was the Services tab). Prototype + Blueprint §3.2 row 16 → corpus `DECISION_LOG.md` (2026-06-06). **Follow-up:** the 9 in-app services WITHOUT a built checkout page (advanced_website · sde · pakanta · live_background · pabati · guest_stories · thank_you · live_photowall) fall back to the Services tab; building their checkout pages would let Purchase Now land directly for those too.
+
 ## 2026-06-05 · refactor(0016): onboarding Your Plan inquiry stepper (no toggle · match-gated) + Boost/Picks fit-to-screen
 
 **Context:** Owner punch-list on the onboarding end screens. **Reach my best matches (14):** "no toggle — input the number right away (min 1, max 5); if there's no AI match support, the card won't show." **Boost & enhance (15):** "snap [the carousel] to the bottom and stretch the big photo." **Your picks (16 · last page):** "make the last page fit so all products are framed and scrollable in between," and "drop 'You save ₱… vs hiring elsewhere' — just show the grand total saved."

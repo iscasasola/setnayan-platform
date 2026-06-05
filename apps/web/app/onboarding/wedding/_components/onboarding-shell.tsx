@@ -1106,6 +1106,16 @@ const groupDigits = (raw: string) => {
    as the retired bundle): production should read live price + build status from the v2 customer
    catalog (lib/v2-catalog.ts); SVC here is the demo stand-in. */
 const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'indoor_blueprint', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
+// Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
+// reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
+// first picked one of these, else falls back to the Services tab (owner 2026-06-06).
+const INAPP_TO_ADDON_SLUG: Record<string, string> = {
+  papic_seats: 'papic',
+  animated_monogram: 'animated-monogram',
+  panood: 'panood',
+  custom_qr: 'custom-qr-guest',
+  indoor_blueprint: 'indoor-blueprint',
+};
 const INAPP_VS: Record<string, string> = {
   papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', sde: 'a same-day-edit crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
@@ -2038,15 +2048,25 @@ export function OnboardingShell({
     // More once they land (owner 2026-06-02).
     const goToDashboard = (eventId: string, toServices = false) => {
       const base = `/dashboard/${eventId}`;
-      // Purchase Now lands on the Services tab to complete payment per service (0034 apply-then-pay);
-      // continue-free lands on Home.
-      const dest = toServices ? `${base}/vendors` : base;
+      // Purchase Now jumps straight to the in-app checkout card (InlineCheckoutDrawer · BDO/GCash QR
+      // + reference) for the FIRST picked service that has a built checkout page (owner 2026-06-06)
+      // — the couple pays there; the rest stay payable on the Services tab. Falls back to the
+      // Services tab when no pick is mappable; continue-free lands on Home.
+      const paySlug = toServices
+        ? state.interestedServices.map((k) => INAPP_TO_ADDON_SLUG[k]).find(Boolean)
+        : undefined;
+      const dest = paySlug
+        ? `${base}/add-ons/${paySlug}`
+        : toServices
+          ? `${base}/vendors`
+          : base;
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
         router.prefetch(`${base}/vendors`); // Services
         router.prefetch(`${base}/website`); // Website
         router.prefetch(`${base}/more`); // More
+        if (paySlug) router.prefetch(dest); // the checkout card we're landing on
       } catch {
         /* prefetch is best-effort */
       }

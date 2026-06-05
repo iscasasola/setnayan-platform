@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): surface the "reach my best matches" inquiry opt-in on the congrats screen
+
+**Context:** On the congrats screen ("You did the hard part"), owner wanted "Keep using Setnayan AI to help finish your wedding" + the "how many inquiries (1–5)" question right there. That control already existed one screen later (Your Plan, step 14): a `sendTopInquiries` toggle + a 1–5 `inquiriesPerCategory` stepper (default 3) that auto-inquires the best-fit vendors per category at the terminal commit. Owner picked **"also surface it on congrats"** (over reframe-in-place / leave-as-is).
+
+**What changed** (`app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- Congrats screen (step 13) gains a second instance of the inquiry opt-in — **"Keep Setnayan AI helping finish your wedding"** toggle + the 1–5 **"inquiries per category"** stepper — reusing the existing `.optcard` / `.opt-*` markup and binding the **same** `state.sendTopInquiries` / `state.inquiriesPerCategory`. No new state, no new CSS.
+- Safe by construction: the inquiry fan-out commits **once** at the terminal step (16), so editing the shared state on screen 13 *or* 14 never double-sends. Stays **opt-in** (`sendTopInquiries` default `false`).
+
+**Verify:** `tsc --noEmit` clean; `next lint` clean for the file (only pre-existing warnings elsewhere). No migration.
+
+**SPEC IMPACT:** None — presentation of an already-spec'd control. Owner choice logged in corpus `DECISION_LOG.md` (2026-06-05) for traceability. ("Setnayan AI help" here = the free matching+inquiry engine; the paid Today's Focus/Concierge assistant stays retired.)
+
 ## 2026-06-05 · feat(onboarding): every Style-step selector is a swipeable carousel
 
 **Context:** Owner on the Style sub-stepper: *"make these carousel style. we will not have buttons anymore … the whole onboarding should familiarize the users that we do carousel for our app,"* clarified as *"like the one on service style — they are buttons but we will make them all carousels."* So: keep **Continue**, but every selectable **grid** (Reception, Ceremony) and **chip row** (Service style, dietary, photo-need, coverage) becomes a horizontal swipeable carousel — Catering & Photo/Video cuisine/look strips were already carousels. One consistent swipe idiom across onboarding.

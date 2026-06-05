@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(budget): median-anchored allocation engine + behavioral capture table (foundation)
+
+**Context:** Owner design session (2026-06-05) — a top-down budget *allocation* layer to sit atop the existing *tracking* ledger (`lib/budget.ts`): recommend a ₱ target + shopping range per service *before* the couple picks anyone, derived from the median of solo vendor prices, proportioned across the chosen services and scaled to budget — a **guide, never a rule**. Full design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`. This PR ships the pure engine + the Layer-1 capture table only (no UI yet).
+
+**What changed** (`apps/web/`, `supabase/`):
+- **`apps/web/lib/budget-allocation.ts`** (new) — pure `computeBudgetAllocation()` (mirrors `lib/compat-score.ts`): median→proportion→₱ spine; **fixed-then-proportion** (known Setnayan SKUs carve off the top); **cushion / slack-first** absorption (surplus parks as a visible cushion; a pin drains cushion → then proportional drain of unpinned leaves — emergent from the slack-vs-tight branch, no ordering loop); **soft-floor** warn-don't-block + feasibility shortfall; **p25–p75 band**; thin-data → admin-benchmark fallback + per-leaf confidence. `surplusMode` config toggles `'park'` (default, the endorsed cushion model) vs `'distribute'` (naive 1-leaf = 100%). Weights/knobs = one admin-tunable constant; **no prices invented** (all caller-supplied or a proportion of the couple's own budget).
+- **`supabase/migrations/20260824000000_budget_allocation_decisions.sql`** (new) — Layer-1 behavioral capture (operational/identified): per-leaf default-vs-final + pin-order + auto-reduced + segment tags. **RLS at CREATE · couple-own-only · admins INTENTIONALLY get no blanket read** (privacy-by-design — gated service-role export only); RA 10173 erasable (event cascade + couple delete); snapshots immutable (no UPDATE policy). De-identified Layer-2 + cron-free rollup = follow-on.
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on the engine · throwaway runtime harness **20/20** (the owner's worked example reproduces exactly: cushion 150k → pin 450 leaves others untouched → pin 550 drains 270/108/27/45; fixed carve-out; soft-floor-warn-not-clamp; over-budget; input-sensitivity). The engine is unimported (additive) so the production build is unaffected; CI covers `next build`.
+
+**⚠ Migration NOT applied to prod.** `supabase db push` is unsafe here — it would co-apply the owner's pending `20260817_event_monogram_style` (theirs to deploy), and the version originally collided with a remote-only `20260823` (the vendor_self_comp_caps RLS migration; renamed mine → `20260824` to fix). Nothing consumes the table yet, so it ships ahead of application; apply deliberately (monogram-isolation) when the planner UI lands.
+
+**SPEC IMPACT:** NEW capability — design landed in corpus `Budget_Planner_Allocation_Engine_2026-06-05.md` + `DECISION_LOG.md` (2026-06-05). Folds into 0007 (planner) / 0025 (privacy) / 0023 (admin) — applied directly to the corpus this session (Cowork direct-edit authorization).
+
 ## 2026-06-05 · fix(0022): vendor_self_comp_caps RLS — vendor reads its own comp cap
 
 **Context:** Owner follow-up to the "RLS-enabled-but-no-policy" flag. Investigation: of the 4 flagged objects, **3 are VIEWS** (`vendor_active_ads`, `vendor_active_tools`, `vendor_market_stats`) — views can't carry RLS, so their no-policy state is correct-by-design, not a gap. Only **`vendor_self_comp_caps`** is a real table with RLS enabled + zero policies, so only `service_role` could read it. The vendor self-comp quota reader (`lib/self-purchase.ts:fetchSelfCompQuota`) runs under the vendor's authed client, so an admin-raised cap was invisible (the read returned nothing → the code fell back to the default cap of 12). No data was wrong, but a raised cap never took effect.

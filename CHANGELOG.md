@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(onboarding): new role-screen photo (bride · groom · maid of honor)
+
+**Context:** Owner — *"change the photo here. we want a photo of a bride (left), groom (center) and the maid of honor (right) chatting and laughing."* The "Who are you in this wedding?" role screen (step 1) hero (`ASSET('role')`).
+
+**What changed:** Replaced `apps/web/public/onboarding/role.webp` with a new image matching the brief — bride on the left (white lace gown + bouquet), groom centre (cream barong tagalog), maid of honor on the right, all chatting and laughing at a warm heritage venue. Generated via Recraft (`realistic_image` · `natural_light`), downscaled to 1280×720 lossy WebP (68 KB) to keep the original's 16:9 footprint and a lean payload. Caption ("You and your people.") and all code unchanged.
+
+**SPEC IMPACT:** None — asset swap only.
+
+---
+
 ## 2026-06-05 · feat(onboarding/0016): iTunes song preview in the music step — album cover = play button
 
 **Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.

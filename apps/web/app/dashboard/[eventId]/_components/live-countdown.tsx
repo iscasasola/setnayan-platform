@@ -3,50 +3,28 @@
 import { useEffect, useState } from 'react';
 
 /**
- * LiveCountdown — the ticking days · hours · minutes · seconds timer inside the
- * couple Home countdown header (owner 2026-06-04). Client component so it
- * updates every second.
+ * LiveCountdown — the big days-to-go hero inside the couple Home countdown
+ * header (owner-approved couple-app-flow prototype 2026-06-04; ported to the
+ * app 2026-06-05). A single dominant day count is the emotional anchor of the
+ * Home cockpit — calmer and more legible than a per-second ticker.
  *
  * The server header (`event-countdown-header.tsx`) owns the date resolution and
  * passes the resolved `targetMs` (PH-midnight of the event date, ms since
  * epoch) + the server clock `serverNowMs`. The initial state is computed from
  * `serverNowMs` so the first client render matches the server HTML (no
- * hydration mismatch); the effect then re-computes from the live clock and
- * ticks once per second.
+ * hydration mismatch); the day count only flips at PH-local midnight, so the
+ * client re-checks once a minute rather than once a second.
  */
 
-type Parts = {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-  done: boolean;
-  /** Within the 24h after the target — the event day itself. */
-  isEventDay: boolean;
-};
-
-function compute(targetMs: number, nowMs: number): Parts {
-  let secs = Math.floor((targetMs - nowMs) / 1000);
-  if (secs <= 0) {
-    return {
-      days: 0,
-      hours: 0,
-      minutes: 0,
-      seconds: 0,
-      done: true,
-      isEventDay: nowMs < targetMs + 86_400_000,
-    };
-  }
-  const days = Math.floor(secs / 86_400);
-  secs -= days * 86_400;
-  const hours = Math.floor(secs / 3_600);
-  secs -= hours * 3_600;
-  const minutes = Math.floor(secs / 60);
-  const seconds = secs - minutes * 60;
-  return { days, hours, minutes, seconds, done: false, isEventDay: false };
-}
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
+// Asia/Manila has no DST → a fixed +08:00. "Days to go" is a PH-calendar-day
+// difference: which PH calendar day the target falls on, minus which PH
+// calendar day we're on now. This avoids the "0 days the night before"
+// artifact a raw millisecond floor would produce.
+const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
+const MS_PER_DAY = 86_400_000;
+const phDayIndex = (ms: number) => Math.floor((ms + PH_OFFSET_MS) / MS_PER_DAY);
+const daysToGo = (targetMs: number, nowMs: number) =>
+  phDayIndex(targetMs) - phDayIndex(nowMs);
 
 export function LiveCountdown({
   targetMs,
@@ -55,42 +33,32 @@ export function LiveCountdown({
   targetMs: number;
   serverNowMs: number;
 }) {
-  const [parts, setParts] = useState<Parts>(() => compute(targetMs, serverNowMs));
+  const [days, setDays] = useState<number>(() => daysToGo(targetMs, serverNowMs));
 
   useEffect(() => {
-    const tick = () => setParts(compute(targetMs, Date.now()));
+    const tick = () => setDays(daysToGo(targetMs, Date.now()));
     tick();
-    const id = setInterval(tick, 1_000);
+    const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, [targetMs]);
 
-  if (parts.done) {
+  // Event day (0) or past (<0) — the number gives way to a milestone word.
+  if (days <= 0) {
     return (
-      <p className="font-display text-4xl leading-none text-mulberry">
-        {parts.isEventDay ? 'Today' : 'Just married'}
+      <p className="font-display text-6xl leading-none text-mulberry sm:text-7xl">
+        {days === 0 ? 'Today' : 'Just married'}
       </p>
     );
   }
 
-  const segments: Array<{ value: string; label: string }> = [
-    { value: String(parts.days), label: 'days' },
-    { value: pad2(parts.hours), label: 'hrs' },
-    { value: pad2(parts.minutes), label: 'min' },
-    { value: pad2(parts.seconds), label: 'sec' },
-  ];
-
   return (
-    <div className="flex items-start gap-3 sm:gap-4">
-      {segments.map((seg) => (
-        <div key={seg.label} className="flex min-w-[2ch] flex-col items-center">
-          <span className="font-display text-3xl leading-none text-mulberry tabular-nums sm:text-4xl">
-            {seg.value}
-          </span>
-          <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/55">
-            {seg.label}
-          </span>
-        </div>
-      ))}
+    <div className="flex flex-col items-center">
+      <span className="font-display text-8xl leading-[0.84] tracking-tight text-mulberry tabular-nums sm:text-9xl">
+        {days}
+      </span>
+      <span className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+        {days === 1 ? 'day to go' : 'days to go'}
+      </span>
     </div>
   );
 }

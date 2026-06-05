@@ -14,9 +14,34 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - `_components/add-payment-method.tsx` — the destination field is now an optional fallback ("we read your QR automatically").
 - Added `sharp@^0.34.5` (already the version Next uses for image optimization) as a direct dep + `serverExternalPackages: ['sharp']` so the native module is traced into the `output: 'standalone'` build, not webpack-bundled.
 
-**Verification:** `tsc` 0 · `next lint` 0 · proven end-to-end on the dev machine (generated a QR, decoded it through the exact `sharp → jsQR` pipeline, round-tripped the payload `gcash:09171234567`). Full build + Lighthouse in CI. Isolated worktree off origin/main (#1018).
+**Verification:** `tsc` 0 · `next lint` 0 · proven end-to-end on the dev machine (generated a QR, decoded it through the exact `sharp → jsQR` pipeline, round-tripped the payload `gcash:09171234567`). Full build + Lighthouse in CI. Isolated worktree off origin/main.
 
 **SPEC IMPACT:** Updates the 0034 "Vendor Payment Options" section — QR destination is now **server-decoded**, not vendor-declared (supersedes that V1 note). Landed direct in corpus + DECISION_LOG (per the standing direct-edit authorization).
+
+## 2026-06-05 · feat(home): couple Home countdown — centered days-to-go hero (prototype → app)
+
+**Context:** Owner, after approving the centered, dominating day-count in the couple-app-flow prototype (`Setnayan_Couple_App_Flow_Prototype_2026-06-04.html`) — *"push build and merge your concept. i will check on the app itself."* The shipped Home countdown rendered a small, left-aligned days · hrs · min · sec ticker; the approved prototype leads with a single big centered "N days to go" as the Home cockpit's emotional anchor.
+
+**What changed** (`app/dashboard/[eventId]/_components/`):
+- **`live-countdown.tsx` rebuilt as a days-only hero** — replaced the 4-segment (days/hrs/min/sec) per-second ticker with one dominant centered day count (`text-8xl` → `sm:text-9xl`, mulberry serif) over a `days to go` mono caption. The count is a PH-calendar-day difference (Asia/Manila fixed +08:00) so it never reads "0 days" the night before; the client re-checks once a minute (the count only flips at PH midnight) instead of once a second. The `Today` (event day) / `Just married` (past) milestone states are preserved.
+- **`event-countdown-header.tsx` centered** — the card is now `text-center` and the date + venue line moved beneath the big number, matching the prototype stack: eyebrow → names → count → date·venue → vendors-locked bar. Date label bumped to `font-medium text-ink/80`.
+
+**Verify:** `tsc --noEmit` clean + `next lint` green (only pre-existing, unrelated warnings); production build runs in CI. No migration (pure presentation + a client-side day-diff tweak). Runtime QA on the app (couple Home — needs an event with a date).
+
+**SPEC IMPACT:** None — aligns the shipped app to the already-approved couple-app-flow prototype (2026-06-04). Iteration 0021 (couple dashboard) describes the countdown header generically; no schema/pricing/scope change.
+
+## 2026-06-05 · fix(onboarding): monogram screen — reveal only when both initials in · drop "X / N" counter · trim to 3 designs
+
+**Context:** Owner, testing the live "The two of you" name screen (step 5) — *"Shows a monogram with no values. we only want to show a monogram live if we already have both letters. Remove the number 2/5 on the Generate another design. Remove design #2 and #4, we will make more later — keep 1, 3, 5."* The MonoLockup rendered a `· & ·` placeholder before any names were typed, the "Generate another design" control carried a `2 / 5` index counter, and the design library shipped 5 lockups.
+
+**What changed** (`app/onboarding/wedding/`):
+- **Gate the live monogram on both initials** (`onboarding-shell.tsx`) — new `monoReady` (both bride + groom first-name initials present). `<MonoLockup>` renders only when `monoReady`; until then a quiet `.mono-empty` hint ("Your monogram appears here") holds the figure's space (new scoped CSS, sized to the lockup so there's no layout jump on reveal). No more `· & ·` mark with no values.
+- **Removed the `mono-count` "X / N" counter** beside the "Generate another design" button (markup + the now-dead `.mono-count` CSS rule). The button itself is unchanged.
+- **Trimmed `MONO_DESIGNS` 5 → 3** — kept #1 `bar`, #3 `duo`, #5 `infinity`; dropped #2 `script` + #4 `framed` ("more to come"). `MonoLockup` still implements all five styles (the `script`/`framed` branches are retained for the future set); only the cycled list shrank. Existing index guards (`?? MONO_DESIGNS[0]`, `% length`) already handle any persisted out-of-range `monogramDesign`.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing, unrelated warnings). No migration. Visual QA on the PR's Vercel preview (onboarding step 5 — anonymous-reachable, before the account gate).
+
+**SPEC IMPACT:** The app's onboarding monogram (5-lockup "Generate another design", added 2026-06-04) is **app-only** — the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` `#screen-name` still has the older tap-to-cycle / 6-combo mark, so it was already diverged. A `DECISION_LOG.md` row is landing directly in the corpus (authorized direct edit); the prototype's monogram section is flagged stale (a full reconciliation to the app's lockup approach is a separate task). Relates to the open 2026-06-04 monogram items (Trace animation · 0037 · the unapplied `event_monogram_style` migration).
 
 ## 2026-06-05 · feat(onboarding): Your Plan — powerful Freebies value block (relabels + pill fix)
 

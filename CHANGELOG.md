@@ -21,6 +21,34 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** New 0021 "planning mode" (Guided default ⇄ Manual). Reverses the locked "statutory deadlines show to all couples" safety default (owner-accepted, no warning). Lands in corpus `DECISION_LOG` + `0021`.
 
+## 2026-06-05 · feat(onboarding/0016): Song Bank — search-only music step over OUR catalogue + DB-cache
+
+**Context:** Owner — replace the static 100-song picker with the full Song Bank, then two refinements: *"our songlist must not show. we only want the search bar"* (search-only, no browse) and *"it will search for our list"* (search hits OUR curated bank, never iTunes). Builds on the iTunes preview (PR #990). (Most of the build came from a worktree agent; finished + made search-only here.)
+
+**What changed** (`apps/web/`):
+- **Search-only music step** — new `_components/song-bank-step.tsx`: NO browseable catalogue list. The couple **searches our curated `songs` bank** (`searchSongBankAction` → `lib/songs.searchSongBank`, a DB query — **iTunes is never the search**); matches appear with album-cover previews (reusing `SongPreviewList`), tap to preview + pick. The default (no-query) view shows ONLY the couple's own picks. Search pinned at the bottom.
+- **DB-cache (§5.4)** — `lib/songs.ts` + `actions.ts`: the bank reads the new cache columns; `cacheSongItunesAction` UPSERTs a freshly live-resolved preview/artwork so the next user reads it from the DB. `SongPreviewList` seeds covers from the cached row (instant), else live-resolves + persists.
+- **Migration** `20260826000000_songs_itunes_cache_and_390_seed.sql` (APPLIED to prod) — additive: nullable `apple_track_id`/`preview_url`/`artwork_url` on `songs` + a guarded seed growing the curated list 100 → **390**; `ON CONFLICT (normalized_key) DO NOTHING`.
+- `onboarding-shell.tsx` music dim renders `<SongBankStep>`; `onboarding.css` adds `.songbank` styles.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding lib` clean · migration applied (`supabase migration list` shows 20260826000000 remote).
+
+**SPEC IMPACT:** 0016 — the music step is now the **search-only Song Bank** over our curated catalogue (Song Bank §5–6) with iTunes preview/cache wired.
+
+## 2026-06-05 · feat(budget): Budget Planner UI — couple planner + admin tuning/seeding/insights
+
+**Context:** Owner — *"we want couple and admin pages for this."* The full loop on top of the 2026-06-05 allocation engine + capture table (PR #996): the couple-facing planner that turns the pure engine into a real screen, and the admin surface that fuels + governs it. Design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`.
+
+**What changed** (`apps/web/`, `supabase/`):
+- **Migration `20260826000000_budget_planner_config_benchmarks.sql`** (**APPLIED to prod** via monogram-isolation) — `budget_allocation_config` (singleton engine knobs) + `budget_leaf_benchmarks` (the 26 PLAN_GROUPS, seeded with labels + **NULL prices** for the admin to fill — never invented). RLS: admin-all + authenticated-read (non-PII config).
+- **`lib/budget-allocation-data.ts`** (new) — server resolver `resolveAllocationInputs` (event budget/pax + admin benchmarks + config + thin market medians from solo `vendor_services` → engine-ready `LeafInput`s) + `fetchAllocationAggregates` (service-role, **k-anonymity min-N gated, de-identified** — admins never see raw rows).
+- **Couple planner** `app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx` (new) + wired into the budget page. Runs the **pure engine client-side** (instant tilt, no round-trips): per-service suggested ₱ + range + share + confidence chip, cushion / over-budget / shortfall, peso-pin tilt sheet (Splurge / Standard / Save dial + free ₱ + reset-to-suggested), Save → snapshot. Guide-never-rule throughout. `budget/allocation-actions.ts` (new) writes the snapshot (couple-own RLS).
+- **Admin** `app/admin/budget-planner/page.tsx` + `actions.ts` (new) — benchmark seeding table, engine-knob form, de-identified insights (min-N gated, empty until data). Nav entry in the Money group (sidebar + mobile landing + bottom-nav).
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on all new files. Engine logic 20/20 harness (PR #996). Migration applied to prod via monogram-isolation — the owner's pending `20260817` monogram migration left untouched; `20260824` decisions table already on prod.
+
+**SPEC IMPACT:** Builds the 0007 planner surface + the 0023 admin controls specced 2026-06-05. Corpus 0007/0023 + `DECISION_LOG.md` updated this session (Cowork direct-edit).
+
 ## 2026-06-05 · feat(0022): branch-scoped service grouping (Branches V1.x complete)
 
 **Context:** The second half of the Branches V1.x "yes" — assign each service to a branch so a multi-location Enterprise vendor can organize its catalog per site. (Auto-lapse + Renew + ₱999 shipped in #995.)

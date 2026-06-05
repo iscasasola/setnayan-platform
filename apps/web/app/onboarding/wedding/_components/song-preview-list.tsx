@@ -12,9 +12,23 @@ import { lookupItunes, type ItunesResult } from '@/lib/itunes-preview';
  * keyless client-side JSONP lookup; a gold placeholder shows until loaded, and
  * throttled lookups keep the placeholder + retry on the next view. Clicking the
  * row (not the cover) still toggles the pick.
+ *
+ * §5.4 DB cache: a song may arrive with its preview/artwork already cached in our
+ * DB (`previewUrl` + `artworkUrl`). Cached rows render their cover instantly with
+ * NO live iTunes call; only un-cached rows hit the keyless JSONP lookup, and on a
+ * successful live resolve we hand it back via `onCacheSong` so the parent persists
+ * it (so the next user reads the cache). Production trends to near-zero live calls.
  */
 
-type Song = { title: string; artist: string; lbl: string };
+type Song = {
+  title: string;
+  artist: string;
+  lbl: string;
+  /** DB-cached iTunes preview URL (§5.4) — present → no live lookup needed. */
+  previewUrl?: string | null;
+  /** DB-cached iTunes album artwork URL (§5.4). */
+  artworkUrl?: string | null;
+};
 type ArtState = Record<string, ItunesResult | 'loading'>;
 
 const HYDRATE_CONCURRENCY = 4;
@@ -24,18 +38,45 @@ export function SongPreviewList({
   pickedLbls,
   query,
   onToggle,
+  onCacheSong,
 }: {
   songs: Song[];
   pickedLbls: string[];
   query: string;
   onToggle: (lbl: string) => void;
+  /** Persist a freshly live-resolved preview/artwork to the DB cache (§5.4). */
+  onCacheSong?: (s: { title: string; artist: string; result: ItunesResult }) => void;
 }) {
   const picked = useMemo(() => new Set(pickedLbls), [pickedLbls]);
   const n = pickedLbls.length;
   const q = query.trim().toLowerCase();
 
+  // Seed art state from any DB-cached rows so their covers render instantly with
+  // no JSONP. Keyed by lbl; merged in an effect as the song set changes (search).
   const [art, setArt] = useState<ArtState>({});
   const [playing, setPlaying] = useState<string | null>(null);
+
+  useEffect(() => {
+    const seeded: ArtState = {};
+    for (const s of songs) {
+      if (s.previewUrl && s.artworkUrl) {
+        seeded[s.lbl] = { status: 'ok', previewUrl: s.previewUrl, artworkUrl: s.artworkUrl, trackId: 0 };
+      }
+    }
+    if (Object.keys(seeded).length === 0) return;
+    // Don't overwrite a live-resolved entry already in state; only fill gaps.
+    setArt((a) => {
+      let changed = false;
+      const next = { ...a };
+      for (const [lbl, r] of Object.entries(seeded)) {
+        if (!next[lbl]) {
+          next[lbl] = r;
+          changed = true;
+        }
+      }
+      return changed ? next : a;
+    });
+  }, [songs]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -43,6 +84,18 @@ export function SongPreviewList({
   const songMap = useMemo(() => new Map(songs.map((s) => [s.lbl, s])), [songs]);
   const songMapRef = useRef(songMap);
   songMapRef.current = songMap;
+
+  const onCacheRef = useRef(onCacheSong);
+  onCacheRef.current = onCacheSong;
+
+  // Persist a freshly LIVE-resolved hit to the DB cache (§5.4) so the next user
+  // reads it. Only fires for songs that weren't already cached (cached rows are
+  // seeded into art state + never enter the lookup path). Throttle/none don't cache.
+  const reportResolved = useCallback((song: Song, r: ItunesResult) => {
+    if (r.status === 'ok' && !(song.previewUrl && song.artworkUrl)) {
+      onCacheRef.current?.({ title: song.title, artist: song.artist, result: r });
+    }
+  }, []);
 
   // Lazy artwork hydration — a concurrency-capped queue fed by an
   // IntersectionObserver so only on-screen covers resolve (each once).
@@ -56,6 +109,8 @@ export function SongPreviewList({
       if (!lbl) break;
       const song = songMapRef.current.get(lbl);
       if (!song) continue;
+      // Cached row → already seeded into art state, no live call.
+      if (song.previewUrl && song.artworkUrl) continue;
       activeRef.current += 1;
       setArt((a) => ({ ...a, [lbl]: 'loading' }));
       lookupItunes(song.title, song.artist)
@@ -63,13 +118,14 @@ export function SongPreviewList({
           setArt((a) => ({ ...a, [lbl]: r }));
           // Throttles aren't cached → let the row retry the next time it's seen.
           if (r.status === 'throttled') startedRef.current.delete(lbl);
+          else reportResolved(song, r);
         })
         .finally(() => {
           activeRef.current -= 1;
           pump();
         });
     }
-  }, []);
+  }, [reportResolved]);
 
   const enqueue = useCallback(
     (lbl: string) => {
@@ -84,12 +140,11 @@ export function SongPreviewList({
   useEffect(() => {
     const list = listRef.current;
     if (!list || typeof IntersectionObserver === 'undefined') return;
-    // Root = the onboarding scroll container (.body), so "visible" means in the
-    // actual viewport — NOT the list itself (which would mark all 100 rows
-    // visible and hydrate the whole catalogue at once). Covers are fixed (100
-    // rows, keyed by lbl) so observing once on mount is enough; re-sorts reuse
-    // the same elements.
-    const scrollRoot = list.closest('.body');
+    // Root = the actual scroll container, so "visible" means in view — NOT the
+    // list itself (which would mark every row visible and hydrate the whole
+    // catalogue at once). In the bottom-pinned Song Bank the rows scroll inside
+    // `.songresults`; the legacy top-search layout scrolled inside `.body`.
+    const scrollRoot = list.closest('.songresults') ?? list.closest('.body');
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -99,9 +154,12 @@ export function SongPreviewList({
       },
       { root: scrollRoot, rootMargin: '200px 0px' },
     );
+    // Re-runs when the song set changes (a search replaces the rows), so newly
+    // mounted covers get observed too. Covers are keyed by lbl, so a re-sort
+    // reuses the same elements (idempotent enqueue dedupes via startedRef).
     list.querySelectorAll<HTMLElement>('button.scover[data-lbl]').forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, [enqueue]);
+  }, [enqueue, songs]);
 
   // One shared <audio>; starting a song stops any other.
   const togglePlay = useCallback(
@@ -131,10 +189,11 @@ export function SongPreviewList({
       setArt((s) => ({ ...s, [lbl]: 'loading' }));
       void lookupItunes(song.title, song.artist).then((r) => {
         setArt((s) => ({ ...s, [lbl]: r }));
+        if (r.status !== 'throttled') reportResolved(song, r);
         play(r);
       });
     },
-    [playing, art],
+    [playing, art, reportResolved],
   );
 
   useEffect(() => {

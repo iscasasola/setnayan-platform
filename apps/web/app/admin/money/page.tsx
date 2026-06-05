@@ -9,6 +9,7 @@
 
 import {
   DollarSign,
+  PiggyBank,
   Tag,
   Sparkles,
   Wallet,
@@ -27,6 +28,14 @@ const MONEY_ITEMS: LandingItem[] = [
     icon: DollarSign,
     description:
       'SKU catalog with sticker prices and active status. Read-only V1; edit lands with the next refresh.',
+  },
+  {
+    key: 'budget-planner',
+    label: 'Budget Planner',
+    href: '/admin/budget-planner',
+    icon: PiggyBank,
+    description:
+      'Seed benchmark prices, tune the allocation engine, and review de-identified couple budget insights.',
   },
   {
     key: 'discount-codes',

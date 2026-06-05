@@ -2180,17 +2180,7 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              <input
-                type="range"
-                min={10}
-                max={500}
-                value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
-                className="paxslider"
-                aria-label="Guest count slider"
-                style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
-                onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
-              />
-              <div className="paxends"><span>10{'−'}</span><span>500+</span></div>
+              {/* Number box on top, slider beneath it (owner 2026-06-05). */}
               <div className="numbox">
                 <input
                   type="text"
@@ -2207,6 +2197,17 @@ export function OnboardingShell({
                   <span className="numbox-suffix">{state.pax === 1 ? 'guest' : 'guests'}</span>
                 )}
               </div>
+              <input
+                type="range"
+                min={10}
+                max={500}
+                value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
+                className="paxslider"
+                aria-label="Guest count slider"
+                style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
+                onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
+              />
+              <div className="paxends"><span>10{'−'}</span><span>500+</span></div>
             </div>
           </section>
 
@@ -2241,26 +2242,9 @@ export function OnboardingShell({
                 </div>
               ) : (
                 <>
-                  {/* Swapped 2026-06-02 (owner): line picker (slider + its min/No-limit/max
-                      labels) on top, precise amount text box below — matches the guest-count
-                      screen's slider→ends→exact-box order. */}
-                  <input
-                    type="range"
-                    min={budgetFloorV}
-                    max={budgetCeilingV}
-                    step={10000}
-                    value={budgetSet ? budgetSliderVal : budgetFloorV}
-                    className="paxslider"
-                    aria-label="Working budget slider"
-                    style={{
-                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
-                    }}
-                    onChange={(e) => onBudgetAmount(Number(e.target.value))}
-                  />
-                  <div className="paxends">
-                    <span>{fmtPeso(budgetFloorV)} min</span>
-                    <span>{fmtPeso(budgetCeilingV)}+</span>
-                  </div>
+                  {/* Slider under the number box (owner 2026-06-05): precise amount box on top,
+                      line picker (slider + its min/max labels) below — matches the guest-count
+                      screen's numbox→slider→ends order. (Reverses the 2026-06-02 slider-on-top swap.) */}
                   <div className="bdg-row">
                     <div className="numbox numbox--peso">
                       <span className="numbox-prefix">₱</span>
@@ -2285,6 +2269,23 @@ export function OnboardingShell({
                     <button type="button" className="bdg-nolimit" onClick={() => applyBudget('nolimit', null)}>
                       No limit
                     </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={budgetFloorV}
+                    max={budgetCeilingV}
+                    step={10000}
+                    value={budgetSet ? budgetSliderVal : budgetFloorV}
+                    className="paxslider"
+                    aria-label="Working budget slider"
+                    style={{
+                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
+                    }}
+                    onChange={(e) => onBudgetAmount(Number(e.target.value))}
+                  />
+                  <div className="paxends">
+                    <span>{fmtPeso(budgetFloorV)} min</span>
+                    <span>{fmtPeso(budgetCeilingV)}+</span>
                   </div>
                 </>
               )}

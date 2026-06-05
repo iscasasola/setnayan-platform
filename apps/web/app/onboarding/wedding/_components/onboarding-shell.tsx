@@ -1298,7 +1298,10 @@ export function OnboardingShell({
      (criteria-based search — the event doesn't exist yet). null = not loaded. */
   const [venues, setVenues] = useState<OnboardingVenueResult[] | null>(null);
   const [venuesLoading, setVenuesLoading] = useState(false);
-  // (find-vendor "Expand search" demo set removed — replaced by the real reception query)
+  // "Expand search" reveals the "Farther afield" ring — real out-of-area venues
+  // that still pass every other leaf dim (owner-locked 2026-06-05 · region rings,
+  // it no longer hard-drops). Collapsed until tapped.
+  const [showFarther, setShowFarther] = useState(false);
   /* Congrats stat tile #3 (step 13): REAL marketplace counts, fetched once on
      entry (criteria-based — the event doesn't exist yet). null = uncomputed →
      the tile auto-hides (owner 2026-06-03: "we want real numbers only"). */
@@ -2480,7 +2483,7 @@ export function OnboardingShell({
           <section className={`screen${step === 12 ? ' active' : ''}`} id="screen-find">
             <div className="eyebrow">Find your first vendor</div>
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
-            <p className="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
+            <p className="sub">Sorted for you: your style first, then everyone who can host you. <b>Tap one to shortlist.</b></p>
             {venuesLoading && (
               <div className="vskel-wrap" aria-live="polite" aria-busy="true">
                 <div className="grouplbl">★ Finding the best venues for you…</div>
@@ -2496,44 +2499,68 @@ export function OnboardingShell({
                 ))}
               </div>
             )}
-            {!venuesLoading && venues && venues.length > 0 && (
-              <>
-                <div className="grouplbl">★ Matches your preference</div>
-                {venues.map((v) => {
-                  const picked = state.shortlist.some((s) => s.vendorId === v.vendorId);
-                  const hasRating = v.rating != null && v.reviewCount != null && v.reviewCount > 0;
-                  return (
+            {!venuesLoading && venues && venues.length > 0 && (() => {
+              // Serviceability rings (owner-locked 2026-06-05): natives serve the
+              // couple's area (rings 1-2); travels still pass every other leaf dim
+              // but sit outside the region — shown behind "Expand search".
+              const natives = venues.filter((v) => v.tier === 'native');
+              const travels = venues.filter((v) => v.tier === 'travel');
+              const card = (v: OnboardingVenueResult, isTravel: boolean) => {
+                const picked = state.shortlist.some((s) => s.vendorId === v.vendorId);
+                const hasRating = v.rating != null && v.reviewCount != null && v.reviewCount > 0;
+                return (
+                  <div
+                    key={v.vendorId}
+                    className={`vcard${picked ? ' picked' : ''}`}
+                    onClick={() => toggleShortlist(v.vendorId, v.name)}
+                  >
                     <div
-                      key={v.vendorId}
-                      className={`vcard${picked ? ' picked' : ''}`}
-                      onClick={() => toggleShortlist(v.vendorId, v.name)}
+                      className="vimg"
+                      style={v.photoUrl ? { backgroundImage: `url(${v.photoUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
                     >
-                      <div
-                        className="vimg"
-                        style={v.photoUrl ? { backgroundImage: `url(${v.photoUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-                      >
-                        <div className="vbadges">{v.verified && <span className="vbadge green">Verified</span>}</div>
+                      <div className="vbadges">{v.verified && <span className="vbadge green">Verified</span>}</div>
+                    </div>
+                    <div className="vbody">
+                      <div className="vname">{v.name}</div>
+                      <div className="vmeta">
+                        {hasRating && (
+                          <>
+                            <span className="stars">{starStr(v.rating!)}</span> {v.rating!.toFixed(1)} ({v.reviewCount})
+                            {v.city ? ' · ' : ''}
+                          </>
+                        )}
+                        {v.city && <span>{v.city}</span>}
+                        {isTravel && <span className="softflag">Outside your area</span>}
                       </div>
-                      <div className="vbody">
-                        <div className="vname">{v.name}</div>
-                        <div className="vmeta">
-                          {hasRating && (
-                            <>
-                              <span className="stars">{starStr(v.rating!)}</span> {v.rating!.toFixed(1)} ({v.reviewCount})
-                              {v.city ? ' · ' : ''}
-                            </>
-                          )}
-                          {v.city && <span>{v.city}</span>}
-                        </div>
-                        <div className="eyeing">
-                          {picked ? <span className="shortpill">✓ Shortlisted</span> : <span className="shorthint">Tap to shortlist</span>}
-                        </div>
+                      <div className="eyeing">
+                        {picked ? <span className="shortpill">✓ Shortlisted</span> : <span className="shorthint">Tap to shortlist</span>}
                       </div>
                     </div>
-                  );
-                })}
-              </>
-            )}
+                  </div>
+                );
+              };
+              return (
+                <>
+                  {natives.length > 0 && <div className="grouplbl">★ Matches your preference</div>}
+                  {natives.map((v) => card(v, false))}
+                  {travels.length > 0 && natives.length > 0 && !showFarther && (
+                    <button className="expand" type="button" onClick={() => setShowFarther(true)}>
+                      Expand search — see {travels.length} farther {travels.length === 1 ? 'venue' : 'venues'} ↓
+                    </button>
+                  )}
+                  {travels.length > 0 && (natives.length === 0 || showFarther) && (
+                    <>
+                      <div className="grouplbl muted">
+                        {natives.length === 0 ? 'Venues near your region' : 'Farther afield — outside your area'}
+                      </div>
+                      {travels.map((v) => card(v, true))}
+                    </>
+                  )}
+                  <div className="removednote">🚫 <span>Venues that can’t fit your guest count, aren’t free on your date, or don’t match your ceremony aren’t shown — change those details to see more.</span></div>
+                  <div className="note mul"><span>✦</span><div>Your venue is your <b>home base</b>. Every other vendor — caterer, florist, photographer — is then sorted by <b>who can reach it</b>; ones outside their service area still appear, flagged <b>“travel fee may apply.”</b></div></div>
+                </>
+              );
+            })()}
             {!venuesLoading && venues && venues.length === 0 && (
               <div className="vempty">
                 We{'’'}re still onboarding reception venues for your area. Add your own below, or browse the full marketplace from your dashboard anytime.

@@ -12,7 +12,7 @@ import {
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
-import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -589,6 +589,12 @@ export type OnboardingVenueResult = {
   reviewCount: number | null;
   photoUrl: string | null;
   verified: boolean;
+  /** Serviceability ring (owner-locked 2026-06-05). 'native' = serves the
+   *  couple's region (rings 1-2 · "Matches your preference"); 'travel' = passes
+   *  every OTHER leaf dim but sits outside the region, surfaced behind "Expand
+   *  search" as "Farther afield". Region thus RINGS instead of hard-dropping —
+   *  see searchOnboardingReceptionVenues. */
+  tier: 'native' | 'travel';
 };
 
 export async function searchOnboardingReceptionVenues(input: {
@@ -635,28 +641,61 @@ export async function searchOnboardingReceptionVenues(input: {
   const venueType = firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
 
   const admin = createAdminClient();
+  const psgcRegion = onboardingRegionToPsgc(input.region);
+  const toResult = (r: WizardVendorRec, tier: 'native' | 'travel'): OnboardingVenueResult => ({
+    vendorId: r.vendor_profile_id,
+    name: r.business_name,
+    city: r.location_city,
+    rating: r.avg_rating_overall,
+    reviewCount: r.review_count,
+    photoUrl: r.primary_photo_url ?? r.logo_url,
+    verified: r.verification_state === 'verified',
+    tier,
+  });
   try {
-    const recs = await fetchWizardVendorRecommendations(admin, {
+    // Rings 1-2 — venues that SERVE the couple's area (region hard-scoped). Every
+    // other leaf dim (capacity / ceremony / venue_type / date) stays a hard
+    // filter, so anything returned here can actually host the wedding.
+    const nativeRecs = await fetchWizardVendorRecommendations(admin, {
       canonicalServices: ['venue'],
       ceremonyType,
       secondaryCeremonyType: secondary,
       venueSetting,
-      region: onboardingRegionToPsgc(input.region),
+      region: psgcRegion,
       eventType: 'wedding',
       pax: input.pax ?? null,
       venueType,
       availableDateKeys: input.dateCandidates,
       limit: 8,
     });
-    return recs.map((r) => ({
-      vendorId: r.vendor_profile_id,
-      name: r.business_name,
-      city: r.location_city,
-      rating: r.avg_rating_overall,
-      reviewCount: r.review_count,
-      photoUrl: r.primary_photo_url ?? r.logo_url,
-      verified: r.verification_state === 'verified',
-    }));
+    const natives = nativeRecs.map((r) => toResult(r, 'native'));
+    // Ring 3 — "Farther afield" (owner-locked 2026-06-05: region flips from a hard
+    // filter to a RING). Re-run WITHOUT region scope and subtract the natives:
+    // out-of-area venues that still pass every OTHER leaf dim are no longer
+    // dropped — they surface behind "Expand search", flagged outside-your-area.
+    // Only when a region is actually scoped (an unscoped search already shows
+    // everyone, so there is nothing "farther" to add).
+    let travels: OnboardingVenueResult[] = [];
+    if (psgcRegion) {
+      const nativeIds = new Set(natives.map((n) => n.vendorId));
+      const wideRecs = await fetchWizardVendorRecommendations(admin, {
+        canonicalServices: ['venue'],
+        ceremonyType,
+        secondaryCeremonyType: secondary,
+        venueSetting,
+        region: null,
+        eventType: 'wedding',
+        pax: input.pax ?? null,
+        venueType,
+        availableDateKeys: input.dateCandidates,
+        limit: 14,
+      });
+      travels = wideRecs
+        .filter((r) => !nativeIds.has(r.vendor_profile_id))
+        .slice(0, 6)
+        .map((r) => toResult(r, 'travel'));
+    }
+    return [...natives, ...travels];
   } catch {
     return [];
   }

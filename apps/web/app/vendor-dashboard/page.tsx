@@ -39,7 +39,7 @@ import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
  *     the same upcomingCount in PR #636).
  *     · Upcoming events · upcomingCount (next 14 days from threads)
  *     · Open inquiries · totalThreadsCount (all chat threads · FIXED)
- *     · Confirmed bookings · event_vendors locked-or-past (NEW)
+ *     · Confirmed bookings · accepted inquiry threads (chat_threads)
  *     · Active services · vendor_services is_active=true (NEW)
  *     · Completed events · public count
  *     · Token balance · purchased + earned
@@ -192,10 +192,10 @@ export default async function VendorHomePage() {
       // the 4 stat tiles double-counted inquiries (Tile 1 and Tile 2
       // both showed the same upcomingCount). This adds:
       //   - Active services count (vendor_services where is_active=true)
-      //   - Confirmed bookings count (event_vendors where this vendor is
-      //     locked-or-past · status IN contracted/deposit_paid/delivered/
-      //     complete · per the 2026-05-22 Lock/delete/overlap row).
-      // Both new fetches use head:true + count='exact' so we get the
+      //   - Confirmed bookings count — derived below from threadsAll
+      //     (accepted inquiry threads). See the derivation note for why
+      //     this is no longer an event_vendors count.
+      // The services fetch uses head:true + count='exact' so we get the
       // count without pulling rows. Safe to run in parallel with the
       // existing fetches — neither depends on the others.
       /* V2.1 brief amendment #2 (2026-05-30) · grab name_revealed_at
@@ -212,7 +212,6 @@ export default async function VendorHomePage() {
         completedRes,
         walletRes,
         servicesCountRes,
-        confirmedBookingsRes,
         nameRevealRes,
       ] = await Promise.all([
         fetchVendorThreads(supabase, profile.vendor_profile_id),
@@ -228,11 +227,6 @@ export default async function VendorHomePage() {
           .eq('vendor_profile_id', profile.vendor_profile_id)
           .eq('is_active', true),
         supabase
-          .from('event_vendors')
-          .select('event_vendor_id', { count: 'exact', head: true })
-          .eq('marketplace_vendor_id', profile.vendor_profile_id)
-          .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
-        supabase
           .from('vendor_profiles')
           .select('name_revealed_at')
           .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -242,6 +236,17 @@ export default async function VendorHomePage() {
       const upcomingThreads = threadsAll.filter((t) =>
         isUpcomingWithin14Days(t.event?.event_date ?? null),
       );
+
+      // Confirmed bookings = accepted inquiry threads for this vendor,
+      // derived from the already-fetched threadsAll (no extra query). Matches
+      // the "accepted thread" booking definition in bookings/actions.ts
+      // (isBookingForEvent). Replaces a prior event_vendors count that was
+      // structurally always 0: event_vendors carries couple-only RLS
+      // (event_vendors_couple_read/_write), so the vendor's session read zero
+      // rows regardless of how many real bookings existed.
+      const confirmedBookingsCount = threadsAll.filter(
+        (t) => t.inquiry_status === 'accepted',
+      ).length;
 
       loaderState = {
         ok: true,
@@ -256,7 +261,7 @@ export default async function VendorHomePage() {
         upcomingThreads,
         totalThreadsCount: threadsAll.length,
         activeServicesCount: servicesCountRes.count ?? 0,
-        confirmedBookingsCount: confirmedBookingsRes.count ?? 0,
+        confirmedBookingsCount,
         tokenBalance: {
           purchased: walletRes.data?.purchased_tokens ?? 0,
           earned: walletRes.data?.earned_tokens ?? 0,
@@ -458,9 +463,10 @@ export default async function VendorHomePage() {
        *       in the next 14 days).
        *    2. Open inquiries     · totalThreadsCount (FIXED · all chat
        *       threads regardless of date · the true inquiry count).
-       *    3. Confirmed bookings · event_vendors where this vendor is
-       *       locked-or-past · status IN contracted/deposit_paid/
-       *       delivered/complete.
+       *    3. Confirmed bookings · accepted inquiry threads (chat_threads
+       *       where inquiry_status='accepted' · matches isBookingForEvent
+       *       in bookings/actions.ts). Previously an event_vendors count
+       *       that always read 0 under that table's couple-only RLS.
        *    4. Active services    · vendor_services where is_active=true.
        *    5. Completed events   · public_completed_count (unchanged).
        *    6. Token balance      · purchased + earned (unchanged).

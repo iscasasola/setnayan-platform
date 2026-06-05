@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): scroll-snap the "Boost & enhance" service carousel
+
+**Context:** Owner on the Your-Plan **"Make it unforgettable"** screen (step 15): *"snap carousel at the bottom part."* The bottom film-strip of in-app-service cards (Papic · Advanced Website · Animated Monogram · Panood …) scrolled freely with no snap.
+
+**What changed** (`onboarding.css`): the `.svc-car` track gains `scroll-snap-type:x proximity` + `-webkit-overflow-scrolling:touch`, and each `.svc-chip` card gains `scroll-snap-align:start` — so a swipe settles cleanly on a card edge. Matches the snap pattern the sibling `.pgrid.strip` (cuisine/look strips) already uses. CSS-only · no markup/JS · no dimension change.
+
+**Verify:** Snap is a scroll behavior (not visible in a static screenshot, and step 15 needs auth to reach locally); applied the exact `proximity` + `scroll-snap-align:start` pairing already proven on `.pgrid.strip`. Build via CI.
+
+**SPEC IMPACT:** None — interaction polish on the existing Your-Plan v2 screen.
+
 ## 2026-06-05 · feat(onboarding): every Style-step selector is a swipeable carousel
 
 **Context:** Owner on the Style sub-stepper: *"make these carousel style. we will not have buttons anymore … the whole onboarding should familiarize the users that we do carousel for our app,"* clarified as *"like the one on service style — they are buttons but we will make them all carousels."* So: keep **Continue**, but every selectable **grid** (Reception, Ceremony) and **chip row** (Service style, dietary, photo-need, coverage) becomes a horizontal swipeable carousel — Catering & Photo/Video cuisine/look strips were already carousels. One consistent swipe idiom across onboarding.

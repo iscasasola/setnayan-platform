@@ -590,9 +590,9 @@
 .onbw .svc-dsave{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:#1f7a4d;background:rgba(31,122,77,.1);border-radius:7px;padding:4px 8px;margin-top:8px;display:inline-block;}
 .onbw .svc-add{margin-top:12px;width:100%;border:1.5px solid var(--mulberry);background:#fff;color:var(--mulberry);border-radius:12px;padding:13px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;}
 .onbw .svc-add.added{background:var(--mulberry);color:#fff;}
-.onbw .svc-car{display:flex;gap:9px;overflow-x:auto;padding:13px 0 4px;scrollbar-width:none;}
+.onbw .svc-car{display:flex;gap:9px;overflow-x:auto;padding:13px 0 4px;scrollbar-width:none;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
 .onbw .svc-car::-webkit-scrollbar{display:none;}
-.onbw .svc-chip{flex:0 0 auto;width:98px;border-radius:11px;border:1px solid var(--line);background:#fff;overflow:hidden;cursor:pointer;padding:0;text-align:left;}
+.onbw .svc-chip{flex:0 0 auto;width:98px;border-radius:11px;border:1px solid var(--line);background:#fff;overflow:hidden;cursor:pointer;padding:0;text-align:left;scroll-snap-align:start;}
 .onbw .svc-chip.on{border-color:var(--mulberry);box-shadow:0 0 0 1.5px var(--mulberry);}
 .onbw .svc-chip-p{height:46px;background:linear-gradient(135deg,var(--mulberry),var(--gold-deep));background-size:cover;background-position:center;position:relative;}
 .onbw .svc-chip-chk{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:50%;background:var(--mulberry);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;}

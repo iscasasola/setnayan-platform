@@ -9,16 +9,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.
 
 **What changed** (`apps/web/`):
-- **New `lib/itunes-preview.ts`** — keyless client-side **JSONP** lookup of the Apple/iTunes Search API (it sends no CORS header → fetch is blocked; JSONP via `&callback=` works). One call returns both the 30-sec `previewUrl` and the album `artworkUrl` (upscaled 100→300). Per-song cache + in-flight dedup; throttle/network → `throttled` (retryable), clean miss → `none`. Client-side per §5.4 so the ~20/min/IP limit spreads across users' own IPs.
-- **New `app/onboarding/wedding/_components/song-preview-list.tsx`** — the **album cover IS the play button** (▶/⏸ overlay, gold placeholder until loaded); tap to play the 30-sec preview via one shared `<audio>` (one at a time), tap again to stop; clicking the row still toggles the pick. Covers hydrate **lazily** as rows scroll into view (IntersectionObserver rooted on the `.body` scroll container, concurrency-capped at 4); throttled lookups keep the placeholder + retry; `none` → "no preview on file".
-- **`onboarding-shell.tsx`** — the music dim renders `<SongPreviewList>` instead of the inline text rows (same pick/search wiring).
-- **`onboarding.css`** — `.scover` album-cover-play-button styles.
+- **New `lib/itunes-preview.ts`** — keyless client-side **JSONP** lookup of the Apple/iTunes Search API (no CORS header → JSONP via `&callback=`). One call returns the 30-sec `previewUrl` + album `artworkUrl` (upscaled 100→300); per-song cache + in-flight dedup; throttle → retryable, miss → `none`. Client-side per §5.4 so the ~20/min/IP limit spreads across users' IPs.
+- **New `app/onboarding/wedding/_components/song-preview-list.tsx`** — the **album cover IS the play button** (▶/⏸, gold placeholder until loaded); one shared `<audio>` (one preview at a time); covers hydrate **lazily** as rows scroll in (IntersectionObserver on the `.body` scroll container, capped at 4); throttle keeps the placeholder + retries; row click still toggles the pick.
+- **`onboarding-shell.tsx`** — music dim renders `<SongPreviewList>`; **`onboarding.css`** — `.scover` styles.
 
-**Verification:** `tsc` exit 0 · `next lint app/onboarding lib` clean · CSP is `frame-ancestors 'self'` only (script/audio/img unblocked) · **mechanic verified live in Chromium** — a 6-song prototype loaded all 6 real album covers via JSONP and played the iTunes preview (`paused:false`, `currentTime` advancing, `audio-ssl.itunes.apple.com` src).
+**Verification:** `tsc` + `next lint app/onboarding lib` clean · CSP (`frame-ancestors 'self'` only) doesn't block script/audio/img · **mechanic verified live in Chromium** (6 real album covers loaded via JSONP; iTunes preview audio played — `paused:false`, `currentTime` advancing).
 
-**Follow-ups (not this PR):** the full Song Bank — searchable 390-song catalogue (results-on-top / bottom-pinned search) + production DB-cache of `apple_track_id`/`preview_url`/`artwork` (§5.4) — remains; this adds the preview to the existing picker.
+**Follow-ups:** full Song Bank — searchable 390-song catalogue (results-on-top / bottom-pinned search) + DB-cache of `apple_track_id`/`preview_url`/`artwork` (§5.4).
 
-**SPEC IMPACT:** 0016 onboarding — the music step gains the locked album-cover-play-button + 30-sec iTunes preview (Song Bank §5). Corpus spec already documents the design; this is its implementation.
+**SPEC IMPACT:** 0016 — the music step gains the locked album-cover-play-button + 30-sec iTunes preview (Song Bank §5).
+
+## 2026-06-05 · fix(onboarding): wedding-date "What your dates share" nugget moved above the calendar
+
+**Context:** Owner — *"fix the location of what your dates share. we want the nuggets to be on top and not under the calendar."* On the wedding-date onboarding screen (step 6 · "When's the big day?"), the `DateCalendar` component rendered its why-these-dates nugget (`.whydate`) as the **last** child of the `.tapzone`, i.e. *below* the calendar. Because `.tapzone` is `margin-top:auto` (pinned to the bottom of the screen body), the whole block sat at the bottom and the nugget landed under the calendar, while a large empty gap opened under the title. The 2026-06-01 corpus + app proto HTMLs already place `#whydate` in the `.viewzone` (above the calendar) — only the React port had drifted out of sync.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` only):
+- `DateCalendar` now owns its full screen body, matching the sibling `LocationStep` pattern: it returns a `.viewzone` (eyebrow + "When's the big day?" title + the `{why && …}` nugget) followed by the `.tapzone` (readout + mode toggle + calendar). The nugget therefore renders directly under the title, above the calendar; the calendar/toggle/readout stay pinned at the thumb zone.
+- Screen 6's `<section>` now renders `<DateCalendar/>` directly, dropping the duplicate inline `.viewzone` (eyebrow + h1) and `.tapzone` wrapper that previously surrounded it. No logic, props, copy, or styling changed — pure JSX restructure.
+
+**Verification:** TSX syntax parse clean (0 syntax errors) · new DOM order confirmed (`whydate` in `.viewzone` precedes `calgrid`) · `.whydate` is styled standalone (no `.tapzone`/`.cal` selector coupling, safe to move) · layout cross-checked against the corpus proto (`Onboarding_Wedding_Flow_2026-06-01.html`), which uses the identical viewzone/tapzone structure + CSS and renders the nugget at top (measured `whydate` top 209px vs calendar 561px). Full `tsc`/lint deferred to PR CI (no node_modules in the isolated worktree); the change has no type surface. Isolated worktree off origin/main.
+
+**SPEC IMPACT:** None — aligns the React port to the existing 2026-06-01 onboarding proto (which already shows the nugget in the viewzone); no schema, SKU, copy, or product-surface change.
+
+---
 
 ## 2026-06-05 · fix(0022): vendor home "confirmed bookings" tile was structurally always 0
 

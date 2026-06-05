@@ -1067,44 +1067,51 @@ function DateCalendar({
 
   return (
     <>
-      <div className="calpick">{pickHtml}</div>
-      {warn && <div className="rangewarn">{warn}</div>}
-      <div className="micro">{setRangeMsg}</div>
-      <div className="calmode">
-        <button type="button" className={mode === 'specific' ? 'on' : undefined} onClick={() => setMode('specific')}>
-          Specific dates<span className="ms">1–4 days</span>
-        </button>
-        <button type="button" className={mode === 'window' ? 'on' : undefined} onClick={() => setMode('window')}>
-          Flexible window<span className="ms">a range</span>
-        </button>
+      {/* viewzone — title + the "why these dates" nugget sits up top, above the calendar (owner 2026-06-05) */}
+      <div className="viewzone">
+        <div className="eyebrow">Your wedding</div>
+        <h1 className="q">When{'’'}s the big day?</h1>
+        {why && (
+          <div className="whydate">
+            <span className={`wtone ${why.tone}`}>{why.title}</span>
+            <div className="wsum">
+              <b>{why.reasons[0]?.[0]}</b> — {why.reasons[0]?.[1]} <span className="wmore">{why.more}</span>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="cal">
-        <div className="calhead">
-          <button className="calnav" type="button" onClick={prevMonth} disabled={atMin} aria-label="Previous month">‹</button>
-          <div className="calmonth">{M_FULL[view.m]} {view.y}</div>
-          <button className="calnav" type="button" onClick={nextMonth} disabled={atMax} aria-label="Next month">›</button>
+      <div className="tapzone">
+        <div className="calpick">{pickHtml}</div>
+        {warn && <div className="rangewarn">{warn}</div>}
+        <div className="micro">{setRangeMsg}</div>
+        <div className="calmode">
+          <button type="button" className={mode === 'specific' ? 'on' : undefined} onClick={() => setMode('specific')}>
+            Specific dates<span className="ms">1–4 days</span>
+          </button>
+          <button type="button" className={mode === 'window' ? 'on' : undefined} onClick={() => setMode('window')}>
+            Flexible window<span className="ms">a range</span>
+          </button>
         </div>
-        <div className="caldow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
-        <div className="calgrid">
-          {cells.map((c, i) =>
-            c.d == null ? (
-              <div key={`e${i}`} className={c.cls} />
-            ) : (
-              <div key={`d${i}`} className={c.cls} onClick={c.disabled ? undefined : () => c.cur && clickDay(c.cur)}>
-                {c.d}
-              </div>
-            ),
-          )}
-        </div>
-      </div>
-      {why && (
-        <div className="whydate">
-          <span className={`wtone ${why.tone}`}>{why.title}</span>
-          <div className="wsum">
-            <b>{why.reasons[0]?.[0]}</b> — {why.reasons[0]?.[1]} <span className="wmore">{why.more}</span>
+        <div className="cal">
+          <div className="calhead">
+            <button className="calnav" type="button" onClick={prevMonth} disabled={atMin} aria-label="Previous month">‹</button>
+            <div className="calmonth">{M_FULL[view.m]} {view.y}</div>
+            <button className="calnav" type="button" onClick={nextMonth} disabled={atMax} aria-label="Next month">›</button>
+          </div>
+          <div className="caldow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+          <div className="calgrid">
+            {cells.map((c, i) =>
+              c.d == null ? (
+                <div key={`e${i}`} className={c.cls} />
+              ) : (
+                <div key={`d${i}`} className={c.cls} onClick={c.disabled ? undefined : () => c.cur && clickDay(c.cur)}>
+                  {c.d}
+                </div>
+              ),
+            )}
           </div>
         </div>
-      )}
+      </div>
     </>
   );
 }
@@ -2226,21 +2233,15 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* 6 DATE — 2-mode calendar + why-this-date nugget */}
+          {/* 6 DATE — 2-mode calendar + why-this-date nugget (DateCalendar owns its viewzone title + nugget) */}
           <section className={`screen${step === 5 ? ' active' : ''}`}>
-            <div className="viewzone">
-              <div className="eyebrow">Your wedding</div>
-              <h1 className="q">When{'’'}s the big day?</h1>
-            </div>
-            <div className="tapzone">
-              <DateCalendar
-                mode={state.dateMode}
-                candidates={state.dateCandidates}
-                windowStart={state.windowStart}
-                windowEnd={state.windowEnd}
-                onChange={patch}
-              />
-            </div>
+            <DateCalendar
+              mode={state.dateMode}
+              candidates={state.dateCandidates}
+              windowStart={state.windowStart}
+              windowEnd={state.windowEnd}
+              onChange={patch}
+            />
           </section>
 
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}

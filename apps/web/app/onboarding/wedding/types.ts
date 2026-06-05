@@ -165,6 +165,15 @@ export interface OnboardingState {
    */
   shortlist: ShortlistVenue[];
 
+  /**
+   * Your Plan opt-ins (screen 14 · owner 2026-06-05). guidanceOptIn → free deadline-timeline
+   * guidance (default ON · ₱0 · NOT the retired paid Today's Focus). sendTopInquiries → fan out
+   * the couple's first inquiry to the top-3 best-fit vendors at commit (default OFF · explicit
+   * consent · RA 10173).
+   */
+  guidanceOptIn: boolean;
+  sendTopInquiries: boolean;
+
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
 }
@@ -259,6 +268,8 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     feel: null,
   },
   shortlist: [],
+  guidanceOptIn: true,
+  sendTopInquiries: false,
   lastSavedAt: '',
 };
 

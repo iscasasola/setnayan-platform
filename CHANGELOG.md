@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): Your Plan reframed free-first — value slider + two opt-ins
+
+**Context:** Owner — *"fix the your plan part of the onboarding. show what you get for free… in a slider… how much time they save and what free services they get with their price if bought outside. then ask if they want to continue using our AI service to guide them, and if they want us to send inquiries to the top 3 services we found."* Screen 14 led with the paid bundle and listed freebies as one paragraph; it now leads with the free value, quantified, then asks.
+
+**What changed** (`app/onboarding/wedding/`):
+- **Free-value slider** — new `FreeValueSlider` (+ `.fvslider`/`.optcard` CSS) replaces the `.freeli` paragraph. One swipe-card per free tool with its **time saved** + **market-equivalent "what you'd pay elsewhere"** (apparatus rule: instead of hiring people / DIY toil), closing on a grand-total tally card.
+- **`computeOnboardingSavings()` brought to the locked §H/§I model** (`Time_and_Money_Saved_Model_2026-06-01`, owner-locked 2026-06-03). It was still on the superseded §D values (₱32,992 · 745h · 350h website); now ~₱63.5K · ~290h typical and returns a per-driver `breakdown` the slider renders (single source — no invented numbers). The Your Plan + Congrats headline auto-updates.
+- **Two opt-in cards** after the slider — **"Keep guiding me"** (free deadline-timeline guidance · default ON · NOT the retired paid Today's Focus · persisted to `events.style_preferences.guidance_opt_in`) and **"Reach my top 3 matches"** (default OFF · explicit consent · RA 10173). Both live in `OnboardingState` → `commitOnboardingWedding` payload.
+- **Inquiry fan-out gated + capped.** The commit previously fanned out an inquiry to **every** picked category unconditionally; it now fires **only** when "reach my top 3" is ON, capped to the **top-3 picked categories'** best-fit vendor (≤3 inquiries; `chat_threads UNIQUE(event,vendor)` dedupes). Kept synchronous (capped set is small + faster than the old all-groups fan-out; `unlockCategoryWithInquiry` reads the cookie session via `auth.getUser()`, which `after()` would lose).
+- **Paid `MatchedBundle` demoted** below the two asks (label → "Want more — matched to your wedding").
+
+**Verify:** `tsc --noEmit` + `next lint` + `next build` all green. No migration (guidance flag rides the existing `style_preferences` JSONB; opt-ins in client state). Visual QA on the Vercel preview (Screen 14).
+
+**SPEC IMPACT:** Your Plan structure → `Onboarding_Blueprint_2026-05-30.md` §3.2 + the prototype `Onboarding_Wedding_Flow_2026-06-01.html` #screen-plan + `DECISION_LOG`. Landing directly in the corpus (decision-log → .md → .docx). Also resolves the open "onboarding still sells Today's Focus ₱1,499" contradiction — the AI-guidance ask is FREE.
+
 ## 2026-06-05 · chore(pricing/marketing): remove Today's Focus completely (customer-facing)
 
 **Context:** Owner — *"remove the today's focus completely. we do not want this anymore."* The retired AI-planner SKU (already disabled in-app via `CONCIERGE_ENABLED=false`) still lingered on the public marketing surfaces. This scrubs it from everything a customer/vendor sees.

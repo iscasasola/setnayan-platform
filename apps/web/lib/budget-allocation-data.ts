@@ -133,13 +133,31 @@ export async function fetchActiveBenchmarks(client: SupabaseClient): Promise<Ben
   }
 }
 
-/** Median + sample count of SOLO vendor prices per leaf, from active
- *  vendor_services rows with a starting price. One query, grouped in JS. */
+/** Linear-interpolation percentile of a sorted-ascending array. */
+function percentile(sortedAsc: number[], p: number): number {
+  if (sortedAsc.length === 0) return 0;
+  if (sortedAsc.length === 1) return sortedAsc[0]!;
+  const idx = (p / 100) * (sortedAsc.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sortedAsc[lo]!;
+  const frac = idx - lo;
+  return Math.round(sortedAsc[lo]! * (1 - frac) + sortedAsc[hi]! * frac);
+}
+
+/** Per-leaf market stat from real solo vendor prices. p25/p75 are null below 2
+ *  prices (no meaningful spread). The resolver only trusts the real range once a
+ *  leaf clears minSampleN; below that the admin benchmark band carries it. */
+export type LeafMarketStat = { median: number; count: number; min: number; p25: number | null; p75: number | null };
+
+/** Median + count + real price RANGE (min · p25 · p75) of SOLO vendor prices per
+ *  leaf, from active vendor_services rows with a starting price. One query,
+ *  grouped in JS — this is the "range when actual data comes in" source. */
 async function fetchLeafMedians(
   client: SupabaseClient,
   leafIds: string[],
-): Promise<Map<string, { median: number; count: number }>> {
-  const out = new Map<string, { median: number; count: number }>();
+): Promise<Map<string, LeafMarketStat>> {
+  const out = new Map<string, LeafMarketStat>();
   // canonical_service -> leaf reverse index for the leaves we care about.
   const canonToLeaf = new Map<string, string>();
   const allCanon: string[] = [];
@@ -172,8 +190,17 @@ async function fetchLeafMedians(
       byLeaf.set(leaf, arr);
     }
     for (const [leaf, prices] of byLeaf) {
-      const m = median(prices);
-      if (m != null) out.set(leaf, { median: m, count: prices.length });
+      const sorted = [...prices].sort((a, b) => a - b);
+      const m = median(sorted);
+      if (m == null) continue;
+      const spread = sorted.length >= 2;
+      out.set(leaf, {
+        median: m,
+        count: sorted.length,
+        min: sorted[0]!,
+        p25: spread ? percentile(sorted, 25) : null,
+        p75: spread ? percentile(sorted, 75) : null,
+      });
     }
   } catch {
     /* graceful — no medians, benchmarks carry the load */
@@ -208,24 +235,34 @@ export async function resolveAllocationInputs(
   const pax = ev?.estimated_pax != null ? Number(ev.estimated_pax) : null;
 
   const medians = await fetchLeafMedians(client, benchmarks.map((b) => b.plan_group_id));
+  const minN = config.minSampleN ?? 3;
 
-  const leaves: PlannerLeafInput[] = benchmarks.map((b) => {
-    const mk = medians.get(b.plan_group_id);
-    return {
-      canonicalService: b.plan_group_id,
-      label: b.label,
-      medianPhp: mk?.median ?? null,
-      sampleCount: mk?.count ?? 0,
-      benchmarkPhp: b.benchmark_php,
-      floorPhp: b.floor_php,
-      p25Php: b.p25_php,
-      p75Php: b.p75_php,
-      // fixedPhp (Setnayan-SKU carve-out) + pinnedAmountPhp are wired in a
-      // follow-on; V1 returns the default (benchmark/median-derived) allocation.
-      fixedPhp: null,
-      pinnedAmountPhp: null,
-    };
-  });
+  const leaves: PlannerLeafInput[] = benchmarks
+    // Show a leaf only once SOMETHING can price it — an admin benchmark OR at
+    // least one real vendor price. No-data leaves stay hidden (no ₱0 ghost rows)
+    // and surface automatically the moment real data arrives.
+    .filter((b) => b.benchmark_php != null || medians.has(b.plan_group_id))
+    .map((b) => {
+      const mk = medians.get(b.plan_group_id);
+      // "Range when actual data comes in": once a leaf clears minSampleN real
+      // prices, its band (min · p25 · p75) comes from the REAL distribution;
+      // below that, the admin-seeded benchmark band carries it.
+      const realRange = mk != null && mk.count >= minN && mk.p25 != null && mk.p75 != null;
+      return {
+        canonicalService: b.plan_group_id,
+        label: b.label,
+        medianPhp: mk?.median ?? null,
+        sampleCount: mk?.count ?? 0,
+        benchmarkPhp: b.benchmark_php,
+        floorPhp: realRange ? mk!.min : b.floor_php,
+        p25Php: realRange ? mk!.p25 : b.p25_php,
+        p75Php: realRange ? mk!.p75 : b.p75_php,
+        // fixedPhp (Setnayan-SKU carve-out) + pinnedAmountPhp are wired in a
+        // follow-on; V1 returns the default (benchmark/median-derived) allocation.
+        fixedPhp: null,
+        pinnedAmountPhp: null,
+      };
+    });
 
   return { budgetPhp, leaves, config, pax };
 }

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(budget): data-driven shopping range — real vendor prices replace the seeded band
+
+**Context:** Owner — *"just have a range when actual data comes in."* The planner's per-service ₱ range was always reading the admin-seeded benchmark band, even once real vendor prices existed. Now the range comes from the **real price distribution** as soon as a service has enough listings.
+
+**What changed** (`lib/budget-allocation-data.ts`):
+- `fetchLeafMedians` now also returns the real **min · p25 · p75** of solo vendor prices per leaf (linear-interpolation percentiles).
+- The resolver uses the **real min/p25/p75** for a leaf's range + floor once it clears `minSampleN` real prices; below that, the admin-seeded benchmark band carries it. So the range is benchmark-seeded on day one and **becomes data-driven automatically as listings accumulate** — no admin action.
+- Leaves with **neither** a benchmark **nor** any real price are now **hidden** (no ₱0 ghost rows); they surface the moment real data arrives.
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on the file. Code-only; no migration.
+
+**SPEC IMPACT:** None on schema. Guide-only (no search effect). The 12 unpriced leaves now stay hidden until real vendor data exists, instead of being seeded by hand.
+
 ## 2026-06-05 · chore(budget): seed PH-sourced benchmark prices for the Budget Planner
 
 **Context:** Owner — *"apply this to our website."* Seeds the per-leaf benchmark prices the Budget Planner (#1000) shows couples as their starting allocation. Sourced from storia.ph (PH 2026 per-category ₱ ranges) + eventnest.ph (PH % shape), mid-range ~150-pax Metro Manila; owner-confirmed (**NOT invented**). The admin can override any line in `/admin/budget-planner`.

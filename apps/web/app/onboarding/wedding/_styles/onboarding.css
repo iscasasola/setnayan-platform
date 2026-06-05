@@ -462,6 +462,34 @@
 .onbw .railwrap.canr .chev{opacity:1;}
 .onbw .railwrap.flat .fade,.onbw .railwrap.flat .chev,.onbw .railwrap.flat .railend{display:none;}
 
+/* ── 2026-06-05 (owner): every Style-step selector is a swipeable carousel ──
+   "we will not have buttons anymore … make them all carousels" — the Reception &
+   Ceremony photo grids become big-card carousels (.car) and the Service-style /
+   dietary / photo-need / coverage chip rows become horizontal chip rails. Reuses
+   the same <Rail> scroll + fade + chevron affordance as the cuisine/look strips
+   so the whole onboarding teaches one consistent swipe gesture. Continue stays. */
+
+/* Big-card carousel (.car) — the photo-forward, hero-less steps (reception,
+   ceremony). Fills the viewzone with one tall snap-centred venue card + a peek of
+   the next; mirrors the fill the grid had (lines 121-125), but swipeable. The
+   .prefstep prefix matches the line-125 specificity so this min-height wins. */
+.onbw .prefstep .tapzone:has(.rail.car){display:flex;flex-direction:column;flex:1 1 auto;min-height:0;margin-top:0;}
+.onbw .prefstep .tapzone:has(.rail.car) > [data-single]{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+.onbw .prefstep .railwrap:has(.rail.car){display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+.onbw .prefstep .rail.car{flex:1 1 auto;min-height:0;gap:12px;padding:3px 30px 9px 2px;scroll-snap-type:x mandatory;}
+.onbw .prefstep .rail.car .pcard{flex:0 0 80%;scroll-snap-align:center;display:flex;flex-direction:column;}
+.onbw .prefstep .rail.car .pcard .pimg{flex:1 1 auto;height:auto;min-height:170px;}
+
+/* Chip rail — option chips (Service style, dietary, what-you-need, coverage)
+   scroll horizontally instead of wrapping; shorter vertically + same swipe idiom.
+   The chevron is recentred for the short row height (default top:30px is tuned for
+   tall cards). When the chips already fit, .railwrap.flat hides the affordances. */
+.onbw .rail.chips{gap:9px;padding-bottom:4px;margin-bottom:8px;scroll-snap-type:x proximity;}
+.onbw .rail.chips .chip{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;}
+.onbw .railwrap.chiprail{margin-bottom:8px;}
+.onbw .railwrap.chiprail .chev{top:50%;margin-top:-14px;width:24px;height:24px;font-size:16px;}
+.onbw .railwrap.chiprail .fade{bottom:4px;}
+
 /* ── "What would you love?" picker — category rows of photo-card carousels ── */
 .onbw #screen-picker .picker-sub{font-size:13.5px;color:var(--ink-soft);line-height:1.45;margin:0 0 2px;}
 .onbw .pickcat{margin-top:16px;}

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0021): live HH:MM:SS countdown + roadmap shows 3-at-a-time with overdue flag
+
+**Context:** Owner on the couple Home: *"for the countdown we have big day then under it is the hours, minutes, seconds. will [be] timed from the date 12 mn not the schedule of the church wedding."* and *"things to complete will only show 3 at a time. will repopulate new tasks when done. also no[te] if this task is already due."* Two Home refinements, building on the same-day roadmap auto/manual work (#1032).
+
+**What changed:**
+- `app/dashboard/[eventId]/_components/live-countdown.tsx` — under the big day count, a **per-second HH:MM:SS** ticking down the time left in the current PH day (= exactly when the day count drops). Confirmed the countdown already anchors on **PH-midnight (12MN)** of the event date via `targetMs` (`…T00:00:00+08:00`) — never a ceremony/church time — so "timed from 12MN" needed no change, only the ticker. Single `nowMs` state, ticks 1s; SSR seeds from `serverNowMs` (no hydration mismatch); ticker is `aria-hidden` so SRs aren't spammed.
+- `lib/wedding-roadmap.ts` — `ItemDef` gains `idealByMonths` (band lower edge); `RoadmapItem` gains `overdue` (months-to-earliest < ideal). `resolveRoadmap` takes an optional `limit` and orders **overdue-first** then planning order. `RoadmapSignals` / `countRoadmapDone` unchanged.
+- `app/dashboard/[eventId]/_components/wedding-roadmap-async.tsx` — renders `resolveRoadmap(…, 3)` (**3 at a time**; refills on each revalidate as items complete) + an amber **Overdue** badge (owner picked "badge + always surface"). The "X/11 done" count still spans the full flow.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean on all 3 files · **17/17 roadmap logic assertions** (cap=3, refill on done, overdue flag + overdue-first ordering, civil-couple fallback survives the cap, null-signals degrade) · **countdown math** checked against known inputs — Jun-5→Dec-8 yields **186 days** (matches the owner's screenshot) + `08:00:00` at 16:00 PH, `1 day · 06:00:00` the eve, `Today` at 00:00. Live browser render not runnable in-worktree (public Supabase keys are Vercel-only) — the PR's Vercel preview is the first clickable surface.
+
+**SPEC IMPACT:** Iteration 0021 Home — countdown gains a live H:M:S (midnight-anchored, already true); roadmap is capped to 3 + overdue-flagged. Logged in corpus `DECISION_LOG.md` (2026-06-05); STATUS line-26 updated.
+
 ## 2026-06-05 · feat(0021): Wedding Roadmap auto-checks the 8 confirmable "things to complete"
 
 **Context:** Owner on the couple Home **"Things to complete"** list: *"some needs manual done and some needs automatic. we have automatic like date, finalize venue, etc."* The roadmap shipped earlier today (PR #1021) as 100% manual tap-Done — explicitly NOT automated to avoid the retired Today's-Focus inference. This refines that: items the app can confirm from a hard structural fact auto-check; the soft ones stay manual.

@@ -54,27 +54,36 @@ type ItemDef = {
    * start (the 12+ month band) and stays due until the couple marks it done.
    */
   dueWithinMonths: number | null;
+  /**
+   * The lower edge of the band — the months-out by which this should ideally be
+   * DONE. Once months-to-earliest drops below it and the item is still open it
+   * is overdue (the 12+ band's floor is 12). Drives the "Overdue" flag + the
+   * always-surface ordering.
+   */
+  idealByMonths: number;
 };
 
 // The planning sequence, in order. Bands: 12+ · 9–12 · 6–9 · 4–6 · 2–4.
 const ITEMS: readonly ItemDef[] = [
-  { key: 'lock_date', label: 'Lock in your final wedding date', band: '12+ months', dueWithinMonths: null },
-  { key: 'reception_venue', label: 'Book your reception venue', band: '12+ months', dueWithinMonths: null },
-  { key: 'ceremony_venue', label: 'Book your ceremony venue', band: '12+ months', dueWithinMonths: null },
-  { key: 'budget', label: 'Set your budget', band: '9–12 months', dueWithinMonths: 12 },
-  { key: 'guest_list', label: 'Build your guest list', band: '9–12 months', dueWithinMonths: 12 },
-  { key: 'core_vendors', label: 'Start booking your core vendors', band: '9–12 months', dueWithinMonths: 12 },
-  { key: 'reception_look', label: 'Decide your reception look', band: '6–9 months', dueWithinMonths: 9 },
-  { key: 'save_the_dates', label: 'Send your save-the-dates', band: '6–9 months', dueWithinMonths: 9 },
-  { key: 'setnayan_capture', label: 'Set up your Setnayan capture', band: '4–6 months', dueWithinMonths: 6 },
-  { key: 'invitations', label: 'Send your invitations', band: '4–6 months', dueWithinMonths: 6 },
-  { key: 'seating', label: 'Start your seating plan', band: '2–4 months', dueWithinMonths: 4 },
+  { key: 'lock_date', label: 'Lock in your final wedding date', band: '12+ months', dueWithinMonths: null, idealByMonths: 12 },
+  { key: 'reception_venue', label: 'Book your reception venue', band: '12+ months', dueWithinMonths: null, idealByMonths: 12 },
+  { key: 'ceremony_venue', label: 'Book your ceremony venue', band: '12+ months', dueWithinMonths: null, idealByMonths: 12 },
+  { key: 'budget', label: 'Set your budget', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
+  { key: 'guest_list', label: 'Build your guest list', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
+  { key: 'core_vendors', label: 'Start booking your core vendors', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
+  { key: 'reception_look', label: 'Decide your reception look', band: '6–9 months', dueWithinMonths: 9, idealByMonths: 6 },
+  { key: 'save_the_dates', label: 'Send your save-the-dates', band: '6–9 months', dueWithinMonths: 9, idealByMonths: 6 },
+  { key: 'setnayan_capture', label: 'Set up your Setnayan capture', band: '4–6 months', dueWithinMonths: 6, idealByMonths: 4 },
+  { key: 'invitations', label: 'Send your invitations', band: '4–6 months', dueWithinMonths: 6, idealByMonths: 4 },
+  { key: 'seating', label: 'Start your seating plan', band: '2–4 months', dueWithinMonths: 4, idealByMonths: 2 },
 ] as const;
 
 export type RoadmapItem = {
   key: RoadmapItemKey;
   label: string;
   band: string;
+  /** Past its ideal window and still open — drives the "Overdue" flag. */
+  overdue: boolean;
 };
 
 /**
@@ -144,7 +153,12 @@ function isItemDone(
 
 /**
  * The open items to show: those that are DUE (within their months-out window,
- * or always-due for the 12+ band) AND not yet done. In planning order.
+ * or always-due for the 12+ band) AND not yet done.
+ *
+ * Ordered OVERDUE-FIRST (owner 2026-06-05 — "always surface what they're behind
+ * on"), then natural planning order within each group. `limit` caps the list:
+ * the Home shows 3 at a time and refills as items complete; omit `limit` for the
+ * full list.
  *
  * `signals` is optional — omit it (or pass null) to fall back to pure manual
  * check-off, the old behavior, so a signal-fetch failure never hides items.
@@ -153,8 +167,9 @@ export function resolveRoadmap(
   monthsToEarliest: number | null,
   completed: readonly string[],
   signals: RoadmapSignals | null = null,
+  limit?: number,
 ): RoadmapItem[] {
-  const out: RoadmapItem[] = [];
+  const open: RoadmapItem[] = [];
   for (const i of ITEMS) {
     const due =
       i.dueWithinMonths === null
@@ -162,9 +177,13 @@ export function resolveRoadmap(
         : monthsToEarliest !== null && monthsToEarliest <= i.dueWithinMonths;
     if (!due) continue;
     if (isItemDone(i.key, completed, signals)) continue;
-    out.push({ key: i.key, label: i.label, band: i.band });
+    const overdue = monthsToEarliest !== null && monthsToEarliest < i.idealByMonths;
+    open.push({ key: i.key, label: i.label, band: i.band, overdue });
   }
-  return out;
+  // Overdue first (always surfaced), else natural planning order — the stable
+  // partition keeps upstream-first within each group.
+  const ordered = [...open.filter((i) => i.overdue), ...open.filter((i) => !i.overdue)];
+  return limit === undefined ? ordered : ordered.slice(0, Math.max(0, limit));
 }
 
 /**

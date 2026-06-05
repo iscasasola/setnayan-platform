@@ -1,4 +1,4 @@
-import { Check, ListChecks } from 'lucide-react';
+import { AlertTriangle, Check, ListChecks } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -131,7 +131,11 @@ export async function WeddingRoadmapAsync({
   };
 
   const months = monthsUntil(earliest, now.getTime());
-  const items = resolveRoadmap(months, completed, signals);
+  // Show 3 at a time (owner 2026-06-05), overdue-first. The list refills as
+  // items complete — this server component re-runs on every revalidate, so the
+  // next-most-urgent open item slides into the freed slot. The done count below
+  // stays over the full 11-item flow.
+  const items = resolveRoadmap(months, completed, signals, 3);
   const doneCount = countRoadmapDone(completed, signals);
 
   const monthsLabel =
@@ -173,8 +177,14 @@ export async function WeddingRoadmapAsync({
             <li key={item.key} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
                 <p className="text-sm text-ink/85">{item.label}</p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-                  {item.band}
+                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+                  <span>{item.band}</span>
+                  {item.overdue ? (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-px font-medium text-amber-700">
+                      <AlertTriangle aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
+                      Overdue
+                    </span>
+                  ) : null}
                 </p>
               </div>
               {/* Manual check-off — server-action form, no client JS, no link. */}

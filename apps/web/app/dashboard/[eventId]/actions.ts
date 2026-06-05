@@ -30,6 +30,7 @@ import {
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
 import { getVendorAvailableDays } from '@/lib/vendor-availability';
+import { ROADMAP_ITEM_KEYS } from '@/lib/wedding-roadmap';
 import {
   type ConflictField,
   type ConflictService,
@@ -177,6 +178,51 @@ export async function setPlanningMode(formData: FormData) {
   const { error } = await supabase
     .from('events')
     .update({ planning_mode: mode })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+}
+
+/**
+ * toggleRoadmapItem — mark a Wedding Roadmap "thing to complete" done (or undo).
+ *
+ * Owner 2026-06-05 (iteration 0021). MANUAL check-off only — no automation. The
+ * couple taps a roadmap item done; its key is added to `events.roadmap_completed`
+ * (and removed if tapped again), and the item drops off the list. No data is
+ * read to infer completion. Mirrors setPlanningMode's auth + `event_id` update.
+ */
+export async function toggleRoadmapItem(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const itemKey = formData.get('item_key');
+  if (typeof eventId !== 'string') throw new Error('event_id required');
+  if (
+    typeof itemKey !== 'string' ||
+    !(ROADMAP_ITEM_KEYS as readonly string[]).includes(itemKey)
+  ) {
+    throw new Error('invalid roadmap item');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: row } = await supabase
+    .from('events')
+    .select('roadmap_completed')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const current = ((row as { roadmap_completed?: string[] | null } | null)
+    ?.roadmap_completed ?? []) as string[];
+  const next = current.includes(itemKey)
+    ? current.filter((k) => k !== itemKey)
+    : [...current, itemKey];
+
+  const { error } = await supabase
+    .from('events')
+    .update({ roadmap_completed: next })
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 

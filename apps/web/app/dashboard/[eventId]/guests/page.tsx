@@ -23,6 +23,7 @@ import {
 import { filterByRoleGroup, ROLE_GROUP_LABELS } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { LiveSearch } from './_components/live-search';
@@ -252,6 +253,26 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const allTags = uniqueTags(guests);
   const flash = pickFlash(search);
 
+  // Resolve each guest's stored photo ref → a display URL once on the server:
+  // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
+  // through verbatim (oauth_google). Keyed by the stored value so the client
+  // grid looks each card up — the same `initialDisplayUrls` contract
+  // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
+  // re-filtering/sorting never re-signs; signing runs in parallel per the
+  // displayUrlForStoredAsset doc guidance.
+  const photoDisplayUrls: Record<string, string> = Object.fromEntries(
+    (
+      await Promise.all(
+        guests
+          .filter((g) => g.photo_url)
+          .map(
+            async (g) =>
+              [g.photo_url!, await displayUrlForStoredAsset(g.photo_url)] as const,
+          ),
+      )
+    ).filter((e): e is [string, string] => e[1] !== null),
+  );
+
   // Team Bride / Team Groom counts — "both" counts to both sides on
   // purpose (a guest invited by both shows in either team view).
   const teamCounts = {
@@ -414,6 +435,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               groups={groups}
               groupMemberships={groupMemberships}
               currentGroupId={currentGroupId}
+              photoDisplayUrls={photoDisplayUrls}
             />
           )}
         </div>

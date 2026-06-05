@@ -181,6 +181,30 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     return redirect(`${backTo}?error=${encodeURIComponent(friendly)}`);
   }
 
+  // RA 10173 governance: turning photo consent OFF also revokes any live
+  // face-recognition enrollment and clears a selfie display photo, so "don't
+  // use this guest's face" actually removes the biometric data Papic would
+  // consume. A Gmail avatar (display-only, non-biometric) is left intact.
+  // Couple JWT is RLS-scoped to its own event. Best-effort — never block save.
+  if (!photo_consent) {
+    await supabase
+      .from('guest_face_enrollments')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .is('revoked_at', null);
+    await supabase
+      .from('guests')
+      .update({
+        photo_url: null,
+        photo_source: null,
+        photo_updated_at: new Date().toISOString(),
+      })
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .eq('photo_source', 'selfie');
+  }
+
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(backTo);
   // Owner directive 2026-05-22: when information is saved on guest,

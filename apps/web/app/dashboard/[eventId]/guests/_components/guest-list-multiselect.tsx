@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Trash2, X, UserPlus } from 'lucide-react';
+import { ChevronDown, Trash2, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
 import {
@@ -78,6 +78,10 @@ type Props = {
   groups: GuestGroupWithCount[];
   groupMemberships: Record<string, string[]>; // guest_id → group_id[]
   currentGroupId: string | null;
+  // guest.photo_url (the stored r2:// ref or raw Google avatar URL) →
+  // resolved display URL, signed server-side in page.tsx. Cards look their
+  // photo up here; a miss falls back to side-tinted initials.
+  photoDisplayUrls: Record<string, string>;
 };
 
 export function GuestListMultiselect({
@@ -87,12 +91,13 @@ export function GuestListMultiselect({
   groups,
   groupMemberships,
   currentGroupId,
+  photoDisplayUrls,
 }: Props) {
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
   // and the desktop SelectionBar stay in lockstep (owner directive
   // 2026-06-03). `selectMode` only gates the MOBILE card checkbox; the
-  // desktop table keeps its always-on checkbox column.
+  // desktop grid keeps its always-interactive checkbox overlay.
   const { selectMode, ids: selectedIds, set: selectedSet } = useGuestSelection();
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
 
@@ -100,6 +105,13 @@ export function GuestListMultiselect({
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
+
+  // group_id → group, built once instead of per-card (the old table rebuilt
+  // this Object.fromEntries inside every row's render).
+  const groupsById = useMemo(
+    () => Object.fromEntries(groups.map((g) => [g.group_id, g])),
+    [groups],
+  );
 
   const toggleAll = () =>
     allSelected ? guestSelection.clear() : guestSelection.setAll(allIds);
@@ -124,74 +136,72 @@ export function GuestListMultiselect({
         </div>
       ) : null}
 
-      {/* Desktop · table with checkbox column. Mirrors the prior
-          DesktopTable layout but no longer wraps the whole row in a
-          Link — the checkbox owns row-click for selection, and the name
-          column carries an explicit Link to the detail page. */}
-      <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
-        <table className="w-full table-fixed text-left text-sm">
-          <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-            <tr>
-              <th className="w-10 px-3 py-3">
-                <label className="flex items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = someSelected;
-                    }}
-                    onChange={toggleAll}
-                    aria-label={
-                      allSelected ? 'Clear selection' : 'Select all guests in view'
-                    }
-                    className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-                  />
-                </label>
-              </th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              {/* Side column — owner directive 2026-05-23. Surfaces the
-               *  guest's bride/groom/both attribution explicitly instead
-               *  of relying on the Avatar's tint cue. Narrow 88px-ish
-               *  width is enough for the "Bride's side" / "Groom's side"
-               *  / "Both sides" label rendered as a tinted pill. */}
-              <th className="w-[10%] px-3 py-3 font-medium">Side</th>
-              <th className="w-[18%] px-3 py-3 font-medium">Role</th>
-              <th className="w-[16%] px-3 py-3 font-medium">Groups</th>
-              <th className="w-[12%] px-3 py-3 font-medium">RSVP</th>
-              <th className="w-[14%] px-3 py-3 font-medium">Contact</th>
-            </tr>
-          </thead>
-          <tbody>
-            {guests.map((guest) => (
-              <DesktopRow
-                key={guest.guest_id}
-                guest={guest}
-                eventId={eventId}
-                palette={palette}
-                selected={selectedSet.has(guest.guest_id)}
-                onToggle={() => guestSelection.toggle(guest.guest_id)}
-                groupIds={groupMemberships[guest.guest_id] ?? []}
-                groupsById={Object.fromEntries(groups.map((g) => [g.group_id, g]))}
-                currentGroupId={currentGroupId}
-              />
-            ))}
-          </tbody>
-        </table>
+      {/* Photo-card grid (owner directive 2026-06-05 — "guest list will be
+          grid style now. since we want them to have photos"). Replaces the
+          prior desktop table + mobile stacked-card list. Cards stay
+          selectable, so the SelectionBar + mobile carousel bulk ops + their
+          select-all lockstep are untouched — only the DOM around the same
+          `guestSelection` store changed. */}
+
+      {/* Desktop select-all + count header — replaces the table header-row
+          checkbox the grid drops. Mobile select-all stays in the carousel's
+          Customize panel. */}
+      <div className="hidden items-center gap-3 sm:flex">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink/70">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someSelected;
+            }}
+            onChange={toggleAll}
+            aria-label={
+              allSelected ? 'Clear selection' : 'Select all guests in view'
+            }
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+          {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
+        </label>
+        <span className="text-xs text-ink/45">
+          {guests.length} {guests.length === 1 ? 'guest' : 'guests'}
+        </span>
       </div>
 
-      {/* Mobile · stacked cards with leading checkbox. */}
-      <ul className="space-y-2 sm:hidden">
+      {/* Desktop · 2→4 responsive columns; checkbox always interactive
+          (mirrors the table's always-on checkbox column). */}
+      <div className="hidden grid-cols-2 gap-3 sm:grid md:grid-cols-3 xl:grid-cols-4">
         {guests.map((guest) => (
-          <MobileCard
+          <GuestCard
             key={guest.guest_id}
             guest={guest}
             eventId={eventId}
             palette={palette}
+            displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+            showCheckbox
+            selected={selectedSet.has(guest.guest_id)}
+            onToggle={() => guestSelection.toggle(guest.guest_id)}
+            groupIds={groupMemberships[guest.guest_id] ?? []}
+            groupsById={groupsById}
+            currentGroupId={currentGroupId}
+          />
+        ))}
+      </div>
+
+      {/* Mobile · 2-col grid; checkbox only in select mode; swipe-to-delete
+          kept on each card. */}
+      <ul className="grid grid-cols-2 gap-2 sm:hidden">
+        {guests.map((guest) => (
+          <MobileGridItem
+            key={guest.guest_id}
+            guest={guest}
+            eventId={eventId}
+            palette={palette}
+            displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
             selectMode={selectMode}
             selected={selectedSet.has(guest.guest_id)}
             onToggle={() => guestSelection.toggle(guest.guest_id)}
             groupIds={groupMemberships[guest.guest_id] ?? []}
-            groupsById={Object.fromEntries(groups.map((g) => [g.group_id, g]))}
+            groupsById={groupsById}
             currentGroupId={currentGroupId}
           />
         ))}
@@ -564,14 +574,26 @@ function NewGroupInlineForm({
 }
 
 // -----------------------------------------------------------------------
-// Row components · checkbox + name (Link) + role chip + group chips +
-// RSVP + contact. Mobile uses a compact stacked card with the same data.
+// GuestCard — the photo-card tile shared by the desktop + mobile grids
+// (owner directive 2026-06-05 "guest list will be grid style now"). A
+// "stretched link" covers the whole card for tap-to-detail; the interactive
+// bits (selection checkbox, the remove-from-group <form> inside
+// GroupChipList) sit ABOVE that link with their own pointer events, so no
+// interactive element is ever nested inside the <Link> anchor.
 // -----------------------------------------------------------------------
 
-function DesktopRow({
+const SIDE_RING: Record<GuestSide, string> = {
+  bride: 'border-rose-200',
+  groom: 'border-sky-200',
+  both: 'border-amber-200',
+};
+
+function GuestCard({
   guest,
   eventId,
   palette,
+  displayUrl,
+  showCheckbox,
   selected,
   onToggle,
   groupIds,
@@ -581,6 +603,8 @@ function DesktopRow({
   guest: GuestRow;
   eventId: string;
   palette: RolePalette;
+  displayUrl?: string;
+  showCheckbox: boolean;
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
@@ -588,13 +612,31 @@ function DesktopRow({
   currentGroupId: string | null;
 }) {
   return (
-    <tr
-      className={`border-t border-ink/5 transition-colors ${
-        selected ? 'bg-terracotta/[0.06]' : 'hover:bg-terracotta/[0.04]'
+    <div
+      className={`group relative overflow-hidden rounded-xl border bg-cream transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(30,34,41,0.35)] ${
+        selected
+          ? 'border-terracotta ring-2 ring-terracotta/40'
+          : SIDE_RING[guest.side]
       }`}
     >
-      <td className="px-3 py-3">
-        <label className="flex items-center justify-center">
+      {/* Stretched link — the whole card navigates to the guest detail page.
+          z-0 so the content (z-10) and the interactive overlays (z-20) render
+          on top; pointer-events-none content lets taps fall through to here. */}
+      <Link
+        href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+        aria-label={guestDisplayName(guest)}
+        className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+      />
+
+      {/* Selection checkbox overlay. Desktop: always present (subtle until
+          hover/checked). Mobile: only mounts in select mode. */}
+      {showCheckbox ? (
+        <label
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute left-2 top-2 z-20 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-cream/85 ring-1 ring-ink/10 backdrop-blur transition-opacity ${
+            selected ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'
+          }`}
+        >
           <input
             type="checkbox"
             checked={selected}
@@ -603,99 +645,35 @@ function DesktopRow({
             className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
           />
         </label>
-      </td>
-      <td className="px-4 py-3">
-        <Link
-          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-          className="flex items-center gap-3"
-        >
-          <Avatar guest={guest} />
+      ) : null}
+
+      {/* Content — pointer-events-none so taps fall through to the stretched
+          link; interactive descendants re-enable pointer events explicitly. */}
+      <div className="pointer-events-none relative z-10">
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink/[0.04]">
+          <GuestPhoto guest={guest} displayUrl={displayUrl} />
+          <span className="absolute right-2 top-2">
+            <SidePill side={guest.side} />
+          </span>
+        </div>
+        <div className="space-y-1.5 p-2.5">
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{guestDisplayName(guest)}</p>
+            <p className="truncate text-sm font-medium text-ink">
+              {guestDisplayName(guest)}
+            </p>
             {guest.plus_one_allowed ? (
               <p className="truncate text-xs text-ink/55">
                 + {guest.plus_one_name ?? 'TBA'}
               </p>
             ) : null}
           </div>
-        </Link>
-      </td>
-      <td className="px-3 py-3">
-        <SidePill side={guest.side} />
-      </td>
-      <td className="px-3 py-3">
-        <RoleChips guest={guest} palette={palette} />
-      </td>
-      <td className="px-3 py-3">
-        <GroupChipList
-          eventId={eventId}
-          guestId={guest.guest_id}
-          groupIds={groupIds}
-          groupsById={groupsById}
-          currentGroupId={currentGroupId}
-        />
-      </td>
-      <td className="px-3 py-3">
-        <RsvpPill status={guest.rsvp_status} />
-      </td>
-      <td className="px-3 py-3 text-xs text-ink/60">
-        {guest.email ?? guest.mobile ?? '—'}
-      </td>
-    </tr>
-  );
-}
-
-function MobileCard({
-  guest,
-  eventId,
-  palette,
-  selectMode,
-  selected,
-  onToggle,
-  groupIds,
-  groupsById,
-  currentGroupId,
-}: {
-  guest: GuestRow;
-  eventId: string;
-  palette: RolePalette;
-  selectMode: boolean;
-  selected: boolean;
-  onToggle: () => void;
-  groupIds: string[];
-  groupsById: Record<string, GuestGroupWithCount>;
-  currentGroupId: string | null;
-}) {
-  const cardInner = (
-    <div
-      className={`flex items-center gap-3 rounded-lg border bg-cream p-3 ${
-        selected ? 'border-terracotta/60 bg-terracotta/[0.05]' : 'border-ink/10'
-      }`}
-    >
-      {/* Checkbox appears only in select mode (owner directive 2026-06-03) —
-          a clean card by default, the leading checkbox once "Select" is on. */}
-      {selectMode ? (
-        <label className="flex items-center justify-center">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggle}
-            aria-label={`Select ${guestDisplayName(guest)}`}
-            className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
-        </label>
-      ) : null}
-      <Link
-        href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-        className="flex flex-1 items-center gap-3 min-w-0"
-      >
-        <Avatar guest={guest} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">
-            {guestDisplayName(guest)}
-          </p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1">
             <RoleChips guest={guest} palette={palette} />
+            <RsvpPill status={guest.rsvp_status} />
+          </div>
+          {/* GroupChipList can render a remove-from-group <form>; give it back
+              pointer events so that button works above the stretched link. */}
+          <div className="pointer-events-auto">
             <GroupChipList
               eventId={eventId}
               guestId={guest.guest_id}
@@ -706,15 +684,56 @@ function MobileCard({
             />
           </div>
         </div>
-        <RsvpPill status={guest.rsvp_status} />
-      </Link>
+      </div>
     </div>
   );
+}
 
-  // Swipe-left-to-delete (owner directive 2026-06-03) — only when NOT in select
-  // mode (there the row is for checkbox bulk ops) and not the couple (the bride
-  // & groom can't be removed; bulkSoftDeleteGuests blocks them server-side, so
-  // don't dangle a Delete that will always fail).
+// MobileGridItem — wraps GuestCard in a <li> + the existing SwipeToDelete
+// gesture (kept verbatim from the old mobile card). Couple rows (bride/groom)
+// and select mode disable the swipe, exactly as before.
+function MobileGridItem({
+  guest,
+  eventId,
+  palette,
+  displayUrl,
+  selectMode,
+  selected,
+  onToggle,
+  groupIds,
+  groupsById,
+  currentGroupId,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  palette: RolePalette;
+  displayUrl?: string;
+  selectMode: boolean;
+  selected: boolean;
+  onToggle: () => void;
+  groupIds: string[];
+  groupsById: Record<string, GuestGroupWithCount>;
+  currentGroupId: string | null;
+}) {
+  const card = (
+    <GuestCard
+      guest={guest}
+      eventId={eventId}
+      palette={palette}
+      displayUrl={displayUrl}
+      showCheckbox={selectMode}
+      selected={selected}
+      onToggle={onToggle}
+      groupIds={groupIds}
+      groupsById={groupsById}
+      currentGroupId={currentGroupId}
+    />
+  );
+
+  // Swipe-left-to-delete — only when NOT in select mode (there the card is for
+  // checkbox bulk ops) and not the couple (bride & groom can't be removed;
+  // bulkSoftDeleteGuests blocks them server-side, so don't dangle a Delete
+  // that will always fail).
   const swipeable =
     !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
 
@@ -726,10 +745,10 @@ function MobileCard({
           guestId={guest.guest_id}
           guestName={guestDisplayName(guest)}
         >
-          {cardInner}
+          {card}
         </SwipeToDelete>
       ) : (
-        cardInner
+        card
       )}
     </li>
   );
@@ -915,27 +934,49 @@ function GroupChipList({
   );
 }
 
-function Avatar({ guest }: { guest: GuestRow }) {
-  const sideTint: Record<GuestRow['side'], string> = {
-    bride: 'bg-rose-200/60 text-rose-900',
-    groom: 'bg-sky-200/60 text-sky-900',
-    both: 'bg-amber-200/60 text-amber-900',
+// GuestPhoto — the card hero. Renders the resolved display photo (selfie or
+// Gmail avatar) with object-cover, or a side-tinted initials block when the
+// guest has no photo yet. Raw <img> (not next/image) because display URLs are
+// short-lived presigned R2 URLs — same house rule as the hero-photo surface.
+function GuestPhoto({
+  guest,
+  displayUrl,
+}: {
+  guest: GuestRow;
+  displayUrl?: string;
+}) {
+  if (displayUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={displayUrl}
+        alt=""
+        loading="lazy"
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+  const sideTint: Record<GuestSide, string> = {
+    bride: 'bg-rose-100 text-rose-900',
+    groom: 'bg-sky-100 text-sky-900',
+    both: 'bg-amber-100 text-amber-900',
   };
   return (
-    <span
+    <div
       aria-hidden
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
+      className={`flex h-full w-full items-center justify-center ${sideTint[guest.side]}`}
     >
-      {guestInitials(guest)}
-    </span>
+      <span className="text-3xl font-semibold tracking-tight">
+        {guestInitials(guest)}
+      </span>
+    </div>
   );
 }
 
-// Side pill — owner directive 2026-05-23. New column on the desktop
-// guests table. Same side-of-wedding tint as the Avatar cue (rose for
-// bride · sky for groom · amber for both) so the visual language is
-// consistent across the row + the chip is small enough to fit in a
-// ~10% column width.
+// Side pill — bride/groom/both attribution shown as a tinted chip in the
+// card's top-right corner. Same side-tint language (rose for bride · sky for
+// groom · amber for both) as the card ring + the initials fallback, so the
+// cue stays consistent across the card.
 function SidePill({ side }: { side: GuestRow['side'] }) {
   const tone: Record<GuestRow['side'], string> = {
     bride: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',

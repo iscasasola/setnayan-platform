@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0021): Manual mode — Services accordion deep-gate (PR2 of 2)
+
+**Context:** Completes Manual planning mode (PR1 #1002 shipped the `events.planning_mode` flag + the Guided⇄Manual toggle + Home gating). PR2 makes "off" consistent on the **Services tab** — the personalization still showing inside the plan+budget accordion now turns off too.
+
+**What changed:**
+- **`lib/vendors-plan-budget.ts`** — `buildPlanBudgetModel` gains a `personalizationEnabled` arg (default true), threaded onto `PlanBudgetModel` + each `AccordionChild`. When false (Manual), the "what to lock next" / "Do this next" nudges (`dueList`/`upNext`) are emptied — **the per-child timeline math + budget are untouched.**
+- **`plan-budget-accordion.tsx`** — in Manual mode: the per-candidate **"% match" pills** are hidden (`VendorCardAtom` + `CompareSheet` skip `computeCompatScore` → the `{match && …}` renders nothing), the per-category **`DeadlineChip`** is hidden, and the **`NextAction` "Do this next"** hero is hidden.
+- **`category-search` action + overlay** — the category-browse overlay's **"% match"** pill is gated too: the action returns `compatScore: null` in Manual; the overlay hides the pill. **Result ORDER unchanged** (the locked tier ladder).
+- **`vendors/page.tsx`** — passes `personalizationEnabled: !planningManual` into the model.
+
+**Result:** Manual mode is now fully consistent — strip collapsed (PR1), Home tasks+deadlines off (PR1), and now the accordion's match pills + deadline chips + lock-next nudges off. The vendor **directory still works** (search · browse · compatibility filters · neutral order).
+
+**Verify:** `tsc --noEmit` + `next lint` green. **No migration** (reuses PR1's `events.planning_mode`).
+
+**SPEC IMPACT:** Completes the 0021 Manual mode (decision already in corpus `DECISION_LOG`). 0021 spec edit pending.
+
 ## 2026-06-05 · feat(0001): CSV guest import — exact-duplicate skip (within-file + against existing)
 
 **Context:** Follow-up to the guest-name hygiene PR (#1004) — closes the largest remaining gap from that review: CSV import had **no** duplicate detection, so re-importing a file doubled everyone and a file listing the same person twice inserted both.

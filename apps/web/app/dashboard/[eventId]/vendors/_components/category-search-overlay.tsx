@@ -282,11 +282,13 @@ export function CategorySearchOverlay({
                 <div className="meta">
                   <div className="vn">{r.name}</div>
                   <div className="sub">
-                    <span
-                      className={`badge mt${r.compatTier === 'good' ? ' good' : r.compatTier === 'fair' ? ' fair' : ''}`}
-                    >
-                      {r.compatScore}% match
-                    </span>
+                    {r.compatScore !== null ? (
+                      <span
+                        className={`badge mt${r.compatTier === 'good' ? ' good' : r.compatTier === 'fair' ? ' fair' : ''}`}
+                      >
+                        {r.compatScore}% match
+                      </span>
+                    ) : null}
                     {r.rating !== null && r.reviewCount ? (
                       <span className="stars">
                         ★ {r.rating.toFixed(1)} ({r.reviewCount})

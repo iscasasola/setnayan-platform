@@ -229,6 +229,9 @@ export type AccordionChild = {
   lockedTotal: number;
   /** Whether the group is hard-single (one pick max). */
   hardSingle: boolean;
+  /** Setnayan Assist on? (event `planning_mode` !== 'manual'). When false the
+   *  vendor cards drop the "% match" pill — Manual mode browses neutrally. */
+  personalizationEnabled: boolean;
 };
 
 /** One folder section (the sticky accordion header + its child rails). */
@@ -277,6 +280,9 @@ export type PlanBudgetModel = {
   meterFill: number;
   dueList: DueItem[];
   upNext: DueItem | null;
+  /** Setnayan Assist on? (planning_mode !== 'manual'). Gates the NextAction
+   *  "Do this next" hero; the per-child flag mirrors it for the % match pills. */
+  personalizationEnabled: boolean;
   recap: RecapStats;
   /**
    * How many addable categories the couple has NOT added yet (active-
@@ -415,6 +421,10 @@ export function buildPlanBudgetModel(args: {
    * distinct count); 0 when unknown → the recap never fabricates a number.
    */
   marketPoolCount?: number;
+  /** Setnayan Assist toggle (event `planning_mode`). Default true (Guided).
+   *  When false (Manual), every child is flagged so its vendor cards drop the
+   *  "% match" pill and the couple browses in a neutral order. */
+  personalizationEnabled?: boolean;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -427,6 +437,7 @@ export function buildPlanBudgetModel(args: {
     eyeingByVendorId,
     enrichmentByVendorId,
     marketPoolCount = 0,
+    personalizationEnabled = true,
   } = args;
 
   // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
@@ -510,6 +521,7 @@ export function buildPlanBudgetModel(args: {
       timelineStatus: timelineStatusOf(group.id, daysUntilWedding, state),
       lockedTotal,
       hardSingle,
+      personalizationEnabled,
     };
     childrenByFolder.get(group.catalogFolder)?.push(child);
   }
@@ -607,8 +619,15 @@ export function buildPlanBudgetModel(args: {
       d.timelineStatus === 'due_soon' ||
       d.timelineStatus === 'start_now',
   );
-  const dueList = actionable.slice(0, 3);
-  const upNext = actionable.length === 0 && due.length > 0 ? (due[0] ?? null) : null;
+  // Manual mode (Setnayan Assist OFF) suppresses the "what to lock next" /
+  // "Do this next" deadline nudges entirely (owner 2026-06-05). The per-child
+  // timeline math is untouched; only these aggregate prompts go quiet.
+  const dueList = personalizationEnabled ? actionable.slice(0, 3) : [];
+  const upNext = personalizationEnabled
+    ? actionable.length === 0 && due.length > 0
+      ? (due[0] ?? null)
+      : null
+    : null;
 
   // ── Recap ──────────────────────────────────────────────────────────────
   // Real numbers (2026-06-02 · owner "no mockups" · spec §6 resolved via the
@@ -646,6 +665,7 @@ export function buildPlanBudgetModel(args: {
     meterFill,
     dueList,
     upNext,
+    personalizationEnabled,
     recap: { shortlisted, searched, finalized, touched, hoursSaved },
     inactiveCategoryCount,
   };

@@ -53,8 +53,9 @@ export type CategoryVendorResult = {
    *  2026-05-31 tier ladder (Favorites → Boosted → top-reviews → nearest).
    *  Re-ranking the non-boosted tier by score is a separate, sign-off-gated
    *  change. */
-  compatScore: number;
-  compatTier: 'strong' | 'good' | 'fair';
+  /** null when Setnayan Assist is OFF (Manual mode) — the pill is hidden. */
+  compatScore: number | null;
+  compatTier: 'strong' | 'good' | 'fair' | null;
   /** Already in this event's picks → render "✓ Added", not an Add button. */
   alreadyAdded: boolean;
 };
@@ -129,11 +130,16 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode',
     )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!ev) return EMPTY; // not a member of this event
+
+  // Setnayan Assist OFF (Manual mode) → drop the per-candidate "% match" pill
+  // (owner 2026-06-05). The result ORDER is unchanged (the tier ladder).
+  const assistOff =
+    (ev as { planning_mode?: string | null }).planning_mode === 'manual';
 
   const lat = (ev.venue_latitude as number | null) ?? null;
   const lng = (ev.venue_longitude as number | null) ?? null;
@@ -218,13 +224,17 @@ export async function searchCategoryVendors(input: {
         ? Math.round(distanceKm(lat as number, lng as number, vLat, vLng) * 10) / 10
         : null;
     const adRank = (r.ad_rank as number | null) ?? 0;
-    const { score: compatScore, tier: compatTier } = computeCompatScore({
-      distanceKm: dKm,
-      avgRating: r.avg_rating_overall ?? null,
-      reviewCount: r.review_count ?? null,
-      verified: r.public_visibility === 'verified',
-      boosted: adRank > 0,
-    });
+    const compat = assistOff
+      ? null
+      : computeCompatScore({
+          distanceKm: dKm,
+          avgRating: r.avg_rating_overall ?? null,
+          reviewCount: r.review_count ?? null,
+          verified: r.public_visibility === 'verified',
+          boosted: adRank > 0,
+        });
+    const compatScore: number | null = compat ? compat.score : null;
+    const compatTier: 'strong' | 'good' | 'fair' | null = compat ? compat.tier : null;
     return {
       vendorProfileId: r.vendor_profile_id,
       name,

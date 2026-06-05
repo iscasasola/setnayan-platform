@@ -1085,7 +1085,11 @@ function Overview({
       </div>
 
       <div className="intro-grid">
-        <NextAction model={model} eventId={eventId} />
+        {/* "Do this next" deadline hero — hidden in Manual mode (Setnayan
+            Assist off · owner 2026-06-05). */}
+        {model.personalizationEnabled ? (
+          <NextAction model={model} eventId={eventId} />
+        ) : null}
         <LoopLegend />
 
         <div className="irow3">
@@ -1448,7 +1452,9 @@ function ChildRail({
               ⇄ Compare {child.picks.length}
             </button>
           )}
-          <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
+          {child.personalizationEnabled ? (
+            <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
+          ) : null}
         </span>
       </div>
 
@@ -1484,6 +1490,7 @@ function ChildRail({
               groupLabel={child.label}
               onOpen={onOpen}
               lockHintKey={lockHintKey}
+              personalizationEnabled={child.personalizationEnabled}
             />
           ))}
           {/* Collapse on a hard-single finalize: the slot is filled (one
@@ -1538,6 +1545,7 @@ function VendorCardAtom({
   groupLabel,
   onOpen,
   lockHintKey,
+  personalizationEnabled,
 }: {
   pick: AccordionPick;
   eventId: string;
@@ -1545,6 +1553,8 @@ function VendorCardAtom({
   groupLabel: string;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
+  /** Setnayan Assist on? When false (Manual mode) the "% match" pill is hidden. */
+  personalizationEnabled: boolean;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -1588,7 +1598,7 @@ function VendorCardAtom({
   // it today; refinement + date-headroom sit at a neutral baseline until 0044
   // per-service detail data lands, then the spread sharpens on its own.
   const match =
-    pick.marketplace_business_name && !setnayan
+    personalizationEnabled && pick.marketplace_business_name && !setnayan
       ? computeCompatScore({
           distanceKm,
           avgRating: rating,
@@ -2019,8 +2029,11 @@ function CompareSheet({
       badges.push(pick.recommended_reason);
     }
     // Same per-candidate compatibility % the cards show (Architecture §2).
+    // Hidden in Manual mode (child.personalizationEnabled === false).
     const match =
-      pick.marketplace_business_name && pick.is_setnayan_service !== true
+      child.personalizationEnabled &&
+      pick.marketplace_business_name &&
+      pick.is_setnayan_service !== true
         ? computeCompatScore({
             distanceKm,
             avgRating: rating,

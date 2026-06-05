@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0022): branch-scoped service grouping (Branches V1.x complete)
+
+**Context:** The second half of the Branches V1.x "yes" — assign each service to a branch so a multi-location Enterprise vendor can organize its catalog per site. (Auto-lapse + Renew + ₱999 shipped in #995.)
+
+**What changed:**
+- Migration `20260825000000_vendor_services_branch_id.sql` (**applied to prod**): nullable `vendor_services.branch_id` → `vendor_branches` **ON DELETE SET NULL** (deleting a branch un-assigns its services, never orphans) + a partial index. NULL = "main / unassigned" = every existing service → additive, **zero change** for the ~all vendors without branches. RLS unchanged (branch_id is organizational, not a security boundary — `vendor_services` already gates owner/admin + agent-by-assignment).
+- `lib/vendor-services.ts`: `branch_id` on the row type + a **resilient select** (falls back to the base columns if the column isn't in the DB yet → renders identically pre-migration).
+- `services/actions.ts`: create + update persist `branch_id` via `resolveBranchId` (coerces a foreign/blank value to null — a service can only be pinned to the vendor's OWN branch).
+- `services/page.tsx`: a "Branch" `<select>` on the add + edit forms, **gated to Enterprise vendors that have ≥1 branch** — every other vendor sees the form byte-for-byte unchanged; each service card shows its branch. Agents inherit branch scoping transitively (scoped to specific services via `vendor_service_agents`, and those services now carry a branch).
+
+**Verify:** `tsc` + `next lint` + `next build` green. Rolled-back impersonation: column added ✓ · owner sets branch_id on a service ✓ · ON DELETE SET NULL un-assigns ✓. Applied to prod via monogram-isolation. (Incidental: the first push also applied another team's already-merged-but-pending `20260824000000_budget_allocation_decisions`; a timestamp collision with it forced renaming mine `20260824`→`20260825`.)
+
+**SPEC IMPACT:** 0022 — branch-scoped service grouping now BUILT; completes the Branches V1.x flag. Logged in DECISION_LOG.
+
+---
+
 ## 2026-06-05 · feat(0022): Branches V1.x — ₱999 charm price + auto-lapse + Renew
 
 **Context:** Owner follow-ups to the just-shipped Branches feature (#986): (4) the price is **₱999 (charm)**, not ₱1,000 — aligning the code to Pricing.md §0.C (which already read ₱999); (3) build the deferred V1.x lifecycle — auto-lapse after the 28-day window + a one-tap Renew.

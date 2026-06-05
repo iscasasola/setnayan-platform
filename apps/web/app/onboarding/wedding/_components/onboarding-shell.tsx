@@ -813,7 +813,7 @@ function DateCalendar({
 
   /* working state — seeded once from props (resume), then local source of truth */
   const [multi, setMulti] = useState<Date[]>(() =>
-    candidates.length ? candidates.map(fromISO) : [new Date(seed)],
+    candidates.length ? candidates.map(fromISO) : [],
   );
   const [rStart, setRStart] = useState<Date | null>(() => (windowStart ? fromISO(windowStart) : null));
   const [rEnd, setREnd] = useState<Date | null>(() => (windowEnd ? fromISO(windowEnd) : null));
@@ -841,19 +841,16 @@ function DateCalendar({
   );
 
   const setMode = (m: 'specific' | 'window') => {
-    if (m === 'window') {
-      if (!rStart) {
-        const s = new Date(seed);
-        const e = clampMax(new Date(seed.getTime() + 13 * DAY));
-        setRStart(s);
-        setREnd(e);
-        setPickingEnd(false);
-        lift(multi, s, e);
-      }
-    } else if (multi.length === 0) {
-      const m2 = [new Date(seed)];
-      setMulti(m2);
-      lift(m2, rStart, rEnd);
+    // Switching to the flexible window seeds a starter range to nudge (responds to
+    // the explicit mode choice). Specific mode never auto-seeds a date — the screen
+    // opens with nothing selected (owner 2026-06-05: no prefilled onboarding values).
+    if (m === 'window' && !rStart) {
+      const s = new Date(seed);
+      const e = clampMax(new Date(seed.getTime() + 13 * DAY));
+      setRStart(s);
+      setREnd(e);
+      setPickingEnd(false);
+      lift(multi, s, e);
     }
     onChange({ dateMode: m });
   };
@@ -1503,6 +1500,10 @@ export function OnboardingShell({
   useEffect(() => {
     if (step !== 12 || venues !== null || venuesLoading) return;
     setVenuesLoading(true);
+    // Hold the "Finding the best venues for you…" skeleton for a beat so the search
+    // always reads as a deliberate moment as vendors populate, never a flash (owner 2026-06-05).
+    const startedAt = Date.now();
+    const MIN_SKELETON_MS = 700;
     searchOnboardingReceptionVenues({
       kind: state.kind,
       faith: state.faith,
@@ -1515,7 +1516,10 @@ export function OnboardingShell({
     })
       .then((rows) => setVenues(rows))
       .catch(() => setVenues([]))
-      .finally(() => setVenuesLoading(false));
+      .finally(() => {
+        const wait = Math.max(0, MIN_SKELETON_MS - (Date.now() - startedAt));
+        setTimeout(() => setVenuesLoading(false), wait);
+      });
   }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax, state.dateMode, state.dateCandidates]);
 
   /* Congrats stat tile #3 — REAL marketplace counts (owner 2026-06-03: "we want
@@ -1566,8 +1570,9 @@ export function OnboardingShell({
 
   const selectRole = (r: OnboardingRole) => patch({ role: r });
 
-  const selectKind = (k: OnboardingKind) =>
-    patch({ kind: k, faith: k === 'religious' ? ['catholic'] : [] });
+  // No faith is pre-selected — the couple picks their tradition on the faith screen
+  // (owner 2026-06-05: no prefilled onboarding values).
+  const selectKind = (k: OnboardingKind) => patch({ kind: k, faith: [] });
 
   const selectFaith = (f: OnboardingFaith) => {
     if (kind === 'mixed') {
@@ -1624,6 +1629,7 @@ export function OnboardingShell({
   const budgetBandValue = state.budgetBand ?? 'classic';
   const budgetFloorV = budgetFloor(pax); // recommended-lowest for this guest count
   const budgetCeilingV = budgetCeiling(pax);
+  const budgetSet = state.budgetBand != null; // false until the couple sets a budget — drives the unset (empty) display
   const budgetView = (() => {
     const tier = paxTier.t;
     if (budgetBandValue === 'nolimit') {
@@ -1750,13 +1756,14 @@ export function OnboardingShell({
         photo: { img: 'wed_mixed', cap: 'An interfaith wedding' },
       };
     }
-    const firstF = (faith[0] ?? 'catholic') as OnboardingFaith;
+    const firstF = faith[0] as OnboardingFaith | undefined;
     return {
       mode: 'religious' as const,
       eyebrow: 'Your tradition',
       h1: 'Your ceremony tradition',
       sub: 'We’ll match vendors who know your faith’s protocols — and pre-set things like halal catering.',
-      photo: FAITH_PHOTO[firstF],
+      // No faith picked yet → neutral placeholder (gradient) instead of defaulting to Catholic.
+      photo: firstF ? FAITH_PHOTO[firstF] : { img: '', cap: 'Pick your tradition' },
     };
   })();
 
@@ -2260,11 +2267,17 @@ export function OnboardingShell({
               <div className="eyebrow">The day</div>
               <h1 className="q">How many guests?</h1>
               <p className="sub">Your starting headcount, shared with vendors — be as specific as you can for the best matches.</p>
-              <figure className="paxphoto" data-tier={paxTier.t}>
-                <HeroImg src={ASSET(`pax/${paxTier.t}`)} />
+              <figure className="paxphoto" data-tier={state.pax == null ? 'none' : paxTier.t}>
+                <HeroImg src={state.pax == null ? '' : ASSET(`pax/${paxTier.t}`)} />
                 <figcaption className="paxcap">
-                  <span className="paxcaptag">{paxTier.tag}</span>
-                  <span className="paxcapline">{paxTier.line}</span>
+                  {state.pax == null ? (
+                    <span className="paxcapline">Drag or type your headcount to preview the day.</span>
+                  ) : (
+                    <>
+                      <span className="paxcaptag">{paxTier.tag}</span>
+                      <span className="paxcapline">{paxTier.line}</span>
+                    </>
+                  )}
                 </figcaption>
               </figure>
             </div>
@@ -2273,10 +2286,10 @@ export function OnboardingShell({
                 type="range"
                 min={10}
                 max={500}
-                value={Math.min(500, Math.max(10, pax))}
+                value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
                 className="paxslider"
                 aria-label="Guest count slider"
-                style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${paxFill}%,#e7dfce ${paxFill}%,#e7dfce 100%)` }}
+                style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
                 onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
               />
               <div className="paxends"><span>10{'−'}</span><span>500+</span></div>
@@ -2305,12 +2318,18 @@ export function OnboardingShell({
               <div className="eyebrow">The day</div>
               <h1 className="q">Your working budget?</h1>
               <p className="sub">Set your number — we{'’'}ll show the feel it buys for ~{pax} guests.</p>
-              <figure className="budgetphoto budgetphoto--compact" data-band={budgetView.dataBand}>
-                <HeroImg src={ASSET(budgetView.img)} />
+              <figure className="budgetphoto budgetphoto--compact" data-band={budgetSet ? budgetView.dataBand : 'none'}>
+                <HeroImg src={budgetSet ? ASSET(budgetView.img) : ''} />
                 <figcaption className="budgetcap">
-                  <span className="budgetcaptag">{budgetView.label} budget · {pax} pax</span>
-                  <span className="budgetcapsub">{budgetView.tag}</span>
-                  <span className="budgetcaprange">{budgetView.rangeText}</span>
+                  {budgetSet ? (
+                    <>
+                      <span className="budgetcaptag">{budgetView.label} budget · {pax} pax</span>
+                      <span className="budgetcapsub">{budgetView.tag}</span>
+                      <span className="budgetcaprange">{budgetView.rangeText}</span>
+                    </>
+                  ) : (
+                    <span className="budgetcapsub">Set your number to preview the feel it buys.</span>
+                  )}
                 </figcaption>
               </figure>
             </div>
@@ -2332,11 +2351,11 @@ export function OnboardingShell({
                     min={budgetFloorV}
                     max={budgetCeilingV}
                     step={10000}
-                    value={budgetSliderVal}
+                    value={budgetSet ? budgetSliderVal : budgetFloorV}
                     className="paxslider"
                     aria-label="Working budget slider"
                     style={{
-                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetFill}%,#e7dfce ${budgetFill}%,#e7dfce 100%)`,
+                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
                     }}
                     onChange={(e) => onBudgetAmount(Number(e.target.value))}
                   />
@@ -2352,10 +2371,11 @@ export function OnboardingShell({
                         inputMode="numeric"
                         className="numbox-input bdg-amtinput"
                         aria-label="Working budget in pesos"
-                        value={budgetFocused ? groupDigits(budgetInput) : budgetSliderVal.toLocaleString('en-US')}
+                        placeholder="Your budget"
+                        value={budgetFocused ? groupDigits(budgetInput) : budgetSet ? budgetSliderVal.toLocaleString('en-US') : ''}
                         onFocus={() => {
                           setBudgetFocused(true);
-                          setBudgetInput(String(budgetSliderVal));
+                          setBudgetInput(budgetSet ? String(budgetSliderVal) : '');
                         }}
                         onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d]/g, ''))}
                         onBlur={commitBudgetInput}

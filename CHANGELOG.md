@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(0022): vendor_self_comp_caps RLS — vendor reads its own comp cap
+
+**Context:** Owner follow-up to the "RLS-enabled-but-no-policy" flag. Investigation: of the 4 flagged objects, **3 are VIEWS** (`vendor_active_ads`, `vendor_active_tools`, `vendor_market_stats`) — views can't carry RLS, so their no-policy state is correct-by-design, not a gap. Only **`vendor_self_comp_caps`** is a real table with RLS enabled + zero policies, so only `service_role` could read it. The vendor self-comp quota reader (`lib/self-purchase.ts:fetchSelfCompQuota`) runs under the vendor's authed client, so an admin-raised cap was invisible (the read returned nothing → the code fell back to the default cap of 12). No data was wrong, but a raised cap never took effect.
+
+**What changed** (`supabase/migrations/20260823000000_vendor_self_comp_caps_rls.sql`, applied to prod):
+- `vendor_self_comp_caps_owner_read` — owner + team-admin of the vendor read their OWN cap (`current_vendor_profile_ids()`).
+- `vendor_self_comp_caps_admin_manage` — platform admin sets / raises caps (`is_admin()`).
+- RLS-only · idempotent (DROP IF EXISTS → CREATE) · no code change (the reader already passes the vendor's client + `vendor_profile_id`).
+
+**Verify:** rolled-back impersonation — 2 policies created · owner reads own cap (25) ✓ · stranger blocked (0) ✓. Applied to prod via monogram-isolation (`20260817` left untouched).
+
+**SPEC IMPACT:** None — RLS hardening of an existing table; the 3 views are not a gap. Logged in DECISION_LOG.
+
+---
+
 ## 2026-06-05 · feat(onboarding): name-screen monogram auto-restyles every 30s
 
 **Context:** Owner — *"animation loop will happen every 30 seconds"* (onboarding fix list). The name-screen monogram (`MonoLockup`) only changed style when the couple tapped **"Generate another design"** (`cycleDesign`). It now also cycles through the 5 lockups on its own so couples see the styles without tapping.

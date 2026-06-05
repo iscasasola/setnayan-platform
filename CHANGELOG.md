@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): "Set the mood" feel picker → swipeable carousel
+
+**Context:** Owner — *"set the mood must be carousel as well."* The wedding onboarding's Style steps were inconsistent: Cuisine and Photo & Video already used the swipeable photo-card film-strip, but the palette / **"Set the mood"** step still picked the feel with flat text chips.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- Palette body: the feel `PrefChip` row → a **`.pgrid.strip` carousel of `PCard`s** (one photo card per feel, single-select), reusing the exact pattern the Cuisine / Photo & Video steps already ship. Each card shows the feel's budget-tiered photo (`feel_<feel>_<tier>`); the photo-less "Others" falls back to a glyph (new `FEELEMOJI` map).
+- Copy: palette sub **"Pick a feel" → "Swipe a feel."**
+- Viewzone feel-hero + color swatches unchanged.
+
+**Verification:** `tsc --noEmit` clean. Built in an isolated worktree off `origin/main`. ⚠ Not visually verified — the app dev server needs `NEXT_PUBLIC_SUPABASE_*` to boot; the change reuses the proven `.pgrid.strip` CSS (the vertical-fit rules already special-case `.strip`), so it renders like its sibling steps. Confirm on the Vercel preview.
+
+**SPEC IMPACT:** None (schema / SKU / workflow unchanged). The design prototype `Onboarding_Wedding_Flow_2026-06-01.html` already specifies a carousel for this step — the richer photo-forward `.pgrid.car` variant that fills the screen with no hero; the app ships the lighter **film-strip** per owner's 2026-06-05 pick. Corpus is already ahead — no Cowork action (a `DECISION_LOG.md` trace row can be added directly).
+
 ## 2026-06-05 · feat(budget): data-driven shopping range — real vendor prices replace the seeded band
 
 **Context:** Owner — *"just have a range when actual data comes in."* The planner's per-service ₱ range was always reading the admin-seeded benchmark band, even once real vendor prices existed. Now the range comes from the **real price distribution** as soon as a service has enough listings.

@@ -155,15 +155,19 @@ export async function searchSongBank(
   q: string,
   limit = 40,
 ): Promise<SongBankRow[]> {
-  const safe = q.replace(/[%,()]/g, ' ').trim();
+  // Strip the PostgREST wildcard (`*`) too, not just `%`, so a literal one the
+  // couple types can't widen the match.
+  const safe = q.replace(/[%*,()]/g, ' ').trim();
   if (!safe) return [];
   // Title OR artist match — a couple may search "Bruno Mars" (artist) as readily
-  // as a title. PostgREST `or` with two ilike filters.
-  const pattern = `%${safe}%`;
+  // as a title. NOTE: a raw PostgREST `or()` string uses `*` as the ilike
+  // wildcard, NOT `%` — a bare `%` here is treated literally / URL-mangled, so the
+  // search returned NOTHING. (The single-column `.ilike()` method elsewhere can
+  // use `%`; only the raw `.or()` filter needs `*`.)
   const { data } = await supabase
     .from('songs')
     .select(SONG_BANK_COLS)
-    .or(`title.ilike.${pattern},artist.ilike.${pattern}`)
+    .or(`title.ilike.*${safe}*,artist.ilike.*${safe}*`)
     .order('is_curated_pick', { ascending: false })
     .order('title', { ascending: true })
     .limit(limit);

@@ -75,6 +75,11 @@
 .onbw .vcard .shorthint{color:var(--ink-faint);font-size:12px;}
 .onbw .vload{padding:24px 4px;color:var(--ink-soft);font-size:14px;text-align:center;}
 .onbw .vempty{padding:18px;border:1px dashed var(--line-2);border-radius:14px;color:var(--ink-soft);font-size:13.5px;line-height:1.5;background:var(--surface);}
+/* serviceability rings (owner-locked 2026-06-05): soft demote flag — a distance/cost caveat that ranks DOWN but never hides a vendor */
+.onbw .softflag{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;background:rgba(197,160,89,.16);color:var(--gold-deep);padding:3px 7px;border-radius:20px;}
+/* remove note — explains what was hard-cut as incompatible (can't-fit · booked · wrong ceremony) without listing the vendors */
+.onbw .removednote{display:flex;gap:8px;align-items:flex-start;margin-top:8px;padding:11px 12px;border-radius:12px;background:rgba(30,34,41,.04);border:1px dashed var(--line-2);font-size:11.5px;line-height:1.5;color:var(--ink-faint);}
+.onbw .removednote b{color:var(--ink-soft);font-weight:700;}
 
 /* Budget v2 (owner 2026-06-02): text box + line picker + band-on-photo.
    Owner 2026-06-03: "increase the height of the cards so it can cover the whole

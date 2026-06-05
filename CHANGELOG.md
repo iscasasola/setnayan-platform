@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(0021/0022): Services tab — remove coverflow tilt · tap-to-open loading · Vendors route loader
+
+**Context:** Owner UX report on the couple **Services** tab (`/dashboard/[eventId]/vendors` — the Plan + Budget accordion): (1) the service/vendor cards **tilt and "shake"** as the coverflow scroll engine rotates them past rail-center — *"remove that … we can do the enlarge but no need for the tilt"*; (2) *"when we tap, the card enlarges to show that we are digging deeper to that service. make sure to have a loading screen"*; (3) *"from home … to the services, there is a couple of seconds that it is blank … should have a loading state … prevent the user to do any other actions until the load state is done."*
+
+**What changed (all in `apps/web`):**
+- `…/vendors/_components/plan-budget-accordion.tsx`:
+  - **`curveRail`** now writes `scale()` only — the per-frame `perspective + rotateY` coverflow tilt is removed (its sign-flip near rail-center was the "shaking"); the centered-card enlarge (scale + opacity) is kept. Dropped the now-inert `.rail{perspective}`.
+  - **Tap-to-open transition:** a tapped `VendorCardAtom` / `InAppServiceCard` gets an `.opening` enlarge (scale-up on the inner `.v`, never `.card`, so it doesn't fight the scroll-zoom), and a full-screen loading overlay (`ServiceOpenOverlay`, lifted to the root component like `CompareSheet` so its `position:fixed` escapes the curve-transformed `.child-block` ancestors) covers the page; `router.push` fires after the brief enlarge. The `<Link>` is kept (prefetch + ⌘/middle-click new-tab preserved) — only a plain left-click is intercepted. `onOpen` threaded root → FolderSection → ChildRail/DigitalServicesRail → both card atoms.
+- **Narrated loading screens** (`components/loading-status.tsx`, new): a small client `LoadingStatus` cycles a list of status lines on a timer (advances every ~1.4s, holds on the last; entrance fade via `.loading-status-line` in `globals.css`; reduced-motion-safe — the global block freezes the fade, the JS timer still advances the informative text) so each loading screen **tells what it's doing** (owner 2026-06-05). Wired into all three surfaces below + the card-tap overlay (`ServiceOpenOverlay` gains a cycling sub-line under the vendor/service name).
+- `…/vendors/loading.tsx` (**rewritten**): replaces the generic `ListPageSkeleton` with a Vendors-shaped loader that mirrors the real chrome — hides `.shell-topbar` (no header swap), paints the black budget bar (shimmer figs via the shared `<Sk>`), then a spinner + `LoadingStatus` (*"Setting up your planner…" → "Downloading your information…" → "Activating your personalized refinements…" → "Almost ready…"*) filling the content area — so the home → Services hop is a continuous, **narrated** loading state instead of a blank/mismatched flash, with nothing half-rendered tappable until the page streams in.
+- `…/vendors/[eventVendorId]/workspace/loading.tsx` (**new**): a centered gold spinner + `LoadingStatus` (*"Opening the workspace…" → "Loading messages & payments…" → "Bringing in your documents…" → "Almost there…"*) that continues the drill-in loading screen after navigation (the route previously inherited the event-home skeleton — the wrong shape).
+
+**Verify:** `tsc --noEmit` + `next lint` (all three files) green. `prefers-reduced-motion` paths preserved (no enlarge/overlay/spinner motion). Live surface = the PR's Vercel preview (the Services tab is auth-gated and there's no local `.env`).
+
+**SPEC IMPACT:** The prototype `Plan_Budget_Accordion_2026-05-31.html` / `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` describe the rail as a coverflow with a `rotateY` tilt — the tilt is **retired** (scale-only) and a **tap-to-enlarge + loading-screen** transition is **added** per owner 2026-06-05. Recorded in corpus `DECISION_LOG.md` (direct-edit authorized 2026-06-04); deeper `0021`/`0022` `.md`/`.docx` sync of the §4 interaction detail can follow.
+
+---
+
 ## 2026-06-05 · feat(0021): Manual planning mode — foundation + toggle (PR1 of 2)
 
 **Context:** Owner — *"can we place a toggle for the personalization to switch off … including the deadlines for each leaf category and other automated tasks."* A self-driven **Manual mode** that turns off Setnayan's automated layer (vendor-match personalization · per-service + statutory deadlines · "Today's Focus" auto-tasks) while the app + a compatibility-scoped vendor directory + messaging stay fully usable. Default **Guided** = today's behavior. Owner explicitly accepted that Manual also hides the LEGAL/statutory dates with no warning — knowingly reversing the locked "statutory dates show to every couple" safety default (recorded in corpus DECISION_LOG).

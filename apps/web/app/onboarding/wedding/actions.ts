@@ -18,6 +18,7 @@ import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
 import { regionForCity } from '@/lib/regions';
+import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -268,6 +269,16 @@ export type OnboardingCommitPayload = {
    *  events.style_preferences.interested_services (no migration). Purchase Now routes to the
    *  dashboard services tab to pay per service via the existing 0034 apply-then-pay. */
   interestedServices: string[];
+  /** screen-2 role (owner 2026-06-05 · G1). bride/groom → event_moderators.role_subtype directly;
+   *  helper → 'family_helper'; null → 'partner1'. The signing user becomes the event's first
+   *  (auto-accepted) host. Previously DROPPED at commit. */
+  role: 'bride' | 'groom' | 'helper' | null;
+  /** screen-6 up-to-2 area picks (owner 2026-06-05 · G2) → events.style_preferences.search_areas
+   *  (display + re-render). The primary pick's centroid already seeds venue_latitude/longitude. */
+  places: string[];
+  /** screen-10 palette feel → derived basic moodboard (owner 2026-06-05 · G4): the deterministic
+   *  FEELS[feel] hex palette (null for 'others'/none) → style_preferences.basic_moodboard. */
+  basicMoodboard: string[] | null;
 };
 
 export type OnboardingCommitResult =
@@ -383,7 +394,16 @@ export async function commitOnboardingWedding(
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
-      style_preferences: { ...(payload.stylePreferences ?? {}), guidance_opt_in: payload.guidanceOptIn ?? true, interested_services: payload.interestedServices ?? [] },
+      style_preferences: {
+        ...(payload.stylePreferences ?? {}),
+        guidance_opt_in: payload.guidanceOptIn ?? true,
+        interested_services: payload.interestedServices ?? [],
+        // owner 2026-06-05 canonical-fields close-out: persist the up-to-2 area picks (G2),
+        // the taxonomy "services to look for" set (G3), and the derived basic palette (G4).
+        search_areas: payload.places ?? [],
+        interested_categories: payload.picks ?? [],
+        basic_moodboard: payload.basicMoodboard ?? null,
+      },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use
     // events.event_id (UUID). Select + thread event_id, matching the canonical
@@ -407,6 +427,39 @@ export async function commitOnboardingWedding(
   });
   if (memberError) {
     return { ok: false, error: memberError.message };
+  }
+
+  // Record the signing user as the event's first HOST with the role they picked on
+  // screen 2 (owner 2026-06-05 · G1) — previously DROPPED (only member_type='couple'
+  // was stored). bride/groom map straight to the 0048 role_subtype; "helper" →
+  // family_helper; null → partner1 (the backfill default). accepted_at = now (a
+  // self-created host, not a pending invite); permissions from the 0048 role template
+  // (mirrors app/dashboard/[eventId]/hosts/actions.ts). No trigger auto-creates this row
+  // — verified: the 0048 migration's only event_moderators write is a one-time backfill,
+  // so there's no double-write — and UNIQUE(event_id,user_id) guards a commit re-run.
+  // Best-effort: a moderator failure must NEVER fail the commit (event + membership saved).
+  const roleSubtype: RoleSubtype =
+    payload.role === 'bride'
+      ? 'bride'
+      : payload.role === 'groom'
+        ? 'groom'
+        : payload.role === 'helper'
+          ? 'family_helper'
+          : 'partner1';
+  try {
+    const { error: modError } = await admin.from('event_moderators').insert({
+      event_id: insertedEvent.event_id,
+      user_id: user.id,
+      role_subtype: roleSubtype,
+      permissions_json: PERMISSION_TEMPLATES[roleSubtype],
+      invited_by_user_id: user.id,
+      accepted_at: now,
+    });
+    if (modError) {
+      console.error('[onboarding] event_moderators seed failed (non-fatal):', modError.message);
+    }
+  } catch (modErr) {
+    console.error('[onboarding] event_moderators seed threw (non-fatal)', modErr);
   }
 
   // Couple's music picks → event_song_picks (the couple side of the music

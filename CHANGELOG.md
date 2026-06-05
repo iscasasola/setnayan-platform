@@ -17,6 +17,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0016 — Your Plan inquiry control is a match-gated 1–5 stepper (no toggle; auto-on iff real matches exist — **note RA 10173:** disclosed on-screen, but no manual opt-out now beyond "no matches found"); Boost (15) + Picks (16) are fit-to-screen; the "vs hiring elsewhere" line is dropped. Re-uses `getOnboardingVendorCounts` (the fn the prior congrats-declutter PR #1041 orphaned — now a gate, not a stat). Prototype `Onboarding_Wedding_Flow_2026-06-01.html` + Blueprint §3.2 rows 14/15/16 drift — logged in corpus `DECISION_LOG.md` (2026-06-05).
 
+## 2026-06-05 · feat(0016): onboarding canonical-fields close-out — role · area picks · services-to-look-for · basic moodboard persisted + every-leaf recommendations
+
+**Context:** Owner locked the onboarding data contract (the 19 canonical outputs + #20 "recommended services for all the chosen leaf categories") and confirmed: persist the 4 fields the commit was dropping, and recommend an in-app add-on for **every** chosen leaf. Closes build-plan (`Onboarding_Canonical_Fields_Build_Plan_2026-06-05.md`) **G1–G4**. **Zero migration** (event_moderators exists; the rest ride in the `style_preferences` JSONB).
+
+**What changed:**
+- **G1 · role → `event_moderators`** (`actions.ts`): the signing user is now recorded as the event's first host with the bride/groom/helper role they picked on screen 2 (was dropped — only `event_members.member_type='couple'`). bride/groom → `role_subtype` directly; helper → `family_helper`; null → `partner1`. `accepted_at=now` (self-created host); `permissions_json` from the 0048 `PERMISSION_TEMPLATES` (mirrors `hosts/actions.ts`). Best-effort; no trigger double-write (verified — the 0048 migration's only moderator write is a one-time backfill); `UNIQUE(event_id,user_id)` guards re-runs.
+- **G2 · area picks** → `style_preferences.search_areas` (the up-to-2 screen-6 picks; venue lat/lng was already seeded from the primary pick's centroid).
+- **G3 · services to look for** → `style_preferences.interested_categories` (the taxonomy picks persisted as a set — previously they only fired the opt-in inquiry).
+- **G4 · basic moodboard** → `style_preferences.basic_moodboard` = the deterministic `FEELS[feel]` palette (null for 'others'/none) — the iteration-0010 baseline.
+- **#20 · every-leaf recommendations** (`onboarding-shell.tsx`): `PICK_TO_INAPP` expanded from ~14 to **all ~53 leaf categories** → ≥1 matched in-app add-on each, and `recommendedInappFor` **uncapped** (dedup bounds the union to the ≤14 in-app services). `role`/`places`/`basicMoodboard` threaded into `buildCommitPayload`.
+
+**Verify:** wiring + brace checks; TS-safe (reuses the `event_moderators` lib + `PERMISSION_TEMPLATES`; permissions_json shape matches the ongoing host-invite writer). No migration. Vercel preview = visual proof.
+
+**SPEC IMPACT:** 0016 — onboarding now persists all 19 canonical outputs + recommends an add-on per chosen leaf (#20). Build-plan G1–G4 closed. Corpus §3.0a + `DECISION_LOG.md` (2026-06-05).
+
 ## 2026-06-05 · refactor(0016): declutter onboarding congrats (13) — remove savings stat-strip · inquiry opt-in · personalization note
 
 **Context:** Owner — strip the "You did the hard part" congrats screen (13) of three blocks layered over the data recap: the **savings stat-strip** (₱ saved · hours saved · "N that fit your wedding · from M"), the **"Keep Setnayan AI helping finish your wedding"** inquiry opt-in card, and the **"✦ Change or switch off … Personalize my matches"** note. The full data recap + live countdown stay. Partly reverses the 2026-06-05 "also surface the inquiry opt-in on congrats" add.

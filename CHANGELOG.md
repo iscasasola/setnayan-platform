@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0016): onboarding congrats full recap + live countdown · services summary 20% promo + grand total + pick-matched recommendations
+
+**Context:** Owner punch-list on the two end screens. **Congrats (13):** "this must be the summary of the data we gathered" — list everything (couple + helper as +1, type + religion, dates, budget, target locations, taxonomy picks, reception/ceremony/catering/photo-video types, song list, mood board, shortlisted venues) + "show the timer based on the nearest date they picked." **Services summary (16):** add the recommended services for the couple's picks next to the add-ons they added, a **20% onboarding promo** (up from the retired bundle's 10%), a TOTAL of money + time saved "in X minutes" (the onboarding duration), and reword the free link.
+
+**What changed (`app/onboarding/wedding`):**
+- **Congrats (13) full recap** — the 6-row card → a complete summary: Couple (+ "you're helping plan" when the account role is helper), Type (kind + religion), Date, Where (the up-to-2 area names via `cityByKey`/`resolvePick`), Guests, Budget, Services (taxonomy picks), Reception, Ceremony, Catering, Photo & Video, Mood board, Song list, Shortlisted — each row shown only when it has data; long rows stack + wrap. Scrolls within the pinned brand-bar + Continue (summary-screen exception).
+- **Congrats (13) live countdown** — new `WeddingCountdown` ticking days + HH:MM:SS to PH-midnight of the nearest picked date (earliest candidate / window start); hidden when no date.
+- **Onboarding duration** — `state.startedAt` stamped once on hydrate (reset on resume after >30-min idle so it reflects the active sitting); the summary shows "you did all this in X minutes."
+- **Services summary (16)** — pick-matched recommended add-ons (`PICK_TO_INAPP`, capped 5) pre-added to `interestedServices` once on reaching Boost & enhance (`servicesSeeded` latch), tagged **Recommended**, each removable; a **20% onboarding-promo** line (struck total → discounted due, `ONBOARDING_PROMO`); a grand-total hero (money saved incl. promo + hours + the X-minutes); free link → **"Will purchase later, continue for FREE."**
+
+**Verify:** static review + wiring/brace checks; TS-safe (state extended, no contract break — `commitOnboardingWedding` still persists the same `interestedServices`). Local Next preview N/A (home checkout 467 behind; the proto server serves the corpus HTML prototypes). **Vercel preview = visual proof.** No migration.
+
+**SPEC IMPACT:** 0016 — congrats is now a full data summary + live countdown; the services summary adds pick-matched recommendations + a 20% onboarding promo + a money/time/minutes grand total. Prototype `Onboarding_Wedding_Flow_2026-06-01.html` + Blueprint §3.1a rows 13/16 + §3.2 drift further from the build — logged in corpus `DECISION_LOG.md` (2026-06-05).
+
 ## 2026-06-05 · feat(0016): onboarding Style steps — reception/ceremony hero-on-top + persistent carousel end-line + service-style 2×3 grid
 
 **Context:** Owner punch-list on the wedding-onboarding picker (screen 9) + Style sub-stepper (screen 10): (1) *"each row should have a vertical line after the last card to show that's the end — even if the card never filled the screen"*; (2) Reception + Ceremony *"must be laid out like the Kind screen — 1 main photo on top and cards on a carousel at the bottom, with the end marker as well"*; (3) catering Service-style *"consistent button height and length · row 1 Plated|Buffet|Family-style · row 2 Halal|Alcohol-free|Stations."*

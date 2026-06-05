@@ -183,6 +183,13 @@ export interface OnboardingState {
   inquiriesPerCategory: number;
   interestedServices: string[];
 
+  /** Onboarding start (epoch ms) — powers the summary's "you did all this in X minutes" stat
+   *  (owner 2026-06-05). Reset on resume after a long idle so it reflects the active sitting. */
+  startedAt: number | null;
+  /** Latches once the pick-matched recommended in-app services have been pre-added to
+   *  interestedServices (screen 15) so removing one isn't re-added (owner 2026-06-05). */
+  servicesSeeded: boolean;
+
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
 }
@@ -281,6 +288,8 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   sendTopInquiries: false,
   inquiriesPerCategory: 3,
   interestedServices: [],
+  startedAt: null,
+  servicesSeeded: false,
   lastSavedAt: '',
 };
 

@@ -60,6 +60,7 @@ import {
   type OnboardingRole,
   type OnboardingState,
 } from '../types';
+import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
@@ -1109,6 +1110,73 @@ const INAPP_VS: Record<string, string> = {
   papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', sde: 'a same-day-edit crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
+/* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
+   was 10% on the retired bundle). Applied to the services-summary total (screen 16). */
+const ONBOARDING_PROMO = 0.2;
+
+/* Pick → recommended in-app add-ons (owner 2026-06-05 · "recommended services for the other
+   services" → "Matched to their picks"). For each vendor category the couple picks, suggest the
+   Setnayan add-ons that complement it; the deduped union (capped, priority-ordered) is pre-added
+   to the services summary, each removable, feeding the 20%-off total. */
+const PICK_TO_INAPP: Record<string, string[]> = {
+  photo_video: ['sde', 'thank_you', 'guest_stories', 'papic_guest'],
+  reception: ['live_photowall', 'indoor_blueprint', 'papic_seats'],
+  led_wall: ['live_background'],
+  ceremony: ['panood'],
+  live_band: ['pakanta'], orchestra: ['pakanta'], choir: ['pakanta'], wedding_singer: ['pakanta'], dj: ['pakanta'], performers: ['pakanta'],
+  photo_booth: ['papic_seats', 'pabati'],
+  host_mc: ['pabati'],
+  printing: ['custom_qr', 'animated_monogram'], souvenirs: ['custom_qr'],
+  stylist: ['animated_monogram'], florist: ['animated_monogram'],
+  coordinator: ['advanced_website'],
+};
+/* Wow/priority order for the recommended set (capped at 5 so the summary stays readable). */
+const REC_PRIORITY = ['sde', 'papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr', 'indoor_blueprint'];
+function recommendedInappFor(picks: string[]): string[] {
+  const set = new Set<string>();
+  for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);
+  return REC_PRIORITY.filter((k) => set.has(k)).slice(0, 5);
+}
+
+/* Faith key → display label for the congrats recap (all 8 traditions). */
+const FAITH_LABEL: Record<string, string> = {
+  catholic: 'Catholic', christian: 'Christian', inc: 'INC', muslim: 'Muslim', cultural: 'Cultural', chinese: 'Chinese', jewish: 'Jewish', born_again: 'Born Again',
+};
+/* Picker cat key → its chip label, for the congrats recap "Services" row. */
+const PICK_LABEL: Record<string, string> = Object.fromEntries(
+  PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => [c.cat, c.label] as const)),
+);
+
+/* Live wedding countdown (owner 2026-06-05 · congrats screen) — anchors on PH-midnight of the
+   nearest picked date (same as Home) and ticks HH:MM:SS each second while the screen is active. */
+function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
+  const target = useMemo(() => new Date(`${iso}T00:00:00+08:00`).getTime(), [iso]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active || !Number.isFinite(target)) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [active, target]);
+  if (!Number.isFinite(target)) return null;
+  const ms = target - now;
+  if (ms <= 0) {
+    return (
+      <div className="cd"><span className="cd-days">Today</span><span className="cd-lbl">it’s your wedding day</span></div>
+    );
+  }
+  const days = Math.floor(ms / 86400000);
+  const rem = ms % 86400000;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const clock = `${pad(Math.floor(rem / 3600000))}:${pad(Math.floor((rem % 3600000) / 60000))}:${pad(Math.floor((rem % 60000) / 1000))}`;
+  return (
+    <div className="cd" role="timer" aria-label={`${days} days until your wedding`}>
+      <div className="cd-main"><span className="cd-days">{days}</span><span className="cd-dayslbl">{days === 1 ? 'day' : 'days'} to go</span></div>
+      <div className="cd-clock" aria-hidden="true">{clock}</div>
+    </div>
+  );
+}
+
 /* MatchedBundle removed 2026-06-05 — the paid upsell is now the à-la-carte in-app-services flow on
    screens 15–16 (browse + detail + savings → interested summary → Purchase Now). See INAPP_* above. */
 
@@ -1356,7 +1424,11 @@ export function OnboardingShell({
         const ageMs = Date.now() - new Date(saved.lastSavedAt || 0).getTime();
         const ttlMs = ONBOARDING_DRAFT_TTL_DAYS * 24 * 60 * 60 * 1000;
         if (saved.lastSavedAt && ageMs < ttlMs) {
-          setState({ ...EMPTY_ONBOARDING_STATE, ...saved });
+          // Keep the original start time on resume UNLESS the draft sat idle a while (a fresh
+          // sitting) — so "you did all this in X min" reflects active time, not wall-clock.
+          const idleGap = Date.now() - new Date(saved.lastSavedAt).getTime();
+          const startedAt = saved.startedAt && idleGap < 30 * 60 * 1000 ? saved.startedAt : Date.now();
+          setState({ ...EMPTY_ONBOARDING_STATE, ...saved, startedAt });
         } else {
           localStorage.removeItem(ONBOARDING_DRAFT_KEY);
         }
@@ -1393,6 +1465,13 @@ export function OnboardingShell({
       setState((s) => (s.step <= 11 ? { ...s, step: 12 } : s));
     }
   }, [hydrated, resume, authed]);
+
+  /* Stamp the onboarding start once hydrated (a fresh draft has no startedAt yet) so the
+     services summary can show "you did all this in X minutes" (owner 2026-06-05). */
+  useEffect(() => {
+    if (!hydrated) return;
+    setState((s) => (s.startedAt == null ? { ...s, startedAt: Date.now() } : s));
+  }, [hydrated]);
 
   const { step, role, kind, faith } = state;
   const patch = useCallback((p: Partial<OnboardingState>) => setState((s) => ({ ...s, ...p })), []);
@@ -1515,6 +1594,20 @@ export function OnboardingShell({
       .then((c) => setVendorCounts(c))
       .catch(() => setVendorCounts(null));
   }, [step, vendorCountsTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
+
+  /* Pre-add the pick-matched recommended in-app services when the couple reaches Boost &
+     enhance (owner 2026-06-05 · "Matched to their picks"). One-time latch (servicesSeeded) so a
+     removed recommendation isn't re-added; they become normal, removable entries that feed the
+     services-summary 20%-off total. */
+  useEffect(() => {
+    if (step !== 15 || state.servicesSeeded) return;
+    const rec = recommendedInappFor(state.picks);
+    setState((s) => ({
+      ...s,
+      interestedServices: Array.from(new Set([...rec, ...s.interestedServices])),
+      servicesSeeded: true,
+    }));
+  }, [step, state.servicesSeeded, state.picks]);
 
   /* picker card tap — toggles the pick (multi); latches pickerTouched. */
   const pickChip = (cat: string) => {
@@ -1777,10 +1870,72 @@ export function OnboardingShell({
   })();
   const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
   const recapGuests = state.pax != null ? String(state.pax) : '—';
-  const recapStyle = [findSettingLabel, cap(state.prefs.feel)].filter(Boolean).join(' · ') || '—';
   const shortlistCount = state.shortlist.length;
   /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
   const savings = computeOnboardingSavings(state, new Date());
+
+  /* ── Full congrats recap + services-summary extras (owner 2026-06-05) ── */
+  const isHelper = state.role === 'helper';
+  const recapType = (() => {
+    if (state.kind === 'civil') return 'Civil';
+    const fl = state.faith.map((f) => FAITH_LABEL[f] ?? cap(f)).filter((x): x is string => Boolean(x));
+    if (state.kind === 'mixed') return `Mixed${fl.length ? ' · ' + fl.join(' & ') : ''}`;
+    if (state.kind === 'religious') return `Religious${fl[0] ? ' · ' + fl[0] : ''}`;
+    return null;
+  })();
+  const recapLocations = (() => {
+    const names = (state.places ?? [])
+      .map((k) => {
+        const c = cityByKey(k);
+        if (c) return c.n;
+        const rk = resolvePick(k).rk;
+        return rk ? (REGLABEL[rk] ?? null) : null;
+      })
+      .filter((x): x is string => Boolean(x));
+    return names.length ? Array.from(new Set(names)).join(' · ') : null;
+  })();
+  const recapBudget = (() => {
+    if (!state.budgetBand) return null;
+    if (state.budgetBand === 'nolimit') return 'No limit';
+    const band = BUDGET_BANDS.find((b) => b.value === state.budgetBand);
+    const eff = effectiveBudgetPesos(state.budgetBand, state.budgetAmount, state.pax ?? 150);
+    return [band?.label, eff ? fmtPeso(eff) : null].filter(Boolean).join(' · ') || null;
+  })();
+  const recapServices = state.picks.length
+    ? `${state.picks.length} chosen — ${state.picks.slice(0, 6).map((p) => PICK_LABEL[p] ?? p).join(', ')}${state.picks.length > 6 ? '…' : ''}`
+    : null;
+  const recapReception = state.prefs.reception.length
+    ? state.prefs.reception.map((k) => RECEPTION_SETTINGS.find((x) => x[2] === k)?.[1] ?? k).join(', ')
+    : null;
+  const recapCeremony = state.prefs.ceremony
+    ? (ceremonyOptsFor(state.faith).find((x) => x[2] === state.prefs.ceremony)?.[1] ?? null)
+    : null;
+  const recapCatering = (() => {
+    const parts = state.prefs.cuisine.map((k) => CUISINE_OPTS.find((x) => x[2] === k)?.[1] ?? k);
+    if (state.prefs.serviceStyle) parts.push(state.prefs.serviceStyle);
+    if (state.prefs.dietary.includes('halal')) parts.push('Halal');
+    if (state.prefs.dietary.includes('alcohol_free')) parts.push('Alcohol-free');
+    return parts.length ? parts.join(' · ') : null;
+  })();
+  const recapPV = (() => {
+    const parts = state.prefs.pvLook.map((k) => PV_LOOKS.find((x) => x[2] === k)?.[1] ?? k);
+    if (state.prefs.pvNeed) parts.push(state.prefs.pvNeed);
+    if (state.prefs.pvIncluded.length) parts.push(state.prefs.pvIncluded.join(', '));
+    return parts.length ? parts.join(' · ') : null;
+  })();
+  const recapMood = state.prefs.feel ? (FEELLBL[state.prefs.feel] ?? cap(state.prefs.feel)) : null;
+  const recapSongs = state.prefs.music.length ? `${state.prefs.music.length} song${state.prefs.music.length === 1 ? '' : 's'}` : null;
+  /* countdown anchor — the nearest picked date (earliest candidate · window start) */
+  const earliestDateISO =
+    state.dateMode === 'window'
+      ? state.windowStart
+      : ((state.dateCandidates ?? []).filter(Boolean).slice().sort()[0] ?? null);
+  /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
+  const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
+  const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
+  const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (SVC[k]?.set ?? 0), 0);
+  const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (SVC[k]?.out ?? 0), 0);
+  const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
 
   /* ── Phase-5 lazy DB commit (events + event_members), then to the dashboard ──
      The account gate's OAuth/email actions round-trip back here via this `next`. */
@@ -2599,6 +2754,7 @@ export function OnboardingShell({
             <div className="eyebrow">You did the hard part</div>
             <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
             <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
+            {earliestDateISO ? <WeddingCountdown iso={earliestDateISO} active={step === 13} /> : null}
             {/* SAVINGS — money + hours computed live per couple (Time_and_Money_Saved_Model_2026-06-01.md §D).
                 Vendor tile = REAL marketplace counts (owner 2026-06-03: "we want real numbers only"); auto-hides when uncomputable. */}
             <div className="statstrip">
@@ -2609,11 +2765,19 @@ export function OnboardingShell({
               )}
             </div>
             <div className="recap tight">
-              <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}</span></div>
+              <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
+              {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
               <div className="recapline"><span className="rk">Date</span><span className="rv">{recapDate}</span></div>
-              <div className="recapline"><span className="rk">Where</span><span className="rv">{recapWhere}</span></div>
+              <div className="recapline"><span className="rk">Where</span><span className="rv">{recapLocations ?? recapWhere}</span></div>
               <div className="recapline"><span className="rk">Guests</span><span className="rv">{recapGuests}</span></div>
-              <div className="recapline"><span className="rk">Style</span><span className="rv">{recapStyle}</span></div>
+              {recapBudget ? <div className="recapline"><span className="rk">Budget</span><span className="rv">{recapBudget}</span></div> : null}
+              {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
+              {recapReception ? <div className="recapline"><span className="rk">Reception</span><span className="rv">{recapReception}</span></div> : null}
+              {recapCeremony ? <div className="recapline"><span className="rk">Ceremony</span><span className="rv">{recapCeremony}</span></div> : null}
+              {recapCatering ? <div className="recapline col"><span className="rk">Catering</span><span className="rv">{recapCatering}</span></div> : null}
+              {recapPV ? <div className="recapline col"><span className="rk">Photo &amp; Video</span><span className="rv">{recapPV}</span></div> : null}
+              {recapMood ? <div className="recapline"><span className="rk">Mood board</span><span className="rv">{recapMood}</span></div> : null}
+              {recapSongs ? <div className="recapline"><span className="rk">Song list</span><span className="rv">{recapSongs}</span></div> : null}
               <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
             </div>
             {/* Keep Setnayan AI helping — surface the inquiry opt-in on the congrats
@@ -2723,6 +2887,11 @@ export function OnboardingShell({
             <div className="eyebrow">Your picks</div>
             <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
             <p className="sub" style={{ marginBottom: 12 }}>Pay only when you&apos;re ready — no charge yet.</p>
+            {/* Grand total — the climactic "what you saved, and how fast" stat (owner 2026-06-05). */}
+            <div className="svc-grand">
+              <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={step === 16} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={step === 16} /></div>
+              <div className="svc-grand-l">saved with Setnayan{elapsedMin ? ` — you did all this in ${elapsedMin} minute${elapsedMin === 1 ? '' : 's'}` : ''}</div>
+            </div>
             {state.interestedServices.length === 0 ? (
               <div className="svc-empty">No add-ons selected — and that&apos;s perfectly fine. Your free plan already has everything you need to start.</div>
             ) : (
@@ -2733,7 +2902,7 @@ export function OnboardingShell({
                   return (
                     <div className="svc-row" key={k}>
                       <div className="svc-row-th" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
-                      <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
+                      <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}{recommendedSet.has(k) ? <span className="svc-rec">Recommended</span> : null}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
                       <div className="svc-row-p">{pesoB(p.set)}</div>
                       <button type="button" className="svc-row-x" aria-label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)}>×</button>
                     </div>
@@ -2742,11 +2911,14 @@ export function OnboardingShell({
                 {(() => {
                   const setTotal = state.interestedServices.reduce((s, k) => s + (SVC[k]?.set ?? 0), 0);
                   const saveTotal = state.interestedServices.reduce((s, k) => s + Math.max(0, (SVC[k]?.out ?? 0) - (SVC[k]?.set ?? 0)), 0);
+                  const promo = Math.round(setTotal * ONBOARDING_PROMO);
+                  const due = setTotal - promo;
                   return (
                     <div className="svc-totals">
                       <div className="svc-tot-k">{state.interestedServices.length} {state.interestedServices.length === 1 ? 'service' : 'services'} · total</div>
-                      <div className="svc-tot-a">{pesoB(setTotal)}</div>
-                      {saveTotal > 0 && <div className="svc-tot-s">You save {pesoB(saveTotal)} vs hiring elsewhere</div>}
+                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−20% onboarding promo</span></div>
+                      <div className="svc-tot-a">{pesoB(due)}</div>
+                      {(saveTotal + promo) > 0 && <div className="svc-tot-s">You save {pesoB(saveTotal + promo)} vs hiring elsewhere</div>}
                     </div>
                   );
                 })()}
@@ -2755,7 +2927,7 @@ export function OnboardingShell({
             {state.interestedServices.length > 0 ? (
               <>
                 <button type="button" className="svc-buy" onClick={() => void handleFinish(true)} disabled={committing}>{committing ? 'Setting up…' : 'Purchase Now'}</button>
-                <button type="button" className="svc-freelink" onClick={() => void handleFinish(false)} disabled={committing}>or <u>continue with the free plan</u></button>
+                <button type="button" className="svc-freelink" onClick={() => void handleFinish(false)} disabled={committing}>Will purchase later, <u>continue for FREE</u></button>
               </>
             ) : (
               <button type="button" className="svc-buy" onClick={() => void handleFinish(false)} disabled={committing}>{committing ? 'Setting up…' : 'Go to my dashboard'}</button>

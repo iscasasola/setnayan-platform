@@ -14,9 +14,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on the engine · throwaway runtime harness **20/20** (the owner's worked example reproduces exactly: cushion 150k → pin 450 leaves others untouched → pin 550 drains 270/108/27/45; fixed carve-out; soft-floor-warn-not-clamp; over-budget; input-sensitivity). The engine is unimported (additive) so the production build is unaffected; CI covers `next build`.
 
-**⚠ Migration NOT applied to prod.** `supabase db push` is unsafe here — it would co-apply the owner's pending `20260817_event_monogram_style` (theirs to deploy), and the version originally collided with a remote-only `20260823` (renamed → `20260824` to fix). Nothing consumes the table yet, so it ships ahead of application; apply deliberately (monogram-isolation) when the planner UI lands.
+**⚠ Migration NOT applied to prod.** `supabase db push` is unsafe here — it would co-apply the owner's pending `20260817_event_monogram_style` (theirs to deploy), and the version originally collided with a remote-only `20260823` (the vendor_self_comp_caps RLS migration; renamed mine → `20260824` to fix). Nothing consumes the table yet, so it ships ahead of application; apply deliberately (monogram-isolation) when the planner UI lands.
 
 **SPEC IMPACT:** NEW capability — design landed in corpus `Budget_Planner_Allocation_Engine_2026-06-05.md` + `DECISION_LOG.md` (2026-06-05). Folds into 0007 (planner) / 0025 (privacy) / 0023 (admin) — applied directly to the corpus this session (Cowork direct-edit authorization).
+
+## 2026-06-05 · fix(0022): vendor_self_comp_caps RLS — vendor reads its own comp cap
+
+**Context:** Owner follow-up to the "RLS-enabled-but-no-policy" flag. Investigation: of the 4 flagged objects, **3 are VIEWS** (`vendor_active_ads`, `vendor_active_tools`, `vendor_market_stats`) — views can't carry RLS, so their no-policy state is correct-by-design, not a gap. Only **`vendor_self_comp_caps`** is a real table with RLS enabled + zero policies, so only `service_role` could read it. The vendor self-comp quota reader (`lib/self-purchase.ts:fetchSelfCompQuota`) runs under the vendor's authed client, so an admin-raised cap was invisible (the read returned nothing → the code fell back to the default cap of 12). No data was wrong, but a raised cap never took effect.
+
+**What changed** (`supabase/migrations/20260823000000_vendor_self_comp_caps_rls.sql`, applied to prod):
+- `vendor_self_comp_caps_owner_read` — owner + team-admin of the vendor read their OWN cap (`current_vendor_profile_ids()`).
+- `vendor_self_comp_caps_admin_manage` — platform admin sets / raises caps (`is_admin()`).
+- RLS-only · idempotent (DROP IF EXISTS → CREATE) · no code change (the reader already passes the vendor's client + `vendor_profile_id`).
+
+**Verify:** rolled-back impersonation — 2 policies created · owner reads own cap (25) ✓ · stranger blocked (0) ✓. Applied to prod via monogram-isolation (`20260817` left untouched).
+
+**SPEC IMPACT:** None — RLS hardening of an existing table; the 3 views are not a gap. Logged in DECISION_LOG.
+
+---
 
 ## 2026-06-05 · feat(onboarding): name-screen monogram auto-restyles every 30s
 

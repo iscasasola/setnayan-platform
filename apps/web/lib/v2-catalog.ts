@@ -75,7 +75,8 @@ export type BuildStatus = 'live' | 'partial' | 'not_built';
  */
 const BUILD_STATUS: Record<string, BuildStatus> = {
   // Live and working today
-  TODAYS_FOCUS:        'live',     // 65-card wizard live at /today
+  // (TODAYS_FOCUS removed 2026-06-05 — the AI-planner SKU is retired; the
+  //  reader also filters its catalog row out via `.neq('service_code', …)`.)
   PRO_WEBSITE:         'partial',  // free baseline live · Pro gating not built
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
@@ -121,6 +122,12 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
+    // Today's Focus REMOVED COMPLETELY (owner 2026-06-05) — the retired AI
+    // planner SKU must not surface on /pricing, /for-vendors, or the admin
+    // discount picker (the three consumers of this reader). Excluded here so it
+    // drops everywhere without a DB write (the row stays in the table, just
+    // unsurfaced). See DECISION_LOG 2026-06-05.
+    .neq('service_code', 'TODAYS_FOCUS')
     .order('service_code', { ascending: true });
 
   if (error || !data) return [];

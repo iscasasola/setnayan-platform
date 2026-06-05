@@ -818,7 +818,6 @@ export function PricingSection() {
             price: 'À la carte',
             sub: 'Per service',
             items: [
-              "Today's Focus AI planner · ₱1,499",
               'Panood livestream · ₱3,499/day',
               'Same-Day Edit · ₱3,499',
               'Animated Monogram · ₱2,499',
@@ -960,7 +959,6 @@ export function Footer() {
         { label: 'Marketplace', href: '/vendors' },
         { label: 'How it works', href: '/features' },
         { label: 'Pricing', href: '/pricing' },
-        { label: "Today's Focus", href: '/features' },
       ],
     },
     {

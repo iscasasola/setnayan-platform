@@ -2594,6 +2594,27 @@ export function OnboardingShell({
               <div className="recapline"><span className="rk">Style</span><span className="rv">{recapStyle}</span></div>
               <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
             </div>
+            {/* Keep Setnayan AI helping — surface the inquiry opt-in on the congrats
+                moment too (owner 2026-06-05). Binds the SAME state as the Your Plan
+                control (sendTopInquiries · inquiriesPerCategory); the fan-out commits
+                once at the terminal step, so this never double-sends. */}
+            <div className="optcard optcard-col" style={{ marginTop: 14 }}>
+              <div className="opt-row">
+                <div className="opt-main">
+                  <div className="opt-h">Keep Setnayan AI helping finish your wedding</div>
+                  <div className="opt-d">We&apos;ll send your first inquiry to your top recommendations — the best-fit vendors we found for each part of your wedding. You can always do this yourself later.</div>
+                </div>
+                <button type="button" role="switch" aria-checked={state.sendTopInquiries} aria-label="Let Setnayan AI reach my top recommendations" className={`opt-sw${state.sendTopInquiries ? ' on' : ''}`} onClick={() => patch({ sendTopInquiries: !state.sendTopInquiries })}><span className="opt-knob" /></button>
+              </div>
+              {state.sendTopInquiries && (
+                <div className="opt-step">
+                  <span className="opt-step-l">inquiries per category</span>
+                  <button type="button" className="opt-step-b" aria-label="Fewer inquiries" onClick={() => patch({ inquiriesPerCategory: Math.max(1, state.inquiriesPerCategory - 1) })}>−</button>
+                  <span className="opt-step-v">{state.inquiriesPerCategory}</span>
+                  <button type="button" className="opt-step-b" aria-label="More inquiries" onClick={() => patch({ inquiriesPerCategory: Math.min(5, state.inquiriesPerCategory + 1) })}>+</button>
+                </div>
+              )}
+            </div>
             <div className="note mul"><span>✦</span><div>Change or switch off any of your personalization anytime in <b>Personalize my matches</b> on your Home.</div></div>
           </section>
 

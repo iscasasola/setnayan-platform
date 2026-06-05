@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(0022): vendor home "confirmed bookings" tile was structurally always 0
+
+**Context:** The vendor dashboard home (`app/vendor-dashboard/page.tsx`) computed its "Confirmed bookings" stat tile by counting `event_vendors` rows (`marketplace_vendor_id` = self, `status IN contracted/deposit_paid/delivered/complete`) **through the RLS-bound user client**. But `public.event_vendors` has only couple-scoped RLS (`event_vendors_couple_read` / `_write`, `20260513100000_iteration_0006_vendors.sql`) — no vendor-read policy — so under a vendor's session that query always returned **0**, regardless of real bookings. The tile was dead on arrival.
+
+**What changed (`app/vendor-dashboard/page.tsx` only):**
+- Removed the `event_vendors` count query (and its `confirmedBookingsRes` from the `Promise.all`).
+- Derive `confirmedBookingsCount` from the already-fetched `threadsAll` (no extra round-trip): `threadsAll.filter(t => t.inquiry_status === 'accepted').length`. `fetchVendorThreads` reads `chat_threads`, which **does** have vendor-read RLS (`current_vendor_profile_ids()`), and `inquiry_status` is already selected.
+- This matches the canonical "booking = accepted thread" definition in `bookings/actions.ts` (`isBookingForEvent`). Refreshed the two stale doc comments that described the old event_vendors source.
+
+**Verification:** `tsc --noEmit` clean (exit 0) · ESLint clean (exit 0, 0 findings) · data-path checked against the seeded vendor `vendor.test@setnayan.com` (0 accepted threads in the shortlist-only baseline → tile correctly shows 0; will now reflect real accepted bookings). Full production build runs in CI.
+
+**SPEC IMPACT:** None — display-only metric correctness fix; no schema, SKU, or product-surface change.
+
+---
+
 ## 2026-06-05 · feat(0022): vendor Branches — Enterprise sub-location accounts (apply-then-pay)
 
 **Context:** Owner — *"vendors can have multiple accounts depending on their plans."* The last item of the multi-user vendor workspace. Owner picked: **build now · ₱1,000 / 28 days · Enterprise-only** (resolving the live-site price/gate contradiction). The `vendor_branches` table existed with correct RLS but had zero app code.

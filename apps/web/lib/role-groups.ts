@@ -99,6 +99,23 @@ export function roleImportanceRank(role: GuestRole): number {
   return ROLE_IMPORTANCE_RANK[role] ?? ROLE_IMPORTANCE.length;
 }
 
+// The role-group a guest is sectioned/ranked under = the group of their MOST
+// important role (primary or extra). Keeps the importance SORT and the tiered
+// guest-list SECTIONS in agreement for multi-role guests (e.g. a Bridesmaid
+// who is also a Principal Sponsor ranks + sections by Principal Sponsor).
+export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
+  let best: GuestRole = roles[0] ?? 'guest';
+  let bestRank = roleImportanceRank(best);
+  for (const r of roles) {
+    const rank = roleImportanceRank(r);
+    if (rank < bestRank) {
+      bestRank = rank;
+      best = r;
+    }
+  }
+  return roleGroupOf(best);
+}
+
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
   couple: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',

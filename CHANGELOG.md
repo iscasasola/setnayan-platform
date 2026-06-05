@@ -31,6 +31,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0016 onboarding Style steps — Reception/Ceremony are now hero-on-top + strip carousel (was big-card `.car` carousel); Service-style is a 2×3 equal-button grid (was two chip carousels); photo-card rows carry a persistent end-line. Prototype `Onboarding_Wedding_Flow_2026-06-01.html` + Blueprint §3.1a (row 11) drift further from the build — logged in corpus `DECISION_LOG.md` (2026-06-05).
 
+## 2026-06-05 · feat(0001): guest grid tiers by importance — couple share a row, wedding party 3-up, guests 4-up
+
+**Context:** Owner (building on the importance-order default): *"bride and groom will share same row / wedding party will be 3 per row / Guests will be 4 per row."*
+
+**What changed:**
+- `lib/role-groups.ts` — `importanceGroupOf(roles)` returns the role-group of a guest's **most important** role (primary or extra), so the importance sort and the new tier sections agree for multi-role guests.
+- `dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx` — when the list is **grouped** (the importance sort = the default), the photo grid breaks into **role-tier sections**, each with its own density: **Bride & Groom share a 2-up row**, every special-role tier (VIP family → Wedding Party → sponsors → bearers/flower girl → officiants) runs **3-up**, and plain **Guests run 4-up** (desktop; mobile scales one step down — 2-up roles, 3-up guests — for readable cards). Subtle `TierHeader` labels (reusing `ROLE_GROUP_LABELS`) head each section; empty tiers are skipped. Any **non-importance sort renders one uniform grid** (tiering only makes sense when ordered by tier). Both desktop + mobile blocks now map over the same `sections`, and **every card still uses the same `guestSelection` store**, so the SelectionBar, the mobile-carousel lockstep, select-all, and swipe-to-delete are untouched. `page.tsx` passes `grouped={sort === 'importance'}`.
+
+**Inference flagged for owner:** the owner named 3 densities (couple 2 · wedding party 3 · guests 4); I mapped **all** special-role tiers (VIP family, sponsors, bearers, officiants — not just literal "wedding party") to the 3-up band, and scaled mobile down for readability. Easy to retune per tier if desired.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean on the changed files · production build green. **No migration / schema change** — pure layout.
+
+**SPEC IMPACT:** 0001 — the importance-ordered guest grid is now tiered by role group with per-tier densities (couple 2 · special roles 3 · guests 4). Logged in corpus `DECISION_LOG.md` (2026-06-05).
+
 ## 2026-06-05 · feat(0001): guest list defaults to importance order — Bride #1, Groom #2, then by role
 
 **Context:** Owner: *"guest is always arranged based on their importance in the wedding. Bride will always be #1 then groom. then everyone else follows depending on their role."*

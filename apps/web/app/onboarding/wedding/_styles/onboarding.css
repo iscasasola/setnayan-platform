@@ -634,3 +634,29 @@
 .onbw .svc-buy:disabled{opacity:.5;cursor:not-allowed;}
 .onbw .svc-freelink{display:block;width:100%;text-align:center;margin-top:11px;font-size:12px;color:var(--ink-faint);background:none;border:none;cursor:pointer;}
 .onbw .svc-freelink u{text-decoration-color:var(--line);}
+
+/* ── Congrats countdown to the nearest picked date (owner 2026-06-05) ── */
+.onbw .cd{display:flex;align-items:center;justify-content:center;gap:13px;margin:14px 0 2px;padding:12px 16px;background:var(--mulberry-wash);border:1px solid rgba(92,37,66,.18);border-radius:14px;animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .cd-main{display:flex;align-items:baseline;gap:7px;}
+.onbw .cd-days{font-family:var(--serif);font-style:italic;font-weight:700;font-size:30px;line-height:1;color:var(--mulberry);}
+.onbw .cd-dayslbl,.onbw .cd-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mulberry-deep);}
+.onbw .cd-clock{font-family:var(--mono);font-size:15px;letter-spacing:.06em;color:var(--mulberry);font-variant-numeric:tabular-nums;}
+
+/* Congrats recap — long values stack under their label + wrap (services · catering · photo/video). */
+.onbw .recapline.col{flex-direction:column;align-items:flex-start;gap:3px;}
+.onbw .recapline.col .rv{font-family:var(--sans);font-style:normal;font-weight:600;font-size:13px;line-height:1.4;text-align:left;}
+.onbw .recapline .rv-sub{font-family:var(--mono);font-style:normal;font-weight:500;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-deep);}
+
+/* Services summary — grand total (money + hours + the X-minutes), the climactic stat (owner 2026-06-05). */
+.onbw .svc-grand{text-align:center;background:var(--gold-wash);border:1px solid var(--gold);border-radius:16px;padding:14px 16px;margin-bottom:14px;animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .svc-grand-h{font-family:var(--serif);font-style:italic;font-weight:700;font-size:27px;line-height:1;color:var(--gold-deep);}
+.onbw .svc-grand-and{color:var(--gold);font-style:normal;margin:0 3px;}
+.onbw .svc-grand-l{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-top:7px;}
+
+/* "Recommended" tag on a pick-matched service row. */
+.onbw .svc-rec{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);background:rgba(197,160,89,.16);border:1px solid var(--gold);border-radius:999px;padding:2px 6px;vertical-align:middle;}
+
+/* Services summary total — the 20% onboarding-promo line (struck original + tag → discounted due). */
+.onbw .svc-tot-promo{margin-top:3px;}
+.onbw .svc-tot-was{font-size:12px;color:var(--ink-faint);text-decoration:line-through;}
+.onbw .svc-tot-tag{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mulberry);background:var(--paper);border:1px solid var(--gold);border-radius:999px;padding:2px 7px;margin-left:7px;}

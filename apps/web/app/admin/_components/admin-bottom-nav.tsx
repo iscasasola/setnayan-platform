@@ -98,6 +98,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: [
       '/admin/money',
       '/admin/pricing',
+      '/admin/budget-planner',
       '/admin/discount-codes',
       '/admin/addons',
       '/admin/payouts',

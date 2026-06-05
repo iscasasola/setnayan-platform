@@ -152,6 +152,37 @@ export async function updateEventDate(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
+/**
+ * setPlanningMode — flip the event between Guided (default) and Manual.
+ *
+ * Owner 2026-06-05 (iteration 0021). Manual mode turns OFF Setnayan's
+ * automated layer (vendor-match personalization · per-service + statutory
+ * deadlines · "Today's Focus" auto-tasks); the app + a compatibility-scoped
+ * vendor directory + messaging stay fully usable. The flag lives on the
+ * events row and is read by Home, the Services tab, and the deadline layer.
+ * Mirrors updateEventDate's auth + `event_id` update + layout revalidate.
+ */
+export async function setPlanningMode(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const modeRaw = formData.get('mode');
+  if (typeof eventId !== 'string') throw new Error('event_id required');
+  const mode = modeRaw === 'manual' ? 'manual' : 'guided';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('events')
+    .update({ planning_mode: mode })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+}
+
 const MANUAL_KEYS = new Set<StepKey>(
   STEPS.filter((s) => s.source === 'manual').map((s) => s.key),
 );

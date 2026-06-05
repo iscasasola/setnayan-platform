@@ -6,18 +6,72 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-05 · feat(onboarding): Your Plan v2 — à-la-carte in-app services (bundle retired) + 1–5 inquiry stepper
 
-**Context:** Owner punch-list on the shipped Your Plan: drop the one-shot bundle, replace it with a browsable in-app-services flow (carousel + per-service detail + savings → interested summary → Purchase Now), and turn the inquiry opt-in into a 1–5 "inquiries per category" stepper. Mockup-verified at 375px (3 phones) before porting.
+**Context:** Owner punch-list on the shipped Your Plan: drop the one-shot bundle, replace it with a browsable in-app-services flow (carousel + per-service detail + savings → interested summary → Purchase Now), and turn the inquiry opt-in into a 1–5 "inquiries per category" stepper. Mockup-verified at 375px (3 phones) before porting. PR #1021.
 
 **What changed** (`app/onboarding/wedding/` + the shared `unlock-category` action):
-- **Bundle removed** — `MatchedBundle` + all bundle-only constants (tiers/groups/band-map/`bundleItemsFor`) deleted; `BUNDLE_ITEMS/BUNDLE_BENEFIT/SVC/BUNDLE_ASSET` kept + reused by the new screens.
-- **Two new screens** (flow grows 15→17; terminal commit moves 14→16): **15 Boost & enhance** — a focused service detail (benefit + Setnayan price + *"you save ₱X vs hiring [role]"*) over a swipeable carousel; multi-select → `interestedServices`. **16 Services you're interested in** — summary + totals + **Purchase Now** + a quiet **continue-free** link.
+- **Bundle removed** — `MatchedBundle` + all bundle-only constants deleted; `BUNDLE_ITEMS/BUNDLE_BENEFIT/SVC/BUNDLE_ASSET` kept + reused by the new screens.
+- **Two new screens** (flow 15→17; terminal commit moves 14→16): **15 Boost & enhance** (focused service detail — benefit + Setnayan price + *"you save ₱X vs hiring [role]"* — over a swipeable carousel; multi-select → `interestedServices`) and **16 Services you're interested in** (summary + totals + **Purchase Now** + a quiet **continue-free** link).
 - **Purchase Now** commits the event, persists the picks to `events.style_preferences.interested_services`, and routes to the dashboard **Services** tab to pay per service (existing 0034 apply-then-pay — *no new cart, no mid-onboarding charge*). Continue-free drops the picks + lands on Home.
-- **Inquiry opt-in → "Reach my best matches"** with a **1–5 per-category stepper** (default 3). The commit fan-out now inquires the **top-N best-fit per picked category** (was ≤3 groups) via `unlockCategoryWithInquiry({ count })` — extended with an optional `count` (default 1, so the dashboard unlock-more caller is unchanged); idempotent via `chat_threads UNIQUE`.
-- **Step machine**: `PHASE_SCREENS`/`SCREEN_SEQUENCE`/`NEXT_LABEL`/`CAN_SKIP` extended; screen 16 hides the global CTA + carries its own Purchase/continue-free buttons (same pattern as the account gate).
+- **Inquiry opt-in → "Reach my best matches"** + a **1–5 per-category stepper** (default 3). The commit fan-out inquires the **top-N best-fit per picked category** via `unlockCategoryWithInquiry({ count })` — extended with an optional `count` (default 1, so the dashboard unlock-more caller is unchanged); idempotent via `chat_threads UNIQUE`.
+- **Step machine**: `PHASE_SCREENS`/`SCREEN_SEQUENCE`/`NEXT_LABEL`/`CAN_SKIP` extended; screen 16 hides the global CTA + carries its own buttons (like the account gate).
 
-**Verify:** `tsc --noEmit` + `next lint` + `next build` green. **No migration** (picks ride state → `style_preferences` JSONB; orders use existing 0034). Visual QA on the Vercel preview (screens 14→15→16).
+**Verify:** `tsc --noEmit` + `next lint` + `next build` green. **No migration**. Owner-checked on the Vercel preview before merge.
 
-**SPEC IMPACT:** Your Plan back-half — the à-la-carte in-app-services flow replaces the bundle (Blueprint §3.2) + prototype #screen-plan + DECISION_LOG. Corpus mirror to follow. Flagged follow-up: production should read live price + build-status from the v2 customer catalog for the screen-15 cards (SVC is the demo stand-in, same flag the bundle carried).
+**SPEC IMPACT:** Your Plan back-half — the à-la-carte in-app-services flow replaces the bundle (Blueprint §3.2) + prototype #screen-plan + DECISION_LOG. Flagged follow-up: screen-15 cards use the in-shell `SVC` demo prices (same flag the bundle carried) — production should read live price + build-status from the v2 customer catalog.
+
+## 2026-06-05 · feat(vendor-payments): server-side QR decode (anti-swap) — fast-follow
+
+**Context:** Fast-follow to the vendor payment-options feature (PR #969). The QR method's "where it sends money" was vendor-declared (typed); now Setnayan **decodes the uploaded QR server-side** so the stored `decoded_destination` is what the image ACTUALLY encodes — the anti-swap guarantee from the locked rule. (The other deferred fast-follow — wiring the per-vendor workspace page as a 2nd couple settlement mount point — was already landed in main, so this PR is just the decode.)
+
+**What changed:**
+- `lib/vendor-payment-methods.server.ts` — new `decodeQrFromR2(r2Ref)`: fetch the QR image from R2 → `sharp` rasterises to RGBA → `jsQR` reads the payload. Best-effort, never throws.
+- `app/vendor-dashboard/payment-options/actions.ts` — the QR save branch stores the server-decoded value; an unreadable image keeps the vendor's typed note as a fallback AND routes the method to `pending_review` (admin verifies).
+- `_components/add-payment-method.tsx` — the destination field is now an optional fallback ("we read your QR automatically").
+- Added `sharp@^0.34.5` (already the version Next uses for image optimization) as a direct dep + `serverExternalPackages: ['sharp']` so the native module is traced into the `output: 'standalone'` build.
+
+**Verification:** `tsc` 0 · `next lint` 0 · proven end-to-end (generated a QR, decoded it through the exact `sharp → jsQR` pipeline, round-tripped `gcash:09171234567`). Full CI green (production build + e2e + lighthouse).
+
+**SPEC IMPACT:** Updates the 0034 "Vendor Payment Options" section — QR destination is now **server-decoded**, not vendor-declared (supersedes that V1 note). Landed direct in corpus + DECISION_LOG.
+
+## 2026-06-05 · feat(0021): Wedding Roadmap — free "things to complete" on Home (manual, no automation)
+
+**Context:** Owner — *"roadmap or things to complete we keep, but the automation of today's focus is what we do not need anymore."* After removing the paid Today's Focus, the couple keeps a simple, free roadmap of the wedding decisions — **minus the automation** (no AI, no data-detection of "done"). Manual check-off only.
+
+**What changed:**
+- **Migration `20260830000000`** — `events.roadmap_completed TEXT[]` (the item keys the couple has marked done). **Applied to prod**; additive · default `'{}'`.
+- **`lib/wedding-roadmap.ts`** — the ordered task list (11 items across the 12+ / 9–12 / 6–9 / 4–6 / 2–4 month bands) + `monthsUntil(earliest)` (plain date math) + `resolveRoadmap(months, completed)` → the open items. **No data-facts / no auto-detection** — only date math + the completed array.
+- **`_components/wedding-roadmap-async.tsx`** — self-fetching Home block that reads ONLY the event's date + `roadmap_completed`: a "**Things to complete**" list, timed by months-to-earliest-date, each item with a manual **Done** button (server-action `<form>`, no client JS, no links). "X/N done" + an on-track empty state.
+- **`toggleRoadmapItem`** action — adds/removes the item key in `roadmap_completed` (manual check-off; validates against the key set).
+- **Home** — replaces the single "Up next" hero (`TodaysOneThing`) with the roadmap; **hidden in Manual mode** like the rest of the assist. Removed the now-unused `pickTodaysOneThing` / `todaysTask` / `weddingDateMissing` (kept `countUnlockedCategories` for the countdown bar).
+
+**Verify:** `tsc --noEmit` + `next lint` green. Migration applied to prod.
+
+**SPEC IMPACT:** New 0021 free "Things to complete" roadmap — manual check-off, **no automation** (replaces the retired Today's Focus automation). Recorded in corpus `DECISION_LOG`.
+
+## 2026-06-05 · feat(home): couple Home countdown — centered days-to-go hero (prototype → app)
+
+**Context:** Owner, after approving the centered, dominating day-count in the couple-app-flow prototype (`Setnayan_Couple_App_Flow_Prototype_2026-06-04.html`) — *"push build and merge your concept. i will check on the app itself."* The shipped Home countdown rendered a small, left-aligned days · hrs · min · sec ticker; the approved prototype leads with a single big centered "N days to go" as the Home cockpit's emotional anchor.
+
+**What changed** (`app/dashboard/[eventId]/_components/`):
+- **`live-countdown.tsx` rebuilt as a days-only hero** — replaced the 4-segment (days/hrs/min/sec) per-second ticker with one dominant centered day count (`text-8xl` → `sm:text-9xl`, mulberry serif) over a `days to go` mono caption. The count is a PH-calendar-day difference (Asia/Manila fixed +08:00) so it never reads "0 days" the night before; the client re-checks once a minute (the count only flips at PH midnight) instead of once a second. The `Today` (event day) / `Just married` (past) milestone states are preserved.
+- **`event-countdown-header.tsx` centered** — the card is now `text-center` and the date + venue line moved beneath the big number, matching the prototype stack: eyebrow → names → count → date·venue → vendors-locked bar. Date label bumped to `font-medium text-ink/80`.
+
+**Verify:** `tsc --noEmit` clean + `next lint` green (only pre-existing, unrelated warnings); production build runs in CI. No migration (pure presentation + a client-side day-diff tweak). Runtime QA on the app (couple Home — needs an event with a date).
+
+**SPEC IMPACT:** None — aligns the shipped app to the already-approved couple-app-flow prototype (2026-06-04). Iteration 0021 (couple dashboard) describes the countdown header generically; no schema/pricing/scope change.
+
+## 2026-06-05 · fix(onboarding): monogram screen — reveal only when both initials in · drop "X / N" counter · trim to 3 designs
+
+**Context:** Owner, testing the live "The two of you" name screen (step 5) — *"Shows a monogram with no values. we only want to show a monogram live if we already have both letters. Remove the number 2/5 on the Generate another design. Remove design #2 and #4, we will make more later — keep 1, 3, 5."* The MonoLockup rendered a `· & ·` placeholder before any names were typed, the "Generate another design" control carried a `2 / 5` index counter, and the design library shipped 5 lockups.
+
+**What changed** (`app/onboarding/wedding/`):
+- **Gate the live monogram on both initials** (`onboarding-shell.tsx`) — new `monoReady` (both bride + groom first-name initials present). `<MonoLockup>` renders only when `monoReady`; until then a quiet `.mono-empty` hint ("Your monogram appears here") holds the figure's space (new scoped CSS, sized to the lockup so there's no layout jump on reveal). No more `· & ·` mark with no values.
+- **Removed the `mono-count` "X / N" counter** beside the "Generate another design" button (markup + the now-dead `.mono-count` CSS rule). The button itself is unchanged.
+- **Trimmed `MONO_DESIGNS` 5 → 3** — kept #1 `bar`, #3 `duo`, #5 `infinity`; dropped #2 `script` + #4 `framed` ("more to come"). `MonoLockup` still implements all five styles (the `script`/`framed` branches are retained for the future set); only the cycled list shrank. Existing index guards (`?? MONO_DESIGNS[0]`, `% length`) already handle any persisted out-of-range `monogramDesign`.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing, unrelated warnings). No migration. Visual QA on the PR's Vercel preview (onboarding step 5 — anonymous-reachable, before the account gate).
+
+**SPEC IMPACT:** The app's onboarding monogram (5-lockup "Generate another design", added 2026-06-04) is **app-only** — the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` `#screen-name` still has the older tap-to-cycle / 6-combo mark, so it was already diverged. A `DECISION_LOG.md` row is landing directly in the corpus (authorized direct edit); the prototype's monogram section is flagged stale (a full reconciliation to the app's lockup approach is a separate task). Relates to the open 2026-06-04 monogram items (Trace animation · 0037 · the unapplied `event_monogram_style` migration).
 
 ## 2026-06-05 · feat(onboarding): Your Plan — powerful Freebies value block (relabels + pill fix)
 

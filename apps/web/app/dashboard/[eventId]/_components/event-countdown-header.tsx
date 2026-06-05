@@ -5,14 +5,15 @@ import { LiveCountdown } from './live-countdown';
 /**
  * EventCountdownHeader — the emotional anchor at the top of the couple Home.
  *
- * Couple-home-cockpit redesign (owner-approved 2026-06-04). Home is a cockpit,
- * not a catalog: this header answers "how close are we?" at a glance — the
- * couple's names, a LIVE days · hours · minutes · seconds countdown to their
- * event date, the date + venue, and a thin "X of N vendors locked" bar.
+ * Couple-home-cockpit redesign (owner-approved 2026-06-04; centered days-to-go
+ * hero ported from the couple-app-flow prototype 2026-06-05). Home is a
+ * cockpit, not a catalog: this centered header answers "how close are we?" at a
+ * glance — the couple's names, a big dominant days-to-go count to their event
+ * date, the date + venue beneath it, and a thin "X of N vendors locked" bar.
  *
  * Counts down to the EARLIEST chosen date until the couple settles on one
  * (owner 2026-06-04): targets the committed `event_date`, else the earliest
- * `date_candidates`, else the `date_window_start`. The ticking is a small
+ * `date_candidates`, else the `date_window_start`. The day count is a small
  * client child (`<LiveCountdown>`); this server component owns the date
  * resolution + label and passes the resolved target (PH-midnight ms) + the
  * server clock so the first paint matches between server and client.
@@ -97,7 +98,7 @@ export function EventCountdownHeader({
   return (
     <section
       aria-labelledby="event-countdown-heading"
-      className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+      className="rounded-2xl border border-ink/10 bg-cream p-5 text-center shadow-sm sm:p-6"
     >
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
         Your wedding
@@ -109,15 +110,7 @@ export function EventCountdownHeader({
         {eventName}
       </h1>
 
-      {dateLineLabel || venueLabel ? (
-        <p className="mt-1.5 text-sm">
-          {dateLineLabel ? <span className="text-ink/75">{dateLineLabel}</span> : null}
-          {dateLineLabel && venueLabel ? <span className="text-ink/30"> · </span> : null}
-          {venueLabel ? <span className="text-ink/55">{venueLabel}</span> : null}
-        </p>
-      ) : null}
-
-      <div className="mt-4">
+      <div className="mt-5">
         {countdownDate ? (
           <LiveCountdown targetMs={targetMsFor(countdownDate)} serverNowMs={now.getTime()} />
         ) : (
@@ -129,6 +122,14 @@ export function EventCountdownHeader({
           </Link>
         )}
       </div>
+
+      {dateLineLabel || venueLabel ? (
+        <p className="mt-3 text-sm">
+          {dateLineLabel ? <span className="font-medium text-ink/80">{dateLineLabel}</span> : null}
+          {dateLineLabel && venueLabel ? <span className="text-ink/30"> · </span> : null}
+          {venueLabel ? <span className="text-ink/55">{venueLabel}</span> : null}
+        </p>
+      ) : null}
 
       {tentativeCaption ? (
         <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">

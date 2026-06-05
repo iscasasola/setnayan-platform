@@ -6,6 +6,8 @@
  * component is a build error by design — keep it server-side only.
  */
 import 'server-only';
+import jsQR from 'jsqr';
+import sharp from 'sharp';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -87,4 +89,34 @@ export async function fetchPublishedMethodsForCouple(opts: {
     });
   }
   return out;
+}
+
+/**
+ * Decode what an uploaded QR image ACTUALLY encodes — server-side, so the
+ * stored `decoded_destination` is Setnayan-verified (anti-swap), not the
+ * vendor's typed claim. Fetches the image from R2, rasterises to RGBA via
+ * sharp, runs jsQR. Best-effort: returns null on an unreadable image and never
+ * throws (callers fall back to the vendor-declared value + admin review).
+ */
+export async function decodeQrFromR2(r2Ref: string): Promise<string | null> {
+  try {
+    const url = await displayUrlForStoredAsset(r2Ref);
+    if (!url) return null;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const input = Buffer.from(await res.arrayBuffer());
+    const { data, info } = await sharp(input)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const result = jsQR(
+      new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
+      info.width,
+      info.height,
+    );
+    const text = result?.data?.trim();
+    return text && text.length > 0 ? text.slice(0, 256) : null;
+  } catch {
+    return null;
+  }
 }

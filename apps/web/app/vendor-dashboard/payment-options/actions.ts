@@ -10,6 +10,7 @@ import {
   isVendorProActive,
   type PaymentMethodType,
 } from '@/lib/vendor-payment-methods';
+import { decodeQrFromR2 } from '@/lib/vendor-payment-methods.server';
 
 const BASE = '/vendor-dashboard/payment-options';
 
@@ -63,7 +64,16 @@ export async function addPaymentMethod(formData: FormData) {
     const qrRef = str(formData.get('qr_r2_key'), 512);
     if (!qrRef) fail('Upload your QR image first.');
     row.qr_r2_key = qrRef;
-    row.decoded_destination = str(formData.get('decoded_destination'), 256);
+    // Server-side decode (anti-swap): store what the QR ACTUALLY encodes, not
+    // what the vendor typed. If the image can't be read, keep the vendor's note
+    // as a fallback and route the method to admin review.
+    const decoded = await decodeQrFromR2(qrRef);
+    if (decoded) {
+      row.decoded_destination = decoded;
+    } else {
+      row.decoded_destination = str(formData.get('decoded_destination'), 256);
+      row.moderation_status = 'pending_review';
+    }
   } else {
     // link — Pro/Enterprise only
     const pro = await isVendorProActive(supabase, userId);
@@ -84,7 +94,7 @@ export async function addPaymentMethod(formData: FormData) {
   revalidatePath(BASE);
   flash(
     row.moderation_status === 'pending_review'
-      ? 'Link saved — it shows to clients once our team clears it (quick review).'
+      ? 'Saved — it shows to clients once our team clears it (quick review).'
       : 'Payment option saved — it’s now on your clients’ payment screen.',
   );
 }

@@ -143,17 +143,16 @@ const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = 
   { value: 'jewish', label: 'Jewish', soon: false },
 ];
 
-/* ── monogram designs (owner 2026-06-04 — 5 live-typography lockups; replaced the
-   10 {frame+font+ink} image presets). MonoLockup (./mono-lockup) renders each by
-   its .lk-* class from the couple's real initials + first names, so the mark stays
-   crisp at any size. Only design 4 (framed) uses an image — the ornate gold frame.
-   "Generate another design" cycles these; commit still derives monogram_frame/font_key. */
+/* ── monogram designs (owner 2026-06-05 — kept 3 live-typography lockups: bar · duo ·
+   infinity. Dropped #2 (script) + #4 (framed) for now; more designs to come. MonoLockup
+   (./mono-lockup) still renders all five styles by its .lk-* class from the couple's real
+   initials + first names — these three are pure typography (no image frame), so the mark
+   stays crisp at any size. "Generate another design" cycles these; commit still derives
+   monogram_frame/font_key. */
 const MONO_DESIGNS: MonoDesign[] = [
-  { style: 'bar', font: 'cormorant' },                  // 1 · serif caps | & | caps + names
-  { style: 'script', font: 'script' },                  // 2 · Great Vibes  i & i (3 glyphs)
-  { style: 'duo', font: 'playfair' },                   // 3 · serif caps, close / overlapping
-  { style: 'framed', font: 'cinzel', frame: 'filigree' }, // 4 · initials in an ornate gold filigree frame
-  { style: 'infinity', font: 'cormorant' },             // 5 · two caps linked by a gold ∞
+  { style: 'bar', font: 'cormorant' },                  // serif caps | & | caps + names
+  { style: 'duo', font: 'playfair' },                   // serif caps, close / overlapping
+  { style: 'infinity', font: 'cormorant' },             // two caps linked by a gold ∞
 ];
 
 /* ── pax tier photos (prototype PAXTIERS) ── */
@@ -1563,6 +1562,11 @@ export function OnboardingShell({
     setByoEmail('');
   };
   const monoDesign = MONO_DESIGNS[state.monogramDesign] ?? MONO_DESIGNS[0]!;
+  /* Only show the live monogram once BOTH first-name initials exist (owner 2026-06-05) —
+     before that the figure shows a quiet hint instead of a "· & ·" placeholder. */
+  const monoBi = firstInitial(state.brideFirstName);
+  const monoGi = firstInitial(state.groomFirstName);
+  const monoReady = monoBi !== '' && monoGi !== '';
   const cycleDesign = () => {
     patch({ monogramDesign: (state.monogramDesign + 1) % MONO_DESIGNS.length });
     bumpMono();
@@ -2111,22 +2115,27 @@ export function OnboardingShell({
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">The two of you.</h1>
               <figure className="monogram">
-                {/* key by design index + a periodic replay tick so the Trace
-                    effect (letters + filigree draw themselves) LOOPS: it replays
-                    on "Generate another design" (design change) AND every ~4.5s
-                    while this screen is shown (monoReplay) as a draw → hold →
-                    redraw loop — gated to step 4 + prefers-reduced-motion above.
-                    The mark propagates to the couple's invitation, website,
-                    save-the-date, live background, livestream + videos. */}
-                <MonoLockup
-                  key={`${state.monogramDesign}:${monoReplay}`}
-                  design={monoDesign}
-                  bi={firstInitial(state.brideFirstName)}
-                  gi={firstInitial(state.groomFirstName)}
-                  brideName={state.brideFirstName}
-                  groomName={state.groomFirstName}
-                  pop={monoPop}
-                />
+                {/* Only render the monogram once BOTH first-name initials are in
+                    (owner 2026-06-05) — until then a quiet hint holds the space, so
+                    the couple never sees a "· & ·" mark with no values. key by design
+                    index + a periodic replay tick so the Trace effect (letters draw
+                    themselves) LOOPS: it replays on "Generate another design" AND every
+                    ~4.5s while this screen is shown (monoReplay). The mark propagates to
+                    the couple's invitation, website, save-the-date, live background,
+                    livestream + videos. */}
+                {monoReady ? (
+                  <MonoLockup
+                    key={`${state.monogramDesign}:${monoReplay}`}
+                    design={monoDesign}
+                    bi={monoBi}
+                    gi={monoGi}
+                    brideName={state.brideFirstName}
+                    groomName={state.groomFirstName}
+                    pop={monoPop}
+                  />
+                ) : (
+                  <div className="mono-empty" aria-hidden="true">Your monogram appears here</div>
+                )}
               </figure>
             </div>
             <div className="tapzone">
@@ -2134,9 +2143,6 @@ export function OnboardingShell({
                 <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
                   <span className="ic" aria-hidden="true">{'↻'}</span> Generate another design
                 </button>
-                <span className="mono-count" aria-hidden="true">
-                  {state.monogramDesign + 1} / {MONO_DESIGNS.length}
-                </span>
               </div>
               <div className="namepair">
                 <label className="nl">

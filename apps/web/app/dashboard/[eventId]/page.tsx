@@ -94,8 +94,11 @@ import {
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { EventCountdownHeader } from './_components/event-countdown-header';
-import { TodaysOneThing } from './_components/todays-one-thing';
-import { pickTodaysOneThing, countUnlockedCategories } from '@/lib/todays-one-thing';
+import { countUnlockedCategories } from '@/lib/todays-one-thing';
+import {
+  WeddingRoadmapAsync,
+  WeddingRoadmapSkeleton,
+} from './_components/wedding-roadmap-async';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -1525,15 +1528,11 @@ export default async function EventHomePage({
   // ("Today's Focus"), NOT the text-heavy match-criteria recap (which moved to
   // the top of Services; the full editable record stays at /details). Every
   // input below is derived from data the page already loaded — no new fetches.
-  //
-  // Today's Focus: the host's #1 unlocked planning task, resolved from the same
-  // `eventVendors` array (so the hero agrees with the plan lock-state) and
-  // anchored on the wedding date. Returns null when (a) no wedding_date, or
-  // (b) every lockable category is already locked — the card distinguishes the
-  // two via `weddingDateMissing`.
-  const todaysTask = pickTodaysOneThing(eventVendors, event.event_date, now);
+  // remainingTaskCount feeds the countdown's "X of N vendors locked" bar
+  // below (countUnlockedCategories — unchanged). The old "Today's Focus" hero
+  // (pickTodaysOneThing) was replaced by the Things-to-complete roadmap, which
+  // self-fetches; its compute no longer lives here.
   const remainingTaskCount = countUnlockedCategories(eventVendors);
-  const weddingDateMissing = !event.event_date;
   // "X of N vendors locked" for the countdown progress bar. N = lockable
   // plan-groups (entry-point cards excluded), matching the resolver's universe
   // so the header and the focus card agree. locked = N − unlocked.
@@ -1606,17 +1605,15 @@ export default async function EventHomePage({
         now={now}
       />
 
-      {/* Today's Focus — the one prioritized next action (or set-your-date /
-       *  all-locked variants). Resolved server-side; dormant since the
-       *  2026-06-02 lean pass, re-wired here as the cockpit's "Do it" beat.
-       *  Manual mode (owner 2026-06-05) suppresses this auto-task. */}
+      {/* Things to complete — the free wedding roadmap (owner 2026-06-05). The
+       *  ordered tasks, timed by months-to-earliest-date; the couple taps each
+       *  done themselves (manual check-off · NO automation / no AI). Replaces
+       *  the single "Up next" hero with the fuller list. Hidden in Manual mode
+       *  like the rest of the assist. Streams in its own Suspense. */}
       {!planningManual ? (
-        <TodaysOneThing
-          eventId={eventId}
-          topPriorityTask={todaysTask}
-          weddingDateMissing={weddingDateMissing}
-          totalRemainingTasks={remainingTaskCount}
-        />
+        <Suspense fallback={<WeddingRoadmapSkeleton />}>
+          <WeddingRoadmapAsync eventId={eventId} now={now} />
+        </Suspense>
       ) : null}
 
       {/* Needs you — the time-bound items that need the host (vendor replies,

@@ -193,7 +193,9 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
             />
           </div>
           <label htmlFor="decoded_destination" className="block space-y-1">
-            <span className="block text-sm font-medium text-ink">Where it sends money</span>
+            <span className="block text-sm font-medium text-ink">
+              Where it sends money <span className="text-ink/45">(optional)</span>
+            </span>
             <input
               id="decoded_destination"
               name="decoded_destination"
@@ -202,8 +204,8 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
               className="input-field"
             />
             <span className="block text-xs text-ink/55">
-              Where it sends money, e.g. &ldquo;GCash · 0917…&rdquo;. Shown to clients so they can
-              verify; our team checks it too.
+              We read your QR automatically and show clients where it pays. Add a note here only as
+              a fallback in case the image can&rsquo;t be read.
             </span>
           </label>
         </div>

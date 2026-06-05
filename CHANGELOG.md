@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): slider under the number box on the guest-count + budget steps
+
+**Context:** Owner — on the wedding onboarding's "How many guests?" and "Your working budget?" screens, the range slider must sit *under* the number box, not above it. (Reverses the 2026-06-02 swap that had put the slider on top.)
+
+**What changed (`apps/web/app/onboarding/wedding`):**
+- `_components/onboarding-shell.tsx` — reordered both `.tapzone` stacks from `slider → ends → numbox` to **`numbox → slider → ends`** (pax screen + budget screen). Pure JSX reorder; all handlers/state (`patch`, `onBudgetAmount`, the slider gradient fill, the two-way slider↔box sync) are unchanged. Rewrote the budget block's stale `2026-06-02` "slider-on-top" comment to describe the new order.
+- `_styles/onboarding.css` — `.paxslider` gains `margin-top:14px` so the slider clears the number box above it (matches the box's existing 14px rhythm). No divider added — the React design uses the bordered `.numbox`, not the prototype's dashed `.paxexactwrap`.
+
+**Verify:** `tsc --noEmit` → 0 errors · `next lint` (onboarding/wedding) → no warnings/errors. Built in an isolated worktree off `origin/main`. Layout (numbox→slider→ends) verified in the corpus prototype render; confirm spacing on the Vercel preview's pax/budget steps.
+
+**SPEC IMPACT:** Matches the design prototype `Onboarding_Wedding_Flow_2026-06-01.html` + `DECISION_LOG.md` — both already updated in the corpus this session with the same reorder. No schema · no SKU · no workflow change. Corpus edits land directly (inbox wound down 2026-06-04).
+
+---
+
 ## 2026-06-05 · fix(onboarding/0016): Song Bank search returned no songs (PostgREST `or()` wildcard)
 
 **Context:** Owner — "the search is not showing songs." The Song Bank search (#999) built a raw PostgREST `.or()` filter with `%` wildcards (`title.ilike.%q%,artist.ilike.%q%`). In an `.or()` string PostgREST's ilike wildcard is **`*`, not `%`** — a bare `%` matches literally / is URL-mangled, so every search returned **0 rows** (and `searchSongBankAction` swallows errors → `[]`). RLS + the applied 390-seed were fine.

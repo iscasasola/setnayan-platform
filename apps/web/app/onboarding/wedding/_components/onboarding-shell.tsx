@@ -72,8 +72,11 @@ const PHASE_SCREENS = 15;
  * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
  * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
 const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
-/* Which screens show a Skip button (prototype canSkip[]): picker/name/region/account/congrats/plan not skippable, prefs/find are. */
-const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false];
+/* Which screens show a Skip button. Only "Set the mood" (prefs, 10) + find-vendors (12)
+   are skippable — they sort matches, never gate them. Everything that drives matching is
+   required: role/kind/faith/name/date/region/pax/budget/picker. (owner 2026-06-05 — removed
+   Skip from faith · date · pax · budget; Continue is already gated on an answer for each.) */
+const CAN_SKIP = [false, false, false, false, false, false, false, false, false, false, true, false, true, false, false];
 
 const ASSET = (name: string) => `/onboarding/${name}.webp`;
 /* picker per-service photo + prefs photo + bundle thumbnail subdirs (mirror the pax/budget/mono pattern). */

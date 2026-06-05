@@ -8,9 +8,9 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Two migrations on `main` shared the 14-digit prefix `20260826000000` — `20260826000000_budget_planner_config_benchmarks.sql` (PR #1000) and `20260826000000_songs_itunes_cache_and_390_seed.sql` (song-bank PR). This reddened the **"migration timestamp guard"** CI job (`.github/workflows/ci.yml`) on `main` and therefore on *every* open PR. The guard exists because `supabase db push` keys `supabase_migrations.schema_migrations` on the prefix, so a duplicate crashes the push after one migration's DDL has already run (half-applied prod).
 
-**Which is applied (verified):** `supabase migration list --db-url "$SUPABASE_DB_URL"` shows the `20260826000000` prefix twice — one row with a REMOTE entry (applied), one with a blank REMOTE (pending). The applied one is **budget_planner** (DECISION_LOG: "applied to prod via monogram-isolation"; the planning_mode PR #1002 bumped itself to `20260827` "off a pre-existing `20260826` collision … the songs-twin drift on main is unrelated"; and the budget-planner UI is live in prod, so its tables exist). The **songs** migration is the never-applied twin (its DDL was skipped because the prefix was already in `schema_migrations`).
+**Which is applied (verified):** `supabase migration list --db-url "$SUPABASE_DB_URL"` shows the `20260826000000` prefix twice — one row with a REMOTE entry (applied), one with a blank REMOTE (pending). The applied one is **budget_planner** (DECISION_LOG: "applied to prod via monogram-isolation"; the planning_mode PR #1002 bumped itself to `20260827` "off a pre-existing `20260826` collision … the songs-twin drift on main is unrelated"; and the budget-planner UI is live in prod). The **songs** migration is the never-applied twin (its DDL was skipped because the prefix was already in `schema_migrations`).
 
-**What changed:** pure `git mv` of `20260826000000_songs_itunes_cache_and_390_seed.sql` → **`20260828000000_songs_itunes_cache_and_390_seed.sql`** (filename only; `git` confirms `R100`, zero content lines changed). budget_planner is left untouched at `20260826000000` so it still matches the remote `schema_migrations` PK. Renaming the songs twin (not budget_planner) is the safe choice on two counts: it's the *unapplied* one, AND it's fully idempotent (`ADD COLUMN IF NOT EXISTS` · `CREATE INDEX IF NOT EXISTS` · `INSERT … ON CONFLICT DO NOTHING`), so re-applying it under the new version can't error.
+**What changed:** pure `git mv` of `20260826000000_songs_itunes_cache_and_390_seed.sql` → **`20260828000000_songs_itunes_cache_and_390_seed.sql`** (filename only; `git` confirms `R100`, zero content lines changed). budget_planner is left untouched at `20260826000000` so it still matches the remote `schema_migrations` PK. Renaming the songs twin (not budget_planner) is safe twice over: it's the *unapplied* one, AND it's fully idempotent (`ADD COLUMN IF NOT EXISTS` · `CREATE INDEX IF NOT EXISTS` · `INSERT … ON CONFLICT DO NOTHING`), so re-applying it under the new version can't error.
 
 **Verify:** `ls supabase/migrations | grep -oE '^[0-9]{14}' | sort | uniq -d` → empty (guard passes). No code/typecheck surface (migration rename only).
 
@@ -19,6 +19,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** None (migration filename rename; no schema, pricing, or workflow change). Finding recorded in corpus DECISION_LOG.
 
 ---
+
+## 2026-06-05 · feat(0001): CSV guest import — exact-duplicate skip (within-file + against existing)
+
+**Context:** Follow-up to the guest-name hygiene PR (#1004) — closes the largest remaining gap from that review: CSV import had **no** duplicate detection, so re-importing a file doubled everyone and a file listing the same person twice inserted both.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/guests/`):
+- **`import/actions.ts`** — before insert, builds a set of normalized `first|last` keys already on the event (graceful-degrade to empty on query error) and skips any row whose key is **already on the list** OR **seen earlier in the same file**. Exact-normalized match only (shared `norm` from `lib/guest-dedupe`); fuzzy nickname/typo matches are deliberately NOT auto-skipped — a bulk import shouldn't silently drop a distinct guest on a guess (that judgment stays with the interactive add forms). `skipped` now means invalid-rows only; duplicates are counted + reported separately. An all-duplicates file is a friendly no-op ("Imported 0 · skipped N duplicates"), not a validation error.
+- **`page.tsx`** — import success banner now reads `duplicates` and shows e.g. *"Imported 12 guests · skipped 3 duplicates · skipped 1 invalid row."*
+
+**Verify:** `tsc --noEmit` ✅ · `next lint` ✅ (clean on the guests dir) · `next build` ✅.
+
+**SPEC IMPACT:** 0001 guest list — CSV import now exact-dedupes (within-file + against existing). Completes the name-quality pass (normalize all paths · dedupe on quick-add + detailed form + CSV). Lands in corpus `DECISION_LOG.md` + `0001_creating_guest_list/`.
 
 ## 2026-06-05 · feat(0001): Guest-name hygiene — normalize all 3 write paths + dedupe on the detailed form
 

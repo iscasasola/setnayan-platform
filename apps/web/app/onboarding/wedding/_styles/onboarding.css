@@ -445,6 +445,40 @@
 .onbw .song .scover.playing .scover-ic{background:var(--mulberry);}
 .onbw .song .stxt{flex:1 1 auto;}
 .onbw .song .sa .snote{color:var(--gold-deep);font-style:normal;}
+
+/* ── Shared carousel affordances (Rail) — applied to every onboarding carousel (owner 2026-06-05).
+   "more →" chevron + edge fades while there's more to scroll, a vertical end-line at the end;
+   rows that already fit get '.flat' and show none of it. ── */
+.onbw .railwrap{position:relative;}
+.onbw .rail{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.onbw .rail::-webkit-scrollbar{height:0;display:none;}
+.onbw .railend{flex:0 0 auto;align-self:center;width:2px;height:84px;background:var(--line-2);border-radius:2px;margin:0 2px 0 7px;scroll-snap-align:end;}
+.onbw .railwrap .fade{position:absolute;top:0;bottom:7px;width:30px;pointer-events:none;opacity:0;transition:opacity .18s;z-index:2;}
+.onbw .railwrap .fade.l{left:0;background:linear-gradient(to right,var(--paper) 28%,transparent);}
+.onbw .railwrap .fade.r{right:0;background:linear-gradient(to left,var(--paper) 28%,transparent);}
+.onbw .railwrap.canl .fade.l{opacity:1;}
+.onbw .railwrap.canr .fade.r{opacity:1;}
+.onbw .railwrap .chev{position:absolute;top:30px;right:8px;width:28px;height:28px;border-radius:50%;background:var(--surface);border:1px solid var(--line-2);box-shadow:0 3px 10px rgba(0,0,0,.14);display:flex;align-items:center;justify-content:center;color:var(--ink);font-size:18px;line-height:1;z-index:3;opacity:0;transition:opacity .18s;pointer-events:none;}
+.onbw .railwrap.canr .chev{opacity:1;}
+.onbw .railwrap.flat .fade,.onbw .railwrap.flat .chev,.onbw .railwrap.flat .railend{display:none;}
+
+/* ── "What would you love?" picker — category rows of photo-card carousels ── */
+.onbw #screen-picker .picker-sub{font-size:13.5px;color:var(--ink-soft);line-height:1.45;margin:0 0 2px;}
+.onbw .pickcat{margin-top:16px;}
+.onbw .pickcatlbl{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.onbw .pickcatlbl .nm{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink);}
+.onbw .pickcatlbl .ct{font-family:var(--mono);font-size:10px;color:var(--gold-deep);background:var(--gold-wash);border:1px solid var(--gold);border-radius:999px;padding:1px 7px;opacity:0;transition:.2s;}
+.onbw .pickcatlbl.has .ct{opacity:1;}
+.onbw .pickcatlbl .rule{flex:1;height:1px;background:var(--line);}
+.onbw .rail.pickrail{gap:11px;padding:2px 0 5px;}
+.onbw .svccard{scroll-snap-align:start;flex:0 0 auto;width:118px;background:var(--surface);border:1px solid var(--line-2);border-radius:15px;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative;padding:0;text-align:left;font-family:inherit;-webkit-appearance:none;appearance:none;}
+.onbw .svccard:active{transform:scale(.97);}
+.onbw .svccard .svcph{display:block;width:100%;height:90px;background:var(--gold-wash) center/cover no-repeat;}
+.onbw .svccard .svclb{display:block;padding:8px 10px 10px;font:600 12.5px/1.25 'Manrope',sans-serif;color:var(--ink);min-height:42px;}
+.onbw .svccard .svcck{position:absolute;top:7px;right:7px;width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.78);border:1.5px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:800;transition:.15s;}
+.onbw .svccard.sel{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold),0 8px 20px rgba(197,160,89,.22);}
+.onbw .svccard.sel .svcck{background:var(--gold);border-color:var(--gold);color:#fff;}
+.onbw .svccard.sel .svclb{color:var(--gold-deep);}
 /* ── Song Bank — results-on-top, search pinned at the BOTTOM (Onboarding_Style_and_Song_Bank §5; mirrors the location screen) ── */
 .onbw .prefstep[data-dim="music"] .viewzone{flex:0 0 auto;}
 .onbw .prefstep[data-dim="music"] .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}

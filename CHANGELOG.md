@@ -19,6 +19,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Your Plan structure → `Onboarding_Blueprint_2026-05-30.md` §3.2 + the prototype `Onboarding_Wedding_Flow_2026-06-01.html` #screen-plan + `DECISION_LOG`. Landing directly in the corpus (decision-log → .md → .docx). Also resolves the open "onboarding still sells Today's Focus ₱1,499" contradiction — the AI-guidance ask is FREE.
 
+## 2026-06-05 · feat(onboarding): picker → category photo-carousels + shared carousel affordances (more →/end-line) + start empty
+
+**Context:** Owner — wanted the step-9 "What would you love?" picker to **start empty**, to feel less cluttered ("keep it one scroll but make it not feel too long"), and then to apply the same carousel cues to **all** onboarding carousels. The picker was a 53-text-chip wall under a sticky preview panel (broke the no-scroll / photo-forward onboarding golden rules); the only other carousel (style-prefs cuisine + photo/video strips) had no scroll affordances.
+
+**What changed** (`onboarding-shell.tsx` + `onboarding.css`):
+- **New reusable `<Rail>`** — wraps any horizontal carousel and self-describes via classes toggled on scroll: a floating **`›` "more"** chevron + right-edge fade when there's more to the right, a **left-edge fade** once you've scrolled, and a **vertical end-line** at the end. Rows that already fit get `.flat` and show none of it. Uses a scroll listener + `ResizeObserver` + a post-image settle re-measure.
+- **Picker redesign** — the preview panel + chip rows are replaced by **one row per taxonomy parent**, each a `<Rail>` of per-service **`<PickCard>`** photo-cards (the existing 53 `public/onboarding/picker/*.webp`). Tap = gold ring + check; category header shows a live count badge; the sub-line shows `N selected`. Service descriptions (`PICK_INFO`) move to each card's `title`/`aria-label` (hover/AT, no visual clutter).
+- **Start empty** — removed the budget-matched auto-seed (`budgetStarterPicks` + its only-here `PRIORITY_TIERS`/`BAND_LEVEL`/`ALL_CATS`). Nothing is pre-selected; `canContinue` already required `picks.length > 0`, so Continue stays disabled until the couple taps one.
+- **Applied `<Rail>` to the other carousels** — the two style-prefs strips (`.pgrid.strip`: cuisine + photo/video looks) now get the same affordances.
+
+**Verification:** TSX syntax parse clean · no orphaned identifiers (removed `pickerPreview`, `budgetStarterPicks`, `PRIORITY_TIERS`, `BAND_LEVEL`, `ALL_CATS`) · design validated in an HTML proto with the real photos before porting (carousel cues confirmed: more-chevron, edge fades, end-line). Full `tsc`/lint/build/e2e in PR CI + Vercel preview for visual review. Isolated worktree off origin/main.
+
+**SPEC IMPACT:** Onboarding picker — the corpus onboarding proto (`Onboarding_Wedding_Flow_2026-06-01.html`) + any 0016/picker spec text still show the old chip picker with a budget-seeded starter set. They should be updated to the **category photo-carousel, start-empty** design + the shared carousel affordances. (Flagged for Cowork / corpus follow-up.)
+
+---
+## 2026-06-05 · feat(onboarding): "Set the mood" feel picker → swipeable carousel
+
+**Context:** Owner — *"set the mood must be carousel as well."* The wedding onboarding's Style steps were inconsistent: Cuisine and Photo & Video already used the swipeable photo-card film-strip, but the palette / **"Set the mood"** step still picked the feel with flat text chips.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- Palette body: the feel `PrefChip` row → a **`.pgrid.strip` carousel of `PCard`s** (one photo card per feel, single-select), reusing the exact pattern the Cuisine / Photo & Video steps already ship. Each card shows the feel's budget-tiered photo (`feel_<feel>_<tier>`); the photo-less "Others" falls back to a glyph (new `FEELEMOJI` map).
+- Copy: palette sub **"Pick a feel" → "Swipe a feel."**
+- Viewzone feel-hero + color swatches unchanged.
+
+**Verification:** `tsc --noEmit` clean. Built in an isolated worktree off `origin/main`. ⚠ Not visually verified — the app dev server needs `NEXT_PUBLIC_SUPABASE_*` to boot; the change reuses the proven `.pgrid.strip` CSS (the vertical-fit rules already special-case `.strip`), so it renders like its sibling steps. Confirm on the Vercel preview.
+
+**SPEC IMPACT:** None (schema / SKU / workflow unchanged). The design prototype `Onboarding_Wedding_Flow_2026-06-01.html` already specifies a carousel for this step — the richer photo-forward `.pgrid.car` variant that fills the screen with no hero; the app ships the lighter **film-strip** per owner's 2026-06-05 pick. Corpus is already ahead — no Cowork action (a `DECISION_LOG.md` trace row can be added directly).
 ## 2026-06-05 · chore(pricing/marketing): remove Today's Focus completely (customer-facing)
 
 **Context:** Owner — *"remove the today's focus completely. we do not want this anymore."* The retired AI-planner SKU (already disabled in-app via `CONCIERGE_ENABLED=false`) still lingered on the public marketing surfaces. This scrubs it from everything a customer/vendor sees.

@@ -44,6 +44,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { LoadingStatus } from '@/components/loading-status';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
 import { computeCompatScore } from '@/lib/compat-score';
@@ -575,6 +576,7 @@ html.dark .pbacc .tools-all{color:#C99DB0}
 @keyframes pba-openrot{to{transform:rotate(360deg)}}
 .pbacc .pbopen-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
 .pbacc .pbopen-nm{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.2;color:var(--ink);text-align:center;max-width:340px}
+.pbacc .pbopen-status{margin-top:1px;font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.01em;color:var(--ink-soft);text-align:center}
 @media (prefers-reduced-motion:reduce){
   .pbacc .card.opening .v{transition:none}
   .pbacc .pbopen{animation:none}
@@ -910,6 +912,12 @@ export function PlanBudgetAccordion({
 // during the brief enlarge-then-navigate window after a card tap; the
 // destination route's loading.tsx continues the same spinner after the swap, so
 // the hand-off is seamless. role=status + aria-live announce it to AT.
+const OPEN_MESSAGES = [
+  'Setting things up…',
+  'Loading the details…',
+  'Almost there…',
+];
+
 function ServiceOpenOverlay({ label }: { label: string }) {
   return (
     <div
@@ -921,6 +929,7 @@ function ServiceOpenOverlay({ label }: { label: string }) {
       <div className="pbopen-spin" aria-hidden />
       <div className="pbopen-k">Opening</div>
       <div className="pbopen-nm">{label}</div>
+      <LoadingStatus className="pbopen-status" messages={OPEN_MESSAGES} />
     </div>
   );
 }

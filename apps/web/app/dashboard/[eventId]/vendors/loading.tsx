@@ -1,44 +1,48 @@
 /**
  * Loading screen for the Vendors tab — the couple "Services" nav target.
  *
- * Owner 2026-06-05 (verbatim): "from home, when we transfer to the services,
- * there is a couple of seconds that it is blank, this should have a loading
- * state. loading state should prevent the user to do any other actions until the
- * load state is done."
+ * Owner 2026-06-05 (two reports):
+ *  (a) "from home, when we transfer to the services, there is a couple of
+ *      seconds that it is blank … should have a loading state … prevent the
+ *      user to do any other actions until the load state is done."
+ *  (b) "loading state tells what we are doing … downloading your information,
+ *      activating your personalized refinements. or something like this."
  *
  * The Vendors page (./_components/plan-budget-accordion.tsx) is a scroll-driven
- * sheet that REPLACES the app top-nav with a full-bleed black budget bar, then a
- * "Where your day stands" cover + coverflow rails. The shared ListPageSkeleton
- * this route used before mirrored a generic stats+list page on the normal white
- * chrome — so when it was replaced by the real sheet the top-nav appeared then
- * vanished and a black bar dropped in: the jump that read as a blank flash.
- *
- * This loader mirrors the Vendors chrome instead (the app-wide skeleton system's
- * own rule — "each route gets a loader that mirrors its own layout"):
- *   · injects the SAME `.shell-topbar{display:none}` the live page injects, so
- *     there's no header swap,
- *   · paints the full-bleed black budget bar + an intro/rail shimmer that fills
- *     the content area, so there's no blank and nothing half-rendered to tap
- *     until the real page streams in and replaces this fallback wholesale.
- *
- * Shimmer blocks reuse the shared <Sk> primitive (the `.skeleton` GPU sheen,
- * auto-frozen under prefers-reduced-motion by the global a11y block).
+ * sheet that REPLACES the app top-nav with a full-bleed black budget bar. This
+ * loader mirrors that chrome so there's no header swap, and narrates the wait:
+ *   · injects the SAME `.shell-topbar{display:none}` the live page injects,
+ *   · paints the black budget bar (shimmer figs via the shared <Sk>),
+ *   · fills the content area with a spinner + a cycling <LoadingStatus> that
+ *     tells the couple what's loading — so the hop is never blank and nothing
+ *     half-rendered is tappable until the real page streams in and replaces
+ *     this fallback wholesale.
  */
 import { Sk } from '@/components/skeletons';
+import { LoadingStatus } from '@/components/loading-status';
 
 // Chrome-only scoped CSS — the full-bleed black bar + negative top margin that
-// match the live page's frame. Shimmer tint/sheen comes from <Sk>, not here.
+// match the live page's frame, plus the spinner + status cover.
 const VLOAD_CSS = `
 .vload{position:relative;margin-top:-24px;min-height:calc(100svh - 56px);background:var(--m-paper,#FBFBFA)}
 html.dark .vload{background:#1E2229}
 .vload-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:62px;padding:0 18px;background:var(--m-ink,#1E2229);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
 html.dark .vload-bar{background:#2A2E36}
-.vload-cover{padding:26px 22px 18px;display:flex;flex-direction:column;gap:16px}
-.vload-stats{display:flex;gap:10px}
-.vload-stats>*{flex:1}
-.vload-rail{display:flex;gap:12px;overflow:hidden;padding-top:4px}
-.vload-rail>*{flex:0 0 min(300px,calc(100vw - 96px))}
+.vload-cover{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:0 28px;min-height:62vh;text-align:center}
+.vload-spin{width:38px;height:38px;border-radius:50%;border:3px solid rgba(197,160,89,.25);border-top-color:var(--m-orange,#C5A059);animation:vload-rot .7s linear infinite}
+.vload-status{font-family:var(--font-sans,system-ui,sans-serif);font-size:14.5px;font-weight:600;letter-spacing:.01em;color:var(--m-ink,#1E2229);min-height:1.2em}
+html.dark .vload-status{color:#FBFBFA}
+.vload-sub{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:rgba(30,34,41,.4)}
+html.dark .vload-sub{color:rgba(251,251,250,.45)}
+@keyframes vload-rot{to{transform:rotate(360deg)}}
 `;
+
+const VLOAD_MESSAGES = [
+  'Setting up your planner…',
+  'Downloading your information…',
+  'Activating your personalized refinements…',
+  'Almost ready…',
+];
 
 export default function VendorsLoading() {
   return (
@@ -58,23 +62,13 @@ export default function VendorsLoading() {
         <Sk className="h-3 w-16 rounded" />
       </div>
 
-      {/* "Where your day stands" cover — eyebrow + title, 3 stat boxes, and the
-          first coverflow rail of cards. */}
+      {/* Spinner + a cycling line that narrates what's loading. Fills the
+          content area so nothing half-rendered is tappable until the page
+          streams in. */}
       <div className="vload-cover">
-        <div className="space-y-2.5">
-          <Sk className="h-3 w-24 rounded" />
-          <Sk className="h-8 w-3/4 max-w-[16rem] rounded-md" />
-        </div>
-        <div className="vload-stats">
-          <Sk className="h-16 rounded-2xl" />
-          <Sk className="h-16 rounded-2xl" />
-          <Sk className="h-16 rounded-2xl" />
-        </div>
-        <div className="vload-rail">
-          <Sk className="h-72 rounded-[18px]" />
-          <Sk className="h-72 rounded-[18px]" />
-          <Sk className="h-72 rounded-[18px]" />
-        </div>
+        <div className="vload-spin" aria-hidden />
+        <LoadingStatus className="vload-status" messages={VLOAD_MESSAGES} />
+        <p className="vload-sub">Setnayan</p>
       </div>
     </div>
   );

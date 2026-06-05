@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0021): Wedding Roadmap auto-checks the 8 confirmable "things to complete"
+
+**Context:** Owner on the couple Home **"Things to complete"** list: *"some needs manual done and some needs automatic. we have automatic like date, finalize venue, etc."* The roadmap shipped earlier today (PR #1021) as 100% manual tap-Done — explicitly NOT automated to avoid the retired Today's-Focus inference. This refines that: items the app can confirm from a hard structural fact auto-check; the soft ones stay manual.
+
+**What changed:**
+- `lib/wedding-roadmap.ts`: new `RoadmapSignals` type + `countRoadmapDone()`. `resolveRoadmap()` takes optional signals and treats an item as done when **auto-satisfied OR manually checked**. 8 of 11 items are "confirmable" (`lock_date` · `reception_venue` · `ceremony_venue` · `budget` · `guest_list` · `core_vendors` · `seating` · `setnayan_capture`); `reception_look` · `save_the_dates` · `invitations` have no reliable signal and stay manual-only.
+- `app/dashboard/[eventId]/_components/wedding-roadmap-async.tsx`: derives signals from 4 lightweight parallel reads (`event_vendors` status/category · guest count · `event_tables` count · paid/fulfilled capture `orders`) + the events row (`event_date` · `estimated_budget_centavos`). Reuses `CONFIRMED_VENDOR_STATUSES` + `PLAN_GROUPS` venue categories so the signal can't drift from plan-card bucketing. Header count now reflects the hybrid done total.
+- `app/dashboard/[eventId]/actions.ts`: `toggleRoadmapItem` doc updated — it is now the manual *fallback* leg of a hybrid model.
+- **Never-stuck guardrails:** an auto item the app can't confirm (e.g. a civil / same-venue couple → no separate ceremony-venue signal) KEEPS its manual Done button; a failed signal fetch degrades to pure manual (nothing hidden). Deterministic structural facts only — not Today's-Focus inference.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean on all 3 files · 18/18 pure-logic assertions pass (tsx harness: uncommitted-date keeps `lock_date` open · all-8-signals event leaves only the 3 manual items · civil couple keeps `ceremony_venue` · null-signals → all-manual fallback · honest auto+manual count). Live browser render not runnable in-worktree (public Supabase keys are Vercel-only); data-layer queries validated against schema + mirror existing `getConfirmedVendorCount` / add-on-stats patterns. **No migration** — all signals read existing columns/tables.
+
+**SPEC IMPACT:** Iteration 0021 — the Wedding Roadmap is now **hybrid auto/manual**, superseding "explicitly NOT automated." Logged in corpus `DECISION_LOG.md` (2026-06-05) and reconciled directly in the corpus per the owner's 2026-06-04 direct-edit authorization (no Cowork PENDING needed).
+
 ## 2026-06-05 · feat(onboarding): heart (save) button on the in-app services carousel
 
 **Context:** On the "Your Plan" upsell, owner wanted each in-app-service poster to carry a heart/save button alongside what-it-does · benefits · outside price · Setnayan price. The "Boost & enhance" carousel (screen 15) already showed all of those — poster, benefit, **struck-through outside price (`SVC.out`) + Setnayan price (`SVC.set`)**, and "save ₱X vs hiring [X]". The only missing affordance was the heart.

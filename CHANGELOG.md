@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · refactor(0016): onboarding Your Plan inquiry stepper (no toggle · match-gated) + Boost/Picks fit-to-screen
+
+**Context:** Owner punch-list on the onboarding end screens. **Reach my best matches (14):** "no toggle — input the number right away (min 1, max 5); if there's no AI match support, the card won't show." **Boost & enhance (15):** "snap [the carousel] to the bottom and stretch the big photo." **Your picks (16 · last page):** "make the last page fit so all products are framed and scrollable in between," and "drop 'You save ₱… vs hiring elsewhere' — just show the grand total saved."
+
+**What changed (`app/onboarding/wedding`):**
+- **Reach my best matches (14)** — removed the on/off toggle; the **1–5 "inquiries per category" stepper shows directly**. The card is **gated on real AI matches**: a one-shot fetch (reusing `getOnboardingVendorCounts`, which returns `null` precisely when no best-fit vendors are found) on the congrats→plan stretch (step ≥ 13) sets `matchAvail`; the card renders only when `matchAvail === true`, and `sendTopInquiries` is driven from it (true iff matches exist → the commit fan-out runs; `null`/error → hidden + no fan-out). No manual opt-in toggle anymore.
+- **Boost & enhance (15)** — fill layout: the big poster (`svc-poster`) **stretches to fill** the screen and the **carousel + label snap to the bottom** (mirrors the budget/role/kind photo-fill flex pattern — `svc-detail` becomes the flex-fill column).
+- **Your picks (16 · last page)** — **fits the viewport**: the grand-total hero pins on top, the **picks list is framed and scrolls in between** (new `svc-rows-scroll`), and the totals + Purchase/continue buttons pin to the bottom. **Removed** the "You save ₱… vs hiring elsewhere" line (and the now-unused `saveTotal`) — the grand-total hero already states what's saved.
+
+**Verify:** static review + grep (no orphans — `saveTotal`/`svc-tot-s` gone; `getOnboardingVendorCounts`/`matchAvail`/`svc-rows-scroll` all used; `setState`/`patch` in scope). Local Next preview N/A (fresh worktree, no node_modules; the app onboarding needs auth + 16 steps) — **typecheck+lint+production build+Vercel preview = proof; the 15/16 fit + poster stretch want a Vercel-preview eyeball.** No migration.
+
+**SPEC IMPACT:** 0016 — Your Plan inquiry control is a match-gated 1–5 stepper (no toggle; auto-on iff real matches exist — **note RA 10173:** disclosed on-screen, but no manual opt-out now beyond "no matches found"); Boost (15) + Picks (16) are fit-to-screen; the "vs hiring elsewhere" line is dropped. Re-uses `getOnboardingVendorCounts` (the fn the prior congrats-declutter PR #1041 orphaned — now a gate, not a stat). Prototype `Onboarding_Wedding_Flow_2026-06-01.html` + Blueprint §3.2 rows 14/15/16 drift — logged in corpus `DECISION_LOG.md` (2026-06-05).
+
 ## 2026-06-05 · feat(0016): onboarding canonical-fields close-out — role · area picks · services-to-look-for · basic moodboard persisted + every-leaf recommendations
 
 **Context:** Owner locked the onboarding data contract (the 19 canonical outputs + #20 "recommended services for all the chosen leaf categories") and confirmed: persist the 4 fields the commit was dropping, and recommend an in-app add-on for **every** chosen leaf. Closes build-plan (`Onboarding_Canonical_Fields_Build_Plan_2026-06-05.md`) **G1–G4**. **Zero migration** (event_moderators exists; the rest ride in the `style_preferences` JSONB).

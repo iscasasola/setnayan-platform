@@ -12,11 +12,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - `lib/vendor-payment-methods.server.ts` — new `decodeQrFromR2(r2Ref)`: fetch the QR image from R2 → `sharp` rasterises to RGBA → `jsQR` reads the payload. Best-effort, never throws.
 - `app/vendor-dashboard/payment-options/actions.ts` — the QR save branch stores the server-decoded value; an unreadable image keeps the vendor's typed note as a fallback AND routes the method to `pending_review` (admin verifies).
 - `_components/add-payment-method.tsx` — the destination field is now an optional fallback ("we read your QR automatically").
-- Added `sharp@^0.34.5` (already the version Next uses for image optimization) as a direct dep + `serverExternalPackages: ['sharp']` so the native module is traced into the `output: 'standalone'` build, not webpack-bundled.
+- Added `sharp@^0.34.5` (already the version Next uses for image optimization) as a direct dep + `serverExternalPackages: ['sharp']` so the native module is traced into the `output: 'standalone'` build.
 
-**Verification:** `tsc` 0 · `next lint` 0 · proven end-to-end on the dev machine (generated a QR, decoded it through the exact `sharp → jsQR` pipeline, round-tripped the payload `gcash:09171234567`). Full build + Lighthouse in CI. Isolated worktree off origin/main.
+**Verification:** `tsc` 0 · `next lint` 0 · proven end-to-end (generated a QR, decoded it through the exact `sharp → jsQR` pipeline, round-tripped `gcash:09171234567`). Full CI green (production build + e2e + lighthouse).
 
-**SPEC IMPACT:** Updates the 0034 "Vendor Payment Options" section — QR destination is now **server-decoded**, not vendor-declared (supersedes that V1 note). Landed direct in corpus + DECISION_LOG (per the standing direct-edit authorization).
+**SPEC IMPACT:** Updates the 0034 "Vendor Payment Options" section — QR destination is now **server-decoded**, not vendor-declared (supersedes that V1 note). Landed direct in corpus + DECISION_LOG.
+
+## 2026-06-05 · feat(0021): Wedding Roadmap — free "things to complete" on Home (manual, no automation)
+
+**Context:** Owner — *"roadmap or things to complete we keep, but the automation of today's focus is what we do not need anymore."* After removing the paid Today's Focus, the couple keeps a simple, free roadmap of the wedding decisions — **minus the automation** (no AI, no data-detection of "done"). Manual check-off only.
+
+**What changed:**
+- **Migration `20260830000000`** — `events.roadmap_completed TEXT[]` (the item keys the couple has marked done). **Applied to prod**; additive · default `'{}'`.
+- **`lib/wedding-roadmap.ts`** — the ordered task list (11 items across the 12+ / 9–12 / 6–9 / 4–6 / 2–4 month bands) + `monthsUntil(earliest)` (plain date math) + `resolveRoadmap(months, completed)` → the open items. **No data-facts / no auto-detection** — only date math + the completed array.
+- **`_components/wedding-roadmap-async.tsx`** — self-fetching Home block that reads ONLY the event's date + `roadmap_completed`: a "**Things to complete**" list, timed by months-to-earliest-date, each item with a manual **Done** button (server-action `<form>`, no client JS, no links). "X/N done" + an on-track empty state.
+- **`toggleRoadmapItem`** action — adds/removes the item key in `roadmap_completed` (manual check-off; validates against the key set).
+- **Home** — replaces the single "Up next" hero (`TodaysOneThing`) with the roadmap; **hidden in Manual mode** like the rest of the assist. Removed the now-unused `pickTodaysOneThing` / `todaysTask` / `weddingDateMissing` (kept `countUnlockedCategories` for the countdown bar).
+
+**Verify:** `tsc --noEmit` + `next lint` green. Migration applied to prod.
+
+**SPEC IMPACT:** New 0021 free "Things to complete" roadmap — manual check-off, **no automation** (replaces the retired Today's Focus automation). Recorded in corpus `DECISION_LOG`.
 
 ## 2026-06-05 · feat(home): couple Home countdown — centered days-to-go hero (prototype → app)
 

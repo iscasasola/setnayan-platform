@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): wedding-date "What your dates share" nugget moved above the calendar
+
+**Context:** Owner — *"fix the location of what your dates share. we want the nuggets to be on top and not under the calendar."* On the wedding-date onboarding screen (step 6 · "When's the big day?"), the `DateCalendar` component rendered its why-these-dates nugget (`.whydate`) as the **last** child of the `.tapzone`, i.e. *below* the calendar. Because `.tapzone` is `margin-top:auto` (pinned to the bottom of the screen body), the whole block sat at the bottom and the nugget landed under the calendar, while a large empty gap opened under the title. The 2026-06-01 corpus + app proto HTMLs already place `#whydate` in the `.viewzone` (above the calendar) — only the React port had drifted out of sync.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` only):
+- `DateCalendar` now owns its full screen body, matching the sibling `LocationStep` pattern: it returns a `.viewzone` (eyebrow + "When's the big day?" title + the `{why && …}` nugget) followed by the `.tapzone` (readout + mode toggle + calendar). The nugget therefore renders directly under the title, above the calendar; the calendar/toggle/readout stay pinned at the thumb zone.
+- Screen 6's `<section>` now renders `<DateCalendar/>` directly, dropping the duplicate inline `.viewzone` (eyebrow + h1) and `.tapzone` wrapper that previously surrounded it. No logic, props, copy, or styling changed — pure JSX restructure.
+
+**Verification:** TSX syntax parse clean (0 syntax errors) · new DOM order confirmed (`whydate` in `.viewzone` precedes `calgrid`) · `.whydate` is styled standalone (no `.tapzone`/`.cal` selector coupling, safe to move) · layout cross-checked against the corpus proto (`Onboarding_Wedding_Flow_2026-06-01.html`), which uses the identical viewzone/tapzone structure + CSS and renders the nugget at top (measured `whydate` top 209px vs calendar 561px). Full `tsc`/lint deferred to PR CI (no node_modules in the isolated worktree); the change has no type surface. Isolated worktree off origin/main.
+
+**SPEC IMPACT:** None — aligns the React port to the existing 2026-06-01 onboarding proto (which already shows the nugget in the viewzone); no schema, SKU, copy, or product-surface change.
+
+---
+
 ## 2026-06-05 · fix(0022): vendor home "confirmed bookings" tile was structurally always 0
 
 **Context:** The vendor dashboard home (`app/vendor-dashboard/page.tsx`) computed its "Confirmed bookings" stat tile by counting `event_vendors` rows (`marketplace_vendor_id` = self, `status IN contracted/deposit_paid/delivered/complete`) **through the RLS-bound user client**. But `public.event_vendors` has only couple-scoped RLS (`event_vendors_couple_read` / `_write`, `20260513100000_iteration_0006_vendors.sql`) — no vendor-read policy — so under a vendor's session that query always returned **0**, regardless of real bookings. The tile was dead on arrival.

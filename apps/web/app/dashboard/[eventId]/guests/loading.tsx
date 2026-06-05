@@ -13,6 +13,14 @@
  * list streams in.
  */
 import { RowSkeleton, Sk } from '@/components/skeletons';
+import { LoadingNarration } from '@/components/loading-status';
+
+const GUESTS_MESSAGES = [
+  'Loading your guest list…',
+  'Counting RSVPs…',
+  'Organizing tables & sides…',
+  'Almost ready…',
+];
 
 export default function GuestsLoading() {
   return (
@@ -26,6 +34,9 @@ export default function GuestsLoading() {
 
       {/* mobile back-X placeholder (fixed, matches the real exit affordance) */}
       <span className="fixed left-3 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 h-9 w-9 rounded-full bg-ink/[0.06] lg:hidden" />
+
+      {/* Narration strip — tells the couple what's loading (owner 2026-06-05). */}
+      <LoadingNarration messages={GUESTS_MESSAGES} />
 
       {/* Desktop-only chrome — header · team segment · RSVP stats · seating · toolbar */}
       <div className="hidden space-y-6 lg:block">

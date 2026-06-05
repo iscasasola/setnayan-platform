@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(ux): narrate the Guests + Website loading screens
+
+**Context:** Owner follow-up to the narrated Services loader — *"make a loading for website and guests also."* Both routes already had page-shaped skeletons (from the app-wide skeleton pass) but loaded **silently**; the owner wants them to *tell what they're doing* like Services now does.
+
+**What changed (all in `apps/web`):**
+- `components/loading-status.tsx`: new **`LoadingNarration`** — a small drop-in strip (gold spinner + the existing cycling `LoadingStatus`) so any route's `loading.tsx` can narrate over its skeleton. Reduced-motion-safe (the global a11y block freezes the spinner + fade; the JS timer still advances the informative text).
+- `…/guests/loading.tsx`: keeps its bespoke guest-list skeleton, adds a `LoadingNarration` strip — *"Loading your guest list…" → "Counting RSVPs…" → "Organizing tables & sides…" → "Almost ready…"*.
+- `…/site-editor/[eventId]/loading.tsx` (the surface the **"Website"** nav doorway actually opens — `/dashboard/[eventId]/website` is a retired redirect to it): was a bare `export { BoardPageSkeleton as default }`; now renders the board/canvas skeleton **plus** a `LoadingNarration` strip — *"Opening your website editor…" → "Loading your design…" → "Bringing in your photos…" → "Almost ready…"*.
+
+**Verify:** `tsc --noEmit` + `next lint` (all three files) green. No migration.
+
+**SPEC IMPACT:** None (loading-screen UX polish; no schema, pricing, or workflow change). Same family as the 2026-06-05 Services narrated-loading row in corpus DECISION_LOG.
+
+---
+
 ## 2026-06-05 · feat(0021): Manual mode — Services accordion deep-gate (PR2 of 2)
 
 **Context:** Completes Manual planning mode (PR1 #1002 shipped the `events.planning_mode` flag + the Guided⇄Manual toggle + Home gating). PR2 makes "off" consistent on the **Services tab** — the personalization still showing inside the plan+budget accordion now turns off too.

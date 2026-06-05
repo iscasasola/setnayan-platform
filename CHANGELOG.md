@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0021): Manual planning mode — foundation + toggle (PR1 of 2)
+
+**Context:** Owner — *"can we place a toggle for the personalization to switch off … including the deadlines for each leaf category and other automated tasks."* A self-driven **Manual mode** that turns off Setnayan's automated layer (vendor-match personalization · per-service + statutory deadlines · "Today's Focus" auto-tasks) while the app + a compatibility-scoped vendor directory + messaging stay fully usable. Default **Guided** = today's behavior. Owner explicitly accepted that Manual also hides the LEGAL/statutory dates with no warning — knowingly reversing the locked "statutory dates show to every couple" safety default (recorded in corpus DECISION_LOG).
+
+**What changed (PR1 — foundation + the clean surfaces):**
+- **Migration `20260827000000`** — `events.planning_mode TEXT NOT NULL DEFAULT 'guided' CHECK (… 'guided'|'manual')`. Additive · default = no behavior change for existing rows. (Renamed from a `20260826` collision — main already had two migrations at that timestamp.)
+- **`setPlanningMode` server action** (`…/[eventId]/actions.ts`) — flips the flag (auth + `event_id` update + layout revalidate; mirrors `updateEventDate`).
+- **`match-criteria-strip.tsx`** — the switch's home: **Guided** shows the criteria chips + a subtle "switch to manual"; **Manual** collapses to a slim "you're planning this yourself" bar with a one-tap "Switch to Guided". Server-action `<form>` — no client JS.
+- **Home (`…/[eventId]/page.tsx`)** — in Manual mode, **Today's Focus** + **Upcoming schedules** (the deadline layer) are hidden; the countdown + activity feed stay.
+- **Services (`…/vendors/page.tsx`)** — reads `planning_mode`, passes `manual` to the strip.
+
+**Verify:** `tsc --noEmit` + `next lint` green. Migration applied to prod via `supabase db push`.
+
+**Next (PR2):** the in-accordion deep-gate — hide the "% match" pills + neutralize the taste sort in `plan-budget-accordion.tsx` (`VendorCardAtom` + `CompareSheet`) + `category-search`, plus any per-service deadline chips, so Manual mode is fully consistent on the Services tab.
+
+**SPEC IMPACT:** New 0021 "planning mode" (Guided default ⇄ Manual). Reverses the locked "statutory deadlines show to all couples" safety default (owner-accepted, no warning). Lands in corpus `DECISION_LOG` + `0021`.
+
 ## 2026-06-05 · feat(0022): branch-scoped service grouping (Branches V1.x complete)
 
 **Context:** The second half of the Branches V1.x "yes" — assign each service to a branch so a multi-location Enterprise vendor can organize its catalog per site. (Auto-lapse + Renew + ₱999 shipped in #995.)

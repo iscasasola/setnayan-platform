@@ -413,7 +413,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1547,6 +1547,13 @@ export default async function EventHomePage({
     (event as { region?: string | null }).region ??
     null;
 
+  // Planning mode (owner 2026-06-05). 'manual' = the couple turned off
+  // Setnayan's automated layer: hide Today's Focus (auto-task) + Upcoming
+  // schedules (per-service + statutory deadlines). The countdown + activity
+  // feed stay. Default 'guided' (and any unknown value) keeps everything on.
+  const planningManual =
+    (event as { planning_mode?: string | null }).planning_mode === 'manual';
+
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
     // renders as a single column on every breakpoint. Prior shape was a
@@ -1601,27 +1608,34 @@ export default async function EventHomePage({
 
       {/* Today's Focus — the one prioritized next action (or set-your-date /
        *  all-locked variants). Resolved server-side; dormant since the
-       *  2026-06-02 lean pass, re-wired here as the cockpit's "Do it" beat. */}
-      <TodaysOneThing
-        eventId={eventId}
-        topPriorityTask={todaysTask}
-        weddingDateMissing={weddingDateMissing}
-        totalRemainingTasks={remainingTaskCount}
-      />
+       *  2026-06-02 lean pass, re-wired here as the cockpit's "Do it" beat.
+       *  Manual mode (owner 2026-06-05) suppresses this auto-task. */}
+      {!planningManual ? (
+        <TodaysOneThing
+          eventId={eventId}
+          topPriorityTask={todaysTask}
+          weddingDateMissing={weddingDateMissing}
+          totalRemainingTasks={remainingTaskCount}
+        />
+      ) : null}
 
       {/* Needs you — the time-bound items that need the host (vendor replies,
        *  payment milestones, statutory deadlines). Same UpcomingSchedules
        *  surface, reframed from a passive "Upcoming" calendar via the async
-       *  wrapper's headingLabel/emptyLabel props. Streams independently. */}
-      <Suspense fallback={<UpcomingSchedulesSkeleton />}>
-        <UpcomingSchedulesAsync
-          eventId={eventId}
-          eventDate={event.event_date}
-          ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
-          userId={user.id}
-          now={now}
-        />
-      </Suspense>
+       *  wrapper's headingLabel/emptyLabel props. Streams independently.
+       *  Manual mode (owner 2026-06-05) turns off ALL deadlines — including the
+       *  statutory ones — per the owner's explicit choice (DECISION_LOG). */}
+      {!planningManual ? (
+        <Suspense fallback={<UpcomingSchedulesSkeleton />}>
+          <UpcomingSchedulesAsync
+            eventId={eventId}
+            eventDate={event.event_date}
+            ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
+            userId={user.id}
+            now={now}
+          />
+        </Suspense>
+      ) : null}
 
       {/* Recent activity — what's changed since last visit. */}
       <Suspense fallback={<ActivityFeedSkeleton />}>

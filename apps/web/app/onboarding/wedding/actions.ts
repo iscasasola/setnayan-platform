@@ -255,6 +255,12 @@ export type OnboardingCommitPayload = {
    * BLOCKED). This is a free-form blob, no FK, display-only.
    */
   stylePreferences: Record<string, unknown>;
+  /** screen-14 "keep guiding me" — free deadline-timeline guidance (default true). Persisted into
+   *  events.style_preferences.guidance_opt_in (no migration). NOT the retired paid Today's Focus. */
+  guidanceOptIn: boolean;
+  /** screen-14 "reach my top 3 matches" — when true, fan out the first inquiry to the top-3 picked
+   *  categories' best-fit vendor at commit (default false · explicit consent · RA 10173). */
+  sendTopInquiries: boolean;
 };
 
 export type OnboardingCommitResult =
@@ -370,7 +376,7 @@ export async function commitOnboardingWedding(
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
-      style_preferences: payload.stylePreferences ?? {},
+      style_preferences: { ...(payload.stylePreferences ?? {}), guidance_opt_in: payload.guidanceOptIn ?? true },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use
     // events.event_id (UUID). Select + thread event_id, matching the canonical
@@ -512,31 +518,36 @@ export async function commitOnboardingWedding(
     }
   }
 
-  // Auto-inquire a best-fit vendor for each picked category (owner 2026-06-02:
-  // "auto-inquire best-fit per category"). Resolve the picker keys → UNIQUE
-  // PLAN_GROUP ids, then fire one inquiry per group via the dashboard
-  // unlock-category flow (best-fit pick → event_vendors 'considering' →
-  // follow → chat thread → first inquiry message). Best-effort + parallel: an
-  // inquiry failure must NEVER fail the commit — the event + membership are
-  // already saved, and the couple can add categories from the dashboard. The
-  // event_members row above is committed, so unlockCategoryWithInquiry's
-  // user-scoped RLS membership read resolves.
-  const groupIds = Array.from(
-    new Set(
-      (payload.picks ?? [])
-        .map((p) => PICK_TO_GROUP[p])
-        .filter((g): g is string => Boolean(g)),
-    ),
-  );
-  if (groupIds.length > 0) {
-    await Promise.allSettled(
-      groupIds.map((groupId) =>
-        unlockCategoryWithInquiry({
-          eventId: insertedEvent.event_id,
-          groupId,
-        }),
+  // Inquiry fan-out — OPT-IN + CAPPED (owner 2026-06-05). Fires ONLY when the couple turned ON
+  // "reach my top 3 matches" on Your Plan (screen 14 · default OFF · explicit consent · RA 10173).
+  // This supersedes the unconditional 2026-06-02 per-category fan-out, which silently inquired
+  // every picked category on every commit. Resolve the picker keys → UNIQUE PLAN_GROUP ids, take
+  // the first 3, and fire one inquiry per group via the dashboard unlock-category flow (best-fit
+  // pick → event_vendors 'considering' → follow → chat thread → first inquiry message). ≤3
+  // inquiries; the chat_threads UNIQUE(event_id, vendor_profile_id) upsert dedupes if the same
+  // vendor is best-fit in more than one of the three. Kept synchronous (the capped set is small —
+  // faster than the old all-groups fan-out) so unlockCategoryWithInquiry keeps the committed
+  // user-scoped RLS context; after() would lose the cookie session it reads via auth.getUser().
+  // Best-effort: an inquiry failure must NEVER fail the commit (event + membership already saved;
+  // the couple can inquire from the dashboard any time).
+  if (payload.sendTopInquiries) {
+    const groupIds = Array.from(
+      new Set(
+        (payload.picks ?? [])
+          .map((p) => PICK_TO_GROUP[p])
+          .filter((g): g is string => Boolean(g)),
       ),
-    );
+    ).slice(0, 3);
+    if (groupIds.length > 0) {
+      await Promise.allSettled(
+        groupIds.map((groupId) =>
+          unlockCategoryWithInquiry({
+            eventId: insertedEvent.event_id,
+            groupId,
+          }),
+        ),
+      );
+    }
   }
 
   return { ok: true, eventId: insertedEvent.event_id };

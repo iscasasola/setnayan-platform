@@ -1161,15 +1161,13 @@ function MatchedBundle({ band, added, onAdd }: { band: string; added: boolean; o
   );
 }
 
-/* ── Live savings compute (Time_and_Money_Saved_Model_2026-06-01.md §D) ──
-   Per-couple from the onboarding state — REPLACES the hardcoded demo strip
-   (₱42,992 / 745 / 48 · owner 2026-06-02: "why is this the same for everybody?
-   we tried different input and it still gave the same data"). Free-feature money
-   is flat (everyone gets the same free features → ₱32,992) + ₱2,500 × expos; the
-   hours scale with the couple's actual picks · shortlist · runway · design
-   categories · expos. Today's Focus EXCLUDED (paid SKU, not a free saving). The
-   vendor stat tile is NOT computed here — it uses REAL marketplace counts from
-   getOnboardingVendorCounts (owner 2026-06-03), not a fabricated formula. */
+/* ── Live savings compute — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03) ──
+   Per-couple from the onboarding state — REPLACES the hardcoded demo strip (owner 2026-06-02:
+   "why is this the same for everybody?"). Money is mostly flat (everyone gets the same free
+   tools → ₱53,486) + ₱2,500 × expos; hours scale with the couple's picks · shortlist · runway ·
+   expos. Today's Focus stays EXCLUDED (paid SKU, retired 2026-06-03). The vendor stat tile is
+   NOT computed here — it uses REAL marketplace counts from getOnboardingVendorCounts, not a
+   formula. See FREE_TOOL_DRIVERS below for the per-tool breakdown the Your Plan slider renders. */
 /* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
@@ -1178,12 +1176,50 @@ function sanitizeName(raw: string): string {
   return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
 }
 
-const SAVINGS_FLAT_PESOS = 32992; // sum of the 8 flat free-feature money values (model §D table)
-const SAVINGS_PER_EXPO_PESOS = 2500; // marketplace — money per bridal expo replaced
-function computeOnboardingSavings(state: OnboardingState, now: Date): { money: number; hours: number } {
+/* Free-tool value drivers — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03,
+   supersedes the old §A–§F set). `money` = market-equivalent "what you'd pay elsewhere"
+   (NOT a Setnayan SKU price — these are free); `hours` = practical-time-audited (§I).
+   Apparatus rule (LOCKED): every tool replaces *hiring people / DIY toil*, the couple
+   brings their own. Flat money sums to ₱53,486; marketplace adds ₱2,500 × expos. The Your
+   Plan slider renders this breakdown; .plansave + congrats sum it. lockedVendors/invited are
+   0 at onboarding (those hours accrue post-commit), so the headline shows ~₱63.5K / ~290h. */
+type SavingsInputs = {
+  categories: number; shortlisted: number; runwayDays: number;
+  exposReplaced: number; lockedVendors: number; invitedVendors: number;
+};
+type FreeToolValue = { key: string; label: string; blurb: string; vsRole: string; money: number; hours: number };
+const FREE_TOOL_DRIVERS: ReadonlyArray<{
+  key: string; label: string; blurb: string; vsRole: string;
+  money: (c: SavingsInputs) => number; hours: (c: SavingsInputs) => number;
+}> = [
+  { key: 'website', label: 'Your wedding website', blurb: 'RSVP, your event site, and an editorial page — built for you.', vsRole: 'a hired web developer', money: () => 14999, hours: () => 50 },
+  { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.', vsRole: 'a USB-and-delivery service', money: () => 5000, hours: () => 5 },
+  { key: 'filtering', label: 'Smart vendor matching', blurb: 'We filter the whole market down to the vendors that fit your wedding.', vsRole: "a planner's vendor sourcing", money: () => 4999, hours: (c) => 3 * c.categories },
+  { key: 'mood', label: 'Mood board', blurb: 'One styled board your vendors actually follow.', vsRole: 'a styling consult', money: () => 3999, hours: () => 5 },
+  { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.', vsRole: "a planner's budget service", money: () => 3999, hours: () => 12 },
+  { key: 'dashboard', label: 'Your planning dashboard', blurb: 'Checklist, schedule, and every vendor in one hub.', vsRole: 'spreadsheets and group chats', money: () => 3999, hours: (c) => 0.25 * c.runwayDays },
+  { key: 'guest', label: 'Guest list + seat plan', blurb: 'Guests, RSVPs, and seating in one connected place.', vsRole: 'a guest-management service', money: () => 2999, hours: () => 12 },
+  { key: 'marketplace', label: 'Verified vendor marketplace', blurb: 'Every verified PH vendor — like 50 bridal expos in your pocket.', vsRole: 'bridal-expo trips', money: (c) => 2500 * c.exposReplaced, hours: (c) => 10 * c.exposReplaced },
+  { key: 'comparison', label: 'Side-by-side compare', blurb: 'Line up quotes and pick with clarity.', vsRole: 'quote-vetting legwork', money: () => 2499, hours: (c) => c.shortlisted },
+  { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.', vsRole: 'day-of guest coordination', money: () => 1999, hours: () => 6 },
+  { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.', vsRole: 'contract admin', money: () => 1999, hours: () => 3 },
+  { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.', vsRole: 'a music planner', money: () => 1499, hours: () => 3 },
+  { key: 'datealigner', label: 'Wedding date aligner', blurb: 'The best date your top vendors can all actually make.', vsRole: 'a date consult', money: () => 1499, hours: () => 3 },
+  { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.', vsRole: 'a menu planner', money: () => 1499, hours: () => 4 },
+  { key: 'monogram', label: 'Your monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
+  { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.', vsRole: 'an invitation designer', money: () => 999, hours: () => 2 },
+  { key: 'fanout', label: 'One-tap inquiries', blurb: 'Reach your top matches in one tap — not one chat at a time.', vsRole: 'messaging each vendor yourself', money: () => 0, hours: (c) => 0.5 * c.categories },
+  { key: 'chat', label: 'All chats in one place', blurb: 'Every vendor thread in one app, not scattered across Viber and email.', vsRole: 'chasing replies everywhere', money: () => 0, hours: (c) => 0.5 * c.lockedVendors },
+  { key: 'invite', label: 'Bring your own vendor', blurb: 'Already love a vendor? Invite them — they plug right in.', vsRole: 'onboarding them yourself', money: () => 0, hours: (c) => c.invitedVendors },
+  { key: 'trust', label: 'Verified-vendor safety', blurb: 'Real reviews and verified badges — no guessing, no scams.', vsRole: 'due-diligence and asking around', money: () => 0, hours: () => 0 },
+];
+
+function computeOnboardingSavings(
+  state: OnboardingState,
+  now: Date,
+): { money: number; hours: number; breakdown: FreeToolValue[] } {
   const categories = state.picks.length;
   const shortlisted = state.shortlist.length;
-  const designVendors = state.picks.filter((p) => AESTHETIC_CATS.includes(p)).length;
   const exposReplaced = Math.min(5, Math.max(1, Math.ceil(Math.max(categories, 1) / 3)));
   // runway = earliest committed/candidate date (or window start) − today, clamped ≥0
   const iso =
@@ -1195,19 +1231,55 @@ function computeOnboardingSavings(state: OnboardingState, now: Date): { money: n
     const days = Math.round((new Date(iso + 'T00:00:00').getTime() - now.getTime()) / 86400000);
     if (Number.isFinite(days)) runwayDays = Math.max(0, days);
   }
-  const money = SAVINGS_FLAT_PESOS + SAVINGS_PER_EXPO_PESOS * exposReplaced;
-  const hours = Math.round(
-    3 * categories + // filtering — 3h/category
-      8 + // monogram
-      350 + // website (triple site)
-      12 + // guest planner
-      12 + // budget tracker
-      3 * shortlisted + // vendor comparison — 3h/shortlisted
-      0.5 * runwayDays + // dashboard — 0.5h/day
-      2 * designVendors + // mood board — 2h/design vendor
-      24 * exposReplaced, // marketplace — 24h/expo replaced
+  // No vendors locked / no BYO invites yet at onboarding-commit time — those hours accrue later.
+  const c: SavingsInputs = { categories, shortlisted, runwayDays, exposReplaced, lockedVendors: 0, invitedVendors: 0 };
+  const breakdown: FreeToolValue[] = FREE_TOOL_DRIVERS.map((d) => ({
+    key: d.key, label: d.label, blurb: d.blurb, vsRole: d.vsRole,
+    money: Math.round(d.money(c)), hours: d.hours(c),
+  }));
+  const money = breakdown.reduce((s, d) => s + d.money, 0);
+  const hours = Math.round(breakdown.reduce((s, d) => s + d.hours, 0));
+  return { money, hours, breakdown };
+}
+
+/* Free-value slider on Your Plan (owner 2026-06-05) — renders the locked §H breakdown as a
+   swipeable list: each free tool with its time saved + market-equivalent "what you'd pay
+   elsewhere" (apparatus rule: instead of hiring people / DIY toil). Closes on a tally card =
+   the grand total. Horizontal scroll-snap keeps the no-scroll golden rule (no extra vertical
+   height). Cards shown only when they save real money or ≥1 hr for this couple. */
+function FreeValueSlider({ tools, money, hours, active }: { tools: FreeToolValue[]; money: number; hours: number; active: boolean }) {
+  const cards = tools
+    .filter((t) => t.money > 0 || t.hours >= 1)
+    .slice()
+    .sort((a, b) => b.money - a.money || b.hours - a.hours);
+  return (
+    <div className="fvslider" role="group" aria-label="What you get free">
+      <div className="fvs-track">
+        {cards.map((t) => (
+          <article className="fvs-card" key={t.key}>
+            <div className="fvs-card-top">
+              <div className="fvs-label">{t.label}</div>
+              <div className="fvs-blurb">{t.blurb}</div>
+            </div>
+            <div className="fvs-foot">
+              {t.hours >= 1 && <span className="fvs-time">⏱ ~{Math.round(t.hours)} hrs saved</span>}
+              {t.money > 0 ? (
+                <span className="fvs-money">{pesoB(t.money)}<span className="fvs-vs">if you hired {t.vsRole}</span></span>
+              ) : (
+                <span className="fvs-money fvs-free">Free, always<span className="fvs-vs">instead of {t.vsRole}</span></span>
+              )}
+            </div>
+          </article>
+        ))}
+        <article className="fvs-card fvs-tally" key="__tally">
+          <div className="fvs-tally-lbl">Altogether, free</div>
+          <div className="fvs-tally-amt"><CountUp value={money} prefix="₱" active={active} /><span className="fvs-tally-dot">·</span><CountUp value={hours} suffix=" hrs" active={active} /></div>
+          <div className="fvs-tally-sub">Every tool here is yours, ₱0, forever — plus one-place chat, bring-your-own-vendor, and verified-vendor safety.</div>
+        </article>
+      </div>
+      <div className="fvs-hint">Swipe — see what each would cost you elsewhere →</div>
+    </div>
   );
-  return { money, hours };
 }
 
 /* Onboarding-completion overlay (owner 2026-06-02). Once the couple taps the final
@@ -1278,6 +1350,9 @@ export function OnboardingShell({
   const [prefIdx, setPrefIdx] = useState(0);
   /* Phase-4 local UI: budget-matched bundle add (screen 14) · BYO bottom-sheet (12) */
   const [bundleAdded, setBundleAdded] = useState(false);
+  // Your Plan opt-ins (screen 14 · owner 2026-06-05) live in OnboardingState (state.guidanceOptIn
+  // default ON · state.sendTopInquiries default OFF) so they reach buildCommitPayload(s) without a
+  // stale-closure read — toggled via the shared `patch` helper.
   /* WAVE 2 (find-vendor, step 12): REAL reception venues, fetched once on entry
      (criteria-based search — the event doesn't exist yet). null = not loaded. */
   const [venues, setVenues] = useState<OnboardingVenueResult[] | null>(null);
@@ -1780,6 +1855,9 @@ export function OnboardingShell({
       // Cast: OnboardingPrefs is a fixed-key interface (no index signature),
       // so it needs an explicit widen to the payload's Record<string, unknown>.
       stylePreferences: { ...s.prefs } as Record<string, unknown>,
+      // Your Plan opt-ins (screen 14) — free-guidance flag + top-3 inquiry fan-out choice.
+      guidanceOptIn: s.guidanceOptIn,
+      sendTopInquiries: s.sendTopInquiries,
     }),
     [],
   );
@@ -2547,12 +2625,25 @@ export function OnboardingShell({
             </div>
             <div className="planfree">
               <div className="ph">All your freebies</div>
-              <div className="pp">Everything below is yours — ₱0, forever.</div>
-              <div className="freeli">
-                <b>Your dashboard</b> · <b>vendor marketplace</b> + shortlist + side-by-side compare · <b>free wedding website</b> (RSVP · event site · editorial) · <b>mood board</b> · guest list · seat plan · budget tracker · basic monogram · smart vendor matching · real reviews · <b>verified-vendor safety</b> · in-app vendor chat · day-of guest portal · multi-host co-planning · <b>photos synced to your Google Drive</b>.
-              </div>
+              <div className="pp">Yours, ₱0 forever — here&apos;s what each would cost you elsewhere.</div>
+              <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={step === 14} />
             </div>
-            <div className="grouplbl">Matched to your wedding</div>
+            <div className="grouplbl">A little help, if you want it</div>
+            <div className="optcard">
+              <div className="opt-main">
+                <div className="opt-h">Keep guiding me</div>
+                <div className="opt-d">Your personalized deadline timeline and what to do next — free.</div>
+              </div>
+              <button type="button" role="switch" aria-checked={state.guidanceOptIn} aria-label="Keep guiding me, free" className={`opt-sw${state.guidanceOptIn ? ' on' : ''}`} onClick={() => patch({ guidanceOptIn: !state.guidanceOptIn })}><span className="opt-knob" /></button>
+            </div>
+            <div className="optcard">
+              <div className="opt-main">
+                <div className="opt-h">Reach my top 3 matches</div>
+                <div className="opt-d">We&apos;ll send your first inquiry to the 3 best-fit vendors we found. You can always do this yourself later.</div>
+              </div>
+              <button type="button" role="switch" aria-checked={state.sendTopInquiries} aria-label="Send my first inquiry to my top 3 matches" className={`opt-sw${state.sendTopInquiries ? ' on' : ''}`} onClick={() => patch({ sendTopInquiries: !state.sendTopInquiries })}><span className="opt-knob" /></button>
+            </div>
+            <div className="grouplbl muted">Want more — matched to your wedding</div>
             <MatchedBundle band={state.budgetBand ?? 'classic'} added={bundleAdded} onAdd={() => setBundleAdded(true)} />
             {!bundleAdded && <div className="plan-skip" id="planSkip">or <u>continue with the free plan</u></div>}
           </section>

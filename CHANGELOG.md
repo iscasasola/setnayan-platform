@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): name-screen monogram auto-restyles every 30s
+
+**Context:** Owner — *"animation loop will happen every 30 seconds"* (onboarding fix list). The name-screen monogram (`MonoLockup`) only changed style when the couple tapped **"Generate another design"** (`cycleDesign`). It now also cycles through the 5 lockups on its own so couples see the styles without tapping.
+
+**What changed** (`apps/web/`):
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — a new `useEffect` (sibling to the existing 4.5s `monoReplay` self-draw loop) advances `monogramDesign` to the next of the 5 `MONO_DESIGNS` every **30 s** and bumps the pop; the design change re-keys `MonoLockup`, so the Trace self-draw replays for the new lockup and the "n / 5" counter updates. **Gated to step 4 + `prefers-reduced-motion`** (reduced-motion → one static design, no auto-restyle); the interval + pop timeout are cleared on unmount.
+- **`app/_components/event-monogram.tsx`** — corrected a stale comment that claimed the switcher renders "no frame": the `framed` lockup DOES draw its gold frame at chrome size (comment only · behavior unchanged — the switcher already shows the couple's created monogram).
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (no new warnings in the touched files) · the underlying restyle path (`regen`/`cycleDesign`) verified live in the corpus prototype (wreath→oval→crest cycling · no console errors); the 30 s loop reuses that proven path.
+
+**SPEC IMPACT:** 0016 / `Onboarding_Blueprint` — the name-screen monogram now **auto-restyles every 30 s** (was tap-only "Generate another design"). Logged in corpus `DECISION_LOG.md`; blueprint lines 68/95 ("tap the monogram to restyle") should gain "+ auto-cycles every 30 s" — left for the owner's Cowork pass (the blueprint `.md`/`.docx` currently carry owner WIP).
+
 ## 2026-06-05 · chore(onboarding): new role-screen photo (bride · groom · maid of honor)
 
 **Context:** Owner — *"change the photo here. we want a photo of a bride (left), groom (center) and the maid of honor (right) chatting and laughing."* The "Who are you in this wedding?" role screen (step 1) hero (`ASSET('role')`).

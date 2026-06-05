@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(vendor-payments): server-side QR decode (anti-swap) — fast-follow
+
+**Context:** Fast-follow to the vendor payment-options feature (PR #969). The QR method's "where it sends money" was vendor-declared (typed); now Setnayan **decodes the uploaded QR server-side** so the stored `decoded_destination` is what the image ACTUALLY encodes — the anti-swap guarantee from the locked rule. (The other deferred fast-follow — wiring the per-vendor workspace page as a 2nd couple settlement mount point — was already landed in main, so this PR is just the decode.)
+
+**What changed:**
+- `lib/vendor-payment-methods.server.ts` — new `decodeQrFromR2(r2Ref)`: fetch the QR image from R2 → `sharp` rasterises to RGBA → `jsQR` reads the payload. Best-effort, never throws.
+- `app/vendor-dashboard/payment-options/actions.ts` — the QR save branch stores the server-decoded value; an unreadable image keeps the vendor's typed note as a fallback AND routes the method to `pending_review` (admin verifies).
+- `_components/add-payment-method.tsx` — the destination field is now an optional fallback ("we read your QR automatically").
+- Added `sharp@^0.34.5` (already the version Next uses for image optimization) as a direct dep + `serverExternalPackages: ['sharp']` so the native module is traced into the `output: 'standalone'` build, not webpack-bundled.
+
+**Verification:** `tsc` 0 · `next lint` 0 · proven end-to-end on the dev machine (generated a QR, decoded it through the exact `sharp → jsQR` pipeline, round-tripped the payload `gcash:09171234567`). Full build + Lighthouse in CI. Isolated worktree off origin/main (#1018).
+
+**SPEC IMPACT:** Updates the 0034 "Vendor Payment Options" section — QR destination is now **server-decoded**, not vendor-declared (supersedes that V1 note). Landed direct in corpus + DECISION_LOG (per the standing direct-edit authorization).
+
 ## 2026-06-05 · feat(onboarding): Your Plan — powerful Freebies value block (relabels + pill fix)
 
 **Context:** Owner on the shipped Your Plan — *"we want this to be more modern than just frames. create a powerful way to present the Freebies."* Plus: the free **Monogram**/**Website** should read "Basic" (vs the paid Animated Monogram / Pro Website), and the opt-in toggle rendered as a circle, not a pill. Mockup-verified at 375px before porting.

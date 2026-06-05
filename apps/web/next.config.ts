@@ -117,6 +117,10 @@ const nextConfig: NextConfig = {
   // for Tauri desktop wrapping + container deploys.
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
+  // (lib/vendor-payment-methods.server.ts). Keep it external so it's required
+  // at runtime + traced into the standalone bundle, not webpack-bundled.
+  serverExternalPackages: ['sharp'],
   images: {
     // AVIF first — ~50% smaller than WebP for the photographic content
     // marketing surfaces use (hero, coverage, vendor portfolios). Next.js

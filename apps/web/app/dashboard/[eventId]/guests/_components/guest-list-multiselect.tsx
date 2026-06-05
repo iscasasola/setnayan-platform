@@ -27,7 +27,13 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { getPrimaryColor, type RolePalette } from '@/lib/mood-board';
-import { ROLE_GROUP_CHIP, ROLE_GROUP_LABELS, roleGroupOf } from '@/lib/role-groups';
+import {
+  importanceGroupOf,
+  ROLE_GROUP_CHIP,
+  ROLE_GROUP_LABELS,
+  roleGroupOf,
+  type RoleGroup,
+} from '@/lib/role-groups';
 
 // Role groupings for the bulk-assign dropdown. Keeps the spec-locked
 // 20-value role enum but presents it grouped so hosts can scan quickly.
@@ -71,6 +77,82 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
   { label: 'Generic', roles: ['guest'] },
 ];
 
+// Importance-tier sections for the guest grid (owner 2026-06-05: "bride and
+// groom will share same row · wedding party will be 3 per row · Guests will be
+// 4 per row"). The couple shares a 2-up row; every special-role tier (VIP
+// family → officiants) follows the wedding-party 3-up band; plain guests run
+// 4-up. Counts are desktop — mobile scales down one step for readable cards.
+// Sections render in ROLE_IMPORTANCE order and skip empty tiers.
+type SectionGroup = RoleGroup | 'guest';
+
+const SECTION_CONFIG: {
+  group: SectionGroup;
+  label: string;
+  cols: string;
+  mobileCols: string;
+}[] = [
+  { group: 'couple', label: ROLE_GROUP_LABELS.couple, cols: 'grid-cols-2', mobileCols: 'grid-cols-2' },
+  { group: 'vip_family', label: ROLE_GROUP_LABELS.vip_family, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
+  { group: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
+  { group: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
+  { group: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
+  { group: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
+  { group: 'officiants', label: ROLE_GROUP_LABELS.officiants, cols: 'grid-cols-3', mobileCols: 'grid-cols-2' },
+  { group: 'guest', label: 'Guests', cols: 'grid-cols-4', mobileCols: 'grid-cols-3' },
+];
+
+type GuestSection = {
+  key: string;
+  label: string | null;
+  cols: string;
+  mobileCols: string;
+  guests: GuestRow[];
+};
+
+function buildSections(guests: GuestRow[], grouped: boolean): GuestSection[] {
+  if (!grouped) {
+    // Non-importance sort → one uniform responsive grid, no tier headers.
+    return [
+      {
+        key: 'all',
+        label: null,
+        cols: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4',
+        mobileCols: 'grid-cols-2',
+        guests,
+      },
+    ];
+  }
+  // `guests` is already importance-sorted, so bucketing preserves order within
+  // each tier. A guest buckets under their MOST important role (primary/extra).
+  const byGroup = new Map<SectionGroup, GuestRow[]>();
+  for (const g of guests) {
+    const grp = importanceGroupOf([g.role, ...(g.extra_roles ?? [])]);
+    const key: SectionGroup = grp === 'other_roles' ? 'guest' : grp;
+    const bucket = byGroup.get(key);
+    if (bucket) bucket.push(g);
+    else byGroup.set(key, [g]);
+  }
+  return SECTION_CONFIG.map((cfg) => ({
+    key: cfg.group,
+    label: cfg.label,
+    cols: cfg.cols,
+    mobileCols: cfg.mobileCols,
+    guests: byGroup.get(cfg.group) ?? [],
+  })).filter((s) => s.guests.length > 0);
+}
+
+// Subtle tier label above each section (Bride & Groom / Wedding Party / …).
+function TierHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="mb-2 flex items-baseline gap-2">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+        {label}
+      </h3>
+      <span className="text-[11px] text-ink/35">{count}</span>
+    </div>
+  );
+}
+
 type Props = {
   eventId: string;
   guests: GuestRow[];
@@ -82,6 +164,10 @@ type Props = {
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
   photoDisplayUrls: Record<string, string>;
+  // When true (the importance sort — the default) the grid breaks into role-
+  // tier sections with owner-set densities (couple 2-up · roles 3-up · guests
+  // 4-up). Any other sort renders one uniform grid.
+  grouped: boolean;
 };
 
 export function GuestListMultiselect({
@@ -92,6 +178,7 @@ export function GuestListMultiselect({
   groupMemberships,
   currentGroupId,
   photoDisplayUrls,
+  grouped,
 }: Props) {
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
@@ -115,6 +202,14 @@ export function GuestListMultiselect({
 
   const toggleAll = () =>
     allSelected ? guestSelection.clear() : guestSelection.setAll(allIds);
+
+  // Tiered sections when grouped (the importance sort) — one per role tier in
+  // importance order, each with its own density; otherwise a single uniform
+  // grid. Built from the already-sorted `guests`, so order within a tier holds.
+  const sections = useMemo(
+    () => buildSections(guests, grouped),
+    [guests, grouped],
+  );
 
   return (
     <div className="space-y-4">
@@ -167,45 +262,68 @@ export function GuestListMultiselect({
         </span>
       </div>
 
-      {/* Desktop · 2→4 responsive columns; checkbox always interactive
-          (mirrors the table's always-on checkbox column). */}
-      <div className="hidden grid-cols-2 gap-3 sm:grid md:grid-cols-3 xl:grid-cols-4">
-        {guests.map((guest) => (
-          <GuestCard
-            key={guest.guest_id}
-            guest={guest}
-            eventId={eventId}
-            palette={palette}
-            displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-            showCheckbox
-            selected={selectedSet.has(guest.guest_id)}
-            onToggle={() => guestSelection.toggle(guest.guest_id)}
-            groupIds={groupMemberships[guest.guest_id] ?? []}
-            groupsById={groupsById}
-            currentGroupId={currentGroupId}
-          />
+      {/* Tiered photo grid (owner 2026-06-05: "bride and groom will share same
+          row · wedding party will be 3 per row · Guests will be 4 per row").
+          When grouped (the importance sort · default) the list breaks into
+          role-tier sections at owner-set densities; any other sort renders one
+          uniform grid. Either way every card uses the SAME `guestSelection`
+          store, so the SelectionBar + carousel lockstep + select-all hold. */}
+
+      {/* Desktop · sectioned grids; checkbox always interactive. */}
+      <div className="hidden space-y-6 sm:block">
+        {sections.map((sec) => (
+          <section key={sec.key}>
+            {sec.label ? (
+              <TierHeader label={sec.label} count={sec.guests.length} />
+            ) : null}
+            <div className={`grid gap-3 ${sec.cols}`}>
+              {sec.guests.map((guest) => (
+                <GuestCard
+                  key={guest.guest_id}
+                  guest={guest}
+                  eventId={eventId}
+                  palette={palette}
+                  displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                  showCheckbox
+                  selected={selectedSet.has(guest.guest_id)}
+                  onToggle={() => guestSelection.toggle(guest.guest_id)}
+                  groupIds={groupMemberships[guest.guest_id] ?? []}
+                  groupsById={groupsById}
+                  currentGroupId={currentGroupId}
+                />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
-      {/* Mobile · 2-col grid; checkbox only in select mode; swipe-to-delete
-          kept on each card. */}
-      <ul className="grid grid-cols-2 gap-2 sm:hidden">
-        {guests.map((guest) => (
-          <MobileGridItem
-            key={guest.guest_id}
-            guest={guest}
-            eventId={eventId}
-            palette={palette}
-            displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-            selectMode={selectMode}
-            selected={selectedSet.has(guest.guest_id)}
-            onToggle={() => guestSelection.toggle(guest.guest_id)}
-            groupIds={groupMemberships[guest.guest_id] ?? []}
-            groupsById={groupsById}
-            currentGroupId={currentGroupId}
-          />
+      {/* Mobile · sectioned grids; checkbox only in select mode; swipe kept. */}
+      <div className="space-y-5 sm:hidden">
+        {sections.map((sec) => (
+          <section key={sec.key}>
+            {sec.label ? (
+              <TierHeader label={sec.label} count={sec.guests.length} />
+            ) : null}
+            <ul className={`grid gap-2 ${sec.mobileCols}`}>
+              {sec.guests.map((guest) => (
+                <MobileGridItem
+                  key={guest.guest_id}
+                  guest={guest}
+                  eventId={eventId}
+                  palette={palette}
+                  displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                  selectMode={selectMode}
+                  selected={selectedSet.has(guest.guest_id)}
+                  onToggle={() => guestSelection.toggle(guest.guest_id)}
+                  groupIds={groupMemberships[guest.guest_id] ?? []}
+                  groupsById={groupsById}
+                  currentGroupId={currentGroupId}
+                />
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

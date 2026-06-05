@@ -446,6 +446,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               groupMemberships={groupMemberships}
               currentGroupId={currentGroupId}
               photoDisplayUrls={photoDisplayUrls}
+              grouped={sort === 'importance'}
             />
           )}
         </div>

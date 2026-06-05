@@ -1116,26 +1116,45 @@ const ONBOARDING_PROMO = 0.2;
 
 /* Pick → recommended in-app add-ons (owner 2026-06-05 · "recommended services for the other
    services" → "Matched to their picks"). For each vendor category the couple picks, suggest the
-   Setnayan add-ons that complement it; the deduped union (capped, priority-ordered) is pre-added
-   to the services summary, each removable, feeding the 20%-off total. */
+   Setnayan add-ons that complement it. EVERY leaf category maps to ≥1 add-on (owner 2026-06-05:
+   "recommended services for all the chosen leaf categories"); the deduped union is pre-added to
+   the services summary, each removable, feeding the 20%-off total. */
 const PICK_TO_INAPP: Record<string, string[]> = {
-  photo_video: ['sde', 'thank_you', 'guest_stories', 'papic_guest'],
-  reception: ['live_photowall', 'indoor_blueprint', 'papic_seats'],
-  led_wall: ['live_background'],
-  ceremony: ['panood'],
-  live_band: ['pakanta'], orchestra: ['pakanta'], choir: ['pakanta'], wedding_singer: ['pakanta'], dj: ['pakanta'], performers: ['pakanta'],
-  photo_booth: ['papic_seats', 'pabati'],
-  host_mc: ['pabati'],
-  printing: ['custom_qr', 'animated_monogram'], souvenirs: ['custom_qr'],
-  stylist: ['animated_monogram'], florist: ['animated_monogram'],
-  coordinator: ['advanced_website'],
+  // Venue
+  reception: ['live_photowall', 'indoor_blueprint', 'papic_seats'], ceremony: ['panood'],
+  // Planning
+  coordinator: ['advanced_website', 'indoor_blueprint'],
+  // Feast
+  catering: ['indoor_blueprint'], cake: ['papic_guest'], stations: ['papic_guest'],
+  // Design
+  stylist: ['animated_monogram', 'live_background'], florist: ['animated_monogram'], lights_sound: ['live_background'],
+  dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['sde', 'thank_you'], outdoor: ['panood'],
+  // Program
+  host_mc: ['pabati'], live_band: ['pakanta'], orchestra: ['pakanta'], choir: ['pakanta'], wedding_singer: ['pakanta'],
+  dj: ['pakanta'], performers: ['sde'], choreographer: ['sde'],
+  // Documentary
+  photo_video: ['sde', 'thank_you', 'guest_stories', 'papic_guest'], livestream: ['panood'], editorial: ['advanced_website'],
+  // Look
+  bride_attire: ['animated_monogram'], groom_attire: ['animated_monogram'], women_attire: ['animated_monogram'],
+  men_attire: ['animated_monogram'], filipiniana: ['animated_monogram'], jewelry: ['animated_monogram'],
+  hmua: ['guest_stories'], grooming: ['guest_stories'], wellness: ['guest_stories'],
+  // Booths
+  photo_booth: ['papic_seats', 'papic_guest', 'pabati'], coffee: ['papic_guest'], mocktail: ['papic_guest'],
+  dessert: ['papic_guest'], food_cart: ['papic_guest'], food_truck: ['papic_guest'], mobile_bar: ['pabati'],
+  massage_chair: ['guest_stories'], nail_bar: ['guest_stories'], perfume_bar: ['guest_stories'], henna: ['guest_stories'],
+  tarot: ['guest_stories'], caricature: ['guest_stories'], arcade: ['pabati'], engraving: ['custom_qr'],
+  // Prints
+  printing: ['custom_qr', 'animated_monogram'], souvenirs: ['custom_qr', 'animated_monogram'],
+  // Transport
+  bridal_car: ['sde'], guest_shuttle: ['custom_qr'], escort: ['custom_qr'],
 };
-/* Wow/priority order for the recommended set (capped at 5 so the summary stays readable). */
+/* Priority order for the recommended set. Dedup against the picks bounds the union to the ≤14
+   in-app services, so every chosen leaf surfaces its matched add-on(s) — no cap (owner 2026-06-05). */
 const REC_PRIORITY = ['sde', 'papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr', 'indoor_blueprint'];
 function recommendedInappFor(picks: string[]): string[] {
   const set = new Set<string>();
   for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);
-  return REC_PRIORITY.filter((k) => set.has(k)).slice(0, 5);
+  return REC_PRIORITY.filter((k) => set.has(k));
 }
 
 /* Faith key → display label for the congrats recap (all 8 traditions). */
@@ -1971,6 +1990,11 @@ export function OnboardingShell({
       // category at commit) + the reception setting (seeds venue_setting).
       picks: s.picks,
       receptionSettings: s.prefs.reception,
+      // owner 2026-06-05 canonical-fields close-out: screen-2 role (G1) → event_moderators,
+      // the up-to-2 area picks (G2), and the FEELS palette derived from the feel (G4).
+      role: s.role,
+      places: s.places,
+      basicMoodboard: s.prefs.feel ? (FEELS[s.prefs.feel] ?? null) : null,
       // The find-vendor shortlist (real reception venues the couple tapped) —
       // persisted as event_vendors 'considering' so they show on the Services tab.
       shortlist: s.shortlist.map((v) => ({ vendorId: v.vendorId, name: v.name })),

@@ -132,7 +132,7 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (28-day prepaid block)',
       description:
-        "One marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks (13 cycles/year).",
+        "One marketplace category · 5 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks (13 cycles/year).",
       price: '2499',
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -180,7 +180,7 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
       name: 'Pro Vendor (annual subscription · save 23%)',
       description:
-        "₱24,999/year instead of ₱2,499 × 13 cycles = ₱32,487 · save ₱7,488. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
+        "₱24,999/year instead of ₱2,499 × 13 cycles = ₱32,487 · save ₱7,488. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
       price: '24999',
       priceCurrency: 'PHP',
       priceSpecification: {

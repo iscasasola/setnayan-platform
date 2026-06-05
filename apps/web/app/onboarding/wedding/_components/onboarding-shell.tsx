@@ -316,6 +316,8 @@ const FEELS: Record<string, string[] | null> = {
   others: null,
 };
 const FEELLBL: Record<string, string> = { timeless: 'Timeless', modern: 'Modern', boho: 'Boho', rustic: 'Rustic', glam: 'Glam', royalty: 'Royalty', filipiniana: 'Filipiniana', others: 'Others' };
+/* placeholder glyph — shown only for a feel with no photo (just `others`). */
+const FEELEMOJI: Record<string, string> = { timeless: '✨', modern: '◻️', boho: '🌾', rustic: '🌿', glam: '💎', royalty: '👑', filipiniana: '🌺', others: '🎨' };
 const FEEL_CHIPS = ['timeless', 'modern', 'boho', 'rustic', 'glam', 'royalty', 'filipiniana', 'others'];
 /* photo-card option sets: [emoji, label, prefs-photo-key] */
 const RECEPTION_SETTINGS: [string, string, string][] = [['✨', 'Hotel ballroom', 'setting_ballroom'], ['🎪', 'Events place', 'setting_events_place'], ['🏛️', 'Heritage', 'setting_heritage'], ['🍽️', 'Restaurant', 'setting_restaurant'], ['🌿', 'Garden', 'setting_garden'], ['🏖️', 'Beach', 'setting_beach'], ['🌴', 'Resort / destination', 'setting_resort']];
@@ -504,7 +506,7 @@ function StyleSubStepper({
     catering: { eb: 'Catering', q: 'Pick your cuisine', sub: 'Open to a few cuisines? Tap them all.' },
     photo_video: { eb: 'Photo & Video', q: 'Your look', sub: 'Mix a couple — we’ll match teams who shoot that way.' },
     music: { eb: 'Music', q: 'Your songs', sub: 'Tap the ones you love — search for any song below. Pick at least 10; we’ll build the rest of your playlist.' },
-    palette: { eb: 'Your overall feel', q: 'Set the mood', sub: 'Pick a feel — see it in its colors. It guides your stylist, florist, cake & gown.' },
+    palette: { eb: 'Your overall feel', q: 'Set the mood', sub: 'Swipe a feel — see it in its colors. It guides your stylist, florist, cake & gown.' },
   };
   const meta = META[dim]!;
   const hasHero = dim === 'catering' || dim === 'photo_video';
@@ -601,13 +603,18 @@ function StyleSubStepper({
         <div className="feelsw" id="feelsw">
           {cols ? cols.map((c, j) => <span key={j} className="fsw" style={{ background: c }} />) : <div className="feelnote">We’ll build your palette together in the mood board.</div>}
         </div>
-        <PBlock label="The feel">
-          <div className="chips" data-single data-feel>
-            {FEEL_CHIPS.map((f) => (
-              <PrefChip key={f} label={FEELLBL[f] ?? f} selected={feel === f} onClick={() => onPrefs({ feel: f })} />
-            ))}
-          </div>
-        </PBlock>
+        <div className="pgrid strip" data-feel>
+          {FEEL_CHIPS.map((f) => (
+            <PCard
+              key={f}
+              emoji={FEELEMOJI[f] ?? '🎨'}
+              label={FEELLBL[f] ?? f}
+              photoKey={FEELS[f] ? `feel_${f}_${budgetTier}` : undefined}
+              selected={feel === f}
+              onClick={() => onPrefs({ feel: f })}
+            />
+          ))}
+        </div>
       </>
     );
   }

@@ -19,6 +19,35 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** Onboarding picker — the corpus onboarding proto (`Onboarding_Wedding_Flow_2026-06-01.html`) + any 0016/picker spec text still show the old chip picker with a budget-seeded starter set. They should be updated to the **category photo-carousel, start-empty** design + the shared carousel affordances. (Flagged for Cowork / corpus follow-up.)
 
 ---
+## 2026-06-05 · feat(onboarding): "Set the mood" feel picker → swipeable carousel
+
+**Context:** Owner — *"set the mood must be carousel as well."* The wedding onboarding's Style steps were inconsistent: Cuisine and Photo & Video already used the swipeable photo-card film-strip, but the palette / **"Set the mood"** step still picked the feel with flat text chips.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- Palette body: the feel `PrefChip` row → a **`.pgrid.strip` carousel of `PCard`s** (one photo card per feel, single-select), reusing the exact pattern the Cuisine / Photo & Video steps already ship. Each card shows the feel's budget-tiered photo (`feel_<feel>_<tier>`); the photo-less "Others" falls back to a glyph (new `FEELEMOJI` map).
+- Copy: palette sub **"Pick a feel" → "Swipe a feel."**
+- Viewzone feel-hero + color swatches unchanged.
+
+**Verification:** `tsc --noEmit` clean. Built in an isolated worktree off `origin/main`. ⚠ Not visually verified — the app dev server needs `NEXT_PUBLIC_SUPABASE_*` to boot; the change reuses the proven `.pgrid.strip` CSS (the vertical-fit rules already special-case `.strip`), so it renders like its sibling steps. Confirm on the Vercel preview.
+
+**SPEC IMPACT:** None (schema / SKU / workflow unchanged). The design prototype `Onboarding_Wedding_Flow_2026-06-01.html` already specifies a carousel for this step — the richer photo-forward `.pgrid.car` variant that fills the screen with no hero; the app ships the lighter **film-strip** per owner's 2026-06-05 pick. Corpus is already ahead — no Cowork action (a `DECISION_LOG.md` trace row can be added directly).
+## 2026-06-05 · chore(pricing/marketing): remove Today's Focus completely (customer-facing)
+
+**Context:** Owner — *"remove the today's focus completely. we do not want this anymore."* The retired AI-planner SKU (already disabled in-app via `CONCIERGE_ENABLED=false`) still lingered on the public marketing surfaces. This scrubs it from everything a customer/vendor sees.
+
+**What changed:**
+- **`/pricing` listing removed** — `lib/v2-catalog.ts` `fetchV2CustomerCatalog` now excludes the `TODAYS_FOCUS` row (`.neq('service_code', …)`) so it drops from /pricing, the /for-vendors productions catalog, AND the admin discount-code picker (its 3 consumers) — **no DB write** (the row stays in the table, just unsurfaced). Removed its dead `BUILD_STATUS` entry.
+- **Customer copy** — stripped TF mentions from the home metadata, `/signup` benefit bullets (→ "Budget + seating tools · free"), `/features` keywords, the marketing FAQ (`_fixtures`), and the à-la-carte list + footer link (`_sections`).
+- **`/privacy`** — removed the "AI-assisted Today's Focus" data-processing section (it described a removed feature).
+- **`/for-vendors`** — the vendor perk keeps the FEATURE but drops the brand: "Today's Focus matching/matchmaking" → "Couple matching/matchmaking" / "priority couple matching" (page + deep-dive + productions-catalog).
+- **Cockpit hero** — the free "what's next" hero label "Today's focus" → **"Up next"** (the feature is unchanged; only the dead brand name goes).
+
+**Left as-is (already invisible / follow-up):** the gated-dead concierge machinery (`lib/concierge.ts` `CONCIERGE_ENABLED=false` · `/today` redirect · `/dashboard/profile/concierge` gated tab · admin `concierge_complete` hook), the admin-internal "Today's Focus brain"/"abuse" tooling, and dev comments. Corpus sweep (Pricing.md, 0016, Site_vs_Spec_Reconciliation, etc.) tracked separately.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration (reader-level filter, no DB write).
+
+**SPEC IMPACT:** Today's Focus removed completely (iteration 0016 effectively retired). Recorded in corpus `DECISION_LOG`; full spec sweep pending.
+
 ## 2026-06-05 · feat(budget): data-driven shopping range — real vendor prices replace the seeded band
 
 **Context:** Owner — *"just have a range when actual data comes in."* The planner's per-service ₱ range was always reading the admin-seeded benchmark band, even once real vendor prices existed. Now the range comes from the **real price distribution** as soon as a service has enough listings.

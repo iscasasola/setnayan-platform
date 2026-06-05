@@ -177,8 +177,4 @@ export const FAQ_ITEMS = [
     q: "What's the pilot?",
     a: "December 2026. Our own wedding — Claire & Ice, December 18 at La Castellana — ships first. We're inviting 5-20 family and friends to plan alongside us. Same product, real money flow, calmer launch. Public open after.",
   },
-  {
-    q: 'What about Today\'s Focus?',
-    a: "Today's Focus is the AI-assisted wedding planner we ship at ₱1,499 per event. One purchase, full access through your wedding day. Based on your dates and venue, it pulls the right vendors, drafts your timeline, and answers questions in your own language.",
-  },
 ];

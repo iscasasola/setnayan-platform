@@ -1454,6 +1454,27 @@ export function OnboardingShell({
     return () => window.clearInterval(id);
   }, [step]);
 
+  // Auto-restyle (owner 2026-06-05 "animation loop every 30 seconds"): while the
+  // name screen (4) is shown, advance to the next monogram DESIGN every 30s so
+  // couples see the curated styles without tapping "Generate another design".
+  // The design change re-keys the mark → the self-draw Trace replays + a gentle
+  // pop. Gated to step 4 + prefers-reduced-motion (reduced-motion = one static
+  // design, no auto-restyle). Separate from the 4.5s self-draw replay above.
+  useEffect(() => {
+    if (step !== 4) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let popT: number | undefined;
+    const id = window.setInterval(() => {
+      setState((s) => ({ ...s, monogramDesign: (s.monogramDesign + 1) % MONO_DESIGNS.length }));
+      setMonoPop(true);
+      popT = window.setTimeout(() => setMonoPop(false), 170);
+    }, 30000);
+    return () => {
+      window.clearInterval(id);
+      if (popT) window.clearTimeout(popT);
+    };
+  }, [step]);
+
   /* ── style sub-stepper queue (prototype buildPrefs) ── */
   const prefQueue = useMemo(() => prefQueueFrom(state.picks), [state.picks]);
 

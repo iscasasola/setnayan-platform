@@ -44,7 +44,6 @@ import '../_styles/onboarding.css';
 import {
   commitOnboardingWedding,
   searchOnboardingReceptionVenues,
-  getOnboardingVendorCounts,
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
@@ -1184,9 +1183,8 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
    Per-couple from the onboarding state — REPLACES the hardcoded demo strip (owner 2026-06-02:
    "why is this the same for everybody?"). Money is mostly flat (everyone gets the same free
    tools → ₱53,486) + ₱2,500 × expos; hours scale with the couple's picks · shortlist · runway ·
-   expos. Today's Focus stays EXCLUDED (paid SKU, retired 2026-06-03). The vendor stat tile is
-   NOT computed here — it uses REAL marketplace counts from getOnboardingVendorCounts, not a
-   formula. See FREE_TOOL_DRIVERS below for the per-tool breakdown the Your Plan slider renders. */
+   expos. Today's Focus stays EXCLUDED (paid SKU, retired 2026-06-03).
+   See FREE_TOOL_DRIVERS below for the per-tool breakdown the Your Plan slider renders. */
 /* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
@@ -1392,11 +1390,6 @@ export function OnboardingShell({
   // that still pass every other leaf dim (owner-locked 2026-06-05 · region rings,
   // it no longer hard-drops). Collapsed until tapped.
   const [showFarther, setShowFarther] = useState(false);
-  /* Congrats stat tile #3 (step 13): REAL marketplace counts, fetched once on
-     entry (criteria-based — the event doesn't exist yet). null = uncomputed →
-     the tile auto-hides (owner 2026-06-03: "we want real numbers only"). */
-  const [vendorCounts, setVendorCounts] = useState<{ matched: number; total: number } | null>(null);
-  const [vendorCountsTried, setVendorCountsTried] = useState(false);
   const [byoOpen, setByoOpen] = useState(false);
   const [byoDone, setByoDone] = useState<string | null>(null);
   const [byoAdded, setByoAdded] = useState(false);
@@ -1576,24 +1569,6 @@ export function OnboardingShell({
         setTimeout(() => setVenuesLoading(false), wait);
       });
   }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax, state.dateMode, state.dateCandidates]);
-
-  /* Congrats stat tile #3 — REAL marketplace counts (owner 2026-06-03: "we want
-     real numbers only", replacing the fabricated max(categories×5,12) + "2,400+").
-     Fires once on step-13 entry; a null result → the tile auto-hides. */
-  useEffect(() => {
-    if (step !== 13 || vendorCountsTried) return;
-    setVendorCountsTried(true);
-    getOnboardingVendorCounts({
-      kind: state.kind,
-      faith: state.faith,
-      receptionSettings: state.prefs.reception,
-      picks: state.picks,
-      region: state.region,
-      pax: state.pax,
-    })
-      .then((c) => setVendorCounts(c))
-      .catch(() => setVendorCounts(null));
-  }, [step, vendorCountsTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
 
   /* Pre-add the pick-matched recommended in-app services when the couple reaches Boost &
      enhance (owner 2026-06-05 · "Matched to their picks"). One-time latch (servicesSeeded) so a
@@ -2755,15 +2730,6 @@ export function OnboardingShell({
             <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
             <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
             {earliestDateISO ? <WeddingCountdown iso={earliestDateISO} active={step === 13} /> : null}
-            {/* SAVINGS — money + hours computed live per couple (Time_and_Money_Saved_Model_2026-06-01.md §D).
-                Vendor tile = REAL marketplace counts (owner 2026-06-03: "we want real numbers only"); auto-hides when uncomputable. */}
-            <div className="statstrip">
-              <div className="stat"><CountUp value={savings.money} prefix="₱" active={step === 13} /><span>saved with Setnayan — free</span></div>
-              <div className="stat"><CountUp value={savings.hours} active={step === 13} /><span>hours saved vs planning alone</span></div>
-              {vendorCounts && (
-                <div className="stat"><CountUp value={vendorCounts.matched} active={step === 13} /><span>that fit your wedding · from {vendorCounts.total.toLocaleString()}</span></div>
-              )}
-            </div>
             <div className="recap tight">
               <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
               {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
@@ -2780,28 +2746,6 @@ export function OnboardingShell({
               {recapSongs ? <div className="recapline"><span className="rk">Song list</span><span className="rv">{recapSongs}</span></div> : null}
               <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
             </div>
-            {/* Keep Setnayan AI helping — surface the inquiry opt-in on the congrats
-                moment too (owner 2026-06-05). Binds the SAME state as the Your Plan
-                control (sendTopInquiries · inquiriesPerCategory); the fan-out commits
-                once at the terminal step, so this never double-sends. */}
-            <div className="optcard optcard-col" style={{ marginTop: 14 }}>
-              <div className="opt-row">
-                <div className="opt-main">
-                  <div className="opt-h">Keep Setnayan AI helping finish your wedding</div>
-                  <div className="opt-d">We&apos;ll send your first inquiry to your top recommendations — the best-fit vendors we found for each part of your wedding. You can always do this yourself later.</div>
-                </div>
-                <button type="button" role="switch" aria-checked={state.sendTopInquiries} aria-label="Let Setnayan AI reach my top recommendations" className={`opt-sw${state.sendTopInquiries ? ' on' : ''}`} onClick={() => patch({ sendTopInquiries: !state.sendTopInquiries })}><span className="opt-knob" /></button>
-              </div>
-              {state.sendTopInquiries && (
-                <div className="opt-step">
-                  <span className="opt-step-l">inquiries per category</span>
-                  <button type="button" className="opt-step-b" aria-label="Fewer inquiries" onClick={() => patch({ inquiriesPerCategory: Math.max(1, state.inquiriesPerCategory - 1) })}>−</button>
-                  <span className="opt-step-v">{state.inquiriesPerCategory}</span>
-                  <button type="button" className="opt-step-b" aria-label="More inquiries" onClick={() => patch({ inquiriesPerCategory: Math.min(5, state.inquiriesPerCategory + 1) })}>+</button>
-                </div>
-              )}
-            </div>
-            <div className="note mul"><span>✦</span><div>Change or switch off any of your personalization anytime in <b>Personalize my matches</b> on your Home.</div></div>
           </section>
 
           {/* 14 YOUR PLAN — freebies + the budget-matched bundle */}

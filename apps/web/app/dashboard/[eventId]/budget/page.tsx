@@ -5,10 +5,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchBudgetSnapshot, formatPhp } from '@/lib/budget';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { BudgetSetter } from './_components/budget-setter';
+import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 
 export const metadata = { title: 'Budget' };
@@ -34,10 +36,10 @@ export default async function BudgetPage({ params }: Props) {
   // The events SELECT defensively reads estimated_budget_centavos —
   // safe even before the migration lands because Supabase tolerates
   // missing columns at runtime (returns undefined) for any caller.
-  const [eventRes, snapshot, paidOrdersRes] = await Promise.all([
+  const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, estimated_budget_centavos')
+      .select('event_id, display_name, estimated_budget_centavos, region')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchBudgetSnapshot(supabase, eventId),
@@ -46,10 +48,19 @@ export default async function BudgetPage({ params }: Props) {
       .select('order_id, requested_total_php, confirmed_total_php, status')
       .eq('event_id', eventId)
       .in('status', ['paid', 'fulfilled']),
+    // Suggested-split inputs (budget + per-leaf benchmarks/medians + engine
+    // config) resolved server-side once; the planner client component re-runs
+    // the pure engine on every tilt. Reuses the same authed supabase client.
+    resolveAllocationInputs(supabase, eventId),
   ]);
 
   const event = eventRes.data as
-    | { event_id: string; display_name: string; estimated_budget_centavos: number | null }
+    | {
+        event_id: string;
+        display_name: string;
+        estimated_budget_centavos: number | null;
+        region: string | null;
+      }
     | null;
 
   // Defensive read — the column may not exist yet in production until
@@ -156,6 +167,32 @@ export default async function BudgetPage({ params }: Props) {
       />
 
       <UnlocksHint />
+
+      {/* Suggested budget split — the median-anchored allocation planner.
+       *  RECOMMENDS what each service should cost (a ₱ target + shopping
+       *  range per leaf) BEFORE the couple contracts anyone, complementing
+       *  the per-vendor TRACKING below. The pure engine runs client-side for
+       *  instant tilt feedback; inputs were resolved server-side above. */}
+      <div className="space-y-4 border-t border-ink/10 pt-6">
+        <div className="space-y-2">
+          <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
+            Suggested budget split
+          </h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            A starting point from typical Filipino wedding costs — nudge anything;
+            it&rsquo;s a guide, not a rule.
+          </p>
+        </div>
+
+        <BudgetAllocationPlanner
+          eventId={eventId}
+          budgetPhp={allocInputs.budgetPhp}
+          leaves={allocInputs.leaves}
+          config={allocInputs.config}
+          pax={allocInputs.pax}
+          region={event?.region ?? null}
+        />
+      </div>
 
       {/* Existing per-vendor itemization + payment log — unchanged
        *  surface from before this PR. Heading added so the visual break

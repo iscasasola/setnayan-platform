@@ -68,6 +68,7 @@ import {
   Church,
   BookOpen,
   DollarSign,
+  PiggyBank,
   Tag as TagIcon,
   Sparkles,
   Receipt,
@@ -260,6 +261,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Pricing',
         href: '/admin/pricing',
         icon: DollarSign,
+      },
+      {
+        // Budget Planner admin controls — seed per-leaf benchmark prices, tune
+        // the allocation engine knobs, and review de-identified couple insights
+        // (Budget_Planner_Allocation_Engine_2026-06-05.md).
+        key: 'budget-planner',
+        label: 'Budget Planner',
+        href: '/admin/budget-planner',
+        icon: PiggyBank,
       },
       {
         key: 'discount-codes',

@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding/0016): iTunes song preview in the music step — album cover = play button
+
+**Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.
+
+**What changed** (`apps/web/`):
+- **New `lib/itunes-preview.ts`** — keyless client-side **JSONP** lookup of the Apple/iTunes Search API (it sends no CORS header → fetch is blocked; JSONP via `&callback=` works). One call returns both the 30-sec `previewUrl` and the album `artworkUrl` (upscaled 100→300). Per-song cache + in-flight dedup; throttle/network → `throttled` (retryable), clean miss → `none`. Client-side per §5.4 so the ~20/min/IP limit spreads across users' own IPs.
+- **New `app/onboarding/wedding/_components/song-preview-list.tsx`** — the **album cover IS the play button** (▶/⏸ overlay, gold placeholder until loaded); tap to play the 30-sec preview via one shared `<audio>` (one at a time), tap again to stop; clicking the row still toggles the pick. Covers hydrate **lazily** as rows scroll into view (IntersectionObserver rooted on the `.body` scroll container, concurrency-capped at 4); throttled lookups keep the placeholder + retry; `none` → "no preview on file".
+- **`onboarding-shell.tsx`** — the music dim renders `<SongPreviewList>` instead of the inline text rows (same pick/search wiring).
+- **`onboarding.css`** — `.scover` album-cover-play-button styles.
+
+**Verification:** `tsc` exit 0 · `next lint app/onboarding lib` clean · CSP is `frame-ancestors 'self'` only (script/audio/img unblocked) · **mechanic verified live in Chromium** — a 6-song prototype loaded all 6 real album covers via JSONP and played the iTunes preview (`paused:false`, `currentTime` advancing, `audio-ssl.itunes.apple.com` src).
+
+**Follow-ups (not this PR):** the full Song Bank — searchable 390-song catalogue (results-on-top / bottom-pinned search) + production DB-cache of `apple_track_id`/`preview_url`/`artwork` (§5.4) — remains; this adds the preview to the existing picker.
+
+**SPEC IMPACT:** 0016 onboarding — the music step gains the locked album-cover-play-button + 30-sec iTunes preview (Song Bank §5). Corpus spec already documents the design; this is its implementation.
+
 ## 2026-06-05 · feat(onboarding/0037): monogram Trace animation now loops on the name screen
 
 **Context:** Owner — *"can we make the animation of monogram loop."* The free monogram **Trace** self-draw (PR #971) played once on arrival/remount; the owner wants it to keep replaying while the name screen is shown.

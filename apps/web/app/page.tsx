@@ -60,10 +60,9 @@ import {
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
 // keep extracting the same brand + price + 0% commission signals. Pricing
-// updated to v2.1 anchor (Today's Focus ₱1,499).
 const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
 const HOME_DESCRIPTION =
-  'Filipino-first wedding planning. Free for couples. Verified vendor marketplace. 0% commission. AI-assisted Today’s Focus wizard from ₱1,499.';
+  'Filipino-first wedding planning. Free for couples. Verified vendor marketplace. 0% commission. Plan your whole wedding in one place.';
 
 export const metadata = {
   title: HOME_TITLE,

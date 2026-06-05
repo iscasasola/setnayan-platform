@@ -495,27 +495,6 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="AI-assisted Today's Focus">
-          <p>
-            Today&rsquo;s Focus uses curated Filipino-wedding knowledge plus AI
-            synthesis to surface the next planning step for your event. The
-            baseline question budget routes through Cloudflare Workers AI
-            (model: Llama 3.1 8B), hosted in Cloudflare&rsquo;s regional
-            infrastructure. Paid Today&rsquo;s Focus access (per the price on
-            /pricing) routes through Anthropic Console (model: Claude Haiku
-            4.5; data processing terms per Anthropic&rsquo;s commercial
-            agreement).
-          </p>
-          <p className="pt-2">
-            Wedding data submitted to either model is processed solely to
-            answer your question and populate your event plan — not used for
-            model training, not shared with third parties, not retained beyond
-            the conversation thread. Paid access persists the thread for your
-            event window; you can delete it at any time. Conversation logs
-            are stored encrypted at rest in Supabase (Singapore region).
-          </p>
-        </Section>
-
         <Section title="Subprocessors">
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth · Singapore region)</li>

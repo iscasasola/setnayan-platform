@@ -131,9 +131,9 @@ const MATRIX_SECTIONS: MatrixSection[] = [
   },
   {
     section: '🤝 Ops + support',
-    note: 'Every vendor gets Today\'s Focus matchmaking. Pro+ adds priority support; Enterprise adds a quarterly review.',
+    note: 'Every vendor gets couple matchmaking. Pro+ adds priority support; Enterprise adds a quarterly review.',
     rows: [
-      ["Today's Focus matching", 'Free', 'Free', 'Priority', 'Priority'],
+      ['Couple matching', 'Free', 'Free', 'Priority', 'Priority'],
       ['Priority support · sub-4h response', false, false, true, true],
       ['Quarterly business review', false, false, false, true],
     ],
@@ -182,7 +182,7 @@ const LOCKS = [
   {
     num: '1',
     tag: '🔗 The couples',
-    title: "Today's Focus matchmaking",
+    title: 'Couple matchmaking',
     body: "We hand-curate couple → vendor matches from briefs already in the platform. Not lead-gen ads — actual ops-team intros.",
   },
   {

@@ -16,6 +16,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean. Built in an isolated worktree off `origin/main`. ⚠ Not visually verified — the app dev server needs `NEXT_PUBLIC_SUPABASE_*` to boot; the change reuses the proven `.pgrid.strip` CSS (the vertical-fit rules already special-case `.strip`), so it renders like its sibling steps. Confirm on the Vercel preview.
 
 **SPEC IMPACT:** None (schema / SKU / workflow unchanged). The design prototype `Onboarding_Wedding_Flow_2026-06-01.html` already specifies a carousel for this step — the richer photo-forward `.pgrid.car` variant that fills the screen with no hero; the app ships the lighter **film-strip** per owner's 2026-06-05 pick. Corpus is already ahead — no Cowork action (a `DECISION_LOG.md` trace row can be added directly).
+## 2026-06-05 · chore(pricing/marketing): remove Today's Focus completely (customer-facing)
+
+**Context:** Owner — *"remove the today's focus completely. we do not want this anymore."* The retired AI-planner SKU (already disabled in-app via `CONCIERGE_ENABLED=false`) still lingered on the public marketing surfaces. This scrubs it from everything a customer/vendor sees.
+
+**What changed:**
+- **`/pricing` listing removed** — `lib/v2-catalog.ts` `fetchV2CustomerCatalog` now excludes the `TODAYS_FOCUS` row (`.neq('service_code', …)`) so it drops from /pricing, the /for-vendors productions catalog, AND the admin discount-code picker (its 3 consumers) — **no DB write** (the row stays in the table, just unsurfaced). Removed its dead `BUILD_STATUS` entry.
+- **Customer copy** — stripped TF mentions from the home metadata, `/signup` benefit bullets (→ "Budget + seating tools · free"), `/features` keywords, the marketing FAQ (`_fixtures`), and the à-la-carte list + footer link (`_sections`).
+- **`/privacy`** — removed the "AI-assisted Today's Focus" data-processing section (it described a removed feature).
+- **`/for-vendors`** — the vendor perk keeps the FEATURE but drops the brand: "Today's Focus matching/matchmaking" → "Couple matching/matchmaking" / "priority couple matching" (page + deep-dive + productions-catalog).
+- **Cockpit hero** — the free "what's next" hero label "Today's focus" → **"Up next"** (the feature is unchanged; only the dead brand name goes).
+
+**Left as-is (already invisible / follow-up):** the gated-dead concierge machinery (`lib/concierge.ts` `CONCIERGE_ENABLED=false` · `/today` redirect · `/dashboard/profile/concierge` gated tab · admin `concierge_complete` hook), the admin-internal "Today's Focus brain"/"abuse" tooling, and dev comments. Corpus sweep (Pricing.md, 0016, Site_vs_Spec_Reconciliation, etc.) tracked separately.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration (reader-level filter, no DB write).
+
+**SPEC IMPACT:** Today's Focus removed completely (iteration 0016 effectively retired). Recorded in corpus `DECISION_LOG`; full spec sweep pending.
 
 ## 2026-06-05 · feat(budget): data-driven shopping range — real vendor prices replace the seeded band
 

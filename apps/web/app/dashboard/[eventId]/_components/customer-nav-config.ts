@@ -52,6 +52,7 @@ import {
   Globe,
   Sparkles,
   Palette,
+  Type,
   Activity,
   Shield,
   QrCode,
@@ -211,6 +212,18 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           href: `${base}/add-ons/mood-board`,
           icon: Palette,
           matchPrefix: `${base}/add-ons/mood-board`,
+        },
+        {
+          // Standalone Monogram Maker (Monogram_Maker_Plan_2026-06-05) — a
+          // returnable home to craft the wedding monogram (initials + 1 of 5
+          // lockups + live draw-on preview), persisting the same columns
+          // onboarding writes. Reachable here + via the Add-ons "Monogram
+          // Creator" card; mobile shows it under the More tab (5-item cap).
+          key: 'monogram',
+          label: 'Monogram',
+          href: `${base}/monogram`,
+          icon: Type,
+          matchPrefix: `${base}/monogram`,
         },
       ],
     },

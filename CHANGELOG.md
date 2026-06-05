@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0022): Branches V1.x — ₱999 charm price + auto-lapse + Renew
+
+**Context:** Owner follow-ups to the just-shipped Branches feature (#986): (4) the price is **₱999 (charm)**, not ₱1,000 — aligning the code to Pricing.md §0.C (which already read ₱999); (3) build the deferred V1.x lifecycle — auto-lapse after the 28-day window + a one-tap Renew.
+
+**What changed** (code-only · no migration):
+- **₱999** — `BRANCH_FEE_PHP` 1000 → 999 (centavos follow). Every display (`peso(BRANCH_FEE_PHP)`) + the order/payment amounts update from the constant. (Pricing.md §0.C reconciled to ₱999 + Enterprise gate directly in the corpus per owner authorization.)
+- **Auto-lapse (derived, no cron)** — a branch's live status is now derived from its **latest activation order**: paid + within the 28-day window (`orders.expires_at`, stamped by the admin approval hook) → **Active**; paid + past the window → **Expired**; unpaid → **Pending payment**; plus Cancelled. So lapse happens automatically at read time — no sweep, no cron ([[project_setnayan_cron_free]]). `fetchVendorBranches` now reads each branch's latest order (status + expires_at + ref) and `deriveBranchStatus(branch, order, nowMs)` computes the state.
+- **Renew** — a new `renewBranch` action + an amber "Renew · ₱999" button on Expired branches creates a fresh ₱999 apply-then-pay order for the SAME branch (extracted shared `startBranchPayment` helper, reused by create + renew). On admin approval the existing activation hook reactivates it with a new 28-day window. (Auto-charge is N/A in apply-then-pay — no card on file; renewal is one tap.)
+- New `expired` status (rose pill) + a "Renewal started" banner.
+
+**Verify:** `tsc` + `next lint` + `next build` green. Renew's DB path reuses the create path's order+payment inserts (RLS-proven in #986); the new logic is the pure `deriveBranchStatus` derivation (typecheck-covered). No migration.
+
+**SPEC IMPACT:** 0022 — Branches price = **₱999** (charm, supersedes the ₱1,000 in #986's entry) + auto-lapse/Renew lifecycle now BUILT (was flagged V1.x). Pricing.md §0.C reconciled (₱999 · Enterprise). Logged in DECISION_LOG.
+
+---
+
 ## 2026-06-05 · feat(onboarding): name-screen monogram auto-restyles every 30s
 
 **Context:** Owner — *"animation loop will happen every 30 seconds"* (onboarding fix list). The name-screen monogram (`MonoLockup`) only changed style when the couple tapped **"Generate another design"** (`cycleDesign`). It now also cycles through the 5 lockups on its own so couples see the styles without tapping.

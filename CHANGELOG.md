@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0001): Guest-name hygiene — normalize all 3 write paths + dedupe on the detailed form
+
+**Context:** Owner asked what name-quality issues we can prevent at guest-list creation. We already had a nickname/typo duplicate detector, but only on the quick-add sheet, and names were only `.trim()`-ed on save. This lands the two lowest-risk wins: shared name normalization on every write path, and the existing duplicate detector extended to the detailed Add-guest form.
+
+**What changed** (`apps/web/`):
+- **`lib/guest-name.ts` (new)** — `normalizeGuestName()`: NFC-normalize, drop zero-width/BOM/soft-hyphen/bidi chars, fold all C0/C1 controls + Unicode whitespace (NBSP, ideographic space, …) to single ASCII spaces + trim, clamp to 80. **Casing left untouched** (PH names like "de la Cruz" / "Ng" break under naive Title-Case — that's a separate reversible suggestion, not a silent rewrite). Built from explicit numeric code points (no regex `\u` escapes) so the source stays ASCII-clean. Wired into **all 3 server write paths**: `new/actions.ts` (createGuest + plus-one names), `quick-add-actions.ts` (quickAddGuest), `import/actions.ts` (CSV rows + plus-one). Fixes the root cause of dedupe/search/sort misses from pasted spreadsheet/PDF junk.
+- **`lib/guest-dedupe.ts` (new)** — extracted the nickname-map + Levenshtein + `findDuplicates`/`TAG` matcher out of `quick-add-sheet.tsx` into a shared, generic (`NameLike`) module; the sheet re-points to it — **zero behavior change** (verified). Dropped a dead `josê` nickmap key (unreachable — lookups normalize to `a-z`).
+- **Detailed Add-guest form now warns on duplicates** — new client island `_components/guest-name-fields.tsx` renders the first/last inputs (same `name=` attrs → server action unchanged) and runs the shared matcher live, showing a NON-BLOCKING amber warning per match (role·side + "Already added" / "Same person?" / "Typo?" badge + a new-tab "View" link). `new/page.tsx` fetches the existing-guest pool, mapped down to a slim shape so **no guest PII serializes into client props**.
+
+**Verify:** `tsc --noEmit` ✅ · `next lint` ✅ (only pre-existing warnings) · `next build` ✅. Unit tests via `tsx`: normalize **15/15**, dedupe **8/8**.
+
+**SPEC IMPACT:** 0001 guest list — (1) name entry now normalizes on all 3 write paths; (2) duplicate detection, previously quick-add-only, now also runs on the detailed Add-guest form. Neither was documented in the 0001 spec (the dedupe tracker was code-only). Lands directly in corpus `DECISION_LOG.md` + `0001_creating_guest_list/`. **Not built (flagged):** CSV import still has no dedupe (within-file + against-existing) — the largest remaining name-quality gap.
+
 ## 2026-06-05 · fix(0021/0022): Services tab — remove coverflow tilt · tap-to-open loading · Vendors route loader
 
 **Context:** Owner UX report on the couple **Services** tab (`/dashboard/[eventId]/vendors` — the Plan + Budget accordion): (1) the service/vendor cards **tilt and "shake"** as the coverflow scroll engine rotates them past rail-center — *"remove that … we can do the enlarge but no need for the tilt"*; (2) *"when we tap, the card enlarges to show that we are digging deeper to that service. make sure to have a loading screen"*; (3) *"from home … to the services, there is a couple of seconds that it is blank … should have a loading state … prevent the user to do any other actions until the load state is done."*

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { parseCsv } from '@/lib/csv';
+import { normalizeGuestName } from '@/lib/guest-name';
 import type {
   GuestGroupCategory,
   GuestRole,
@@ -79,8 +80,8 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
 
   rows.forEach((row, index) => {
     const lineNo = index + 2; // header is line 1
-    const first_name = (row.first_name ?? '').trim();
-    const last_name = (row.last_name ?? '').trim();
+    const first_name = normalizeGuestName(row.first_name);
+    const last_name = normalizeGuestName(row.last_name);
     const side = ((row.side ?? '').trim().toLowerCase() || 'both') as GuestSide;
     const group_category = ((row.group ?? row.group_category ?? '').trim().toLowerCase() ||
       'friends') as GuestGroupCategory;
@@ -88,7 +89,7 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
     const email = (row.email ?? '').trim() || null;
     const mobile = (row.mobile ?? '').trim() || null;
     const plus_one_allowed = truthy(row.plus_one_allowed);
-    const plus_one_name = (row.plus_one_name ?? '').trim() || (plus_one_allowed ? 'TBA' : null);
+    const plus_one_name = normalizeGuestName(row.plus_one_name) || (plus_one_allowed ? 'TBA' : null);
     const household = (row.household ?? '').trim() || null;
     const rsvp_status = ((row.rsvp_status ?? 'pending').trim().toLowerCase() ||
       'pending') as RsvpStatus;

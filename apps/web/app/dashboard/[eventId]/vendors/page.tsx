@@ -327,6 +327,11 @@ export default async function VendorsPage({ params }: Props) {
     ev?.venue_setting ?? null,
   );
 
+  // Planning mode (owner 2026-06-05) — 'manual' = Setnayan Assist OFF: the
+  // strip collapses to a slim "you're driving" bar AND the accordion drops the
+  // per-candidate "% match" pills (neutral browse). Default 'guided'.
+  const planningManual = ev?.planning_mode === 'manual';
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
@@ -338,6 +343,7 @@ export default async function VendorsPage({ params }: Props) {
     eyeingByVendorId,
     enrichmentByVendorId,
     marketPoolCount,
+    personalizationEnabled: !planningManual,
   });
 
   // "Matching you on" strip (owner 2026-06-04) — the couple's curated match
@@ -352,10 +358,6 @@ export default async function VendorsPage({ params }: Props) {
     ? formatEventDateWithPrecision(ev.event_date, matchPrecision)
     : null;
   const matchChips = ev ? buildTasteChips(ev, matchFormattedDate) : [];
-
-  // Planning mode (owner 2026-06-05) — 'manual' collapses the strip to a slim
-  // "you're driving" bar (the toggle's home). Default 'guided'.
-  const planningManual = ev?.planning_mode === 'manual';
 
   // In-app Setnayan services now nest INSIDE the accordion's category rails
   // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a

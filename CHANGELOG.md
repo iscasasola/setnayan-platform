@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0021): Manual mode — Services accordion deep-gate (PR2 of 2)
+
+**Context:** Completes Manual planning mode (PR1 #1002 shipped the `events.planning_mode` flag + the Guided⇄Manual toggle + Home gating). PR2 makes "off" consistent on the **Services tab** — the personalization still showing inside the plan+budget accordion now turns off too.
+
+**What changed:**
+- **`lib/vendors-plan-budget.ts`** — `buildPlanBudgetModel` gains a `personalizationEnabled` arg (default true), threaded onto `PlanBudgetModel` + each `AccordionChild`. When false (Manual), the "what to lock next" / "Do this next" nudges (`dueList`/`upNext`) are emptied — **the per-child timeline math + budget are untouched.**
+- **`plan-budget-accordion.tsx`** — in Manual mode: the per-candidate **"% match" pills** are hidden (`VendorCardAtom` + `CompareSheet` skip `computeCompatScore`), the per-category **`DeadlineChip`** is hidden, and the **`NextAction` "Do this next"** hero is hidden.
+- **`category-search` action + overlay** — the category-browse overlay's **"% match"** pill is gated too: the action returns `compatScore: null` in Manual; the overlay hides the pill. **Result ORDER unchanged** (the locked tier ladder).
+- **`vendors/page.tsx`** — passes `personalizationEnabled: !planningManual` into the model.
+
+**Result:** Manual mode is now fully consistent — strip collapsed (PR1), Home tasks+deadlines off (PR1), accordion match pills + deadline chips + lock-next nudges off (PR2). The vendor **directory still works** (search · browse · compatibility filters · neutral order).
+
+**Verify:** `tsc --noEmit` + `next lint` green. **No migration** (reuses PR1's `events.planning_mode`).
+
+**SPEC IMPACT:** Completes the 0021 Manual mode (decision already in corpus `DECISION_LOG`). 0021 spec edit pending.
+
 ## 2026-06-05 · fix(ci): resolve duplicate migration timestamp 20260826000000 (rename the unapplied songs twin)
 
 **Context:** Two migrations on `main` shared the 14-digit prefix `20260826000000` — `20260826000000_budget_planner_config_benchmarks.sql` (PR #1000) and `20260826000000_songs_itunes_cache_and_390_seed.sql` (song-bank PR). This reddened the **"migration timestamp guard"** CI job (`.github/workflows/ci.yml`) on `main` and therefore on *every* open PR. The guard exists because `supabase db push` keys `supabase_migrations.schema_migrations` on the prefix, so a duplicate crashes the push after one migration's DDL has already run (half-applied prod).

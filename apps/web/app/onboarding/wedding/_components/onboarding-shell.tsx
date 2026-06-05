@@ -62,6 +62,7 @@ import {
 } from '../types';
 import { LocationStep } from './location-step';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
+import { SongPreviewList } from './song-preview-list';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
@@ -648,7 +649,6 @@ function StyleSubStepper({
   } else if (dim === 'music') {
     const picked = new Set(prefs.music);
     const n = prefs.music.length;
-    const q = songSearch.trim().toLowerCase();
     const ordered = MUSIC100.map((s, i) => ({ i, title: s[0], artist: s[1], lbl: `${s[0]}|${s[1]}` })).sort((a, b) => {
       const ap = picked.has(a.lbl), bp = picked.has(b.lbl);
       if (ap !== bp) return ap ? -1 : 1;
@@ -665,21 +665,18 @@ function StyleSubStepper({
             <input id="songq" type="search" placeholder="Search songs or artists…" autoComplete="off" value={songSearch} onChange={(e) => setSongSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }} />
           </div>
         </div>
-        <div className="songlist">
-          {ordered.map(({ title, artist, lbl }) => {
-            const sel = picked.has(lbl);
-            const show = q ? `${title} ${artist}`.toLowerCase().includes(q) : sel || n < 10;
-            return (
-              <div key={lbl} className={`song${sel ? ' sel' : ''}`} style={show ? undefined : { display: 'none' }} onClick={() => onPrefs({ music: sel ? prefs.music.filter((x) => x !== lbl) : [...prefs.music, lbl] })}>
-                <span className="sck" />
-                <span className="stxt">
-                  <span className="st">{title}</span>
-                  <span className="sa">{artist}</span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <SongPreviewList
+          songs={ordered}
+          pickedLbls={prefs.music}
+          query={songSearch}
+          onToggle={(lbl) =>
+            onPrefs({
+              music: prefs.music.includes(lbl)
+                ? prefs.music.filter((x) => x !== lbl)
+                : [...prefs.music, lbl],
+            })
+          }
+        />
       </div>
     );
   } else if (dim === 'palette') {

@@ -23,6 +23,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding/0016): iTunes song preview in the music step — album cover = play button
+
+**Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.
+
+**What changed** (`apps/web/`):
+- **New `lib/itunes-preview.ts`** — keyless client-side **JSONP** lookup of the Apple/iTunes Search API (no CORS header → JSONP via `&callback=`). One call returns the 30-sec `previewUrl` + album `artworkUrl` (upscaled 100→300); per-song cache + in-flight dedup; throttle → retryable, miss → `none`. Client-side per §5.4 so the ~20/min/IP limit spreads across users' IPs.
+- **New `app/onboarding/wedding/_components/song-preview-list.tsx`** — the **album cover IS the play button** (▶/⏸, gold placeholder until loaded); one shared `<audio>` (one preview at a time); covers hydrate **lazily** as rows scroll in (IntersectionObserver on the `.body` scroll container, capped at 4); throttle keeps the placeholder + retries; row click still toggles the pick.
+- **`onboarding-shell.tsx`** — music dim renders `<SongPreviewList>`; **`onboarding.css`** — `.scover` styles.
+
+**Verification:** `tsc` + `next lint app/onboarding lib` clean · CSP (`frame-ancestors 'self'` only) doesn't block script/audio/img · **mechanic verified live in Chromium** (6 real album covers loaded via JSONP; iTunes preview audio played — `paused:false`, `currentTime` advancing).
+
+**Follow-ups:** full Song Bank — searchable 390-song catalogue (results-on-top / bottom-pinned search) + DB-cache of `apple_track_id`/`preview_url`/`artwork` (§5.4).
+
+**SPEC IMPACT:** 0016 — the music step gains the locked album-cover-play-button + 30-sec iTunes preview (Song Bank §5).
+---
+
 ## 2026-06-05 · fix(onboarding): wedding-date "What your dates share" nugget moved above the calendar
 
 **Context:** Owner — *"fix the location of what your dates share. we want the nuggets to be on top and not under the calendar."* On the wedding-date onboarding screen (step 6 · "When's the big day?"), the `DateCalendar` component rendered its why-these-dates nugget (`.whydate`) as the **last** child of the `.tapzone`, i.e. *below* the calendar. Because `.tapzone` is `margin-top:auto` (pinned to the bottom of the screen body), the whole block sat at the bottom and the nugget landed under the calendar, while a large empty gap opened under the title. The 2026-06-01 corpus + app proto HTMLs already place `#whydate` in the `.viewzone` (above the calendar) — only the React port had drifted out of sync.

@@ -187,10 +187,15 @@ export async function setPlanningMode(formData: FormData) {
 /**
  * toggleRoadmapItem — mark a Wedding Roadmap "thing to complete" done (or undo).
  *
- * Owner 2026-06-05 (iteration 0021). MANUAL check-off only — no automation. The
- * couple taps a roadmap item done; its key is added to `events.roadmap_completed`
- * (and removed if tapped again), and the item drops off the list. No data is
- * read to infer completion. Mirrors setPlanningMode's auth + `event_id` update.
+ * Owner 2026-06-05 (iteration 0021 · hybrid auto/manual). This is the MANUAL
+ * leg of the roadmap: the couple taps an item done and its key is added to
+ * `events.roadmap_completed` (removed if tapped again), dropping it off the
+ * list. The AUTO leg lives in WeddingRoadmapAsync, which derives the 8
+ * confirmable items from structural signals (date / vendor status / counts /
+ * paid capture order) — those never reach this action because a satisfied item
+ * has no Done button to tap. So this stays the fallback for the manual-only
+ * items and any auto item the app can't yet confirm. Mirrors setPlanningMode's
+ * auth + `event_id` update.
  */
 export async function toggleRoadmapItem(formData: FormData) {
   const eventId = formData.get('event_id');

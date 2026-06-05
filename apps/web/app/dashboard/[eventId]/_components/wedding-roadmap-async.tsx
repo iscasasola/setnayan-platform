@@ -1,20 +1,51 @@
 import { Check, ListChecks } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { resolveRoadmap, monthsUntil, ROADMAP_TOTAL } from '@/lib/wedding-roadmap';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import {
+  resolveRoadmap,
+  countRoadmapDone,
+  monthsUntil,
+  ROADMAP_TOTAL,
+  type RoadmapSignals,
+} from '@/lib/wedding-roadmap';
 import { toggleRoadmapItem } from '../actions';
+
+// Canonical reception/ceremony venue categories — reused from PLAN_GROUPS so the
+// auto-signal can never drift from the plan-card bucketing. Reception = ['venue'];
+// ceremony = ['religious_venue','church_fees'] (kept disjoint by design).
+const RECEPTION_VENUE_CATEGORIES = new Set<string>(
+  PLAN_GROUPS.find((g) => g.id === 'reception_venue')?.categories ?? [],
+);
+const CEREMONY_VENUE_CATEGORIES = new Set<string>(
+  PLAN_GROUPS.find((g) => g.id === 'ceremony_venue')?.categories ?? [],
+);
+const VENUE_CATEGORIES = new Set<string>([
+  ...RECEPTION_VENUE_CATEGORIES,
+  ...CEREMONY_VENUE_CATEGORIES,
+]);
+// Setnayan capture SKU families (Papic / Panood / Patiktok). Prefix-matched so
+// new variants (papic_guest_captures, panood_daily_broadcast, …) still count.
+const CAPTURE_SKU_RE = /^(papic|panood|patiktok)/i;
 
 /**
  * WeddingRoadmapAsync — the free "things to complete" list on the couple Home
- * (owner 2026-06-05).
+ * (owner 2026-06-05 · hybrid auto/manual 2026-06-05).
  *
- * The ordered wedding tasks, timed by months-to-EARLIEST-date. The couple TAPS
- * each one done themselves (manual check-off → `toggleRoadmapItem` → removed and
- * stays removed). NO automation: this reads only the event's date + the
- * `roadmap_completed` array — it never inspects vendors/guests/etc. to infer
- * "done." Plain text reminders + a Done button; no links.
+ * The ordered wedding tasks, timed by months-to-EARLIEST-date. HYBRID
+ * completion: 8 "confirmable" items auto-check the moment the app sees a hard
+ * structural fact — date committed, a vendor in that category at status
+ * contracted+, a count > 0, a paid capture order — and the remaining 3
+ * (reception look, save-the-dates, invitations) plus any auto item the app
+ * can't yet confirm keep the couple's manual Done button (→ `toggleRoadmapItem`
+ * → removed and stays removed), so nobody is ever stuck. Still NOT Today's-Focus
+ * automation: deterministic signals only, no AI/inference. Plain text reminders;
+ * no links.
  *
- * Self-fetching server component (streams in its own Suspense). Hidden in
- * Manual mode by the Home (same as the rest of the assist).
+ * Self-fetching server component (streams in its own Suspense). Reads the event
+ * row + four lightweight signal queries (vendors / guest count / table count /
+ * capture orders), each degrading to "not satisfied" on error. Hidden in Manual
+ * mode by the Home (same as the rest of the assist).
  */
 export async function WeddingRoadmapAsync({
   eventId,
@@ -24,11 +55,35 @@ export async function WeddingRoadmapAsync({
   now: Date;
 }) {
   const supabase = await createClient();
-  const { data: ev } = await supabase
-    .from('events')
-    .select('event_date, date_candidates, date_window_start, roadmap_completed')
-    .eq('event_id', eventId)
-    .maybeSingle();
+
+  // One events read + four lightweight signal reads, in parallel. Each signal
+  // degrades to "not satisfied" on error (the item then stays a manual Done), so
+  // a flaky query never hides work or fakes completion.
+  const [evRes, vendorsRes, guestCountRes, tableCountRes, captureRes] = await Promise.all([
+    supabase
+      .from('events')
+      .select(
+        'event_date, date_candidates, date_window_start, roadmap_completed, estimated_budget_centavos',
+      )
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    supabase.from('event_vendors').select('category, status').eq('event_id', eventId),
+    supabase
+      .from('guests')
+      .select('event_id', { count: 'exact', head: true })
+      .eq('event_id', eventId),
+    supabase
+      .from('event_tables')
+      .select('event_id', { count: 'exact', head: true })
+      .eq('event_id', eventId),
+    supabase
+      .from('orders')
+      .select('service_key')
+      .eq('event_id', eventId)
+      .in('status', ['paid', 'fulfilled']),
+  ]);
+
+  const ev = evRes.data;
   if (!ev) return null;
 
   // Earliest chosen date — committed date → earliest candidate → window start
@@ -47,8 +102,37 @@ export async function WeddingRoadmapAsync({
   const completed = ((ev as { roadmap_completed?: string[] | null }).roadmap_completed ??
     []) as string[];
 
+  // ── Hybrid auto-signals (owner 2026-06-05) ────────────────────────────────
+  // Deterministic structural facts only — never inference. A vendor counts as
+  // "booked" once its status reaches contracted+ (CONFIRMED_VENDOR_STATUSES).
+  const vendors = (vendorsRes.data ?? []) as { category: string; status: string | null }[];
+  const isConfirmed = (status: string | null) =>
+    status !== null && (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(status);
+  const captures = (captureRes.data ?? []) as { service_key: string | null }[];
+
+  const signals: RoadmapSignals = {
+    dateLocked: (ev as { event_date?: string | null }).event_date != null,
+    receptionVenueBooked: vendors.some(
+      (v) => isConfirmed(v.status) && RECEPTION_VENUE_CATEGORIES.has(v.category),
+    ),
+    ceremonyVenueBooked: vendors.some(
+      (v) => isConfirmed(v.status) && CEREMONY_VENUE_CATEGORIES.has(v.category),
+    ),
+    budgetSet:
+      Number(
+        (ev as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? 0,
+      ) > 0,
+    hasGuests: (guestCountRes.count ?? 0) > 0,
+    coreVendorBooked: vendors.some(
+      (v) => isConfirmed(v.status) && !VENUE_CATEGORIES.has(v.category),
+    ),
+    seatingStarted: (tableCountRes.count ?? 0) > 0,
+    setnayanCaptureSet: captures.some((o) => CAPTURE_SKU_RE.test(o.service_key ?? '')),
+  };
+
   const months = monthsUntil(earliest, now.getTime());
-  const items = resolveRoadmap(months, completed);
+  const items = resolveRoadmap(months, completed, signals);
+  const doneCount = countRoadmapDone(completed, signals);
 
   const monthsLabel =
     months === null
@@ -74,7 +158,7 @@ export async function WeddingRoadmapAsync({
           {monthsLabel ? <p className="text-xs text-ink/55">{monthsLabel}</p> : null}
         </div>
         <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          {completed.length}/{ROADMAP_TOTAL} done
+          {doneCount}/{ROADMAP_TOTAL} done
         </span>
       </div>
 

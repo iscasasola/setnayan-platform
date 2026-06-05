@@ -64,7 +64,6 @@ export const metadata = {
     'Pakulay mood board',
     'wedding seating chart',
     'wedding budget tracker',
-    "Today's Focus wedding wizard",
   ],
   openGraph: {
     title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',

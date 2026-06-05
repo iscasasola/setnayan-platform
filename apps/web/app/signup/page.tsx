@@ -89,7 +89,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     'Guest list + RSVP · free',
     '192 verified vendors',
     'BIR-stamped receipts',
-    "Today's Focus AI",
+    'Budget + seating tools · free',
   ];
 
   return (

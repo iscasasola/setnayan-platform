@@ -95,7 +95,7 @@ function ResolvedTaskVariant({
           id="todays-one-thing-heading"
           className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
         >
-          Today’s focus
+          Up next
         </h2>
       </header>
 
@@ -167,7 +167,7 @@ function DatePromptVariant({ eventId }: { eventId: string }) {
           id="todays-one-thing-heading"
           className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
         >
-          Today’s focus
+          Up next
         </h2>
       </header>
 
@@ -231,7 +231,7 @@ function AllLockedVariant() {
           id="todays-one-thing-heading"
           className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
         >
-          Today’s focus
+          Up next
         </h2>
       </header>
 

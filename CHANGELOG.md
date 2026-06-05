@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(pricing/marketing): remove Today's Focus completely (customer-facing)
+
+**Context:** Owner — *"remove the today's focus completely. we do not want this anymore."* The retired AI-planner SKU (already disabled in-app via `CONCIERGE_ENABLED=false`) still lingered on the public marketing surfaces. This scrubs it from everything a customer/vendor sees.
+
+**What changed:**
+- **`/pricing` listing removed** — `lib/v2-catalog.ts` `fetchV2CustomerCatalog` now excludes the `TODAYS_FOCUS` row (`.neq('service_code', …)`) so it drops from /pricing, the /for-vendors productions catalog, AND the admin discount-code picker (its 3 consumers) — **no DB write** (the row stays in the table, just unsurfaced). Removed its dead `BUILD_STATUS` entry.
+- **Customer copy** — stripped TF mentions from the home metadata, `/signup` benefit bullets (→ "Budget + seating tools · free"), `/features` keywords, the marketing FAQ (`_fixtures`), and the à-la-carte list + footer link (`_sections`).
+- **`/privacy`** — removed the "AI-assisted Today's Focus" data-processing section (it described a removed feature).
+- **`/for-vendors`** — the vendor perk keeps the FEATURE but drops the brand: "Today's Focus matching/matchmaking" → "Couple matching/matchmaking" / "priority couple matching" (page + deep-dive + productions-catalog).
+- **Cockpit hero** — the free "what's next" hero label "Today's focus" → **"Up next"** (the feature is unchanged; only the dead brand name goes).
+
+**Left as-is (already invisible / follow-up):** the gated-dead concierge machinery (`lib/concierge.ts` `CONCIERGE_ENABLED=false` · `/today` redirect · `/dashboard/profile/concierge` gated tab · admin `concierge_complete` hook), the admin-internal "Today's Focus brain"/"abuse" tooling, and dev comments. Corpus sweep (Pricing.md, 0016, Site_vs_Spec_Reconciliation, etc.) tracked separately.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration (reader-level filter, no DB write).
+
+**SPEC IMPACT:** Today's Focus removed completely (iteration 0016 effectively retired). Recorded in corpus `DECISION_LOG`; full spec sweep pending.
+
 ## 2026-06-05 · fix(onboarding): slider under the number box on the guest-count + budget steps
 
 **Context:** Owner — on the wedding onboarding's "How many guests?" and "Your working budget?" screens, the range slider must sit *under* the number box, not above it. (Reverses the 2026-06-02 swap that had put the slider on top.)

@@ -62,7 +62,7 @@ const COMPLIMENTARY_TOOLS = {
     'A basic wedding website at your slug',
   ],
   'Find your vendors': [
-    "Today's Focus matching",
+    'Couple matching',
     'Side-by-side quote comparison',
     'Unlimited bid requests',
     'Direct chat with vendors',
@@ -118,8 +118,6 @@ const POSITIONING: Record<string, string> = {
     'Cultural conflict catcher. Included with every account, woven into the planning surface.',
   CUSTOM_QR_GUEST:
     'One unique QR code per guest, up to two hundred and fifty.',
-  TODAYS_FOCUS:
-    'A sixty-five-step assisted planning process. The AI companion that turns logistics into rhythm.',
   INDOOR_BLUEPRINT:
     'From entrance to table — the floor guide your guests follow without asking.',
   CALL_TIME_ESCALATOR:

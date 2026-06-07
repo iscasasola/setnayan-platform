@@ -291,10 +291,10 @@ export async function acceptInquiry(formData: FormData) {
     // accepting). It costs ONE idempotent unlock per (vendor, event), banded
     // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
     // unlock covers ALL of this vendor's services for the event. The RPC
-    // (unlock_vendor_event) is atomic + idempotent + TIER-GATED (Phase A, owner
-    // 2026-06-07, migration 20260910000000): FREE can't accept in-app inquiries;
-    // FREE-VERIFIED gets ≤10 new unlocks/rolling-week AND burns 1-3 tokens each;
-    // PRO/ENTERPRISE unlimited + burns. A re-accept of an already-unlocked
+    // (unlock_vendor_event) is atomic + idempotent + TIER-GATED (owner 2026-06-07
+    // reissue, migration 20260911000000): FREE can't accept in-app inquiries;
+    // FREE-VERIFIED gets ≤10 new unlocks/rolling-week FREE (no token burn);
+    // PRO/ENTERPRISE unlimited + burns 1-3 tokens. A re-accept of an already-unlocked
     // (vendor,event) is free + un-gated. Any RAISE rolls the whole tx back (no
     // phantom unlock) — we surface a friendly, tier-appropriate message and do
     // NOT accept. The RPC also ownership-checks the caller (defense-in-depth

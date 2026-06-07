@@ -54,6 +54,7 @@
 import {
   Home,
   Banknote,
+  Coins,
   BadgeCheck,
   Shield,
   AlertOctagon,
@@ -290,6 +291,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Payouts',
         href: '/admin/payouts',
         icon: Wallet,
+      },
+      {
+        // Region → token burn bands (₱100/200/300 = 1/2/3 tokens) charged when
+        // a vendor answers an inquiry. Admin-editable per the owner-locked
+        // token economy (2026-06-05). Migration 20260908000000.
+        key: 'token-bands',
+        label: 'Token bands',
+        href: '/admin/token-bands',
+        icon: Coins,
       },
       {
         key: 'receipts',

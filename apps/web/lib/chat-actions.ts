@@ -286,6 +286,30 @@ export async function acceptInquiry(formData: FormData) {
   const { supabase, thread } = await loadVendorThreadForActor(threadId);
 
   if (thread.inquiry_status !== 'accepted') {
+    // Burn-on-answer (owner-locked token economy 2026-06-05). Accepting an
+    // inquiry IS the vendor's "answer" (a vendor can't even reply before
+    // accepting). It costs ONE idempotent unlock per (vendor, event), banded
+    // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
+    // unlock covers ALL of this vendor's services for the event. The RPC
+    // (unlock_vendor_event, migration 20260908000000) is atomic + idempotent:
+    // a re-accept never double-charges, and an insufficient balance rolls the
+    // whole thing back (no phantom unlock) and RAISES — we surface a friendly
+    // top-up prompt and do NOT accept. 100 free founder tokens cushion new
+    // vendors. The RPC ownership-checks the caller (defense-in-depth atop the
+    // loadVendorThreadForActor gate above).
+    const { error: burnErr } = await supabase.rpc('unlock_vendor_event', {
+      p_vendor_profile_id: thread.vendor_profile_id,
+      p_event_id: thread.event_id,
+    });
+    if (burnErr) {
+      if (/INSUFFICIENT_WALLET_BALANCES/.test(burnErr.message)) {
+        throw new Error(
+          'You need tokens to accept this inquiry. Top up your token balance, then try again — one unlock covers all your services for this event.',
+        );
+      }
+      throw new Error(burnErr.message);
+    }
+
     const { error } = await supabase
       .from('chat_threads')
       .update({ inquiry_status: 'accepted', accepted_at: new Date().toISOString() })

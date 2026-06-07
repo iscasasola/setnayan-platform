@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(token-economy): connect burn-on-answer + anti-merge enforcement
+
+**Context:** Owner: "we need to connect the tokens properly." The vendor token economy was economically inert — vendors answered inquiries for free (`unlock-category.ts` literally said the burn "is NOT wired yet"). This wires the owner-locked (2026-06-05) burn-on-answer, plus the owner's strict free-token rules. PR 1 of 2 (PR 2 = login-driven ghosting).
+
+**What landed (migration `20260908000000_vendor_token_burn_on_answer.sql`, applied to prod):**
+- **`vendor_event_unlocks`** — the per-`(vendor_profile_id, event_id)` idempotency record (UNIQUE), the "one unlock covers ALL the vendor's services for that event" contract. RLS: vendor reads own, admin reads all, writes only via the RPC.
+- **`token_burn_bands`** — admin-editable region → band/token map (wages drift). Seeded the proposed map: band 3 = ₱300 (NCR/CALABARZON/Central Luzon), band 2 = ₱200 (mid-wage regions), band 1 = ₱100 (lowest-wage regions), plus `__default__` (band 1 floor for unknown/blank region). ₱100/token, so 1/2/3 tokens. **⚠ Owner to ratify the exact band→region map** (admin-editable at `/admin/token-bands`).
+- **`unlock_vendor_event(vendor, event)` RPC** (SECURITY DEFINER) — atomic + idempotent: resolves the wedding's region (`events.region`) → band → tokens, `INSERT … ON CONFLICT DO NOTHING` (the gate), and only on a fresh insert burns via the existing `consume_vendor_assets_per_voucher` (FIFO + audit). Insufficient balance RAISES `INSUFFICIENT_WALLET_BALANCES` → the whole tx rolls back (no phantom unlock). **Ownership-checked** (`vendor_profiles.user_id = auth.uid()`) so a SECURITY DEFINER function granted to `authenticated` can't burn another vendor's tokens.
+- **Anti-merge enforcement** — `forbid_vendor_id_reassignment()` BEFORE-UPDATE triggers on `vendor_wallets` / `earned_token_vouchers` / `token_grants_log` / `token_redemptions_log` make `vendor_id` **immutable**: a vendor's tokens/wallet/ledger can never be reassigned to another vendor. This makes the owner's "their data can never be merged to another vendor" rule impossible to violate even if a merge feature is ever built (none exists today).
+- **Burn wired into `acceptInquiry`** (`lib/chat-actions.ts`) — accepting an inquiry IS the answer (a vendor can't reply before accepting). Burns once before flipping `pending→accepted`; insufficient balance blocks the accept with a friendly top-up prompt; a re-accept never double-charges.
+- **Admin `/admin/token-bands`** page + `updateBand` action + sidebar entry (Money group) — the locked admin-editable surface.
+
+**Free tokens for new vendors (strict) — already shipped, confirmed:** the 100-free-on-verification grant (DB trigger on `verification_state→'verified'`, idempotent once-per-lifetime via `token_grants_log` + `token_rewards_log`) already satisfies "verified-only." This PR adds the "never merged" half (the immutability triggers). **⚠ Owner decision flagged:** two "approve" surfaces exist — Part A `approveVendor` sets only `public_visibility='verified'` (does NOT grant); Part B `approveApplication` flips `verification_state` (DOES grant). Confirm which is the canonical verification gate so granted vendors are a consistent set.
+
+**Verify:** `tsc` clean · `next lint` exit 0 (no hits in changed files) · `lint:retired` 0 · migration-timestamp guard (unique prefix). Migration applied + "remote database is up to date."
+
+**SPEC IMPACT:** Vendor token economy (`project_setnayan_vendor_token_model`) — burn-on-answer now wired (was inert), banded map seeded (pending ratify), anti-merge enforced. → corpus DECISION_LOG + `Token_Economy_Flow_Map_2026-06-01.html` / Pricing §0.C follow-up.
+
 ## 2026-06-07 · fix(loading): app-wide loader sweep — close the last gap (admin/notifications)
 
 **Context:** Owner asked for a completeness sweep after several one-off loader misses. Ran a 3-agent audit across **customer**, **vendor**, and **admin** doorways + a cross-cutting hand-rolled-loader hunt over all of `apps/web`.

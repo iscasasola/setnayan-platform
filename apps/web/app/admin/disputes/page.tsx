@@ -2,6 +2,7 @@ import { Gavel, Filter } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { resolveDispute } from './actions';
 
 export const metadata = { title: 'Disputes · Admin' };
 
@@ -221,11 +222,11 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           sideways. The queue shows the latest 200 matching the filters below,
           newest first.
         </p>
-        <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
-          <span className="font-semibold">Read-only V1.</span> Detail view +
-          resolve actions are coming with the next refresh. Until then, update
-          a row directly in Supabase Studio if a resolution call has been made
-          off-platform.
+        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+          Use <span className="font-semibold">Resolve</span> on any open row to
+          record the outcome (couple / vendor / withdrawn) with a note. The
+          opener is notified automatically. A standalone detail page with the
+          full evidence trail is the next refresh.
         </p>
       </header>
 
@@ -400,6 +401,7 @@ function DisputesTable({
             <th className="hidden px-3 py-3 font-medium lg:table-cell">Description</th>
             <th className="px-3 py-3 font-medium">Status</th>
             <th className="hidden px-3 py-3 font-medium md:table-cell">Opened</th>
+            <th className="px-3 py-3 font-medium">Resolve</th>
           </tr>
         </thead>
         <tbody>
@@ -454,6 +456,49 @@ function DisputesTable({
                 </td>
                 <td className="hidden px-3 py-3 text-xs text-ink/60 md:table-cell">
                   <span title={r.created_at}>{relativeTime(r.created_at)}</span>
+                </td>
+                <td className="px-3 py-3 align-top">
+                  {r.status === 'open' ? (
+                    <details className="min-w-[12rem]">
+                      <summary className="cursor-pointer select-none text-xs font-medium text-terracotta">
+                        Resolve
+                      </summary>
+                      <form action={resolveDispute} className="mt-2 space-y-2">
+                        <input type="hidden" name="dispute_id" value={r.dispute_id} />
+                        <select
+                          name="resolution"
+                          defaultValue=""
+                          required
+                          className="input-field text-xs"
+                          aria-label="Resolution outcome"
+                        >
+                          <option value="" disabled>
+                            Choose outcome…
+                          </option>
+                          <option value="resolved_for_couple">Resolved · couple</option>
+                          <option value="resolved_for_vendor">Resolved · vendor</option>
+                          <option value="withdrawn">Withdrawn</option>
+                        </select>
+                        <textarea
+                          name="resolution_notes"
+                          rows={2}
+                          placeholder="Decision + rationale (required unless withdrawn)"
+                          className="input-field text-xs"
+                          aria-label="Resolution notes"
+                        />
+                        <button type="submit" className="button-secondary text-xs">
+                          Apply resolution
+                        </button>
+                      </form>
+                    </details>
+                  ) : (
+                    <span
+                      className="text-xs text-ink/45"
+                      title={r.resolution_notes ?? undefined}
+                    >
+                      {r.resolved_at ? relativeTime(r.resolved_at) : '—'}
+                    </span>
+                  )}
                 </td>
               </tr>
             );

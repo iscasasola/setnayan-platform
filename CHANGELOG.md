@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0022/0023/0028): cross-actor signal wiring — close the silent one-way breaks
+
+**Context:** Dedicated cross-actor interaction audit (customer action → vendor signal → admin control) over shipped `origin/main`. Finding: the **only** two-way customer↔vendor channel is the inquiry chat; every other couple action mutates `event_vendors` (couple-only RLS) and never reaches the vendor — so a couple could finalize/book, review, or cancel a marketplace vendor and the vendor was never told. Plus two admin governance gaps: `/admin/disputes` was read-only and admins had no in-app notification reader despite receiving notification rows. Owner authorized the "everything safe" tier; the locked-economics items (token burn-on-answer, two-admin gate, anti-fraud surface, chat moderation, ghosting escalation) were scoped-only, not built.
+
+**What landed:**
+- **Migration `20260907000000_notification_types_cross_actor_signals.sql`** — adds `booking_confirmed`, `review_received`, `booking_cancelled`, `dispute_filed` to `public.notification_type` (ADD VALUE IF NOT EXISTS). **Applied to remote DB this session** via `supabase db push` (also flushed the pending `20260903…` fix). `lib/notifications.ts` union + both exhaustive label/tone Records extended.
+- **booking_confirmed → vendor** (`vendors/actions.ts` `finalizeVendor`) — the #1 break. After a successful lock, the marketplace vendor gets a dual-channel notification (in-app + email) deep-linking the chat thread. Manual/off-platform vendors keep the existing claim-link invite (sibling `else if`). Best-effort/fail-soft.
+- **review_received → vendor** (`vendors/[vendorId]/review/actions.ts` `submitCoupleReview`) — vendor is notified the moment a couple posts a review. Makes the vendor Reviews-page "we notify you via email" claim TRUE (copy also tightened to name both channels).
+- **booking_cancelled → vendor** (`vendors/actions.ts` `cancelBookingAsHost`) — the prior **email-only** direct `sendEmail` (it predated the enum value) is consolidated onto canonical `emitNotification`, so the cancellation now also lands in the vendor's in-app tray.
+- **dispute_filed → named vendor** (`disputes/actions.ts` `fileForceMajeureFlag`) — when a couple scopes a force-majeure flag to a specific marketplace vendor, that vendor is notified (in addition to the existing all-admin fan-out).
+- **`/admin/disputes` now resolvable** — new `admin/disputes/actions.ts` `resolveDispute` (mirrors the force-majeure `resolveFlag` shape: requireAdmin · status→resolved_for_couple/vendor/withdrawn · required notes for adjudicated lanes · stamps `resolved_at` · notifies the opener). Inline zero-JS `<details>` resolve form per open row; the "Read-only V1 · edit in Supabase Studio" banner is gone. No migration (statuses already existed).
+- **Admin in-app notification reader** — new `/admin/notifications` page (mirrors the vendor reader) + the live `<UnreadBellBadge>` mounted in the admin top bar. Admins already received `notifications` rows (force-majeure fan-out, help intake) but had no bell/page — the in-app half was a dead-letter.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean (only pre-existing warnings, none in changed files) · `lint:retired` (0) · `lint:email-links` (all relatedUrls resolve, incl. the new `/vendor-dashboard/{bookings,reviews,messages/*}` + `/admin/notifications`). Migration applied + confirmed "remote database is up to date." Worktree had a fresh install → required CI (typecheck + lint + build) is the hard gate.
+
+**SPEC IMPACT:** **0028** (+4 notification types) · **0022** (vendor now receives booking_confirmed/review_received/booking_cancelled/dispute_filed) · **0023** §3.6 (disputes queue gains resolve actions) + new admin notifications surface. → corpus DECISION_LOG row + iteration notes. Scoped-not-built (need owner sign-off): token burn-on-answer, two-admin approval gate, anti-fraud fake-event surface, chat moderation, vendor-unresponsive/ghosting escalation.
+
 ## 2026-06-07 · feat(loader): app cold-start ("initialization") splash — web + native
 
 **Context:** Owner 2026-06-07 — "initialization loading" (Both: web first-open + native cold-start). Closes the last loading surface: the **boot moment** before the app shell is ready. The animated brand mark (the `<SDLoader>` scene — orbit + glow + breathe, CSS-driven, no JS particles) on Warm Alabaster, shown over the first app-route / native-shell paint of a session, then faded.

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · fix(loader): onboarding-completion overlay now uses `<SDLoader>`
+
+**Context:** Owner spotted (live mobile screenshot) that the post-onboarding **"Creating your personalized dashboard"** overlay still showed the *old* loader — a thin ring spinner + static mark + cycling sub-text. It was a bespoke loader (`onboarding-shell.tsx`, owner 2026-06-02) that the targeted `<SDLoader>` rollout hadn't touched. This is a textbook "personalized work" moment, so it now uses the brand loader.
+
+**What changed (`app/onboarding/wedding/`):**
+- `_components/onboarding-shell.tsx` — the `finishing` overlay's `.fin-loader` (ring spinner) + static SVG mark + `.fin-sub` are replaced by `<SDLoader steps={ANALYZING_STAGES} hint="Personalizing" />`. The premium serif title ("Creating your personalized dashboard", owner 2026-06-02) is **kept** above it. Removed the now-redundant `finStage` state + its cycling `useEffect` (the loader narrates internally); dropped the trailing "…" from `ANALYZING_STAGES` (the loader has its own thinking dots). `ANALYZING_HOLD_MS` + the preload/navigation timing are untouched.
+- `_styles/onboarding.css` — removed the dead `.fin-mark` / `.fin-spinner` / `.fin-sub` rules + the `finspin` keyframe; added `.fin-inner .sd-loader{background:transparent;min-height:0;margin-top:-28px}` so the loader blends with the overlay's paper and tucks neatly under the title; reduced-motion rule simplified.
+
+**Verify:** `tsc --noEmit` + `next lint` clean · harness screenshot (mobile 375×812) confirms the new composition — serif title + animated mark (orbit + gathering particle) + "Analyzing your preferences" narration + "PERSONALIZING" hint, well-balanced. CI is the hard gate.
+
+**SPEC IMPACT:** None — swaps one loader's visual for the shared brand loader; the overlay's blocking/preload behavior + copy are unchanged.
+
 ## 2026-06-07 · feat(0022/0023/0028): cross-actor signal wiring — close the silent one-way breaks
 
 **Context:** Dedicated cross-actor interaction audit (customer action → vendor signal → admin control) over shipped `origin/main`. Finding: the **only** two-way customer↔vendor channel is the inquiry chat; every other couple action mutates `event_vendors` (couple-only RLS) and never reaches the vendor — so a couple could finalize/book, review, or cancel a marketplace vendor and the vendor was never told. Plus two admin governance gaps: `/admin/disputes` was read-only and admins had no in-app notification reader despite receiving notification rows. Owner authorized the "everything safe" tier; the locked-economics items (token burn-on-answer, two-admin gate, anti-fraud surface, chat moderation, ghosting escalation) were scoped-only, not built.

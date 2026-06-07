@@ -105,13 +105,14 @@
    while the event is created + the dashboard preloads, then the dashboard swaps in. */
 .onbw .fin-overlay{position:fixed;inset:0;z-index:300;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:32px;animation:finfade .25s ease both;-webkit-tap-highlight-color:transparent;}
 @keyframes finfade{from{opacity:0}to{opacity:1}}
-.onbw .fin-inner{text-align:center;max-width:320px;display:flex;flex-direction:column;align-items:center;}
-.onbw .fin-mark{width:44px;height:44px;display:block;}
-.onbw .fin-spinner{width:38px;height:38px;margin:26px auto 22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--gold);animation:finspin .8s linear infinite;}
-@keyframes finspin{to{transform:rotate(360deg)}}
+.onbw .fin-inner{text-align:center;max-width:340px;display:flex;flex-direction:column;align-items:center;}
 .onbw .fin-title{font-family:var(--serif);font-style:italic;font-weight:600;font-size:23px;line-height:1.22;color:var(--ink);}
-.onbw .fin-sub{font-family:var(--sans);font-size:13.5px;color:var(--ink-soft);margin-top:9px;line-height:1.5;min-height:2.7em;}
-@media(prefers-reduced-motion:reduce){.onbw .fin-spinner{animation:none}.onbw .fin-overlay{animation:none}}
+/* Shared brand loader (Organic loaders handoff) — replaces the old ring spinner +
+   static mark + cycling sub-text. Transparent so the overlay's paper shows; it
+   narrates the stages itself. Pulled up to sit close under the title (the scene
+   carries its own breathing room). */
+.onbw .fin-inner .sd-loader{background:transparent;min-height:0;margin-top:-28px;}
+@media(prefers-reduced-motion:reduce){.onbw .fin-overlay{animation:none}}
 
 /* 2026-06-03 — reception (Style 1) + ceremony (Style 2) prefs: grow the docked
    card grid + its card photos to fill the gap above the headline. Owner: "stretch

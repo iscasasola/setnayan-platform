@@ -1,11 +1,11 @@
 /**
- * /admin/more — mobile overflow landing for Content + Operations + Funnels
- *                + Settings groups.
+ * /admin/more — mobile overflow landing for the Insights + Manage groups.
  *
  * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the 5-item
  * BottomNav caps at 5 tabs (Home + Queues + Directory + Money + More).
- * The remaining 4 desktop groups (Content + Operations + Funnels +
- * Settings) compress into this More overflow.
+ * The desktop sidebar's 6 groups are Home · Queues · Directory · Money ·
+ * Insights (key 'funnels') · Manage (key 'content'); the two that don't
+ * own a bottom tab — Insights + Manage — compress into this More overflow.
  *
  * Telemetry + Offline daemon are FORWARD-REFERENCE entries — Phase E +
  * Phase G parallel sprints ship those routes in their own PRs. Until
@@ -22,6 +22,7 @@ import {
   Music,
   TrendingUp,
   Activity,
+  Bug,
   WifiOff,
   BarChart3,
   LineChart,
@@ -122,6 +123,14 @@ const MORE_ITEMS: LandingItem[] = [
     icon: BarChart3,
     description:
       'PostHog-resident product funnels. Open in PostHog for cohort and step-level analysis.',
+  },
+  {
+    key: 'connection-logs',
+    label: 'Connection logs',
+    href: '/admin/connection-logs',
+    icon: Bug,
+    description:
+      'Real-time client-side faults — broken buttons, failed saves, blank fallbacks — with a resolve lifecycle.',
   },
   // Settings group
   {

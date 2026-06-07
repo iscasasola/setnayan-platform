@@ -26,18 +26,22 @@
  * 5-item mobile BottomNav lives in vendor-bottom-nav.tsx alongside this
  * file.
  *
- * 6 GROUPS (per the Nav Phase 2 brief + on-disk route audit):
- *   1. Home          — Profile (/vendor-dashboard root · activeMatchExact)
- *   2. Pipeline      — Bookings · Contracts · Services · Attributes (4 —
- *                      the surfaces that drive vendor → host commitments)
- *   3. Communicate   — Messages (single chat surface — Bell badge stays
- *                      in topbar via UnreadBellBadge, not duplicated here)
- *   4. Marketing     — Marketing · Verify · Reviews · Moodboard library (4)
- *   5. Money         — Earnings · Tokens · Manpower · Redeem code (4 —
- *                      Tax docs retired 2026-05-29 under V2 publisher
- *                      posture · Setnayan no longer withholds vendor
- *                      income tax · no Form 2307 obligation toward vendors)
- *   6. Team          — Team & Setnayan (1)
+ * 4 GROUPS (remapped 2026-06-04 from the original 6 per the Nav Phase 2
+ * brief). Group keys are preserved from the 6-group layout for
+ * localStorage open-state continuity, so key and label diverge:
+ *   1. Home (key 'home')         — Overview (/vendor-dashboard root ·
+ *                      exact-match) · Profile
+ *   2. Work (key 'pipeline')     — Bookings · Messages · Services ·
+ *                      Contracts · Repertoire · Attributes (merged the old
+ *                      Pipeline + Communicate groups)
+ *   3. Grow (key 'marketing')    — Marketing · Verify · Reviews ·
+ *                      Moodboard library
+ *   4. Business (key 'money')    — Earnings · How clients pay you
+ *                      (payment-options) · Tokens · Manpower · Redeem code ·
+ *                      Branches · Team & Setnayan (merged the old Money +
+ *                      Team groups · Tax docs retired 2026-05-29 under the
+ *                      V2 publisher posture · Setnayan no longer withholds
+ *                      vendor income tax · no Form 2307 obligation)
  *
  * OMITTED PER ORPHAN-PREVENTION RULE — routes the brief enumerated but
  * which DON'T EXIST on disk get dropped per
@@ -191,7 +195,7 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
 ];
 
 /**
- * VendorSidebar — renders the 6 vendor nav groups using the shared
+ * VendorSidebar — renders the 4 vendor nav groups using the shared
  * SidebarSection + SidebarItem primitives. Wraps with a brand header
  * (Wordmark + 'Vendor' eyebrow) so the vendor doorway reads as a
  * separate context from customer + admin doorways. Mirrors the

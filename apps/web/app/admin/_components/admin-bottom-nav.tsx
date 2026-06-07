@@ -5,14 +5,16 @@
  *
  * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock specifies a
  * 5-item BottomNav strategy: Home · Queues · Directory · Money · More.
- * The 28 admin surfaces compress into 5 mobile-overflow landing pages
- * because forcing all 8 desktop groups into a bottom strip would yield
+ * The admin surfaces compress into mobile-overflow landing pages because
+ * forcing all desktop groups into a bottom strip would yield
  * unusably-narrow tap targets at common PH mobile widths (360-414px).
  *
- * The 4 mobile-overflow landing pages (/admin/queues + /admin/directory +
- * /admin/money + /admin/more) render the same NavGroup items from
- * admin-sidebar.tsx as a card grid — single source of truth, two
- * presentation surfaces.
+ * The desktop sidebar (admin-sidebar.tsx) now exposes 6 groups: Home ·
+ * Queues · Directory · Money · Insights (key 'funnels') · Manage (key
+ * 'content'). The 4 mobile-overflow landing pages (/admin/queues +
+ * /admin/directory + /admin/money + /admin/more) render the same NavGroup
+ * items from admin-sidebar.tsx as a card grid — single source of truth,
+ * two presentation surfaces.
  *
  * activeMatch rules:
  *   - Home    — EXACT /admin (uses activeMatchExact since every other
@@ -20,8 +22,7 @@
  *   - Queues  — /admin/queues landing OR any queue sub-route
  *   - Directory — /admin/directory landing OR any directory sub-route
  *   - Money   — /admin/money landing OR any money sub-route
- *   - More    — /admin/more landing OR any content/operations/funnels/
- *               settings sub-route
+ *   - More    — /admin/more landing OR any Insights/Manage sub-route
  *
  * BottomNav primitive (PR #603 + Phase 3 activeMatchExact extension)
  * auto-hides at lg breakpoint via lg:hidden, so this only renders on
@@ -68,6 +69,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: [
       '/admin/queues',
       '/admin/payments',
+      '/admin/payment-options',
       '/admin/verify',
       '/admin/disputes',
       '/admin/force-majeure',
@@ -88,6 +90,8 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/demo-vendors',
       '/admin/events',
       '/admin/venues',
+      '/admin/wedding-types',
+      '/admin/wedding-traditions',
     ],
   },
   {
@@ -102,8 +106,8 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/discount-codes',
       '/admin/addons',
       '/admin/payouts',
+      '/admin/token-bands',
       '/admin/receipts',
-      '/admin/bir',
       '/admin/settings/payment-methods',
     ],
   },
@@ -119,6 +123,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/funnels',
       '/admin/operations-hiring',
       '/admin/telemetry',
+      '/admin/connection-logs',
       '/admin/offline',
       // Manage group (2026-06-04 remap — old Content + Settings)
       '/admin/brain',

@@ -4,40 +4,46 @@
  * VendorBottomNav — v2.1 Navigation Phase 2 (vendor mobile).
  *
  * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
- * 2026-05-28 row System Wiring Map audit. The vendor doorway's 17
- * surfaces compress into 5 mobile-overflow buckets because forcing
- * all 6 desktop groups into a bottom strip would yield unusably-narrow
+ * 2026-05-28 row System Wiring Map audit. The vendor doorway's surfaces
+ * compress into 5 mobile-overflow buckets because forcing all the
+ * desktop groups into a bottom strip would yield unusably-narrow
  * tap targets at common PH mobile widths (360-414px) — the exact same
  * geometry constraint the admin doorway (PR #606) ran into and solved
  * with the 5-tab + /more landing pattern. Customer doorway (PR #625)
  * mirrored it.
  *
- * 5 TABS:
- *   1. Profile     — /vendor-dashboard (exact-match · vendor home)
+ * The desktop sidebar (vendor-sidebar.tsx) exposes 4 groups (remapped
+ * 2026-06-04 from the original 6): Home · Work (key 'pipeline') · Grow
+ * (key 'marketing') · Business (key 'money'). The bottom strip flattens
+ * those into 5 tabs:
+ *   1. Home (key 'profile') — /vendor-dashboard (exact-match · Overview)
  *   2. Bookings    — Booking pipeline (per-booking workspace · soft-hold
  *                    + downpaid status · cancel + release CTAs)
  *   3. Messages    — Chat inbox (per-thread workspace)
- *   4. Marketing   — Marketing surface (Boosted Ads · Sponsored Boost ·
- *                    visibility + verification cross-link)
- *   5. More        — Everything else (Contracts · Services · Attributes ·
- *                    Verify · Reviews · Moodboard library · Earnings ·
- *                    Tokens · Manpower · Tax docs · Redeem code · Team)
+ *   4. Earnings    — Payout + earnings surface (2026-05-29 nav-tune ·
+ *                    promoted over Marketing, which moved to /more)
+ *   5. More        — Everything else (Profile · Contracts · Services ·
+ *                    Attributes · Repertoire · Branches · Marketing ·
+ *                    Verify · Reviews · Moodboard library · Payment
+ *                    options · Tokens · Manpower · Redeem code · Team)
  *                    routed through the /vendor-dashboard/more landing.
  *
  * The 5-tab set retires the legacy 14-tab horizontal pill from the
  * pre-Phase 2 layout. Notifications doesn't get a tab — it stays
  * accessible via the topbar UnreadBellBadge per the admin pattern
  * (single source of truth for unread + live count via Realtime).
+ * (Tax docs retired 2026-05-29 under the V2 publisher posture — no More
+ * entry · the page redirects to /vendor-dashboard.)
  *
  * activeMatch RULES per tab:
- *   - Profile   — /vendor-dashboard EXACT (activeMatchExact:true)
+ *   - Home      — /vendor-dashboard EXACT (activeMatchExact:true)
  *                 because every other vendor route shares this prefix —
- *                 startsWith would keep Profile perpetually active.
+ *                 startsWith would keep Home perpetually active.
  *   - Bookings  — /vendor-dashboard/bookings + per-booking workspace
  *   - Messages  — /vendor-dashboard/messages + per-thread workspace
- *   - Marketing — /vendor-dashboard/marketing + verify (paired surfaces)
- *   - More      — /vendor-dashboard/more landing OR any of the 11
- *                 surfaces that aren't surfaced as a dedicated tab.
+ *   - Earnings  — /vendor-dashboard/earnings
+ *   - More      — /vendor-dashboard/more landing OR any surface that
+ *                 isn't surfaced as a dedicated tab.
  *
  * BottomNav primitive (PR #603 + Phase 3 activeMatchExact extension)
  * auto-hides at lg breakpoint via lg:hidden, so this only renders on
@@ -125,12 +131,15 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/contracts',
       '/vendor-dashboard/services',
       '/vendor-dashboard/attributes',
+      '/vendor-dashboard/repertoire',
+      '/vendor-dashboard/branches',
       // Marketing group — Marketing + Verify moved here from bottom nav
       '/vendor-dashboard/marketing',
       '/vendor-dashboard/verify',
       '/vendor-dashboard/reviews',
       '/vendor-dashboard/moodboard-library',
       // Money group (Earnings is now a dedicated bottom-nav tab)
+      '/vendor-dashboard/payment-options',
       '/vendor-dashboard/tokens',
       '/vendor-dashboard/manpower',
       // '/vendor-dashboard/tax-documents' RETIRED 2026-05-29 (BIR 2307

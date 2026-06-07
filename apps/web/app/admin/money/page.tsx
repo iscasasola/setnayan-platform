@@ -89,7 +89,7 @@ export default function AdminMoneyLanding() {
   return (
     <MobileLandingGrid
       title="Money"
-      subtitle="Everything that touches PHP. Pricing, vouchers, payouts, receipts, BIR, and payment methods."
+      subtitle="Everything that touches PHP. Pricing, vouchers, payouts, receipts, and payment methods."
       items={MONEY_ITEMS}
     />
   );

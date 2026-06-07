@@ -3,8 +3,9 @@
 /**
  * AdminSidebar — v2.1 Navigation Phase 3 (admin doorway).
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 locks the 28-surface admin console
- * grouped into 8 canonical categories per iteration 0023 § 1. Pre-Phase 3
+ * WHY: CLAUDE.md 2026-05-23 row 2 locks the admin console, originally
+ * grouped into 8 canonical categories per iteration 0023 § 1 but
+ * remapped 2026-06-04 to 6 groups (see below). Pre-Phase 3
  * the admin chrome rendered a horizontal pill bar via
  * apps/web/app/admin/_components/admin-nav.tsx (lines 19-110 · 8 groups +
  * 1 leaf rendered as portal-based dropdowns). The CLAUDE.md 2026-05-28
@@ -17,24 +18,28 @@
  * single source of truth for admin nav structure on desktop. The 5-item
  * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
  *
- * 8 GROUPS (per 0023 § 1 canonical structure):
- *   1. Home       — Overview (/admin)
- *   2. Queues     — Payments · Verify · Disputes · Force majeure ·
- *                   Reviews · Help · Concierge abuse (7 surfaces)
- *   3. Directory  — Users · Vendors · Demo vendors · Events · Venues (5)
- *   4. Money      — Pricing · Discount codes · Add-ons · Payouts ·
- *                   Receipts · Payment methods (6 — BIR 2307 retired
- *                   2026-05-29 under V2 publisher posture · Payment
- *                   methods de-duplicated from Settings group per brief)
- *   5. Content    — Brain · Moodboard library · Taxonomy · Website · Ads (5)
- *   6. Operations — Operations & Hiring · Telemetry · Offline daemon (3 —
- *                   Telemetry + Offline are FORWARD-REFERENCE entries for
- *                   parallel Phase E + Phase G sprints; routes 404 until
- *                   those PRs land)
- *   7. Funnels    — Funnels (/admin/funnels) (1)
- *   8. Settings   — Settings · Demo mode (2 — Demo mode kept here so it
- *                   stays reachable post-restructure since /admin/settings
- *                   page.tsx doesn't currently link to it)
+ * 6 GROUPS (remapped 2026-06-04 from the original 8 per 0023 § 1). Note
+ * the deliberate key/label divergence preserved for localStorage open-state
+ * continuity: group key 'funnels' renders label "Insights"; group key
+ * 'content' renders label "Manage".
+ *   1. Home (key 'home')       — Overview (/admin)
+ *   2. Queues (key 'queues')   — Payments · Payment options · Verify ·
+ *                   Disputes · Force majeure · Reviews · Help ·
+ *                   Concierge abuse
+ *   3. Directory (key 'directory') — Users · Vendors · Demo vendors ·
+ *                   Events · Venues · Wedding types · Wedding traditions
+ *   4. Money (key 'money')     — Pricing · Budget Planner · Discount codes ·
+ *                   Add-ons · Payouts · Token bands · Receipts ·
+ *                   Payment methods (BIR 2307 retired 2026-05-29 under V2
+ *                   publisher posture · Payment methods de-duplicated from
+ *                   Settings group per brief)
+ *   5. Insights (key 'funnels') — Growth · Funnels · Operations & Hiring ·
+ *                   Telemetry · Connection logs · Offline daemon (absorbed
+ *                   the old Operations group 2026-06-04; Telemetry + Offline
+ *                   are FORWARD-REFERENCE entries until their sprints land)
+ *   6. Manage (key 'content')  — Taxonomy · Website · Ads · Brain ·
+ *                   Moodboard library · Songs · Settings · Demo mode
+ *                   (merged the old Content + Settings groups 2026-06-04)
  *
  * PAYMENT METHODS DEDUP: the existing admin-nav.tsx surfaced
  * /admin/settings/payment-methods in BOTH Money + Settings groups per
@@ -449,7 +454,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
 ];
 
 /**
- * AdminSidebar — renders the 8 admin nav groups using the shared
+ * AdminSidebar — renders the 6 admin nav groups using the shared
  * SidebarSection + SidebarItem primitives. Wraps with a brand header
  * (Wordmark) so the admin doorway reads as a separate context from
  * customer + vendor doorways.

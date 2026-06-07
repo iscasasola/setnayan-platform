@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · chore(vendor-tiers): FREE may buy tokens (for client import)
+
+**Context:** Owner clarification on the tier rules: (1) "FREE won't get in-app customers, but FREE-VERIFIED will" — already enforced (`unlock_vendor_event` blocks FREE via `TIER_FREE_NO_INAPP`; FREE-VERIFIED gets its 10/week free), **no change**. (2) "Let FREE buy tokens to import their clients" — overrides the reissued sheet's "Cost per additional Lifetime Token: Not Allowed (FREE)".
+
+**What landed:** `canBuyTokens()` (`lib/vendor-tier-caps.ts`) now returns true for **all** tiers including FREE. A FREE vendor's only token sink is the Import Customers gate (1 token/import); buying never unlocks in-app for FREE (tier-blocked regardless of balance). The buy-token checkout + the import-customer token-charge are still **Phase D** (neither built) — this is the capability flag + the rule.
+
+**Verify:** `tsc` clean · `next lint` clean. No migration.
+
+**SPEC IMPACT:** Matrix doc buy-token row updated (FREE may buy, for client import). → corpus DECISION_LOG.
+
 ## 2026-06-07 · feat(vendor-tiers): reissued sheet — reprice + verified-free gate + subscription token bundle
 
 **Context:** Owner reissued the tier sheet ("how much they pay and the benefits"). Capabilities unchanged; pricing + token mechanics changed. Owner confirmed the two open points: **verified is FREE** (revert Phase A's verified-burn) and **grant the subscription token bundle on admin tier-set now** (interim until Phase D self-serve checkout).

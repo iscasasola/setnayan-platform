@@ -183,9 +183,18 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 /** Price to buy one additional lifetime (non-expiring) token. */
 export const TOKEN_BUY_PRICE_PHP = 100;
 
-/** May purchase additional lifetime tokens? FREE = "Not Allowed"; all others yes. */
-export function canBuyTokens(tier: string | null | undefined): boolean {
-  return asVendorTier(tier) !== 'free';
+/**
+ * May purchase additional lifetime tokens (₱100/token)?
+ *
+ * ALL tiers may buy — including FREE (owner 2026-06-07: "let FREE buy tokens to
+ * import their clients"). A FREE vendor's only token sink is the Import
+ * Customers gate (1 token/import); in-app inquiries stay tier-blocked for FREE
+ * regardless of balance (see unlock_vendor_event / TIER_FREE_NO_INAPP), so
+ * buying tokens never unlocks in-app for FREE — only client import. This
+ * overrides the matrix's "Cost per additional Lifetime Token: Not Allowed (FREE)".
+ */
+export function canBuyTokens(_tier: string | null | undefined): boolean {
+  return true;
 }
 
 export const TIER_LABEL: Record<VendorTier, string> = {

@@ -22,6 +22,25 @@ export default function GlobalError({ error, reset }: Props) {
     if (process.env.NODE_ENV === 'development') {
       console.error('[global error boundary]', error);
     }
+    // Report the root-layout crash to Sentry. This boundary is the ONLY place
+    // these errors surface on the client — Sentry's SDK does NOT auto-capture
+    // errors caught by a React error boundary — so without this the "We've
+    // logged the issue" copy below would not be true.
+    //
+    // Dynamic import keeps @sentry/nextjs out of the shared client chunk (same
+    // reasoning as _components/deferred-observability.tsx); a root-layout crash
+    // is rare enough that loading the SDK on demand here is fine. No-ops safely
+    // when the DSN is unset or the SDK never initialised.
+    void import('@sentry/nextjs')
+      .then((Sentry) => {
+        Sentry.captureException(error, {
+          tags: { boundary: 'global-error' },
+          extra: error?.digest ? { digest: error.digest } : {},
+        });
+      })
+      .catch(() => {
+        /* observability is best-effort — never let it crash the crash page */
+      });
   }, [error]);
 
   return (

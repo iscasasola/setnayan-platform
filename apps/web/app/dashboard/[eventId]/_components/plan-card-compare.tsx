@@ -24,6 +24,7 @@ import {
   revertVendorToConsidering,
   type FinalizeVendorResult,
 } from '../vendors/actions';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 // Owner-locked 2026-05-24: comparison capped at 2 across every surface
 // (wizard Today's Focus is type-locked at 2 via CompareState; marketplace
@@ -207,6 +208,13 @@ export function PlanCardCompare({
       try {
         result = await finalizeVendor(fd);
       } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Lock vendor from compare',
+          filePath: 'app/dashboard/[eventId]/_components/plan-card-compare.tsx',
+          error: err,
+          payload: { action: 'finalizeVendor', overrideExisting },
+        });
         setLockState({
           kind: 'error',
           message:
@@ -267,8 +275,17 @@ export function PlanCardCompare({
             fd2.set('vendor_id', sibling.vendor_id);
             try {
               await deleteVendor(fd2);
-            } catch {
-              // Silent — see comment block above. Lock succeeded.
+            } catch (err) {
+              // Silent to the user — see comment block above. Lock succeeded.
+              // But a failed sibling-cleanup leaves an ORPHANED considering
+              // pick in the category, so report it for triage.
+              void trackFailure({
+                eventType: 'SUPABASE_SAVE_ERROR',
+                elementName: 'Sibling-vendor cleanup after lock (orphan risk)',
+                filePath: 'app/dashboard/[eventId]/_components/plan-card-compare.tsx',
+                error: err,
+                payload: { action: 'deleteVendor', category: sibling.category },
+              });
             }
           }
           setLockState({ kind: 'just_locked', vendorId, vendorName });

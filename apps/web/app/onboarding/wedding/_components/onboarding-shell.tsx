@@ -65,6 +65,7 @@ import { LocationStep } from './location-step';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { resolvePick } from '../_data/wedding-cities';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
 const PHASE_SCREENS = 17;
@@ -2074,7 +2075,17 @@ export function OnboardingShell({
       window.setTimeout(() => {
         try {
           router.push(dest);
-        } catch {
+        } catch (err) {
+          // SPA push threw — fall back to a hard navigation (backup route).
+          // Report it: a recurring router wedge here is exactly the "stuck on
+          // Creating your dashboard" class the watchdog below guards against.
+          void trackFailure({
+            eventType: 'BLANK_FALLBACK',
+            elementName: 'Onboarding · post-commit router.push (hard-nav fallback)',
+            filePath: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
+            error: err,
+            payload: { dest },
+          });
           window.location.assign(dest);
         }
       }, ANALYZING_HOLD_MS);
@@ -2151,6 +2162,13 @@ export function OnboardingShell({
       // (owner report 2026-06-03: "never loaded"). Unwind everything + let them
       // tap finish again.
       console.error('[onboarding] commit rejected', err);
+      void trackFailure({
+        eventType: 'SUPABASE_SAVE_ERROR',
+        elementName: 'Onboarding · commit wedding plan (rejected)',
+        filePath: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
+        error: err,
+        payload: { action: 'commitOnboardingWedding', hadCommittedEventId: Boolean(committedEventId) },
+      });
       committingRef.current = false;
       setCommitting(false);
       setFinishing(false);

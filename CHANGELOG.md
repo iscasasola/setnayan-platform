@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · fix(marketplace,0026): demo-vendor leak in dashboard search + retire Form 2307 (EWT) + customer /more desktop redirect
+
+Three follow-ups from the dashboard/connection audits:
+
+**Demo-vendor leak (prod-pollution fix).** The in-dashboard couple "add a vendor" search (`searchCategoryVendors` → `fetchWizardVendorRecommendations`) had **no `is_demo` filter**, so all ~4,900 seeded demo vendors were visible to **every real couple** — even though the public `/vendors` browse + `/v/[slug]` microsite correctly hide them. Extracted the local `fetchDemoVendorIds` helper from `app/vendors/page.tsx` into shared `lib/demo-vendors.ts`, and wired the dashboard caller to exclude demo vendors (`excludeVendorIds`) **unless the viewer is in demo mode** (admin + demo cookie) — mirroring the public browse exactly. Public browse behavior unchanged.
+
+**Retire Form 2307 / EWT generation (0026).** With **0% commission + off-platform vendor money**, Setnayan never withholds tax on a vendor's sale, so the BIR Form 2307 (Certificate of Creditable Tax Withheld) generation is dead. Deleted the orphaned `api/admin/bir/2307/regenerate` route, the `api/admin/cron/generate-2307` cron, and the entire self-contained `lib/bir/` tree (generator/2307-pdf/filings/storage/atc-mapper — the only importers were the two deleted routes). **The BIR Official Receipt auto-stamping on Setnayan's own in-app SKU sales is a different, live, marketed feature and was deliberately left intact** (receipts pages, `issueReceiptForOrder`, TIN, marketing copy all untouched). Net −1,971 lines.
+
+**Customer `/more` desktop blank page.** `app/dashboard/[eventId]/more` rendered an `lg:hidden` mobile landing → blank on desktop direct-URL (same issue the vendor `/more` was just fixed for). Added a `DesktopRedirect` (matchMedia ≥1024px → `router.replace` to the event-scoped dashboard root).
+
+**Verify:** `pnpm typecheck` ✅ · `pnpm lint` ✅.
+
+**SPEC IMPACT:** marketplace (demo vendors now hidden from real couples in dashboard search, consistent with the public surfaces) + 0026 (Form 2307/EWT retired — corpus AS-BUILT headers already note BIR 2307 retirement; in-app-sale BIR Official Receipts retained). No SKU/pricing change.
+
 ## 2026-06-07 · chore(vendor-tiers): FREE may buy tokens (for client import)
 
 **Context:** Owner clarification on the tier rules: (1) "FREE won't get in-app customers, but FREE-VERIFIED will" — already enforced (`unlock_vendor_event` blocks FREE via `TIER_FREE_NO_INAPP`; FREE-VERIFIED gets its 10/week free), **no change**. (2) "Let FREE buy tokens to import their clients" — overrides the reissued sheet's "Cost per additional Lifetime Token: Not Allowed (FREE)".

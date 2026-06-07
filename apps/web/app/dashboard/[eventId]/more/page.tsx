@@ -37,6 +37,7 @@
 import type { NavGroup } from '@/app/_components/nav/types';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
 import { CustomerMobileLanding } from '../_components/customer-mobile-landing';
+import { DesktopRedirect } from '../_components/desktop-redirect';
 
 export const metadata = { title: 'More · Setnayan' };
 
@@ -114,11 +115,17 @@ export default async function CustomerMoreLanding({ params }: Props) {
     .filter((group) => group.items.length > 0);
 
   return (
-    <CustomerMobileLanding
-      title="More"
-      subtitle="Everything that isn't a bottom tab — one tap away."
-      groups={groups}
-      descriptions={DESCRIPTIONS}
-    />
+    <>
+      {/* Desktop direct-URL guard: /more is a mobile-only landing
+          (CustomerMobileLanding is lg:hidden), so on ≥lg viewports bounce to
+          the event dashboard root instead of showing a blank page. */}
+      <DesktopRedirect to={`/dashboard/${eventId}`} />
+      <CustomerMobileLanding
+        title="More"
+        subtitle="Everything that isn't a bottom tab — one tap away."
+        groups={groups}
+        descriptions={DESCRIPTIONS}
+      />
+    </>
   );
 }

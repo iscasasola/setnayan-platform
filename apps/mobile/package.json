@@ -1,0 +1,26 @@
+{
+  "name": "@setnayan/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Setnayan native shell (Capacitor remote-URL) for iOS + Android. Loads the hosted Next.js app and bridges native Camera/Network/BLE.",
+  "scripts": {
+    "add:ios": "cap add ios",
+    "add:android": "cap add android",
+    "sync": "cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "dev:ios": "CAP_SERVER_URL=http://localhost:3000 cap run ios",
+    "dev:android": "CAP_SERVER_URL=http://10.0.2.2:3000 cap run android"
+  },
+  "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.2.0",
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/camera": "^8.2.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
+    "@capacitor/network": "^8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0"
+  }
+}

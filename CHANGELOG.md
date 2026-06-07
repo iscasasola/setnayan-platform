@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0052): native mobile shell — Capacitor **remote-URL** wrapper (Android built + verified)
+
+**Context:** Owner is bootstrapping the iOS/Android native apps via Capacitor (iteration 0052). The followed recipe used `output: 'export'` + `webDir: 'out'` (static export). **That is incompatible with this app** — `apps/web` is a server-rendered Next.js app (`output: 'standalone'`) with **111 Server Actions · 60 API routes · middleware-based Supabase auth · 417 dynamic routes**; a static export drops all of it (no auth, no Supabase, no payments) and the build fails. So `apps/web` + `next.config.ts` are **untouched**.
+
+**What changed — new self-contained `apps/mobile/` package (Capacitor 8.4 · remote-URL pattern):**
+- `capacitor.config.ts` — `appId com.setnayan.app` · `webDir www` · `server.url` loads the **hosted app** (`https://www.setnayan.com`, env-overridable via `CAP_SERVER_URL` for local dev; `cleartext` auto-on for `http://`). Native WebView loads the live site; Camera/Network/BLE bridge to the web JS. Single Next.js codebase stays intact — matches the locked *"true-native Papic + Capacitor shell for the rest."*
+- `www/index.html` — branded **offline fallback** (Clean Editorial palette); Retry → `server.url`.
+- **Android project generated, hardened, and BUILT** (`android/`): manifest permissions added (`CAMERA` + `camera` feature optional · `ACCESS_NETWORK_STATE` · `BLUETOOTH_SCAN neverForLocation`/`BLUETOOTH_CONNECT` + legacy `BLUETOOTH`/`ADMIN`/`FINE_LOCATION` ≤API30); `MainActivity` subclasses Capacitor's `BridgeWebViewClient` to load the offline page on main-frame `onReceivedError` (bridge intact).
+- `package.json` (`@setnayan/mobile`) · `.gitignore` (Pods/.gradle/build/local.properties excluded) · `README.md` (corrected steps + prereqs + bridge/offline follow-ups).
+
+**Verify:** `npm install` (97 pkgs) ✅ · `cap add android` (3 plugins: BLE/Camera/Network) ✅ · `cap sync` ✅ · **`./gradlew :app:assembleDebug` → BUILD SUCCESSFUL (1m21s, 133 tasks)** ✅. APK (`app-debug.apk`, 7.8 MB) `aapt2 dump badging` confirms `com.setnayan.app` · compileSdk 36 · all perms · `assets/public/index.html` bundled · `server.url https://www.setnayan.com` baked. Toolchain (JDK 21 + Android SDK 36) installed **user-local** under `~/.setnayan-toolchain/` (no sudo, no shell-profile edits, removable). **iOS NOT generated** — only Xcode CLT is installed (no Xcode.app); `cap add ios` + builds need the owner to install Xcode (App Store) + CocoaPods. Offline fallback is compile-verified, **not yet runtime-tested** (no AVD). No migration. No `apps/web` change.
+
+**SPEC IMPACT:** **0052 (native apps).** (a) The native delivery is a **Capacitor remote-URL shell**, NOT a static export — record that `output: 'export'` is rejected for the server-driven app and the shell loads the hosted URL with native plugin bridges. (b) Native is **V1.5/Phase 2**; locked V1 mobile remains the installable PWA (already shipped). (c) The web-side bridge (`@capacitor/core` `isNativePlatform()` feature-detect, Papic capture first) is a **separate future `apps/web` change** — not in this PR. → corpus `DECISION_LOG.md` (2026-06-07) + iteration `0052_native_apps_delivery` via Cowork.
+
 ## 2026-06-06 · feat(0016): onboarding "Purchase Now" jumps to the in-app checkout card
 
 **Context:** Owner — tapping **Purchase Now** on the picks summary (step 16) should land on a payment card, not the generic Services tab. The owner first named the **VendorDirectPay** card; a prod query ruled it out — all **225 `is_setnayan_service` vendors have ZERO payment methods**, so that card would render empty ("coordinate in chat"). The platform BDO/GCash config the **in-app checkout card** (`InlineCheckoutDrawer`) uses works today, so the owner chose that.

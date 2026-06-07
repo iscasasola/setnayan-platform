@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Setnayan</string>
+    <string name="title_activity_main">Setnayan</string>
+    <string name="package_name">com.setnayan.app</string>
+    <string name="custom_url_scheme">com.setnayan.app</string>
+</resources>

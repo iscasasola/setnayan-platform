@@ -1,0 +1,47 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+/**
+ * Setnayan native shell — REMOTE-URL pattern.
+ *
+ * The Setnayan web app is a server-rendered Next.js app (`output: 'standalone'`,
+ * 111 Server Actions, 60 API routes, middleware-based Supabase auth). It CANNOT
+ * be statically exported, so this shell does NOT bundle the app. Instead the
+ * native WebView loads the live hosted app over HTTPS and bridges native
+ * hardware (Camera / Network / Bluetooth LE) to the web JS via Capacitor
+ * plugins. This keeps the single Next.js codebase 100% intact.
+ *
+ * `webDir` (./www) is the LOCAL FALLBACK shown when the remote URL is
+ * unreachable — not the app itself.
+ *
+ * Switch `server.url` per environment:
+ *   - production : https://www.setnayan.com   (default below)
+ *   - local dev  : http://10.0.2.2:3000 (Android emulator) / http://localhost:3000 (iOS sim)
+ *                  + set `cleartext: true` for plain-HTTP dev servers.
+ */
+const SERVER_URL = process.env.CAP_SERVER_URL ?? 'https://www.setnayan.com';
+
+const config: CapacitorConfig = {
+  appId: 'com.setnayan.app',
+  appName: 'Setnayan',
+  webDir: 'www',
+  server: {
+    url: SERVER_URL,
+    // Only HTTPS in production. Flip to true (and use http://) when you point
+    // SERVER_URL at a local dev server during development.
+    cleartext: SERVER_URL.startsWith('http://'),
+  },
+  ios: {
+    // Lets the WebView surface camera/mic permission prompts natively.
+    limitsNavigationsToAppBoundDomains: false,
+  },
+  plugins: {
+    // Tighten the splash so the remote page paints fast instead of hanging on
+    // a long native splash while the WebView negotiates the HTTPS load.
+    SplashScreen: {
+      launchShowDuration: 600,
+      backgroundColor: '#FBFBFA', // Warm Alabaster — Clean Editorial palette
+    },
+  },
+};
+
+export default config;

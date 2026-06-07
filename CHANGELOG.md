@@ -20,6 +20,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** **None for pricing/SKUs/customer-facing scope** (these are bug fixes to match intended behavior). One minor note: the BYO "Add your own vendor" flow now persists as a freeform `event_vendors` row — the *minimal honest* implementation. The fuller "`vendor_invites` auto-connect + email" the old code comment referenced (CLAUDE.md 2026-05-19) remains a deferred enhancement, not built here. No new table/column; `_v2` table + `verify_and_activate_manual_payment` already exist in prod. No Cowork action required.
 
+## 2026-06-07 · feat(0023/0035): Connection Logs — wire `trackFailure()` into 5 more buttons (additive to #1046)
+
+**Context:** Independent follow-up to the Connection Logs tracker, run in parallel with PR #1046. After rebasing on #1046 (which wired 19 sites across 13 files + added `insertFaultLog` PII redaction), I confirmed **none of these 5 sites overlap #1046's set** — they cover distinct high-value flows #1046 didn't touch. The onboarding-commit site I'd also picked was already done by #1046, so I dropped mine and kept theirs (no duplicate).
+
+**5 sites (all client-side, all tapping EXISTING error branches — purely additive, no logic change, ids-only payloads):**
+- `app/_components/chat-send-form.tsx` — **Send chat message** (`BUTTON_FAIL`, existing `catch`). #1046 did the *stream/receive* side (`chat-message-stream.tsx`); this is the *send* form.
+- `app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx` — **Submit payment order** (`SUPABASE_SAVE_ERROR`, on `!result.ok` from `submitOrderAction`). Money path — not covered by #1046.
+- `app/dashboard/[eventId]/add-ons/led/_components/led-background-maker.tsx` — **Save LED background config** (`SUPABASE_SAVE_ERROR`, on `!res.ok`).
+- `app/dashboard/[eventId]/add-ons/mood-board/_components/visual-preview.tsx` — **Save moodboard pick** (`SUPABASE_SAVE_ERROR`, existing `catch`).
+- `app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx` — **Add guest** (`SUPABASE_SAVE_ERROR`, on `!result.ok` from `quickAddGuest`).
+
+Payloads are ids/flags only; #1046's `insertFaultLog` redaction is the second-layer guarantee. Discovery via parallel agents; remaining client call sites are incremental.
+
+**Verify:** static review + in-scope check on every payload var; rebased clean on #1046 (onboarding conflict → took theirs). No `node_modules` in worktree → required CI on the PR is the gate (merging on green).
+
+**SPEC IMPACT:** None — wires the existing tracker; no schema/SKU/spec change.
+
+## 2026-06-07 · fix(0035): wire Connection Logs into 19 call sites + Sentry capture gaps + payload PII redaction
+
+**Context:** Owner task file ("Fix Sentry … + deploy an independent Supabase emergency log"). Investigation found (a) Sentry was **not** broken as the brief assumed — the config is sound and deliberately LCP-optimized — but had two real capture gaps; and (b) the "independent tracking table" the task asked for **already shipped today** as the Connection Logs feature (`app_telemetry_logs`), whose follow-up — *"call sites not yet instrumented"* — was outstanding. Per owner decision (2026-06-07), this reuses the canonical substrate instead of building a duplicate `client_interaction_errors` table (which would have re-introduced the rejected anon-`.insert()`), and completes the wiring.
+
+**What changed:**
+- **Sentry — `app/global-error.tsx`:** the root-layout crash boundary said *"We've logged the issue"* but **never called `Sentry.captureException`** (Sentry doesn't auto-capture React error-boundary catches). Added a dynamic-import `captureException(error, { tags: { boundary: 'global-error' } })` in its effect — no-ops safely when the DSN is unset.
+- **Sentry — `app/_components/deferred-observability.tsx`:** `replaysOnErrorSampleRate: 1.0` was set but `Sentry.replayIntegration()` was never registered, so error-replays never recorded. Registered it (inside the existing deferred chunk → no LCP cost).
+- **Connection Logs — PII redaction (NEW):** `apps/web/lib/telemetry/redact.ts` (`redactPayload()`), now run inside `insertFaultLog()` — the single write chokepoint for `app_telemetry_logs`, so **every** fault row is PII-scrubbed before storage (denylist of email/name/phone/token/secret/address/auth-shaped keys + string/depth/array/size caps). The ingest route previously stored `payload_snapshot` verbatim (size-capped only). Closes the RA 10173 "no PII in logs" gap for this surface.
+- **Call-site instrumentation — 19 sites across 13 files (18 client `trackFailure` + 1 server `insertFaultLog`):** `trackFailure({...})` (client) / `insertFaultLog({...})` (the one server component) dropped into real failure-fallbacks: unread badges (bell + messages), chat stream refetch, file-upload (watermark fallback + presign), event-date editors (inline + vendor-availability), plan-card-compare (lock + orphan-risk sibling cleanup), wizard cards (set-date, vendor grid search/lock/custom-save, paperwork, schedule-seed), attire-guide save/reset, and onboarding (commit-plan rejection + router-push hard-nav fallback). Benign catches (localStorage private-mode, date-parse, prefetch, NEXT_REDIRECT guards) and the already-Sentry-logged server loader were deliberately left out to keep the firehose high-signal.
+
+**Verify:** fresh worktree off current `origin/main` (`183deae5`) · `pnpm typecheck` ✅ · `pnpm lint` ✅ (only pre-existing warnings) · `pnpm build` ✅. No migration in this PR (`app_telemetry_logs` already applied to prod). Owner action: set `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in Vercel Production to actually turn on capture (OWNER_ACTIONS #19e) — see `TRACKING_STATUS.md`.
+
+**SPEC IMPACT:** 0035 (observability) — global-error now reports to Sentry; error-replay integration registered; Connection Logs `payload_snapshot` is now PII-redacted server-side; the firehose is now instrumented across the core couple/wizard/onboarding surfaces. No new table, no new SKU, no pricing/customer-facing change. → corpus `DECISION_LOG.md` (2026-06-07).
+
 ## 2026-06-07 · feat(0052): native mobile shell — Capacitor **remote-URL** wrapper (Android built + verified)
 
 **Context:** Owner is bootstrapping the iOS/Android native apps via Capacitor (iteration 0052). The followed recipe used `output: 'export'` + `webDir: 'out'` (static export). **That is incompatible with this app** — `apps/web` is a server-rendered Next.js app (`output: 'standalone'`) with **111 Server Actions · 60 API routes · middleware-based Supabase auth · 417 dynamic routes**; a static export drops all of it (no auth, no Supabase, no payments) and the build fails. So `apps/web` + `next.config.ts` are **untouched**.

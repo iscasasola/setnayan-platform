@@ -22,6 +22,7 @@
 import { useRef } from 'react';
 import { Send } from 'lucide-react';
 import { SubmitButton } from './submit-button';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   threadId: string;
@@ -45,6 +46,13 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
           // yet, but at least keep the textarea's content so the user can
           // retry without retyping.
           console.error('sendChatMessage failed', err);
+          void trackFailure({
+            eventType: 'BUTTON_FAIL',
+            elementName: 'Send chat message',
+            filePath: 'app/_components/chat-send-form.tsx',
+            error: err,
+            payload: { threadId },
+          });
           return;
         }
         // Optimistic clear on success; the Realtime INSERT will paint the

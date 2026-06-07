@@ -30,6 +30,7 @@ import {
   type ChatMessageRow,
   type ChatSenderRole,
 } from '@/lib/chat';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   threadId: string;
@@ -95,10 +96,18 @@ export function ChatMessageStream({
         const fresh = await fetchMessages(supabase, threadId);
         if (cancelled) return;
         setMessages(fresh);
-      } catch {
+      } catch (err) {
         // Silent — Supabase auto-reconnects, the next event or refetch
         // will heal the gap. We don't want to render a scary error toast
-        // for transient network blips.
+        // for transient network blips. But we DO report so a persistent
+        // fetchMessages failure (e.g. RLS / schema) is visible.
+        void trackFailure({
+          eventType: 'OTHER',
+          elementName: 'Chat message stream refetch',
+          filePath: 'app/_components/chat-message-stream.tsx',
+          error: err,
+          payload: { query: 'fetchMessages' },
+        });
       }
     };
 

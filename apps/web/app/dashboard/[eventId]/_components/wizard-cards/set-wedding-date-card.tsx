@@ -36,6 +36,7 @@ import {
   type CeremonyType,
   type MeaningfulDate,
 } from '@/lib/auspicious-date';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 /** Summary view caps at the top N reasons across all categories — the
  *  full grouped breakdown lives behind the "Learn more about this date"
@@ -377,6 +378,13 @@ export function SetWeddingDateCard({
         // Success · WizardHero re-renders via revalidatePath · the next
         // focus card transitions in-place.
       } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Wizard · set wedding date',
+          filePath: 'app/dashboard/[eventId]/_components/wizard-cards/set-wedding-date-card.tsx',
+          error: err,
+          payload: { action: 'completeSetWeddingDateTask' },
+        });
         const message =
           err instanceof Error ? err.message : 'Could not save your date. Try again.';
         setErrorMessage(message);

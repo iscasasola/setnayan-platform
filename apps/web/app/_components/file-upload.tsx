@@ -9,6 +9,7 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -355,6 +356,13 @@ export function FileUpload({
         // We don't block uploads on a watermark failure — it's a deterrent,
         // not a security guarantee, and the user shouldn't be stuck.
         console.warn('watermark failed; uploading original', err);
+        void trackFailure({
+          eventType: 'BLANK_FALLBACK',
+          elementName: 'File watermark (fell back to original)',
+          filePath: 'app/_components/file-upload.tsx',
+          error: err,
+          payload: { bucket, contentType: initialContentType },
+        });
         file = rawFile;
       }
     }
@@ -403,6 +411,13 @@ export function FileUpload({
       }
       presign = data;
     } catch (err) {
+      void trackFailure({
+        eventType: 'BUTTON_FAIL',
+        elementName: 'File upload presign request',
+        filePath: 'app/_components/file-upload.tsx',
+        error: err,
+        payload: { bucket, step: 'presign' },
+      });
       if (isMountedRef.current) {
         setError(err instanceof Error ? err.message : 'Network error.');
         setInFlight((prev) => prev.filter((i) => i.id !== id));

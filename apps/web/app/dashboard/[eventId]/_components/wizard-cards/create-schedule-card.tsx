@@ -50,6 +50,7 @@ import {
 } from '@/lib/schedule';
 import { seedDefaultScheduleBlocks } from '../../schedule/actions';
 import { ScheduleEditor } from './create-schedule-editor';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 
 type Props = {
   eventId: string;
@@ -77,9 +78,19 @@ export async function CreateScheduleCard({
     try {
       await seedDefaultScheduleBlocks(eventId, ceremonyType, eventDate);
       blocks = await fetchScheduleBlocks(supabase, eventId);
-    } catch {
+    } catch (err) {
       // Seed failure is non-fatal · the editor still renders with the
-      // empty payload so the host can [+ Add block] from scratch.
+      // empty payload so the host can [+ Add block] from scratch. Report it
+      // (this is a server component, so write via insertFaultLog rather than
+      // the browser trackFailure path) so a recurring seed failure — which
+      // would otherwise be completely silent — surfaces in Connection Logs.
+      await insertFaultLog({
+        event_type: 'BLANK_FALLBACK',
+        element_name: 'Wizard · seed default schedule blocks',
+        file_path: 'app/dashboard/[eventId]/_components/wizard-cards/create-schedule-card.tsx',
+        error_message: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+        payload_snapshot: { ceremonyType },
+      });
     }
   }
 

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { TelemetryEventType } from '@/lib/telemetry/track-error';
+import { redactPayload } from '@/lib/telemetry/redact';
 
 /**
  * Connection Logs · server-side write helpers for app_telemetry_logs.
@@ -54,12 +55,11 @@ export async function insertFaultLog(input: InsertFaultInput): Promise<string | 
     return null; // env misconfiguration — fail closed, swallow.
   }
 
-  const payload =
-    input.payload_snapshot &&
-    typeof input.payload_snapshot === 'object' &&
-    !Array.isArray(input.payload_snapshot)
-      ? input.payload_snapshot
-      : {};
+  // RA 10173 storage-side guard: redact PII-shaped keys + cap sizes on the
+  // payload before it ever lands in the table. This is the single chokepoint
+  // for every app_telemetry_logs write, so all call sites are covered without
+  // trusting each one to pre-scrub. See lib/telemetry/redact.ts.
+  const payload = redactPayload(input.payload_snapshot ?? null);
 
   const { data, error } = await supabase
     .from('app_telemetry_logs')

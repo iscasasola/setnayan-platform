@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import { saveAttireGuidePaletteColor } from '../actions';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 /**
  * Wedding Attire Guide preview — owner directive 2026-05-23 PM.
@@ -466,10 +467,18 @@ export function WeddingAttireGuide({
     startTransition(async () => {
       try {
         await saveAttireGuidePaletteColor(eventId, roleKey, upper);
-      } catch {
+      } catch (err) {
         // Roll back the optimistic update if persistence failed. The
         // host sees their color revert; the V1.1 toast pass will
-        // surface "couldn't save" copy.
+        // surface "couldn't save" copy. Report the silent failure so a
+        // recurring save problem is visible.
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Attire guide · save palette color',
+          filePath: 'app/dashboard/[eventId]/add-ons/mood-board/_components/wedding-attire-guide.tsx',
+          error: err,
+          payload: { roleKey, action: 'saveAttireGuidePaletteColor' },
+        });
         setLocalAttire((curr) => {
           const next = { ...curr };
           if (prev === null) delete next[roleKey];
@@ -503,7 +512,14 @@ export function WeddingAttireGuide({
         if (defaultHex) {
           await saveAttireGuidePaletteColor(eventId, roleKey, defaultHex);
         }
-      } catch {
+      } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Attire guide · reset palette color',
+          filePath: 'app/dashboard/[eventId]/add-ons/mood-board/_components/wedding-attire-guide.tsx',
+          error: err,
+          payload: { roleKey, action: 'saveAttireGuidePaletteColor(reset)' },
+        });
         if (prev !== null) {
           setLocalAttire((curr) => ({ ...curr, [roleKey]: prev }));
         }

@@ -19,6 +19,7 @@ import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { countUnreadMessages } from '@/lib/chat';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   userId: string;
@@ -43,8 +44,16 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
         const fresh = await countUnreadMessages(supabase, userId);
         if (cancelled) return;
         setUnread(fresh);
-      } catch {
+      } catch (err) {
         // Transient — Realtime will resync on the next event / resubscribe.
+        // Still report so a sustained count-query failure is visible.
+        void trackFailure({
+          eventType: 'OTHER',
+          elementName: 'Unread messages badge',
+          filePath: 'app/_components/unread-messages-badge.tsx',
+          error: err,
+          payload: { query: 'countUnreadMessages' },
+        });
       }
     };
 

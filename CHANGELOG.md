@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · fix(loading): notifications — branded, layout-matched loading shell
+
+**Context:** Customer report (owner 2026-06-07) — opening **Notifications** showed "no load." The route *did* have a `loading.tsx`, but it was a bare `ListPageSkeleton` re-export: generic pulsing blocks, no "what we're doing" cue, that don't match the notifications screen — on a quick fetch it flashed imperceptibly and never read as a deliberate loading state.
+
+**Fix (`app/dashboard/notifications/loading.tsx`):** replaced the bare re-export with a purpose-built shell that mirrors the real page (back link + header + 5 notification-row skeletons) and adds the branded `<LoadingNarration>` strip ("Loading your notifications… / Checking for new messages and updates…"). The page fetches auth + the notifications list, so this is a genuine Suspense fallback. `tsc` + `next lint` clean.
+
+**Note on "More":** the customer **More** tab (`/dashboard/[eventId]/more`) was also flagged, but it's a *static menu* — it does no data fetch (just renders a grid of links from a pure config), so it renders instantly and there is genuinely nothing to load. Forcing a loader there would be an artificial delay, so it's intentionally left as-is.
+
+**SPEC IMPACT:** None — loading-UX polish; no schema/SKU/scope change.
+
+
 ## 2026-06-07 · fix(loader): onboarding-completion overlay now uses `<SDLoader>`
 
 **Context:** Owner spotted (live mobile screenshot) that the post-onboarding **"Creating your personalized dashboard"** overlay still showed the *old* loader — a thin ring spinner + static mark + cycling sub-text. It was a bespoke loader (`onboarding-shell.tsx`, owner 2026-06-02) that the targeted `<SDLoader>` rollout hadn't touched. This is a textbook "personalized work" moment, so it now uses the brand loader.

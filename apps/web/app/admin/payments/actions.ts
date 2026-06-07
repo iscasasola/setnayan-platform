@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/orders';
@@ -90,7 +91,16 @@ export async function approvePayment(formData: FormData) {
     .eq('status', 'pending')
     .select('order_id, user_id, amount_php')
     .maybeSingle();
-  if (pErr) throw new Error(pErr.message);
+  if (pErr) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Approve payment — mark payment matched',
+      file_path: 'app/admin/payments/actions.ts',
+      error_message: pErr.message,
+      payload_snapshot: { paymentId, promoteOrder },
+    });
+    throw new Error(pErr.message);
+  }
   if (!payment) {
     // Either the payment_id doesn't exist or it's already been resolved.
     // Re-read so we can give the admin a useful message.
@@ -150,6 +160,13 @@ export async function approvePayment(formData: FormData) {
       .update({ status: 'paid', updated_at: new Date().toISOString() })
       .eq('order_id', payment.order_id);
     if (promoteErr) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Approve payment — promote order to paid',
+        file_path: 'app/admin/payments/actions.ts',
+        error_message: promoteErr.message,
+        payload_snapshot: { paymentId, orderId: payment.order_id, serviceKey: order?.service_key ?? null },
+      });
       throw new Error(
         `Failed to promote order ${payment.order_id} to paid: ${promoteErr.message}`,
       );
@@ -905,7 +922,16 @@ export async function confirmOrderTotal(formData: FormData) {
     .eq('order_id', orderId)
     .select('user_id, event_id, public_id, confirmed_total_php')
     .single();
-  if (error || !order) throw new Error(error?.message ?? 'Could not update order');
+  if (error || !order) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Confirm order total — quote and set awaiting_payment',
+      file_path: 'app/admin/payments/actions.ts',
+      error_message: error?.message ?? 'Could not update order',
+      payload_snapshot: { orderId, amount },
+    });
+    throw new Error(error?.message ?? 'Could not update order');
+  }
 
   await emitNotification({
     userId: order.user_id,

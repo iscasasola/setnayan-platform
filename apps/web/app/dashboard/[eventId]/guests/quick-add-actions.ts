@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
   type GuestRole,
@@ -132,6 +133,13 @@ export async function quickAddGuest(
           ? 'There’s already a Bride — change theirs first.'
           : 'There’s already a Groom — change theirs first.'
         : (error?.message ?? 'Couldn’t add that guest.');
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Quick-add guest (insert)',
+      file_path: 'app/dashboard/[eventId]/guests/quick-add-actions.ts',
+      error_message: error?.message ?? 'insert returned no row',
+      payload_snapshot: { eventId, side, role },
+    });
     return { ok: false, error: friendly };
   }
 
@@ -285,7 +293,16 @@ export async function addRoleToGuest(
     .from('guests')
     .update({ extra_roles: next })
     .eq('guest_id', guestId);
-  if (updErr) return { ok: false, error: updErr.message ?? 'Couldn’t add that role.' };
+  if (updErr) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Add extra role to guest (update)',
+      file_path: 'app/dashboard/[eventId]/guests/quick-add-actions.ts',
+      error_message: updErr.message,
+      payload_snapshot: { eventId, guestId, role },
+    });
+    return { ok: false, error: updErr.message ?? 'Couldn’t add that role.' };
+  }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true, guest: { guest_id: g.guest_id, role: g.role, extra_roles: next } };
@@ -335,6 +352,13 @@ export async function setGuestPrimaryRole(
           ? 'There’s already a Bride — change theirs first.'
           : 'There’s already a Groom — change theirs first.'
         : (updErr.message ?? 'Couldn’t change that role.');
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Set guest primary role (update)',
+      file_path: 'app/dashboard/[eventId]/guests/quick-add-actions.ts',
+      error_message: updErr.message,
+      payload_snapshot: { eventId, guestId, role },
+    });
     return { ok: false, error: friendly };
   }
 

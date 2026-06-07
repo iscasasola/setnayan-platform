@@ -10,6 +10,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { STEPS, type StepKey } from '@/lib/planner';
 import {
@@ -148,7 +149,16 @@ export async function updateEventDate(formData: FormData) {
       event_date_precision: newPrecision,
     })
     .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Save wedding date',
+      file_path: 'app/dashboard/[eventId]/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { eventId, eventDate, newPrecision },
+    });
+    throw new Error(error.message);
+  }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
@@ -263,7 +273,16 @@ export async function toggleJourneyStep(formData: FormData) {
         { event_id: eventId, step_key: stepKey, completed_by: user.id, completed_at: new Date().toISOString() },
         { onConflict: 'event_id,step_key' },
       );
-    if (error) throw new Error(error.message);
+    if (error) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Mark planning step complete',
+        file_path: 'app/dashboard/[eventId]/actions.ts',
+        error_message: error.message,
+        payload_snapshot: { eventId, stepKey },
+      });
+      throw new Error(error.message);
+    }
   } else {
     const { error } = await supabase
       .from('event_journey_steps')
@@ -426,6 +445,13 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     })
     .eq('event_id', eventId);
   if (updateError) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Save wedding ceremony type',
+      file_path: 'app/dashboard/[eventId]/actions.ts',
+      error_message: updateError.message,
+      payload_snapshot: { eventId, ceremony_type, previousType, confirmed },
+    });
     return { ok: false, code: 'db_error', message: updateError.message };
   }
 

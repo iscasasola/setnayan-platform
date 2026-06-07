@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -119,7 +120,16 @@ export async function createOrder(formData: FormData) {
     .select('order_id')
     .single();
 
-  if (error || !data) throw new Error(error?.message ?? 'Could not create order');
+  if (error || !data) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Create order (customer apply-then-pay)',
+      file_path: 'app/dashboard/[eventId]/orders/actions.ts',
+      error_message: error?.message ?? 'Could not create order',
+      payload_snapshot: { eventId, userId: user.id, requestedTotalPhp },
+    });
+    throw new Error(error?.message ?? 'Could not create order');
+  }
 
   // Wire payment instructions email · iteration 0034 apply-then-pay manual
   // reconciliation flow (CLAUDE.md 2026-05-12 lock · System_Wiring_Map RED #2
@@ -309,6 +319,13 @@ async function createSelfCompOrder(args: {
   if (orderInsert.error || !orderInsert.data) {
     // The grant has already been written; we don't roll it back since the
     // trigger uses it for rate-limit accounting. Surface the error.
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Create self-comp order (vendor self-purchase)',
+      file_path: 'app/dashboard/[eventId]/orders/actions.ts',
+      error_message: orderInsert.error?.message ?? 'Could not create comp order.',
+      payload_snapshot: { eventId: args.eventId, userId: args.userId, grantId, vendorProfileId: args.vendorProfileId },
+    });
     throw new Error(orderInsert.error?.message ?? 'Could not create comp order.');
   }
 
@@ -439,6 +456,13 @@ export async function logPayment(formData: FormData) {
       revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
       redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);
     }
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Log payment (proof submission)',
+      file_path: 'app/dashboard/[eventId]/orders/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { eventId, orderId, userId: user.id, hasIdempotencyKey: idempotencyKey !== null },
+    });
     throw new Error(error.message);
   }
 

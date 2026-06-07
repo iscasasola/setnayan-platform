@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
@@ -95,6 +96,13 @@ export async function updatePersonalInfo(formData: FormData) {
     .eq('user_id', user.id);
 
   if (error) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Save personal info',
+      file_path: 'app/dashboard/profile/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { userId: user.id, marketing_opt_in, hasPhone: phone !== null, hasPhoto: profile_photo_url !== null },
+    });
     return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}`);
   }
 
@@ -167,6 +175,13 @@ export async function changePassword(formData: FormData) {
   // password — no admin client needed, the session token authorizes the call.
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Change password',
+      file_path: 'app/dashboard/profile/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { userId: user.id },
+    });
     return redirect(
       `/dashboard/profile?error=${encodeURIComponent(error.message)}`,
     );

@@ -42,6 +42,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
@@ -415,6 +416,13 @@ export async function submitOrderAction(
     .maybeSingle();
 
   if (orderErr || !orderRow) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Create checkout order (orders INSERT)',
+      file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+      error_message: String(orderErr?.message ?? 'orders insert returned no row'),
+      payload_snapshot: { eventId, serviceKey, referenceCode, voucherApplied: Boolean(voucherCodeNormalized) },
+    });
     return {
       ok: false,
       reason: orderErr?.message ?? 'Could not create your order. Please try again.',
@@ -446,6 +454,13 @@ export async function submitOrderAction(
     .maybeSingle();
 
   if (paymentErr || !paymentRow) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Log checkout payment (payments INSERT)',
+      file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+      error_message: String(paymentErr?.message ?? 'payments insert returned no row'),
+      payload_snapshot: { orderId, eventId, serviceKey, channel },
+    });
     // Rollback the orders row to avoid an orphan.
     await supabase.from('orders').delete().eq('order_id', orderId);
     return {
@@ -470,6 +485,13 @@ export async function submitOrderAction(
         discount_centavos_applied: Number(voucherDiscountCentavos),
       });
     if (redemptionErr) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Apply checkout voucher (discount_code_redemptions INSERT)',
+        file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+        error_message: String(redemptionErr.message),
+        payload_snapshot: { orderId, paymentId, eventId, serviceKey, voucherCodeId, dbErrorCode: (redemptionErr as { code?: string }).code },
+      });
       // Rollback both prior INSERTs.
       await supabase.from('payments').delete().eq('payment_id', paymentId);
       await supabase.from('orders').delete().eq('order_id', orderId);

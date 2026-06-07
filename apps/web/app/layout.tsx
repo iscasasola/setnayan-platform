@@ -20,8 +20,30 @@ import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
+import { AppInitSplash } from './_components/app-init-splash';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
+
+/**
+ * App cold-start ("initialization") splash gate — owner 2026-06-07.
+ * Runs synchronously before first paint. Sets `data-sn-boot` on <html> on the
+ * FIRST app-route (or native shell) load of a session, which globals.css uses
+ * to show the animated brand splash (#sn-init-splash). Marketing/legal/public
+ * pages are intentionally excluded (keeps SSR content + Lighthouse/LCP intact);
+ * the native Capacitor shell always boots through it. Once per session via
+ * sessionStorage so in-app navigation never re-splashes. AppInitSplash (client)
+ * fades it after hydration; a CSS failsafe (~4s) guarantees it never sticks.
+ */
+const bootSplashScript = `(function(){try{
+  var p=location.pathname;
+  var isApp=/^\\/(dashboard|vendor-dashboard|admin)(\\/|$)/.test(p);
+  var c=window.Capacitor;
+  var isNative=!!(c&&c.isNativePlatform&&c.isNativePlatform());
+  if(!(isApp||isNative))return;
+  if(sessionStorage.getItem('sn_booted'))return;
+  sessionStorage.setItem('sn_booted','1');
+  document.documentElement.setAttribute('data-sn-boot','1');
+}catch(e){}})();`;
 
 // Brand typography — iteration 0015 § Brand. Self-hosted via next/font/google
 // so the fonts ship in the same render lifecycle as the page (no FOUT, no
@@ -310,6 +332,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {/*
+          App cold-start splash gate — sets data-sn-boot before first paint on
+          the first app-route / native-shell load of a session. See
+          bootSplashScript above + #sn-init-splash in globals.css.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: bootSplashScript }} />
+        {/*
           Organization JSON-LD — Google Knowledge Graph + AI answer engine
           entity grounding. Renders on every public page. Page-specific JSON-LD
           (SoftwareApplication on homepage, LocalBusiness on /v/[slug], etc.)
@@ -340,6 +368,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ) : null}
       </head>
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
+        {/*
+          App cold-start ("initialization") splash — the animated brand mark on
+          Warm Alabaster, shown only when the head gate set data-sn-boot (first
+          app-route / native-shell load of a session). Server-rendered so it
+          paints in the first frame (and in the native WebView's first paint);
+          AppInitSplash fades it after hydration, CSS failsafe backs it up.
+          Hidden (display:none) on every other surface — zero marketing impact.
+        */}
+        <div id="sn-init-splash" aria-hidden="true">
+          <div className="sd-loader" data-theme="light">
+            <div className="sd-stage">
+              <div className="sd-scene">
+                <div className="sd-core">
+                  <div className="sd-glow" />
+                  <div
+                    className="sd-lg"
+                    style={{ backgroundImage: "url('/brand/setnayan-mark.svg')" }}
+                  />
+                  <div className="sd-orbit sd-orbit-a" />
+                  <div className="sd-orbit sd-orbit-b" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <AppInitSplash />
         {/* Global top loading bar — the future-proof catch-all that shows a
             loading indicator on EVERY route navigation (incl. routes without
             their own loading.tsx, and any added later). Pure client → no

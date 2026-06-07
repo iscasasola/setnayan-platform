@@ -14,3 +14,9 @@ android/local.properties
 android/.idea/
 *.xcuserstate
 .DS_Store
+
+# Release signing — NEVER commit the upload key or its passwords.
+*.jks
+*.keystore
+android/keystore.properties
+keystore.properties

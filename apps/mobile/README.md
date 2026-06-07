@@ -17,17 +17,6 @@ points a native WebView at the hosted site. This matches the locked architecture
 
 `www/` is a **local offline fallback page only** — not the app.
 
-## Prerequisites (one-time, on your Mac)
-
-Not installed in the build environment — install before `cap add`:
-
-| Tool | iOS | Android | Install |
-|---|---|---|---|
-| Xcode + Command Line Tools | ✅ | — | App Store, then `xcode-select --install` |
-| CocoaPods | ✅ | — | `sudo gem install cocoapods` (or `brew install cocoapods`) |
-| Android Studio + SDK | — | ✅ | https://developer.android.com/studio |
-| `ANDROID_HOME` env var | — | ✅ | export to the SDK path in your shell profile |
-
 ## npm, not pnpm
 
 The repo root is a **pnpm workspace**, but this package is managed with **npm**
@@ -36,56 +25,98 @@ Capacitor's CLI expects a flat `node_modules` for native plugin discovery, which
 pnpm's symlinked store breaks. So: run `npm` here, `pnpm` everywhere else. The
 root `pnpm-lock.yaml` never sees these deps.
 
-## Setup (from this folder)
+## Build sequence (IMPORTANT — fresh clone is NOT clone-and-gradle)
+
+The `android/` project IS committed, but Capacitor regenerates several gitignored
+files on sync (`assets/public/`, `assets/capacitor.config.json`,
+`res/xml/config.xml`). A bare `gradle` on a fresh checkout fails — always sync first:
 
 ```bash
 cd apps/mobile
-npm install              # pulls @capacitor/* into ./node_modules
-
-# Generate native projects (needs the tooling above):
-npm run add:ios          # cap add ios       (requires CocoaPods)
-npm run add:android      # cap add android   (requires Android SDK)
-
-# Open the IDEs:
-npm run open:ios         # Xcode  → pick a simulator → Run
-npm run open:android     # Android Studio → pick an emulator → Run
+npm ci                        # or: npm install
+npx cap sync android          # regenerates the gitignored Capacitor glue
+cd android && ./gradlew :app:assembleDebug   # → app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The app boots straight into `https://www.setnayan.com`.
+`ios/` is NOT committed (needs macOS + Xcode + CocoaPods to generate). To create it:
+
+```bash
+npm run add:ios               # cap add ios  (requires CocoaPods + Xcode.app)
+npm run open:ios              # Xcode → simulator → Run
+```
+
+## Installed Capacitor plugins
+
+`@capacitor/core` · `app` (back button + deep links + lifecycle) · `camera`
+(Papic stills) · `network` · `status-bar` · `keyboard` · `splash-screen` ·
+`@capacitor-community/bluetooth-le` (Camera Bridge / DSLR). The web-side calls
+live in `apps/web` behind `Capacitor.isNativePlatform()`.
 
 ## Pointing at a local dev server
 
 `server.url` is env-overridable via `CAP_SERVER_URL`:
 
 ```bash
-# run apps/web first:  (cd ../web && npm run dev)   # http://localhost:3000
+# run apps/web first:  (cd ../web && pnpm dev)   # http://localhost:3000
 npm run dev:ios          # CAP_SERVER_URL=http://localhost:3000
 npm run dev:android      # CAP_SERVER_URL=http://10.0.2.2:3000  (emulator → host)
 ```
 
 `cleartext` auto-enables when `CAP_SERVER_URL` is `http://`.
 
-## Native bridge — next integration step (on the web side)
+## App icons & splash
 
-For the hosted app to actually *call* Camera/BLE/Network, `apps/web` needs to
-import `@capacitor/core` and feature-detect the native runtime, e.g.:
+Generated from the real brand app icon (`apps/web/public/brand/setnayan-app-icon-512.png`,
+staged here as `assets/logo.png`) via `@capacitor/assets`. Regenerate after
+changing the art:
 
-```ts
-import { Capacitor } from '@capacitor/core';
-if (Capacitor.isNativePlatform()) { /* use @capacitor/camera ... */ }
+```bash
+npx @capacitor/assets generate --android \
+  --iconBackgroundColor '#FBFBFA' --iconBackgroundColorDark '#1E2229' \
+  --splashBackgroundColor '#FBFBFA' --splashBackgroundColorDark '#1E2229'
 ```
 
-That's a separate change in `apps/web` (Papic capture path first, per iteration
-0052). The shell here is hardware-ready but the web app doesn't invoke plugins
-yet.
+> **Owner TODO:** drop a **1024×1024** master into `assets/logo.png` for crisper
+> output (the current source is 512×512). Add `--ios` once the iOS project exists.
 
-## Offline fallback (follow-up)
+## Release signing (Android — required for Play upload)
 
-`www/index.html` exists but isn't yet wired as the WebView error page. To show
-it when the device is offline:
-- **iOS:** handle `webView(_:didFailProvisionalNavigation:withError:)` in the
-  generated `ios/App` and load the bundled `www/index.html`.
-- **Android:** override `WebViewClient.onReceivedError` in `android/app`.
+`app/build.gradle` reads signing from a **gitignored** `android/keystore.properties`
+(absent → release stays unsigned and local/debug builds still work). To sign a
+release `.aab`:
+
+1. Create the upload keystore (store it OUTSIDE git):
+   ```bash
+   keytool -genkey -v -keystore ~/setnayan-upload.jks -keyalg RSA -keysize 2048 \
+     -validity 10000 -alias setnayan
+   ```
+2. Create `android/keystore.properties` (gitignored):
+   ```properties
+   storeFile=/Users/you/setnayan-upload.jks
+   storePassword=…
+   keyAlias=setnayan
+   keyPassword=…
+   ```
+3. `cd android && ./gradlew :app:bundleRelease` → signed `.aab`. Enroll in **Play
+   App Signing** and register the upload key's SHA-256 in `assetlinks.json`.
+
+## Deep links (App Links / Universal Links / `setnayan://`)
+
+`AndroidManifest.xml` declares an **App Links** filter (verified `https://www.setnayan.com/dashboard*`)
+and the **`setnayan://`** custom scheme. The custom scheme works immediately; the
+verified `https` App Links only auto-open once
+`/.well-known/assetlinks.json` (with the **release-key SHA-256**) is hosted on
+`www.setnayan.com`. iOS Universal Links additionally need the Associated Domains
+entitlement + `apple-app-site-association` (with the Apple **Team ID**). The
+web-side `App.addListener('appUrlOpen', …)` handler lives in `apps/web`.
+
+## Offline fallback
+
+Android is wired: `MainActivity` subclasses Capacitor's `BridgeWebViewClient` and
+loads `www/index.html` on a main-frame `onReceivedError`. **iOS is not yet
+wired** — handle `webView(_:didFailProvisionalNavigation:withError:)` in the
+generated `ios/App` once it exists. (Both compile-verified only — runtime-test on
+a device.)
 
 ## Store-review note
 

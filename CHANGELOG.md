@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0052): native store-prep — plugins + BACK fix + branded icons + signing/deep-link scaffolds
+
+**Context:** Owner: "prep for both app stores." A multi-agent audit of the merged remote-URL shell (PR #1044) surfaced 42 findings (21 adversarially verified). Headline: the remote-URL approach is **validated** (email/magic-link auth works first-party in the WebView; OAuth-in-WebView is real but **latent** — gated behind the off `NEXT_PUBLIC_OAUTH_*_ENABLED` flags), but the **Android hardware BACK button exits the app** from any screen (verified vs Capacitor 8.4 `BridgeActivity` source) — a guaranteed Play rejection + regression vs the PWA. This PR lands the zero-owner-dependency hardening + the store-submission code scaffolds.
+
+**`apps/mobile` (Android, build-verified):**
+- **+4 plugins** `@capacitor/app` · `splash-screen` · `status-bar` · `keyboard` (now 7 native plugins). `cap sync` + `gradlew assembleDebug` → **BUILD SUCCESSFUL**.
+- **Branded launcher icon + splash** generated via `@capacitor/assets` from the real PWA app icon (`apps/web/public/brand/setnayan-app-icon-512.png` → `assets/logo.png`; brand bg `#FBFBFA`/`#1E2229`) — 74 assets replace the stock Capacitor robot.
+- **Deep-link intent-filters** in `AndroidManifest.xml`: App Links (`autoVerify` https, scoped to `/dashboard`) + `setnayan://` custom scheme.
+- **Release signing** (`app/build.gradle`): `signingConfigs.release` reads a gitignored `keystore.properties`; absent → release stays unsigned and debug builds still work. Keystore lines uncommented in `android/.gitignore`.
+- `capacitor.config.ts`: splash `launchShowDuration` 600→2000 + `launchAutoHide` (offline backstop); `Keyboard.resize: 'native'`.
+- README rewritten: real build sequence (`npm ci && cap sync && gradlew` — bare gradle fails on a fresh clone), signing, icon-regen, deep-links.
+
+**`apps/web` (web-side bridge — typecheck + lint green, ZERO new deps):**
+- **`NativeBridge`** (`app/_components/native-bridge.tsx`, mounted in `layout.tsx`): fixes the BACK-exits bug (history-back, exit only at root), hides the splash after first paint, stops content drawing under the notch (`StatusBar.setOverlaysWebView`), and handles `appUrlOpen` deep links. Reads the runtime `window.Capacitor` global — **no `@capacitor/*` deps added to apps/web**, zero bundle weight for web/PWA users, every path a no-op off-native.
+- **Client-type detection** (`client-type-detector.tsx` + `lib/supabase/cookies.ts`): new `'capacitor'` type, detected first via `window.Capacitor.isNativePlatform()` and added to `isNativeLike` → native users get the 10-year cookie + aggressive refresh window instead of misclassifying as `web`.
+- **Deep-link association files** scaffolded: `public/.well-known/assetlinks.json` (placeholder release SHA-256) + `apple-app-site-association` (placeholder Team ID); `middleware.ts` matcher excludes `/.well-known`; `next.config.ts` serves the AASA file as `application/json`.
+
+**Verify:** apps/mobile `gradlew assembleDebug` BUILD SUCCESSFUL (branded icons + deep-links + signing scaffold packaged); apps/web `tsc --noEmit` exit 0 + `next lint` clean. Android build env reused from `~/.setnayan-toolchain` (JDK 21 + SDK 36). **NOT runtime-tested** (no AVD) — BACK/splash/status-bar/deep-link paths are compile-verified only.
+
+**SPEC IMPACT:** 0052 — store-prep scaffolding. **Deferred (device/owner-gated, NOT in this PR):** Papic native camera capture wiring (needs a device); OAuth-via-system-browser (before enabling social login); iOS project (needs Xcode + CocoaPods); release keystore + Apple enrollment + real `.well-known` hashes (owner). → corpus `DECISION_LOG.md` (2026-06-07) + `0052_native_apps_delivery` rewrite.
+
 ## 2026-06-07 · feat(0023/0035): Connection Logs — wire `trackFailure()` into 5 more buttons (additive to #1046)
 
 **Context:** Independent follow-up to the Connection Logs tracker, run in parallel with PR #1046. After rebasing on #1046 (which wired 19 sites across 13 files + added `insertFaultLog` PII redaction), I confirmed **none of these 5 sites overlap #1046's set** — they cover distinct high-value flows #1046 didn't touch. The onboarding-commit site I'd also picked was already done by #1046, so I dropped mine and kept theirs (no duplicate).

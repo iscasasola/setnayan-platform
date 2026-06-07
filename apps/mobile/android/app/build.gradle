@@ -1,5 +1,19 @@
 apply plugin: 'com.android.application'
 
+// Release signing — reads from a gitignored android/keystore.properties (NEVER
+// committed; owner creates it alongside the upload keystore). When absent (local
+// dev, CI without the key), the release build stays unsigned and no signingConfig
+// is attached — so `assembleDebug` and local builds work with zero setup.
+// keystore.properties format:
+//   storeFile=/abs/path/to/setnayan-upload.jks
+//   storePassword=...
+//   keyAlias=setnayan
+//   keyPassword=...
+def keystorePropsFile = rootProject.file("keystore.properties")
+def hasKeystore = keystorePropsFile.exists()
+def keystoreProps = new Properties()
+if (hasKeystore) { keystoreProps.load(new FileInputStream(keystorePropsFile)) }
+
 android {
     namespace = "com.setnayan.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +30,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            // Only attach the release signing config when the keystore exists,
+            // so a keyless checkout still builds (unsigned) instead of failing.
+            if (hasKeystore) { signingConfig signingConfigs.release }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

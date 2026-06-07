@@ -2,10 +2,20 @@
 
 import { useEffect } from 'react';
 
-type ClientType = 'tauri' | 'pwa' | 'web';
+type ClientType = 'capacitor' | 'tauri' | 'pwa' | 'web';
 
 function detectClientType(): ClientType {
   if (typeof window === 'undefined') return 'web';
+
+  // Capacitor native shell (iOS/Android) — the runtime injects `window.Capacitor`
+  // into the WebView. Checked FIRST: a Capacitor Android WebView is NOT
+  // display-mode:standalone, so it would otherwise misclassify as 'web' and get
+  // the shorter refresh window / 1-year cookie (causing expired-token round-trips
+  // on foreground). Native gets the same isNativeLike treatment as tauri/pwa.
+  const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  if (cap?.isNativePlatform?.()) {
+    return 'capacitor';
+  }
 
   // Tauri 2 desktop wrapper — exposes one of these globals or a UA marker.
   const tauriWindow = window as {

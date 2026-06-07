@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
+
+**Context:** Owner design session locked the couple's event website as ONE site with three date-driven phases (RSVP before · Event during · Editorial after) — spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + corpus DECISION_LOG. This PR ships the safe, additive schema foundation; nothing consumes it yet (frontend ships ahead).
+
+**What landed (`20260910000000_wedding_website_lifecycle_foundation.sql`, applied to prod):**
+- **`events.*`** — looping bg music (`site_bg_music_source`/`_r2_key`/`_enabled`), scrub-video hero (`landing_page_hero_video_r2_key`), auto-editorial storyline inputs (`love_story` JSONB, `special_message`, `together_since`, `editorial_tone`, `editorial_language`).
+- **`event_vendors.selection_match_rank`** — was this vendor the #1 leaf-match at selection (powers the Editorial "By the Numbers" first-pick stat; forward-only).
+- **`event_editorial`** — per-event recap snapshot (`draft_json` + frozen `impact_metrics` + hero/essay refs); RLS: couple + accepted moderators read/write, admin read.
+
+**Deferred (decision / atomic renderer ship):** `invitation_widgets` per-phase (renderer-coupled) + event-level review/feedback table (reconcile vs existing `vendor_reviews`).
+
+**Verify:** purely additive (`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`), idempotent, RLS at table create; CI green; migration applied to prod via `supabase db push`.
+
+**SPEC IMPACT:** Wedding-website lifecycle model → `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07 (landed). 0002 / 0021 / 0031 fold-in pending.
+
 ## 2026-06-07 · feat(vendor-tiers): Phase B — count caps (agents · portfolio · parent categories)
 
 **Context:** Phase B of the tier matrix (owner: build all phases in sequence). Enforce the numeric caps from `Vendor_Tier_Capability_Matrix_2026-06-07.md`, all reading the `lib/vendor-tier-caps.ts` helper. No migration (app-layer). A pre-build audit found 2 of the 5 caps are blocked — see "Deferred" below.

@@ -5,8 +5,23 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
+import { TILE_PARENT } from '@/lib/taxonomy';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
+
+/**
+ * The distinct PARENT folder(s) (of the 10) a vendor category surfaces under.
+ * Routes through the vendor→canonical bridge (NOT TAXONOMY_MAP, which is keyed
+ * by v11 canonicals the legacy VendorCategory enum doesn't match). Exempt
+ * categories (officiant/fees/etc.) return [] and don't count toward the cap.
+ */
+function parentsOfCategory(category: VendorCategory): string[] {
+  return tilesForVendorCategory(category)
+    .map((tile) => TILE_PARENT[tile] as string)
+    .filter(Boolean);
+}
 
 function parseCategory(raw: FormDataEntryValue | null): VendorCategory {
   if (typeof raw !== 'string' || !CATEGORY_SET.has(raw)) {
@@ -80,6 +95,42 @@ export async function createVendorService(formData: FormData) {
     profile.vendor_profile_id,
     formData.get('branch_id'),
   );
+
+  // Tier parent-category cap (Phase B · Vendor_Tier_Capability_Matrix_2026-06-07):
+  // distinct parents of the 10 a vendor may list under — FREE 1 · VERIFIED 3 ·
+  // PRO 3 · ENTERPRISE ∞. Only blocks when this service would introduce a NEW
+  // parent beyond the allowance (adding within already-covered parents is free).
+  const newParents = parentsOfCategory(category);
+  if (newParents.length > 0) {
+    const { data: tierRow } = await supabase
+      .from('vendor_profiles')
+      .select('tier_state')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const parentCap = tierCaps(
+      asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
+    ).parentCategories;
+    if (parentCap !== Infinity) {
+      const { data: existingRows } = await supabase
+        .from('vendor_services')
+        .select('category')
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      const existingParents = new Set(
+        (existingRows ?? []).flatMap((r) =>
+          parentsOfCategory(r.category as VendorCategory),
+        ),
+      );
+      const introducesNew = newParents.some((p) => !existingParents.has(p));
+      const wouldBe = new Set(existingParents);
+      newParents.forEach((p) => wouldBe.add(p));
+      if (introducesNew && wouldBe.size > parentCap) {
+        const msg = `Your plan covers ${parentCap} categor${parentCap === 1 ? 'y' : 'ies'}. Upgrade to list under more.`;
+        return redirect(
+          `/vendor-dashboard/services?error=${encodeURIComponent(msg)}`,
+        );
+      }
+    }
+  }
 
   const { error } = await supabase.from('vendor_services').insert({
     vendor_profile_id: profile.vendor_profile_id,

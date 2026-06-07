@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(vendor-tiers): Phase B — count caps (agents · portfolio · parent categories)
+
+**Context:** Phase B of the tier matrix (owner: build all phases in sequence). Enforce the numeric caps from `Vendor_Tier_Capability_Matrix_2026-06-07.md`, all reading the `lib/vendor-tier-caps.ts` helper. No migration (app-layer). A pre-build audit found 2 of the 5 caps are blocked — see "Deferred" below.
+
+**What landed:**
+- **Agent accounts** (FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞) — `inviteVendorTeamMember` (`team/actions.ts`) now soft-probes `tier_state`, counts existing non-owner seats, and blocks past the cap (FREE = 0 blocks all invites with a "needs a paid plan" message).
+- **Portfolio photos** (30 · 50 · 100 · ∞) — `saveVendorProfile` (`vendor-dashboard/actions.ts`) caps `parsePortfolioRefs` by tier (was a hardcoded 10, *below* even FREE's 30); the profile page's portfolio `<FileUpload maxFiles>` + help text are now tier-driven (∞ → 999 sentinel for the UI) so paid vendors can actually upload up to their cap.
+- **Parent categories** (1 · 3 · 3 · ∞) — `createVendorService` (`services/actions.ts`) blocks a new service when it would introduce a NEW parent (of the 10) beyond the tier allowance. Routes legacy `VendorCategory` → parent via `tilesForVendorCategory()` → `TILE_PARENT` (NOT `TAXONOMY_MAP`, which doesn't key the legacy enum); adding within already-covered parents is always free.
+
+**Deferred (blocked — need owner input, flagged):**
+- **Packages per leaf (2/2/5/∞)** — `vendor_services` already has a DB `UNIQUE(vendor_profile_id, category)` (max 1/leaf, nothing to cap at 2/5), and the real `vendor_packages` table has **no vendor-side create path** in the repo. Needs a definition decision (is "packages" = `vendor_packages`? then the create flow must be built first) — likely its own phase.
+- **Slots per day (✗/1/3-tb/∞)** — there is no per-day booking-slot ledger; the closest primitive is `max_soft_holds_per_date` (cross-couple same-date contention, different semantics), and `slotsTimeBounded` (am/pm) has **no schema**. Needs a design + likely a migration; not a count-gate.
+
+**Verify:** `tsc` clean · `next lint` exit 0. No migration.
+
+**SPEC IMPACT:** Phase B caps 2/3/4 enforced; caps 1/5 flagged as blocked (need owner decision). → corpus DECISION_LOG.
+
 ## 2026-06-07 · chore(vendor-tiers): FREE may buy tokens (for client import)
 
 **Context:** Owner clarification on the tier rules: (1) "FREE won't get in-app customers, but FREE-VERIFIED will" — already enforced (`unlock_vendor_event` blocks FREE via `TIER_FREE_NO_INAPP`; FREE-VERIFIED gets its 10/week free), **no change**. (2) "Let FREE buy tokens to import their clients" — overrides the reissued sheet's "Cost per additional Lifetime Token: Not Allowed (FREE)".

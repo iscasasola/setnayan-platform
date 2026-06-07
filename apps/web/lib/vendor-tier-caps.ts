@@ -41,8 +41,9 @@ export interface TierCaps {
   inAppCustomersPerWeek: number;
   /**
    * Whether answering an in-app inquiry burns tokens.
-   * OWNER 2026-06-07: verified ALSO pays (no free allowance) → true for
-   * verified/pro/enterprise; free can't answer at all so it's moot (false).
+   * OWNER 2026-06-07 (reissued sheet): only PRO/ENTERPRISE pay — FREE-VERIFIED
+   * answers its 10/week FREE (gate ✗); FREE can't answer at all (moot). This
+   * reverted the earlier same-day "verified also pays" choice.
    */
   inAppGated: boolean;
   /** Token cost to import/sync an outside customer. 1 for all tiers. */
@@ -97,7 +98,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     slotsPerDay: 1,
     slotsTimeBounded: false,
     inAppCustomersPerWeek: 10,
-    inAppGated: true,
+    inAppGated: false,
     importCustomerTokenCost: 1,
     portfolioPhotos: 50,
     editorialTagged: false,
@@ -153,13 +154,39 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
 };
 
-/** Monthly + annual subscription price (PHP) per the matrix. FREE tiers = 0. */
+/**
+ * Monthly (28-day) + annual subscription price (PHP) — owner reissue 2026-06-07.
+ * NOTE: round numbers (not the brand charm/-1 convention) — owner-set explicitly.
+ */
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  pro: { monthly: 3999, annual: 39999 },
-  enterprise: { monthly: 9999, annual: 99999 },
+  pro: { monthly: 6000, annual: 60000 },
+  enterprise: { monthly: 10000, annual: 100000 },
 };
+
+/**
+ * Free tokens bundled with a paid subscription, granted on activation/renewal
+ * (owner reissue 2026-06-07). Interim: granted on admin tier-set (the monthly
+ * amount); the per-renewal grant + annual amount arrive with Phase D checkout.
+ */
+export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
+  VendorTier,
+  { monthly: number; annual: number }
+> = {
+  free: { monthly: 0, annual: 0 },
+  verified: { monthly: 0, annual: 0 },
+  pro: { monthly: 30, annual: 300 },
+  enterprise: { monthly: 100, annual: 1000 },
+};
+
+/** Price to buy one additional lifetime (non-expiring) token. */
+export const TOKEN_BUY_PRICE_PHP = 100;
+
+/** May purchase additional lifetime tokens? FREE = "Not Allowed"; all others yes. */
+export function canBuyTokens(tier: string | null | undefined): boolean {
+  return asVendorTier(tier) !== 'free';
+}
 
 export const TIER_LABEL: Record<VendorTier, string> = {
   free: 'Free',

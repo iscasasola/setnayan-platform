@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(vendor-tiers): reissued sheet — reprice + verified-free gate + subscription token bundle
+
+**Context:** Owner reissued the tier sheet ("how much they pay and the benefits"). Capabilities unchanged; pricing + token mechanics changed. Owner confirmed the two open points: **verified is FREE** (revert Phase A's verified-burn) and **grant the subscription token bundle on admin tier-set now** (interim until Phase D self-serve checkout).
+
+**What landed (migration `20260911000000`, applied to prod):**
+- **Reprice** (round numbers — break the brand charm/-1 lock, owner-set explicitly; supersede Phase A's ₱3,999/₱9,999): Pro **₱6,000/28d · ₱60,000/yr**, Enterprise **₱10,000/28d · ₱100,000/yr** (`vendor_billing_catalog`).
+- **Verified-free burn gate** — `unlock_vendor_event` re-created: **FREE → RAISE** (blocked) · **FREE-VERIFIED → ≤10 NEW unlocks/rolling-week, FREE (0 tokens, no burn)** · **PRO/ENTERPRISE → unlimited, burn 1-3 region-banded tokens**. Re-accept stays free + un-gated. This reverts the verified-burn shipped hours earlier in Phase A (PR #1061), per the reissued sheet's In-App-Gate ✗ for verified.
+- **Subscription token bundle on admin tier-set** — `setVendorTier` now grants the monthly bundle (Pro **+30**, Enterprise **+100**, 28-day TTL) via `grant_admin_direct_tokens`, idempotent per `(vendor, tier)`. Interim activation; the per-renewal grant + annual amounts (300 / 1,000) come with Phase D.
+- **Helper** (`lib/vendor-tier-caps.ts`) — `TIER_PRICE_PHP` updated; `verified.inAppGated=false`; new `TIER_SUBSCRIPTION_BUNDLE_TOKENS`, `TOKEN_BUY_PRICE_PHP` (₱100), `canBuyTokens()` (FREE = ✗ "Not Allowed", per the new "Cost per additional Lifetime Token" row).
+
+**Verify:** `tsc` clean · `next lint` exit 0 · migration applied + "remote database is up to date."
+
+**SPEC IMPACT:** Tier matrix doc updated (new prices + token-bundle + buy-token rows). Verified is now token-free for in-app answers (reverts the same-day Phase A choice). Buy-token flow (₱100/token, FREE-not-allowed) + per-renewal bundle = Phase D. → corpus DECISION_LOG.
+
 ## 2026-06-07 · fix(0022,0023): vendor+admin dashboard mobile/desktop parity batch + BIR nav retirement
 
 **Context:** A mobile/desktop UI audit of the vendor (24 routes) and admin (51 routes) dashboards found both structurally healthy, with a small set of parity gaps — chiefly two admin surfaces reachable only on desktop. This batch fixes all of them (no new features).

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { TIER_SUBSCRIPTION_BUNDLE_TOKENS } from '@/lib/vendor-tier-caps';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -463,6 +464,30 @@ export async function setVendorTier(formData: FormData): Promise<void> {
   });
   if (auditErr) {
     console.error('[setVendorTier] audit log insert failed', auditErr.message);
+  }
+
+  // Subscription token bundle (owner 2026-06-07). Granting on admin tier-set is
+  // the INTERIM activation until self-serve subscription checkout (Phase D).
+  // Idempotent per (vendor, tier) via grant_admin_direct_tokens' unique key, so
+  // re-setting the same tier never double-grants. Monthly amount (Pro 30 /
+  // Enterprise 100); the annual amount + the per-renewal grant come with the
+  // real billing flow. Best-effort — never blocks the tier change.
+  if (tier === 'pro' || tier === 'enterprise') {
+    const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier].monthly;
+    if (bundle > 0) {
+      const { error: bundleErr } = await admin.rpc('grant_admin_direct_tokens', {
+        p_vendor_id: vendorId,
+        p_token_count: bundle,
+        p_ttl_days: 28,
+        p_grant_source: 'admin_grant',
+        p_granted_by_admin_id: adminUserId,
+        p_rationale: `${tier === 'pro' ? 'Pro' : 'Enterprise'} subscription token bundle (admin-set · interim)`,
+        p_idempotency_key: `tier_bundle:${vendorId}:${tier}`,
+      });
+      if (bundleErr) {
+        console.error('[setVendorTier] bundle grant failed', bundleErr.message);
+      }
+    }
   }
 
   revalidatePath(`/admin/vendors/${vendorId}/tokens`);

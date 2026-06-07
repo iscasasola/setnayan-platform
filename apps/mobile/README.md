@@ -28,6 +28,14 @@ Not installed in the build environment — install before `cap add`:
 | Android Studio + SDK | — | ✅ | https://developer.android.com/studio |
 | `ANDROID_HOME` env var | — | ✅ | export to the SDK path in your shell profile |
 
+## npm, not pnpm
+
+The repo root is a **pnpm workspace**, but this package is managed with **npm**
+and is **excluded** from the workspace (`!apps/mobile` in `pnpm-workspace.yaml`).
+Capacitor's CLI expects a flat `node_modules` for native plugin discovery, which
+pnpm's symlinked store breaks. So: run `npm` here, `pnpm` everywhere else. The
+root `pnpm-lock.yaml` never sees these deps.
+
 ## Setup (from this folder)
 
 ```bash

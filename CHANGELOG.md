@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(website): wedding-website lifecycle foundation — schema
+
+**Context:** Owner design session locked the couple's event website as **ONE site with three date-driven phases** (RSVP before · Event during · Editorial after) — full spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07. This PR cuts the **safe, additive foundation** the rest hangs off. Nothing consumes it yet (frontend ships ahead).
+
+**What landed (migration `20260910000000_wedding_website_lifecycle_foundation.sql`):**
+- **`events.*` columns** — shared chrome: `site_bg_music_source` (`upload`/`pakanta`) + `site_bg_music_r2_key` + `site_bg_music_enabled` (NET-NEW looping page soundtrack via Web Audio; distinct from `music_playlist_seed`/`event_song_picks` vendor-matching music), `landing_page_hero_video_r2_key` (scrub-video hero); auto-editorial storyline inputs: `love_story` JSONB, `special_message`, `together_since`, `editorial_tone`, `editorial_language`.
+- **`event_vendors.selection_match_rank`** — captures whether a booked vendor was Setnayan's #1 leaf-match at selection time (powers the Editorial "By the Numbers" first-pick stat, M2). Forward-only; `finalizeVendor` wiring follows.
+- **`event_editorial`** — one snapshot row per event: `draft_json` (LLM-composed recap) + **frozen `impact_metrics`** (so a published recap's numbers never drift) + hero/essay photo refs + status. RLS: couple + accepted moderators read/write; admin read; public recap renders via the admin client (no anon policy), mirroring `invitation_widgets`.
+
+**Deliberately deferred (need a decision / atomic renderer ship):**
+- **`invitation_widgets` per-phase** (phase column + UNIQUE + widget_type expansion + matrix seeding) — RENDERER-COUPLED; seeding event/editorial rows before `[slug]/page.tsx` is phase-aware would render unknown widgets live. Ships atomically with the renderer.
+- **Event-level review/feedback table** — must reconcile with the existing `vendor_reviews` (couple→vendor marketplace ratings); the editorial Feedback Wall's guest/vendor/couple→event feedback is a different subject. Owner decision pending.
+
+**Verify:** migration is purely additive (`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`), idempotent, RLS enabled at table create; timestamp sorts after `20260909000000`. NOT yet applied to prod (no consumer; apply via `supabase db push` when the first consuming code lands).
+
+**SPEC IMPACT:** Wedding-website lifecycle model → `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07 (already landed). 0002 / 0021 / 0031 `.md`+`.docx` fold-in pending.
+
 ## 2026-06-07 · feat(ghosting): login-driven inquiry-ghosting nudges — no cron
 
 **Context:** Owner directive (2026-06-07): instead of a background ghosting-escalation cron, check at LOGIN using the actor's login time as the clock — "this will never run in background and will only run upon login," because a background sweep won't scale to 250k vendors / 1M active accounts. PR 2 of 2 (PR 1 = token burn-on-answer).

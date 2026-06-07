@@ -80,6 +80,12 @@ export function DeferredObservability() {
             // Sample 10% of transactions for performance traces. Tune
             // up/down later once we have a feel for volume vs. quota.
             tracesSampleRate: 0.1,
+            // Register the Replay integration so the on-error sampling below
+            // actually records. Without it, replaysOnErrorSampleRate is inert
+            // (Sentry only captures replays when replayIntegration() is in the
+            // integration set). Loaded inside the deferred chunk, so it adds
+            // nothing to the main bundle / LCP path.
+            integrations: [Sentry.replayIntegration()],
             // Session replays are expensive — disable steady-state
             // capture and only record when an error actually fires.
             replaysSessionSampleRate: 0,

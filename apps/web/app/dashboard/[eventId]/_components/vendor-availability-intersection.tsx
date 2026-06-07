@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { CalendarRange, Users, X } from 'lucide-react';
 import { updateEventDate } from '../actions';
 import { formatDayKey } from '@/lib/vendor-availability';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   eventId: string;
@@ -238,6 +239,13 @@ function FinalizeDayModal({
         await updateEventDate(fd);
         onClose();
       } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Finalize date from vendor availability',
+          filePath: 'app/dashboard/[eventId]/_components/vendor-availability-intersection.tsx',
+          error: err,
+          payload: { action: 'updateEventDate' },
+        });
         setError((err as Error).message);
       }
     });

@@ -16,6 +16,7 @@ import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { countUnread } from '@/lib/notifications';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   userId: string;
@@ -55,8 +56,17 @@ export function UnreadBellBadge({
         const fresh = await countUnread(supabase, userId);
         if (cancelled) return;
         setUnread(fresh);
-      } catch {
-        // Transient — Realtime will resync on the next event.
+      } catch (err) {
+        // Transient — Realtime will resync on the next event. Still report to
+        // Connection Logs (no user-facing toast) so a sustained count-query
+        // failure — e.g. an RLS regression on notifications — is visible.
+        void trackFailure({
+          eventType: 'OTHER',
+          elementName: 'Unread notifications badge',
+          filePath: 'app/_components/unread-bell-badge.tsx',
+          error: err,
+          payload: { query: 'countUnread' },
+        });
       }
     };
 

@@ -4,7 +4,8 @@ import { ArrowLeft, Coins } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { grantTokensToVendor } from '../../actions';
+import { grantTokensToVendor, setVendorTier } from '../../actions';
+import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 
 export const metadata = {
   title: 'Grant tokens · Admin',
@@ -13,7 +14,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ vendorProfileId: string }>;
-  searchParams: Promise<{ granted?: string }>;
+  searchParams: Promise<{ granted?: string; tier?: string }>;
 };
 
 /**
@@ -78,11 +79,14 @@ export default async function AdminVendorTokensPage({
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, user_id, business_name, location_city, is_published',
+      'vendor_profile_id, public_id, user_id, business_name, location_city, is_published, tier_state',
     )
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (!vendor) notFound();
+  const currentTier = asVendorTier(
+    (vendor as { tier_state?: string | null }).tier_state,
+  );
 
   // Wallet snapshot · NULL row means the vendor hasn't received any tokens
   // yet (the founder-bonus trigger creates the row on verification). We
@@ -109,6 +113,7 @@ export default async function AdminVendorTokensPage({
   const totalBalance = earned + purchased;
   const isClaimed = vendor.user_id !== null;
   const grantedCount = search?.granted ? Number(search.granted) : null;
+  const tierSet = search?.tier ? asVendorTier(search.tier) : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -140,6 +145,45 @@ export default async function AdminVendorTokensPage({
           ✓ Granted {grantedCount.toLocaleString('en-PH')} tokens. The vendor&rsquo;s wallet now shows {totalBalance.toLocaleString('en-PH')} total tokens.
         </div>
       )}
+
+      {tierSet !== null && (
+        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          ✓ Tier set to <strong>{TIER_LABEL[tierSet]}</strong>.
+        </div>
+      )}
+
+      {/* Subscription tier — until self-serve checkout lands, this is the only
+          way to reach Pro/Enterprise (every paid-tier gate depends on it). */}
+      <section className="mb-6 rounded-md border border-ink/10 bg-paper p-4">
+        <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
+          Subscription tier
+        </h2>
+        <p className="mb-3 text-xs text-ink/60">
+          Current: <span className="font-medium text-ink">{TIER_LABEL[currentTier]}</span>.
+          Set Pro/Enterprise after confirming an off-platform subscription payment
+          (self-serve checkout is a later phase). Capability matrix:
+          Vendor_Tier_Capability_Matrix_2026-06-07.
+        </p>
+        <form action={setVendorTier} className="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="vendor_id" value={vendor.vendor_profile_id} />
+          <label htmlFor="tier_state" className="sr-only">
+            Tier
+          </label>
+          <select
+            id="tier_state"
+            name="tier_state"
+            defaultValue={currentTier}
+            className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+          >
+            {VENDOR_TIERS.map((t) => (
+              <option key={t} value={t}>
+                {TIER_LABEL[t]}
+              </option>
+            ))}
+          </select>
+          <SubmitButton pendingLabel="Saving…">Set tier</SubmitButton>
+        </form>
+      </section>
 
       {!isClaimed && (
         <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

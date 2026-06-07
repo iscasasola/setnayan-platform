@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(vendor-tiers): Phase B — count caps (agents · portfolio · parent categories)
+
+**Context:** Phase B of the tier matrix (owner: build all phases in sequence). Enforce the numeric caps from `Vendor_Tier_Capability_Matrix_2026-06-07.md`, all reading the `lib/vendor-tier-caps.ts` helper. No migration (app-layer). A pre-build audit found 2 of the 5 caps are blocked — see "Deferred" below.
+
+**What landed:**
+- **Agent accounts** (FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞) — `inviteVendorTeamMember` (`team/actions.ts`) soft-probes `tier_state`, counts existing non-owner seats, blocks past the cap (FREE = 0 blocks all invites).
+- **Portfolio photos** (30 · 50 · 100 · ∞) — `saveVendorProfile` (`vendor-dashboard/actions.ts`) caps `parsePortfolioRefs` by tier (was a hardcoded 10, *below* even FREE's 30); the profile page's portfolio `<FileUpload maxFiles>` + help text are now tier-driven (∞ → 999 UI sentinel) so paid vendors can actually upload up to their cap.
+- **Parent categories** (1 · 3 · 3 · ∞) — `createVendorService` (`services/actions.ts`) blocks a service that would introduce a NEW parent (of the 10) beyond the tier allowance, via `tilesForVendorCategory()` → `TILE_PARENT` (NOT `TAXONOMY_MAP`); adding within already-covered parents is free.
+
+**Deferred (blocked — need owner input, flagged):** packages-per-leaf (`vendor_services` already `UNIQUE` 1/leaf; `vendor_packages` has no vendor-side create path → definition decision needed) · slots-per-day (no per-day slot ledger; `slotsTimeBounded` needs schema → design + migration).
+
+**Verify:** `tsc` clean · `next lint` exit 0. No migration.
+
+**SPEC IMPACT:** Phase B caps 2/3/4 enforced; caps 1/5 flagged as blocked. → corpus DECISION_LOG.
+
 ## 2026-06-07 · fix(marketplace,0026): demo-vendor leak in dashboard search + retire Form 2307 (EWT) + customer /more desktop redirect
 
 Three follow-ups from the dashboard/connection audits:

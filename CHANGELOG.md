@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0023/0035): Connection Logs — wire `trackFailure()` into 5 more buttons (additive to #1046)
+
+**Context:** Independent follow-up to the Connection Logs tracker, run in parallel with PR #1046. After rebasing on #1046 (which wired 19 sites across 13 files + added `insertFaultLog` PII redaction), I confirmed **none of these 5 sites overlap #1046's set** — they cover distinct high-value flows #1046 didn't touch. The onboarding-commit site I'd also picked was already done by #1046, so I dropped mine and kept theirs (no duplicate).
+
+**5 sites (all client-side, all tapping EXISTING error branches — purely additive, no logic change, ids-only payloads):**
+- `app/_components/chat-send-form.tsx` — **Send chat message** (`BUTTON_FAIL`, existing `catch`). #1046 did the *stream/receive* side (`chat-message-stream.tsx`); this is the *send* form.
+- `app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx` — **Submit payment order** (`SUPABASE_SAVE_ERROR`, on `!result.ok` from `submitOrderAction`). Money path — not covered by #1046.
+- `app/dashboard/[eventId]/add-ons/led/_components/led-background-maker.tsx` — **Save LED background config** (`SUPABASE_SAVE_ERROR`, on `!res.ok`).
+- `app/dashboard/[eventId]/add-ons/mood-board/_components/visual-preview.tsx` — **Save moodboard pick** (`SUPABASE_SAVE_ERROR`, existing `catch`).
+- `app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx` — **Add guest** (`SUPABASE_SAVE_ERROR`, on `!result.ok` from `quickAddGuest`).
+
+Payloads are ids/flags only; #1046's `insertFaultLog` redaction is the second-layer guarantee. Discovery via parallel agents; remaining client call sites are incremental.
+
+**Verify:** static review + in-scope check on every payload var; rebased clean on #1046 (onboarding conflict → took theirs). No `node_modules` in worktree → required CI on the PR is the gate (merging on green).
+
+**SPEC IMPACT:** None — wires the existing tracker; no schema/SKU/spec change.
+
 ## 2026-06-07 · fix(0035): wire Connection Logs into 19 call sites + Sentry capture gaps + payload PII redaction
 
 **Context:** Owner task file ("Fix Sentry … + deploy an independent Supabase emergency log"). Investigation found (a) Sentry was **not** broken as the brief assumed — the config is sound and deliberately LCP-optimized — but had two real capture gaps; and (b) the "independent tracking table" the task asked for **already shipped today** as the Connection Logs feature (`app_telemetry_logs`), whose follow-up — *"call sites not yet instrumented"* — was outstanding. Per owner decision (2026-06-07), this reuses the canonical substrate instead of building a duplicate `client_interaction_errors` table (which would have re-introduced the rejected anon-`.insert()`), and completes the wiring.

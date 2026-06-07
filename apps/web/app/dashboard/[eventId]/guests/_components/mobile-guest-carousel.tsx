@@ -56,6 +56,7 @@ import {
 } from '@/lib/guests';
 import { LiveSearch } from './live-search';
 import { quickAddGuest } from '../quick-add-actions';
+import { trackFailure } from '@/lib/telemetry/track-error';
 import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
 import { BULK_ROLE_SECTIONS } from './guest-list-multiselect';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
@@ -812,6 +813,14 @@ function QuickAddInlineForm({ eventId, kbOpen }: { eventId: string; kbOpen: bool
         // Server returned a specific error (validation, DB constraint, etc.).
         // Surface it immediately rather than silently clearing the form.
         setAddError(result.error);
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Add guest',
+          filePath:
+            'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx',
+          error: result.error,
+          payload: { eventId },
+        });
         return;
       }
       setCount((n) => n + 1);

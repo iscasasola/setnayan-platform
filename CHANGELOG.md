@@ -22,6 +22,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Vendor token economy (`project_setnayan_vendor_token_model`) — burn-on-answer now wired (was inert), banded map seeded (pending ratify), anti-merge enforced. → corpus DECISION_LOG + `Token_Economy_Flow_Map_2026-06-01.html` / Pricing §0.C follow-up.
 
+## 2026-06-07 · fix(loading): app-wide loader sweep — close the last gap (admin/notifications)
+
+**Context:** Owner asked for a completeness sweep after several one-off loader misses. Ran a 3-agent audit across **customer**, **vendor**, and **admin** doorways + a cross-cutting hand-rolled-loader hunt over all of `apps/web`.
+
+**Result — coverage is strong:** 164 of 167 `loading.tsx` use the shared skeleton system; **every customer and vendor data-fetching route already has a matched loader** (the vendor side the owner hadn't checked is clean — 28/28). Found exactly **one real gap**: `app/admin/notifications/page.tsx` is async (fetches the admin's notifications) but had **no `loading.tsx`** → blank during fetch.
+
+**Fix:** added `app/admin/notifications/loading.tsx` (`export { ListPageSkeleton }`, matching the one-line convention of the other 63 admin loaders).
+
+**Noted, not changed (no gap):**
+- `dashboard/[eventId]/vendors/loading.tsx` + `…/vendors/[eventVendorId]/workspace/loading.tsx` — bespoke CSS spinners but **owner-designed (2026-06-05) and already narrated via `<LoadingStatus>`**; working as intended. Optional future consolidation onto the shared loader — left as-is pending owner sign-off.
+- `admin/offline/_components/offline-diagnostic-loader.tsx` — a `next/dynamic` text fallback, justified by the `ssr:false` Server-Component boundary; low-visibility, acceptable.
+
+**SPEC IMPACT:** None — loading-UX completeness; no schema/SKU/scope change.
+
 ## 2026-06-07 · fix(loading): notifications — branded, layout-matched loading shell
 
 **Context:** Customer report (owner 2026-06-07) — opening **Notifications** showed "no load." The route *did* have a `loading.tsx`, but it was a bare `ListPageSkeleton` re-export: generic pulsing blocks, no "what we're doing" cue, that don't match the notifications screen — on a quick fetch it flashed imperceptibly and never read as a deliberate loading state.

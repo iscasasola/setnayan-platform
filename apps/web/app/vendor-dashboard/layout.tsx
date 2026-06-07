@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { countUnread } from '@/lib/notifications';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
@@ -103,6 +105,11 @@ export default async function VendorDashboardLayout({
     await supabase.auth.signOut();
     redirect('/login?error=Account+deleted');
   }
+
+  // Login-driven ghosting check (no cron) — after the response, once per login
+  // (gated inside the helper). Vendor side: nudge if inquiries they received
+  // sit unanswered past the threshold. No-op for a user with no vendor profile.
+  after(() => runLoginGhostingCheck(user.id, 'vendor'));
 
   // Vendor-access gate — canonical "do they have vendor access" rule lives in
   // `fetchUserRoleSummary` (apps/web/lib/roles.ts:165-167): a user has access

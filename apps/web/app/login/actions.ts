@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { stampLastLogin } from '@/lib/login-activity';
 
 /**
  * "Stay signed in" cookie downgrade.
@@ -77,6 +78,10 @@ export async function signInWithPassword(formData: FormData) {
     const cookieStore = await cookies();
     downgradeSupabaseCookiesToSessionOnly(cookieStore);
   }
+
+  // Stamp last_login_at — the "now" reference for the login-driven ghosting
+  // check (lib/ghosting.ts). Fail-soft inside; never blocks the redirect.
+  await stampLastLogin(supabase);
 
   return redirect(next);
 }

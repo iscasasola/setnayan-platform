@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(ghosting): login-driven inquiry-ghosting nudges — no cron
+
+**Context:** Owner directive (2026-06-07): instead of a background ghosting-escalation cron, check at LOGIN using the actor's login time as the clock — "this will never run in background and will only run upon login," because a background sweep won't scale to 250k vendors / 1M active accounts. PR 2 of 2 (PR 1 = token burn-on-answer).
+
+**What landed (migration `20260909000000_login_ghosting_check.sql`, applied to prod):**
+- **`users.last_ghost_check_at`** column + the previously-dead **`users.last_login_at`** is now actually written. `stampLastLogin` (`lib/login-activity.ts`) fires at the two real login-completion points — `signInWithPassword` (`app/login/actions.ts`) and `/auth/callback` (magic link / OAuth).
+- **Two notification types** — `inquiry_awaiting_reply` (vendor) + `inquiry_no_response` (couple) — added to the enum + `lib/notifications.ts` union/label/tone.
+- **`runLoginGhostingCheck(userId, role)`** (`lib/ghosting.ts`) — runs from the customer + vendor dashboard layouts via Next `after()` (post-response, zero render cost). Gated to fire **once per login** by comparing `last_login_at` to `last_ghost_check_at`, using the login moment as "now". Detects `chat_threads.inquiry_status='pending'` older than 48h (the indexed, accept-gate "unanswered" signal): couple side → "a vendor hasn't replied, explore alternatives"; vendor side → "you have inquiries awaiting your reply." Then stamps `last_ghost_check_at`. Service-role + fail-soft throughout; no background job, no cron.
+
+**Why this shape:** the spec's `vendor_unresponsive_48h` was never implemented (it implied a cron). This delivers the same escalation on the login event instead — O(1) per login, indexed queries scoped to the actor's events/profiles, and `after()` keeps it off the render path.
+
+**Verify:** `tsc` clean · `next lint` exit 0 · `lint:retired` 0 · migration-timestamp guard. Migration applied + "remote database is up to date."
+
+**SPEC IMPACT:** Implements ghosting escalation as login-driven (supersedes the cron-based `vendor_unresponsive_48h` notion in 0028; consistent with `project_setnayan_cron_free`). → corpus DECISION_LOG + the cross-actor follow-ups doc (item 5 now built).
+
 ## 2026-06-07 · feat(token-economy): connect burn-on-answer + anti-merge enforcement
 
 **Context:** Owner: "we need to connect the tokens properly." The vendor token economy was economically inert — vendors answered inquiries for free (`unlock-category.ts` literally said the burn "is NOT wired yet"). This wires the owner-locked (2026-06-05) burn-on-answer, plus the owner's strict free-token rules. PR 1 of 2 (PR 2 = login-driven ghosting).

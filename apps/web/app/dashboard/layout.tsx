@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
@@ -168,6 +170,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const visibleEvents = events.filter((e) => !e.archived);
   const activeEvents = sortEventsForSwitcher(visibleEvents);
   const primary = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
+
+  // Login-driven ghosting check (no cron) — runs after the response, and only
+  // does work once per login (gated on last_login_at vs last_ghost_check_at
+  // inside the helper). Couple side: nudge if their inquiries sit unanswered.
+  after(() => runLoginGhostingCheck(user.id, 'couple'));
 
   // Top-level dashboard chrome. The single-strip top nav renders only on
   // non-event-scoped routes (/dashboard root, /dashboard/profile, etc.).

@@ -5,6 +5,8 @@ import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { DashboardEventSwitcher } from '@/app/_components/dashboard-event-switcher';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
+import { countUnread } from '@/lib/notifications';
+import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
@@ -40,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect(loginRedirectPath('/admin'));
   const supabase = await createClient();
 
-  const [{ data: profile }, roles, events] = await Promise.all([
+  const [{ data: profile }, roles, events, unreadCount] = await Promise.all([
     supabase
       .from('users')
       .select(
@@ -63,6 +65,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       );
       return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
     }),
+    // Unread count for the top-bar bell. countUnread is React-cached + fails
+    // soft to 0 internally, so no defensive wrapper is needed here.
+    countUnread(supabase, user.id),
   ]);
 
   const isAdmin =
@@ -137,6 +142,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             sidebar footer slot below (avoids duplicating the affordance
             inside the same viewport). */}
         <div className="lg:hidden">{switchViewPill}</div>
+        <UnreadBellBadge
+          userId={user.id}
+          initialUnread={unreadCount}
+          href="/admin/notifications"
+          ariaBaseLabel="Notifications"
+          ariaUnreadSuffix="unread"
+        />
         <span
           className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
         >

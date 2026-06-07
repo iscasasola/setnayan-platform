@@ -648,6 +648,69 @@ export async function finalizeVendor(
   }
 
   // ----------------------------------------------------------------------
+  // booking_confirmed signal → marketplace vendor (cross-actor audit
+  // 2026-06-07). Before this, locking a MARKETPLACE vendor was SILENT: the
+  // couple's finalize wrote event_vendors (couple-only RLS) and the vendor —
+  // who has no read path to that table — never learned they'd been booked.
+  // Their dashboard "Confirmed bookings" tile counts accepted inquiries, NOT
+  // couple finalizations, so a real booking could go entirely unnoticed.
+  //
+  // Manual / off-platform vendors are covered by the claim-link invite above
+  // (no Setnayan account to notify yet); this `else if` covers the
+  // marketplace case. Best-effort + fail-soft — the lock already succeeded,
+  // so a notification hiccup must never roll it back. Deep-links to the
+  // existing chat thread when one exists, else the vendor bookings list.
+  // ----------------------------------------------------------------------
+  else if (targetVendor.marketplace_vendor_id) {
+    try {
+      const adminClient = createAdminClient();
+      const [{ data: profileRow }, { data: eventRow }, { data: threadRow }] =
+        await Promise.all([
+          adminClient
+            .from('vendor_profiles')
+            .select('user_id')
+            .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
+            .maybeSingle(),
+          adminClient
+            .from('events')
+            .select('display_name')
+            .eq('event_id', eventId)
+            .maybeSingle(),
+          adminClient
+            .from('chat_threads')
+            .select('thread_id')
+            .eq('event_id', eventId)
+            .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
+            .maybeSingle(),
+        ]);
+      const vendorUserId =
+        (profileRow as { user_id: string | null } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        const eventDisplay =
+          (eventRow as { display_name: string } | null)?.display_name ??
+          'A couple';
+        const threadId =
+          (threadRow as { thread_id: string } | null)?.thread_id ?? null;
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'booking_confirmed',
+          title: 'You have a new confirmed booking',
+          body: `${eventDisplay} confirmed their booking with you on Setnayan. Open the conversation to lock in the details and next steps.`,
+          relatedUrl: threadId
+            ? `/vendor-dashboard/messages/${threadId}`
+            : '/vendor-dashboard/bookings',
+        });
+      }
+    } catch (e) {
+      // Fail-soft — the lock already succeeded; never roll it back.
+      console.error(
+        `[finalizeVendor] booking_confirmed notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+  }
+
+  // ----------------------------------------------------------------------
   // Finalize auto-cleanup (CLAUDE.md 2026-05-22 owner directive — Task #26).
   //
   // Owner verbatim: "when the vendor is finalized, the other vendors there
@@ -2175,12 +2238,16 @@ export async function cancelBookingAsHost(
     return { status: 'error', message: deleteErr.message };
   }
 
-  // BEST-EFFORT NOTIFICATION — fire-and-forget. Any failure here
-  // (vendor user missing, Resend rate-limited, missing enum value, etc.)
-  // MUST NOT roll back the cancel. The host's action has already
-  // succeeded. We send a direct Resend email rather than the canonical
-  // emitNotification because `notification_type` enum has no
-  // 'booking_cancelled' value yet (see comment block above).
+  // BEST-EFFORT NOTIFICATION — fire-and-forget. Any failure here (vendor
+  // user missing, Resend rate-limited, etc.) MUST NOT roll back the cancel;
+  // the host's action has already succeeded. Now that the
+  // 'booking_cancelled' enum value exists (migration
+  // 20260907000000_notification_types_cross_actor_signals.sql) this is
+  // consolidated onto the canonical dual-channel emitNotification (in-app
+  // row + Resend email) instead of the prior email-only direct send — so
+  // the cancellation also lands in the vendor's notification tray, not just
+  // their inbox. emitNotification resolves the recipient email + prefixes
+  // the app URL internally, so the manual users-table lookup is gone.
   if (vendorPrimaryUserId) {
     const formattedDate = (() => {
       if (!eventDateIso) return null;
@@ -2195,51 +2262,18 @@ export async function cancelBookingAsHost(
       }
     })();
     const dateClause = formattedDate ? ` on ${formattedDate}` : '';
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ??
-      'https://setnayan-platform-web.vercel.app';
     const deepLinkPath = vendorChatThreadId
       ? `/vendor-dashboard/messages/${vendorChatThreadId}`
       : '/vendor-dashboard';
-    const deepLink = `${appUrl}${deepLinkPath}`;
 
     try {
-      // Look up vendor's recipient email via the canonical users-table
-      // join. Uses adminClient because the recipient is a different
-      // user than the host (cross-account read; RLS would deny).
-      const adminClient = createAdminClient();
-      const { data: vendorUser } = await adminClient
-        .from('users')
-        .select('email')
-        .eq('user_id', vendorPrimaryUserId)
-        .maybeSingle();
-      const vendorEmail =
-        (vendorUser as { email: string } | null)?.email ?? null;
-
-      if (vendorEmail) {
-        // Lazy-import so the build stays clean for environments where
-        // Resend isn't wired. sendEmail() itself no-ops gracefully
-        // without RESEND_API_KEY — but we still want the import gated.
-        const { sendEmail } = await import('@/lib/email');
-        const subject = `${hostDisplay} cancelled their booking with you.`;
-        const body = [
-          `Hi from Setnayan,`,
-          ``,
-          `${hostDisplay} cancelled their booking with you for ${eventDisplay}${dateClause}.`,
-          ``,
-          `This happened before any payment was made — your soft hold has been released, and the date is open on your calendar again.`,
-          ``,
-          `If you'd like to follow up with them, open the conversation here:`,
-          deepLink,
-          ``,
-          `If anything looks off, write to us at support@setnayan.com and we'll sort it.`,
-          ``,
-          `—`,
-          `You're receiving this because the booking was made through your Setnayan vendor account.`,
-        ].join('\n');
-
-        await sendEmail({ to: vendorEmail, subject, text: body });
-      }
+      await emitNotification({
+        userId: vendorPrimaryUserId,
+        type: 'booking_cancelled',
+        title: `${hostDisplay} cancelled their booking with you`,
+        body: `${hostDisplay} cancelled their booking with you for ${eventDisplay}${dateClause}. This happened before any payment was made — your soft hold has been released and the date is open on your calendar again.`,
+        relatedUrl: deepLinkPath,
+      });
     } catch (e) {
       // Silent — the cancel itself succeeded. Log for ops visibility.
       // eslint-disable-next-line no-console

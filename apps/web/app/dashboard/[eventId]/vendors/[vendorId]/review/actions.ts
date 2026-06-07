@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import { createReview, type ReviewAxis } from '@/lib/reviews';
 import {
   parseSelfReviewBlock,
@@ -95,6 +97,51 @@ export async function submitCoupleReview(formData: FormData) {
       );
     }
     throw err;
+  }
+
+  // review_received signal → vendor (cross-actor audit 2026-06-07). Before
+  // this the review was a fully silent write: createReview only touched
+  // vendor_reviews, and the vendor's Reviews page told them "we notify you
+  // via email" — a claim that wasn't true. The vendor only ever learned of a
+  // review by happening to open the page. Now they get an in-app row + email
+  // the moment a couple submits one. Best-effort + fail-soft: a notification
+  // hiccup must never roll back the review the couple just left. Uses the
+  // admin client because the couple can't read the vendor's user_id by RLS.
+  try {
+    const adminClient = createAdminClient();
+    const [{ data: profileRow }, { data: eventRow }] = await Promise.all([
+      adminClient
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle(),
+      adminClient
+        .from('events')
+        .select('display_name')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+    const vendorUserId =
+      (profileRow as { user_id: string | null } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      const eventDisplay =
+        (eventRow as { display_name: string } | null)?.display_name ??
+        'A couple';
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'review_received',
+        title: `New ${ratings.overall}-star review`,
+        body: `${eventDisplay} left you a ${ratings.overall}-star review. Open your Reviews page to read it and post a one-time public reply.`,
+        relatedUrl: '/vendor-dashboard/reviews',
+      });
+    }
+  } catch (e) {
+    // Fail-soft — the review already landed; never block the couple's submit.
+    // eslint-disable-next-line no-console
+    console.error(
+      `[submitCoupleReview] review_received notify failed for vendor_profile_id=${vendorProfileId} event_id=${eventId}:`,
+      e,
+    );
   }
 
   revalidatePath(`/dashboard/${eventId}/vendors`);

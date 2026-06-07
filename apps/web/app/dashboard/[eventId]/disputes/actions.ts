@@ -141,6 +141,50 @@ export async function fileForceMajeureFlag(formData: FormData) {
     console.error('[force-majeure] admin fan-out failed:', e);
   }
 
+  // dispute_filed signal → the NAMED vendor (cross-actor audit 2026-06-07).
+  // The admin fan-out above tells the Setnayan team; when the couple scoped
+  // the flag to a specific vendor, that vendor should also know a flag
+  // concerns one of their bookings so they can prepare a response. Only
+  // marketplace-linked vendors get notified — an off-platform/manual vendor
+  // has no Setnayan account. event_vendor_id FK targets event_vendors.vendor_id
+  // (see migration 20260514110000), so we resolve vendor_id → marketplace_
+  // vendor_id → vendor_profiles.user_id. Best-effort + fail-soft.
+  if (eventVendorId) {
+    try {
+      const admin = createAdminClient();
+      const { data: evRow } = await admin
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('vendor_id', eventVendorId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const marketplaceVendorId =
+        (evRow as { marketplace_vendor_id: string | null } | null)
+          ?.marketplace_vendor_id ?? null;
+      if (marketplaceVendorId) {
+        const { data: profileRow } = await admin
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', marketplaceVendorId)
+          .maybeSingle();
+        const vendorUserId =
+          (profileRow as { user_id: string | null } | null)?.user_id ?? null;
+        if (vendorUserId) {
+          await emitNotification({
+            userId: vendorUserId,
+            type: 'dispute_filed',
+            title: 'A flag was filed on one of your bookings',
+            body: `${FLAG_TYPE_LABEL[flagType]} — a couple filed a flag concerning their booking with you. The Setnayan team is reviewing it and will reach out if anything is needed from you.`,
+            relatedUrl: '/vendor-dashboard/bookings',
+          });
+        }
+      }
+    } catch (e) {
+      // Fail-soft — the flag is already filed; never block the couple.
+      console.error('[force-majeure] vendor notify failed:', e);
+    }
+  }
+
   revalidatePath(`/dashboard/${eventId}/disputes`);
   redirect(`/dashboard/${eventId}/disputes?filed=1`);
 }

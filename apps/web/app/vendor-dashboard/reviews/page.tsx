@@ -60,7 +60,8 @@ export default async function VendorReviewsPage() {
       {reviews.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
           You don&rsquo;t have any reviews yet. They&rsquo;ll appear here automatically the
-          moment a couple posts one — Setnayan also notifies you via email.
+          moment a couple posts one — and we&rsquo;ll send it to your notifications
+          and email so you never miss one.
         </div>
       ) : (
         <ul className="mt-8 space-y-4">

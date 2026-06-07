@@ -39,6 +39,22 @@ export type NotificationType =
   | 'inquiry_accepted'
   | 'inquiry_declined'
   | 'force_majeure_filed'
+  // Added 2026-06-07 alongside migration
+  // 20260907000000_notification_types_cross_actor_signals.sql — cross-actor
+  // interaction audit. These close silent one-way breaks where a couple
+  // action mutated the couple↔vendor relationship but never reached the
+  // vendor (event_vendors is couple-only by RLS, so the vendor had no read
+  // path either). All four are vendor-recipient:
+  //   booking_confirmed → finalizeVendor locks a marketplace vendor
+  //   review_received   → couple posts a vendor review (submitCoupleReview)
+  //   booking_cancelled → host cancels a pre-downpayment booking
+  //                       (cancelBookingAsHost; consolidates the prior
+  //                       email-only path onto emitNotification)
+  //   dispute_filed     → couple files a force-majeure flag naming the vendor
+  | 'booking_confirmed'
+  | 'review_received'
+  | 'booking_cancelled'
+  | 'dispute_filed'
   | 'photo_delivery_complete'
   | 'photo_delivery_failed';
 
@@ -57,6 +73,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   inquiry_accepted: 'Inquiry accepted',
   inquiry_declined: 'Inquiry declined',
   force_majeure_filed: 'Force-majeure flag filed',
+  booking_confirmed: 'Booking confirmed',
+  review_received: 'New review',
+  booking_cancelled: 'Booking cancelled',
+  dispute_filed: 'Dispute filed',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
 };
@@ -80,6 +100,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   inquiry_accepted: 'bg-emerald-100 text-emerald-800',
   inquiry_declined: 'bg-ink/10 text-ink/70',
   force_majeure_filed: 'bg-rose-100 text-rose-800',
+  // Booking confirmed is the couple's strongest positive commitment — match
+  // the celebratory emerald used by order_paid/inquiry_accepted.
+  booking_confirmed: 'bg-emerald-200 text-emerald-900',
+  review_received: 'bg-amber-100 text-amber-900',
+  booking_cancelled: 'bg-rose-100 text-rose-800',
+  dispute_filed: 'bg-rose-100 text-rose-800',
   photo_delivery_complete: 'bg-emerald-100 text-emerald-800',
   photo_delivery_failed: 'bg-rose-100 text-rose-800',
 };

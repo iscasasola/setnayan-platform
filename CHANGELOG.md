@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0023/0035): Connection Logs — real-time admin fault tracker with auto-clear lifecycle
+
+**Context:** New internal observability surface (owner task file, 2 am). A self-contained dashboard + DB tracker for **front-end faults** — broken buttons, failed Supabase saves, blank fallbacks — with a resolve lifecycle that keeps the Active view a true picture of what's still broken. Deliberately scoped as a **standalone** surface (owner-confirmed): it complements, not replaces, **Sentry** (engineer-facing errors, 0035) and the existing **`telemetry_events`/`/admin/telemetry`** (backend service checkpoints, V2 Phase E).
+
+**Two conventions in the original brief were adapted to locked Setnayan patterns (both owner-confirmed):**
+- Path `src/utils/trackError.ts` → `apps/web/lib/telemetry/track-error.ts` (App Router · kebab-case · no `src/`).
+- "direct browser `.insert()` from unauthenticated pages" → **server-route + service-role**. `trackFailure()` POSTs to `/api/telemetry/client-fault`, which inserts with the service key. No anon-writable table (spam/DoS/jsonb-injection avoided); same behavior — faults captured from public pages. Mirrors the existing `lib/telemetry/insert.ts` posture.
+
+**What landed:**
+- **Migration** `supabase/migrations/20260902000000_app_telemetry_logs.sql` — `public.app_telemetry_logs` (id · created_at · event_type{BUTTON_FAIL|SUPABASE_SAVE_ERROR|BLANK_FALLBACK|OTHER} · element_name · file_path · error_message · payload_snapshot jsonb · status{active|resolved|ignored} · resolved_at). RLS at CREATE time — SELECT+UPDATE limited to the **layout admin set** (`account_type='admin' OR is_internal OR is_team_member`) so Realtime delivers to every operator; **no INSERT/DELETE policy** (service-role only). Added to `supabase_realtime` publication. Three indexes incl. partial-on-active for the filter + auto-clear sweeps.
+- **Tracking utility** `apps/web/lib/telemetry/track-error.ts` — client-safe `trackFailure({eventType, elementName, filePath, error, payload})`; never throws/blocks UX; `keepalive` POST survives unmount; dev console `🛑 [TELEMETRY CAPTURED]:`. Server helpers in `apps/web/lib/telemetry/fault-log.ts` (`insertFaultLog` / `resolveFaultsByFilePath` / `coerceEventType`, `server-only`).
+- **Dashboard** `/admin/connection-logs` (`page.tsx` privileged read + `connection-logs-client.tsx` island) — Active / Resolved tabs (Active empty-state when clean) · filter pills (All · Broken Buttons · Supabase Errors · Blank Fallbacks) · **Supabase Realtime** stream (INSERT+UPDATE) · inspection modal (file path · raw error · recursive JSON tree of payload_snapshot) · per-row Resolve/Ignore · **Archive all active** (filter-scoped). `actions.ts` re-verifies admin on every mutation.
+- **Ingest** `app/api/telemetry/client-fault/route.ts` (public · same-origin guard · 16KB payload cap · field caps · event_type coercion). **Auto-clear** `app/api/telemetry/auto-resolve/route.ts` — `{file_path}` → sweeps active rows to resolved; gated by `x-internal-worker-secret` **or** an admin session.
+- **Nav** — "Connection logs" added to the admin sidebar Insights group next to Telemetry.
+- **Docs** — `ADMIN_LOGS_GUIDE.md` at repo root (locations · how to wrap buttons/`catch` blocks · how the route is secured).
+
+**Verify:** static review + type-tightening pass (no `node_modules` in the fresh worktree → local `tsc`/`lint`/dev-server N/A; **required CI typecheck+lint+production build+Vercel preview = proof**). Realtime idiom copied from `app/_components/chat-message-stream.tsx`; admin-read RLS matches `app/admin/layout.tsx`; insert/secret posture matches `lib/telemetry/insert.ts`. **Migration must be applied** via `supabase db push --db-url "$SUPABASE_DB_URL"`.
+
+**SPEC IMPACT:** 0023 (new admin surface "Connection logs") + 0035 (observability gains a front-end fault tracker alongside Sentry). New table `app_telemetry_logs`. → corpus `DECISION_LOG.md` (2026-06-07). Not a new SKU / no pricing / no customer-facing scope change.
+
 ## 2026-06-06 · feat(0016): onboarding "Purchase Now" jumps to the in-app checkout card
 
 **Context:** Owner — tapping **Purchase Now** on the picks summary (step 16) should land on a payment card, not the generic Services tab. The owner first named the **VendorDirectPay** card; a prod query ruled it out — all **225 `is_setnayan_service` vendors have ZERO payment methods**, so that card would render empty ("coordinate in chat"). The platform BDO/GCash config the **in-app checkout card** (`InlineCheckoutDrawer`) uses works today, so the owner chose that.

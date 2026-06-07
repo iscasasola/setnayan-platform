@@ -1699,14 +1699,18 @@ export function OnboardingShell({
   /* Couple display name for screens 13 (congrats) + 14 (Your Plan) — prototype [data-couple-name]. */
   const coupleDisplay = [state.brideFirstName.trim(), state.groomFirstName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
 
-  /* BYO vendor send (prototype sendByo) — name required → confirmation + relabel the add button. */
+  /* BYO vendor send — name required → accumulate into state.byoVendors (persisted
+     to the draft + the commit payload), confirm truthfully, relabel the add button. */
   const sendByo = () => {
     const name = byoName.trim();
     if (!name) return;
+    const person = byoPerson.trim();
     const email = byoEmail.trim();
     setByoOpen(false);
+    // Functional update so two quick "Send" taps can't clobber each other's entry.
+    setState((s) => ({ ...s, byoVendors: [...s.byoVendors, { name, person, email }] }));
     setByoDone(
-      `✓ ${name} connected to your wedding. We've linked you on their Setnayan account${email ? ` and emailed ${email}` : ''} — chat, files, your website & day-of all run with them here.`,
+      `✓ ${name} added to your wedding. They'll appear in your dashboard's vendor list, where you can track and manage them.`,
     );
     setByoAdded(true);
     setByoName('');
@@ -2021,6 +2025,10 @@ export function OnboardingShell({
       sendTopInquiries: s.sendTopInquiries,
       inquiriesPerCategory: s.inquiriesPerCategory,
       interestedServices: s.interestedServices,
+      // BYO vendors (screen-12 "Add your own vendor" sheet) — off-platform contacts
+      // the couple typed in. Persisted at commit as event_vendors 'considering'
+      // freeform rows so they show on the dashboard Services tab.
+      byoVendors: s.byoVendors,
     }),
     [],
   );

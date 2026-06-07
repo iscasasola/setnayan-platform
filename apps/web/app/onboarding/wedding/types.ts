@@ -166,6 +166,16 @@ export interface OnboardingState {
   shortlist: ShortlistVenue[];
 
   /**
+   * BYO vendors (screen 12 "Add your own vendor" bottom-sheet) — off-platform
+   * vendors the couple typed in (name + contact person + email). Persisted at
+   * commit as event_vendors 'considering' freeform rows (category 'misc',
+   * source 'host_manual') so they show on the dashboard Services tab. Kept in
+   * OnboardingState (not local UI state) so they survive the draft and reach
+   * buildCommitPayload without a stale closure. Accumulates across submissions.
+   */
+  byoVendors: ByoVendor[];
+
+  /**
    * Your Plan opt-ins (screen 14 · owner 2026-06-05). guidanceOptIn → free deadline-timeline
    * guidance (default ON · ₱0 · NOT the retired paid Today's Focus). sendTopInquiries → fan out
    * the couple's first inquiry to the top-3 best-fit vendors at commit (default OFF · explicit
@@ -192,6 +202,16 @@ export interface OnboardingState {
 
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
+}
+
+/** An off-platform vendor the couple added via the "Add your own vendor" sheet (screen 12). */
+export interface ByoVendor {
+  /** Business / vendor name → event_vendors.vendor_name. */
+  name: string;
+  /** Who the couple talks to → event_vendors.notes. */
+  person: string;
+  /** Contact email → event_vendors.contact_email. */
+  email: string;
 }
 
 /** A reception venue shortlisted on the find-vendor screen (screen 12). */
@@ -284,6 +304,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     feel: null,
   },
   shortlist: [],
+  byoVendors: [],
   guidanceOptIn: true,
   sendTopInquiries: false,
   inquiriesPerCategory: 3,

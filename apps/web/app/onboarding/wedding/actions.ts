@@ -246,6 +246,13 @@ export type OnboardingCommitPayload = {
    */
   shortlist: { vendorId: string; name: string }[];
   /**
+   * screen-12 "Add your own vendor" sheet — off-platform vendors the couple typed in
+   * (name + contact person + email). Persisted at commit as event_vendors 'considering'
+   * freeform rows (category 'misc', source 'host_manual') so they show on the dashboard
+   * Services tab — same shape the dashboard's addCustomVendor writes for a manual vendor.
+   */
+  byoVendors: { name: string; person: string; email: string }[];
+  /**
    * screen-10 style sub-stepper prefs blob (reception · ceremony · cuisine ·
    * serviceStyle · dietary · pvLook · pvNeed · pvIncluded · music · feel).
    * Persisted to events.style_preferences (migration 20260724000000) for
@@ -521,6 +528,43 @@ export async function commitOnboardingWedding(
       }
     } catch (shortlistErr) {
       console.error('[onboarding] shortlist/anchor seed failed (non-fatal)', shortlistErr);
+    }
+  }
+
+  // Persist BYO vendors — the off-platform vendors the couple typed into the
+  // screen-12 "Add your own vendor" sheet — as event_vendors 'considering'
+  // freeform rows (category 'misc', source 'host_manual'), the same shape the
+  // dashboard's addCustomVendor writes. event_vendors already has nullable
+  // contact_email + notes columns, so name/contact-person/email all land with
+  // NO new table or column. Best-effort: the event + membership are already
+  // committed, so a BYO insert failure must NEVER reject the action (mirrors
+  // the shortlist block above). dedup by lowercased name within this batch.
+  const byoSeen = new Set<string>();
+  const byoRows = (payload.byoVendors ?? [])
+    .map((v) => ({
+      name: (v?.name ?? '').trim(),
+      person: (v?.person ?? '').trim(),
+      email: (v?.email ?? '').trim(),
+    }))
+    .filter((v) => v.name.length > 0)
+    .filter((v) => (byoSeen.has(v.name.toLowerCase()) ? false : (byoSeen.add(v.name.toLowerCase()), true)))
+    .map((v) => ({
+      event_id: insertedEvent.event_id,
+      category: 'misc' as const,
+      vendor_name: v.name.slice(0, 128),
+      contact_email: v.email || null,
+      notes: v.person || null,
+      status: 'considering' as const,
+      source: 'host_manual' as const,
+    }));
+  if (byoRows.length > 0) {
+    try {
+      const { error: byoError } = await admin.from('event_vendors').insert(byoRows);
+      if (byoError) {
+        console.error('[onboarding] BYO vendor seed failed (non-fatal):', byoError.message);
+      }
+    } catch (byoErr) {
+      console.error('[onboarding] BYO vendor seed failed (non-fatal)', byoErr);
     }
   }
 

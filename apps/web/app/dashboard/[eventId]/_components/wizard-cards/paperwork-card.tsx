@@ -29,6 +29,7 @@ import { useState, useTransition } from 'react';
 import { Clock3, CheckCircle2 } from 'lucide-react';
 import type { WizardTaskId } from '@/lib/wizard';
 import { markTaskInFlight, markTaskDone } from '../../wizard-actions';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 export type PaperworkMetaField = {
   /** Form field name (sent server-side as `meta_<name>`). */
@@ -105,6 +106,13 @@ export function PaperworkCard({
         const formData = buildFormData();
         await action(formData);
       } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: `Wizard · paperwork action (${taskId})`,
+          filePath: 'app/dashboard/[eventId]/_components/wizard-cards/paperwork-card.tsx',
+          error: err,
+          payload: { taskId },
+        });
         const message =
           err instanceof Error
             ? err.message

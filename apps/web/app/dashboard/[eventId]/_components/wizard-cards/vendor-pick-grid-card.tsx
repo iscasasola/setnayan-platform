@@ -63,6 +63,7 @@ import {
   TOP_DESTINATIONS,
   regionForCity,
 } from '@/lib/regions';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 const ALL_CITIES_SENTINEL = '__ALL__';
 const ALL_REGIONS_SENTINEL = '__ALL__';
@@ -666,6 +667,13 @@ export function VendorPickGridCard({
         setSelectedCity(ALL_CITIES_SENTINEL);
         if (regionFilter) setSelectedRegion(ALL_REGIONS_SENTINEL);
       } catch (err) {
+        void trackFailure({
+          eventType: 'OTHER',
+          elementName: 'Wizard · vendor grid search',
+          filePath: 'app/dashboard/[eventId]/_components/wizard-cards/vendor-pick-grid-card.tsx',
+          error: err,
+          payload: { action: 'searchVendors' },
+        });
         const message =
           err instanceof Error
             ? err.message
@@ -713,6 +721,13 @@ export function VendorPickGridCard({
         // both — the framework dedupes.
         router.refresh();
       } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Wizard · lock vendor pick from marketplace',
+          filePath: 'app/dashboard/[eventId]/_components/wizard-cards/vendor-pick-grid-card.tsx',
+          error: err,
+          payload: { action: 'completeVendorPickFromMarketplace' },
+        });
         const message =
           err instanceof Error
             ? err.message
@@ -1830,6 +1845,15 @@ function CustomVendorForm({
         await completeVendorPickFromCustom(formData);
         router.refresh();
       } catch (err) {
+        // Payload kept to the action name only — the form carries contact
+        // phone/email, which must never reach the firehose.
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Wizard · save custom vendor',
+          filePath: 'app/dashboard/[eventId]/_components/wizard-cards/vendor-pick-grid-card.tsx',
+          error: err,
+          payload: { action: 'completeVendorPickFromCustom' },
+        });
         const message =
           err instanceof Error
             ? err.message

@@ -24,6 +24,7 @@ import {
   PRECISION_ORDER,
   type EventDatePrecision,
 } from '@/lib/events';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   eventId: string;
@@ -164,6 +165,13 @@ export function EventDateInput({
         // collapsing into a duplicate read-mode chip beneath the meta line.
         onClose?.();
       } catch (err) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Save wedding date (inline editor)',
+          filePath: 'app/dashboard/[eventId]/_components/event-date-input.tsx',
+          error: err,
+          payload: { action: 'updateEventDate' },
+        });
         setError((err as Error).message);
       }
     });

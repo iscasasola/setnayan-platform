@@ -225,8 +225,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Skip middleware on static assets, PWA assets, and the health probe.
+  // Skip middleware on static assets, PWA assets, the health probe, and the
+  // .well-known deep-link association files (assetlinks.json /
+  // apple-app-site-association — must serve as plain 200 application/json with
+  // no auth redirect or subdomain rewrite, or App Links / Universal Links
+  // verification fails).
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon-.*\\.svg|health|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon-.*\\.svg|health|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

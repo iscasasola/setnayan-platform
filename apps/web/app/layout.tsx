@@ -15,6 +15,7 @@ import Script from 'next/script';
 import './globals.css';
 import { Suspense } from 'react';
 import { ClientTypeDetector } from './_components/client-type-detector';
+import { NativeBridge } from './_components/native-bridge';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
@@ -358,6 +359,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Suspense>
         <Providers>{children}</Providers>
         <ClientTypeDetector />
+        <NativeBridge />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

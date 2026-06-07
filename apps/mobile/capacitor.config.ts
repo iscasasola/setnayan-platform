@@ -35,11 +35,20 @@ const config: CapacitorConfig = {
     limitsNavigationsToAppBoundDomains: false,
   },
   plugins: {
-    // Tighten the splash so the remote page paints fast instead of hanging on
-    // a long native splash while the WebView negotiates the HTTPS load.
     SplashScreen: {
-      launchShowDuration: 600,
+      // Backstop only — the web-side NativeBridge calls SplashScreen.hide() as
+      // soon as the remote page paints, so the splash normally clears well
+      // before this. The 2s ceiling covers slow PH mobile data / offline (where
+      // the page never loads and the MainActivity fallback takes over) so the
+      // splash never hangs indefinitely.
+      launchShowDuration: 2000,
+      launchAutoHide: true,
       backgroundColor: '#FBFBFA', // Warm Alabaster — Clean Editorial palette
+    },
+    Keyboard: {
+      // Resize the WebView (not the body) when the keyboard opens, so focused
+      // inputs aren't hidden behind it — the default reads as broken on first use.
+      resize: 'native',
     },
   },
 };

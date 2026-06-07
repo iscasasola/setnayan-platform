@@ -33,6 +33,9 @@ export function applyPersistentCookieDefaults(
 
 export function readClientType(cookieValue: string | undefined): CookieClientHint {
   return {
-    isNativeLike: cookieValue === 'pwa' || cookieValue === 'tauri',
+    isNativeLike:
+      cookieValue === 'pwa' ||
+      cookieValue === 'tauri' ||
+      cookieValue === 'capacitor',
   };
 }

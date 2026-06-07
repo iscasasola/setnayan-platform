@@ -194,6 +194,14 @@ const nextConfig: NextConfig = {
         source: '/manifest.json',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=3600' }],
       },
+      {
+        // iOS Universal Links fetches this extensionless file and REQUIRES
+        // application/json — Next would otherwise serve it as text/plain and
+        // iOS would reject the association. (Android's assetlinks.json already
+        // gets application/json from its .json extension.)
+        source: '/.well-known/apple-app-site-association',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+      },
     ];
   },
   // v2.1 keynote static decks · CLAUDE.md 2026-05-28 11th row "v2.1

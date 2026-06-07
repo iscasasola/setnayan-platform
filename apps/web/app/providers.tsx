@@ -20,6 +20,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 import { getQueryClient } from '@/lib/query-client';
+import { LoaderOverlayProvider } from '@/components/sd-loader';
 import { DeferredObservability } from './_components/deferred-observability';
 import { GlobalHaptics } from './_components/global-haptics';
 import { PostHogProvider } from './_components/posthog-provider';
@@ -121,7 +122,15 @@ export function Providers({
           server-only imports and avoids plumbing the id through every
           layout.
         */}
-        <PostHogProvider>{children}</PostHogProvider>
+        <PostHogProvider>
+          {/*
+            App-wide blocking loader overlay (Organic loaders handoff
+            2026-06-07). Provides useLoader() to any client component for
+            screen-covering "thinking" moments (sign-in, heavy submits) with a
+            "Ready ✓" completion. Route-level loading still uses skeletons.
+          */}
+          <LoaderOverlayProvider>{children}</LoaderOverlayProvider>
+        </PostHogProvider>
         {/*
           Sentry browser SDK is lazy-loaded post-hydration via a deferred
           client component so the ~105 kB `@sentry/nextjs` chunk stays

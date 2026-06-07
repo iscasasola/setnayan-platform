@@ -682,3 +682,337 @@ html {
   /* Root scroller → no pull-to-refresh / rubber-band bounce. */
   overscroll-behavior: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * <SDLoader> — the shared brand "thinking / analyzing" loader.
+ *
+ * Native port of the `Organic loaders` handoff (owner 2026-06-07). Gold binds
+ * to the locked palette token `--m-orange` (#C5A059) via `--sd-gold` rather
+ * than the handoff's #c69a4b. Light is the default (app is light-locked); the
+ * `[data-theme="dark"]` overrides exist only for couple landing surfaces.
+ *
+ * The label fade reuses `.loading-status-line` (defined above). The blanket
+ * `prefers-reduced-motion: reduce` block above freezes every animation/
+ * transition here to a static, legible state — no per-rule guard needed; the
+ * JS particle spawner opts out in sd-loader.tsx.
+ * ------------------------------------------------------------------------- */
+@layer components {
+  .sd-loader {
+    --sd-gold: var(--m-orange, #c5a059);
+    --sd-gold-lt: var(--m-orange-3, #e0cca0);
+    --sd-bg: #efece4;
+    --sd-bg2: #fcfbf7;
+    --sd-ink: #2a2417;
+    --sd-dim: #9a8e74;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    background: radial-gradient(120% 90% at 50% 38%, var(--sd-bg2) 0%, var(--sd-bg) 70%);
+    color: var(--sd-ink);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sd-loader[data-theme='dark'] {
+    --sd-gold: var(--m-orange-3, #e7c986);
+    --sd-gold-lt: #e7c986;
+    --sd-bg: #15120c;
+    --sd-bg2: #1d1810;
+    --sd-ink: #e9e2d2;
+    --sd-dim: #8a7c63;
+  }
+
+  .sd-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .sd-scene {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sd-core {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sd-glow {
+    position: absolute;
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    filter: blur(8px);
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--sd-gold) 45%, transparent) 0%,
+      transparent 63%
+    );
+    animation: sd-glow 3s ease-in-out infinite;
+  }
+
+  .sd-ring {
+    position: absolute;
+    width: 132px;
+    height: 132px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    transform: rotate(-90deg);
+  }
+  .sd-ring circle {
+    fill: none;
+    stroke: var(--sd-gold);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 340;
+    stroke-dashoffset: 340;
+    transition: stroke-dashoffset 0.75s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .sd-lg {
+    position: relative;
+    width: 104px;
+    height: 104px;
+    background-position: center;
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: sd-think 3s ease-in-out infinite;
+  }
+
+  .sd-orbit {
+    position: absolute;
+    inset: 0;
+  }
+  .sd-orbit::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    background: var(--sd-gold);
+    animation: sd-blob 2s ease-in-out infinite;
+  }
+  .sd-orbit-a {
+    inset: -6%;
+    animation: sd-spin 1.9s linear infinite;
+  }
+  .sd-orbit-a::before {
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+  }
+  .sd-orbit-b {
+    inset: 16%;
+    animation: sd-spin 1.5s linear infinite reverse;
+  }
+  .sd-orbit-b::before {
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    opacity: 0.8;
+  }
+
+  .sd-particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    border-radius: 50%;
+    background: var(--sd-gold);
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  .sd-status {
+    margin-top: 18px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .sd-label {
+    font-size: 14.5px;
+    letter-spacing: 0.01em;
+    color: var(--sd-ink);
+  }
+  .sd-dots {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .sd-dots i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--sd-gold);
+    animation: sd-td 1.2s ease-in-out infinite;
+  }
+  .sd-dots i:nth-child(2) {
+    animation-delay: 0.16s;
+  }
+  .sd-dots i:nth-child(3) {
+    animation-delay: 0.32s;
+  }
+  .sd-check {
+    width: 18px;
+    height: 18px;
+    opacity: 0;
+  }
+  .sd-check path {
+    fill: none;
+    stroke: var(--sd-gold);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 32;
+    stroke-dashoffset: 32;
+    transition: stroke-dashoffset 0.42s ease 0.5s;
+  }
+  .sd-hint {
+    margin-top: 8px;
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sd-dim);
+    transition: color 0.4s ease;
+  }
+
+  /* Completion ("Ready ✓") — orbit fades, ring draws, check strokes in. */
+  .sd-loader[data-done] .sd-orbit {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .sd-loader[data-done] .sd-ring {
+    opacity: 1;
+  }
+  .sd-loader[data-done] .sd-ring circle {
+    stroke-dashoffset: 0;
+  }
+  .sd-loader[data-done] .sd-dots {
+    display: none;
+  }
+  .sd-loader[data-done] .sd-check {
+    opacity: 1;
+    transition: opacity 0.2s ease 0.45s;
+  }
+  .sd-loader[data-done] .sd-check path {
+    stroke-dashoffset: 0;
+  }
+  .sd-loader[data-done] .sd-glow {
+    animation: sd-bloom 0.9s ease both;
+  }
+  .sd-loader[data-done] .sd-lg {
+    animation: sd-pop 0.65s ease both;
+  }
+  .sd-loader[data-done] .sd-hint {
+    color: var(--sd-gold);
+  }
+
+  /* App-wide blocking overlay host (LoaderOverlayProvider). */
+  .sd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--m-paper, #fbfbfa) 94%, transparent);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    animation: sd-overlay-in 0.25s ease both;
+  }
+  .sd-overlay .sd-loader {
+    background: transparent;
+    min-height: 0;
+  }
+}
+
+@keyframes sd-glow {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.04);
+  }
+}
+@keyframes sd-think {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+@keyframes sd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sd-blob {
+  0%,
+  100% {
+    border-radius: 60% 40% 33% 67% / 38% 45% 55% 62%;
+  }
+  50% {
+    border-radius: 45% 55% 49% 51% / 57% 62% 38% 43%;
+  }
+}
+@keyframes sd-td {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+@keyframes sd-bloom {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  42% {
+    opacity: 0.85;
+    transform: scale(1.14);
+  }
+  100% {
+    opacity: 0.55;
+    transform: scale(1.02);
+  }
+}
+@keyframes sd-pop {
+  0% {
+    transform: scale(0.96);
+  }
+  45% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1.02);
+  }
+}
+@keyframes sd-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { SDLoader, LOADER_STEPS } from '@/components/sd-loader';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import {
   applyVoucherAction,
@@ -145,6 +146,9 @@ export function InlineCheckoutDrawer({
   const [submitResult, setSubmitResult] = useState<SubmitOrderResult | null>(null);
   const [submitPending, startSubmitTransition] = useTransition();
   const [screenshotRef, setScreenshotRef] = useState<string | null>(null);
+  // Lets the brand loader's "Ready ✓" completion breathe before we swap the
+  // drawer body to the success card. See the reveal effect below.
+  const [revealSuccess, setRevealSuccess] = useState(false);
 
   // Client idempotency key · minted once per drawer mount, ships with
   // every submit attempt. The (order_id, client_idempotency_key) unique
@@ -160,6 +164,14 @@ export function InlineCheckoutDrawer({
   const finalPesoDisplay = formatPesoCentavos(finalPriceStr);
   const originalPesoDisplay = formatPesoCentavos(originalPriceCentavos);
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
+
+  // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
+  // then reveal the confirmation card. Gives the completion beat room to play.
+  useEffect(() => {
+    if (!submitResult?.ok || revealSuccess) return;
+    const t = setTimeout(() => setRevealSuccess(true), 850);
+    return () => clearTimeout(t);
+  }, [submitResult?.ok, revealSuccess]);
 
   // Esc + body-lock when open · matches ChoosePlanSheet semantics.
   useEffect(() => {
@@ -253,8 +265,15 @@ export function InlineCheckoutDrawer({
           </header>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            {/* If submit succeeded, show confirmation in place of the form. */}
-            {submitResult?.ok ? (
+            {/*
+              Body has three states:
+              1. revealSuccess  → the confirmation card (after the loader's
+                 "Ready ✓" beat).
+              2. submitting / just-succeeded → the brand "thinking" loader,
+                 which flips to its completion state when the order resolves.
+              3. otherwise → the voucher + payment + submit form.
+            */}
+            {revealSuccess && submitResult?.ok ? (
               <SubmitSuccess
                 eventId={eventId}
                 orderId={submitResult.order_id}
@@ -267,8 +286,24 @@ export function InlineCheckoutDrawer({
                   setShowVoucherField(false);
                   setChannel('gcash');
                   setScreenshotRef(null);
+                  setRevealSuccess(false);
                 }}
               />
+            ) : submitPending || submitResult?.ok ? (
+              <div className="flex min-h-[340px] items-center justify-center">
+                {/*
+                  Order-and-pay processing → "Ready ✓" completion (Organic
+                  loaders handoff 2026-06-07). `done` flips when the server
+                  action resolves ok; the reveal effect above then swaps to the
+                  confirmation card after the completion beat.
+                */}
+                <SDLoader
+                  steps={LOADER_STEPS.checkout}
+                  done={!!submitResult?.ok}
+                  doneLabel="Order sent"
+                  hint="Submitting"
+                />
+              </div>
             ) : (
               <div className="space-y-5">
                 {/* (1) Voucher block · collapsed by default per locked policy. */}

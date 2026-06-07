@@ -42,6 +42,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { LoginLoadingBridge } from './_components/login-loading-bridge';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
@@ -304,6 +305,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           ) : null}
 
           <form action={signInWithPassword} style={{ display: 'grid', gap: 12 }}>
+            {/* Brand "thinking" overlay during sign-in (boot moment). */}
+            <LoginLoadingBridge />
             <input type="hidden" name="next" value={next} />
             <FormField
               label="Email"

@@ -1,5 +1,6 @@
 -- ============================================================================
--- 20260910000000_wedding_website_lifecycle_foundation.sql
+-- 20260912000000_wedding_website_lifecycle_foundation.sql
+-- (renamed from 20260910000000 — that version collided with vendor-tier Phase A)
 --
 -- Wedding Website Lifecycle — FOUNDATION (safe, additive subset).
 -- Spec: Wedding_Website_Lifecycle_Spec_2026-06-07.md (corpus) · DECISION_LOG

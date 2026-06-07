@@ -55,6 +55,16 @@ export type NotificationType =
   | 'review_received'
   | 'booking_cancelled'
   | 'dispute_filed'
+  // Added 2026-06-07 alongside migration 20260909000000_login_ghosting_check.sql
+  // — login-driven ghosting escalation (no cron). Fired lazily, once per login,
+  // from apps/web/lib/ghosting.ts via the dashboard layouts:
+  //   inquiry_awaiting_reply → VENDOR logs in, has inquiries unanswered past
+  //                            the threshold (nudge to reply)
+  //   inquiry_no_response    → COUPLE logs in, their inquiry is still
+  //                            unanswered past the threshold (nudge to explore
+  //                            alternatives)
+  | 'inquiry_awaiting_reply'
+  | 'inquiry_no_response'
   | 'photo_delivery_complete'
   | 'photo_delivery_failed';
 
@@ -77,6 +87,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   review_received: 'New review',
   booking_cancelled: 'Booking cancelled',
   dispute_filed: 'Dispute filed',
+  inquiry_awaiting_reply: 'Inquiry awaiting your reply',
+  inquiry_no_response: 'Vendor hasn’t replied',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
 };
@@ -106,6 +118,10 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   review_received: 'bg-amber-100 text-amber-900',
   booking_cancelled: 'bg-rose-100 text-rose-800',
   dispute_filed: 'bg-rose-100 text-rose-800',
+  // Both ghosting nudges are "action needed, not an error" → amber, matching
+  // review_request / resubmit-requested.
+  inquiry_awaiting_reply: 'bg-amber-100 text-amber-900',
+  inquiry_no_response: 'bg-amber-100 text-amber-900',
   photo_delivery_complete: 'bg-emerald-100 text-emerald-800',
   photo_delivery_failed: 'bg-rose-100 text-rose-800',
 };

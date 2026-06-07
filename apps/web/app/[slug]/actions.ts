@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { emitNotification } from '@/lib/notification-emit';
@@ -72,6 +73,13 @@ export async function submitRsvp(
   if (error) {
     // Best-effort silent failure for guest-side surface; couple sees the row
     // unchanged. A toast UI lands with the polish pass.
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Submit guest RSVP',
+      file_path: 'app/[slug]/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { eventId, guestId, status, meal },
+    });
     return;
   }
 

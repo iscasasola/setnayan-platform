@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0023/0035): Connection Logs — wire `insertFaultLog()` into server-action save failures (batch 2)
+
+**Context:** Second instrumentation batch for the Connection Logs tracker. Batch 1 (PR #1047) + #1046 covered **client-side** error paths. This batch covers the bigger category: **server-action save failures** — the app is server-action-heavy, so most real DB writes (and their failures) happen in `actions.ts` files, which were entirely uninstrumented. Server-side uses **`insertFaultLog()`** (not `trackFailure()`, which is browser-only).
+
+**Discovery:** 8 parallel agents (one per high-value `actions.ts`) returned exact, reviewed edit specs. **21 sites across 8 files**, all tapping EXISTING supabase-write error branches (`if (error)` / `throw` after `.insert/.update/.delete/.rpc`). Purely additive (`await insertFaultLog({...})` before the existing return/throw — control flow unchanged); payloads are **ids/flags only** (no PII — emails/names/tokens excluded; #1046's `insertFaultLog` redaction is the second layer).
+
+**Coverage (by flow):**
+- **Money** — `checkout/actions.ts` (order INSERT · payment INSERT · voucher redemption); `orders/actions.ts` (createOrder · logPayment · self-comp order); `admin/payments/actions.ts` (approve→matched · promote→paid · confirm total).
+- **Booking** — `vendors/actions.ts` (finalize/lock · cancel · add marketplace vendor).
+- **Event/core** — `[eventId]/actions.ts` (save date · save ceremony type · mark step complete).
+- **Guest-facing** — `[slug]/actions.ts` (submit RSVP — previously a silent failure); `guests/quick-add-actions.ts` (quick-add guest · set primary role · add role).
+- **Profile** — `profile/actions.ts` (save personal info · change password).
+
+**Verify:** static review + payload-var scope check (every var confirmed present in its file); anchors applied via exact-match Edit (two non-unique anchors disambiguated by surrounding context). No `node_modules` in worktree → **required CI (typecheck + lint + build) on the PR is the hard gate; merging on green.** 178 insertions, 6 deletions (the 6 = single-line `if(x) throw` → block conversions).
+
+**SPEC IMPACT:** None — wires the existing tracker; no schema/SKU/spec change.
+
 ## 2026-06-07 · fix(connections): repair 4 dead/false connections found by the connection audit + ship CONNECTION_MATRIX.md
 
 **Context:** A repo-wide connection/data/fallback audit (deterministic grep sweep + 7 parallel reading agents + schema-vs-code diff, verified against the **live prod DB**) produced `apps/web/CONNECTION_MATRIX.md`. The codebase is mature (zero empty handlers, awaited chains, loud error handling); the audit surfaced a small set of genuine broken connections, now fixed here. All findings were independently re-verified and adversarially reviewed before fixing.

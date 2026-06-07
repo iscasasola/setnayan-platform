@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
+import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
@@ -591,6 +592,13 @@ export async function finalizeVendor(
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (lockErr) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Lock (finalize) vendor booking',
+      file_path: 'app/dashboard/[eventId]/vendors/actions.ts',
+      error_message: lockErr.message,
+      payload_snapshot: { eventId, vendorId, targetCategory, overrideExisting },
+    });
     return { status: 'error', message: lockErr.message };
   }
 
@@ -1867,6 +1875,18 @@ export async function attachMarketplaceVendorToCategory(
     .select('vendor_id')
     .single();
   if (insertErr || !inserted) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Add marketplace vendor to category',
+      file_path: 'app/dashboard/[eventId]/vendors/actions.ts',
+      error_message: insertErr?.message ?? 'Insert failed',
+      payload_snapshot: {
+        eventId: eventIdRaw,
+        marketplaceVendorId: marketplaceVendorIdRaw,
+        category: categoryRaw,
+        serviceLinked: serviceId !== null,
+      },
+    });
     return {
       status: 'error',
       message: insertErr?.message ?? 'Insert failed',
@@ -2145,6 +2165,13 @@ export async function cancelBookingAsHost(
     .eq('vendor_id', vendorIdRaw)
     .eq('event_id', eventIdRaw);
   if (deleteErr) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Cancel vendor booking (host)',
+      file_path: 'app/dashboard/[eventId]/vendors/actions.ts',
+      error_message: deleteErr.message,
+      payload_snapshot: { eventId: eventIdRaw, vendorId: vendorIdRaw, status: ev.status },
+    });
     return { status: 'error', message: deleteErr.message };
   }
 

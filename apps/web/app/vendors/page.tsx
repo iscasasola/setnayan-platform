@@ -11,6 +11,7 @@ import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
 } from '@/lib/demo-mode';
+import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -725,42 +726,6 @@ const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'Cultural',
   'Jewish',
 ];
-
-/**
- * Fetch the list of vendor_profile_id values flagged `is_demo=TRUE`.
- * Used by the marketplace + the broadened empty-state count to exclude
- * demo vendors when demo mode is off, and to annotate cards with the
- * DEMO chip when demo mode is on.
- *
- * Defensive against Agent 1's `is_demo` column not yet being on main:
- * any PostgREST error containing "is_demo" is swallowed and an empty
- * array returned. Under that fallback the marketplace behaves exactly
- * like it did before this PR (no exclusion, no demo annotation).
- *
- * The list is expected to be small (handful for V1 dogfood). At pilot
- * scale this stays well under the URL-length limit for the subsequent
- * `.not('vendor_profile_id', 'in', '(...)')` predicate.
- */
-async function fetchDemoVendorIds(
-  admin: ReturnType<typeof createAdminClient>,
-): Promise<string[]> {
-  try {
-    const { data, error } = await admin
-      .from('vendor_profiles')
-      .select('vendor_profile_id')
-      .eq('is_demo', true);
-    if (error) {
-      if (/is_demo/i.test(error.message)) return [];
-      // Other errors get logged but don't break the marketplace
-      // render — opening the door for prod even on partial outage.
-      console.warn('[demo-mode] fetchDemoVendorIds failed:', error.message);
-      return [];
-    }
-    return (data ?? []).map((row) => row.vendor_profile_id as string);
-  } catch {
-    return [];
-  }
-}
 
 /**
  * Look up the minimum `starting_price_php` per vendor_profile_id for

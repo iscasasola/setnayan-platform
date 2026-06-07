@@ -16,6 +16,7 @@ import {
   LED_LOOP_OPTIONS,
   type LedTemplate,
 } from '@/lib/led-background';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 type QueuedJob = {
   id: string;
@@ -85,6 +86,14 @@ export function LedBackgroundMaker({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setSaveError(typeof data?.error === 'string' ? data.error : 'save_failed');
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Save LED background config',
+          filePath:
+            'app/dashboard/[eventId]/add-ons/led/_components/led-background-maker.tsx',
+          error: typeof data?.error === 'string' ? data.error : 'save_failed',
+          payload: { status: res.status, template: selected?.name },
+        });
         return;
       }
       const data = (await res.json()) as { config_id: string };

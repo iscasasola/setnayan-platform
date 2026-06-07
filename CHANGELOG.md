@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(0023/0035): Connection Logs — wire `trackFailure()` into the first batch of buttons
+
+**Context:** Follow-up to the Connection Logs fault tracker (shipped earlier 2026-06-07). The tracker + dashboard were the substrate; this wires `trackFailure()` into a first batch of real, high-value client-side error paths so live faults actually start landing in `/admin/connection-logs`.
+
+**Approach:** The app is **server-action-heavy** (auth + most mutations run server-side, where `trackFailure` deliberately no-ops), so the real "button" instrumentation points are **client components with existing `catch` blocks / error-result branches around server-action or fetch calls**. I tapped only **existing** error branches — purely additive (`void trackFailure({...})`), no control-flow/logic change, payloads are ids/flags only (no PII).
+
+**First batch (6 sites, across distinct surfaces):**
+- `app/_components/chat-send-form.tsx` — **Send chat message** (`BUTTON_FAIL`, in the existing `catch`).
+- `app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx` — **Submit payment order** (`SUPABASE_SAVE_ERROR`, on `!result.ok` from `submitOrderAction`). Money path.
+- `app/onboarding/wedding/_components/onboarding-shell.tsx` — **Finish onboarding / commit wedding** (`BUTTON_FAIL`, in the commit `catch`). Conversion path.
+- `app/dashboard/[eventId]/add-ons/led/_components/led-background-maker.tsx` — **Save LED background config** (`SUPABASE_SAVE_ERROR`, on `!res.ok`).
+- `app/dashboard/[eventId]/add-ons/mood-board/_components/visual-preview.tsx` — **Save moodboard pick** (`SUPABASE_SAVE_ERROR`, in the save `catch`).
+- `app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx` — **Add guest** (`SUPABASE_SAVE_ERROR`, on `!result.ok` from `quickAddGuest`).
+
+**Verify:** static review + scope check (every payload var confirmed in scope; `!result.ok` narrowing confirmed against existing render code). No `node_modules` in the worktree → relying on required CI (typecheck + lint + production build) on the PR before merge. 54 insertions, 0 deletions.
+
+**SPEC IMPACT:** None — wires the existing tracker; no schema/SKU/spec change. Discovery via parallel agents; more call sites are incremental follow-up.
+
 ## 2026-06-07 · feat(0052): native mobile shell — Capacitor **remote-URL** wrapper (Android built + verified)
 
 **Context:** Owner is bootstrapping the iOS/Android native apps via Capacitor (iteration 0052). The followed recipe used `output: 'export'` + `webDir: 'out'` (static export). **That is incompatible with this app** — `apps/web` is a server-rendered Next.js app (`output: 'standalone'`) with **111 Server Actions · 60 API routes · middleware-based Supabase auth · 417 dynamic routes**; a static export drops all of it (no auth, no Supabase, no payments) and the build fails. So `apps/web` + `next.config.ts` are **untouched**.

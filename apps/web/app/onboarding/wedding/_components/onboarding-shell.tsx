@@ -50,6 +50,7 @@ import {
 } from '../actions';
 import { signInWithGoogle, signInWithFacebook } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { trackFailure } from '@/lib/telemetry/track-error';
 import {
   EMPTY_ONBOARDING_STATE,
   FLOW_TOTAL,
@@ -2151,6 +2152,13 @@ export function OnboardingShell({
       // (owner report 2026-06-03: "never loaded"). Unwind everything + let them
       // tap finish again.
       console.error('[onboarding] commit rejected', err);
+      void trackFailure({
+        eventType: 'BUTTON_FAIL',
+        elementName: 'Finish onboarding (commit wedding)',
+        filePath: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
+        error: err,
+        payload: { step: state.step, purchase },
+      });
       committingRef.current = false;
       setCommitting(false);
       setFinishing(false);

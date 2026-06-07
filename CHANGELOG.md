@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(loader): shared brand "thinking / analyzing" loader (`<SDLoader>`) — Organic loaders handoff
+
+**Context:** Owner-supplied `Organic loaders` handoff (2026-06-07) — a Setnayan-branded indeterminate "we're analyzing your custom stuff" loading screen (gold particles gather into the mark · twin orbit · narrated step copy · `Ready ✓` ring on completion) to standardize loading moments. The handoff shipped a dependency-free `<sd-loader>` Web Component + reference HTML.
+
+**Decisions (owner-chosen this session):** (1) **Native React port**, not the raw Web Component — so gold binds to the locked palette token `--m-orange` (#C5A059, *not* the handoff's #c69a4b), reuses the app's `.loading-status-line` fade, and inherits the global `prefers-reduced-motion` freeze. (2) **Targeted rollout**, NOT a literal "replace ALL loading states" — the 158 layout-mirroring route skeletons + their `LoadingNarration` (owner 2026-06-03/06-05) are KEPT (replacing them would regress route-loading UX). The brand loader is used for full-screen blocking + heavy "personalized work" moments only.
+
+**What landed:**
+- **`apps/web/components/sd-loader/`** — `SDLoader` (the visual; light default, `dark` for couple landing surfaces, JS particle spawner that opts out under reduced-motion), `LoaderOverlayProvider` + `useLoader()` (app-wide blocking overlay with `show/complete/hide`; "Ready ✓" holds ~850ms then auto-fades), `LOADER_STEPS` (single editable per-context narration map), barrel `index.ts`.
+- **`apps/web/app/globals.css`** — `.sd-*` classes in `@layer components` + `sd-*` keyframes at top level (verbatim handoff geometry/timing; gold via `--sd-gold` → `--m-orange`); `.sd-overlay` host.
+- **Wiring (3 consumers):** global overlay mounted in `app/providers.tsx`; **login boot overlay** — `login/_components/login-loading-bridge.tsx` drives the overlay from the password form's `useFormStatus().pending` ("Signing you in…") with **zero change to auth server actions/redirects**; **order-and-pay completion** — `inline-checkout-drawer.tsx` shows the loader while submitting and flips to the `Ready ✓` "Order sent" state before revealing the confirmation card; **monogram route loader** — new `dashboard/[eventId]/monogram/loading.tsx` (purely additive — that route had no `loading.tsx`).
+- **Logo:** points at the existing transparent `public/brand/setnayan-mark.svg` (not the handoff PNG).
+
+**Where to edit copy:** per-screen `steps` live in `components/sd-loader/loader-steps.ts` (signin / checkout / siteEditor / monogram / matching / default).
+
+**Verify:** `tsc --noEmit` clean for all changed files (only pre-existing env errors: `@mediapipe/tasks-vision`, `sharp` — untouched files, missing native deps in the local install; CI installs them) · `next lint` clean · visual fidelity confirmed via a self-contained harness screenshot (loading + completion states, brand gold, ring/check draw, narration). No `node_modules` in worktree → **required CI (typecheck + lint + build) on the PR is the hard gate.**
+
+**SPEC IMPACT:** **None** — UI infrastructure consistent with the existing loading-UX directives (skeletons 2026-06-03, narration 2026-06-05); no schema/SKU/pricing/scope change. The handoff's literal "ALL loading states" was deliberately scoped to targeted high-value moments (owner choice this session); skeletons remain the route-loading pattern. No corpus edit required.
+
 ## 2026-06-07 · feat(0023/0035): Connection Logs — wire `insertFaultLog()` into server-action save failures (batch 2)
 
 **Context:** Second instrumentation batch for the Connection Logs tracker. Batch 1 (PR #1047) + #1046 covered **client-side** error paths. This batch covers the bigger category: **server-action save failures** — the app is server-action-heavy, so most real DB writes (and their failures) happen in `actions.ts` files, which were entirely uninstrumented. Server-side uses **`insertFaultLog()`** (not `trackFailure()`, which is browser-only).

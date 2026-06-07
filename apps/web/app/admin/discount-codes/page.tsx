@@ -306,7 +306,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
           borderColor: 'var(--m-line)',
         }}
       >
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[480px] lg:min-w-[900px] text-left text-sm">
           <thead>
             <tr
               className="border-b"
@@ -318,11 +318,11 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
             >
               <Th>Code</Th>
               <Th>Discount</Th>
-              <Th>Covers</Th>
-              <Th>Effective until</Th>
+              <Th className="hidden lg:table-cell">Covers</Th>
+              <Th className="hidden lg:table-cell">Effective until</Th>
               <Th>Uses</Th>
               <Th>Status</Th>
-              <Th>Created</Th>
+              <Th className="hidden md:table-cell">Created</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
@@ -363,7 +363,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                       <Mono>{row.code}</Mono>
                     </Td>
                     <Td>{describeValue(row)}</Td>
-                    <Td>
+                    <Td className="hidden lg:table-cell">
                       <span
                         title={row.covered_service_keys.join(', ')}
                         style={{ color: 'var(--m-slate)' }}
@@ -372,7 +372,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                         {row.covered_service_keys.length === 1 ? '' : 's'}
                       </span>
                     </Td>
-                    <Td>
+                    <Td className="hidden lg:table-cell">
                       {row.effective_from ? (
                         <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
                           {formatDate(row.effective_from)} → {formatDate(row.expires_at)}
@@ -385,7 +385,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                     <Td>
                       <StatusPill tone={statusTone}>{statusLabel}</StatusPill>
                     </Td>
-                    <Td>
+                    <Td className="hidden md:table-cell">
                       <span style={{ color: 'var(--m-slate)' }}>
                         {creator?.name ?? '—'}
                       </span>
@@ -478,12 +478,39 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
 
 // ----- Sub-components (kept inline · single-use, surface stays tight) -----
 
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wider">{children}</th>;
+function Th({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <th
+      className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider${
+        className ? ` ${className}` : ''
+      }`}
+    >
+      {children}
+    </th>
+  );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-4 py-3" style={{ color: 'var(--m-ink)' }}>{children}</td>;
+function Td({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <td
+      className={`px-4 py-3${className ? ` ${className}` : ''}`}
+      style={{ color: 'var(--m-ink)' }}
+    >
+      {children}
+    </td>
+  );
 }
 
 function Mono({ children }: { children: React.ReactNode }) {

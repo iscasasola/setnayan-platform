@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { geocodeNominatim } from '@/lib/geo';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -121,7 +122,7 @@ function parseCompatibilityArray(
  * matches the component-level `maxFiles=10` so a hostile client can't
  * balloon the column.
  */
-function parsePortfolioRefs(raw: FormDataEntryValue[]): string[] {
+function parsePortfolioRefs(raw: FormDataEntryValue[], max = 10): string[] {
   const out: string[] = [];
   for (const item of raw) {
     if (typeof item !== 'string') continue;
@@ -130,7 +131,7 @@ function parsePortfolioRefs(raw: FormDataEntryValue[]): string[] {
     if (!trimmed.startsWith('r2://')) continue;
     if (out.includes(trimmed)) continue;
     out.push(trimmed);
-    if (out.length >= 10) break;
+    if (out.length >= max) break; // tier cap (Infinity = unlimited → never breaks)
   }
   return out;
 }
@@ -201,6 +202,17 @@ export async function saveVendorProfile(formData: FormData) {
   const hq_address = nullIfBlank(formData.get('hq_address'));
   const location_city = nullIfBlank(formData.get('location_city'));
 
+  // Tier portfolio-photo cap (Phase B): FREE 30 · VERIFIED 50 · PRO 100 ·
+  // ENTERPRISE ∞. Soft-probe tier_state (not in FULL_VENDOR_PROFILE_SELECT).
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const portfolioMax = tierCaps(
+    asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
+  ).portfolioPhotos;
+
   const payload = {
     business_name: nonBlank(formData.get('business_name'), 128),
     business_slug,
@@ -213,7 +225,10 @@ export async function saveVendorProfile(formData: FormData) {
     contact_email: nullIfBlank(formData.get('contact_email')),
     contact_phone: nullIfBlank(formData.get('contact_phone')),
     is_published: formData.get('is_published') === 'on',
-    portfolio_r2_keys: parsePortfolioRefs(formData.getAll('portfolio_r2_keys')),
+    portfolio_r2_keys: parsePortfolioRefs(
+      formData.getAll('portfolio_r2_keys'),
+      portfolioMax,
+    ),
     compatible_ceremony_types: parseCompatibilityArray(
       formData.getAll('compatible_ceremony_types'),
       ALLOWED_CEREMONY_TYPES,

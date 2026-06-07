@@ -1,7 +1,7 @@
 /**
  * /admin/queues — mobile triage action feed for the Queues group.
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the 7 queue
+ * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the queue
  * surfaces compress behind the Queues bottom-nav tab on a phone. Previously
  * this landed on a flat card menu; per the 0023 §5 "mobile = urgent
  * approvals" rule it now lands on a PRIORITIZED action feed: every queue
@@ -10,6 +10,7 @@
  * Counts mirror the exact filters each queue page uses so the number here
  * matches the rows the admin sees on arrival:
  *   payments        status='pending'                  → /admin/payments
+ *   payment-options moderation_status in (pending_review, held) → /admin/payment-options
  *   verify          public_visibility='coming_soon'   → /admin/verify
  *   disputes        status='open'                      → /admin/disputes
  *   force-majeure   status in (open, under_review)     → /admin/force-majeure
@@ -23,6 +24,7 @@
 
 import {
   Banknote,
+  CreditCard,
   BadgeCheck,
   Shield,
   AlertOctagon,
@@ -48,6 +50,7 @@ export default async function AdminQueuesLanding() {
   // whole feed. Mirrors the count pattern on /admin (Home).
   const [
     paymentsRes,
+    paymentOptionsRes,
     verifyRes,
     disputesRes,
     forceMajeureRes,
@@ -56,6 +59,10 @@ export default async function AdminQueuesLanding() {
     abuseRes,
   ] = await Promise.all([
     admin.from('payments').select('*', head).eq('status', 'pending'),
+    admin
+      .from('vendor_payment_methods')
+      .select('*', head)
+      .in('moderation_status', ['pending_review', 'held']),
     admin
       .from('vendor_profiles')
       .select('*', head)
@@ -84,6 +91,14 @@ export default async function AdminQueuesLanding() {
       icon: Banknote,
       description: 'Order payments awaiting reconciliation.',
       count: take(paymentsRes.count),
+    },
+    {
+      key: 'payment-options',
+      label: 'Payment options',
+      href: '/admin/payment-options',
+      icon: CreditCard,
+      description: 'Vendor payment destinations awaiting a fraud screen.',
+      count: take(paymentOptionsRes.count),
     },
     {
       key: 'verify',

@@ -9,6 +9,7 @@ import {
   profileCompletion,
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -181,10 +182,24 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         logoDisplayUrl: string | null;
         portfolioDisplayMap: Record<string, string>;
         logoDisplayMap: Record<string, string>;
+        portfolioMax: number;
       }
     | { ok: false; message: string };
   try {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
+
+    // Tier portfolio-photo cap (Phase B). Soft-probe tier_state (not in the
+    // shared profile select) → FREE 30 · VERIFIED 50 · PRO 100 · ENTERPRISE ∞.
+    // The <FileUpload> needs a finite maxFiles, so ∞ → a high sentinel.
+    const { data: tierRow } = await supabase
+      .from('vendor_profiles')
+      .select('tier_state')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const portfolioCap = tierCaps(
+      asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
+    ).portfolioPhotos;
+    const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
 
     // Vendor-side event-day pre-load: surface a CTA per upcoming event the
     // vendor has a contracted relationship with (proxied through their open
@@ -234,6 +249,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       logoDisplayUrl,
       portfolioDisplayMap,
       logoDisplayMap,
+      portfolioMax,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -281,6 +297,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     logoDisplayUrl,
     portfolioDisplayMap,
     logoDisplayMap,
+    portfolioMax,
   } = loaderState;
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
@@ -462,7 +479,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         <Field
           label="Portfolio"
           htmlFor="portfolio_r2_keys"
-          help="Show off recent work. Up to 10 images, 5 MB each. Couples browse this on your public page."
+          help={`Show off recent work. Up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax} images, 5 MB each. Couples browse this on your public page.`}
         >
           <FileUpload
             bucket="media"
@@ -471,7 +488,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             currentValue={profile?.portfolio_r2_keys ?? []}
             initialDisplayUrls={portfolioDisplayMap}
             multiple
-            maxFiles={10}
+            maxFiles={portfolioMax}
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="wide"

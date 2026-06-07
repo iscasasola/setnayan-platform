@@ -4,22 +4,110 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-07 · feat(website): wedding-website lifecycle foundation — schema
+## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
 
-**Context:** Owner design session locked the couple's event website as **ONE site with three date-driven phases** (RSVP before · Event during · Editorial after) — full spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07. This PR cuts the **safe, additive foundation** the rest hangs off. Nothing consumes it yet (frontend ships ahead).
+**Context:** Owner design session locked the couple's event website as ONE site with three date-driven phases (RSVP before · Event during · Editorial after) — spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + corpus DECISION_LOG. This PR ships the safe, additive schema foundation; nothing consumes it yet (frontend ships ahead).
 
-**What landed (migration `20260910000000_wedding_website_lifecycle_foundation.sql`):**
-- **`events.*` columns** — shared chrome: `site_bg_music_source` (`upload`/`pakanta`) + `site_bg_music_r2_key` + `site_bg_music_enabled` (NET-NEW looping page soundtrack via Web Audio; distinct from `music_playlist_seed`/`event_song_picks` vendor-matching music), `landing_page_hero_video_r2_key` (scrub-video hero); auto-editorial storyline inputs: `love_story` JSONB, `special_message`, `together_since`, `editorial_tone`, `editorial_language`.
-- **`event_vendors.selection_match_rank`** — captures whether a booked vendor was Setnayan's #1 leaf-match at selection time (powers the Editorial "By the Numbers" first-pick stat, M2). Forward-only; `finalizeVendor` wiring follows.
-- **`event_editorial`** — one snapshot row per event: `draft_json` (LLM-composed recap) + **frozen `impact_metrics`** (so a published recap's numbers never drift) + hero/essay photo refs + status. RLS: couple + accepted moderators read/write; admin read; public recap renders via the admin client (no anon policy), mirroring `invitation_widgets`.
+**What landed (`20260910000000_wedding_website_lifecycle_foundation.sql`, applied to prod):**
+- **`events.*`** — looping bg music (`site_bg_music_source`/`_r2_key`/`_enabled`), scrub-video hero (`landing_page_hero_video_r2_key`), auto-editorial storyline inputs (`love_story` JSONB, `special_message`, `together_since`, `editorial_tone`, `editorial_language`).
+- **`event_vendors.selection_match_rank`** — was this vendor the #1 leaf-match at selection (powers the Editorial "By the Numbers" first-pick stat; forward-only).
+- **`event_editorial`** — per-event recap snapshot (`draft_json` + frozen `impact_metrics` + hero/essay refs); RLS: couple + accepted moderators read/write, admin read.
 
-**Deliberately deferred (need a decision / atomic renderer ship):**
-- **`invitation_widgets` per-phase** (phase column + UNIQUE + widget_type expansion + matrix seeding) — RENDERER-COUPLED; seeding event/editorial rows before `[slug]/page.tsx` is phase-aware would render unknown widgets live. Ships atomically with the renderer.
-- **Event-level review/feedback table** — must reconcile with the existing `vendor_reviews` (couple→vendor marketplace ratings); the editorial Feedback Wall's guest/vendor/couple→event feedback is a different subject. Owner decision pending.
+**Deferred (decision / atomic renderer ship):** `invitation_widgets` per-phase (renderer-coupled) + event-level review/feedback table (reconcile vs existing `vendor_reviews`).
 
-**Verify:** migration is purely additive (`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`), idempotent, RLS enabled at table create; timestamp sorts after `20260909000000`. NOT yet applied to prod (no consumer; apply via `supabase db push` when the first consuming code lands).
+**Verify:** purely additive (`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`), idempotent, RLS at table create; CI green; migration applied to prod via `supabase db push`.
 
-**SPEC IMPACT:** Wedding-website lifecycle model → `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07 (already landed). 0002 / 0021 / 0031 `.md`+`.docx` fold-in pending.
+**SPEC IMPACT:** Wedding-website lifecycle model → `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07 (landed). 0002 / 0021 / 0031 fold-in pending.
+
+## 2026-06-07 · feat(vendor-tiers): Phase B — count caps (agents · portfolio · parent categories)
+
+**Context:** Phase B of the tier matrix (owner: build all phases in sequence). Enforce the numeric caps from `Vendor_Tier_Capability_Matrix_2026-06-07.md`, all reading the `lib/vendor-tier-caps.ts` helper. No migration (app-layer). A pre-build audit found 2 of the 5 caps are blocked — see "Deferred" below.
+
+**What landed:**
+- **Agent accounts** (FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞) — `inviteVendorTeamMember` (`team/actions.ts`) soft-probes `tier_state`, counts existing non-owner seats, blocks past the cap (FREE = 0 blocks all invites).
+- **Portfolio photos** (30 · 50 · 100 · ∞) — `saveVendorProfile` (`vendor-dashboard/actions.ts`) caps `parsePortfolioRefs` by tier (was a hardcoded 10, *below* even FREE's 30); the profile page's portfolio `<FileUpload maxFiles>` + help text are now tier-driven (∞ → 999 UI sentinel) so paid vendors can actually upload up to their cap.
+- **Parent categories** (1 · 3 · 3 · ∞) — `createVendorService` (`services/actions.ts`) blocks a service that would introduce a NEW parent (of the 10) beyond the tier allowance, via `tilesForVendorCategory()` → `TILE_PARENT` (NOT `TAXONOMY_MAP`); adding within already-covered parents is free.
+
+**Deferred (blocked — need owner input, flagged):** packages-per-leaf (`vendor_services` already `UNIQUE` 1/leaf; `vendor_packages` has no vendor-side create path → definition decision needed) · slots-per-day (no per-day slot ledger; `slotsTimeBounded` needs schema → design + migration).
+
+**Verify:** `tsc` clean · `next lint` exit 0. No migration.
+
+**SPEC IMPACT:** Phase B caps 2/3/4 enforced; caps 1/5 flagged as blocked. → corpus DECISION_LOG.
+
+## 2026-06-07 · fix(marketplace,0026): demo-vendor leak in dashboard search + retire Form 2307 (EWT) + customer /more desktop redirect
+
+Three follow-ups from the dashboard/connection audits:
+
+**Demo-vendor leak (prod-pollution fix).** The in-dashboard couple "add a vendor" search (`searchCategoryVendors` → `fetchWizardVendorRecommendations`) had **no `is_demo` filter**, so all ~4,900 seeded demo vendors were visible to **every real couple** — even though the public `/vendors` browse + `/v/[slug]` microsite correctly hide them. Extracted the local `fetchDemoVendorIds` helper from `app/vendors/page.tsx` into shared `lib/demo-vendors.ts`, and wired the dashboard caller to exclude demo vendors (`excludeVendorIds`) **unless the viewer is in demo mode** (admin + demo cookie) — mirroring the public browse exactly. Public browse behavior unchanged.
+
+**Retire Form 2307 / EWT generation (0026).** With **0% commission + off-platform vendor money**, Setnayan never withholds tax on a vendor's sale, so the BIR Form 2307 (Certificate of Creditable Tax Withheld) generation is dead. Deleted the orphaned `api/admin/bir/2307/regenerate` route, the `api/admin/cron/generate-2307` cron, and the entire self-contained `lib/bir/` tree (generator/2307-pdf/filings/storage/atc-mapper — the only importers were the two deleted routes). **The BIR Official Receipt auto-stamping on Setnayan's own in-app SKU sales is a different, live, marketed feature and was deliberately left intact** (receipts pages, `issueReceiptForOrder`, TIN, marketing copy all untouched). Net −1,971 lines.
+
+**Customer `/more` desktop blank page.** `app/dashboard/[eventId]/more` rendered an `lg:hidden` mobile landing → blank on desktop direct-URL (same issue the vendor `/more` was just fixed for). Added a `DesktopRedirect` (matchMedia ≥1024px → `router.replace` to the event-scoped dashboard root).
+
+**Verify:** `pnpm typecheck` ✅ · `pnpm lint` ✅.
+
+**SPEC IMPACT:** marketplace (demo vendors now hidden from real couples in dashboard search, consistent with the public surfaces) + 0026 (Form 2307/EWT retired — corpus AS-BUILT headers already note BIR 2307 retirement; in-app-sale BIR Official Receipts retained). No SKU/pricing change.
+
+## 2026-06-07 · chore(vendor-tiers): FREE may buy tokens (for client import)
+
+**Context:** Owner clarification on the tier rules: (1) "FREE won't get in-app customers, but FREE-VERIFIED will" — already enforced (`unlock_vendor_event` blocks FREE via `TIER_FREE_NO_INAPP`; FREE-VERIFIED gets its 10/week free), **no change**. (2) "Let FREE buy tokens to import their clients" — overrides the reissued sheet's "Cost per additional Lifetime Token: Not Allowed (FREE)".
+
+**What landed:** `canBuyTokens()` (`lib/vendor-tier-caps.ts`) now returns true for **all** tiers including FREE. A FREE vendor's only token sink is the Import Customers gate (1 token/import); buying never unlocks in-app for FREE (tier-blocked regardless of balance). The buy-token checkout + the import-customer token-charge are still **Phase D** (neither built) — this is the capability flag + the rule.
+
+**Verify:** `tsc` clean · `next lint` clean. No migration.
+
+**SPEC IMPACT:** Matrix doc buy-token row updated (FREE may buy, for client import). → corpus DECISION_LOG.
+
+## 2026-06-07 · feat(vendor-tiers): reissued sheet — reprice + verified-free gate + subscription token bundle
+
+**Context:** Owner reissued the tier sheet ("how much they pay and the benefits"). Capabilities unchanged; pricing + token mechanics changed. Owner confirmed the two open points: **verified is FREE** (revert Phase A's verified-burn) and **grant the subscription token bundle on admin tier-set now** (interim until Phase D self-serve checkout).
+
+**What landed (migration `20260911000000`, applied to prod):**
+- **Reprice** (round numbers — break the brand charm/-1 lock, owner-set explicitly; supersede Phase A's ₱3,999/₱9,999): Pro **₱6,000/28d · ₱60,000/yr**, Enterprise **₱10,000/28d · ₱100,000/yr** (`vendor_billing_catalog`).
+- **Verified-free burn gate** — `unlock_vendor_event` re-created: **FREE → RAISE** (blocked) · **FREE-VERIFIED → ≤10 NEW unlocks/rolling-week, FREE (0 tokens, no burn)** · **PRO/ENTERPRISE → unlimited, burn 1-3 region-banded tokens**. Re-accept stays free + un-gated. This reverts the verified-burn shipped hours earlier in Phase A (PR #1061), per the reissued sheet's In-App-Gate ✗ for verified.
+- **Subscription token bundle on admin tier-set** — `setVendorTier` now grants the monthly bundle (Pro **+30**, Enterprise **+100**, 28-day TTL) via `grant_admin_direct_tokens`, idempotent per `(vendor, tier)`. Interim activation; the per-renewal grant + annual amounts (300 / 1,000) come with Phase D.
+- **Helper** (`lib/vendor-tier-caps.ts`) — `TIER_PRICE_PHP` updated; `verified.inAppGated=false`; new `TIER_SUBSCRIPTION_BUNDLE_TOKENS`, `TOKEN_BUY_PRICE_PHP` (₱100), `canBuyTokens()` (FREE = ✗ "Not Allowed", per the new "Cost per additional Lifetime Token" row).
+
+**Verify:** `tsc` clean · `next lint` exit 0 · migration applied + "remote database is up to date."
+
+**SPEC IMPACT:** Tier matrix doc updated (new prices + token-bundle + buy-token rows). Verified is now token-free for in-app answers (reverts the same-day Phase A choice). Buy-token flow (₱100/token, FREE-not-allowed) + per-renewal bundle = Phase D. → corpus DECISION_LOG.
+
+## 2026-06-07 · fix(0022,0023): vendor+admin dashboard mobile/desktop parity batch + BIR nav retirement
+
+**Context:** A mobile/desktop UI audit of the vendor (24 routes) and admin (51 routes) dashboards found both structurally healthy, with a small set of parity gaps — chiefly two admin surfaces reachable only on desktop. This batch fixes all of them (no new features).
+
+**Admin:**
+- **`/admin/payment-options` → reachable on mobile** — added to the `/admin/queues` triage feed (live count = `vendor_payment_methods` with `moderation_status IN (pending_review,held)`) + the Queues bottom-nav `activeMatch`. It's a vendor-payment fraud screen that was desktop-only.
+- **`/admin/connection-logs` → reachable on mobile** — added a card to the `/admin/more` Insights grid + the More `activeMatch`.
+- **BIR retired from nav (owner-authorized 2026-06-07):** removed `/admin/bir` from the Money `activeMatch`, dropped "BIR" from the `/admin/money` subtitle, and **deleted the dead `app/admin/bir/2307/` tombstone tree** (page + loading + 2 unused components). The 2307 generation API + cron routes are kept (page refs cleaned) — full 0026 retirement is a separate step.
+- **Responsive tables:** `discount-codes` list now hides low-priority columns below `lg`/`md` + responsive `min-w` (was a forced 900px scroll on phones); `budget-planner` aggregate table `overflow-hidden` → `overflow-x-auto` + `min-w`.
+- Root Overview copy "Content" → "Manage"; stale nav docstrings refreshed to the real 6 groups; Directory mobile `activeMatch` gains `wedding-types`/`wedding-traditions`; token-bands parity in the Money tab.
+
+**Vendor:**
+- **`moodboard-library` 404 fix** — the page hard-gated on `account_type==='vendor'`; realigned to the layout's `fetchOwnVendorProfile`/vendor-profile gate so a dual-role owner no longer 404s.
+- Mobile More-tab `activeMatch` gains `repertoire`/`branches`/`payment-options`; `repertoire`/`branches` descriptions added to `/more`; new `DesktopRedirect` so `/vendor-dashboard/more` no longer renders a blank page on desktop direct-URL; stale docstrings refreshed to the real 4 groups.
+
+**Verify:** `pnpm typecheck` ✅ · `pnpm lint` ✅ (only pre-existing warnings in untouched files). Net −138 lines (BIR tombstone removal).
+
+**SPEC IMPACT:** 0022 (vendor dashboard) + 0023 (admin console) — nav/grouping/mobile-parity corrections; BIR (0026) nav refs + tombstone retired (corpus AS-BUILT headers already note BIR retirement; full 0026 feature retirement is a separate decision). No SKU/pricing/customer-facing change.
+
+## 2026-06-07 · feat(vendor-tiers): Phase A — capability foundation + pricing + tier-gated burn
+
+**Context:** Owner provided the canonical 4-tier capability matrix (FREE / FREE-VERIFIED / PRO / ENTERPRISE — corpus `Vendor_Tier_Capability_Matrix_2026-06-07.md`). Audit found it ~13/19 rows unenforced and `tier_state` inert (no way to reach Pro/Enterprise). Owner chose: build everything (phased), matrix prices win, and **all paid tiers (verified+pro+ent) burn tokens — only FREE is blocked**. This is **Phase A of 5** (foundation + the token-gate correctness fix). Phases B–D (count caps · feature gates · self-serve checkout) follow.
+
+**What landed:**
+- **`apps/web/lib/vendor-tier-caps.ts`** — the canonical matrix in code (`TIER_CAPS` for all 4 tiers + `TIER_PRICE_PHP`, `TIER_LABEL`, `tierCaps()`, `isTrueNameTier()`, `canAcceptInAppInquiries()`). Single source every later phase reads from.
+- **Migration `20260910000000` (applied to prod):**
+  - **Price alignment** (owner: matrix wins) — `vendor_billing_catalog` Pro ₱1,999→**₱3,999**/mo (₱19,999→**₱39,999**/yr), Enterprise ₱5,499→**₱9,999**/mo (₱54,999→**₱99,999**/yr); Pro caps corrected to the matrix (`max_categories` 1→3, `max_sub_seats` 5→3). /pricing reads the catalog.
+  - **Tier-gated `unlock_vendor_event`** (CREATE OR REPLACE, supersedes the tier-blind 20260908000000): **FREE → RAISE** (can't accept in-app inquiries); **VERIFIED → ≤10 NEW unlocks/rolling-week AND burns** 1-3 tokens each (owner override of the matrix "gate ✗" cell — verified pays too); **PRO/ENTERPRISE → unlimited + burns**. Re-accepting an already-unlocked (vendor,event) stays free + un-gated (idempotent; weekly limit counts only new unlocks). Still ownership-checked + rolls back on any RAISE.
+- **`acceptInquiry`** now surfaces tier-appropriate messages for the new RAISE codes (`TIER_FREE_NO_INAPP` → "get verified"; `VERIFIED_WEEKLY_LIMIT` → "10/week reached, upgrade to Pro").
+- **Admin tier control** — `setVendorTier` action + a "Subscription tier" selector on `/admin/vendors/[id]/tokens` (co-located with token grants). Until self-serve checkout (Phase D) this is the only way to reach Pro/Enterprise; audit-logged.
+
+**Deferred to later phases:** name-reveal/searchability reading `tier_state` (Phase C — needs `tier_state` threaded through marketplace/microsite reads); count caps (B); feature gates chat/video/editorial/review-comments/website/radius/scheduling (C); self-serve subscription checkout (D).
+
+**Verify:** `tsc` clean · `next lint` exit 0 · `lint:retired` 0 · migration-timestamp guard. Migration applied + "remote database is up to date."
+
+**SPEC IMPACT:** Vendor tier matrix is now canonical (`project_setnayan_vendor_tier_ladder` superseded). Prices ₱3,999/₱9,999 supersede catalog + prior memory. Burn is now tier-gated (revises the PR #1057 tier-blind burn + the "tokens universal all tiers" lock — FREE blocked). → corpus DECISION_LOG + Pricing §0.C / 0022 follow-up.
 
 ## 2026-06-07 · feat(ghosting): login-driven inquiry-ghosting nudges — no cron
 

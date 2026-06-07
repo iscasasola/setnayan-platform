@@ -25,8 +25,11 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
+import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { computeCompatScore } from '@/lib/compat-score';
@@ -160,8 +163,30 @@ export async function searchCategoryVendors(input: {
 
   // Ranked category query (boosted → review_count → rating) + live search.
   const admin = createAdminClient();
+
+  // Demo-vendor exclusion — mirror the public `/vendors` browse: real couples
+  // never see `is_demo = TRUE` vendors; only an admin in demo mode (admin
+  // profile + the demo cookie) does. Cheap fast-path: skip the admin lookup
+  // unless the demo cookie is present.
+  const cookieStore = await cookies();
+  const hasDemoCookie =
+    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
+  let inDemoMode = false;
+  if (hasDemoCookie) {
+    const { data: viewerProfile } = await supabase
+      .from('users')
+      .select('account_type, is_internal, is_team_member')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    inDemoMode = isAdminProfile(viewerProfile);
+  }
+  const excludeVendorIds: ReadonlyArray<string> = inDemoMode
+    ? []
+    : await fetchDemoVendorIds(admin);
+
   const recs = await fetchWizardVendorRecommendations(admin, {
     canonicalServices: canonicals,
+    excludeVendorIds,
     ceremonyType: (ev.ceremony_type as string | null) ?? null,
     // Mixed/interfaith weddings: admit vendors fit for the secondary rite too
     // (additive — never excludes). CLAUDE.md 2026-06-01 + 2026-06-02.

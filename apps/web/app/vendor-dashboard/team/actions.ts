@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_TEAM_ROLES, type VendorTeamRole } from '@/lib/vendor-team';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
@@ -33,7 +34,7 @@ async function ensureOwner() {
   // can't reach team management.
   const { data: profile } = await supabase
     .from('vendor_profiles')
-    .select('vendor_profile_id')
+    .select('vendor_profile_id, tier_state')
     .eq('user_id', user.id)
     .maybeSingle();
   if (!profile) redirect('/vendor-dashboard');
@@ -71,6 +72,25 @@ export async function inviteVendorTeamMember(formData: FormData) {
     return redirect(
       '/vendor-dashboard/team?error=Owner+role+is+reserved+for+the+profile+creator',
     );
+  }
+
+  // Tier seat cap (Phase B · Vendor_Tier_Capability_Matrix_2026-06-07): agent
+  // accounts = FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞. Count existing
+  // non-owner seats and block when the allowance is reached.
+  const seatCap = tierCaps(asVendorTier(profile.tier_state)).agentAccounts;
+  if (seatCap !== Infinity) {
+    const { count: seatCount } = await supabase
+      .from('vendor_team_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .neq('role', 'owner');
+    if ((seatCount ?? 0) >= seatCap) {
+      const msg =
+        seatCap === 0
+          ? 'Agent accounts need a paid plan. Get verified or upgrade to add team members.'
+          : `You've reached your plan's limit of ${seatCap} agent account${seatCap === 1 ? '' : 's'}. Upgrade for more seats.`;
+      return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(msg)}`);
+    }
   }
 
   // Look up the target user by email via the admin client (RLS on

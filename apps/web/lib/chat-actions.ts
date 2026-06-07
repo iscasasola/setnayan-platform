@@ -291,17 +291,29 @@ export async function acceptInquiry(formData: FormData) {
     // accepting). It costs ONE idempotent unlock per (vendor, event), banded
     // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
     // unlock covers ALL of this vendor's services for the event. The RPC
-    // (unlock_vendor_event, migration 20260908000000) is atomic + idempotent:
-    // a re-accept never double-charges, and an insufficient balance rolls the
-    // whole thing back (no phantom unlock) and RAISES — we surface a friendly
-    // top-up prompt and do NOT accept. 100 free founder tokens cushion new
-    // vendors. The RPC ownership-checks the caller (defense-in-depth atop the
-    // loadVendorThreadForActor gate above).
+    // (unlock_vendor_event) is atomic + idempotent + TIER-GATED (owner 2026-06-07
+    // reissue, migration 20260911000000): FREE can't accept in-app inquiries;
+    // FREE-VERIFIED gets ≤10 new unlocks/rolling-week FREE (no token burn);
+    // PRO/ENTERPRISE unlimited + burns 1-3 tokens. A re-accept of an already-unlocked
+    // (vendor,event) is free + un-gated. Any RAISE rolls the whole tx back (no
+    // phantom unlock) — we surface a friendly, tier-appropriate message and do
+    // NOT accept. The RPC also ownership-checks the caller (defense-in-depth
+    // atop the loadVendorThreadForActor gate above).
     const { error: burnErr } = await supabase.rpc('unlock_vendor_event', {
       p_vendor_profile_id: thread.vendor_profile_id,
       p_event_id: thread.event_id,
     });
     if (burnErr) {
+      if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
+        throw new Error(
+          'Get your account verified to start receiving and answering couples in the app.',
+        );
+      }
+      if (/VERIFIED_WEEKLY_LIMIT/.test(burnErr.message)) {
+        throw new Error(
+          'You’ve answered your 10 inquiries for this week. Upgrade to Pro for unlimited inquiries, or come back next week.',
+        );
+      }
       if (/INSUFFICIENT_WALLET_BALANCES/.test(burnErr.message)) {
         throw new Error(
           'You need tokens to accept this inquiry. Top up your token balance, then try again — one unlock covers all your services for this event.',

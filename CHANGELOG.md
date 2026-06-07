@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · fix(loading): fill first-load gaps — skeleton `loading.tsx` on 8 in-app data routes
+
+**Context:** Follow-up to the `<SDLoader>` work — closing the *other* half of loading UX: screens that flashed an empty area on first load because they had no placeholder. Audited every route: 158 already have a `loading.tsx`; the gaps were a handful of in-app admin/vendor **data** surfaces. The principle applied (owner-confirmed framing): **match the placeholder to the surface** — content/list/table/form screens get a layout-mirroring **skeleton** (the established pattern behind the other 158, zero layout shift); the brand `<SDLoader>` stays reserved for personalized/blocking/creative moments; static marketing/legal + print + redirect routes get **nothing** (they're painted HTML / non-visual — a loader would *add* a flash).
+
+**What landed (8 additive `loading.tsx`, one-line re-exports matching the `admin/telemetry` convention; no edits to existing pages):**
+- `admin/budget-planner` → `GridPageSkeleton` · `admin/growth` → `GridPageSkeleton`
+- `admin/payment-options` → `ListPageSkeleton` · `admin/wedding-traditions` → `ListPageSkeleton` · `admin/wedding-types` → `ListPageSkeleton`
+- `admin/connection-logs` → `TablePageSkeleton`
+- `vendor-dashboard/branches` → `ListPageSkeleton` · `vendor-dashboard/payment-options` → `FormPageSkeleton`
+
+**Deliberately skipped (not gaps):** static marketing/legal (`features`/`pricing`/`how-it-works`/`for-vendors`/`privacy`/`terms`/`weddings`/`download`/`waitlist`/homepage), print pages (`…/custom-qr-guest/print`, `…/invitation/print`), `api/v1`, and `dashboard/[eventId]/for-you` (a redirect stub). The 4 `Suspense fallback={null}` boundaries (pilot banner, PostHog, two guests search-param guards) are intentional invisible widgets, left as-is.
+
+**Verify:** `tsc --noEmit` clean (only the pre-existing `@mediapipe/tasks-vision` + `sharp` env errors in untouched files) · `next lint` clean. No `node_modules` in worktree → required CI is the hard gate.
+
+**SPEC IMPACT:** None — UI consistency; skeleton coverage parity with the existing 158 route loaders. No schema/SKU/pricing/scope change.
+
 ## 2026-06-07 · feat(loader): shared brand "thinking / analyzing" loader (`<SDLoader>`) — Organic loaders handoff
 
 **Context:** Owner-supplied `Organic loaders` handoff (2026-06-07) — a Setnayan-branded indeterminate "we're analyzing your custom stuff" loading screen (gold particles gather into the mark · twin orbit · narrated step copy · `Ready ✓` ring on completion) to standardize loading moments. The handoff shipped a dependency-free `<sd-loader>` Web Component + reference HTML.

@@ -414,3 +414,58 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
   revalidatePath('/admin/vendors');
   redirect(`/admin/vendors/${vendorId}/tokens?granted=${tokenCount}`);
 }
+
+const VENDOR_TIER_VALUES = ['free', 'verified', 'pro', 'enterprise'] as const;
+
+/**
+ * Set a vendor's subscription tier (`vendor_profiles.tier_state`). Until the
+ * self-serve subscription checkout lands (Phase D), this is the ONLY way to
+ * reach Pro/Enterprise — every paid-tier capability gate is inert without it.
+ * Canonical tiers: Vendor_Tier_Capability_Matrix_2026-06-07.md.
+ *
+ * The verified→tier backfill set tier_state='verified' for verified vendors;
+ * this lets an admin promote a vendor to pro/enterprise (e.g. after confirming
+ * an off-platform subscription payment) or correct a tier. Audit-logged.
+ */
+export async function setVendorTier(formData: FormData): Promise<void> {
+  const { adminUserId } = await requireAdmin();
+  const vendorId = String(formData.get('vendor_id') ?? '').trim();
+  const tier = String(formData.get('tier_state') ?? '').trim();
+  if (vendorId.length === 0) throw new Error('Missing vendor_id.');
+  if (!(VENDOR_TIER_VALUES as readonly string[]).includes(tier)) {
+    throw new Error('Invalid tier.');
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('vendor_profiles')
+    .select('tier_state, business_name, public_id')
+    .eq('vendor_profile_id', vendorId)
+    .maybeSingle();
+  if (!before) throw new Error('Vendor not found.');
+
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({ tier_state: tier })
+    .eq('vendor_profile_id', vendorId);
+  if (error) throw new Error(error.message);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'vendor_tier_set',
+    target_id: vendorId,
+    actor_user_id: adminUserId,
+    metadata: {
+      business_name: before.business_name,
+      public_id: before.public_id,
+      from_tier: before.tier_state ?? null,
+      to_tier: tier,
+    },
+  });
+  if (auditErr) {
+    console.error('[setVendorTier] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath(`/admin/vendors/${vendorId}/tokens`);
+  revalidatePath('/admin/vendors');
+  redirect(`/admin/vendors/${vendorId}/tokens?tier=${tier}`);
+}

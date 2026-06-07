@@ -23,6 +23,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0022 (vendor dashboard) + 0023 (admin console) — nav/grouping/mobile-parity corrections; BIR (0026) nav refs + tombstone retired (corpus AS-BUILT headers already note BIR retirement; full 0026 feature retirement is a separate decision). No SKU/pricing/customer-facing change.
 
+## 2026-06-07 · feat(vendor-tiers): Phase A — capability foundation + pricing + tier-gated burn
+
+**Context:** Owner provided the canonical 4-tier capability matrix (FREE / FREE-VERIFIED / PRO / ENTERPRISE — corpus `Vendor_Tier_Capability_Matrix_2026-06-07.md`). Audit found it ~13/19 rows unenforced and `tier_state` inert (no way to reach Pro/Enterprise). Owner chose: build everything (phased), matrix prices win, and **all paid tiers (verified+pro+ent) burn tokens — only FREE is blocked**. This is **Phase A of 5** (foundation + the token-gate correctness fix). Phases B–D (count caps · feature gates · self-serve checkout) follow.
+
+**What landed:**
+- **`apps/web/lib/vendor-tier-caps.ts`** — the canonical matrix in code (`TIER_CAPS` for all 4 tiers + `TIER_PRICE_PHP`, `TIER_LABEL`, `tierCaps()`, `isTrueNameTier()`, `canAcceptInAppInquiries()`). Single source every later phase reads from.
+- **Migration `20260910000000` (applied to prod):**
+  - **Price alignment** (owner: matrix wins) — `vendor_billing_catalog` Pro ₱1,999→**₱3,999**/mo (₱19,999→**₱39,999**/yr), Enterprise ₱5,499→**₱9,999**/mo (₱54,999→**₱99,999**/yr); Pro caps corrected to the matrix (`max_categories` 1→3, `max_sub_seats` 5→3). /pricing reads the catalog.
+  - **Tier-gated `unlock_vendor_event`** (CREATE OR REPLACE, supersedes the tier-blind 20260908000000): **FREE → RAISE** (can't accept in-app inquiries); **VERIFIED → ≤10 NEW unlocks/rolling-week AND burns** 1-3 tokens each (owner override of the matrix "gate ✗" cell — verified pays too); **PRO/ENTERPRISE → unlimited + burns**. Re-accepting an already-unlocked (vendor,event) stays free + un-gated (idempotent; weekly limit counts only new unlocks). Still ownership-checked + rolls back on any RAISE.
+- **`acceptInquiry`** now surfaces tier-appropriate messages for the new RAISE codes (`TIER_FREE_NO_INAPP` → "get verified"; `VERIFIED_WEEKLY_LIMIT` → "10/week reached, upgrade to Pro").
+- **Admin tier control** — `setVendorTier` action + a "Subscription tier" selector on `/admin/vendors/[id]/tokens` (co-located with token grants). Until self-serve checkout (Phase D) this is the only way to reach Pro/Enterprise; audit-logged.
+
+**Deferred to later phases:** name-reveal/searchability reading `tier_state` (Phase C — needs `tier_state` threaded through marketplace/microsite reads); count caps (B); feature gates chat/video/editorial/review-comments/website/radius/scheduling (C); self-serve subscription checkout (D).
+
+**Verify:** `tsc` clean · `next lint` exit 0 · `lint:retired` 0 · migration-timestamp guard. Migration applied + "remote database is up to date."
+
+**SPEC IMPACT:** Vendor tier matrix is now canonical (`project_setnayan_vendor_tier_ladder` superseded). Prices ₱3,999/₱9,999 supersede catalog + prior memory. Burn is now tier-gated (revises the PR #1057 tier-blind burn + the "tokens universal all tiers" lock — FREE blocked). → corpus DECISION_LOG + Pricing §0.C / 0022 follow-up.
+
 ## 2026-06-07 · feat(ghosting): login-driven inquiry-ghosting nudges — no cron
 
 **Context:** Owner directive (2026-06-07): instead of a background ghosting-escalation cron, check at LOGIN using the actor's login time as the clock — "this will never run in background and will only run upon login," because a background sweep won't scale to 250k vendors / 1M active accounts. PR 2 of 2 (PR 1 = token burn-on-answer).

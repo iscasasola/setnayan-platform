@@ -76,12 +76,14 @@ import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
  */
 
 /**
- * The two inline-buy widget upgrades (iteration 0004). These are the ONLY paid
- * surfaces rendered inline in the editor: each shows its catalog price + an
- * Upgrade CTA (→ shared checkout) or an "Active" badge once owned. Every other
- * service (Panood / Papic / Patiktok / Custom QR / Drive) is a NAVIGATION card
- * into its `/add-ons/<key>` page, which owns its own pricing + buy state — the
- * locked website wiring rule (see journey.tsx docstring · V2.1 Amendment #3).
+ * The two widget upgrades (iteration 0004). Each shows its catalog price plus
+ * either an "Active" badge once owned, or an honest "Coming soon" pill — their
+ * standalone purchase flow is a V1.1 deferral (no /add-ons checkout page exists
+ * for them yet; the old /orders/new hand-off was retired and would dead-end).
+ * Every other service (Panood / Papic / Patiktok / Custom QR / Drive) is a
+ * NAVIGATION card into its `/add-ons/<key>` page, which owns its own pricing +
+ * buy state — the locked website wiring rule (see journey.tsx docstring · V2.1
+ * Amendment #3).
  */
 const MONOGRAM_HERO_SKU = 'monogram_hero_upgrade';
 const LIVE_SCHEDULE_SKU = 'pro_widget_schedule';
@@ -348,11 +350,14 @@ function StatRow({ icon, label, value }: { icon: ReactNode; label: string; value
   );
 }
 
-/* Inline Pro upgrade card — catalog price + owned-state. The Upgrade CTA hands
-   off to the shared checkout (/orders/new); we never rebuild payment per-card.
-   The only inline-buy surface in the editor (see the SKU-constants note). */
+/* Inline Pro upgrade card — catalog price + owned-state. These two widget
+   upgrades (monogram_hero_upgrade · pro_widget_schedule) have NO standalone
+   add-on checkout page in V1 — the Pro-tier purchase flow is a deliberate V1.1
+   deferral (see website/widgets/page.tsx docstring). So the unowned state shows
+   an honest "Coming soon" pill rather than a dead-end /orders/new CTA (which
+   bounces to /add-ons and drops the ?service= param). Owned-state still reads a
+   real order row, so any comped/legacy owner keeps the "Active" badge. */
 function ProCard({
-  eventId,
   icon,
   title,
   sub,
@@ -361,7 +366,6 @@ function ProCard({
   fallbackPrice,
   owned,
 }: {
-  eventId: string;
   icon: ReactNode;
   title: string;
   sub: string;
@@ -384,9 +388,9 @@ function ProCard({
           <CheckCircle2 aria-hidden /> Active on this event
         </p>
       ) : (
-        <CardLink href={`/dashboard/${eventId}/orders/new?service=${skuKey}`}>
-          <Sparkles aria-hidden /> Upgrade
-        </CardLink>
+        <span className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-ink/15 bg-ink/5 py-2 text-sm font-semibold text-ink/50 [&_svg]:h-4 [&_svg]:w-4">
+          <Sparkles aria-hidden /> Coming soon
+        </span>
       )}
     </Card>
   );
@@ -506,7 +510,6 @@ function eventCards(p: SiteEditorProps): ReactNode[] {
     </Card>,
     <ProCard
       key="monogram-hero"
-      eventId={p.eventId}
       icon={<Wand2 />}
       title="Monogram Hero"
       sub="Animated monogram · Pro"
@@ -560,7 +563,6 @@ function eventCards(p: SiteEditorProps): ReactNode[] {
     </Card>,
     <ProCard
       key="live-schedule"
-      eventId={p.eventId}
       icon={<CalendarClock />}
       title="Live Schedule"
       sub="Happening-now highlight · Pro"

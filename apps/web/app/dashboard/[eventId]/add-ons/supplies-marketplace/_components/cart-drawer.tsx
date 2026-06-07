@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import {
   Filter,
   Minus,
@@ -25,9 +24,11 @@ import {
 //   - Filter products by category (chip strip).
 //   - Add / increment / decrement / remove items in a local cart.
 //   - Floating sticky cart pill that opens a slide-over drawer with the
-//     line items, subtotal, and a "Checkout via Orders" CTA that hands off
-//     to the existing apply-then-pay surface at /orders/new (iteration
-//     0034). Checkout itself is intentionally NOT built here.
+//     line items, subtotal, and a disabled "Checkout opens soon" notice.
+//     Checkout is intentionally NOT built here: iteration 0018 (Supplies)
+//     is deferred / not in V1, and the old hand-off to /orders/new was
+//     retired (it now bounces to /add-ons and drops the in-memory cart),
+//     so the CTA is neutralized rather than wired.
 //
 // Pricing model (per CLAUDE.md 2026-05-19 row "Setnayan Supplies · pivot to
 // curated reseller 50% markup on wholesale"): Setnayan is the merchant of
@@ -42,7 +43,6 @@ import {
 // on the orders page.
 
 type Props = {
-  eventId: string;
   recommended: readonly SupplyProduct[];
 };
 
@@ -51,7 +51,7 @@ type CartEntry = {
   qty: number;
 };
 
-export function SuppliesMarketplaceBrowser({ eventId, recommended }: Props) {
+export function SuppliesMarketplaceBrowser({ recommended }: Props) {
   const [activeCategory, setActiveCategory] = useState<SupplyCategoryKey | 'all'>(
     'all',
   );
@@ -106,25 +106,6 @@ export function SuppliesMarketplaceBrowser({ eventId, recommended }: Props) {
 
   function removeLine(slug: string) {
     setCart((prev) => prev.filter((e) => e.slug !== slug));
-  }
-
-  function checkoutDescription() {
-    const lines = cartLines
-      .map(({ entry, product }) => {
-        const lineTotal = entry.qty * product.pricePhp;
-        return `- ${product.name} × ${entry.qty} (${product.vendor}) — ${formatPhp(lineTotal)}`;
-      })
-      .join('\n');
-    return [
-      'Supplies Marketplace cart hand-off (iteration 0018 scaffold).',
-      '',
-      'Items:',
-      lines,
-      '',
-      `Subtotal (pre-VAT): ${formatPhp(subtotal)}`,
-      '',
-      'The Setnayan team will confirm vendor availability, lead times, and final pricing before payment.',
-    ].join('\n');
   }
 
   return (
@@ -226,10 +207,8 @@ export function SuppliesMarketplaceBrowser({ eventId, recommended }: Props) {
       {/* Slide-over drawer */}
       {drawerOpen ? (
         <CartDrawer
-          eventId={eventId}
           cartLines={cartLines}
           subtotal={subtotal}
-          checkoutDescription={checkoutDescription()}
           onClose={() => setDrawerOpen(false)}
           onBump={bumpQty}
           onRemove={removeLine}
@@ -349,26 +328,18 @@ function ProductCard({
 }
 
 function CartDrawer({
-  eventId,
   cartLines,
   subtotal,
-  checkoutDescription,
   onClose,
   onBump,
   onRemove,
 }: {
-  eventId: string;
   cartLines: ReadonlyArray<{ entry: CartEntry; product: SupplyProduct }>;
   subtotal: number;
-  checkoutDescription: string;
   onClose: () => void;
   onBump: (slug: string, delta: number) => void;
   onRemove: (slug: string) => void;
 }) {
-  const checkoutHref = `/dashboard/${eventId}/orders/new?service=${encodeURIComponent(
-    'supplies-marketplace',
-  )}&description=${encodeURIComponent(checkoutDescription)}&requested_total_php=${subtotal}`;
-
   return (
     <div
       role="dialog"
@@ -474,15 +445,18 @@ function CartDrawer({
                 </p>
               </div>
 
-              <Link
-                href={checkoutHref}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-3 text-sm font-medium text-cream hover:bg-mulberry-600"
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md bg-ink/10 px-4 py-3 text-sm font-medium text-ink/50"
               >
                 <ShoppingCart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Checkout via Orders
-              </Link>
+                Checkout opens soon
+              </button>
               <p className="text-center text-[11px] text-ink/45">
-                We&rsquo;ll lock the final quote on your order before you pay.
+                The Setnayan Supplies marketplace is launching soon — you can
+                build your cart now, but checkout isn&rsquo;t available yet.
               </p>
             </>
           ) : null}

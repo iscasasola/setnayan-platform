@@ -4,7 +4,7 @@
  * V2 telemetry checkpoint validator. Confirms that a given service's
  * fulfillment criteria are met (per blueprint Part 4 § 2), then calls the
  * `execute_manpower_telemetry_reward()` plpgsql function which:
- *   - Atomically marks `event_software_activations.is_reward_issued = TRUE`
+ *   - Atomically marks `event_software_activations_v2.is_reward_issued = TRUE`
  *   - Counts cumulative service activations for this vendor on this event
  *   - Awards tokens per the 14-token stacking ladder (1·2·2·2·2·2·3 = 14 max)
  *   - Credits `vendor_wallets.earned_tokens` (45-day expiring vouchers)
@@ -156,12 +156,12 @@ export async function POST(req: Request) {
   // ---- Live mode · DB-side reward via RPC ------------------------------------
   const admin = createAdminClient();
 
-  // Ensure event_software_activations row exists before calling the function
+  // Ensure event_software_activations_v2 row exists before calling the function
   // (the function does FOR UPDATE which requires the row to exist · the
   // function returns silently if the row is missing OR is_reward_issued is
   // already TRUE).
   const { error: upsertErr } = await admin
-    .from('event_software_activations')
+    .from('event_software_activations_v2')
     .upsert(
       {
         event_id: eventId,
@@ -204,7 +204,7 @@ export async function POST(req: Request) {
       .eq('vendor_id', vendorId)
       .maybeSingle(),
     admin
-      .from('event_software_activations')
+      .from('event_software_activations_v2')
       .select('id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)

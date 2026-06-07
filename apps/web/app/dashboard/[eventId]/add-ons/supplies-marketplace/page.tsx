@@ -160,7 +160,7 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
         </ol>
       </section>
 
-      <SuppliesMarketplaceBrowser eventId={eventId} recommended={recommended} />
+      <SuppliesMarketplaceBrowser recommended={recommended} />
 
       <footer className="space-y-1 rounded-2xl border border-dashed border-ink/15 bg-cream/60 p-4 text-xs text-ink/55">
         <p>

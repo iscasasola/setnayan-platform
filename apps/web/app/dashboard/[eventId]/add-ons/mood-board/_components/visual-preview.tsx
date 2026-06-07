@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { trackFailure } from '@/lib/telemetry/track-error';
 
 /**
  * Host-side Visual preview pillars (locked 2026-05-21 in 0010 §
@@ -129,6 +130,14 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
             ? err.message
             : 'Could not save right now — try again in a moment.',
         );
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Save moodboard pick',
+          filePath:
+            'app/dashboard/[eventId]/add-ons/mood-board/_components/visual-preview.tsx',
+          error: err,
+          payload: { pillar, pillarSlot },
+        });
       }
     });
   }

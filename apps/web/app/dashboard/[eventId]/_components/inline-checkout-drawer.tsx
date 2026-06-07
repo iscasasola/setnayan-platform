@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { trackFailure } from '@/lib/telemetry/track-error';
 import {
   applyVoucherAction,
   submitOrderAction,
@@ -336,6 +337,16 @@ export function InlineCheckoutDrawer({
                     startSubmitTransition(async () => {
                       const result = await submitOrderAction(fd);
                       setSubmitResult(result);
+                      if (!result.ok) {
+                        void trackFailure({
+                          eventType: 'SUPABASE_SAVE_ERROR',
+                          elementName: 'Submit payment order',
+                          filePath:
+                            'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx',
+                          error: result.reason,
+                          payload: { eventId, serviceKey, channel },
+                        });
+                      }
                     });
                   }}
                   className="space-y-3"

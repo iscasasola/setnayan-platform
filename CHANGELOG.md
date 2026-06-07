@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · fix(0022,0023): vendor+admin dashboard mobile/desktop parity batch + BIR nav retirement
+
+**Context:** A mobile/desktop UI audit of the vendor (24 routes) and admin (51 routes) dashboards found both structurally healthy, with a small set of parity gaps — chiefly two admin surfaces reachable only on desktop. This batch fixes all of them (no new features).
+
+**Admin:**
+- **`/admin/payment-options` → reachable on mobile** — added to the `/admin/queues` triage feed (live count = `vendor_payment_methods` with `moderation_status IN (pending_review,held)`) + the Queues bottom-nav `activeMatch`. It's a vendor-payment fraud screen that was desktop-only.
+- **`/admin/connection-logs` → reachable on mobile** — added a card to the `/admin/more` Insights grid + the More `activeMatch`.
+- **BIR retired from nav (owner-authorized 2026-06-07):** removed `/admin/bir` from the Money `activeMatch`, dropped "BIR" from the `/admin/money` subtitle, and **deleted the dead `app/admin/bir/2307/` tombstone tree** (page + loading + 2 unused components). The 2307 generation API + cron routes are kept (page refs cleaned) — full 0026 retirement is a separate step.
+- **Responsive tables:** `discount-codes` list now hides low-priority columns below `lg`/`md` + responsive `min-w` (was a forced 900px scroll on phones); `budget-planner` aggregate table `overflow-hidden` → `overflow-x-auto` + `min-w`.
+- Root Overview copy "Content" → "Manage"; stale nav docstrings refreshed to the real 6 groups; Directory mobile `activeMatch` gains `wedding-types`/`wedding-traditions`; token-bands parity in the Money tab.
+
+**Vendor:**
+- **`moodboard-library` 404 fix** — the page hard-gated on `account_type==='vendor'`; realigned to the layout's `fetchOwnVendorProfile`/vendor-profile gate so a dual-role owner no longer 404s.
+- Mobile More-tab `activeMatch` gains `repertoire`/`branches`/`payment-options`; `repertoire`/`branches` descriptions added to `/more`; new `DesktopRedirect` so `/vendor-dashboard/more` no longer renders a blank page on desktop direct-URL; stale docstrings refreshed to the real 4 groups.
+
+**Verify:** `pnpm typecheck` ✅ · `pnpm lint` ✅ (only pre-existing warnings in untouched files). Net −138 lines (BIR tombstone removal).
+
+**SPEC IMPACT:** 0022 (vendor dashboard) + 0023 (admin console) — nav/grouping/mobile-parity corrections; BIR (0026) nav refs + tombstone retired (corpus AS-BUILT headers already note BIR retirement; full 0026 feature retirement is a separate decision). No SKU/pricing/customer-facing change.
+
 ## 2026-06-07 · feat(ghosting): login-driven inquiry-ghosting nudges — no cron
 
 **Context:** Owner directive (2026-06-07): instead of a background ghosting-escalation cron, check at LOGIN using the actor's login time as the clock — "this will never run in background and will only run upon login," because a background sweep won't scale to 250k vendors / 1M active accounts. PR 2 of 2 (PR 1 = token burn-on-answer).

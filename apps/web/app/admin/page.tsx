@@ -103,7 +103,7 @@ export default async function AdminOverview() {
           <strong className="text-ink">Queues</strong> for action work,{' '}
           <strong className="text-ink">Directory</strong> to look up people and
           events, <strong className="text-ink">Money</strong> for payouts and
-          receipts, or <strong className="text-ink">Content</strong> to update
+          receipts, or <strong className="text-ink">Manage</strong> to update
           the marketing site and taxonomy.
         </p>
       </header>

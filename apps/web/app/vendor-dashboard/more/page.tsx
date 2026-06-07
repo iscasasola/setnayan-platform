@@ -3,16 +3,16 @@
  *
  * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
  * 2026-05-28 row System Wiring Map audit + Nav Phase 2 brief. The vendor
- * doorway's 5-item mobile BottomNav (Profile · Bookings · Messages ·
- * Marketing · More) lands here when the vendor taps More. We surface
+ * doorway's 5-item mobile BottomNav (Home · Bookings · Messages ·
+ * Earnings · More) lands here when the vendor taps More. We surface
  * every group + item from the canonical VENDOR_NAV_GROUPS so this is one
  * tap away from every surface that isn't a dedicated bottom tab.
  *
  * Desktop renders implicit via lg:hidden on VendorMobileLanding —
- * desktop vendors see the sidebar tree directly and never land here.
- * We still ship a desktop-safe render (the landing surface is reachable
- * by direct URL on any viewport per orphan-prevention) but it stays
- * inside the lg:hidden block so it's purely a mobile affordance.
+ * desktop vendors see the sidebar tree directly and never land here. A
+ * direct-URL desktop hit would otherwise see a blank page, so we render
+ * a small <DesktopRedirect /> that bounces lg viewports back to the
+ * dashboard root (the sidebar already surfaces every group there).
  *
  * Per [[feedback_setnayan_orphan_prevention]] every card on this surface
  * maps 1:1 to a sidebar entry. The descriptions are brand-voice per
@@ -22,6 +22,7 @@
 
 import { VENDOR_NAV_GROUPS } from '../_components/vendor-sidebar';
 import { VendorMobileLanding } from '../_components/vendor-mobile-landing';
+import { DesktopRedirect } from './_components/desktop-redirect';
 import { createClient } from '@/lib/supabase/server';
 import { resolveVendorRole, filterVendorNavGroups } from '@/lib/vendor-role';
 
@@ -51,6 +52,8 @@ const DESCRIPTIONS: Record<string, string> = {
     'Contracts you upload for your booked hosts. Setnayan hosts the PDFs; signatures stay between you and the couple.',
   services:
     'The services + packages you offer. Pricing, inclusions, and what hosts see on your public profile.',
+  repertoire:
+    'Your performance repertoire — the songs you play. Couples browse the Song Bank and find you through every track you list.',
   attributes:
     'Per-category attributes that drive marketplace filters — silhouettes, milk options, edit aesthetics.',
 
@@ -83,6 +86,8 @@ const DESCRIPTIONS: Record<string, string> = {
   // own Form 2307 as income recipient per RR 16-2023.
   'redeem-code':
     'Redeem a token-pack voucher code. Codes top up your purchased token balance immediately.',
+  branches:
+    'Your additional branch locations. Each Enterprise sub-location runs its own calendar and team under your account.',
 
   // Team group
   team:
@@ -100,11 +105,16 @@ export default async function VendorMoreLanding() {
   const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role);
 
   return (
-    <VendorMobileLanding
-      title="More"
-      subtitle="Every vendor surface, one tap away. Tabs at the bottom cover the daily driver — the rest live here."
-      groups={groups}
-      descriptions={DESCRIPTIONS}
-    />
+    <>
+      {/* Desktop hits /more by direct URL → bounce to the dashboard root
+          (the landing below is lg:hidden, so desktop would see a blank page). */}
+      <DesktopRedirect />
+      <VendorMobileLanding
+        title="More"
+        subtitle="Every vendor surface, one tap away. Tabs at the bottom cover the daily driver — the rest live here."
+        groups={groups}
+        descriptions={DESCRIPTIONS}
+      />
+    </>
   );
 }

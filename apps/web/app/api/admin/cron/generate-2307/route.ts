@@ -15,10 +15,12 @@ import { quarterThatJustEnded } from '@/lib/bir/filings';
  *      `current_setting('app.cron_secret', true)` so the secret is
  *      stored once in the database session and rotated centrally.
  *
- *   2. Admin manual trigger from /admin/bir/2307 — POST with an admin
- *      session cookie. The endpoint validates the admin user and
- *      optionally accepts `?year=` / `?quarter=` query params so an
- *      admin can backfill or regenerate any prior quarter.
+ *   2. Admin manual trigger — POST with an admin session cookie. The
+ *      endpoint validates the admin user and optionally accepts `?year=` /
+ *      `?quarter=` query params so an admin can backfill or regenerate any
+ *      prior quarter. (The /admin/bir/2307 page that surfaced this trigger
+ *      was retired 2026-05-29 under the V2 publisher posture; the endpoint
+ *      itself is kept for V1 audit-history regeneration.)
  *
  * Response: JSON summary {period, vendor_count, generated, skipped_no_ewt,
  * errors, filings}. 200 on success, 401 on auth failure, 500 on

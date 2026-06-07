@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   StylistLibraryEditor,
   type StylistAsset,
@@ -20,15 +21,15 @@ export default async function StylistMoodboardLibraryPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  // The vendor-dashboard layout already gates access, but defense-in-depth:
-  // bounce non-vendors to a 404 so the route's existence isn't leaked.
-  if (profile?.account_type !== 'vendor') notFound();
+  // Align with the vendor-dashboard layout's gate (vendor-profile ownership
+  // via hasVendorAccess), NOT the rigid `account_type === 'vendor'` check.
+  // The old account_type gate 404'd dual-role owners (e.g. a §10a internal
+  // account that also owns a vendor_profile for dogfooding) even though the
+  // layout + every sibling surface grant them access. Mirror the sibling
+  // pattern (payment-options / tokens): fetch the caller's own vendor
+  // profile, bounce to the dashboard root if they don't own one.
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
 
   const admin = createAdminClient();
   const { data: rows } = await admin

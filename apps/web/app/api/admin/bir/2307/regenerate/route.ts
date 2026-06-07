@@ -8,10 +8,12 @@ import { regenerateVendor } from '@/lib/bir/generator';
  *
  * Body: { vendor_profile_id: string, tax_year: number, tax_quarter: 1|2|3|4 }
  *
- * Regenerates the 2307 PDF for a single vendor + quarter. Used by the
- * admin "Regenerate" button on /admin/bir/2307 — e.g. when a vendor's
- * TIN was wrong on the first run and the admin fixed it, or when a
- * late-arriving payout slipped into the quarter after the cron fired.
+ * Regenerates the 2307 PDF for a single vendor + quarter. The admin
+ * /admin/bir/2307 page that exposed a "Regenerate" button was retired
+ * 2026-05-29 (V2 publisher posture — Setnayan no longer withholds vendor
+ * tax); this endpoint is kept for audit-history regeneration of any 2307
+ * issued under V1 (e.g. a wrong TIN fixed after the fact, or a
+ * late-arriving payout that slipped into the quarter after the cron fired).
  *
  * Idempotent — the underlying upsert UPDATEs in place and bumps
  * regenerated_count + appends to audit_log.

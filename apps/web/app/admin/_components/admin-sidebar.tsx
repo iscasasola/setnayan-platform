@@ -81,6 +81,7 @@ import {
   Music,
   TrendingUp,
   Activity,
+  Bug,
   WifiOff,
   BarChart3,
   LineChart,
@@ -349,6 +350,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Telemetry',
         href: '/admin/telemetry',
         icon: Activity,
+      },
+      {
+        // Real-time client-side fault tracker (broken buttons / failed saves /
+        // blank fallbacks) with a resolve lifecycle. Distinct from Telemetry
+        // (backend service checkpoints) + Sentry (engineer-facing).
+        key: 'connection-logs',
+        label: 'Connection logs',
+        href: '/admin/connection-logs',
+        icon: Bug,
       },
       {
         // FORWARD-REFERENCE until the Phase G offline-daemon sprint lands.

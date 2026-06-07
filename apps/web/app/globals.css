@@ -1016,3 +1016,47 @@ html {
     opacity: 1;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * #sn-init-splash — app cold-start ("initialization") splash.
+ *
+ * The animated brand mark on Warm Alabaster, shown over the first app-route /
+ * native-shell paint of a session (gated by `data-sn-boot` on <html>, set by
+ * the inline head script in layout.tsx). Hidden everywhere else, so marketing
+ * SSR content + Lighthouse/LCP are untouched. AppInitSplash fades it after
+ * hydration; the failsafe animation guarantees it can never stick (even no-JS).
+ * The orbit / glow / breathe motion runs from the .sd-* CSS alone — no JS
+ * particles needed for the boot moment. Reduced-motion freezes it (global a11y
+ * block) to a static mark that still fades away.
+ * ------------------------------------------------------------------------- */
+#sn-init-splash {
+  display: none;
+}
+html[data-sn-boot] #sn-init-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--m-paper, #fbfbfa);
+  opacity: 1;
+  transition: opacity 0.45s ease;
+  /* No-JS / stuck failsafe — fade out after 4s even if AppInitSplash never runs. */
+  animation: sn-boot-failsafe 0.45s ease 4s forwards;
+}
+html[data-sn-boot] #sn-init-splash.sn-boot-done {
+  opacity: 0;
+  pointer-events: none;
+}
+#sn-init-splash .sd-loader {
+  background: transparent;
+  min-height: 0;
+}
+@keyframes sn-boot-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}

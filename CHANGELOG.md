@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-07 · feat(loader): app cold-start ("initialization") splash — web + native
+
+**Context:** Owner 2026-06-07 — "initialization loading" (Both: web first-open + native cold-start). Closes the last loading surface: the **boot moment** before the app shell is ready. The animated brand mark (the `<SDLoader>` scene — orbit + glow + breathe, CSS-driven, no JS particles) on Warm Alabaster, shown over the first app-route / native-shell paint of a session, then faded.
+
+**Why one implementation covers both:** the native Capacitor shell loads the hosted web app, so a web boot splash baked into the SSR HTML automatically becomes the native cold-start splash once the WebView paints. The existing static native OS splash (`#FBFBFA` + mark, `capacitor.config.ts`) bridges launch → WebView paint, `NativeBridge` hides it, then this animated splash takes the handoff (both are brand-on-`#FBFBFA`, so it's seamless) — **no native rebuild required.**
+
+**What landed (apps/web only):**
+- `app/layout.tsx` — inline **gate script** (mirrors the existing `themeBootstrapScript` pattern): before first paint, sets `data-sn-boot` on `<html>` only when the path is an app route (`/dashboard`·`/vendor-dashboard`·`/admin`) **or** the native shell, and only once per session (`sessionStorage`). Server-rendered `#sn-init-splash` markup so it paints in the first frame.
+- `app/_components/app-init-splash.tsx` — client remover: after hydration holds briefly (450ms web · 750ms native, for the native-splash handoff beat) then fades the splash and removes it from the paint tree.
+- `app/globals.css` — `#sn-init-splash` styles (hidden by default; full-screen overlay when `data-sn-boot`; `.sn-boot-done` fade) + a **CSS-only failsafe** (`sn-boot-failsafe`, ~4s) so it can never stick even with JS disabled. Reduced-motion freezes it to a static mark that still fades.
+
+**Deliberately gated OFF** public/marketing/legal pages → **SSR content + Lighthouse/LCP/SEO on the public site are untouched** (no splash where instant content matters; verified the homepage path isn't matched).
+
+**Verify:** `tsc --noEmit` + `next lint` clean · harness screenshots (mobile + desktop) confirm the full-screen brand splash covers app content and the `.sn-boot-done` fade reveals it. No hydration risk — the gate only sets an external `<html>` attribute (same proven pattern as the theme bootstrap); the splash markup is static server/client. CI is the hard gate.
+
+**SPEC IMPACT:** None — UI infra (cold-start brand moment); no schema/SKU/pricing/scope change. Note for future tuning: app-route allowlist + hold timings live in `layout.tsx` (`bootSplashScript`) / `app-init-splash.tsx`.
+
 ## 2026-06-07 · fix(loading): fill first-load gaps — skeleton `loading.tsx` on 8 in-app data routes
 
 **Context:** Follow-up to the `<SDLoader>` work — closing the *other* half of loading UX: screens that flashed an empty area on first load because they had no placeholder. Audited every route: 158 already have a `loading.tsx`; the gaps were a handful of in-app admin/vendor **data** surfaces. The principle applied (owner-confirmed framing): **match the placeholder to the surface** — content/list/table/form screens get a layout-mirroring **skeleton** (the established pattern behind the other 158, zero layout shift); the brand `<SDLoader>` stays reserved for personalized/blocking/creative moments; static marketing/legal + print + redirect routes get **nothing** (they're painted HTML / non-visual — a loader would *add* a flash).

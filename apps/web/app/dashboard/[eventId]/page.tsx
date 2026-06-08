@@ -21,6 +21,7 @@ import {
 import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
@@ -1550,8 +1551,9 @@ export default async function EventHomePage({
   // Setnayan's automated layer: hide Setnayan AI (auto-task) + Upcoming
   // schedules (per-service + statutory deadlines). The countdown + activity
   // feed stay. Default 'guided' (and any unknown value) keeps everything on.
-  const planningManual =
-    (event as { planning_mode?: string | null }).planning_mode === 'manual';
+  const planningManual = !isSetnayanAiActive(
+    event as { planning_mode?: string | null },
+  );
 
   return (
     // Column effect retired 2026-05-23 per owner directive — event home

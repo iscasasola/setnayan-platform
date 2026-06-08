@@ -22,6 +22,42 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify (manual, workflow auto-verify rate-limited):** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` `ƒ`, 55.8 kB) · uniform-template confirmed (1 component / 2 passes) · projector keys match `ceremonyOptsFor`/`CUISINE_OPTS`/`PV_LOOKS` + the recap · `state.picks` never written by refine · covert grep clean (love screens untouched; refine copy service-shaped).
 
 **SPEC IMPACT:** The adaptive Dream Team chapter is now FULLY LIVE (aigate→team_basics→refine_basic→team_extras→refine_extras→songs→mood). `events.style_preferences.refinements` now carries the full per-leaf detail. DECISION_LOG row added.
+## 2026-06-08 · fix(vendor): show admin-uploaded BDO/GCash QR codes in token purchase
+
+**Context:** The token-purchase pending panel (shipped earlier today) showed only the BDO/GCash account name + number — but the admin has already uploaded **QR code images** for both channels (`platform_settings.bdo_qr_url` / `gcash_qr_url`, public Supabase-storage URLs). Scanning a QR is the easiest pay path (UX north star), so the panel should surface them.
+
+**What landed (`pending-purchases.tsx`):** `PayBox` now renders the QR image (when present) above the account number, using the same plain-`<img>` pattern as the customer `ManualCheckoutModal` (QR assets live on a separate CDN, outside `next/image`'s whitelist; explicit width/height to avoid layout shift). The data path was already wired — `fetchPlatformSettings` SELECTs both `*_qr_url` columns and `page.tsx` passes the full `settings` object — this just displays them. Falls back to "account details coming" only when neither a number nor a QR is configured.
+
+**SPEC IMPACT:** None — display-only fix connecting the existing admin Payment-methods QR uploads to the vendor token-purchase surface.
+
+## 2026-06-08 · feat(vendor): self-serve token-pack purchase (apply-then-pay)
+
+**Context:** Owner 2026-06-08 — "make purchasing available too" + "Both — manual now, automated later." The vendor token wallet (`/vendor-dashboard/tokens`) showed token packs as read-only educational copy ("purchase opens this week") with no way to actually buy. Vendors could only receive tokens via an admin grant or the founder bonus. This ships the real purchase path.
+
+**What landed:**
+- **Migration `20260916000000_vendor_token_purchase.sql`** (applied to prod) — new `vendor_token_purchases` table (RLS: vendor reads own, admin reads all; all writes via SECURITY DEFINER fns) + 3 functions: `create_vendor_token_purchase(sku)` (vendor-initiated; reads price + token count from `vendor_billing_catalog` — never a client-supplied amount — generates a `TKN-xxxxxxxx` reference, inserts `pending_payment`), `approve_vendor_token_purchase(id)` (admin/webhook confirms → credits `vendor_wallets.purchased_tokens`, the **never-expire** bucket, via UPSERT; idempotent on the status guard + row lock), `reject_vendor_token_purchase(id, reason)`. New `is_console_admin()` helper gates approve/reject on the console's `account_type='admin' OR is_internal OR is_team_member` (broader than the strict `is_admin()` so internal/team reviewers aren't locked out).
+- **Vendor UI** — `tokens/actions.ts` (`startTokenPurchase` server action) + `buy-tokens-cta.tsx` rewritten **DB-priced** (packs from `vendor_billing_catalog` via `fetchV2VendorCatalog`, no hardcoded ₱180–250/token ladder — admin `/admin/pricing` is source of truth; live DB = ₱100/token) with per-pack Buy forms + `pending-purchases.tsx` (reference code + BDO/GCash receiving accounts from `platform_settings` + "Setnayan does not hold these funds" disclosure). `page.tsx` fans in pending purchases + packs + settings and shows an `ordered`/`error` banner.
+- **Admin reconcile** — `/admin/token-purchases` (pending queue with Confirm/Reject + recently-resolved list) + `actions.ts` calling the RPCs through the admin's own user-scoped client (so `auth.uid()` resolves for the gate + audit). New sidebar entry under Money (after Token bands).
+
+**Why purchased (not earned):** the burn path `consume_vendor_assets_per_voucher()` spends earned vouchers FIFO **then** drains `purchased_tokens`, so both are spendable — but a paid pack must NOT silently expire (matches the wallet UI's "Purchased tokens never expire"). Earned/founder/referral tokens stay in their 45-day voucher bucket; bought tokens are permanent.
+
+**Automated-later seam:** `approve_vendor_token_purchase` is exactly the entry point a future Maya/PayMongo webhook calls to auto-credit on payment — no rebuild, just a webhook handler that resolves the order by reference code and calls approve.
+
+**Verify:** transactional smoke test (rolled back, prod untouched) confirmed — create reads correct DB price (25 tok/₱2,500), non-admin vendor **blocked** from approve (`FORBIDDEN: admin only`), admin approve credits `purchased_tokens` +25 with `earned_tokens` unchanged, approve idempotent (no double-credit). Migration applied + re-applied cleanly (idempotent). Frontend typecheck via CI required checks (passed).
+
+**SPEC IMPACT:** Vendor token economy now has a customer-initiated purchase flow (0034 payments/cart + 0022 vendor dashboard). DECISION_LOG row appended at corpus root. No price changes (packs unchanged at ₱100/token); the purchased-vs-earned expiry semantics are clarified, not changed.
+
+## 2026-06-08 · feat(setnayan-ai): governing gate — one chokepoint, AI-off → generic site-wide (PR-1)
+
+**Context:** Owner 2026-06-08 — "Setnayan AI must govern across the whole website," sequenced "govern now (free), monetize next." Today the AI on/off gate is scattered: every surface independently checks `events.planning_mode === 'manual'`, and two surfaces *leak* (run AI-only logic regardless of the gate).
+
+**What landed:** new **`lib/setnayan-ai.ts` → `isSetnayanAiActive(event)`** — the single governing gate. Routed the 3 scattered inline checks through it (`page.tsx` deadlines, `category-search.ts` search, `vendors/page.tsx` plan-budget). **Closed 2 leaks so AI-off is genuinely generic:** (1) `category-search.ts` — the reception-proximity tail sort now gates on `aiActive` (AI off → review/rating order, the same fallback as no-coords); (2) `vendors/page.tsx` — the "👀 eyeing your date" nudge is suppressed (empty map) when AI is off. No behavior change for the default Assisted case; Manual-mode (AI-off) couples now get a true region-scoped generic search (no proximity ranking, no % pill, no eyeing, no deadlines). Free floor (region filter + anti-double-book) unaffected.
+
+**Why centralize:** the locked design makes the gate a **paid per-event entitlement**; PR-2 swaps the body of `isSetnayanAiActive` to read that entitlement **without touching any call site**. This PR makes that a one-file change.
+
+**Verify:** no remaining inline `planning_mode === 'manual'` checks; no unused vars; diff is 4 files / +58−13. Build via CI required checks.
+
+**SPEC IMPACT:** Implements the §2 free-floor↔AI boundary + AI-off→generic from `What_Is_Setnayan_AI_2026-06-08.md` (corpus). → DECISION_LOG. PR-1 of the Setnayan AI build (next: paid entitlement · last-minute · dependencies).
 
 ## 2026-06-08 · feat(onboarding): Dream Team PR-3 — two-screen picker, retire StyleSubStepper
 

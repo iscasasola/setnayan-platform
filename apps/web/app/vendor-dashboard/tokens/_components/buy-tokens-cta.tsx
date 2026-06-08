@@ -1,41 +1,39 @@
 import { ShoppingBag } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { startTokenPurchase } from '../actions';
 
 /**
- * BuyTokensCta — token-pack purchase upsell card.
+ * BuyTokensCta — interactive token-pack purchase card.
  *
- * Pack pricing per CLAUDE.md 2026-05-28 third row V2 architectural pivot
- * (blueprint Part 5 token economy · baseline ₱180–₱250/token across 5 pack
- * denominations):
- *   4 tokens   · ₱1,000  · ₱250/token
- *   10 tokens  · ₱2,400  · ₱240/token
- *   25 tokens  · ₱5,500  · ₱220/token
- *   50 tokens  · ₱10,000 · ₱200/token
- *   100 tokens · ₱18,000 · ₱180/token
+ * DB-PRICED · the packs come from vendor_billing_catalog (offering_type =
+ * 'token_pack') read in page.tsx and passed down. NO hardcoded prices — the
+ * admin /admin/pricing surface is the single source of truth (owner 2026-06-08
+ * "all values must not be hardcoded · verify from the database created by
+ * admin"). Token unit is ₱100 in the DB today; if the admin reprices, this card
+ * reflects it on next render.
  *
- * V2 Phase L1 (post-pilot) ships the purchase flow at /vendor-dashboard/tokens/buy
- * per V2_Cutover_Plan_2026-05-28.md. This component renders pack pricing as
- * read-only educational copy with a polite descriptive callout — NOT
- * "Coming soon" engineering dev-text per [[feedback_setnayan_no_dev_text_post_launch]].
+ * Each pack is a server-action form (startTokenPurchase) that opens an
+ * apply-then-pay order — the vendor then pays externally and an admin (or a
+ * future payment webhook) confirms it. See actions.ts + migration
+ * 20260916000000.
  */
 
-const PACKS = [
-  { tokens: 4, php: 1000 },
-  { tokens: 10, php: 2400 },
-  { tokens: 25, php: 5500 },
-  { tokens: 50, php: 10000 },
-  { tokens: 100, php: 18000 },
-];
+export type TokenPack = {
+  sku_code: string;
+  token_count: number;
+  price_php: number;
+};
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
-export function BuyTokensCta() {
+export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
   return (
     <div className="m-card p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <p className="m-label-mono">Token packs</p>
           <p className="mt-1 text-sm text-ink/65">
-            Pre-purchase tokens to accept bids and unlock per-action features.
+            Buy tokens to unlock matched couples. Purchased tokens never expire.
           </p>
         </div>
         <div
@@ -50,28 +48,37 @@ export function BuyTokensCta() {
         </div>
       </div>
 
-      <ul className="space-y-2">
-        {PACKS.map((pack) => {
-          const perToken = Math.round(pack.php / pack.tokens);
-          return (
-            <li
-              key={pack.tokens}
-              className="flex items-center justify-between rounded-md border px-3 py-2"
-              style={{ borderColor: 'var(--m-line)' }}
-            >
-              <div>
-                <p className="text-sm font-medium text-ink">{pack.tokens} tokens</p>
-                <p className="text-[11px] text-ink/50">
-                  ₱{NUMBER.format(perToken)}/token
-                </p>
-              </div>
-              <p className="text-sm font-semibold text-ink">
-                ₱{NUMBER.format(pack.php)}
-              </p>
-            </li>
-          );
-        })}
-      </ul>
+      {packs.length === 0 ? (
+        <p className="text-sm text-ink/60">
+          Token packs are being set up. Check back shortly.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {packs.map((pack) => {
+            const perToken = Math.round(pack.price_php / pack.token_count);
+            return (
+              <li
+                key={pack.sku_code}
+                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                style={{ borderColor: 'var(--m-line)' }}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">
+                    {NUMBER.format(pack.token_count)} tokens
+                  </p>
+                  <p className="text-[11px] text-ink/50">
+                    ₱{NUMBER.format(pack.price_php)} · ₱{NUMBER.format(perToken)}/token
+                  </p>
+                </div>
+                <form action={startTokenPurchase} className="shrink-0">
+                  <input type="hidden" name="pack_sku_code" value={pack.sku_code} />
+                  <SubmitButton pendingLabel="Starting…">Buy</SubmitButton>
+                </form>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <div
         className="mt-4 rounded-md border-l-2 px-3 py-2 text-xs text-ink/65"
@@ -80,8 +87,9 @@ export function BuyTokensCta() {
           background: 'rgba(201, 107, 58, 0.04)',
         }}
       >
-        Token pack purchase opens this week. Verified vendors receive 100 founder
-        tokens at no charge when verification is approved.
+        Pay by BDO or GCash — you&rsquo;ll get a reference code and instructions
+        after you start. Tokens land once our team confirms your payment.
+        Verified vendors also receive 100 founder tokens at no charge.
       </div>
     </div>
   );

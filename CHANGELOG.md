@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(website): "Maria & Jose" full demo wedding + tier-aware editorial vendor showcase
+
+**Context:** Owner asked to see all three website phases (RSVP / Event / Editorial) on a fully-populated, photo-rich wedding, with vendors at Free / Pro / Enterprise tiers to see how each renders on the editorial. Seeds the existing `[TEST] Maria & Jose` event (slug `test-maria-and-jose`, dated 2026-06-01 so it sits in the Editorial phase) + the code to make the demo render.
+
+**Code (renders the demo; all flag-dark-safe):**
+- **`app/[slug]/page.tsx`** — relaxed the `our_photos` resolution to accept ANY non-empty asset ref (was `r2://`-only). `displayUrlForStoredAsset` already presigns `r2://` and passes plain/relative URLs through, so seeded `/demo/...` URLs (and any legacy URL) now render in the gallery — matching how the hero photo already tolerates legacy URLs.
+- **`_components/editorial/data.ts`** — the editorial "Team" is now **tier-aware** (`Wedding_Website_Lifecycle_Spec §3`): each `event_vendors` row resolves its `linked_vendor_profile_id` → `vendor_profiles` (`tier_state`, `logo_url`, `business_slug`). **Free vendors are excluded from the editorial entirely** (§3); Pro/Enterprise carry tier + logo + slug. M1/M2 still count ALL event_vendors (tier-independent). Editorial hero now **falls back to `events.landing_page_hero_image_url`** when there's no curated `event_editorial.hero_photo_id`.
+- **`_components/editorial/editorial-content.tsx`** — `TeamBehindTheDay` renders Pro/Enterprise as **featured cards** (real logo + a tier badge + a link to `/vendors/[slug]`); other credits render plain. This is the visible Free-vs-Pro-vs-Enterprise difference on the editorial.
+- **`public/demo/maria-jose/*.webp`** — 9 AI-generated (Recraft) photorealistic Filipino-wedding photos (hero + 5 gallery + 3 vendor) committed under `public/` so they serve at `/demo/maria-jose/*` (no R2 needed for the demo).
+
+**Seed (prod, idempotent `DO` block — test event only):** rich `love_story` (how-we-met / spark / proposal / 6 milestones / anchors) + `special_message` + `what_to_bring` + `dress_code_config` + `photo_moments_config` + `our_photos` (5) + hero + venue + monogram; 6 public `event_schedule_blocks`; 30 `guests` (24 attending → ~80% RSVP); 9 `event_vendors` (6 #1-match) of which 3 link to new **Free/Pro/Enterprise** `vendor_profiles` (`is_demo=true`, `public_visibility='hidden'` so they stay out of marketplace browse); `event_editorial` snapshot freezing the few non-computable numbers (photos 1240, services_total 18, per_guest_spend 6200 → "Jewel-box" archetype).
+
+**Verify:** typecheck + build on CI. Demo renders on `setnayan.com/test-maria-and-jose` once deployed — RSVP shows hero + countdown + venue + schedule + dress code + photo moments + special message + what-to-bring + Our Photos gallery; Editorial (date is past + `WEBSITE_PHASES_ENABLED` on) shows masthead + composed story + By-the-Numbers + timeline + tiered Team (Enterprise/Pro featured, Free hidden).
+
+**SPEC IMPACT:** implements §3 tier-gated editorial vendor showcase (was a deferred D gap) + editorial hero fallback. → DECISION_LOG. Demo data is disposable.
+
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 
 **Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" Coverage = Church · Reception · Attire · Flowers; tool depth = full recolor (both picked via in-session questions). Shipped as **one PR** (the planned 3-PR split was collapsed to dodge a fast-moving `main`; the Recraft Flowers seed + corpus sync follow separately).

@@ -270,25 +270,61 @@ function TeamBehindTheDay({
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
-        {vendors.slice(0, 8).map((v, i) => (
-          <li
-            key={i}
-            className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0"
-          >
-            <span aria-hidden className="h-7 w-7 shrink-0 rounded-sm bg-gradient-to-br from-terracotta-100 to-terracotta-300" />
-            <span className="min-w-0">
-              <span className="block truncate font-serif text-sm font-semibold leading-tight">
-                {v.name}
+        {vendors.slice(0, 8).map((v, i) => {
+          // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier
+          // badge + a link to their marketplace profile; others render as a
+          // plain credit. (Free vendors are already filtered out in data.ts.)
+          const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
+          const nameEl = (
+            <span className="block truncate font-serif text-sm font-semibold leading-tight">
+              {v.name}
+            </span>
+          );
+          return (
+            <li
+              key={i}
+              className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0"
+            >
+              {v.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={v.logoUrl}
+                  alt=""
+                  aria-hidden
+                  className="h-7 w-7 shrink-0 rounded-sm object-cover"
+                />
+              ) : (
+                <span
+                  aria-hidden
+                  className="h-7 w-7 shrink-0 rounded-sm bg-gradient-to-br from-terracotta-100 to-terracotta-300"
+                />
+              )}
+              <span className="min-w-0 flex-1">
+                {featured ? (
+                  <a
+                    href={`/vendors/${v.slug}`}
+                    className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
+                  >
+                    {v.name}
+                  </a>
+                ) : (
+                  nameEl
+                )}
+                {v.category ? (
+                  <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
+                    {prettyCategory(v.category)}
+                    {v.isFirstPick ? ' · #1 match' : ''}
+                  </span>
+                ) : null}
               </span>
-              {v.category ? (
-                <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
-                  {prettyCategory(v.category)}
-                  {v.isFirstPick ? ' · #1 match' : ''}
+              {v.tier === 'pro' || v.tier === 'enterprise' ? (
+                <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta">
+                  {v.tier}
                 </span>
               ) : null}
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

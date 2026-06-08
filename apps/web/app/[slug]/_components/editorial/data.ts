@@ -93,7 +93,20 @@ export type Archetype = {
 
 export type StoryTone = 'warm' | 'playful' | 'formal' | null;
 
-export type VendorCredit = { name: string; category: string | null; isFirstPick: boolean };
+export type VendorCredit = {
+  name: string;
+  category: string | null;
+  isFirstPick: boolean;
+  // Tier-aware showcase (Wedding_Website_Lifecycle_Spec §3): a vendor's
+  // featured card (logo + profile link) renders on the Editorial only while
+  // they are currently Pro/Enterprise. `tier` is the linked vendor_profile's
+  // tier_state ('free'|'verified'|'pro'|'enterprise') or null when the event
+  // vendor isn't linked to a marketplace profile. Free vendors are excluded
+  // upstream (hidden from the Editorial entirely, per §3).
+  tier: 'free' | 'verified' | 'pro' | 'enterprise' | null;
+  logoUrl: string | null;
+  slug: string | null;
+};
 
 export type EditorialData = {
   displayName: string;
@@ -251,7 +264,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language',
+        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -329,24 +342,74 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     replied = 0;
   }
 
-  // 4. Vendors + first-pick rate (best-effort).
+  // 4. Vendors + first-pick rate (best-effort). The first-pick + services
+  // metrics count ALL event_vendors (the couple planned them all with
+  // Setnayan, regardless of vendor tier). The DISPLAYED team list, however,
+  // hides Free vendors and gives Pro/Enterprise a richer card — §3.
   const vendors: VendorCredit[] = [];
   let firstPickNum = 0;
   let firstPickDen = 0;
   try {
     const { data: rows } = await admin
       .from('event_vendors')
-      .select('vendor_name, category, selection_match_rank')
+      .select('vendor_name, category, selection_match_rank, linked_vendor_profile_id')
       .eq('event_id', eventId);
     if (Array.isArray(rows)) {
       firstPickDen = rows.length;
+
+      // Resolve linked marketplace profiles (tier + logo + slug) in one query.
+      const profileIds = Array.from(
+        new Set(
+          rows
+            .map((r) => asString((r as Record<string, unknown>).linked_vendor_profile_id))
+            .filter((v): v is string => Boolean(v)),
+        ),
+      );
+      const profiles = new Map<
+        string,
+        { tier: VendorCredit['tier']; logoUrl: string | null; slug: string | null }
+      >();
+      if (profileIds.length > 0) {
+        try {
+          const { data: profRows } = await admin
+            .from('vendor_profiles')
+            .select('vendor_profile_id, tier_state, logo_url, business_slug')
+            .in('vendor_profile_id', profileIds);
+          for (const p of (profRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(p.vendor_profile_id);
+            if (!id) continue;
+            const tierRaw = asString(p.tier_state);
+            const tier = (['free', 'verified', 'pro', 'enterprise'] as const).find(
+              (t) => t === tierRaw,
+            ) ?? null;
+            profiles.set(id, {
+              tier,
+              logoUrl: await displayUrlForStoredAsset(asString(p.logo_url)),
+              slug: asString(p.business_slug),
+            });
+          }
+        } catch {
+          // no profiles → vendors render as plain credits
+        }
+      }
+
       for (const r of rows as Array<Record<string, unknown>>) {
         const isFirstPick = Number(r.selection_match_rank) === 1;
         if (isFirstPick) firstPickNum += 1;
         const name = asString(r.vendor_name);
-        if (name) {
-          vendors.push({ name, category: asString(r.category), isFirstPick });
-        }
+        if (!name) continue;
+        const prof = profiles.get(asString(r.linked_vendor_profile_id) ?? '');
+        const tier = prof?.tier ?? null;
+        // §3: Free vendors are hidden from the Editorial entirely.
+        if (tier === 'free') continue;
+        vendors.push({
+          name,
+          category: asString(r.category),
+          isFirstPick,
+          tier,
+          logoUrl: prof?.logoUrl ?? null,
+          slug: prof?.slug ?? null,
+        });
       }
     }
   } catch {
@@ -387,6 +450,14 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     } catch {
       heroPhotoUrl = null;
     }
+  }
+  // Fallback: if no curated editorial hero photo, reuse the couple's website
+  // hero image so the editorial still leads with a photo. displayUrlForStoredAsset
+  // passes plain/relative URLs through unchanged.
+  if (!heroPhotoUrl) {
+    heroPhotoUrl = await displayUrlForStoredAsset(
+      asString((event as Record<string, unknown>).landing_page_hero_image_url),
+    );
   }
 
   // ── Impact metrics: prefer frozen values, else compute live ────────────────

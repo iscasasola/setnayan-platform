@@ -1005,3 +1005,29 @@
 .onbw #screen-refine-extras .prefstep .viewzone{flex:0 0 auto;}
 .onbw #screen-refine-basic .prefstep .tapzone,
 .onbw #screen-refine-extras .prefstep .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;margin-top:8px;}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Bundle offer screen (#screen-bundle · Essentials/Complete · owner 2026-06-08).
+   Two stacked choice cards reading the live admin package catalog (pricing.bundles).
+   Ported from the prototype's .bdl-card design; .sel = the net-new selected ring.
+   Reuses .onbw .plan-skip (the de-emphasized "à la carte" escape) + existing tokens.
+   ════════════════════════════════════════════════════════════════════════════ */
+.onbw #screen-bundle .bdl-cards{display:flex;flex-direction:column;gap:12px;margin-top:6px;}
+.onbw #screen-bundle .bdl-card{position:relative;border:1.5px solid var(--line-2);border-radius:18px;background:var(--surface);padding:15px 16px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;box-shadow:0 6px 18px rgba(30,34,41,.06);-webkit-tap-highlight-color:transparent;}
+.onbw #screen-bundle .bdl-card:hover{border-color:var(--gold);}
+.onbw #screen-bundle .bdl-card:active{transform:scale(.992);}
+.onbw #screen-bundle .bdl-card.reco{border-color:var(--mulberry);box-shadow:0 12px 30px rgba(92,37,66,.2);}
+.onbw #screen-bundle .bdl-card.sel{border-color:var(--mulberry);box-shadow:0 0 0 2px var(--mulberry);}
+.onbw #screen-bundle .bdl-card.sel.reco{box-shadow:0 0 0 2px var(--mulberry),0 12px 30px rgba(92,37,66,.2);}
+.onbw #screen-bundle .bc-reco{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#fff;background:var(--mulberry);border-radius:999px;padding:4px 10px;margin-bottom:9px;}
+.onbw #screen-bundle .bc-reco .bcr-star{font-size:11px;line-height:1;}
+.onbw #screen-bundle .bc-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:23px;line-height:1.05;color:var(--ink);}
+.onbw #screen-bundle .bc-pricerow{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:11px;}
+.onbw #screen-bundle .bc-was{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink-faint);text-decoration:line-through;text-decoration-color:var(--mulberry);}
+.onbw #screen-bundle .bc-now{font-family:var(--serif);font-style:italic;font-weight:700;font-size:30px;line-height:1;color:var(--mulberry);}
+.onbw #screen-bundle .bc-save{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--gold-deep);margin-top:6px;}
+.onbw #screen-bundle .bdl-card.reco .bc-save{color:var(--mulberry);font-weight:600;}
+.onbw #screen-bundle .bc-cta{width:100%;margin-top:12px;border:none;border-radius:30px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .15s;background:var(--ink);color:var(--paper);}
+.onbw #screen-bundle .bdl-card.reco .bc-cta{background:var(--mulberry);color:#fff;box-shadow:0 7px 20px rgba(92,37,66,.26);}
+.onbw #screen-bundle .bc-cta:active{transform:translateY(1px);}
+.onbw #screen-bundle .bc-cta:disabled{opacity:.5;cursor:not-allowed;}

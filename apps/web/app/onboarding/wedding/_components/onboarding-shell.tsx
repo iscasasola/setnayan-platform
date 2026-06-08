@@ -61,7 +61,7 @@ import {
 } from '../types';
 import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
-import type { OnboardingPricing } from './onboarding-pricing';
+import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import {
@@ -104,7 +104,7 @@ import { SDLoader } from '@/components/sd-loader';
    PR-4: the two-pass UNIFORM refine engine lands — refine_basic (right after team_basics) +
    refine_extras (right after team_extras) walk the picked leaves that have a REFINEMENTS entry
    ("what kind of X?"). Both are AI-gated; an empty pass is skipped (go() re-entry loop). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The 5 love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -137,6 +137,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   love_tone:'See our story', love_preview:'This is us',
   date:'Continue', region:'Continue', pax:'Continue', budget:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
+  // bundle (owner 2026-06-08): chrome CTA = the "skip the offer, build à la carte" advance to
+  // `services`. The two bundle cards carry their OWN "Get {title}" CTAs that route to checkout.
+  bundle:'Continue',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
@@ -159,6 +162,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
 const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = {
   love_met:true, love_proposal:true, love_milestones:true, love_tone:true,
   team_extras:true, songs:true, mood:true, find:true, services:true,
+  // bundle (owner 2026-06-08): Skip = advance to `services` (the à-la-carte path). The
+  // in-screen "I'll pick à la carte instead" link is the primary escape; this is parity.
+  bundle:true,
 };
 /* The love gate + reveal carry their OWN button rows (a primary CTA + a ghost) — the chrome
    Continue is hidden for these, the same way the account gate + summary are (data-nocta). */
@@ -2563,7 +2569,7 @@ export function OnboardingShell({
     [],
   );
 
-  const handleFinish = useCallback(async (purchase = false) => {
+  const handleFinish = useCallback(async (purchase = false, bundleOverride?: 'essentials' | 'complete' | null) => {
     if (committingRef.current) return;
     setCommitError(null);
 
@@ -2574,25 +2580,38 @@ export function OnboardingShell({
     // More once they land (owner 2026-06-02).
     const goToDashboard = (eventId: string, toServices = false) => {
       const base = `/dashboard/${eventId}`;
+      // Bundle branch (owner 2026-06-08): if the couple chose an Essentials/Complete bundle on
+      // the new `bundle` screen, Purchase Now routes to the bundle checkout (add-ons/bundle?code=
+      // <package_code>), which resolves the package price SERVER-SIDE from the live package
+      // catalog and mounts InlineCheckoutDrawer keyed service_key=package_code. Mutually
+      // exclusive with the à-la-carte path: a bundle pick takes precedence and the
+      // interestedServices paySlug logic below is skipped entirely. Null (no bundle) →
+      // identical à-la-carte behavior as before.
+      // Use the explicit override (the card's own "Get {title}" CTA passes its key, since
+      // setState in the same tick hasn't flushed yet) and fall back to committed state.
+      const sel = bundleOverride !== undefined ? bundleOverride : state.selectedBundle;
+      const bundleVM = toServices && sel ? pricing.bundles[sel] : null;
       // Purchase Now jumps straight to the in-app checkout card (InlineCheckoutDrawer · BDO/GCash QR
       // + reference) for the FIRST picked service that has a built checkout page (owner 2026-06-06)
       // — the couple pays there; the rest stay payable on the Services tab. Falls back to the
       // Services tab when no pick is mappable; continue-free lands on Home.
-      const paySlug = toServices
+      const paySlug = toServices && !bundleVM
         ? state.interestedServices.map((k) => INAPP_TO_ADDON_SLUG[k]).find(Boolean)
         : undefined;
-      const dest = paySlug
-        ? `${base}/add-ons/${paySlug}`
-        : toServices
-          ? `${base}/vendors`
-          : base;
+      const dest = bundleVM
+        ? `${base}/add-ons/bundle?code=${encodeURIComponent(bundleVM.code)}`
+        : paySlug
+          ? `${base}/add-ons/${paySlug}`
+          : toServices
+            ? `${base}/vendors`
+            : base;
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
         router.prefetch(`${base}/vendors`); // Services
         router.prefetch(`${base}/website`); // Website
         router.prefetch(`${base}/more`); // More
-        if (paySlug) router.prefetch(dest); // the checkout card we're landing on
+        if (paySlug || bundleVM) router.prefetch(dest); // the checkout card we're landing on
       } catch {
         /* prefetch is best-effort */
       }
@@ -2699,7 +2718,7 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-  }, [committedEventId, state, buildCommitPayload, router, goToId]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, pricing]);
 
   return (
     <div className="onbw">
@@ -3998,6 +4017,74 @@ export function OnboardingShell({
                 </div>
               </div>
             )}
+          </section>
+
+          {/* 14b THE BUNDLE OFFER — Essentials/Complete (onboarding-only · owner 2026-06-08).
+              Lives BEFORE services so "get the bundle" precedes "build your own à la carte".
+              Reads pricing.bundles (live price + struck worth + savings from the admin package
+              catalog). Selecting a card sets state.selectedBundle → Purchase Now routes to the
+              bundle checkout (goToDashboard bundle branch). The chrome "Continue" + the in-screen
+              "I'll pick à la carte instead" link both leave selectedBundle null → the unchanged
+              à-la-carte services/summary path. COVERT: pricing/offer copy only — not a love screen. */}
+          <section className={`screen${activeId === 'bundle' ? ' active' : ''}`} id="screen-bundle">
+            {(() => {
+              const eB = pricing.bundles.essentials;
+              const cB = pricing.bundles.complete;
+              // Catalog read failure → both null: render only the escape so the couple is never stranded.
+              if (!eB && !cB) {
+                return (
+                  <>
+                    <div className="eyebrow">Make it unforgettable</div>
+                    <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
+                    <p className="sub">Pick the bundle that fits your day — or keep planning free.</p>
+                    <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
+                  </>
+                );
+              }
+              const card = (k: 'essentials' | 'complete', b: OnboardingBundleVM) => {
+                const sel = state.selectedBundle === k;
+                const reco = k === 'complete';
+                return (
+                  <div
+                    key={k}
+                    className={`bdl-card${sel ? ' sel' : ''}${reco ? ' reco' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={sel}
+                    onClick={() => patch({ selectedBundle: k })}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); patch({ selectedBundle: k }); } }}
+                  >
+                    {reco && <div className="bc-reco"><span className="bcr-star">★</span> Best value</div>}
+                    <div className="bc-name">{b.title}</div>
+                    <div className="bc-pricerow">
+                      {b.worth > b.price && <span className="bc-was">{pesoB(b.worth)}</span>}
+                      <span className="bc-now">{pesoB(b.price)}</span>
+                    </div>
+                    {b.savings > 0 && <div className="bc-save">Save {pesoB(b.savings)} vs buying each on its own</div>}
+                    <button
+                      type="button"
+                      className="bc-cta"
+                      disabled={committing}
+                      onClick={(e) => { e.stopPropagation(); patch({ selectedBundle: k }); void handleFinish(true, k); }}
+                    >
+                      {committing ? 'Setting up…' : `Get ${b.title} · ${pesoB(b.price)}`}
+                    </button>
+                  </div>
+                );
+              };
+              return (
+                <>
+                  <div className="eyebrow">Make it unforgettable</div>
+                  <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
+                  <p className="sub">Pick the bundle that fits your day — or keep planning free.</p>
+                  <div className="bdl-cards">
+                    {eB && card('essentials', eB)}
+                    {cB && card('complete', cB)}
+                  </div>
+                  <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
+                </>
+              );
+            })()}
           </section>
 
           {/* 15 BOOST & ENHANCE — paid in-app services: focused detail + bottom carousel (owner 2026-06-05) */}

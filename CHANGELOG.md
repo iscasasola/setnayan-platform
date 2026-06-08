@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): bundle card — Essentials/Complete offer wired into onboarding (onboarding-only)
+
+**Context:** Owner-approved 2026-06-08 (AskUserQuestion) — bundles are onboarding-only, so the Essentials/Complete offer is now shown IN the onboarding flow (the `pricing.bundles` view-model was built in the live-wire PR but unconsumed). Reverses the 2026-06-05 à-la-carte-only decision (owner-authorized). Built via an ultracode workflow; the workflow's `checkout-routes-safely` lens **caught a real bug** in the primary CTA, which I fixed before shipping (see below).
+
+**What landed:**
+- **New `bundle` screen** (`onboarding-shell.tsx`, FLOW_IDS `…plan → bundle → services → summary`): two cards from the live `pricing.bundles` — title · struck `worth` · `price` · "Save ₱X" · Complete carries a ★ best-value badge. NO hardcoded prices (all from the admin catalog). An "I'll pick à la carte instead" escape + the chrome Continue both leave `selectedBundle` null → the unchanged à-la-carte path.
+- **`state.selectedBundle: 'essentials' | 'complete' | null`** (additive in `types.ts` + `EMPTY_ONBOARDING_STATE`; auto-backfills via the `{...EMPTY, ...saved}` hydrate). Transient UI (not persisted server-side) — the order captures the bundle at checkout.
+- **New `/dashboard/[eventId]/add-ons/bundle?code=<package_code>`** checkout page: resolves the package price + title **server-side** from `platform_package_catalog` (URL carries only `?code` — tamper-proof) and mounts the existing `InlineCheckoutDrawer` keyed `service_key=GUIDED_PACK`/`MEDIA_PACK`. `submitOrderAction` keeps the client price for flat SKUs + `orders.service_key` is free-form TEXT (no FK) → a real bundle order lands with **no new server action + no schema change**.
+- **Purchase routing** (`handleFinish`): a bundle pick routes Purchase Now to the bundle checkout; à-la-carte routing is **byte-identical** when `selectedBundle` is null.
+
+**🐞 Fix (workflow-caught):** the card's own "Get {bundle}" CTA did `patch({selectedBundle:k}); handleFinish(true)` — `patch` is async setState, so `handleFinish` read the *stale* `selectedBundle` (null) in the same tick and dropped the bundle. Fixed by threading an explicit `bundleOverride` param into `handleFinish` (the card passes its key `k`; the Summary Purchase Now still reads fresh `state` since its `useCallback` deps include `state`).
+
+**Data safety:** `submitOrderAction` UNCHANGED (zero risk to live per-service orders). `state.picks`/`prefs`/`interestedServices`/`buildCommitPayload` untouched. À-la-carte flow fully intact.
+
+**⚠ FLAG for owner:** (1) confirm the **Essentials composition** (currently custom_qr · animated_monogram · advanced_website · papic_seats → drives the "worth/save"). (2) A bundle order is a single `orders` row keyed by package_code — member-service provisioning is manual/downstream (admin reconciliation), no auto-decomposition.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` + `/dashboard/[eventId]/add-ons/bundle` both `ƒ`) · all 3 purchase paths traced (card CTA fixed · summary · à-la-carte) · covert clean.
+
+**SPEC IMPACT:** Bundles are now onboarding-only + live in the flow (per the 2026-06-08 decision). DECISION_LOG row added.
+
 ## 2026-06-08 · chore(pricing): retire 4 customer SKUs + bundles are onboarding-only (owner-decided)
 
 **Context:** Owner resolved the two open pricing questions from the 2026-06-08 canonical reprice: (1) Papic Guests STAYS pax-priced ₱2,999 (the canonical-doc ₱1,999-flat is superseded — no change needed); (2) retire HIGH_RES_ARCHIVE, CALL_TIME_ESCALATOR, INDOOR_BLUEPRINT, PAKULAY; (3) the Essentials/Complete bundles are **onboarding-only — never sold outside**.

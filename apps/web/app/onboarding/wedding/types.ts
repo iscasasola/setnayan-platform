@@ -213,6 +213,14 @@ export interface OnboardingState {
   inquiriesPerCategory: number;
   interestedServices: string[];
 
+  /**
+   * Onboarding-only bundle choice (Essentials/Complete offer screen · owner 2026-06-08).
+   * null = à-la-carte path. Persisted in the draft so a resumed flow restores the pick.
+   * Read/written ONLY by the bundle screen + the purchase-routing branch — additive,
+   * never touches picks/prefs/interestedServices/buildCommitPayload semantics.
+   */
+  selectedBundle: 'essentials' | 'complete' | null;
+
   // -- Love stage fields (the 6 love_* screens · website "Our Love Story" voice) --
 
   /**
@@ -421,6 +429,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   sendTopInquiries: false,
   inquiriesPerCategory: 3,
   interestedServices: [],
+  selectedBundle: null,
   loveSkipped: false,
   loveStory: {
     how_we_met: '',

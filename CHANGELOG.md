@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
+
+**Context:** Owner reported clicking "Prefer to plan it yourself? Switch to manual →" on the Services tab did nothing (no error, no change). The `setPlanningMode` server action is correctly wired (`'use server'`, valid form), but it wrote via the **user-scoped** Supabase client.
+
+**Root cause:** the `couple_can_update_event` RLS policy keys on `event_members.member_type = 'couple'`. For **seeded / host / multi-host** events that row can be absent, so the user-client `UPDATE … SET planning_mode` matches **0 rows and returns no error** (PostgREST RLS no-op) — the page revalidates unchanged, i.e. "the switch did nothing." (Onboarding- and create-event-made events DO get the couple row, so real couples were unaffected — but the gate is fragile.)
+
+**Fix:** `setPlanningMode` now (1) **gates on a user-scoped read** of the event (read RLS = the caller is a member), then (2) applies the update via the **admin client**, landing the flip for every legitimate member regardless of the membership-row nuance. Security preserved by the read-gate (a non-member's read returns nothing → throws before any write). `revalidatePath('layout')` unchanged.
+
+**Verify:** typecheck/build on CI; the toggle now flips Guided ⇄ Manual on seeded/host events too.
+
+**SPEC IMPACT:** None (correctness fix to the existing Setnayan AI on/off toggle).
+
 ## 2026-06-08 · feat(onboarding): Dream Team PR-4 (FINAL) — two-pass uniform refine engine · chapter fully live
 
 **Context:** Last of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §3.3/§5). Adds the per-leaf "what kind?" refinement engine — the explicit owner ask: ONE uniform template for every refinement. Built via an ultracode workflow; the workflow's auto-verify phase was killed by a transient API rate-limit, so the 3 adversarial lenses were **re-run manually** (all pass — see Verify).

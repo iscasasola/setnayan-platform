@@ -27,10 +27,14 @@ import { BackgroundMusic } from './_components/background-music';
 import {
   type InvitationWidgetRow,
   type WidgetType,
+  type LifecyclePhase,
   isWidgetType,
   visibleHideableWidgets,
   widgetByType,
   widgetShouldRender,
+  widgetInPhase,
+  isWebsitePhasesEnabled,
+  getLifecyclePhase,
 } from '@/lib/invitation-widgets';
 
 function displayNameOf(g: {
@@ -265,6 +269,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? getDayOfPhase(event.event_date)
     : 'inactive';
 
+  // Website lifecycle-phase engine (Increment C · flag-dark). `phasesEnabled`
+  // is OFF by default (WEBSITE_PHASES_ENABLED !== 'true'); when off, every
+  // new phase-gated behavior below is bypassed and the page renders exactly
+  // as it does today. `lifecyclePhase` is computed unconditionally (cheap,
+  // pure) but only consumed when `phasesEnabled` is true. Both thread into
+  // PublicLanding + InvitationSite like heroPhotoUrl.
+  const phasesEnabled = isWebsitePhasesEnabled();
+  const lifecyclePhase: LifecyclePhase = getLifecyclePhase(event.event_date);
+
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)
 
@@ -281,6 +294,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
+        phasesEnabled={phasesEnabled}
+        lifecyclePhase={lifecyclePhase}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -299,6 +314,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
+        phasesEnabled={phasesEnabled}
+        lifecyclePhase={lifecyclePhase}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -324,6 +341,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
+        phasesEnabled={phasesEnabled}
+        lifecyclePhase={lifecyclePhase}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -372,6 +391,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         animatedMonogram={animatedMonogram}
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
+        phasesEnabled={phasesEnabled}
+        lifecyclePhase={lifecyclePhase}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
@@ -554,6 +575,8 @@ function PublicLanding({
   event,
   reason,
   dayOfPhase,
+  phasesEnabled,
+  lifecyclePhase,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -564,6 +587,12 @@ function PublicLanding({
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
+  // Website lifecycle-phase engine (Increment C · flag-dark). When
+  // `phasesEnabled` is false (the default), NONE of the phase gating below
+  // changes — the page renders exactly as today. `lifecyclePhase` is only
+  // consulted when `phasesEnabled` is true. See lib/invitation-widgets.ts.
+  phasesEnabled: boolean;
+  lifecyclePhase: LifecyclePhase;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
@@ -595,21 +624,33 @@ function PublicLanding({
   // (event_details · your_photos) need a guest object + are silently
   // skipped here. The 4 always-on widgets (hero · greeting · qr_card ·
   // rsvp) are NOT in visibleHideableWidgets() output.
-  const publicSafeWidgets = visibleHideableWidgets(widgets).filter((w) =>
-    (
-      [
-        'countdown',
-        'schedule',
-        'venue_map',
-        'dress_code',
-        'photo_moments',
-        'tier_comparison',
-        'special_message',
-        'what_to_bring',
-        'our_photos',
-      ] as WidgetType[]
-    ).includes(w.widget_type),
+  const publicSafeWidgets = visibleHideableWidgets(widgets).filter(
+    (w) =>
+      (
+        [
+          'countdown',
+          'schedule',
+          'venue_map',
+          'dress_code',
+          'photo_moments',
+          'tier_comparison',
+          'special_message',
+          'what_to_bring',
+          'our_photos',
+        ] as WidgetType[]
+      ).includes(w.widget_type) &&
+      // Increment C (flag-dark): also require the widget to belong to the
+      // current lifecycle phase. No-op when the flag is off — the && short-
+      // circuits to the original allow-list-only behavior.
+      (!phasesEnabled || widgetInPhase(w.widget_type, lifecyclePhase)),
   );
+
+  // Increment C (flag-dark): after the wedding, the anonymous public path
+  // shows a small editorial stand-in instead of the normal widget body. The
+  // hero (monogram/photo, all-phase) stays above it. A parallel task builds
+  // the real editorial module. Entirely bypassed when the flag is off.
+  const showEditorialPlaceholder =
+    phasesEnabled && lifecyclePhase === 'editorial';
   // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
@@ -660,6 +701,13 @@ function PublicLanding({
           </div>
         </div>
       ) : null}
+      {showEditorialPlaceholder ? (
+        <EditorialPhasePlaceholder
+          displayName={event.display_name}
+          eventDate={event.event_date}
+        />
+      ) : (
+        <>
       <div className="space-y-6 text-center">
         {!hasHeroMedia ? dayOfBadge : null}
         {!hasHeroMedia ? (
@@ -719,7 +767,47 @@ function PublicLanding({
           ))}
         </section>
       ) : null}
+        </>
+      )}
     </InvitationShell>
+  );
+}
+
+/**
+ * Editorial-phase stand-in (Increment C · flag-dark). A temporary centered
+ * cream card shown after the wedding (lifecyclePhase === 'editorial') while a
+ * parallel task builds the real editorial module under
+ * app/[slug]/_components/editorial/. Rendered inside InvitationShell so the
+ * header/footer chrome stays; the hero (monogram/photo) renders above it
+ * because hero shows in all phases. Self-contained on purpose — no imports
+ * from the editorial module this task must not touch.
+ */
+function EditorialPhasePlaceholder({
+  displayName,
+  eventDate,
+}: {
+  displayName: string;
+  eventDate: string | null;
+}) {
+  return (
+    <section className="mt-10 flex justify-center">
+      <div className="mx-auto max-w-md space-y-4 rounded-2xl border border-ink/10 bg-cream p-8 text-center shadow-sm">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          The wedding
+        </p>
+        <h2 className="font-serif text-2xl italic tracking-tight text-ink">
+          {displayName}
+        </h2>
+        {eventDate ? (
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            {formatEventDate(eventDate)}
+          </p>
+        ) : null}
+        <p className="mx-auto max-w-prose font-serif text-lg italic leading-relaxed text-ink/70">
+          The full story is being prepared — check back soon.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -887,6 +975,8 @@ function InvitationSite({
   animatedMonogram,
   scheduleBlocks,
   dayOfPhase,
+  phasesEnabled,
+  lifecyclePhase,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
@@ -904,6 +994,12 @@ function InvitationSite({
   animatedMonogram: boolean;
   scheduleBlocks: ScheduleBlockRow[];
   dayOfPhase: DayOfPhase;
+  // Website lifecycle-phase engine (Increment C · flag-dark). When
+  // `phasesEnabled` is false (the default), every phase gate below is a
+  // no-op and this guest path renders exactly as today. `lifecyclePhase`
+  // is only consulted when `phasesEnabled` is true.
+  phasesEnabled: boolean;
+  lifecyclePhase: LifecyclePhase;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
@@ -957,12 +1053,36 @@ function InvitationSite({
   // regardless of whether the host has hidden the Schedule widget. This
   // mirrors the spec lock for 0031 day-of guest mode: the venue-WiFi
   // safety belt is non-negotiable.
-  const heroShouldRender = widgetShouldRender(widgetByType(widgets, 'hero'));
-  const greetingShouldRender = widgetShouldRender(widgetByType(widgets, 'greeting'));
-  const qrCardShouldRender = widgetShouldRender(widgetByType(widgets, 'qr_card'));
-  const rsvpShouldRender = widgetShouldRender(widgetByType(widgets, 'rsvp'));
+  // Increment C (flag-dark): the fixed-position always-on widgets are
+  // additionally gated by lifecycle phase per the element×phase matrix
+  // (hero=all phases · greeting=rsvp-only · qr_card=rsvp+event ·
+  // rsvp=rsvp-only). The `!phasesEnabled ||` short-circuit means when the
+  // flag is off (the default) these collapse to the original
+  // widgetShouldRender-only behavior — the page is unchanged.
+  const heroShouldRender =
+    widgetShouldRender(widgetByType(widgets, 'hero')) &&
+    (!phasesEnabled || widgetInPhase('hero', lifecyclePhase));
+  const greetingShouldRender =
+    widgetShouldRender(widgetByType(widgets, 'greeting')) &&
+    (!phasesEnabled || widgetInPhase('greeting', lifecyclePhase));
+  const qrCardShouldRender =
+    widgetShouldRender(widgetByType(widgets, 'qr_card')) &&
+    (!phasesEnabled || widgetInPhase('qr_card', lifecyclePhase));
+  const rsvpShouldRender =
+    widgetShouldRender(widgetByType(widgets, 'rsvp')) &&
+    (!phasesEnabled || widgetInPhase('rsvp', lifecyclePhase));
 
-  const hideableInOrder = visibleHideableWidgets(widgets);
+  // Hideable widgets in display order — when the phase flag is on, also
+  // filter by the current lifecycle phase. No-op when the flag is off.
+  const hideableInOrder = visibleHideableWidgets(widgets).filter(
+    (w) => !phasesEnabled || widgetInPhase(w.widget_type, lifecyclePhase),
+  );
+
+  // Increment C (flag-dark): after the wedding, the guest path shows the
+  // editorial stand-in instead of the normal widget body. The hero still
+  // renders above it (hero shows in all phases). Bypassed when the flag is off.
+  const showEditorialPlaceholder =
+    phasesEnabled && lifecyclePhase === 'editorial';
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
@@ -1064,6 +1184,16 @@ function InvitationSite({
           </section>
         ) : null}
 
+        {/* Increment C (flag-dark): after the wedding, the body below the
+            hero is replaced by the editorial stand-in. The hero (above) +
+            footer sign-out (below) stay. Bypassed when the flag is off. */}
+        {showEditorialPlaceholder ? (
+          <EditorialPhasePlaceholder
+            displayName={event.display_name}
+            eventDate={event.event_date}
+          />
+        ) : (
+          <>
         {/* Greeting — always-on per the editor contract; gated here so V1.1
             can decouple if a host wants the wedding page to skip the
             personalized welcome. */}
@@ -1174,6 +1304,8 @@ function InvitationSite({
             this wedding.
           </section>
         ) : null}
+          </>
+        )}
 
         {/* Footer with sign-out */}
         <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">

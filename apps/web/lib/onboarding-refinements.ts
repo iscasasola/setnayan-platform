@@ -82,14 +82,13 @@ export const getOnboardingRefinements = cache(async (): Promise<RefineLeaf[]> =>
         [...r2refs].map(async (ref) => [ref, await displayUrlForStoredAsset(ref).catch(() => null)] as const),
       );
       const urlByRef = new Map(pairs);
+      // Substitute ONLY r2:// refs (never the /public paths). A failed presign →
+      // empty/null, NOT the raw r2:// ref, so the card falls back to the emoji
+      // glyph instead of rendering a broken `url(r2://…)` (review 2026-06-09).
       for (const leaf of byLeaf.values()) {
-        const m = urlByRef.get(leaf.mainPhoto);
-        if (m) leaf.mainPhoto = m;
+        if (leaf.mainPhoto.startsWith('r2://')) leaf.mainPhoto = urlByRef.get(leaf.mainPhoto) || '';
         for (const o of leaf.options) {
-          if (o.photo) {
-            const u = urlByRef.get(o.photo);
-            if (u) o.photo = u;
-          }
+          if (o.photo && o.photo.startsWith('r2://')) o.photo = urlByRef.get(o.photo) || null;
         }
       }
     }

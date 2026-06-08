@@ -88,12 +88,16 @@ export default async function AdminRefinementsPage({
     optionsByLeaf.set(o.leaf_key, list);
   }
 
+  // Projectable leaves whose option keys feed projectRefinementsToPrefs — their option
+  // set is fixed (add/remove disabled in the editor + the action). Ceremony is dynamic.
+  const PROJECTABLE = new Set(['ceremony', 'catering', 'photo_video']);
   const leaves: EditorLeaf[] = leafRows.map((l) => ({
     leafKey: l.leaf_key,
     label: l.label_en,
     description: l.description_en ?? '',
     status: l.status,
     dynamic: l.is_dynamic_ceremony === true,
+    isProjectable: PROJECTABLE.has(l.leaf_key),
     mainPhotoRaw: l.main_photo,
     mainPhotoUrl: l.main_photo ? urlByRef.get(l.main_photo) ?? null : null,
     options: optionsByLeaf.get(l.leaf_key) ?? [],

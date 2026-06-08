@@ -17,6 +17,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const BASE = '/admin/refinements';
 
+/** Projectable leaves whose option KEYS feed projectRefinementsToPrefs (the cuisine_ /
+ *  pv_ / ceremony_ keys). New options can't be added through the UI — a label-derived key
+ *  would silently fail the projection — so addOption rejects them (review 2026-06-09). */
+const PROJECTABLE_LEAVES = new Set(['ceremony', 'catering', 'photo_video']);
+
+/** A photo must be a /public image path or an r2:// ref — never arbitrary text. Blocks
+ *  CSS-injection via the carried-current value, which renders as a `url(…)` background on
+ *  the anonymous onboarding (review 2026-06-09). */
+const VALID_PHOTO = /^(\/[\w./-]+\.(?:webp|jpe?g|png)|r2:\/\/[\w./-]+)$/i;
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -38,12 +48,13 @@ function str(v: FormDataEntryValue | null): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 /** Keep a freshly-uploaded r2:// ref, else fall back to the carried current value
- *  (which may be a /public path or an older r2:// ref). null only if both empty. */
+ *  (a /public path or an older r2:// ref). Both are VALIDATED so a tampered POST can't
+ *  inject CSS into the onboarding render; an invalid value drops to null (emoji fallback). */
 function resolvePhoto(uploaded: FormDataEntryValue | null, current: FormDataEntryValue | null): string | null {
   const u = typeof uploaded === 'string' && uploaded.startsWith('r2://') ? uploaded : '';
-  if (u) return u;
+  if (u && VALID_PHOTO.test(u)) return u;
   const c = str(current);
-  return c.length > 0 ? c : null;
+  return c && VALID_PHOTO.test(c) ? c : null;
 }
 function done(msg: string) {
   redirect(`${BASE}?saved=${encodeURIComponent(msg)}`);
@@ -100,6 +111,9 @@ export async function updateOption(leafKey: string, optionKey: string, formData:
 /** Add a new option to a leaf. option_key === label (the non-projectable convention). */
 export async function addOption(leafKey: string, formData: FormData) {
   await requireAdmin();
+  if (PROJECTABLE_LEAVES.has(leafKey)) {
+    return fail('This service’s options are reserved (they drive vendor matching) and can’t be added here — edit the existing ones instead.');
+  }
   const label = str(formData.get('label_en'));
   if (!label) return fail('New option needs a label.');
   const optionKey = label; // matches the seeded non-projectable key===label convention

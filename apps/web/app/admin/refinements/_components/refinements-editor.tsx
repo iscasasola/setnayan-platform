@@ -28,6 +28,9 @@ export type EditorLeaf = {
   description: string;
   status: string;
   dynamic: boolean;
+  /** Projectable leaf (catering / photo_video) — its option keys feed vendor matching,
+   *  so the option SET is fixed (label/emoji/photo are editable, add/remove are not). */
+  isProjectable: boolean;
   mainPhotoRaw: string | null;
   mainPhotoUrl: string | null;
   options: EditorOption[];
@@ -137,9 +140,14 @@ function LeafCard({ leaf, open, onToggle }: { leaf: EditorLeaf; open: boolean; o
             <div className="space-y-2.5">
               <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">Options</h3>
               {leaf.options.map((o) => (
-                <OptionRow key={o.optionKey} leafKey={leaf.leafKey} option={o} />
+                <OptionRow key={o.optionKey} leafKey={leaf.leafKey} option={o} canDelete={!leaf.isProjectable} />
               ))}
-              {/* Add option */}
+              {leaf.isProjectable ? (
+                <p className="rounded-xl border border-ink/10 bg-ink/[0.03] px-4 py-3 text-xs text-ink/55">
+                  These options are <strong>reserved</strong> — their keys drive vendor matching, so the set is fixed. You can edit each option’s label, emoji, and photo above, but can’t add or remove options here.
+                </p>
+              ) : (
+              /* Add option */
               <form action={addOption.bind(null, leaf.leafKey)} className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-ink/20 p-3">
                 <label className="space-y-1">
                   <span className="block text-[11px] font-medium text-ink/70">Emoji</span>
@@ -157,6 +165,7 @@ function LeafCard({ leaf, open, onToggle }: { leaf: EditorLeaf; open: boolean; o
                   <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> Add
                 </SubmitButton>
               </form>
+              )}
             </div>
           )}
         </div>
@@ -165,7 +174,7 @@ function LeafCard({ leaf, open, onToggle }: { leaf: EditorLeaf; open: boolean; o
   );
 }
 
-function OptionRow({ leafKey, option }: { leafKey: string; option: EditorOption }) {
+function OptionRow({ leafKey, option, canDelete }: { leafKey: string; option: EditorOption; canDelete: boolean }) {
   return (
     <div className={`rounded-xl border border-ink/10 bg-white p-3 ${option.status === 'retired' ? 'opacity-60' : ''}`}>
       <form action={updateOption.bind(null, leafKey, option.optionKey)} className="flex flex-wrap items-end gap-2.5">
@@ -189,11 +198,13 @@ function OptionRow({ leafKey, option }: { leafKey: string; option: EditorOption 
         </label>
         <SubmitButton className="button-primary !px-3 !py-1.5 text-xs" pendingLabel="…">Save</SubmitButton>
       </form>
-      <form action={removeOption.bind(null, leafKey, option.optionKey)} className="mt-1.5 text-right">
-        <button type="submit" className="inline-flex items-center gap-1 text-[11px] text-ink/45 hover:text-red-600">
-          <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> Delete option
-        </button>
-      </form>
+      {canDelete ? (
+        <form action={removeOption.bind(null, leafKey, option.optionKey)} className="mt-1.5 text-right">
+          <button type="submit" className="inline-flex items-center gap-1 text-[11px] text-ink/45 hover:text-red-600">
+            <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> Delete option
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

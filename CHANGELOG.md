@@ -19,9 +19,8 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched) · verification workflow green.
 
-**Unblocks CI (repo-wide):** renamed `supabase/migrations/20260925000000_vendor_services_daily_capacity.sql` → `20260925001000_…` to resolve a **pre-existing duplicate-timestamp collision** on `main` — it shared the `20260925000000` prefix with `…_platform_settings_onboarding_music.sql` (a parallel PR), which was failing the *migration timestamp guard* on **every** branch. DDL unchanged; both migrations are idempotent (`ADD COLUMN IF NOT EXISTS`), so a re-run is a no-op regardless of prod ledger state. Not part of the nav redesign — folded in to get this PR green and unblock the repo.
-
 **SPEC IMPACT:** PR 2 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(mood-board): seed the Flowers chapter with Recraft floral photos (0010)
 
 **Context:** Follow-up to the mood-board redesign (#1120). The new Flowers chapter shipped with a graceful empty state; this seeds it so couples can recolor real florals.

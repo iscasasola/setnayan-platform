@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   Armchair,
   ChevronDown,
   Eye,
   EyeOff,
+  List,
+  Map as MapIcon,
   Plus,
   Save,
   Search,
@@ -96,6 +98,16 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
+  // The spatial chair canvas can't hold many tables on a phone, so small
+  // screens default to a scrollable table-card list (0008 spec's mobile
+  // surface). Both views are available on both platforms via the toggle.
+  const [view, setView] = useState<'plan' | 'list'>('plan');
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+      setView('list');
+    }
+  }, []);
 
   const guestsById = useMemo(() => new Map(guests.map((g) => [g.guest_id, g])), [guests]);
   const groupColorById = useMemo(
@@ -238,7 +250,7 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
   return (
     <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
       {/* ---------------- Sidebar ---------------- */}
-      <aside className="flex max-h-[78vh] flex-col gap-3 overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-3">
+      <aside className="flex max-h-[46vh] flex-col gap-3 overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-3 lg:max-h-[78vh]">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
@@ -426,7 +438,29 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
             <Pill tone={unseatedCount > 0 ? 'warn' : 'ok'}>{unseatedCount} unseated</Pill>
           </ul>
           <div className="flex items-center gap-2">
-            {dirty.size > 0 ? (
+            <div className="inline-flex rounded-lg border border-ink/15 p-0.5">
+              <button
+                type="button"
+                onClick={() => setView('plan')}
+                aria-pressed={view === 'plan'}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition ${
+                  view === 'plan' ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
+                }`}
+              >
+                <MapIcon className="h-3.5 w-3.5" /> Floor plan
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('list')}
+                aria-pressed={view === 'list'}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition ${
+                  view === 'list' ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
+                }`}
+              >
+                <List className="h-3.5 w-3.5" /> List
+              </button>
+            </div>
+            {view === 'plan' && dirty.size > 0 ? (
               <button
                 type="button"
                 onClick={saveLayout}
@@ -473,6 +507,8 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
           </div>
         ) : null}
 
+        {view === 'plan' ? (
+        <>
         <div
           ref={canvasRef}
           onPointerMove={onCanvasPointerMove}
@@ -617,6 +653,125 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
           Tap a guest in the sidebar, then tap a chair to seat them. Drag a table&rsquo;s centre to move it, then
           Save layout. <span className="text-ink/40">Auto-seat fills unseated guests by role tier, closest to the stage first.</span>
         </p>
+        </>
+        ) : (
+          <div className="space-y-2">
+            {tables.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/50">
+                No tables yet — add one from the panel above to start seating.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {tables.map((t) => {
+                  const occ = occupantsFor(t);
+                  const seated = occ.filter((g): g is SeatingGuest => g !== null);
+                  const full = seated.length >= t.capacity;
+                  const free = occ.indexOf(null);
+                  const expanded = expandedCards.has(t.table_id);
+                  const halo = dominantColor(occ, colorFor);
+                  const open = t.capacity - seated.length;
+                  return (
+                    <li key={t.table_id} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                      <div className="flex items-center gap-2 p-3">
+                        <span
+                          className="h-3 w-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: halo ?? NEUTRAL }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCards((s) => {
+                              const n = new Set(s);
+                              n.has(t.table_id) ? n.delete(t.table_id) : n.add(t.table_id);
+                              return n;
+                            })
+                          }
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-ink">{t.table_label}</span>
+                            <span className="block text-[11px] text-ink/55">{TABLE_TYPE_LABEL[t.table_type]}</span>
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              full ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/5 text-ink/55'
+                            }`}
+                          >
+                            {seated.length}/{t.capacity}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeTable(t.table_id)}
+                          aria-label={`Delete ${t.table_label}`}
+                          className="rounded p-1 text-ink/30 hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
+                        {seated.length === 0 ? (
+                          <span className="text-xs text-ink/40">No one seated yet.</span>
+                        ) : (
+                          seated.map((g) => (
+                            <button
+                              key={g.guest_id}
+                              type="button"
+                              onClick={() => setPickedId(g.guest_id)}
+                              title={`${g.name} — tap to move`}
+                              className="rounded-full"
+                            >
+                              <ChairAvatar guest={g} color={colorFor(g)} size={28} />
+                            </button>
+                          ))
+                        )}
+                        {pickedId && !full ? (
+                          <button
+                            type="button"
+                            onClick={() => place(t.table_id, free >= 0 ? free : null)}
+                            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1 text-xs font-medium text-cream hover:bg-terracotta-600"
+                          >
+                            <Armchair className="h-3.5 w-3.5" /> Seat here
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {expanded ? (
+                        <ul className="space-y-0.5 border-t border-ink/10 p-2">
+                          {seated.map((g) => (
+                            <li key={g.guest_id} className="flex items-center gap-2 rounded-lg px-1.5 py-1">
+                              <ChairAvatar guest={g} color={colorFor(g)} size={24} />
+                              <span className="min-w-0 flex-1 truncate text-sm text-ink">{g.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => unseat(g.guest_id)}
+                                aria-label={`Unseat ${g.name}`}
+                                className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/70 hover:border-rose-400 hover:text-rose-600"
+                              >
+                                <UserMinus className="h-3.5 w-3.5" /> Unseat
+                              </button>
+                            </li>
+                          ))}
+                          {open > 0 ? (
+                            <li className="px-1.5 py-1 text-[11px] text-ink/40">
+                              {open} open {open === 1 ? 'seat' : 'seats'}.
+                            </li>
+                          ) : null}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className="px-1 text-xs text-ink/50">
+              Pick a guest in the panel above, then tap <span className="font-medium text-ink/70">Seat here</span> on a
+              table. Tap a seated avatar to move them.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* auto-seat confirm */}

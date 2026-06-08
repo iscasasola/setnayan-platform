@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — Build tab hosts the allocation planner (Phase 2a, flag-dark)
+
+**Context:** Phase 2 of `Budget_Build_Services_Takeover_2026-06-08.md`. The takeover's **Build** tab (a stub in Phase 1) now renders the real median-anchored allocation planner — the auto-fit plan, per-service ₱ targets + shopping ranges, the Cushion / shortfall readouts, and the peso-pin tilt (Splurge / Standard / Save). Reuses the engine + UI already shipped on the Budget tab — no fork.
+
+**What landed (`vendors/page.tsx`):** when `BUDGET_BUILD_ENABLED` is on, the page resolves `resolveAllocationInputs(supabase, eventId)` and passes a `<BudgetAllocationPlanner>` into the takeover's `buildSlot`. The alloc query is **gated inside the flag check** so it never runs in production while the flag is off. Shortlist still houses today's `PlanBudgetAccordion`; Compare / Summary / Lock remain Phase 3–5 stubs.
+
+**Reuse, not rebuild:** `lib/budget-allocation.ts` (`computeBudgetAllocation`), `lib/budget-allocation-data.ts` (`resolveAllocationInputs`), and `budget/_components/budget-allocation-planner.tsx` are all rendered as-is.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Flag OFF by default → zero production change.
+
+**SPEC IMPACT:** Phase 2a of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-on Phase 2b: whole-plan baskets (Lean/Fits/Stretch) + save A/B/C (needs a saved-builds migration). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-08 · feat(services): Budget "Build" — Services 5-tab takeover shell (Phase 1, flag-dark)
 
 **Context:** Owner design session (→ `Budget_Build_Services_Takeover_2026-06-08.md`): the couple's Services tab becomes a full-screen FOCUS MODE takeover (Summary · Shortlist · Build · Compare · Lock) that turns budget + pax + date + location into a complete, affordable, bookable plan. This PR lands **Phase 1 — the takeover shell only** — behind a flag, so production is unchanged.

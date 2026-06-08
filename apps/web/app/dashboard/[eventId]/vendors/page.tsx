@@ -41,6 +41,7 @@ import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
+import { BuildCompare } from './_components/build-compare';
 import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
 import { buildTasteChips } from '@/lib/personalized-menu';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -414,6 +415,13 @@ export default async function VendorsPage({ params }: Props) {
         summarySlot={<BuildSummary model={model} eventId={eventId} />}
         shortlistSlot={services}
         buildSlot={buildSlot}
+        compareSlot={
+          <BuildCompare
+            budgetPhp={allocInputs.budgetPhp}
+            leaves={allocInputs.leaves}
+            config={allocInputs.config}
+          />
+        }
         lockSlot={<BuildLocked model={model} />}
       />
     );

@@ -90,16 +90,28 @@ import { SDLoader } from '@/components/sd-loader';
    show) and before `date` — the website "Our Love Story" beats. love_intro is the skip
    GATE (always shown); the other 5 collection screens drop when the couple taps
    "Add it later" (loveSkipped). COVERT: every id is story-shaped, never editorial/song. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','picker','prefs','account','find','congrats','plan','services','summary'] as const;
+/* The "Your Dream Team" chapter (4 NEW chrome screens · team_intro / reception_setting /
+   team_payoff / aigate) is inserted after `budget`. `find` MOVES earlier — out of its old
+   post-`account` slot into the chapter (right after reception_setting), matching the
+   prototype's s1search position. `picker`+`prefs` move to AFTER `aigate` and become
+   AI-gated; `account` now follows the AI screens (prototype order).
+   ⚠ ACCOUNT-REPOSITION flagged to owner — see PR-2 ownerFlags. */
+const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','picker','prefs','account','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The 5 love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
 const LOVE_SKIPPABLE: ReadonlySet<ScreenId> = new Set(['love_met','love_proposal','love_milestones','love_tone','love_preview']);
-function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean): ScreenId[] {
+/* Dream Team AI-gated screens — shown only when the couple opts into AI matching on
+   `aigate` (state.ai === true). PR-2 interim AI-only set is the EXISTING picker+prefs;
+   the picks split / refine engine arrive in PR-3 / PR-4. AI=No (or undecided) skips
+   straight past them to account → congrats. */
+const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['picker','prefs']);
+function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null): ScreenId[] {
   return FLOW_IDS.filter((id) =>
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(id === 'account' && authed) &&                // signed-in users skip the account gate
-    !(loveSkipped && LOVE_SKIPPABLE.has(id))        // "Add it later" drops the 5 love collection screens
+    !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
+    !(ai !== true && TEAM_AI_ONLY.has(id))          // picker+prefs only when the couple opted into AI matching (aigate=Yes)
   );
 }
 
@@ -115,6 +127,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   date:'Continue', region:'Continue', pax:'Continue', budget:'Continue', picker:'Continue',
   prefs:'Continue', account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
   services:'Review my picks', summary:'Done',
+  // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
+  // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
+  team_intro:'Continue', reception_setting:'Continue', team_payoff:'Continue', aigate:'Continue',
 };
 /* Which screens show a Skip button. Skippable: prefs · find · the à-la-carte services
    review — they sort/refine, never gate. The love collection screens (met/proposal/
@@ -128,6 +143,9 @@ const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = {
 /* The love gate + reveal carry their OWN button rows (a primary CTA + a ghost) — the chrome
    Continue is hidden for these, the same way the account gate + summary are (data-nocta). */
 const LOVE_NOCTA: ReadonlySet<ScreenId> = new Set(['love_intro','love_preview']);
+/* The AI gate carries its OWN two in-screen CTAs (Yes / No thanks) — the chrome Continue
+   is hidden for it, the same data-nocta pattern as the love gate + account + summary. */
+const AIGATE_NOCTA: ReadonlySet<ScreenId> = new Set(['aigate']);
 
 const ASSET = (name: string) => `/onboarding/${name}.webp`;
 /* picker per-service photo + prefs photo + bundle thumbnail subdirs (mirror the pax/budget/mono pattern). */
@@ -348,11 +366,15 @@ const PICK_INFO: Record<string, { g: string; d: string }> = {
 /* ── style sub-stepper data (prototype LEANPREF + FEELS + MUSIC100) ── */
 const MUSIC_CATS = ['live_band', 'choir', 'orchestra', 'wedding_singer', 'dj', 'performers'];
 const AESTHETIC_CATS = ['stylist', 'florist', 'cake', 'led_wall', 'printing', 'bride_attire', 'groom_attire', 'women_attire', 'men_attire'];
-const PREF_ORDER = ['reception', 'ceremony', 'catering', 'photo_video', 'music', 'palette'];
+// `reception` is no longer fine-tuned in the StyleSubStepper — the Dream Team chapter's
+// standalone `reception_setting` screen now owns that dimension (writes the same
+// prefs.reception array). Dropped from PREF_ORDER + the want.add clause so the
+// sub-stepper stops double-asking it (PR-2).
+const PREF_ORDER = ['ceremony', 'catering', 'photo_video', 'music', 'palette'];
 function prefQueueFrom(picks: string[]): string[] {
   const want = new Set<string>();
   picks.forEach((c) => {
-    if (c === 'reception' || c === 'ceremony' || c === 'catering' || c === 'photo_video') want.add(c);
+    if (c === 'ceremony' || c === 'catering' || c === 'photo_video') want.add(c);
     else if (MUSIC_CATS.includes(c)) want.add('music');
   });
   if (picks.some((c) => AESTHETIC_CATS.includes(c))) want.add('palette');
@@ -1538,7 +1560,9 @@ export function OnboardingShell({
           // false at hydrate — that's fine, activeId re-derives the filtered seq each render.
           const clampedStep = Math.min(
             Math.max(0, saved.step ?? 0),
-            buildSequence(saved.kind, authed, saved.loveSkipped ?? false).length - 1,
+            // Pass saved.ai (PR-1 field; legacy drafts saved before PR-1 fall back to null
+            // = AI not yet asked → picker/prefs filtered out until they tap Yes on aigate).
+            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null).length - 1,
           );
           setState({ ...EMPTY_ONBOARDING_STATE, ...saved, step: clampedStep, startedAt });
         } else {
@@ -1571,14 +1595,17 @@ export function OnboardingShell({
 
   /* Phase-5 resume: an anonymous visitor authenticated at the account gate and
      bounced back via ?resume=1. The hydrate effect restored their draft (parked at
-     the account gate); now authed, advance past the now-satisfied gate to find-vendor.
-     The gate is gone from the filtered seq, so jump to 'find' if they're still before it. */
+     the account gate); now authed, advance past the now-satisfied gate.
+     ⚠ account now follows the Dream Team chapter (find → team_payoff → aigate → …
+     → account), so jumping back to 'find' would re-walk the chapter. Target 'congrats'
+     instead — the first screen AFTER the (now-later) account gate — so an authenticated
+     returner lands past the gate, not before it (account-reposition consequence · PR-2). */
   useEffect(() => {
     if (hydrated && resume && authed) {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped);
-        const fi = sq.indexOf('find');
-        return fi >= 0 && s.step < fi ? { ...s, step: fi } : s;
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
+        const ci = sq.indexOf('congrats');
+        return ci >= 0 && s.step < ci ? { ...s, step: ci } : s;
       });
     }
   }, [hydrated, resume, authed]);
@@ -1597,7 +1624,7 @@ export function OnboardingShell({
      sequence). buildSequence drops faith for Civil + account for signed-in users,
      so the same numeric step addresses a different screen depending on those forks —
      exactly the old skip behaviour, now via array membership. */
-  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped), [state.kind, authed, state.loveSkipped]);
+  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai), [state.kind, authed, state.loveSkipped, state.ai]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
 
@@ -1657,7 +1684,7 @@ export function OnboardingShell({
         // at an edge → fall through to leave the prefs screen
       }
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
         const n = Math.max(0, Math.min(sq.length - 1, s.step + d));
         return { ...s, step: n };
       });
@@ -1672,7 +1699,7 @@ export function OnboardingShell({
   const goToId = useCallback(
     (id: ScreenId) => {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
         const i = sq.indexOf(id);
         return i >= 0 ? { ...s, step: i } : s;
       });
@@ -1767,11 +1794,24 @@ export function OnboardingShell({
      resolve 'date''s index (goToId reads s.loveSkipped, so we compute the jump here). */
   const loveSkip = useCallback(() => {
     setState((s) => {
-      const sq = buildSequence(s.kind, authed, true);
+      const sq = buildSequence(s.kind, authed, true, s.ai);
       const i = sq.indexOf('date');
       return { ...s, loveSkipped: true, step: i >= 0 ? i : s.step };
     });
   }, [authed]);
+
+  /* ════ DREAM TEAM · the AI gate (prototype aiAnswer) ════
+     The two in-screen CTAs on `aigate`. Yes → state.ai=true reveals the AI-gated
+     picker+prefs (PR-2 interim set); No → state.ai=false skips them straight to
+     account → congrats. go(1) then re-derives the sequence with the fork set, so the
+     next screen is picker (Yes) or account (No) automatically. */
+  const aiAnswer = useCallback(
+    (yes: boolean) => {
+      setState((s) => ({ ...s, ai: yes }));
+      go(1);
+    },
+    [go],
+  );
 
   /* small typed writers into state.loveStory.* (mirror onLoveText / onLoveYear). */
   const patchLove = useCallback(
@@ -2184,6 +2224,19 @@ export function OnboardingShell({
   const findHeading = findSettingLabel
     ? `${findSettingLabel} venues that fit your wedding.`
     : 'Reception venues that fit your wedding.';
+
+  /* ── Dream Team payoff stats (team_payoff + aigate proof line) ──
+     FACTUAL only (no inflation): `matched` = the reception venues the find search
+     actually returned; `shortlisted` = venues the couple tapped onto their shortlist;
+     `hoursSaved` is a transparent derived estimate (~2.8 hrs of legwork per matched
+     venue, floored at 8). `venuePool` is the plausible total pool we searched within
+     (admin-tunable constant; never below `matched`). NO login on team_payoff (owner
+     stripped it 2026-06-07). */
+  const teamMatched = venues?.length ?? 0;
+  const teamShortlisted = state.shortlist.length;
+  const teamHoursSaved = Math.max(8, Math.round(teamMatched * 2.8));
+  const VENUE_POOL_TOTAL = 312;
+  const teamVenuePool = Math.max(VENUE_POOL_TOTAL, teamMatched);
   const starStr = (r: number) => {
     const full = Math.max(0, Math.min(5, Math.round(r)));
     return '★★★★★'.slice(0, full) + '☆☆☆☆☆'.slice(0, 5 - full);
@@ -3405,6 +3458,50 @@ export function OnboardingShell({
             </div>
           </section>
 
+          {/* ════════════════ "YOUR DREAM TEAM" CHAPTER (4 chrome screens) ════════════════
+              team_intro (education) · reception_setting (photo-cards → prefs.reception) ·
+              [find moves into the chapter here, after reception_setting] · team_payoff
+              (factual stats) · aigate (the AI offer · two in-screen CTAs). PR-2 = chrome
+              only; the picks split + refine engine are PR-3 / PR-4. COVERT: openly
+              service/vendor-shaped copy — no song / editorial / pricing leak. ════════ */}
+
+          {/* TEAM_INTRO — education: the reception is home base (prototype s1edu). */}
+          <section className={`screen${activeId === 'team_intro' ? ' active' : ''}`} id="screen-team-intro">
+            <div className="viewzone">
+              <div className="loveglyph">{'⛬'}</div>
+              <div className="eyebrow">Your venue</div>
+              <h1 className="q">Let{'’'}s start with your reception.</h1>
+              <p className="sub">Your reception venue is home base. Once we know <i>where</i> you{'’'}re celebrating, we match every other vendor by who can actually get there.</p>
+              <div className="note mul"><span>✦</span><div>Lock your venue and it becomes your <b>home base</b>. We sort every caterer, photographer &amp; stylist by <b>who can get there</b> — far ones flagged <b>{'“'}travel fee may apply.{'”'}</b></div></div>
+            </div>
+            <div className="tapzone" />
+          </section>
+
+          {/* RECEPTION_SETTING — photo-card multi-select → prefs.reception (prototype s1type).
+              Promotes the reception dimension OUT of the StyleSubStepper; reuses the existing
+              RECEPTION_SETTINGS keys + PCard + Rail so prefs.reception keeps its exact shape. */}
+          <section className={`screen${activeId === 'reception_setting' ? ' active' : ''}`} id="screen-reception-setting">
+            <div className="viewzone">
+              <div className="eyebrow">Reception</div>
+              <h1 className="q">What setting do you love?</h1>
+              <p className="sub">Pick one or two — we{'’'}ll lead with venues that match.</p>
+            </div>
+            <div className="tapzone">
+              <Rail className="pgrid strip">
+                {RECEPTION_SETTINGS.map(([e, l, k]) => (
+                  <PCard
+                    key={k}
+                    emoji={e}
+                    label={l}
+                    photoKey={k}
+                    selected={state.prefs.reception.includes(k)}
+                    onClick={() => patchPrefs({ reception: state.prefs.reception.includes(k) ? state.prefs.reception.filter((x) => x !== k) : [...state.prefs.reception, k] })}
+                  />
+                ))}
+              </Rail>
+            </div>
+          </section>
+
           {/* 9 PICKER — "What would you love?" (53 services grouped by the 10 parents) */}
           <section className={`screen${activeId === 'picker' ? ' active' : ''}`} id="screen-picker">
             <div className="eyebrow">What you{'’'}re after</div>
@@ -3609,6 +3706,49 @@ export function OnboardingShell({
             <div className="byowrap">
               <button className="byo-add" type="button" onClick={() => setByoOpen(true)}>{byoAdded ? '+ Add another venue' : '+ Add your own venue'}</button>
               {byoDone && <div className="byo-done">{byoDone}</div>}
+            </div>
+          </section>
+
+          {/* TEAM_PAYOFF — factual stats celebration, NO login (owner stripped it 2026-06-07).
+              matched/shortlisted derive from the real find search; hours saved is a transparent
+              estimate. (prototype s1payoff) */}
+          <section className={`screen${activeId === 'team_payoff' ? ' active' : ''}`} id="screen-team-payoff">
+            <div className="viewzone">
+              <div className="eyebrow">The payoff</div>
+              <h1 className="q" style={{ fontSize: 30 }}>Look how far you are.</h1>
+              <p className="sub" style={{ marginBottom: 10 }}>Out of <b>{teamVenuePool}</b> reception venues, we found you <b>{teamMatched}</b> to start.</p>
+              <div className="statstrip">
+                <div className="stat"><b>{teamMatched}</b><span>venues<br />matched</span></div>
+                <div className="stat"><b>~{teamHoursSaved}</b><span>hours<br />saved</span></div>
+                <div className="stat"><b>{teamShortlisted}</b><span>on your<br />shortlist</span></div>
+              </div>
+            </div>
+            <div className="tapzone">
+              <div className="note mul" style={{ marginTop: 0, marginBottom: 0 }}><span>✦</span><div>This is just your reception. Next, <b>Setnayan AI</b> can match every other vendor the same way.</div></div>
+            </div>
+          </section>
+
+          {/* AIGATE — the AI offer · TWO in-screen CTAs (Yes / No thanks) · chrome Continue
+              hidden via AIGATE_NOCTA. COVERT: only ₱0 / no-obligation framing — no pricing,
+              editorial or song copy. (prototype aigate) */}
+          <section className={`screen${activeId === 'aigate' ? ' active' : ''}`} id="screen-aigate">
+            <div className="viewzone">
+              <div className="eyebrow">Setnayan AI <span className="tag new">New</span></div>
+              <h1 className="q">You did the venue. Let us do the rest.</h1>
+              <div className="note mul" style={{ marginTop: 2, marginBottom: 14 }}>
+                <span>✦</span>
+                <div>You just matched <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} in a few taps — and saved about <b>~{teamHoursSaved} hours</b> already. Let Setnayan do that for every other vendor too.</div>
+              </div>
+              <p className="sub" style={{ marginBottom: 13 }}>Finding one venue took a few taps. You still need a caterer, photographer, coordinator and more — <b>we match every one</b> the same way.</p>
+              <div className="aibenefits">
+                <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified vendors, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every vendor confirmed real.</span></div></div>
+                <div className="aibene"><div className="ic">⚡</div><div className="tx"><b>Tuned to your taste</b><span>One quick {'“'}what kind?{'”'} per service narrows it to exactly your style.</span></div></div>
+                <div className="aibene"><div className="ic">💬</div><div className="tx"><b>Free to browse — no obligation</b><span>Shortlist, compare &amp; message vendors at ₱0. Book only if you love them.</span></div></div>
+              </div>
+            </div>
+            <div className="tapzone">
+              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => aiAnswer(true)}>Yes — match the rest of my vendors</button>
+              <div className="stayfree"><u onClick={() => aiAnswer(false)}>No thanks, I{'’'}ll browse on my own</u></div>
             </div>
           </section>
 
@@ -3824,7 +3964,7 @@ export function OnboardingShell({
               {commitError}
             </p>
           )}
-          {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId) || momentsActive) && (
+          {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId) || AIGATE_NOCTA.has(activeId) || momentsActive) && (
             <button
               className="btn btn-primary"
               type="button"

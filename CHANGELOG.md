@@ -16,6 +16,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Corpus already aligned 2026-06-08 (the full Today's-Focus → Setnayan AI scrub + `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG). This PR closes the app↔corpus naming gap. Code-identifier rename intentionally deferred to a migration.
 
+## 2026-06-08 · feat(onboarding): Dream Team PR-2 — chapter chrome + AI-gate fork
+
+**Context:** Second of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§4/§5). PR-2 adds the chapter CHROME + the AI-gate fork; the picks split + refine engine are PR-3/PR-4. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed).
+
+**What landed (`onboarding-shell.tsx` + `_styles/onboarding.css`):**
+- **`FLOW_IDS`** — inserted the chapter after `budget`: `team_intro → reception_setting → find → team_payoff → aigate → picker → prefs → account → …`. `find` MOVES out of its old post-`account` slot into the chapter (after `reception_setting`); `picker`+`prefs` move to after `aigate` and become AI-gated; `account` now follows the AI screens.
+- **`buildSequence`** — gains an `ai` param + `TEAM_AI_ONLY = {picker, prefs}` (interim): `!(ai !== true && TEAM_AI_ONLY.has(id))` → picker/prefs show ONLY when the couple taps "Yes" on `aigate`; AI=No (or undecided) skips them straight to `account`. Composes with the existing civil/authed/loveSkipped filters. All 6 call sites updated (legacy drafts → `saved.ai ?? null`; `seq` useMemo dep array gains `state.ai`).
+- **4 new screens** — `team_intro` (education: reception is home base), `reception_setting` (photo-cards multi-select → `state.prefs.reception` via the EXISTING `RECEPTION_SETTINGS` keys + `PCard`; promotes the dimension out of `StyleSubStepper`), `team_payoff` (factual stats from `venues.length` + `state.shortlist.length`, no login), `aigate` (the AI offer with two in-screen CTAs → `aiAnswer(true/false)`; chrome Continue hidden via `AIGATE_NOCTA`). 3 net-new CSS rules (`.aibenefits/.aibene/.stayfree`) under `.onbw`.
+- **`PREF_ORDER`/`prefQueueFrom`** — dropped `reception` (now owned by `reception_setting`) so `StyleSubStepper` no longer double-asks it (its reception branch is now harmless dead code, retired in PR-3).
+
+**Data safety:** `state.picks`/`state.prefs`/`state.shortlist`/`buildCommitPayload`/the commit are UNCHANGED. `reception_setting` writes the SAME `prefs.reception` array. `find` is reused verbatim (string-addressed `activeId==='find'` effect is move-safe; the match effect's `seq.indexOf` stays valid). AI=No keeps `state.picks` empty-but-valid — find + commit don't crash.
+
+**⚠ FLAG for owner:** `account` now follows the AI screens (prototype order — captures email later). If you want it BEFORE the AI screens, it's a one-line `FLOW_IDS` reorder.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` still `ƒ`) · covert grep clean (no pricing/song/editorial in the new copy; love screens untouched) · all 3 adversarial lenses passed.
+
+**SPEC IMPACT:** None (matches the locked porting spec). DECISION_LOG row at PR-4 when the chapter goes fully live.
 ## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
 
 **Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 → should be ₱6,000).

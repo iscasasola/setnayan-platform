@@ -282,6 +282,14 @@ const PBA_CSS = `
 .pbacc .child-name{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 20px 8px}
 .pbacc .child-name .cn{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
 
+/* dependency nudge (Setnayan AI §4B) — soft sequencing hint per category */
+.pbacc .dep-nudge{display:flex;align-items:flex-start;gap:7px;margin:0 20px 9px;padding:8px 11px;border-radius:11px;border:1px solid;font-family:var(--sans,system-ui);font-size:11.5px;line-height:1.32}
+.pbacc .dep-nudge .di{flex:0 0 auto;font-size:12px;line-height:1.3}
+.pbacc .dep-nudge.blocked{color:var(--gold-deep);background:rgba(197,160,89,.08);border-color:rgba(197,160,89,.32)}
+.pbacc .dep-nudge.blocked.soft{color:var(--ink-soft);background:rgba(30,34,41,.035);border-color:rgba(30,34,41,.1)}
+.pbacc .dep-nudge.ready{color:var(--mulberry);background:rgba(92,37,66,.055);border-color:rgba(92,37,66,.22)}
+.pbacc .dep-nudge strong{font-weight:600}
+
 /* deadline chip */
 .pbacc .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 .pbacc .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
@@ -1458,6 +1466,8 @@ function ChildRail({
         </span>
       </div>
 
+      {child.dependency ? <DependencyNudge dep={child.dependency} label={child.label} /> : null}
+
       {empty ? (
         <button
           type="button"
@@ -1507,6 +1517,48 @@ function ChildRail({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Dependency-awareness nudge (Setnayan AI §4B) — a soft, per-category
+// sequencing hint. `blocked` tells the couple which prerequisite to finalize
+// first (loud for `H`, gentle "Tip" for `s`); `ready` is the go-signal once the
+// prerequisites are met. NEVER a gate — the couple can still add/book here. The
+// model only attaches `dependency` when Setnayan AI is on + the category is in
+// its action window, so this just renders what it's handed.
+function DependencyNudge({
+  dep,
+  label,
+}: {
+  dep: NonNullable<AccordionChild['dependency']>;
+  label: string;
+}) {
+  if (dep.status === 'ready') {
+    return (
+      <div className="dep-nudge ready">
+        <span className="di" aria-hidden>
+          ✓
+        </span>
+        <span>
+          Ready — your prerequisites are set. Time to book your {label}.
+        </span>
+      </div>
+    );
+  }
+  const soft = dep.prominence === 's';
+  return (
+    <div className={`dep-nudge blocked${soft ? ' soft' : ''}`}>
+      <span className="di" aria-hidden>
+        {soft ? '↪' : '⏳'}
+      </span>
+      <span>
+        {soft ? 'Tip: lock your ' : 'Lock your '}
+        <strong>{dep.prereqLabel}</strong>
+        {soft
+          ? ` first — it sharpens your ${label} matches.`
+          : ` first — your ${label} matches better once it’s set.`}
+      </span>
     </div>
   );
 }

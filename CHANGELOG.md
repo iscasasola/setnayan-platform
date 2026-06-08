@@ -33,6 +33,73 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. Demo renders on `setnayan.com/test-maria-and-jose` once deployed — RSVP shows hero + countdown + venue + schedule + dress code + photo moments + special message + what-to-bring + Our Photos gallery; Editorial (date is past + `WEBSITE_PHASES_ENABLED` on) shows masthead + composed story + By-the-Numbers + timeline + tiered Team (Enterprise/Pro featured, Free hidden).
 
 **SPEC IMPACT:** implements §3 tier-gated editorial vendor showcase (was a deferred D gap) + editorial hero fallback. → DECISION_LOG. Demo data is disposable.
+## 2026-06-09 · feat(onboarding): DB-backed refinements + main-photo/4:3-carousel card + 232 generated photos (items 8/9/10)
+
+**Context:** Punch-list items 8 + 9 + 10. (8) every refinement card gets a **main photo on top + a description + a 4:3-landscape option carousel**; (9) the refinements are **DB-backed, not hardcoded**, and only show for **chosen** services; (10) **fill the blank photos**. Owner chose the **full DB-backed taxonomy** option.
+
+**What landed:**
+- **De-hardcoded the catalogue** — the ~40-leaf `REFINEMENTS` const is lifted out of `onboarding-shell.tsx` into a data module `app/onboarding/wedding/_data/refinements.ts` (37 leaves · 206 options · per-leaf description + main photo + per-option 4:3 photo). The shell's queue uses `REFINEMENTS_BY_KEY` only to know *which* leaves are refinable (the fixed PICK_GROUPS taxonomy); per-leaf CONTENT renders from data.
+- **DB-backed + admin-editable** — migration `20260927000000` adds `onboarding_refinements` + `onboarding_refinement_options` (public-read / admin-write RLS), **seeded from the module** (243 rows, applied to prod). New `lib/onboarding-refinements.ts` `getOnboardingRefinements()` reads **DB-first**, falling back to the module on any error/empty (behaviour-preserving). `page.tsx` fetches it and threads a `refinements` prop into the shell.
+- **New card (item 8)** — `RefineStep` rewritten: a 4:3 **hero photo** + the leaf **description** in the viewzone, then a horizontal **4:3 option carousel** (`RefineCard`); each option photo a URL from the data, emoji glyph as the graceful fallback. New `.refine-hero` / `.refine-card` CSS (`aspect-ratio:4/3`). Only chosen services produce a card (already gated by `queueFor`; unchanged).
+- **Photos (item 10)** — **232 on-brand 4:3 photos** (37 mains + 195 options) generated via Recraft (a 37-agent workflow, one per leaf, crafting Filipino-wedding editorial prompts), resized/recompressed with `sharp` to ~23 KB avg (5.3 MB total) and committed under `public/onboarding/refinements/`. The 3 projectable leaves (ceremony/catering/photo_video) reuse the existing `/prefs` option photos. **Cost: ~$9 (~₱530)** — the earlier ₱11.5k estimate was wrong (it used the bespoke-monogram multi-gen rate). Generator scripts kept under `scripts/` for reproducibility.
+
+**Verify:** `tsc --noEmit` ✓. Prod tables seeded (37 leaves · 206 options). Browser-verified: the `refine_extras` "What kind of cake?" card renders the cake hero photo + description + a 4:3 carousel of the generated option photos. (Local dev uses the module fallback + the committed photos; prod uses the DB.)
+
+**SPEC IMPACT:** Starts the V1.x **DB-backed expandable-taxonomy** work (owner-chosen) for the onboarding refinements. → corpus `DECISION_LOG.md`. **Follow-up:** an admin editor UI at `/admin/taxonomy` (the data is DB-editable via SQL today; photos are /public assets so photo-swap needs a deploy or an R2 wiring).
+
+
+## 2026-06-09 · feat(mood-board): seed the Flowers chapter with Recraft floral photos (0010)
+
+**Context:** Follow-up to the mood-board redesign (#1120). The new Flowers chapter shipped with a graceful empty state; this seeds it so couples can recolor real florals.
+
+**Five Recraft-generated, Setnayan-owned photos** (one per subtype — bridal bouquet · bridesmaid bouquet · ceremony arrangement · reception centerpiece · boutonniere), generated as tight studio shots on clean neutral backdrops so each bloom color is distinct from the frame and recolors cleanly. Hosted **in-repo at `apps/web/public/moodboard-seed/florals/*.webp`** (43–113 KB each, optimized + auto-cropped) and served same-origin — no Supabase Storage upload (service-role key unavailable in the build env), and IP-clean vs hot-linked stock.
+
+**Resolver (`page.tsx`):** a leading-`/` `storage_path` is now treated as an app-relative URL (alongside the existing absolute-URL + bucket-key cases), so the Recolor Studio loads the seed images same-origin and `getImageData` never taints the canvas.
+
+**Migration `20260927000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
+
+**SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
+## 2026-06-08 · fix(seating): smooth pan + tables visible in to-scale mode (0008)
+
+**Context:** Two bugs the owner hit once a venue Width×Length was set (to-scale mode), root-caused via a 6-agent adversarial workflow + a faithful render-repro:
+- **Dragging/panning the resized plan stuttered and STOPPED.** `onPointerLeave={onCanvasPointerUp}` tore down the active gesture the instant the cursor crossed the canvas edge — pointer capture doesn't suppress `pointerleave`, and for table/marker drags the capture is on the button (not the canvas), so the canvas's own `pointerleave` killed the drag. The taller/zoomed to-scale canvas made the edge reachable in a few px.
+- **Tables "not showing on the room."** The scale math was sound (never NaN/0 — tables rendered), but the canvas took the room's *literal* aspect with `w-full`, so a portrait room ballooned to ~1000px tall and tables (laid out down the canvas) sat **below the visible fold**; nothing auto-framed the view, plus a first-paint `canvasW=0` flash rendered tables unscaled for one frame.
+
+**Fixes (`seating-editor.tsx`):**
+- Drag/pan: replaced `onPointerLeave` with `onPointerCancel` — gestures now end only on pointer-up/cancel (reliable via capture), so panning flows smoothly off the edges.
+- Canvas height: when to-scale, cap the height (a 64vh budget drives the width via `min(100%, calc(64vh · w/l))`, centered) so a portrait room no longer balloons — **all tables fit in one overview**.
+- First-paint race: measure `canvasW` in `useLayoutEffect` (isomorphic) and re-run on venue toggle → no unscaled flash, `pxPerMeter` ready before paint.
+- Reset to a clean whole-room overview (zoom 1) on venue toggle; `fitView` (the Fit button) now uses the on-screen scaled table sizes so it frames correctly in to-scale mode; puck-mode `tableScale` divides by the puck container (consistent size).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered the fixed overview (20×30 m room, all 5 tables + stage + entrance visible in a capped canvas). SPEC IMPACT: none (bug fixes to the 0008 to-scale editor). → corpus DECISION_LOG.
+
+## 2026-06-09 · feat(services): Budget "Build" — available dates for your team in the Lock tab (flag-dark)
+
+**Context:** The "available dates" half of Phase 4's spec. The takeover's **Lock** tab now shows the wedding dates the couple's **confirmed team can all do** — the vendor-availability intersection — right where the locked vendors live. Reuses the exact event-home intersection (no new query type, no migration).
+
+**What landed (`vendors/page.tsx`, flag-gated):** when the event date is at year/month precision with ≥1 confirmed vendor, the page resolves `getCommonAvailableDays()` (same helper event Home uses) and renders `VendorAvailabilityIntersection` beneath `BuildLocked` in the Lock slot — the day chips / "N days work" / "no common day → release a vendor" states, each tappable to finalize the date. Fails silent (no panel) on any read error or when precision is already a specific day.
+
+**Reuse, not rebuild:** `lib/vendor-availability.ts` (`getCommonAvailableDays`, `rangeFromPrecision`, `formatDayKey`) + `_components/vendor-availability-intersection.tsx`, both shipped.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF).
+
+**SPEC IMPACT:** Completes the available-dates piece of `Budget_Build_Services_Takeover_2026-06-08.md` (over the confirmed team; per-saved-build dates remain a noted follow-on). Only the **Pin constraint solver** (Phase 3) remains. Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(services): Budget "Build" — save A/B/C builds in Compare (Phase 2b, flag-dark)
+
+**Context:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. The Compare tab gains persistence — couples can **save a basket (Lean/Fits/Stretch) into a named slot (A/B/C)** and compare the builds they've banked over time (vary budget/services on Build between saves).
+
+**Migration (`20260926000000_budget_builds.sql`, APPLIED to prod):** new `public.budget_builds` (event_id · label A/B/C · title · budget_php · basket · total_php · snapshot jsonb), UNIQUE(event_id,label) for upsert, **couple-own RLS** mirroring `budget_allocation_decisions`. Additive + idempotent; read/written ONLY behind `BUDGET_BUILD_ENABLED`, so prod is unchanged until the flag flips.
+
+**What landed:**
+- `vendors/build-actions.ts` — `saveBudgetBuild` (upsert on `event_id,label`) + `deleteBudgetBuild` server actions.
+- `vendors/_components/build-compare.tsx` — now a client component: the 3 baskets (as before) + a **Save [basket] to slot [A/B/C]** control + a **"Your saved builds"** grid (total · basket · budget · over/under · delete), `router.refresh()` after writes.
+- `vendors/page.tsx` — flag-gated fetch of `budget_builds` → passes `eventId` + `savedBuilds` into Compare.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Migration applied cleanly (no drift; remote was in sync through `20260925000000`).
+
+**SPEC IMPACT:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. Remaining: available-dates-per-saved-build + the Pin constraint solver (Phase 3). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(vendor-tiers): #2 — per-service daily booking capacity (✗/1/3/∞)
 
 **Context:** Build #2 of the "do 1–5" tier queue. "Slot per day" = a vendor declares how many of a service they can serve per day (e.g. 2 photobooths → 2/day); tier caps the max declarable (**FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞**).

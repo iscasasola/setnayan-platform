@@ -417,7 +417,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1552,7 +1552,7 @@ export default async function EventHomePage({
   // schedules (per-service + statutory deadlines). The countdown + activity
   // feed stay. Default 'guided' (and any unknown value) keeps everything on.
   const planningManual = !isSetnayanAiActive(
-    event as { planning_mode?: string | null },
+    event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
   );
 
   return (

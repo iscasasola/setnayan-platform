@@ -19,6 +19,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Builds the previously-deferred "Chair-level interaction" + "Auto-fill — role-tier rings" sections of `0008_seating_chart_editor.md` (and flips that file's AS-BUILT note). Still deferred (the "full rebuild" the owner did not pick this pass): Add-Group modal w/ colour picker, two-tab Arrangements/Members layout, canvas zoom, dedicated mobile table-card view, publish-QR + print pack, per-seat serpentine wedge geometry. → corpus DECISION_LOG + 0008 AS-BUILT header.
 
+## 2026-06-08 · feat(setnayan-ai): per-event paid entitlement, behind a default-off flag (PR-2)
+
+**Context:** Owner 2026-06-08 — make Setnayan AI a **paid per-event** SKU (₱3,999, `SETNAYAN_AI`, already live in `platform_retail_catalog_v2`), but **"build it, flip behind a flag"** so nothing changes for live couples until deliberately enabled. Builds on PR-1's governing gate (`isSetnayanAiActive`).
+
+**What landed (all inert until the flag flips):**
+- **Migration `20260917000000`** — additive `events.setnayan_ai_active boolean NOT NULL DEFAULT false`. The entitlement is a single flat boolean (no trial / no wedding-anchored expiry — distinct from the retired Concierge machinery).
+- **`lib/setnayan-ai.ts`** — `isSetnayanAiPaywallEnabled()` reads `SETNAYAN_AI_PAYWALL_ENABLED` (default off). Gate: paywall OFF → free Assisted↔Manual toggle (PR-1 behavior, unchanged); paywall ON → `notManuallyOff && setnayan_ai_active`. The source swap is this one file — no call site touched.
+- **Activation hook** (`admin/payments/actions.ts`) — a confirmed `SETNAYAN_AI` order stamps `events.setnayan_ai_active = true` (idempotent, non-fatal, no expiry). ⚠ The `order.service_key` match (`'SETNAYAN_AI'`) must be verified against the actual checkout key before flipping the flag — flagged in-code.
+- **3 event selects** now fetch `setnayan_ai_active` (page.tsx · category-search.ts · vendors/page.tsx) so the flip "just works".
+
+**Deferred to the flip-time increment:** surfacing the SKU on /pricing + onboarding, the toggle-on-unpaid → buy-routing, `V2_SKU_CODES` sync, and the homepage "from ₱3,999" copy.
+
+**Verify:** flag is off by default → zero behavior change; gate logic unit-checkable; migration additive + applied to prod ahead of merge (selects depend on the column). CI typecheck + build.
+
+**SPEC IMPACT:** Implements the per-event paid gate from `What_Is_Setnayan_AI_2026-06-08.md` §2/§9. → DECISION_LOG. PR-2 of the build (next: last-minute · dependencies).
 ## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
 
 **Context:** Owner reported clicking "Prefer to plan it yourself? Switch to manual →" on the Services tab did nothing (no error, no change). The `setPlanningMode` server action is correctly wired (`'use server'`, valid form), but it wrote via the **user-scoped** Supabase client.

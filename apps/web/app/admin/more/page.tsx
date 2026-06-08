@@ -1,113 +1,57 @@
 /**
- * /admin/more — mobile overflow landing for the Insights + Manage groups.
+ * /admin/more — mobile overflow landing for Insights + Money & Catalog +
+ * Platform.
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the 5-item
- * BottomNav caps at 5 tabs (Home + Queues + Directory + Money + More).
- * The desktop sidebar's 6 groups are Home · Queues · Directory · Money ·
- * Insights (key 'funnels') · Manage (key 'content'); the two that don't
- * own a bottom tab — Insights + Manage — compress into this More overflow.
+ * WHY: the ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08.md ·
+ * owner conditionally signed off) re-cut the mobile strip to 4 tabs (Home ·
+ * Work · Directory · More). The three desktop tune-groups that don't own a
+ * bottom tab — Insights (key 'funnels') · Money & Catalog (key 'money') ·
+ * Platform (key 'content') — compress into this More overflow. The dedicated
+ * "Money" tab is gone; its config surfaces live here, its queues moved to
+ * Work. Notifications gets a home here (it was an orphan), and Wedding types +
+ * traditions moved in from Directory (governance + content, not look-up).
  *
- * Telemetry + Offline daemon are FORWARD-REFERENCE entries — Phase E +
- * Phase G parallel sprints ship those routes in their own PRs. Until
- * those land the cards link to 404, which is acceptable for parallel
- * sprint coordination per the Phase 3 brief.
+ * Cards are ordered by group (Insights → Money & Catalog → Platform). A
+ * 3-section accordion is a follow-up polish; the flat grid ships first.
+ *
+ * Telemetry + Offline daemon remain FORWARD-REFERENCE entries until their
+ * sprints land.
  */
 
 import {
-  Brain,
-  Palette,
-  Tag,
-  Globe,
-  Megaphone,
-  Music,
+  // Insights
+  LineChart,
+  BarChart3,
   TrendingUp,
   Activity,
   Bug,
   WifiOff,
-  BarChart3,
-  LineChart,
+  // Money & Catalog
+  DollarSign,
+  Sparkles,
+  Tag as TagIcon,
+  Coins,
+  PiggyBank,
+  Receipt,
+  CreditCard,
+  // Platform
   Settings,
+  Tag,
+  Globe,
+  Megaphone,
+  Brain,
+  Palette,
+  Music,
+  Church,
+  BookOpen,
+  Bell,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
 export const metadata = { title: 'More · Admin' };
 
 const MORE_ITEMS: LandingItem[] = [
-  // Content group
-  {
-    key: 'brain',
-    label: "Setnayan AI brain",
-    href: '/admin/brain',
-    icon: Brain,
-    description:
-      'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
-  },
-  {
-    key: 'moodboard-library',
-    label: 'Moodboard library',
-    href: '/admin/moodboard-library',
-    icon: Palette,
-    description:
-      'Curated location and figure imagery for the 3-pillar mood board. Manage palettes and tags.',
-  },
-  {
-    key: 'taxonomy',
-    label: 'Taxonomy',
-    href: '/admin/taxonomy',
-    icon: Tag,
-    description:
-      'Canonical vendor service categories and the 192-entry sub-category map.',
-  },
-  {
-    key: 'songs',
-    label: 'Songs',
-    href: '/admin/songs',
-    icon: Music,
-    description:
-      'The owned music-track library that scores rendered videos. Manage tracks and categories.',
-  },
-  {
-    key: 'website',
-    label: 'Website',
-    href: '/admin/website',
-    icon: Globe,
-    description:
-      'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
-  },
-  {
-    key: 'ads',
-    label: 'Ads',
-    href: '/admin/ads',
-    icon: Megaphone,
-    description:
-      'Boosted Ads + Sponsored Boost activation review. Manage vendor marketing tier eligibility.',
-  },
-  // Operations group
-  {
-    key: 'operations-hiring',
-    label: 'Operations & Hiring',
-    href: '/admin/operations-hiring',
-    icon: TrendingUp,
-    description:
-      'Growth cockpit. Vendor count, weekly visits, hiring milestones, and bottleneck signals.',
-  },
-  {
-    key: 'telemetry',
-    label: 'Telemetry',
-    href: '/admin/telemetry',
-    icon: Activity,
-    description:
-      'Service telemetry checkpoints. Forward-reference — ships with the next refresh.',
-  },
-  {
-    key: 'offline',
-    label: 'Offline daemon',
-    href: '/admin/offline',
-    icon: WifiOff,
-    description:
-      'Offline sync queue and conflict resolution. Forward-reference — ships with the next refresh.',
-  },
-  // Insights group
+  // ── Insights ──────────────────────────────────────────────────────────
   {
     key: 'growth',
     label: 'Growth',
@@ -125,6 +69,22 @@ const MORE_ITEMS: LandingItem[] = [
       'PostHog-resident product funnels. Open in PostHog for cohort and step-level analysis.',
   },
   {
+    key: 'operations-hiring',
+    label: 'Operations & Hiring',
+    href: '/admin/operations-hiring',
+    icon: TrendingUp,
+    description:
+      'Growth cockpit. Vendor count, weekly visits, hiring milestones, and bottleneck signals.',
+  },
+  {
+    key: 'telemetry',
+    label: 'Telemetry',
+    href: '/admin/telemetry',
+    icon: Activity,
+    description:
+      'Service telemetry checkpoints. Forward-reference — ships with the next refresh.',
+  },
+  {
     key: 'connection-logs',
     label: 'Connection logs',
     href: '/admin/connection-logs',
@@ -132,7 +92,72 @@ const MORE_ITEMS: LandingItem[] = [
     description:
       'Real-time client-side faults — broken buttons, failed saves, blank fallbacks — with a resolve lifecycle.',
   },
-  // Settings group
+  {
+    key: 'offline',
+    label: 'Offline daemon',
+    href: '/admin/offline',
+    icon: WifiOff,
+    description:
+      'Offline sync queue and conflict resolution. Forward-reference — ships with the next refresh.',
+  },
+  // ── Money & Catalog ───────────────────────────────────────────────────
+  {
+    key: 'pricing',
+    label: 'Pricing',
+    href: '/admin/pricing',
+    icon: DollarSign,
+    description:
+      'SKU catalog with sticker prices and active status. Read-only V1; edit lands with the next refresh.',
+  },
+  {
+    key: 'addons',
+    label: 'Add-ons',
+    href: '/admin/addons',
+    icon: Sparkles,
+    description:
+      'Customer SKU catalog audit. Pricing, eligibility, and lifetime traction in one grid.',
+  },
+  {
+    key: 'discount-codes',
+    label: 'Discount codes',
+    href: '/admin/discount-codes',
+    icon: TagIcon,
+    description:
+      'Voucher codes for pilot. Mint percentage discounts, capped percentages, or 100% free codes.',
+  },
+  {
+    key: 'token-bands',
+    label: 'Token bands',
+    href: '/admin/token-bands',
+    icon: Coins,
+    description:
+      'Region → token burn bands (₱100 / ₱200 / ₱300) charged when a vendor answers an inquiry. Admin-editable.',
+  },
+  {
+    key: 'budget-planner',
+    label: 'Budget Planner',
+    href: '/admin/budget-planner',
+    icon: PiggyBank,
+    description:
+      'Seed benchmark prices, tune the allocation engine, and review de-identified couple budget insights.',
+  },
+  {
+    key: 'receipts',
+    label: 'Receipts',
+    href: '/admin/receipts',
+    icon: Receipt,
+    description:
+      'Setnayan software receipts archive. Download per-order PDFs for couples and vendors.',
+  },
+  {
+    key: 'payment-methods',
+    label: 'Payment methods',
+    href: '/admin/settings/payment-methods',
+    icon: CreditCard,
+    description:
+      'BDO and GCash receiving accounts shown on customer orders. Edit account numbers and QR codes.',
+  },
+  // ── Platform ──────────────────────────────────────────────────────────
   {
     key: 'settings',
     label: 'Settings',
@@ -140,6 +165,78 @@ const MORE_ITEMS: LandingItem[] = [
     icon: Settings,
     description:
       'Platform identity, business details, and Sentry smoke-test. Edit gated to internal admins.',
+  },
+  {
+    key: 'taxonomy',
+    label: 'Taxonomy',
+    href: '/admin/taxonomy',
+    icon: Tag,
+    description:
+      'Canonical vendor service categories and the sub-category card tree.',
+  },
+  {
+    key: 'website',
+    label: 'Website',
+    href: '/admin/website',
+    icon: Globe,
+    description:
+      'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
+  },
+  {
+    key: 'ads',
+    label: 'Ads',
+    href: '/admin/ads',
+    icon: Megaphone,
+    description:
+      'Boosted Ads + Sponsored Boost activation review. Manage vendor marketing tier eligibility.',
+  },
+  {
+    key: 'brain',
+    label: "Setnayan AI brain",
+    href: '/admin/brain',
+    icon: Brain,
+    description:
+      'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
+  },
+  {
+    key: 'moodboard-library',
+    label: 'Moodboard library',
+    href: '/admin/moodboard-library',
+    icon: Palette,
+    description:
+      'Curated location and figure imagery for the 3-pillar mood board. Manage palettes and tags.',
+  },
+  {
+    key: 'songs',
+    label: 'Songs',
+    href: '/admin/songs',
+    icon: Music,
+    description:
+      'The owned music-track library that scores rendered videos. Manage tracks and categories.',
+  },
+  {
+    key: 'wedding-types',
+    label: 'Wedding types',
+    href: '/admin/wedding-types',
+    icon: Church,
+    description:
+      'Per-religion launch gate — vendor and venue readiness vs an editable threshold; open, hold, or disable each wedding religion.',
+  },
+  {
+    key: 'wedding-traditions',
+    label: 'Wedding traditions',
+    href: '/admin/wedding-traditions',
+    icon: BookOpen,
+    description:
+      'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
+  },
+  {
+    key: 'notifications',
+    label: 'Notifications',
+    href: '/admin/notifications',
+    icon: Bell,
+    description:
+      'Cross-actor signal reader — customer→vendor and admin signals in one inbox.',
   },
   {
     key: 'demo-mode',
@@ -155,7 +252,7 @@ export default function AdminMoreLanding() {
   return (
     <MobileLandingGrid
       title="More"
-      subtitle="Content, operations, funnels, and platform settings. Less-frequent admin surfaces live here."
+      subtitle="Insights, money & catalog config, content, and platform settings. Less-frequent admin surfaces live here."
       items={MORE_ITEMS}
     />
   );

@@ -19,6 +19,69 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. Demo renders on `setnayan.com/test-maria-and-jose` once deployed — RSVP shows hero + countdown + venue + schedule + dress code + photo moments + special message + what-to-bring + Our Photos gallery; Editorial (date is past + `WEBSITE_PHASES_ENABLED` on) shows masthead + composed story + By-the-Numbers + timeline + tiered Team (Enterprise/Pro featured, Free hidden).
 
 **SPEC IMPACT:** implements §3 tier-gated editorial vendor showcase (was a deferred D gap) + editorial hero fallback. → DECISION_LOG. Demo data is disposable.
+## 2026-06-09 · feat(vendor-tiers): #2 — per-service daily booking capacity (✗/1/3/∞)
+
+**Context:** Build #2 of the "do 1–5" tier queue. "Slot per day" = a vendor declares how many of a service they can serve per day (e.g. 2 photobooths → 2/day); tier caps the max declarable (**FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞**).
+
+**What landed (migration `20260925000000`, applied to prod):** `vendor_services.daily_capacity INT` (nullable, `CHECK > 0`, graceful read fallback); `parseDailyCapacityOrThrow` (shared create+update) parses + rejects over the tier's `slotsPerDay`; tier-aware "Bookings per day" input on both forms; `finalizeVendor` blocks a lock once the service has `daily_capacity` confirmed bookings on the wedding's date (per-service same-date count; reuses the `soft_hold_limit_reached` modal; degrades open when unset). Enterprise time-bound slots (#3) layer time-of-day on top later.
+
+**Verify:** `tsc` clean · `next lint` exit 0. Migration applied to prod.
+
+**SPEC IMPACT:** Tier cap #2 enforced. Remaining: #3 enterprise time-bound slots · #4 Phase C · #5 Phase D. → corpus DECISION_LOG.
+
+## 2026-06-09 · refactor(admin): ops-shaped nav re-bucket (PR 1 of N) — verb spine + drift fixes
+
+**Context:** Owner-approved nav redesign (`Admin_Console_Nav_Redesign_2026-06-08.{md,html}` in the spec corpus · DECISION_LOG 2026-06-08, **conditional sign-off** — "for as long as everything is easier to manage"). The admin console was 6 noun-domain groups (Home/Queues/Directory/Money/Insights/Manage). This PR — the cheap, low-risk first slice — re-buckets the nav by **verb** (act / find / tune) and folds in the drift fixes. No new feature pages, no schema, no data changes.
+
+**What landed:**
+- `app/admin/_components/admin-sidebar.tsx` — `ADMIN_NAV_GROUPS` re-cut to a 3-item spine (**Home · Work · Directory**) + 3 collapsible tune-groups (**Insights · Money & Catalog · Platform**). **Group keys preserved** (`queues`→"Work", `money`→"Money & Catalog", `funnels`→"Insights", `content`→"Platform") so per-section localStorage open-state survives. The **Money group dissolves**: its queues (Payouts, Token sales) move into Work; its config stays as Money & Catalog. **Drift fixes:** `/admin/notifications` (was an orphan — no nav entry anywhere) gets a home under Platform; Wedding types + Wedding traditions move Directory → Platform (governance + content, not look-up).
+- `app/admin/_components/admin-bottom-nav.tsx` — mobile strip re-cut from 5 tabs (Home/Queues/Directory/Money/More) to a **4-tab spine** (Home · Work · Directory · More); `activeMatch` arrays updated; **Token sales added to the Work match** (it lit no tab before — drift fix).
+- `app/admin/work/page.tsx` — **new** mobile triage feed: the renamed + expanded successor to the queues feed (adds Payouts + Token sales counts). Reuses `QueuesTriageFeed` (now takes an optional `title` prop).
+- `app/admin/queues/page.tsx` → redirect to `/admin/work`; `app/admin/money/page.tsx` → redirect to `/admin/more` (bookmark continuity).
+- `app/admin/directory/page.tsx` — drop the two wedding-* cards; `app/admin/more/page.tsx` — now Insights + Money & Catalog + Platform (adds the money-config cards + wedding-* + notifications).
+
+**Not in this PR (committed follow-ups, per the redesign):** the Work master-detail + **Money-lane filter** (the owner sign-off condition — ships *with* the Work view PR so finance keeps a one-stop money view), the full command-center Home, the net-new `/admin/approvals` two-admin queue UI, and the mobile-More 3-section accordion. Desktop sidebar + mobile feed are the high-value, zero-risk slice.
+
+**Verify:** `tsc --noEmit` ✓ (only 2 pre-existing unrelated module errors from the local stale install — `@mediapipe/tasks-vision`, `sharp`; both present in CI's install) · `next lint --dir app/admin` ✓ (1 pre-existing warning in `moodboard-library`, untouched) · swept: no external importers of `ADMIN_NAV_GROUPS`, no code links to `/admin/queues|/admin/money`, no tests reference the admin nav.
+
+**SPEC IMPACT:** Implements PR 1 of `Admin_Console_Nav_Redesign_2026-06-08.md`. The Money-lane filter remains a committed follow-up (sign-off condition). Logged in corpus `DECISION_LOG.md` (2026-06-08 admin-nav rows).
+## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
+
+**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. Suno); the onboarding streams it. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+
+**What landed:** migration `20260925000000` (`platform_settings.onboarding_bg_music_r2_key` + `_enabled`, applied to prod directly — orphan `20260924000000` mood-board ledger entry blocked `db push`); `fetchOnboardingBgMusicUrl()`; `/admin/settings` "Onboarding background music" uploader (`<FileUpload>` audio ≤40 MB + enable toggle + owned-track-only helper) + `updateOnboardingMusic`; `/api/upload` audio cap 20→40 MB (image cap unchanged); header mute/unmute **pill** (`onboarding-music.tsx`) that streams (`preload="none"`+`loop`), starts on first gesture, low volume, mute remembered in `localStorage`; **unset/disabled → silent**.
+
+**Verify:** `tsc` ✓; prod columns confirmed; pill layout screenshot-verified. End-to-end on deploy once a track is uploaded.
+
+**SPEC IMPACT:** New admin onboarding-music uploader; honors "Setnayan-owned AI-generated catalogue only" via the owned-track helper. → corpus `DECISION_LOG.md` (item-10 Recraft cost also corrected there: ≈₱530, not ₱11.5k).
+
+
+## 2026-06-09 · feat(services): Budget "Build" — Compare tab (3 baskets, Phase 4 core, flag-dark)
+
+**Context:** Phase 4 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. The last stub tab becomes real — **all 5 takeover tabs now have content** (Summary · Shortlist · Build · Compare · Lock).
+
+**What landed:**
+- `vendors/_components/build-compare.tsx` — the **Compare** tab: the three budget baskets side-by-side — **Lean** (Σ range-low) · **Fits** (Σ median, the suggested plan) · **Stretch** (Σ range-high) — with a per-category breakdown table and each basket's over/under vs the couple's budget. Derived from a **single `computeBudgetAllocation` run** (each leaf already carries `amountPhp` + `rangeLowPhp/HighPhp`), so no extra query and no persistence.
+- `vendors/page.tsx` — passes `compareSlot` (reusing the `allocInputs` already resolved for the Build tab).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 4 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-ons: saving named A/B/C combinations + "available wedding dates per build" (vendor-availability intersection over a build's specific vendors) + the Pin constraint solver (Phase 3) + save-A/B/C migration (Phase 2b). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(services): Budget "Build" — Summary + Lock tabs (Phase 5 core, flag-dark)
+
+**Context:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Two of the three remaining stub tabs become real, read-only views derived from the same `PlanBudgetModel` the accordion already builds — no new queries, no migration.
+
+**What landed:**
+- `vendors/_components/build-summary.tsx` — the **Summary** cover tab (now the landing tab): a budget meter (chosen vs target, with `budgetStatus` tone), a Locked/Shortlisted/Hours-saved recap, the "what to lock next" list (`dueList`), and the Setnayan AI on/off status with a Manage pointer.
+- `vendors/_components/build-locked.tsx` — the **Lock** tab: the consolidated list of finalized picks (filtered on the locked `raw_status` set — contracted/deposit_paid/delivered/complete) across all folders, with the chosen total + an empty state.
+- `vendors/page.tsx` — passes `summarySlot` + `lockSlot` into the takeover and lands on **Summary**.
+
+The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); **Compare** (Phase 4) + the **Pin** solver / baskets / save-A·B·C (Phases 3 + 2b) remain.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
 
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 

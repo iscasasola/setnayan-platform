@@ -388,7 +388,7 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id')
+    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -505,6 +505,59 @@ export async function finalizeVendor(
   // (Rule 4, lands in PR D), the auto-release trigger frees the other
   // soft holds and Setnayan emails each affected host with a similar-
   // vendors strip per [0028 template auto_released_due_to_other_booking].
+  // Per-service daily booking capacity (tier feature #2, owner 2026-06-07).
+  // A vendor declares how many of a service they can serve per day
+  // (vendor_services.daily_capacity, capped by tier on save). Block this
+  // finalize when that service already has `daily_capacity` confirmed bookings
+  // on the wedding's date. Per-service (event_vendors.service_id), marketplace
+  // only; degrades open when service_id / capacity / date is unset. Reuses the
+  // soft_hold_limit_reached result so the existing "at capacity → switch/browse"
+  // modal renders (same UX). Distinct from the vendor-level soft-hold gate below.
+  if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
+    const { data: svcRow } = await supabase
+      .from('vendor_services')
+      .select('daily_capacity')
+      .eq('vendor_service_id', targetVendor.service_id)
+      .maybeSingle();
+    const capacity =
+      (svcRow as { daily_capacity?: number | null } | null)?.daily_capacity ?? null;
+    if (typeof capacity === 'number' && capacity > 0) {
+      const { data: capEventRow } = await supabase
+        .from('events')
+        .select('wedding_date')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const capDate =
+        (capEventRow as { wedding_date?: string | null } | null)?.wedding_date ?? null;
+      if (capDate) {
+        const { data: capSameDate } = await supabase
+          .from('events')
+          .select('event_id')
+          .eq('wedding_date', capDate);
+        const capEventIds = (capSameDate ?? []).map((r) => r.event_id as string);
+        if (capEventIds.length > 0) {
+          const { count: capCount } = await supabase
+            .from('event_vendors')
+            .select('vendor_id', { count: 'exact', head: true })
+            .eq('service_id', targetVendor.service_id)
+            .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+            .is('archived_at', null)
+            .in('event_id', capEventIds)
+            .neq('vendor_id', vendorId);
+          if ((capCount ?? 0) >= capacity) {
+            return {
+              status: 'soft_hold_limit_reached',
+              vendorId,
+              vendorName: targetVendor.vendor_name as string,
+              currentLimit: capacity,
+              existingHoldCount: capCount ?? 0,
+            };
+          }
+        }
+      }
+    }
+  }
+
   if (targetVendor.marketplace_vendor_id) {
     // Read wedding_date + the vendor's configured limit in parallel-friendly
     // sequential calls. (Single round trip via .from('events').select is

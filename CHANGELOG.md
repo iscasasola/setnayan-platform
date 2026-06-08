@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(marketing): de-hardcode the LAST prices → every rendered marketing price reads the catalog DB
+
+**Context:** Owner 2026-06-08 "yes clean them up" — finish de-hardcoding the prices the prior PR flagged.
+
+**What landed:**
+- `lib/v2-catalog.ts`: `getVendorPrices()` now also exposes raw `num.*` (for JSON-LD); new **`getCustomerSkuPrice(serviceCode)`** reads any single SKU incl. the catalog-excluded `TODAYS_FOCUS`.
+- `/for-vendors` `page.tsx`: `metadata` → async **`generateMetadata()`** (Pro price from DB); the schema.org JSON-LD const → **`forVendorsJsonLd(p)`** function (Offer `price` fields + WebPage name + annual descriptions from DB); page is async + passes vendor prices to `<FAQ>`.
+- `/for-vendors` **FAQ** ("how Setnayan makes money") prose → reads prices via prop (page-tail is `'use client'`, threaded from the server page).
+- Homepage **`DashboardPreview`** planner "₱1,499" → `getCustomerSkuPrice('TODAYS_FOCUS')`.
+- Comparison-table **Add-Branch / Boosted-Ads** rows + the sponsored-boost blurb dropped their hardcoded peso amounts (Boosted isn't a catalog SKU; Branch price lives on /pricing).
+
+**Now every RENDERED marketing price reads the DB.** Remaining `₱` literals are structural `₱0` (free tiers), code comments, and the `getVendorPrices()` resilience fallbacks (render only if the DB is unreachable).
+
+**Verify:** typecheck/build on the PR.
+
+**SPEC IMPACT:** None (presentation; all marketing prices DB-sourced).
+
 ## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
 
 **Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 → should be ₱6,000).

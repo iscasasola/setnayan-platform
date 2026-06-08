@@ -238,8 +238,38 @@ export const getVendorPrices = cache(async () => {
     enterpriseAnnualSave: save(entMo, entYr, '₱30,000'),
     branch: fmt(branch, '₱999'),
     tokenUnit: formatPeso(tokenUnit),
+    // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
+    num: {
+      proMonthly: proMo ?? 6000,
+      proAnnual: proYr ?? 60000,
+      enterpriseMonthly: entMo ?? 10000,
+      enterpriseAnnual: entYr ?? 100000,
+    },
   };
 });
+
+/**
+ * One customer-SKU price from the DB by service_code — including SKUs the public
+ * catalog reader filters out (e.g. TODAYS_FOCUS). cache()d per code. Returns the
+ * formatted string, or null if unavailable.
+ */
+export const getCustomerSkuPrice = cache(
+  async (serviceCode: string): Promise<string | null> => {
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch {
+      return null;
+    }
+    const { data, error } = await admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', serviceCode)
+      .maybeSingle();
+    if (error || !data) return null;
+    return formatPeso(Number((data as { retail_price_php: number }).retail_price_php));
+  },
+);
 
 /**
  * Format a peso amount with thousand separators · no decimals if whole.

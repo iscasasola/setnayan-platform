@@ -34,7 +34,7 @@
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
-import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso } from '@/lib/v2-catalog';
+import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
@@ -700,7 +700,8 @@ export function PersonalSite() {
 // ─────────────────────────────────────────────────────────────────────
 // 9. DashboardPreview — full dashboard mock
 // ─────────────────────────────────────────────────────────────────────
-export function DashboardPreview() {
+export async function DashboardPreview() {
+  const plannerPrice = await getCustomerSkuPrice('TODAYS_FOCUS');
   return (
     <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div className="m-eyebrow">In the app</div>
@@ -712,7 +713,7 @@ export function DashboardPreview() {
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
         Today&rsquo;s Focus is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
-        answers your questions in your own language. One purchase at ₱1,499, full access through your wedding day.
+        answers your questions in your own language. One purchase at {plannerPrice ?? '₱1,499'}, full access through your wedding day.
       </p>
 
       <div

@@ -8,15 +8,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Owner 2026-06-08 — the homepage `PricingSection` had a 3rd "Vendors" card with stale + off-message vendor specs (₱1,999/28d Pro, ₱5,499 Enterprise, "₱1,499 lifetime verification badge"). The homepage is customer-dedicated; vendor pricing belongs on /for-vendors, and verification is now free (₱0, no badge fee).
 
-**What landed (homepage `_components/marketing/_sections.tsx`, presentation only):**
-- PricingSection 3rd card: **Vendors → Bundles** (customer) — Essentials ₱12,999 · Complete ₱27,999 · ~42% off à la carte → /pricing.
-- Intro copy: dropped "and from vendor subscriptions" → "earns only from the Setnayan Productions services you choose à la carte — never from what you pay your vendor."
-- ClosingCTA: removed "₱1,499 verification badge for vendors" → "No commission on vendor bookings, ever."
-- Footer Vendors column: dropped the stale-priced "Pro Vendor — ₱1,999/28d" + "Enterprise — ₱5,499/28d" links → "Why Setnayan for vendors · Register your business · Price tiers · Vendor handbook" (no prices).
+**What landed (homepage `_components/marketing/_sections.tsx`, presentation only):** PricingSection 3rd card **Vendors → Bundles** (Essentials ₱12,999 · Complete ₱27,999 → /pricing) · intro copy drops "vendor subscriptions" · ClosingCTA drops "₱1,499 verification badge for vendors" → "No commission on vendor bookings, ever." · Footer Vendors column drops the stale-priced links → "Why Setnayan for vendors · Register your business · Price tiers · Vendor handbook" (no prices).
 
-**Verify:** markup/copy only — no type/DB change. Vercel preview on the PR.
+**Verify:** markup/copy only, no type/DB change. Vercel preview on the PR.
 
-**SPEC IMPACT:** None on SKU data (homepage now points to /for-vendors + /pricing for the canonical numbers; verification-badge fee retired — Verified ₱0 per the 2026-06-08 vendor-pricing DECISION_LOG row). Follow-up: a separate ₱1,499 customer-planner price ("answers your questions… one purchase at ₱1,499") elsewhere in `_sections.tsx` may be stale vs the locked Setnayan AI ₱3,999 — left untouched pending owner confirm.
+**SPEC IMPACT:** None on SKU data (verification-badge fee retired → Verified ₱0 per the 2026-06-08 vendor-pricing DECISION_LOG row). Follow-up: a separate customer-planner "₱1,499" line in `_sections.tsx` may be stale vs the locked Setnayan AI ₱3,999 — left pending owner confirm.
+
+## 2026-06-08 · feat(onboarding): The Mirror — live wedding-website preview ribbon
+
+**Context:** Next chunk of the adaptive-onboarding port (`Onboarding_Production_Port_Plan_2026-06-08.md` §4). A persistent preview that makes the flow read as "watch your wedding website build itself."
+
+**What landed (`onboarding-shell.tsx`, `_styles/onboarding.css`):**
+- A pinned `.mirror` ribbon inside `.top` (under the progress bar), ~56–60px, from the `name` screen onward (hidden during the welcome-moments conversation, on the love reveal, and on the recap/plan/summary full-preview screens).
+- A derived `useMemo` read-model (no new authoritative state): live monogram initials + couple names + accreting `.mir-chip` pills — the love-story tone voice ("Our Love Story"), kind, location, guests, countdown, reception — each popping in once as its source fills, with a payoff caption that flashes over the chip row then reverts. Chips overflow horizontally; the ribbon never grows the no-scroll frame.
+- **COVERT:** chips surface only wedding-website-shaped facts; never a song/editorial/Pakanta chip (only the allowed tone-voice "Our Love Story").
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · covert grep clean · `prefers-reduced-motion` disables the animations.
+
+**SPEC IMPACT:** None — additive read-model over existing onboarding state.
 
 ## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
 

@@ -2259,6 +2259,127 @@ export function OnboardingShell({
   const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (SVC[k]?.out ?? 0), 0);
   const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
 
+  /* ════ THE MIRROR ════ a live wedding-website preview ribbon that accretes one real
+     element with every answer (prototype Onboarding_Wedding_Adaptive_Flow §3 · port plan §4).
+     Born at the `name` screen (the moment the couple has names + a mark to show); hidden on
+     the welcome moments, the love reveal, and the final recap/plan/summary screens (those are
+     themselves full previews, so the mini-mirror would be redundant). It is a pure read-model
+     of OnboardingState — no new authoritative state, no interaction beyond an optional caption
+     peek. COVERT: it surfaces only wedding-website-shaped facts (names, mark, tone-voice, kind,
+     place, guests, date, reception) — never a song / editorial / Pakanta chip. */
+  const mirror = useMemo(() => {
+    const nameAt = seq.indexOf('name');
+    const here = seq.indexOf(activeId);
+    const show =
+      nameAt >= 0 &&
+      here >= nameAt &&
+      !momentsActive &&
+      activeId !== 'love_preview' &&
+      activeId !== 'congrats' &&
+      activeId !== 'plan' &&
+      activeId !== 'summary';
+
+    // countdown days to the nearest picked date (earliest candidate · window start)
+    const days = (() => {
+      if (!earliestDateISO) return null;
+      const d = new Date(earliestDateISO.slice(0, 10) + 'T00:00:00');
+      if (Number.isNaN(d.getTime())) return null;
+      const n = Math.round((d.getTime() - Date.now()) / 86400000);
+      return n > 0 ? n : null;
+    })();
+
+    // the live wedding page is "live" the moment names exist — always the first chip,
+    // so the row reads left→right like "look how far you've come".
+    const hasNames = state.brideFirstName.trim().length > 0 || state.groomFirstName.trim().length > 0;
+    // date chip is present once any date intent exists (specific candidate(s) or a window)
+    const hasDate =
+      (state.dateMode === 'specific' && (state.dateCandidates ?? []).filter(Boolean).length > 0) ||
+      (state.dateMode === 'window' && state.windowStart !== null);
+
+    // chips accrete IN ORDER; each carries a stable key (for the pop-once animation) +
+    // a payoff caption that flashes over the row the first time the chip lands.
+    const chips = [
+      hasNames && { k: 'page', t: '♥ Page', cap: "That's your wedding page — it fills in as you go." },
+      // love-story tone = the website's "Our Love Story" VOICE (the only love chip allowed)
+      !state.loveSkipped &&
+        state.storyTone && {
+          k: 'voice',
+          t: '“Our Love Story”',
+          cap: `${cap(state.storyTone)} — your Love Story voice is set on your page.`,
+        },
+      recapType && { k: 'kind', t: recapType, cap: 'Your ceremony is on your page.' },
+      lovePlaceLabel && { k: 'loc', t: '📍 ' + lovePlaceLabel, cap: 'Your guests get directions from your page.' },
+      state.pax != null && { k: 'pax', t: `${state.pax} guests`, cap: 'Your guest count is set.' },
+      hasDate && {
+        k: 'date',
+        t: days ? `⏱ ${days}d` : '⏱ Date',
+        cap: days ? `${days} days until you become one.` : 'Your countdown is on your page.',
+      },
+      recapReception && { k: 'venue', t: '🏛 ' + recapReception, cap: 'Your reception — with a map — is on your page.' },
+    ].filter((c): c is { k: string; t: string; cap: string } => Boolean(c));
+
+    return {
+      show,
+      monoA: monoBi || 'M',
+      monoB: monoGi || 'C',
+      names: hasNames ? coupleDisplay : 'Your wedding website',
+      chips,
+    };
+  }, [
+    seq,
+    activeId,
+    momentsActive,
+    earliestDateISO,
+    state.brideFirstName,
+    state.groomFirstName,
+    state.dateMode,
+    state.dateCandidates,
+    state.windowStart,
+    state.loveSkipped,
+    state.storyTone,
+    state.pax,
+    recapType,
+    lovePlaceLabel,
+    recapReception,
+    monoBi,
+    monoGi,
+    coupleDisplay,
+  ]);
+
+  /* Mirror accretion: track which chip keys have been seen so each pops only the first
+     time it lands, and flash its caption over the row on arrival (mirrors the prototype's
+     mirrorSeen + mir-cap behaviour). seenChips is a ref (no re-render); newest drives the
+     caption via a short-lived piece of state. */
+  const mirSeen = useRef<Set<string>>(new Set());
+  const [mirCap, setMirCap] = useState<string | null>(null);
+  const mirCapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mirPoppedKeys = useMemo(() => {
+    if (!mirror.show) return new Set<string>();
+    const fresh = new Set<string>();
+    let newestCap: string | null = null;
+    for (const c of mirror.chips) {
+      if (!mirSeen.current.has(c.k)) {
+        mirSeen.current.add(c.k);
+        fresh.add(c.k);
+        newestCap = c.cap; // last new chip in order wins the caption
+      }
+    }
+    if (newestCap) {
+      // defer the caption flash out of render (avoids a setState-in-render warning)
+      queueMicrotask(() => {
+        setMirCap('✨ ' + newestCap);
+        if (mirCapTimer.current) clearTimeout(mirCapTimer.current);
+        mirCapTimer.current = setTimeout(() => setMirCap(null), 1800);
+      });
+    }
+    return fresh;
+  }, [mirror.show, mirror.chips]);
+  const peekMirror = () => {
+    setMirCap('✨ Keep going — your whole website appears at the end');
+    if (mirCapTimer.current) clearTimeout(mirCapTimer.current);
+    mirCapTimer.current = setTimeout(() => setMirCap(null), 1400);
+  };
+
   /* ── Phase-5 lazy DB commit (events + event_members), then to the dashboard ──
      The account gate's OAuth/email actions round-trip back here via this `next`. */
   const RESUME_NEXT = '/onboarding/wedding?resume=1';
@@ -2525,6 +2646,45 @@ export function OnboardingShell({
           <div className="bar" style={momentsActive ? { visibility: 'hidden' } : undefined}>
             <div className="barfill" style={{ width: `${((stepClamped + 1) / seq.length) * 100}%` }} />
           </div>
+          {/* THE MIRROR — pinned live wedding-website preview ribbon (never in the scrollable
+              body, so it can't grow the frame). Accretes one chip per answer from the `name`
+              screen onward. Tap flashes a "keep going" caption (peekMirror). */}
+          {mirror.show && (
+            <div
+              className="mirror"
+              onClick={peekMirror}
+              role="button"
+              tabIndex={0}
+              aria-label="Your wedding website preview"
+            >
+              <div className="mir-card">
+                <div className="mir-mono">
+                  {mirror.monoA}
+                  <span className="amp">&amp;</span>
+                  {mirror.monoB}
+                </div>
+                <div className="mir-mid">
+                  <div className="mir-top">
+                    <span className="mir-names">{mirror.names}</span>
+                    <span className="mir-badge">
+                      <span className="dot" />
+                      building
+                    </span>
+                  </div>
+                  <div className="mir-r2">
+                    <div className="mir-chips">
+                      {mirror.chips.map((c) => (
+                        <span key={c.k} className={`mir-chip${mirPoppedKeys.has(c.k) ? ' pop' : ''}`}>
+                          {c.t}
+                        </span>
+                      ))}
+                    </div>
+                    <div className={`mir-cap${mirCap ? ' show' : ''}`}>{mirCap}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* body — only the active screen displays */}

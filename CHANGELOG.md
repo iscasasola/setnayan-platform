@@ -21,6 +21,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Reverses the **2026-06-05 search-only song lock** (item 5). Onboarding flow reorder + love-story-page split + monogram finalize gate + pax/budget defaults. → corpus `DECISION_LOG.md` (logged).
 
+## 2026-06-08 · feat(website): Increments C + D — lifecycle phase engine + Editorial recap page (FLAG-DARK)
+
+**Context:** The two interdependent centerpiece pieces of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §1–2, §6.3–6.8), built **in parallel** (two isolated-worktree agents) and integrated here. **C** = the date engine that auto-switches the site through RSVP → Event → Editorial phases and gates widgets per phase. **D** = the post-wedding "newspaper front page" content that the Editorial phase renders. **Entirely behind `WEBSITE_PHASES_ENABLED` (env, default OFF)** — live sites are byte-for-byte unchanged until the flag flips, which also lets the owner preview on a real event before going live. **No migration** (uses existing columns/tables from the `20260912000000` foundation).
+
+**C — Date engine (`lib/invitation-widgets.ts` + `app/[slug]/page.tsx`):**
+- `LifecyclePhase = 'rsvp'|'event'|'editorial'`; `getLifecyclePhase(eventDate)` reuses the shipped `getDayOfPhase` (`pre`/`inactive`→rsvp · `live`→event · `post`→editorial); `WIDGET_PHASES` = the exact §2 element×phase matrix (compile-time-exhaustive `Record<WidgetType, …>`); `widgetInPhase()` (fail-open); `isWebsitePhasesEnabled()` flag.
+- In the renderer: compute `phasesEnabled` + `lifecyclePhase`, thread into `PublicLanding` + `InvitationSite`. When ON, gate the always-on fixed widgets + the hideable-widget lists by `widgetInPhase`; in the editorial phase, suppress the RSVP hero (the editorial masthead becomes the hero) and render the editorial. **Every new behavior is `!phasesEnabled || …` guarded** → flag-off path identical to today.
+
+**D — Editorial module (`app/[slug]/_components/editorial/{editorial-content,data,compose}.ts(x)`):**
+- `EditorialContent({ eventId })` — async server component, **never throws** (best-effort data layer, every section degrades). Reads `events` (names/date/venue/monogram/`love_story` JSONB/`special_message`/`together_since`/`story_tone`), `event_editorial` (frozen `impact_metrics`/`draft_json`/`hero_photo_id` preferred when present), `guests` (counts), `event_vendors` (count + `selection_match_rank=1` first-pick rate), `papic_photos` (delivered count + hero via `displayUrlForStoredAsset`).
+- Newspaper layout: masthead (monogram nameplate) · headline/dateline · deterministic **template-composed** lede (NO LLM in v1; prefers `draft_json` if a later LLM pass fills it) · By-the-Numbers (M1 services-with-Setnayan · M2 #1-match rate · M3 time-saved estimate w/ a tunable, commented formula) · milestones timeline · "From the couple" pull-quote · graceful reviews/cross-phase placeholders. **Identity archetype** (§6.8: Hand-picked / Jewel-box / Big-hearted / Sweeping) from guest-count × spend sets the ANGLE, always-flattering; thresholds are tunable constants.
+
+**Integration:** C renders `<EditorialContent eventId={…} />` in the editorial phase of both render paths; C's hero is suppressed there to avoid a double monogram.
+
+**Verify:** typecheck + production build on CI (neither agent nor I can build locally — no node_modules in the worktrees). Both agents' data assumptions independently re-verified against prod (admin-client path, `papic_photos.r2_object_key/hidden_at`, `event_vendors.selection_match_rank`). Flag OFF by default → zero live change.
+
+**Known v1 gaps (deferred, flagged):** M1 "X of Y" denominator (live catalog leaf-count) — renders bare count until `impact_metrics.services_total` is frozen; archetype spend-axis neutral until budget/`per_guest_spend` is wired; reviews = empty state (review system §3 not built); LLM auto-composition (v1 is deterministic template); photo-essay grid (only hero photo resolved); the editorial currently renders within the `max-w-3xl` invitation shell (full-bleed newspaper width is a flag-flip-time refinement); cross-phase links are styled stubs. The post-event interview + T+3 launch gating (§6.5) is a further migration/increment.
+
+**⚠ Also fixes a 3rd duplicate-timestamp on main (flagged for owner):** two parallel PRs each merged a migration named `20260922000000` (`iteration_0008_event_floor_plan` + `vendor_services_multi_per_leaf`), so the CI migration-timestamp guard (whole-dir scan) was failing on `main` again — blocking every migration-bearing PR. Renamed the vendor one → `20260922000001` (both are fully idempotent — `CREATE TABLE/INDEX IF NOT EXISTS`, `DROP CONSTRAINT/POLICY IF EXISTS`, `ADD COLUMN IF NOT EXISTS` — so re-applying the renamed one via `db push` is a no-op; `event_floor_plan` keeps `20260922000000`, which is the version recorded in prod). **This is the THIRD such collision today (after `20260916000000` + the `20260917000000` near-miss); the recurring root cause is parallel sessions branching off the same main and picking the same next timestamp — a process fix (timestamp coordination / a wider-granularity scheme) is warranted.**
+
+**SPEC IMPACT:** §1–2 phase model + §6.3–6.8 editorial — engine + recap page shipped flag-dark. → DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): floor-plan markers — draggable Stage + Entrance door (0008)
 
 **Context:** Owner: "we also want to set the entrance door." Completes the floor-plan work (after the growable canvas, #1110). The stage was a fixed banner and auto-seat anchored at a hard-coded top-centre point; now both the **stage** and a single **entrance door** are placeable + persisted.

@@ -14,6 +14,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **Verified:** `tsc --noEmit` PASS · `next build` PASS · covert grep clean. The congrats `.viewzone` scrolls internally (love-reveal pattern); chrome Continue stays pinned.
 
 **SPEC IMPACT:** None — content/visual enhancement of one existing screen.
+## 2026-06-08 · fix(home,0015): homepage Pricing section is customer-only (drop vendor card + ₱1,499 badge)
+
+**Context:** Owner 2026-06-08 — the homepage `PricingSection` had a 3rd "Vendors" card with stale + off-message vendor specs (₱1,999/28d Pro, ₱5,499 Enterprise, "₱1,499 lifetime verification badge"). The homepage is customer-dedicated; vendor pricing belongs on /for-vendors, and verification is now free (₱0, no badge fee).
+
+**What landed (homepage `_components/marketing/_sections.tsx`, presentation only):** PricingSection 3rd card **Vendors → Bundles** (Essentials ₱12,999 · Complete ₱27,999 → /pricing) · intro copy drops "vendor subscriptions" · ClosingCTA drops "₱1,499 verification badge for vendors" → "No commission on vendor bookings, ever." · Footer Vendors column drops the stale-priced links → "Why Setnayan for vendors · Register your business · Price tiers · Vendor handbook" (no prices).
+
+**Verify:** markup/copy only, no type/DB change. Vercel preview on the PR.
+
+**SPEC IMPACT:** None on SKU data (verification-badge fee retired → Verified ₱0 per the 2026-06-08 vendor-pricing DECISION_LOG row). Follow-up: a separate customer-planner "₱1,499" line in `_sections.tsx` may be stale vs the locked Setnayan AI ₱3,999 — left pending owner confirm.
 
 ## 2026-06-08 · feat(onboarding): The Mirror — live wedding-website preview ribbon
 

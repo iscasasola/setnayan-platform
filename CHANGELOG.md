@@ -19,6 +19,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** Starts the V1.x **DB-backed expandable-taxonomy** work (owner-chosen) for the onboarding refinements. → corpus `DECISION_LOG.md`. **Follow-up:** an admin editor UI at `/admin/taxonomy` (the data is DB-editable via SQL today; photos are /public assets so photo-swap needs a deploy or an R2 wiring).
 
 
+## 2026-06-09 · feat(mood-board): seed the Flowers chapter with Recraft floral photos (0010)
+
+**Context:** Follow-up to the mood-board redesign (#1120). The new Flowers chapter shipped with a graceful empty state; this seeds it so couples can recolor real florals.
+
+**Five Recraft-generated, Setnayan-owned photos** (one per subtype — bridal bouquet · bridesmaid bouquet · ceremony arrangement · reception centerpiece · boutonniere), generated as tight studio shots on clean neutral backdrops so each bloom color is distinct from the frame and recolors cleanly. Hosted **in-repo at `apps/web/public/moodboard-seed/florals/*.webp`** (43–113 KB each, optimized + auto-cropped) and served same-origin — no Supabase Storage upload (service-role key unavailable in the build env), and IP-clean vs hot-linked stock.
+
+**Resolver (`page.tsx`):** a leading-`/` `storage_path` is now treated as an app-relative URL (alongside the existing absolute-URL + bucket-key cases), so the Recolor Studio loads the seed images same-origin and `getImageData` never taints the canvas.
+
+**Migration `20260927000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
+
+**SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
+## 2026-06-08 · fix(seating): smooth pan + tables visible in to-scale mode (0008)
+
+**Context:** Two bugs the owner hit once a venue Width×Length was set (to-scale mode), root-caused via a 6-agent adversarial workflow + a faithful render-repro:
+- **Dragging/panning the resized plan stuttered and STOPPED.** `onPointerLeave={onCanvasPointerUp}` tore down the active gesture the instant the cursor crossed the canvas edge — pointer capture doesn't suppress `pointerleave`, and for table/marker drags the capture is on the button (not the canvas), so the canvas's own `pointerleave` killed the drag. The taller/zoomed to-scale canvas made the edge reachable in a few px.
+- **Tables "not showing on the room."** The scale math was sound (never NaN/0 — tables rendered), but the canvas took the room's *literal* aspect with `w-full`, so a portrait room ballooned to ~1000px tall and tables (laid out down the canvas) sat **below the visible fold**; nothing auto-framed the view, plus a first-paint `canvasW=0` flash rendered tables unscaled for one frame.
+
+**Fixes (`seating-editor.tsx`):**
+- Drag/pan: replaced `onPointerLeave` with `onPointerCancel` — gestures now end only on pointer-up/cancel (reliable via capture), so panning flows smoothly off the edges.
+- Canvas height: when to-scale, cap the height (a 64vh budget drives the width via `min(100%, calc(64vh · w/l))`, centered) so a portrait room no longer balloons — **all tables fit in one overview**.
+- First-paint race: measure `canvasW` in `useLayoutEffect` (isomorphic) and re-run on venue toggle → no unscaled flash, `pxPerMeter` ready before paint.
+- Reset to a clean whole-room overview (zoom 1) on venue toggle; `fitView` (the Fit button) now uses the on-screen scaled table sizes so it frames correctly in to-scale mode; puck-mode `tableScale` divides by the puck container (consistent size).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered the fixed overview (20×30 m room, all 5 tables + stage + entrance visible in a capped canvas). SPEC IMPACT: none (bug fixes to the 0008 to-scale editor). → corpus DECISION_LOG.
+
 ## 2026-06-09 · feat(services): Budget "Build" — available dates for your team in the Lock tab (flag-dark)
 
 **Context:** The "available dates" half of Phase 4's spec. The takeover's **Lock** tab now shows the wedding dates the couple's **confirmed team can all do** — the vendor-availability intersection — right where the locked vendors live. Reuses the exact event-home intersection (no new query type, no migration).

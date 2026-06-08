@@ -313,13 +313,18 @@ async function ChaptersSection({
   }
 
   const assets: ChapterAsset[] = (templateRows ?? []).map((r) => {
-    // Seed rows hotlink absolute URLs (picsum/pexels); admin uploads use a
-    // bucket-prefixed storage path. Detect cheaply and resolve accordingly.
+    // Three storage_path shapes:
+    //   • absolute URL (legacy picsum/pexels seeds) → use as-is
+    //   • app-relative path starting with "/" (e.g. /moodboard-seed/florals/…,
+    //     the Recraft-generated Flowers seed shipped in apps/web/public/) →
+    //     use as-is. Same-origin so the Recolor Studio's getImageData never
+    //     taints the canvas; no Supabase storage round-trip.
+    //   • bucket key (admin uploads) → resolve via Supabase Storage
     const isAbsoluteUrl =
       r.storage_path.startsWith('http://') ||
       r.storage_path.startsWith('https://');
     let publicUrl: string;
-    if (isAbsoluteUrl) {
+    if (isAbsoluteUrl || r.storage_path.startsWith('/')) {
       publicUrl = r.storage_path;
     } else {
       const key = r.storage_path.replace(`${MOODBOARD_BUCKET}/`, '');

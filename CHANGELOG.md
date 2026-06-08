@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
+
+**Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" Coverage = Church · Reception · Attire · Flowers; tool depth = full recolor (both picked via in-session questions). Shipped as **one PR** (the planned 3-PR split was collapsed to dodge a fast-moving `main`; the Recraft Flowers seed + corpus sync follow separately).
+
+**Engine (`apps/web/lib/color-recolor.ts`, new):** color math lifted out of the admin-only Color Range Manipulator into a shared, DOM-free engine. `recolorPixel` has two modes — `palette` (snap to a target, unchanged HSL substitution) and `adjust` (hue shift / saturation / brightness / contrast). Plus `recolorRGBA` (per-pixel best-slot match), `buildMatchMask`, snapshot serialize/parse. Pure + headless-tested (15/15 assertions).
+
+**Recolor Studio (`recolor-studio.tsx`, new):** couples open a curated photo, pick a part (pre-tagged color range or eyedrop), then snap it to a palette color OR adjust H/S/B/C by hand. Live browser Canvas recolor (₱0 marginal cost). Read-only mode re-renders pinned saves.
+
+**4 chapters (`moodboard-chapters.tsx`, new + `page.tsx`):** replaces the 2-pillar "Visual preview" with **Church · Reception · Attire · Flowers**; pinned looks up top; silhouette attire guide kept below. Admin tagger refactored onto the shared engine (preview unchanged). Removed dead `visual-preview.tsx`.
+
+**Persistence + schema:** `event_moodboard_saves.palette_snapshot` now stores a self-describing `{ slot: { def, edit } }` (legacy `{ slot: "#hex" }` still parses). Migration `20260924000000` (applied to prod) widens `moodboard_library_assets.asset_type` + `event_moodboard_saves.pillar` to allow `'florals'`. Additive + idempotent.
+
+**SPEC IMPACT:** 0010 Mood Board — couples can now recolor library photos (was admin-only / view-only) and a Flowers chapter is added. Decision to ratify in `DECISION_LOG.md`: **couple recolor of library photos = FREE / AI Composite Scene generator = stays paid** (per the spec's Professional Mood Board tier). Corpus 0010 AS-BUILT + DECISION_LOG row + Recraft Flowers seed follow.
+
 ## 2026-06-08 · feat(seating): A4 seating PDF — mood-board / blueprint, monogram + QR (0008)
 
 **Context:** Owner-specced export. Completes the seating arc (chair-level → names → mobile list → zoom/pan → markers → venue to-scale → **PDF**). The 0008 spec's "Print pack" — scoped to the owner's brief: A4, two print modes, branded header, floor-plan page + arrangement pages. No migration; reuses existing `pdf-lib` + `qrcode` + `events.slug`.
@@ -47,7 +61,6 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. `test-maria-and-jose` (event_date 2026-06-01) now computes `editorial`; a future-dated event stays `rsvp`. **Requires the flag ON + a redeploy to see live** — this bug would have shown RSVP even with the flag on, so it's a prerequisite for the Editorial phase to ever appear.
 
 **SPEC IMPACT:** correctness fix to the §1 phase model (Increment C). → DECISION_LOG.
-
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

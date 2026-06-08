@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(setnayan-ai): governing gate — one chokepoint, AI-off → generic site-wide (PR-1)
+
+**Context:** Owner 2026-06-08 — "Setnayan AI must govern across the whole website," sequenced "govern now (free), monetize next." Today the AI on/off gate is scattered: every surface independently checks `events.planning_mode === 'manual'`, and two surfaces *leak* (run AI-only logic regardless of the gate).
+
+**What landed:** new **`lib/setnayan-ai.ts` → `isSetnayanAiActive(event)`** — the single governing gate. Routed the 3 scattered inline checks through it (`page.tsx` deadlines, `category-search.ts` search, `vendors/page.tsx` plan-budget). **Closed 2 leaks so AI-off is genuinely generic:** (1) `category-search.ts` — the reception-proximity tail sort now gates on `aiActive` (AI off → review/rating order, the same fallback as no-coords); (2) `vendors/page.tsx` — the "👀 eyeing your date" nudge is suppressed (empty map) when AI is off. No behavior change for the default Assisted case; Manual-mode (AI-off) couples now get a true region-scoped generic search (no proximity ranking, no % pill, no eyeing, no deadlines). Free floor (region filter + anti-double-book) unaffected.
+
+**Why centralize:** the locked design makes the gate a **paid per-event entitlement**; PR-2 swaps the body of `isSetnayanAiActive` to read that entitlement **without touching any call site**. This PR makes that a one-file change.
+
+**Verify:** no remaining inline `planning_mode === 'manual'` checks; no unused vars; diff is 4 files / +58−13. Build via CI required checks.
+
+**SPEC IMPACT:** Implements the §2 free-floor↔AI boundary + AI-off→generic from `What_Is_Setnayan_AI_2026-06-08.md` (corpus). → DECISION_LOG. PR-1 of the Setnayan AI build (next: paid entitlement · last-minute · dependencies).
+
 ## 2026-06-08 · feat(onboarding): Dream Team PR-3 — two-screen picker, retire StyleSubStepper
 
 **Context:** Third of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§3.1/§5). Replaces the single flat `picker` + the `prefs` sub-stepper with a two-screen picker + standalone style screens. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed). Net shell-line reduction (StyleSubStepper retired).

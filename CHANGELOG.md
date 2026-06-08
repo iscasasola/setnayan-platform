@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(website): lifecycle phase — past weddings now resolve to Editorial, not RSVP
+
+**Context:** With `WEBSITE_PHASES_ENABLED` on, a wedding **a week in the past** still rendered the **RSVP invitation** instead of the Editorial recap (verified on the `test-maria-and-jose` event dated June 1). Root cause in `getLifecyclePhase` (Increment C): it delegated to `getDayOfPhase`, whose `post` window is only **T+8h..T+24h** — beyond 24h after the wedding it returns `inactive`. But `inactive` is the catch-all for **both** ">3 days before" **and** ">24h after", and the engine mapped `inactive → rsvp`. So any wedding more than a day old fell back to the invitation.
+
+**Fix:** `getLifecyclePhase` now disambiguates the `inactive` case by comparing the event date to now — **past → 'editorial'**, future → 'rsvp' (`pre`→rsvp, `live`→event, `post`→editorial unchanged). The near-event windows are still handled by `getDayOfPhase`, so the new date compare only fires for the far-from-event cases where it's unambiguous. No migration; still entirely behind the (default-off) flag.
+
+**Verify:** typecheck + build on CI. `test-maria-and-jose` (event_date 2026-06-01) now computes `editorial`; a future-dated event stays `rsvp`. **Requires the flag ON + a redeploy to see live** — this bug would have shown RSVP even with the flag on, so it's a prerequisite for the Editorial phase to ever appear.
+
+**SPEC IMPACT:** correctness fix to the §1 phase model (Increment C). → DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

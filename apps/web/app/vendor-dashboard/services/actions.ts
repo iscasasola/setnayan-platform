@@ -104,51 +104,66 @@ export async function createVendorService(formData: FormData) {
     );
   }
   const crew_meal_required = formData.get('crew_meal_required') === 'on';
+  const titleRaw = formData.get('title');
+  const title =
+    typeof titleRaw === 'string' && titleRaw.trim().length > 0
+      ? titleRaw.trim().slice(0, 80)
+      : null;
   const branch_id = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
     formData.get('branch_id'),
   );
 
-  // Tier parent-category cap (Phase B · Vendor_Tier_Capability_Matrix_2026-06-07):
-  // distinct parents of the 10 a vendor may list under — FREE 1 · VERIFIED 3 ·
-  // PRO 3 · ENTERPRISE ∞. Only blocks when this service would introduce a NEW
-  // parent beyond the allowance (adding within already-covered parents is free).
+  // Tier caps on service creation (Vendor_Tier_Capability_Matrix_2026-06-07).
+  // Fetch tier + the vendor's existing service rows ONCE; both caps read them.
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const caps = tierCaps(
+    asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
+  );
+  const { data: existingRows } = await supabase
+    .from('vendor_services')
+    .select('category')
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  const existing = (existingRows ?? []) as { category: VendorCategory }[];
+
+  // (1) Services-per-leaf cap (#1, owner 2026-06-07): FREE 2 · VERIFIED 2 ·
+  // PRO 5 · ENTERPRISE ∞ distinct listings within one leaf category.
+  if (caps.servicesPerLeaf !== Infinity) {
+    const inLeaf = existing.filter((r) => r.category === category).length;
+    if (inLeaf >= caps.servicesPerLeaf) {
+      const msg = `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`;
+      return redirect(`/vendor-dashboard/services?error=${encodeURIComponent(msg)}`);
+    }
+  }
+
+  // (2) Parent-category cap (Phase B): distinct parents of the 10 — FREE 1 ·
+  // VERIFIED 3 · PRO 3 · ENTERPRISE ∞. Only blocks when this service introduces
+  // a NEW parent beyond the allowance (adding within covered parents is free).
   const newParents = parentsOfCategory(category);
-  if (newParents.length > 0) {
-    const { data: tierRow } = await supabase
-      .from('vendor_profiles')
-      .select('tier_state')
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .maybeSingle();
-    const parentCap = tierCaps(
-      asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
-    ).parentCategories;
-    if (parentCap !== Infinity) {
-      const { data: existingRows } = await supabase
-        .from('vendor_services')
-        .select('category')
-        .eq('vendor_profile_id', profile.vendor_profile_id);
-      const existingParents = new Set(
-        (existingRows ?? []).flatMap((r) =>
-          parentsOfCategory(r.category as VendorCategory),
-        ),
+  if (caps.parentCategories !== Infinity && newParents.length > 0) {
+    const existingParents = new Set(
+      existing.flatMap((r) => parentsOfCategory(r.category)),
+    );
+    const introducesNew = newParents.some((p) => !existingParents.has(p));
+    const wouldBe = new Set(existingParents);
+    newParents.forEach((p) => wouldBe.add(p));
+    if (introducesNew && wouldBe.size > caps.parentCategories) {
+      const msg = `Your plan covers ${caps.parentCategories} categor${caps.parentCategories === 1 ? 'y' : 'ies'}. Upgrade to list under more.`;
+      return redirect(
+        `/vendor-dashboard/services?error=${encodeURIComponent(msg)}`,
       );
-      const introducesNew = newParents.some((p) => !existingParents.has(p));
-      const wouldBe = new Set(existingParents);
-      newParents.forEach((p) => wouldBe.add(p));
-      if (introducesNew && wouldBe.size > parentCap) {
-        const msg = `Your plan covers ${parentCap} categor${parentCap === 1 ? 'y' : 'ies'}. Upgrade to list under more.`;
-        return redirect(
-          `/vendor-dashboard/services?error=${encodeURIComponent(msg)}`,
-        );
-      }
     }
   }
 
   const { error } = await supabase.from('vendor_services').insert({
     vendor_profile_id: profile.vendor_profile_id,
     category,
+    title,
     starting_price_php,
     crew_size,
     crew_meal_required,

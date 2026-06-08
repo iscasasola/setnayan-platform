@@ -21,8 +21,12 @@ export type WebsiteMode = 'basic' | 'custom';
 export interface TierCaps {
   /** Service/distance coverage radius. Infinity = unlimited, 0 = ✗. */
   serviceRadiusKm: number;
-  /** Packages a vendor may create per leaf category. Infinity = unlimited. */
-  packagesPerLeaf: number;
+  /**
+   * Number of distinct SERVICE LISTINGS a vendor may create per leaf category
+   * (owner 2026-06-07: the "Creating Package" matrix row = service listings per
+   * leaf). Infinity = unlimited.
+   */
+  servicesPerLeaf: number;
   /** Chat capability. 'none' = ✗ (FREE), 'chat' = text, 'chat_video' = +video (Enterprise). */
   chat: ChatLevel;
   /** Distinct parent (of the 10) categories the vendor may list under. Infinity = unlimited. */
@@ -66,7 +70,7 @@ export interface TierCaps {
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
     serviceRadiusKm: 0,
-    packagesPerLeaf: 2,
+    servicesPerLeaf: 2,
     chat: 'none',
     parentCategories: 1,
     agentAccounts: 0,
@@ -88,7 +92,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   verified: {
     serviceRadiusKm: 20,
-    packagesPerLeaf: 2,
+    servicesPerLeaf: 2,
     chat: 'chat',
     parentCategories: 3,
     agentAccounts: 1,
@@ -110,7 +114,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   pro: {
     serviceRadiusKm: 50,
-    packagesPerLeaf: 5,
+    servicesPerLeaf: 5,
     chat: 'chat',
     parentCategories: 3,
     agentAccounts: 3,
@@ -132,7 +136,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   enterprise: {
     serviceRadiusKm: Infinity,
-    packagesPerLeaf: Infinity,
+    servicesPerLeaf: Infinity,
     chat: 'chat_video',
     parentCategories: Infinity,
     agentAccounts: Infinity,

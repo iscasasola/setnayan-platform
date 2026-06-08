@@ -8,7 +8,7 @@ import {
   guestDisplayName,
   guestInitials,
 } from '@/lib/guests';
-import { fetchAssignments, fetchTables, groupColorFor } from '@/lib/seating';
+import { fetchAssignments, fetchFloorPlan, fetchTables, groupColorFor } from '@/lib/seating';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
@@ -23,12 +23,13 @@ export default async function SeatingPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships] = await Promise.all([
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
   ]);
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
@@ -82,7 +83,13 @@ export default async function SeatingPage({ params }: Props) {
         </p>
       </header>
 
-      <SeatingEditor eventId={eventId} tables={tables} guests={seatingGuests} groups={groups} />
+      <SeatingEditor
+        eventId={eventId}
+        tables={tables}
+        guests={seatingGuests}
+        groups={groups}
+        floorPlan={floorPlan}
+      />
 
       <MiniTour tourKey="customer_seat_plan_v1" />
     </section>

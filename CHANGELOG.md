@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · a11y(services): Budget "Build" — proper tab roles on the takeover
+
+**Context:** Review nice-to-have. The takeover's two tab strips (desktop + mobile) were plain `<button>`s with only `aria-current`, so screen readers didn't announce them as a tab set.
+
+**What landed (`services-takeover.tsx`):** both strips now use `role="tablist"`; each tab `role="tab"` + `aria-selected` + `aria-controls="budget-build-panel"` + a stable `id`; the content region is `role="tabpanel"` with `id="budget-build-panel"`, `tabIndex={0}`, and an `aria-label` tracking the active tab. (Buttons are natively keyboard-operable; roving-tabindex arrow-keys remain a small optional enhancement.)
+
+**Verify:** `tsc --noEmit` ✓ · `next build` ✓. Behavior unchanged.
+
+**SPEC IMPACT:** None. Remaining review follow-ups (surfaced): URL/hash-backed tab state, and the owner decision on tightening `budget_builds` RLS to couple-only read/delete + pinning `created_by`. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · fix(website): editorial write-up restored + hero un-cropped + shared-photo gallery
 
 **Context:** First real look at the populated editorial surfaced 3 issues. **(1) No write-up:** the entire composed article (kicker/deck/lede/pull-quote) collapsed to the bare catch fallback. Root cause: `love_story.met_year`/`proposal_year` arrive as JSON **numbers**, and `compose.ts`'s `clean()` did `(s ?? '').trim()` — `.trim()` on a number **throws**, and that one exception dropped `composeCopy()` into its minimal fallback (only "A celebration" + headline). Fixed `clean()` to coerce via `String()` (also tolerant of any future non-string storyline field). **(2) Hero cropped:** `HeroPhoto` used a fixed pixel height + `object-cover`, cropping the couple out of the 16:9 hero → switched to `aspect-[16/10]` so the full landscape frame shows. **(3) No shared photos:** added a **"From the Day"** photo gallery to the editorial — `data.ts` now reads `events.our_photos` → `galleryPhotos` (display URLs, same legacy/relative-URL tolerance), rendered as a lead frame + grid.

@@ -103,7 +103,7 @@ export function ServicesTakeover({
       </Link>
 
       {/* Desktop tab strip — mobile uses the fixed bottom section nav below. */}
-      <div className="mb-4 hidden items-center gap-1 border-b border-ink/10 lg:flex">
+      <div role="tablist" aria-label="Services sections" className="mb-4 hidden items-center gap-1 border-b border-ink/10 lg:flex">
         {BUDGET_BUILD_TABS.map((key) => {
           const { label, icon: Icon } = TAB_META[key];
           const on = key === tab;
@@ -111,8 +111,11 @@ export function ServicesTakeover({
             <button
               key={key}
               type="button"
+              role="tab"
+              id={`bbtab-d-${key}`}
+              aria-selected={on}
+              aria-controls="budget-build-panel"
               onClick={() => setTab(key)}
-              aria-current={on ? 'page' : undefined}
               className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 on ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink/80'
               }`}
@@ -125,10 +128,19 @@ export function ServicesTakeover({
       </div>
 
       {/* Active tab content */}
-      <div className="min-w-0">{active ?? <TabStub tab={tab} />}</div>
+      <div
+        id="budget-build-panel"
+        role="tabpanel"
+        tabIndex={0}
+        aria-label={TAB_META[tab].label}
+        className="min-w-0"
+      >
+        {active ?? <TabStub tab={tab} />}
+      </div>
 
       {/* Mobile section bottom nav — replaces the suppressed global bottom nav. */}
       <nav
+        role="tablist"
         aria-label="Services sections"
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-ink/10 bg-cream/95 backdrop-blur lg:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
@@ -140,8 +152,11 @@ export function ServicesTakeover({
             <button
               key={key}
               type="button"
+              role="tab"
+              id={`bbtab-m-${key}`}
+              aria-selected={on}
+              aria-controls="budget-build-panel"
               onClick={() => setTab(key)}
-              aria-current={on ? 'page' : undefined}
               className="flex flex-1 flex-col items-center gap-0.5 py-2"
             >
               <Icon

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(website): Increment A.3 — What to Bring content block (LIVE)
+
+**Context:** Third content block on the wedding-website lifecycle foundation (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.5), after Special Message (A.1). A couple-curated gift / registry / no-gift note rendered on the live invitation site. Built fully **independent of the parallel onboarding session** — its own column, its own editor; onboarding never touches it.
+
+**What landed:**
+- **Migration `20260917000000_invitation_widgets_what_to_bring.sql`** — adds `events.what_to_bring` (TEXT) + the `what_to_bring` widget_type (CHECK recreated cumulatively with all 14 types incl. `special_message`; `populate_default_invitation_widgets()` seed adds row 14; backfill for existing events). Idempotent + additive.
+- **`lib/invitation-widgets.ts`** — `what_to_bring` added to `WIDGET_TYPES` + a `WIDGET_CATALOG` entry (editor_subroute `what-to-bring`, hideable) so it appears in the show/hide/reorder editor.
+- **`app/[slug]/page.tsx`** — `EventRow.what_to_bring`, added to the SELECT, both render switches (`HideableWidgetRender` + `PublicHideableWidget`), the `publicSafeWidgets` allow-list, and a new `WhatToBringWidget` (centered cream card, "What to bring" eyebrow; blank → renders nothing so the section hides).
+- **New editor** `/dashboard/[eventId]/website/what-to-bring/{page.tsx,actions.ts}` — single 600-char textarea writing `events.what_to_bring` via `updateWhatToBring`; mirrors the Special Message editor (auth + RLS gate; empty saves NULL → section hides).
+
+**Verify:** typecheck + production build on CI (no local node_modules in worktree). Migration timestamp `20260917000000` is strictly newest (monotonic guard passes). `our_love_story` deliberately NOT included — it remains parked off-main, so the CHECK/seed stay at 14 types.
+
+**SPEC IMPACT:** §6.5 (per-phase element matrix) — What to Bring now shipped. → DECISION_LOG.
+
 ## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
 
 **Context:** Owner reported clicking "Prefer to plan it yourself? Switch to manual →" on the Services tab did nothing (no error, no change). The `setPlanningMode` server action is correctly wired (`'use server'`, valid form), but it wrote via the **user-scoped** Supabase client.

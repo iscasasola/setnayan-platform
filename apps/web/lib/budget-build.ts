@@ -6,11 +6,10 @@
  * FOCUS MODE takeover — Summary · Shortlist · Build · Compare · Lock — mirroring
  * the Guests takeover (global-nav suppression + a floating X → event Home).
  *
- * Shipped behind this flag, DEFAULT OFF — same posture as
- * `SETNAYAN_AI_PAYWALL_ENABLED` / `WEBSITE_PHASES_ENABLED`. While off, `/vendors`
- * renders exactly as today (the `PlanBudgetAccordion` + the global bottom nav),
- * so merging to production changes nothing until the owner flips
- * `BUDGET_BUILD_ENABLED=true` (env — a config change, not a deploy) and previews.
+ * LIVE by default — owner activated 2026-06-09 ("build it to the website"). The
+ * takeover IS the production Services experience now. To DISABLE without a revert,
+ * set `BUDGET_BUILD_ENABLED=false` (env) — `/vendors` then falls back to the
+ * `PlanBudgetAccordion` + global bottom nav exactly as before (the kill-switch).
  *
  * Phase rollout (see the spec §): Phase 1 = this shell (tabs + takeover chrome,
  * Shortlist houses today's accordion); Phases 2–5 fill Build (the allocator),
@@ -22,11 +21,11 @@ export const BUDGET_BUILD_TABS = ['summary', 'shortlist', 'build', 'compare', 'l
 export type BudgetBuildTab = (typeof BUDGET_BUILD_TABS)[number];
 
 /**
- * Is the Services "Build" takeover active? Default OFF. Env-driven so the flip
- * is a config change, not a deploy. Read server-side and passed down as a prop
- * (the flag is intentionally NOT `NEXT_PUBLIC_*` — client surfaces receive it
- * from the server layout/page so it never leaks into the client bundle as env).
+ * Is the Services "Build" takeover active? LIVE by default (owner 2026-06-09).
+ * Returns false ONLY when `BUDGET_BUILD_ENABLED=false` is explicitly set — the
+ * kill-switch. Read server-side and passed down as a prop (NOT `NEXT_PUBLIC_*` —
+ * client surfaces receive it from the server layout/page).
  */
 export function isBudgetBuildEnabled(): boolean {
-  return process.env.BUDGET_BUILD_ENABLED === 'true';
+  return process.env.BUDGET_BUILD_ENABLED !== 'false';
 }

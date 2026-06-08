@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — ACTIVATED on production (flag default → ON)
+
+**Context:** Owner: "build it to the website please." After the 6 flag-dark PRs (#1119/#1121/#1125/#1127/#1129/#1132) shipped the full 5-tab Services takeover, this flips it **live** for all couples.
+
+**Change (`lib/budget-build.ts`):** `isBudgetBuildEnabled()` now returns `process.env.BUDGET_BUILD_ENABLED !== 'false'` (was `=== 'true'`). So with no env set, the takeover is **ON in production**. `/dashboard/[eventId]/vendors` is now the full-screen FOCUS MODE takeover: **Summary · Shortlist · Build · Compare · Lock**.
+
+**Kill-switch preserved:** set `BUDGET_BUILD_ENABLED=false` (Vercel env) to instantly fall back to the previous `PlanBudgetAccordion` + global bottom nav — no revert needed. Or revert this commit.
+
+**Verify:** `tsc --noEmit` ✓ · `next build` ✓. The flag-on path is defensive — the new `budget_builds` + availability queries fail-soft, the planner is the same one proven on the Budget tab, and the global nav can't orphan (sub-routes keep it; the takeover provides its own nav + floating X). Post-deploy smoke: load a couple's `/vendors`.
+
+**SPEC IMPACT:** Activates `Budget_Build_Services_Takeover_2026-06-08.md` in production. Pin constraint solver (Phase 3) remains deferred (engine prereqs — see the 2026-06-09 DECISION_LOG row). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(admin): command-center Home — all pending queues grouped by lane (nav redesign PR 2)
 
 **Context:** PR 2 of the owner-approved admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` · conditional sign-off "for as long as everything is easier to manage"). The shipped Home surfaced only **4 of ~12** action queues. This makes Home the real command center — "what needs admin action right now" — and **satisfies the Money-lane sign-off condition**: the money queues are reunited into an always-visible "Money to reconcile" block (the dissolved Money group's queues), so finance gets a one-stop money view on the landing page.

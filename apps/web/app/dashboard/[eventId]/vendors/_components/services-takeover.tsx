@@ -5,7 +5,8 @@
  * takeover (Budget "Build"). Spec: `Budget_Build_Services_Takeover_2026-06-08.md`.
  *
  * Mirrors the Guests focus-mode shell (`guests/page.tsx`):
- *   - `<style>.shell-topbar{display:none}</style>` hides the global top bar.
+ *   - a `<style>` hides the global top bar on MOBILE only (desktop keeps it for
+ *     the EventSwitcher + notifications; the takeover is full-screen on mobile).
  *   - a fixed floating X (top-left, `lg:hidden`) is the single exit → event Home;
  *     desktop keeps the sidebar.
  *   - the global 5-tab bottom nav is suppressed on `/vendors` (see
@@ -85,8 +86,11 @@ export function ServicesTakeover({
       className="-mt-6 pt-[calc(env(safe-area-inset-top)+3.25rem)] lg:pt-0"
       data-budget-build-takeover=""
     >
-      {/* Full-screen takeover: hide the global top bar (mirrors Guests). */}
-      <style>{`.shell-topbar{display:none}`}</style>
+      {/* Hide the global top bar on MOBILE only — the takeover is full-screen
+          there. On desktop the top bar is the only host of the EventSwitcher +
+          notifications bell (no sidebar fallback), so keep it; the desktop tab
+          strip lives in the content area and won't collide. (Review 2026-06-09.) */}
+      <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
 
       {/* Floating exit (mobile only) — the single way back to event home;
           desktop keeps the sidebar. */}

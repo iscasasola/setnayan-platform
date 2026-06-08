@@ -276,6 +276,11 @@ export type OnboardingCommitPayload = {
    *  events.style_preferences.interested_services (no migration). Purchase Now routes to the
    *  dashboard services tab to pay per service via the existing 0034 apply-then-pay. */
   interestedServices: string[];
+  /** Dream Team chapter — per-leaf refinement picks (leafKey → option labels · additive).
+   *  Folded into events.style_preferences.refinements (JSONB · no migration) for DISPLAY +
+   *  future vendor-match. The production-known leaves are ALSO projected onto the prefs blob
+   *  (stylePreferences) by the shell before commit, so find/recap stay unchanged. Empty = no-op. */
+  refinements?: Record<string, string[]>;
   /** screen-2 role (owner 2026-06-05 · G1). bride/groom → event_moderators.role_subtype directly;
    *  helper → 'family_helper'; null → 'partner1'. The signing user becomes the event's first
    *  (auto-accepted) host. Previously DROPPED at commit. */
@@ -434,6 +439,9 @@ export async function commitOnboardingWedding(
         search_areas: payload.places ?? [],
         interested_categories: payload.picks ?? [],
         basic_moodboard: payload.basicMoodboard ?? null,
+        // Dream Team chapter — per-leaf refinement detail (additive · DISPLAY +
+        // future vendor-match). Empty {} until the refine passes ship (PR-4).
+        refinements: payload.refinements ?? {},
       },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use

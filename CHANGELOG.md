@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): Dream Team PR-1 — additive scaffolding (ai + refinements state · ZERO behavior change)
+
+**Context:** First of 4 sequential PRs porting the prototype's "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md`). PR-1 lands the two new bridge fields + the commit thread with EMPTY data, so the type/commit contract is proven byte-equivalent before any UI consumes it (later PRs never touch the contract again).
+
+**What landed (additive only · no migration):**
+- **`types.ts`** — `OnboardingState` gains `ai: boolean | null` (AI-gate answer; `null`=not-yet-asked, drives `buildSequence` in PR-2) and `refinements: Record<string, string[]>` (per-leaf "what kind?" picks; folded into `style_preferences.refinements` JSONB for display + future vendor-match). `EMPTY_ONBOARDING_STATE` defaults: `ai: null`, `refinements: {}`.
+- **`actions.ts`** — `OnboardingCommitPayload` gains optional `refinements`; the `style_preferences` insert adds `refinements: payload.refinements ?? {}` (additive JSONB key, no migration; `interested_categories` still reads `payload.picks`).
+- **`onboarding-shell.tsx`** — `buildCommitPayload` threads `refinements: s.refinements`.
+- **Draft resume** — automatic: the hydration `{ ...EMPTY_ONBOARDING_STATE, ...saved }` backfills `ai`/`refinements` for pre-port drafts (absent keys keep the EMPTY defaults).
+
+**Behavior:** With `refinements` always `{}` and `ai` always `null` (no UI sets them yet), the commit is identical to today except a new `style_preferences.refinements: {}` key — read by nothing. `find` + recap + vendor-matching untouched.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓. No other `OnboardingState` literal needed updating.
+
+**SPEC IMPACT:** None (additive scaffolding; the `style_preferences.refinements` JSONB key is new but additive — documented in `Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §3.6). DECISION_LOG row at PR-4 when the chapter goes fully live.
+
 ## 2026-06-08 · feat(onboarding,pricing): de-hardcode onboarding prices → read the live admin catalog (owner directive)
 
 **Context:** Owner directive 2026-06-08 — "our pricing must not be hardcoded but taken from the admin pricing page." The onboarding services screens (15 "Boost & enhance" / 16 "Services you're interested in") showed SELLING prices from a hardcoded `SVC` constant in `onboarding-shell.tsx`. They now read the SAME live, admin-managed catalog `/pricing` reads. Closes the explicit follow-up logged in the 2026-06-08 canonical-reprice entry below ("onboarding still reads the SVC demo constant … proper server-side wiring is deferred").

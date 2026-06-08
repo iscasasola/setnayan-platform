@@ -45,6 +45,11 @@ import {
   WEDDING_FOLDER_SLUG,
   type WeddingFolder,
 } from '@/lib/taxonomy';
+import {
+  resolveDependency,
+  type DependencyState,
+  type DependencyNodeId,
+} from '@/lib/dependency-graph';
 
 // ── Category timeline · START window + LOCK-BY floor ─────────────────────
 // Two numbers per plan group, both in days-before-the-wedding, from the
@@ -232,6 +237,14 @@ export type AccordionChild = {
   /** Setnayan Assist on? (event `planning_mode` !== 'manual'). When false the
    *  vendor cards drop the "% match" pill — Manual mode browses neutrally. */
   personalizationEnabled: boolean;
+  /**
+   * Dependency-awareness nudge (Setnayan AI §4B). `blocked` = a prerequisite
+   * (e.g. the reception venue, the mood board) should be finalized first;
+   * `ready` = prerequisites met, go; null = no nudge (no edges / done / AI off /
+   * too early). Always SOFT — advisory copy, never a gate. Surfaced only when
+   * the category is in its action window + Setnayan AI is on.
+   */
+  dependency: DependencyState;
 };
 
 /** One folder section (the sticky accordion header + its child rails). */
@@ -425,6 +438,9 @@ export function buildPlanBudgetModel(args: {
    *  When false (Manual), every child is flagged so its vendor cards drop the
    *  "% match" pill and the couple browses in a neutral order. */
   personalizationEnabled?: boolean;
+  /** Has the couple set/locked their mood board (events.mood_board_updated_at)?
+   *  Feeds the dependency engine (florals/cake/LED/invites design from it). */
+  moodBoardSet?: boolean;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -438,6 +454,7 @@ export function buildPlanBudgetModel(args: {
     enrichmentByVendorId,
     marketPoolCount = 0,
     personalizationEnabled = true,
+    moodBoardSet = false,
   } = args;
 
   // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
@@ -501,15 +518,51 @@ export function buildPlanBudgetModel(args: {
   // so the recap's "Unlock N more categories" CTA no longer shows (the
   // Unlock-more page route remains but is simply no longer linked from here).
   const inactiveCategoryCount = 0;
+
+  // ── Dependency-awareness satisfied-set (Setnayan AI §4B) ─────────────────
+  // A node is "satisfied" when its prerequisite is finalized. Vendor categories:
+  // a group with ≥1 locked pick. Decision nodes we can read cheaply here:
+  // wedding_date (a date is set) + mood_board (events.mood_board_updated_at).
+  // The remaining guest/seating decision nodes live on other surfaces this page
+  // doesn't load, so they FAIL OPEN (added as satisfied) → the engine never
+  // shows a wrong nudge for them. (Wiring real detection is a follow-up.)
+  const satisfiedNodes = new Set<DependencyNodeId>();
+  for (const group of orderedGroups) {
+    const raw = bucketed.get(group.id) ?? [];
+    if (raw.some((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status))) {
+      satisfiedNodes.add(group.id as DependencyNodeId);
+    }
+  }
+  if (daysUntilWedding !== null) satisfiedNodes.add('wedding_date');
+  if (moodBoardSet) satisfiedNodes.add('mood_board');
+  satisfiedNodes.add('sponsors_confirmed');
+  satisfiedNodes.add('invitations_sent');
+  satisfiedNodes.add('rsvp_headcount');
+  satisfiedNodes.add('seating_chart');
+
   for (const group of orderedGroups) {
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
 
     const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
     const state = childStateOf(picks, hardSingle);
+    const timelineStatus = timelineStatusOf(group.id, daysUntilWedding, state);
     const lockedTotal = picks
       .filter((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status))
       .reduce((s, p) => s + pickCostCentavos(p), 0);
+
+    // Surface the dependency nudge only when Setnayan AI is on AND the category
+    // is in its action window (start_now / due_soon / overdue) — quiet while
+    // it's too early ('upcoming') or done ('locked'), so we never blanket every
+    // category at once.
+    const actionable =
+      timelineStatus === 'start_now' ||
+      timelineStatus === 'due_soon' ||
+      timelineStatus === 'overdue';
+    const dependency: DependencyState =
+      personalizationEnabled && actionable
+        ? resolveDependency(group.id, satisfiedNodes, state === 'finalized')
+        : null;
 
     const child: AccordionChild = {
       groupId: group.id,
@@ -518,10 +571,11 @@ export function buildPlanBudgetModel(args: {
       picks,
       state,
       daysLeft: deadlineFor(group.id, daysUntilWedding),
-      timelineStatus: timelineStatusOf(group.id, daysUntilWedding, state),
+      timelineStatus,
       lockedTotal,
       hardSingle,
       personalizationEnabled,
+      dependency,
     };
     childrenByFolder.get(group.catalogFolder)?.push(child);
   }

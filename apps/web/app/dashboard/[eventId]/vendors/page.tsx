@@ -43,6 +43,8 @@ import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare } from './_components/build-compare';
 import { type SavedBuild } from './build-actions';
+import { VendorAvailabilityIntersection } from '../_components/vendor-availability-intersection';
+import { getCommonAvailableDays, rangeFromPrecision, formatDayKey } from '@/lib/vendor-availability';
 import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
 import { buildTasteChips } from '@/lib/personalized-menu';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -405,6 +407,27 @@ export default async function VendorsPage({ params }: Props) {
       .eq('event_id', eventId)
       .order('label');
     const savedBuilds = (savedBuildRows ?? []) as SavedBuild[];
+    // Available dates for the locked team — reuse the event-home intersection
+    // (fires only at year/month precision with >=1 confirmed vendor). Fails silent
+    // → the Lock tab just renders without the dates panel.
+    const lockAvailability = await (async () => {
+      const eventDate = ev?.event_date ?? null;
+      if (!eventDate || (matchPrecision !== 'year' && matchPrecision !== 'month')) return null;
+      const range = rangeFromPrecision(eventDate, matchPrecision);
+      if (!range) return null;
+      try {
+        const avail = await getCommonAvailableDays(supabase, eventId, range.start, range.end);
+        if (avail.confirmedVendorCount <= 0) return null;
+        return {
+          availableDays: avail.availableDays.map(formatDayKey),
+          confirmedVendorCount: avail.confirmedVendorCount,
+          windowLabel: formatEventDateWithPrecision(eventDate, matchPrecision).replace(/^Sometime in /, ''),
+          totalDaysInRange: avail.totalDaysInRange,
+        };
+      } catch {
+        return null;
+      }
+    })();
     const buildSlot = (
       <BudgetAllocationPlanner
         eventId={eventId}
@@ -431,7 +454,14 @@ export default async function VendorsPage({ params }: Props) {
             savedBuilds={savedBuilds}
           />
         }
-        lockSlot={<BuildLocked model={model} />}
+        lockSlot={
+          <div className="space-y-4">
+            <BuildLocked model={model} />
+            {lockAvailability ? (
+              <VendorAvailabilityIntersection eventId={eventId} {...lockAvailability} />
+            ) : null}
+          </div>
+        }
       />
     );
   }

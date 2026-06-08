@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(seating): smooth pan + tables visible in to-scale mode (0008)
+
+**Context:** Two bugs the owner hit once a venue Width×Length was set (to-scale mode), root-caused via a 6-agent adversarial workflow + a faithful render-repro:
+- **Dragging/panning the resized plan stuttered and STOPPED.** `onPointerLeave={onCanvasPointerUp}` tore down the active gesture the instant the cursor crossed the canvas edge — pointer capture doesn't suppress `pointerleave`, and for table/marker drags the capture is on the button (not the canvas), so the canvas's own `pointerleave` killed the drag. The taller/zoomed to-scale canvas made the edge reachable in a few px.
+- **Tables "not showing on the room."** The scale math was sound (never NaN/0 — tables rendered), but the canvas took the room's *literal* aspect with `w-full`, so a portrait room ballooned to ~1000px tall and tables (laid out down the canvas) sat **below the visible fold**; nothing auto-framed the view, plus a first-paint `canvasW=0` flash rendered tables unscaled for one frame.
+
+**Fixes (`seating-editor.tsx`):**
+- Drag/pan: replaced `onPointerLeave` with `onPointerCancel` — gestures now end only on pointer-up/cancel (reliable via capture), so panning flows smoothly off the edges.
+- Canvas height: when to-scale, cap the height (a 64vh budget drives the width via `min(100%, calc(64vh · w/l))`, centered) so a portrait room no longer balloons — **all tables fit in one overview**.
+- First-paint race: measure `canvasW` in `useLayoutEffect` (isomorphic) and re-run on venue toggle → no unscaled flash, `pxPerMeter` ready before paint.
+- Reset to a clean whole-room overview (zoom 1) on venue toggle; `fitView` (the Fit button) now uses the on-screen scaled table sizes so it frames correctly in to-scale mode; puck-mode `tableScale` divides by the puck container (consistent size).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered the fixed overview (20×30 m room, all 5 tables + stage + entrance visible in a capped canvas). SPEC IMPACT: none (bug fixes to the 0008 to-scale editor). → corpus DECISION_LOG.
+
 ## 2026-06-09 · feat(services): Budget "Build" — available dates for your team in the Lock tab (flag-dark)
 
 **Context:** The "available dates" half of Phase 4's spec. The takeover's **Lock** tab now shows the wedding dates the couple's **confirmed team can all do** — the vendor-availability intersection — right where the locked vendors live. Reuses the exact event-home intersection (no new query type, no migration).

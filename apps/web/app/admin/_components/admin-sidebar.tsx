@@ -94,6 +94,7 @@ import {
   Wallet,
   ShoppingBag,
   Bell,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -364,6 +365,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Taxonomy',
         href: '/admin/taxonomy',
         icon: Tag,
+      },
+      {
+        key: 'refinements',
+        label: 'Refinements',
+        href: '/admin/refinements',
+        icon: SlidersHorizontal,
       },
       {
         key: 'website',

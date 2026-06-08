@@ -4,20 +4,24 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
-import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
+import {
+  sanitizeRolePalette,
+  type PaletteKey,
+  type RolePalette,
+} from '@/lib/mood-board';
 import { saveRolePalette } from './actions';
 import { PaletteEditor } from './_components/palette-editor';
 import {
-  VisualPreview,
-  type TemplateAsset,
-  type ExistingSave,
-} from './_components/visual-preview';
+  MoodboardChapters,
+  type ChapterAsset,
+  type ChapterSave,
+} from './_components/moodboard-chapters';
 import {
   WeddingAttireGuide,
   type AssetsByRoleAndStyle,
   type RoleAsset,
 } from './_components/wedding-attire-guide';
-import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
+import type { ColorRangeMap } from '@/lib/color-recolor';
 
 const MOODBOARD_BUCKET = 'moodboard-library';
 
@@ -191,11 +195,9 @@ export default async function MoodBoardPage({ params }: Props) {
           Mood Board
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Three families: Venue (ceremony + reception), Couple (bride + groom), and Roles
-          (only the role groups you actually have guests in). The Guest List shows each
-          role&rsquo;s first color as a small dot beside the chip. The 20-theme curated
-          library + Setnayan Guide rule engine + custom-role palettes ship in a later
-          revision.
+          Set your colors once, then see them land on real photos across four chapters —
+          Church, Reception, Attire, and Flowers. Tap any part of a photo and recolor it:
+          snap it to a palette color, or fine-tune the hue, brightness, and contrast by hand.
         </p>
         {event.mood_board_updated_at ? (
           <p className="text-xs text-ink/55">
@@ -211,7 +213,7 @@ export default async function MoodBoardPage({ params }: Props) {
         saveAction={saveRolePalette}
       />
 
-      <VisualPreviewSection eventId={eventId} rolePalette={flatPalette} />
+      <ChaptersSection eventId={eventId} palette={palette} />
 
       {/* Wedding Attire Guide preview — owner directive 2026-05-23 PM.
           Clickable mockup of the V1.x Professional Mood Board
@@ -256,8 +258,7 @@ export default async function MoodBoardPage({ params }: Props) {
           <li>Custom role palettes (define your own role with its own colors)</li>
           <li>20-theme curated library</li>
           <li>Setnayan Guide rule engine (cohesion · contrast · temperature · saturation)</li>
-          <li>Venue palette extraction from venue photos</li>
-          <li>Guests pick their dress-code color from the &ldquo;Plain guests&rdquo; palette</li>
+          <li>AI Composite Scene — paste your own inspiration photos and generate a bespoke scene (Professional Mood Board)</li>
           <li>Stylist uploads from their own Google Drive (V1.x)</li>
         </ul>
       </section>
@@ -266,23 +267,22 @@ export default async function MoodBoardPage({ params }: Props) {
 }
 
 // ----------------------------------------------------------------------------
-// Visual preview pillars (Location feel + Dress codes) · locked 2026-05-21
+// Mood Board chapters (Church · Reception · Attire · Flowers) — redesign 2026-06-08.
+// Supersedes the 2-pillar "Visual preview" (Location feel + Dress codes). Fetches
+// the curated library + the event's saves and hands them to the client-side
+// MoodboardChapters, which renders the couple-facing Recolor Studio per asset.
 // ----------------------------------------------------------------------------
-async function VisualPreviewSection({
+async function ChaptersSection({
   eventId,
-  rolePalette,
+  palette,
 }: {
   eventId: string;
-  /**
-   * Already-flattened role → primary hex map. The parent (MoodBoardPage)
-   * runs the array→first-color flattening before passing it down because
-   * VisualPreview accepts one accent per role for the silhouette tint.
-   */
-  rolePalette: Record<string, string>;
+  /** The event's full role/venue palette (per-key color arrays). */
+  palette: RolePalette;
 }) {
   const admin = createAdminClient();
 
-  // Fetch approved templates + their color ranges + the event's existing saves
+  // Fetch approved library assets + their color ranges + the event's saves.
   const [{ data: templateRows }, { data: rangeRows }, { data: saveRows }] = await Promise.all([
     admin
       .from('moodboard_library_assets')
@@ -312,11 +312,9 @@ async function VisualPreviewSection({
     colorRangesByAsset.set(r.asset_id, existing);
   }
 
-  const templates: TemplateAsset[] = (templateRows ?? []).map((r) => {
-    // V1 moodboard seed (migration 20260528000000) writes absolute URLs to
-    // `storage_path` for placeholder photos hotlinked from picsum.photos.
-    // Real admin uploads land in Supabase Storage with the bucket-prefixed
-    // path. Detect the difference cheaply and pick the right resolver.
+  const assets: ChapterAsset[] = (templateRows ?? []).map((r) => {
+    // Seed rows hotlink absolute URLs (picsum/pexels); admin uploads use a
+    // bucket-prefixed storage path. Detect cheaply and resolve accordingly.
     const isAbsoluteUrl =
       r.storage_path.startsWith('http://') ||
       r.storage_path.startsWith('https://');
@@ -332,7 +330,7 @@ async function VisualPreviewSection({
     }
     return {
       asset_id: r.asset_id,
-      asset_type: r.asset_type as TemplateAsset['asset_type'],
+      asset_type: r.asset_type as ChapterAsset['asset_type'],
       asset_subtype: r.asset_subtype,
       label: r.label,
       public_url: publicUrl,
@@ -340,29 +338,29 @@ async function VisualPreviewSection({
     };
   });
 
-  const existingSaves: ExistingSave[] = (saveRows ?? []).map((s) => ({
+  const existingSaves: ChapterSave[] = (saveRows ?? []).map((s) => ({
     save_id: s.save_id,
-    pillar: s.pillar as ExistingSave['pillar'],
+    pillar: s.pillar as ChapterSave['pillar'],
     pillar_slot: s.pillar_slot,
     asset_id: s.asset_id,
-    palette_snapshot: (s.palette_snapshot as Record<string, string>) ?? {},
+    palette_snapshot: (s.palette_snapshot as Record<string, unknown>) ?? {},
     saved_at: s.saved_at,
   }));
 
   return (
     <section className="space-y-4 border-t border-ink/10 pt-6">
       <header>
-        <h2 className="text-2xl font-semibold text-ink">Visual preview</h2>
+        <h2 className="text-2xl font-semibold text-ink">See it in your colors</h2>
         <p className="text-sm text-ink/65">
-          See how your palette will land on real venue setups and outfits. Pick the
-          looks you want — Setnayan applies your colors automatically.
+          Open any photo, tap a part of it, and recolor — snap to a palette color or
+          adjust the hue, brightness, and contrast by hand. Save the looks you love.
         </p>
       </header>
-      <VisualPreview
+      <MoodboardChapters
         eventId={eventId}
-        templates={templates}
+        assets={assets}
         existingSaves={existingSaves}
-        rolePalette={rolePalette}
+        palette={palette}
       />
     </section>
   );

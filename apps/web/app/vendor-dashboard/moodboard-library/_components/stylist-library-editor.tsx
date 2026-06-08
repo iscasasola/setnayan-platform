@@ -27,7 +27,8 @@ import {
 
 export type StylistAsset = {
   asset_id: string;
-  asset_type: 'venue_scene' | 'figure_attire';
+  // 'florals' added 2026-06-09 (mood-board redesign — Flowers chapter).
+  asset_type: 'venue_scene' | 'figure_attire' | 'florals';
   asset_subtype: string | null;
   label: string;
   storage_path: string;
@@ -207,6 +208,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
               >
                 <option value="venue_scene">Venue scene</option>
                 <option value="figure_attire">Figure attire</option>
+                <option value="florals">Florals</option>
               </select>
               <input
                 name="assetSubtype"

@@ -114,28 +114,36 @@ export function Nav() {
 // ─────────────────────────────────────────────────────────────────────
 export function Hero() {
   return (
-    <section className="relative overflow-hidden px-14 pt-20 pb-14">
+    <section className="relative overflow-hidden px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20 lg:pb-14">
       <Blob top={-80} left={-80} size={620} color="var(--m-orange)" opacity={0.06} />
-      <div className="grid lg:grid-cols-[1.1fr_1fr] gap-16 items-center relative">
+      <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-center relative">
         <Reveal>
-          <div className="m-mono text-xs tracking-[0.18em] text-[var(--m-slate-2)] mb-7">
+          <div className="m-mono text-xs tracking-[0.18em] text-[var(--m-slate-2)] mb-4 sm:mb-7">
             SET NA ‘YAN · /sɛt na jan/
           </div>
           <h1
             className="font-[var(--font-serif-marketing,var(--font-serif))] italic text-[var(--m-ink)] m-0"
             style={{
-              fontSize: 152,
-              lineHeight: 0.96,
+              // Responsive: was a fixed 152px that overflowed mobile and buried
+              // the CTA below the fold (owner 2026-06-08 "large texts ate up the
+              // whole screen, we lost the sale"). clamp scales it down on phones.
+              fontSize: 'clamp(3.1rem, 13vw, 152px)',
+              lineHeight: 0.94,
               letterSpacing: '-0.035em',
               fontWeight: 400,
             }}
           >
             Set na ‘yan.
           </h1>
-          <div className="mt-3.5">
+          <div className="mt-2 sm:mt-3.5">
             <span
               className="m-display text-[var(--m-ink)]"
-              style={{ fontSize: 76, fontWeight: 800, letterSpacing: '-0.005em', lineHeight: 1 }}
+              style={{
+                fontSize: 'clamp(1.9rem, 6vw, 76px)',
+                fontWeight: 800,
+                letterSpacing: '-0.005em',
+                lineHeight: 1.02,
+              }}
             >
               Plan your wedding
               <br />
@@ -152,7 +160,7 @@ export function Hero() {
             </span>
           </div>
           <p
-            className="m-serif italic text-[var(--m-slate)] mt-8 max-w-[560px]"
+            className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
             A love letter, a guest list, a thousand tiny decisions, and a Saturday afternoon you&apos;ll remember forever.{' '}
@@ -162,7 +170,7 @@ export function Hero() {
               time being engaged.
             </span>
           </p>
-          <div className="mt-4 inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
+          <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--m-orange)] shrink-0" />
             <div className="text-[13px] text-[var(--m-ink)] leading-snug">
               <strong className="font-medium">Wedding today. Every celebration tomorrow.</strong>{' '}
@@ -171,7 +179,7 @@ export function Hero() {
               </span>
             </div>
           </div>
-          <div className="flex gap-3 mt-8 flex-wrap">
+          <div className="flex gap-3 mt-6 sm:mt-8 flex-wrap">
             <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
               Start planning <span className="text-[var(--m-orange-3)]">· free</span>
             </Link>

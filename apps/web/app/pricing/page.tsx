@@ -4,7 +4,6 @@ import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 import {
   fetchV2CustomerCatalog,
-  fetchV2BundleCatalog,
   fetchV2VendorCatalog,
   formatPeso,
   formatSkuPriceLabel,
@@ -127,9 +126,10 @@ function groupByStatus(skus: Array<V2CustomerSku>): Record<BuildStatus, Array<V2
 export default async function PricingPage() {
   // Three reads in parallel · helpers return [] on error, so the page still
   // renders a polite empty state rather than 500'ing.
-  const [customerSkus, bundles, vendorSkus] = await Promise.all([
+  // Bundles (Essentials/Complete) are ONBOARDING-ONLY (owner 2026-06-08 — "never
+  // sold outside") → no longer fetched or shown here.
+  const [customerSkus, vendorSkus] = await Promise.all([
     fetchV2CustomerCatalog(),
-    fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
   ]);
 
@@ -234,23 +234,7 @@ export default async function PricingPage() {
           seller: ORGANIZATION_REF,
         },
       })),
-      // Customer bundles · @type Product
-      ...bundles.map((b) => ({
-        '@type': 'Product',
-        '@id': `${SITE_URL}/pricing#bundle-${b.package_code}`,
-        name: b.title,
-        description: `${b.title} — bundled Setnayan wedding-planning services.`,
-        brand: ORGANIZATION_REF,
-        category: 'Wedding planning software bundle',
-        offers: {
-          '@type': 'Offer',
-          url: `${SITE_URL}/pricing`,
-          price: String(Math.round(b.retail_price_php)),
-          priceCurrency: 'PHP',
-          availability: 'https://schema.org/InStock',
-          seller: ORGANIZATION_REF,
-        },
-      })),
+      // (Customer bundles removed from /pricing — onboarding-only, owner 2026-06-08.)
       // Vendor subscriptions · @type Service with PriceSpecification ·
       // both 28-day prepaid + annual cadence per CLAUDE.md 2026-05-30 row
       // "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(a) cadence correction +
@@ -474,43 +458,8 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* Bundles */}
-      {bundles.length > 0 ? (
-        <section className="border-b border-ink/5 bg-ink/[0.02]">
-          <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-            <div className="mb-12 max-w-2xl space-y-3">
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-                Bundles
-              </p>
-              <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-                Curated packs.
-              </h2>
-              <p className="text-base leading-relaxed text-ink/65">
-                If you&apos;d rather not pick à la carte, two opinionated
-                bundles cover the most-asked-for combinations.
-              </p>
-            </div>
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {bundles.map((bundle) => (
-                <li
-                  key={bundle.package_code}
-                  className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6 sm:p-8"
-                >
-                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                    {bundle.title}
-                  </p>
-                  <p className="flex items-baseline gap-2">
-                    <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
-                      ₱{formatPeso(bundle.retail_price_php)}
-                    </span>
-                    <span className="text-xs text-ink/55">one-time, per event</span>
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      ) : null}
+      {/* Bundles (Essentials/Complete) intentionally NOT shown here — they are an
+          onboarding-only offer (owner 2026-06-08, "never sold outside"). */}
 
       {/* Vendor pricing */}
       <section className="border-b border-ink/5">

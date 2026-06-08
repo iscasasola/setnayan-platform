@@ -61,7 +61,7 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   sde: 'SDE',
   pakanta: 'PAKANTA',
   custom_qr: 'CUSTOM_QR_GUEST',
-  indoor_blueprint: 'INDOOR_BLUEPRINT',
+  // indoor_blueprint RETIRED (owner 2026-06-08) — dropped from the catalog + the offered set.
   live_background: 'LIVE_BACKGROUND',
   pabati: 'PABATI',
   guest_stories: 'PAPIC_ADDON_STORIES',
@@ -94,7 +94,6 @@ export const OUT_ANCHORS: Record<string, number> = {
   panood: 17500,
   live_background: 20000,
   live_photowall: 18000,
-  indoor_blueprint: 12500,
 };
 
 /**
@@ -104,23 +103,21 @@ export const OUT_ANCHORS: Record<string, number> = {
  * (verified: no platform_package_items table, no inclusions constant), so this
  * list is AUTHOR-CURATED.
  *
- * ⚠ OWNER SIGN-OFF REQUIRED — membership is a product/pricing decision, not a
- * code fact, and it drives the displayed "worth / save ₱X". The starting lists
- * are drawn from the existing BUNDLE_ITEMS display metadata. The bundle UI is
- * DEFERRED (the view-model is built + typed but currently UNCONSUMED by the
- * shell), so this list affects nothing rendered until the owner ratifies it and
- * a bundle card is wired.
+ * Owner-decided 2026-06-08: BUNDLES ARE ONBOARDING-ONLY (never sold outside the
+ * flow), so membership is scoped to the onboarding in-app service set. `complete`
+ * = every offered onboarding service; `essentials` = the curated value core.
+ * `indoor_blueprint` removed (SKU retired 2026-06-08). Drives the displayed
+ * "worth / save ₱X" on the onboarding bundle card.
  */
 export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
-  // Guided / cheaper pack.
+  // Essentials — the curated value core.
   essentials: [
     'custom_qr',
-    'indoor_blueprint',
     'animated_monogram',
     'advanced_website',
     'papic_seats',
   ],
-  // Media / all-in pack — the full onboarding in-app service set.
+  // Complete — every offered onboarding in-app service.
   complete: [
     'papic_seats',
     'advanced_website',
@@ -130,7 +127,6 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     'sde',
     'pakanta',
     'custom_qr',
-    'indoor_blueprint',
     'live_background',
     'pabati',
     'guest_stories',

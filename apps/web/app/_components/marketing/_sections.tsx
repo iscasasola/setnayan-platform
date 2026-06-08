@@ -803,7 +803,7 @@ export function PricingSection() {
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
         Setnayan never touches the money between you and your vendor. They quote, you pay them directly. The platform
-        earns from Setnayan Productions services you choose à la carte, and from vendor subscriptions.
+        earns only from the Setnayan Productions services you choose à la carte — never from what you pay your vendor.
       </p>
       <div className="grid lg:grid-cols-3 gap-5">
         {[
@@ -835,17 +835,16 @@ export function PricingSection() {
             tone: 'orange' as const,
           },
           {
-            title: 'Vendors',
-            price: 'Free to list',
-            sub: '₱1,999/28 days Pro',
+            title: 'Bundles',
+            price: 'Save big',
+            sub: 'Per event',
             items: [
-              'Free listing + 100 founder tokens',
-              '₱1,499 lifetime verification badge',
-              'Pro Vendor ₱1,999/28 days',
-              'Enterprise ₱5,499/28 days',
+              'Essentials · ₱12,999',
+              'Complete · ₱27,999 · all 18 services',
+              'Up to ~42% off à la carte',
             ],
-            cta: 'Register your business',
-            ctaHref: '/for-vendors',
+            cta: 'See bundles',
+            ctaHref: '/pricing',
             tone: 'ink' as const,
           },
         ].map((p, i) => (
@@ -943,8 +942,7 @@ export function ClosingCTA() {
           Let&rsquo;s do this <em className="italic text-[var(--m-orange)]">together.</em>
         </h2>
         <p className="text-[18px] text-[var(--m-slate-4)] max-w-[640px] mx-auto leading-relaxed mb-10">
-          Start your wedding plan in 90 seconds. Free forever for couples. ₱1,499 verification badge for vendors. No
-          commission, ever.
+          Start your wedding plan in 90 seconds. Free forever for couples. No commission on vendor bookings, ever.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Link href="/onboarding/wedding" className="m-btn m-btn-orange m-btn-lg">
@@ -972,9 +970,9 @@ export function Footer() {
     {
       title: 'Vendors',
       links: [
+        { label: 'Why Setnayan for vendors', href: '/for-vendors' },
         { label: 'Register your business', href: '/for-vendors' },
-        { label: 'Pro Vendor — ₱1,999/28d', href: '/for-vendors' },
-        { label: 'Enterprise — ₱5,499/28d', href: '/for-vendors' },
+        { label: 'Price tiers', href: '/for-vendors' },
         { label: 'Vendor handbook', href: '/help' },
       ],
     },

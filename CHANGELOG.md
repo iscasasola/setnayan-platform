@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(home,0015): homepage Pricing section is customer-only (drop vendor card + ₱1,499 badge)
+
+**Context:** Owner 2026-06-08 — the homepage `PricingSection` had a 3rd "Vendors" card with stale + off-message vendor specs (₱1,999/28d Pro, ₱5,499 Enterprise, "₱1,499 lifetime verification badge"). The homepage is customer-dedicated; vendor pricing belongs on /for-vendors, and verification is now free (₱0, no badge fee).
+
+**What landed (homepage `_components/marketing/_sections.tsx`, presentation only):**
+- PricingSection 3rd card: **Vendors → Bundles** (customer) — Essentials ₱12,999 · Complete ₱27,999 · ~42% off à la carte → /pricing.
+- Intro copy: dropped "and from vendor subscriptions" → "earns only from the Setnayan Productions services you choose à la carte — never from what you pay your vendor."
+- ClosingCTA: removed "₱1,499 verification badge for vendors" → "No commission on vendor bookings, ever."
+- Footer Vendors column: dropped the stale-priced "Pro Vendor — ₱1,999/28d" + "Enterprise — ₱5,499/28d" links → "Why Setnayan for vendors · Register your business · Price tiers · Vendor handbook" (no prices).
+
+**Verify:** markup/copy only — no type/DB change. Vercel preview on the PR.
+
+**SPEC IMPACT:** None on SKU data (homepage now points to /for-vendors + /pricing for the canonical numbers; verification-badge fee retired — Verified ₱0 per the 2026-06-08 vendor-pricing DECISION_LOG row). Follow-up: a separate ₱1,499 customer-planner price ("answers your questions… one purchase at ₱1,499") elsewhere in `_sections.tsx` may be stale vs the locked Setnayan AI ₱3,999 — left untouched pending owner confirm.
+
 ## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
 
 **Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). The nav core swap + the told-back love stage, in one PR (merged cleanly with the concurrent #1071 pure-moment intro).

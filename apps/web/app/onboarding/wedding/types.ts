@@ -156,6 +156,26 @@ export interface OnboardingState {
   prefs: OnboardingPrefs;
 
   /**
+   * AI-gate answer (Dream Team chapter · additive). `null` = not yet asked;
+   * `true` = "match the rest for me" (the picks + refine screens show);
+   * `false` = "I'll browse on my own" (skip straight to the plan/offer).
+   * Drives buildSequence membership; persisted so a resumed draft restores the
+   * fork. Default null is treated as "not yet AI" (fork OFF) until tapped.
+   */
+  ai: boolean | null;
+
+  /**
+   * Per-leaf refinement picks (the "what kind of {service}?" passes · Dream Team
+   * chapter · additive). leafKey (a PICK_GROUPS category key — 'ceremony',
+   * 'catering', 'photo_video', 'live_band', …) → selected option labels (multi).
+   * Folded into events.style_preferences.refinements (JSONB) at commit for
+   * DISPLAY + future vendor-match; the bridge ALSO projects the production-known
+   * leaves (ceremony/catering/photo_video) back onto `prefs` so the find search +
+   * recap keep working unchanged. Empty default = no refinements (commit unchanged).
+   */
+  refinements: Record<string, string[]>;
+
+  /**
    * Find-vendor shortlist (screen 12) — the REAL reception venues the couple
    * tapped to shortlist (from the criteria-based marketplace search, no longer
    * the prototype's hardcoded demo cards). Powers the recap count on screen 13
@@ -393,6 +413,8 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     music: [],
     feel: null,
   },
+  ai: null,
+  refinements: {},
   shortlist: [],
   byoVendors: [],
   guidanceOptIn: true,

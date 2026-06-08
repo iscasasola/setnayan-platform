@@ -6,16 +6,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
 
-**Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 — should be ₱6,000).
+**Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 → should be ₱6,000).
 
-**What landed:**
-- New **`getVendorPrices()`** in `lib/v2-catalog.ts` — `cache()`-wrapped (one query/request even across components), reads `vendor_billing_catalog` (Pro/Enterprise monthly+annual, branch, derived token unit), returns formatted strings; resilience fallbacks only render if the DB is unreachable.
-- `/for-vendors` components → async + read it: `vendor-hero` (Pro price) · `for-vendors-deep-dive` (Pro/Enterprise tier cards + both annual lines + the standalone Enterprise callout) · `stack-close-vendor` (Pro price). Page → `force-dynamic`.
-- `/how-it-works` → async; the visible Pro price reads `getVendorPrices()` (was a stale hard-coded ₱2,499) + dropped the stale number from the role-card data string. Page → `force-dynamic`.
+**What landed:** new **`getVendorPrices()`** in `lib/v2-catalog.ts` (`cache()`-wrapped, reads `vendor_billing_catalog`, formatted strings, resilience fallbacks only). `/for-vendors` (hero · comparison table + annuals + standalone Enterprise callout · stack-close) + `/how-it-works` (the stale Pro price) made async to read it; both pages → `force-dynamic`.
 
-**Verify:** typecheck/build on the PR. Prices now flow from /admin/pricing.
+**Verify:** typecheck/build on the PR. Prices flow from /admin/pricing.
 
-**SPEC IMPACT:** None (presentation; vendor prices now DB-sourced). REMAINING hard-coded (follow-up): the /for-vendors SEO metadata + JSON-LD Offer prices (need async `generateMetadata`), the "how Setnayan makes money" FAQ prose, the module-level Add-Branch ₱999 / Boosted ₱1,200 comparison rows (Boosted isn't a catalog SKU), and the homepage planner "₱1,499" prose (TODAYS_FOCUS is excluded from the catalog fetcher).
+**SPEC IMPACT:** None (presentation; vendor prices DB-sourced). REMAINING hard-coded (follow-up): /for-vendors SEO metadata + JSON-LD Offers (`generateMetadata`), the money-FAQ prose, the module-level Add-Branch ₱999 / Boosted ₱1,200 rows, and the homepage planner "₱1,499" prose (TODAYS_FOCUS excluded from the fetcher).
+
+## 2026-06-08 · feat(onboarding): Dream Team PR-1 — additive scaffolding (ai + refinements state · ZERO behavior change)
+
+**Context:** First of 4 sequential PRs porting the prototype's "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md`). PR-1 lands the two new bridge fields + the commit thread with EMPTY data, so the type/commit contract is proven byte-equivalent before any UI consumes it (later PRs never touch the contract again).
+
+**What landed (additive only · no migration):**
+- **`types.ts`** — `OnboardingState` gains `ai: boolean | null` (AI-gate answer; `null`=not-yet-asked, drives `buildSequence` in PR-2) and `refinements: Record<string, string[]>` (per-leaf "what kind?" picks; folded into `style_preferences.refinements` JSONB for display + future vendor-match). `EMPTY_ONBOARDING_STATE` defaults: `ai: null`, `refinements: {}`.
+- **`actions.ts`** — `OnboardingCommitPayload` gains optional `refinements`; the `style_preferences` insert adds `refinements: payload.refinements ?? {}` (additive JSONB key, no migration; `interested_categories` still reads `payload.picks`).
+- **`onboarding-shell.tsx`** — `buildCommitPayload` threads `refinements: s.refinements`.
+- **Draft resume** — automatic: the hydration `{ ...EMPTY_ONBOARDING_STATE, ...saved }` backfills `ai`/`refinements` for pre-port drafts (absent keys keep the EMPTY defaults).
+
+**Behavior:** With `refinements` always `{}` and `ai` always `null` (no UI sets them yet), the commit is identical to today except a new `style_preferences.refinements: {}` key — read by nothing. `find` + recap + vendor-matching untouched.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓. No other `OnboardingState` literal needed updating.
+
+**SPEC IMPACT:** None (additive scaffolding; the `style_preferences.refinements` JSONB key is new but additive — documented in `Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §3.6). DECISION_LOG row at PR-4 when the chapter goes fully live.
 
 ## 2026-06-08 · feat(onboarding,pricing): de-hardcode onboarding prices → read the live admin catalog (owner directive)
 

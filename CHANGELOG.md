@@ -4,13 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(ci): resolve duplicate migration timestamp 20260918000000
+
+**Context:** Two PRs merged the same day each created a `20260918000000_*` migration — `…_invitation_widgets_what_to_bring.sql` (#1095 What-to-Bring) and `…_vendor_token_purchase_webhook.sql` (#1097 token webhook). Each passed its own `migration timestamp guard` because the collision only existed once *both* were on `main`; the guard would then fail on **every** subsequent PR (it rejects duplicate 14-digit prefixes, since `supabase db push` uses the prefix as the `schema_migrations` PK).
+
+**What landed:** renamed `20260918000000_vendor_token_purchase_webhook.sql` → `20260918000001_vendor_token_purchase_webhook.sql` (content identical; the What-to-Bring file keeps `000000`). Guard now passes (verified locally with ci.yml's exact check). No prod impact — the functions were already applied via direct SQL and are idempotent; this is a repo-filename fix to unblock CI.
+
+**SPEC IMPACT:** None.
+
 ## 2026-06-08 · feat(vendor): token purchase — payment webhook, notifications, history
 
 **Context:** Follow-ups to the vendor token-purchase flow (#1088/#1091). Owner asked for: the "automated later" webhook half, purchase notifications, and a vendor-facing purchase history.
 
 **What landed:**
 - **Payment webhook (`app/api/webhooks/token-purchase/route.ts`)** — HMAC-SHA256-verified (`TOKEN_PURCHASE_WEBHOOK_SECRET`, `x-setnayan-signature`, timing-safe) endpoint that auto-confirms a purchase when a provider reports a paid `TKN-` reference. Extracts the reference from known Maya/PayMongo fields + a recursive payload scan; ignores non-success statuses; acks unknown references (no retry-storm); credits via the new service-role RPC; defers the vendor notification with `after()` for a fast 200. **No secret set → 503 (inert/fail-closed).**
-- **Migration `20260918000000`** — refactors the credit logic into a shared internal `_apply_token_purchase_credit(id, reviewed_by)` (idempotent), rewrites `approve_vendor_token_purchase` to delegate to it, and adds `confirm_vendor_token_purchase_by_reference(ref)` for the webhook. **Security:** the webhook RPC + internal helper are `service_role`-only — explicitly REVOKEd from `anon`+`authenticated` (Supabase's default privileges grant those, so `REVOKE FROM PUBLIC` alone left a hole where a vendor could self-credit by reference without paying). Verified the grant state post-apply.
+- **Migration `20260918000001`** — refactors the credit logic into a shared internal `_apply_token_purchase_credit(id, reviewed_by)` (idempotent), rewrites `approve_vendor_token_purchase` to delegate to it, and adds `confirm_vendor_token_purchase_by_reference(ref)` for the webhook. **Security:** the webhook RPC + internal helper are `service_role`-only — explicitly REVOKEd from `anon`+`authenticated` (Supabase's default privileges grant those, so `REVOKE FROM PUBLIC` alone left a hole where a vendor could self-credit by reference without paying). Verified the grant state post-apply.
 - **Migration `20260918000100`** + `lib/notifications.ts` — two new `notification_type` values: `vendor_token_purchase_pending` (admin) + `vendor_tokens_credited` (vendor), with labels + tones.
 - **Notifications (`lib/token-purchase-notify.ts`)** — fail-soft helpers used by both the actions and the webhook: `notifyAdminsTokenPurchasePending` (fan-out to internal/team/admin users on a new order, deep-links `/admin/token-purchases`) + `notifyVendorTokensCredited` (on a fresh credit only, deep-links `/vendor-dashboard/tokens`). `emitNotification` already does in-app + email, so this is one call per channel. Wired into `startTokenPurchase` (admins) and `approveTokenPurchase` (vendor, gated on `{paid:true}` so a re-confirm doesn't re-ping).
 - **Purchase history (`_components/purchase-history.tsx`)** — vendor tokens page now shows resolved (paid/rejected) orders; pending still lives in the PendingPurchases panel.

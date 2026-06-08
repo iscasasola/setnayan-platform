@@ -21,6 +21,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { notifyVendorTokensCredited } from '@/lib/token-purchase-notify';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -46,7 +47,7 @@ export async function approveTokenPurchase(formData: FormData): Promise<void> {
   }
   const supabase = await requireAdmin();
 
-  const { error } = await supabase.rpc('approve_vendor_token_purchase', {
+  const { data, error } = await supabase.rpc('approve_vendor_token_purchase', {
     p_purchase_id: id,
   });
   if (error) {
@@ -54,6 +55,13 @@ export async function approveTokenPurchase(formData: FormData): Promise<void> {
       '/admin/token-purchases?error=' +
         encodeURIComponent('Could not confirm: ' + (error.message ?? 'unknown error')),
     );
+  }
+
+  // Notify the vendor only on a NEW credit ({paid:true}); a re-confirm of an
+  // already-paid order ({already:true}) shouldn't re-ping them. Fail-soft.
+  const result = (data ?? {}) as { paid?: boolean; already?: boolean };
+  if (result.paid) {
+    await notifyVendorTokensCredited(id);
   }
 
   revalidatePath('/admin/token-purchases');

@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(vendor): token purchase — payment webhook, notifications, history
+
+**Context:** Follow-ups to the vendor token-purchase flow (#1088/#1091). Owner asked for: the "automated later" webhook half, purchase notifications, and a vendor-facing purchase history.
+
+**What landed:**
+- **Payment webhook (`app/api/webhooks/token-purchase/route.ts`)** — HMAC-SHA256-verified (`TOKEN_PURCHASE_WEBHOOK_SECRET`, `x-setnayan-signature`, timing-safe) endpoint that auto-confirms a purchase when a provider reports a paid `TKN-` reference. Extracts the reference from known Maya/PayMongo fields + a recursive payload scan; ignores non-success statuses; acks unknown references (no retry-storm); credits via the new service-role RPC; defers the vendor notification with `after()` for a fast 200. **No secret set → 503 (inert/fail-closed).**
+- **Migration `20260918000000`** — refactors the credit logic into a shared internal `_apply_token_purchase_credit(id, reviewed_by)` (idempotent), rewrites `approve_vendor_token_purchase` to delegate to it, and adds `confirm_vendor_token_purchase_by_reference(ref)` for the webhook. **Security:** the webhook RPC + internal helper are `service_role`-only — explicitly REVOKEd from `anon`+`authenticated` (Supabase's default privileges grant those, so `REVOKE FROM PUBLIC` alone left a hole where a vendor could self-credit by reference without paying). Verified the grant state post-apply.
+- **Migration `20260918000100`** + `lib/notifications.ts` — two new `notification_type` values: `vendor_token_purchase_pending` (admin) + `vendor_tokens_credited` (vendor), with labels + tones.
+- **Notifications (`lib/token-purchase-notify.ts`)** — fail-soft helpers used by both the actions and the webhook: `notifyAdminsTokenPurchasePending` (fan-out to internal/team/admin users on a new order, deep-links `/admin/token-purchases`) + `notifyVendorTokensCredited` (on a fresh credit only, deep-links `/vendor-dashboard/tokens`). `emitNotification` already does in-app + email, so this is one call per channel. Wired into `startTokenPurchase` (admins) and `approveTokenPurchase` (vendor, gated on `{paid:true}` so a re-confirm doesn't re-ping).
+- **Purchase history (`_components/purchase-history.tsx`)** — vendor tokens page now shows resolved (paid/rejected) orders; pending still lives in the PendingPurchases panel.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean · transactional smoke test (rolled back) — webhook confirm-by-reference credits +50 purchased_tokens, idempotent, unknown ref raises NOT_FOUND, admin path still works via the shared core; grant audit confirms `confirm_*`/`_apply_*` are service_role-only. Migrations applied to prod.
+
+**Owner action (for live automation):** set `TOKEN_PURCHASE_WEBHOOK_SECRET` in Vercel, register the provider webhook at `/api/webhooks/token-purchase`, and configure it to sign the raw body + echo our `TKN-` reference. Until then the manual admin-confirm flow is the live path (webhook returns 503).
+
+**SPEC IMPACT:** Extends the 2026-06-08 vendor token-purchase flow (0034 + 0022). DECISION_LOG row appended. No price changes.
+
 ## 2026-06-08 · feat(setnayan-ai): per-event paid entitlement, behind a default-off flag (PR-2)
 
 **Context:** Owner 2026-06-08 — make Setnayan AI a **paid per-event** SKU (₱3,999, `SETNAYAN_AI`, already live in `platform_retail_catalog_v2`), but **"build it, flip behind a flag"** so nothing changes for live couples until deliberately enabled. Builds on PR-1's governing gate (`isSetnayanAiActive`).

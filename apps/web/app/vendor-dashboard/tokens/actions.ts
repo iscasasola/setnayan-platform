@@ -29,6 +29,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { notifyAdminsTokenPurchasePending } from '@/lib/token-purchase-notify';
 
 const ERR = (msg: string) =>
   redirect('/vendor-dashboard/tokens?error=' + encodeURIComponent(msg));
@@ -72,6 +73,14 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
   const row = Array.isArray(data) ? data[0] : data;
   const ref: string | null =
     row && typeof row.reference_code === 'string' ? row.reference_code : null;
+  const purchaseId: string | null =
+    row && typeof row.purchase_id === 'string' ? row.purchase_id : null;
+
+  // Alert admins there's a payment to watch for (fail-soft — never blocks the
+  // vendor's redirect to the payment instructions).
+  if (purchaseId) {
+    await notifyAdminsTokenPurchasePending(purchaseId);
+  }
 
   revalidatePath('/vendor-dashboard/tokens');
   redirect(

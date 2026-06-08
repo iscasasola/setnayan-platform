@@ -3,7 +3,7 @@
 /**
  * Server action for the What to Bring editor (Increment A.3 ·
  * Wedding_Website_Lifecycle_Spec_2026-06-07). Writes events.what_to_bring
- * (TEXT, shipped 20260917000000). Empty = the WhatToBringWidget on /[slug]
+ * (TEXT, shipped 20260918000000). Empty = the WhatToBringWidget on /[slug]
  * renders nothing (section hides). Auth + RLS enforce that only event members
  * (couple / host moderators) can write. Mirrors updateSpecialMessage.
  */

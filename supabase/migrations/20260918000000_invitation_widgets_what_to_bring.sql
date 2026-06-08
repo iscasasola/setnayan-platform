@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260917000000_invitation_widgets_what_to_bring.sql
+-- 20260918000000_invitation_widgets_what_to_bring.sql
 --
 -- Increment A.3 — add the "What to Bring" content block to the invitation
 -- site (Wedding_Website_Lifecycle_Spec_2026-06-07). A gift / registry /

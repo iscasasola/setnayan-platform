@@ -675,3 +675,25 @@
 .onbw #screen-services-summary.screen.active{flex:1 1 auto;min-height:0;}
 .onbw .svc-rows-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -2px;padding:2px 2px 0;scrollbar-width:none;}
 .onbw .svc-rows-scroll::-webkit-scrollbar{display:none;}
+
+/* ── Pure-moment conversational welcome (owner 2026-06-05 · ported from the
+   production-mirror prototype Onboarding_Wedding_Flow_2026-06-01.html on 2026-06-08).
+   ONE moment on screen at a time: a serif "speak" line with the gold Setnayan mark, or
+   one question + stacked options. Runs on step 0, then hands off to the Name screen. */
+.onbw .welcomescreen.moments-on{padding:0;display:flex;flex-direction:column;}
+.onbw .welcomescreen.moments-on .momentwrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:10px 22px 22px;overflow-y:auto;}
+.onbw #momentHost{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;position:relative;}
+@keyframes ob-momentIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.onbw .moment{animation:ob-momentIn .52s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .fm-react{display:flex;align-items:flex-start;gap:11px;font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.2;color:var(--ink);margin:0;}
+.onbw .mo-speak .fm-react{font-size:28px;}
+.onbw .fm-react .say-mark{flex:0 0 auto;width:23px;height:23px;margin-top:5px;}
+.onbw .introhint{margin-top:18px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);opacity:.5;}
+.onbw .mo-ask .m-q{font-family:var(--serif);font-style:italic;font-weight:600;font-size:30px;line-height:1.13;letter-spacing:-.01em;color:var(--ink);margin:0 0 20px;}
+.onbw .m-opts{display:flex;flex-direction:column;gap:11px;}
+.onbw .m-opt{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line-2);border-radius:15px;padding:14px 16px;cursor:pointer;font-family:inherit;transition:transform .12s,border-color .12s;min-height:44px;}
+.onbw .m-opt:hover{border-color:var(--ink);}
+.onbw .m-opt:active{transform:scale(.992);}
+.onbw .m-ot{display:block;font-weight:700;font-size:16px;color:var(--ink);}
+.onbw .m-od{display:block;font-size:12.5px;line-height:1.4;color:var(--ink-soft);margin-top:3px;}
+@media(prefers-reduced-motion:reduce){.onbw .moment{animation:none;}}

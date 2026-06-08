@@ -22,7 +22,25 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
+import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { OnboardingShell } from './_components/onboarding-shell';
+import { buildOnboardingPricing } from './_components/onboarding-pricing';
+
+/**
+ * Force dynamic rendering · skip static prerender (mirrors /pricing/page.tsx).
+ *
+ * WHY (owner directive 2026-06-08 — onboarding reads live admin pricing):
+ * this page now calls fetchV2CustomerCatalog / fetchV2BundleCatalog, which
+ * call createAdminClient(). That throws "Missing SUPABASE env vars for admin
+ * client" when SUPABASE_SERVICE_ROLE_KEY is unset — the case in CI's
+ * `production build` step. Static prerender would invoke the page at build
+ * time, hit the throw, and fail the build (the "endless loop" of red CI). The
+ * fetchers already try/catch → return [] so the page degrades gracefully, but
+ * force-dynamic is the documented guard AND guarantees admin price edits
+ * propagate live with no ISR cache (so we needn't add this route to the admin
+ * revalidate list).
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Plan your wedding · Setnayan',
@@ -56,16 +74,26 @@ export default async function OnboardingWeddingPage({
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
+    fetchV2CustomerCatalog(),
+    fetchV2BundleCatalog(),
   ]);
   const user = userRes.data.user;
+  // Build the onboarding pricing view-model from the live admin catalog. No
+  // committed event yet (lazy commit at the final button) → estimated_pax is
+  // unknown → pass no pax → PAPIC_GUEST renders "from ₱2,999" via
+  // formatSkuPriceLabel (matches /pricing's public no-pax behavior). The
+  // authoritative pax charge is still recomputed server-side at order time by
+  // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
+  const pricing = buildOnboardingPricing(customerSkus, bundles);
   return (
     <OnboardingShell
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
+      pricing={pricing}
     />
   );
 }

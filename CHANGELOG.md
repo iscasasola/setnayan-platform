@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding,pricing): de-hardcode onboarding prices → read the live admin catalog (owner directive)
+
+**Context:** Owner directive 2026-06-08 — "our pricing must not be hardcoded but taken from the admin pricing page." The onboarding services screens (15 "Boost & enhance" / 16 "Services you're interested in") showed SELLING prices from a hardcoded `SVC` constant in `onboarding-shell.tsx`. They now read the SAME live, admin-managed catalog `/pricing` reads. Closes the explicit follow-up logged in the 2026-06-08 canonical-reprice entry below ("onboarding still reads the SVC demo constant … proper server-side wiring is deferred").
+
+**What landed:**
+- **New module `apps/web/app/onboarding/wedding/_components/onboarding-pricing.ts`** (pure, server-importable, no `'use client'`/`'server-only'`): `buildOnboardingPricing(customer, bundles, pax?)` turns the two live-catalog fetch results into one plain-JSON view-model (`OnboardingPricing = { svc, bundles, promo }`). Holds the verified 14-key `INAPP_TO_SERVICE_CODE` map (single source of truth), the illustrative `OUT_ANCHORS` (market "if hired elsewhere" anchors — NOT Setnayan prices), and the author-curated `BUNDLE_MEMBERS`.
+- **`page.tsx`**: added `export const dynamic = 'force-dynamic'` (mirrors `/pricing`); extended the existing `Promise.all` to also `fetchV2CustomerCatalog()` + `fetchV2BundleCatalog()`; built `pricing` and passed it as a new `pricing` prop to `<OnboardingShell>`.
+- **`onboarding-shell.tsx`**: added the `pricing: OnboardingPricing` prop; **DELETED the hardcoded `SVC` table** (both `set` and `out`); every consumer site (savings math ~2289, screen-15 detail card + carousel chip, screen-16 per-row + totals) now reads `pricing.svc[k]` with a crash-safe `₱0` default. Price strings render `pricing.svc[k].label` so the pax SKU (PAPIC_GUEST) shows "from ₱2,999" honestly; flat SKUs show "₱X". `BUNDLE_ITEMS`/`BUNDLE_BENEFIT`/`BUNDLE_ASSET`/`INAPP_VS`/`INAPP_KEYS`/`INAPP_TO_ADDON_SLUG`/`ONBOARDING_PROMO` untouched (display metadata + business rule).
+
+**Untouched (money path byte-identical):** `INAPP_TO_ADDON_SLUG` checkout routing (`/dashboard/{id}/add-ons/{slug}`), `submitOrderAction`, and `resolvePaxPricedOrderCentavos` — the authoritative order charge is still recomputed server-side from `events.estimated_pax` + the catalog at order submit, ignoring any client price. The onboarding wiring is DISPLAY-ONLY.
+
+**⚠ SURFACED FOR OWNER SIGN-OFF:**
+- **`BUNDLE_MEMBERS`** (which à-la-carte services each bundle contains) is author-curated — there is NO DB source for bundle membership (no `platform_package_items` table). It drives the displayed bundle "worth/save ₱X". The **bundle UI is DEFERRED** — the `pricing.bundles` view-model is built + typed but currently **UNCONSUMED** by the shell (the flow monetizes à-la-carte only). No invented membership is shown to users until the owner ratifies the list and a bundle card is wired.
+- **`out` market anchors** kept as a clearly-labeled illustrative constant (`OUT_ANCHORS`) — permitted by the directive ("those may remain as a clearly-labeled illustrative constant"). No `compare_at`/market column exists in the catalog.
+
+**Verification:** `tsc --noEmit` clean · `next build` succeeds · `/onboarding/wedding` renders dynamic (ƒ) · 0 `SVC[` code references remain · covert rule preserved (no pricing in the love-stage module).
+
+**SPEC IMPACT:** Onboarding now reads live prices from `platform_retail_catalog_v2` + `platform_package_catalog` (no hardcoded selling prices). DECISION_LOG row to add (2026-06-08 onboarding live-wire); the bundle-membership question stays open for the owner.
+
 ## 2026-06-08 · feat(pricing): canonical customer reprice — apply to the live V2 catalog (owner-authorized)
 
 **Context:** Owner authorized ("apply now", 2026-06-08) the canonical customer pricing from `Pricing_Canonical_2026-06-08.md` across the app. The live source is the **V2 customer catalog** (`platform_retail_catalog_v2` + `platform_package_catalog`, read by `lib/v2-catalog.ts` → /pricing, /for-vendors, dashboard checkout) — NOT the retired V1 `service_catalog`. The two bundles were already at canonical (Essentials ₱12,999 / Complete ₱27,999); the retail catalog needed reconciliation.

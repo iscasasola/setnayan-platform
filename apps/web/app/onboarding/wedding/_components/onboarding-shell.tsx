@@ -61,6 +61,7 @@ import {
 } from '../types';
 import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
+import type { OnboardingPricing } from './onboarding-pricing';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import {
@@ -1108,10 +1109,10 @@ function DateCalendar({
   );
 }
 
-/* ── Budget-matched bundle (prototype BUNDLE_* + SVC + renderMatchedBundle · owner 2026-06-01/02) ──
-   One curated bundle keyed to the working budget. Cumulative ladder (each tier adds to the one below).
-   PRICE-FOLLOWER: in production the bundle reads each service's live price from the admin Add-on
-   Management menu (iteration 0023 §3.12 / service_catalog); SVC below is the prototype demo stand-in. */
+/* ── In-app service display metadata (BUNDLE_ITEMS name · BUNDLE_BENEFIT blurb · BUNDLE_ASSET poster).
+   Prices are NOT here — they come live from the admin catalog via the `pricing` prop (owner 2026-06-08,
+   onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
+   only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
   advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', sde: 'Same-Day Edit', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
@@ -1134,15 +1135,15 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   high_res: "Full-quality archive of all your originals, stored safely. Free with Setnayan — yours to keep, no subscription fees.",
 };
 /* Bundle tiers/groups removed 2026-06-05 — Your Plan v2 replaces the one-shot bundle with the
-   à-la-carte in-app-services flow (screens 15–16). BUNDLE_ITEMS/BUNDLE_BENEFIT/SVC/BUNDLE_ASSET
+   à-la-carte in-app-services flow (screens 15–16). BUNDLE_ITEMS/BUNDLE_BENEFIT/BUNDLE_ASSET
    stay (above + below) and are reused by INAPP_SERVICES. */
-/* out = market-equivalent "if hired separately" (admin-editable) · set = Setnayan price (pax items scale in admin). */
-const SVC: Record<string, { out: number; set: number }> = {
-  // `set` aligned to Pricing_Canonical_2026-06-08.md (owner-locked). Clean 1:1 maps only;
-  // advanced_website (premium site) + papic_guest (pax-priced) + indoor_blueprint/high_res
-  // (retirement pending owner confirm) left as demo anchors.
-  advanced_website: { out: 25000, set: 7999 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 4999 }, guest_stories: { out: 8000, set: 1499 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 1999 }, thank_you: { out: 60000, set: 3499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 999 }, panood: { out: 17500, set: 2499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
-};
+/* Pricing source (owner directive 2026-06-08): the hardcoded SVC {out,set} table was REMOVED —
+   onboarding now reads live SELLING prices from the admin-managed catalog. Each service's price
+   arrives as `pricing.svc[inappKey]` (built in page.tsx by buildOnboardingPricing from
+   platform_retail_catalog_v2 + platform_package_catalog — the SAME source /pricing reads).
+   `pricing.svc[k].set` = Setnayan price (pesos · catalog), `.label` = display string
+   (pax-correct "from ₱X"), `.out` = illustrative "if hired elsewhere" market anchor (NOT a
+   Setnayan price · lives in onboarding-pricing.ts OUT_ANCHORS, no DB column exists for it). */
 const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
 /* Comma thousands-separators for the numeric text boxes (guest count + budget).
    Strips non-digits then groups, so the box shows "1,355,000" live while typing
@@ -1153,10 +1154,10 @@ const groupDigits = (raw: string) => {
   return d ? Number(d).toLocaleString('en-US') : '';
 };
 /* In-app paid services offered on screen 15 (Boost & enhance) — replaces the removed bundle.
-   Curated keys reuse BUNDLE_ITEMS (name) · BUNDLE_BENEFIT (blurb) · SVC (set/out) · BUNDLE_ASSET
-   (poster); ordered by savings/wow. high_res excluded (free baseline). PRICE-FOLLOWER (same flag
-   as the retired bundle): production should read live price + build status from the v2 customer
-   catalog (lib/v2-catalog.ts); SVC here is the demo stand-in. */
+   Curated keys reuse BUNDLE_ITEMS (name) · BUNDLE_BENEFIT (blurb) · pricing.svc (set/out/label) ·
+   BUNDLE_ASSET (poster); ordered by savings/wow. high_res excluded (free baseline). Prices are
+   live from the admin catalog via the `pricing` prop (lib/v2-catalog.ts → buildOnboardingPricing);
+   the inapp keys here map 1:1 to service_codes in onboarding-pricing.ts INAPP_TO_SERVICE_CODE. */
 const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'indoor_blueprint', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
@@ -1437,6 +1438,7 @@ export function OnboardingShell({
   authed,
   resume,
   activeFaiths = null,
+  pricing,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1447,6 +1449,13 @@ export function OnboardingShell({
    * (read failed) → fall back to the built-in `soon` flags on FAITH_CHIPS.
    */
   activeFaiths?: string[] | null;
+  /**
+   * Live onboarding pricing view-model, built server-side from the admin-managed
+   * catalog (platform_retail_catalog_v2 + platform_package_catalog) by
+   * buildOnboardingPricing in page.tsx. The à-la-carte services screens (15/16)
+   * read SELLING prices from here — NO hardcoded prices (owner 2026-06-08).
+   */
+  pricing: OnboardingPricing;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -2286,8 +2295,12 @@ export function OnboardingShell({
   /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
   const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
   const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
-  const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (SVC[k]?.set ?? 0), 0);
-  const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (SVC[k]?.out ?? 0), 0);
+  // Live SELLING price from the admin catalog (pricing.svc[k].set). For the
+  // pax SKU (PAPIC_GUEST) this aggregate uses the floor — onboarding has no
+  // committed pax; the authoritative charge is recomputed at order time. The
+  // `out` market anchors are illustrative (not Setnayan prices).
+  const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.set ?? 0), 0);
+  const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.out ?? 0), 0);
   const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
 
   /* ════ THE MIRROR ════ a live wedding-website preview ribbon that accretes one real
@@ -3703,7 +3716,7 @@ export function OnboardingShell({
             <p className="sub">Optional add-ons — each one a tool, priced honestly. Add what you love.</p>
             {(() => {
               const fk = focusedService || INAPP_KEYS[0]!;
-              const p = SVC[fk] ?? { out: 0, set: 0 };
+              const p = pricing.svc[fk] ?? { set: 0, out: 0, label: '', isPax: false, buildStatus: 'not_built' as const };
               const save = Math.max(0, p.out - p.set);
               const added = state.interestedServices.includes(fk);
               return (
@@ -3716,7 +3729,7 @@ export function OnboardingShell({
                   <div className="svc-dpad">
                     <div className="svc-dnm">{BUNDLE_ITEMS[fk] ?? fk}</div>
                     <div className="svc-ddesc">{BUNDLE_BENEFIT[fk] ?? ''}</div>
-                    <div className="svc-dprice"><span className="svc-dset">{pesoB(p.set)}</span><span className="svc-dwas">{pesoB(p.out)}</span></div>
+                    <div className="svc-dprice"><span className="svc-dset">{p.label || pesoB(p.set)}</span><span className="svc-dwas">{pesoB(p.out)}</span></div>
                     {save > 0 && <div className="svc-dsave">You save {pesoB(save)} vs {INAPP_VS[fk] ?? 'hiring it elsewhere'}</div>}
                     <button type="button" className={`svc-add${added ? ' added' : ''}`} onClick={() => toggleInterested(fk)}>
                       {added ? '♥ Saved to your wedding' : '♡ Save to my wedding'}
@@ -3727,13 +3740,13 @@ export function OnboardingShell({
             })()}
             <div className="svc-car">
               {INAPP_KEYS.map((k) => {
-                const pp = SVC[k] ?? { out: 0, set: 0 };
+                const pp = pricing.svc[k] ?? { set: 0, out: 0, label: '', isPax: false, buildStatus: 'not_built' as const };
                 const on = (focusedService || INAPP_KEYS[0]) === k;
                 const added = state.interestedServices.includes(k);
                 return (
                   <button type="button" key={k} className={`svc-chip${on ? ' on' : ''}`} onClick={() => setFocusedService(k)}>
                     <div className="svc-chip-p" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }}>{added && <span className="svc-chip-chk" aria-label="Saved">♥</span>}</div>
-                    <div className="svc-chip-i"><div className="svc-chip-n">{BUNDLE_ITEMS[k] ?? k}</div><div className="svc-chip-pr">{pesoB(pp.set)}</div></div>
+                    <div className="svc-chip-i"><div className="svc-chip-n">{BUNDLE_ITEMS[k] ?? k}</div><div className="svc-chip-pr">{pp.label || pesoB(pp.set)}</div></div>
                   </button>
                 );
               })}
@@ -3757,20 +3770,24 @@ export function OnboardingShell({
               <>
                 <div className="svc-rows-scroll">
                   {state.interestedServices.map((k) => {
-                    const p = SVC[k] ?? { out: 0, set: 0 };
+                    const p = pricing.svc[k] ?? { set: 0, out: 0, label: '', isPax: false, buildStatus: 'not_built' as const };
                     const save = Math.max(0, p.out - p.set);
                     return (
                       <div className="svc-row" key={k}>
                         <div className="svc-row-th" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
                         <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}{recommendedSet.has(k) ? <span className="svc-rec">Recommended</span> : null}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
-                        <div className="svc-row-p">{pesoB(p.set)}</div>
+                        <div className="svc-row-p">{p.label || pesoB(p.set)}</div>
                         <button type="button" className="svc-row-x" aria-label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)}>×</button>
                       </div>
                     );
                   })}
                 </div>
                 {(() => {
-                  const setTotal = state.interestedServices.reduce((s, k) => s + (SVC[k]?.set ?? 0), 0);
+                  // Live catalog SELLING prices. For the pax SKU (PAPIC_GUEST) this
+                  // aggregate uses the floor `set` (onboarding has no committed pax);
+                  // the authoritative charge is recomputed at order time. This is an
+                  // onboarding estimate — do NOT "fix" it into a hardcode.
+                  const setTotal = state.interestedServices.reduce((s, k) => s + (pricing.svc[k]?.set ?? 0), 0);
                   const promo = Math.round(setTotal * ONBOARDING_PROMO);
                   const due = setTotal - promo;
                   return (

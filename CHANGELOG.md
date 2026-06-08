@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · refactor(admin): ops-shaped nav re-bucket (PR 1 of N) — verb spine + drift fixes
+
+**Context:** Owner-approved nav redesign (`Admin_Console_Nav_Redesign_2026-06-08.{md,html}` in the spec corpus · DECISION_LOG 2026-06-08, **conditional sign-off** — "for as long as everything is easier to manage"). The admin console was 6 noun-domain groups (Home/Queues/Directory/Money/Insights/Manage). This PR — the cheap, low-risk first slice — re-buckets the nav by **verb** (act / find / tune) and folds in the drift fixes. No new feature pages, no schema, no data changes.
+
+**What landed:**
+- `app/admin/_components/admin-sidebar.tsx` — `ADMIN_NAV_GROUPS` re-cut to a 3-item spine (**Home · Work · Directory**) + 3 collapsible tune-groups (**Insights · Money & Catalog · Platform**). **Group keys preserved** (`queues`→"Work", `money`→"Money & Catalog", `funnels`→"Insights", `content`→"Platform") so per-section localStorage open-state survives. The **Money group dissolves**: its queues (Payouts, Token sales) move into Work; its config stays as Money & Catalog. **Drift fixes:** `/admin/notifications` (was an orphan — no nav entry anywhere) gets a home under Platform; Wedding types + Wedding traditions move Directory → Platform (governance + content, not look-up).
+- `app/admin/_components/admin-bottom-nav.tsx` — mobile strip re-cut from 5 tabs (Home/Queues/Directory/Money/More) to a **4-tab spine** (Home · Work · Directory · More); `activeMatch` arrays updated; **Token sales added to the Work match** (it lit no tab before — drift fix).
+- `app/admin/work/page.tsx` — **new** mobile triage feed: the renamed + expanded successor to the queues feed (adds Payouts + Token sales counts). Reuses `QueuesTriageFeed` (now takes an optional `title` prop).
+- `app/admin/queues/page.tsx` → redirect to `/admin/work`; `app/admin/money/page.tsx` → redirect to `/admin/more` (bookmark continuity).
+- `app/admin/directory/page.tsx` — drop the two wedding-* cards; `app/admin/more/page.tsx` — now Insights + Money & Catalog + Platform (adds the money-config cards + wedding-* + notifications).
+
+**Not in this PR (committed follow-ups, per the redesign):** the Work master-detail + **Money-lane filter** (the owner sign-off condition — ships *with* the Work view PR so finance keeps a one-stop money view), the full command-center Home, the net-new `/admin/approvals` two-admin queue UI, and the mobile-More 3-section accordion. Desktop sidebar + mobile feed are the high-value, zero-risk slice.
+
+**Verify:** `tsc --noEmit` ✓ (only 2 pre-existing unrelated module errors from the local stale install — `@mediapipe/tasks-vision`, `sharp`; both present in CI's install) · `next lint --dir app/admin` ✓ (1 pre-existing warning in `moodboard-library`, untouched) · swept: no external importers of `ADMIN_NAV_GROUPS`, no code links to `/admin/queues|/admin/money`, no tests reference the admin nav.
+
+**SPEC IMPACT:** Implements PR 1 of `Admin_Console_Nav_Redesign_2026-06-08.md`. The Money-lane filter remains a committed follow-up (sign-off condition). Logged in corpus `DECISION_LOG.md` (2026-06-08 admin-nav rows).
 ## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
 
 **Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. Suno); the onboarding streams it. Mirrors the per-event website background-music feature (site-chrome, Increment B).

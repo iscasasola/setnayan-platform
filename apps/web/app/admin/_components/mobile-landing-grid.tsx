@@ -1,13 +1,12 @@
 /**
  * MobileLandingGrid — v2.1 Navigation Phase 3 (admin mobile overflow).
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock specifies 4
- * mobile-overflow landing pages (/admin/queues + /admin/directory +
- * /admin/money + /admin/more) reachable from BottomNav. Each landing
- * page renders a .m-card grid of surface entries with icon + label +
- * 1-line description. This component is the shared renderer so all 4
- * pages consume the same NavItem[] shape from admin-sidebar.tsx — single
- * source of truth.
+ * WHY: ops-shaped nav redesign 2026-06-08 — the admin mobile strip is a
+ * 4-tab spine (Home · Work · Directory · More). This shared renderer backs
+ * the card-grid landings (/admin/directory + /admin/more); /admin/work uses
+ * the QueuesTriageFeed instead (a prioritized action feed, not a card menu).
+ * Each card renders icon + label + 1-line description. Items mirror the
+ * admin-sidebar.tsx groups — single source of truth.
  *
  * SCOPE: server component, no client interactivity. Each card is a
  * <Link> with .m-card chrome from globals.css. Stacks single-column on

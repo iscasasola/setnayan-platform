@@ -14,8 +14,6 @@ import {
   TestTube,
   CalendarDays,
   MapPin,
-  Church,
-  BookOpen,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
@@ -62,22 +60,8 @@ const DIRECTORY_ITEMS: LandingItem[] = [
     description:
       'Venue directory. Add a new venue, edit existing, or open a venue page for review.',
   },
-  {
-    key: 'wedding-types',
-    label: 'Wedding types',
-    href: '/admin/wedding-types',
-    icon: Church,
-    description:
-      'Per-religion launch gate — vendor and venue readiness vs an editable threshold; open, hold, or disable each wedding religion.',
-  },
-  {
-    key: 'wedding-traditions',
-    label: 'Wedding traditions',
-    href: '/admin/wedding-traditions',
-    icon: BookOpen,
-    description:
-      'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
-  },
+  // Wedding types + Wedding traditions moved to More → Platform (governance +
+  // content, not record-lookup) per the ops-shaped nav redesign A.4.
 ];
 
 export default function AdminDirectoryLanding() {

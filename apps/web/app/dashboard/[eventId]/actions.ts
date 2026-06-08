@@ -185,7 +185,23 @@ export async function setPlanningMode(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { error } = await supabase
+  // Membership gate (user-scoped read RLS): if the caller can READ this event,
+  // they're a member and may flip its planning mode.
+  const { data: membership } = await supabase
+    .from('events')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!membership) throw new Error('not a member of this event');
+
+  // Apply via the admin client AFTER the membership gate above. Why not the
+  // user client: the `couple_can_update_event` policy keys on
+  // event_members.member_type='couple', which is absent for seeded / host /
+  // multi-host events — a user-client UPDATE then silently affects 0 rows (no
+  // error), so the "Switch to manual" toggle appeared to do nothing. Gating on
+  // read + writing via admin lands the flip for every legitimate member.
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('events')
     .update({ planning_mode: mode })
     .eq('event_id', eventId);

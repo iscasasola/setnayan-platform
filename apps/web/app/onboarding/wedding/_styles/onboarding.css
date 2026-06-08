@@ -528,8 +528,8 @@
 .onbw .svccard.sel .svcck{background:var(--gold);border-color:var(--gold);color:#fff;}
 .onbw .svccard.sel .svclb{color:#fff;}
 /* ── Song Bank — results-on-top, search pinned at the BOTTOM (Onboarding_Style_and_Song_Bank §5; mirrors the location screen) ── */
-.onbw .prefstep[data-dim="music"] .viewzone{flex:0 0 auto;}
-.onbw .prefstep[data-dim="music"] .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw .prefstep[data-dim="music"] .viewzone,.onbw #screen-songs .viewzone{flex:0 0 auto;}
+.onbw .prefstep[data-dim="music"] .tapzone,.onbw #screen-songs .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
 .onbw .prefstep[data-dim="music"] .tapzone .prefmicro{display:none;}
 .onbw .songbank{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:0;}
 .onbw .songbank .songresults{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:3px;}
@@ -952,3 +952,43 @@
 .onbw .stayfree{text-align:center;margin:12px 0 2px;font-size:12px;color:var(--ink-faint);}
 .onbw .stayfree u{cursor:pointer;text-decoration-color:var(--line-2);text-underline-offset:3px;}
 .onbw .stayfree u:hover{color:var(--ink-soft);}
+
+/* ════ Dream Team picker (PR-3) — team_basics + team_extras + mood screen-scoped layout ════
+   team_basics: pax-style split — the focused essential's hero photo maximizes (top), the
+   4-card carousel docks (bottom). Reuses .styhero / .svccard / .rail.car. */
+.onbw #screen-team-basics .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw #screen-team-basics .styhero{flex:1 1 auto;height:auto;min-height:150px;margin-top:auto;}
+.onbw #screen-team-basics .styhcap{display:flex;flex-direction:column;gap:3px;}
+.onbw #screen-team-basics .styhcap .bft{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;}
+.onbw #screen-team-basics .styhcap .bfd{font-family:var(--sans);font-style:normal;font-weight:500;font-size:12px;line-height:1.35;color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(0,0,0,.45);}
+.onbw #screen-team-basics .tapzone{flex:0 0 auto;margin-top:12px;}
+.onbw #screen-team-basics .rail.car{gap:12px;padding:3px 30px 6px 2px;scroll-snap-type:x mandatory;}
+.onbw #screen-team-basics .rail.car .svccard{flex:0 0 44%;width:auto;height:148px;scroll-snap-align:center;}
+/* team_extras: the viewzone is fixed; the accordion browser fills the tapzone + scrolls
+   internally (no page scroll). Ported from the prototype's #s3pick + .exgroup rules. */
+.onbw #screen-team-extras .viewzone{flex:0 0 auto;}
+.onbw #screen-team-extras .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw .exscroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 4px;margin:0 -2px;scrollbar-width:none;}
+.onbw .exscroll::-webkit-scrollbar{width:0;}
+.onbw .exgroup{border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:9px;overflow:hidden;transition:border-color .15s;}
+.onbw .exgroup.open{border-color:var(--gold);}
+.onbw .exhead{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:14px 16px;font-family:inherit;text-align:left;-webkit-tap-highlight-color:transparent;}
+.onbw .exhead:hover{background:var(--gold-wash);}
+.onbw .exname{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);}
+.onbw .exmeta{display:flex;align-items:center;gap:9px;flex:0 0 auto;}
+.onbw .extiles{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-faint);background:rgba(30,34,41,.05);border-radius:999px;padding:3px 9px;}
+.onbw .excount{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;}
+.onbw .exchev{font-size:20px;color:var(--ink-faint);line-height:1;transition:transform .2s;display:inline-block;}
+.onbw .exgroup.open .exchev{transform:rotate(90deg);color:var(--gold-deep);}
+.onbw .exbody{padding:0 16px;}
+.onbw .exgroup.open .exbody{padding:2px 10px 13px 2px;animation:rise .3s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .exbody .railwrap{margin:0;}
+.onbw .exbody .rail.car{gap:10px;padding:3px 30px 3px 2px;scroll-snap-type:x mandatory;}
+.onbw .exbody .rail.car .svccard{flex:0 0 42%;width:auto;height:120px;scroll-snap-align:start;}
+/* mood: the feel hero maximizes (the screen is no longer inside .prefstep, so re-state the
+   has-hero flex-fill); the swatch row + FEEL_CHIPS strip dock below. */
+.onbw #screen-mood .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw #screen-mood .feelphoto{flex:1 1 auto;height:auto;min-height:120px;margin-top:auto;}
+.onbw #screen-mood .tapzone{flex:0 0 auto;margin-top:10px;}
+.onbw #screen-mood .pgrid.strip .pcard .pimg{height:74px;}
+.onbw #screen-mood .pgrid.strip .pcard .pimg .g{font-size:27px;}

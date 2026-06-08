@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): Dream Team PR-3 — two-screen picker, retire StyleSubStepper
+
+**Context:** Third of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§3.1/§5). Replaces the single flat `picker` + the `prefs` sub-stepper with a two-screen picker + standalone style screens. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed). Net shell-line reduction (StyleSubStepper retired).
+
+**What landed (`onboarding-shell.tsx` + `onboarding.css`):**
+- **`team_basics`** — pax-style screen: maximized hero of the focused basic + a 4-card carousel of `BASIC_CATS = ['ceremony','catering','coordinator','photo_video']` (production PICK_GROUPS keys). Cards toggle via the EXISTING `pickChip` → `state.picks`.
+- **`team_extras`** — expandable parent→tiles browser of the full taxonomy MINUS the 4 basics and `reception` (empty parents hidden). Tiles toggle via `pickChip`.
+- **`songs`** + **`mood`** — the music (`SongBankStep` → `prefs.music`) + palette/feel (`FEELS` → `prefs.feel`) dimensions lifted OUT of the retired StyleSubStepper into standalone screens (still AI-gated).
+- **`FLOW_IDS`**: `picker`→`team_basics`+`team_extras`, `prefs`→`songs`+`mood`. **`TEAM_AI_ONLY = {team_basics, team_extras, songs, mood}`** (buildSequence logic unchanged). **Retired** StyleSubStepper, the `prefs` render, `prefIdx`/`prefQueue`/`prefsLabel`, the `go()` prefs special-case (remaining refs are comments only).
+
+**Bridge (§3.1 Option A — verified):** basics vs extras is a RENDER-TIME partition of ONE flat `state.picks` — NO `basicPicks`/`enhancePicks`. `pickChip` stays the single mutator, so `interested_categories` (commit), `getOnboardingVendorCounts`, `recommendedInappFor` are byte-unchanged. `actions.ts` + `types.ts` untouched. `prefs.music`/`prefs.feel` still captured; `prefs.ceremony`/`cuisine`/`pvLook` intentionally uncaptured until PR-4 (find reads only `prefs.reception` — safe).
+
+**⚠ FLAG for owner:** (1) `songs`+`mood` screens RETAINED (the prototype dropped both; kept so the Song Bank + palette capture survives). (2) `songs` is currently Skippable (sort-not-gate) — say if you want a ≥10-song floor.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` `ƒ`, bundle 52.2 kB) · no dangling StyleSubStepper/prefs refs · covert grep clean · all 3 adversarial lenses passed.
+
+**SPEC IMPACT:** None (matches the locked porting spec). DECISION_LOG row at PR-4 when the chapter goes fully live.
+
 ## 2026-06-08 · feat(onboarding): Dream Team PR-2 — chapter chrome + AI-gate fork
 
 **Context:** Second of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§4/§5). PR-2 adds the chapter CHROME + the AI-gate fork; the picks split + refine engine are PR-3/PR-4. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed).

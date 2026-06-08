@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
+
+**Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). The nav core swap + the told-back love stage, in one PR (merged cleanly with the concurrent #1071 pure-moment intro).
+
+**What landed (`onboarding-shell.tsx`, `types.ts`, `actions.ts`, new `_components/weave-story.ts`, `_styles/onboarding.css`, migration `20260914000000_love_story_covert_renames.sql`):**
+- **Nav core:** `step === N` → string-id `FLOW_IDS` + `buildSequence(kind, authed, loveSkipped)`; forks (Civil→skip faith · authed→skip account · loveSkipped→skip the 5 love screens) are array membership. `state.step` stays a number (drafts unchanged) = index into the sequence; `activeId` derived per render; `go()`/`goToId()` by sequence index. #1071's `finishMoments` is now `goToId('name')` (id-addressed, civil-safe).
+- **Love stage (6 screens after `name`):** Hook · Spark+Almost · The Yes · Little Things · Voice · Reveal — sentence-stems + causal follow-ups + obstacle beat + two-voice braid + a told-back "published page" reveal via `weave-story.ts`. New `OnboardingState` love fields written to `events` at commit (best-effort). Migration renames `editorial_tone → story_tone` / `editorial_language → story_language` + documents the `love_story` v2 JSONB (applied to prod). **COVERT:** love copy names only "your wedding website" — never editorial/song/Pakanta (grep-gated).
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · `playwright e2e` PASS · covert grep clean.
+
+**SPEC IMPACT:** None on prices/SKUs. Mirror + Stage-4 pricing + dashboard bloom follow in later PRs.
+
 ## 2026-06-08 · fix(for-vendors,0015): correct stale vendor pricing + token model on the marketing page
 
 **Context:** Owner 2026-06-08 — the live `/for-vendors` page showed the WRONG vendor pricing (₱2,499/₱5,499 + a ₱1,499 verification fee + a "Free" tier), contradicting the actual backend. The DB (`vendor_billing_catalog`, migration `20260911000000_vendor_tier_reprice_verified_free`) + `/pricing` already reflect the real model — this PR fixes the stale hard-coded marketing page to match. No DB / backend change.

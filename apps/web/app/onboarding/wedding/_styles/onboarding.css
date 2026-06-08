@@ -676,6 +676,166 @@
 .onbw .svc-rows-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -2px;padding:2px 2px 0;scrollbar-width:none;}
 .onbw .svc-rows-scroll::-webkit-scrollbar{display:none;}
 
+/* ════════════════════════════════════════════════════════════════════════════
+   LOVE STAGE — the 6 love_* screens (website "Our Love Story" voice).
+   Direct port of the love-stage <style> block from
+   Onboarding_Wedding_Adaptive_Flow_2026-06-07.html, scoped under .onbw and
+   re-targeted to the production section ids (#screen-love-met / #screen-love-preview).
+   COVERT: nothing here names editorial / song / lyric — only the wedding-website story.
+   Tokens already match (:root above): --paper/--ink/--ink-soft/--ink-faint/--gold/
+   --gold-deep/--gold-wash/--mulberry/--mulberry-wash/--line/--line-2/--surface/--serif/--mono.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* textarea variant of .field (the stems + follow-ups grow vertically, don't resize). */
+.onbw textarea.field{font-size:16px;line-height:1.5;min-height:64px;resize:none;display:block;}
+.onbw textarea.field::placeholder{color:var(--ink-faint);font-style:italic;}
+
+/* love-story hero glyph (love_intro) — same editorial weight as a round icon. */
+.onbw .loveglyph{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;color:var(--gold-deep);font-size:26px;margin-bottom:14px;background:var(--gold-wash);}
+
+/* partner / duet pill (display-only on love_intro; teases the two voices) */
+.onbw .duet{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap;}
+.onbw .vpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);min-height:30px;}
+.onbw .vpill .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:0 0 auto;}
+.onbw .vpill.muted{opacity:.5;}
+.onbw .vpill .dot.her{background:var(--mulberry);}
+
+/* whose-turn cue line above a stem */
+.onbw .turncue{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:7px;}
+
+/* a sentence-stem: a visible serif prefix + an auto-growing textarea, read as one sentence */
+.onbw .stem{margin-bottom:6px;}
+.onbw .stem .stem-pre{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.3;color:var(--ink);display:block;margin-bottom:6px;}
+.onbw .stem textarea.field{min-height:64px;}
+.onbw .stem.tight textarea.field{min-height:52px;}
+
+/* the causal follow-up — a quiet ghost line that appears once they start the sentence */
+.onbw .followup{margin-top:8px;border-left:2px solid var(--gold);padding-left:11px;display:none;animation:rise .35s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .followup.show{display:block;}
+.onbw .followup .fu-q{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:6px;}
+.onbw .followup textarea.field{min-height:48px;font-size:15px;}
+
+/* sensory starter-chips (drop a stem) + obstacle inspiration cues + setting chips */
+.onbw .sparkchips{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0 4px;}
+.onbw .sparkchips .sc{border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:6px 11px;font-size:12px;cursor:pointer;transition:.15s;color:var(--ink-soft);font-family:inherit;display:inline-flex;align-items:center;gap:5px;min-height:32px;}
+.onbw .sparkchips .sc:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-wash);}
+.onbw .sparkchips .sc.sel{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+/* the Almost block — folds under the Spark on love_met; a hairline divider sets it apart */
+.onbw .almost{margin-top:13px;padding-top:13px;border-top:1px dashed var(--line-2);}
+.onbw .almost .normalize{font-size:12px;color:var(--ink-faint);font-style:italic;margin-bottom:9px;line-height:1.4;}
+
+/* tiny inline year pills (love_met met/together · love_proposal year) */
+.onbw .tinyyear{display:inline-flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap;}
+.onbw .tinyyear label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);}
+.onbw .tinyyear input{width:72px;border:1px solid var(--line-2);border-radius:10px;padding:7px 10px;font-family:var(--serif);font-style:italic;font-size:15px;background:var(--surface);color:var(--ink);}
+.onbw .tinyyear input:focus{outline:none;border-color:var(--gold);}
+
+/* who-asked toggle (love_proposal, required two-tap) */
+.onbw .whoasked{display:flex;gap:7px;margin:12px 0 4px;}
+.onbw .whoasked .wa{flex:1 1 0;border:1px solid var(--line-2);background:var(--surface);border-radius:13px;padding:9px 8px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:.15s;min-height:44px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;font-family:inherit;}
+.onbw .whoasked .wa:hover{border-color:var(--gold);}
+.onbw .whoasked .wa.sel{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.onbw .walbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);margin:12px 0 5px;}
+
+/* love_milestones · 2×2 anchor tile grid (375px-safe · 44px+ targets) */
+.onbw .lovetiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px;}
+.onbw .lovetile{border:1px solid var(--line-2);background:var(--surface);border-radius:15px;padding:12px 12px;cursor:pointer;transition:.15s;min-height:64px;display:flex;flex-direction:column;justify-content:center;gap:3px;}
+.onbw .lovetile:hover{border-color:var(--gold);}
+.onbw .lovetile.filled{border-color:var(--gold);background:var(--gold-wash);}
+.onbw .lovetile.open{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset;cursor:default;}
+.onbw .lovetile .lt-ic{font-size:18px;line-height:1;}
+.onbw .lovetile .lt-lbl{font-size:13px;font-weight:600;color:var(--ink);}
+.onbw .lovetile .lt-val{font-family:var(--serif);font-style:italic;font-size:13.5px;color:var(--gold-deep);line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.onbw .lovetile .lt-in{width:100%;border:1px solid var(--line-2);border-radius:9px;padding:7px 9px;font-family:var(--serif);font-style:italic;font-size:14px;background:var(--surface);color:var(--ink);}
+.onbw .lovetile .lt-in:focus{outline:none;border-color:var(--gold);}
+
+/* love_milestones · gold-dot story timeline (in-screen collection view) */
+.onbw .lovetl{display:flex;flex-direction:column;gap:0;margin-top:4px;}
+.onbw .lovetl .tl{display:flex;gap:12px;align-items:flex-start;padding-bottom:15px;position:relative;}
+.onbw .lovetl .tl:last-child{padding-bottom:4px;}
+.onbw .lovetl .tl .d{width:11px;height:11px;border-radius:50%;background:var(--gold);margin-top:4px;flex:0 0 auto;position:relative;z-index:1;}
+.onbw .lovetl .tl .d::after{content:"";position:absolute;left:5px;top:11px;width:1px;height:34px;background:var(--line-2);}
+.onbw .lovetl .tl:last-child .d::after{display:none;}
+.onbw .lovetl .tl .yr{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--gold-deep);}
+.onbw .lovetl .tl .mm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;line-height:1.12;}
+
+/* + Add a moment — friendly inline mini-form (quick-pick chips + warm title + optional month/day) */
+.onbw .loveaddmom{margin-top:6px;width:100%;background:transparent;color:var(--ink-soft);border:1px dashed var(--gold);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.onbw .loveaddmom:hover{background:var(--gold-wash);color:var(--ink);}
+.onbw .momentform{margin-top:8px;border:1px solid var(--line-2);border-radius:14px;background:var(--surface);padding:14px;animation:momentIn .42s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .mf-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:9px;}
+.onbw .mf-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
+.onbw .mf-chip{border:1px solid var(--line-2);background:var(--paper);border-radius:30px;padding:6px 11px;font-size:12px;cursor:pointer;transition:.15s;color:var(--ink-soft);font-family:inherit;}
+.onbw .mf-chip:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-wash);}
+.onbw .mf-title{width:100%;margin-bottom:9px;}
+.onbw .mf-when{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap;}
+.onbw .mf-num{width:62px;text-align:center;}
+.onbw .mf-num.mf-mini{width:50px;}
+.onbw .mf-opt{font-size:11px;color:var(--ink-faint);font-style:italic;}
+.onbw .mf-actions{display:flex;align-items:center;gap:12px;}
+.onbw .mf-add{flex:1 1 auto;background:var(--mulberry);color:#fff;border:0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.onbw .mf-add:hover{filter:brightness(.93);}
+.onbw .mf-cancel{background:transparent;border:0;color:var(--ink-faint);font-size:13px;cursor:pointer;font-family:inherit;}
+.onbw .mf-remove{background:transparent;border:0;color:var(--mulberry);font-size:12px;cursor:pointer;font-family:inherit;}
+
+/* love_tone · the on-site section-name badge */
+.onbw .lovebadge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-wash);border:1px solid #e6d3a8;border-radius:999px;padding:6px 13px;margin-top:14px;}
+
+/* ── love_preview / love_tone "site card" — the told-back published page ── */
+.onbw .sitecard{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 12px 34px rgba(30,34,41,.07),0 2px 8px rgba(30,34,41,.04);position:relative;}
+.onbw .sitecard::before{content:"";position:absolute;inset:0 0 auto 0;height:150px;background:linear-gradient(180deg,var(--gold-wash),rgba(244,236,216,0));opacity:.6;pointer-events:none;}
+.onbw .sc-inner{position:relative;padding:22px 20px 20px;}
+.onbw .sc-masthead{display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:13px;}
+.onbw .sc-monorow{display:flex;align-items:baseline;justify-content:center;gap:9px;font-family:var(--serif);font-style:italic;font-weight:600;color:var(--mulberry);line-height:1;}
+.onbw .sc-monorow .ini{font-size:52px;letter-spacing:-.02em;}
+.onbw .sc-monorow .amp{font-size:29px;color:var(--gold-deep);position:relative;top:-3px;}
+.onbw .sc-dateline{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);text-align:center;line-height:1.5;}
+.onbw .sc-pull{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.28;color:var(--ink);text-align:center;letter-spacing:.005em;margin:6px 4px 16px;}
+.onbw .sc-pull .pk{color:var(--mulberry);}
+.onbw .sc-prose{font-family:var(--serif);font-weight:500;font-size:16px;line-height:1.62;color:var(--ink);text-align:left;letter-spacing:.004em;}
+.onbw .sc-prose .ln{display:block;margin-bottom:7px;animation:storyfade .5s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .sc-prose .ln:last-child{margin-bottom:0;}
+.onbw .sc-prose em{font-style:italic;color:var(--mulberry);font-weight:600;}
+.onbw .sc-tl{display:flex;flex-direction:column;gap:0;margin-top:20px;padding-top:18px;border-top:1px solid var(--line);}
+.onbw .sc-tlhd{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);text-align:center;margin-bottom:15px;}
+.onbw .sc-tl .tl{display:flex;gap:13px;align-items:flex-start;padding-bottom:15px;position:relative;}
+.onbw .sc-tl .tl:last-child{padding-bottom:0;}
+.onbw .sc-tl .tl .d{width:11px;height:11px;border-radius:50%;background:var(--gold);margin-top:3px;flex:0 0 auto;position:relative;z-index:1;box-shadow:0 0 0 4px var(--gold-wash);}
+.onbw .sc-tl .tl .d::after{content:"";position:absolute;left:5px;top:11px;width:1px;height:30px;background:var(--line-2);}
+.onbw .sc-tl .tl:last-child .d::after{display:none;}
+.onbw .sc-tl .tl .d.peak{background:var(--mulberry);box-shadow:0 0 0 4px var(--mulberry-wash);}
+.onbw .sc-tl .tl .yr{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--gold-deep);}
+.onbw .sc-tl .tl .mm{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:600;line-height:1.15;margin-top:1px;}
+.onbw .livecap{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:13px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);}
+.onbw .livecap .pulse{width:6px;height:6px;border-radius:50%;background:var(--gold);position:relative;}
+.onbw .livecap .pulse::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid var(--gold);opacity:.6;animation:ring 1.8s ease-out infinite;}
+
+@keyframes storyfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes momentIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes ring{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.7);opacity:0}}
+@media(prefers-reduced-motion:reduce){.onbw .sc-prose .ln{animation:none;}.onbw .livecap .pulse::after{animation:none;}}
+
+/* The Reveal (love_preview) is a scroll-to-explore "published page" — the viewzone scrolls
+   INTERNALLY (the full page can exceed the frame) while the twin-ghost CTA stays pinned. */
+.onbw #screen-love-preview.screen.active{flex:1 1 auto;min-height:0;}
+.onbw #screen-love-preview .viewzone{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.onbw #screen-love-preview .viewzone::-webkit-scrollbar{width:0;}
+.onbw #screen-love-preview .tapzone{flex:0 0 auto;}
+
+/* NO-SCROLL TIGHTENING — love_met (Spark + Almost, the densest screen) stays within the
+   ~665px frame. Compresses spacing/sizes only; no content cut. */
+.onbw #screen-love-met .stem .stem-pre{font-size:16px;margin-bottom:4px;}
+.onbw #screen-love-met .stem textarea.field{min-height:48px;}
+.onbw #screen-love-met .followup{margin-top:6px;padding-left:10px;}
+.onbw #screen-love-met .followup textarea.field{min-height:38px;}
+.onbw #screen-love-met .sparkchips{margin:6px 0 2px;gap:6px;}
+.onbw #screen-love-met .sparkchips .sc{padding:4px 9px;min-height:27px;font-size:11.5px;}
+.onbw #screen-love-met .turncue{margin-bottom:4px;}
+.onbw #screen-love-met .tinyyear{margin-top:6px;}
+.onbw #screen-love-met .tinyyear input{padding:5px 9px;}
+.onbw #screen-love-met .almost{margin-top:9px;padding-top:9px;}
+.onbw #screen-love-met .almost .normalize{margin-bottom:6px;font-size:11.5px;line-height:1.35;}
 /* ── Pure-moment conversational welcome (owner 2026-06-05 · ported from the
    production-mirror prototype Onboarding_Wedding_Flow_2026-06-01.html on 2026-06-08).
    ONE moment on screen at a time: a serif "speak" line with the gold Setnayan mark, or

@@ -45,25 +45,25 @@ import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tai
 export const revalidate = 3600;
 
 export const metadata = {
-  title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
+  title: 'Setnayan for Vendors — Verified free + Pro · ₱6,000/28d',
   description:
-    'Free vendor profile + Pro tier ₱2,499/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
+    'Free verified profile + Pro tier ₱6,000/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. 100 free tokens on verification (until 31 Jan 2027).',
   alternates: {
     canonical: '/for-vendors',
   },
   openGraph: {
-    title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
+    title: 'Setnayan for Vendors — Verified free + Pro · ₱6,000/28d',
     description:
-      'Free vendor profile + Pro tier ₱2,499/28d. 0% commission on bookings — we never touch the money.',
+      'Free verified profile + Pro tier ₱6,000/28d. 0% commission on bookings — we never touch the money.',
     url: '/for-vendors',
     type: 'website',
     siteName: 'Setnayan',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
+    title: 'Setnayan for Vendors — Verified free + Pro · ₱6,000/28d',
     description:
-      '0% commission. Free listing. Pro ₱2,499/28d. 100 founder bonus tokens on verification.',
+      '0% commission. Verified is free. Pro ₱6,000/28d. 100 free tokens on verification.',
   },
 };
 
@@ -88,7 +88,7 @@ const FOR_VENDORS_JSONLD = {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: 'Setnayan for vendors — Free + Pro · ₱2,499/28d',
+      name: 'Setnayan for vendors — Verified free + Pro · ₱6,000/28d',
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
@@ -112,16 +112,16 @@ const FOR_VENDORS_JSONLD = {
     {
       '@type': 'Offer',
       '@id': `${SITE_URL}/for-vendors#verified-vendor`,
-      name: 'Verified Vendor · one-time lifetime badge',
+      name: 'Verified Vendor · free verified badge',
       description:
-        'One-time ₱1,499 verification (DTI · BIR · Mayor’s Permit · sample work). Lifetime verified badge + unlimited bids + ratings on profile + video calls with couples.',
-      price: '1499',
+        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week + 100 free tokens on verification.',
+      price: '0',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '1499',
+        price: '0',
         priceCurrency: 'PHP',
-        unitText: 'ONE-TIME',
+        unitText: 'FREE',
       },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },
@@ -132,12 +132,12 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (28-day prepaid block)',
       description:
-        "One marketplace category · 5 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks (13 cycles/year).",
-      price: '2499',
+        "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. 28-day prepaid blocks (13 cycles/year).",
+      price: '6000',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '2499',
+        price: '6000',
         priceCurrency: 'PHP',
         billingDuration: 'P28D',
         unitText: '28-DAY BLOCK',
@@ -152,11 +152,11 @@ const FOR_VENDORS_JSONLD = {
       name: 'Enterprise Vendor (28-day prepaid block)',
       description:
         'Multiple marketplace categories · unlimited team accounts · everything in Pro at extended 100km radius. 28-day prepaid blocks (13 cycles/year).',
-      price: '5499',
+      price: '10000',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '5499',
+        price: '10000',
         priceCurrency: 'PHP',
         billingDuration: 'P28D',
         unitText: '28-DAY BLOCK',
@@ -180,12 +180,12 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
       name: 'Pro Vendor (annual subscription · save 23%)',
       description:
-        "₱24,999/year instead of ₱2,499 × 13 cycles = ₱32,487 · save ₱7,488. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
-      price: '24999',
+        "₱60,000/year instead of ₱6,000 × 13 cycles = ₱78,000 · save ₱18,000. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. Single annual payment.",
+      price: '60000',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '24999',
+        price: '60000',
         priceCurrency: 'PHP',
         billingDuration: 'P1Y',
         unitText: 'YEAR',
@@ -199,12 +199,12 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#enterprise-annual-subscription`,
       name: 'Enterprise Vendor (annual subscription · save 23%)',
       description:
-        '₱54,999/year instead of ₱5,499 × 13 cycles = ₱71,487 · save ₱16,488. Same Enterprise tier · multiple marketplace categories · unlimited team accounts · extended 100km radius · Single annual payment.',
-      price: '54999',
+        '₱100,000/year instead of ₱10,000 × 13 cycles = ₱130,000 · save ₱30,000. Same Enterprise tier · all marketplace categories · unlimited team accounts · extended 100km radius · Single annual payment.',
+      price: '100000',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '54999',
+        price: '100000',
         priceCurrency: 'PHP',
         billingDuration: 'P1Y',
         unitText: 'YEAR',

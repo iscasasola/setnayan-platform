@@ -6,15 +6,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
 
-**Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). Two parts in one PR (the nav core can't ship without something using it, and it merged cleanly with the concurrent #1071 pure-moment intro): (1) the navigation core swap, (2) the told-back love stage.
+**Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). The nav core swap + the told-back love stage, in one PR (merged cleanly with the concurrent #1071 pure-moment intro).
 
-**What landed (`onboarding-shell.tsx`, `types.ts`, `actions.ts`, new `_components/weave-story.ts`, `_styles/onboarding.css`, new migration):**
-- **Nav core:** replaced the fixed-index `step === N` model with string-id `FLOW_IDS` + `buildSequence(kind, authed, loveSkipped)` — the forks (Civil → skip faith · authed → skip account · loveSkipped → skip the 5 love collection screens) are now **array membership**, not index arithmetic. `state.step` stays a number (drafts unchanged) reinterpreted as the index into the sequence; `activeId` derived per render; all screen guards, step-keyed effects, `canContinue`, and chrome rekeyed to `activeId`; `go()`/`goToId()` navigate by sequence index. Merged with #1071: its `finishMoments` jump is now `goToId('name')` (id-addressed, civil-safe) instead of a hardcoded `step: 4`.
-- **Love stage (6 screens, inserted after `name`, before `date`):** Hook · Spark+Almost · The Yes · Little Things · Voice · Reveal — sentence-stems + causal follow-ups + the obstacle beat + two-voice braid + a told-back "published page" reveal via `weave-story.ts`. New `OnboardingState` fields (`loveStory{spark,spark_why,obstacle*,proposal_voice,proposal_feel,anchors{},…}`, `storyTone`, `storyLanguage`, `specialMessage`, `togetherSince`) written to `events` at commit (best-effort).
-- **Migration `20260914000000_love_story_covert_renames.sql`:** `events.editorial_tone → story_tone` (+CHECK), `editorial_language → story_language`, documents the `love_story` v2 JSONB shape. **COVERT:** couple-facing love copy names only "your wedding website" — never editorial/song/Pakanta (grep-gated).
-- **Verified:** `tsc --noEmit` PASS · `next build` PASS (`/onboarding/wedding` compiles) · covert grep clean · PR-1 nav-only variant passed full CI incl. `playwright e2e` (runtime nav parity).
+**What landed (`onboarding-shell.tsx`, `types.ts`, `actions.ts`, new `_components/weave-story.ts`, `_styles/onboarding.css`, migration `20260914000000_love_story_covert_renames.sql`):**
+- **Nav core:** `step === N` → string-id `FLOW_IDS` + `buildSequence(kind, authed, loveSkipped)`; forks (Civil→skip faith · authed→skip account · loveSkipped→skip the 5 love screens) are array membership. `state.step` stays a number (drafts unchanged) = index into the sequence; `activeId` derived per render; `go()`/`goToId()` by sequence index. #1071's `finishMoments` is now `goToId('name')` (id-addressed, civil-safe).
+- **Love stage (6 screens after `name`):** Hook · Spark+Almost · The Yes · Little Things · Voice · Reveal — sentence-stems + causal follow-ups + obstacle beat + two-voice braid + a told-back "published page" reveal via `weave-story.ts`. New `OnboardingState` love fields written to `events` at commit (best-effort). Migration renames `editorial_tone → story_tone` / `editorial_language → story_language` + documents the `love_story` v2 JSONB (applied to prod). **COVERT:** love copy names only "your wedding website" — never editorial/song/Pakanta (grep-gated).
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · `playwright e2e` PASS · covert grep clean.
 
-**SPEC IMPACT:** None on prices/SKUs. The flow redesign is specced in `Onboarding_Production_Port_Plan_2026-06-08.md` (specs corpus); subsequent PRs add the Mirror, Stage-4 pricing, and the dashboard bloom.
+**SPEC IMPACT:** None on prices/SKUs. Mirror + Stage-4 pricing + dashboard bloom follow in later PRs.
+
+## 2026-06-08 · fix(for-vendors,0015): correct stale vendor pricing + token model on the marketing page
+
+**Context:** Owner 2026-06-08 — the live `/for-vendors` page showed the WRONG vendor pricing (₱2,499/₱5,499 + a ₱1,499 verification fee + a "Free" tier), contradicting the actual backend. The DB (`vendor_billing_catalog`, migration `20260911000000_vendor_tier_reprice_verified_free`) + `/pricing` already reflect the real model — this PR fixes the stale hard-coded marketing page to match. No DB / backend change.
+
+**The real model (already in the DB, now on the page):** **Verified ₱0** (free to get; no unverified-Free tier marketed) · **Pro ₱6,000/28d** (₱60,000/yr · save ₱18,000) · **Enterprise ₱10,000/28d** (₱100,000/yr · save ₱30,000) · **Token = ₱100 flat**, Pro/Enterprise burn **1–3 tokens (₱100–₱300), region-banded** (`token_burn_bands`) to unlock a couple (covers all their services), 100 free on verification. Matches `unlock_vendor_event`.
+
+**What landed (presentation only, 5 files):** `vendor-hero` · `for-vendors-deep-dive` 4-tier table + annuals + Enterprise callout · `stack-close-vendor` · `page-tail` money FAQ · `page.tsx` SEO metadata + 5 schema.org Offers.
+
+**Verify:** markup/SEO copy only, no type/DB change. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** Corrects the corpus stale vendor price (CLAUDE.md SKU table + Pricing.md §0.C) → ₱6,000/₱10,000 + Verified-₱0 + ₱100-token (DECISION_LOG row appended 2026-06-08). Follow-up: customer-dedicated nav + footer vendor menu.
 
 ## 2026-06-08 · feat(0016): pure-moment conversational onboarding intro (prototype→prod port)
 

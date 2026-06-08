@@ -1143,7 +1143,9 @@ const groupDigits = (raw: string) => {
    BUNDLE_ASSET (poster); ordered by savings/wow. high_res excluded (free baseline). Prices are
    live from the admin catalog via the `pricing` prop (lib/v2-catalog.ts → buildOnboardingPricing);
    the inapp keys here map 1:1 to service_codes in onboarding-pricing.ts INAPP_TO_SERVICE_CODE. */
-const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'indoor_blueprint', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
+// indoor_blueprint RETIRED from the catalog (owner 2026-06-08) → removed from the offered set
+// (a retired SKU drops out of fetchV2CustomerCatalog → would otherwise render at ₱0).
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
 // first picked one of these, else falls back to the Services tab (owner 2026-06-06).
@@ -1169,11 +1171,11 @@ const ONBOARDING_PROMO = 0.2;
    the services summary, each removable, feeding the 20%-off total. */
 const PICK_TO_INAPP: Record<string, string[]> = {
   // Venue
-  reception: ['live_photowall', 'indoor_blueprint', 'papic_seats'], ceremony: ['panood'],
+  reception: ['live_photowall', 'papic_seats'], ceremony: ['panood'],
   // Planning
-  coordinator: ['advanced_website', 'indoor_blueprint'],
+  coordinator: ['advanced_website'],
   // Feast
-  catering: ['indoor_blueprint'], cake: ['papic_guest'], stations: ['papic_guest'],
+  cake: ['papic_guest'], stations: ['papic_guest'],
   // Design
   stylist: ['animated_monogram', 'live_background'], florist: ['animated_monogram'], lights_sound: ['live_background'],
   dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['sde', 'thank_you'], outdoor: ['panood'],
@@ -1198,7 +1200,7 @@ const PICK_TO_INAPP: Record<string, string[]> = {
 };
 /* Priority order for the recommended set. Dedup against the picks bounds the union to the ≤14
    in-app services, so every chosen leaf surfaces its matched add-on(s) — no cap (owner 2026-06-05). */
-const REC_PRIORITY = ['sde', 'papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr', 'indoor_blueprint'];
+const REC_PRIORITY = ['sde', 'papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
 function recommendedInappFor(picks: string[]): string[] {
   const set = new Set<string>();
   for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · chore(pricing): retire 4 customer SKUs + bundles are onboarding-only (owner-decided)
+
+**Context:** Owner resolved the two open pricing questions from the 2026-06-08 canonical reprice: (1) Papic Guests STAYS pax-priced ₱2,999 (the canonical-doc ₱1,999-flat is superseded — no change needed); (2) retire HIGH_RES_ARCHIVE, CALL_TIME_ESCALATOR, INDOOR_BLUEPRINT, PAKULAY; (3) the Essentials/Complete bundles are **onboarding-only — never sold outside**.
+
+**What landed:**
+- **Migration `20260916000000_retire_four_customer_skus.sql`** (applied to prod + recorded): `is_active=false` for the 4 SKUs in `platform_retail_catalog_v2` (rows preserved for the `event_software_activations_v2` FK; verified 0 orders). Papic Guests untouched.
+- **`onboarding-shell.tsx`**: removed `indoor_blueprint` from `INAPP_KEYS`, `PICK_TO_INAPP` (reception/coordinator/catering), and `REC_PRIORITY` — a retired SKU drops out of `fetchV2CustomerCatalog` (is_active filter) so it would otherwise render at ₱0.
+- **`onboarding-pricing.ts`**: removed `indoor_blueprint` from `INAPP_TO_SERVICE_CODE` + `OUT_ANCHORS`; **`BUNDLE_MEMBERS` re-scoped** to the onboarding service set (owner "bundles onboarding-only") — `complete` = all 13 offered onboarding services, `essentials` = the curated value core (custom_qr · animated_monogram · advanced_website · papic_seats).
+- **`/pricing/page.tsx`**: removed the Bundles section + the bundle JSON-LD `Product` entries + the `fetchV2BundleCatalog` fetch/import — bundles no longer appear on the public pricing page (onboarding-only).
+
+**⚠ FOLLOW-UP (surfaced, not built):** bundles are now removed from `/pricing` but the onboarding bundle CARD is not yet wired (the production onboarding switched to à-la-carte 2026-06-05; `pricing.bundles` view-model is built but unconsumed). Re-introducing the Essentials/Complete card to the onboarding plan screen reverses that 2026-06-05 decision → flagged for owner go-ahead before building.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` + `/pricing` both `ƒ`).
+
+**SPEC IMPACT:** Resolves the 2 open "confirm" items from the 2026-06-08 reprice. `Pricing_Canonical_2026-06-08.md` §57 retirements confirmed (minus the still-active ones); Papic Guests pax-pricing stands. DECISION_LOG row added.
 ## 2026-06-08 · fix(ci): resolve duplicate migration timestamp 20260918000000
 
 **Context:** Two PRs merged the same day each created a `20260918000000_*` migration — `…_invitation_widgets_what_to_bring.sql` (#1095 What-to-Bring) and `…_vendor_token_purchase_webhook.sql` (#1097 token webhook). Each passed its own `migration timestamp guard` because the collision only existed once *both* were on `main`; the guard would then fail on **every** subsequent PR (it rejects duplicate 14-digit prefixes, since `supabase db push` uses the prefix as the `schema_migrations` PK).

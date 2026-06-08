@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
+
+**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding so it doesn't feel long. Owner's design: instead of committing an audio file, add an **admin uploader** so the owner uploads an **owned / AI-generated** track (e.g. a Suno instrumental); the onboarding streams it. Keeps the file owner-supplied + swappable with no deploy. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+
+**What landed:**
+- **Migration `20260925000000`** — adds `platform_settings.onboarding_bg_music_r2_key` (r2:// ref) + `onboarding_bg_music_enabled` (bool, default TRUE). Applied to prod directly via `db query` (ALTER … ADD COLUMN IF NOT EXISTS) because the remote ledger had an orphan `20260924000000` from a parallel session that blocked `db push --include-all` ("remote migration versions not found in local"); the file ships idempotent for fresh setups. *(Note: I renamed mine off the colliding `20260924000000` to `20260925000000`.)*
+- **`lib/platform-settings.ts`** — type + SELECT + FALLBACK gain the 2 columns; new `fetchOnboardingBgMusicUrl()` (self-contained admin-client read + `displayUrlForStoredAsset` presign, try/catch → null; mirrors `lib/v2-catalog`) so the anonymous onboarding flow resolves the stream URL server-side without depending on a session / anon RLS.
+- **`/admin/settings`** — new "Onboarding background music" card: `<FileUpload bucket="media">` (audio, ≤40 MB) + enable toggle + an **"owned/AI-generated track only"** helper (Setnayan serves the file, so it must be licensed). New `updateOnboardingMusic` action writes the columns ("enabled with no track" coerced off, like site-chrome).
+- **`/api/upload`** — audio per-type cap **20 → 40 MB** so a ~30-min instrumental fits (image cap unchanged at 10 MB; existing flows byte-identical).
+- **`onboarding/page.tsx` + `onboarding-shell.tsx` + new `onboarding-music.tsx`** — the page resolves `bgMusicUrl` and passes it to the shell, which renders a small mute/unmute **pill in the header** (`.brandrow`, `margin-left:auto`, beside Skip). The player streams (`preload="none"` + `loop`), **starts softly on the first user gesture** (gesture-gated so browsers allow it) at volume 0.32, remembers a mute choice in `localStorage`, and pauses on unmount. **Unset/disabled → the player never mounts** (silent, no error).
+
+**Verify:** `tsc --noEmit` ✓. Prod columns confirmed present. Pill renders top-right in the header with no overlap (forced a test src locally, screenshot-verified, reverted). End-to-end (upload a track → hear it in onboarding) confirms on the deploy once the owner uploads their Suno track.
+
+**SPEC IMPACT:** New admin surface (onboarding background-music uploader) on `platform_settings`; honors the "Setnayan-owned AI-generated catalogue only" music rule via the uploader's owned-track helper. → corpus `DECISION_LOG.md` (logged).
+
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

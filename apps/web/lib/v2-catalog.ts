@@ -77,7 +77,13 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   // Live and working today
   // (TODAYS_FOCUS removed 2026-06-05 — the AI-planner SKU is retired; the
   //  reader also filters its catalog row out via `.neq('service_code', …)`.)
-  PRO_WEBSITE:         'partial',  // free baseline live · Pro gating not built
+  PRO_WEBSITE:         'partial',  // = Editorial Website (post-event phase) · free baseline live · Pro gating not built
+  // Wedding-website lifecycle phases (owner 2026-06-08 · added to catalog DB):
+  // RSVP (before) · Event Website (during) · Editorial = PRO_WEBSITE (after).
+  // Same in-build state as the Editorial phase — baseline live, upgrades not built.
+  RSVP_WEBSITE:        'partial',  // RSVP phase ₱2,499
+  RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
+  EVENT_WEBSITE:       'partial',  // during-event website ₱1,500
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 

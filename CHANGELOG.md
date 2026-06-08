@@ -22,6 +22,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean · `next build` succeeds · `/onboarding/wedding` renders dynamic (ƒ) · 0 `SVC[` code references remain · covert rule preserved (no pricing in the love-stage module).
 
 **SPEC IMPACT:** Onboarding now reads live prices from `platform_retail_catalog_v2` + `platform_package_catalog` (no hardcoded selling prices). DECISION_LOG row to add (2026-06-08 onboarding live-wire); the bundle-membership question stays open for the owner.
+## 2026-06-08 · feat(pricing): wedding-website phase SKUs in the catalog (RSVP · Event · Editorial)
+
+**Context:** Owner 2026-06-08 — the wedding website is ONE site with 3 date-driven phases (RSVP before · Event during · Editorial after). Added the paid phase SKUs to the admin catalog so they render on the now-DB-driven /pricing + homepage.
+
+**DB (`platform_retail_catalog_v2`, applied to prod via the catalog tables):**
+- `RSVP_WEBSITE` "RSVP" ₱2,499 · `RSVP_PRO_WEBSITE` "RSVP Pro" ₱4,499 (= RSVP + ₱2,000) · `EVENT_WEBSITE` "Event Website" ₱1,500.
+- (`PRO_WEBSITE` already renamed "Pro Website" → "Editorial Website" ₱7,999 = the post-event phase; Animated Monogram repriced ₱2,499→₱1,999 same day.)
+
+**Code:** added the 3 new service_codes to the `BUILD_STATUS` map as `'partial'` (matching the Editorial/`PRO_WEBSITE` phase — baseline live, upgrades not built) so they show "In build", not the default "Coming soon".
+
+**Verify:** typecheck/build on the PR. /pricing reads the DB, so the rows already render.
+
+**SPEC IMPACT:** New website-phase SKUs in the catalog (RSVP / RSVP Pro / Event / Editorial) → corpus Pricing.md + the wedding-website-lifecycle spec reconcile. Purchase/checkout wiring for the new SKUs is NOT in scope (catalog display only).
 
 ## 2026-06-08 · feat(pricing): canonical customer reprice — apply to the live V2 catalog (owner-authorized)
 

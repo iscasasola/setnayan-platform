@@ -19,13 +19,15 @@ export type VendorServiceRow = {
   last_minute_end_months: number | null;
   /** Optional 0–100% last-minute surcharge; null/0 = flat. */
   last_minute_surcharge_pct: number | null;
+  /** Vendor-declared max bookings/day for this service (#2); null = unset. */
+  daily_capacity: number | null;
   created_at: string;
   updated_at: string;
 };
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,last_minute_end_months,last_minute_surcharge_pct`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,last_minute_end_months,last_minute_surcharge_pct,daily_capacity`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -49,12 +51,17 @@ export async function fetchVendorServices(
     return (fallback.data ?? []).map((s) => ({
       ...(s as Omit<
         VendorServiceRow,
-        'title' | 'branch_id' | 'last_minute_end_months' | 'last_minute_surcharge_pct'
+        | 'title'
+        | 'branch_id'
+        | 'last_minute_end_months'
+        | 'last_minute_surcharge_pct'
+        | 'daily_capacity'
       >),
       title: null,
       branch_id: null,
       last_minute_end_months: null,
       last_minute_surcharge_pct: null,
+      daily_capacity: null,
     }));
   }
   return (data ?? []) as VendorServiceRow[];

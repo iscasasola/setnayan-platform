@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tiers): #2 — per-service daily booking capacity (✗/1/3/∞)
+
+**Context:** Build #2 of the "do 1–5" tier queue. Owner-defined "Slot per day" = a vendor declares how many of a service they can serve per day (e.g. 2 photobooths → 2 bookings/day); the tier caps the max declarable (**FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞**).
+
+**What landed (migration `20260925000000`, applied to prod):**
+- **Migration:** `vendor_services.daily_capacity INT` (nullable, `CHECK > 0`). `lib/vendor-services.ts` returns it (graceful fallback when the column lags).
+- **Declare + cap on save:** new `parseDailyCapacityOrThrow` (shared by `createVendorService` + `updateVendorService`) parses the value and rejects anything over the tier's `slotsPerDay` (FREE can't set; VERIFIED ≤1; PRO ≤3; ENTERPRISE any). Services page gains a tier-aware "Bookings per day" input on both the create and edit forms (shown only when the tier allows bookings; max = tier cap).
+- **Enforce at booking:** `finalizeVendor` now blocks a lock when that **service** already has `daily_capacity` confirmed bookings on the wedding's date — a per-service same-date count over `CONFIRMED_VENDOR_STATUSES` (reuses the existing `soft_hold_limit_reached` result so the "at capacity → switch/browse" modal renders; distinct from the vendor-level soft-hold gate). Degrades open when service_id / capacity / date is unset.
+
+**Note:** Enterprise time-bound slots (#3) layer a per-service time-of-day model on top of this later. Migration applied via a temp local placeholder for a parallel session's remote-only `20260924000000` (CLI local==remote check; placeholder never committed/executed).
+
+**Verify:** `tsc` clean · `next lint` exit 0. Migration applied + column live.
+
+**SPEC IMPACT:** Tier cap #2 enforced. Queue remaining: #3 enterprise time-bound slots · #4 Phase C feature gates · #5 Phase D checkout. → corpus DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): A4 seating PDF — mood-board / blueprint, monogram + QR (0008)
 
 **Context:** Owner-specced export. Completes the seating arc (chair-level → names → mobile list → zoom/pan → markers → venue to-scale → **PDF**). The 0008 spec's "Print pack" — scoped to the owner's brief: A4, two print modes, branded header, floor-plan page + arrangement pages. No migration; reuses existing `pdf-lib` + `qrcode` + `events.slug`.

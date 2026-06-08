@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(vendor): self-serve token-pack purchase (apply-then-pay)
+
+**Context:** Owner 2026-06-08 — "make purchasing available too" + "Both — manual now, automated later." The vendor token wallet (`/vendor-dashboard/tokens`) showed token packs as read-only educational copy ("purchase opens this week") with no way to actually buy. Vendors could only receive tokens via an admin grant or the founder bonus. This ships the real purchase path.
+
+**What landed:**
+- **Migration `20260916000000_vendor_token_purchase.sql`** (applied to prod) — new `vendor_token_purchases` table (RLS: vendor reads own, admin reads all; all writes via SECURITY DEFINER fns) + 3 functions: `create_vendor_token_purchase(sku)` (vendor-initiated; reads price + token count from `vendor_billing_catalog` — never a client-supplied amount — generates a `TKN-xxxxxxxx` reference, inserts `pending_payment`), `approve_vendor_token_purchase(id)` (admin/webhook confirms → credits `vendor_wallets.purchased_tokens`, the **never-expire** bucket, via UPSERT; idempotent on the status guard + row lock), `reject_vendor_token_purchase(id, reason)`. New `is_console_admin()` helper gates approve/reject on the console's `account_type='admin' OR is_internal OR is_team_member` (broader than the strict `is_admin()` so internal/team reviewers aren't locked out).
+- **Vendor UI** — `tokens/actions.ts` (`startTokenPurchase` server action) + `buy-tokens-cta.tsx` rewritten **DB-priced** (packs from `vendor_billing_catalog` via `fetchV2VendorCatalog`, no hardcoded ₱180–250/token ladder — admin `/admin/pricing` is source of truth; live DB = ₱100/token) with per-pack Buy forms + `pending-purchases.tsx` (reference code + BDO/GCash receiving accounts from `platform_settings` + "Setnayan does not hold these funds" disclosure). `page.tsx` fans in pending purchases + packs + settings and shows an `ordered`/`error` banner.
+- **Admin reconcile** — `/admin/token-purchases` (pending queue with Confirm/Reject + recently-resolved list) + `actions.ts` calling the RPCs through the admin's own user-scoped client (so `auth.uid()` resolves for the gate + audit). New sidebar entry under Money (after Token bands).
+
+**Why purchased (not earned):** the burn path `consume_vendor_assets_per_voucher()` spends earned vouchers FIFO **then** drains `purchased_tokens`, so both are spendable — but a paid pack must NOT silently expire (matches the wallet UI's "Purchased tokens never expire"). Earned/founder/referral tokens stay in their 45-day voucher bucket; bought tokens are permanent.
+
+**Automated-later seam:** `approve_vendor_token_purchase` is exactly the entry point a future Maya/PayMongo webhook calls to auto-credit on payment — no rebuild, just a webhook handler that resolves the order by reference code and calls approve.
+
+**Verify:** transactional smoke test (rolled back, prod untouched) confirmed — create reads correct DB price (25 tok/₱2,500), non-admin vendor **blocked** from approve (`FORBIDDEN: admin only`), admin approve credits `purchased_tokens` +25 with `earned_tokens` unchanged, approve idempotent (no double-credit). Migration applied + re-applied cleanly (idempotent). Frontend typecheck via CI required checks.
+
+**SPEC IMPACT:** Vendor token economy now has a customer-initiated purchase flow (0034 payments/cart + 0022 vendor dashboard). DECISION_LOG row appended at corpus root. No price changes (packs unchanged at ₱100/token); the purchased-vs-earned expiry semantics are clarified, not changed.
+
 ## 2026-06-08 · chore(branding): rename "Today's Focus" → "Setnayan AI" across the app UI
 
 **Context:** Owner 2026-06-08 locked the planner SKU's canonical consumer name as **Setnayan AI** (shorthand SAI), retiring the interim "Today's Focus" display name everywhere. The spec corpus was already fully scrubbed (new `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG rows); this brings the app UI into alignment.

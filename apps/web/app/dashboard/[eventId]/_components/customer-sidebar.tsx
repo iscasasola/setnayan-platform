@@ -25,7 +25,7 @@
  *
  * 6 GROUPS (per canonical IA — same logical buckets the admin sidebar
  * established at PR #606, adapted to the customer surfaces). The 'Today'
- * group was retired 2026-06-03 with the Today's Focus wizard; Home moved to
+ * group was retired 2026-06-03 with the planner wizard; Home moved to
  * the top of Plan:
  *   1. Plan          — Home · Guests · Seating · Schedule · Services · Find your date
  *   2. Spend         — Budget (Orders + Receipts retired 2026-05-30
@@ -50,7 +50,7 @@
  * own first-class tile on event-home too).
  *
  * BRAND-LAYER per the v2.1 brief: route paths + DB tables stay; sidebar
- * labels read in editorial brand voice. "Today's Focus" not "Concierge."
+ * labels read in editorial brand voice. "Setnayan AI" not "Concierge."
  * "Add-ons" not "Services" (legacy label from the 2026-05-22 4-tab era
  * still in i18n as `nav.services` but the canonical surface is `Add-ons`
  * per CLAUDE.md 2026-05-22 rename — surfaced in the v2.1 voice).
@@ -116,7 +116,7 @@ export { buildCustomerNavGroups };
  * via shape introspection — single source of truth.
  *
  * Stable group/item `key` values mean future label edits (e.g., a brand
- * polish pass on "Today" → "Today's Focus" in the heading) don't reset
+ * polish pass on "Today" → "Setnayan AI" in the heading) don't reset
  * the per-section `setnayan.nav.section.<key>.open` localStorage state.
  * --- END historical body
  */

@@ -57,7 +57,7 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   // retired (replaced by ₱1,499 TODAYS_FOCUS one-time). Category key in
   // service_catalog still reads `concierge`; display label aligns with the
   // V2 surface name. Retired SKUs surface here read-only with an Inactive pill.
-  concierge: "Today's Focus",
+  concierge: "Setnayan AI",
   vendor_subscription: 'Vendor subscription',
   vendor_verification: 'Vendor verification',
   vendor_ads: 'Vendor ads',

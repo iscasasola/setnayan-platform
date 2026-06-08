@@ -9,7 +9,7 @@
  * Phases 1-5 add the per-card variants without touching this file.
  *
  * Visual chrome:
- *   - ★ TODAY'S FOCUS heading rail (terracotta accent)
+ *   - ★ SETNAYAN AI heading rail (terracotta accent)
  *   - Pill row: phase label (e.g. "FOUNDATION") on left · position badge
  *     ("Step 2 of 48") on right · position = canonical index in
  *     WIZARD_TASKS sorted by order field
@@ -61,10 +61,10 @@ export function WizardCard({
       aria-labelledby="wizard-card-heading"
       className="space-y-3"
     >
-      {/* ★ TODAY'S FOCUS rail · same as legacy TodaysOneThing so the
+      {/* ★ SETNAYAN AI rail · same as legacy TodaysOneThing so the
           transition between the two during the Phase 1-5 rollout doesn't
           jar the host visually. */}
-      {/* Visual overlay — TODAY'S FOCUS rail tokens consume --m-orange-2
+      {/* Visual overlay — SETNAYAN AI rail tokens consume --m-orange-2
        *  (Royal Champagne Gold deeper · #A88340 per 2026-05-29 Clean Editorial
        *  palette lock). Originally landed 2026-05-28 with burnt sienna --m-orange-2
        *  #A84F25 per v2.1 brief § 8; the token VALUE swapped 2026-05-29 to

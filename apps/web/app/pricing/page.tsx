@@ -47,7 +47,7 @@ export const dynamic = 'force-dynamic';
  *   - vendor_billing_catalog      (2 vendor subs + 5 token packs)
  *
  * What changed from the V1 page (rewritten 2026-05-28):
- *   - Removed Setnayan Concierge ₱2,499 / 3-day trial hero · Today's Focus is
+ *   - Removed Setnayan Concierge ₱2,499 / 3-day trial hero · Setnayan AI is
  *     now a paid software SKU bought from the customer catalog like any other
  *   - Removed launch promo · the V2 SKUs are paid full price
  *   - Removed flat 5.0% Setnayan Pay worked example · per owner directive,

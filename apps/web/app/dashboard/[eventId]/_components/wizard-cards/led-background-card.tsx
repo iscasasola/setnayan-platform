@@ -1,7 +1,7 @@
 /**
  * Card 10.5 LED Background · Phase 2 · Style + Identity tier.
  *
- * Added 2026-05-24 to align Today's Focus + Parallel Work Map + Your Plan
+ * Added 2026-05-24 to align Setnayan AI + Parallel Work Map + Your Plan
  * grid surfaces. The Plan grid already had a led_background cell tied to
  * VendorCategory='led_screens', but no wizard card pointed at it. This
  * card surfaces LED-screen rental vendors as a guided wizard flow.

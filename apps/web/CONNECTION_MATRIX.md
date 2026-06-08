@@ -198,7 +198,7 @@
 
 ### Defined-but-unreferenced tables (orphaned schema — built, no UI wired) — 22 total
 Mostly *schema ahead of UI* for deferred/retired iterations, not bugs:
-- **Retired AI planner ("Today's Focus"/Concierge):** `concierge_plan_templates`, `concierge_response_cache`, `concierge_unanswered_questions`, `couple_briefs`.
+- **Retired AI planner ("Setnayan AI"/Concierge):** `concierge_plan_templates`, `concierge_response_cache`, `concierge_unanswered_questions`, `couple_briefs`.
 - **Deferred Supplies marketplace (0018):** `supplier_vendor_skus`, `supplier_vendor_sku_pricing`, `supplies_orders`, `supplies_order_line_items`.
 - **Vendor token-economy ahead of UI:** `vendor_bid_submissions`, `vendor_token_boosters`, `vendor_tool_bundles`.
 - **Contract intelligence (0032):** `vendor_contract_signatures`.

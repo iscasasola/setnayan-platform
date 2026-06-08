@@ -198,7 +198,7 @@ export function ScheduleEditor({ eventId, topLevel, childrenByParent }: Props) {
     formData.set('event_id', eventId);
     formData.set('task_id', 'create_schedule');
     // Lightweight summary lives on wizard_state.create_schedule.meta so
-    // the home Today's Focus card can show a one-line preview ("Ceremony
+    // the home Setnayan AI card can show a one-line preview ("Ceremony
     // 14:00 · Reception 17:00 · …") without rejoining event_schedule_blocks.
     formData.set(
       'meta_rough_schedule',

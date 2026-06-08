@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Officiant auto-resolved panel · paid Today's Focus wizard surface (Card
+ * Officiant auto-resolved panel · paid Setnayan AI wizard surface (Card
  * 04). Renders when the host's locked ceremony venue implicitly handles
  * the officiant role · per CLAUDE.md 2026-05-29 "Vendor Discovery
  * Architecture" row item (1).

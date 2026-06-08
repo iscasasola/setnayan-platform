@@ -1266,7 +1266,7 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
    Per-couple from the onboarding state — REPLACES the hardcoded demo strip (owner 2026-06-02:
    "why is this the same for everybody?"). Money is mostly flat (everyone gets the same free
    tools → ₱53,486) + ₱2,500 × expos; hours scale with the couple's picks · shortlist · runway ·
-   expos. Today's Focus stays EXCLUDED (paid SKU, retired 2026-06-03).
+   expos. Setnayan AI stays EXCLUDED (paid SKU, retired 2026-06-03).
    See FREE_TOOL_DRIVERS below for the per-tool breakdown the Your Plan slider renders. */
 /* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound

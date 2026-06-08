@@ -1,15 +1,15 @@
 /**
- * Couple-dashboard Today's Focus banner.
+ * Couple-dashboard Setnayan AI banner.
  *
  * RETIRED 2026-05-28 V2 cutover.
  * V1 surfaced five distinct banner variants (DIY · Trial · Active ·
  * Expired · Full-banned) keyed on the host's `concierge_status` +
  * enforcement level + long-engagement advisory. V2 retires the trial
  * mechanic, the enforcement framework, and the long-engagement advisory
- * — Today's Focus is a single one-time purchase per event (see
+ * — Setnayan AI is a single one-time purchase per event (see
  * `platform_retail_catalog_v2.TODAYS_FOCUS`). The CONCIERGE_ENABLED
  * kill-switch from V1 stays as the V2 visibility gate: while it's off
- * the banner renders nothing, so couples never see a Today's Focus CTA
+ * the banner renders nothing, so couples never see a Setnayan AI CTA
  * on event-home until the V2 purchase flow lights up post-pilot.
  *
  * Component name + prop shape kept (export `ConciergeBanner`) to avoid
@@ -52,7 +52,7 @@ export function ConciergeBanner(props: Props) {
   } = props;
 
   // Owner kill-switch. Hides the entire banner so couples don't see a
-  // Today's Focus CTA until the V2 purchase flow lights up post-pilot.
+  // Setnayan AI CTA until the V2 purchase flow lights up post-pilot.
   if (!CONCIERGE_ENABLED) return null;
 
   // Full-banned takes over everything. V1 enforcement framework retained
@@ -61,10 +61,10 @@ export function ConciergeBanner(props: Props) {
     return (
       <section className="rounded-2xl border border-rose-300/60 bg-rose-50 p-5 text-sm text-rose-900">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-rose-900/70">
-          Today&rsquo;s Focus unavailable
+          Setnayan AI unavailable
         </p>
         <p className="mt-2">
-          Today&rsquo;s Focus is unavailable on this account. All DIY dashboard tools remain
+          Setnayan AI is unavailable on this account. All DIY dashboard tools remain
           functional.
         </p>
         <Link
@@ -103,14 +103,14 @@ function DiyBanner() {
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-            Today&rsquo;s Focus
+            Setnayan AI
           </p>
           <h2 className="text-base font-semibold tracking-tight text-ink">
-            Need a hand? Today&rsquo;s Focus surfaces your next planning step.
+            Need a hand? Setnayan AI surfaces your next planning step.
           </h2>
           <p className="text-xs text-ink/60">
             Every dashboard tool — guest list, vendors, mood board, schedule — works the same.
-            Today&rsquo;s Focus adds a daily &ldquo;here&rsquo;s the next step&rdquo; suggestion
+            Setnayan AI adds a daily &ldquo;here&rsquo;s the next step&rdquo; suggestion
             every time you open the app.
           </p>
         </div>
@@ -126,7 +126,7 @@ function DiyBanner() {
           href="/dashboard/profile/concierge"
           className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
-          Manage Today&rsquo;s Focus →
+          Manage Setnayan AI →
         </Link>
       </div>
     </section>
@@ -150,7 +150,7 @@ function ActiveBanner({
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900/75">
-            Today&rsquo;s Focus · active
+            Setnayan AI · active
           </p>
           <h2 className="text-base font-semibold tracking-tight text-ink">
             Active until {formatConciergeDate(expiresAt)}
@@ -185,10 +185,10 @@ function ExpiredBanner({
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Today&rsquo;s Focus ended
+            Setnayan AI ended
           </p>
           <h2 className="text-base font-semibold tracking-tight text-ink">
-            Today&rsquo;s Focus ended {expiresAt ? `on ${formatConciergeDate(expiresAt)}` : ''}
+            Setnayan AI ended {expiresAt ? `on ${formatConciergeDate(expiresAt)}` : ''}
           </h2>
           <p className="text-xs text-ink/65">
             Your planning progress is saved — pick it back up anytime.

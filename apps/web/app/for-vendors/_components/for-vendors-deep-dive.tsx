@@ -13,8 +13,8 @@
  * DRIFT SCRUBS applied (CLAUDE.md 2026-05-28 11th row v2.1 canonical · further
  * amended 2026-05-30 row § 1(a) + § 4 Pro 28-day price flip to ₱2,499 + Pro
  * Annual to ₱24,999 + Boosters surface mention):
- *   - "Setnayan Concierge matching" rows → "Today's Focus matching" (V2 retire)
- *   - "Concierge matchmaking" in card titles → "Today's Focus matchmaking"
+ *   - "Setnayan Concierge matching" rows → "Setnayan AI matching" (V2 retire)
+ *   - "Concierge matchmaking" in card titles → "Setnayan AI matchmaking"
  *   - "Sponsored Boost ₱1,200/wk" preserved (matches v2.1 brief)
  *   - "Boosted Ads · ₱1,200/wk" preserved (matches v2.1 brief)
  *   - Boosters surface mention added (CLAUDE.md 2026-05-30 row § 1(d) reinstated)

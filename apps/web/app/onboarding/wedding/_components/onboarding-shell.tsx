@@ -2252,6 +2252,34 @@ export function OnboardingShell({
     state.dateMode === 'window'
       ? state.windowStart
       : ((state.dateCandidates ?? []).filter(Boolean).slice().sort()[0] ?? null);
+
+  /* ════ THE DASHBOARD BLOOM (congrats screen) ════ the reveal that makes the couple feel
+     their wedding website already exists (prototype buildDashboard · port plan §3). All values
+     derive from captured state — no new authoritative state. COVERT: the love block is titled
+     ONLY "Our Love Story"; never a song / editorial / Pakanta surface. */
+  // Surnames for the identity headline — prefer captured last names, else fall back to first names.
+  const bloomSurnameA = state.brideLastName.trim() || state.brideFirstName.trim() || 'Maria';
+  const bloomSurnameB = state.groomLastName.trim() || state.groomFirstName.trim() || 'Juan';
+  // Partner first name for the share footer "Show {partner} 💍" row (groom side, mirrors prototype).
+  const bloomPartnerName = state.groomFirstName.trim() || 'them';
+  // Display-only share slug ("brideandgroom") — the real page link is minted on the dashboard.
+  const coupleSlug =
+    [state.brideFirstName, state.groomFirstName]
+      .map((n) => n.trim().toLowerCase().replace(/[^a-z0-9]+/g, ''))
+      .filter(Boolean)
+      .join('and') || 'yourwedding';
+  // Does the couple actually have a love story, or did they skip / leave it blank?
+  const bloomHasStory =
+    !state.loveSkipped &&
+    Boolean(
+      state.loveStory.spark.trim() ||
+        state.loveStory.how_we_met.trim() ||
+        state.loveStory.spark_why.trim() ||
+        state.loveStory.proposal.trim(),
+    );
+  // The woven "Our Love Story" prose — same call the love-stage reveal uses (loveTone + weaveCtx).
+  const bloomStoryProse = bloomHasStory ? weaveStory(loveTone, state.loveStory, weaveCtx) : null;
+
   /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
   const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
   const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
@@ -3565,27 +3593,73 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* 13 STARTING PLAN — congrats + savings counter (counts up on entry) */}
+          {/* 13 THE DASHBOARD BLOOM — congrats reveal: the couple's wedding website, already built.
+              Hero masthead (MonoLockup + names + identity headline) → countdown → covert "Our Love
+              Story" → the full recap → share footer. The viewzone scrolls internally; chrome's
+              Continue still flows to the plan/services screens (nav unchanged). */}
           <section className={`screen${activeId === 'congrats' ? ' active' : ''}`} id="screen-congrats">
-            <div className="eyebrow">You did the hard part</div>
-            <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
-            <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
-            {earliestDateISO ? <WeddingCountdown iso={earliestDateISO} active={activeId === 'congrats'} /> : null}
-            <div className="recap tight">
-              <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
-              {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
-              <div className="recapline"><span className="rk">Date</span><span className="rv">{recapDate}</span></div>
-              <div className="recapline"><span className="rk">Where</span><span className="rv">{recapLocations ?? recapWhere}</span></div>
-              <div className="recapline"><span className="rk">Guests</span><span className="rv">{recapGuests}</span></div>
-              {recapBudget ? <div className="recapline"><span className="rk">Budget</span><span className="rv">{recapBudget}</span></div> : null}
-              {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
-              {recapReception ? <div className="recapline"><span className="rk">Reception</span><span className="rv">{recapReception}</span></div> : null}
-              {recapCeremony ? <div className="recapline"><span className="rk">Ceremony</span><span className="rv">{recapCeremony}</span></div> : null}
-              {recapCatering ? <div className="recapline col"><span className="rk">Catering</span><span className="rv">{recapCatering}</span></div> : null}
-              {recapPV ? <div className="recapline col"><span className="rk">Photo &amp; Video</span><span className="rv">{recapPV}</span></div> : null}
-              {recapMood ? <div className="recapline"><span className="rk">Mood board</span><span className="rv">{recapMood}</span></div> : null}
-              {recapSongs ? <div className="recapline"><span className="rk">Song list</span><span className="rv">{recapSongs}</span></div> : null}
-              <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
+            <div className="viewzone">
+              <div className="eyebrow">You did the hard part</div>
+              <div className="dash-site">
+                {/* HERO — the live monogram + initials/names + the identity headline */}
+                <div className="dash-sec dash-hero">
+                  {monoReady ? (
+                    <figure className="dash-mono">
+                      <MonoLockup
+                        design={monoDesign}
+                        bi={monoBi}
+                        gi={monoGi}
+                        brideName={state.brideFirstName}
+                        groomName={state.groomFirstName}
+                      />
+                    </figure>
+                  ) : null}
+                  <div className="dash-cnames">{coupleDisplay}</div>
+                  <div className="dash-head"><span className="setna">Set na&nbsp;&rsquo;yan.</span> &#10024; This is the {bloomSurnameA}&ndash;{bloomSurnameB} wedding &mdash; and it already exists.</div>
+                </div>
+                {/* COUNTDOWN — the existing live HH:MM:SS timer, anchored on the nearest picked date */}
+                {earliestDateISO ? (
+                  <div className="dash-sec dash-count">
+                    <WeddingCountdown iso={earliestDateISO} active={activeId === 'congrats'} />
+                  </div>
+                ) : null}
+                {/* OUR LOVE STORY — woven in the couple's chosen voice (COVERT: titled only "Our Love
+                    Story"). Omitted gracefully if the love stage was skipped or left empty. */}
+                {bloomStoryProse ? (
+                  <div className="dash-sec">
+                    <div className="dash-eb">Our Love Story</div>
+                    <div className="dash-story sc-prose" dangerouslySetInnerHTML={{ __html: bloomStoryProse }} />
+                  </div>
+                ) : null}
+                {/* THE RECAP — "here's your wedding", every captured answer */}
+                <div className="dash-sec">
+                  <div className="dash-eb">Your Wedding</div>
+                  <div className="recap tight">
+                    <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
+                    {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
+                    <div className="recapline"><span className="rk">Date</span><span className="rv">{recapDate}</span></div>
+                    <div className="recapline"><span className="rk">Where</span><span className="rv">{recapLocations ?? recapWhere}</span></div>
+                    <div className="recapline"><span className="rk">Guests</span><span className="rv">{recapGuests}</span></div>
+                    {recapBudget ? <div className="recapline"><span className="rk">Budget</span><span className="rv">{recapBudget}</span></div> : null}
+                    {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
+                    {recapReception ? <div className="recapline"><span className="rk">Reception</span><span className="rv">{recapReception}</span></div> : null}
+                    {recapCeremony ? <div className="recapline"><span className="rk">Ceremony</span><span className="rv">{recapCeremony}</span></div> : null}
+                    {recapCatering ? <div className="recapline col"><span className="rk">Catering</span><span className="rv">{recapCatering}</span></div> : null}
+                    {recapPV ? <div className="recapline col"><span className="rk">Photo &amp; Video</span><span className="rv">{recapPV}</span></div> : null}
+                    {recapMood ? <div className="recapline"><span className="rk">Mood board</span><span className="rv">{recapMood}</span></div> : null}
+                    {recapSongs ? <div className="recapline"><span className="rk">Song list</span><span className="rv">{recapSongs}</span></div> : null}
+                    <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
+                  </div>
+                </div>
+                {/* SHARE footer — covert, website-framed (display-only; the real link lives on the dashboard) */}
+                <div className="dash-sec dash-share">
+                  <div className="dash-shrow">
+                    <span className="dash-shbtn">Show {bloomPartnerName} &#128141;</span>
+                    <span className="dash-shbtn">your page <span className="lnk">setnayan.com/{coupleSlug}</span></span>
+                  </div>
+                  <div className="dash-guests">{state.pax != null ? `${state.pax} guests` : 'Your guests'} will see this page</div>
+                </div>
+              </div>
             </div>
           </section>
 

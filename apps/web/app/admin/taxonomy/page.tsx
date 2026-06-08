@@ -8,6 +8,8 @@ import { validateVendorCategoryMapping } from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   updatePlanningDeadline,
+  setLastMinuteStart,
+  clearLastMinuteStart,
   renameTaxonomyNode,
   remapCanonical,
   createTaxonomyNode,
@@ -206,6 +208,20 @@ export default async function AdminTaxonomyPage({
     .order('offset_value', { ascending: false });
   const deadlines = (deadlineRowsRaw ?? []) as DeadlineRow[];
 
+  // Last-minute START (Setnayan AI §4) lives in the same table under
+  // kind='last_minute_start'. Split it out: it has its own editor section below
+  // and must NOT show in the recommended-deadlines list.
+  const recommendedDeadlines = deadlines.filter((d) => d.kind !== 'last_minute_start');
+  const lmStartByGroup = new Map<string, number>();
+  for (const d of deadlines) {
+    if (d.kind === 'last_minute_start' && d.scope === 'category') {
+      lmStartByGroup.set(d.ref_key, d.offset_value);
+    }
+  }
+  // Bookable categories the admin can set a last-minute window for (the same set
+  // the deadline coverage uses).
+  const lastMinuteGroups = PLAN_GROUPS.filter((g) => g.countsTowardLockable !== false);
+
   // Coverage flag — which of the reminder plan-groups have no category deadline
   // (they fall back to PLAN_GROUPS.monthsBefore in code). This is the
   // category-level "missing deadline" surface; per-leaf overrides are a
@@ -390,7 +406,7 @@ export default async function AdminTaxonomyPage({
       <section className="mb-10">
         <header className="mb-2 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">Recommended deadlines</h2>
-          <span className="font-mono text-xs text-ink/55">{deadlines.length} set</span>
+          <span className="font-mono text-xs text-ink/55">{recommendedDeadlines.length} set</span>
         </header>
         <p className="mb-3 text-sm text-ink/60">
           The lock-by dates the couple&apos;s Home reminders read (couple-side — distinct from the vendor&apos;s own delivery plan). A category with no row falls back to the code default. <strong>Months</strong> for services, <strong>days</strong> for documents — edit either.
@@ -413,7 +429,7 @@ export default async function AdminTaxonomyPage({
               </p>
             )}
             <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
-              {deadlines.map((d) => (
+              {recommendedDeadlines.map((d) => (
                 <li key={d.deadline_id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -458,6 +474,79 @@ export default async function AdminTaxonomyPage({
             </ul>
           </>
         )}
+      </section>
+
+      <section className="mb-10">
+        <header className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            Last-minute window start{' '}
+            <span className="font-normal text-ink/55">(Setnayan AI)</span>
+          </h2>
+          <span className="font-mono text-xs text-ink/55">{lmStartByGroup.size} set</span>
+        </header>
+        <p className="mb-3 text-sm text-ink/60">
+          The month before the wedding when a category enters its{' '}
+          <strong>last-minute</strong> window. Inside it, vendors who still accept
+          a booking (their own floor) surface <strong>only to Setnayan AI couples</strong>,
+          and a category already in its window shows nothing in the free search.
+          Leave blank to keep a category <strong>off</strong> (no last-minute behavior).
+          The vendor&apos;s own cutoff + surcharge are set per service in the vendor dashboard.
+        </p>
+        <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+          {lastMinuteGroups.map((g) => {
+            const current = lmStartByGroup.get(g.id);
+            return (
+              <li
+                key={g.id}
+                className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-ink">{g.label}</span>
+                    {current != null ? (
+                      <Badge tone="bg-amber-100 text-amber-900">{current} mo</Badge>
+                    ) : (
+                      <Badge tone="bg-ink/5 text-ink/45">off</Badge>
+                    )}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-[11px] text-ink/45">{g.id}</div>
+                </div>
+                <form action={setLastMinuteStart} className="flex shrink-0 items-center gap-2">
+                  <input type="hidden" name="ref_key" value={g.id} />
+                  <input type="hidden" name="label" value={g.label} />
+                  <input
+                    type="number"
+                    name="months"
+                    defaultValue={current ?? ''}
+                    min={0}
+                    max={60}
+                    placeholder="—"
+                    aria-label={`Last-minute starts how many months before for ${g.label}`}
+                    className="w-16 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                  />
+                  <span className="text-xs text-ink/50">mo before</span>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                  >
+                    Save
+                  </button>
+                </form>
+                {current != null ? (
+                  <form action={clearLastMinuteStart} className="shrink-0">
+                    <input type="hidden" name="ref_key" value={g.id} />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                    >
+                      Clear
+                    </button>
+                  </form>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="mb-10">

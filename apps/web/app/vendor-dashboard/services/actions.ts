@@ -82,6 +82,31 @@ async function resolveBranchId(
   return data ? t : null;
 }
 
+/**
+ * Parse the vendor-declared daily booking capacity (#2). Empty → null (unset →
+ * no per-service daily cap). Capped by the tier's slotsPerDay: FREE 0 (can't
+ * set), VERIFIED 1, PRO 3, ENTERPRISE ∞.
+ */
+function parseDailyCapacityOrThrow(
+  raw: FormDataEntryValue | null,
+  slotsCap: number,
+): number | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const n = Number(raw.trim());
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error('Daily capacity must be a positive whole number.');
+  }
+  if (slotsCap === 0) {
+    throw new Error('Daily bookings need a paid plan — upgrade to set a capacity.');
+  }
+  if (n > slotsCap) {
+    throw new Error(
+      `Your plan allows up to ${slotsCap} booking${slotsCap === 1 ? '' : 's'} per day for a service. Upgrade for more.`,
+    );
+  }
+  return n;
+}
+
 export async function createVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
@@ -125,6 +150,20 @@ export async function createVendorService(formData: FormData) {
   const caps = tierCaps(
     asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
   );
+
+  // (0) Per-service daily capacity (#2), capped by the tier's slotsPerDay.
+  let daily_capacity: number | null;
+  try {
+    daily_capacity = parseDailyCapacityOrThrow(
+      formData.get('daily_capacity'),
+      caps.slotsPerDay,
+    );
+  } catch (e) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+    );
+  }
+
   const { data: existingRows } = await supabase
     .from('vendor_services')
     .select('category')
@@ -170,6 +209,7 @@ export async function createVendorService(formData: FormData) {
     branch_id,
     last_minute_end_months,
     last_minute_surcharge_pct,
+    daily_capacity,
     is_active: true,
   });
 
@@ -247,6 +287,25 @@ export async function updateVendorService(formData: FormData) {
     formData.get('branch_id'),
   );
 
+  // Per-service daily capacity (#2), capped by the tier's slotsPerDay.
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  let daily_capacity: number | null;
+  try {
+    daily_capacity = parseDailyCapacityOrThrow(
+      formData.get('daily_capacity'),
+      tierCaps(asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state))
+        .slotsPerDay,
+    );
+  } catch (e) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+    );
+  }
+
   const { error } = await supabase
     .from('vendor_services')
     .update({
@@ -256,6 +315,7 @@ export async function updateVendorService(formData: FormData) {
       branch_id,
       last_minute_end_months,
       last_minute_surcharge_pct,
+      daily_capacity,
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(website): Increment A.4 — Our Photos couple gallery (LIVE)
+
+**Context:** Fourth content block on the wedding-website lifecycle foundation (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.5), after A.1 Special Message + A.3 What to Bring. A **couple-curated** photo gallery (engagement / pre-wedding shots) the couple uploads themselves, rendered on the public invitation. Distinct from the existing `your_photos` widget (the GUEST's tagged photos, post-event). Sequenced ahead of the Music/Video-hero increment because that one needs a change to the shared `/api/upload` MIME whitelist (no audio/video today) + media-bucket size cap — Our Photos reuses the **already-whitelisted image** upload path with zero shared-route risk.
+
+**What landed:**
+- **Migration `20260919000000`** — `events.our_photos JSONB NOT NULL DEFAULT '[]'` (array of `r2://` refs, in display order) + a `jsonb_typeof = 'array'` CHECK; the `our_photos` widget_type (CHECK recreated cumulatively across all **15** types; `populate_default_invitation_widgets()` seed row 15; backfill). Idempotent + additive.
+- **`lib/invitation-widgets.ts`** — `our_photos` in `WIDGET_TYPES` + `WIDGET_CATALOG` (editor_subroute `our-photos`, hideable) → joins the show/hide/reorder editor; the widgets editor auto-renders its "Edit" link from `editor_subroute`.
+- **`app/[slug]/page.tsx`** — `EventRow.our_photos`; SELECT; resolve refs → presigned 24h URLs (`ourPhotoUrls`) in the async body (the one async seam) and thread it parallel to `heroPhotoUrl` into both render paths (4 call sites) + both switch functions (`PublicHideableWidget` + `HideableWidgetRender`) + the `publicSafeWidgets` allow-list (couple-curated, no PII → safe for anonymous); new `OurPhotosWidget` (responsive 2/3-col grid, lazy raw `<img>` for the presigned URLs; empty → section hides).
+- **New editor** `/dashboard/[eventId]/website/our-photos/{page.tsx,actions.ts}` — multi-image `<FileUpload>` (images, 10 MB each, up to 24, seeded with existing gallery so the host can add/remove); `updateOurPhotos` keeps well-formed `r2://` refs, de-dupes, caps at 24, writes the JSONB array (host-membership gate mirrors the hero-photo editor).
+
+**Verify:** typecheck + production build on CI (no local node_modules in worktree). No generated Supabase types / no `Database` generic on the client → the new column is safe at compile time (same reason A.1/A.3 passed). Both switch functions stay exhaustive over the 15-type union. Migration timestamp `20260919000000` strictly newest at author time (will bump at merge if a parallel session collides).
+
+**SPEC IMPACT:** §6.5 element matrix — Our Photos now shipped. → DECISION_LOG.
+
 ## 2026-06-08 · chore(pricing): retire 4 customer SKUs + bundles are onboarding-only (owner-decided)
 
 **Context:** Owner resolved the two open pricing questions from the 2026-06-08 canonical reprice: (1) Papic Guests STAYS pax-priced ₱2,999 (the canonical-doc ₱1,999-flat is superseded — no change needed); (2) retire HIGH_RES_ARCHIVE, CALL_TIME_ESCALATOR, INDOOR_BLUEPRINT, PAKULAY; (3) the Essentials/Complete bundles are **onboarding-only — never sold outside**.

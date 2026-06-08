@@ -37,6 +37,7 @@ export const WIDGET_TYPES = [
   'tier_comparison',
   'special_message',
   'what_to_bring',
+  'our_photos',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -168,6 +169,13 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     description: 'Gifts, registry, or a kind no-gift note for your guests.',
     is_always_on: false,
     editor_subroute: 'what-to-bring',
+  },
+  {
+    type: 'our_photos',
+    label: 'Our photos',
+    description: 'A gallery of your own photos — engagement or pre-wedding shots.',
+    is_always_on: false,
+    editor_subroute: 'our-photos',
   },
 ];
 

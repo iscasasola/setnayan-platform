@@ -8,17 +8,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Owner 2026-06-08 — the live `/for-vendors` page showed the WRONG vendor pricing (₱2,499/₱5,499 + a ₱1,499 verification fee + a "Free" tier), contradicting the actual backend. The DB (`vendor_billing_catalog`, migration `20260911000000_vendor_tier_reprice_verified_free`) + `/pricing` already reflect the real model — this PR fixes the stale hard-coded marketing page to match. No DB / backend change.
 
-**The real model (already in the DB, now on the page):**
-- **Verified ₱0** — free to get; no unverified-Free tier marketed (FREE-VERIFIED gets ≤10 free couple unlocks/week).
-- **Pro ₱6,000/28d** (₱60,000/yr · save ₱18,000) · 3 categories · 3 team accounts.
-- **Enterprise ₱10,000/28d** (₱100,000/yr · save ₱30,000) · all categories · unlimited team.
-- **Token = ₱100 flat.** A Pro/Enterprise vendor burns **1–3 tokens (₱100–₱300), region-banded** (`token_burn_bands`) to unlock a couple — one unlock covers all their services. 100 free tokens on verification. Matches `unlock_vendor_event`.
+**The real model (already in the DB, now on the page):** **Verified ₱0** (free to get; no unverified-Free tier marketed) · **Pro ₱6,000/28d** (₱60,000/yr · save ₱18,000) · **Enterprise ₱10,000/28d** (₱100,000/yr · save ₱30,000) · **Token = ₱100 flat**, Pro/Enterprise burn **1–3 tokens (₱100–₱300), region-banded** (`token_burn_bands`) to unlock a couple (covers all their services), 100 free on verification. Matches `unlock_vendor_event`.
 
-**What landed (presentation only, 5 files):** `vendor-hero` headline price · `for-vendors-deep-dive` 4-tier comparison table (Verified ₱0 / Pro ₱6,000 / Enterprise ₱10,000 + annuals + the standalone Enterprise callout) · `stack-close-vendor` strip · `page-tail` "How does Setnayan make money?" FAQ (rewritten to the ₱100-token / 1–3-gate model) · `page.tsx` SEO metadata (title/OG/Twitter) + the 5 schema.org Offer prices (verification ₱0 · Pro ₱6,000/₱60,000 · Enterprise ₱10,000/₱100,000).
+**What landed (presentation only, 5 files):** `vendor-hero` · `for-vendors-deep-dive` 4-tier table + annuals + Enterprise callout · `stack-close-vendor` · `page-tail` money FAQ · `page.tsx` SEO metadata + 5 schema.org Offers.
 
-**Verify:** CSS/markup/SEO copy only — no type/DB change. Vercel preview + Lighthouse on the PR.
+**Verify:** markup/SEO copy only, no type/DB change. Vercel preview + Lighthouse on the PR.
 
-**SPEC IMPACT:** Corrects the corpus stale vendor price (CLAUDE.md SKU table "Pro ₱2,499 / Enterprise ₱5,499" + Pricing.md §0.C) → ₱6,000/₱10,000 + Verified-₱0 + ₱100-token (DECISION_LOG row already appended 2026-06-08). Follow-up (separate PR): customer-dedicated top nav + footer "For vendors" menu; consider dropping the "Free" column from the comparison table.
+**SPEC IMPACT:** Corrects the corpus stale vendor price (CLAUDE.md SKU table + Pricing.md §0.C) → ₱6,000/₱10,000 + Verified-₱0 + ₱100-token (DECISION_LOG row appended 2026-06-08). Follow-up: customer-dedicated nav + footer vendor menu.
+
+## 2026-06-08 · feat(0016): pure-moment conversational onboarding intro (prototype→prod port)
+
+**Context:** Audit (this session) found the owner-2026-06-05 "pure-moment" conversational welcome — Setnayan "speaks" line-by-line, role/kind/faith asked inline, no Continue button — was built into the production-mirror prototype `Onboarding_Wedding_Flow_2026-06-01.html` but never ported to the live React onboarding (`apps/web/app/onboarding/wedding`), which still opened on a static hero + three separate Continue screens. Owner approved a full faithful port.
+
+**What landed:**
+- **New `app/onboarding/wedding/_components/welcome-moments.tsx`** — self-contained moment player. `speak` lines auto-advance (dwell scales with length; tap to skip) beside the gold Setnayan mark; `ask` beats collect role → kind → faith inline; civil skips the faith beat; the `when` gating mirrors the prototype `MOMENTS` script verbatim. Offers the LIVE active faith set (not the prototype's stale five) so coverage never narrows before the hand-off.
+- **`_components/onboarding-shell.tsx`** — step-0 welcome plays the conversation on first arrival then hands off to the Name screen (step 4); progress bar + bottom Continue are hidden during the conversation; the plain hero shows on back-nav re-entry so the screen never traps. Standalone role/kind/faith screens (steps 1-3) are retained as back/edit targets (matches the prototype).
+- **`_styles/onboarding.css`** — `.onbw`-scoped moment styles (`ob-momentIn`, `fm-react` serif line + `say-mark`, stacked `m-opt` cards) + `prefers-reduced-motion` fallback.
+
+**Not ported (flagged for owner):** the prototype's over-budget venue copy ("A touch over budget — still yours to consider" / "In your range") depends on per-venue pricing that the live `OnboardingVenueResult` / `searchOnboardingReceptionVenues` does not return; surfacing it would mean inventing prices (guardrail), so it needs a real data-wiring task + an owner call on showing venue prices in onboarding. Deferred.
+
+**Verify:** `pnpm typecheck` clean; `pnpm lint` clean (no new warnings — pre-existing warnings only); browser verification on the PR's Vercel preview deploy (`/onboarding/wedding`).
+
+**SPEC IMPACT:** None — brings live code in line with the already-locked owner-2026-06-05 prototype decision (no new product decision). The over-budget venue-pricing gap is flagged for owner, not silently changed.
+
+---
 
 ## 2026-06-08 · feat(website): Special Message content block (live invitation site)
 

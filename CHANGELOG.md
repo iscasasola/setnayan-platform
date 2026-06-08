@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(pricing): canonical customer reprice — apply to the live V2 catalog (owner-authorized)
+
+**Context:** Owner authorized ("apply now", 2026-06-08) the canonical customer pricing from `Pricing_Canonical_2026-06-08.md` across the app. The live source is the **V2 customer catalog** (`platform_retail_catalog_v2` + `platform_package_catalog`, read by `lib/v2-catalog.ts` → /pricing, /for-vendors, dashboard checkout) — NOT the retired V1 `service_catalog`. The two bundles were already at canonical (Essentials ₱12,999 / Complete ₱27,999); the retail catalog needed reconciliation.
+
+**What landed:**
+- **Migration `20260915000000_pricing_canonical_2026_06_08.sql`** (idempotent, FK-safe — `event_software_activations_v2.service_code` references the catalog, so retirements flip `is_active` only, never DELETE; verified 0 orders reference retired codes). **Applied to prod + recorded in `schema_migrations`.**
+  - Repriced 7: Custom QR ₱1,499→999 · Guest Stories ₱1,999→1,499 · Camera Bridge ₱1,999→1,499 · Patiktok ₱2,499→1,499 · Thank You ₱5,499→3,499 · Same Day Edit ₱3,499→**4,999** · Panood ₱3,499→2,499.
+  - Added 3: **Setnayan AI ₱3,999** · **Pro RSVP ₱1,999** · **Event Website ₱1,999**.
+  - Retired **Today's Focus** (`is_active=false`, superseded by Setnayan AI; 0 orders).
+  - Asserted both bundles at canonical (no-op).
+- **`onboarding-shell.tsx`** `SVC` demo constant `set` values aligned to canonical for the clean 1:1 maps (SDE 4999, Guest Stories 1499, Animated Monogram 1999, Thank You 3499, Custom QR 999, Panood 2499, advanced_website→7999).
+
+**⚠ SURFACED FOR OWNER SIGN-OFF (deliberately NOT changed):**
+- **Papic Guests** — canonical lists ₱1,999 flat, but `PAPIC_GUEST` is the owner-locked **pax-priced** SKU (₱2,999 floor, 2026-06-01 pax lock). Left pax-priced; needs reconciliation in the canonical doc.
+- **4 retirements the canonical doc itself flags "confirm"** — left ACTIVE pending sign-off: `HIGH_RES_ARCHIVE`, `CALL_TIME_ESCALATOR`, `INDOOR_BLUEPRINT`, `PAKULAY`.
+
+**Follow-up:** onboarding still reads the `SVC` demo constant, not v2-catalog live; proper server-side wiring is deferred to the Dream Team picker PR (which reworks the end-of-flow services screens).
+
+**SPEC IMPACT:** Pricing corpus — `Pricing_Canonical_2026-06-08.md` is the source applied. DECISION_LOG row added (2026-06-08 canonical reprice applied + 2 open conflicts). Owner to reconcile `Pricing.md §0` + the Papic-Guests-pax / 4-retirement questions.
 ## 2026-06-08 · fix(home,pricing): de-hardcode homepage PricingSection → read admin catalog DB + reprice bundles/tokens
 
 **Context:** Owner 2026-06-08 — "all values must not be hardcoded · verify from the DB created by admin · find the amount on admin." Root cause of the recurring price drift: the homepage + /for-vendors hard-code their own copies while /pricing reads the DB. This wires the homepage to the DB.

@@ -89,15 +89,13 @@ export const metadata = {
   },
 };
 
-// Marketing home is rendered at build time and served from the CDN edge —
-// no per-request SSR, no auth roundtrip, no serverless cold start. Carried
-// forward from the prior page.tsx. Admin edits to widget toggles would have
-// fired `revalidatePath('/')` in the prior implementation; the v2.1 port
-// retires the per-widget admin toggle in favour of the canonical
-// 12-section composition. `revalidate = false` means the static HTML is
-// cached indefinitely; redeploys are the only refresh trigger now.
-export const dynamic = 'force-static';
-export const revalidate = false;
+// Per-request rendering (owner 2026-06-08): the PricingSection reads live prices
+// from the admin-managed catalog DB (fetchV2BundleCatalog / fetchV2CustomerCatalog
+// via createAdminClient), the same way /pricing does. force-dynamic skips static
+// prerender so (a) admin price edits show immediately with no redeploy, and (b)
+// the CI build never hits the createAdminClient "missing service key" throw.
+// Trade-off accepted: the homepage loses static CDN caching. (Was force-static.)
+export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
   return (

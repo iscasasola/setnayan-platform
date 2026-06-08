@@ -1138,7 +1138,10 @@ const BUNDLE_BENEFIT: Record<string, string> = {
    stay (above + below) and are reused by INAPP_SERVICES. */
 /* out = market-equivalent "if hired separately" (admin-editable) · set = Setnayan price (pax items scale in admin). */
 const SVC: Record<string, { out: number; set: number }> = {
-  advanced_website: { out: 25000, set: 5499 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 3499 }, guest_stories: { out: 8000, set: 1999 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 2499 }, thank_you: { out: 60000, set: 5499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 1499 }, panood: { out: 17500, set: 3499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
+  // `set` aligned to Pricing_Canonical_2026-06-08.md (owner-locked). Clean 1:1 maps only;
+  // advanced_website (premium site) + papic_guest (pax-priced) + indoor_blueprint/high_res
+  // (retirement pending owner confirm) left as demo anchors.
+  advanced_website: { out: 25000, set: 7999 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 4999 }, guest_stories: { out: 8000, set: 1499 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 1999 }, thank_you: { out: 60000, set: 3499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 999 }, panood: { out: 17500, set: 2499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
 };
 const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
 /* Comma thousands-separators for the numeric text boxes (guest count + budget).

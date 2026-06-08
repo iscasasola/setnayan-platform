@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(services): Budget "Build" — Services 5-tab takeover shell (Phase 1, flag-dark)
+
+**Context:** Owner design session (→ `Budget_Build_Services_Takeover_2026-06-08.md`): the couple's Services tab becomes a full-screen FOCUS MODE takeover (Summary · Shortlist · Build · Compare · Lock) that turns budget + pax + date + location into a complete, affordable, bookable plan. This PR lands **Phase 1 — the takeover shell only** — behind a flag, so production is unchanged.
+
+**Flag:** `BUDGET_BUILD_ENABLED` (env, default OFF — same posture as `WEBSITE_PHASES_ENABLED` / the Setnayan AI paywall). While OFF, `/vendors` renders exactly as today.
+
+**What landed:**
+- `lib/budget-build.ts` — `isBudgetBuildEnabled()` + the `BUDGET_BUILD_TABS` constant.
+- `vendors/_components/services-takeover.tsx` — the focus-mode shell: hides the global top bar (`.shell-topbar{display:none}`), a fixed floating X (mobile) → event Home, a desktop tab strip + a mobile fixed 5-tab section bottom nav. Phase 1: Shortlist renders today's `PlanBudgetAccordion`; the other tabs are stubs Phases 2–5 fill.
+- `customer-bottom-nav.tsx` — when `budgetBuild`, suppress the global bottom nav on the exact `/vendors` route (mirrors the Guests treatment); sub-routes keep it.
+- `layout.tsx` — passes `budgetBuild={isBudgetBuildEnabled()}` to `CustomerBottomNav`.
+- `vendors/page.tsx` — when the flag is on, wraps the existing Services content in `ServicesTakeover` (Shortlist slot); otherwise renders exactly as before.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Flag OFF by default → zero production change.
+
+**SPEC IMPACT:** Implements Phase 1 of `Budget_Build_Services_Takeover_2026-06-08.md` (corpus); logged in `DECISION_LOG.md` (2026-06-08 🧮 row). Transitional vs `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` (full migration across Phases 2–5).
+
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

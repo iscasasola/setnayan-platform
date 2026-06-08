@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010) — PR 2/3
+
+**Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" This PR makes the recolor tool **couple-facing** and reorganizes the surface into four chapters. (Owner picked, via in-session questions: coverage = Church · Reception · Attire · Flowers; tool depth = full recolor.)
+
+**Recolor Studio (`recolor-studio.tsx`, new):** the couple opens a curated photo, picks a part of it (a pre-tagged color range — "drapery", "bouquet", "dress" — or eyedrops a custom area), then **snaps it to a palette color** or **adjusts hue / saturation / brightness / contrast** by hand. Live browser-side Canvas recolor (₱0 marginal cost) via the shared `@/lib/color-recolor` engine. Read-only mode re-renders pinned saves.
+
+**4-chapter page (`moodboard-chapters.tsx`, new + `page.tsx`):** replaces the old 2-pillar "Visual preview" (Location feel + Dress codes) with **Church · Reception · Attire · Flowers**. Pinned looks render up top. The silhouette Wedding Attire Guide is kept below as the group-portrait view. Removed dead `visual-preview.tsx`.
+
+**Persistence:** `saveMoodboardSelection` now stores a **self-describing snapshot** in `event_moodboard_saves.palette_snapshot` (`{ slot: { def, edit } }`) so pinned looks re-render even if library tags change; legacy `{ slot: "#hex" }` saves still parse. `pillar` widened to include `'florals'`.
+
+**Verification:** headless engine test — 15/15 assertions (palette snap, brightness/contrast/hue, region-scoped recolor, snapshot round-trip incl. legacy + identity-drop). `pnpm typecheck` ✅ · `pnpm lint` ✅. Browser render gated by the PR's Vercel preview + Playwright e2e.
+
+**SPEC IMPACT:** 0010 Mood Board — couples can now recolor library photos (was admin-only/view-only) and a Flowers chapter is added. The 0010 AS-BUILT correction + `DECISION_LOG.md` row (**library-photo recolor = FREE / AI Composite Scene generator = stays paid**, per the spec's Professional Mood Board tier) land in PR 3/3 with the Flowers asset library.
+
 ## 2026-06-08 · refactor(mood-board): shared recolor engine + florals migration (0010) — PR 1/3
 
 **Context:** Owner: "fully redesign the mood board… color range selector… alter hue, contrast, brightness or pick from the palette… Flower? Attires? Reception? Church?" First of a 3-PR series. This PR is behavior-neutral plumbing: it extracts the color math out of the admin-only Color Range Manipulator into a shared, DOM-free engine the couple-facing Recolor Studio (PR 2) will reuse, and lands the one small additive migration the Flowers chapter needs.

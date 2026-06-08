@@ -273,3 +273,89 @@ export function palettePreviewToEdits(preview: PalettePreview): RegionEditMap {
   }
   return out;
 }
+
+// ---- persistence (event_moodboard_saves.palette_snapshot) ----
+
+/** A region's definition (sampled color + tolerance) stored alongside its edit. */
+export type RegionDef = { hex: string; tol: number };
+
+/** One persisted region: its definition + the edit applied to it. */
+export type SavedRegion = { def: RegionDef; edit: RegionEdit };
+
+/**
+ * The shape stored in event_moodboard_saves.palette_snapshot (JSONB), keyed by
+ * slotId. Self-describing — carries each region's definition so a pinned look
+ * re-renders identically even if the asset's library tags later change.
+ *
+ * Backward-compatible read: a legacy value of plain `"#RRGGBB"` (the pre-redesign
+ * slot→hex shape) is interpreted as a palette snap, with the region definition
+ * recovered from the asset's current color ranges.
+ */
+export type MoodboardSnapshot = Record<string, SavedRegion>;
+
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+
+/** Build the persisted snapshot from the active slots + the couple's edits. */
+export function buildSnapshot(
+  slots: ColorRangeMap,
+  edits: RegionEditMap,
+): MoodboardSnapshot {
+  const out: MoodboardSnapshot = {};
+  for (const [slotIdStr, edit] of Object.entries(edits)) {
+    const slotId = Number(slotIdStr);
+    if (isIdentityEdit(edit)) continue;
+    const slot = slots[slotId];
+    if (!slot) continue;
+    out[slotIdStr] = {
+      def: { hex: slot.sampledHex, tol: slot.toleranceDe },
+      edit,
+    };
+  }
+  return out;
+}
+
+/**
+ * Parse a stored palette_snapshot (new SavedRegion map OR legacy slot→hex)
+ * back into the slots[] + edits the Recolor Studio needs to re-render.
+ *
+ * @param raw          the JSONB value from the DB
+ * @param assetRanges  the asset's current color ranges — used only to recover
+ *                     region defs for legacy string-hex entries.
+ */
+export function parseSnapshot(
+  raw: unknown,
+  assetRanges: ColorRangeMap = {},
+): { slots: ColorRangeSlot[]; edits: RegionEditMap } {
+  const slots: ColorRangeSlot[] = [];
+  const edits: RegionEditMap = {};
+  if (typeof raw !== 'object' || raw === null) return { slots, edits };
+
+  for (const [slotIdStr, value] of Object.entries(raw as Record<string, unknown>)) {
+    const slotId = Number(slotIdStr);
+    if (!Number.isFinite(slotId)) continue;
+
+    if (typeof value === 'string') {
+      // Legacy { slot: "#hex" } → palette snap. Recover def from live tags.
+      if (!HEX6.test(value)) continue;
+      const range = assetRanges[slotId];
+      const def: RegionDef = range
+        ? { hex: range.sampledHex, tol: range.toleranceDe }
+        : { hex: value, tol: 15 };
+      slots.push({ slotId, sampledHex: def.hex, toleranceDe: def.tol });
+      edits[slotId] = { mode: 'palette', hex: value };
+      continue;
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      const v = value as Partial<SavedRegion>;
+      if (!v.def || !v.edit) continue;
+      slots.push({
+        slotId,
+        sampledHex: v.def.hex,
+        toleranceDe: v.def.tol,
+      });
+      edits[slotId] = v.edit;
+    }
+  }
+  return { slots, edits };
+}

@@ -7,10 +7,14 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 
 export type MoodboardSelectionInput = {
   eventId: string;
-  pillar: 'location_feel' | 'dress_codes';
+  // 'florals' added 2026-06-08 (mood-board redesign — Flowers chapter).
+  pillar: 'location_feel' | 'dress_codes' | 'florals';
   pillarSlot: string;
   assetId: string;
-  paletteSnapshot: Record<string, string>;
+  // JSONB. Carries either the legacy { slot: "#hex" } shape OR the redesign's
+  // self-describing MoodboardSnapshot ({ slot: { def, edit } }) from the
+  // Recolor Studio. Stored verbatim; parsed back via parseSnapshot on read.
+  paletteSnapshot: Record<string, unknown>;
 };
 
 export async function saveMoodboardSelection(

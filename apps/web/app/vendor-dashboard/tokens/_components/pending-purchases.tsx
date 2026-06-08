@@ -92,17 +92,19 @@ export function PendingPurchases({
         ))}
       </ul>
 
-      {/* Receiving accounts */}
+      {/* Receiving accounts — scan the QR (easiest) or use the account number */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <PayBox
           label="BDO"
           name={settings.bdo_account_name}
           number={settings.bdo_account_number}
+          qrUrl={settings.bdo_qr_url}
         />
         <PayBox
           label="GCash"
           name={settings.gcash_account_name}
           number={settings.gcash_number}
+          qrUrl={settings.gcash_qr_url}
         />
       </div>
 
@@ -119,24 +121,48 @@ function PayBox({
   label,
   name,
   number,
+  qrUrl,
 }: {
   label: string;
   name: string | null;
   number: string | null;
+  qrUrl: string | null;
 }) {
-  const configured = Boolean(number?.trim());
+  const configured = Boolean(number?.trim() || qrUrl?.trim());
+  const hasQr = Boolean(qrUrl?.trim());
   return (
     <div
-      className="rounded-md border px-3 py-2.5"
+      className="flex flex-col items-center rounded-md border px-3 py-3 text-center"
       style={{ borderColor: 'var(--m-line)' }}
     >
       <p className="text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</p>
       {configured ? (
         <>
-          <p className="mt-1 font-mono text-sm font-semibold text-ink">{number}</p>
-          {name?.trim() && (
-            <p className="text-[11px] text-ink/55">{name}</p>
+          {hasQr && (
+            <div
+              className="relative mt-2 h-40 w-40 overflow-hidden rounded-lg border bg-white"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              {/* External URL · plain <img> (QR assets live on Supabase
+                  storage, not in next/image's whitelisted domains) — mirrors
+                  the customer ManualCheckoutModal QR pattern. Explicit
+                  width/height reserve the box to avoid layout shift. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrUrl as string}
+                alt={`${label} payment QR code`}
+                width={160}
+                height={160}
+                decoding="async"
+                loading="lazy"
+                className="h-full w-full object-contain p-2"
+              />
+            </div>
           )}
+          {number?.trim() && (
+            <p className="mt-2 font-mono text-sm font-semibold text-ink">{number}</p>
+          )}
+          {name?.trim() && <p className="text-[11px] text-ink/55">{name}</p>}
         </>
       ) : (
         <p className="mt-1 text-[11px] text-ink/45">

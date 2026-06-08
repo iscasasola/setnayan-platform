@@ -68,9 +68,13 @@ export function BuildCompare({
     const rows = result.leaves.map((l) => ({
       canonicalService: l.canonicalService,
       label: labelOf.get(l.canonicalService) ?? l.canonicalService,
-      lean: l.rangeLowPhp,
+      // Clamp so the three tiers never invert. Under a tight budget (budget <
+      // Σ medians, the common 'park' case) the engine compresses amountPhp (Fits)
+      // BELOW the unscaled rangeLow, which would otherwise make Lean read higher
+      // than Fits and flip the over/under labels. (Adversarial review 2026-06-09.)
+      lean: Math.min(l.rangeLowPhp, l.amountPhp),
       fits: l.amountPhp,
-      stretch: l.rangeHighPhp,
+      stretch: Math.max(l.rangeHighPhp, l.amountPhp),
     }));
     const totals = rows.reduce(
       (a, r) => ({ lean: a.lean + r.lean, fits: a.fits + r.fits, stretch: a.stretch + r.stretch }),

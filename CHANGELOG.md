@@ -13,6 +13,32 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. On `test-maria-and-jose` the editorial now renders the "Sweeping" kicker + composed lede (UP Diliman → Batanes → Tagaytay) + deck + pull-quote, the full hero photo, and the 5 shared photos. No migration; demo data unchanged.
 
 **SPEC IMPACT:** correctness (composer robustness) + §2 editorial "Our Photos" gallery. → DECISION_LOG.
+## 2026-06-09 · fix(services): Budget "Build" — adversarial-review fixes (basket clamp + desktop topbar)
+
+**Context:** Post-launch adversarial multi-agent review of the live takeover surfaced **no must-fix blockers** (RLS cross-event isolation holds; no data loss/leak) but **two real should-fix bugs**, fixed here.
+
+1. **Basket inversion under a tight budget** (`build-compare.tsx`): when budget < Σ medians (the common `surplusMode:'park'` case) the engine compresses `amountPhp` (Fits) below the unscaled `rangeLowPhp`, so the Lean column read *higher* than Fits and the over/under labels flipped. **Fix:** clamp per leaf — `lean = min(rangeLow, amount)`, `stretch = max(rangeHigh, amount)` — guaranteeing `lean ≤ fits ≤ stretch` (flows through to the saved-build snapshot too).
+2. **Desktop lost the EventSwitcher + notifications** (`services-takeover.tsx`): the `.shell-topbar{display:none}` was global; on desktop the top bar is the only host of multi-event switching + the notifications bell (no sidebar fallback). **Fix:** scope the hide to `@media (max-width:1023px)` — desktop keeps its top bar (the desktop tab strip lives in the content area; the floating X was already `lg:hidden`).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Flag stays default-ON.
+
+**SPEC IMPACT:** None (behavior fixes). Remaining review **nice-to-haves** (surfaced, not yet done): tab a11y roles, URL-backed tab state, and an owner decision on tightening `budget_builds` RLS to couple-only read/delete + pinning `created_by` on the upsert. Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(vendor-tier): #3 Enterprise time-bound slots — per-service named time windows w/ per-slot allotment (✗/✗/✗/∞)
+
+**Context:** Build #3 of "do 1–5" on the owner's 4-tier capability matrix (`Vendor_Tier_Capability_Matrix_2026-06-07.md`). #2 shipped a flat per-service daily booking capacity (e.g. 2 photobooths → 2 bookings/day). #3 layers **time-of-day on top, ENTERPRISE-ONLY** (owner 2026-06-07: *"venues like hotels can plot timeslot for their different rooms"*): an Enterprise vendor plots **named time windows on a service, each with its own allotted capacity**; couples picking that service choose a window at lock time; each window books independently. Pro stays a flat 3/day (no am/pm); FREE/VERIFIED unchanged. Design adversarially verified by a 3-workflow design pass (banked `Vendor_Tier_3_TimeSlots_Spec_2026-06-09.json`; 5 verifier fixes applied).
+
+**What landed:**
+- **Migration `20260928000000_vendor_service_time_slots.sql`** (applied to prod): new `vendor_service_time_slots` (service-scoped: `slot_label`, `window_start`/`window_end` time, `allotment` int, `is_active`) with CHECK constraints (label len, window ordering, :00/:30 granularity), RLS at CREATE (vendor-owner write · admin read · couple read), unique active label per service. `event_vendors.service_time_slot_id UUID NULL REFERENCES … ON DELETE SET NULL` binds a booking to its chosen window. Atomic **`acquire_service_time_slot(p_event_id,p_vendor_id,p_service_id,p_slot_id)` RPC** (SECURITY DEFINER): couple-only auth via `current_couple_event_ids()`, reads `events.event_date` gated on `event_date_precision='day'`, `FOR UPDATE`-locks the slot row, counts the full `CONFIRMED_VENDOR_STATUSES` set, and does the capacity-consuming `UPDATE event_vendors … status='contracted', service_time_slot_id=…` **inside the lock** (closes the TOCTOU). Returns a JSONB envelope (`ok`/`full`/`not_authorized`/`slot_not_found`/`no_date`).
+- **`lib/vendor-tier-caps.ts`** — `canPlotTimeSlots(tier)` = `tierCaps(tier).slotsPerDay === Infinity` (Enterprise-only; matrix `slotsTimeBounded` true for Enterprise only).
+- **`lib/vendor-time-slots.ts`** (new) — `VendorServiceTimeSlot` type + `fetchVendorTimeSlotsByService` / `fetchSlotsForCoupleBooking`.
+- **Vendor services** (`app/vendor-dashboard/services/{actions,page}.ts/tsx`) — `assertCanPlotSlots` gate, `addServiceTimeSlot` (Enterprise-gated), `deleteServiceTimeSlot` (ungated soft-deactivate); a `SlotEditor` sub-editor (list/delete always when slots exist; **ADD Enterprise-only**); the #2 daily-capacity input is disabled when slots exist (slots become the capacity source).
+- **`finalizeVendor`** (`app/dashboard/[eventId]/vendors/actions.ts`) — new `slot_required` + `slot_full` result variants; slot path activates when the service has ≥1 active slot **and** `event_date_precision='day'`, else falls back to #2 flat daily-capacity; calls `acquire_service_time_slot` (handles every envelope status); `slotPathLocked` suppresses the vendor-level soft-hold gate **and** the generic lock write so the RPC's atomic write isn't duplicated; **repointed #2's two `wedding_date` reads → `event_date`** (the generated `wedding_date` mirror has no backing DDL — latent no-op; now reads the canonical column).
+- **Couple slot-picker** wired into all 3 lock surfaces (`accordion-lock.tsx`, `plan-card-lock.tsx`, `plan-card-compare.tsx`): each calls `listLockTimeSlots`, renders a `<select>` when ≥1 active slot exists, and passes the chosen `service_time_slot_id` into `finalizeVendor`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (only pre-existing unrelated warnings). Migration applied to prod via statement-by-statement apply (cross-session migration-tracking is out of order); verified post-apply: table + `event_vendors.service_time_slot_id` column + RPC + 3 RLS policies + RLS-on all present; version recorded in `supabase_migrations.schema_migrations`.
+
+**SPEC IMPACT:** #3 of the tier matrix → corpus `DECISION_LOG.md` + `Vendor_Tier_Capability_Matrix_2026-06-07.md` (Slot-per-day row: Enterprise time-bound now ENFORCED). Next: #4 Phase C feature gates · #5 Phase D self-serve subscription checkout.
 
 ## 2026-06-09 · feat(admin): onboarding refinements editor (follow-up to items 8/9)
 

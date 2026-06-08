@@ -3,15 +3,20 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { AlertTriangle, BookmarkCheck, Loader2, RotateCcw, X } from 'lucide-react';
+import { AlertTriangle, BookmarkCheck, Clock, Loader2, RotateCcw, X } from 'lucide-react';
 import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import {
   finalizeVendor,
+  listLockTimeSlots,
   revertVendorToConsidering,
   type FinalizeVendorResult,
 } from '../actions';
+import {
+  slotOptionLabel,
+  type VendorServiceTimeSlot,
+} from '@/lib/vendor-time-slots';
 
 /**
  * AccordionLockButton + ChangePickButton — the Plan + Budget card's lock /
@@ -53,6 +58,13 @@ type LockState =
       kind: 'soft_hold';
       currentLimit: number;
       existingHoldCount: number;
+    }
+  // Tier #3 (owner 2026-06-09): the booked service has active time windows —
+  // the couple must pick one before the lock proceeds.
+  | {
+      kind: 'slot_select';
+      slots: VendorServiceTimeSlot[];
+      selectedSlotId: string;
     }
   | { kind: 'error'; message: string };
 
@@ -97,9 +109,14 @@ export function AccordionLockButton({
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Escape closes an open exception modal.
+  // Escape closes an open exception / picker modal.
   useEffect(() => {
-    if (state.kind !== 'conflict' && state.kind !== 'soft_hold') return;
+    if (
+      state.kind !== 'conflict' &&
+      state.kind !== 'soft_hold' &&
+      state.kind !== 'slot_select'
+    )
+      return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setState({ kind: 'idle' });
     };
@@ -107,12 +124,35 @@ export function AccordionLockButton({
     return () => window.removeEventListener('keydown', onKey);
   }, [state.kind]);
 
-  const performLock = (override: boolean) => {
+  // First tap: if the booked service has time slots, open the picker; else
+  // proceed straight to the one-tap lock. Keeps the happy path one-tap for the
+  // vast majority of vendors (no slots → no extra round-trip in the UI flow).
+  const requestLock = () => {
+    startTransition(async () => {
+      let slots: VendorServiceTimeSlot[] = [];
+      try {
+        slots = await listLockTimeSlots(eventId, vendorId);
+      } catch {
+        // Degrade open — a slot-fetch hiccup must not block locking. The
+        // server still enforces (returns 'slot_required' if a pick is needed).
+        slots = [];
+      }
+      const firstSlot = slots[0];
+      if (firstSlot) {
+        setState({ kind: 'slot_select', slots, selectedSlotId: firstSlot.slot_id });
+        return;
+      }
+      performLock(false, null);
+    });
+  };
+
+  const performLock = (override: boolean, slotId: string | null) => {
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('vendor_id', vendorId);
       if (override) fd.set('override_existing', '1');
+      if (slotId) fd.set('service_time_slot_id', slotId);
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -161,6 +201,30 @@ export function AccordionLockButton({
             existingHoldCount: result.existingHoldCount,
           });
           return;
+        case 'slot_required': {
+          // The service needs a slot pick (couple skipped it or the chosen one
+          // expired). Re-fetch the windows and open the picker.
+          let slots: VendorServiceTimeSlot[] = [];
+          try {
+            slots = await listLockTimeSlots(eventId, vendorId);
+          } catch {
+            slots = [];
+          }
+          const firstSlot = slots[0];
+          if (firstSlot) {
+            setState({
+              kind: 'slot_select',
+              slots,
+              selectedSlotId: firstSlot.slot_id,
+            });
+          } else {
+            setState({
+              kind: 'error',
+              message: 'Please pick a time slot to lock this vendor.',
+            });
+          }
+          return;
+        }
         case 'not_signed_in':
           setState({ kind: 'error', message: 'Sign in again to lock this vendor.' });
           return;
@@ -195,7 +259,7 @@ export function AccordionLockButton({
         disabled={isPending}
         onClick={() => {
           haptic('confirm');
-          performLock(false);
+          requestLock();
         }}
       >
         {isPending && state.kind === 'idle' ? 'Locking…' : 'Lock this pick'}
@@ -219,7 +283,23 @@ export function AccordionLockButton({
             vendorName={vendorName}
             groupId={groupId}
             isPending={isPending}
-            onSwitch={() => performLock(true)}
+            onSwitch={() => performLock(true, null)}
+            onDismiss={() => setState({ kind: 'idle' })}
+          />,
+        )}
+
+      {/* Tier #3 — couple picks the time window before the lock proceeds. */}
+      {state.kind === 'slot_select' &&
+        portal(
+          <SlotPickerModal
+            vendorName={vendorName}
+            slots={state.slots}
+            selectedSlotId={state.selectedSlotId}
+            isPending={isPending}
+            onSelect={(slotId) =>
+              setState({ ...state, selectedSlotId: slotId })
+            }
+            onConfirm={() => performLock(false, state.selectedSlotId)}
             onDismiss={() => setState({ kind: 'idle' })}
           />,
         )}
@@ -373,6 +453,107 @@ function ExceptionModal({
             className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-60"
           >
             {state.kind === 'conflict' ? 'Cancel' : 'Dismiss'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Tier #3 couple slot picker — the couple chooses the vendor's time window
+ *  (owner 2026-06-09) before the lock proceeds. Renders only when the booked
+ *  service has >=1 active slot. */
+function SlotPickerModal({
+  vendorName,
+  slots,
+  selectedSlotId,
+  isPending,
+  onSelect,
+  onConfirm,
+  onDismiss,
+}: {
+  vendorName: string;
+  slots: VendorServiceTimeSlot[];
+  selectedSlotId: string;
+  isPending: boolean;
+  onSelect: (slotId: string) => void;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Pick a time slot for ${vendorName}`}
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onDismiss();
+      }}
+    >
+      <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onDismiss}
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </button>
+
+        <div className="flex items-start gap-2.5 pr-6">
+          <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-ink">
+              Pick a time slot for {vendorName}
+            </h3>
+            <p className="text-xs leading-snug text-ink/65">
+              This vendor runs more than one window on your date. Choose the one
+              you&rsquo;re booking.
+            </p>
+          </div>
+        </div>
+
+        <label className="mt-4 block space-y-1">
+          <span className="block text-xs font-medium text-ink/70">Time slot</span>
+          <select
+            value={selectedSlotId}
+            onChange={(e) => onSelect(e.target.value)}
+            className="input-field cursor-pointer"
+          >
+            {slots.map((slot) => (
+              <option key={slot.slot_id} value={slot.slot_id}>
+                {slotOptionLabel(slot)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={isPending}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending || !selectedSlotId}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+          >
+            {isPending ? (
+              <>
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+                Locking…
+              </>
+            ) : (
+              <>
+                <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Lock this slot
+              </>
+            )}
           </button>
         </div>
       </div>

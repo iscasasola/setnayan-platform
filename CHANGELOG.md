@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(admin): command-center Home — all pending queues grouped by lane (nav redesign PR 2)
+
+**Context:** PR 2 of the owner-approved admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` · conditional sign-off "for as long as everything is easier to manage"). The shipped Home surfaced only **4 of ~12** action queues. This makes Home the real command center — "what needs admin action right now" — and **satisfies the Money-lane sign-off condition**: the money queues are reunited into an always-visible "Money to reconcile" block (the dissolved Money group's queues), so finance gets a one-stop money view on the landing page.
+
+**What landed (`app/admin/page.tsx`):**
+- Action queues expanded **4 → 11**, grouped into 4 lanes mirroring the Work nav: **Trust & supply** (Verify · Taxonomy requests · Payment options) · **Money to reconcile** (Payments · Payouts · Token sales) · **Recourse** (Disputes · Force majeure · Review appeals · Setnayan AI abuse) · **Support** (Help). Each tile is a live `head:true` count linking to its queue with the matching default filter; tone-graded (amber when work pending); total-open summary in the section header.
+- Each count query mirrors the exact filter its queue page uses (adversarially cross-checked by a verification workflow against all 11 queue pages + a holistic destructuring-order/regression review).
+- **Bug fix (pre-existing, caught by the verification pass):** the *Vendors to verify* count now reads `vendor_verification_applications WHERE status='pending_review'` (the verify page's **default** Applications surface) instead of `vendor_profiles WHERE public_visibility='coming_soon'` (the secondary `?surface=visibility` tab). The old filter — inherited from the prior shipped Home **and** the PR-1 `/admin/work` feed — counted the wrong table, so Home/Work showed a number that didn't match the verify queue an admin lands on. Fixed in **both** `page.tsx` and `work/page.tsx`.
+- A missing/renamed table degrades that one tile to "—" (never 500s the page).
+- Preserved the 8 platform-stats grid + the 7 shortcut tiles.
+
+**Not surfaced (yet):** two-admin approvals — the `admin_approval_requests` table is unbuilt (V1.x per § 9.1), so there is nothing to count; it lands with the dedicated `/admin/approvals` PR. Platform-alerts + recent-admin-activity feed deferred (no real data source wired — no fake data).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched) · verification workflow green.
+
+**SPEC IMPACT:** PR 2 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(services): Budget "Build" — save A/B/C builds in Compare (Phase 2b, flag-dark)
 
 **Context:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. The Compare tab gains persistence — couples can **save a basket (Lean/Fits/Stretch) into a named slot (A/B/C)** and compare the builds they've banked over time (vary budget/services on Build between saves).

@@ -43,6 +43,39 @@ export const LUX_PER_GUEST = 3000;
 export const TIME_SAVED_PER_VENDOR_HOURS = 6;
 export const TIME_SAVED_BASE_HOURS = 8;
 
+/** Display labels for in-app Setnayan service_keys (the "Powered by Setnayan"
+ * strip). Unknown keys fall back to prettyServiceKey(). */
+const SERVICE_LABELS: Record<string, string> = {
+  ANIMATED_MONOGRAM: 'Animated Monogram',
+  CAMERA_BRIDGE: 'Camera Bridge',
+  CUSTOM_QR_GUEST: 'Custom Guest QR',
+  EVENT_WEBSITE: 'Event Website',
+  LIVE_BACKGROUND: 'Live Background',
+  LIVE_WALL: 'Live Photo Wall',
+  PABATI: 'Pabati',
+  PAKANTA: 'Pakanta',
+  PANOOD_SYSTEM: 'Panood Livestream',
+  PAPIC_ADDON_STORIES: 'Guest Stories',
+  PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
+  PAPIC_GUEST: 'Papic Guest',
+  PAPIC_SEATS: 'Papic',
+  PATIKTOK_COMPILER: 'Patiktok',
+  PRO_RSVP: 'Pro RSVP',
+  PRO_WEBSITE: 'Pro Website',
+  RSVP_PRO_WEBSITE: 'Pro Website',
+  SDE: 'Same-Day Edit',
+  SETNAYAN_AI: 'Setnayan AI',
+};
+
+function prettyServiceKey(key: string): string {
+  return key
+    .toLowerCase()
+    .split(/[_:-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 // ── Public types ────────────────────────────────────────────────────────────
 
 export type Milestone = { year?: string | null; title?: string | null; note?: string | null };
@@ -93,7 +126,20 @@ export type Archetype = {
 
 export type StoryTone = 'warm' | 'playful' | 'formal' | null;
 
-export type VendorCredit = { name: string; category: string | null; isFirstPick: boolean };
+export type VendorCredit = {
+  name: string;
+  category: string | null;
+  isFirstPick: boolean;
+  // Tier-aware showcase (Wedding_Website_Lifecycle_Spec §3): a vendor's
+  // featured card (logo + profile link) renders on the Editorial only while
+  // they are currently Pro/Enterprise. `tier` is the linked vendor_profile's
+  // tier_state ('free'|'verified'|'pro'|'enterprise') or null when the event
+  // vendor isn't linked to a marketplace profile. Free vendors are excluded
+  // upstream (hidden from the Editorial entirely, per §3).
+  tier: 'free' | 'verified' | 'pro' | 'enterprise' | null;
+  logoUrl: string | null;
+  slug: string | null;
+};
 
 export type EditorialData = {
   displayName: string;
@@ -123,6 +169,20 @@ export type EditorialData = {
   metrics: ImpactMetrics;
   archetype: Archetype;
   vendors: VendorCredit[];
+  // "What They Said" — guest/vendor/couple reviews. Seeded today via
+  // event_editorial.draft_json.reviews; the full event-bound review system
+  // (spec §3) lands later and will replace this source.
+  reviews: Review[];
+  // In-app Setnayan services the couple availed (paid `orders`), as display
+  // labels — drives the "Powered by Setnayan" strip.
+  servicesAvailed: string[];
+};
+
+export type Review = {
+  author: string;
+  role: string | null; // 'guest' | 'vendor' | 'couple' | free text
+  quote: string;
+  stars: number | null; // 1-5
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -251,7 +311,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language',
+        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -329,24 +389,74 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     replied = 0;
   }
 
-  // 4. Vendors + first-pick rate (best-effort).
+  // 4. Vendors + first-pick rate (best-effort). The first-pick + services
+  // metrics count ALL event_vendors (the couple planned them all with
+  // Setnayan, regardless of vendor tier). The DISPLAYED team list, however,
+  // hides Free vendors and gives Pro/Enterprise a richer card — §3.
   const vendors: VendorCredit[] = [];
   let firstPickNum = 0;
   let firstPickDen = 0;
   try {
     const { data: rows } = await admin
       .from('event_vendors')
-      .select('vendor_name, category, selection_match_rank')
+      .select('vendor_name, category, selection_match_rank, linked_vendor_profile_id')
       .eq('event_id', eventId);
     if (Array.isArray(rows)) {
       firstPickDen = rows.length;
+
+      // Resolve linked marketplace profiles (tier + logo + slug) in one query.
+      const profileIds = Array.from(
+        new Set(
+          rows
+            .map((r) => asString((r as Record<string, unknown>).linked_vendor_profile_id))
+            .filter((v): v is string => Boolean(v)),
+        ),
+      );
+      const profiles = new Map<
+        string,
+        { tier: VendorCredit['tier']; logoUrl: string | null; slug: string | null }
+      >();
+      if (profileIds.length > 0) {
+        try {
+          const { data: profRows } = await admin
+            .from('vendor_profiles')
+            .select('vendor_profile_id, tier_state, logo_url, business_slug')
+            .in('vendor_profile_id', profileIds);
+          for (const p of (profRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(p.vendor_profile_id);
+            if (!id) continue;
+            const tierRaw = asString(p.tier_state);
+            const tier = (['free', 'verified', 'pro', 'enterprise'] as const).find(
+              (t) => t === tierRaw,
+            ) ?? null;
+            profiles.set(id, {
+              tier,
+              logoUrl: await displayUrlForStoredAsset(asString(p.logo_url)),
+              slug: asString(p.business_slug),
+            });
+          }
+        } catch {
+          // no profiles → vendors render as plain credits
+        }
+      }
+
       for (const r of rows as Array<Record<string, unknown>>) {
         const isFirstPick = Number(r.selection_match_rank) === 1;
         if (isFirstPick) firstPickNum += 1;
         const name = asString(r.vendor_name);
-        if (name) {
-          vendors.push({ name, category: asString(r.category), isFirstPick });
-        }
+        if (!name) continue;
+        const prof = profiles.get(asString(r.linked_vendor_profile_id) ?? '');
+        const tier = prof?.tier ?? null;
+        // §3: Free vendors are hidden from the Editorial entirely.
+        if (tier === 'free') continue;
+        vendors.push({
+          name,
+          category: asString(r.category),
+          isFirstPick,
+          tier,
+          logoUrl: prof?.logoUrl ?? null,
+          slug: prof?.slug ?? null,
+        });
       }
     }
   } catch {
@@ -387,6 +497,53 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     } catch {
       heroPhotoUrl = null;
     }
+  }
+  // Fallback: if no curated editorial hero photo, reuse the couple's website
+  // hero image so the editorial still leads with a photo. displayUrlForStoredAsset
+  // passes plain/relative URLs through unchanged.
+  if (!heroPhotoUrl) {
+    heroPhotoUrl = await displayUrlForStoredAsset(
+      asString((event as Record<string, unknown>).landing_page_hero_image_url),
+    );
+  }
+
+  // 7. Reviews (best-effort). Seeded via event_editorial.draft_json.reviews
+  // until the §3 event-bound review system ships.
+  const reviews: Review[] = [];
+  const rawReviews = (draftJson as Record<string, unknown>).reviews;
+  if (Array.isArray(rawReviews)) {
+    for (const r of rawReviews as Array<Record<string, unknown>>) {
+      const quote = asString(r.quote);
+      const author = asString(r.author);
+      if (!quote || !author) continue;
+      const starsRaw = Number(r.stars);
+      reviews.push({
+        author,
+        role: asString(r.role),
+        quote,
+        stars: Number.isFinite(starsRaw) && starsRaw > 0 ? Math.round(starsRaw) : null,
+      });
+    }
+  }
+
+  // 8. In-app Setnayan services availed (paid orders → display labels).
+  const servicesAvailed: string[] = [];
+  try {
+    const { data: orderRows } = await admin
+      .from('orders')
+      .select('service_key, status')
+      .eq('event_id', eventId)
+      .not('status', 'in', '("draft","cancelled","refunded","lapsed")');
+    const seen = new Set<string>();
+    for (const o of (orderRows ?? []) as Array<Record<string, unknown>>) {
+      const key = asString(o.service_key);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      servicesAvailed.push(SERVICE_LABELS[key] ?? prettyServiceKey(key));
+    }
+    servicesAvailed.sort((a, b) => a.localeCompare(b));
+  } catch {
+    // leave empty
   }
 
   // ── Impact metrics: prefer frozen values, else compute live ────────────────
@@ -442,6 +599,8 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     metrics,
     archetype,
     vendors,
+    reviews,
+    servicesAvailed,
   };
 }
 

@@ -17,6 +17,64 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Completes the V1.x DB-backed-refinements admin surface (item 9 "full"). → corpus `DECISION_LOG.md`.
 
+
+## 2026-06-09 · feat(website): editorial reviews + "Powered by Setnayan" services strip (+ Maria & Jose scaled to 280pax / ₱5M)
+
+**Context:** Owner asked the demo wedding to (1) reflect commentary/reviews, (2) show the couple availed ALL in-app services, and (3) be a 280-guest / ₱5,000,000 wedding (→ "Sweeping" luxurious archetype). Also confirmed the website maker reads the real `events.event_date` everywhere — **audit found no hardcoded dates / placeholders** (every wedding-date read flows from `event_date`: countdown, schedule, editorial dateline, and the lifecycle-phase computation).
+
+**Code (editorial module):**
+- **`data.ts`** — `EditorialData` gains `reviews: Review[]` (read from `event_editorial.draft_json.reviews` — author/role/quote/stars; the full §3 event-bound review system lands later) + `servicesAvailed: string[]` (distinct paid `orders.service_key` for the event → display labels via a `SERVICE_LABELS` map + `prettyServiceKey` fallback). Best-effort, never throws.
+- **`editorial-content.tsx`** — "What They Said" now renders a `ReviewsWall` (pull-quote grid w/ stars) when reviews exist (else the empty state); new "Powered by Setnayan" section (`SetnayanExperience` chip row) lists the in-app services availed.
+
+**Seed (prod, idempotent `DO` block · test event):** scaled `[TEST] Maria & Jose` to **280 guests** (234 attending; named entourage + 250 filler), distributed **₱5,000,000** across the 9 `event_vendors.total_cost_php`, froze `event_editorial.impact_metrics` (`per_guest_spend` 17857 → Grand×Luxurious = **Sweeping**; photos 1840; services_total 18; guests 280), seeded **6 reviews** (couple/sponsor/vendor/MOH/guest) into `draft_json.reviews`, and inserted **paid `orders` for all 18 in-app service codes** (Animated Monogram, Papic, Panood, Pakanta, SDE, Patiktok, …) so every SKU-gated element lights up (animated monogram hero draws itself; Papic-guest CTA; etc.).
+
+**Verify:** typecheck + build on CI. Editorial now shows reviews + services strip + Sweeping framing; date-integrity audit clean. Demo data disposable.
+
+**SPEC IMPACT:** editorial reviews surface (interim source) + add-ons-owned strip (§6.4) → DECISION_LOG.
+
+## 2026-06-09 · feat(website): "Maria & Jose" full demo wedding + tier-aware editorial vendor showcase
+
+**Context:** Owner asked to see all three website phases (RSVP / Event / Editorial) on a fully-populated, photo-rich wedding, with vendors at Free / Pro / Enterprise tiers to see how each renders on the editorial. Seeds the existing `[TEST] Maria & Jose` event (slug `test-maria-and-jose`, dated 2026-06-01 so it sits in the Editorial phase) + the code to make the demo render.
+
+**Code (renders the demo; all flag-dark-safe):**
+- **`app/[slug]/page.tsx`** — relaxed the `our_photos` resolution to accept ANY non-empty asset ref (was `r2://`-only). `displayUrlForStoredAsset` already presigns `r2://` and passes plain/relative URLs through, so seeded `/demo/...` URLs (and any legacy URL) now render in the gallery — matching how the hero photo already tolerates legacy URLs.
+- **`_components/editorial/data.ts`** — the editorial "Team" is now **tier-aware** (`Wedding_Website_Lifecycle_Spec §3`): each `event_vendors` row resolves its `linked_vendor_profile_id` → `vendor_profiles` (`tier_state`, `logo_url`, `business_slug`). **Free vendors are excluded from the editorial entirely** (§3); Pro/Enterprise carry tier + logo + slug. M1/M2 still count ALL event_vendors (tier-independent). Editorial hero now **falls back to `events.landing_page_hero_image_url`** when there's no curated `event_editorial.hero_photo_id`.
+- **`_components/editorial/editorial-content.tsx`** — `TeamBehindTheDay` renders Pro/Enterprise as **featured cards** (real logo + a tier badge + a link to `/vendors/[slug]`); other credits render plain. This is the visible Free-vs-Pro-vs-Enterprise difference on the editorial.
+- **`public/demo/maria-jose/*.webp`** — 9 AI-generated (Recraft) photorealistic Filipino-wedding photos (hero + 5 gallery + 3 vendor) committed under `public/` so they serve at `/demo/maria-jose/*` (no R2 needed for the demo).
+
+**Seed (prod, idempotent `DO` block — test event only):** rich `love_story` (how-we-met / spark / proposal / 6 milestones / anchors) + `special_message` + `what_to_bring` + `dress_code_config` + `photo_moments_config` + `our_photos` (5) + hero + venue + monogram; 6 public `event_schedule_blocks`; 30 `guests` (24 attending → ~80% RSVP); 9 `event_vendors` (6 #1-match) of which 3 link to new **Free/Pro/Enterprise** `vendor_profiles` (`is_demo=true`, `public_visibility='hidden'` so they stay out of marketplace browse); `event_editorial` snapshot freezing the few non-computable numbers (photos 1240, services_total 18, per_guest_spend 6200 → "Jewel-box" archetype).
+
+**Verify:** typecheck + build on CI. Demo renders on `setnayan.com/test-maria-and-jose` once deployed — RSVP shows hero + countdown + venue + schedule + dress code + photo moments + special message + what-to-bring + Our Photos gallery; Editorial (date is past + `WEBSITE_PHASES_ENABLED` on) shows masthead + composed story + By-the-Numbers + timeline + tiered Team (Enterprise/Pro featured, Free hidden).
+
+**SPEC IMPACT:** implements §3 tier-gated editorial vendor showcase (was a deferred D gap) + editorial hero fallback. → DECISION_LOG. Demo data is disposable.
+## 2026-06-09 · feat(services): Budget "Build" — ACTIVATED on production (flag default → ON)
+
+**Context:** Owner: "build it to the website please." After the 6 flag-dark PRs (#1119/#1121/#1125/#1127/#1129/#1132) shipped the full 5-tab Services takeover, this flips it **live** for all couples.
+
+**Change (`lib/budget-build.ts`):** `isBudgetBuildEnabled()` now returns `process.env.BUDGET_BUILD_ENABLED !== 'false'` (was `=== 'true'`). So with no env set, the takeover is **ON in production**. `/dashboard/[eventId]/vendors` is now the full-screen FOCUS MODE takeover: **Summary · Shortlist · Build · Compare · Lock**.
+
+**Kill-switch preserved:** set `BUDGET_BUILD_ENABLED=false` (Vercel env) to instantly fall back to the previous `PlanBudgetAccordion` + global bottom nav — no revert needed. Or revert this commit.
+
+**Verify:** `tsc --noEmit` ✓ · `next build` ✓. The flag-on path is defensive — the new `budget_builds` + availability queries fail-soft, the planner is the same one proven on the Budget tab, and the global nav can't orphan (sub-routes keep it; the takeover provides its own nav + floating X). Post-deploy smoke: load a couple's `/vendors`.
+
+**SPEC IMPACT:** Activates `Budget_Build_Services_Takeover_2026-06-08.md` in production. Pin constraint solver (Phase 3) remains deferred (engine prereqs — see the 2026-06-09 DECISION_LOG row). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(admin): command-center Home — all pending queues grouped by lane (nav redesign PR 2)
+
+**Context:** PR 2 of the owner-approved admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` · conditional sign-off "for as long as everything is easier to manage"). The shipped Home surfaced only **4 of ~12** action queues. This makes Home the real command center — "what needs admin action right now" — and **satisfies the Money-lane sign-off condition**: the money queues are reunited into an always-visible "Money to reconcile" block (the dissolved Money group's queues), so finance gets a one-stop money view on the landing page.
+
+**What landed (`app/admin/page.tsx`):**
+- Action queues expanded **4 → 11**, grouped into 4 lanes mirroring the Work nav: **Trust & supply** (Verify · Taxonomy requests · Payment options) · **Money to reconcile** (Payments · Payouts · Token sales) · **Recourse** (Disputes · Force majeure · Review appeals · Setnayan AI abuse) · **Support** (Help). Each tile is a live `head:true` count linking to its queue with the matching default filter; tone-graded (amber when work pending); total-open summary in the section header.
+- Each count query mirrors the exact filter its queue page uses (adversarially cross-checked by a verification workflow against all 11 queue pages + a holistic destructuring-order/regression review).
+- **Bug fix (pre-existing, caught by the verification pass):** the *Vendors to verify* count now reads `vendor_verification_applications WHERE status='pending_review'` (the verify page's **default** Applications surface) instead of `vendor_profiles WHERE public_visibility='coming_soon'` (the secondary `?surface=visibility` tab). The old filter — inherited from the prior shipped Home **and** the PR-1 `/admin/work` feed — counted the wrong table, so Home/Work showed a number that didn't match the verify queue an admin lands on. Fixed in **both** `page.tsx` and `work/page.tsx`.
+- A missing/renamed table degrades that one tile to "—" (never 500s the page).
+- Preserved the 8 platform-stats grid + the 7 shortcut tiles.
+
+**Not surfaced (yet):** two-admin approvals — the `admin_approval_requests` table is unbuilt (V1.x per § 9.1), so there is nothing to count; it lands with the dedicated `/admin/approvals` PR. Platform-alerts + recent-admin-activity feed deferred (no real data source wired — no fake data).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched) · verification workflow green.
+
+**SPEC IMPACT:** PR 2 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-09 · feat(onboarding): DB-backed refinements + main-photo/4:3-carousel card + 232 generated photos (items 8/9/10)
 
 **Context:** Punch-list items 8 + 9 + 10. (8) every refinement card gets a **main photo on top + a description + a 4:3-landscape option carousel**; (9) the refinements are **DB-backed, not hardcoded**, and only show for **chosen** services; (10) **fill the blank photos**. Owner chose the **full DB-backed taxonomy** option.

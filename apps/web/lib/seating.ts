@@ -115,6 +115,8 @@ export type FloorPlanRow = {
   entrance_enabled: boolean;
   entrance_x: number;
   entrance_y: number;
+  venue_width_m: number | null;
+  venue_length_m: number | null;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -123,6 +125,8 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   entrance_enabled: false,
   entrance_x: 50,
   entrance_y: 94,
+  venue_width_m: null,
+  venue_length_m: null,
 };
 
 export async function fetchFloorPlan(
@@ -131,7 +135,7 @@ export async function fetchFloorPlan(
 ): Promise<FloorPlanRow> {
   const { data, error } = await supabase
     .from('event_floor_plan')
-    .select('stage_x,stage_y,entrance_enabled,entrance_x,entrance_y')
+    .select('stage_x,stage_y,entrance_enabled,entrance_x,entrance_y,venue_width_m,venue_length_m')
     .eq('event_id', eventId)
     .maybeSingle();
   // Graceful-degrade: a missing row (or a not-yet-migrated table) just yields
@@ -143,8 +147,31 @@ export async function fetchFloorPlan(
     entrance_enabled: Boolean(data.entrance_enabled),
     entrance_x: Number(data.entrance_x),
     entrance_y: Number(data.entrance_y),
+    venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
+    venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
   };
 }
+
+// Real-world footprint WIDTH (metres) of each table type including its ring of
+// chairs — maps onto tableGeometry().box.w so the editor can scale a table to
+// true size relative to the venue. Standard event-industry dimensions: round
+// tables by diameter + ~0.5 m chair depth each side; banquet/head tables by
+// length; sweetheart compact; serpentine ~ by capacity.
+export const TABLE_FOOTPRINT_M: Record<TableType, number> = {
+  round_8: 2.5,
+  round_10: 2.8,
+  round_12: 3.1,
+  long_banquet_6: 2.0,
+  long_banquet_8: 2.6,
+  long_banquet_10: 3.2,
+  family_head_12: 4.4,
+  family_head_14: 5.1,
+  family_head_16: 5.8,
+  sweetheart_2: 1.6,
+  serpentine_6: 2.6,
+  serpentine_12: 3.6,
+  serpentine_18: 4.6,
+};
 
 export type SeatingStats = {
   tableCount: number;

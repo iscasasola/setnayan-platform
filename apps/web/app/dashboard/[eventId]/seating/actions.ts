@@ -193,6 +193,16 @@ export async function saveFloorPlan(formData: FormData) {
   const entranceY = clampPct(formData.get('entrance_y'));
   const entranceEnabled = formData.get('entrance_enabled') === 'true';
 
+  // Venue dimensions (metres) — null when the couple hasn't set a room size.
+  const parseDim = (v: FormDataEntryValue | null): number | null => {
+    if (typeof v !== 'string' || v.length === 0) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.min(500, n);
+  };
+  const venueWidth = parseDim(formData.get('venue_width_m'));
+  const venueLength = parseDim(formData.get('venue_length_m'));
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -207,6 +217,8 @@ export async function saveFloorPlan(formData: FormData) {
       entrance_enabled: entranceEnabled,
       entrance_x: entranceX ?? 50,
       entrance_y: entranceY ?? 94,
+      venue_width_m: venueWidth,
+      venue_length_m: venueLength,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'event_id' },

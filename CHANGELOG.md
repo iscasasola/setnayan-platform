@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
+
+**Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)
+
+**Schema (`20260923000000_iteration_0008_venue_dimensions.sql`, applied to prod):** `event_floor_plan` gains nullable `venue_width_m` + `venue_length_m` (NULL = no room size → free-form canvas). Additive + idempotent.
+
+**What landed:**
+- **Room-size control** — a "Room size" toolbar button opens a panel (Show-to-scale toggle + Width/Length in metres). Persists via the existing `saveFloorPlan` (extended).
+- **To-scale rendering** — when set, the canvas takes the room's aspect ratio, draws the **walls + metric labels**, and each table renders at its **true footprint** (`TABLE_FOOTPRINT_M` per type — round 8/10/12 ≈ 2.5/2.8/3.1 m incl. chairs, banquet/head by length, etc.) via a per-table `scale()` derived from a ResizeObserver-measured `pxPerMeter`. Composes with the zoom/pan + LOD already shipped (zoom in to seat; Fit to see the whole room). No venue size → unchanged appearance (scale = 1).
+- `lib/seating.ts`: `FloorPlanRow` + `fetchFloorPlan` extended; `TABLE_FOOTPRINT_M` map.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (route 18.2 kB); columns confirmed on prod; to-scale room (16×22 m, 10 tables) verified via a headless render.
+
+**SPEC IMPACT:** builds the 0008 spec's `venue_known` / `venue_width_m` / `venue_length_m` to-scale mode (free placement; hard wall-collision deferred). → corpus DECISION_LOG.
+
 ## 2026-06-08 · fix(onboarding): flow reorder + monogram gate + love-story split + pax/budget defaults + Top-100 songs
 
 **Context:** Owner walked the live wedding onboarding (`/onboarding/wedding`) end-to-end (~15 min) and filed an 11-item punch list. This PR lands the structural + clarity items (Phases A–C of the plan); the heavier DB-backed-refinements, photo-generation, and background-music items follow in later PRs.

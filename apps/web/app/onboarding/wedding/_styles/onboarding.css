@@ -939,3 +939,16 @@
   .onbw .mir-badge .dot{animation:none;}
   .onbw .mir-chip.pop{animation:none;}
 }
+
+/* ── "Your Dream Team" chapter — team_intro / reception_setting / team_payoff / aigate ──
+   Ports the prototype's aigate benefit rows + stay-free link (PR-2 chrome). Reused as-is:
+   .eyebrow / h1.q / .sub / .note.mul / .loveglyph / .tag.new / .statstrip / .stat /
+   .pgrid.strip / .pcard. Net-new = the aibenefits list + the stayfree decline link. */
+.onbw .aibenefits{display:flex;flex-direction:column;gap:10px;margin:4px 0 6px;}
+.onbw .aibene{display:flex;gap:11px;align-items:flex-start;}
+.onbw .aibene .ic{flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:var(--mulberry-wash);display:flex;align-items:center;justify-content:center;font-size:17px;}
+.onbw .aibene .tx b{display:block;font-size:14px;font-weight:700;color:var(--ink);}
+.onbw .aibene .tx span{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
+.onbw .stayfree{text-align:center;margin:12px 0 2px;font-size:12px;color:var(--ink-faint);}
+.onbw .stayfree u{cursor:pointer;text-decoration-color:var(--line-2);text-underline-offset:3px;}
+.onbw .stayfree u:hover{color:var(--ink-soft);}

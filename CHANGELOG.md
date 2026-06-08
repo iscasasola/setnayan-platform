@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tiers): #2 — per-service daily booking capacity (✗/1/3/∞)
+
+**Context:** Build #2 of the "do 1–5" tier queue. "Slot per day" = a vendor declares how many of a service they can serve per day (e.g. 2 photobooths → 2/day); tier caps the max declarable (**FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞**).
+
+**What landed (migration `20260925000000`, applied to prod):** `vendor_services.daily_capacity INT` (nullable, `CHECK > 0`, graceful read fallback); `parseDailyCapacityOrThrow` (shared create+update) parses + rejects over the tier's `slotsPerDay`; tier-aware "Bookings per day" input on both forms; `finalizeVendor` blocks a lock once the service has `daily_capacity` confirmed bookings on the wedding's date (per-service same-date count; reuses the `soft_hold_limit_reached` modal; degrades open when unset). Enterprise time-bound slots (#3) layer time-of-day on top later.
+
+**Verify:** `tsc` clean · `next lint` exit 0. Migration applied to prod.
+
+**SPEC IMPACT:** Tier cap #2 enforced. Remaining: #3 enterprise time-bound slots · #4 Phase C · #5 Phase D. → corpus DECISION_LOG.
+
 ## 2026-06-09 · refactor(admin): ops-shaped nav re-bucket (PR 1 of N) — verb spine + drift fixes
 
 **Context:** Owner-approved nav redesign (`Admin_Console_Nav_Redesign_2026-06-08.{md,html}` in the spec corpus · DECISION_LOG 2026-06-08, **conditional sign-off** — "for as long as everything is easier to manage"). The admin console was 6 noun-domain groups (Home/Queues/Directory/Money/Insights/Manage). This PR — the cheap, low-risk first slice — re-buckets the nav by **verb** (act / find / tune) and folds in the drift fixes. No new feature pages, no schema, no data changes.

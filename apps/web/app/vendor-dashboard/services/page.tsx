@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
@@ -73,6 +74,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   } catch {
     tier = null;
   }
+  // #2 daily booking capacity: the tier caps the max bookings/day a vendor can
+  // declare per service (FREE 0 / VERIFIED 1 / PRO 3 / ENTERPRISE ∞). Only show
+  // the capacity input when the tier allows bookings at all (slotsCap > 0).
+  const slotsCap = tierCaps(asVendorTier(tier)).slotsPerDay;
+  const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
   const branches =
     tier === 'enterprise'
       ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(
@@ -253,6 +259,24 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     />
                   </Field>
                 </div>
+                {slotsCap > 0 ? (
+                  <Field
+                    label="Bookings per day (optional)"
+                    htmlFor={`new-cap-${addCategory}`}
+                    help={`How many of this you can serve in a day — e.g. 2 photobooths → 2. Your plan allows up to ${slotsCapForUi}.`}
+                  >
+                    <input
+                      id={`new-cap-${addCategory}`}
+                      name="daily_capacity"
+                      type="number"
+                      min={1}
+                      max={slotsCapForUi}
+                      step={1}
+                      placeholder={`e.g. ${Math.min(2, slotsCapForUi)}`}
+                      className="input-field"
+                    />
+                  </Field>
+                ) : null}
                 <label className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-3">
                   <input
                     type="checkbox"
@@ -410,6 +434,24 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         />
                       </Field>
                     </div>
+                    {slotsCap > 0 ? (
+                      <Field
+                        label={`Bookings per day (max ${slotsCapForUi})`}
+                        htmlFor={`cap-${svc.vendor_service_id}`}
+                      >
+                        <input
+                          id={`cap-${svc.vendor_service_id}`}
+                          name="daily_capacity"
+                          type="number"
+                          min={1}
+                          max={slotsCapForUi}
+                          step={1}
+                          defaultValue={svc.daily_capacity ?? ''}
+                          placeholder="e.g. 2"
+                          className="input-field"
+                        />
+                      </Field>
+                    ) : null}
                     <label className="flex items-center gap-2 text-sm text-ink/75">
                       <input
                         type="checkbox"

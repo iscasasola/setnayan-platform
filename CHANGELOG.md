@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · chore(migrations): dedup timestamp collision (20260917000000)
+
+A concurrent PR (`setnayan_ai_entitlement`) landed the same migration timestamp
+`20260917000000` as my `rsvp_consolidation_event_website_price`, failing the CI
+"migration timestamp guard" (duplicate check). Renamed mine →
+`20260921000000_rsvp_consolidation_event_website_price.sql` (above the max; the
+setnayan_ai file keeps 20260917 since it owns the schema_migrations record).
+Effects were already applied + the new version recorded. No DB change.
+
+**SPEC IMPACT:** None.
+
+
 ## 2026-06-08 · fix(pricing): customer catalog reader now honors `is_active` (retirements had NO live effect)
 
 **Context:** Found by verifying the live site (owner asked "on www.setnayan.com?"). The retired SKUs (Indoor Blueprint, High Res Archive, Call-Time Escalator, Pakulay, RSVP) were STILL showing on `/pricing` despite being `is_active=false` in the DB. Root cause: **`fetchV2CustomerCatalog` (`lib/v2-catalog.ts`) never filtered `is_active`** — it only excluded `TODAYS_FOCUS` by name. So the entire `is_active` retirement mechanism was inert for the customer catalog; admin "retire" did nothing on the live surfaces.

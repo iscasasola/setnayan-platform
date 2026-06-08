@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(for-vendors,0015): correct stale vendor pricing + token model on the marketing page
+
+**Context:** Owner 2026-06-08 — the live `/for-vendors` page showed the WRONG vendor pricing (₱2,499/₱5,499 + a ₱1,499 verification fee + a "Free" tier), contradicting the actual backend. The DB (`vendor_billing_catalog`, migration `20260911000000_vendor_tier_reprice_verified_free`) + `/pricing` already reflect the real model — this PR fixes the stale hard-coded marketing page to match. No DB / backend change.
+
+**The real model (already in the DB, now on the page):**
+- **Verified ₱0** — free to get; no unverified-Free tier marketed (FREE-VERIFIED gets ≤10 free couple unlocks/week).
+- **Pro ₱6,000/28d** (₱60,000/yr · save ₱18,000) · 3 categories · 3 team accounts.
+- **Enterprise ₱10,000/28d** (₱100,000/yr · save ₱30,000) · all categories · unlimited team.
+- **Token = ₱100 flat.** A Pro/Enterprise vendor burns **1–3 tokens (₱100–₱300), region-banded** (`token_burn_bands`) to unlock a couple — one unlock covers all their services. 100 free tokens on verification. Matches `unlock_vendor_event`.
+
+**What landed (presentation only, 5 files):** `vendor-hero` headline price · `for-vendors-deep-dive` 4-tier comparison table (Verified ₱0 / Pro ₱6,000 / Enterprise ₱10,000 + annuals + the standalone Enterprise callout) · `stack-close-vendor` strip · `page-tail` "How does Setnayan make money?" FAQ (rewritten to the ₱100-token / 1–3-gate model) · `page.tsx` SEO metadata (title/OG/Twitter) + the 5 schema.org Offer prices (verification ₱0 · Pro ₱6,000/₱60,000 · Enterprise ₱10,000/₱100,000).
+
+**Verify:** CSS/markup/SEO copy only — no type/DB change. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** Corrects the corpus stale vendor price (CLAUDE.md SKU table "Pro ₱2,499 / Enterprise ₱5,499" + Pricing.md §0.C) → ₱6,000/₱10,000 + Verified-₱0 + ₱100-token (DECISION_LOG row already appended 2026-06-08). Follow-up (separate PR): customer-dedicated top nav + footer "For vendors" menu; consider dropping the "Free" column from the comparison table.
+
 ## 2026-06-08 · feat(website): Special Message content block (live invitation site)
 
 **Context:** Increment A.1 of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07`). First content block built on the shipped schema foundation — a couple's note to guests, rendered live on the invitation site.

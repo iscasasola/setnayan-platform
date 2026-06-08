@@ -405,14 +405,14 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱1,499{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>once</span>
+              ₱0{' '}
+              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>to start</span>
             </div>
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
             >
-              lifetime verified badge
+              verified badge · free to get
             </div>
           </div>
           {/* PRO (highlighted) */}
@@ -436,14 +436,14 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱2,499{' '}
+              ₱6,000{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}
             >
-              1 category · 5 accounts
+              3 categories · 3 accounts
             </div>
             {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
                 2026-05-28 row · price updated ₱19,999 → ₱24,999 per CLAUDE.md
@@ -454,7 +454,7 @@ export function ForVendorsDeepDive() {
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}
             >
-              or ₱24,999/yr · save ₱7,488
+              or ₱60,000/yr · save ₱18,000
             </div>
           </div>
           {/* ENTERPRISE */}
@@ -474,14 +474,14 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱5,499{' '}
+              ₱10,000{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
             >
-              multi-cat · unlimited team
+              all categories · unlimited team
             </div>
             {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
                 2026-05-28 row · vendor_billing_catalog row
@@ -491,7 +491,7 @@ export function ForVendorsDeepDive() {
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}
             >
-              or ₱54,999/yr · save ₱10,989
+              or ₱100,000/yr · save ₱30,000
             </div>
           </div>
         </div>
@@ -782,10 +782,10 @@ export function ForVendorsDeepDive() {
           className="m-display"
           style={{ fontSize: 36, color: 'var(--m-orange-2)' }}
         >
-          ₱5,499
+          ₱10,000
         </div>
         <div>
-          <div className="m-label-mono">Enterprise · ₱5,499 / 28 days</div>
+          <div className="m-label-mono">Enterprise · ₱10,000 / 28 days</div>
           <div
             style={{
               fontSize: 14,

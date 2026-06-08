@@ -88,12 +88,12 @@ export function VendorHero() {
               marginTop: 28,
             }}
           >
-            Free profile + in-app chat + verified badge + real reviews — forever.{' '}
+            A verified profile + in-app chat + real reviews — free, forever.{' '}
             <strong style={{ color: 'var(--m-ink)' }}>
               0% commission · Setnayan never takes a cut of your bookings.
             </strong>{' '}
-            Pro at <strong style={{ color: 'var(--m-ink)' }}>₱2,499/28 days</strong>{' '}
-            unlocks Today&apos;s Focus matchmaking, boosted reach, AI proposal
+            Pro at <strong style={{ color: 'var(--m-ink)' }}>₱6,000/28 days</strong>{' '}
+            unlocks AI matchmaking, boosted reach, AI proposal
             drafting, demand pulse. Founder bonus{' '}
             <strong style={{ color: 'var(--m-ink)' }}>
               100 free bidding tokens

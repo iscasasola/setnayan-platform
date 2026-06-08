@@ -10,6 +10,10 @@ import {
   PendingPurchases,
   type PendingPurchase,
 } from './_components/pending-purchases';
+import {
+  PurchaseHistory,
+  type ResolvedPurchase,
+} from './_components/purchase-history';
 import { RecentHistory, type HistoryEntry } from './_components/recent-history';
 
 /**
@@ -120,6 +124,7 @@ export default async function VendorTokensPage({ searchParams }: Props) {
     grantsRes,
     redemptionsRes,
     pendingRes,
+    resolvedRes,
     vendorCatalog,
     settings,
   ] = await Promise.all([
@@ -156,6 +161,15 @@ export default async function VendorTokensPage({ searchParams }: Props) {
       .eq('status', 'pending_payment')
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase
+      .from('vendor_token_purchases')
+      .select(
+        'purchase_id, reference_code, token_count, amount_php, status, created_at, paid_at, rejection_reason',
+      )
+      .eq('vendor_id', vendorId)
+      .neq('status', 'pending_payment')
+      .order('created_at', { ascending: false })
+      .limit(20),
     fetchV2VendorCatalog(),
     fetchPlatformSettings(supabase),
   ]);
@@ -176,6 +190,17 @@ export default async function VendorTokensPage({ searchParams }: Props) {
     token_count: p.token_count,
     amount_php: Number(p.amount_php),
     created_at: p.created_at,
+  }));
+
+  const resolvedPurchases: ResolvedPurchase[] = (resolvedRes.data ?? []).map((p) => ({
+    purchase_id: p.purchase_id,
+    reference_code: p.reference_code,
+    token_count: p.token_count,
+    amount_php: Number(p.amount_php),
+    status: p.status as 'paid' | 'rejected',
+    created_at: p.created_at,
+    paid_at: p.paid_at,
+    rejection_reason: p.rejection_reason,
   }));
 
   const purchased = walletRes.data?.purchased_tokens ?? 0;
@@ -279,6 +304,7 @@ export default async function VendorTokensPage({ searchParams }: Props) {
           <PendingPurchases purchases={pendingPurchases} settings={settings} />
           <VoucherList vouchers={vouchers} />
           <BuyTokensCta packs={packs} />
+          <PurchaseHistory purchases={resolvedPurchases} />
         </div>
       </div>
     </main>

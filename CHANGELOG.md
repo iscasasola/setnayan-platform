@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · chore(pricing): RSVP consolidation + Event Website ₱1,999 (owner-decided)
+
+**Context:** Owner resolved the two catalog flags from the bundle-composition PR. (1) "RSVP Pro replaces RSVP" → retire `RSVP_WEBSITE`. (2) `EVENT_WEBSITE` → ₱1,999.
+
+**What landed (catalog-only · migration `20260917000000`, applied to prod + recorded):**
+- **Retired `RSVP_WEBSITE`** ("RSVP" ₱2,499) — `is_active=false` (row preserved for the activations FK; 0 orders). `RSVP_PRO_WEBSITE` ("RSVP Pro" ₱4,499) stays active (the keeper).
+- **`EVENT_WEBSITE`** ("Event Website") `retail_price_php` ₱1,500 → **₱1,999**.
+- No code change — the onboarding bundle + `/pricing` read the live catalog, so the Essentials worth auto-updates to ₱21,993 (save ₱8,994).
+
+**⚠ FLAG for owner (naming collision):** the catalog now has TWO near-identically-named RSVP SKUs — `PRO_RSVP` "Pro RSVP" ₱1,999 (the one in the Essentials bundle) and `RSVP_PRO_WEBSITE` "RSVP Pro" ₱4,499 (the keeper). If these are the same product, one should be retired (and the bundle re-pointed); if intentionally different (RSVP feature vs premium RSVP+website), the near-identical names may confuse couples. Left both active pending your word.
+
+**Verify:** migration applied + verified against the live catalog (RSVP_WEBSITE inactive, EVENT_WEBSITE ₱1,999, Essentials worth ₱21,993).
+
+**SPEC IMPACT:** Catalog SKU change (RSVP consolidation + Event Website price). DECISION_LOG row added.
+
 ## 2026-06-08 · feat(onboarding): bundle composition — owner-specified Essentials + canonical-18 Complete + "what's included" list
 
 **Context:** Owner confirmed the bundle compositions. Critically, Essentials includes SKUs that are NOT standalone onboarding à-la-carte cards (Setnayan AI · Pro RSVP · Event Website), so `BUNDLE_MEMBERS` is re-keyed from onboarding INAPP keys to catalog **service_codes**, and the bundle "worth" is now summed from the **full live customer catalog** (not the 13-card onboarding subset).

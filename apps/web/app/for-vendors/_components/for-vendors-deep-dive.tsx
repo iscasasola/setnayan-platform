@@ -75,8 +75,8 @@ const MATRIX_SECTIONS: MatrixSection[] = [
       ['Boost radius', '10km', '20km', '50km', '100km'],
       ['Boosters · 7-day feature unlocks · 4–100 tokens each', true, true, true, true],
       ['Sponsored Boost · top of category search', false, false, true, true],
-      ['Boosted Ads · ₱1,200/wk add-on', false, false, true, true],
-      ['Add Branch · ₱999/28 days each', false, false, true, true],
+      ['Boosted Ads add-on', false, false, true, true],
+      ['Additional branch add-on', false, false, true, true],
       ['Sharable bid link for social media', false, false, false, true],
     ],
   },
@@ -170,7 +170,7 @@ const BENEFITS = [
   {
     tag: 'Sponsored boost',
     title: 'Pay-per-week visibility from 10km → 30km radius. Pause anytime.',
-    body: 'Ready to scale? Boost your profile across nearby cities for ₱1,200/week. Cancel mid-week, prorated refund.',
+    body: 'Ready to scale? Boost your profile across nearby cities for a week at a time. Cancel mid-week, prorated refund.',
   },
   {
     tag: 'Crew-rate marketplace',

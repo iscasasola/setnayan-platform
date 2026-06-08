@@ -103,7 +103,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -133,6 +133,20 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const heroPhotoUrl = await displayUrlForStoredAsset(
     event.landing_page_hero_image_url,
   );
+
+  // Resolve the couple-curated "Our photos" gallery (Increment A.4) to
+  // presigned 24h GET URLs up-front so both render paths share the result.
+  // events.our_photos is a JSONB array of r2:// refs; empty/absent → empty
+  // array → OurPhotosWidget renders nothing. Resolved here (the only async
+  // seam) and threaded into the widget like heroPhotoUrl.
+  const ourPhotoRefs = Array.isArray(event.our_photos)
+    ? event.our_photos.filter(
+        (r): r is string => typeof r === 'string' && r.startsWith('r2://'),
+      )
+    : [];
+  const ourPhotoUrls = (
+    await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
+  ).filter((u): u is string => Boolean(u));
 
   // Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
   // Drives which widgets render on this page and in what order. Every event
@@ -254,6 +268,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
       />
@@ -269,6 +284,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
       />
@@ -291,6 +307,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
       />
@@ -336,6 +353,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
       />
       {papicGuestActive && (
@@ -393,9 +411,15 @@ type EventRow = {
   // Blank → SpecialMessageWidget renders nothing (section hides).
   special_message?: string | null;
   // Host-curated gift / registry note (Increment A.3). TEXT column shipped
-  // 20260917000000; edited at /dashboard/[eventId]/website/what-to-bring.
+  // 20260918000000; edited at /dashboard/[eventId]/website/what-to-bring.
   // Blank → WhatToBringWidget renders nothing (section hides).
   what_to_bring?: string | null;
+  // Couple-curated photo gallery (Increment A.4). JSONB array of r2:// refs
+  // shipped 20260919000000; edited at /dashboard/[eventId]/website/our-photos.
+  // Refs resolved to presigned display URLs (ourPhotoUrls) before render;
+  // empty → OurPhotosWidget renders nothing (section hides). Distinct from the
+  // guest-tagged your_photos widget.
+  our_photos?: string[] | null;
 };
 
 type GuestRow = {
@@ -455,6 +479,7 @@ function PublicLanding({
   reason,
   dayOfPhase,
   heroPhotoUrl,
+  ourPhotoUrls,
   widgets,
   scheduleBlocks,
 }: {
@@ -465,6 +490,10 @@ function PublicLanding({
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
   heroPhotoUrl?: string | null;
+  // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
+  // in display order. Resolved once at the top-level page; empty → the
+  // OurPhotosWidget hides itself. Couple-curated, no PII → safe for anonymous.
+  ourPhotoUrls: string[];
   // Widget visibility registry — owner directive 2026-05-23 flipped this
   // path from "render hero only + discard widgets" to "render hero + all
   // public-safe hideable widgets in display order". Guest-personalized
@@ -495,6 +524,7 @@ function PublicLanding({
         'tier_comparison',
         'special_message',
         'what_to_bring',
+        'our_photos',
       ] as WidgetType[]
     ).includes(w.widget_type),
   );
@@ -606,6 +636,7 @@ function PublicLanding({
               event={event}
               scheduleBlocks={scheduleBlocks}
               isLive={dayOfPhase === 'live'}
+              ourPhotoUrls={ourPhotoUrls}
             />
           ))}
         </section>
@@ -628,11 +659,13 @@ function PublicHideableWidget({
   event,
   scheduleBlocks,
   isLive,
+  ourPhotoUrls,
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
+  ourPhotoUrls: string[];
 }) {
   switch (widget.widget_type) {
     case 'countdown':
@@ -665,6 +698,11 @@ function PublicHideableWidget({
 
     case 'what_to_bring':
       return <WhatToBringWidget text={event.what_to_bring ?? null} />;
+
+    case 'our_photos':
+      // Couple-curated gallery (Increment A.4) — event-level, no PII, so it
+      // renders on the anonymous path too. Resolved display URLs threaded in.
+      return <OurPhotosWidget urls={ourPhotoUrls} />;
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
@@ -772,6 +810,7 @@ function InvitationSite({
   scheduleBlocks,
   dayOfPhase,
   heroPhotoUrl,
+  ourPhotoUrls,
   widgets,
 }: {
   event: EventRow;
@@ -789,6 +828,10 @@ function InvitationSite({
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
   heroPhotoUrl?: string | null;
+  // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
+  // in display order. Resolved once at the top-level page; empty → the widget
+  // hides itself.
+  ourPhotoUrls: string[];
   // Widget visibility registry from migration 20260607030000. Drives
   // which widgets render here + in what order. Always-on widgets (hero,
   // greeting, qr_card, rsvp) render in fixed positions per the editor
@@ -1040,6 +1083,7 @@ function InvitationSite({
             scheduleBlocks={scheduleBlocks}
             isLive={isLive}
             isLimitedPlusOne={isLimitedPlusOne}
+            ourPhotoUrls={ourPhotoUrls}
           />
         ))}
 
@@ -1086,6 +1130,7 @@ function HideableWidgetRender({
   scheduleBlocks,
   isLive,
   isLimitedPlusOne,
+  ourPhotoUrls,
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
@@ -1094,6 +1139,7 @@ function HideableWidgetRender({
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
   isLimitedPlusOne: boolean;
+  ourPhotoUrls: string[];
 }) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -1153,6 +1199,9 @@ function HideableWidgetRender({
     case 'what_to_bring':
       return <WhatToBringWidget text={event.what_to_bring ?? null} />;
 
+    case 'our_photos':
+      return <OurPhotosWidget urls={ourPhotoUrls} />;
+
     case 'tier_comparison':
       return <TierComparisonWidget limited={isLimitedPlusOne} />;
 
@@ -1204,6 +1253,43 @@ function WhatToBringWidget({ text }: { text: string | null }) {
       <p className="mx-auto mt-3 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
         {msg}
       </p>
+    </section>
+  );
+}
+
+/**
+ * Our Photos — the couple's own curated gallery (Increment A.4). Reads the
+ * presigned display URLs resolved from events.our_photos (JSONB array of
+ * r2:// refs) up at the page level. Renders a responsive grid; returns nothing
+ * when the gallery is empty so the section hides. Distinct from YourPhotosWidget
+ * (the guest's tagged photos). Raw <img> because the URLs are presigned (24h)
+ * — next/image's optimizer would cache an expired URL.
+ */
+function OurPhotosWidget({ urls }: { urls: string[] }) {
+  const photos = (urls ?? []).filter((u) => typeof u === 'string' && u.length > 0);
+  if (photos.length === 0) return null;
+  return (
+    <section className="rounded-xl border border-ink/10 bg-cream p-6 text-center">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+        Our photos
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {photos.map((url, i) => (
+          <div
+            key={`${i}-${url.slice(0, 24)}`}
+            className="relative aspect-square overflow-hidden rounded-lg bg-ink/5"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt=""
+              aria-hidden
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

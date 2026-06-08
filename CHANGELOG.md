@@ -23,6 +23,42 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` + `/dashboard/[eventId]/add-ons/bundle` both `ƒ`) · all 3 purchase paths traced (card CTA fixed · summary · à-la-carte) · covert clean.
 
 **SPEC IMPACT:** Bundles are now onboarding-only + live in the flow (per the 2026-06-08 decision). DECISION_LOG row added.
+## 2026-06-08 · feat(website): Increment A.4 — Our Photos couple gallery (LIVE)
+
+**Context:** Fourth content block on the wedding-website lifecycle foundation (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.5), after A.1 Special Message + A.3 What to Bring. A **couple-curated** photo gallery (engagement / pre-wedding shots) the couple uploads themselves, rendered on the public invitation. Distinct from the existing `your_photos` widget (the GUEST's tagged photos, post-event). Sequenced ahead of the Music/Video-hero increment because that one needs a change to the shared `/api/upload` MIME whitelist (no audio/video today) + media-bucket size cap — Our Photos reuses the **already-whitelisted image** upload path with zero shared-route risk.
+
+**What landed:**
+- **Migration `20260919000000`** — `events.our_photos JSONB NOT NULL DEFAULT '[]'` (array of `r2://` refs, in display order) + a `jsonb_typeof = 'array'` CHECK; the `our_photos` widget_type (CHECK recreated cumulatively across all **15** types; `populate_default_invitation_widgets()` seed row 15; backfill). Idempotent + additive.
+- **`lib/invitation-widgets.ts`** — `our_photos` in `WIDGET_TYPES` + `WIDGET_CATALOG` (editor_subroute `our-photos`, hideable) → joins the show/hide/reorder editor; the widgets editor auto-renders its "Edit" link from `editor_subroute`.
+- **`app/[slug]/page.tsx`** — `EventRow.our_photos`; SELECT; resolve refs → presigned 24h URLs (`ourPhotoUrls`) in the async body (the one async seam) and thread it parallel to `heroPhotoUrl` into both render paths (4 call sites) + both switch functions (`PublicHideableWidget` + `HideableWidgetRender`) + the `publicSafeWidgets` allow-list (couple-curated, no PII → safe for anonymous); new `OurPhotosWidget` (responsive 2/3-col grid, lazy raw `<img>` for the presigned URLs; empty → section hides).
+- **New editor** `/dashboard/[eventId]/website/our-photos/{page.tsx,actions.ts}` — multi-image `<FileUpload>` (images, 10 MB each, up to 24, seeded with existing gallery so the host can add/remove); `updateOurPhotos` keeps well-formed `r2://` refs, de-dupes, caps at 24, writes the JSONB array (host-membership gate mirrors the hero-photo editor).
+
+**⚠ Also fixes pre-existing main breakage (flagged for owner):** two parallel PRs each merged a migration named `20260916000000` (`retire_four_customer_skus` + `vendor_token_purchase`). The CI **migration timestamp guard checks the whole directory for duplicate prefixes**, so it was failing on `main` — **blocking every migration-bearing PR**, not just this one (the guard only runs per-PR, so `main` silently accumulated the dup). Fix: renamed the **idempotent** one (`retire_four_customer_skus`, a single guarded `UPDATE … WHERE is_active = true`) to `20260916000001`; left `vendor_token_purchase` at `20260916000000` (it's the one recorded in prod `schema_migrations` + referenced by the `20260918000001` webhook migration, so its identity must stay stable). Prod verified: `schema_migrations` has `20260916000000` once; `db push` will re-apply the renamed UPDATE as a harmless no-op (and apply the still-pending `20260918000001`/`20260918000100`, both idempotent — `CREATE OR REPLACE` / `ADD VALUE IF NOT EXISTS`).
+
+**Verify:** typecheck + production build + **migration timestamp guard** on CI (no local node_modules in worktree). No generated Supabase types / no `Database` generic on the client → the new column is safe at compile time (same reason A.1/A.3 passed). Both switch functions stay exhaustive over the 15-type union. `20260919000000` strictly newest.
+
+**SPEC IMPACT:** §6.5 element matrix — Our Photos now shipped. → DECISION_LOG. (The migration-rename is a CI-hygiene fix, no spec impact.)
+## 2026-06-08 · feat(setnayan-ai): last-minute mechanic (build PR-3) — dormant-by-default engine + search gating
+
+**Context:** PR-3 of the Setnayan AI build (after PR-1 governing gate #1089, PR-2 paid entitlement #1093). Implements §4 of `What_Is_Setnayan_AI_2026-06-08.md` (owner-locked 2026-06-08 · §9.3): the configurable last-minute range that supersedes the flat "< 14 days" rule.
+
+**The model:** last-minute = the range `[platform leaf START → vendor service END]`, by R = months remaining. Three zones — **Normal** (`R > START`, everyone) · **Last-minute** (`END ≤ R ≤ START`, AI couples only, optional 0–100% surcharge) · **Expired** (`R < END`, no one). Two AI-gated edges: a last-minute vendor is searchable only with Setnayan AI on, and (owner edge #2) when AI is OFF and a whole category is already last-minute, the standard search shows **nothing** for that category.
+
+**What landed:**
+- **`lib/last-minute.ts`** (NEW · pure, like compat-score) — `monthsToWedding`, `lastMinuteZone`, `isLastMinuteSearchable`, `categoryEmptyForGenericSearch`, `lastMinuteSurchargedPricePhp`. Misconfig-guarded (END>START never fabricates a phantom window). Verified against the doc's worked example (stylist START=4 / END=3) + 21 logic checks via `tsx` (all green; no unit-runner in repo).
+- **`category-search.ts`** (the candidate-discovery overlay backend) — reads platform START from `planning_deadlines` (new `kind='last_minute_start'`, category default + leaf override), reads vendor END/surcharge from `vendor_services`, computes each vendor's zone off its **most-available** in-scope service, then: drops Expired for everyone · drops Last-minute when AI off · returns **empty** for a fully-last-minute category in generic search · annotates survivors with `lastMinuteAvailable` + `lastMinuteSurchargePct`.
+- **`category-search-overlay.tsx`** — a gold "Last-minute" badge (+surcharge %) in the existing `.badges` row, opportunity tone per §4.4.
+- **Migration `20260920000000_last_minute_mechanic.sql`** — extends `planning_deadlines.kind` CHECK with `last_minute_start` (no seed → dormant) + adds `vendor_services.last_minute_end_months` / `last_minute_surcharge_pct` (CHECKed, nullable). Additive + idempotent.
+
+**Dormant by default (the safety posture, matching PR-1/PR-2):** no START row is seeded — every zone resolves to `normal`, so there is **zero behavior change** in production. The per-leaf START months are a load-bearing platform-design value the owner sets; they are NOT invented here. The search action only touches the new `vendor_services` columns when a START is configured (`lastMinuteConfigured` guard), so the code is safe even **before** the migration is applied (dormant categories never query the new columns).
+
+**⚠ Deferred to a follow-up (PR-4), flagged not built:** (1) the **admin editor** to set per-category/leaf START (attaches to `/admin/taxonomy` beside the deadline control); (2) the **vendor editor** for END + surcharge on `vendor_services`. Until those ship, the mechanic stays dormant. Also scoped to the category-search discovery overlay this PR — the wizard grid + accordion picks reuse the same engine when wired.
+
+**⚠ Migration application PENDING (not forced):** prod's `schema_migrations` is mid-drift from parallel in-flight branches (`20260919000000` already taken on prod but not on `main`; a duplicate-prefix `20260916000000` recorded remotely as `…0001`). `supabase db push` is blocked both ways and the only unblock is repairing **other sessions'** ledger rows — declined. The migration is additive/idempotent + the frontend is dormant-resilient, so prod is unaffected; apply this migration once the ledger realigns (or alongside the PR-4 editor), before any START is configured.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean (no new warnings) · `next build` ✓ (`/dashboard/[eventId]/vendors` builds) · 21/21 engine logic checks pass.
+
+**SPEC IMPACT:** Implements §4 + §9.3 of `What_Is_Setnayan_AI_2026-06-08.md`. Build-state table flipped 📋→🟡 for the last-minute row; DECISION_LOG row added.
 
 ## 2026-06-08 · chore(pricing): retire 4 customer SKUs + bundles are onboarding-only (owner-decided)
 

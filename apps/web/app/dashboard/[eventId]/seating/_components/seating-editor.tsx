@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import {
+  Armchair,
   ChevronDown,
   Eye,
   EyeOff,
@@ -477,7 +478,7 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerLeave={onCanvasPointerUp}
-          className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02]"
+          className="relative aspect-[7/5] w-full overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02]"
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
             backgroundSize: '22px 22px',
@@ -532,7 +533,7 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                     <div
                       key={i}
                       className="absolute -translate-x-1/2 -translate-y-1/2"
-                      style={{ left: cx, top: cy }}
+                      style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX }}
                     >
                       {occupant ? (
                         <button
@@ -543,9 +544,16 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                             else setPickedId(occupant.guest_id);
                           }}
                           title={occupant.name}
-                          className="block"
+                          className="relative block h-full w-full"
                         >
-                          <ChairAvatar guest={occupant} color={colorFor(occupant)} size={CHAIR_PX} />
+                          {/* the chair, tinted in the guest's group/side colour */}
+                          <Armchair
+                            className="absolute inset-0 h-full w-full"
+                            strokeWidth={1.8}
+                            style={{ color: colorFor(occupant) }}
+                          />
+                          {/* the guest sitting on it */}
+                          <SeatBadge guest={occupant} color={colorFor(occupant)} />
                         </button>
                       ) : (
                         <button
@@ -555,14 +563,15 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                             if (pickedId) place(t.table_id, i);
                           }}
                           aria-label={`Empty seat ${i + 1}`}
-                          className={`rounded-full border-2 border-dashed transition ${
-                            pickedId ? 'border-terracotta/70 bg-terracotta/10 hover:bg-terracotta/20' : 'border-ink/20 bg-cream'
+                          className={`block h-full w-full transition ${
+                            pickedId ? 'text-terracotta hover:text-terracotta-600' : 'text-ink/30 hover:text-ink/50'
                           }`}
-                          style={{ width: CHAIR_PX, height: CHAIR_PX }}
-                        />
+                        >
+                          <Armchair className="h-full w-full" strokeWidth={1.6} />
+                        </button>
                       )}
                       {occupant ? (
-                        <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 w-16 -translate-x-1/2 truncate text-center text-[8px] leading-tight text-ink/70">
+                        <span className="pointer-events-none absolute left-1/2 top-full mt-px w-20 -translate-x-1/2 truncate text-center text-[9px] font-medium leading-tight text-ink/75">
                           {occupant.name.split(' ')[0]}
                         </span>
                       ) : null}
@@ -704,6 +713,30 @@ function ChairAvatar({ guest, color, size }: { guest: SeatingGuest; color: strin
     <span
       className="inline-flex items-center justify-center rounded-full font-semibold text-cream"
       style={{ ...style, backgroundColor: color, fontSize: Math.max(8, size * 0.36) }}
+    >
+      {guest.initials}
+    </span>
+  );
+}
+
+// The guest "sitting on" a chair — a small badge centred on the seat of the
+// Armchair glyph (translated slightly up so it reads as a person on the chair).
+function SeatBadge({ guest, color }: { guest: SeatingGuest; color: string }) {
+  const base =
+    'absolute left-1/2 top-1/2 inline-flex items-center justify-center overflow-hidden rounded-full border border-cream';
+  const style = { width: 21, height: 21, transform: 'translate(-50%, -58%)' } as const;
+  if (guest.photo_url) {
+    return (
+      <span className={`${base} bg-ink/10`} style={style}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- avatar hosts vary (R2 / Google); plain img avoids next/image host allowlisting */}
+        <img src={guest.photo_url} alt="" className="h-full w-full object-cover" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`${base} font-semibold text-cream`}
+      style={{ ...style, backgroundColor: color, fontSize: 9 }}
     >
       {guest.initials}
     </span>

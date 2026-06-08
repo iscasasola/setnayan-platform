@@ -143,7 +143,7 @@ export function shapeHintFor(type: TableType): TableShapeHint {
 // already correct, only the curve is approximated.
 // ---------------------------------------------------------------------------
 
-export const CHAIR_PX = 30;
+export const CHAIR_PX = 40;
 
 export type SeatSlot = { x: number; y: number };
 
@@ -159,13 +159,13 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
   // Round / sweetheart / serpentine → chairs evenly around a circle.
   if (shape === 'round' || shape === 'sweetheart' || shape === 'serpentine') {
     const hubR = shape === 'sweetheart' ? 24 : Math.round(28 + n * 2.3);
-    const seatR = hubR + 24;
+    const seatR = hubR + 32;
     const seats: SeatSlot[] = [];
     for (let i = 0; i < n; i++) {
       const theta = (-90 + (360 / n) * i) * (Math.PI / 180);
       seats.push({ x: Math.cos(theta) * seatR, y: Math.sin(theta) * seatR });
     }
-    const reach = seatR + CHAIR_PX / 2 + 6;
+    const reach = seatR + CHAIR_PX / 2 + 8;
     return {
       box: { w: reach * 2, h: reach * 2 },
       hub: { w: hubR * 2, h: hubR * 2, radius: hubR, shape: 'round' },
@@ -176,10 +176,10 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
   // long_banquet / family_head → chairs along the two long (top + bottom) edges.
   const wide = shape === 'family_head';
   const per = Math.ceil(n / 2);
-  const gap = wide ? 40 : 34;
+  const gap = wide ? 44 : 40;
   const hubW = per * gap + 16;
-  const hubH = wide ? 44 : 34;
-  const offsetY = hubH / 2 + 22;
+  const hubH = wide ? 46 : 36;
+  const offsetY = hubH / 2 + 26;
   const seats: SeatSlot[] = [];
   for (let i = 0; i < n; i++) {
     const top = i < per;
@@ -190,8 +190,8 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
     seats.push({ x, y: top ? -offsetY : offsetY });
   }
   return {
-    box: { w: hubW + CHAIR_PX + 12, h: hubH + 2 * (22 + CHAIR_PX) },
-    hub: { w: hubW, h: hubH, radius: 10, shape: 'rect' },
+    box: { w: hubW + CHAIR_PX + 12, h: hubH + 2 * (26 + CHAIR_PX) },
+    hub: { w: hubW, h: hubH, radius: 12, shape: 'rect' },
     seats,
   };
 }

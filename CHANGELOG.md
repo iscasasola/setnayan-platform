@@ -12,7 +12,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Resolver (`page.tsx`):** a leading-`/` `storage_path` is now treated as an app-relative URL (alongside the existing absolute-URL + bucket-key cases), so the Recolor Studio loads the seed images same-origin and `getImageData` never taints the canvas.
 
-**Migration `20260925000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
+**Migration `20260927000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
 
 **SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
 ## 2026-06-09 · feat(services): Budget "Build" — available dates for your team in the Lock tab (flag-dark)

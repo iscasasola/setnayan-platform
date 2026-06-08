@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260925000000_iteration_0010_moodboard_florals_seed.sql
+-- 20260927000000_iteration_0010_moodboard_florals_seed.sql
 -- Iteration 0010 Mood Board — seed the new Flowers chapter with 5 Recraft-
 -- generated, Setnayan-owned floral photos so couples can recolor them.
 --

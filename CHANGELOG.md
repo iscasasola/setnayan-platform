@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · refactor(onboarding): id-array `buildSequence()` nav core (behavior-preserving)
+
+**Context:** First PR of the adaptive-onboarding port (told-back love stage + Mirror + dashboard bloom + canonical pricing — plan `Onboarding_Production_Port_Plan_2026-06-08.md` in the specs corpus). The shipped flow hardcodes navigation as integer `step === N`, which can't express the redesign's adaptive forks. This swaps the navigation core to a string-id model so future screens/forks are array membership, not index arithmetic. **No visible change — same 17 screens, same order, same forks.**
+
+**What landed (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):**
+- New `FLOW_IDS` + `buildSequence(kind, authed)` — the two existing forks (Civil → skip faith, authed → skip account gate) become **array membership** instead of `n±1` skip arithmetic in `go()`.
+- `state.step` stays a `number` (localStorage drafts unchanged), reinterpreted as the index into `buildSequence()`; `activeId` derived each render. All 17 `step === N` render guards, the step-keyed effects (monogram replay/restyle, venue fetch, match fetch, services seed), `canContinue`, and the chrome (next label, skip, progress, commit gate) rekeyed to `activeId`.
+- `go()` / new `goToId()` navigate by sequence index; the prefs sub-stepper, `?resume` bounce, and skip behavior preserved exactly. Removed now-dead `NEXT_LABEL` / `CAN_SKIP` / `PHASE_SCREENS` (kept `FLOW_TOTAL` export in `types.ts`).
+- **Verified:** `tsc --noEmit` PASS + `next build` PASS (`/onboarding/wedding` compiles); diff reviewed for behavior parity.
+
+**SPEC IMPACT:** None — behavior-preserving refactor. The adaptive redesign it unlocks is specced in `Onboarding_Production_Port_Plan_2026-06-08.md` (specs corpus); subsequent PRs add the new screens/data.
+
 ## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
 
 **Context:** Owner design session locked the couple's event website as ONE site with three date-driven phases (RSVP before · Event during · Editorial after) — spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + corpus DECISION_LOG. This PR ships the safe, additive schema foundation; nothing consumes it yet (frontend ships ahead).

@@ -52,7 +52,6 @@ import { signInWithGoogle, signInWithFacebook } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
 import {
   EMPTY_ONBOARDING_STATE,
-  FLOW_TOTAL,
   ONBOARDING_DRAFT_KEY,
   ONBOARDING_DRAFT_TTL_DAYS,
   type OnboardingFaith,
@@ -68,18 +67,35 @@ import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 
-/* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
-const PHASE_SCREENS = 17;
+/* ── string-id navigation model (replaces integer-step `step === N` addressing) ──
+ * The 17 screens are addressed by a stable string id. The two forks that used to
+ * be index arithmetic in go() are now array MEMBERSHIP: buildSequence() drops the
+ * faith screen for Civil weddings and the account gate for signed-in users, so
+ * state.step is the index into that FILTERED sequence (still a plain number — the
+ * persisted draft stays readable). Same 17 screens, same order, same behaviour. */
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','region','pax','budget','picker','prefs','account','find','congrats','plan','services','summary'] as const;
+type ScreenId = typeof FLOW_IDS[number];
+function buildSequence(kind: OnboardingState['kind'], authed: boolean): ScreenId[] {
+  return FLOW_IDS.filter((id) =>
+    !(id === 'faith' && kind === 'civil') &&     // Civil skips the faith screen
+    !(id === 'account' && authed)                // signed-in users skip the account gate
+  );
+}
 
-/* Primary-button label per screen (prototype nextLabel[]). Index 10 (prefs) is
- * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
- * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
-const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Continue', 'Review my picks', 'Done'];
-/* Which screens show a Skip button. Skippable: prefs (10) · find-vendors (12) · the
-   à-la-carte services review (15) — they sort/refine, never gate. Everything that drives
-   matching is required: role/kind/faith/name/date/region/pax/budget/picker. (owner
-   2026-06-05 — removed Skip from faith · date · pax · budget; Continue already gates each.) */
-const CAN_SKIP = [false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, true, false];
+/* Primary-button label per screen (prototype nextLabel[]). 'prefs' is overridden at
+ * render time by the sub-stepper ("Continue" / "Looks good"); 'plan' flips to
+ * "Continue to checkout" once the bundle is added. */
+const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
+  welcome:'Build my free plan', role:'Continue', kind:'Continue', faith:'Continue', name:'Continue',
+  date:'Continue', region:'Continue', pax:'Continue', budget:'Continue', picker:'Continue',
+  prefs:'Continue', account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
+  services:'Review my picks', summary:'Done',
+};
+/* Which screens show a Skip button. Skippable: prefs · find · the à-la-carte services
+   review — they sort/refine, never gate. Everything that drives matching is required:
+   role/kind/faith/name/date/region/pax/budget/picker. (owner 2026-06-05 — removed Skip
+   from faith · date · pax · budget; Continue already gates each.) */
+const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = { prefs:true, find:true, services:true };
 
 const ASSET = (name: string) => `/onboarding/${name}.webp`;
 /* picker per-service photo + prefs photo + bundle thumbnail subdirs (mirror the pax/budget/mono pattern). */
@@ -1460,7 +1476,14 @@ export function OnboardingShell({
           // sitting) — so "you did all this in X min" reflects active time, not wall-clock.
           const idleGap = Date.now() - new Date(saved.lastSavedAt).getTime();
           const startedAt = saved.startedAt && idleGap < 30 * 60 * 1000 ? saved.startedAt : Date.now();
-          setState({ ...EMPTY_ONBOARDING_STATE, ...saved, startedAt });
+          // Clamp the restored step into the current sequence so a stale index (e.g. a
+          // draft saved before a fork flipped) can't point past the end. authed may be
+          // false at hydrate — that's fine, activeId re-derives the filtered seq each render.
+          const clampedStep = Math.min(
+            Math.max(0, saved.step ?? 0),
+            buildSequence(saved.kind, authed).length - 1,
+          );
+          setState({ ...EMPTY_ONBOARDING_STATE, ...saved, step: clampedStep, startedAt });
         } else {
           localStorage.removeItem(ONBOARDING_DRAFT_KEY);
         }
@@ -1489,12 +1512,17 @@ export function OnboardingShell({
     }
   }, [state, hydrated, committedEventId]);
 
-  /* Phase-5 resume: an anonymous visitor authenticated at the account gate (11)
-     and bounced back via ?resume=1. The hydrate effect restored their draft
-     (step was 11); now authed, advance past the now-satisfied gate to find-vendor. */
+  /* Phase-5 resume: an anonymous visitor authenticated at the account gate and
+     bounced back via ?resume=1. The hydrate effect restored their draft (parked at
+     the account gate); now authed, advance past the now-satisfied gate to find-vendor.
+     The gate is gone from the filtered seq, so jump to 'find' if they're still before it. */
   useEffect(() => {
     if (hydrated && resume && authed) {
-      setState((s) => (s.step <= 11 ? { ...s, step: 12 } : s));
+      setState((s) => {
+        const sq = buildSequence(s.kind, authed);
+        const fi = sq.indexOf('find');
+        return fi >= 0 && s.step < fi ? { ...s, step: fi } : s;
+      });
     }
   }, [hydrated, resume, authed]);
 
@@ -1505,8 +1533,16 @@ export function OnboardingShell({
     setState((s) => (s.startedAt == null ? { ...s, startedAt: Date.now() } : s));
   }, [hydrated]);
 
-  const { step, role, kind, faith } = state;
+  const { role, kind, faith } = state;
   const patch = useCallback((p: Partial<OnboardingState>) => setState((s) => ({ ...s, ...p })), []);
+
+  /* The active screen id, derived from state.step (an index into the FILTERED
+     sequence). buildSequence drops faith for Civil + account for signed-in users,
+     so the same numeric step addresses a different screen depending on those forks —
+     exactly the old skip behaviour, now via array membership. */
+  const seq = useMemo(() => buildSequence(state.kind, authed), [state.kind, authed]);
+  const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
+  const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
 
   const isCivil = kind === 'civil';
 
@@ -1517,11 +1553,11 @@ export function OnboardingShell({
   // motion (reduced-motion users keep the static filled mark, no replay).
   const [monoReplay, setMonoReplay] = useState(0);
   useEffect(() => {
-    if (step !== 4) return;
+    if (activeId !== 'name') return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const id = window.setInterval(() => setMonoReplay((n) => n + 1), 4500);
     return () => window.clearInterval(id);
-  }, [step]);
+  }, [activeId]);
 
   // Auto-restyle (owner 2026-06-05 "animation loop every 30 seconds"): while the
   // name screen (4) is shown, advance to the next monogram DESIGN every 30s so
@@ -1530,7 +1566,7 @@ export function OnboardingShell({
   // pop. Gated to step 4 + prefers-reduced-motion (reduced-motion = one static
   // design, no auto-restyle). Separate from the 4.5s self-draw replay above.
   useEffect(() => {
-    if (step !== 4) return;
+    if (activeId !== 'name') return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     let popT: number | undefined;
     const id = window.setInterval(() => {
@@ -1542,17 +1578,20 @@ export function OnboardingShell({
       window.clearInterval(id);
       if (popT) window.clearTimeout(popT);
     };
-  }, [step]);
+  }, [activeId]);
 
   /* ── style sub-stepper queue (prototype buildPrefs) ── */
   const prefQueue = useMemo(() => prefQueueFrom(state.picks), [state.picks]);
 
-  /* ── navigation (prototype go(d) + prefStep() sub-stepper + Civil-skip-faith) ── */
+  /* ── navigation (prototype go(d) + prefStep() sub-stepper) ──
+     Navigate by INDEX within the filtered sequence. The Civil-skips-faith +
+     signed-in-skips-account forks are now automatic (those ids aren't in the seq),
+     so there's no skip arithmetic here — only the prefs sub-stepper + enter-prefs. */
   const go = useCallback(
     (d: number) => {
       if (d === 0) return;
-      // Style step (10) is an internal sub-stepper: walk its focused screens before leaving.
-      if (state.step === 10) {
+      // The prefs screen is an internal sub-stepper: walk its focused screens before leaving.
+      if (activeId === 'prefs') {
         const ni = prefIdx + d;
         if (ni >= 0 && ni < prefQueue.length) {
           setPrefIdx(ni);
@@ -1561,22 +1600,27 @@ export function OnboardingShell({
         // at an edge → fall through to leave the prefs screen
       }
       setState((s) => {
-        let n = Math.max(0, Math.min(PHASE_SCREENS - 1, s.step + d));
-        if (n === 3 && s.kind === 'civil') {
-          n = Math.max(0, Math.min(PHASE_SCREENS - 1, n + (d > 0 ? 1 : -1)));
-        }
-        // Phase-5: signed-in customers (dashboard "Add event → Wedding") skip the
-        // account gate (11) — they're already authenticated. Anonymous marketing
-        // visitors hit it and authenticate there. Same skip mechanic as Civil/faith.
-        if (n === 11 && authed) {
-          n = Math.max(0, Math.min(PHASE_SCREENS - 1, n + (d > 0 ? 1 : -1)));
-        }
+        const sq = buildSequence(s.kind, authed);
+        const n = Math.max(0, Math.min(sq.length - 1, s.step + d));
         return { ...s, step: n };
       });
       // entering the prefs sub-stepper forward (from the picker) → start at its first screen
-      if (d > 0 && state.step === 9) setPrefIdx(0);
+      if (d > 0 && activeId === 'picker') setPrefIdx(0);
     },
-    [state.step, prefIdx, prefQueue.length, authed],
+    [activeId, prefIdx, prefQueue.length, authed],
+  );
+
+  /* Absolute jump to a screen by id (resolves to its index in the filtered seq).
+     Used by the two non-linear transitions: the ?resume bounce + the account gate. */
+  const goToId = useCallback(
+    (id: ScreenId) => {
+      setState((s) => {
+        const sq = buildSequence(s.kind, authed);
+        const i = sq.indexOf(id);
+        return i >= 0 ? { ...s, step: i } : s;
+      });
+    },
+    [authed],
   );
 
   /* The "What would you love?" picker starts empty — nothing pre-selected (owner 2026-06-05). */
@@ -1585,7 +1629,7 @@ export function OnboardingShell({
      criteria-based engine the dashboard reception search uses (no eventId). Cached
      after the first load (no re-fetch on back/forward) so the screen doesn't flicker. */
   useEffect(() => {
-    if (step !== 12 || venues !== null || venuesLoading) return;
+    if (activeId !== 'find' || venues !== null || venuesLoading) return;
     setVenuesLoading(true);
     // Hold the "Finding the best venues for you…" skeleton for a beat so the search
     // always reads as a deliberate moment as vendors populate, never a flash (owner 2026-06-05).
@@ -1607,7 +1651,7 @@ export function OnboardingShell({
         const wait = Math.max(0, MIN_SKELETON_MS - (Date.now() - startedAt));
         setTimeout(() => setVenuesLoading(false), wait);
       });
-  }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax, state.dateMode, state.dateCandidates]);
+  }, [activeId, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax, state.dateMode, state.dateCandidates]);
 
   /* Step-14 "Reach my best matches" gate (owner 2026-06-05): the card only shows when
      the AI actually found best-fit vendors. getOnboardingVendorCounts returns null when
@@ -1616,7 +1660,7 @@ export function OnboardingShell({
      null / error → hide it + never fan out. Fetched once on the congrats→plan stretch
      (step ≥ 13) so it's ready by step 14. */
   useEffect(() => {
-    if (step < 13 || matchTried) return;
+    if (seq.indexOf(activeId) < seq.indexOf('congrats') || matchTried) return;
     setMatchTried(true);
     getOnboardingVendorCounts({
       kind: state.kind,
@@ -1628,21 +1672,21 @@ export function OnboardingShell({
     })
       .then((c) => { const ok = c !== null; setMatchAvail(ok); setState((s) => ({ ...s, sendTopInquiries: ok })); })
       .catch(() => { setMatchAvail(false); setState((s) => ({ ...s, sendTopInquiries: false })); });
-  }, [step, matchTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
+  }, [activeId, seq, matchTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
 
   /* Pre-add the pick-matched recommended in-app services when the couple reaches Boost &
      enhance (owner 2026-06-05 · "Matched to their picks"). One-time latch (servicesSeeded) so a
      removed recommendation isn't re-added; they become normal, removable entries that feed the
      services-summary 20%-off total. */
   useEffect(() => {
-    if (step !== 15 || state.servicesSeeded) return;
+    if (activeId !== 'services' || state.servicesSeeded) return;
     const rec = recommendedInappFor(state.picks);
     setState((s) => ({
       ...s,
       interestedServices: Array.from(new Set([...rec, ...s.interestedServices])),
       servicesSeeded: true,
     }));
-  }, [step, state.servicesSeeded, state.picks]);
+  }, [activeId, state.servicesSeeded, state.picks]);
 
   /* picker card tap — toggles the pick (multi); latches pickerTouched. */
   const pickChip = (cat: string) => {
@@ -1801,16 +1845,16 @@ export function OnboardingShell({
 
   /* ── per-step chrome ── */
   const canContinue = (() => {
-    switch (step) {
-      case 0:
+    switch (activeId) {
+      case 'welcome':
         return true;
-      case 1:
+      case 'role':
         return role !== null;
-      case 2:
+      case 'kind':
         return kind !== null;
-      case 3:
+      case 'faith':
         return isCivil ? true : faith.length >= 1;
-      case 4:
+      case 'name':
         // All four name fields required — they auto-register the couple as the
         // bride + groom guests at commit, and go on the invitation/website/monogram.
         return (
@@ -1819,17 +1863,17 @@ export function OnboardingShell({
           state.groomFirstName.trim().length > 0 &&
           state.groomLastName.trim().length > 0
         );
-      case 5:
+      case 'date':
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
-      case 6:
+      case 'region':
         return state.places.length >= 1;
-      case 7:
+      case 'pax':
         return state.pax !== null;
-      case 8:
+      case 'budget':
         return state.budgetBand !== null;
-      case 9:
+      case 'picker':
         return state.picks.length > 0;
-      case 10:
+      case 'prefs':
         return true;
       default:
         return true;
@@ -1842,7 +1886,7 @@ export function OnboardingShell({
 
   /* Continue label: prefs sub-stepper shows "Looks good" on its last focused screen (prototype showPref). */
   const prefsLabel = prefQueue.length === 0 || prefIdx >= prefQueue.length - 1 ? 'Looks good' : 'Continue';
-  const nextLabel = step === 10 ? prefsLabel : NEXT_LABEL[step] ?? 'Continue';
+  const nextLabel = activeId === 'prefs' ? prefsLabel : (NEXT_LABEL_BY_ID[activeId] ?? 'Continue');
 
   /* ── kind hero ── */
   const kindPhoto = KIND_PHOTO[kind ?? 'religious'];
@@ -2147,7 +2191,7 @@ export function OnboardingShell({
         // Session lost mid-flow — drop the overlay + bounce to the account gate.
         setFinishing(false);
         setCommitError('Please create your account to save your plan.');
-        setState((s) => ({ ...s, step: 11 }));
+        goToId('account');
       } else {
         // Surface the error + let them retry — don't strand them on the overlay.
         setFinishing(false);
@@ -2173,7 +2217,7 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-  }, [committedEventId, state, buildCommitPayload, router]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId]);
 
   return (
     <div className="onbw">
@@ -2194,7 +2238,7 @@ export function OnboardingShell({
           </div>
         </div>
       )}
-      <div className="phone" data-welcome={step === 0 ? '' : undefined}>
+      <div className="phone" data-welcome={activeId === 'welcome' ? '' : undefined}>
         {/* top — brand + progress */}
         <div className="top">
           <div className="brandrow">
@@ -2203,7 +2247,7 @@ export function OnboardingShell({
               type="button"
               onClick={() => go(-1)}
               aria-label="Back"
-              style={{ display: step === 0 ? 'none' : 'inline-flex' }}
+              style={{ display: activeId === 'welcome' ? 'none' : 'inline-flex' }}
             >
               {'‹'}
             </button>
@@ -2222,21 +2266,21 @@ export function OnboardingShell({
               className="skip"
               type="button"
               onClick={() => go(1)}
-              style={{ display: CAN_SKIP[step] ? 'inline-block' : 'none' }}
+              style={{ display: CAN_SKIP_BY_ID[activeId] ? 'inline-block' : 'none' }}
             >
               Skip
             </button>
           </div>
-          {step === 0 && <div className="brandtag">Wedding planning, simplified</div>}
+          {activeId === 'welcome' && <div className="brandtag">Wedding planning, simplified</div>}
           <div className="bar">
-            <div className="barfill" style={{ width: `${((step + 1) / FLOW_TOTAL) * 100}%` }} />
+            <div className="barfill" style={{ width: `${((stepClamped + 1) / seq.length) * 100}%` }} />
           </div>
         </div>
 
         {/* body — only the active screen displays */}
         <div className="body">
           {/* 1 WELCOME */}
-          <section className={`screen welcomescreen${step === 0 ? ' active' : ''}`}>
+          <section className={`screen welcomescreen${activeId === 'welcome' ? ' active' : ''}`}>
             <div className="welcomehero">
               <HeroImg src={ASSET('welcome')} />
               <div className="welcomeoverlay">
@@ -2247,7 +2291,7 @@ export function OnboardingShell({
           </section>
 
           {/* 2 ROLE */}
-          <section className={`screen${step === 1 ? ' active' : ''}`} id="screen-role">
+          <section className={`screen${activeId === 'role' ? ' active' : ''}`} id="screen-role">
             <div className="viewzone">
               <div className="eyebrow">About you</div>
               <h1 className="q">Who are you in this wedding?</h1>
@@ -2275,7 +2319,7 @@ export function OnboardingShell({
           </section>
 
           {/* 3 KIND */}
-          <section className={`screen${step === 2 ? ' active' : ''}`} id="screen-kind">
+          <section className={`screen${activeId === 'kind' ? ' active' : ''}`} id="screen-kind">
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">What kind of wedding?</h1>
@@ -2303,7 +2347,7 @@ export function OnboardingShell({
           </section>
 
           {/* 4 FAITH — adaptive */}
-          <section className={`screen${step === 3 ? ' active' : ''}`} id="screen-faith">
+          <section className={`screen${activeId === 'faith' ? ' active' : ''}`} id="screen-faith">
             <div className="viewzone">
               <div className="eyebrow">
                 {faithView.eyebrow}
@@ -2351,7 +2395,7 @@ export function OnboardingShell({
           </section>
 
           {/* 5 NAME — live monogram + Frame/Font cyclers + bride/groom */}
-          <section className={`screen${step === 4 ? ' active' : ''}`} id="screen-name">
+          <section className={`screen${activeId === 'name' ? ' active' : ''}`} id="screen-name">
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">The two of you.</h1>
@@ -2447,7 +2491,7 @@ export function OnboardingShell({
           </section>
 
           {/* 6 DATE — 2-mode calendar + why-this-date nugget (DateCalendar owns its viewzone title + nugget) */}
-          <section className={`screen${step === 5 ? ' active' : ''}`}>
+          <section className={`screen${activeId === 'date' ? ' active' : ''}`}>
             <DateCalendar
               mode={state.dateMode}
               candidates={state.dateCandidates}
@@ -2458,7 +2502,7 @@ export function OnboardingShell({
           </section>
 
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}
-          <section className={`screen${step === 6 ? ' active' : ''}`} id="screen-region">
+          <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
               value={state.places}
               onChange={(places) =>
@@ -2468,7 +2512,7 @@ export function OnboardingShell({
           </section>
 
           {/* 8 PAX — slider + exact box + tier photo */}
-          <section className={`screen${step === 7 ? ' active' : ''}`} id="screen-pax">
+          <section className={`screen${activeId === 'pax' ? ' active' : ''}`} id="screen-pax">
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">How many guests?</h1>
@@ -2520,7 +2564,7 @@ export function OnboardingShell({
           </section>
 
           {/* 9 BUDGET — feel-band chips + a look photo keyed to pax-tier × band */}
-          <section className={`screen${step === 8 ? ' active' : ''}`} id="screen-budget">
+          <section className={`screen${activeId === 'budget' ? ' active' : ''}`} id="screen-budget">
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">Your working budget?</h1>
@@ -2601,7 +2645,7 @@ export function OnboardingShell({
           </section>
 
           {/* 9 PICKER — "What would you love?" (53 services grouped by the 10 parents) */}
-          <section className={`screen${step === 9 ? ' active' : ''}`} id="screen-picker">
+          <section className={`screen${activeId === 'picker' ? ' active' : ''}`} id="screen-picker">
             <div className="eyebrow">What you{'’'}re after</div>
             <h1 className="q" style={{ marginBottom: 6 }}>What would you love?</h1>
             <p className="picker-sub">
@@ -2636,7 +2680,7 @@ export function OnboardingShell({
           </section>
 
           {/* 10 PREFERENCES — style sub-stepper (one focused screen per picked dimension) */}
-          <section className={`screen${step === 10 ? ' active' : ''}`} id="screen-prefs">
+          <section className={`screen${activeId === 'prefs' ? ' active' : ''}`} id="screen-prefs">
             <StyleSubStepper
               queue={prefQueue}
               idx={prefIdx}
@@ -2654,7 +2698,7 @@ export function OnboardingShell({
               round-trips back to /onboarding/wedding?resume=1 so the shell restores
               the localStorage draft + advances to find-vendor. The DB commit fires
               later at the final button (handleFinish), always with an authed user. */}
-          <section className={`screen${step === 11 ? ' active' : ''}`} id="screen-account">
+          <section className={`screen${activeId === 'account' ? ' active' : ''}`} id="screen-account">
             <div className="welcome" style={{ paddingTop: 24 }}>
               <div className="mark">✓</div>
               <h1 style={{ fontSize: 34 }}>Your plan is ready.</h1>
@@ -2715,7 +2759,7 @@ export function OnboardingShell({
 
           {/* 12 FIND FIRST VENDOR — REAL reception venues from the marketplace
               (criteria search, no eventId · WAVE 2). Tap to shortlist → recap count. */}
-          <section className={`screen${step === 12 ? ' active' : ''}`} id="screen-find">
+          <section className={`screen${activeId === 'find' ? ' active' : ''}`} id="screen-find">
             <div className="eyebrow">Find your first vendor</div>
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             <p className="sub">Sorted for you: your style first, then everyone who can host you. <b>Tap one to shortlist.</b></p>
@@ -2808,11 +2852,11 @@ export function OnboardingShell({
           </section>
 
           {/* 13 STARTING PLAN — congrats + savings counter (counts up on entry) */}
-          <section className={`screen${step === 13 ? ' active' : ''}`} id="screen-congrats">
+          <section className={`screen${activeId === 'congrats' ? ' active' : ''}`} id="screen-congrats">
             <div className="eyebrow">You did the hard part</div>
             <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
             <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
-            {earliestDateISO ? <WeddingCountdown iso={earliestDateISO} active={step === 13} /> : null}
+            {earliestDateISO ? <WeddingCountdown iso={earliestDateISO} active={activeId === 'congrats'} /> : null}
             <div className="recap tight">
               <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
               {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
@@ -2832,11 +2876,11 @@ export function OnboardingShell({
           </section>
 
           {/* 14 YOUR PLAN — freebies + the budget-matched bundle */}
-          <section className={`screen${step === 14 ? ' active' : ''}`} id="screen-plan">
+          <section className={`screen${activeId === 'plan' ? ' active' : ''}`} id="screen-plan">
             <div className="eyebrow">Your plan</div>
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
             <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
-            <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={step === 14} />
+            <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={activeId === 'plan'} />
             <div className="grouplbl">A little help, if you want it</div>
             <div className="optcard">
               <div className="opt-main">
@@ -2862,7 +2906,7 @@ export function OnboardingShell({
           </section>
 
           {/* 15 BOOST & ENHANCE — paid in-app services: focused detail + bottom carousel (owner 2026-06-05) */}
-          <section className={`screen${step === 15 ? ' active' : ''}`} id="screen-services">
+          <section className={`screen${activeId === 'services' ? ' active' : ''}`} id="screen-services">
             <div className="eyebrow">Boost &amp; enhance your wedding</div>
             <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Make it unforgettable</h1>
             <p className="sub">Optional add-ons — each one a tool, priced honestly. Add what you love.</p>
@@ -2907,13 +2951,13 @@ export function OnboardingShell({
           </section>
 
           {/* 16 SERVICES YOU'RE INTERESTED IN — summary + Purchase Now + continue-free (TERMINAL · owner 2026-06-05) */}
-          <section className={`screen${step === 16 ? ' active' : ''}`} id="screen-services-summary">
+          <section className={`screen${activeId === 'summary' ? ' active' : ''}`} id="screen-services-summary">
             <div className="eyebrow">Your picks</div>
             <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
             <p className="sub" style={{ marginBottom: 12 }}>Pay only when you&apos;re ready — no charge yet.</p>
             {/* Grand total — the climactic "what you saved, and how fast" stat (owner 2026-06-05). */}
             <div className="svc-grand">
-              <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={step === 16} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={step === 16} /></div>
+              <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={activeId === 'summary'} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={activeId === 'summary'} /></div>
               <div className="svc-grand-l">saved with Setnayan{elapsedMin ? ` — you did all this in ${elapsedMin} minute${elapsedMin === 1 ? '' : 's'}` : ''}</div>
             </div>
             {state.interestedServices.length === 0 ? (
@@ -2969,7 +3013,7 @@ export function OnboardingShell({
               {commitError}
             </p>
           )}
-          {!((step === 11 && !authed) || step === 16) && (
+          {!((activeId === 'account' && !authed) || activeId === 'summary') && (
             <button
               className="btn btn-primary"
               type="button"

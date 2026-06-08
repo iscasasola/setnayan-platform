@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — save A/B/C builds in Compare (Phase 2b, flag-dark)
+
+**Context:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. The Compare tab gains persistence — couples can **save a basket (Lean/Fits/Stretch) into a named slot (A/B/C)** and compare the builds they've banked over time (vary budget/services on Build between saves).
+
+**Migration (`20260926000000_budget_builds.sql`, APPLIED to prod):** new `public.budget_builds` (event_id · label A/B/C · title · budget_php · basket · total_php · snapshot jsonb), UNIQUE(event_id,label) for upsert, **couple-own RLS** mirroring `budget_allocation_decisions` (SELECT/DELETE via `current_event_ids()`; INSERT via `event_members` couple + `created_by`; UPDATE for the upsert). Additive + idempotent; read/written ONLY behind `BUDGET_BUILD_ENABLED`, so prod is unchanged until the flag flips.
+
+**What landed:**
+- `vendors/build-actions.ts` — `saveBudgetBuild` (upsert on `event_id,label`) + `deleteBudgetBuild` server actions.
+- `vendors/_components/build-compare.tsx` — now a client component: computes the 3 baskets client-side (as before), adds a **Save [basket] to slot [A/B/C]** control + a **"Your saved builds"** grid (total · basket · budget · over/under vs budget · delete), `router.refresh()` after writes.
+- `vendors/page.tsx` — fetches `budget_builds` (flag-gated) and passes `eventId` + `savedBuilds` into Compare.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Migration applied cleanly (no drift; remote was in sync through `20260925000000`).
+
+**SPEC IMPACT:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. Remaining: available-dates-per-saved-build (vendor-availability intersection over a build's specific vendors) + the Pin constraint solver (Phase 3). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · refactor(admin): ops-shaped nav re-bucket (PR 1 of N) — verb spine + drift fixes
 
 **Context:** Owner-approved nav redesign (`Admin_Console_Nav_Redesign_2026-06-08.{md,html}` in the spec corpus · DECISION_LOG 2026-06-08, **conditional sign-off** — "for as long as everything is easier to manage"). The admin console was 6 noun-domain groups (Home/Queues/Directory/Money/Insights/Manage). This PR — the cheap, low-risk first slice — re-buckets the nav by **verb** (act / find / tune) and folds in the drift fixes. No new feature pages, no schema, no data changes.

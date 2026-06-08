@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · refactor(mood-board): shared recolor engine + florals migration (0010) — PR 1/3
+
+**Context:** Owner: "fully redesign the mood board… color range selector… alter hue, contrast, brightness or pick from the palette… Flower? Attires? Reception? Church?" First of a 3-PR series. This PR is behavior-neutral plumbing: it extracts the color math out of the admin-only Color Range Manipulator into a shared, DOM-free engine the couple-facing Recolor Studio (PR 2) will reuse, and lands the one small additive migration the Flowers chapter needs.
+
+**Engine (`apps/web/lib/color-recolor.ts`, new):** lifts `hexToRgb/rgbToHex/rgbToHsl/hslToRgb/colorDistance` + adds `recolorPixel` (two modes: `palette` snap — unchanged HSL substitution — and `adjust` — hue shift / saturation / brightness / contrast), `recolorRGBA` (per-pixel best-slot match), `buildMatchMask`, `palettePreviewToEdits`. Pure functions, unit-testable.
+
+**Admin tagger (`color-range-manipulator.tsx`):** `renderPreview` + the match-overlay effect now call the shared engine; types re-exported from the lib for existing importers (`visual-preview.tsx`, mood-board `page.tsx`). No UX change — admin preview output is identical.
+
+**Schema (`20260924000000_iteration_0010_moodboard_florals.sql`, applied to prod):** widens two CHECK constraints — `moodboard_library_assets.asset_type` to allow `'florals'`, `event_moodboard_saves.pillar` to allow `'florals'`. Additive + idempotent; no existing code writes the new values yet.
+
+**SPEC IMPACT:** None yet (refactor + dormant additive migration; nothing user-facing changed). The couple-facing recolor + Flowers chapter ship in PR 2/PR 3; the 0010 AS-BUILT correction + `DECISION_LOG.md` row (couple recolor of library photos = FREE / AI Composite Scene generator = stays paid) land with PR 3.
+
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

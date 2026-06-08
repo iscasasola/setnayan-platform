@@ -21,20 +21,21 @@
  * proper LAB ΔE76 when tolerance is high enough that the approximation drifts.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  buildMatchMask,
+  palettePreviewToEdits,
+  recolorRGBA,
+  rgbToHex,
+  type ColorRangeMap,
+  type PalettePreview,
+} from '@/lib/color-recolor';
 
 // ---- types ----
-
-export type ColorRangeSlot = {
-  slotId: number; // 1-6
-  sampledHex: string; // '#rrggbb'
-  toleranceDe: number; // 5-30
-  regionLabel?: string;
-};
-
-export type ColorRangeMap = Record<number, ColorRangeSlot>; // keyed by slotId
-
-export type PalettePreview = Record<number, string>; // slotId → target hex
+// Color math + the ColorRange/Palette types now live in @/lib/color-recolor so
+// the couple-facing Recolor Studio shares the exact same engine. Re-exported
+// here for existing importers (visual-preview.tsx, the moodboard page, etc.).
+export type { ColorRangeSlot, ColorRangeMap, PalettePreview } from '@/lib/color-recolor';
 
 type Props = {
   imageSrc: string | null;
@@ -43,83 +44,6 @@ type Props = {
   /** When provided, render-preview tab will substitute slot colors → palette hexes */
   previewPalette?: PalettePreview;
 };
-
-// ---- color math ----
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
-  return `#${c(r)}${c(g)}${c(b)}`;
-}
-
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  let s = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r:
-        h = (g - b) / d + (g < b ? 6 : 0);
-        break;
-      case g:
-        h = (b - r) / d + 2;
-        break;
-      case b:
-        h = (r - g) / d + 4;
-        break;
-    }
-    h /= 6;
-  }
-  return [h, s, l];
-}
-
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  let r: number, g: number, b: number;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1 / 3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1 / 3);
-  }
-  return [r * 255, g * 255, b * 255];
-}
-
-// Weighted RGB Euclidean distance ≈ ΔE76-ish for casual use. Faster than
-// converting every pixel to LAB. Scale so 5–30 tolerance feels intuitive.
-function colorDistance(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
-  const dr = r1 - r2;
-  const dg = g1 - g2;
-  const db = b1 - b2;
-  // Perceptual weighting (rough): R 0.30, G 0.59, B 0.11
-  return Math.sqrt(0.3 * dr * dr + 0.59 * dg * dg + 0.11 * db * db) / 2.55;
-  // Result ~0-100 range, roughly comparable to ΔE
-}
 
 // ---- component ----
 
@@ -196,30 +120,20 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
 
     if (!pickedHex) return;
 
-    const [tr, tg, tb] = hexToRgb(pickedHex);
     const sourceData = getSourcePixels();
     if (!sourceData) return;
 
-    const overlay = mctx.createImageData(w, h);
-    let matches = 0;
-    for (let i = 0; i < sourceData.data.length; i += 4) {
-      const r = sourceData.data[i]!;
-      const g = sourceData.data[i + 1]!;
-      const b = sourceData.data[i + 2]!;
-      const d = colorDistance(r, g, b, tr, tg, tb);
-      if (d <= tolerance) {
-        // tint matched pixels with a translucent yellow overlay
-        overlay.data[i] = 255;
-        overlay.data[i + 1] = 240;
-        overlay.data[i + 2] = 0;
-        overlay.data[i + 3] = 110; // semi-transparent
-        matches++;
-      } else {
-        overlay.data[i + 3] = 0; // transparent
-      }
-    }
-    mctx.putImageData(overlay, 0, 0);
-    setMatchedPixelCount(matches);
+    // Translucent yellow highlight over pixels within tolerance of the picked
+    // color — shared buildMatchMask keeps this identical to the studio.
+    const { mask: overlay, matched } = buildMatchMask(
+      sourceData.data,
+      pickedHex,
+      tolerance,
+    );
+    const overlayImg = mctx.createImageData(w, h);
+    overlayImg.data.set(overlay);
+    mctx.putImageData(overlayImg, 0, 0);
+    setMatchedPixelCount(matched);
   }, [pickedHex, tolerance, imgLoaded, showPreview, previewPalette, map]);
 
   // ---- helpers ----
@@ -245,11 +159,6 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
     const source = getSourcePixels();
     if (!source) return;
 
-    // For each pixel, find which slot it best matches (if any).
-    // If multiple slots match, pick the closest. Apply target hue (keep L+S).
-    const out = ctx.createImageData(w, h);
-    out.data.set(source.data);
-
     const slotEntries = Object.values(slots);
     if (slotEntries.length === 0) {
       ctx.putImageData(source, 0, 0);
@@ -257,41 +166,16 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
       return;
     }
 
-    for (let i = 0; i < source.data.length; i += 4) {
-      const r = source.data[i]!;
-      const g = source.data[i + 1]!;
-      const b = source.data[i + 2]!;
-
-      let bestSlot: ColorRangeSlot | null = null;
-      let bestDist = Infinity;
-      for (const slot of slotEntries) {
-        const [tr, tg, tb] = hexToRgb(slot.sampledHex);
-        const d = colorDistance(r, g, b, tr, tg, tb);
-        if (d <= slot.toleranceDe && d < bestDist) {
-          bestSlot = slot;
-          bestDist = d;
-        }
-      }
-
-      if (bestSlot) {
-        const targetHex = palette[bestSlot.slotId];
-        if (targetHex) {
-          // HSL substitution: keep L+S of source pixel, swap H to target hue
-          const [, , l] = rgbToHsl(r, g, b);
-          const [hr, hg, hb] = hexToRgb(targetHex);
-          const [sH, sS] = rgbToHsl(hr, hg, hb);
-          // For the saturation we use the TARGET's saturation rather than
-          // source's — that's what makes the recolor feel "intentional" rather
-          // than washed-out. Some tools blend source S; we keep target's S.
-          const [nr, ng, nb] = hslToRgb(sH, Math.max(sS, 0.4), l);
-          out.data[i] = nr;
-          out.data[i + 1] = ng;
-          out.data[i + 2] = nb;
-        }
-      }
-    }
-
-    ctx.putImageData(out, 0, 0);
+    // Shared engine: best-slot-wins match + palette-mode HSL substitution
+    // (keep source L, swap H to the palette hue, lift S). Identical math to the
+    // couple-facing Recolor Studio so admin tagging previews match what hosts see.
+    const recolored = recolorRGBA(
+      source.data,
+      slotEntries,
+      palettePreviewToEdits(palette),
+    );
+    source.data.set(recolored);
+    ctx.putImageData(source, 0, 0);
     mctx.clearRect(0, 0, w, h);
   }
 

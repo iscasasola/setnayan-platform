@@ -404,7 +404,7 @@ export function StackCloseVendor() {
               Profile, inbox, pipeline, calendar, contracts, payments, BIR
               receipts, reviews — one login.{' '}
               <strong style={{ color: 'var(--m-paper)' }}>
-                Free forever; Pro at ₱2,499/28d
+                Verified is free; Pro at ₱6,000/28d
               </strong>{' '}
               for ecosystem-locked extras.
             </div>

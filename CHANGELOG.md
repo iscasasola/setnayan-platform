@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(for-vendors,0015): correct stale vendor pricing + token model on the marketing page
+
+**Context:** Owner 2026-06-08 — the live `/for-vendors` page showed the WRONG vendor pricing (₱2,499/₱5,499 + a ₱1,499 verification fee + a "Free" tier), contradicting the actual backend. The DB (`vendor_billing_catalog`, migration `20260911000000_vendor_tier_reprice_verified_free`) + `/pricing` already reflect the real model — this PR fixes the stale hard-coded marketing page to match. No DB / backend change.
+
+**The real model (already in the DB, now on the page):** **Verified ₱0** (free to get; no unverified-Free tier marketed) · **Pro ₱6,000/28d** (₱60,000/yr · save ₱18,000) · **Enterprise ₱10,000/28d** (₱100,000/yr · save ₱30,000) · **Token = ₱100 flat**, Pro/Enterprise burn **1–3 tokens (₱100–₱300), region-banded** (`token_burn_bands`) to unlock a couple (covers all their services), 100 free on verification. Matches `unlock_vendor_event`.
+
+**What landed (presentation only, 5 files):** `vendor-hero` · `for-vendors-deep-dive` 4-tier table + annuals + Enterprise callout · `stack-close-vendor` · `page-tail` money FAQ · `page.tsx` SEO metadata + 5 schema.org Offers.
+
+**Verify:** markup/SEO copy only, no type/DB change. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** Corrects the corpus stale vendor price (CLAUDE.md SKU table + Pricing.md §0.C) → ₱6,000/₱10,000 + Verified-₱0 + ₱100-token (DECISION_LOG row appended 2026-06-08). Follow-up: customer-dedicated nav + footer vendor menu.
+
 ## 2026-06-08 · feat(0016): pure-moment conversational onboarding intro (prototype→prod port)
 
 **Context:** Audit (this session) found the owner-2026-06-05 "pure-moment" conversational welcome — Setnayan "speaks" line-by-line, role/kind/faith asked inline, no Continue button — was built into the production-mirror prototype `Onboarding_Wedding_Flow_2026-06-01.html` but never ported to the live React onboarding (`apps/web/app/onboarding/wedding`), which still opened on a static hero + three separate Continue screens. Owner approved a full faithful port.

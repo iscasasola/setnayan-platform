@@ -8,6 +8,8 @@ import {
   EyeOff,
   List,
   Map as MapIcon,
+  Maximize2,
+  Minus,
   Plus,
   Save,
   Search,
@@ -91,6 +93,19 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [pickedId, setPickedId] = useState<string | null>(null);
+
+  // --- zoom + pan (growable floor plan) ------------------------------------
+  // The world transform is applied to the DOM directly (refs) so panning /
+  // zooming a 50-table plan doesn't re-render every table each frame. React
+  // state only tracks `detail` (the level-of-detail flip) which changes rarely.
+  const worldRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const panStartRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
+  const pinchRef = useRef<{ dist: number; zoom: number; wx: number; wy: number } | null>(null);
+  const [detail, setDetail] = useState(true);
+  const detailRef = useRef(true);
   const [search, setSearch] = useState('');
   const [onlyUnseated, setOnlyUnseated] = useState(false);
   const [hiddenGroups, setHiddenGroups] = useState<Set<string>>(new Set());
@@ -108,6 +123,35 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
       setView('list');
     }
   }, []);
+
+  // Scroll-wheel / trackpad zoom toward the cursor (non-passive so we can
+  // preventDefault the page scroll). Re-attached when the plan view mounts.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || view !== 'plan') return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const z0 = zoomRef.current;
+      const p0 = panRef.current;
+      const z1 = clampZoom(z0 * Math.exp(-e.deltaY * 0.0015));
+      applyView(z1, { x: sx - z1 * ((sx - p0.x) / z0), y: sy - z1 * ((sy - p0.y) / z0) });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  // Re-assert the current world transform after the plan view (re)mounts, so a
+  // zoom set before toggling away is preserved on return.
+  useEffect(() => {
+    if (view === 'plan' && worldRef.current) {
+      const p = panRef.current;
+      worldRef.current.style.transform = `translate(${p.x}px, ${p.y}px) scale(${zoomRef.current})`;
+    }
+  }, [view]);
 
   const guestsById = useMemo(() => new Map(guests.map((g) => [g.guest_id, g])), [guests]);
   const groupColorById = useMemo(
@@ -197,26 +241,140 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const onCanvasPointerMove = (e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d) return;
-    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
-    d.moved = true;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setPositions((p) => ({
-      ...p,
-      [d.id]: { x: Math.max(4, Math.min(96, x)), y: Math.max(4, Math.min(96, y)) },
-    }));
+  const ZOOM_MIN = 0.2;
+  const ZOOM_MAX = 2.6;
+  const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
+  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+  // Apply the world transform straight to the DOM (no per-frame re-render);
+  // only flip `detail` state when crossing the level-of-detail threshold.
+  const applyView = (z: number, p: { x: number; y: number }) => {
+    zoomRef.current = z;
+    panRef.current = p;
+    if (worldRef.current) {
+      worldRef.current.style.transform = `translate(${p.x}px, ${p.y}px) scale(${z})`;
+    }
+    const nd = z >= DETAIL_AT;
+    if (nd !== detailRef.current) {
+      detailRef.current = nd;
+      setDetail(nd);
+    }
   };
 
-  const onCanvasPointerUp = () => {
+  // Background drag pans; two fingers pinch-zoom. A table-hub drag (dragRef set)
+  // takes precedence and is handled in the move branch below.
+  const onCanvasPointerDown = (e: React.PointerEvent) => {
+    if (dragRef.current) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    canvasRef.current?.setPointerCapture(e.pointerId);
+    if (pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y) || 1;
+      const mx = (pts[0]!.x + pts[1]!.x) / 2 - rect.left;
+      const my = (pts[0]!.y + pts[1]!.y) / 2 - rect.top;
+      pinchRef.current = {
+        dist,
+        zoom: zoomRef.current,
+        wx: (mx - panRef.current.x) / zoomRef.current,
+        wy: (my - panRef.current.y) / zoomRef.current,
+      };
+      panStartRef.current = null;
+    } else {
+      panStartRef.current = { px: panRef.current.x, py: panRef.current.y, sx: e.clientX, sy: e.clientY };
+    }
+  };
+
+  const onCanvasPointerMove = (e: React.PointerEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    // 1) dragging a table hub (zoom/pan-aware: screen px → world %)
+    const d = dragRef.current;
+    if (d) {
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
+      d.moved = true;
+      if (!rect || rect.width === 0) return;
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const x = (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100;
+      const y = (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100;
+      setPositions((p) => ({
+        ...p,
+        [d.id]: { x: Math.max(2, Math.min(98, x)), y: Math.max(2, Math.min(98, y)) },
+      }));
+      return;
+    }
+    if (!rect) return;
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    // 2) pinch-zoom
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y) || 1;
+      const z1 = clampZoom(pinchRef.current.zoom * (dist / pinchRef.current.dist));
+      const mx = (pts[0]!.x + pts[1]!.x) / 2 - rect.left;
+      const my = (pts[0]!.y + pts[1]!.y) / 2 - rect.top;
+      applyView(z1, { x: mx - z1 * pinchRef.current.wx, y: my - z1 * pinchRef.current.wy });
+      return;
+    }
+    // 3) pan
+    if (panStartRef.current) {
+      const s = panStartRef.current;
+      applyView(zoomRef.current, { x: s.px + (e.clientX - s.sx), y: s.py + (e.clientY - s.sy) });
+    }
+  };
+
+  const onCanvasPointerUp = (e?: React.PointerEvent) => {
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
     if (d?.moved) setDirty((s) => new Set(s).add(d.id));
+    if (e) pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) panStartRef.current = null;
+  };
+
+  // Zoom around the viewport centre (for the +/- buttons).
+  const zoomAround = (factor: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const sx = rect.width / 2;
+    const sy = rect.height / 2;
+    const z0 = zoomRef.current;
+    const p0 = panRef.current;
+    const z1 = clampZoom(z0 * factor);
+    applyView(z1, { x: sx - z1 * ((sx - p0.x) / z0), y: sy - z1 * ((sy - p0.y) / z0) });
+  };
+
+  // Frame every table in view (the "see all 50" button).
+  const fitView = () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    if (tables.length === 0) {
+      applyView(1, { x: 0, y: 0 });
+      return;
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const t of tables) {
+      const pos = positions[t.table_id] ?? { x: 50, y: 50 };
+      const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+      const cx = (pos.x / 100) * rect.width;
+      const cy = (pos.y / 100) * rect.height;
+      minX = Math.min(minX, cx - geo.box.w / 2);
+      maxX = Math.max(maxX, cx + geo.box.w / 2);
+      minY = Math.min(minY, cy - geo.box.h / 2);
+      maxY = Math.max(maxY, cy + geo.box.h / 2);
+    }
+    const bw = Math.max(1, maxX - minX);
+    const bh = Math.max(1, maxY - minY);
+    const z1 = clampZoom(Math.min(rect.width / bw, rect.height / bh) * 0.86);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
   };
 
   const saveLayout = () => {
@@ -511,15 +669,18 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
         <>
         <div
           ref={canvasRef}
+          onPointerDown={onCanvasPointerDown}
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerLeave={onCanvasPointerUp}
-          className="relative aspect-[7/5] w-full overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02]"
+          className="relative aspect-[7/5] w-full cursor-grab touch-none overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02] active:cursor-grabbing"
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
             backgroundSize: '22px 22px',
           }}
         >
+          {/* world layer — pan/zoom applied to its transform directly via refs */}
+          <div ref={worldRef} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '0 0' }}>
           <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-md border border-ink/20 bg-cream/80 px-6 py-1.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 backdrop-blur-sm">
             Stage · Head Table
           </div>
@@ -546,13 +707,19 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
               <div
                 key={t.table_id}
                 className="absolute -translate-x-1/2 -translate-y-1/2"
-                style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: geo.box.w, height: geo.box.h, zIndex: dragging ? 30 : 20 }}
+                style={{
+                  left: `${pos.x}%`,
+                  top: `${pos.y}%`,
+                  width: detail ? geo.box.w : geo.hub.w + 12,
+                  height: detail ? geo.box.h : geo.hub.h + 12,
+                  zIndex: dragging ? 30 : 20,
+                }}
               >
                 {/* group-tint halo */}
                 {halo ? (
                   <span
                     aria-hidden
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-md"
+                    className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-md"
                     style={{
                       width: geo.hub.w + 56,
                       height: geo.hub.h + 56,
@@ -562,8 +729,9 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                   />
                 ) : null}
 
-                {/* chairs */}
-                {geo.seats.map((s, i) => {
+                {/* chairs — only at detail zoom; pucks when zoomed out */}
+                {detail
+                  ? geo.seats.map((s, i) => {
                   const occupant = occ[i] ?? null;
                   const cx = geo.box.w / 2 + s.x;
                   const cy = geo.box.h / 2 + s.y;
@@ -623,7 +791,8 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                         : null}
                     </div>
                   );
-                })}
+                    })
+                  : null}
 
                 {/* hub (drag handle + place-at-next-free target) */}
                 <button
@@ -647,11 +816,41 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
               </div>
             );
           })}
+          </div>
+          {/* end world layer */}
+
+          {/* zoom controls */}
+          <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => zoomAround(1.25)}
+              aria-label="Zoom in"
+              className="px-2 py-1.5 text-ink/70 hover:bg-ink/5"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => zoomAround(0.8)}
+              aria-label="Zoom out"
+              className="border-t border-ink/10 px-2 py-1.5 text-ink/70 hover:bg-ink/5"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={fitView}
+              aria-label="Fit all tables in view"
+              className="border-t border-ink/10 px-2 py-1.5 text-ink/70 hover:bg-ink/5"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <p className="text-xs text-ink/50">
-          Tap a guest in the sidebar, then tap a chair to seat them. Drag a table&rsquo;s centre to move it, then
-          Save layout. <span className="text-ink/40">Auto-seat fills unseated guests by role tier, closest to the stage first.</span>
+          Scroll or pinch to zoom · drag the background to pan · <Maximize2 className="inline h-3 w-3" /> fits every
+          table. Zoom in to seat individual chairs; drag a table&rsquo;s centre to move it, then Save layout.
         </p>
         </>
         ) : (

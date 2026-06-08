@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(seating): growable floor plan — zoom + pan + level-of-detail (0008)
+
+**Context:** Follow-up to the mobile list (PR #1108). For big guest counts the *spatial* floor plan must also scale — a fixed canvas can't show 50 tables. Adds pan/zoom with level-of-detail so the plan grows to fit. PR 2 of 2 for "scale to 50+"; **PR 3 next = floor-plan markers (draggable Stage + Entrance door)**, which needs a small `event_floor_plan` migration.
+
+**What landed (`_components/seating-editor.tsx`):**
+- **Zoom + pan canvas** — scroll/trackpad **wheel zoom** (toward cursor, non-passive listener), **pinch-zoom** + **drag-to-pan** (pointer-tracked: 1 pointer pans, 2 pinch), and a **+/- / Fit** control cluster (Fit frames every table). The world transform is written straight to the DOM via refs, so panning a 50-table plan doesn't re-render every table per frame.
+- **Level-of-detail** — below ~0.72 zoom each table collapses to a compact **puck** (number + `seated/cap`, group-colour halo, green when full); zoom in and the chairs + names reappear. `detail` is the only React state in the hot path (flips at the threshold), keeping it smooth.
+- Table-drag math is now zoom/pan-aware (screen px → world %); `touch-action:none` so gestures don't scroll the page.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (route 16.7 kB). Zoomed-out puck LOD verified via a 28-table headless render; live pinch/pan to confirm on the Vercel preview / device.
+
+**SPEC IMPACT:** builds the 0008 spec's auto-growing canvas. Next → PR 3: draggable Stage + Entrance door (`event_floor_plan`); auto-seat will anchor rings to the placed stage. → corpus DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): mobile table-card list + Floor-plan/List toggle (0008)
 
 **Context:** The chair-level spatial canvas can't hold many tables on a phone — each chair-level table is ~220px across, so only ~2-3 fit on a ~340px-wide canvas. A 50-table wedding was unusable on mobile. The 0008 spec already anticipated this ("the spatial drag-drop editor is intentionally desktop-only; mobile is for review + quick edits via a card list"); we'd shipped the canvas everywhere. This is PR 1 of 2 for "scale to 50+ tables" (PR 2 = canvas zoom/pan + level-of-detail).

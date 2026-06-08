@@ -8,7 +8,7 @@
  *   - 0% commission · we never touch the money (preserved)
  *   - Pro ₱2,499/28d (CLAUDE.md 2026-05-30 § 1(a) cadence + price update)
  *   - 100 free bidding tokens on verification before 31 Jan 2027 (preserved)
- *   - "Concierge matchmaking" copy in hero blurb → "Today's Focus matchmaking"
+ *   - "Concierge matchmaking" copy in hero blurb → "Setnayan AI matchmaking"
  *     per V2 retire of Concierge brand
  *
  * Per [[feedback_setnayan_button_preservation]] — CTA placement +

@@ -1,7 +1,7 @@
 /**
  * Card 4.2 Coordinator · Phase 1 · Foundation tier.
  *
- * Added 2026-05-24 to align Today's Focus + Parallel Work Map + Your Plan
+ * Added 2026-05-24 to align Setnayan AI + Parallel Work Map + Your Plan
  * grid surfaces. The Plan grid already had a coordinator cell tied to
  * VendorCategory='planner_coordinator', but no wizard card pointed at it.
  * This card closes the alignment so couples can lock their coordinator via

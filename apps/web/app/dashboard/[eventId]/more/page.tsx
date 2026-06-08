@@ -12,7 +12,7 @@
  * live here" promise and doubled the visual load on a host who's already
  * stretched. They're filtered out via BOTTOM_NAV_KEYS below.
  *
- * Today's Focus was RETIRED 2026-06-03 — the 9/65-card planning wizard is
+ * Setnayan AI was RETIRED 2026-06-03 — the 9/65-card planning wizard is
  * superseded by onboarding (upfront scoping) + the per-service deadline
  * timeline (lib/upcoming-items.ts → Home). Its entry is gone from
  * buildCustomerNavGroups, so it no longer appears on this grid (or the

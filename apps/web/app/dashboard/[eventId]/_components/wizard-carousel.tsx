@@ -1,7 +1,7 @@
 /**
  * Concierge Active Wizard · horizontal carousel surface.
  *
- * Owner-locked 2026-05-24: today's focus becomes a horizontal scroll
+ * Owner-locked 2026-05-24: Setnayan AI becomes a horizontal scroll
  * carousel showing the active focus card + the next few upcoming cards.
  * Cards with unmet prerequisites render DARKENED + unactionable with
  * "Locked until {prereq.title}" copy.
@@ -67,12 +67,12 @@ export function WizardCarousel({
   const activeTask = tasks[0]!;
   const peekTasks = tasks.slice(1);
 
-  // No section-level "Today's focus" header — the inner WizardCard
+  // No section-level "Setnayan AI" header — the inner WizardCard
   // shell already renders that rail. A second header here showed up as
   // a duplicate in production. Owner directive 2026-05-24.
   return (
     <section
-      aria-label="Today's focus carousel"
+      aria-label="Setnayan AI carousel"
       className="space-y-3"
     >
       {/* Carousel track · scroll-snap-x. Each card claims FULL VIEWPORT

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · chore(branding): rename "Today's Focus" → "Setnayan AI" across the app UI
+
+**Context:** Owner 2026-06-08 locked the planner SKU's canonical consumer name as **Setnayan AI** (shorthand SAI), retiring the interim "Today's Focus" display name everywhere. The spec corpus was already fully scrubbed (new `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG rows); this brings the app UI into alignment.
+
+**What landed:** display-name-only rename of **"Today's Focus" → "Setnayan AI"** (all apostrophe forms incl. the `&rsquo;` HTML entity; caps preserved in headers) across **66 files** in `apps/web` — the homepage hero (`_components/marketing/_sections.tsx`), the retired-SKU concierge banner + settings copy, admin labels (brain / abuse / addons / queues / sidebar), the i18n nav label (`lib/i18n/dashboard.{en,tl}.json`), the help article, aria-labels + metadata titles, and history comments. Coherence fixes where the swap would have implied the *current* brand was retired: "retired Today's Focus wizard" → "retired planner wizard" (×3) + de-duplicated "AI Today's Focus" → "Setnayan AI".
+
+**Name only — prices + code identifiers untouched.** The ₱1,499 planner prose stays; the `todays_focus`/`TODAYS_FOCUS` SKU key, `events.todays_focus_*` columns, `users.show_todays_focus_wizard`, and the `/today` route are LEFT AS-IS (they mirror the live DB / catalog / routes — renaming them is a separate migration PR, owner to greenlight).
+
+**Verify:** display-name residual = 0 across `apps/web` (all forms); both i18n JSON re-validated; the diff is pure string/comment swaps (169 lines, no structural changes). Build via CI required checks.
+
+**SPEC IMPACT:** Corpus already aligned 2026-06-08 (the full Today's-Focus → Setnayan AI scrub + `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG). This PR closes the app↔corpus naming gap. Code-identifier rename intentionally deferred to a migration.
+
 ## 2026-06-08 · feat(onboarding): Dream Team PR-2 — chapter chrome + AI-gate fork
 
 **Context:** Second of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§4/§5). PR-2 adds the chapter CHROME + the AI-gate fork; the picks split + refine engine are PR-3/PR-4. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed).

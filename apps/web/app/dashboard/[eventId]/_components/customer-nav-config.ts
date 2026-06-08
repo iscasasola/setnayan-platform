@@ -81,7 +81,7 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       items: [
         {
           // Home — the event hub. Promoted to the top of Plan when the
-          // 'Today' group was retired alongside the Today's Focus wizard
+          // 'Today' group was retired alongside the planner wizard
           // (2026-06-03 · superseded by onboarding scoping + the per-service
           // deadline timeline in lib/upcoming-items.ts; /today now redirects
           // to event-home). Sentinel matchPrefix so the strict-prefix branch

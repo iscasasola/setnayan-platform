@@ -21,7 +21,7 @@
  * pivot from rows 7-9 same day · further amended 2026-05-30 row § 1(a) +
  * § 4 + § 7(d) Pro 28-day price flip to ₱2,499 + Pro Annual to ₱24,999):
  *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱2,499/28d" (2026-05-30)
- *   - "Setnayan Concierge matching/matchmaking" → "Today's Focus matching/matchmaking"
+ *   - "Setnayan Concierge matching/matchmaking" → "Setnayan AI matching/matchmaking"
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
  *   - ₱1,499 one-time verification + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)

@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * Admin actions for the Today's Focus enforcement queue (iteration 0023 § 3.11).
+ * Admin actions for the Setnayan AI enforcement queue (iteration 0023 § 3.11).
  *
  * Single-admin authority per 0023 § 4.3 — these decisions are reversible
  * (admin can lift enforcement via the appeal flow), so no two-admin gate.
@@ -11,7 +11,7 @@
  *   strike 2 → 'trial_banned'
  *   strike 3+ → 'full_banned'
  *
- * Brand-layer rename 2026-05-28 V2 cutover — Concierge → Today's Focus.
+ * Brand-layer rename 2026-05-28 V2 cutover — Concierge → Setnayan AI.
  * The user-facing notification titles + bodies below read in V2 brand voice.
  * DB column names (concierge_enforcement_*, concierge_abuse_strike_count)
  * and table names (concierge_abuse_flags) preserved — schema doesn't ripple.
@@ -187,10 +187,10 @@ export async function adminConfirmConciergeAbuse(formData: FormData): Promise<vo
     title: `Account flagged for review (${newLevel})`,
     body:
       newLevel === 'warning'
-        ? 'Your account was flagged once for review and cleared with a warning. Further flags may limit access to Today’s Focus features.'
+        ? 'Your account was flagged once for review and cleared with a warning. Further flags may limit access to Setnayan AI features.'
         : newLevel === 'trial_banned'
-          ? 'Today’s Focus trial access is no longer available on this account. You can still buy Today’s Focus anytime — open the help center to appeal.'
-          : 'Today’s Focus has been disabled on this account. Open the help center to appeal if you believe this is in error.',
+          ? 'Setnayan AI trial access is no longer available on this account. You can still buy Setnayan AI anytime — open the help center to appeal.'
+          : 'Setnayan AI has been disabled on this account. Open the help center to appeal if you believe this is in error.',
     relatedUrl: '/help#concierge',
   });
 
@@ -240,8 +240,8 @@ export async function adminLiftConciergeEnforcement(formData: FormData): Promise
   void emitNotification({
     userId,
     type: 'chat_message',
-    title: 'Today’s Focus — access restored',
-    body: `Your appeal was reviewed and your Today’s Focus access has been restored. Reason: ${notes}`,
+    title: 'Setnayan AI — access restored',
+    body: `Your appeal was reviewed and your Setnayan AI access has been restored. Reason: ${notes}`,
     relatedUrl: '/dashboard/profile/concierge',
   });
 

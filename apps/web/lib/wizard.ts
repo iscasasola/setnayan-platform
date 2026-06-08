@@ -7,7 +7,7 @@
  * completion cards that let the host actually DO the task in-place rather
  * than navigating away.
  *
- * The host sees ONE card at a time as Today's Focus. WizardSequenceResolver
+ * The host sees ONE card at a time as Setnayan AI. WizardSequenceResolver
  * walks the canonical 38-task order, skips any task whose completion is
  * recorded in events.wizard_state, and returns the first incomplete task
  * as the active focus. Two interleaved behaviors override the canonical
@@ -206,16 +206,16 @@ export type WizardTask = {
 
 /**
  * Canonical 48-task sequence — reconciled 2026-05-24 against the shipped
- * code (45 was the drifted count caught by owner via "today's focus has
+ * code (45 was the drifted count caught by owner via "Setnayan AI has
  * 38 while actual task is 41" report) + extended with 3 cards to align
- * Today's Focus + Parallel Work Map + Your Plan grid surfaces per owner
- * directive "make sure today's focus, your parallel work map and 23
+ * Setnayan AI + Parallel Work Map + Your Plan grid surfaces per owner
+ * directive "make sure Setnayan AI, your parallel work map and 23
  * things to lock in all give out the same output and control on
  * preparing a wedding."
  *
  * The 3 alignment cards (coordinator · led_background ·
  * invitations_stationery) fill PLAN_GROUPS cells that previously had no
- * Today's Focus entry point — couples could see them on the Plan grid
+ * Setnayan AI entry point — couples could see them on the Plan grid
  * but had no guided path through the wizard. Canonical lock now 48 tasks
  * matching the Plan grid's 23 vendor-pick categories (the wizard's
  * remaining 25 tasks are planning + legal + finalization + post-event
@@ -300,11 +300,11 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   },
   {
     // Added 2026-05-24 to align with PLAN_GROUPS.coordinator. Owner directive:
-    // "make sure today's focus, your parallel work map and 23 things to lock
+    // "make sure Setnayan AI, your parallel work map and 23 things to lock
     // in all give out the same output and control on preparing a wedding."
     // The Plan grid was already surfacing a Coordinator cell tied to
     // category='planner_coordinator' but the wizard had no card pointing at
-    // it — the entry point couples reach via Today's Focus carousel was
+    // it — the entry point couples reach via Setnayan AI carousel was
     // missing. Coordinator sits in the foundation tier because they ratify
     // the timeline + vendor lock order + interleave their site visits per
     // CLAUDE.md 2026-05-24 row 1's coordinator-scheduled-meetings primitive.
@@ -488,7 +488,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   {
     // Added 2026-05-24 to align with PLAN_GROUPS.led_background. Owner
     // directive: same as coordinator entry above — the Plan grid had a cell
-    // for LED background (category='led_screens') but no Today's Focus card
+    // for LED background (category='led_screens') but no Setnayan AI card
     // pointed at it. Iteration 0005 LED Background Maker is the offline
     // template flow; this card is the vendor-pick precursor for couples
     // sourcing an LED-screen rental vendor.
@@ -619,7 +619,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // auto-scroll on the day). External-process kind · placeholder
     // body until the inline upgrade picker lands V1.x · the picker
     // already exists at /dashboard/[eventId]/website so this card
-    // surfaces it in the Today's Focus carousel.
+    // surfaces it in the Setnayan AI carousel.
     id: 'website_upgrade',
     order: 16.5,
     phase: 'programming',
@@ -651,7 +651,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   },
   {
     // Added 2026-05-24 (owner directive · "offer all setnayan in app
-    // services also on the today's focus"). Papic = guest-paparazzi
+    // services also on the Setnayan AI"). Papic = guest-paparazzi
     // photo mesh (iteration 0012 · CLAUDE.md row 2026-05-16). Couples
     // book the add-on, designate guest paparazzi via QR enrollment, the
     // native app captures + auto-tags during the event. T-3mo entry,
@@ -1278,9 +1278,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
 
 /**
  * Public export · `_WIZARD_TASKS_RAW` sorted by the `order` field. This
- * is the canonical PAID Today's Focus sequence — events with
+ * is the canonical PAID Setnayan AI sequence — events with
  * concierge_status='trial' or 'active' (per CLAUDE.md 2026-05-24 8th-row
- * Today's Focus SKU lock · production column stayed concierge_status
+ * Setnayan AI SKU lock · production column stayed concierge_status
  * even after the rename was specced) get this full 65-task ladder.
  *
  * Sort is stable per Array.prototype.sort spec (ECMA-262 since 2019) so
@@ -1747,7 +1747,7 @@ export function getCarouselTasks(
 
 /**
  * Result of WizardSequenceResolver. Either a single active task to render
- * as Today's Focus, or null when (a) no task is implemented yet at the
+ * as Setnayan AI, or null when (a) no task is implemented yet at the
  * required position OR (b) all 38 tasks are complete (celebratory state).
  *
  * `reason` lets the consumer decide what to render in the null case · the

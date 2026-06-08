@@ -533,7 +533,7 @@ export type FetchUpcomingItemsResult = {
 // monthsBefore. PLAN_GROUPS.monthsBefore IS that deadline ("aim to have this
 // locked N months before the wedding"), the same date the home plan-grid
 // advertises — so the reminder and the grid never disagree. This is the free
-// replacement for the retired Today's Focus wizard's "recommended deadline"
+// replacement for the retired planner wizard's "recommended deadline"
 // job ([[project_setnayan_todays_focus_retired]]) — no fork, no paywall.
 //
 // SEED NOTE: these code values are the initial seed for the admin-managed

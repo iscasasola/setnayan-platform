@@ -27,7 +27,7 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 // Owner-locked 2026-05-24: comparison capped at 2 across every surface
-// (wizard Today's Focus is type-locked at 2 via CompareState; marketplace
+// (wizard Setnayan AI is type-locked at 2 via CompareState; marketplace
 // + DIY adopt the same cap here; Your Plan grid adopts the same cap in
 // plan-card-compare.tsx). 3-way side-by-side at thumb-zone width on mobile
 // becomes too cramped to read; the 2-way A-vs-B framing forces a clear

@@ -129,7 +129,7 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
-    // Today's Focus REMOVED COMPLETELY (owner 2026-06-05) — the retired AI
+    // Setnayan AI REMOVED COMPLETELY (owner 2026-06-05) — the retired AI
     // planner SKU must not surface on /pricing, /for-vendors, or the admin
     // discount picker (the three consumers of this reader). Excluded here so it
     // drops everywhere without a DB write (the row stays in the table, just

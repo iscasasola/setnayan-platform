@@ -16,7 +16,7 @@
  *     FACETS underneath a tile, never their own tile.
  *   - Officiants + pre-marriage paperwork LEAVE the marketplace
  *     (`marketplaceHidden`): officiants auto-resolve from the ceremony venue
- *     (Card 04, shipped 2026-05-29); paperwork lives in the Today's Focus
+ *     (Card 04, shipped 2026-05-29); paperwork lives in the Setnayan AI
  *     wizard. The keys stay in the map so admin/lookup consumers don't drop
  *     them into "Unmapped".
  *   - Setnayan first-party services fold UNDER their parent's tiles as an
@@ -36,7 +36,7 @@
  * the place → who runs it → what's served → how it looks → the show →
  * capturing it → how you look → the extras → the paper → getting there.
  * (Locked 2026-05-31.) Browse order ≠ booking urgency — Photo & Video
- * (Documentary, #6) still books early via the Today's Focus deadlines.
+ * (Documentary, #6) still books early via the Setnayan AI deadlines.
  */
 export type WeddingFolder =
   | 'venue'
@@ -504,7 +504,7 @@ export type TaxonomyEntry = {
    * Pulled from the public marketplace. The key stays in the map so admin +
    * lookup consumers resolve it, but the catalog never renders it as a tile
    * and the vendor-grid never queries it. Officiants auto-resolve from the
-   * ceremony venue (Card 04); paperwork lives in the Today's Focus wizard.
+   * ceremony venue (Card 04); paperwork lives in the Setnayan AI wizard.
    */
   marketplaceHidden?: true;
   phase: TaxonomyPhase;
@@ -543,7 +543,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // VENUE — Reception + Ceremony are venue_directory / venue_setting backed.
   //   Officiants + pre-marriage + paperwork stay in the map but are
   //   marketplaceHidden (officiant auto-resolves from the ceremony venue;
-  //   paperwork → Today's Focus wizard).
+  //   paperwork → Setnayan AI wizard).
   // ════════════════════════════════════════════════════════════════════
   catholic_priest:                   { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base', faith: 'Catholic' },
   civil_judge:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },

@@ -10,11 +10,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **What landed (`vendors/page.tsx`):** when `BUDGET_BUILD_ENABLED` is on, the page resolves `resolveAllocationInputs(supabase, eventId)` and passes a `<BudgetAllocationPlanner>` into the takeover's `buildSlot`. The alloc query is **gated inside the flag check** so it never runs in production while the flag is off. Shortlist still houses today's `PlanBudgetAccordion`; Compare / Summary / Lock remain Phase 3–5 stubs.
 
-**Reuse, not rebuild:** `lib/budget-allocation.ts` (`computeBudgetAllocation`), `lib/budget-allocation-data.ts` (`resolveAllocationInputs`), and `budget/_components/budget-allocation-planner.tsx` are all rendered as-is.
+**Reuse, not rebuild:** `lib/budget-allocation.ts`, `lib/budget-allocation-data.ts` (`resolveAllocationInputs`), and `budget/_components/budget-allocation-planner.tsx` are all rendered as-is.
 
 **Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Flag OFF by default → zero production change.
 
-**SPEC IMPACT:** Phase 2a of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-on Phase 2b: whole-plan baskets (Lean/Fits/Stretch) + save A/B/C (needs a saved-builds migration). Logged in `DECISION_LOG.md`.
+**SPEC IMPACT:** Phase 2a of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-on Phase 2b: whole-plan baskets (Lean/Fits/Stretch) + save A/B/C (saved-builds migration). Logged in `DECISION_LOG.md`.
+
+## 2026-06-08 · feat(seating): A4 seating PDF — mood-board / blueprint, monogram + QR (0008)
+
+**Context:** Owner-specced export. Completes the seating arc (chair-level → names → mobile list → zoom/pan → markers → venue to-scale → **PDF**). The 0008 spec's "Print pack" — scoped to the owner's brief: A4, two print modes, branded header, floor-plan page + arrangement pages. No migration; reuses existing `pdf-lib` + `qrcode` + `events.slug`.
+
+**What landed:**
+- **`lib/seating-pdf.ts`** — `buildSeatingPdf()` draws an **A4** PDF with `pdf-lib`:
+  - **Header** (every page): couple **monogram** (text initials in `monogram_color`), **names** (`display_name`), **date**, **Setnayan logo** (fetched `brand/setnayan-mark-512.png`, optional), and a **website QR** (`{appUrl}/{slug}` via `QRCode.toBuffer`, "Scan to visit our website").
+  - **Page 1 = floor plan** — drawn **to scale** when a venue size is set (room rectangle at the room's aspect + metric labels; tables at true footprint via `TABLE_FOOTPRINT_M`), else fit-to-page. Round→circle, banquet/head→rectangle; stage + entrance markers; table number, label, fill.
+  - **Pages 2+ = seating arrangements** — per-table header (fill · type) + numbered guest list with roles, two-column, auto-paginated.
+  - **Two modes:** **mood-board** (floor + tables coloured from the couple's `event_moodboard_saves.palette_snapshot`) or **blueprint** (clean blue line-art). Page footer with couple name + page number.
+- **`/dashboard/[eventId]/seating/export` route** (Node runtime) — auth + RLS-scoped fetch of event/tables/assignments/guests/floor-plan/palette, builds the PDF, returns it as a download (`?mode=moodboard|blueprint`).
+- **Editor:** an **Export PDF ▾** toolbar menu (Mood-board colours / Blueprint).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (export route compiles). **Both modes + the floor-plan and arrangement pages were rendered from the actual generated PDF and visually inspected** (16×22 m to-scale room, palette-coloured tables, monogram+date+QR header, per-table guest lists).
+
+**SPEC IMPACT:** builds the 0008 spec's print/PDF export (single-website-QR variant per owner; per-table-sign / per-guest place-card sheets remain deferred). Completes the seating floor-plan arc. → corpus DECISION_LOG.
 
 ## 2026-06-08 · feat(services): Budget "Build" — Services 5-tab takeover shell (Phase 1, flag-dark)
 

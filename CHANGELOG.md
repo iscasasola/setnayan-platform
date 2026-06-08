@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): dashboard bloom — the "Set na 'yan" reveal on the recap screen
+
+**Context:** Next chunk of the adaptive-onboarding port (`Onboarding_Production_Port_Plan_2026-06-08.md` §3). The reveal-before-the-offer: the `congrats` recap becomes the bloom — the couple sees their wedding website already exists.
+
+**What landed (`onboarding-shell.tsx`, `_styles/onboarding.css` — only the `congrats` `<section>` + its CSS):**
+- A `.dash-site` reveal card: monogram masthead (reused `MonoLockup`) + couple names + headline "Set na 'yan. ✨ This is the {Surname}–{Surname} wedding — and it already exists."; the existing `WeddingCountdown`; an **"Our Love Story"** block woven by the existing `weaveStory(storyTone, loveStory, ctx)` (shown only when the love stage was told; omitted gracefully otherwise); the existing recap list re-housed under the card; and a display-only share footer (Show {partner} · your page · N guests).
+- **COVERT:** the love block is "Our Love Story" only — never editorial/song/Pakanta. Reused `weaveStory`/`MonoLockup`/`WeddingCountdown` (no reimplementation). Nav/commit/redirect untouched.
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · covert grep clean. The congrats `.viewzone` scrolls internally (love-reveal pattern); chrome Continue stays pinned.
+
+**SPEC IMPACT:** None — content/visual enhancement of one existing screen.
+
 ## 2026-06-08 · feat(onboarding): The Mirror — live wedding-website preview ribbon
 
 **Context:** Next chunk of the adaptive-onboarding port (`Onboarding_Production_Port_Plan_2026-06-08.md` §4). A persistent preview that makes the flow read as "watch your wedding website build itself."

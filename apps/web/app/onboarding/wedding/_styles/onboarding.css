@@ -823,6 +823,45 @@
 .onbw #screen-love-preview .viewzone::-webkit-scrollbar{width:0;}
 .onbw #screen-love-preview .tapzone{flex:0 0 auto;}
 
+/* ════ THE DASHBOARD BLOOM (congrats) ════ the reveal that makes the couple feel their
+   wedding website already exists (ported from Onboarding_Wedding_Adaptive_Flow §3 ·
+   buildDashboard()). The whole "published page" lives inside one rounded .dash-site card;
+   the viewzone scrolls INTERNALLY while the chrome Continue stays pinned — same no-scroll
+   frame as the love reveal. Reuses .recap + .sc-prose (woven story) verbatim. */
+.onbw #screen-congrats.screen.active{flex:1 1 auto;min-height:0;}
+.onbw #screen-congrats .viewzone{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.onbw #screen-congrats .viewzone::-webkit-scrollbar{width:0;}
+.onbw #screen-congrats .eyebrow{margin-bottom:12px;}
+/* the published-site card — the whole page sits inside one rounded sheet */
+.onbw .dash-site{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 14px 38px rgba(30,34,41,.08),0 2px 8px rgba(30,34,41,.04);}
+.onbw .dash-sec{padding:20px 18px;border-bottom:1px solid var(--line);}
+.onbw .dash-sec:last-child{border-bottom:none;}
+/* HERO — monogram lockup + names + identity headline, on a warm gold wash */
+.onbw .dash-hero{position:relative;text-align:center;padding:26px 18px 24px;background:linear-gradient(180deg,var(--gold-wash),rgba(255,255,255,0));}
+.onbw .dash-mono{display:flex;justify-content:center;margin:0 auto 12px;animation:rise .45s cubic-bezier(.2,.7,.3,1) both;}
+/* trim the name-screen lockup to a tighter masthead scale (caps + amp + stroke line) */
+.onbw .dash-mono .mono-lk{gap:clamp(8px,2vh,14px);}
+.onbw .dash-mono .mono-lk .mt-cap{width:clamp(42px,12vw,54px);}
+.onbw .dash-mono .mono-lk .mt-line{width:clamp(22px,6.5vw,28px);}
+.onbw .dash-cnames{font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:13px;}
+.onbw .dash-head{font-family:var(--serif);font-style:italic;font-weight:600;font-size:23px;line-height:1.22;color:var(--ink);letter-spacing:.004em;margin:0 auto;max-width:24ch;}
+.onbw .dash-head .setna{font-style:normal;color:var(--mulberry);}
+/* COUNTDOWN — wraps the existing .cd timer; strip its own margin so the section owns spacing */
+.onbw .dash-count{padding-top:16px;padding-bottom:16px;}
+.onbw .dash-count .cd{margin:0;}
+/* section eyebrow (shared by Love Story / Your Wedding) */
+.onbw .dash-eb{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);text-align:center;margin-bottom:13px;}
+/* OUR LOVE STORY — .dash-story shares the .sc-prose look (braided lines from weaveStory) */
+.onbw .dash-story{text-align:left;}
+/* THE RECAP — drop the boxed border inside the card; the section divider already frames it */
+.onbw .dash-sec .recap{border:0;padding:0;background:transparent;border-radius:0;}
+/* SHARE footer — covert, website-framed; the real share link lives on the dashboard */
+.onbw .dash-share{background:linear-gradient(180deg,rgba(255,255,255,0),var(--gold-wash));}
+.onbw .dash-shrow{display:flex;flex-direction:column;gap:9px;margin-bottom:12px;}
+.onbw .dash-shbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid var(--line-2);background:var(--surface);border-radius:14px;padding:13px;font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink);}
+.onbw .dash-shbtn .lnk{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--gold-deep);font-weight:500;}
+.onbw .dash-guests{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);text-align:center;}
+
 /* NO-SCROLL TIGHTENING — love_met (Spark + Almost, the densest screen) stays within the
    ~665px frame. Compresses spacing/sizes only; no content cut. */
 .onbw #screen-love-met .stem .stem-pre{font-size:16px;margin-bottom:4px;}

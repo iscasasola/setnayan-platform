@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(seating): chair-level visual editor + role-tier auto-seat (0008)
+
+**Context:** Owner shared a polished seating-editor reference ("Nunta Pe Mese") and asked to bring our seat plan up to it. The look they wanted — per-seat chairs with guest names, a grouped/colour-coded sidebar, and a one-click auto-fill — is exactly what iteration **0008**'s locked spec already describes ("Chair-level interaction" + "Auto-fill — role-tier rings"); the 2026-05-13 MVP had shipped only plain table shapes + a dropdown assigner and deferred both. This PR catches the code up to its own spec. No migration — `event_seat_assignments.seat_number` and `guest_groups`/`guest_group_memberships` already existed.
+
+**What landed:**
+- **Chair-level canvas** (`_components/seating-editor.tsx`, replaces `floor-plan.tsx`) — each table renders its chairs around the hub (round/sweetheart/serpentine → circle; long-banquet/family-head → two long edges), each seat showing the guest's photo or initials in a side/group-coloured ring with a first-name label. Pure geometry lives in `lib/seating.ts` (`tableGeometry`).
+- **Seat / move / unseat by tap** — pick a guest in the sidebar, tap a chair (or the table hub for next-free seat); tap a seated chair to pick them up and move; Unseat from the action banner. Touch-friendly select-then-place (no fragile drag-to-assign). Table reposition stays a hub drag (4px threshold disambiguates click vs drag) → Save layout.
+- **Grouped, colour-coded sidebar** — Tables (fill state + delete + click-to-highlight), Individual Members, and custom Member Groups (deterministic accent colour via `groupColorFor`, member count, expand, eye-toggle to mute the colour on canvas). "Only show unseated" filter + people search. Inline Add-table.
+- **Auto-seat** (`autoSeatGuests` action + pure `computeAutoSeat`) — fills every unseated *attending* guest into the nearest tables to the stage, tier by tier (T1 family/sponsors/officiant → T4 friends/work), keeping plus-ones adjacent; idempotent (never moves a seated guest, skips sweetheart tables, never seats the couple). Confirm dialog before running.
+- Brand-native (Alabaster/Obsidian/Champagne/Mulberry), not the reference's teal/peach. Photo URLs resolved server-side via `displayUrlForStoredAsset`.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ (warnings only) · `next build` ✓ (route `/dashboard/[eventId]/seating` 14.1 kB). PR #1070 CI (production build · playwright e2e · lighthouse) running; live visual still to confirm on the Vercel preview (no browser was connected to drive it from this session).
+
+**SPEC IMPACT:** Builds the previously-deferred "Chair-level interaction" + "Auto-fill — role-tier rings" sections of `0008_seating_chart_editor.md` (and flips that file's AS-BUILT note). Still deferred (the "full rebuild" the owner did not pick this pass): Add-Group modal w/ colour picker, two-tab Arrangements/Members layout, canvas zoom, dedicated mobile table-card view, publish-QR + print pack, per-seat serpentine wedge geometry. → corpus DECISION_LOG + 0008 AS-BUILT header.
+
 ## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
 
 **Context:** Owner design session locked the couple's event website as ONE site with three date-driven phases (RSVP before · Event during · Editorial after) — spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + corpus DECISION_LOG. This PR ships the safe, additive schema foundation; nothing consumes it yet (frontend ships ahead).

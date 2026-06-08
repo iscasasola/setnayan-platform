@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(vendor): show admin-uploaded BDO/GCash QR codes in token purchase
+
+**Context:** The token-purchase pending panel (shipped earlier today) showed only the BDO/GCash account name + number — but the admin has already uploaded **QR code images** for both channels (`platform_settings.bdo_qr_url` / `gcash_qr_url`, public Supabase-storage URLs). Scanning a QR is the easiest pay path (UX north star), so the panel should surface them.
+
+**What landed (`pending-purchases.tsx`):** `PayBox` now renders the QR image (when present) above the account number, using the same plain-`<img>` pattern as the customer `ManualCheckoutModal` (QR assets live on a separate CDN, outside `next/image`'s whitelist; explicit width/height to avoid layout shift). The data path was already wired — `fetchPlatformSettings` SELECTs both `*_qr_url` columns and `page.tsx` passes the full `settings` object — this just displays them. Falls back to "account details coming" only when neither a number nor a QR is configured.
+
+**SPEC IMPACT:** None — display-only fix connecting the existing admin Payment-methods QR uploads to the vendor token-purchase surface.
+
 ## 2026-06-08 · feat(vendor): self-serve token-pack purchase (apply-then-pay)
 
 **Context:** Owner 2026-06-08 — "make purchasing available too" + "Both — manual now, automated later." The vendor token wallet (`/vendor-dashboard/tokens`) showed token packs as read-only educational copy ("purchase opens this week") with no way to actually buy. Vendors could only receive tokens via an admin grant or the founder bonus. This ships the real purchase path.

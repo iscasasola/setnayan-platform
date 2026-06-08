@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — Summary + Lock tabs (Phase 5 core, flag-dark)
+
+**Context:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Two of the three remaining stub tabs become real, read-only views derived from the same `PlanBudgetModel` the accordion already builds — no new queries, no migration.
+
+**What landed:**
+- `vendors/_components/build-summary.tsx` — the **Summary** cover tab (now the landing tab): a budget meter (chosen vs target, with `budgetStatus` tone), a Locked/Shortlisted/Hours-saved recap, the "what to lock next" list (`dueList`), and the Setnayan AI on/off status with a Manage pointer.
+- `vendors/_components/build-locked.tsx` — the **Lock** tab: the consolidated list of finalized picks (filtered on the locked `raw_status` set — contracted/deposit_paid/delivered/complete) across all folders, with the chosen total + an empty state.
+- `vendors/page.tsx` — passes `summarySlot` + `lockSlot` into the takeover and lands on **Summary**.
+
+The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); **Compare** (Phase 4) + the **Pin** solver / baskets / save-A·B·C (Phases 3 + 2b) remain.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 
 **Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" Coverage = Church · Reception · Attire · Flowers; tool depth = full recolor (both picked via in-session questions). Shipped as **one PR** (the planned 3-PR split was collapsed to dodge a fast-moving `main`; the Recraft Flowers seed + corpus sync follow separately).

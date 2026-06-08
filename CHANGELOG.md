@@ -8,19 +8,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Owner 2026-06-08 "yes clean them up" — finish de-hardcoding the prices the prior PR flagged.
 
-**What landed:**
-- `lib/v2-catalog.ts`: `getVendorPrices()` now also exposes raw `num.*` (for JSON-LD); new **`getCustomerSkuPrice(serviceCode)`** reads any single SKU incl. the catalog-excluded `TODAYS_FOCUS`.
-- `/for-vendors` `page.tsx`: `metadata` → async **`generateMetadata()`** (Pro price from DB); the schema.org JSON-LD const → **`forVendorsJsonLd(p)`** function (Offer `price` fields + WebPage name + annual descriptions from DB); page is async + passes vendor prices to `<FAQ>`.
-- `/for-vendors` **FAQ** ("how Setnayan makes money") prose → reads prices via prop (page-tail is `'use client'`, threaded from the server page).
-- Homepage **`DashboardPreview`** planner "₱1,499" → `getCustomerSkuPrice('TODAYS_FOCUS')`.
-- Comparison-table **Add-Branch / Boosted-Ads** rows + the sponsored-boost blurb dropped their hardcoded peso amounts (Boosted isn't a catalog SKU; Branch price lives on /pricing).
+**What landed:** `getVendorPrices()` exposes raw `num.*`; new `getCustomerSkuPrice(serviceCode)` (reads SKUs the catalog reader excludes, e.g. TODAYS_FOCUS). `/for-vendors` `page.tsx`: `metadata` → async `generateMetadata()`, JSON-LD const → `forVendorsJsonLd(p)` (offer prices + name + annual descriptions from DB), page async + passes prices to `<FAQ>`. `/for-vendors` money-FAQ prose → prices via prop. Homepage `DashboardPreview` planner "₱1,499" → `getCustomerSkuPrice('TODAYS_FOCUS')`. Comparison Add-Branch / Boosted-Ads rows + sponsored-boost blurb dropped their peso amounts.
 
-**Now every RENDERED marketing price reads the DB.** Remaining `₱` literals are structural `₱0` (free tiers), code comments, and the `getVendorPrices()` resilience fallbacks (render only if the DB is unreachable).
+**Now every RENDERED marketing price reads the DB.** Remaining literals: structural `₱0`, comments, `getVendorPrices()` resilience fallbacks.
 
-**Verify:** typecheck/build on the PR.
+**Verify:** typecheck/build on the PR. **SPEC IMPACT:** None.
 
-**SPEC IMPACT:** None (presentation; all marketing prices DB-sourced).
+## 2026-06-08 · feat(onboarding): Dream Team PR-2 — chapter chrome + AI-gate fork
 
+**Context:** Second of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§4/§5). PR-2 adds the chapter CHROME + the AI-gate fork; the picks split + refine engine are PR-3/PR-4. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed).
+
+**What landed (`onboarding-shell.tsx` + `_styles/onboarding.css`):**
+- **`FLOW_IDS`** — inserted the chapter after `budget`: `team_intro → reception_setting → find → team_payoff → aigate → picker → prefs → account → …`. `find` MOVES out of its old post-`account` slot into the chapter (after `reception_setting`); `picker`+`prefs` move to after `aigate` and become AI-gated; `account` now follows the AI screens.
+- **`buildSequence`** — gains an `ai` param + `TEAM_AI_ONLY = {picker, prefs}` (interim): `!(ai !== true && TEAM_AI_ONLY.has(id))` → picker/prefs show ONLY when the couple taps "Yes" on `aigate`; AI=No (or undecided) skips them straight to `account`. Composes with the existing civil/authed/loveSkipped filters. All 6 call sites updated (legacy drafts → `saved.ai ?? null`; `seq` useMemo dep array gains `state.ai`).
+- **4 new screens** — `team_intro` (education: reception is home base), `reception_setting` (photo-cards multi-select → `state.prefs.reception` via the EXISTING `RECEPTION_SETTINGS` keys + `PCard`; promotes the dimension out of `StyleSubStepper`), `team_payoff` (factual stats from `venues.length` + `state.shortlist.length`, no login), `aigate` (the AI offer with two in-screen CTAs → `aiAnswer(true/false)`; chrome Continue hidden via `AIGATE_NOCTA`). 3 net-new CSS rules (`.aibenefits/.aibene/.stayfree`) under `.onbw`.
+- **`PREF_ORDER`/`prefQueueFrom`** — dropped `reception` (now owned by `reception_setting`) so `StyleSubStepper` no longer double-asks it (its reception branch is now harmless dead code, retired in PR-3).
+
+**Data safety:** `state.picks`/`state.prefs`/`state.shortlist`/`buildCommitPayload`/the commit are UNCHANGED. `reception_setting` writes the SAME `prefs.reception` array. `find` is reused verbatim (string-addressed `activeId==='find'` effect is move-safe; the match effect's `seq.indexOf` stays valid). AI=No keeps `state.picks` empty-but-valid — find + commit don't crash.
+
+**⚠ FLAG for owner:** `account` now follows the AI screens (prototype order — captures email later). If you want it BEFORE the AI screens, it's a one-line `FLOW_IDS` reorder.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` still `ƒ`) · covert grep clean (no pricing/song/editorial in the new copy; love screens untouched) · all 3 adversarial lenses passed.
+
+**SPEC IMPACT:** None (matches the locked porting spec). DECISION_LOG row at PR-4 when the chapter goes fully live.
 ## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
 
 **Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 → should be ₱6,000).

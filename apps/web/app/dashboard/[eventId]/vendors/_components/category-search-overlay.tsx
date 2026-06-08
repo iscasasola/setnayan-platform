@@ -59,6 +59,9 @@ const CSS = `
 .csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(92,37,66,.12)}
 .csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(197,160,89,.18)}
 .csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,34,41,.06)}
+/* Last-minute (Setnayan AI §4) — opportunity tone, not alarm. */
+.csov .r .badge.lm{font-weight:600;color:var(--gold-deep);background:rgba(197,160,89,.16);border:1px solid rgba(197,160,89,.4)}
+.csov .r .badge.lm .pct{font-weight:700;margin-left:2px}
 .csov .r .addbtn{flex:0 0 auto;align-self:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius:999px;padding:8px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;min-height:38px;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
 .csov .r .addbtn:active{transform:scale(.93)}
 .csov .r .addbtn:disabled{opacity:.6}
@@ -297,6 +300,14 @@ export function CategorySearchOverlay({
                     {r.distanceKm !== null ? <span>{r.distanceKm} km</span> : r.city ? <span>{r.city}</span> : null}
                     {r.verified ? <span className="badge vrf">Verified</span> : null}
                     {r.boosted ? <span className="badge bst">Featured</span> : null}
+                    {r.lastMinuteAvailable ? (
+                      <span className="badge lm" title="Still booking close to your date">
+                        Last-minute
+                        {r.lastMinuteSurchargePct ? (
+                          <span className="pct">+{r.lastMinuteSurchargePct}%</span>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <button

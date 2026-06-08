@@ -19,6 +19,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + production build + **migration timestamp guard** on CI (no local node_modules in worktree). No generated Supabase types / no `Database` generic on the client → the new column is safe at compile time (same reason A.1/A.3 passed). Both switch functions stay exhaustive over the 15-type union. `20260919000000` strictly newest.
 
 **SPEC IMPACT:** §6.5 element matrix — Our Photos now shipped. → DECISION_LOG. (The migration-rename is a CI-hygiene fix, no spec impact.)
+## 2026-06-08 · feat(setnayan-ai): last-minute mechanic (build PR-3) — dormant-by-default engine + search gating
+
+**Context:** PR-3 of the Setnayan AI build (after PR-1 governing gate #1089, PR-2 paid entitlement #1093). Implements §4 of `What_Is_Setnayan_AI_2026-06-08.md` (owner-locked 2026-06-08 · §9.3): the configurable last-minute range that supersedes the flat "< 14 days" rule.
+
+**The model:** last-minute = the range `[platform leaf START → vendor service END]`, by R = months remaining. Three zones — **Normal** (`R > START`, everyone) · **Last-minute** (`END ≤ R ≤ START`, AI couples only, optional 0–100% surcharge) · **Expired** (`R < END`, no one). Two AI-gated edges: a last-minute vendor is searchable only with Setnayan AI on, and (owner edge #2) when AI is OFF and a whole category is already last-minute, the standard search shows **nothing** for that category.
+
+**What landed:**
+- **`lib/last-minute.ts`** (NEW · pure, like compat-score) — `monthsToWedding`, `lastMinuteZone`, `isLastMinuteSearchable`, `categoryEmptyForGenericSearch`, `lastMinuteSurchargedPricePhp`. Misconfig-guarded (END>START never fabricates a phantom window). Verified against the doc's worked example (stylist START=4 / END=3) + 21 logic checks via `tsx` (all green; no unit-runner in repo).
+- **`category-search.ts`** (the candidate-discovery overlay backend) — reads platform START from `planning_deadlines` (new `kind='last_minute_start'`, category default + leaf override), reads vendor END/surcharge from `vendor_services`, computes each vendor's zone off its **most-available** in-scope service, then: drops Expired for everyone · drops Last-minute when AI off · returns **empty** for a fully-last-minute category in generic search · annotates survivors with `lastMinuteAvailable` + `lastMinuteSurchargePct`.
+- **`category-search-overlay.tsx`** — a gold "Last-minute" badge (+surcharge %) in the existing `.badges` row, opportunity tone per §4.4.
+- **Migration `20260920000000_last_minute_mechanic.sql`** — extends `planning_deadlines.kind` CHECK with `last_minute_start` (no seed → dormant) + adds `vendor_services.last_minute_end_months` / `last_minute_surcharge_pct` (CHECKed, nullable). Additive + idempotent.
+
+**Dormant by default (the safety posture, matching PR-1/PR-2):** no START row is seeded — every zone resolves to `normal`, so there is **zero behavior change** in production. The per-leaf START months are a load-bearing platform-design value the owner sets; they are NOT invented here. The search action only touches the new `vendor_services` columns when a START is configured (`lastMinuteConfigured` guard), so the code is safe even **before** the migration is applied (dormant categories never query the new columns).
+
+**⚠ Deferred to a follow-up (PR-4), flagged not built:** (1) the **admin editor** to set per-category/leaf START (attaches to `/admin/taxonomy` beside the deadline control); (2) the **vendor editor** for END + surcharge on `vendor_services`. Until those ship, the mechanic stays dormant. Also scoped to the category-search discovery overlay this PR — the wizard grid + accordion picks reuse the same engine when wired.
+
+**⚠ Migration application PENDING (not forced):** prod's `schema_migrations` is mid-drift from parallel in-flight branches (`20260919000000` already taken on prod but not on `main`; a duplicate-prefix `20260916000000` recorded remotely as `…0001`). `supabase db push` is blocked both ways and the only unblock is repairing **other sessions'** ledger rows — declined. The migration is additive/idempotent + the frontend is dormant-resilient, so prod is unaffected; apply this migration once the ledger realigns (or alongside the PR-4 editor), before any START is configured.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean (no new warnings) · `next build` ✓ (`/dashboard/[eventId]/vendors` builds) · 21/21 engine logic checks pass.
+
+**SPEC IMPACT:** Implements §4 + §9.3 of `What_Is_Setnayan_AI_2026-06-08.md`. Build-state table flipped 📋→🟡 for the last-minute row; DECISION_LOG row added.
 
 ## 2026-06-08 · chore(pricing): retire 4 customer SKUs + bundles are onboarding-only (owner-decided)
 

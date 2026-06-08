@@ -34,6 +34,13 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import {
+  monthsToWedding,
+  lastMinuteZone,
+  isLastMinuteSearchable,
+  categoryEmptyForGenericSearch,
+  type LastMinuteZone,
+} from '@/lib/last-minute';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   canonicalServicesForTile,
@@ -60,6 +67,14 @@ export type CategoryVendorResult = {
   /** null when Setnayan Assist is OFF (Manual mode) — the pill is hidden. */
   compatScore: number | null;
   compatTier: 'strong' | 'good' | 'fair' | null;
+  /** Last-minute mechanic (Setnayan AI §4). True when this vendor's matched
+   *  service is in its last-minute window (END ≤ R ≤ leaf START) AND visible
+   *  to this couple → render the "Last-minute" badge. AI-only by nature
+   *  (last-minute vendors are hidden in generic search). */
+  lastMinuteAvailable: boolean;
+  /** The vendor's optional last-minute surcharge % (0–100) when in the window;
+   *  null = flat (the badge shows without a price note). */
+  lastMinuteSurchargePct: number | null;
   /** Already in this event's picks → render "✓ Added", not an Add button. */
   alreadyAdded: boolean;
 };
@@ -134,7 +149,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -153,6 +168,78 @@ export async function searchCategoryVendors(input: {
   const lng = (ev.venue_longitude as number | null) ?? null;
   const hasCoords = lat !== null && lng !== null;
 
+  // ── Last-minute config (Setnayan AI §4) ──────────────────────────────────
+  // Platform-set per-leaf START lives in planning_deadlines (kind=
+  // 'last_minute_start'): a category default (scope='category', ref_key =
+  // groupId) + optional per-leaf overrides (scope='leaf', ref_key = canonical).
+  // No rows → dormant: every zone resolves to 'normal', nothing is filtered or
+  // badged. The vendor's per-service END/surcharge is read later from
+  // vendor_services.
+  const monthsRemaining = monthsToWedding(
+    (ev.event_date as string | null) ?? null,
+  );
+  const admin = createAdminClient();
+  const leafStartByCanonical = new Map<string, number>();
+  let groupStartMonths: number | null = null;
+  {
+    const { data: lmRows } = await admin
+      .from('planning_deadlines')
+      .select('ref_key, scope, offset_value, offset_unit')
+      .eq('kind', 'last_minute_start')
+      .eq('is_active', true)
+      .in('ref_key', [groupId, ...canonicals]);
+    for (const row of lmRows ?? []) {
+      const r = row as {
+        ref_key: string;
+        scope: string;
+        offset_value: number;
+        offset_unit: string;
+      };
+      // Normalize to months (START is authored in months, but keep weeks/days
+      // safe in case an admin picks another unit).
+      const months =
+        r.offset_unit === 'week'
+          ? r.offset_value / 4.345
+          : r.offset_unit === 'day'
+            ? r.offset_value / 30.4375
+            : r.offset_value;
+      if (r.scope === 'category' && r.ref_key === groupId) {
+        groupStartMonths = months;
+      } else if (r.scope === 'leaf') {
+        leafStartByCanonical.set(r.ref_key, months);
+      }
+    }
+  }
+
+  // Dormant when no START row exists for this group/leaves — then we skip the
+  // vendor_services read entirely, so production is unaffected (and safe even
+  // before this PR's migration lands: the new columns are only ever touched
+  // once an admin configures a START). Activates with the follow-up admin editor.
+  const lastMinuteConfigured =
+    groupStartMonths !== null || leafStartByCanonical.size > 0;
+
+  // Edge #2 — AI-off-empty rule. When AI is off and the WHOLE group is already
+  // in (or past) its last-minute zone, the standard search shows NOTHING. The
+  // group is fully last-minute only when every in-scope leaf has a configured
+  // START and R ≤ the smallest of them; if any leaf is dormant (no START) the
+  // category isn't fully last-minute → never empty (the per-vendor filter below
+  // still hides any individual last-minute vendors when AI is off).
+  const effectiveStarts = canonicals.map(
+    (c) => leafStartByCanonical.get(c) ?? groupStartMonths,
+  );
+  const groupEffectiveStart = effectiveStarts.some((s) => s == null)
+    ? null
+    : Math.min(...(effectiveStarts as number[]));
+  if (
+    categoryEmptyForGenericSearch({
+      aiActive,
+      monthsRemaining,
+      groupStartMonths: groupEffectiveStart,
+    })
+  ) {
+    return { ...EMPTY, hasReceptionCoords: hasCoords };
+  }
+
   // Vendors already in this event's picks (RLS-bounded to the user's events)
   // → render "✓ Added" instead of an Add button.
   const { data: pickRows } = await supabase
@@ -167,7 +254,7 @@ export async function searchCategoryVendors(input: {
   );
 
   // Ranked category query (boosted → review_count → rating) + live search.
-  const admin = createAdminClient();
+  // (`admin` is created above for the last-minute config read.)
 
   // Demo-vendor exclusion — mirror the public `/vendors` browse: real couples
   // never see `is_demo = TRUE` vendors; only an admin in demo mode (admin
@@ -235,8 +322,77 @@ export async function searchCategoryVendors(input: {
     });
   }
 
+  // Per-vendor last-minute zone (§4): combine the platform leaf START with the
+  // vendor's own per-service END + surcharge from vendor_services. Pick each
+  // vendor's MOST-AVAILABLE in-scope service (normal ≻ last_minute ≻ expired)
+  // so a vendor still 'normal' on one of its services stays searchable. Dormant
+  // (START unset) → 'normal' for everyone (no filter, no badge).
+  const lmByVendor = new Map<
+    string,
+    { zone: LastMinuteZone; surchargePct: number | null }
+  >();
+  if (lastMinuteConfigured) {
+    const { data: svcRows } = await admin
+      .from('vendor_services')
+      .select(
+        'vendor_profile_id, category, last_minute_end_months, last_minute_surcharge_pct',
+      )
+      .in('vendor_profile_id', ids)
+      .in('category', canonicals);
+    const svcByVendor = new Map<
+      string,
+      Array<{ category: string; end: number | null; pct: number | null }>
+    >();
+    for (const s of svcRows ?? []) {
+      const row = s as {
+        vendor_profile_id: string;
+        category: string;
+        last_minute_end_months: number | null;
+        last_minute_surcharge_pct: number | null;
+      };
+      const list = svcByVendor.get(row.vendor_profile_id) ?? [];
+      list.push({
+        category: row.category,
+        end: row.last_minute_end_months,
+        pct: row.last_minute_surcharge_pct,
+      });
+      svcByVendor.set(row.vendor_profile_id, list);
+    }
+    const ZONE_RANK: Record<LastMinuteZone, number> = {
+      normal: 0,
+      last_minute: 1,
+      expired: 2,
+    };
+    for (const id of ids) {
+      // Matched via vendor_profiles.services but no in-scope vendor_services row
+      // → one synthetic service (group START, END=0 = until the night before).
+      const svcs = svcByVendor.get(id) ?? [{ category: '', end: null, pct: null }];
+      let best: { zone: LastMinuteZone; surchargePct: number | null } | null = null;
+      for (const c of svcs) {
+        const start =
+          c.category && leafStartByCanonical.has(c.category)
+            ? leafStartByCanonical.get(c.category)!
+            : groupStartMonths;
+        const zone = lastMinuteZone({
+          monthsRemaining,
+          startMonths: start,
+          endMonths: c.end,
+        });
+        const pick = { zone, surchargePct: zone === 'last_minute' ? c.pct : null };
+        if (!best || ZONE_RANK[zone] < ZONE_RANK[best.zone]) best = pick;
+      }
+      lmByVendor.set(id, best ?? { zone: 'normal', surchargePct: null });
+    }
+  }
+
   // Shape every rec, then partition into the locked tier ladder.
-  type Shaped = CategoryVendorResult & { _adRank: number; _reviews: number; _rating: number };
+  type Shaped = CategoryVendorResult & {
+    _adRank: number;
+    _reviews: number;
+    _rating: number;
+    /** Survives the last-minute filter (expired → never · last_minute → AI only). */
+    _searchable: boolean;
+  };
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
     const name = resolveVendorDisplayName({
@@ -265,6 +421,11 @@ export async function searchCategoryVendors(input: {
         });
     const compatScore: number | null = compat ? compat.score : null;
     const compatTier: 'strong' | 'good' | 'fair' | null = compat ? compat.tier : null;
+    const lm = lmByVendor.get(r.vendor_profile_id) ?? {
+      zone: 'normal' as LastMinuteZone,
+      surchargePct: null,
+    };
+    const searchable = isLastMinuteSearchable(lm.zone, aiActive);
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
@@ -277,19 +438,27 @@ export async function searchCategoryVendors(input: {
       boosted: adRank > 0,
       compatScore,
       compatTier,
+      lastMinuteAvailable: lm.zone === 'last_minute' && searchable,
+      lastMinuteSurchargePct: lm.zone === 'last_minute' ? lm.surchargePct : null,
       alreadyAdded: addedIds.has(r.vendor_profile_id),
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
       _rating: r.avg_rating_overall ?? 0,
+      _searchable: searchable,
     };
   });
 
+  // Last-minute filter (§4): drop expired vendors for everyone, and last-minute
+  // vendors when Setnayan AI is off — applied before tiering so counts + tiers
+  // stay coherent. Dormant categories leave every vendor _searchable=true.
+  const searchableShaped = shaped.filter((s) => s._searchable);
+
   // Tier 1 favorites: empty until the cross-event favorites table ships (V1.x).
   // Tier 2 boosted: ad_rank desc.
-  const boosted = shaped
+  const boosted = searchableShaped
     .filter((s) => s.boosted)
     .sort((a, b) => b._adRank - a._adRank);
-  const rest0 = shaped.filter((s) => !s.boosted);
+  const rest0 = searchableShaped.filter((s) => !s.boosted);
   // Tier 3 top-10 by review_count then rating.
   const byReview = [...rest0].sort(
     (a, b) => b._reviews - a._reviews || b._rating - a._rating,
@@ -332,6 +501,8 @@ export async function searchCategoryVendors(input: {
     boosted: s.boosted,
     compatScore: s.compatScore,
     compatTier: s.compatTier,
+    lastMinuteAvailable: s.lastMinuteAvailable,
+    lastMinuteSurchargePct: s.lastMinuteSurchargePct,
     alreadyAdded: s.alreadyAdded,
   }));
 

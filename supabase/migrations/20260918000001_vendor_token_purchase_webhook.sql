@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260918000000_vendor_token_purchase_webhook.sql
+-- 20260918000001_vendor_token_purchase_webhook.sql
 -- Payment-webhook auto-confirm path for vendor token-pack purchases.
 --
 -- The manual admin path (approve_vendor_token_purchase, migration

@@ -176,6 +176,9 @@ export type EditorialData = {
   // In-app Setnayan services the couple availed (paid `orders`), as display
   // labels — drives the "Powered by Setnayan" strip.
   servicesAvailed: string[];
+  // Shared photos from the day (events.our_photos), resolved to display URLs —
+  // the editorial photo gallery.
+  galleryPhotos: string[];
 };
 
 export type Review = {
@@ -311,7 +314,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url',
+        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -507,6 +510,18 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     );
   }
 
+  // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes
+  // through displayUrlForStoredAsset (presigns r2://, passes plain/relative
+  // URLs through). Best-effort.
+  const galleryRefs = Array.isArray((event as Record<string, unknown>).our_photos)
+    ? ((event as Record<string, unknown>).our_photos as unknown[]).filter(
+        (r): r is string => typeof r === 'string' && r.trim().length > 0,
+      )
+    : [];
+  const galleryPhotos = (
+    await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
+  ).filter((u): u is string => Boolean(u));
+
   // 7. Reviews (best-effort). Seeded via event_editorial.draft_json.reviews
   // until the §3 event-bound review system ships.
   const reviews: Review[] = [];
@@ -601,6 +616,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     vendors,
     reviews,
     servicesAvailed,
+    galleryPhotos,
   };
 }
 

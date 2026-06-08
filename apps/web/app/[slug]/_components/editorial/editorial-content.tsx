@@ -127,6 +127,14 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
           </>
         ) : null}
 
+        {/* Shared photos from the day ----------------------------------------- */}
+        {data.galleryPhotos.length ? (
+          <>
+            <SectionRule title="From the Day" />
+            <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+          </>
+        ) : null}
+
         {/* What they said (reviews from guests / vendors / the couple) -------- */}
         <SectionRule title="What They Said" />
         {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
@@ -219,8 +227,10 @@ function EditionLine({
 
 function HeroPhoto({ url, names }: { url: string; names: string }): ReactElement {
   return (
-    <figure className="relative h-56 overflow-hidden rounded-sm bg-ink/10 sm:h-[300px]">
-      {/* Raw <img>: presigned R2 URLs expire; next/image would cache stale. */}
+    <figure className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-ink/10">
+      {/* Raw <img>: presigned R2 URLs expire; next/image would cache stale.
+          aspect-[16/10] keeps the full landscape hero visible (a fixed pixel
+          height + object-cover was cropping the couple out of frame). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={url}
@@ -499,6 +509,51 @@ function ReviewsEmptyState(): ReactElement {
     <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/45">
       Reviews from guests and vendors will appear here.
     </p>
+  );
+}
+
+/**
+ * "From the Day" — shared photo gallery (events.our_photos). A newspaper photo
+ * spread: a larger lead frame + a tight grid. Raw <img> (presigned/relative
+ * URLs). Lazy-loaded.
+ */
+function PhotoGallery({ photos, names }: { photos: string[]; names: string }): ReactElement {
+  const [lead, ...rest] = photos;
+  return (
+    <div className="mt-4 space-y-2">
+      {lead ? (
+        <figure className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-ink/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lead}
+            alt={`${names} — a moment from the day`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      ) : null}
+      {rest.length ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {rest.slice(0, 8).map((url, i) => (
+            <figure
+              key={`${i}-${url.slice(0, 24)}`}
+              className="relative aspect-square overflow-hidden rounded-sm bg-ink/10"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt=""
+                aria-hidden
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

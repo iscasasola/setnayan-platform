@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): Dream Team PR-4 (FINAL) — two-pass uniform refine engine · chapter fully live
+
+**Context:** Last of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §3.3/§5). Adds the per-leaf "what kind?" refinement engine — the explicit owner ask: ONE uniform template for every refinement. Built via an ultracode workflow; the workflow's auto-verify phase was killed by a transient API rate-limit, so the 3 adversarial lenses were **re-run manually** (all pass — see Verify).
+
+**What landed (`onboarding-shell.tsx` + `onboarding.css`):**
+- **`FLOW_IDS`**: `refine_basic` after `team_basics`, `refine_extras` after `team_extras`. **`TEAM_AI_ONLY`** adds both (buildSequence filter unchanged → AI=No still skips the whole chapter).
+- **`REFINEMENTS` map** (ported from the prototype, ~39 leaves): only a leaf WITH an entry gets a refine screen. The 3 **projectable** leaves reuse existing production consts so option keys match `prefs.*`: `ceremony` (faith-adaptive via `ceremonyOptsFor(faith)`), `catering` (`CUISINE_OPTS` + a synthetic `cuisine_halal`), `photo_video` (`PV_LOOKS`). The other ~35 carry verbatim string options (JSONB-only, lossless).
+- **Two-pass engine**: derived `refineBasicQueue`/`refineExtrasQueue` = `picks ∩ keys(REFINEMENTS)` (basics in `BASIC_CATS` order, extras in flat taxonomy order); an empty pass is skipped. `refineIdx` + the `go()` re-entry loop walks within a pass (forward/back) and skip-empties on entry. The chrome CTA reads "Next service" mid-queue / "Continue" last.
+- **`RefineStep`** — ONE component renders BOTH passes + every leaf identically (uniform template: "Service N of M · {leaf}" + progress dots + "What kind of {leaf}?" + a `.pgrid.car` photo-card carousel, multi-select).
+- **`patchRefine(leaf, opt)`** toggles `state.refinements[leaf]` AND applies `projectRefinementsToPrefs` LIVE. **`projectRefinementsToPrefs(refinements, faith)`** maps `ceremony`→`prefs.ceremony` (last valid pick), `catering`→`prefs.cuisine` (+`dietary:['halal']` on `cuisine_halal`), `photo_video`→`prefs.pvLook`. Applied live + idempotently in `buildCommitPayload` (`stylePreferences: {...prefs, ...projected}`), with raw `refinements` threaded to `style_preferences.refinements` JSONB.
+
+**Data safety:** `state.picks` is READ-only in refine (never mutated). The projector keeps `prefs.ceremony`/`cuisine`/`pvLook` consistent so the recap + commit reflect the refine picks. No migration (PR-1 already added the field).
+
+**⚠ FLAG for owner:** (1) `cuisine_halal` is a synthetic refinement key routing to `dietary` (keeps `CUISINE_OPTS` pristine) — Cowork should ratify it as canonical. (2) The ceremony recap shows the last pick (single) while refinements stores multi. (3) The refine CTA stays in the chrome bar (label computed) rather than in-component.
+
+**Verify (manual, workflow auto-verify rate-limited):** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` `ƒ`, 55.8 kB) · uniform-template confirmed (1 component / 2 passes) · projector keys match `ceremonyOptsFor`/`CUISINE_OPTS`/`PV_LOOKS` + the recap · `state.picks` never written by refine · covert grep clean (love screens untouched; refine copy service-shaped).
+
+**SPEC IMPACT:** The adaptive Dream Team chapter is now FULLY LIVE (aigate→team_basics→refine_basic→team_extras→refine_extras→songs→mood). `events.style_preferences.refinements` now carries the full per-leaf detail. DECISION_LOG row added.
 ## 2026-06-08 · fix(vendor): show admin-uploaded BDO/GCash QR codes in token purchase
 
 **Context:** The token-purchase pending panel (shipped earlier today) showed only the BDO/GCash account name + number — but the admin has already uploaded **QR code images** for both channels (`platform_settings.bdo_qr_url` / `gcash_qr_url`, public Supabase-storage URLs). Scanning a QR is the easiest pay path (UX north star), so the panel should surface them.

@@ -48,7 +48,15 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   if (!profile) redirect('/vendor-dashboard');
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
-  const selectedCategories = new Set(services.map((s) => s.category));
+  // #1 multi-service-per-leaf: a category can now hold several listings, so we
+  // track a COUNT per category (not just presence) to show on the picker.
+  const serviceCountByCategory = services.reduce<Record<string, number>>(
+    (m, s) => {
+      m[s.category] = (m[s.category] ?? 0) + 1;
+      return m;
+    },
+    {},
+  );
 
   // Branch-scoped grouping (Branches V1.x) — only an Enterprise vendor that has
   // at least one (non-cancelled) branch sees the per-service "Branch" picker.
@@ -83,12 +91,12 @@ export default async function VendorServicesPage({ searchParams }: Props) {
     .order('created_at', { ascending: false });
   const myRequests = (requestRows ?? []) as CategoryRequestRow[];
 
-  // If ?add=<category> is in the URL, the "Add service" form for that
-  // category is the expanded one. Click any unselected category to expand.
+  // If ?add=<category> is in the URL, the "Add service" form for that category
+  // is the expanded one. #1: a category can hold multiple listings, so the form
+  // opens even for already-used categories (the create action enforces the cap).
   const addCategory =
     typeof search.add === 'string' &&
-    (VENDOR_CATEGORIES as readonly string[]).includes(search.add) &&
-    !selectedCategories.has(search.add)
+    (VENDOR_CATEGORIES as readonly string[]).includes(search.add)
       ? (search.add as VendorCategory)
       : null;
 
@@ -149,33 +157,35 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                 </p>
                 <ul className="space-y-1">
                   {group.members.map((cat) => {
-                    const selected = selectedCategories.has(cat);
+                    // #1: a category can hold multiple listings now, so it stays
+                    // clickable even once used — the count shows how many are
+                    // added; the create action enforces the per-tier cap.
+                    const count = serviceCountByCategory[cat] ?? 0;
                     return (
                       <li key={cat}>
-                        {selected ? (
-                          <span className="flex items-center justify-between gap-2 rounded-md bg-terracotta/10 px-2 py-1.5 text-sm text-terracotta-700">
-                            <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
-                              Added
-                            </span>
-                          </span>
-                        ) : (
-                          <Link
-                            href={`/vendor-dashboard/services?add=${cat}#add-${cat}`}
-                            className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                              addCategory === cat
-                                ? 'bg-ink/10 text-ink'
+                        <Link
+                          href={`/vendor-dashboard/services?add=${cat}#add-${cat}`}
+                          className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                            addCategory === cat
+                              ? 'bg-ink/10 text-ink'
+                              : count > 0
+                                ? 'text-terracotta-700 hover:bg-terracotta/[0.06]'
                                 : 'text-ink/75 hover:bg-ink/[0.04]'
-                            }`}
-                          >
-                            <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
+                          }`}
+                        >
+                          <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
+                          {count > 0 ? (
+                            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                              {count} added
+                            </span>
+                          ) : (
                             <Plus
                               aria-hidden
                               className="h-3.5 w-3.5 text-ink/40"
                               strokeWidth={2}
                             />
-                          </Link>
-                        )}
+                          )}
+                        </Link>
                       </li>
                     );
                   })}
@@ -197,6 +207,20 @@ export default async function VendorServicesPage({ searchParams }: Props) {
               </h2>
               <form action={createVendorService} className="space-y-4">
                 <input type="hidden" name="category" value={addCategory} />
+                <Field
+                  label="Service name (optional)"
+                  htmlFor={`new-title-${addCategory}`}
+                  help="Name this listing so couples can tell your offerings apart — e.g. 'Classic Booth' vs '360 Booth'."
+                >
+                  <input
+                    id={`new-title-${addCategory}`}
+                    name="title"
+                    type="text"
+                    maxLength={80}
+                    placeholder={VENDOR_CATEGORY_LABEL[addCategory]}
+                    className="input-field"
+                  />
+                </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field
                     label="Starting price (PHP)"
@@ -291,8 +315,13 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       <p className="truncate text-base font-semibold text-ink">
-                        {displayServiceLabel(svc.category)}
+                        {svc.title?.trim() || displayServiceLabel(svc.category)}
                       </p>
+                      {svc.title?.trim() ? (
+                        <p className="truncate text-xs text-ink/50">
+                          {displayServiceLabel(svc.category)}
+                        </p>
+                      ) : null}
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                         {svc.is_active ? 'Active' : 'Hidden'} ·{' '}
                         {formatPhp(svc.starting_price_php)} starting

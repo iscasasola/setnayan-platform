@@ -9,17 +9,61 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Context:** Owner walked the live wedding onboarding (`/onboarding/wedding`) end-to-end (~15 min) and filed an 11-item punch list. This PR lands the structural + clarity items (Phases A–C of the plan); the heavier DB-backed-refinements, photo-generation, and background-music items follow in later PRs.
 
 **What landed (`app/onboarding/wedding/*`):**
-- **Date before the love story (item 4)** — `FLOW_IDS` now orders `name → date → love stage → region → pax → budget`. `loveSkip` ("Add it later") advances to `region` (the screen after the love stage) instead of the old forward-jump to `date`. So the love-story timeline can anchor to the real wedding year.
-- **Love story = one story per page (items 2 + 4.1)** — the old `love_met` (which crammed the Spark **and** the Almost onto one page) is split into **`love_spark`** ("How you two met") + **`love_almost`** ("The almost"), each with a clear `<h1>` + sub. `love_proposal` gains a "The proposal" title; all love eyebrows renumbered "Your love story · N of 4 · …". Every `ScreenId` map (`NEXT_LABEL_BY_ID`, `CAN_SKIP_BY_ID`, `LOVE_SKIPPABLE`, `canContinue`) + the `goToId('love_met')` "Change a line" link updated.
-- **Timeline year follows the wedding date; shows both until finalized (item 4.2)** — new `weddingYearLabel` (distinct years across `dateCandidates`/window) threaded through `WeaveContext` → the love timeline's "We do" row + the reveal dateline render **"2026 / 2027"** while candidate dates straddle a year boundary, collapsing to one year once narrowed. (`weave-story.ts` `milestoneRows`/`dateline`.)
+- **Date before the love story (item 4)** — `FLOW_IDS` now orders `name → date → love stage → region → pax → budget`. `loveSkip` ("Add it later") advances to `region` (the screen after the love stage). So the love-story timeline can anchor to the real wedding year.
+- **Love story = one story per page (items 2 + 4.1)** — the old `love_met` (Spark **and** Almost on one page) is split into **`love_spark`** ("How you two met") + **`love_almost`** ("The almost"), each with a clear `<h1>` + sub. `love_proposal` gains a "The proposal" title; all love eyebrows renumbered "Your love story · N of 4 · …". Every `ScreenId` map + the `goToId('love_met')` "Change a line" link updated.
+- **Timeline year follows the wedding date; shows both until finalized (item 4.2)** — new `weddingYearLabel` (distinct years across `dateCandidates`/window) threaded through `WeaveContext` → the timeline's "We do" row + the reveal dateline render **"2026 / 2027"** while candidate dates straddle a year boundary, collapsing once narrowed. (`weave-story.ts`.)
 - **Monogram finalize gate (item 3)** — new `monogramFinalized` state; the name screen's Continue is blocked until the couple taps **"Use this monogram"** (→ "✓ Monogram set" + "Change design"). "Generate another design" + editing a first name clear it; the 30s auto-restyle freezes once locked.
 - **Guests start at 200 (item 6)** — `EMPTY_ONBOARDING_STATE.pax = 200`.
-- **Budget starts halfway (item 7)** — entering the budget screen unset seeds the slider to the **midpoint** of the pax-derived `[floor, ceiling]` via `onBudgetAmount`.
-- **Songs: Top-100 recommended + pinned search (item 5)** — `song-bank-step.tsx` default (no-query) view restored to the curated **Top-100** (`fetchSongBankCuratedAction`), every row playable, picks pinned in; `SongPreviewList` gains `alwaysShowAll` so the list doesn't collapse to picks once ≥10. Search bar stays pinned (`.songbank-bar`). **⚠ Reverses the 2026-06-05 "search-only / songlist must not show" lock** (owner re-reversed 2026-06-08).
+- **Budget starts halfway (item 7)** — entering the budget screen unset seeds the slider to the **midpoint** of the pax-derived `[floor, ceiling]`.
+- **Songs: Top-100 recommended + pinned search (item 5)** — `song-bank-step.tsx` default view restored to the curated **Top-100** (`fetchSongBankCuratedAction`), every row playable, picks pinned in; `SongPreviewList` gains `alwaysShowAll`. Search bar stays pinned. **⚠ Reverses the 2026-06-05 "search-only / songlist must not show" lock** (owner re-reversed 2026-06-08).
 
-**Verify:** `tsc --noEmit` ✓. Browser-verified (dev server, seeded drafts): date at step-after-name ✓ · love_spark/love_almost distinct titled pages ✓ · "We do" row = "2026 / 2027" for two-year candidates ✓ · Continue disabled on name until "Use this monogram" → enables ✓ · pax input+slider = 200 ✓ · budget opens at ₱1,950,000 (midpoint of 300k–3.6M) ✓ · songs recommended-list path + pinned search bar on-screen ✓ (Top-100 data + playback confirm on the Vercel preview w/ live Supabase).
+**Verify:** `tsc --noEmit` ✓. Browser-verified (dev server, seeded drafts): date at step-after-name ✓ · love_spark/love_almost distinct titled pages ✓ · "We do" row = "2026 / 2027" for two-year candidates ✓ · Continue disabled on name until "Use this monogram" → enables ✓ · pax = 200 ✓ · budget opens at ₱1,950,000 (midpoint of 300k–3.6M) ✓ · songs recommended-list path + pinned search bar on-screen ✓ (Top-100 data + playback confirm on the Vercel preview).
 
-**SPEC IMPACT:** Reverses the **2026-06-05 search-only song lock** (item 5) → restored Top-100 recommended list. Onboarding flow reorder + love-story-page split + monogram finalize gate + pax/budget defaults. → corpus `DECISION_LOG.md` (logged).
+**SPEC IMPACT:** Reverses the **2026-06-05 search-only song lock** (item 5). Onboarding flow reorder + love-story-page split + monogram finalize gate + pax/budget defaults. → corpus `DECISION_LOG.md` (logged).
+
+## 2026-06-08 · feat(seating): floor-plan markers — draggable Stage + Entrance door (0008)
+
+**Context:** Owner: "we also want to set the entrance door." Completes the floor-plan work (after the growable canvas, #1110). The stage was a fixed banner and auto-seat anchored at a hard-coded top-centre point; now both the **stage** and a single **entrance door** are placeable + persisted.
+
+**Schema (`20260922000000_iteration_0008_event_floor_plan.sql`, applied to prod):** new singleton `event_floor_plan(event_id PK, stage_x/y, entrance_enabled, entrance_x/y, updated_at)` — coords are canvas percent, like `event_tables`. Pattern B RLS (couple read+write). Applied directly to prod (idempotent `CREATE TABLE IF NOT EXISTS`) because the migration history is out-of-order; the file still ships for fresh DBs.
+
+**What landed:**
+- **Draggable Stage** — replaces the fixed banner; drag it anywhere on the (zoom/pan-aware) canvas. **Auto-seat now anchors its role-tier rings on the placed stage** (`computeAutoSeat` takes a `stage` arg; `autoSeatGuests` reads `fetchFloorPlan`).
+- **Entrance door** — owner-locked **one** entrance: an "Add entrance" toolbar button drops a draggable `🚪 Entrance` marker (default bottom-centre) with an × to remove it.
+- Both fold into the existing **Save layout** flow (`saveFloorPlan` upsert; the marker drags mark the layout dirty alongside table moves). Drag handling generalised to `kind: table | stage | entrance`.
+- `lib/seating.ts`: `FloorPlanRow` + `DEFAULT_FLOOR_PLAN` + graceful-degrading `fetchFloorPlan`.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (route 17.3 kB); table + RLS confirmed on prod; stage + entrance markers verified via a headless render.
+
+**SPEC IMPACT:** builds the 0008 spec's `event_floor_plan` (stage + door) — single-entrance variant per owner ("just 1"), not the spec's multi-door JSONB. Completes the seating floor-plan upgrade arc (chair-level → names → mobile list → zoom/pan → markers). → corpus DECISION_LOG.
+
+## 2026-06-08 · feat(vendor-tiers): #1 — multiple service listings per leaf category (cap 2/2/5/∞)
+
+**Context:** Owner clarified the "Creating Package" matrix row = **number of service listings a vendor may place per leaf category** (FREE 2 · VERIFIED 2 · PRO 5 · ENTERPRISE ∞) — e.g. 5 photo-booth variants. Today `vendor_services` was hard-capped at 1 per category by a DB UNIQUE. Build #1 of the owner's "do 1–5" queue.
+
+**What landed (migration `20260922000000`, applied to prod):**
+- **Migration:** dropped `vendor_services` `UNIQUE(vendor_profile_id, category)`, added a per-listing **`title`** column (so multiple listings in one leaf are distinguishable — rows were category-labelled only), and a replacement non-unique index on `(vendor_profile_id, category)`. Verified no runtime `ON CONFLICT` depended on the UNIQUE.
+- **Helper:** `packagesPerLeaf` → **`servicesPerLeaf`** in `lib/vendor-tier-caps.ts` (clearer; same 2/2/5/∞ values).
+- **`createVendorService`:** parses `title`; enforces the per-leaf count cap (single tier+existing-rows fetch now shared with the Phase-B parent-category cap).
+- **Services page UI:** the category picker no longer blocks a used category — it stays clickable with an "N added" count (the action enforces the cap); the create form gains a "Service name (optional)" input; rows render `title` (with the category as a subtitle); the `?add=` form opens for used categories too.
+- **`lib/budget.ts` fix:** the `(profile:category)→service` map kept only the last row per category (silent collapse with multiple listings) → now keeps the **cheapest** priced one (deterministic "from" price, matching the marketplace min-price reducer). `fetchVendorServices` returns `title` (graceful fallback when the column lags a deploy).
+
+**Verify:** `tsc` clean · `next lint` exit 0. Migration applied (+ a parallel session's pending `20260920_last_minute_mechanic` flushed alongside via `--include-all`).
+
+**SPEC IMPACT:** Tier cap #1 (services per leaf) enforced. Queue remaining: #2 daily capacity · #3 enterprise time-bound slots · #4 Phase C feature gates · #5 Phase D checkout. → corpus DECISION_LOG.
+
+## 2026-06-08 · feat(seating): growable floor plan — zoom + pan + level-of-detail (0008)
+
+**Context:** Follow-up to the mobile list (PR #1108). For big guest counts the *spatial* floor plan must also scale — a fixed canvas can't show 50 tables. Adds pan/zoom with level-of-detail so the plan grows to fit. PR 2 of 2 for "scale to 50+"; **PR 3 next = floor-plan markers (draggable Stage + Entrance door)**, which needs a small `event_floor_plan` migration.
+
+**What landed (`_components/seating-editor.tsx`):**
+- **Zoom + pan canvas** — scroll/trackpad **wheel zoom** (toward cursor, non-passive listener), **pinch-zoom** + **drag-to-pan** (pointer-tracked: 1 pointer pans, 2 pinch), and a **+/- / Fit** control cluster (Fit frames every table). The world transform is written straight to the DOM via refs, so panning a 50-table plan doesn't re-render every table per frame.
+- **Level-of-detail** — below ~0.72 zoom each table collapses to a compact **puck** (number + `seated/cap`, group-colour halo, green when full); zoom in and the chairs + names reappear. `detail` is the only React state in the hot path (flips at the threshold), keeping it smooth.
+- Table-drag math is now zoom/pan-aware (screen px → world %); `touch-action:none` so gestures don't scroll the page.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (route 16.7 kB). Zoomed-out puck LOD verified via a 28-table headless render; live pinch/pan to confirm on the Vercel preview / device.
+
+**SPEC IMPACT:** builds the 0008 spec's auto-growing canvas. Next → PR 3: draggable Stage + Entrance door (`event_floor_plan`); auto-seat will anchor rings to the placed stage. → corpus DECISION_LOG.
 
 ## 2026-06-08 · feat(seating): mobile table-card list + Floor-plan/List toggle (0008)
 

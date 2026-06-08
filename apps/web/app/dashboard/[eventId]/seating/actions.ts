@@ -8,10 +8,18 @@ import {
   TABLE_TYPE_CATALOG,
   computeAutoSeat,
   fetchAssignments,
+  fetchFloorPlan,
   fetchTables,
   type AutoSeatGuest,
   type TableType,
 } from '@/lib/seating';
+
+function clampPct(v: unknown): number | null {
+  if (typeof v !== 'string' || v.length === 0) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, n));
+}
 
 const VALID_TYPES = new Set<TableType>(TABLE_TYPE_CATALOG.map((t) => t.type));
 
@@ -135,10 +143,11 @@ export async function autoSeatGuests(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [tables, assignments, guests] = await Promise.all([
+  const [tables, assignments, guests, floorPlan] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
   ]);
 
   const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
@@ -151,7 +160,11 @@ export async function autoSeatGuests(formData: FormData) {
     first_name: g.first_name,
   }));
 
-  const rows = computeAutoSeat(tables, autoSeatGuestList, assignments);
+  // Anchor the role-tier rings on where the couple actually placed the stage.
+  const rows = computeAutoSeat(tables, autoSeatGuestList, assignments, {
+    x: floorPlan.stage_x,
+    y: floorPlan.stage_y,
+  });
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -163,6 +176,42 @@ export async function autoSeatGuests(formData: FormData) {
     );
     if (error) throw new Error(error.message);
   }
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Save the floor-plan markers (stage position + the single entrance door).
+// Upserts the per-event singleton row; coords are clamped to 0–100 percent.
+export async function saveFloorPlan(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const stageX = clampPct(formData.get('stage_x'));
+  const stageY = clampPct(formData.get('stage_y'));
+  const entranceX = clampPct(formData.get('entrance_x'));
+  const entranceY = clampPct(formData.get('entrance_y'));
+  const entranceEnabled = formData.get('entrance_enabled') === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase.from('event_floor_plan').upsert(
+    {
+      event_id: eventId,
+      stage_x: stageX ?? 50,
+      stage_y: stageY ?? 6,
+      entrance_enabled: entranceEnabled,
+      entrance_x: entranceX ?? 50,
+      entrance_y: entranceY ?? 94,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'event_id' },
+  );
+  if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/seating`);
 }

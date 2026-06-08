@@ -10,24 +10,45 @@
  * browse, no proximity ranking, no scores, no nudges. The free floor stays on
  * regardless (region filter + anti-double-book availability).
  *
- * V1 source = the free Assisted↔Manual toggle (`events.planning_mode`). The
- * locked design (owner 2026-06-08) is a PAID, per-event entitlement — a later PR
- * swaps the BODY of this function to read that entitlement without touching any
- * call site. Centralizing the gate here is what makes that a one-file change.
+ * Two sources, selected by the `SETNAYAN_AI_PAYWALL_ENABLED` flag (owner
+ * 2026-06-08, "govern now free, monetize next" — build behind a flag):
+ *   • Paywall OFF (default) — the free Assisted↔Manual toggle (`planning_mode`).
+ *     Nothing about the live experience changes.
+ *   • Paywall ON — AI also requires a PURCHASED per-event entitlement
+ *     (`events.setnayan_ai_active`, stamped when a paid SETNAYAN_AI order is
+ *     confirmed). Flip deliberately, coordinated with /pricing + homepage copy.
  *
- * Owner-locked 2026-06-08: "govern now (free), monetize next."
+ * Swapping the source is this one file — every call site is untouched.
  */
 
-/** `events.planning_mode` value that means Setnayan AI is OFF (Manual mode). */
+/** `events.planning_mode` value that means the couple manually turned AI OFF. */
 export const PLANNING_MODE_MANUAL = 'manual';
 
 /**
+ * Is the per-event PAID paywall enforced? Default OFF. When off, Setnayan AI is
+ * the free Assisted↔Manual toggle (PR-1 behavior, unchanged). When on, AI also
+ * requires a purchased entitlement. Env-driven so the flip is a config change,
+ * not a deploy.
+ */
+export function isSetnayanAiPaywallEnabled(): boolean {
+  return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+}
+
+/**
  * The governing gate. `true` = Setnayan AI active (full intelligence);
- * `false` = generic region-scoped search. Defaults ON for any non-'manual'
- * value (including `null`/unknown) — Assisted is the default.
+ * `false` = generic region-scoped search.
+ *
+ * - Paywall OFF (default): active unless the couple toggled to Manual.
+ * - Paywall ON: active only when the event has PURCHASED Setnayan AI
+ *   (`setnayan_ai_active`) AND hasn't toggled to Manual.
  */
 export function isSetnayanAiActive(
-  event: { planning_mode?: string | null } | null | undefined,
+  event:
+    | { planning_mode?: string | null; setnayan_ai_active?: boolean | null }
+    | null
+    | undefined,
 ): boolean {
-  return event?.planning_mode !== PLANNING_MODE_MANUAL;
+  const notManuallyOff = event?.planning_mode !== PLANNING_MODE_MANUAL;
+  if (!isSetnayanAiPaywallEnabled()) return notManuallyOff;
+  return notManuallyOff && event?.setnayan_ai_active === true;
 }

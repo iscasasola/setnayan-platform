@@ -16,6 +16,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Builds the 0008 spec's intended **mobile review/edit surface** (card list). Still deferred → PR 2: canvas pinch/scroll **zoom + pan** with level-of-detail (compact pucks when zoomed out, chairs when zoomed in) so the *spatial* view also scales to 50+ on both platforms. → corpus DECISION_LOG.
 
+## 2026-06-08 · feat(website): Increment B — Music & Video hero chrome (LIVE)
+
+**Context:** Site-chrome layer of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.2), after the A.1/A.3/A.4 content blocks. Two presentation features on the **foundation columns already shipped** (`20260912000000`): a looping **background song** + a **video hero** behind the monogram. **No migration** — purely additive code on existing columns.
+
+**What landed:**
+- **`/api/upload` (shared route) — scoped widening:** added audio (`audio/mpeg|mp4|aac|ogg|wav|webm`) + video (`video/mp4|webm|quicktime`) to `ALLOWED_MIME_TYPES`, and a **per-MIME-prefix size override** (`TYPE_MAX_BYTES`: video 60 MB · audio 20 MB) that takes precedence over the per-bucket cap — so the **image cap stays 10 MB** while chrome uploads fit. Additive; existing image/PDF flows byte-identical. (This is the shared-route change flagged earlier; owner approved via "do everything in sequence.")
+- **`app/[slug]/_components/background-music.tsx` (NEW client component):** a looping `<audio preload="none">` + a **fixed, always-visible "Play/Pause music" control**. Per §6.2 it **never autoplays** (browser policy + UX) — the guest taps to start, taps to pause; pauses on unmount. *(Gapless-via-Web-Audio is a noted deferral; `loop` ships the feature accessibly today.)*
+- **`app/[slug]/page.tsx`:** SELECT + `EventRow` gain `landing_page_hero_video_r2_key` / `site_bg_music_enabled` / `site_bg_music_r2_key`; resolve `heroVideoUrl` + `bgMusicUrl` (music only when enabled AND a track is set) in the async body and thread parallel to `heroPhotoUrl` into both render paths. New `HeroBackgroundMedia` helper renders a muted/looped/inline `<video>` (photo as poster) when a video exists, else the still `<img>` — both hero blocks now gate on `hasHeroMedia`. `<BackgroundMusic>` mounts in both paths when a track is live.
+- **New editor** `/dashboard/[eventId]/website/site-chrome/{page.tsx,actions.ts}` — two single-file `<FileUpload>`s (song ≤20 MB, video ≤60 MB) + an "enable music" checkbox; `updateSiteChrome` writes the 4 columns, coerces music **off when no track**, sets `source='upload'`. Host-membership gated (mirrors hero-photo). Linked from `site-editor.tsx` via a new "Music & video hero" card.
+
+**Verify:** typecheck + production build on CI. `jsx-a11y/media-has-caption` suppressed on the decorative `<video>` + opt-in `<audio>`. No migration → nothing to apply post-merge. Music is off-by-default (`site_bg_music_enabled` defaults FALSE) + tap-to-play + always-mutable → UX-safe.
+
+**SPEC IMPACT:** §6.2 presentation features (looping bg music + scrub-video hero) shipped. → DECISION_LOG.
+
 ## 2026-06-08 · chore(migrations): dedup timestamp collision (20260917000000)
 
 A concurrent PR (`setnayan_ai_entitlement`) landed the same migration timestamp

@@ -23,6 +23,7 @@ import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { BackgroundMusic } from './_components/background-music';
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -103,7 +104,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -133,6 +134,19 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const heroPhotoUrl = await displayUrlForStoredAsset(
     event.landing_page_hero_image_url,
   );
+
+  // Hero video + background music chrome (Increment B · §6.2). The video, when
+  // present, plays full-bleed behind the monogram instead of the still photo
+  // (the photo becomes its poster). Music resolves only when the couple has
+  // both enabled it AND set a track. Both resolve to presigned 24h URLs here
+  // and thread into the render paths like heroPhotoUrl.
+  const heroVideoUrl = await displayUrlForStoredAsset(
+    event.landing_page_hero_video_r2_key,
+  );
+  const bgMusicUrl =
+    event.site_bg_music_enabled && event.site_bg_music_r2_key
+      ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
+      : null;
 
   // Resolve the couple-curated "Our photos" gallery (Increment A.4) to
   // presigned 24h GET URLs up-front so both render paths share the result.
@@ -268,6 +282,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        heroVideoUrl={heroVideoUrl}
+        bgMusicUrl={bgMusicUrl}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -284,6 +300,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        heroVideoUrl={heroVideoUrl}
+        bgMusicUrl={bgMusicUrl}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -307,6 +325,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        heroVideoUrl={heroVideoUrl}
+        bgMusicUrl={bgMusicUrl}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -353,6 +373,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        heroVideoUrl={heroVideoUrl}
+        bgMusicUrl={bgMusicUrl}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
       />
@@ -420,6 +442,14 @@ type EventRow = {
   // empty → OurPhotosWidget renders nothing (section hides). Distinct from the
   // guest-tagged your_photos widget.
   our_photos?: string[] | null;
+  // Looping hero video + background music chrome (Increment B). r2:// refs
+  // shipped in the lifecycle foundation (20260912000000); edited at
+  // /dashboard/[eventId]/website/site-chrome. The hero video, when present,
+  // replaces the still hero photo; bg music plays only when enabled + a track
+  // is set (resolved to presigned URLs before render).
+  landing_page_hero_video_r2_key?: string | null;
+  site_bg_music_enabled?: boolean | null;
+  site_bg_music_r2_key?: string | null;
 };
 
 type GuestRow = {
@@ -474,11 +504,59 @@ function InvitationShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Full-bleed hero background — a looping video when the couple uploaded one
+ * (Increment B · §6.2 "scrub-video hero"), otherwise the still photo. The
+ * video autoplays muted + looped + inline (browser-allowed), with the photo as
+ * its poster so there's no black flash before the first frame. Raw <video>/<img>
+ * because the URLs are presigned (24h) — next/image's optimizer would cache an
+ * expired URL.
+ */
+function HeroBackgroundMedia({
+  videoUrl,
+  photoUrl,
+}: {
+  videoUrl?: string | null;
+  photoUrl?: string | null;
+}) {
+  if (videoUrl) {
+    return (
+      // Decorative, muted, looping background — no captions needed.
+      // eslint-disable-next-line jsx-a11y/media-has-caption
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        poster={photoUrl ?? undefined}
+        aria-hidden
+        className="absolute inset-0 h-full w-full object-cover"
+      >
+        <source src={videoUrl} />
+      </video>
+    );
+  }
+  if (photoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    );
+  }
+  return null;
+}
+
 function PublicLanding({
   event,
   reason,
   dayOfPhase,
   heroPhotoUrl,
+  heroVideoUrl,
+  bgMusicUrl,
   ourPhotoUrls,
   widgets,
   scheduleBlocks,
@@ -490,6 +568,10 @@ function PublicLanding({
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
   heroPhotoUrl?: string | null;
+  // Hero video + background music chrome (Increment B). Presigned URLs (or
+  // null). Video replaces the still hero; music mounts the tap-to-play player.
+  heroVideoUrl?: string | null;
+  bgMusicUrl?: string | null;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the
   // OurPhotosWidget hides itself. Couple-curated, no PII → safe for anonymous.
@@ -542,20 +624,16 @@ function PublicLanding({
       </p>
     ) : null;
 
+  const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
     <InvitationShell>
       <GuestPreload eventSlug={event.slug} />
-      {/* When a hero photo is uploaded, render a full-bleed banner. Otherwise
-          fall back to the existing centered text-only treatment. */}
-      {heroPhotoUrl ? (
+      {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* When a hero photo/video is uploaded, render a full-bleed banner.
+          Otherwise fall back to the centered text-only treatment. */}
+      {hasHeroMedia ? (
         <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={heroPhotoUrl}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 h-full w-full object-cover"
-          />
+          <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
           <div
             aria-hidden
             className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/90"
@@ -583,8 +661,8 @@ function PublicLanding({
         </div>
       ) : null}
       <div className="space-y-6 text-center">
-        {!heroPhotoUrl ? dayOfBadge : null}
-        {!heroPhotoUrl ? (
+        {!hasHeroMedia ? dayOfBadge : null}
+        {!hasHeroMedia ? (
           <>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
@@ -810,6 +888,8 @@ function InvitationSite({
   scheduleBlocks,
   dayOfPhase,
   heroPhotoUrl,
+  heroVideoUrl,
+  bgMusicUrl,
   ourPhotoUrls,
   widgets,
 }: {
@@ -828,6 +908,10 @@ function InvitationSite({
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
   heroPhotoUrl?: string | null;
+  // Hero video + background music chrome (Increment B). Presigned URLs (or
+  // null). Video replaces the still hero; music mounts the tap-to-play player.
+  heroVideoUrl?: string | null;
+  bgMusicUrl?: string | null;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the widget
   // hides itself.
@@ -880,9 +964,11 @@ function InvitationSite({
 
   const hideableInOrder = visibleHideableWidgets(widgets);
 
+  const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
     <InvitationShell>
       <GuestPreload eventSlug={event.slug} />
+      {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">
         {isLive ? (
           <DayOfBanner kind="live" />
@@ -890,24 +976,17 @@ function InvitationSite({
           <DayOfBanner kind="post" />
         ) : null}
 
-        {/* Hero. When the host uploads a banner photo via
-            /dashboard/[eventId]/website/hero-photo, render full-bleed with a
-            soft overlay so the monogram + display name + date stay legible.
-            Default falls back to the cream-on-cream monogram-only treatment.
-            Gated on hero widget visibility — always-on by default (editor
-            blocks hiding), but the gate exists so V1.1 can let exhibitions /
-            private weddings drop the hero entirely if needed. */}
-        {heroShouldRender && heroPhotoUrl ? (
+        {/* Hero. When the host uploads a banner photo/video via
+            /dashboard/[eventId]/website/hero-photo + /site-chrome, render
+            full-bleed with a soft overlay so the monogram + display name + date
+            stay legible. Default falls back to the cream-on-cream monogram-only
+            treatment. Gated on hero widget visibility — always-on by default
+            (editor blocks hiding), but the gate exists so V1.1 can let
+            exhibitions / private weddings drop the hero entirely if needed. */}
+        {heroShouldRender && hasHeroMedia ? (
           <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
-            {/* Full-bleed photo. eslint-disable-next-line @next/next/no-img-element —
-                presigned R2 URL expires in 24h so next/image's optimizer would
-                cache an expired URL; raw <img> is the right shape here. */}
-            <img
-              src={heroPhotoUrl}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            {/* Full-bleed video (Increment B) or photo. */}
+            <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
             {/* Cream overlay for text contrast — gradient bottom is stronger so
                 the date + monogram circle read cleanly on busy photo backgrounds. */}
             <div

@@ -84,6 +84,15 @@ export interface OnboardingState {
   monogramDesign: number;
 
   /**
+   * True once the couple taps "Use this monogram" to lock the current design
+   * (owner 2026-06-08 — "the monogram … must finalize before they can click
+   * continue"). Gates the name screen's Continue; cleared by "Generate another
+   * design" so a fresh design must be re-confirmed. Not persisted to events
+   * (the chosen design is captured via monogramDesign → monogram_* at commit).
+   */
+  monogramFinalized: boolean;
+
+  /**
    * Wedding-date capture mode (screen 5). 'specific' = 1-4 candidate dates within
    * a 90-day cluster; 'window' = a flexible range ≤30 days inclusive. The final
    * events.event_date settles later on vendor availability. Maps to events.date_mode.
@@ -398,13 +407,17 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   groomFirstName: '',
   groomLastName: '',
   monogramDesign: 0,
+  monogramFinalized: false,
   dateMode: 'specific',
   dateCandidates: [],
   windowStart: null,
   windowEnd: null,
   region: null,
   places: [],
-  pax: null,
+  // Guest count starts at 200 (owner 2026-06-08 — "how many guests must start at
+  // 200"); the couple adjusts from there. The pax screen shows the tier preview
+  // immediately instead of the empty "drag or type" state.
+  pax: 200,
   budgetBand: null,
   budgetAmount: null,
   picks: [],

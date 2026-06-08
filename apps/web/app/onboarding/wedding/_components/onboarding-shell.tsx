@@ -104,11 +104,17 @@ import { SDLoader } from '@/components/sd-loader';
    PR-4: the two-pass UNIFORM refine engine lands — refine_basic (right after team_basics) +
    refine_extras (right after team_extras) walk the picked leaves that have a REFINEMENTS entry
    ("what kind of X?"). Both are AI-gated; an empty pass is skipped (go() re-entry loop). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+/* Flow order (owner 2026-06-08): the wedding DATE is picked RIGHT AFTER the name +
+   monogram, BEFORE the love stage ("choose the wedding date first before the love
+   story because the date needs to be picked first") — so the love-story timeline can
+   anchor to the real wedding year. The old single `love_met` (which crammed the Spark
+   AND the Almost onto one page) is split into `love_spark` + `love_almost` so each page
+   is ONE clearly-titled story (owner 2026-06-08 — "set each page to be 1 story"). */
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
-/* The 5 love collection screens dropped when the couple skips the stage (love_intro,
+/* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
-const LOVE_SKIPPABLE: ReadonlySet<ScreenId> = new Set(['love_met','love_proposal','love_milestones','love_tone','love_preview']);
+const LOVE_SKIPPABLE: ReadonlySet<ScreenId> = new Set(['love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview']);
 /* Dream Team AI-gated screens — shown only when the couple opts into AI matching on
    `aigate` (state.ai === true). team_basics (the 4 essentials) + team_extras (the full
    taxonomy browser) capture state.picks; songs + mood re-house the music + feel
@@ -133,7 +139,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   welcome:'Build my free plan', role:'Continue', kind:'Continue', faith:'Continue', name:'Continue',
   // Love stage: love_intro + love_preview carry their OWN in-screen buttons (no chrome CTA);
   // the three middle collection screens advance with "Continue", love_tone leads to the reveal.
-  love_intro:'Continue', love_met:'Continue', love_proposal:'Continue', love_milestones:'Continue',
+  love_intro:'Continue', love_spark:'Continue', love_almost:'Continue', love_proposal:'Continue', love_milestones:'Continue',
   love_tone:'See our story', love_preview:'This is us',
   date:'Continue', region:'Continue', pax:'Continue', budget:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
@@ -160,7 +166,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
    essential). songs/mood sort matches the way the retired prefs sub-stepper did, so they
    stay Skip-able. */
 const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = {
-  love_met:true, love_proposal:true, love_milestones:true, love_tone:true,
+  love_spark:true, love_almost:true, love_proposal:true, love_milestones:true, love_tone:true,
   team_extras:true, songs:true, mood:true, find:true, services:true,
   // bundle (owner 2026-06-08): Skip = advance to `services` (the à-la-carte path). The
   // in-screen "I'll pick à la carte instead" link is the primary escape; this is parity.
@@ -1638,6 +1644,9 @@ export function OnboardingShell({
   // design, no auto-restyle). Separate from the 4.5s self-draw replay above.
   useEffect(() => {
     if (activeId !== 'name') return;
+    // Freeze the auto-restyle once the couple locks a design (owner 2026-06-08) — the
+    // chosen mark must not change out from under a finalized choice.
+    if (state.monogramFinalized) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     let popT: number | undefined;
     const id = window.setInterval(() => {
@@ -1649,7 +1658,7 @@ export function OnboardingShell({
       window.clearInterval(id);
       if (popT) window.clearTimeout(popT);
     };
-  }, [activeId]);
+  }, [activeId, state.monogramFinalized]);
 
   /* ── navigation (prototype go(d)) ──
      Navigate by INDEX within the filtered sequence. The Civil-skips-faith +
@@ -1786,13 +1795,14 @@ export function OnboardingShell({
     setState((s) => (s.loveSkipped ? { ...s, loveSkipped: false } : s));
     go(1);
   }, [go]);
-  /* love_intro gate — "Add it later" drops the 5 collection screens + jumps to 'date'.
-     Single setState so the recomputed sequence already excludes the love screens when we
-     resolve 'date''s index (goToId reads s.loveSkipped, so we compute the jump here). */
+  /* love_intro gate — "Add it later" drops the love collection screens + jumps to
+     'region' (the screen right after the love stage — date now PRECEDES the stage,
+     owner 2026-06-08 reorder). Single setState so the recomputed sequence already
+     excludes the love screens when we resolve 'region''s index. */
   const loveSkip = useCallback(() => {
     setState((s) => {
       const sq = buildSequence(s.kind, authed, true, s.ai);
-      const i = sq.indexOf('date');
+      const i = sq.indexOf('region');
       return { ...s, loveSkipped: true, step: i >= 0 ? i : s.step };
     });
   }, [authed]);
@@ -2024,7 +2034,9 @@ export function OnboardingShell({
   const monoGi = firstInitial(state.groomFirstName);
   const monoReady = monoBi !== '' && monoGi !== '';
   const cycleDesign = () => {
-    patch({ monogramDesign: (state.monogramDesign + 1) % MONO_DESIGNS.length });
+    // Cycling to a new design un-finalizes (owner 2026-06-08) — a fresh mark must be
+    // re-confirmed via "Use this monogram" before Continue re-enables.
+    patch({ monogramDesign: (state.monogramDesign + 1) % MONO_DESIGNS.length, monogramFinalized: false });
     bumpMono();
   };
 
@@ -2038,12 +2050,31 @@ export function OnboardingShell({
     const rk = resolvePick(k).rk;
     return rk ? (REGLABEL[rk] ?? null) : null;
   })();
+  /* The wedding YEAR(S) for the love timeline + reveal dateline (owner 2026-06-08 — "the
+     year will be the year on the wedding date. if there are two years, then show both
+     until … one is chosen"). Distinct calendar years across the couple's candidate dates
+     (specific mode) or the flexible window (window mode). One year → "2027"; two →
+     "2026 / 2027" until they narrow to a single year. With the date step now placed BEFORE
+     the love stage, this is set by the time the timeline renders. */
+  const weddingYearLabel = (() => {
+    const years = new Set<number>();
+    const add = (iso: string | null | undefined) => {
+      const y = iso ? parseInt(String(iso).slice(0, 4), 10) : 0;
+      if (y) years.add(y);
+    };
+    if (state.dateMode === 'specific') state.dateCandidates.forEach(add);
+    else { add(state.windowStart); add(state.windowEnd); }
+    const sorted = [...years].sort((a, b) => a - b);
+    if (sorted.length === 0) return null; // no date yet → weave-story falls back to weddingYear()
+    return sorted.slice(0, 2).join(' / ');
+  })();
   const weaveCtx: WeaveContext = {
     brideFirst: state.brideFirstName,
     groomFirst: state.groomFirstName,
     brideLast: state.brideLastName,
     groomLast: state.groomLastName,
     weddingDateIso: state.dateCandidates[0] || state.windowStart || null,
+    weddingYearLabel,
     placeLabel: lovePlaceLabel,
   };
   const loveTone: StoryTone = state.storyTone ?? 'warm';
@@ -2136,6 +2167,18 @@ export function OnboardingShell({
     if (budgetInput.trim() !== '' && Number.isFinite(n) && n > 0) onBudgetAmount(n);
   }, [budgetInput, onBudgetAmount]);
 
+  /* Budget starts HALFWAY (owner 2026-06-08 — "working budget must start half way"):
+     the first time the couple reaches the budget screen with no budget set yet, seed it
+     to the midpoint of the recommended [floor, ceiling] range for their pax. onBudgetAmount
+     clamps + snaps to the nearest band, so budgetSet flips true and the slider opens
+     centered. They can still drag/type or choose "No limit" from there. */
+  useEffect(() => {
+    if (activeId !== 'budget') return;
+    if (state.budgetBand != null) return; // already set / chose "No limit"
+    if (state.pax == null) return; // need a guest count to derive the range
+    onBudgetAmount(Math.round((budgetFloorV + budgetCeilingV) / 2));
+  }, [activeId, state.budgetBand, state.pax, budgetFloorV, budgetCeilingV, onBudgetAmount]);
+
   /* ── per-step chrome ── */
   const canContinue = (() => {
     switch (activeId) {
@@ -2150,11 +2193,14 @@ export function OnboardingShell({
       case 'name':
         // All four name fields required — they auto-register the couple as the
         // bride + groom guests at commit, and go on the invitation/website/monogram.
+        // PLUS the monogram must be finalized (owner 2026-06-08 — "the monogram …
+        // must finalize before they can click continue").
         return (
           state.brideFirstName.trim().length > 0 &&
           state.brideLastName.trim().length > 0 &&
           state.groomFirstName.trim().length > 0 &&
-          state.groomLastName.trim().length > 0
+          state.groomLastName.trim().length > 0 &&
+          state.monogramFinalized
         );
       case 'date':
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
@@ -2169,7 +2215,8 @@ export function OnboardingShell({
         return state.picks.length > 0;
       // Love stage — every screen is optional, nothing blocks Continue.
       case 'love_intro':
-      case 'love_met':
+      case 'love_spark':
+      case 'love_almost':
       case 'love_proposal':
       case 'love_milestones':
       case 'love_tone':
@@ -2977,10 +3024,33 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
+              {/* Monogram controls (owner 2026-06-08): the couple must FINALIZE the mark
+                  before Continue unlocks. While unconfirmed → cycle designs + "Use this
+                  monogram". Once set → a calm confirmation + "Change design" to re-open. */}
               <div className="mono-controls">
-                <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
-                  <span className="ic" aria-hidden="true">{'↻'}</span> Generate another design
-                </button>
+                {monoReady && state.monogramFinalized ? (
+                  <div className="mono-locked">
+                    <span className="mono-locked-tag"><span className="ic" aria-hidden="true">✓</span> Monogram set</span>
+                    <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
+                      <span className="ic" aria-hidden="true">{'↻'}</span> Change design
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
+                      <span className="ic" aria-hidden="true">{'↻'}</span> Generate another design
+                    </button>
+                    <button
+                      type="button"
+                      className="mono-btn mono-use"
+                      onClick={() => patch({ monogramFinalized: true })}
+                      disabled={!monoReady}
+                      title={monoReady ? undefined : 'Add both first names to see your monogram'}
+                    >
+                      Use this monogram
+                    </button>
+                  </>
+                )}
               </div>
               <div className="namepair">
                 <label className="nl">
@@ -2995,7 +3065,8 @@ export function OnboardingShell({
                     aria-required="true"
                     value={state.brideFirstName}
                     onChange={(e) => {
-                      patch({ brideFirstName: sanitizeName(e.target.value) });
+                      // Editing a first name changes the mark → require re-confirming it.
+                      patch({ brideFirstName: sanitizeName(e.target.value), monogramFinalized: false });
                       bumpMono();
                     }}
                   />
@@ -3023,7 +3094,8 @@ export function OnboardingShell({
                     aria-required="true"
                     value={state.groomFirstName}
                     onChange={(e) => {
-                      patch({ groomFirstName: sanitizeName(e.target.value) });
+                      // Editing a first name changes the mark → require re-confirming it.
+                      patch({ groomFirstName: sanitizeName(e.target.value), monogramFinalized: false });
                       bumpMono();
                     }}
                   />
@@ -3066,12 +3138,14 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* S1 · THE SPARK + THE ALMOST (love_met) — two stacked stems + the obstacle beat. */}
-          <section className={`screen${activeId === 'love_met' ? ' active' : ''}`} id="screen-love-met">
+          {/* S1a · THE SPARK (love_spark) — ONE story per page (owner 2026-06-08 "set each
+              page to be 1 story"): how you two met + the detail that stuck. */}
+          <section className={`screen${activeId === 'love_spark' ? ' active' : ''}`} id="screen-love-spark">
             <div className="viewzone">
-              <div className="eyebrow">Your wedding website story</div>
-              <div className="turncue">{sparkTurn}</div>
-              {/* (a) the Spark stem */}
+              <div className="eyebrow">Your love story · 1 of 4 · how you met</div>
+              <h1 className="q">How you two met</h1>
+              <p className="sub">{sparkTurn} — what{'’'}s the very first thing you noticed about each other?</p>
+              {/* the Spark stem */}
               <div className="stem">
                 <span className="stem-pre">The first thing I noticed was{'…'}</span>
                 <textarea
@@ -3103,55 +3177,60 @@ export function OnboardingShell({
                 />
               </div>
               <div className="tinyyear">
-                <label>+ when?</label>
+                <label>+ when did you meet?</label>
                 <input inputMode="numeric" maxLength={4} placeholder="2018" value={state.loveStory.met_year} onChange={(e) => setLoveYear('met_year', e.target.value)} />
                 <label>together since{'…'}</label>
                 <input inputMode="numeric" maxLength={4} placeholder="2019" value={state.loveStory.together_since} onChange={(e) => setLoveYear('together_since', e.target.value)} />
               </div>
-              {/* (b) the Almost stem */}
-              <div className="almost">
-                <div className="turncue">The almost</div>
-                <div className="normalize">Every story has an almost. Yours makes the ending land.</div>
-                <div className="stem tight">
-                  <span className="stem-pre">There was a moment we almost didn{'’'}t make it because{'…'}</span>
-                  <textarea
-                    className="field"
-                    rows={2}
-                    placeholder="finish it in your own words"
-                    value={state.loveStory.obstacle}
-                    onChange={(e) => setLoveText('obstacle', e.target.value)}
-                  />
-                </div>
-                <div className="sparkchips">
-                  {[
-                    { kind: 'distance', label: 'Time apart?' },
-                    { kind: 'family', label: 'Family questions?' },
-                    { kind: 'different_paths', label: 'Different dreams?' },
-                    { kind: 'doubt', label: 'Just wasn’t sure?' },
-                  ].map((c) => (
-                    <span key={c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}`} onClick={() => pickCue(c.kind)}>{c.label}</span>
-                  ))}
-                </div>
-                <div className={`followup${state.loveStory.obstacle.trim() ? ' show' : ''}`}>
-                  <div className="fu-q">What kept you going?</div>
-                  <textarea
-                    className="field"
-                    rows={2}
-                    placeholder="we kept counting down to the next time we’d be in the same room"
-                    value={state.loveStory.obstacle_kept}
-                    onChange={(e) => setLoveText('obstacle_kept', e.target.value)}
-                  />
-                </div>
-                <div className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></div>
+            </div>
+          </section>
+
+          {/* S1b · THE ALMOST (love_almost) — its OWN page now (owner 2026-06-08). */}
+          <section className={`screen${activeId === 'love_almost' ? ' active' : ''}`} id="screen-love-almost">
+            <div className="viewzone">
+              <div className="eyebrow">Your love story · 2 of 4 · the almost</div>
+              <h1 className="q">The almost</h1>
+              <p className="sub">Every story has an almost — it{'’'}s what makes the ending land. If yours was easy, skip it.</p>
+              <div className="stem tight">
+                <span className="stem-pre">There was a moment we almost didn{'’'}t make it because{'…'}</span>
+                <textarea
+                  className="field"
+                  rows={2}
+                  placeholder="finish it in your own words"
+                  value={state.loveStory.obstacle}
+                  onChange={(e) => setLoveText('obstacle', e.target.value)}
+                />
               </div>
+              <div className="sparkchips">
+                {[
+                  { kind: 'distance', label: 'Time apart?' },
+                  { kind: 'family', label: 'Family questions?' },
+                  { kind: 'different_paths', label: 'Different dreams?' },
+                  { kind: 'doubt', label: 'Just wasn’t sure?' },
+                ].map((c) => (
+                  <span key={c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}`} onClick={() => pickCue(c.kind)}>{c.label}</span>
+                ))}
+              </div>
+              <div className={`followup${state.loveStory.obstacle.trim() ? ' show' : ''}`}>
+                <div className="fu-q">What kept you going?</div>
+                <textarea
+                  className="field"
+                  rows={2}
+                  placeholder="we kept counting down to the next time we’d be in the same room"
+                  value={state.loveStory.obstacle_kept}
+                  onChange={(e) => setLoveText('obstacle_kept', e.target.value)}
+                />
+              </div>
+              <div className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></div>
             </div>
           </section>
 
           {/* S2 · THE YES (love_proposal) — setting chips + stem + who-asked + required feel. */}
           <section className={`screen${activeId === 'love_proposal' ? ' active' : ''}`} id="screen-love-proposal">
             <div className="viewzone">
-              <div className="eyebrow">Your wedding website story</div>
-              <div className="turncue">The yes</div>
+              <div className="eyebrow">Your love story · 3 of 4 · the yes</div>
+              <h1 className="q">The proposal</h1>
+              <p className="sub">Where it happened, how it felt, who asked.</p>
               <div className="sparkchips">
                 {[
                   { prop: 'beach', label: 'Beach' },
@@ -3203,7 +3282,7 @@ export function OnboardingShell({
           {/* S3 · THE LITTLE THINGS (love_milestones) — 2×2 anchor tiles + auto-sorted timeline. */}
           <section className={`screen${activeId === 'love_milestones' ? ' active' : ''}`} id="screen-love-milestones">
             <div className="viewzone">
-              <div className="eyebrow">Your wedding website story</div>
+              <div className="eyebrow">Your love story · 4 of 4 · the little things</div>
               <h1 className="q">The stuff only you two would know.</h1>
               <p className="sub" style={{ marginBottom: 12 }}>Tap what{'’'}s yours. Skip the rest.</p>
               <div className="lovetiles">
@@ -3291,7 +3370,7 @@ export function OnboardingShell({
           {/* S4 · THE VOICE (love_tone) — 3 tone chips + a LIVE one-line preview. */}
           <section className={`screen${activeId === 'love_tone' ? ' active' : ''}`} id="screen-love-tone">
             <div className="viewzone">
-              <div className="eyebrow">Your wedding website story</div>
+              <div className="eyebrow">Your love story · the voice</div>
               <h1 className="q">How should it sound?</h1>
               <p className="sub" style={{ marginBottom: 14 }}>Same story, your voice — change it anytime.</p>
               <div className="sitecard" style={{ marginBottom: 14 }}>
@@ -3315,7 +3394,7 @@ export function OnboardingShell({
           {/* S5 · THE REVEAL (love_preview) — the told-back published page; twin-ghost CTA. */}
           <section className={`screen${activeId === 'love_preview' ? ' active' : ''}`} id="screen-love-preview">
             <div className="viewzone">
-              <div className="eyebrow">Your wedding website story</div>
+              <div className="eyebrow">Your love story · the reveal</div>
               <h1 className="q">Here{'’'}s the two of you.</h1>
               <p className="sub" style={{ marginBottom: 14 }}>This is how it{'’'}ll read on your wedding page.</p>
               <div className="sitecard">
@@ -3330,7 +3409,7 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={() => go(1)}>This is us</button>
-              <div className="ghost" onClick={() => goToId('love_met')}><u>Change a line</u></div>
+              <div className="ghost" onClick={() => goToId('love_spark')}><u>Change a line</u></div>
             </div>
           </section>
 

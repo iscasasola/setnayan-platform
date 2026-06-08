@@ -29,8 +29,16 @@ export interface WeaveContext {
   brideLast?: string;
   /** Groom last name. */
   groomLast?: string;
-  /** The chosen wedding date (ISO yyyy-mm-dd) if set — love stage precedes the date screen. */
+  /** The chosen wedding date (ISO yyyy-mm-dd) if set — the date screen precedes the love stage. */
   weddingDateIso?: string | null;
+  /**
+   * The wedding YEAR(S) to display on the timeline + dateline (owner 2026-06-08 — "the
+   * year will be the year on the wedding date. if there are two years, then show both
+   * until in the future, one is chosen"). A single year ("2027") once the couple has
+   * narrowed to one calendar year, or two joined ("2026 / 2027") while their candidate
+   * dates / flexible window still span two years. Falls back to weddingYear() when absent.
+   */
+  weddingYearLabel?: string | null;
   /** A human place label for the dateline (e.g. "Tagaytay"), or null. */
   placeLabel?: string | null;
 }
@@ -175,7 +183,9 @@ export function milestoneRows(loveStory: LoveStory, ctx: WeaveContext): Timeline
     rows.push({ year: oy, title: obstacleLabel(loveStory), seed: true, peak: true });
   }
   if (py) rows.push({ year: py, title: 'The proposal', seed: true });
-  rows.push({ year: String(weddingYear(ctx)), title: 'We do', seed: true, peak: true });
+  // The terminal "We do" — the wedding year, or BOTH years ("2026 / 2027") while the
+  // couple's candidate dates / window still straddle a year boundary (owner 2026-06-08).
+  rows.push({ year: ctx.weddingYearLabel || String(weddingYear(ctx)), title: 'We do', seed: true, peak: true });
   (loveStory.milestones || []).forEach((m: LoveMilestone, i: number) => {
     rows.push({ year: m.year, month: m.month, day: m.day, title: m.title, idx: i });
   });
@@ -188,11 +198,14 @@ export function dateline(loveStory: LoveStory, ctx: WeaveContext): string {
   const nm = names(ctx);
   const parts: string[] = [esc(nm.b.toUpperCase()) + ' &amp; ' + esc(nm.g.toUpperCase())];
   const iso = ctx.weddingDateIso || '';
-  if (iso) {
+  // While the couple's dates span two years, show BOTH years (not one finalized
+  // month/year) on the dateline too, so the reveal matches the timeline (owner 2026-06-08).
+  const multiYear = (ctx.weddingYearLabel || '').includes('/');
+  if (iso && !multiYear) {
     const d = new Date(iso + (iso.length <= 10 ? 'T00:00:00' : ''));
     if (!isNaN(d.getTime())) parts.push((MON_LONG[d.getMonth()] || '').toUpperCase() + ' ' + d.getFullYear());
   } else {
-    parts.push(String(weddingYear(ctx)));
+    parts.push(ctx.weddingYearLabel || String(weddingYear(ctx)));
   }
   if (ctx.placeLabel) parts.push(esc(ctx.placeLabel.toUpperCase()));
   return parts.join(' · ');

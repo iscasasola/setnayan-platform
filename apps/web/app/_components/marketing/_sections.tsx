@@ -34,6 +34,7 @@
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
+import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
@@ -791,7 +792,35 @@ export function DashboardPreview() {
 // ─────────────────────────────────────────────────────────────────────
 // 10. Pricing — publisher posture · 0% commission
 // ─────────────────────────────────────────────────────────────────────
-export function PricingSection() {
+export async function PricingSection() {
+  // De-hardcoded (owner 2026-06-08 "all values must not be hardcoded · verify
+  // from the DB created by admin"). Prices come from the admin-managed catalog
+  // tables — the same source /pricing reads — so /admin/pricing edits propagate
+  // here automatically. The homepage is force-dynamic for this reason.
+  const [bundles, catalog] = await Promise.all([
+    fetchV2BundleCatalog(),
+    fetchV2CustomerCatalog(),
+  ]);
+  const svc = (code: string) => catalog.find((s) => s.service_code === code);
+  const panood = svc('PANOOD_SYSTEM');
+  const sde = svc('SDE');
+  const monogram = svc('ANIMATED_MONOGRAM');
+  const sortedBundles = [...bundles].sort((a, b) => a.retail_price_php - b.retail_price_php);
+
+  // Labels are display-only; every PRICE is read from the DB.
+  const productionItems = [
+    panood && `Panood livestream · ${formatPeso(panood.retail_price_php)}/day`,
+    sde && `Same-Day Edit · ${formatPeso(sde.retail_price_php)}`,
+    monogram && `Animated Monogram · ${formatPeso(monogram.retail_price_php)}`,
+  ].filter(Boolean) as string[];
+
+  const bundleItems = [
+    ...sortedBundles.map(
+      (b) => `${b.title.replace(/^Setnayan /, '')} · ${formatPeso(b.retail_price_php)}`,
+    ),
+    'Save up to ~42% off à la carte',
+  ];
+
   return (
     <section className="px-14 bg-[var(--m-paper-2)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div className="m-eyebrow">Pricing</div>
@@ -825,11 +854,7 @@ export function PricingSection() {
             title: 'Productions',
             price: 'À la carte',
             sub: 'Per service',
-            items: [
-              'Panood livestream · ₱3,499/day',
-              'Same-Day Edit · ₱3,499',
-              'Animated Monogram · ₱2,499',
-            ],
+            items: productionItems,
             cta: 'See services',
             ctaHref: '/pricing',
             tone: 'orange' as const,
@@ -838,11 +863,7 @@ export function PricingSection() {
             title: 'Bundles',
             price: 'Save big',
             sub: 'Per event',
-            items: [
-              'Essentials · ₱12,999',
-              'Complete · ₱27,999 · all 18 services',
-              'Up to ~42% off à la carte',
-            ],
+            items: bundleItems,
             cta: 'See bundles',
             ctaHref: '/pricing',
             tone: 'ink' as const,

@@ -23,6 +23,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Follow-up:** onboarding still reads the `SVC` demo constant, not v2-catalog live; proper server-side wiring is deferred to the Dream Team picker PR (which reworks the end-of-flow services screens).
 
 **SPEC IMPACT:** Pricing corpus — `Pricing_Canonical_2026-06-08.md` is the source applied. DECISION_LOG row added (2026-06-08 canonical reprice applied + 2 open conflicts). Owner to reconcile `Pricing.md §0` + the Papic-Guests-pax / 4-retirement questions.
+## 2026-06-08 · fix(home,pricing): de-hardcode homepage PricingSection → read admin catalog DB + reprice bundles/tokens
+
+**Context:** Owner 2026-06-08 — "all values must not be hardcoded · verify from the DB created by admin · find the amount on admin." Root cause of the recurring price drift: the homepage + /for-vendors hard-code their own copies while /pricing reads the DB. This wires the homepage to the DB.
+
+**1 · DB (admin catalog) brought to the owner's locked numbers** (applied to prod via the catalog tables — same effect as /admin/pricing edits):
+- `platform_package_catalog`: GUIDED_PACK → "Setnayan Essentials" ₱12,999 · MEDIA_PACK → "Setnayan Complete" ₱27,999 (was Guided Planner Suite ₱11,999 / Comprehensive Media Pack ₱16,999).
+- `vendor_billing_catalog` token packs → ₱100/token flat: 4=₱400 · 10=₱1,000 · 25=₱2,500 · 50=₱5,000 · 100=₱10,000 (was ₱1,000/₱2,400/₱5,500/₱10,000/₱18,000 ≈ ₱180–250/token).
+
+**2 · `PricingSection` de-hardcoded** (`_components/marketing/_sections.tsx`): now `async`, reads `fetchV2BundleCatalog` (Bundles card) + `fetchV2CustomerCatalog` (Productions à-la-carte: PANOOD_SYSTEM, SDE, ANIMATED_MONOGRAM). Labels stay; every price is from the DB. Homepage `page.tsx` flipped **force-static → force-dynamic** so admin edits show with no redeploy and the CI build skips the createAdminClient throw (the /pricing pattern).
+
+**Verify:** typecheck/build/Lighthouse/e2e on the PR. `/pricing` already reflects the new DB values.
+
+**SPEC IMPACT:** Bundles Guided/Media → Essentials/Complete (₱12,999/₱27,999) + token ₱100/token now in the DB (= admin source of truth) → corpus Pricing.md §0 reconcile. NOTE: the customer à-la-carte SKUs in the DB are still the OLDER prices (Animated Monogram ₱2,499, Custom QR ₱1,499, Panood ₱3,499/day…), NOT the "Premium stance" à-la-carte (₱1,999/₱999/₱2,499-day) — owner to update in /admin/pricing if intended. Follow-up: de-hardcode /for-vendors (its tier prices already match the DB, just hard-coded).
 
 ## 2026-06-08 · feat(onboarding): dashboard bloom — the "Set na 'yan" reveal on the recap screen
 

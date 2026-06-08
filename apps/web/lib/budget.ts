@@ -320,10 +320,23 @@ async function buildVendorPricingLookup(
         is_active: boolean;
       };
       const services = (servicesRes.data ?? []) as ServiceRow[];
-      // Build a (profile_id, category) → service map for O(1) lookup.
+      // Build a (profile_id, category) → service map for O(1) lookup. A category
+      // can now hold MULTIPLE service listings (#1 multi-service-per-leaf), so
+      // keep the CHEAPEST priced one per key — a deterministic "from" price
+      // (matches the marketplace card's min-price reducer) instead of letting
+      // the last row silently win.
       const serviceByKey = new Map<string, ServiceRow>();
       for (const s of services) {
-        serviceByKey.set(`${s.vendor_profile_id}:${s.category}`, s);
+        const key = `${s.vendor_profile_id}:${s.category}`;
+        const cur = serviceByKey.get(key);
+        if (
+          !cur ||
+          (s.starting_price_php !== null &&
+            (cur.starting_price_php === null ||
+              s.starting_price_php < cur.starting_price_php))
+        ) {
+          serviceByKey.set(key, s);
+        }
       }
       for (const ev of serviceCandidates) {
         const key = `${ev.marketplace_vendor_id}:${ev.category}`;

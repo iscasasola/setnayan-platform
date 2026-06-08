@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(vendor-tiers): #1 — multiple service listings per leaf category (cap 2/2/5/∞)
+
+**Context:** Owner clarified the "Creating Package" matrix row = **number of service listings a vendor may place per leaf category** (FREE 2 · VERIFIED 2 · PRO 5 · ENTERPRISE ∞) — e.g. 5 photo-booth variants. Today `vendor_services` was hard-capped at 1 per category by a DB UNIQUE. Build #1 of the owner's "do 1–5" queue.
+
+**What landed (migration `20260922000000`, applied to prod):**
+- **Migration:** dropped `vendor_services` `UNIQUE(vendor_profile_id, category)`, added a per-listing **`title`** column (so multiple listings in one leaf are distinguishable — rows were category-labelled only), and a replacement non-unique index on `(vendor_profile_id, category)`. Verified no runtime `ON CONFLICT` depended on the UNIQUE.
+- **Helper:** `packagesPerLeaf` → **`servicesPerLeaf`** in `lib/vendor-tier-caps.ts` (clearer; same 2/2/5/∞ values).
+- **`createVendorService`:** parses `title`; enforces the per-leaf count cap (single tier+existing-rows fetch now shared with the Phase-B parent-category cap).
+- **Services page UI:** the category picker no longer blocks a used category — it stays clickable with an "N added" count (the action enforces the cap); the create form gains a "Service name (optional)" input; rows render `title` (with the category as a subtitle); the `?add=` form opens for used categories too.
+- **`lib/budget.ts` fix:** the `(profile:category)→service` map kept only the last row per category (silent collapse with multiple listings) → now keeps the **cheapest** priced one (deterministic "from" price, matching the marketplace min-price reducer). `fetchVendorServices` returns `title` (graceful fallback when the column lags a deploy).
+
+**Verify:** `tsc` clean · `next lint` exit 0. Migration applied (+ a parallel session's pending `20260920_last_minute_mechanic` flushed alongside via `--include-all`).
+
+**SPEC IMPACT:** Tier cap #1 (services per leaf) enforced. Queue remaining: #2 daily capacity · #3 enterprise time-bound slots · #4 Phase C feature gates · #5 Phase D checkout. → corpus DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): growable floor plan — zoom + pan + level-of-detail (0008)
 
 **Context:** Follow-up to the mobile list (PR #1108). For big guest counts the *spatial* floor plan must also scale — a fixed canvas can't show 50 tables. Adds pan/zoom with level-of-detail so the plan grows to fit. PR 2 of 2 for "scale to 50+"; **PR 3 next = floor-plan markers (draggable Stage + Entrance door)**, which needs a small `event_floor_plan` migration.

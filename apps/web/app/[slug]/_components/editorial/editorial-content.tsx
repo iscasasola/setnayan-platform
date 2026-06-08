@@ -127,9 +127,17 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
           </>
         ) : null}
 
-        {/* What they said (reviews — empty state for now) --------------------- */}
+        {/* What they said (reviews from guests / vendors / the couple) -------- */}
         <SectionRule title="What They Said" />
-        <ReviewsEmptyState />
+        {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+
+        {/* The Setnayan experience — in-app services the couple availed ------- */}
+        {data.servicesAvailed.length ? (
+          <>
+            <SectionRule title="Powered by Setnayan" />
+            <SetnayanExperience services={data.servicesAvailed} />
+          </>
+        ) : null}
 
         {/* Colophon / cross-phase links --------------------------------------- */}
         <Colophon names={data.displayName} city={data.venueCity} />
@@ -491,6 +499,58 @@ function ReviewsEmptyState(): ReactElement {
     <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/45">
       Reviews from guests and vendors will appear here.
     </p>
+  );
+}
+
+/**
+ * "What They Said" — guest / vendor / couple reviews. Reads
+ * EditorialData.reviews (seeded today via event_editorial.draft_json.reviews;
+ * the full event-bound review system §3 is a later increment). Newspaper
+ * pull-quote treatment in a 2-col masonry-ish grid.
+ */
+function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactElement {
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {reviews.slice(0, 8).map((r, i) => (
+        <figure
+          key={i}
+          className="break-inside-avoid border-l-2 border-terracotta/40 pl-4"
+        >
+          <blockquote className="font-serif text-base italic leading-snug text-ink/85">
+            &ldquo;{r.quote}&rdquo;
+          </blockquote>
+          <figcaption className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/50">
+            {r.stars ? (
+              <span aria-hidden className="mr-1 text-terracotta">
+                {'★'.repeat(Math.max(1, Math.min(5, r.stars)))}
+              </span>
+            ) : null}
+            {r.author}
+            {r.role ? ` · ${r.role}` : ''}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * "Powered by Setnayan" — the in-app services the couple availed (resolved
+ * from paid `orders` in data.ts). A simple chip row; shows the breadth of the
+ * Setnayan experience used for this wedding.
+ */
+function SetnayanExperience({ services }: { services: string[] }): ReactElement {
+  return (
+    <div className="mt-4 flex flex-wrap justify-center gap-2">
+      {services.map((s, i) => (
+        <span
+          key={i}
+          className="rounded-full border border-ink/15 bg-cream px-3 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/70"
+        >
+          {s}
+        </span>
+      ))}
+    </div>
   );
 }
 

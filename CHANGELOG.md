@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(website): editorial reviews + "Powered by Setnayan" services strip (+ Maria & Jose scaled to 280pax / ₱5M)
+
+**Context:** Owner asked the demo wedding to (1) reflect commentary/reviews, (2) show the couple availed ALL in-app services, and (3) be a 280-guest / ₱5,000,000 wedding (→ "Sweeping" luxurious archetype). Also confirmed the website maker reads the real `events.event_date` everywhere — **audit found no hardcoded dates / placeholders** (every wedding-date read flows from `event_date`: countdown, schedule, editorial dateline, and the lifecycle-phase computation).
+
+**Code (editorial module):**
+- **`data.ts`** — `EditorialData` gains `reviews: Review[]` (read from `event_editorial.draft_json.reviews` — author/role/quote/stars; the full §3 event-bound review system lands later) + `servicesAvailed: string[]` (distinct paid `orders.service_key` for the event → display labels via a `SERVICE_LABELS` map + `prettyServiceKey` fallback). Best-effort, never throws.
+- **`editorial-content.tsx`** — "What They Said" now renders a `ReviewsWall` (pull-quote grid w/ stars) when reviews exist (else the empty state); new "Powered by Setnayan" section (`SetnayanExperience` chip row) lists the in-app services availed.
+
+**Seed (prod, idempotent `DO` block · test event):** scaled `[TEST] Maria & Jose` to **280 guests** (234 attending; named entourage + 250 filler), distributed **₱5,000,000** across the 9 `event_vendors.total_cost_php`, froze `event_editorial.impact_metrics` (`per_guest_spend` 17857 → Grand×Luxurious = **Sweeping**; photos 1840; services_total 18; guests 280), seeded **6 reviews** (couple/sponsor/vendor/MOH/guest) into `draft_json.reviews`, and inserted **paid `orders` for all 18 in-app service codes** (Animated Monogram, Papic, Panood, Pakanta, SDE, Patiktok, …) so every SKU-gated element lights up (animated monogram hero draws itself; Papic-guest CTA; etc.).
+
+**Verify:** typecheck + build on CI. Editorial now shows reviews + services strip + Sweeping framing; date-integrity audit clean. Demo data disposable.
+
+**SPEC IMPACT:** editorial reviews surface (interim source) + add-ons-owned strip (§6.4) → DECISION_LOG.
+
 ## 2026-06-09 · feat(website): "Maria & Jose" full demo wedding + tier-aware editorial vendor showcase
 
 **Context:** Owner asked to see all three website phases (RSVP / Event / Editorial) on a fully-populated, photo-rich wedding, with vendors at Free / Pro / Enterprise tiers to see how each renders on the editorial. Seeds the existing `[TEST] Maria & Jose` event (slug `test-maria-and-jose`, dated 2026-06-01 so it sits in the Editorial phase) + the code to make the demo render.

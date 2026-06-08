@@ -52,9 +52,13 @@ function toneVerb(tone: StoryTone): string {
   }
 }
 
-/** Trim trailing punctuation so we can re-punctuate cleanly. */
-function clean(s: string | null | undefined): string {
-  return (s ?? '').trim().replace(/[.!?]+$/, '');
+/** Trim trailing punctuation so we can re-punctuate cleanly. Coerces non-string
+ *  inputs — love_story fields like met_year / proposal_year arrive as JSON
+ *  NUMBERS, and calling `.trim()` on a number throws, which used to blow the
+ *  whole composer into its bare catch fallback (no deck / lede / pull-quote). */
+function clean(s: unknown): string {
+  if (s === null || s === undefined) return '';
+  return String(s).trim().replace(/[.!?]+$/, '');
 }
 
 export function composeCopy(d: EditorialData): ComposedCopy {

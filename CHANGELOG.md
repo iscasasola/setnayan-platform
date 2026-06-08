@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(website): editorial write-up restored + hero un-cropped + shared-photo gallery
+
+**Context:** First real look at the populated editorial surfaced 3 issues. **(1) No write-up:** the entire composed article (kicker/deck/lede/pull-quote) collapsed to the bare catch fallback. Root cause: `love_story.met_year`/`proposal_year` arrive as JSON **numbers**, and `compose.ts`'s `clean()` did `(s ?? '').trim()` — `.trim()` on a number **throws**, and that one exception dropped `composeCopy()` into its minimal fallback (only "A celebration" + headline). Fixed `clean()` to coerce via `String()` (also tolerant of any future non-string storyline field). **(2) Hero cropped:** `HeroPhoto` used a fixed pixel height + `object-cover`, cropping the couple out of the 16:9 hero → switched to `aspect-[16/10]` so the full landscape frame shows. **(3) No shared photos:** added a **"From the Day"** photo gallery to the editorial — `data.ts` now reads `events.our_photos` → `galleryPhotos` (display URLs, same legacy/relative-URL tolerance), rendered as a lead frame + grid.
+
+**Files:** `editorial/compose.ts` (`clean` coercion), `editorial/data.ts` (`galleryPhotos`), `editorial/editorial-content.tsx` (`HeroPhoto` ratio + `PhotoGallery`).
+
+**Verify:** typecheck + build on CI. On `test-maria-and-jose` the editorial now renders the "Sweeping" kicker + composed lede (UP Diliman → Batanes → Tagaytay) + deck + pull-quote, the full hero photo, and the 5 shared photos. No migration; demo data unchanged.
+
+**SPEC IMPACT:** correctness (composer robustness) + §2 editorial "Our Photos" gallery. → DECISION_LOG.
+
 ## 2026-06-09 · feat(admin): onboarding refinements editor (follow-up to items 8/9)
 
 **Context:** The DB-backed refinements landed editable-via-SQL-only; this adds the admin UI so the catalogue is editable without SQL or a deploy.

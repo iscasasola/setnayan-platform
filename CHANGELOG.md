@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(website): Special Message content block (live invitation site)
+
+**Context:** Increment A.1 of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07`). First content block built on the shipped schema foundation — a couple's note to guests, rendered live on the invitation site.
+
+**What landed:**
+- Migration `20260913000000_invitation_widgets_special_message.sql` — adds the `special_message` widget_type (CHECK + seed trigger + backfill); reads `events.special_message` (shipped 20260912000000).
+- `lib/invitation-widgets.ts` — `special_message` in WIDGET_TYPES + catalog (editor_subroute `special-message`), so it appears in the widget show/hide/reorder editor automatically.
+- `app/[slug]/page.tsx` — `SpecialMessageWidget` rendered on both the authed-guest and anonymous-public paths; **blank message → section hides** (no demo state).
+- New editor `app/dashboard/[eventId]/website/special-message/` (page + server action) — single textarea (≤600 chars) writing `events.special_message`, RLS-gated.
+
+**Verify:** CI typecheck + lint; migration additive + idempotent; applied to prod via `supabase db push`.
+
+**SPEC IMPACT:** §6.5 content block shipped → DECISION_LOG. Remaining blocks (Our Love Story · What to Bring · Our Photos) follow the same pattern.
+
 ## 2026-06-08 · fix(marketing,0015): mobile hero overflow — responsive headline sizes
 
 **Context:** Owner 2026-06-08, reviewing setnayan.com on a phone: "having those large texts ate up the whole screen and we already lost the sale." The homepage `Hero` (`app/_components/marketing/_sections.tsx`) hard-coded the "Set na 'yan." `<h1>` to a fixed `fontSize: 152` and the "Plan your wedding the easy way" headline to a fixed `76`, inside `px-14` (56px) side padding — none responsive. On a 375px phone the headline can't fit, pushing the primary CTA far below the fold.

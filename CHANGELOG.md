@@ -3636,6 +3636,19 @@ The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); *
 **Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
 
 **SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
+## 2026-06-07 · feat(admin-pricing): per-SKU cost + margin column, editable cost + active toggle (0023)
+
+**Context:** `/admin/pricing` already SELECTed `saas_overhead_cost_php` from `platform_retail_catalog_v2` but never showed or wrote it. Owner needs the per-SKU cost-per-event and margin visible while editing prices live, plus a way to deactivate the 3 retired SKUs (Indoor Blueprint, High Res Archive, Call-Time Escalator) from the UI.
+
+**What landed (2 files, admin-only surface):**
+- **`app/admin/pricing/page.tsx`** — added a `marginPct(price, cost)` helper (divide-by-zero guarded → `null` for FREE SKUs). Each retail row now renders **Cost / event** (reuses `formatPeso`) and a computed **Margin %**. Header stats grid gains an **Avg margin (paid)** tile (now 5 tiles). The single-row edit form gains a `saas_overhead_cost_php` number input beside the retail-price field. (The `is_active` toggle was already present in the form — left intact / functional so retired SKUs are deactivatable.)
+- **`app/admin/pricing/actions.ts`** — `updateRetailSku` now reads, validates (non-negative, 2-dp rounded), and writes `saas_overhead_cost_php` alongside `retail_price_php`, preserving the existing `updated_by_admin_id` audit field, the prior-row snapshot/audit diff, and the 3 `revalidatePath` calls.
+
+No prices changed, no catalog rows added/removed, no DB migration or write — all cost values + deactivations are entered later by the owner via this UI.
+
+**Verify:** `pnpm typecheck` (tsc --noEmit) ✓ — clean.
+
+**SPEC IMPACT:** None — pricing model already landed in the corpus (Pricing.md § 00).
 
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 

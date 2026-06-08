@@ -1,52 +1,45 @@
 'use client';
 
 /**
- * AdminBottomNav — v2.1 Navigation Phase 3 (admin mobile).
+ * AdminBottomNav — admin mobile nav (ops-shaped redesign 2026-06-08).
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock specifies a
- * 5-item BottomNav strategy: Home · Queues · Directory · Money · More.
- * The admin surfaces compress into mobile-overflow landing pages because
- * forcing all desktop groups into a bottom strip would yield
- * unusably-narrow tap targets at common PH mobile widths (360-414px).
+ * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock specified a
+ * 5-tab strip (Home · Queues · Directory · Money · More). The ops-shaped
+ * nav redesign (Admin_Console_Nav_Redesign_2026-06-08.md · owner
+ * conditionally signed off) re-cuts it to a 4-tab spine — admin is a
+ * desktop-first ops tool, so the mobile job is approvals-on-the-go, not a
+ * domain-tab mirror:
+ *   Home · Work · Directory · More
+ * The "Money" tab is gone — money config folds into More (Money & Catalog),
+ * money queues fold into Work.
  *
- * The desktop sidebar (admin-sidebar.tsx) now exposes 6 groups: Home ·
- * Queues · Directory · Money · Insights (key 'funnels') · Manage (key
- * 'content'). The 4 mobile-overflow landing pages (/admin/queues +
- * /admin/directory + /admin/money + /admin/more) render the same NavGroup
- * items from admin-sidebar.tsx as a card grid — single source of truth,
- * two presentation surfaces.
+ * The desktop sidebar (admin-sidebar.tsx) exposes 6 groups: Home · Work
+ * (key 'queues') · Directory · Insights (key 'funnels') · Money & Catalog
+ * (key 'money') · Platform (key 'content'). The mobile-overflow landing
+ * pages (/admin/work + /admin/directory + /admin/more) present those
+ * surfaces. Legacy /admin/queues + /admin/money redirect to /admin/work +
+ * /admin/more for bookmark continuity.
  *
  * activeMatch rules:
- *   - Home    — EXACT /admin (uses activeMatchExact since every other
- *               tab's route also starts with /admin/)
- *   - Queues  — /admin/queues landing OR any queue sub-route
- *   - Directory — /admin/directory landing OR any directory sub-route
- *   - Money   — /admin/money landing OR any money sub-route
- *   - More    — /admin/more landing OR any Insights/Manage sub-route
+ *   - Home      — EXACT /admin (activeMatchExact, since every other tab's
+ *                 route also starts with /admin/)
+ *   - Work      — /admin/work (+ legacy /admin/queues) OR any act-now route
+ *   - Directory — /admin/directory OR any directory record route
+ *   - More      — /admin/more (+ legacy /admin/money) OR any Insights /
+ *                 Money & Catalog / Platform route
  *
- * BottomNav primitive (PR #603 + Phase 3 activeMatchExact extension)
- * auto-hides at lg breakpoint via lg:hidden, so this only renders on
- * mobile + tablet. Desktop uses the SidebarShell + AdminSidebar instead.
+ * BottomNav primitive auto-hides at lg via lg:hidden, so this only renders
+ * on mobile + tablet. Desktop uses SidebarShell + AdminSidebar.
  *
- * CLIENT BOUNDARY (REQUIRED): this file holds the `ADMIN_BOTTOM_NAV_ITEMS`
- * array whose entries carry `icon: LucideIcon` references — Lucide icons
- * are forwardRef objects with `$$typeof` + `render` properties. When a
- * Server Component renders `<BottomNav items={ADMIN_BOTTOM_NAV_ITEMS} />`
- * and `BottomNav` is itself a Client Component, Next.js tries to
- * serialize `items` across the Server→Client boundary and trips on the
- * function references inside each icon ("Only plain objects can be
- * passed to Client Components from Server Components" + "Functions
- * cannot be passed directly to Client Components"). Without this
- * directive every authed admin visit to /admin throws into the root
- * error boundary at apps/web/app/error.tsx and renders "Something on
- * our end didn't work." Marking this file `'use client'` keeps the icon
- * references on the client side end-to-end so the boundary is never
- * crossed. Symmetric with `apps/web/app/admin/_components/admin-sidebar.tsx`
- * which has been `'use client'` since PR #606 for the same reason (its
- * sidebar items also carry LucideIcon refs). Caught + fixed 2026-05-29.
+ * CLIENT BOUNDARY (REQUIRED): this file holds `ADMIN_BOTTOM_NAV_ITEMS` whose
+ * entries carry `icon: LucideIcon` refs (forwardRef objects). A Server
+ * Component rendering <BottomNav items={...}/> would try to serialize those
+ * function refs across the Server→Client boundary and throw into the root
+ * error boundary. `'use client'` keeps the refs client-side end-to-end.
+ * Symmetric with admin-sidebar.tsx. Caught + fixed 2026-05-29.
  */
 
-import { Home, LayoutList, Users, DollarSign, Menu } from 'lucide-react';
+import { Home, ListChecks, Users, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
@@ -62,20 +55,24 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatchExact: true,
   },
   {
-    key: 'queues',
-    label: 'Queues',
-    href: '/admin/queues',
-    icon: LayoutList,
+    key: 'work',
+    label: 'Work',
+    href: '/admin/work',
+    icon: ListChecks,
     activeMatch: [
+      '/admin/work',
+      // legacy landing — /admin/queues now redirects to /admin/work
       '/admin/queues',
-      '/admin/payments',
-      '/admin/payment-options',
       '/admin/verify',
+      '/admin/payments',
+      '/admin/payouts',
+      '/admin/token-purchases',
+      '/admin/payment-options',
       '/admin/disputes',
       '/admin/force-majeure',
       '/admin/reviews',
-      '/admin/help',
       '/admin/concierge-abuse',
+      '/admin/help',
     ],
   },
   {
@@ -90,25 +87,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/demo-vendors',
       '/admin/events',
       '/admin/venues',
-      '/admin/wedding-types',
-      '/admin/wedding-traditions',
-    ],
-  },
-  {
-    key: 'money',
-    label: 'Money',
-    href: '/admin/money',
-    icon: DollarSign,
-    activeMatch: [
-      '/admin/money',
-      '/admin/pricing',
-      '/admin/budget-planner',
-      '/admin/discount-codes',
-      '/admin/addons',
-      '/admin/payouts',
-      '/admin/token-bands',
-      '/admin/receipts',
-      '/admin/settings/payment-methods',
     ],
   },
   {
@@ -118,28 +96,34 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Menu,
     activeMatch: [
       '/admin/more',
-      // Insights group (2026-06-04 remap — now also holds the old Operations surfaces)
+      // legacy landing — /admin/money now redirects to /admin/more
+      '/admin/money',
+      // Insights group
       '/admin/growth',
       '/admin/funnels',
       '/admin/operations-hiring',
       '/admin/telemetry',
       '/admin/connection-logs',
       '/admin/offline',
-      // Manage group (2026-06-04 remap — old Content + Settings)
-      '/admin/brain',
-      '/admin/moodboard-library',
+      // Money & Catalog group
+      '/admin/pricing',
+      '/admin/addons',
+      '/admin/discount-codes',
+      '/admin/token-bands',
+      '/admin/budget-planner',
+      '/admin/receipts',
+      // Platform group (note: /admin/settings also covers
+      // /admin/settings/payment-methods + /admin/settings/demo-mode)
+      '/admin/settings',
       '/admin/taxonomy',
-      '/admin/songs',
       '/admin/website',
       '/admin/ads',
-      // Settings group. Note: `/admin/settings/payment-methods` will ALSO
-      // match the Money tab above (via the same `/admin/settings/payment-methods`
-      // prefix). This is acceptable dual-highlight because the iteration
-      // 0023 § 1 spec itself dual-locates Payment methods conceptually —
-      // it's Money substance reachable from Settings context. The
-      // /admin/settings/payment-methods URL matching both tabs is a
-      // truthful surface of that reality.
-      '/admin/settings',
+      '/admin/brain',
+      '/admin/moodboard-library',
+      '/admin/songs',
+      '/admin/wedding-types',
+      '/admin/wedding-traditions',
+      '/admin/notifications',
     ],
   },
 ];

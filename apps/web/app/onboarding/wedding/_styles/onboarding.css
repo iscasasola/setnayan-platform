@@ -992,3 +992,16 @@
 .onbw #screen-mood .tapzone{flex:0 0 auto;margin-top:10px;}
 .onbw #screen-mood .pgrid.strip .pcard .pimg{height:74px;}
 .onbw #screen-mood .pgrid.strip .pcard .pimg .g{font-size:27px;}
+
+/* ════ Refine passes (PR-4) — the UNIFORM RefineStep for both basic + extras ════
+   RefineStep wraps its body in .prefstep (which is display:none by default — it was the
+   retired sub-stepper's hidden host), so force it visible + column-fill inside an ACTIVE
+   refine section. The .prefstep .rail.car .pcard fill rules (≈L487-492) then drive the
+   photo-card carousel with no new carousel CSS; .prefprog/.prefcount/.prefdots (the header
+   progress + dots) and .pcard/.pimg/.plbl/.ck reuse their existing rules too. */
+.onbw #screen-refine-basic.active .prefstep,
+.onbw #screen-refine-extras.active .prefstep{display:flex;flex-direction:column;flex:1 0 auto;min-height:0;}
+.onbw #screen-refine-basic .prefstep .viewzone,
+.onbw #screen-refine-extras .prefstep .viewzone{flex:0 0 auto;}
+.onbw #screen-refine-basic .prefstep .tapzone,
+.onbw #screen-refine-extras .prefstep .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;margin-top:8px;}

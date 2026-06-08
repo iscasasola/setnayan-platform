@@ -101,8 +101,10 @@ import { SDLoader } from '@/components/sd-loader';
    PR-3: the interim flat `picker`+`prefs` ids are RETIRED. team_basics/team_extras both call
    the EXISTING pickChip → state.picks stays ONE flat array (Option-A bridge); songs/mood
    re-house the StyleSubStepper's music + palette dimensions (now standalone, still AI-gated).
-   refine_basic/refine_extras arrive in PR-4. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','team_extras','songs','mood','account','congrats','plan','services','summary'] as const;
+   PR-4: the two-pass UNIFORM refine engine lands — refine_basic (right after team_basics) +
+   refine_extras (right after team_extras) walk the picked leaves that have a REFINEMENTS entry
+   ("what kind of X?"). Both are AI-gated; an empty pass is skipped (go() re-entry loop). */
+const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The 5 love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -111,9 +113,10 @@ const LOVE_SKIPPABLE: ReadonlySet<ScreenId> = new Set(['love_met','love_proposal
    `aigate` (state.ai === true). team_basics (the 4 essentials) + team_extras (the full
    taxonomy browser) capture state.picks; songs + mood re-house the music + feel
    dimensions that the retired StyleSubStepper used to own (they were AI-gated as part of
-   prefs, so they stay AI-gated here). AI=No (or undecided) skips straight past all four to
-   account → congrats. refine_basic/refine_extras land in PR-4. */
-const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['team_basics','team_extras','songs','mood']);
+   prefs, so they stay AI-gated here). PR-4: refine_basic/refine_extras (the two-pass "what
+   kind of X?" engine) are present too — both AI-gated, so AI=No (or undecided) skips straight
+   past all six to account → congrats. */
+const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['team_basics','refine_basic','team_extras','refine_extras','songs','mood']);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null): ScreenId[] {
   return FLOW_IDS.filter((id) =>
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
@@ -140,6 +143,10 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   team_intro:'Continue', reception_setting:'Continue', team_payoff:'Continue', aigate:'Continue',
   // AI-gated team screens (PR-3). mood is terminal of the AI fork → "Looks good".
   team_basics:'Continue', team_extras:'Continue', songs:'Continue', mood:'Looks good',
+  // PR-4 refine passes — these keys exist only to satisfy the exhaustive Record; the
+  // CHROME CTA label for a refine screen is computed dynamically ("Next service" mid-queue,
+  // "Continue" on the last leaf) in the `nextLabel` derivation, never read from here.
+  refine_basic:'Continue', refine_extras:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -442,6 +449,184 @@ const SERVICE_STYLES = ['Plated', 'Buffet', 'Family-style', 'Stations'];
 const PV_LOOKS: [string, string, string][] = [['📸', 'Photojournalistic', 'pv_photojournalistic'], ['🤍', 'Classic', 'pv_classic'], ['📰', 'Editorial', 'pv_editorial'], ['🎞️', 'Fine-art / film', 'pv_fineart'], ['🎬', 'Cinematic', 'pv_cinematic']];
 const PV_NEEDS = ['Both photo & video', 'Photo only', 'Video only'];
 const PV_INCLUDED = ['Pre-nup', 'Wedding day', 'Same-day edit', 'Drone', 'Save-the-date', 'Album'];
+
+/* ════════════ PR-4 · REFINEMENTS — the two-pass UNIFORM "what kind of X?" engine ════════════
+   REFINEMENTS maps a PICK_GROUPS leaf key → { label, options }. ONLY leaves with an entry
+   get a refine screen; a picked leaf with NO entry (host_mc, lights_sound, …) is skipped
+   silently ("nothing to refine"). Options are [emoji, label, optionKey] tuples — the SAME
+   shape the ceremony / cuisine / pv carousels already use, so RefineStep renders every leaf
+   identically (owner 2026-06-07 "one template, same for all").
+
+   THREE leaves are PROJECTABLE — their option KEYS are reused verbatim from the existing
+   production consts so projectRefinementsToPrefs can map them back onto prefs (the recap +
+   commit read prefs, not the raw refinements blob):
+     • ceremony   → faith-adaptive at render via ceremonyOptsFor(faith) → prefs.ceremony
+       (the option keys are ceremony_church/mosque/…, the SAME keys the ceremony recap reads).
+     • catering   → CUISINE_OPTS keys (cuisine_*) → prefs.cuisine, plus a SYNTHETIC
+       'cuisine_halal' option that the projector routes to prefs.dietary 'halal' (NOT cuisine).
+     • photo_video → PV_LOOKS keys (pv_*) → prefs.pvLook.
+   Every OTHER leaf is NON-projectable — its options carry the prototype's verbatim strings
+   as [emoji, label, label] triples (key === label); those ride only the refinements JSONB. */
+type RefineDef = { label: string; dynamic?: 'ceremony'; options?: [string, string, string][] };
+/* synthetic-string helper for the ~35 non-projectable leaves: key === label (rides JSONB). */
+const rstr = (emoji: string, label: string): [string, string, string] => [emoji, label, label];
+const REFINEMENTS: Record<string, RefineDef> = {
+  /* ── PROJECTABLE (keys reused from production consts) ── */
+  ceremony: { label: 'Ceremony venue', dynamic: 'ceremony' }, // options come from ceremonyOptsFor(faith) at render
+  catering: { label: 'Catering', options: [...CUISINE_OPTS, ['☪️', 'Halal', 'cuisine_halal']] },
+  photo_video: { label: 'Photo & Video', options: [...PV_LOOKS] },
+  /* ── basics-pass: coordinator (the 4th basic; non-projectable string options) ── */
+  coordinator: { label: 'Coordinator', options: [rstr('🗓️', 'Day-of'), rstr('📅', 'Month-of'), rstr('🧩', 'Partial'), rstr('🤝', 'Full-service'), rstr('✈️', 'Destination')] },
+  /* ── extras-pass primary facets (non-projectable · verbatim prototype options) ── */
+  cake: { label: 'Cake', options: [rstr('🎂', 'Classic tiered'), rstr('🌿', 'Naked / semi-naked'), rstr('🌸', 'Floral'), rstr('◻️', 'Modern minimalist'), rstr('✨', 'Themed')] },
+  florist: { label: 'Florist', options: [rstr('🌿', 'Lush & garden'), rstr('◻️', 'Minimalist'), rstr('🌴', 'Tropical'), rstr('🌾', 'Dried / pampas'), rstr('🤍', 'All-white')] },
+  hmua: { label: 'Hair & Makeup', options: [rstr('🌸', 'Soft glam'), rstr('🤍', 'Natural / no-makeup'), rstr('📰', 'Bold & editorial'), rstr('🏛️', 'Traditional'), rstr('💨', 'Airbrush')] },
+  live_band: { label: 'Live Band', options: [rstr('🎸', 'Acoustic'), rstr('🎷', 'Jazz / lounge'), rstr('🎤', 'Pop / Top 40'), rstr('🇵🇭', 'OPM'), rstr('🎻', 'Classical')] },
+  bride_attire: { label: "Bride's Attire", options: [rstr('👰', 'Ball gown'), rstr('✨', 'A-line'), rstr('🌊', 'Mermaid'), rstr('🤍', 'Sheath'), rstr('🌺', 'Filipiniana')] },
+  stylist: { label: 'Stylist / Decorator', options: [rstr('◻️', 'Modern minimalist'), rstr('🏛️', 'Traditional classic'), rstr('🪵', 'Rustic / industrial'), rstr('🌾', 'Bohemian'), rstr('💎', 'Luxe glamour'), rstr('🌿', 'Garden / organic'), rstr('🎭', 'Themed')] },
+  stations: { label: 'Food Stations', options: [rstr('🥘', 'Paella'), rstr('🍣', 'Sushi'), rstr('🍜', 'Ramen'), rstr('🔥', 'Grill / BBQ'), rstr('🍝', 'Pasta'), rstr('🍖', 'Carving'), rstr('🌮', 'Taco bar')] },
+  groom_attire: { label: "Groom's Attire", options: [rstr('🤵', 'Classic suit'), rstr('✨', 'Slim-fit suit'), rstr('🎩', 'Tuxedo'), rstr('🧥', 'Three-piece'), rstr('🌾', 'Barong (formal white)'), rstr('🪡', 'Embroidered barong'), rstr('👔', 'Polo barong')] },
+  women_attire: { label: "Women's Attire", options: [rstr('👗', 'Long gown'), rstr('🍸', 'Cocktail'), rstr('🌺', 'Filipiniana'), rstr('🎨', 'Mix & match'), rstr('🤝', 'Coordinated set')] },
+  men_attire: { label: "Men's Attire", options: [rstr('🤵', 'Matching suits'), rstr('🌾', 'Barong set'), rstr('🎩', 'Tux'), rstr('👔', 'Smart casual'), rstr('🎭', 'Themed')] },
+  filipiniana: { label: 'Filipiniana & Barongs', options: [rstr('🌾', 'Piña'), rstr('🧵', 'Jusi'), rstr('🪡', 'Calado embroidery'), rstr('✨', 'Modern couture'), rstr('🧶', 'Regional weave')] },
+  grooming: { label: 'Grooming', options: [rstr('💈', 'Haircut & style'), rstr('🧔', 'Beard grooming'), rstr('🧖', 'Skincare / facial'), rstr('💅', 'Mani-pedi'), rstr('🛁', 'Body treatments')] },
+  jewelry: { label: 'Jewellery & Accessories', options: [rstr('💍', 'Engagement ring'), rstr('💞', 'Wedding bands'), rstr('💎', 'Bridal jewellery'), rstr('👰', 'Veil'), rstr('👑', 'Headpiece'), rstr('🎀', 'Garter')] },
+  dj: { label: 'DJ', options: [rstr('🎤', 'Pop'), rstr('🎧', 'Dance / EDM'), rstr('🎙️', 'Hip-hop'), rstr('🇵🇭', 'OPM'), rstr('🎸', 'Classic rock'), rstr('📻', 'Throwback 80s/90s'), rstr('💃', 'K-pop')] },
+  wedding_singer: { label: 'Wedding Singer', options: [rstr('🇵🇭', 'OPM'), rstr('🎶', 'Ballads'), rstr('🎤', 'Pop'), rstr('🎷', 'Jazz'), rstr('🎻', 'Classical'), rstr('🙏', 'Religious / liturgical'), rstr('🎭', 'Broadway')] },
+  choir: { label: 'Choir / Quartet', options: [rstr('🎶', 'Small choir'), rstr('🎼', 'Large choir'), rstr('🎻', 'String quartet'), rstr('🎻', 'String trio'), rstr('🎹', 'Chamber ensemble')] },
+  choreographer: { label: 'Choreographer', options: [rstr('🌺', 'Traditional Filipino'), rstr('💃', 'Ballroom'), rstr('🩰', 'Contemporary'), rstr('🪅', 'Latin / salsa'), rstr('🕺', 'K-pop'), rstr('🎭', 'Broadway'), rstr('🎙️', 'Hip-hop')] },
+  performers: { label: 'Performers', options: [rstr('🎩', 'Magician'), rstr('🔥', 'Fire dancer'), rstr('😂', 'Comedy'), rstr('🥁', 'Kulintang'), rstr('🎸', 'Rondalla'), rstr('🌺', 'Folk dancers')] },
+  livestream: { label: 'Livestream', options: [rstr('📹', '1080p standard'), rstr('🎥', '1080p premium'), rstr('📡', '4K')] },
+  mobile_bar: { label: 'Mobile Bar', options: [rstr('🍸', 'Full cocktail'), rstr('🍷', 'Beer & wine'), rstr('🍹', 'Mocktail only'), rstr('☕', 'Coffee-focused'), rstr('🥃', 'Whiskey & cigar'), rstr('🎭', 'Themed')] },
+  coffee: { label: 'Coffee / Espresso', options: [rstr('☕', 'Espresso bar'), rstr('🫗', 'Pour-over'), rstr('🌱', 'Specialty beans'), rstr('🍵', 'Tea bar'), rstr('✨', 'Both')] },
+  mocktail: { label: 'Mocktail Bar', options: [rstr('🍓', 'Fruit'), rstr('🌿', 'Herbal'), rstr('🥂', 'Sparkling'), rstr('🍵', 'Tea-based'), rstr('🌴', 'Tropical'), rstr('🍮', 'Dessert')] },
+  food_truck: { label: 'Food Truck', options: [rstr('🍔', 'Burgers'), rstr('🍕', 'Pizza'), rstr('🌮', 'Tacos'), rstr('🥢', 'Asian fusion'), rstr('🇵🇭', 'Filipino street food'), rstr('🍦', 'Ice cream'), rstr('🍢', 'Grilled skewers')] },
+  dessert: { label: 'Dessert Station', options: [rstr('🥐', 'Pastries'), rstr('🍬', 'Macarons'), rstr('🧁', 'Cupcakes'), rstr('🍫', 'Chocolate fountain'), rstr('🍭', 'Candy buffet'), rstr('🍩', 'Donut wall'), rstr('🥖', 'Churros'), rstr('🍚', 'Kakanin')] },
+  food_cart: { label: 'Food Cart', options: [rstr('🍧', 'Halo-halo'), rstr('🍦', 'Ice cream'), rstr('🥞', 'Crepe / pancake'), rstr('🍬', 'Cotton candy'), rstr('🧀', 'Charcuterie'), rstr('🐷', 'Mini lechon'), rstr('🍨', 'Sorbetes')] },
+  photo_booth: { label: 'Photo Booth', options: [rstr('📸', 'Traditional'), rstr('🔄', '360 booth'), rstr('🎞️', 'GIF'), rstr('🖼️', 'Polaroid / instax'), rstr('🪞', 'Magic mirror'), rstr('🎬', 'Patiktok')] },
+  henna: { label: 'Henna / Tattoo', options: [rstr('🪬', 'Traditional Arabic'), rstr('◻️', 'Modern minimalist'), rstr('💍', 'Elaborate bridal'), rstr('🌙', 'Philippine Muslim')] },
+  printing: { label: 'Printing & Invites', options: [rstr('💌', 'Invitations'), rstr('🗓️', 'Save-the-date'), rstr('📜', 'Program'), rstr('🪧', 'Place cards'), rstr('📋', 'Menu'), rstr('🪧', 'Signage')] },
+  souvenirs: { label: 'Souvenirs / Giveaways', options: [rstr('🍬', 'Edible'), rstr('🔑', 'Practical / keychain'), rstr('🗿', 'Decorative figurine'), rstr('🌺', 'Native Filipino'), rstr('🕯️', 'Candle DIY'), rstr('🪴', 'Succulent')] },
+  bridal_car: { label: 'Bridal Car', options: [rstr('🚗', 'Luxury sedan'), rstr('🚙', 'Limousine'), rstr('🚘', 'Vintage / classic'), rstr('🚐', 'SUV'), rstr('🚌', 'Van / minivan'), rstr('🐴', 'Carriage'), rstr('🏍️', 'Motorcycle escort')] },
+  guest_shuttle: { label: 'Guest Shuttle', options: [rstr('🚐', '12-pax van'), rstr('🚌', '24-pax minibus'), rstr('🚍', '48-pax bus'), rstr('🚎', '56-pax coaster')] },
+  escort: { label: 'Motorcycle Escort', options: [rstr('🏁', 'Parade'), rstr('🏍️', 'Escort'), rstr('🚓', 'Police-style'), rstr('💠', 'Ceremonial diamond')] },
+  outdoor: { label: 'Outdoor Rentals', options: [rstr('⛺', 'Tent'), rstr('🔌', 'Generator'), rstr('🚻', 'Mobile restroom'), rstr('🌬️', 'Cooling fans / misters'), rstr('🔊', 'Outdoor sound'), rstr('💡', 'Outdoor lighting')] },
+};
+
+/* Option keys that map to a real assets/prefs/<key>.webp (the 3 projectable leaves' photo
+   options). Worship venues without a shipped asset (ceremony_synagogue) + the synthetic
+   'cuisine_halal' are deliberately excluded so RefineStep falls back to the emoji glyph. */
+const REFINE_PREFS_PHOTO_KEYS: ReadonlySet<string> = new Set<string>([
+  'ceremony_church', 'ceremony_mosque', 'ceremony_temple', 'ceremony_garden', 'ceremony_beach', 'ceremony_civil', 'ceremony_same_reception',
+  ...CUISINE_OPTS.map((o) => o[2]),
+  ...PV_LOOKS.map((o) => o[2]),
+]);
+
+/* ── refine pass order (§5.1) ──────────────────────────────────────────────────
+   BASIC pass = canonical BASIC order (ceremony → catering → coordinator → photo_video),
+   NOT pick order. EXTRAS pass = the FLAT PICK_GROUPS taxonomy order minus the basics +
+   minus reception (captured on reception_setting). A leaf is QUEUED only if it's both
+   picked AND has a REFINEMENTS entry → an extras-pick like host_mc (no entry) drops out,
+   and a pass can end up empty → the go() re-entry loop skips it. */
+const REFINE_BASIC_ORDER: readonly string[] = BASIC_CATS;
+const EXTRAS_ORDER: string[] = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat)).filter((c) => c !== 'reception' && !BASIC_SET.has(c));
+function refineBasicQueueFor(picks: string[]): string[] {
+  return REFINE_BASIC_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS);
+}
+function refineExtrasQueueFor(picks: string[]): string[] {
+  return EXTRAS_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS);
+}
+function queueFor(id: ScreenId, picks: string[]): string[] {
+  return id === 'refine_basic' ? refineBasicQueueFor(picks) : refineExtrasQueueFor(picks);
+}
+/* the two refine passes (used by the go() re-entry loop + the render dispatch). */
+const REFINE_SCREENS: ReadonlySet<ScreenId> = new Set(['refine_basic', 'refine_extras']);
+
+/* ── projector (§3.3) ──────────────────────────────────────────────────────────
+   Map the 3 PROJECTABLE refine leaves back onto prefs so the recap + commit reflect the
+   refine picks. The other ~35 leaves are NOT touched — they ride only refinements JSONB.
+   Returns a Partial<prefs> so it spreads cleanly over { ...s.prefs }; only writes a key
+   when there's a value, so it never clobbers prefs.reception/feel/music/serviceStyle/etc. */
+function projectRefinementsToPrefs(refinements: Record<string, string[]>, faith: OnboardingFaith[]): Partial<OnboardingState['prefs']> {
+  const out: Partial<OnboardingState['prefs']> = {};
+  // ceremony → single key (LAST valid pick; prefs.ceremony is string|null + the recap is single-value).
+  const cer = refinements.ceremony ?? [];
+  if (cer.length) {
+    const valid = new Set(ceremonyOptsFor(faith).map((o) => o[2]));
+    const last = [...cer].reverse().find((k) => valid.has(k));
+    if (last) out.ceremony = last;
+  }
+  // catering → cuisine_* keys (EXCLUDING the synthetic Halal) + push 'halal' into dietary.
+  const cat = refinements.catering ?? [];
+  const cuisine = cat.filter((k) => k.startsWith('cuisine_') && k !== 'cuisine_halal');
+  if (cuisine.length) out.cuisine = cuisine;
+  if (cat.includes('cuisine_halal')) out.dietary = ['halal'];
+  // photo_video → pv_* keys.
+  const pv = (refinements.photo_video ?? []).filter((k) => k.startsWith('pv_'));
+  if (pv.length) out.pvLook = pv;
+  return out;
+}
+
+/* ── RefineStep (§5.3) — the UNIFORM template ───────────────────────────────────
+   ONE component renders BOTH passes + EVERY leaf identically; only the eyebrow + the
+   active queue/leaf differ. Layout is fixed — the data supplies only label/options. The
+   ceremony leaf is faith-adaptive (options from ceremonyOptsFor). Wrapped in .prefstep so
+   the existing .prefstep .rail.car .pcard fill rules apply with no new carousel CSS.
+   COVERT: copy is "what kind of X?" service-shaped only — never love/song/pricing. */
+function RefineStep({
+  scope,
+  queue,
+  idx,
+  leaf,
+  faith,
+  chosen,
+  onToggle,
+}: {
+  scope: 'basic' | 'extras';
+  queue: string[];
+  idx: number;
+  leaf: string;
+  faith: OnboardingFaith[];
+  chosen: string[];
+  onToggle: (leaf: string, optKey: string) => void;
+}) {
+  const def = REFINEMENTS[leaf];
+  if (!def) return null;
+  const options: [string, string, string][] = def.dynamic === 'ceremony' ? ceremonyOptsFor(faith) : (def.options ?? []);
+  const eyebrow = scope === 'basic' ? 'Refine your essentials' : 'Refine the extras you love';
+  // Photo cards: only the 3 PROJECTABLE leaves' options have a real assets/prefs/*.webp.
+  // The synthetic 'cuisine_halal', the ceremony_synagogue worship venue (no asset shipped),
+  // and every non-projectable string-keyed option have none → leave photoKey undefined so
+  // PCard shows the emoji glyph instead of a broken background image.
+  const REFINE_PHOTO_KEY = (key: string) => (REFINE_PREFS_PHOTO_KEYS.has(key) ? key : undefined);
+  return (
+    <div className="prefstep refinestep">
+      <div className="viewzone">
+        <div className="prefprog">
+          <span className="prefcount">Service {idx + 1} of {queue.length} · {def.label}</span>
+          <span className="prefdots">{queue.map((_, d) => <i key={d} className={d <= idx ? 'on' : ''} />)}</span>
+        </div>
+        <div className="eyebrow">{eyebrow}</div>
+        <h1 className="q">What kind of {def.label.toLowerCase()}?</h1>
+        <p className="sub">Pick the ones that feel like you {'—'} we{'’'}ll match the rest.</p>
+      </div>
+      <div className="tapzone">
+        <Rail className="pgrid car">
+          {options.map(([emoji, label, key]) => (
+            <PCard
+              key={key}
+              emoji={emoji}
+              label={label}
+              photoKey={REFINE_PHOTO_KEY(key)}
+              selected={chosen.includes(key)}
+              onClick={() => onToggle(leaf, key)}
+            />
+          ))}
+        </Rail>
+      </div>
+    </div>
+  );
+}
 
 /** A photo-card option (prototype PGRID .pcard). */
 function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; label: string; photoKey?: string; selected: boolean; onClick: () => void }) {
@@ -1271,6 +1456,10 @@ export function OnboardingShell({
      only state.picks does (the flat pick array both screens mutate via pickChip). */
   const [basicFocus, setBasicFocus] = useState<string>(BASIC_CATS[0]);
   const [extrasOpen, setExtrasOpen] = useState<number | null>(null);
+  /* PR-4 refine engine: position WITHIN the active pass's queue. The two passes
+     (refine_basic / refine_extras) re-enter the same screen index for each queued leaf;
+     refineIdx is the cursor go() walks. Both queues are pure fns of state.picks. */
+  const [refineIdx, setRefineIdx] = useState(0);
   /* Phase-4 local UI: BYO bottom-sheet (12) · in-app-services detail focus (15) */
   const [focusedService, setFocusedService] = useState('');
   /* Step-14 "Reach my best matches" gate: matchAvail = did the AI find best-fit
@@ -1409,6 +1598,15 @@ export function OnboardingShell({
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
 
+  /* PR-4 refine queues — pure derivations of state.picks (the basics in canonical BASIC
+     order, the extras in flat-taxonomy order; each filtered to picked ∩ has-a-REFINEMENTS-
+     entry). activeRefineQueue selects the one the current refine screen walks. */
+  const refineBasicQueue = useMemo(() => refineBasicQueueFor(state.picks), [state.picks]);
+  const refineExtrasQueue = useMemo(() => refineExtrasQueueFor(state.picks), [state.picks]);
+  const activeRefineQueue = activeId === 'refine_basic' ? refineBasicQueue : activeId === 'refine_extras' ? refineExtrasQueue : [];
+  const refinePosClamped = Math.min(Math.max(0, refineIdx), Math.max(0, activeRefineQueue.length - 1));
+  const activeRefineLeaf = activeRefineQueue[refinePosClamped];
+
   const isCivil = kind === 'civil';
 
   // Loop the monogram Trace (owner 2026-06-04 "make the animation of monogram
@@ -1448,19 +1646,41 @@ export function OnboardingShell({
   /* ── navigation (prototype go(d)) ──
      Navigate by INDEX within the filtered sequence. The Civil-skips-faith +
      signed-in-skips-account + AI-gated-team forks are automatic (those ids aren't in the
-     seq), so there's no skip arithmetic here. PR-3 retired the prefs sub-stepper — every
-     Dream Team team_basics/team_extras/songs/mood screen is now a plain linear screen, so
-     go(1)/go(-1) just step the index. */
+     seq), so there's no skip arithmetic here. PR-4 re-adds a sub-stepper: the two refine
+     passes (refine_basic / refine_extras) re-enter the SAME screen index for each queued
+     leaf, so go() walks refineIdx within the active pass BEFORE stepping the screen index.
+     Entering a refine pass seeds the cursor (idx 0 forward · last item backward) — or skips
+     the whole pass if its queue is empty. Both queues are pure fns of s.picks, computed
+     inside the SAME setState updater. */
   const go = useCallback(
     (d: number) => {
       if (d === 0) return;
       setState((s) => {
         const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
-        const n = Math.max(0, Math.min(sq.length - 1, s.step + d));
+        const activeIdNow = sq[Math.min(Math.max(0, s.step), sq.length - 1)] ?? 'welcome';
+        // ── refine re-entry: walk the queued leaves within the active pass before leaving ──
+        if (REFINE_SCREENS.has(activeIdNow) && s.ai === true) {
+          const q = queueFor(activeIdNow, s.picks);
+          if (d > 0 && refineIdx < q.length - 1) { setRefineIdx(refineIdx + 1); return s; } // forward within the pass
+          if (d < 0 && refineIdx > 0) { setRefineIdx(refineIdx - 1); return s; }            // backward within the pass
+          // else: fall through to leave the pass (generic step below)
+        }
+        let n = Math.max(0, Math.min(sq.length - 1, s.step + d));
+        const targetId = sq[n] ?? 'welcome';
+        // entering a refine pass FORWARD → seed idx 0, or skip past it if the queue is empty
+        if (REFINE_SCREENS.has(targetId) && d > 0) {
+          const q = queueFor(targetId, s.picks);
+          if (q.length === 0) { n = Math.min(sq.length - 1, n + 1); } else { setRefineIdx(0); }
+        }
+        // entering a refine pass BACKWARD → land on its LAST item, or keep stepping back if empty
+        if (REFINE_SCREENS.has(targetId) && d < 0) {
+          const q = queueFor(targetId, s.picks);
+          if (q.length === 0) { n = Math.max(0, n - 1); } else { setRefineIdx(q.length - 1); }
+        }
         return { ...s, step: n };
       });
     },
-    [authed],
+    [authed, refineIdx],
   );
 
   /* Absolute jump to a screen by id (resolves to its index in the filtered seq).
@@ -1688,6 +1908,19 @@ export function OnboardingShell({
     (p: Partial<OnboardingState['prefs']>) => setState((s) => ({ ...s, prefs: { ...s.prefs, ...p } })),
     [],
   );
+
+  /* PR-4 refine toggle — multi-select a leaf's option AND live-project the 3 projectable
+     leaves (ceremony/catering/photo_video) onto prefs in the SAME setState so refinements +
+     prefs stay atomically consistent (the recap + commit read prefs, never the raw blob).
+     state.picks is NEVER mutated here — refine reads it, the picker writes it. */
+  const patchRefine = useCallback((leaf: string, optKey: string) => {
+    setState((s) => {
+      const cur = s.refinements[leaf] ?? [];
+      const nextLeaf = cur.includes(optKey) ? cur.filter((x) => x !== optKey) : [...cur, optKey];
+      const refinements = { ...s.refinements, [leaf]: nextLeaf };
+      return { ...s, refinements, prefs: { ...s.prefs, ...projectRefinementsToPrefs(refinements, s.faith) } };
+    });
+  }, []);
 
   /* find-vendor (step 12): toggle a reception venue in the shortlist (powers the
      recap count on screen 13). */
@@ -1944,8 +2177,12 @@ export function OnboardingShell({
   const budgetLabel = (BUDGET_BANDS.find((x) => x.value === (state.budgetBand ?? 'classic')) ?? BUDGET_BANDS[2]!).label;
 
   /* Continue label per screen. `mood` (the terminal AI screen) carries the "Looks good"
-     flourish via NEXT_LABEL_BY_ID (PR-3 — the retired prefs sub-stepper supplied it before). */
-  const nextLabel = NEXT_LABEL_BY_ID[activeId] ?? 'Continue';
+     flourish via NEXT_LABEL_BY_ID (PR-3 — the retired prefs sub-stepper supplied it before).
+     PR-4: a refine screen's CHROME CTA reads "Next service" while there are more queued
+     leaves in the pass, then "Continue" on the last leaf (go() walks refineIdx, then steps). */
+  const nextLabel = REFINE_SCREENS.has(activeId)
+    ? (refinePosClamped < activeRefineQueue.length - 1 ? 'Next service' : 'Continue')
+    : (NEXT_LABEL_BY_ID[activeId] ?? 'Continue');
 
   /* ── kind hero ── */
   const kindPhoto = KIND_PHOTO[kind ?? 'religious'];
@@ -2292,14 +2529,18 @@ export function OnboardingShell({
       // matter for the different services). Display only, not vendor matching.
       // Cast: OnboardingPrefs is a fixed-key interface (no index signature),
       // so it needs an explicit widen to the payload's Record<string, unknown>.
-      stylePreferences: { ...s.prefs } as Record<string, unknown>,
+      // PR-4: the refine projection is re-applied here IDEMPOTENTLY so the commit carries
+      // the projected ceremony/cuisine/pvLook/dietary even if a resumed draft never ran a
+      // live patchRefine. Re-projecting an already-projected state yields the same keys.
+      stylePreferences: { ...s.prefs, ...projectRefinementsToPrefs(s.refinements, s.faith) } as Record<string, unknown>,
       // Your Plan opt-ins (screen 14) — free-guidance flag + top-3 inquiry fan-out choice.
       guidanceOptIn: s.guidanceOptIn,
       sendTopInquiries: s.sendTopInquiries,
       inquiriesPerCategory: s.inquiriesPerCategory,
       interestedServices: s.interestedServices,
-      // Dream Team chapter — per-leaf refinement detail (additive · empty {} until
-      // the refine passes ship; projection onto prefs lands with PR-4).
+      // Dream Team chapter — per-leaf refinement detail (the raw multi-select blob; the
+      // 3 projectable leaves ALSO ride prefs via the projection above). Projection onto
+      // prefs landed PR-4 (live in patchRefine + idempotent in stylePreferences above).
       refinements: s.refinements,
       // BYO vendors (screen-12 "Add your own vendor" sheet) — off-platform contacts
       // the couple typed in. Persisted at commit as event_vendors 'considering'
@@ -3302,6 +3543,24 @@ export function OnboardingShell({
             </div>
           </section>
 
+          {/* REFINE_BASIC (PR-4) — the FIRST refine pass: "What kind of X?" for each picked
+              BASIC leaf that has a REFINEMENTS entry, in canonical BASIC order. The go()
+              re-entry loop walks refineIdx through refineBasicQueue; RefineStep renders the
+              active leaf with the UNIFORM template. An empty queue is skipped by go(). */}
+          <section className={`screen${activeId === 'refine_basic' ? ' active' : ''}`} id="screen-refine-basic">
+            {activeId === 'refine_basic' && activeRefineLeaf && (
+              <RefineStep
+                scope="basic"
+                queue={activeRefineQueue}
+                idx={refinePosClamped}
+                leaf={activeRefineLeaf}
+                faith={state.faith}
+                chosen={state.refinements[activeRefineLeaf] ?? []}
+                onToggle={patchRefine}
+              />
+            )}
+          </section>
+
           {/* TEAM_EXTRAS — expandable parent → tiles browser of the FULL taxonomy MINUS the
               4 basics AND minus `reception` (captured on reception_setting · prototype s3pick).
               Single-open accordion; each open parent reveals a Rail.car of PickCards. BRIDGE:
@@ -3352,6 +3611,25 @@ export function OnboardingShell({
                 })()}
               </div>
             </div>
+          </section>
+
+          {/* REFINE_EXTRAS (PR-4) — the SECOND refine pass: "What kind of X?" for each picked
+              EXTRA leaf that has a REFINEMENTS entry, in flat-taxonomy order. Same UNIFORM
+              RefineStep template as refine_basic — only the eyebrow + the queue differ. An
+              extras-pick with no REFINEMENTS entry (host_mc, lights_sound, …) drops out; an
+              empty queue is skipped by the go() re-entry loop. */}
+          <section className={`screen${activeId === 'refine_extras' ? ' active' : ''}`} id="screen-refine-extras">
+            {activeId === 'refine_extras' && activeRefineLeaf && (
+              <RefineStep
+                scope="extras"
+                queue={activeRefineQueue}
+                idx={refinePosClamped}
+                leaf={activeRefineLeaf}
+                faith={state.faith}
+                chosen={state.refinements[activeRefineLeaf] ?? []}
+                onToggle={patchRefine}
+              />
+            )}
           </section>
 
           {/* SONGS — the music dimension, lifted out of the retired StyleSubStepper into a

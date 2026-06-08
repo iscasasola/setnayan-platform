@@ -12,12 +12,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - `<h1>` "Set na 'yan." → `fontSize: clamp(3.1rem, 13vw, 152px)` (≈50px on a 375px phone · still 152px on desktop).
 - Headline "Plan your wedding the easy way" → `clamp(1.9rem, 6vw, 76px)`.
 - Hero padding responsive: `px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20` (was fixed `px-14 pt-20`).
-- The secondary "Wedding today. Every celebration tomorrow." pill → `hidden sm:inline-flex`, and lede/CTA top-margins tightened on mobile, so the "Start planning · free" CTA sits above the fold on a phone.
+- The secondary "Wedding today. Every celebration tomorrow." pill → `hidden sm:inline-flex`, lede/CTA top-margins tightened on mobile, so the "Start planning · free" CTA sits above the fold on a phone.
 - Desktop hero is visually unchanged (the clamps cap at the original 152/76px).
 
 **Verify:** CSS/markup only, no type changes. Vercel preview + Lighthouse on the PR.
 
 **SPEC IMPACT:** None (presentation-only; no copy / SKU / pricing change). Tracked follow-up: the other 11 marketing sections share the same fixed `px-14` + `120px` vertical paddings → a broader mobile-padding pass, plus the new `/apps` + `/about` pages, the Premium-stance pricing ladder (a `v2-catalog` data change), and real photography.
+
+## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
+
+**Context:** Owner design session locked the couple's event website as ONE site with three date-driven phases (RSVP before · Event during · Editorial after) — spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + corpus DECISION_LOG. This PR ships the safe, additive schema foundation; nothing consumes it yet (frontend ships ahead).
+
+**What landed (`20260910000000_wedding_website_lifecycle_foundation.sql`, applied to prod):**
+- **`events.*`** — looping bg music (`site_bg_music_source`/`_r2_key`/`_enabled`), scrub-video hero (`landing_page_hero_video_r2_key`), auto-editorial storyline inputs (`love_story` JSONB, `special_message`, `together_since`, `editorial_tone`, `editorial_language`).
+- **`event_vendors.selection_match_rank`** — was this vendor the #1 leaf-match at selection (powers the Editorial "By the Numbers" first-pick stat; forward-only).
+- **`event_editorial`** — per-event recap snapshot (`draft_json` + frozen `impact_metrics` + hero/essay refs); RLS: couple + accepted moderators read/write, admin read.
+
+**Deferred (decision / atomic renderer ship):** `invitation_widgets` per-phase (renderer-coupled) + event-level review/feedback table (reconcile vs existing `vendor_reviews`).
+
+**Verify:** purely additive (`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`), idempotent, RLS at table create; CI green; migration applied to prod via `supabase db push`.
+
+**SPEC IMPACT:** Wedding-website lifecycle model → `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + DECISION_LOG 2026-06-07 (landed). 0002 / 0021 / 0031 fold-in pending.
 
 ## 2026-06-07 · feat(vendor-tiers): Phase B — count caps (agents · portfolio · parent categories)
 

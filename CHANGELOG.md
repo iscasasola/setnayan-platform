@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(services): Budget "Build" — adversarial-review fixes (basket clamp + desktop topbar)
+
+**Context:** Post-launch adversarial multi-agent review of the now-live takeover surfaced **no must-fix blockers** (RLS cross-event isolation holds; no data loss/leak) but **two real should-fix bugs**, fixed here.
+
+1. **Basket inversion under a tight budget** (`build-compare.tsx`): when budget < Σ medians (the common `surplusMode:'park'` case) the engine compresses `amountPhp` (Fits) below the unscaled `rangeLowPhp`, so the Lean column read *higher* than Fits and the over/under labels flipped. **Fix:** clamp per leaf — `lean = min(rangeLow, amount)`, `stretch = max(rangeHigh, amount)` — guaranteeing `lean ≤ fits ≤ stretch` (flows through to the saved-build snapshot too).
+2. **Desktop lost the EventSwitcher + notifications** (`services-takeover.tsx`): the `.shell-topbar{display:none}` was global; on desktop the top bar is the only host of multi-event switching + the notifications bell (no sidebar fallback). **Fix:** scope the hide to `@media (max-width:1023px)` — desktop keeps its top bar (the desktop tab strip lives in the content area; the floating X was already `lg:hidden`).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Flag stays default-ON.
+
+**SPEC IMPACT:** None (behavior fixes within `Budget_Build_Services_Takeover_2026-06-08.md`). Remaining review **nice-to-haves** (surfaced, not yet done): tab a11y roles, URL-backed tab state, and an owner decision on tightening `budget_builds` RLS to couple-only read/delete + pinning `created_by` on the upsert (currently inherits the canonical `current_event_ids()` pattern). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(admin): onboarding refinements editor (follow-up to items 8/9)
 
 **Context:** The DB-backed refinements landed editable-via-SQL-only; this adds the admin UI so the catalogue is editable without SQL or a deploy.

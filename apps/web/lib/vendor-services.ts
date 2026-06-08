@@ -6,6 +6,8 @@ export type VendorServiceRow = {
   public_id: string;
   vendor_profile_id: string;
   category: string;
+  /** Per-listing name (#1 multi-service-per-leaf); null → fall back to category label. */
+  title: string | null;
   starting_price_php: number | null;
   crew_size: number | null;
   crew_meal_required: boolean;
@@ -23,7 +25,7 @@ export type VendorServiceRow = {
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},branch_id,last_minute_end_months,last_minute_surcharge_pct`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,last_minute_end_months,last_minute_surcharge_pct`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -47,8 +49,9 @@ export async function fetchVendorServices(
     return (fallback.data ?? []).map((s) => ({
       ...(s as Omit<
         VendorServiceRow,
-        'branch_id' | 'last_minute_end_months' | 'last_minute_surcharge_pct'
+        'title' | 'branch_id' | 'last_minute_end_months' | 'last_minute_surcharge_pct'
       >),
+      title: null,
       branch_id: null,
       last_minute_end_months: null,
       last_minute_surcharge_pct: null,

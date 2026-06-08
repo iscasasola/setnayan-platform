@@ -1,59 +1,58 @@
 'use client';
 
 /**
- * AdminSidebar — v2.1 Navigation Phase 3 (admin doorway).
+ * AdminSidebar — admin doorway desktop nav (NavGroup[] source of truth).
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 locks the admin console, originally
- * grouped into 8 canonical categories per iteration 0023 § 1 but
- * remapped 2026-06-04 to 6 groups (see below). Pre-Phase 3
- * the admin chrome rendered a horizontal pill bar via
- * apps/web/app/admin/_components/admin-nav.tsx (lines 19-110 · 8 groups +
- * 1 leaf rendered as portal-based dropdowns). The CLAUDE.md 2026-05-28
- * 11th + 14th rows + the v2.1 brief canonical lock (10th 2026-05-28 row)
- * established a coherent sidebar treatment across the 3 doorways using
- * the shared primitives shipped via PR #603.
+ * WHY: CLAUDE.md 2026-05-23 row 2 locks the admin console. Originally 8
+ * categories (0023 § 1), remapped 2026-06-04 to 6 topic-groups, and re-cut
+ * 2026-06-08 by the ops-shaped nav redesign
+ * (Admin_Console_Nav_Redesign_2026-06-08.md · owner conditionally signed
+ * off 2026-06-08). The console is now grouped by the VERB an admin performs
+ * — act / find / tune — instead of by topic, because admin is a work-queue
+ * ops console (≈95% of sessions are "clear a queue").
  *
  * This file owns the NavGroup[] array consumed by SidebarShell +
  * SidebarSection + SidebarItem from @/app/_components/nav/*. It is the
- * single source of truth for admin nav structure on desktop. The 5-item
+ * single source of truth for admin nav structure on desktop. The 4-item
  * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
  *
- * 6 GROUPS (remapped 2026-06-04 from the original 8 per 0023 § 1). Note
- * the deliberate key/label divergence preserved for localStorage open-state
- * continuity: group key 'funnels' renders label "Insights"; group key
- * 'content' renders label "Manage".
- *   1. Home (key 'home')       — Overview (/admin)
- *   2. Queues (key 'queues')   — Payments · Payment options · Verify ·
- *                   Disputes · Force majeure · Reviews · Help ·
- *                   Concierge abuse
+ * 6 GROUPS — a 3-item spine (Home · Work · Directory) + 3 collapsible
+ * tune-groups (Insights · Money & Catalog · Platform). Group KEYS are
+ * deliberately preserved across the relabel so localStorage open-state
+ * survives: key 'queues' now renders label "Work"; key 'money' renders
+ * "Money & Catalog"; key 'funnels' renders "Insights"; key 'content'
+ * renders "Platform".
+ *   1. Home  (key 'home')      — Overview (/admin)
+ *   2. Work  (key 'queues')    — every act-now queue: Verify · Payments ·
+ *                   Payouts · Token sales · Payment options · Disputes ·
+ *                   Force majeure · Reviews · AI abuse · Help. (Payouts +
+ *                   Token sales pulled in from the dissolved Money group.)
  *   3. Directory (key 'directory') — Users · Vendors · Demo vendors ·
- *                   Events · Venues · Wedding types · Wedding traditions
- *   4. Money (key 'money')     — Pricing · Budget Planner · Discount codes ·
- *                   Add-ons · Payouts · Token bands · Receipts ·
- *                   Payment methods (BIR 2307 retired 2026-05-29 under V2
- *                   publisher posture · Payment methods de-duplicated from
- *                   Settings group per brief)
- *   5. Insights (key 'funnels') — Growth · Funnels · Operations & Hiring ·
- *                   Telemetry · Connection logs · Offline daemon (absorbed
- *                   the old Operations group 2026-06-04; Telemetry + Offline
- *                   are FORWARD-REFERENCE entries until their sprints land)
- *   6. Manage (key 'content')  — Taxonomy · Website · Ads · Brain ·
- *                   Moodboard library · Songs · Settings · Demo mode
- *                   (merged the old Content + Settings groups 2026-06-04)
+ *                   Events · Venues. (Wedding types + traditions moved to
+ *                   Platform — governance + content, not look-up.)
+ *   4. Insights (key 'funnels') — Growth · Funnels · Operations & Hiring ·
+ *                   Telemetry · Connection logs · Offline daemon.
+ *   5. Money & Catalog (key 'money') — config, NOT the act-now queues:
+ *                   Pricing · Add-ons · Discount codes · Token bands ·
+ *                   Budget Planner · Receipts · Payment methods. (Payouts +
+ *                   Token sales moved to Work.)
+ *   6. Platform (key 'content') — Settings · Taxonomy · Website · Ads ·
+ *                   AI brain · Moodboard library · Songs · Wedding types ·
+ *                   Wedding traditions · Notifications · Demo mode.
+ *                   (Notifications gets a nav home — it was an orphan.)
  *
- * PAYMENT METHODS DEDUP: the existing admin-nav.tsx surfaced
- * /admin/settings/payment-methods in BOTH Money + Settings groups per
- * iteration 0023 § 1 dual-location note. The Phase 3 brief explicitly
- * drops the Settings duplicate and keeps the Money location only. This
- * eliminates the confusion vector + matches the "money + trust + recourse"
- * cluster reading of the Money group.
+ * REQUIRED FOLLOW-UP (owner sign-off condition): the Work view's Money-lane
+ * filter (Payments + Payouts + Token sales surfaced together) ships with the
+ * Work master-detail PR, so finance keeps a one-stop money view after the
+ * Money group dissolves. RBAC handler-lane scoping is a later, separate build.
  *
- * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse remains as
- * an admin label per PR #579 ("Setnayan AI abuse") because the route
- * path + DB table names (concierge_abuse_flags) stayed for bookmark +
- * audit-history continuity. We label the sidebar entry "Setnayan AI
- * abuse" to match the V2 brand surface (CLAUDE.md 10th 2026-05-28 row
- * v2.1 brief canonical lock).
+ * PAYMENT METHODS: canonical home is Money & Catalog (the data IS money —
+ * vendor payouts + customer payment instructions both consume it). Not
+ * duplicated into Platform/Settings.
+ *
+ * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse keeps its route
+ * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
+ * but the sidebar entry reads "Setnayan AI abuse" to match the V2 brand.
  */
 
 import {
@@ -94,6 +93,7 @@ import {
   Settings,
   Wallet,
   ShoppingBag,
+  Bell,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -102,16 +102,16 @@ import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import type { NavGroup } from '@/app/_components/nav/types';
 
 /**
- * Canonical admin NavGroup[] export. Phases 1-3 of nav refactor each own
- * their own NavGroup[] array; this is the admin doorway's. Mobile-overflow
- * landing pages at /admin/queues + /admin/directory + /admin/money +
- * /admin/more consume the same group definitions via shape introspection.
+ * Canonical admin NavGroup[] export. Mobile-overflow landing pages at
+ * /admin/work + /admin/directory + /admin/more present the same surfaces
+ * for the 4-tab BottomNav (Home · Work · Directory · More).
  *
- * Stable group/item `key` values mean future label edits (e.g., Concierge →
- * Setnayan AI brand swap) don't reset the per-section
+ * Stable group/item `key` values mean label edits (Queues→Work, Money→Money
+ * & Catalog, etc.) don't reset the per-section
  * setnayan.nav.section.<key>.open localStorage state.
  */
 export const ADMIN_NAV_GROUPS: NavGroup[] = [
+  // ── SPINE ─────────────────────────────────────────────────────────────
   {
     key: 'home',
     label: 'Home',
@@ -125,24 +125,43 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // WORK (key 'queues' kept for localStorage continuity) — every act-now
+    // surface in one group. Absorbs Payouts + Token sales from the dissolved
+    // Money group. (Two-admin Approvals + Taxonomy-requests join here once
+    // their dedicated surfaces ship — orphan-prevention until then.)
     key: 'queues',
-    label: 'Queues',
+    label: 'Work',
     items: [
+      {
+        key: 'verify',
+        label: 'Verify',
+        href: '/admin/verify',
+        icon: BadgeCheck,
+        matchPrefix: '/admin/verify',
+      },
       {
         key: 'payments',
         label: 'Payments',
         href: '/admin/payments',
         icon: Banknote,
-        // matchPrefix so /admin/payments/<orderId> + future sub-routes
-        // (e.g., /admin/payments/disputes-from-reconciliation) still light
-        // up the Payments entry.
         matchPrefix: '/admin/payments',
       },
       {
-        // Vendor off-platform payment-options moderation (fraud screen for
-        // vendor-published bank/QR/link payment destinations). Setnayan never
-        // holds the money — approving only screens links/QRs before couples
-        // see them.
+        // Money queue — vendor payout release (was in Money group).
+        key: 'payouts',
+        label: 'Payouts',
+        href: '/admin/payouts',
+        icon: Wallet,
+      },
+      {
+        // Money queue — vendor token-pack purchase reconcile (was in Money).
+        key: 'token-purchases',
+        label: 'Token sales',
+        href: '/admin/token-purchases',
+        icon: ShoppingBag,
+        matchPrefix: '/admin/token-purchases',
+      },
+      {
         key: 'payment-options',
         label: 'Payment options',
         href: '/admin/payment-options',
@@ -150,23 +169,10 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/payment-options',
       },
       {
-        key: 'verify',
-        label: 'Verify',
-        href: '/admin/verify',
-        icon: BadgeCheck,
-        // /admin/verify/[id] V1.x detail surface from CLAUDE.md
-        // 2026-05-28 14th row § 5 GREEN list — sidebar item bridges
-        // forward-reference when the detail route lands.
-        matchPrefix: '/admin/verify',
-      },
-      {
         key: 'disputes',
         label: 'Disputes',
         href: '/admin/disputes',
         icon: Shield,
-        // /admin/disputes/[disputeId] V1.x detail page deferred per
-        // CLAUDE.md 2026-05-28 14th row § 5 GREEN list. matchPrefix
-        // bridges forward-reference.
         matchPrefix: '/admin/disputes',
       },
       {
@@ -183,22 +189,22 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Star,
       },
       {
+        key: 'concierge-abuse',
+        label: "Setnayan AI abuse",
+        href: '/admin/concierge-abuse',
+        icon: Flag,
+      },
+      {
         key: 'help',
         label: 'Help',
         href: '/admin/help',
         icon: LifeBuoy,
       },
-      {
-        key: 'concierge-abuse',
-        // Brand-layer label per CLAUDE.md 2026-05-28 5th row PR #579
-        // brand-layer rename — route + DB table names stay.
-        label: "Setnayan AI abuse",
-        href: '/admin/concierge-abuse',
-        icon: Flag,
-      },
     ],
   },
   {
+    // DIRECTORY — pure record-lookup. Wedding types + traditions moved out to
+    // Platform (governance + content, not look-up) per the redesign A.4.
     key: 'directory',
     label: 'Directory',
     items: [
@@ -213,8 +219,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Vendors',
         href: '/admin/vendors',
         icon: Briefcase,
-        // /admin/vendors/<id>/edit reachable from list — matchPrefix
-        // keeps Vendors lit on the detail surface.
         matchPrefix: '/admin/vendors',
       },
       {
@@ -222,7 +226,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Demo vendors',
         href: '/admin/demo-vendors',
         icon: TestTube,
-        // Keep "Demo vendors" lit on the /admin/demo-vendors/inquiries responder.
         matchPrefix: '/admin/demo-vendors',
       },
       {
@@ -237,120 +240,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Venues',
         href: '/admin/venues',
         icon: MapPin,
-        // /admin/venues/[id] + /admin/venues/new both reached from list —
-        // matchPrefix keeps Venues lit on detail + create surfaces.
         matchPrefix: '/admin/venues',
       },
-      {
-        // Per-religion launch gate (iteration 0043) — readiness counts +
-        // open/coming-soon/disable. Sits in Directory next to Venues since
-        // it reads the same supply (vendors + ceremonial venues).
-        key: 'wedding-types',
-        label: 'Wedding types',
-        href: '/admin/wedding-types',
-        icon: Church,
-      },
-      {
-        // Per-religion traditions content (iteration 0043) — the editable
-        // "What to expect" guide shown on each couple's /paperwork page.
-        key: 'wedding-traditions',
-        label: 'Wedding traditions',
-        href: '/admin/wedding-traditions',
-        icon: BookOpen,
-      },
     ],
   },
+  // ── TUNE GROUPS (collapsible) ─────────────────────────────────────────
   {
-    key: 'money',
-    label: 'Money',
-    items: [
-      {
-        key: 'pricing',
-        label: 'Pricing',
-        href: '/admin/pricing',
-        icon: DollarSign,
-      },
-      {
-        // Budget Planner admin controls — seed per-leaf benchmark prices, tune
-        // the allocation engine knobs, and review de-identified couple insights
-        // (Budget_Planner_Allocation_Engine_2026-06-05.md).
-        key: 'budget-planner',
-        label: 'Budget Planner',
-        href: '/admin/budget-planner',
-        icon: PiggyBank,
-      },
-      {
-        key: 'discount-codes',
-        label: 'Discount codes',
-        href: '/admin/discount-codes',
-        icon: TagIcon,
-        matchPrefix: '/admin/discount-codes',
-      },
-      {
-        key: 'addons',
-        label: 'Add-ons',
-        href: '/admin/addons',
-        icon: Sparkles,
-      },
-      {
-        key: 'payouts',
-        label: 'Payouts',
-        href: '/admin/payouts',
-        icon: Wallet,
-      },
-      {
-        // Region → token burn bands (₱100/200/300 = 1/2/3 tokens) charged when
-        // a vendor answers an inquiry. Admin-editable per the owner-locked
-        // token economy (2026-06-05). Migration 20260908000000.
-        key: 'token-bands',
-        label: 'Token bands',
-        href: '/admin/token-bands',
-        icon: Coins,
-      },
-      {
-        // Vendor token-pack sales reconcile queue (apply-then-pay). Vendors
-        // start a purchase at /vendor-dashboard/tokens, pay our BDO/GCash
-        // account, and admin confirms here → wallet credited. Migration
-        // 20260916000000 · owner 2026-06-08 "make purchasing available".
-        key: 'token-purchases',
-        label: 'Token sales',
-        href: '/admin/token-purchases',
-        icon: ShoppingBag,
-        matchPrefix: '/admin/token-purchases',
-      },
-      {
-        key: 'receipts',
-        label: 'Receipts',
-        href: '/admin/receipts',
-        icon: Receipt,
-      },
-      // RETIRED 2026-05-29 · BIR Form 2307 (Certificate of Creditable Tax
-      // Withheld at Source) entry retired under V2 publisher posture per
-      // CLAUDE.md tenth 2026-05-28 row (v2.1 brief canonical lock) + V2
-      // Phase F manpower § "Setnayan has NO BIR 2307 / EWT obligation
-      // under RR 16-2023 1% Intermediary Tax exemption." Setnayan no longer
-      // sits in the booking-money path · doesn't withhold vendor tax ·
-      // doesn't issue 2307. Page redirects to /admin/money for bookmark
-      // continuity. Lib + table preserved as audit history.
-      {
-        // Payment methods de-duplicated from Settings group per brief.
-        // Canonical home is Money (the data IS money — vendor payouts +
-        // customer payment instructions both consume it).
-        key: 'payment-methods',
-        label: 'Payment methods',
-        href: '/admin/settings/payment-methods',
-        icon: CreditCard,
-      },
-    ],
-  },
-  {
-    // REMAP 2026-06-04 — admin groups 8 → 6 for a simpler console.
-    // "Insights" now also absorbs the old Operations group (Operations &
-    // Hiring · Telemetry · Offline daemon) — all analytics/ops monitoring.
-    // Group KEY stays 'funnels' so persisted open-state survives; item keys
-    // unchanged so no surface orphans on the mobile More landing.
     key: 'funnels',
     label: 'Insights',
+    defaultOpen: false,
     items: [
       {
         key: 'growth',
@@ -372,23 +270,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: TrendingUp,
       },
       {
-        // FORWARD-REFERENCE until the Phase E telemetry sprint lands.
         key: 'telemetry',
         label: 'Telemetry',
         href: '/admin/telemetry',
         icon: Activity,
       },
       {
-        // Real-time client-side fault tracker (broken buttons / failed saves /
-        // blank fallbacks) with a resolve lifecycle. Distinct from Telemetry
-        // (backend service checkpoints) + Sentry (engineer-facing).
         key: 'connection-logs',
         label: 'Connection logs',
         href: '/admin/connection-logs',
         icon: Bug,
       },
       {
-        // FORWARD-REFERENCE until the Phase G offline-daemon sprint lands.
         key: 'offline',
         label: 'Offline daemon',
         href: '/admin/offline',
@@ -397,15 +290,75 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // REMAP 2026-06-04 — "Manage" merges the old Content + Settings groups
-    // (low-traffic config: catalogs, marketing site, platform settings).
-    // Group KEY stays 'content' for open-state continuity; item keys
-    // unchanged. Collapsed by default to keep higher-traffic groups above
-    // the fold.
-    key: 'content',
-    label: 'Manage',
+    // MONEY & CATALOG (key 'money') — config + records, NOT the act-now money
+    // queues (Payments/Payouts/Token sales moved to Work). The Work Money-lane
+    // filter reunites them in one view per the sign-off condition.
+    key: 'money',
+    label: 'Money & Catalog',
     defaultOpen: false,
     items: [
+      {
+        key: 'pricing',
+        label: 'Pricing',
+        href: '/admin/pricing',
+        icon: DollarSign,
+      },
+      {
+        key: 'addons',
+        label: 'Add-ons',
+        href: '/admin/addons',
+        icon: Sparkles,
+      },
+      {
+        key: 'discount-codes',
+        label: 'Discount codes',
+        href: '/admin/discount-codes',
+        icon: TagIcon,
+        matchPrefix: '/admin/discount-codes',
+      },
+      {
+        key: 'token-bands',
+        label: 'Token bands',
+        href: '/admin/token-bands',
+        icon: Coins,
+      },
+      {
+        key: 'budget-planner',
+        label: 'Budget Planner',
+        href: '/admin/budget-planner',
+        icon: PiggyBank,
+      },
+      {
+        key: 'receipts',
+        label: 'Receipts',
+        href: '/admin/receipts',
+        icon: Receipt,
+      },
+      {
+        key: 'payment-methods',
+        label: 'Payment methods',
+        href: '/admin/settings/payment-methods',
+        icon: CreditCard,
+      },
+    ],
+  },
+  {
+    // PLATFORM (key 'content') — config, content & security. Absorbs Wedding
+    // types + traditions (governance + content) and gives Notifications a nav
+    // home (it was an orphan — no nav entry on origin/main).
+    key: 'content',
+    label: 'Platform',
+    defaultOpen: false,
+    items: [
+      {
+        key: 'settings',
+        label: 'Settings',
+        href: '/admin/settings',
+        icon: Settings,
+        // /admin/settings/payment-methods lives under Money & Catalog —
+        // exclude it so that entry stays lit when viewing payment methods.
+        matchPrefix: '/admin/settings',
+      },
       {
         key: 'taxonomy',
         label: 'Taxonomy',
@@ -425,7 +378,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Megaphone,
       },
       {
-        // Brand-layer label per CLAUDE.md 2026-05-28 brand cutover.
         key: 'brain',
         label: "Setnayan AI brain",
         href: '/admin/brain',
@@ -445,17 +397,24 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/songs',
       },
       {
-        key: 'settings',
-        label: 'Settings',
-        href: '/admin/settings',
-        icon: Settings,
-        // /admin/settings/payment-methods lives under Money — exclude it
-        // from the Settings matchPrefix so the Money entry stays lit when
-        // viewing payment methods.
-        matchPrefix: '/admin/settings',
+        key: 'wedding-types',
+        label: 'Wedding types',
+        href: '/admin/wedding-types',
+        icon: Church,
       },
       {
-        // Kept reachable post-restructure per orphan-prevention.
+        key: 'wedding-traditions',
+        label: 'Wedding traditions',
+        href: '/admin/wedding-traditions',
+        icon: BookOpen,
+      },
+      {
+        key: 'notifications',
+        label: 'Notifications',
+        href: '/admin/notifications',
+        icon: Bell,
+      },
+      {
         key: 'demo-mode',
         label: 'Demo mode',
         href: '/admin/settings/demo-mode',

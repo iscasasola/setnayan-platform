@@ -153,14 +153,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
       : null;
 
-  // Resolve the couple-curated "Our photos" gallery (Increment A.4) to
-  // presigned 24h GET URLs up-front so both render paths share the result.
-  // events.our_photos is a JSONB array of r2:// refs; empty/absent → empty
-  // array → OurPhotosWidget renders nothing. Resolved here (the only async
-  // seam) and threaded into the widget like heroPhotoUrl.
+  // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
+  // URLs up-front so both render paths share the result. events.our_photos is a
+  // JSONB array of asset refs; empty/absent → empty array → OurPhotosWidget
+  // renders nothing. Each ref goes through displayUrlForStoredAsset, which
+  // presigns `r2://` refs AND passes plain http(s)/relative URLs through
+  // unchanged — so seeded/legacy URLs (e.g. /demo/...) render too, matching how
+  // the hero photo already tolerates legacy URLs.
   const ourPhotoRefs = Array.isArray(event.our_photos)
     ? event.our_photos.filter(
-        (r): r is string => typeof r === 'string' && r.startsWith('r2://'),
+        (r): r is string => typeof r === 'string' && r.trim().length > 0,
       )
     : [];
   const ourPhotoUrls = (

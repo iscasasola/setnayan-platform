@@ -65,6 +65,7 @@ import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
+import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
 import {
   weaveStory,
   masthead as weaveMasthead,
@@ -480,60 +481,13 @@ const PV_INCLUDED = ['Pre-nup', 'Wedding day', 'Same-day edit', 'Drone', 'Save-t
      • photo_video → PV_LOOKS keys (pv_*) → prefs.pvLook.
    Every OTHER leaf is NON-projectable — its options carry the prototype's verbatim strings
    as [emoji, label, label] triples (key === label); those ride only the refinements JSONB. */
-type RefineDef = { label: string; dynamic?: 'ceremony'; options?: [string, string, string][] };
-/* synthetic-string helper for the ~35 non-projectable leaves: key === label (rides JSONB). */
-const rstr = (emoji: string, label: string): [string, string, string] => [emoji, label, label];
-const REFINEMENTS: Record<string, RefineDef> = {
-  /* ── PROJECTABLE (keys reused from production consts) ── */
-  ceremony: { label: 'Ceremony venue', dynamic: 'ceremony' }, // options come from ceremonyOptsFor(faith) at render
-  catering: { label: 'Catering', options: [...CUISINE_OPTS, ['☪️', 'Halal', 'cuisine_halal']] },
-  photo_video: { label: 'Photo & Video', options: [...PV_LOOKS] },
-  /* ── basics-pass: coordinator (the 4th basic; non-projectable string options) ── */
-  coordinator: { label: 'Coordinator', options: [rstr('🗓️', 'Day-of'), rstr('📅', 'Month-of'), rstr('🧩', 'Partial'), rstr('🤝', 'Full-service'), rstr('✈️', 'Destination')] },
-  /* ── extras-pass primary facets (non-projectable · verbatim prototype options) ── */
-  cake: { label: 'Cake', options: [rstr('🎂', 'Classic tiered'), rstr('🌿', 'Naked / semi-naked'), rstr('🌸', 'Floral'), rstr('◻️', 'Modern minimalist'), rstr('✨', 'Themed')] },
-  florist: { label: 'Florist', options: [rstr('🌿', 'Lush & garden'), rstr('◻️', 'Minimalist'), rstr('🌴', 'Tropical'), rstr('🌾', 'Dried / pampas'), rstr('🤍', 'All-white')] },
-  hmua: { label: 'Hair & Makeup', options: [rstr('🌸', 'Soft glam'), rstr('🤍', 'Natural / no-makeup'), rstr('📰', 'Bold & editorial'), rstr('🏛️', 'Traditional'), rstr('💨', 'Airbrush')] },
-  live_band: { label: 'Live Band', options: [rstr('🎸', 'Acoustic'), rstr('🎷', 'Jazz / lounge'), rstr('🎤', 'Pop / Top 40'), rstr('🇵🇭', 'OPM'), rstr('🎻', 'Classical')] },
-  bride_attire: { label: "Bride's Attire", options: [rstr('👰', 'Ball gown'), rstr('✨', 'A-line'), rstr('🌊', 'Mermaid'), rstr('🤍', 'Sheath'), rstr('🌺', 'Filipiniana')] },
-  stylist: { label: 'Stylist / Decorator', options: [rstr('◻️', 'Modern minimalist'), rstr('🏛️', 'Traditional classic'), rstr('🪵', 'Rustic / industrial'), rstr('🌾', 'Bohemian'), rstr('💎', 'Luxe glamour'), rstr('🌿', 'Garden / organic'), rstr('🎭', 'Themed')] },
-  stations: { label: 'Food Stations', options: [rstr('🥘', 'Paella'), rstr('🍣', 'Sushi'), rstr('🍜', 'Ramen'), rstr('🔥', 'Grill / BBQ'), rstr('🍝', 'Pasta'), rstr('🍖', 'Carving'), rstr('🌮', 'Taco bar')] },
-  groom_attire: { label: "Groom's Attire", options: [rstr('🤵', 'Classic suit'), rstr('✨', 'Slim-fit suit'), rstr('🎩', 'Tuxedo'), rstr('🧥', 'Three-piece'), rstr('🌾', 'Barong (formal white)'), rstr('🪡', 'Embroidered barong'), rstr('👔', 'Polo barong')] },
-  women_attire: { label: "Women's Attire", options: [rstr('👗', 'Long gown'), rstr('🍸', 'Cocktail'), rstr('🌺', 'Filipiniana'), rstr('🎨', 'Mix & match'), rstr('🤝', 'Coordinated set')] },
-  men_attire: { label: "Men's Attire", options: [rstr('🤵', 'Matching suits'), rstr('🌾', 'Barong set'), rstr('🎩', 'Tux'), rstr('👔', 'Smart casual'), rstr('🎭', 'Themed')] },
-  filipiniana: { label: 'Filipiniana & Barongs', options: [rstr('🌾', 'Piña'), rstr('🧵', 'Jusi'), rstr('🪡', 'Calado embroidery'), rstr('✨', 'Modern couture'), rstr('🧶', 'Regional weave')] },
-  grooming: { label: 'Grooming', options: [rstr('💈', 'Haircut & style'), rstr('🧔', 'Beard grooming'), rstr('🧖', 'Skincare / facial'), rstr('💅', 'Mani-pedi'), rstr('🛁', 'Body treatments')] },
-  jewelry: { label: 'Jewellery & Accessories', options: [rstr('💍', 'Engagement ring'), rstr('💞', 'Wedding bands'), rstr('💎', 'Bridal jewellery'), rstr('👰', 'Veil'), rstr('👑', 'Headpiece'), rstr('🎀', 'Garter')] },
-  dj: { label: 'DJ', options: [rstr('🎤', 'Pop'), rstr('🎧', 'Dance / EDM'), rstr('🎙️', 'Hip-hop'), rstr('🇵🇭', 'OPM'), rstr('🎸', 'Classic rock'), rstr('📻', 'Throwback 80s/90s'), rstr('💃', 'K-pop')] },
-  wedding_singer: { label: 'Wedding Singer', options: [rstr('🇵🇭', 'OPM'), rstr('🎶', 'Ballads'), rstr('🎤', 'Pop'), rstr('🎷', 'Jazz'), rstr('🎻', 'Classical'), rstr('🙏', 'Religious / liturgical'), rstr('🎭', 'Broadway')] },
-  choir: { label: 'Choir / Quartet', options: [rstr('🎶', 'Small choir'), rstr('🎼', 'Large choir'), rstr('🎻', 'String quartet'), rstr('🎻', 'String trio'), rstr('🎹', 'Chamber ensemble')] },
-  choreographer: { label: 'Choreographer', options: [rstr('🌺', 'Traditional Filipino'), rstr('💃', 'Ballroom'), rstr('🩰', 'Contemporary'), rstr('🪅', 'Latin / salsa'), rstr('🕺', 'K-pop'), rstr('🎭', 'Broadway'), rstr('🎙️', 'Hip-hop')] },
-  performers: { label: 'Performers', options: [rstr('🎩', 'Magician'), rstr('🔥', 'Fire dancer'), rstr('😂', 'Comedy'), rstr('🥁', 'Kulintang'), rstr('🎸', 'Rondalla'), rstr('🌺', 'Folk dancers')] },
-  livestream: { label: 'Livestream', options: [rstr('📹', '1080p standard'), rstr('🎥', '1080p premium'), rstr('📡', '4K')] },
-  mobile_bar: { label: 'Mobile Bar', options: [rstr('🍸', 'Full cocktail'), rstr('🍷', 'Beer & wine'), rstr('🍹', 'Mocktail only'), rstr('☕', 'Coffee-focused'), rstr('🥃', 'Whiskey & cigar'), rstr('🎭', 'Themed')] },
-  coffee: { label: 'Coffee / Espresso', options: [rstr('☕', 'Espresso bar'), rstr('🫗', 'Pour-over'), rstr('🌱', 'Specialty beans'), rstr('🍵', 'Tea bar'), rstr('✨', 'Both')] },
-  mocktail: { label: 'Mocktail Bar', options: [rstr('🍓', 'Fruit'), rstr('🌿', 'Herbal'), rstr('🥂', 'Sparkling'), rstr('🍵', 'Tea-based'), rstr('🌴', 'Tropical'), rstr('🍮', 'Dessert')] },
-  food_truck: { label: 'Food Truck', options: [rstr('🍔', 'Burgers'), rstr('🍕', 'Pizza'), rstr('🌮', 'Tacos'), rstr('🥢', 'Asian fusion'), rstr('🇵🇭', 'Filipino street food'), rstr('🍦', 'Ice cream'), rstr('🍢', 'Grilled skewers')] },
-  dessert: { label: 'Dessert Station', options: [rstr('🥐', 'Pastries'), rstr('🍬', 'Macarons'), rstr('🧁', 'Cupcakes'), rstr('🍫', 'Chocolate fountain'), rstr('🍭', 'Candy buffet'), rstr('🍩', 'Donut wall'), rstr('🥖', 'Churros'), rstr('🍚', 'Kakanin')] },
-  food_cart: { label: 'Food Cart', options: [rstr('🍧', 'Halo-halo'), rstr('🍦', 'Ice cream'), rstr('🥞', 'Crepe / pancake'), rstr('🍬', 'Cotton candy'), rstr('🧀', 'Charcuterie'), rstr('🐷', 'Mini lechon'), rstr('🍨', 'Sorbetes')] },
-  photo_booth: { label: 'Photo Booth', options: [rstr('📸', 'Traditional'), rstr('🔄', '360 booth'), rstr('🎞️', 'GIF'), rstr('🖼️', 'Polaroid / instax'), rstr('🪞', 'Magic mirror'), rstr('🎬', 'Patiktok')] },
-  henna: { label: 'Henna / Tattoo', options: [rstr('🪬', 'Traditional Arabic'), rstr('◻️', 'Modern minimalist'), rstr('💍', 'Elaborate bridal'), rstr('🌙', 'Philippine Muslim')] },
-  printing: { label: 'Printing & Invites', options: [rstr('💌', 'Invitations'), rstr('🗓️', 'Save-the-date'), rstr('📜', 'Program'), rstr('🪧', 'Place cards'), rstr('📋', 'Menu'), rstr('🪧', 'Signage')] },
-  souvenirs: { label: 'Souvenirs / Giveaways', options: [rstr('🍬', 'Edible'), rstr('🔑', 'Practical / keychain'), rstr('🗿', 'Decorative figurine'), rstr('🌺', 'Native Filipino'), rstr('🕯️', 'Candle DIY'), rstr('🪴', 'Succulent')] },
-  bridal_car: { label: 'Bridal Car', options: [rstr('🚗', 'Luxury sedan'), rstr('🚙', 'Limousine'), rstr('🚘', 'Vintage / classic'), rstr('🚐', 'SUV'), rstr('🚌', 'Van / minivan'), rstr('🐴', 'Carriage'), rstr('🏍️', 'Motorcycle escort')] },
-  guest_shuttle: { label: 'Guest Shuttle', options: [rstr('🚐', '12-pax van'), rstr('🚌', '24-pax minibus'), rstr('🚍', '48-pax bus'), rstr('🚎', '56-pax coaster')] },
-  escort: { label: 'Motorcycle Escort', options: [rstr('🏁', 'Parade'), rstr('🏍️', 'Escort'), rstr('🚓', 'Police-style'), rstr('💠', 'Ceremonial diamond')] },
-  outdoor: { label: 'Outdoor Rentals', options: [rstr('⛺', 'Tent'), rstr('🔌', 'Generator'), rstr('🚻', 'Mobile restroom'), rstr('🌬️', 'Cooling fans / misters'), rstr('🔊', 'Outdoor sound'), rstr('💡', 'Outdoor lighting')] },
-};
-
-/* Option keys that map to a real assets/prefs/<key>.webp (the 3 projectable leaves' photo
-   options). Worship venues without a shipped asset (ceremony_synagogue) + the synthetic
-   'cuisine_halal' are deliberately excluded so RefineStep falls back to the emoji glyph. */
-const REFINE_PREFS_PHOTO_KEYS: ReadonlySet<string> = new Set<string>([
-  'ceremony_church', 'ceremony_mosque', 'ceremony_temple', 'ceremony_garden', 'ceremony_beach', 'ceremony_civil', 'ceremony_same_reception',
-  ...CUISINE_OPTS.map((o) => o[2]),
-  ...PV_LOOKS.map((o) => o[2]),
-]);
+/* The leaf catalogue (labels · descriptions · options · 4:3 photos) now lives in DATA
+   (app/onboarding/wedding/_data/refinements.ts — the seed source + fallback), read DB-first via
+   getOnboardingRefinements() and threaded in as the `refinements` prop (owner 2026-06-08, items
+   8 + 9 — de-hardcoded + admin-editable). REFINEMENTS_BY_KEY is the STATIC fallback map; it drives
+   only the QUEUE (which leaves are refinable — the onboarding's fixed PICK_GROUPS taxonomy), while
+   per-leaf CONTENT renders from the DB-or-fallback `refinements` prop. The 3 PROJECTABLE leaves keep
+   their production option keys (cuisine_/pv_/ceremony_) so projectRefinementsToPrefs still maps them. */
 
 /* ── refine pass order (§5.1) ──────────────────────────────────────────────────
    BASIC pass = canonical BASIC order (ceremony → catering → coordinator → photo_video),
@@ -544,10 +498,10 @@ const REFINE_PREFS_PHOTO_KEYS: ReadonlySet<string> = new Set<string>([
 const REFINE_BASIC_ORDER: readonly string[] = BASIC_CATS;
 const EXTRAS_ORDER: string[] = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat)).filter((c) => c !== 'reception' && !BASIC_SET.has(c));
 function refineBasicQueueFor(picks: string[]): string[] {
-  return REFINE_BASIC_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS);
+  return REFINE_BASIC_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS_BY_KEY);
 }
 function refineExtrasQueueFor(picks: string[]): string[] {
-  return EXTRAS_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS);
+  return EXTRAS_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS_BY_KEY);
 }
 function queueFor(id: ScreenId, picks: string[]): string[] {
   return id === 'refine_basic' ? refineBasicQueueFor(picks) : refineExtrasQueueFor(picks);
@@ -580,17 +534,16 @@ function projectRefinementsToPrefs(refinements: Record<string, string[]>, faith:
   return out;
 }
 
-/* ── RefineStep (§5.3) — the UNIFORM template ───────────────────────────────────
-   ONE component renders BOTH passes + EVERY leaf identically; only the eyebrow + the
-   active queue/leaf differ. Layout is fixed — the data supplies only label/options. The
-   ceremony leaf is faith-adaptive (options from ceremonyOptsFor). Wrapped in .prefstep so
-   the existing .prefstep .rail.car .pcard fill rules apply with no new carousel CSS.
+/* ── RefineStep — the DB-backed "what kind of X?" card (owner 2026-06-08, item 8) ──
+   ONE component renders BOTH passes + EVERY leaf identically from the `leafData` (DB-or-fallback
+   RefineLeaf): a 4:3 MAIN photo on top + a one-line description + a 4:3 OPTION carousel. The
+   ceremony leaf is faith-adaptive (options from ceremonyOptsFor, reusing the /prefs photos).
    COVERT: copy is "what kind of X?" service-shaped only — never love/song/pricing. */
 function RefineStep({
   scope,
   queue,
   idx,
-  leaf,
+  leafData,
   faith,
   chosen,
   onToggle,
@@ -598,41 +551,45 @@ function RefineStep({
   scope: 'basic' | 'extras';
   queue: string[];
   idx: number;
-  leaf: string;
+  leafData: RefineLeaf;
   faith: OnboardingFaith[];
   chosen: string[];
   onToggle: (leaf: string, optKey: string) => void;
 }) {
-  const def = REFINEMENTS[leaf];
-  if (!def) return null;
-  const options: [string, string, string][] = def.dynamic === 'ceremony' ? ceremonyOptsFor(faith) : (def.options ?? []);
+  const leaf = leafData.key;
+  // Ceremony is faith-adaptive: resolve its options from ceremonyOptsFor + reuse the /prefs photos.
+  const options: RefineOption[] =
+    leafData.dynamic === 'ceremony'
+      ? ceremonyOptsFor(faith).map(([emoji, label, key]) => ({ emoji, label, key, photo: PREFS_ASSET(key) }))
+      : leafData.options;
   const eyebrow = scope === 'basic' ? 'Refine your essentials' : 'Refine the extras you love';
-  // Photo cards: only the 3 PROJECTABLE leaves' options have a real assets/prefs/*.webp.
-  // The synthetic 'cuisine_halal', the ceremony_synagogue worship venue (no asset shipped),
-  // and every non-projectable string-keyed option have none → leave photoKey undefined so
-  // PCard shows the emoji glyph instead of a broken background image.
-  const REFINE_PHOTO_KEY = (key: string) => (REFINE_PREFS_PHOTO_KEYS.has(key) ? key : undefined);
   return (
     <div className="prefstep refinestep">
       <div className="viewzone">
         <div className="prefprog">
-          <span className="prefcount">Service {idx + 1} of {queue.length} · {def.label}</span>
+          <span className="prefcount">Service {idx + 1} of {queue.length} · {leafData.label}</span>
           <span className="prefdots">{queue.map((_, d) => <i key={d} className={d <= idx ? 'on' : ''} />)}</span>
         </div>
+        {/* MAIN photo on top + description (owner 2026-06-08, item 8) */}
+        {leafData.mainPhoto ? (
+          <figure className="refine-hero">
+            <HeroImg src={leafData.mainPhoto} alt={leafData.label} />
+          </figure>
+        ) : null}
         <div className="eyebrow">{eyebrow}</div>
-        <h1 className="q">What kind of {def.label.toLowerCase()}?</h1>
-        <p className="sub">Pick the ones that feel like you {'—'} we{'’'}ll match the rest.</p>
+        <h1 className="q">What kind of {leafData.label.toLowerCase()}?</h1>
+        <p className="sub">{leafData.description ? leafData.description + ' ' : ''}Pick the ones that feel like you {'\u2014'} we{'\u2019'}ll match the rest.</p>
       </div>
       <div className="tapzone">
-        <Rail className="pgrid car">
-          {options.map(([emoji, label, key]) => (
-            <PCard
-              key={key}
-              emoji={emoji}
-              label={label}
-              photoKey={REFINE_PHOTO_KEY(key)}
-              selected={chosen.includes(key)}
-              onClick={() => onToggle(leaf, key)}
+        <Rail className="car refine-rail">
+          {options.map((o) => (
+            <RefineCard
+              key={o.key}
+              emoji={o.emoji}
+              label={o.label}
+              photo={o.photo}
+              selected={chosen.includes(o.key)}
+              onClick={() => onToggle(leaf, o.key)}
             />
           ))}
         </Rail>
@@ -641,7 +598,24 @@ function RefineStep({
   );
 }
 
-/** A photo-card option (prototype PGRID .pcard). */
+/** A 4:3 photo-card option (owner 2026-06-08) — the photo is a URL from the data; emoji glyph
+    is the graceful fallback when no photo is set / it 404s before generation. */
+function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string; label: string; photo: string | null; selected: boolean; onClick: () => void }) {
+  return (
+    <div className={`pcard refine-card${selected ? ' sel' : ''}`} onClick={onClick}>
+      <div className={`pimg refine-img ${photo ? 'haspic' : 'imgph'}`} style={photo ? { backgroundImage: `url(${photo})` } : undefined}>
+        {photo ? null : <span className="g">{emoji}</span>}
+      </div>
+      <div className="plbl">
+        {label}
+        <span className="ck" />
+      </div>
+    </div>
+  );
+}
+
+/** A photo-card option keyed by a /prefs asset (prototype PGRID .pcard) — used by the
+    reception-setting + AI-team basics pickers (the refine cards use RefineCard above). */
 function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; label: string; photoKey?: string; selected: boolean; onClick: () => void }) {
   return (
     <div className={`pcard${selected ? ' sel' : ''}`} onClick={onClick}>
@@ -1440,6 +1414,7 @@ export function OnboardingShell({
   activeFaiths = null,
   pricing,
   bgMusicUrl = null,
+  refinements = REFINEMENTS_DATA,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1463,6 +1438,13 @@ export function OnboardingShell({
    * /admin/settings). Null when unset/disabled → the player never mounts.
    */
   bgMusicUrl?: string | null;
+  /**
+   * DB-backed refinement catalogue (owner 2026-06-08, items 8 + 9) — fetched
+   * server-side via getOnboardingRefinements() in page.tsx (DB-first, falls back
+   * to the REFINEMENTS_DATA module). Drives the "what kind of X?" cards. Defaults
+   * to the static module so the shell renders without the prop.
+   */
+  refinements?: RefineLeaf[];
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -1628,6 +1610,15 @@ export function OnboardingShell({
   const activeRefineQueue = activeId === 'refine_basic' ? refineBasicQueue : activeId === 'refine_extras' ? refineExtrasQueue : [];
   const refinePosClamped = Math.min(Math.max(0, refineIdx), Math.max(0, activeRefineQueue.length - 1));
   const activeRefineLeaf = activeRefineQueue[refinePosClamped];
+  // DB-backed refinement catalogue → O(1) lookup; resolve the active leaf's data
+  // (DB-first via the `refinements` prop, static fallback for safety).
+  const refinementsByKey = useMemo<Record<string, RefineLeaf>>(
+    () => Object.fromEntries(refinements.map((l) => [l.key, l])),
+    [refinements],
+  );
+  const activeRefineLeafData: RefineLeaf | undefined =
+    (activeRefineLeaf ? refinementsByKey[activeRefineLeaf] : undefined) ??
+    (activeRefineLeaf ? REFINEMENTS_BY_KEY[activeRefineLeaf] : undefined);
 
   const isCivil = kind === 'civil';
 
@@ -3659,12 +3650,12 @@ export function OnboardingShell({
               re-entry loop walks refineIdx through refineBasicQueue; RefineStep renders the
               active leaf with the UNIFORM template. An empty queue is skipped by go(). */}
           <section className={`screen${activeId === 'refine_basic' ? ' active' : ''}`} id="screen-refine-basic">
-            {activeId === 'refine_basic' && activeRefineLeaf && (
+            {activeId === 'refine_basic' && activeRefineLeaf && activeRefineLeafData && (
               <RefineStep
                 scope="basic"
                 queue={activeRefineQueue}
                 idx={refinePosClamped}
-                leaf={activeRefineLeaf}
+                leafData={activeRefineLeafData}
                 faith={state.faith}
                 chosen={state.refinements[activeRefineLeaf] ?? []}
                 onToggle={patchRefine}
@@ -3730,12 +3721,12 @@ export function OnboardingShell({
               extras-pick with no REFINEMENTS entry (host_mc, lights_sound, …) drops out; an
               empty queue is skipped by the go() re-entry loop. */}
           <section className={`screen${activeId === 'refine_extras' ? ' active' : ''}`} id="screen-refine-extras">
-            {activeId === 'refine_extras' && activeRefineLeaf && (
+            {activeId === 'refine_extras' && activeRefineLeaf && activeRefineLeafData && (
               <RefineStep
                 scope="extras"
                 queue={activeRefineQueue}
                 idx={refinePosClamped}
-                leaf={activeRefineLeaf}
+                leafData={activeRefineLeafData}
                 faith={state.faith}
                 chosen={state.refinements[activeRefineLeaf] ?? []}
                 onToggle={patchRefine}

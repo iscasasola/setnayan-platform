@@ -46,6 +46,7 @@ export const WIDGET_TYPES = [
   'special_message',
   'what_to_bring',
   'our_photos',
+  'our_love_story',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -184,6 +185,13 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     description: 'A gallery of your own photos — engagement or pre-wedding shots.',
     is_always_on: false,
     editor_subroute: 'our-photos',
+  },
+  {
+    type: 'our_love_story',
+    label: 'Our love story',
+    description: 'How you met, the proposal, and your milestones — from onboarding.',
+    is_always_on: false,
+    editor_subroute: null,
   },
 ];
 
@@ -347,6 +355,7 @@ export const WIDGET_PHASES: Record<WidgetType, LifecyclePhase[]> = {
   special_message: ['rsvp', 'editorial'],
   what_to_bring: ['rsvp'],
   our_photos: ['rsvp', 'editorial'],
+  our_love_story: ['rsvp', 'editorial'],
 };
 
 /**

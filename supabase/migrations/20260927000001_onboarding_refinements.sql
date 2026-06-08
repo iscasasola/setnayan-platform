@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260927000000_onboarding_refinements.sql
+-- 20260927000001_onboarding_refinements.sql
 --
 -- DB-backed onboarding refinements (owner 2026-06-08, punch-list items 8 + 9).
 -- Lifts the hardcoded REFINEMENTS const out of onboarding-shell.tsx into two

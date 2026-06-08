@@ -14,6 +14,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verified:** the filter hides exactly the 6 inactive rows + keeps the 19 active (DB-counted). `tsc` clean · `next build` ✓. `/pricing` is `force-dynamic`, so the retired SKUs disappear as soon as this deploys. `admin/pricing` (the editor) intentionally still reads ALL rows so admins can re-activate. Pax-resolver + single-SKU `formatV2Sku` are by-code lookups (not display lists) — unaffected.
 
 **SPEC IMPACT:** None (bug fix). Makes the documented "retire via is_active=false" mechanism actually work. DECISION_LOG row added.
+## 2026-06-08 · feat(setnayan-ai): last-minute editors (build PR-4) — admin START + vendor END/surcharge
+
+**Context:** PR-4 of the Setnayan AI build — the two config surfaces that turn PR-3's dormant last-minute engine ON. No migration (PR-3's `20260920000000` columns/kind already exist + are applied to prod). Implements the §4 editors from `What_Is_Setnayan_AI_2026-06-08.md`.
+
+**What landed:**
+- **Admin START editor** (`/admin/taxonomy`) — a new "Last-minute window start" section listing every bookable category with its current START (months before the wedding) + Save/Clear. New actions `setLastMinuteStart` (upsert a `planning_deadlines` row, `kind='last_minute_start'`, `scope='category'`, `ref_key`=plan-group id, onConflict `kind,ref_key,scope`) + `clearLastMinuteStart` (delete → dormant), both admin-gated + audit-logged. `last_minute_start` rows are filtered out of the "Recommended deadlines" list (they have their own section). Blank/no row = the category stays off.
+- **Vendor END + surcharge editor** (`/vendor-dashboard/services`) — a "Last-minute bookings" block (new `LastMinuteFields` component) in both the Add + Edit service forms: "Accept until (months before)" (blank → night-before) + "Late surcharge (%)" (0–100). Wired into `createVendorService` + `updateVendorService` (new `parseSurchargePctOrNull` validator) and `fetchVendorServices`/`VendorServiceRow` (+`last_minute_end_months`/`last_minute_surcharge_pct`, with the same graceful column-missing fallback as `branch_id`).
+
+**Now live end-to-end:** with PR-3's engine + this PR's editors + the applied migration, an admin sets a category START, a vendor sets their cutoff/surcharge, and a couple inside that window sees the gold "Last-minute" badge (Setnayan AI on) — or an empty category in the free search. Until an admin sets a START, everything stays dormant (unchanged).
+
+**Verify:** `tsc` clean · `next lint` clean (no new warnings in touched files) · `next build` ✓ (`/admin/taxonomy` + `/vendor-dashboard/services` both `ƒ`).
+
+**SPEC IMPACT:** Completes §4 of `What_Is_Setnayan_AI_2026-06-08.md` (editors); build-state flips 🟡→✅ for the last-minute row. DECISION_LOG row added.
 
 ## 2026-06-08 · chore(pricing): RSVP consolidation + Event Website ₱1,999 (owner-decided)
 

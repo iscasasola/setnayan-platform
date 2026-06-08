@@ -71,6 +71,79 @@ export async function updatePlanningDeadline(formData: FormData) {
 }
 
 /**
+ * Admin: set (upsert) the platform last-minute START for a category — the month
+ * before the wedding when "last-minute" begins for that category's services
+ * (Setnayan AI §4). Writes a `planning_deadlines` row with
+ * kind='last_minute_start', scope='category', ref_key = plan-group id. No row =
+ * dormant (the whole last-minute mechanic does nothing until a START is set, so
+ * this is the on-switch). Audit-logged; the marketplace reads it live.
+ */
+export async function setLastMinuteStart(formData: FormData) {
+  const user = await requireAdmin();
+  const refKey = String(formData.get('ref_key') ?? '').trim();
+  const label = String(formData.get('label') ?? '').trim() || null;
+  const months = Number(formData.get('months'));
+  if (!refKey) throw new Error('Missing ref_key');
+  if (!Number.isInteger(months) || months < 0 || months > 60) {
+    redirect(
+      `${BASE}?error=${encodeURIComponent('Last-minute start must be a whole number of months (0–60).')}`,
+    );
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from('planning_deadlines').upsert(
+    {
+      kind: 'last_minute_start',
+      ref_key: refKey,
+      scope: 'category',
+      label,
+      offset_value: months,
+      offset_unit: 'month',
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'kind,ref_key,scope' },
+  );
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_last_minute_start',
+    target_table: 'planning_deadlines',
+    target_id: refKey,
+    after_json: { kind: 'last_minute_start', ref_key: refKey, scope: 'category', offset_value: months },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  redirect(
+    `${BASE}?ok=${encodeURIComponent(`Last-minute starts ${months} month${months === 1 ? '' : 's'} before the wedding for ${refKey}.`)}`,
+  );
+}
+
+/**
+ * Admin: clear a category's last-minute START → back to dormant (delete the row).
+ * The category stops surfacing last-minute vendors / showing the badge.
+ */
+export async function clearLastMinuteStart(formData: FormData) {
+  const user = await requireAdmin();
+  const refKey = String(formData.get('ref_key') ?? '').trim();
+  if (!refKey) throw new Error('Missing ref_key');
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('planning_deadlines')
+    .delete()
+    .eq('kind', 'last_minute_start')
+    .eq('scope', 'category')
+    .eq('ref_key', refKey);
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.clear_last_minute_start',
+    target_table: 'planning_deadlines',
+    target_id: refKey,
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=${encodeURIComponent(`Last-minute disabled for ${refKey}.`)}`);
+}
+
+/**
  * Admin: rename a taxonomy node (parent or tile) in `service_categories`. The
  * new label is read live by `getTaxonomy()` (no deploy) — the ♾️ "Finalize =
  * permanent live publish" lock. Audit-logged.

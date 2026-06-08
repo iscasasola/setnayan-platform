@@ -41,6 +41,14 @@ function parseInt0OrNull(raw: FormDataEntryValue | null): number | null {
   return n;
 }
 
+/** Last-minute surcharge % (Setnayan AI §4): 0–100 whole number, blank → null. */
+function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null {
+  const n = parseInt0OrNull(raw);
+  if (n === null) return null;
+  if (n > 100) throw new Error('Last-minute surcharge must be between 0 and 100%.');
+  return n;
+}
+
 async function ensureProfile() {
   const supabase = await createClient();
   const {
@@ -80,10 +88,16 @@ export async function createVendorService(formData: FormData) {
   let category: VendorCategory;
   let starting_price_php: number | null;
   let crew_size: number | null;
+  let last_minute_end_months: number | null;
+  let last_minute_surcharge_pct: number | null;
   try {
     category = parseCategory(formData.get('category'));
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     crew_size = parseInt0OrNull(formData.get('crew_size'));
+    last_minute_end_months = parseInt0OrNull(formData.get('last_minute_end_months'));
+    last_minute_surcharge_pct = parseSurchargePctOrNull(
+      formData.get('last_minute_surcharge_pct'),
+    );
   } catch (e) {
     return redirect(
       `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
@@ -139,6 +153,8 @@ export async function createVendorService(formData: FormData) {
     crew_size,
     crew_meal_required,
     branch_id,
+    last_minute_end_months,
+    last_minute_surcharge_pct,
     is_active: true,
   });
 
@@ -195,9 +211,15 @@ export async function updateVendorService(formData: FormData) {
 
   let starting_price_php: number | null;
   let crew_size: number | null;
+  let last_minute_end_months: number | null;
+  let last_minute_surcharge_pct: number | null;
   try {
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     crew_size = parseInt0OrNull(formData.get('crew_size'));
+    last_minute_end_months = parseInt0OrNull(formData.get('last_minute_end_months'));
+    last_minute_surcharge_pct = parseSurchargePctOrNull(
+      formData.get('last_minute_surcharge_pct'),
+    );
   } catch (e) {
     return redirect(
       `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
@@ -217,6 +239,8 @@ export async function updateVendorService(formData: FormData) {
       crew_size,
       crew_meal_required,
       branch_id,
+      last_minute_end_months,
+      last_minute_surcharge_pct,
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)

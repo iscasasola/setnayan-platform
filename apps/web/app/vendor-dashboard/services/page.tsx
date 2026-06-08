@@ -244,6 +244,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     </span>
                   </span>
                 </label>
+                <LastMinuteFields idPrefix={`new-${addCategory}`} />
                 {showBranchPicker ? (
                   <BranchSelect
                     id={`new-branch-${addCategory}`}
@@ -389,6 +390,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                       />
                       <span>Crew meal required (feeds couple&rsquo;s budget)</span>
                     </label>
+                    <LastMinuteFields
+                      idPrefix={svc.vendor_service_id}
+                      endDefault={svc.last_minute_end_months}
+                      surchargeDefault={svc.last_minute_surcharge_pct}
+                    />
                     {showBranchPicker ? (
                       <BranchSelect
                         id={`branch-${svc.vendor_service_id}`}
@@ -515,6 +521,68 @@ function Field({
       {children}
       {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
     </label>
+  );
+}
+
+/**
+ * Last-minute booking fields (Setnayan AI §4). The vendor's per-service FLOOR
+ * ("I'll still take a booking until N months before the wedding"; blank → up to
+ * the night before) + an optional 0–100% surcharge for late bookings. These
+ * feed the last-minute window + badge once an admin sets the category START.
+ * Rendered in both the Add + Edit service forms.
+ */
+function LastMinuteFields({
+  idPrefix,
+  endDefault,
+  surchargeDefault,
+}: {
+  idPrefix: string;
+  endDefault?: number | null;
+  surchargeDefault?: number | null;
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-ink/10 bg-cream p-3">
+      <p className="text-sm font-medium text-ink">Last-minute bookings</p>
+      <p className="text-xs text-ink/55">
+        Setnayan AI surfaces you to couples close to their date. Choose how late
+        you&rsquo;ll still take a booking — and an optional surcharge for it.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label="Accept until (months before)"
+          htmlFor={`${idPrefix}-lm-end`}
+          help="Blank = up to the night before."
+        >
+          <input
+            id={`${idPrefix}-lm-end`}
+            name="last_minute_end_months"
+            type="number"
+            min={0}
+            step={1}
+            placeholder="e.g. 1"
+            defaultValue={endDefault ?? ''}
+            className="input-field"
+          />
+        </Field>
+        <Field
+          label="Late surcharge (%)"
+          htmlFor={`${idPrefix}-lm-pct`}
+          help="Optional, 0–100. Blank = same price."
+        >
+          <input
+            id={`${idPrefix}-lm-pct`}
+            name="last_minute_surcharge_pct"
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            placeholder="e.g. 15"
+            defaultValue={surchargeDefault ?? ''}
+            className="input-field"
+          />
+        </Field>
+      </div>
+    </div>
   );
 }
 

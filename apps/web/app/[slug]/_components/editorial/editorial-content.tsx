@@ -17,10 +17,11 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
+import { type ReactElement } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 
-export async function EditorialContent({ eventId }: { eventId: string }): Promise<JSX.Element> {
+export async function EditorialContent({ eventId }: { eventId: string }): Promise<ReactElement> {
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -139,7 +140,7 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function GracefulFallback(): JSX.Element {
+function GracefulFallback(): ReactElement {
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
@@ -157,7 +158,7 @@ function GracefulFallback(): JSX.Element {
   );
 }
 
-function Monogram({ text, color }: { text: string; color: string }): JSX.Element {
+function Monogram({ text, color }: { text: string; color: string }): ReactElement {
   return (
     <div className="flex justify-center">
       <div
@@ -171,7 +172,7 @@ function Monogram({ text, color }: { text: string; color: string }): JSX.Element
   );
 }
 
-function PhaseRibbon(): JSX.Element {
+function PhaseRibbon(): ReactElement {
   // Plain styled links — the engine task owns real phase navigation. We don't
   // hardcode routes that need params; same-page anchors keep this safe.
   return (
@@ -198,7 +199,7 @@ function EditionLine({
   left: string;
   center: string;
   right: string;
-}): JSX.Element {
+}): ReactElement {
   return (
     <div className="flex flex-col items-center gap-1 py-2 text-center font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65 sm:flex-row sm:justify-between sm:text-left">
       <span>{left}</span>
@@ -208,7 +209,7 @@ function EditionLine({
   );
 }
 
-function HeroPhoto({ url, names }: { url: string; names: string }): JSX.Element {
+function HeroPhoto({ url, names }: { url: string; names: string }): ReactElement {
   return (
     <figure className="relative h-56 overflow-hidden rounded-sm bg-ink/10 sm:h-[300px]">
       {/* Raw <img>: presigned R2 URLs expire; next/image would cache stale. */}
@@ -233,7 +234,7 @@ function LeadArticle({
 }: {
   paragraphs: string[];
   pullQuote: string | null;
-}): JSX.Element | null {
+}): ReactElement | null {
   if (!paragraphs.length && !pullQuote) return null;
   return (
     <div className="mt-4 columns-1 gap-7 text-justify font-serif text-[15.5px] leading-relaxed sm:columns-2 [&>p]:mb-3">
@@ -262,7 +263,7 @@ function TeamBehindTheDay({
   vendors,
 }: {
   vendors: EditorialData['vendors'];
-}): JSX.Element {
+}): ReactElement {
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
       <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-ink/45">
@@ -293,7 +294,7 @@ function TeamBehindTheDay({
   );
 }
 
-function ByTheNumbers({ data }: { data: EditorialData }): JSX.Element {
+function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
   const m = data.metrics;
   return (
     <div className="border-2 border-ink">
@@ -360,7 +361,7 @@ function Stat({
   unit?: string;
   label: string;
   note?: string;
-}): JSX.Element {
+}): ReactElement {
   return (
     <div className="border-b border-ink/15 px-3 py-3 text-center">
       <div className="font-display text-4xl font-bold leading-none text-ink">
@@ -385,7 +386,7 @@ function StripCell({
   value: string;
   label: string;
   last?: boolean;
-}): JSX.Element {
+}): ReactElement {
   return (
     <div className={`px-1 py-2 ${last ? '' : 'border-r border-ink/15'}`}>
       <b className="block font-display text-lg font-bold leading-none">{value}</b>
@@ -394,7 +395,7 @@ function StripCell({
   );
 }
 
-function SectionRule({ title }: { title: string }): JSX.Element {
+function SectionRule({ title }: { title: string }): ReactElement {
   return (
     <div className="my-7 flex items-center gap-3">
       <span aria-hidden className="h-px flex-1 bg-ink" />
@@ -408,7 +409,7 @@ function Timeline({
   milestones,
 }: {
   milestones: NonNullable<EditorialData['loveStory']['milestones']>;
-}): JSX.Element {
+}): ReactElement {
   return (
     <ol className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
       {milestones.slice(0, 9).map((ms, i) => (
@@ -436,7 +437,7 @@ function FromTheCouple({
 }: {
   message: string;
   attribution: string;
-}): JSX.Element {
+}): ReactElement {
   return (
     <blockquote className="mx-auto max-w-2xl border-y-2 border-ink px-2 py-5 text-center">
       <p className="m-0 font-display text-xl font-medium italic leading-snug text-ink sm:text-2xl">
@@ -449,7 +450,7 @@ function FromTheCouple({
   );
 }
 
-function ReviewsEmptyState(): JSX.Element {
+function ReviewsEmptyState(): ReactElement {
   return (
     <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/45">
       Reviews from guests and vendors will appear here.
@@ -457,7 +458,7 @@ function ReviewsEmptyState(): JSX.Element {
   );
 }
 
-function Colophon({ names, city }: { names: string; city: string | null }): JSX.Element {
+function Colophon({ names, city }: { names: string; city: string | null }): ReactElement {
   return (
     <footer className="mt-7 border-t-[3px] border-double border-ink pt-3 text-center">
       <div className="flex flex-wrap justify-center gap-5 font-mono text-[9px] uppercase tracking-[0.1em]">

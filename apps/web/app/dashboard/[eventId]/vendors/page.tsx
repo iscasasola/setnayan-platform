@@ -52,6 +52,9 @@ type EventBudgetRow = {
   event_date: string | null;
   event_date_precision: string | null;
   estimated_budget_centavos: number | null;
+  /** Set when the couple has locked/updated their mood board — feeds the
+   *  dependency engine (florals/cake/LED/invites design from it · §4B). */
+  mood_board_updated_at: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
   ceremony_type: string | null;
@@ -89,7 +92,7 @@ export default async function VendorsPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
+        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -351,6 +354,7 @@ export default async function VendorsPage({ params }: Props) {
     enrichmentByVendorId,
     marketPoolCount,
     personalizationEnabled: aiActive,
+    moodBoardSet: ev?.mood_board_updated_at != null,
   });
 
   // "Matching you on" strip (owner 2026-06-04) — the couple's curated match

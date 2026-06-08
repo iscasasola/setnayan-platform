@@ -17,6 +17,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + production build on CI. `jsx-a11y/media-has-caption` suppressed on the decorative `<video>` + opt-in `<audio>`. No migration → nothing to apply post-merge. Music is off-by-default (`site_bg_music_enabled` defaults FALSE) + tap-to-play + always-mutable → UX-safe.
 
 **SPEC IMPACT:** §6.2 presentation features (looping bg music + scrub-video hero) shipped. → DECISION_LOG.
+## 2026-06-08 · feat(setnayan-ai): dependency-awareness engine (build PR-5)
+
+**Context:** PR-5 of the Setnayan AI build. Implements §4B of `What_Is_Setnayan_AI_2026-06-08.md` (edge set LOCKED 2026-06-08) — the planning-cascade sequencer that tells a couple "finalize X first, then your Y matches better." No migration (reuses existing signals). Always SOFT — a nudge, never a hard block.
+
+**What landed:**
+- **`lib/dependency-graph.ts`** (NEW · pure) — the locked §4B.2 edge set as DATA: `DEPENDS_ON` (one-way prerequisites per plan-group, with `H`/`s` prominence), `MUTUAL_PAIRS` (ceremony↔reception, attire↔mood_board — recorded, never nudged since either order is valid), and `resolveDependency(groupId, satisfiedNodes, finalized)` → `blocked` (loudest unmet prereq) / `ready` / null. 14 logic checks via `tsx` (all green).
+- **`vendors-plan-budget.ts`** — `buildPlanBudgetModel` builds a **satisfied-node set** (finalized vendor categories from the model itself + `wedding_date` + `mood_board`; the guest/seating decision nodes FAIL OPEN — added as satisfied — since this surface doesn't load them, so they never mis-nudge) and attaches `AccordionChild.dependency`, surfaced only when **Setnayan AI is on** AND the category is in its action window (`start_now`/`due_soon`/`overdue`) — quiet while too early or done, so it never blankets every category.
+- **`plan-budget-accordion.tsx`** — a `DependencyNudge` row under each category header: "⏳ Lock your **reception venue** first — your Catering matches better once it's set" (H) / "↪ Tip: lock your **mood board** first…" (s) / "✓ Ready — … Time to book your Catering." Soft styling, opportunity tone.
+- **`vendors/page.tsx`** — selects `events.mood_board_updated_at`, passes `moodBoardSet`.
+
+**Dormant-safe:** AI-off (Manual) → no dependency nudges (existing free-floor behavior unchanged). Nudges only appear once a couple is actively in a category's window with Setnayan AI on.
+
+**Deferred (follow-up):** real detection for the fail-open decision nodes (sponsors_confirmed / invitations_sent / rsvp_headcount / seating_chart — they live on the guest-list/seating surfaces) + dependency-aware *reminders* in `upcoming-items.ts` (this PR surfaces the nudge on the plan surface; the reminder stream is a separate slice).
+
+**Verify:** `tsc` clean · `next lint` clean · `next build` ✓ (`/dashboard/[eventId]/vendors` builds) · 14/14 resolver checks.
+
+**SPEC IMPACT:** Implements §4B. DECISION_LOG row + build-state flip (§4B 📋→🟡).
 
 ## 2026-06-08 · chore(migrations): dedup timestamp collision (20260917000000)
 

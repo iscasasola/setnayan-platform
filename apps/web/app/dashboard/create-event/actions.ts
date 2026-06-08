@@ -10,7 +10,7 @@ import { captureEvent } from '@/lib/analytics';
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
 // "trial" / "paid" choices from the create-event picker into the
 // Concierge SKU flow. V2 retires the trial mechanic entirely and
-// prices Today's Focus separately from /pricing — every new event
+// prices Setnayan AI separately from /pricing — every new event
 // lands in DIY by default. Imports removed.
 
 // V1.1 multi-event roster (iteration 0041). Wedding is the original V1
@@ -176,7 +176,7 @@ export async function createWeddingEvent(formData: FormData) {
   }
   /* Retired 2026-05-28 V2 cutover */
   // V1 routed 'trial' / 'paid' choices into Concierge SKU flows here. V2
-  // has no trial mechanic and prices Today's Focus separately from
+  // has no trial mechanic and prices Setnayan AI separately from
   // /pricing. Every new event lands in DIY; the hidden form field is
   // still parsed for cutover-period continuity but coerced to 'diy' so
   // the post-create redirect always lands on the dashboard.
@@ -193,7 +193,7 @@ export async function createWeddingEvent(formData: FormData) {
   }
 
   // Single-field event setup per iteration 0000 § 2.5 (locked 2026-05-14):
-  // event_name only — date + venue are deferred to Today's Focus wizard or Profile.
+  // event_name only — date + venue are deferred to Setnayan AI wizard or Profile.
   // Both writes go through the admin client because the user-scoped JWT can
   // be stale or the role can resolve to anon at the edge — RLS would then
   // reject the insert even though the action already authenticated the user.
@@ -293,7 +293,7 @@ export async function createWeddingEvent(formData: FormData) {
   // startConciergeTrial server-side and routed to the dashboard with a
   // banner; 'paid' redirected to Concierge order checkout. V2 lands
   // every new event on the standard dashboard regardless of intent
-  // — hosts upgrade to Today's Focus later from /pricing if they want
+  // — hosts upgrade to Setnayan AI later from /pricing if they want
   // the daily planner.
   void choice; // suppress unused-var warning
 

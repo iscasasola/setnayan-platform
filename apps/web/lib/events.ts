@@ -39,7 +39,7 @@ export type EventRow = {
   monogram_font_key?: string | null;
   monogram_style?: string | null;
   /**
-   * Today's Focus subscription status · production column kept the
+   * Setnayan AI subscription status · production column kept the
    * concierge_status name even after the 2026-05-24 8th-row spec lock
    * specced renaming to todays_focus_status (the rename never shipped
    * per [[feedback_setnayan_latest_spec_priority]] · latest shipped
@@ -47,7 +47,7 @@ export type EventRow = {
    *
    * Drives the DIY/Paid wizard surface bifurcation locked 2026-05-30:
    *   'diy' (default · free tier) → WIZARD_TASKS_DIY 9-card Foundation
-   *   'trial' / 'active' (paid Today's Focus) → WIZARD_TASKS_PAID full 65-card
+   *   'trial' / 'active' (paid Setnayan AI) → WIZARD_TASKS_PAID full 65-card
    *   'expired' (lapsed paid) → falls back to WIZARD_TASKS_DIY
    *
    * Read by `getCarouselTasks` in apps/web/lib/wizard.ts. May be null

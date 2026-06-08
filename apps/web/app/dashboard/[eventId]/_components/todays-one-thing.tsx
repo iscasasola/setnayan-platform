@@ -19,7 +19,7 @@ import type { ResolvedTask, TodaysTaskStatus } from '@/lib/todays-one-thing';
 // IS ready to ladder through multiple categories can still see them.
 //
 // Three render variants:
-//   - Resolved task → the canonical "Today's focus" card with status
+//   - Resolved task → the canonical "Setnayan AI" card with status
 //     pill, action title, why-it-matters paragraph, deep-link CTA.
 //   - No wedding_date set → date-prompt variant nudging the host to
 //     set a date so the resolver has an anchor.

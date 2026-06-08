@@ -24,7 +24,7 @@
  * v2.1 DRIFT SCRUBS applied throughout:
  *   - "5% platform fee" / "we take a cut" → "0% commission"
  *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
- *   - "Setnayan Concierge" → "Today's Focus"
+ *   - "Setnayan Concierge" → "Setnayan AI"
  *   - "₱1,499 one-time" + "₱499 refresh" preserved (v2.1-correct)
  *
  * Per [[feedback_setnayan_button_preservation]] all CTAs match template
@@ -709,10 +709,10 @@ export async function DashboardPreview() {
         className="m-serif text-[var(--m-ink)] mt-5 mb-7"
         style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
       >
-        Today&rsquo;s Focus. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
+        Setnayan AI. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
-        Today&rsquo;s Focus is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
+        Setnayan AI is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
         answers your questions in your own language. One purchase at {plannerPrice ?? '₱1,499'}, full access through your wedding day.
       </p>
 
@@ -768,7 +768,7 @@ export async function DashboardPreview() {
               ))}
             </div>
             <div className="mt-7 p-5 bg-[var(--m-orange-4)] rounded-lg">
-              <div className="m-label-mono text-[10px] text-[var(--m-orange-2)]">Today&rsquo;s Focus</div>
+              <div className="m-label-mono text-[10px] text-[var(--m-orange-2)]">Setnayan AI</div>
               <div
                 className="font-[var(--font-display,var(--font-sans))] font-bold text-[24px] text-[var(--m-ink)] uppercase mt-1.5"
               >

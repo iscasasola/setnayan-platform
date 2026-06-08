@@ -11,7 +11,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 // (concierge_brain_chunks, concierge_unanswered_questions, paid_tier_only)
 // stay as-is so the schema layer doesn't ripple through every consumer.
 //
-// WHY this surface ships now while the AI Today's Focus chat is OFF for pilot:
+// WHY this surface ships now while the Setnayan AI chat is OFF for pilot:
 //   Per CLAUDE.md 2026-05-22 row 3, the wizard's AI chat layer is hidden
 //   behind a feature flag during the pilot cohort. But brain content
 //   authoring is the long-pole content workstream (~30+ Filipino-wedding
@@ -23,7 +23,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 // Scope of this V1: list page only. No edit form. No re-embed action. No
 // Cowork sync UI. No unanswered-questions queue UI (the tab reads "Coming
 // soon"). Edit + re-embed + sync + queue all ship in a later PR alongside
-// the AI Today's Focus feature unlock.
+// the Setnayan AI feature unlock.
 //
 // Auth: handled at /admin/layout.tsx — non-admins 404 before this page runs.
 //
@@ -33,7 +33,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 //   • 02_Specifications/18_Concierge_Brain/README.md — canonical 8 topic
 //     files + governance rules (source citations required on cultural/legal)
 
-export const metadata = { title: "Today's Focus brain · Admin" };
+export const metadata = { title: "Setnayan AI brain · Admin" };
 
 type ChunkRow = {
   id: string;
@@ -230,7 +230,7 @@ export default async function AdminBrainPage() {
         catalog, so giving them href targets would 404. Disabled chips keep
         the surface shape correct for the next PR that lights them up.
       */}
-      <nav aria-label="Today's Focus brain tabs" className="mb-6 flex flex-wrap gap-2">
+      <nav aria-label="Setnayan AI brain tabs" className="mb-6 flex flex-wrap gap-2">
         <span
           aria-current="page"
           className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1 text-sm text-cream"

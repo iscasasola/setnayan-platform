@@ -3,7 +3,7 @@
  *
  * Shared between the DIY-tier WeddingEssentialsHero (free couples on
  * /dashboard/[eventId]/today via essential card #6 of 7) AND the paid-
- * tier OfficiantCard (Today's Focus ₱1,499 couples on the same route
+ * tier OfficiantCard (Setnayan AI ₱1,499 couples on the same route
  * via WizardHero's Card 04). Both surfaces detect the same auto-resolve
  * conditions + display the same canonical hint copy when matched ·
  * per CLAUDE.md 2026-05-29 "🎯 VENDOR DISCOVERY ARCHITECTURE LOCK" row

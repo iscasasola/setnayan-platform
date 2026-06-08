@@ -20,7 +20,7 @@ const ITEMS: Item[] = [
   {
     Icon: Receipt,
     title: 'BIR-compliant ORs on every software purchase',
-    body: 'Every software SKU you buy from Setnayan (Animated Monogram, Today&rsquo;s Focus, Panood, Patiktok, etc.) generates an Official Receipt with the 12% VAT split and a sequential OR number that survives audit. Auto-emailed to you, archived in your dashboard.',
+    body: 'Every software SKU you buy from Setnayan (Animated Monogram, Setnayan AI, Panood, Patiktok, etc.) generates an Official Receipt with the 12% VAT split and a sequential OR number that survives audit. Auto-emailed to you, archived in your dashboard.',
   },
   {
     Icon: Shield,

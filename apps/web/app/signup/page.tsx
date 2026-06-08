@@ -38,7 +38,7 @@
  *
  * v2.1 drift scrub (template marketing copy):
  *   - "Free planning forever" + "No card" + "Guest list + RSVP · free" +
- *     "192 verified vendors" + "BIR-stamped receipts" + "Today's Focus AI"
+ *     "192 verified vendors" + "BIR-stamped receipts" + "Setnayan AI AI"
  *     bullets preserved as-is from template — all canonical under v2.1
  *     brief (CLAUDE.md 2026-05-28 11th row).
  */

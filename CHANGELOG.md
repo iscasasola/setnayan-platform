@@ -4,15 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-08 · fix(marketing): de-hardcode the LAST prices → every rendered marketing price reads the catalog DB
+## 2026-06-08 · chore(branding): rename "Today's Focus" → "Setnayan AI" across the app UI
 
-**Context:** Owner 2026-06-08 "yes clean them up" — finish de-hardcoding the prices the prior PR flagged.
+**Context:** Owner 2026-06-08 locked the planner SKU's canonical consumer name as **Setnayan AI** (shorthand SAI), retiring the interim "Today's Focus" display name everywhere. The spec corpus was already fully scrubbed (new `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG rows); this brings the app UI into alignment.
 
-**What landed:** `getVendorPrices()` exposes raw `num.*`; new `getCustomerSkuPrice(serviceCode)` (reads SKUs the catalog reader excludes, e.g. TODAYS_FOCUS). `/for-vendors` `page.tsx`: `metadata` → async `generateMetadata()`, JSON-LD const → `forVendorsJsonLd(p)` (offer prices + name + annual descriptions from DB), page async + passes prices to `<FAQ>`. `/for-vendors` money-FAQ prose → prices via prop. Homepage `DashboardPreview` planner "₱1,499" → `getCustomerSkuPrice('TODAYS_FOCUS')`. Comparison Add-Branch / Boosted-Ads rows + sponsored-boost blurb dropped their peso amounts.
+**What landed:** display-name-only rename of **"Today's Focus" → "Setnayan AI"** (all apostrophe forms incl. the `&rsquo;` HTML entity; caps preserved in headers) across **66 files** in `apps/web` — the homepage hero (`_components/marketing/_sections.tsx`), the retired-SKU concierge banner + settings copy, admin labels (brain / abuse / addons / queues / sidebar), the i18n nav label (`lib/i18n/dashboard.{en,tl}.json`), the help article, aria-labels + metadata titles, and history comments. Coherence fixes where the swap would have implied the *current* brand was retired: "retired Today's Focus wizard" → "retired planner wizard" (×3) + de-duplicated "AI Today's Focus" → "Setnayan AI".
 
-**Now every RENDERED marketing price reads the DB.** Remaining literals: structural `₱0`, comments, `getVendorPrices()` resilience fallbacks.
+**Name only — prices + code identifiers untouched.** The ₱1,499 planner prose stays; the `todays_focus`/`TODAYS_FOCUS` SKU key, `events.todays_focus_*` columns, `users.show_todays_focus_wizard`, and the `/today` route are LEFT AS-IS (they mirror the live DB / catalog / routes — renaming them is a separate migration PR, owner to greenlight).
 
-**Verify:** typecheck/build on the PR. **SPEC IMPACT:** None.
+**Verify:** display-name residual = 0 across `apps/web` (all forms); both i18n JSON re-validated; the diff is pure string/comment swaps (169 lines, no structural changes). Build via CI required checks.
+
+**SPEC IMPACT:** Corpus already aligned 2026-06-08 (the full Today's-Focus → Setnayan AI scrub + `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG). This PR closes the app↔corpus naming gap. Code-identifier rename intentionally deferred to a migration.
 
 ## 2026-06-08 · feat(onboarding): Dream Team PR-2 — chapter chrome + AI-gate fork
 

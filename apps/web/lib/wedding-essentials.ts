@@ -7,7 +7,7 @@
  *
  *   - Free DIY couples see 7 always-visible Wedding Essentials on the
  *     Today tab (the canonical free planning surface).
- *   - Paid Today's Focus ₱1,499 couples see the full 65-card guided
+ *   - Paid Setnayan AI ₱1,499 couples see the full 65-card guided
  *     wizard substrate (WizardHero · iteration 0016 · CLAUDE.md
  *     2026-05-23 row 6).
  *   - The marketplace + Compare drawer + Lock flow is the SAME for
@@ -17,7 +17,7 @@
  *
  * The 7 essentials reduce 65 wizard cards + 22 plan groups down to the
  * non-negotiable minimum for a Filipino wedding. Couples who want
- * comprehensive guidance upgrade to Today's Focus · couples who want
+ * comprehensive guidance upgrade to Setnayan AI · couples who want
  * simple planning use these 7.
  *
  * Two essential kinds:
@@ -132,7 +132,7 @@ export type WeddingEssential = {
    * Months before the wedding date this essential should be locked by.
    * Drives the urgency hint copy ("Most couples lock this 9 months out").
    *
-   * NOT a hard floor — hard-floor scheduler is paid Today's Focus only.
+   * NOT a hard floor — hard-floor scheduler is paid Setnayan AI only.
    * This is just the soft "when most couples handle it" guidance for the
    * DIY tier. The simplest signal we can give without the full scheduler.
    */
@@ -247,7 +247,7 @@ export const ESSENTIAL_PLAN_GROUP_IDS: ReadonlyArray<PlanGroupId> = [
 /**
  * Returns true if a PlanGroupId is part of the Wedding Essentials default
  * set · used to render the "essential" badge on plan grid cards even
- * when the host is on the paid Today's Focus tier (so they can see which
+ * when the host is on the paid Setnayan AI tier (so they can see which
  * cells are the non-negotiable floor).
  */
 export function isEssentialPlanGroup(planGroupId: PlanGroupId): boolean {

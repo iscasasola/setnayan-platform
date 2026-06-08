@@ -69,7 +69,7 @@ const TITLE_BOOK: Record<string, string> = {
   ANIMATED_MONOGRAM:   'Animated Monogram Maker',
   PRO_WEBSITE:         'Pro Wedding Website Subdomain',
   CUSTOM_QR_GUEST:     'Custom QR per Guest Token',
-  TODAYS_FOCUS:        'Todays Focus Dashboard Engine',
+  TODAYS_FOCUS:        'Setnayan AI Dashboard Engine',
   PINOY_MAP_ROUTE:     'Traditional Pinoy Map Route Engine',
   INDOOR_BLUEPRINT:    'Indoor Blueprint Venue Layout Engine',
   CALL_TIME_ESCALATOR: 'Call-Time Escalator Coordinator Assistant',

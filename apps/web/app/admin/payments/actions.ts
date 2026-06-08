@@ -20,7 +20,7 @@ import {
 // via the canonical helper. Best-effort writes — never throws, never blocks
 // the parent mutation. See lib/ledger.ts for the contract.
 import { appendLedger } from '@/lib/ledger';
-// Canonical Today's Focus activation pattern. When admin approves a payment
+// Canonical Setnayan AI activation pattern. When admin approves a payment
 // for the TF SKU (service_key === 'concierge_complete' · the V1 SKU code
 // preserved across the V2 cutover per lib/concierge.ts:8), we fire
 // activateConcierge to flip events.concierge_status='active' + stamp
@@ -32,7 +32,7 @@ import { activateConcierge } from '@/app/dashboard/profile/concierge/actions';
 // (service_key vendor_additional_branch__{branch_id}) back to its branch.
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 
-// SKU code for Today's Focus. Same string lib/concierge.ts + sku-catalog +
+// SKU code for Setnayan AI. Same string lib/concierge.ts + sku-catalog +
 // stress-test-lock-unlock.ts use. Pulled out as a constant so the brittle
 // service-key match in approvePayment below is grep-able when the post-pilot
 // rename to TODAYS_FOCUS lands (the V2 spec rename never replaced the actual
@@ -234,24 +234,24 @@ export async function approvePayment(formData: FormData) {
       console.error('vendor payout scheduling failed (non-fatal):', e);
     }
 
-    // Day 3 voucher sprint · Today's Focus activation hook.
+    // Day 3 voucher sprint · Setnayan AI activation hook.
     //
-    // When the approved order is a Today's Focus purchase, fire the canonical
+    // When the approved order is a Setnayan AI purchase, fire the canonical
     // activateConcierge action (apps/web/app/dashboard/profile/concierge/
     // actions.ts) so events.concierge_status flips from 'diy' → 'active' +
     // concierge_activated_at stamps NOW + concierge_expires_at is computed
     // from the wedding-anchored formula (lib/concierge.ts:computeConciergeExpiry).
     // Without this hook the couple sees "Payment matched" + "Order paid" in
-    // their notifications but Today's Focus stays gated behind the upgrade
+    // their notifications but Setnayan AI stays gated behind the upgrade
     // banner — wired surface, broken outcome.
     //
     // For all OTHER SKUs in pilot we deliberately stop at order.status='paid'
     // (the promoteOrder branch above already did this). Per-SKU activation
     // hooks (Papic seat provisioning, Patiktok booth date claim, etc.) are
-    // V1.x scope per the sprint brief. The Today's Focus hook ships first
+    // V1.x scope per the sprint brief. The Setnayan AI hook ships first
     // because (a) it's the headline V1 SKU at ₱2,499 (lib/concierge.ts), (b)
     // the activation pattern + lazy-eval expiry sweep is already shipped
-    // and tested, and (c) pilot couples buying Today's Focus need it
+    // and tested, and (c) pilot couples buying Setnayan AI need it
     // unlocked the moment the admin approves their payment.
     //
     // Failure isolation: catch + log + continue. The order is already
@@ -310,7 +310,7 @@ export async function approvePayment(formData: FormData) {
     // Vendor "Additional Branch" activation hook (owner-locked 2026-06-05).
     // When the approved order is a branch subscription (service_key
     // vendor_additional_branch__{branch_id}), flip that branch active and
-    // stamp the order's 28-day period. Mirrors the Today's Focus hook above:
+    // stamp the order's 28-day period. Mirrors the Setnayan AI hook above:
     // non-fatal, idempotent, runs only after the order is 'paid'.
     const branchId = order?.service_key
       ? branchIdFromServiceKey(order.service_key)
@@ -342,13 +342,13 @@ export async function approvePayment(formData: FormData) {
   revalidatePath('/admin/payments');
   revalidatePath('/admin/payouts');
   // Force a refresh of the couple's user-facing routes so any
-  // activation-reading UI (Today's Focus banner, add-on pages) picks up the
+  // activation-reading UI (Setnayan AI banner, add-on pages) picks up the
   // status change immediately. Full activation-cycle UI fix is queued as
   // PR B (proper per-SKU activation dispatcher); for now this at least
   // makes the couple's dashboard re-render fresh data after admin approves.
   // (Brand-layer note 2026-05-28 V2 cutover — historical reference to the
   // "Concierge banner" tracks the same surface; banner copy now reads
-  // "Today's Focus".)
+  // "Setnayan AI".)
   revalidatePath('/dashboard', 'layout');
 }
 

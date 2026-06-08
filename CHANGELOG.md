@@ -6,18 +6,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
 
-**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. a Suno instrumental); the onboarding streams it. Owner-supplied + swappable with no deploy. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. Suno); the onboarding streams it. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+
+**What landed:** migration `20260925000000` (`platform_settings.onboarding_bg_music_r2_key` + `_enabled`, applied to prod directly — orphan `20260924000000` mood-board ledger entry blocked `db push`); `fetchOnboardingBgMusicUrl()`; `/admin/settings` "Onboarding background music" uploader (`<FileUpload>` audio ≤40 MB + enable toggle + owned-track-only helper) + `updateOnboardingMusic`; `/api/upload` audio cap 20→40 MB (image cap unchanged); header mute/unmute **pill** (`onboarding-music.tsx`) that streams (`preload="none"`+`loop`), starts on first gesture, low volume, mute remembered in `localStorage`; **unset/disabled → silent**.
+
+**Verify:** `tsc` ✓; prod columns confirmed; pill layout screenshot-verified. End-to-end on deploy once a track is uploaded.
+
+**SPEC IMPACT:** New admin onboarding-music uploader; honors "Setnayan-owned AI-generated catalogue only" via the owned-track helper. → corpus `DECISION_LOG.md` (item-10 Recraft cost also corrected there: ≈₱530, not ₱11.5k).
+
+## 2026-06-09 · feat(services): Budget "Build" — Summary + Lock tabs (Phase 5 core, flag-dark)
+
+**Context:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Two of the three remaining stub tabs become real, read-only views derived from the same `PlanBudgetModel` the accordion already builds — no new queries, no migration.
 
 **What landed:**
-- **Migration `20260925000000`** — `platform_settings.onboarding_bg_music_r2_key` + `onboarding_bg_music_enabled` (default TRUE). Applied to prod directly via `db query` (`ADD COLUMN IF NOT EXISTS`) — the remote ledger had an orphan `20260924000000` (the parallel mood-board PR's migration) blocking `db push`; my file ships idempotent. Renamed off the colliding `20260924000000`.
-- **`lib/platform-settings.ts`** — type/SELECT/FALLBACK + `fetchOnboardingBgMusicUrl()` (admin-client read + presign, try/catch → null) resolves the stream URL server-side.
-- **`/admin/settings`** — "Onboarding background music" card: `<FileUpload>` (audio ≤40 MB) + enable toggle + **owned/AI-generated-track-only** helper; `updateOnboardingMusic` action.
-- **`/api/upload`** — audio cap 20 → 40 MB (image cap unchanged; existing flows byte-identical).
-- **`onboarding/page.tsx` + `onboarding-shell.tsx` + new `onboarding-music.tsx`** — header mute/unmute **pill**; streams (`preload="none"` + `loop`), **starts on the first user gesture**, low volume, mute remembered in `localStorage`. **Unset/disabled → never mounts (silent).**
+- `vendors/_components/build-summary.tsx` — the **Summary** cover tab (now the landing tab): a budget meter (chosen vs target, with `budgetStatus` tone), a Locked/Shortlisted/Hours-saved recap, the "what to lock next" list (`dueList`), and the Setnayan AI on/off status with a Manage pointer.
+- `vendors/_components/build-locked.tsx` — the **Lock** tab: the consolidated list of finalized picks (filtered on the locked `raw_status` set — contracted/deposit_paid/delivered/complete) across all folders, with the chosen total + an empty state.
+- `vendors/page.tsx` — passes `summarySlot` + `lockSlot` into the takeover and lands on **Summary**.
 
-**Verify:** `tsc --noEmit` ✓. Prod columns confirmed. Pill layout screenshot-verified (forced test src, reverted). End-to-end confirms on the deploy once a track is uploaded.
+The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); **Compare** (Phase 4) + the **Pin** solver / baskets / save-A·B·C (Phases 3 + 2b) remain.
 
-**SPEC IMPACT:** New admin onboarding-music uploader on `platform_settings`; honors "Setnayan-owned AI-generated catalogue only" via the owned-track helper. → corpus `DECISION_LOG.md`. (Also corrected there: item-10 Recraft photos ≈ ₱530, not ₱11.5k.)
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
 
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 

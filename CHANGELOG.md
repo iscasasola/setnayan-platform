@@ -20,6 +20,47 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` ✓ (only 2 pre-existing unrelated module errors from the local stale install — `@mediapipe/tasks-vision`, `sharp`; both present in CI's install) · `next lint --dir app/admin` ✓ (1 pre-existing warning in `moodboard-library`, untouched) · swept: no external importers of `ADMIN_NAV_GROUPS`, no code links to `/admin/queues|/admin/money`, no tests reference the admin nav.
 
 **SPEC IMPACT:** Implements PR 1 of `Admin_Console_Nav_Redesign_2026-06-08.md`. The Money-lane filter remains a committed follow-up (sign-off condition). Logged in corpus `DECISION_LOG.md` (2026-06-08 admin-nav rows).
+## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
+
+**Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" Coverage = Church · Reception · Attire · Flowers; tool depth = full recolor (both picked via in-session questions). Shipped as **one PR** (the planned 3-PR split was collapsed to dodge a fast-moving `main`; the Recraft Flowers seed + corpus sync follow separately).
+
+**Engine (`apps/web/lib/color-recolor.ts`, new):** color math lifted out of the admin-only Color Range Manipulator into a shared, DOM-free engine. `recolorPixel` has two modes — `palette` (snap to a target, unchanged HSL substitution) and `adjust` (hue shift / saturation / brightness / contrast). Plus `recolorRGBA` (per-pixel best-slot match), `buildMatchMask`, snapshot serialize/parse. Pure + headless-tested (15/15 assertions).
+
+**Recolor Studio (`recolor-studio.tsx`, new):** couples open a curated photo, pick a part (pre-tagged color range or eyedrop), then snap it to a palette color OR adjust H/S/B/C by hand. Live browser Canvas recolor (₱0 marginal cost). Read-only mode re-renders pinned saves.
+
+**4 chapters (`moodboard-chapters.tsx`, new + `page.tsx`):** replaces the 2-pillar "Visual preview" with **Church · Reception · Attire · Flowers**; pinned looks up top; silhouette attire guide kept below. Admin tagger refactored onto the shared engine (preview unchanged). Removed dead `visual-preview.tsx`.
+
+**Persistence + schema:** `event_moodboard_saves.palette_snapshot` now stores a self-describing `{ slot: { def, edit } }` (legacy `{ slot: "#hex" }` still parses). Migration `20260924000000` (applied to prod) widens `moodboard_library_assets.asset_type` + `event_moodboard_saves.pillar` to allow `'florals'`. Additive + idempotent.
+
+**SPEC IMPACT:** 0010 Mood Board — couples can now recolor library photos (was admin-only / view-only) and a Flowers chapter is added. Decision to ratify in `DECISION_LOG.md`: **couple recolor of library photos = FREE / AI Composite Scene generator = stays paid** (per the spec's Professional Mood Board tier). Corpus 0010 AS-BUILT + DECISION_LOG row + Recraft Flowers seed follow.
+## 2026-06-09 · feat(services): Budget "Build" — Build tab hosts the allocation planner (Phase 2a, flag-dark)
+
+**Context:** Phase 2 of `Budget_Build_Services_Takeover_2026-06-08.md`. The takeover's **Build** tab (a stub in Phase 1) now renders the real median-anchored allocation planner — the auto-fit plan, per-service ₱ targets + shopping ranges, the Cushion / shortfall readouts, and the peso-pin tilt (Splurge / Standard / Save). Reuses the engine + UI already shipped on the Budget tab — no fork.
+
+**What landed (`vendors/page.tsx`):** when `BUDGET_BUILD_ENABLED` is on, the page resolves `resolveAllocationInputs(supabase, eventId)` and passes a `<BudgetAllocationPlanner>` into the takeover's `buildSlot`. The alloc query is **gated inside the flag check** so it never runs in production while the flag is off. Shortlist still houses today's `PlanBudgetAccordion`; Compare / Summary / Lock remain Phase 3–5 stubs.
+
+**Reuse, not rebuild:** `lib/budget-allocation.ts`, `lib/budget-allocation-data.ts` (`resolveAllocationInputs`), and `budget/_components/budget-allocation-planner.tsx` are all rendered as-is.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Flag OFF by default → zero production change.
+
+**SPEC IMPACT:** Phase 2a of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-on Phase 2b: whole-plan baskets (Lean/Fits/Stretch) + save A/B/C (saved-builds migration). Logged in `DECISION_LOG.md`.
+
+## 2026-06-08 · feat(seating): A4 seating PDF — mood-board / blueprint, monogram + QR (0008)
+
+**Context:** Owner-specced export. Completes the seating arc (chair-level → names → mobile list → zoom/pan → markers → venue to-scale → **PDF**). The 0008 spec's "Print pack" — scoped to the owner's brief: A4, two print modes, branded header, floor-plan page + arrangement pages. No migration; reuses existing `pdf-lib` + `qrcode` + `events.slug`.
+
+**What landed:**
+- **`lib/seating-pdf.ts`** — `buildSeatingPdf()` draws an **A4** PDF with `pdf-lib`:
+  - **Header** (every page): couple **monogram** (text initials in `monogram_color`), **names** (`display_name`), **date**, **Setnayan logo** (fetched `brand/setnayan-mark-512.png`, optional), and a **website QR** (`{appUrl}/{slug}` via `QRCode.toBuffer`, "Scan to visit our website").
+  - **Page 1 = floor plan** — drawn **to scale** when a venue size is set (room rectangle at the room's aspect + metric labels; tables at true footprint via `TABLE_FOOTPRINT_M`), else fit-to-page. Round→circle, banquet/head→rectangle; stage + entrance markers; table number, label, fill.
+  - **Pages 2+ = seating arrangements** — per-table header (fill · type) + numbered guest list with roles, two-column, auto-paginated.
+  - **Two modes:** **mood-board** (floor + tables coloured from the couple's `event_moodboard_saves.palette_snapshot`) or **blueprint** (clean blue line-art). Page footer with couple name + page number.
+- **`/dashboard/[eventId]/seating/export` route** (Node runtime) — auth + RLS-scoped fetch of event/tables/assignments/guests/floor-plan/palette, builds the PDF, returns it as a download (`?mode=moodboard|blueprint`).
+- **Editor:** an **Export PDF ▾** toolbar menu (Mood-board colours / Blueprint).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (export route compiles). **Both modes + the floor-plan and arrangement pages were rendered from the actual generated PDF and visually inspected** (16×22 m to-scale room, palette-coloured tables, monogram+date+QR header, per-table guest lists).
+
+**SPEC IMPACT:** builds the 0008 spec's print/PDF export (single-website-QR variant per owner; per-table-sign / per-guest place-card sheets remain deferred). Completes the seating floor-plan arc. → corpus DECISION_LOG.
 
 ## 2026-06-08 · feat(services): Budget "Build" — Services 5-tab takeover shell (Phase 1, flag-dark)
 
@@ -47,7 +88,6 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. `test-maria-and-jose` (event_date 2026-06-01) now computes `editorial`; a future-dated event stays `rsvp`. **Requires the flag ON + a redeploy to see live** — this bug would have shown RSVP even with the flag on, so it's a prerequisite for the Editorial phase to ever appear.
 
 **SPEC IMPACT:** correctness fix to the §1 phase model (Increment C). → DECISION_LOG.
-
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

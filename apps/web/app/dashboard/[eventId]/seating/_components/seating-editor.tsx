@@ -12,6 +12,7 @@ import {
   Maximize2,
   Minus,
   Plus,
+  Ruler,
   Save,
   Search,
   Sparkles,
@@ -22,6 +23,7 @@ import {
 import {
   CHAIR_PX,
   SIDE_COLORS,
+  TABLE_FOOTPRINT_M,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -97,7 +99,20 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     x: floorPlan.entrance_x,
     y: floorPlan.entrance_y,
   });
+  // Venue dimensions (metres) → render the room + tables to scale.
+  const [venue, setVenue] = useState({
+    enabled: floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null,
+    width: floorPlan.venue_width_m ?? 20,
+    length: floorPlan.venue_length_m ?? 30,
+  });
+  const [showRoomPanel, setShowRoomPanel] = useState(false);
+  const [canvasW, setCanvasW] = useState(0);
   const [floorDirty, setFloorDirty] = useState(false);
+
+  const venueScaled = venue.enabled && venue.width > 0 && venue.length > 0;
+  // Pixels-per-metre at zoom 1 (the world layer width === canvas width). Tables
+  // multiply this by their real footprint to render at true scale.
+  const pxPerMeter = venueScaled && canvasW > 0 ? canvasW / venue.width : null;
 
   const [positions, setPositions] = useState<Record<string, LocalPos>>(() => {
     const out: Record<string, LocalPos> = {};
@@ -170,6 +185,17 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
       const p = panRef.current;
       worldRef.current.style.transform = `translate(${p.x}px, ${p.y}px) scale(${zoomRef.current})`;
     }
+  }, [view]);
+
+  // Track the canvas width so tables can be scaled to true metres-per-pixel.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || view !== 'plan') return;
+    const update = () => setCanvasW(el.getBoundingClientRect().width);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [view]);
 
   const guestsById = useMemo(() => new Map(guests.map((g) => [g.guest_id, g])), [guests]);
@@ -448,6 +474,10 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
         fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
         fd.set('entrance_x', String(entrance.x));
         fd.set('entrance_y', String(entrance.y));
+        if (venue.enabled && venue.width > 0 && venue.length > 0) {
+          fd.set('venue_width_m', String(venue.width));
+          fd.set('venue_length_m', String(venue.length));
+        }
         await saveFloorPlan(fd);
       }
       setDirty(new Set());
@@ -679,6 +709,19 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                 <List className="h-3.5 w-3.5" /> List
               </button>
             </div>
+            {view === 'plan' ? (
+              <button
+                type="button"
+                onClick={() => setShowRoomPanel((v) => !v)}
+                aria-pressed={showRoomPanel}
+                className={`inline-flex items-center gap-1.5 rounded-lg border bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta ${
+                  venueScaled ? 'border-terracotta/50' : 'border-ink/15'
+                }`}
+              >
+                <Ruler className="h-3.5 w-3.5" />
+                {venueScaled ? `${venue.width}×${venue.length} m` : 'Room size'}
+              </button>
+            ) : null}
             {view === 'plan' && !entrance.enabled ? (
               <button
                 type="button"
@@ -708,6 +751,57 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             </button>
           </div>
         </div>
+
+        {view === 'plan' && showRoomPanel ? (
+          <div className="flex flex-wrap items-end gap-4 rounded-xl border border-ink/10 bg-cream p-3">
+            <label className="flex items-center gap-2 text-sm text-ink/75">
+              <input
+                type="checkbox"
+                checked={venue.enabled}
+                onChange={(e) => {
+                  setVenue((v) => ({ ...v, enabled: e.target.checked }));
+                  setFloorDirty(true);
+                }}
+                className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              />
+              Show room to scale
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Width (m)</span>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                step={0.5}
+                value={venue.width}
+                onChange={(e) => {
+                  setVenue((v) => ({ ...v, width: Number(e.target.value) || 0 }));
+                  setFloorDirty(true);
+                }}
+                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Length (m)</span>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                step={0.5}
+                value={venue.length}
+                onChange={(e) => {
+                  setVenue((v) => ({ ...v, length: Number(e.target.value) || 0 }));
+                  setFloorDirty(true);
+                }}
+                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+              />
+            </label>
+            <p className="flex-1 text-xs text-ink/50">
+              Enter your reception room&rsquo;s width × length and tables render at their true footprint, so you can
+              see what fits. <span className="text-ink/40">Zoom in to seat people; Fit to see the whole room.</span>
+            </p>
+          </div>
+        ) : null}
 
         {pickedGuest ? (
           <div className="flex items-center gap-3 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
@@ -743,14 +837,31 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerLeave={onCanvasPointerUp}
-          className="relative aspect-[7/5] w-full cursor-grab touch-none overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02] active:cursor-grabbing"
+          className={`relative w-full cursor-grab touch-none overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02] active:cursor-grabbing ${
+            venueScaled ? '' : 'aspect-[7/5]'
+          }`}
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
             backgroundSize: '22px 22px',
+            // When a room size is set, the canvas takes the room's aspect ratio
+            // so the floor plan isn't distorted.
+            ...(venueScaled ? { aspectRatio: `${venue.width} / ${venue.length}` } : {}),
           }}
         >
           {/* world layer — pan/zoom applied to its transform directly via refs */}
           <div ref={worldRef} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '0 0' }}>
+          {/* room outline (walls) + metric labels, when a venue size is set */}
+          {venueScaled ? (
+            <>
+              <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-ink/25" />
+              <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 text-[9px] font-medium text-ink/55">
+                {venue.width} m
+              </span>
+              <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 rounded bg-cream/80 px-1.5 text-[9px] font-medium text-ink/55">
+                {venue.length} m
+              </span>
+            </>
+          ) : null}
           {/* draggable stage marker (auto-seat anchors its rings here) */}
           <button
             type="button"
@@ -809,16 +920,22 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             const highlighted = highlightId === t.table_id;
             const dragging = dragId === t.table_id;
             const num = t.table_label.match(/\d+/)?.[0] ?? '';
+            // To-scale factor: render the table at its true footprint relative
+            // to the room (1 when no venue size is set → unchanged appearance).
+            const tableScale = pxPerMeter
+              ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w
+              : 1;
 
             return (
               <div
                 key={t.table_id}
-                className="absolute -translate-x-1/2 -translate-y-1/2"
+                className="absolute"
                 style={{
                   left: `${pos.x}%`,
                   top: `${pos.y}%`,
                   width: detail ? geo.box.w : geo.hub.w + 12,
                   height: detail ? geo.box.h : geo.hub.h + 12,
+                  transform: `translate(-50%, -50%) scale(${tableScale})`,
                   zIndex: dragging ? 30 : 20,
                 }}
               >

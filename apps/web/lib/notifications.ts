@@ -66,7 +66,9 @@ export type NotificationType =
   | 'inquiry_awaiting_reply'
   | 'inquiry_no_response'
   | 'photo_delivery_complete'
-  | 'photo_delivery_failed';
+  | 'photo_delivery_failed'
+  | 'vendor_token_purchase_pending'
+  | 'vendor_tokens_credited';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -91,6 +93,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   inquiry_no_response: 'Vendor hasn’t replied',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
+  vendor_token_purchase_pending: 'Token purchase awaiting payment',
+  vendor_tokens_credited: 'Tokens credited',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -124,6 +128,10 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   inquiry_no_response: 'bg-amber-100 text-amber-900',
   photo_delivery_complete: 'bg-emerald-100 text-emerald-800',
   photo_delivery_failed: 'bg-rose-100 text-rose-800',
+  // Pending purchase = admin action needed → amber (matches resubmit/awaiting).
+  vendor_token_purchase_pending: 'bg-amber-100 text-amber-900',
+  // Tokens credited = positive money-in confirmation → emerald (matches order_paid).
+  vendor_tokens_credited: 'bg-emerald-200 text-emerald-900',
 };
 
 export type NotificationRow = {

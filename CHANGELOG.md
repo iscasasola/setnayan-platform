@@ -19,6 +19,75 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` + `/pricing` both `ƒ`).
 
 **SPEC IMPACT:** Resolves the 2 open "confirm" items from the 2026-06-08 reprice. `Pricing_Canonical_2026-06-08.md` §57 retirements confirmed (minus the still-active ones); Papic Guests pax-pricing stands. DECISION_LOG row added.
+## 2026-06-08 · fix(ci): resolve duplicate migration timestamp 20260918000000
+
+**Context:** Two PRs merged the same day each created a `20260918000000_*` migration — `…_invitation_widgets_what_to_bring.sql` (#1095 What-to-Bring) and `…_vendor_token_purchase_webhook.sql` (#1097 token webhook). Each passed its own `migration timestamp guard` because the collision only existed once *both* were on `main`; the guard would then fail on **every** subsequent PR (it rejects duplicate 14-digit prefixes, since `supabase db push` uses the prefix as the `schema_migrations` PK).
+
+**What landed:** renamed `20260918000000_vendor_token_purchase_webhook.sql` → `20260918000001_vendor_token_purchase_webhook.sql` (content identical; the What-to-Bring file keeps `000000`). Guard now passes (verified locally with ci.yml's exact check). No prod impact — the functions were already applied via direct SQL and are idempotent; this is a repo-filename fix to unblock CI.
+
+**SPEC IMPACT:** None.
+
+## 2026-06-08 · feat(vendor): token purchase — payment webhook, notifications, history
+
+**Context:** Follow-ups to the vendor token-purchase flow (#1088/#1091). Owner asked for: the "automated later" webhook half, purchase notifications, and a vendor-facing purchase history.
+
+**What landed:**
+- **Payment webhook (`app/api/webhooks/token-purchase/route.ts`)** — HMAC-SHA256-verified (`TOKEN_PURCHASE_WEBHOOK_SECRET`, `x-setnayan-signature`, timing-safe) endpoint that auto-confirms a purchase when a provider reports a paid `TKN-` reference. Extracts the reference from known Maya/PayMongo fields + a recursive payload scan; ignores non-success statuses; acks unknown references (no retry-storm); credits via the new service-role RPC; defers the vendor notification with `after()` for a fast 200. **No secret set → 503 (inert/fail-closed).**
+- **Migration `20260918000001`** — refactors the credit logic into a shared internal `_apply_token_purchase_credit(id, reviewed_by)` (idempotent), rewrites `approve_vendor_token_purchase` to delegate to it, and adds `confirm_vendor_token_purchase_by_reference(ref)` for the webhook. **Security:** the webhook RPC + internal helper are `service_role`-only — explicitly REVOKEd from `anon`+`authenticated` (Supabase's default privileges grant those, so `REVOKE FROM PUBLIC` alone left a hole where a vendor could self-credit by reference without paying). Verified the grant state post-apply.
+- **Migration `20260918000100`** + `lib/notifications.ts` — two new `notification_type` values: `vendor_token_purchase_pending` (admin) + `vendor_tokens_credited` (vendor), with labels + tones.
+- **Notifications (`lib/token-purchase-notify.ts`)** — fail-soft helpers used by both the actions and the webhook: `notifyAdminsTokenPurchasePending` (fan-out to internal/team/admin users on a new order, deep-links `/admin/token-purchases`) + `notifyVendorTokensCredited` (on a fresh credit only, deep-links `/vendor-dashboard/tokens`). `emitNotification` already does in-app + email, so this is one call per channel. Wired into `startTokenPurchase` (admins) and `approveTokenPurchase` (vendor, gated on `{paid:true}` so a re-confirm doesn't re-ping).
+- **Purchase history (`_components/purchase-history.tsx`)** — vendor tokens page now shows resolved (paid/rejected) orders; pending still lives in the PendingPurchases panel.
+
+**Verify:** `tsc --noEmit` clean · `next lint` clean · transactional smoke test (rolled back) — webhook confirm-by-reference credits +50 purchased_tokens, idempotent, unknown ref raises NOT_FOUND, admin path still works via the shared core; grant audit confirms `confirm_*`/`_apply_*` are service_role-only. Migrations applied to prod.
+
+**Owner action (for live automation):** set `TOKEN_PURCHASE_WEBHOOK_SECRET` in Vercel, register the provider webhook at `/api/webhooks/token-purchase`, and configure it to sign the raw body + echo our `TKN-` reference. Until then the manual admin-confirm flow is the live path (webhook returns 503).
+
+**SPEC IMPACT:** Extends the 2026-06-08 vendor token-purchase flow (0034 + 0022). DECISION_LOG row appended. No price changes.
+
+## 2026-06-08 · feat(website): Increment A.3 — What to Bring content block (LIVE)
+
+**Context:** Third content block on the wedding-website lifecycle foundation (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.5), after Special Message (A.1). A couple-curated gift / registry / no-gift note rendered on the live invitation site. Built fully **independent of the parallel onboarding session** — its own column, its own editor; onboarding never touches it.
+
+**What landed:**
+- **Migration `20260918000000_invitation_widgets_what_to_bring.sql`** — adds `events.what_to_bring` (TEXT) + the `what_to_bring` widget_type (CHECK recreated cumulatively with all 14 types incl. `special_message`; `populate_default_invitation_widgets()` seed adds row 14; backfill for existing events). Idempotent + additive.
+- **`lib/invitation-widgets.ts`** — `what_to_bring` added to `WIDGET_TYPES` + a `WIDGET_CATALOG` entry (editor_subroute `what-to-bring`, hideable) so it appears in the show/hide/reorder editor.
+- **`app/[slug]/page.tsx`** — `EventRow.what_to_bring`, added to the SELECT, both render switches (`HideableWidgetRender` + `PublicHideableWidget`), the `publicSafeWidgets` allow-list, and a new `WhatToBringWidget` (centered cream card, "What to bring" eyebrow; blank → renders nothing so the section hides).
+- **New editor** `/dashboard/[eventId]/website/what-to-bring/{page.tsx,actions.ts}` — single 600-char textarea writing `events.what_to_bring` via `updateWhatToBring`; mirrors the Special Message editor (auth + RLS gate; empty saves NULL → section hides).
+
+**Verify:** typecheck + production build on CI (no local node_modules in worktree). Migration timestamp bumped `20260917000000`→`20260918000000` on merge to clear a collision with `20260917000000_setnayan_ai_entitlement.sql` (parallel PR-2); strictly newest (monotonic guard passes). `our_love_story` deliberately NOT included — it remains parked off-main, so the CHECK/seed stay at 14 types.
+
+**SPEC IMPACT:** §6.5 (per-phase element matrix) — What to Bring now shipped. → DECISION_LOG.
+
+## 2026-06-08 · feat(seating): chair-level visual editor + role-tier auto-seat (0008)
+
+**Context:** Owner shared a polished seating-editor reference ("Nunta Pe Mese") and asked to bring our seat plan up to it. The look they wanted — per-seat chairs with guest names, a grouped/colour-coded sidebar, and a one-click auto-fill — is exactly what iteration **0008**'s locked spec already describes ("Chair-level interaction" + "Auto-fill — role-tier rings"); the 2026-05-13 MVP had shipped only plain table shapes + a dropdown assigner and deferred both. This PR catches the code up to its own spec. No migration — `event_seat_assignments.seat_number` and `guest_groups`/`guest_group_memberships` already existed.
+
+**What landed:**
+- **Chair-level canvas** (`_components/seating-editor.tsx`, replaces `floor-plan.tsx`) — each table renders its chairs around the hub (round/sweetheart/serpentine → circle; long-banquet/family-head → two long edges). Each seat is drawn as an **actual chair** (Lucide `Armchair`): empty chairs are open seats you tap to fill; an occupied chair is tinted in the guest's group/side colour with their photo/initials sitting on it, and the guest's **full name** fans out around the chair (radial on round tables; stacked above/below + chair-column-wrapped on banquet rows so adjacent names don't collide). Pure geometry lives in `lib/seating.ts` (`tableGeometry`).
+- **Seat / move / unseat by tap** — pick a guest in the sidebar, tap a chair (or the table hub for next-free seat); tap a seated chair to pick them up and move; Unseat from the action banner. Touch-friendly select-then-place (no fragile drag-to-assign). Table reposition stays a hub drag (4px threshold disambiguates click vs drag) → Save layout.
+- **Grouped, colour-coded sidebar** — Tables (fill state + delete + click-to-highlight), Individual Members, and custom Member Groups (deterministic accent colour via `groupColorFor`, member count, expand, eye-toggle to mute the colour on canvas). "Only show unseated" filter + people search. Inline Add-table.
+- **Auto-seat** (`autoSeatGuests` action + pure `computeAutoSeat`) — fills every unseated *attending* guest into the nearest tables to the stage, tier by tier (T1 family/sponsors/officiant → T4 friends/work), keeping plus-ones adjacent; idempotent (never moves a seated guest, skips sweetheart tables, never seats the couple). Confirm dialog before running.
+- Brand-native (Alabaster/Obsidian/Champagne/Mulberry), not the reference's teal/peach. Photo URLs resolved server-side via `displayUrlForStoredAsset`.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ (warnings only) · `next build` ✓ (route `/dashboard/[eventId]/seating` ~14.5 kB). PR #1070 CI green (ci/typecheck+lint+production build · playwright e2e · lighthouse · desktop build). Layout visually verified via a headless render of the seeded `couple.test` demo wedding (4 tables / 15 guests / 3 colour groups) before each push.
+
+**SPEC IMPACT:** Builds the previously-deferred "Chair-level interaction" + "Auto-fill — role-tier rings" sections of `0008_seating_chart_editor.md` (and flips that file's AS-BUILT note). Still deferred (the "full rebuild" the owner did not pick this pass): Add-Group modal w/ colour picker, two-tab Arrangements/Members layout, canvas zoom, dedicated mobile table-card view, publish-QR + print pack, per-seat serpentine wedge geometry. → corpus DECISION_LOG + 0008 AS-BUILT header.
+
+## 2026-06-08 · feat(setnayan-ai): per-event paid entitlement, behind a default-off flag (PR-2)
+
+**Context:** Owner 2026-06-08 — make Setnayan AI a **paid per-event** SKU (₱3,999, `SETNAYAN_AI`, already live in `platform_retail_catalog_v2`), but **"build it, flip behind a flag"** so nothing changes for live couples until deliberately enabled. Builds on PR-1's governing gate (`isSetnayanAiActive`).
+
+**What landed (all inert until the flag flips):**
+- **Migration `20260917000000`** — additive `events.setnayan_ai_active boolean NOT NULL DEFAULT false`. The entitlement is a single flat boolean (no trial / no wedding-anchored expiry — distinct from the retired Concierge machinery).
+- **`lib/setnayan-ai.ts`** — `isSetnayanAiPaywallEnabled()` reads `SETNAYAN_AI_PAYWALL_ENABLED` (default off). Gate: paywall OFF → free Assisted↔Manual toggle (PR-1 behavior, unchanged); paywall ON → `notManuallyOff && setnayan_ai_active`. The source swap is this one file — no call site touched.
+- **Activation hook** (`admin/payments/actions.ts`) — a confirmed `SETNAYAN_AI` order stamps `events.setnayan_ai_active = true` (idempotent, non-fatal, no expiry). ⚠ The `order.service_key` match (`'SETNAYAN_AI'`) must be verified against the actual checkout key before flipping the flag — flagged in-code.
+- **3 event selects** now fetch `setnayan_ai_active` (page.tsx · category-search.ts · vendors/page.tsx) so the flip "just works".
+
+**Deferred to the flip-time increment:** surfacing the SKU on /pricing + onboarding, the toggle-on-unpaid → buy-routing, `V2_SKU_CODES` sync, and the homepage "from ₱3,999" copy.
+
+**Verify:** flag is off by default → zero behavior change; gate logic unit-checkable; migration additive + applied to prod ahead of merge (selects depend on the column). CI typecheck + build.
+
+**SPEC IMPACT:** Implements the per-event paid gate from `What_Is_Setnayan_AI_2026-06-08.md` §2/§9. → DECISION_LOG. PR-2 of the build (next: last-minute · dependencies).
 
 ## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
 

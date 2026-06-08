@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): bundle composition — owner-specified Essentials + canonical-18 Complete + "what's included" list
+
+**Context:** Owner confirmed the bundle compositions. Critically, Essentials includes SKUs that are NOT standalone onboarding à-la-carte cards (Setnayan AI · Pro RSVP · Event Website), so `BUNDLE_MEMBERS` is re-keyed from onboarding INAPP keys to catalog **service_codes**, and the bundle "worth" is now summed from the **full live customer catalog** (not the 13-card onboarding subset).
+
+**What landed (`onboarding-pricing.ts` + `onboarding-shell.tsx` + `onboarding.css`):**
+- **`BUNDLE_MEMBERS` → service_codes.** Essentials (owner's 7): `SETNAYAN_AI · ANIMATED_MONOGRAM · CUSTOM_QR_GUEST · PRO_RSVP · PAPIC_GUEST · EVENT_WEBSITE · PRO_WEBSITE`(Editorial Website). Complete: the canonical **18** paid SKUs (FIXED list — not "all active", so worth is controlled + drift-proof).
+- **`buildOnboardingPricing`**: worth + member titles resolved from the full `byCode` catalog map (so non-card SKUs contribute). `OnboardingBundleVM` gains `items: string[]` (member display titles).
+- **Bundle card** now renders a **"what's included" `✓` list** (member titles) in a 2-col grid under the savings line.
+- Live numbers (from the catalog): **Essentials** worth ₱21,494 → ₱12,999 (save ₱8,495, 7 items); **Complete** worth ₱48,483 → ₱27,999 (save ₱20,484, 18 items). All 18 + 7 codes verified present/active — no silently-dropped members.
+
+**#2 — bundles bought only during onboarding:** verified the bundle checkout (`/dashboard/[eventId]/add-ons/bundle`) is linked ONLY from the onboarding shell — not `/pricing`, not the dashboard add-ons/services list — so it's onboarding-only by construction (no extra gate needed; the page is just the apply-then-pay landing).
+
+**⚠ FLAG for owner:** the live catalog now also has `RSVP_WEBSITE` + `RSVP_PRO_WEBSITE` (added out-of-band, not in my canonical 18) — deliberately EXCLUDED from Complete pending your confirm (duplicates of Pro RSVP / Event Website?). Also FYI `EVENT_WEBSITE` is now ₱1,500 in the catalog (was ₱1,999) — the bundle reads live, so it auto-reflects.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ · all member codes resolve against the live catalog.
+
+**SPEC IMPACT:** Bundle compositions owner-ratified. DECISION_LOG row added.
+
 ## 2026-06-08 · feat(onboarding): bundle card — Essentials/Complete offer wired into onboarding (onboarding-only)
 
 **Context:** Owner-approved 2026-06-08 (AskUserQuestion) — bundles are onboarding-only, so the Essentials/Complete offer is now shown IN the onboarding flow (the `pricing.bundles` view-model was built in the live-wire PR but unconsumed). Reverses the 2026-06-05 à-la-carte-only decision (owner-authorized). Built via an ultracode workflow; the workflow's `checkout-routes-safely` lens **caught a real bug** in the primary CTA, which I fixed before shipping (see below).

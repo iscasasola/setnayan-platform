@@ -97,41 +97,53 @@ export const OUT_ANCHORS: Record<string, number> = {
 };
 
 /**
- * Bundle membership — which à-la-carte services each package bundles. Used to
- * compute the bundle "worth" (Σ of member SELLING prices) and therefore the
- * displayed savings. There is NO DB/constant source for bundle membership
- * (verified: no platform_package_items table, no inclusions constant), so this
- * list is AUTHOR-CURATED.
+ * Bundle membership — which SKUs each package bundles. Used to compute the
+ * bundle "worth" (Σ of member SELLING prices) + the displayed savings + the
+ * "what's included" list. There is NO platform_package_items table, so this is
+ * AUTHOR-CURATED. Keyed by catalog SERVICE_CODE (NOT the onboarding INAPP keys) —
+ * a bundle can contain ANY catalog SKU, incl. ones with no standalone onboarding
+ * card (Setnayan AI, Pro RSVP, Event Website). Worth + titles are looked up at
+ * runtime from the full live customer catalog.
  *
- * Owner-decided 2026-06-08: BUNDLES ARE ONBOARDING-ONLY (never sold outside the
- * flow), so membership is scoped to the onboarding in-app service set. `complete`
- * = every offered onboarding service; `essentials` = the curated value core.
- * `indoor_blueprint` removed (SKU retired 2026-06-08). Drives the displayed
- * "worth / save ₱X" on the onboarding bundle card.
+ * Owner-decided 2026-06-08: bundles are ONBOARDING-ONLY (bought only during the
+ * flow). `essentials` = the owner's 7 (Setnayan AI · Animated Monogram · Custom
+ * QR · Pro RSVP · Papic Guest · Event Website · Editorial Website). `complete` =
+ * the canonical-18 paid catalog (FIXED list — NOT "all active", so the worth is
+ * controlled + doesn't drift when SKUs are added). NOTE: the live catalog now
+ * also has RSVP_WEBSITE + RSVP_PRO_WEBSITE (added out-of-band) — deliberately
+ * EXCLUDED here pending owner confirm (flagged in the PR).
  */
 export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
-  // Essentials — the curated value core.
+  // Essentials — the owner's 7 (2026-06-08).
   essentials: [
-    'custom_qr',
-    'animated_monogram',
-    'advanced_website',
-    'papic_seats',
+    'SETNAYAN_AI',
+    'ANIMATED_MONOGRAM',
+    'CUSTOM_QR_GUEST',
+    'PRO_RSVP',
+    'PAPIC_GUEST',
+    'EVENT_WEBSITE',
+    'PRO_WEBSITE', // = "Editorial Website"
   ],
-  // Complete — every offered onboarding in-app service.
+  // Complete — the canonical 18 paid SKUs.
   complete: [
-    'papic_seats',
-    'advanced_website',
-    'animated_monogram',
-    'panood',
-    'papic_guest',
-    'sde',
-    'pakanta',
-    'custom_qr',
-    'live_background',
-    'pabati',
-    'guest_stories',
-    'thank_you',
-    'live_photowall',
+    'SETNAYAN_AI',
+    'ANIMATED_MONOGRAM',
+    'CUSTOM_QR_GUEST',
+    'PRO_RSVP',
+    'EVENT_WEBSITE',
+    'PRO_WEBSITE',
+    'PAPIC_GUEST',
+    'PAPIC_ADDON_STORIES', // Guest Stories
+    'PAPIC_SEATS',
+    'CAMERA_BRIDGE',
+    'PABATI',
+    'PATIKTOK_COMPILER',
+    'PAPIC_ADDON_THANK_YOU', // Thank You
+    'SDE',
+    'LIVE_WALL', // PhotoWall
+    'LIVE_BACKGROUND',
+    'PANOOD_SYSTEM',
+    'PAKANTA',
   ],
 };
 
@@ -158,6 +170,8 @@ export type OnboardingBundleVM = {
   worth: number;
   /** max(0, worth − price). */
   savings: number;
+  /** Member SKU display titles, in BUNDLE_MEMBERS order (for the "what's included" list). */
+  items: string[];
 };
 
 /** The full onboarding pricing view-model passed into OnboardingShell. */
@@ -228,22 +242,24 @@ export function buildOnboardingPricing(
     };
   }
 
-  const sumWorth = (members: string[]): number =>
-    members.reduce((s, k) => s + (svc[k]?.set ?? 0), 0);
-
+  // Bundle members are catalog SERVICE_CODES — resolve worth + titles from the
+  // FULL live customer catalog (byCode), not the onboarding INAPP subset, so a
+  // bundle can include SKUs with no standalone onboarding card (Setnayan AI etc.).
   const bundleVM = (
     code: string,
     members: string[],
   ): OnboardingBundleVM | null => {
     const pkg = bundles.find((b) => b.package_code === code);
     if (!pkg) return null;
-    const worth = sumWorth(members);
+    const rows = members.map((sc) => byCode.get(sc)).filter((s): s is V2CustomerSku => !!s);
+    const worth = rows.reduce((s, sku) => s + sku.retail_price_php, 0);
     return {
       code: pkg.package_code,
       title: pkg.title,
       price: pkg.retail_price_php,
       worth,
       savings: Math.max(0, worth - pkg.retail_price_php),
+      items: rows.map((sku) => sku.title),
     };
   };
 

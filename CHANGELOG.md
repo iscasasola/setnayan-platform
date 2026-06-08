@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): seed the Flowers chapter with Recraft floral photos (0010)
+
+**Context:** Follow-up to the mood-board redesign (#1120). The new Flowers chapter shipped with a graceful empty state; this seeds it so couples can recolor real florals.
+
+**Five Recraft-generated, Setnayan-owned photos** (one per subtype — bridal bouquet · bridesmaid bouquet · ceremony arrangement · reception centerpiece · boutonniere), generated as tight studio shots on clean neutral backdrops so each bloom color is distinct from the frame and recolors cleanly. Hosted **in-repo at `apps/web/public/moodboard-seed/florals/*.webp`** (43–113 KB each, optimized + auto-cropped) and served same-origin — no Supabase Storage upload (service-role key unavailable in the build env), and IP-clean vs hot-linked stock.
+
+**Resolver (`page.tsx`):** a leading-`/` `storage_path` is now treated as an app-relative URL (alongside the existing absolute-URL + bucket-key cases), so the Recolor Studio loads the seed images same-origin and `getImageData` never taints the canvas.
+
+**Migration `20260927000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
+
+**SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
 ## 2026-06-08 · fix(seating): smooth pan + tables visible in to-scale mode (0008)
 
 **Context:** Two bugs the owner hit once a venue Width×Length was set (to-scale mode), root-caused via a 6-agent adversarial workflow + a faithful render-repro:

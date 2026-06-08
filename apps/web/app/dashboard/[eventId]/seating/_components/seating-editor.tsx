@@ -496,7 +496,9 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
 
           {tables.map((t) => {
             const pos = positions[t.table_id] ?? { x: 50, y: 50 };
-            const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+            const shape = shapeHintFor(t.table_type);
+            const geo = tableGeometry(shape, t.capacity);
+            const rectish = shape === 'long_banquet' || shape === 'family_head';
             const occ = occupantsFor(t);
             const filled = occ.filter(Boolean).length;
             const halo = dominantColor(occ, colorFor);
@@ -570,11 +572,19 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                           <Armchair className="h-full w-full" strokeWidth={1.6} />
                         </button>
                       )}
-                      {occupant ? (
-                        <span className="pointer-events-none absolute left-1/2 top-full mt-px w-20 -translate-x-1/2 truncate text-center text-[9px] font-medium leading-tight text-ink/75">
-                          {occupant.name.split(' ')[0]}
-                        </span>
-                      ) : null}
+                      {occupant
+                        ? (() => {
+                            const lbl = seatLabel(s.x, s.y, rectish);
+                            return (
+                              <span
+                                className={`pointer-events-none absolute z-10 line-clamp-2 break-words text-[9px] font-medium leading-[1.05] text-ink/85 ${lbl.className}`}
+                                style={lbl.style}
+                              >
+                                {occupant.name}
+                              </span>
+                            );
+                          })()
+                        : null}
                     </div>
                   );
                 })}
@@ -717,6 +727,45 @@ function ChairAvatar({ guest, color, size }: { guest: SeatingGuest; color: strin
       {guest.initials}
     </span>
   );
+}
+
+// Places a guest's full name OUTSIDE their chair so the table stays readable:
+// banquet rows get the name stacked above (top row) / below (bottom row); round
+// tables fan the name out radially (left/right/above/below) from the centre.
+function seatLabel(sx: number, sy: number, rect: boolean): {
+  className: string;
+  style: React.CSSProperties;
+} {
+  const base: React.CSSProperties = {
+    // banquet chairs sit close together → keep each name in its own chair-wide
+    // column so adjacent names wrap instead of colliding. Round tables fan out
+    // radially with room for a wider label.
+    width: rect ? 44 : 88,
+    // cream halo so names stay legible over chairs + the grid, in both themes
+    textShadow: '0 0 4px rgb(var(--color-cream)), 0 1px 2px rgb(var(--color-cream))',
+  };
+  const lift = CHAIR_PX / 2 - 2;
+  if (rect) {
+    return sy < 0
+      ? { className: 'text-center', style: { ...base, left: '50%', top: '50%', transform: `translate(-50%, calc(-100% - ${lift}px))` } }
+      : { className: 'text-center', style: { ...base, left: '50%', top: '50%', transform: `translate(-50%, ${lift}px)` } };
+  }
+  const len = Math.hypot(sx, sy) || 1;
+  const ux = sx / len;
+  const uy = sy / len;
+  const off = CHAIR_PX / 2 + 4;
+  const lx = ux * off;
+  const ly = uy * off;
+  if (ux > 0.34) {
+    return { className: 'text-left', style: { ...base, left: '50%', top: '50%', transform: `translate(${lx}px, calc(-50% + ${ly}px))` } };
+  }
+  if (ux < -0.34) {
+    return { className: 'text-right', style: { ...base, left: '50%', top: '50%', transform: `translate(calc(-100% + ${lx}px), calc(-50% + ${ly}px))` } };
+  }
+  if (uy < 0) {
+    return { className: 'text-center', style: { ...base, left: '50%', top: '50%', transform: `translate(-50%, calc(-100% + ${ly}px))` } };
+  }
+  return { className: 'text-center', style: { ...base, left: '50%', top: '50%', transform: `translate(-50%, ${ly}px)` } };
 }
 
 // The guest "sitting on" a chair — a small badge centred on the seat of the

@@ -42,6 +42,7 @@ import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare } from './_components/build-compare';
+import { type SavedBuild } from './build-actions';
 import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
 import { buildTasteChips } from '@/lib/personalized-menu';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -398,6 +399,12 @@ export default async function VendorsPage({ params }: Props) {
   // it never runs unless the flag is on).
   if (isBudgetBuildEnabled()) {
     const allocInputs = await resolveAllocationInputs(supabase, eventId);
+    const { data: savedBuildRows } = await supabase
+      .from('budget_builds')
+      .select('build_id, label, title, budget_php, basket, total_php')
+      .eq('event_id', eventId)
+      .order('label');
+    const savedBuilds = (savedBuildRows ?? []) as SavedBuild[];
     const buildSlot = (
       <BudgetAllocationPlanner
         eventId={eventId}
@@ -417,9 +424,11 @@ export default async function VendorsPage({ params }: Props) {
         buildSlot={buildSlot}
         compareSlot={
           <BuildCompare
+            eventId={eventId}
             budgetPhp={allocInputs.budgetPhp}
             leaves={allocInputs.leaves}
             config={allocInputs.config}
+            savedBuilds={savedBuilds}
           />
         }
         lockSlot={<BuildLocked model={model} />}

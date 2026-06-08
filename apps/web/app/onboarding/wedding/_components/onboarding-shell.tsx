@@ -93,52 +93,65 @@ import { SDLoader } from '@/components/sd-loader';
 /* The "Your Dream Team" chapter (4 NEW chrome screens · team_intro / reception_setting /
    team_payoff / aigate) is inserted after `budget`. `find` MOVES earlier — out of its old
    post-`account` slot into the chapter (right after reception_setting), matching the
-   prototype's s1search position. `picker`+`prefs` move to AFTER `aigate` and become
-   AI-gated; `account` now follows the AI screens (prototype order).
-   ⚠ ACCOUNT-REPOSITION flagged to owner — see PR-2 ownerFlags. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','picker','prefs','account','congrats','plan','services','summary'] as const;
+   prototype's s1search position. The AI-gated team screens follow `aigate`:
+   team_basics (4-card pax-style basics carousel) → team_extras (expandable parent→tiles
+   browser of the full taxonomy minus the basics) → songs (Song Bank) → mood (feel picker).
+   `account` follows the AI screens (prototype order).
+   ⚠ ACCOUNT-REPOSITION flagged to owner — see PR-2 ownerFlags.
+   PR-3: the interim flat `picker`+`prefs` ids are RETIRED. team_basics/team_extras both call
+   the EXISTING pickChip → state.picks stays ONE flat array (Option-A bridge); songs/mood
+   re-house the StyleSubStepper's music + palette dimensions (now standalone, still AI-gated).
+   refine_basic/refine_extras arrive in PR-4. */
+const FLOW_IDS = ['welcome','role','kind','faith','name','love_intro','love_met','love_proposal','love_milestones','love_tone','love_preview','date','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','team_extras','songs','mood','account','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The 5 love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
 const LOVE_SKIPPABLE: ReadonlySet<ScreenId> = new Set(['love_met','love_proposal','love_milestones','love_tone','love_preview']);
 /* Dream Team AI-gated screens — shown only when the couple opts into AI matching on
-   `aigate` (state.ai === true). PR-2 interim AI-only set is the EXISTING picker+prefs;
-   the picks split / refine engine arrive in PR-3 / PR-4. AI=No (or undecided) skips
-   straight past them to account → congrats. */
-const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['picker','prefs']);
+   `aigate` (state.ai === true). team_basics (the 4 essentials) + team_extras (the full
+   taxonomy browser) capture state.picks; songs + mood re-house the music + feel
+   dimensions that the retired StyleSubStepper used to own (they were AI-gated as part of
+   prefs, so they stay AI-gated here). AI=No (or undecided) skips straight past all four to
+   account → congrats. refine_basic/refine_extras land in PR-4. */
+const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['team_basics','team_extras','songs','mood']);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null): ScreenId[] {
   return FLOW_IDS.filter((id) =>
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(id === 'account' && authed) &&                // signed-in users skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
-    !(ai !== true && TEAM_AI_ONLY.has(id))          // picker+prefs only when the couple opted into AI matching (aigate=Yes)
+    !(ai !== true && TEAM_AI_ONLY.has(id))          // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
   );
 }
 
-/* Primary-button label per screen (prototype nextLabel[]). 'prefs' is overridden at
- * render time by the sub-stepper ("Continue" / "Looks good"); 'plan' flips to
- * "Continue to checkout" once the bundle is added. */
+/* Primary-button label per screen (prototype nextLabel[]). 'plan' flips to
+ * "Continue to checkout" once the bundle is added. `mood` (the last AI screen) carries the
+ * "Looks good" flourish the retired prefs sub-stepper used to supply on its final screen. */
 const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   welcome:'Build my free plan', role:'Continue', kind:'Continue', faith:'Continue', name:'Continue',
   // Love stage: love_intro + love_preview carry their OWN in-screen buttons (no chrome CTA);
   // the three middle collection screens advance with "Continue", love_tone leads to the reveal.
   love_intro:'Continue', love_met:'Continue', love_proposal:'Continue', love_milestones:'Continue',
   love_tone:'See our story', love_preview:'This is us',
-  date:'Continue', region:'Continue', pax:'Continue', budget:'Continue', picker:'Continue',
-  prefs:'Continue', account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
+  date:'Continue', region:'Continue', pax:'Continue', budget:'Continue',
+  account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
   team_intro:'Continue', reception_setting:'Continue', team_payoff:'Continue', aigate:'Continue',
+  // AI-gated team screens (PR-3). mood is terminal of the AI fork → "Looks good".
+  team_basics:'Continue', team_extras:'Continue', songs:'Continue', mood:'Looks good',
 };
-/* Which screens show a Skip button. Skippable: prefs · find · the à-la-carte services
-   review — they sort/refine, never gate. The love collection screens (met/proposal/
-   milestones/tone) are all optional → Skip advances. Everything that drives matching is
-   required: role/kind/faith/name/date/region/pax/budget/picker. (owner 2026-06-05 — removed
-   Skip from faith · date · pax · budget; Continue already gates each.) */
+/* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
+   à-la-carte services review — they sort/refine, never gate. The love collection screens
+   (met/proposal/milestones/tone) are all optional → Skip advances. Everything that drives
+   matching is required: role/kind/faith/name/date/region/pax/budget/team_basics. (owner
+   2026-06-05 — removed Skip from faith · date · pax · budget; Continue already gates each.)
+   team_basics is NOT skippable — it seeds state.picks (a Yes-to-AI couple always picks ≥1
+   essential). songs/mood sort matches the way the retired prefs sub-stepper did, so they
+   stay Skip-able. */
 const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = {
   love_met:true, love_proposal:true, love_milestones:true, love_tone:true,
-  prefs:true, find:true, services:true,
+  team_extras:true, songs:true, mood:true, find:true, services:true,
 };
 /* The love gate + reveal carry their OWN button rows (a primary CTA + a ghost) — the chrome
    Continue is hidden for these, the same way the account gate + summary are (data-nocta). */
@@ -308,6 +321,15 @@ const PICK_GROUPS: PickGroup[] = [
   { label: 'Prints', rows: [[{ cat: 'printing', label: 'Printing' }, { cat: 'souvenirs', label: 'Souvenirs / giveaways' }]] },
   { label: 'Transport', rows: [[{ cat: 'bridal_car', label: 'Bridal car' }], [{ cat: 'guest_shuttle', label: 'Guest shuttle' }, { cat: 'escort', label: 'Escort' }]] },
 ];
+/* Dream Team chapter (PR-3) — the 4 ESSENTIAL services rendered on `team_basics`, in the
+   canonical BASIC order (ceremony → catering → coordinator → photo_video; owner ISSUE-1).
+   These are PRODUCTION PICK_GROUPS keys (NOT the prototype's `ceremony_venue`) so
+   CATEGORY_MAP + the auto-inquire loop keep resolving. `team_extras` renders every other
+   PICK_GROUPS leaf EXCEPT these AND except `reception` (captured on reception_setting).
+   BRIDGE: basics vs extras is a RENDER-TIME partition of ONE flat state.picks — both
+   screens call the same pickChip(cat); there is no basicPicks/enhancePicks. */
+const BASIC_CATS = ['ceremony', 'catering', 'coordinator', 'photo_video'] as const;
+const BASIC_SET = new Set<string>(BASIC_CATS);
 const PICK_INFO: Record<string, { g: string; d: string }> = {
   reception: { g: 'Venue', d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
   ceremony: { g: 'Venue', d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
@@ -363,23 +385,9 @@ const PICK_INFO: Record<string, { g: string; d: string }> = {
   guest_shuttle: { g: 'Transport', d: 'Shuttles to bring your guests to the venue.' },
   escort: { g: 'Transport', d: 'A security or motorcade escort for the convoy.' },
 };
-/* ── style sub-stepper data (prototype LEANPREF + FEELS + MUSIC100) ── */
-const MUSIC_CATS = ['live_band', 'choir', 'orchestra', 'wedding_singer', 'dj', 'performers'];
-const AESTHETIC_CATS = ['stylist', 'florist', 'cake', 'led_wall', 'printing', 'bride_attire', 'groom_attire', 'women_attire', 'men_attire'];
-// `reception` is no longer fine-tuned in the StyleSubStepper — the Dream Team chapter's
-// standalone `reception_setting` screen now owns that dimension (writes the same
-// prefs.reception array). Dropped from PREF_ORDER + the want.add clause so the
-// sub-stepper stops double-asking it (PR-2).
-const PREF_ORDER = ['ceremony', 'catering', 'photo_video', 'music', 'palette'];
-function prefQueueFrom(picks: string[]): string[] {
-  const want = new Set<string>();
-  picks.forEach((c) => {
-    if (c === 'ceremony' || c === 'catering' || c === 'photo_video') want.add(c);
-    else if (MUSIC_CATS.includes(c)) want.add('music');
-  });
-  if (picks.some((c) => AESTHETIC_CATS.includes(c))) want.add('palette');
-  return PREF_ORDER.filter((k) => want.has(k));
-}
+/* ── feel/palette data (prototype FEELS) — re-housed into the standalone `mood` screen
+   (PR-3) after the StyleSubStepper was retired. Still read by buildCommitPayload
+   (moodFeelKey + basicMoodboard) + the congrats recap. ── */
 const FEELS: Record<string, string[] | null> = {
   timeless: ['#f3ece0', '#e8d6b8', '#c5a059', '#8a6d3b', '#ffffff'],
   modern: ['#ffffff', '#1e2229', '#cfd3d6', '#3a5746', '#9aa0a6'],
@@ -523,236 +531,6 @@ function PBlock({ label, children }: { label: string; children: ReactNode }) {
         <span className="picon" /> {label}
       </div>
       {children}
-    </div>
-  );
-}
-
-/**
- * Style sub-stepper — one focused screen per picked style dimension (prototype
- * buildPrefs + LEANPREF + showPref). The shell owns `idx` (which dimension); this
- * renders only the active dimension. Preferences SORT matches, never exclude →
- * multi-pick everywhere except ceremony (single, `data-single`). Dietary halal /
- * alcohol-free is pre-LOCKED by faith (Muslim → halal, INC → alcohol-free).
- */
-function StyleSubStepper({
-  queue,
-  idx,
-  faith,
-  budgetTier,
-  budgetLabel,
-  prefs,
-  onPrefs,
-}: {
-  queue: string[];
-  idx: number;
-  faith: OnboardingFaith[];
-  budgetTier: string;
-  budgetLabel: string;
-  prefs: OnboardingState['prefs'];
-  onPrefs: (p: Partial<OnboardingState['prefs']>) => void;
-}) {
-  if (queue.length === 0) {
-    return (
-      <div className="prefstep" data-pi="0" style={{ display: 'flex' }}>
-        <div className="viewzone">
-          <div className="eyebrow">
-            Your style <span className="tag new">New</span>
-          </div>
-          <h1 className="q">You’re all set on style.</h1>
-          <p className="sub">
-            Nothing to fine-tune yet — we’ll sort your matches by date, area, budget and reviews. Add a look anytime in <b>Personalize my matches</b> on your Home.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  const dim = queue[idx] ?? queue[0]!;
-  const toggleArr = (arr: string[], v: string): string[] => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-
-  // faith dietary pre-lock
-  const lockHalal = faith.includes('muslim');
-  const lockAlcoholFree = faith.includes('muslim') || faith.includes('inc');
-  const dietSelected = (k: string) => (k === 'halal' ? lockHalal : k === 'alcohol_free' ? lockAlcoholFree : false) || prefs.dietary.includes(k);
-  const faithLabel = faith.includes('muslim') ? 'Muslim' : faith.includes('inc') ? 'INC' : null;
-
-  const META: Record<string, { eb: string; q: string; sub: string }> = {
-    reception: { eb: 'Reception', q: 'What setting do you love?', sub: 'Open to a few? Tap them all — we float matching venues to the top.' },
-    ceremony: { eb: 'Ceremony', q: 'Where will you hold your ceremony?', sub: 'We’ll match officiants and venues that fit your tradition.' },
-    catering: { eb: 'Catering', q: 'Pick your cuisine', sub: 'Open to a few cuisines? Tap them all.' },
-    photo_video: { eb: 'Photo & Video', q: 'Your look', sub: 'Mix a couple — we’ll match teams who shoot that way.' },
-    music: { eb: 'Music', q: 'Your songs', sub: 'Tap the ones you love — search for any song below. Pick at least 10; we’ll build the rest of your playlist.' },
-    palette: { eb: 'Your overall feel', q: 'Set the mood', sub: 'Swipe a feel — see it in its colors. It guides your stylist, florist, cake & gown.' },
-  };
-  const meta = META[dim]!;
-  const hasHero = dim === 'catering' || dim === 'photo_video' || dim === 'reception' || dim === 'ceremony';
-
-  // -- bodies --
-  let body: ReactNode = null;
-  if (dim === 'reception') {
-    body = (
-      <Rail className="pgrid strip">
-        {RECEPTION_SETTINGS.map(([e, l, k]) => (
-          <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.reception.includes(k)} onClick={() => onPrefs({ reception: toggleArr(prefs.reception, k) })} />
-        ))}
-      </Rail>
-    );
-  } else if (dim === 'ceremony') {
-    body = (
-      <div data-single>
-        <Rail className="pgrid strip">
-          {ceremonyOptsFor(faith).map(([e, l, k]) => (
-            <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.ceremony === k} onClick={() => onPrefs({ ceremony: k })} />
-          ))}
-        </Rail>
-      </div>
-    );
-  } else if (dim === 'catering') {
-    body = (
-      <>
-        <Rail className="pgrid strip">
-          {CUISINE_OPTS.map(([e, l, k]) => (
-            <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.cuisine.includes(k)} onClick={() => onPrefs({ cuisine: toggleArr(prefs.cuisine, k) })} />
-          ))}
-        </Rail>
-        <PBlock label="Service style">
-          {/* 2×3 grid of equal-size buttons (owner 2026-06-05 "consistent button
-              height and length") — replaces the two chip carousels. Row 1: Plated ·
-              Buffet · Family-style. Row 2: Halal · Alcohol-free · Stations. */}
-          <div className="svcgrid">
-            {SERVICE_STYLES.slice(0, 3).map((s) => (
-              <PrefChip key={s} label={s} selected={prefs.serviceStyle === s} onClick={() => onPrefs({ serviceStyle: s })} />
-            ))}
-            <PrefChip label="🕌 Halal" selected={dietSelected('halal')} locked={lockHalal} lk={lockHalal ? 'Muslim' : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'halal') })} />
-            <PrefChip label="Alcohol-free" selected={dietSelected('alcohol_free')} locked={lockAlcoholFree} lk={lockAlcoholFree ? (faith.includes('muslim') ? 'Muslim' : 'INC') : undefined} onClick={() => onPrefs({ dietary: toggleArr(prefs.dietary, 'alcohol_free') })} />
-            <PrefChip key={SERVICE_STYLES[3]} label={SERVICE_STYLES[3]!} selected={prefs.serviceStyle === SERVICE_STYLES[3]} onClick={() => onPrefs({ serviceStyle: SERVICE_STYLES[3]! })} />
-          </div>
-        </PBlock>
-        <div className="micro" style={{ marginTop: 6 }} dangerouslySetInnerHTML={{ __html: faithLabel ? `Locked on for your <b>${faithLabel}</b> ceremony — every food vendor is pre-filtered.` : 'Tap HALAL / alcohol-free if any guests need it.' }} />
-      </>
-    );
-  } else if (dim === 'photo_video') {
-    body = (
-      <>
-        <Rail className="pgrid strip">
-          {PV_LOOKS.map(([e, l, k]) => (
-            <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.pvLook.includes(k)} onClick={() => onPrefs({ pvLook: toggleArr(prefs.pvLook, k) })} />
-          ))}
-        </Rail>
-        <PBlock label="What do you need?">
-          <Rail className="chips" wrapClassName="chiprail">
-            {PV_NEEDS.map((s) => (
-              <PrefChip key={s} label={s} selected={prefs.pvNeed === s} onClick={() => onPrefs({ pvNeed: s })} />
-            ))}
-          </Rail>
-        </PBlock>
-        <PBlock label="What’s included?">
-          <Rail className="chips" wrapClassName="chiprail">
-            {PV_INCLUDED.map((s) => (
-              <PrefChip key={s} label={s} selected={prefs.pvIncluded.includes(s)} onClick={() => onPrefs({ pvIncluded: toggleArr(prefs.pvIncluded, s) })} />
-            ))}
-          </Rail>
-        </PBlock>
-      </>
-    );
-  } else if (dim === 'music') {
-    // Song Bank — the catalogue is the master `songs` table (390-song seed),
-    // searched server-side via lib/songs.searchSongBank; results-on-top with the
-    // search pinned at the bottom (mirrors the location step). Picks stay as
-    // "Title|Artist" labels in prefs.music — the commit's syncEventSongPicks
-    // contract is unchanged. (Onboarding_Style_and_Song_Bank_2026-06-04 §5.)
-    body = (
-      <SongBankStep
-        picked={prefs.music}
-        onToggle={(lbl) =>
-          onPrefs({
-            music: prefs.music.includes(lbl)
-              ? prefs.music.filter((x) => x !== lbl)
-              : [...prefs.music, lbl],
-          })
-        }
-      />
-    );
-  } else if (dim === 'palette') {
-    const feel = prefs.feel ?? 'timeless';
-    const cols = FEELS[feel];
-    body = (
-      <>
-        <div className="feelsw" id="feelsw">
-          {cols ? cols.map((c, j) => <span key={j} className="fsw" style={{ background: c }} />) : <div className="feelnote">We’ll build your palette together in the mood board.</div>}
-        </div>
-        <div className="pgrid strip" data-feel>
-          {FEEL_CHIPS.map((f) => (
-            <PCard
-              key={f}
-              emoji={FEELEMOJI[f] ?? '🎨'}
-              label={FEELLBL[f] ?? f}
-              photoKey={FEELS[f] ? `feel_${f}_${budgetTier}` : undefined}
-              selected={feel === f}
-              onClick={() => onPrefs({ feel: f })}
-            />
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  // vhero / feel photo (the viewzone hero per dimension). Reception + ceremony
-  // now lead with the SELECTED option's photo on top + a caption (owner 2026-06-05
-  // "lay them out like the Kind screen"), with the choices as a strip carousel below.
-  let hero: ReactNode = null;
-  if (dim === 'catering') hero = <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET('catering')})` }} aria-hidden="true" />;
-  else if (dim === 'photo_video') hero = <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET('photo_video')})` }} aria-hidden="true" />;
-  else if (dim === 'reception') {
-    const rk = prefs.reception[prefs.reception.length - 1] ?? 'setting_ballroom';
-    const rlbl = RECEPTION_SETTINGS.find((x) => x[2] === rk)?.[1] ?? '';
-    hero = (
-      <figure className="styhero" style={{ backgroundImage: `url(${PREFS_ASSET(rk)})` }}>
-        {rlbl ? <figcaption className="styhcap">{rlbl}</figcaption> : null}
-      </figure>
-    );
-  } else if (dim === 'ceremony') {
-    const copts = ceremonyOptsFor(faith);
-    const ck = prefs.ceremony ?? copts[0]?.[2] ?? 'ceremony_church';
-    const clbl = copts.find((x) => x[2] === ck)?.[1] ?? '';
-    hero = (
-      <figure className="styhero" style={{ backgroundImage: `url(${PREFS_ASSET(ck)})` }}>
-        {clbl ? <figcaption className="styhcap">{clbl}</figcaption> : null}
-      </figure>
-    );
-  }
-
-  const feel = prefs.feel ?? 'timeless';
-  const feelHero =
-    dim === 'palette' && FEELS[feel] ? (
-      <figure className="feelphoto" id="feelphoto">
-        <HeroImg src={PREFS_ASSET(`feel_${feel}_${budgetTier}`)} />
-        <figcaption className="feelcap">
-          <span id="feelcaptag">{`${FEELLBL[feel] ?? ''} · ${budgetLabel}`}</span>
-        </figcaption>
-      </figure>
-    ) : null;
-
-  return (
-    <div className="prefstep" data-pi={idx} data-dim={dim} style={{ display: 'flex' }}>
-      <div className={`viewzone${hasHero || feelHero ? ' has-hero' : ''}`}>
-        <div className="prefprog">
-          <span className="prefcount">Style {idx + 1} of {queue.length}</span>
-          <span className="prefdots">{queue.map((_, k) => <i key={k} className={k <= idx ? 'on' : undefined} />)}</span>
-        </div>
-        <div className="eyebrow">
-          {meta.eb} <span className="tag new">New</span>
-        </div>
-        <h1 className="q">{meta.q}</h1>
-        <p className="sub">{meta.sub}</p>
-        {hero}
-        {feelHero}
-      </div>
-      <div className="tapzone">
-        {body}
-        <div className="prefmicro">
-          <span>✦</span>Tap all that fit — refine anytime on your Home.
-        </div>
-      </div>
     </div>
   );
 }
@@ -1488,8 +1266,11 @@ export function OnboardingShell({
   const [momentsDone, setMomentsDone] = useState(false);
   const [monoPop, setMonoPop] = useState(false);
   const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
-  const [prefIdx, setPrefIdx] = useState(0);
+  /* Dream Team picker local UI (PR-3): team_basics' focused service (drives the hero
+     photo + caption) + team_extras' single-open accordion parent index. Neither persists —
+     only state.picks does (the flat pick array both screens mutate via pickChip). */
+  const [basicFocus, setBasicFocus] = useState<string>(BASIC_CATS[0]);
+  const [extrasOpen, setExtrasOpen] = useState<number | null>(null);
   /* Phase-4 local UI: BYO bottom-sheet (12) · in-app-services detail focus (15) */
   const [focusedService, setFocusedService] = useState('');
   /* Step-14 "Reach my best matches" gate: matchAvail = did the AI find best-fit
@@ -1664,34 +1445,22 @@ export function OnboardingShell({
     };
   }, [activeId]);
 
-  /* ── style sub-stepper queue (prototype buildPrefs) ── */
-  const prefQueue = useMemo(() => prefQueueFrom(state.picks), [state.picks]);
-
-  /* ── navigation (prototype go(d) + prefStep() sub-stepper) ──
+  /* ── navigation (prototype go(d)) ──
      Navigate by INDEX within the filtered sequence. The Civil-skips-faith +
-     signed-in-skips-account forks are now automatic (those ids aren't in the seq),
-     so there's no skip arithmetic here — only the prefs sub-stepper + enter-prefs. */
+     signed-in-skips-account + AI-gated-team forks are automatic (those ids aren't in the
+     seq), so there's no skip arithmetic here. PR-3 retired the prefs sub-stepper — every
+     Dream Team team_basics/team_extras/songs/mood screen is now a plain linear screen, so
+     go(1)/go(-1) just step the index. */
   const go = useCallback(
     (d: number) => {
       if (d === 0) return;
-      // The prefs screen is an internal sub-stepper: walk its focused screens before leaving.
-      if (activeId === 'prefs') {
-        const ni = prefIdx + d;
-        if (ni >= 0 && ni < prefQueue.length) {
-          setPrefIdx(ni);
-          return;
-        }
-        // at an edge → fall through to leave the prefs screen
-      }
       setState((s) => {
         const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
         const n = Math.max(0, Math.min(sq.length - 1, s.step + d));
         return { ...s, step: n };
       });
-      // entering the prefs sub-stepper forward (from the picker) → start at its first screen
-      if (d > 0 && activeId === 'picker') setPrefIdx(0);
     },
-    [activeId, prefIdx, prefQueue.length, authed],
+    [authed],
   );
 
   /* Absolute jump to a screen by id (resolves to its index in the filtered seq).
@@ -2154,10 +1923,9 @@ export function OnboardingShell({
         return state.pax !== null;
       case 'budget':
         return state.budgetBand !== null;
-      case 'picker':
+      case 'team_basics':
+        // Seeds state.picks — a Yes-to-AI couple always picks at least one essential.
         return state.picks.length > 0;
-      case 'prefs':
-        return true;
       // Love stage — every screen is optional, nothing blocks Continue.
       case 'love_intro':
       case 'love_met':
@@ -2175,9 +1943,9 @@ export function OnboardingShell({
   const budgetTier = budgetTierBand(state.budgetBand ?? 'classic');
   const budgetLabel = (BUDGET_BANDS.find((x) => x.value === (state.budgetBand ?? 'classic')) ?? BUDGET_BANDS[2]!).label;
 
-  /* Continue label: prefs sub-stepper shows "Looks good" on its last focused screen (prototype showPref). */
-  const prefsLabel = prefQueue.length === 0 || prefIdx >= prefQueue.length - 1 ? 'Looks good' : 'Continue';
-  const nextLabel = activeId === 'prefs' ? prefsLabel : (NEXT_LABEL_BY_ID[activeId] ?? 'Continue');
+  /* Continue label per screen. `mood` (the terminal AI screen) carries the "Looks good"
+     flourish via NEXT_LABEL_BY_ID (PR-3 — the retired prefs sub-stepper supplied it before). */
+  const nextLabel = NEXT_LABEL_BY_ID[activeId] ?? 'Continue';
 
   /* ── kind hero ── */
   const kindPhoto = KIND_PHOTO[kind ?? 'religious'];
@@ -3502,53 +3270,153 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* 9 PICKER — "What would you love?" (53 services grouped by the 10 parents) */}
-          <section className={`screen${activeId === 'picker' ? ' active' : ''}`} id="screen-picker">
-            <div className="eyebrow">What you{'’'}re after</div>
-            <h1 className="q" style={{ marginBottom: 6 }}>What would you love?</h1>
-            <p className="picker-sub">
-              Tap everything you{'’'}d love — nothing{'’'}s pre-selected. Each category swipes sideways.
-              {state.picks.length > 0 && (
-                <>
-                  {' '}
-                  <b>{state.picks.length} selected.</b>
-                </>
-              )}
-            </p>
-            {/* One row per taxonomy parent — each a photo-card carousel with the shared
-                Rail affordances (more → / end-line). Starts empty (owner 2026-06-05). */}
-            {PICK_GROUPS.map((g) => {
-              const all = g.rows.flat();
-              const n = all.filter((c) => state.picks.includes(c.cat)).length;
-              return (
-                <div className="pickcat" key={g.label}>
-                  <div className={`pickcatlbl${n > 0 ? ' has' : ''}`}>
-                    <span className="nm">{g.label}</span>
-                    <span className="ct">{n}</span>
-                    <span className="rule" />
-                  </div>
-                  <Rail className="pickrail">
-                    {all.map((c) => (
-                      <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} onClick={() => pickChip(c.cat)} />
-                    ))}
-                  </Rail>
-                </div>
-              );
-            })}
+          {/* TEAM_BASICS — pax-style: a maximized hero photo of the focused essential (top)
+              + the 4 BASIC_CATS as a multi-select carousel (bottom · prototype s2pick).
+              BRIDGE: cards call the EXISTING pickChip(cat) → state.picks stays ONE flat
+              array; basicFocus only drives the hero swap (local UI). */}
+          <section className={`screen${activeId === 'team_basics' ? ' active' : ''}`} id="screen-team-basics">
+            <div className="viewzone">
+              <div className="eyebrow">Your essentials</div>
+              <h1 className="q">Your basic services.</h1>
+              <p className="sub">The must-haves. Tap the ones you still need {'—'} we{'’'}ll match each.</p>
+              <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET(basicFocus)})` }}>
+                <figcaption className="styhcap">
+                  <span className="bft">{PICK_LABEL[basicFocus] ?? basicFocus}</span>
+                  <span className="bfd">{PICK_INFO[basicFocus]?.d ?? ''}</span>
+                </figcaption>
+              </figure>
+            </div>
+            <div className="tapzone">
+              <Rail className="pgrid car">
+                {BASIC_CATS.map((cat) => (
+                  <PickCard
+                    key={cat}
+                    cat={cat}
+                    label={PICK_LABEL[cat] ?? cat}
+                    desc={PICK_INFO[cat]?.d}
+                    selected={state.picks.includes(cat)}
+                    onClick={() => { pickChip(cat); setBasicFocus(cat); }}
+                  />
+                ))}
+              </Rail>
+            </div>
           </section>
 
-          {/* 10 PREFERENCES — style sub-stepper (one focused screen per picked dimension) */}
-          <section className={`screen${activeId === 'prefs' ? ' active' : ''}`} id="screen-prefs">
-            <StyleSubStepper
-              queue={prefQueue}
-              idx={prefIdx}
-              faith={faith}
-              budgetTier={budgetTier}
-              budgetLabel={budgetLabel}
-              prefs={state.prefs}
-              onPrefs={patchPrefs}
-            />
+          {/* TEAM_EXTRAS — expandable parent → tiles browser of the FULL taxonomy MINUS the
+              4 basics AND minus `reception` (captured on reception_setting · prototype s3pick).
+              Single-open accordion; each open parent reveals a Rail.car of PickCards. BRIDGE:
+              tiles call the EXISTING pickChip(cat) → flat state.picks; extrasOpen is local UI.
+              An empty parent (e.g. Venue after ceremony+reception are excluded) is hidden. */}
+          <section className={`screen${activeId === 'team_extras' ? ' active' : ''}`} id="screen-team-extras">
+            <div className="viewzone">
+              <div className="eyebrow">The extras</div>
+              <h1 className="q">The extras you love.</h1>
+              <p className="sub">Everything that turns a wedding into <i>your</i> wedding. Tap a category to browse {'—'} pick any.</p>
+            </div>
+            <div className="tapzone">
+              <div className="exscroll">
+                {(() => {
+                  const extrasGroups = PICK_GROUPS
+                    .map((g) => ({ label: g.label, leaves: g.rows.flat().filter((c) => c.cat !== 'reception' && !BASIC_SET.has(c.cat)) }))
+                    .filter((g) => g.leaves.length > 0);
+                  // default-open the first group with a selection, else the first group
+                  const openIdx = extrasOpen !== null
+                    ? extrasOpen
+                    : Math.max(0, extrasGroups.findIndex((g) => g.leaves.some((c) => state.picks.includes(c.cat))));
+                  return extrasGroups.map((g, gi) => {
+                    const open = gi === openIdx;
+                    const sel = g.leaves.filter((c) => state.picks.includes(c.cat)).length;
+                    return (
+                      <div className={`exgroup${open ? ' open' : ''}`} key={g.label}>
+                        <button type="button" className="exhead" onClick={() => setExtrasOpen(open ? -1 : gi)}>
+                          <span className="exname">{g.label}</span>
+                          <span className="exmeta">
+                            {sel > 0
+                              ? <span className="excount">{sel} selected</span>
+                              : <span className="extiles">{g.leaves.length}</span>}
+                            <span className="exchev">{'›'}</span>
+                          </span>
+                        </button>
+                        <div className="exbody">
+                          {open && (
+                            <Rail className="pgrid car">
+                              {g.leaves.map((c) => (
+                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} onClick={() => pickChip(c.cat)} />
+                              ))}
+                            </Rail>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
           </section>
+
+          {/* SONGS — the music dimension, lifted out of the retired StyleSubStepper into a
+              standalone AI-gated screen. SongBankStep is unchanged; picks stay "Title|Artist"
+              labels in prefs.music → buildCommitPayload.musicPlaylistSeed (syncEventSongPicks). */}
+          <section className={`screen${activeId === 'songs' ? ' active' : ''}`} id="screen-songs">
+            <div className="viewzone">
+              <div className="eyebrow">Music</div>
+              <h1 className="q">Your songs</h1>
+              <p className="sub">Tap the ones you love {'—'} search for any song below. Pick at least 10; we{'’'}ll build the rest of your playlist.</p>
+            </div>
+            <div className="tapzone">
+              <SongBankStep
+                picked={state.prefs.music}
+                onToggle={(lbl) =>
+                  patchPrefs({
+                    music: state.prefs.music.includes(lbl)
+                      ? state.prefs.music.filter((x) => x !== lbl)
+                      : [...state.prefs.music, lbl],
+                  })
+                }
+              />
+            </div>
+          </section>
+
+          {/* MOOD — the palette/feel dimension, lifted out of the retired StyleSubStepper.
+              Writes prefs.feel → buildCommitPayload.moodFeelKey + basicMoodboard (FEELS). */}
+          {(() => {
+            const feel = state.prefs.feel ?? 'timeless';
+            const cols = FEELS[feel];
+            return (
+              <section className={`screen${activeId === 'mood' ? ' active' : ''}`} id="screen-mood">
+                <div className="viewzone">
+                  <div className="eyebrow">Your overall feel</div>
+                  <h1 className="q">Set the mood</h1>
+                  <p className="sub">Swipe a feel {'—'} see it in its colors. It guides your stylist, florist, cake &amp; gown.</p>
+                  {FEELS[feel] ? (
+                    <figure className="feelphoto">
+                      <HeroImg src={PREFS_ASSET(`feel_${feel}_${budgetTier}`)} />
+                      <figcaption className="feelcap">
+                        <span>{`${FEELLBL[feel] ?? ''} · ${budgetLabel}`}</span>
+                      </figcaption>
+                    </figure>
+                  ) : null}
+                </div>
+                <div className="tapzone">
+                  <div className="feelsw">
+                    {cols ? cols.map((c, j) => <span key={j} className="fsw" style={{ background: c }} />) : <div className="feelnote">We{'’'}ll build your palette together in the mood board.</div>}
+                  </div>
+                  <div className="pgrid strip" data-feel>
+                    {FEEL_CHIPS.map((f) => (
+                      <PCard
+                        key={f}
+                        emoji={FEELEMOJI[f] ?? '🎨'}
+                        label={FEELLBL[f] ?? f}
+                        photoKey={FEELS[f] ? `feel_${f}_${budgetTier}` : undefined}
+                        selected={feel === f}
+                        onClick={() => patchPrefs({ feel: f })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* 11 ACCOUNT — the auth gate for anonymous marketing visitors. Signed-in
               customers (dashboard "Add event → Wedding") skip this screen (see go()).

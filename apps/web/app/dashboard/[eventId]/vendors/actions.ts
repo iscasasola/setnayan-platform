@@ -28,6 +28,10 @@ import {
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { ensureAutoShareInvite } from '@/lib/vendor-invites';
+import {
+  fetchSlotsForCoupleBooking,
+  type VendorServiceTimeSlot,
+} from '@/lib/vendor-time-slots';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -353,6 +357,15 @@ export type FinalizeVendorResult =
       currentLimit: number;
       existingHoldCount: number;
     }
+  // Tier #3 (owner 2026-06-09 · couple picks the slot). The booked service has
+  // active time slots but the couple didn't choose one — the UI must surface a
+  // picker and resubmit with `service_time_slot_id`. Distinct from the generic
+  // 'error' so the client can render the inline picker rather than a red toast.
+  | {
+      status: 'slot_required';
+      vendorId: string;
+      vendorName: string;
+    }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -364,6 +377,13 @@ export async function finalizeVendor(
   const vendorId = formData.get('vendor_id');
   const overrideExistingRaw = formData.get('override_existing');
   const overrideExisting = overrideExistingRaw === '1' || overrideExistingRaw === 'true';
+  // Tier #3 — the couple's chosen time slot (owner 2026-06-09). Only meaningful
+  // when the booked service has active slots; ignored otherwise.
+  const chosenSlotIdRaw = formData.get('service_time_slot_id');
+  const chosenSlotId =
+    typeof chosenSlotIdRaw === 'string' && chosenSlotIdRaw.length > 0
+      ? chosenSlotIdRaw
+      : null;
 
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { status: 'error', message: 'Missing event id' };
@@ -505,60 +525,158 @@ export async function finalizeVendor(
   // (Rule 4, lands in PR D), the auto-release trigger frees the other
   // soft holds and Setnayan emails each affected host with a similar-
   // vendors strip per [0028 template auto_released_due_to_other_booking].
-  // Per-service daily booking capacity (tier feature #2, owner 2026-06-07).
-  // A vendor declares how many of a service they can serve per day
-  // (vendor_services.daily_capacity, capped by tier on save). Block this
-  // finalize when that service already has `daily_capacity` confirmed bookings
-  // on the wedding's date. Per-service (event_vendors.service_id), marketplace
-  // only; degrades open when service_id / capacity / date is unset. Reuses the
-  // soft_hold_limit_reached result so the existing "at capacity → switch/browse"
-  // modal renders (same UX). Distinct from the vendor-level soft-hold gate below.
+  // ── Capacity gate · per-service ────────────────────────────────────────
+  // Two mutually-exclusive models per service, by precedence:
+  //   #3 (Enterprise time-bound slots): if the booked service has >=1 ACTIVE
+  //      slot AND the event date is day-precise, the couple PICKS a slot
+  //      (owner 2026-06-09) and acquire_service_time_slot consumes capacity
+  //      ATOMICALLY (it locks the chosen slot row, counts the full confirmed
+  //      set on events.event_date, and writes status+slot inside the lock).
+  //      This SKIPS the #2 daily_capacity gate AND the generic lock write
+  //      below (slotPathLocked short-circuits it).
+  //   #2 (daily_capacity): services with ZERO active slots keep the existing
+  //      per-day count gate — repointed from the (ungenerated) wedding_date
+  //      mirror to the canonical events.event_date column (verifier C5/C6).
+  // Both degrade OPEN on missing data so a lock is never wrongly blocked.
+  let slotPathLocked = false;
   if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
-    const { data: svcRow } = await supabase
-      .from('vendor_services')
-      .select('daily_capacity')
+    const { count: slotCount } = await supabase
+      .from('vendor_service_time_slots')
+      .select('slot_id', { count: 'exact', head: true })
       .eq('vendor_service_id', targetVendor.service_id)
-      .maybeSingle();
-    const capacity =
-      (svcRow as { daily_capacity?: number | null } | null)?.daily_capacity ?? null;
-    if (typeof capacity === 'number' && capacity > 0) {
-      const { data: capEventRow } = await supabase
+      .eq('is_active', true);
+
+    let useSlotPath = false;
+    if ((slotCount ?? 0) > 0) {
+      // Only enforce/assign a slot on a day-precise event (verifier C4).
+      // year/month-precision events have a placeholder DATE — degrade to a
+      // date-only booking (fall through to #2, which itself no-ops without a
+      // daily_capacity, so the generic lock write handles it).
+      const { data: precRow } = await supabase
         .from('events')
-        .select('wedding_date')
+        .select('event_date_precision')
         .eq('event_id', eventId)
         .maybeSingle();
-      const capDate =
-        (capEventRow as { wedding_date?: string | null } | null)?.wedding_date ?? null;
-      if (capDate) {
-        const { data: capSameDate } = await supabase
+      const precision =
+        (precRow as { event_date_precision?: string | null } | null)
+          ?.event_date_precision ?? null;
+      useSlotPath = precision === 'day';
+    }
+
+    if (useSlotPath) {
+      // ── #3 SLOT PATH — couple must have chosen a slot. ──
+      if (!chosenSlotId) {
+        return {
+          status: 'slot_required',
+          vendorId,
+          vendorName: targetVendor.vendor_name as string,
+        };
+      }
+      const { data: acq, error: acqErr } = await supabase.rpc(
+        'acquire_service_time_slot',
+        {
+          p_event_id: eventId,
+          p_vendor_id: vendorId,
+          p_service_id: targetVendor.service_id,
+          p_slot_id: chosenSlotId,
+        },
+      );
+      if (acqErr) {
+        return { status: 'error', message: acqErr.message };
+      }
+      const acqStatus =
+        (acq as { status?: string } | null)?.status ?? 'error';
+      switch (acqStatus) {
+        case 'ok':
+          // The RPC already flipped status→'contracted' + stamped the slot
+          // inside the lock; skip the generic lock write below.
+          slotPathLocked = true;
+          break;
+        case 'full':
+          // All capacity on the chosen window is taken — reuse the existing
+          // at-capacity modal contract (currentLimit/existingHoldCount aren't
+          // surfaced per-slot, so 0/0; the client renders generic copy).
+          return {
+            status: 'soft_hold_limit_reached',
+            vendorId,
+            vendorName: targetVendor.vendor_name as string,
+            currentLimit: 0,
+            existingHoldCount: 0,
+          };
+        case 'slot_required':
+        case 'slot_not_found':
+          // Chosen slot is gone/inactive — ask the couple to pick again.
+          return {
+            status: 'slot_required',
+            vendorId,
+            vendorName: targetVendor.vendor_name as string,
+          };
+        case 'not_authorized':
+          return {
+            status: 'error',
+            message: "We couldn't confirm this is your event. Refresh and try again.",
+          };
+        case 'no_date':
+          // Date became non-day-precise between the read and the RPC — degrade
+          // open to a date-only booking via the generic lock write below.
+          break;
+        default:
+          return { status: 'error', message: 'Could not reserve the time slot.' };
+      }
+    } else {
+      // ── #2 DAILY-CAPACITY PATH (service has no active slots). ──
+      const { data: svcRow } = await supabase
+        .from('vendor_services')
+        .select('daily_capacity')
+        .eq('vendor_service_id', targetVendor.service_id)
+        .maybeSingle();
+      const capacity =
+        (svcRow as { daily_capacity?: number | null } | null)?.daily_capacity ?? null;
+      if (typeof capacity === 'number' && capacity > 0) {
+        // event_date is the canonical DATE column; wedding_date is a generated
+        // mirror with NO migration DDL, so it can silently no-op on a fresh DB
+        // (verifier C5/C6). Repointed to event_date in this same PR.
+        const { data: capEventRow } = await supabase
           .from('events')
-          .select('event_id')
-          .eq('wedding_date', capDate);
-        const capEventIds = (capSameDate ?? []).map((r) => r.event_id as string);
-        if (capEventIds.length > 0) {
-          const { count: capCount } = await supabase
-            .from('event_vendors')
-            .select('vendor_id', { count: 'exact', head: true })
-            .eq('service_id', targetVendor.service_id)
-            .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
-            .is('archived_at', null)
-            .in('event_id', capEventIds)
-            .neq('vendor_id', vendorId);
-          if ((capCount ?? 0) >= capacity) {
-            return {
-              status: 'soft_hold_limit_reached',
-              vendorId,
-              vendorName: targetVendor.vendor_name as string,
-              currentLimit: capacity,
-              existingHoldCount: capCount ?? 0,
-            };
+          .select('event_date')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        const capDate =
+          (capEventRow as { event_date?: string | null } | null)?.event_date ?? null;
+        if (capDate) {
+          const { data: capSameDate } = await supabase
+            .from('events')
+            .select('event_id')
+            .eq('event_date', capDate);
+          const capEventIds = (capSameDate ?? []).map((r) => r.event_id as string);
+          if (capEventIds.length > 0) {
+            const { count: capCount } = await supabase
+              .from('event_vendors')
+              .select('vendor_id', { count: 'exact', head: true })
+              .eq('service_id', targetVendor.service_id)
+              .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+              .is('archived_at', null)
+              .in('event_id', capEventIds)
+              .neq('vendor_id', vendorId);
+            if ((capCount ?? 0) >= capacity) {
+              return {
+                status: 'soft_hold_limit_reached',
+                vendorId,
+                vendorName: targetVendor.vendor_name as string,
+                currentLimit: capacity,
+                existingHoldCount: capCount ?? 0,
+              };
+            }
           }
         }
       }
     }
   }
 
-  if (targetVendor.marketplace_vendor_id) {
+  // Skip the vendor-level soft-hold gate (and the generic lock write below)
+  // on the #3 slot path: acquire_service_time_slot already committed the lock
+  // atomically, so re-checking gates after a committed write is incorrect.
+  if (!slotPathLocked && targetVendor.marketplace_vendor_id) {
     // Read wedding_date + the vendor's configured limit in parallel-friendly
     // sequential calls. (Single round trip via .from('events').select is
     // already cheap; the limit lookup hits a different table.)
@@ -639,20 +757,25 @@ export async function finalizeVendor(
     }
   }
 
-  const { error: lockErr } = await supabase
-    .from('event_vendors')
-    .update({ status: LOCKED_STATUS, updated_at: new Date().toISOString() })
-    .eq('vendor_id', vendorId)
-    .eq('event_id', eventId);
-  if (lockErr) {
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Lock (finalize) vendor booking',
-      file_path: 'app/dashboard/[eventId]/vendors/actions.ts',
-      error_message: lockErr.message,
-      payload_snapshot: { eventId, vendorId, targetCategory, overrideExisting },
-    });
-    return { status: 'error', message: lockErr.message };
+  // Generic lock write — for the date-only / #2 path. The #3 slot path already
+  // flipped status→'contracted' + stamped service_time_slot_id inside the
+  // acquire RPC's lock, so it skips this write (slotPathLocked).
+  if (!slotPathLocked) {
+    const { error: lockErr } = await supabase
+      .from('event_vendors')
+      .update({ status: LOCKED_STATUS, updated_at: new Date().toISOString() })
+      .eq('vendor_id', vendorId)
+      .eq('event_id', eventId);
+    if (lockErr) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Lock (finalize) vendor booking',
+        file_path: 'app/dashboard/[eventId]/vendors/actions.ts',
+        error_message: lockErr.message,
+        payload_snapshot: { eventId, vendorId, targetCategory, overrideExisting },
+      });
+      return { status: 'error', message: lockErr.message };
+    }
   }
 
   // ----------------------------------------------------------------------
@@ -983,6 +1106,29 @@ export async function finalizeVendor(
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS };
+}
+
+// ============================================================================
+// listLockTimeSlots (tier #3, owner 2026-06-09) — couple-side slot picker
+// feed. The lock UI calls this lazily before locking: if the booked vendor's
+// service has >=1 ACTIVE time slot, the couple is shown a <select> of those
+// windows and must choose one; the chosen slot_id is passed back into
+// finalizeVendor (service_time_slot_id). Returns [] for date-only / #2 / off-
+// platform bookings (no picker needed). Couple-RLS-scoped via
+// fetchSlotsForCoupleBooking. Empty array → the lock proceeds with the existing
+// one-tap happy path, unchanged for the vast majority of vendors.
+// ============================================================================
+export async function listLockTimeSlots(
+  eventId: string,
+  vendorId: string,
+): Promise<VendorServiceTimeSlot[]> {
+  if (!eventId || !vendorId) return [];
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  return fetchSlotsForCoupleBooking(supabase, eventId, vendorId);
 }
 
 // ============================================================================

@@ -21,6 +21,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` still `ƒ`) · covert grep clean (no pricing/song/editorial in the new copy; love screens untouched) · all 3 adversarial lenses passed.
 
 **SPEC IMPACT:** None (matches the locked porting spec). DECISION_LOG row at PR-4 when the chapter goes fully live.
+## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
+
+**Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 → should be ₱6,000).
+
+**What landed:** new **`getVendorPrices()`** in `lib/v2-catalog.ts` (`cache()`-wrapped, reads `vendor_billing_catalog`, formatted strings, resilience fallbacks only). `/for-vendors` (hero · comparison table + annuals + standalone Enterprise callout · stack-close) + `/how-it-works` (the stale Pro price) made async to read it; both pages → `force-dynamic`.
+
+**Verify:** typecheck/build on the PR. Prices flow from /admin/pricing.
+
+**SPEC IMPACT:** None (presentation; vendor prices DB-sourced). REMAINING hard-coded (follow-up): /for-vendors SEO metadata + JSON-LD Offers (`generateMetadata`), the money-FAQ prose, the module-level Add-Branch ₱999 / Boosted ₱1,200 rows, and the homepage planner "₱1,499" prose (TODAYS_FOCUS excluded from the fetcher).
 
 ## 2026-06-08 · feat(onboarding): Dream Team PR-1 — additive scaffolding (ai + refinements state · ZERO behavior change)
 

@@ -13,11 +13,12 @@ import {
 } from 'lucide-react';
 import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
 // edge cache so static marketing routes serve Google's crawl rate-limit
 // budget without origin pressure. Each page rebuilds at most once per hour.
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'How Setnayan works — couples, vendors, guests, admins',
@@ -86,7 +87,7 @@ const ROLE_CARDS: ReadonlyArray<RoleCard> = [
     label: 'Vendor',
     entryPath: '/vendor-dashboard',
     icon: Briefcase,
-    who: 'You sell to couples. Free profile, optional Pro for ₱2,499 / 28 days.',
+    who: 'You sell to couples. Free profile, optional Pro subscription for more reach.',
     where: [
       'Services, bookings inbox, team roles, earnings rollup',
       'Reply-only chat — couples reach out, you reply with quotes + files',
@@ -186,7 +187,8 @@ const FLOW_STEPS: ReadonlyArray<{ from: string; to: string; what: string }> = [
   },
 ];
 
-export default function HowItWorksPage() {
+export default async function HowItWorksPage() {
+  const p = await getVendorPrices();
   return (
     <>
       <script
@@ -378,7 +380,7 @@ export default function HowItWorksPage() {
               </h3>
               <p className="mt-2 text-sm text-ink/70">
                 A free verified profile, in-app chat with couples, BIR-compliant receipts. Pro at
-                ₱2,499 / 28 days unlocks unlimited services, custom slug + bid CTA on your
+                {p.proMonthly} / 28 days unlocks unlimited services, custom slug + bid CTA on your
                 profile, advanced proposal builder, and editorial credits on the weddings you shoot.
               </p>
               <Link

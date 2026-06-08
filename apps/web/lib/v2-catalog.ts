@@ -20,6 +20,7 @@
  * retail directly from Setnayan as publisher.
  */
 
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type V2CustomerSku = {
@@ -206,6 +207,39 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     display_order: Number(row.display_order ?? 0),
   }));
 }
+
+/**
+ * Vendor pricing for the marketing pages — DERIVED FROM THE DB so /for-vendors,
+ * /how-it-works etc. never hardcode vendor prices (owner 2026-06-08 "make sure
+ * these prices are based on the admin page and not hardcoded"). `cache()` dedupes
+ * to a single query per request even if several server components call it. The
+ * fallbacks (= current catalog) only ever render if the DB is unreachable.
+ */
+export const getVendorPrices = cache(async () => {
+  const rows = await fetchV2VendorCatalog();
+  const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;
+  const proMo = price('pro_vendor_monthly');
+  const proYr = price('pro_vendor_annual');
+  const entMo = price('enterprise_vendor_monthly');
+  const entYr = price('enterprise_vendor_annual');
+  const branch = price('vendor_branch_28day');
+  const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
+  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 100;
+  const fmt = (n: number | null, fb: string) => (n == null ? fb : formatPeso(n));
+  const save = (mo: number | null, yr: number | null, fb: string) =>
+    mo != null && yr != null ? formatPeso(mo * 13 - yr) : fb;
+  return {
+    verified: '₱0',
+    proMonthly: fmt(proMo, '₱6,000'),
+    proAnnual: fmt(proYr, '₱60,000'),
+    proAnnualSave: save(proMo, proYr, '₱18,000'),
+    enterpriseMonthly: fmt(entMo, '₱10,000'),
+    enterpriseAnnual: fmt(entYr, '₱100,000'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱30,000'),
+    branch: fmt(branch, '₱999'),
+    tokenUnit: formatPeso(tokenUnit),
+  };
+});
 
 /**
  * Format a peso amount with thousand separators · no decimals if whole.

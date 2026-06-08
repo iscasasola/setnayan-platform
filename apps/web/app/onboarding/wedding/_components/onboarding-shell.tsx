@@ -64,6 +64,7 @@ import { LocationStep } from './location-step';
 import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
+import { OnboardingMusic } from './onboarding-music';
 import {
   weaveStory,
   masthead as weaveMasthead,
@@ -1438,6 +1439,7 @@ export function OnboardingShell({
   resume,
   activeFaiths = null,
   pricing,
+  bgMusicUrl = null,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1455,6 +1457,12 @@ export function OnboardingShell({
    * read SELLING prices from here — NO hardcoded prices (owner 2026-06-08).
    */
   pricing: OnboardingPricing;
+  /**
+   * Resolved stream URL for the owner-uploaded onboarding background music
+   * (owner 2026-06-08 — admin uploads an owned/AI-generated track at
+   * /admin/settings). Null when unset/disabled → the player never mounts.
+   */
+  bgMusicUrl?: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -2810,6 +2818,9 @@ export function OnboardingShell({
               </svg>
               <span className="wm">SETNAYAN</span>
             </span>
+            {/* Owner-uploaded background music (owner 2026-06-08) — only when admin set a
+                track. margin-left:auto right-aligns it; sits beside Skip when shown. */}
+            {bgMusicUrl ? <OnboardingMusic src={bgMusicUrl} /> : null}
             <button
               className="skip"
               type="button"

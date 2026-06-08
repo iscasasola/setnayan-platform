@@ -20,6 +20,44 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` ✓ (only 2 pre-existing unrelated module errors from the local stale install — `@mediapipe/tasks-vision`, `sharp`; both present in CI's install) · `next lint --dir app/admin` ✓ (1 pre-existing warning in `moodboard-library`, untouched) · swept: no external importers of `ADMIN_NAV_GROUPS`, no code links to `/admin/queues|/admin/money`, no tests reference the admin nav.
 
 **SPEC IMPACT:** Implements PR 1 of `Admin_Console_Nav_Redesign_2026-06-08.md`. The Money-lane filter remains a committed follow-up (sign-off condition). Logged in corpus `DECISION_LOG.md` (2026-06-08 admin-nav rows).
+## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
+
+**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. Suno); the onboarding streams it. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+
+**What landed:** migration `20260925000000` (`platform_settings.onboarding_bg_music_r2_key` + `_enabled`, applied to prod directly — orphan `20260924000000` mood-board ledger entry blocked `db push`); `fetchOnboardingBgMusicUrl()`; `/admin/settings` "Onboarding background music" uploader (`<FileUpload>` audio ≤40 MB + enable toggle + owned-track-only helper) + `updateOnboardingMusic`; `/api/upload` audio cap 20→40 MB (image cap unchanged); header mute/unmute **pill** (`onboarding-music.tsx`) that streams (`preload="none"`+`loop`), starts on first gesture, low volume, mute remembered in `localStorage`; **unset/disabled → silent**.
+
+**Verify:** `tsc` ✓; prod columns confirmed; pill layout screenshot-verified. End-to-end on deploy once a track is uploaded.
+
+**SPEC IMPACT:** New admin onboarding-music uploader; honors "Setnayan-owned AI-generated catalogue only" via the owned-track helper. → corpus `DECISION_LOG.md` (item-10 Recraft cost also corrected there: ≈₱530, not ₱11.5k).
+
+
+## 2026-06-09 · feat(services): Budget "Build" — Compare tab (3 baskets, Phase 4 core, flag-dark)
+
+**Context:** Phase 4 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. The last stub tab becomes real — **all 5 takeover tabs now have content** (Summary · Shortlist · Build · Compare · Lock).
+
+**What landed:**
+- `vendors/_components/build-compare.tsx` — the **Compare** tab: the three budget baskets side-by-side — **Lean** (Σ range-low) · **Fits** (Σ median, the suggested plan) · **Stretch** (Σ range-high) — with a per-category breakdown table and each basket's over/under vs the couple's budget. Derived from a **single `computeBudgetAllocation` run** (each leaf already carries `amountPhp` + `rangeLowPhp/HighPhp`), so no extra query and no persistence.
+- `vendors/page.tsx` — passes `compareSlot` (reusing the `allocInputs` already resolved for the Build tab).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 4 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-ons: saving named A/B/C combinations + "available wedding dates per build" (vendor-availability intersection over a build's specific vendors) + the Pin constraint solver (Phase 3) + save-A/B/C migration (Phase 2b). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(services): Budget "Build" — Summary + Lock tabs (Phase 5 core, flag-dark)
+
+**Context:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Two of the three remaining stub tabs become real, read-only views derived from the same `PlanBudgetModel` the accordion already builds — no new queries, no migration.
+
+**What landed:**
+- `vendors/_components/build-summary.tsx` — the **Summary** cover tab (now the landing tab): a budget meter (chosen vs target, with `budgetStatus` tone), a Locked/Shortlisted/Hours-saved recap, the "what to lock next" list (`dueList`), and the Setnayan AI on/off status with a Manage pointer.
+- `vendors/_components/build-locked.tsx` — the **Lock** tab: the consolidated list of finalized picks (filtered on the locked `raw_status` set — contracted/deposit_paid/delivered/complete) across all folders, with the chosen total + an empty state.
+- `vendors/page.tsx` — passes `summarySlot` + `lockSlot` into the takeover and lands on **Summary**.
+
+The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); **Compare** (Phase 4) + the **Pin** solver / baskets / save-A·B·C (Phases 3 + 2b) remain.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 
 **Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" Coverage = Church · Reception · Attire · Flowers; tool depth = full recolor (both picked via in-session questions). Shipped as **one PR** (the planned 3-PR split was collapsed to dodge a fast-moving `main`; the Recraft Flowers seed + corpus sync follow separately).

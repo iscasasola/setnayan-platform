@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
+
+// useLayoutEffect on the server is a no-op + warns; fall back to useEffect there.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import {
   Armchair,
   ChevronDown,
@@ -190,7 +193,10 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   }, [view]);
 
   // Track the canvas width so tables can be scaled to true metres-per-pixel.
-  useEffect(() => {
+  // useLayoutEffect + a synchronous first measure closes the first-paint race
+  // where canvasW=0 would briefly render tables unscaled. Re-runs when venue
+  // mode toggles (the canvas changes size/aspect then).
+  useIsoLayoutEffect(() => {
     const el = canvasRef.current;
     if (!el || view !== 'plan') return;
     const update = () => setCanvasW(el.getBoundingClientRect().width);
@@ -198,7 +204,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [view]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, venueScaled]);
 
   const guestsById = useMemo(() => new Map(guests.map((g) => [g.guest_id, g])), [guests]);
   const groupColorById = useMemo(
@@ -438,12 +445,15 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     for (const t of tables) {
       const pos = positions[t.table_id] ?? { x: 50, y: 50 };
       const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+      // Use the ON-SCREEN size (to-scale shrinks tables in venue mode), so the
+      // bounding box is tight and Fit zooms in enough to make tables readable.
+      const s = pxPerMeter ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w : 1;
       const cx = (pos.x / 100) * rect.width;
       const cy = (pos.y / 100) * rect.height;
-      minX = Math.min(minX, cx - geo.box.w / 2);
-      maxX = Math.max(maxX, cx + geo.box.w / 2);
-      minY = Math.min(minY, cy - geo.box.h / 2);
-      maxY = Math.max(maxY, cy + geo.box.h / 2);
+      minX = Math.min(minX, cx - (geo.box.w * s) / 2);
+      maxX = Math.max(maxX, cx + (geo.box.w * s) / 2);
+      minY = Math.min(minY, cy - (geo.box.h * s) / 2);
+      maxY = Math.max(maxY, cy + (geo.box.h * s) / 2);
     }
     const bw = Math.max(1, maxX - minX);
     const bh = Math.max(1, maxY - minY);
@@ -452,6 +462,14 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     const cy = (minY + maxY) / 2;
     applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
   };
+
+  // Reset to a clean whole-room overview (zoom 1, no pan) whenever to-scale mode
+  // toggles — the height-capped canvas then shows every table at once. The
+  // couple zooms in (smooth pan, or Fit) to work on individual tables.
+  useEffect(() => {
+    applyView(1, { x: 0, y: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueScaled]);
 
   const layoutDirty = dirty.size > 0 || floorDirty;
   const saveLayout = () => {
@@ -888,16 +906,22 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
           onPointerDown={onCanvasPointerDown}
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
-          onPointerLeave={onCanvasPointerUp}
-          className={`relative w-full cursor-grab touch-none overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02] active:cursor-grabbing ${
-            venueScaled ? '' : 'aspect-[7/5]'
+          onPointerCancel={onCanvasPointerUp}
+          className={`relative cursor-grab touch-none overflow-hidden rounded-2xl border border-ink/15 bg-ink/[0.02] active:cursor-grabbing ${
+            venueScaled ? 'mx-auto' : 'aspect-[7/5] w-full'
           }`}
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
             backgroundSize: '22px 22px',
-            // When a room size is set, the canvas takes the room's aspect ratio
-            // so the floor plan isn't distorted.
-            ...(venueScaled ? { aspectRatio: `${venue.width} / ${venue.length}` } : {}),
+            // To scale: take the room's aspect ratio, but cap the height (a 64vh
+            // budget drives the width) so a portrait room doesn't balloon into a
+            // giant canvas. Centered; never wider than the column.
+            ...(venueScaled
+              ? {
+                  aspectRatio: `${venue.width} / ${venue.length}`,
+                  width: `min(100%, calc(64vh * ${venue.width} / ${venue.length}))`,
+                }
+              : {}),
           }}
         >
           {/* world layer — pan/zoom applied to its transform directly via refs */}
@@ -975,7 +999,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             // To-scale factor: render the table at its true footprint relative
             // to the room (1 when no venue size is set → unchanged appearance).
             const tableScale = pxPerMeter
-              ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w
+              ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) /
+                (detail ? geo.box.w : geo.hub.w + 12)
               : 1;
 
             return (

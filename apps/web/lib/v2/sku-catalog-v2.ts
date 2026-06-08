@@ -10,7 +10,7 @@
  *
  * The live `lib/v2-catalog.ts` reader still handles dynamic /pricing
  * rendering with build-status badges. This file is the narrow runtime
- * helper for the Today's Focus 65-card wizard rebind plus any other
+ * helper for the Setnayan AI 65-card wizard rebind plus any other
  * surface that needs to map a V1 sku code to its V2 equivalent during
  * the transition window.
  *

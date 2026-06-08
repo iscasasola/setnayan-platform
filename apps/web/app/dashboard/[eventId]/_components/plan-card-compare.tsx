@@ -27,7 +27,7 @@ import {
 import { trackFailure } from '@/lib/telemetry/track-error';
 
 // Owner-locked 2026-05-24: comparison capped at 2 across every surface
-// (wizard Today's Focus is type-locked at 2 via CompareState; marketplace
+// (wizard Setnayan AI is type-locked at 2 via CompareState; marketplace
 // + DIY adopt the same cap via vendors/compare/page.tsx; this Your Plan
 // grid adopts the same cap here). 3-way side-by-side at thumb-zone width
 // on mobile becomes too cramped to read; the 2-way A-vs-B framing forces

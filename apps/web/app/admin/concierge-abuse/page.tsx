@@ -1,5 +1,5 @@
 /**
- * Admin · Today's Focus enforcement queue (iteration 0023 § 3.11).
+ * Admin · Setnayan AI enforcement queue (iteration 0023 § 3.11).
  *
  * Two tabs:
  *   - Queue (default): pending_review flags sorted by similarity_score DESC,
@@ -10,7 +10,7 @@
  * RLS: the migration sets admin-only read/write on `concierge_abuse_flags`.
  * The page is gated by the parent admin layout (notFound for non-admins).
  *
- * Brand-layer rename 2026-05-28 V2 cutover — Concierge → Today's Focus.
+ * Brand-layer rename 2026-05-28 V2 cutover — Concierge → Setnayan AI.
  * Route path + DB table names (concierge_abuse_flags, users.concierge_*)
  * preserved so audit history + RLS policies don't break.
  *
@@ -35,7 +35,7 @@ import {
   adminLiftConciergeEnforcement,
 } from './actions';
 
-export const metadata = { title: "Today's Focus enforcement · Admin" };
+export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
 type FlagRow = {
   flag_id: string;

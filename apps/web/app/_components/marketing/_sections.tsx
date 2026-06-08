@@ -24,7 +24,7 @@
  * v2.1 DRIFT SCRUBS applied throughout:
  *   - "5% platform fee" / "we take a cut" → "0% commission"
  *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
- *   - "Setnayan Concierge" → "Today's Focus"
+ *   - "Setnayan Concierge" → "Setnayan AI"
  *   - "₱1,499 one-time" + "₱499 refresh" preserved (v2.1-correct)
  *
  * Per [[feedback_setnayan_button_preservation]] all CTAs match template
@@ -34,7 +34,7 @@
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
-import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso } from '@/lib/v2-catalog';
+import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
@@ -700,7 +700,8 @@ export function PersonalSite() {
 // ─────────────────────────────────────────────────────────────────────
 // 9. DashboardPreview — full dashboard mock
 // ─────────────────────────────────────────────────────────────────────
-export function DashboardPreview() {
+export async function DashboardPreview() {
+  const plannerPrice = await getCustomerSkuPrice('TODAYS_FOCUS');
   return (
     <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div className="m-eyebrow">In the app</div>
@@ -708,11 +709,11 @@ export function DashboardPreview() {
         className="m-serif text-[var(--m-ink)] mt-5 mb-7"
         style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
       >
-        Today&rsquo;s Focus. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
+        Setnayan AI. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
-        Today&rsquo;s Focus is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
-        answers your questions in your own language. One purchase at ₱1,499, full access through your wedding day.
+        Setnayan AI is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
+        answers your questions in your own language. One purchase at {plannerPrice ?? '₱1,499'}, full access through your wedding day.
       </p>
 
       <div
@@ -767,7 +768,7 @@ export function DashboardPreview() {
               ))}
             </div>
             <div className="mt-7 p-5 bg-[var(--m-orange-4)] rounded-lg">
-              <div className="m-label-mono text-[10px] text-[var(--m-orange-2)]">Today&rsquo;s Focus</div>
+              <div className="m-label-mono text-[10px] text-[var(--m-orange-2)]">Setnayan AI</div>
               <div
                 className="font-[var(--font-display,var(--font-sans))] font-bold text-[24px] text-[var(--m-ink)] uppercase mt-1.5"
               >

@@ -1,7 +1,7 @@
 /**
  * Card 20.7 Invitations & Stationery · Phase 3 · Programming tier.
  *
- * Added 2026-05-24 to align Today's Focus + Parallel Work Map + Your Plan
+ * Added 2026-05-24 to align Setnayan AI + Parallel Work Map + Your Plan
  * grid surfaces. The Plan grid already had an invitations_stationery cell
  * tied to VendorCategory='invitations_stationery', but no wizard card
  * pointed at it. Card 24 deploy_invitation is the action of sending —

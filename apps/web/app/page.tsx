@@ -25,7 +25,7 @@
  * v2.1 DRIFT SCRUBS applied throughout (per CLAUDE.md 2026-05-28 11th row):
  *   - "5% platform fee" / "we take a cut" → "0% commission"
  *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
- *   - "Setnayan Concierge" → "Today's Focus"
+ *   - "Setnayan Concierge" → "Setnayan AI"
  *   - "₱1,499 one-time verification" + "₱499 refresh" preserved
  *
  * Per [[feedback_setnayan_button_preservation]] all CTAs match template

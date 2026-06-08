@@ -264,7 +264,7 @@ export type OnboardingCommitPayload = {
    */
   stylePreferences: Record<string, unknown>;
   /** screen-14 "keep guiding me" — free deadline-timeline guidance (default true). Persisted into
-   *  events.style_preferences.guidance_opt_in (no migration). NOT the retired paid Today's Focus. */
+   *  events.style_preferences.guidance_opt_in (no migration). NOT the retired paid Setnayan AI. */
   guidanceOptIn: boolean;
   /** screen-14 "reach my top 3 matches" — when true, fan out the first inquiry to the top-3 picked
    *  categories' best-fit vendor at commit (default false · explicit consent · RA 10173). */

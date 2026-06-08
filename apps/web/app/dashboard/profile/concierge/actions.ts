@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * Today's Focus — couple-side server actions.
+ * Setnayan AI — couple-side server actions.
  *
  * RETIRED 2026-05-28 V2 cutover.
  * The V1 Concierge ₱2,499 SKU + 3-day card-less free trial + wedding-
@@ -85,7 +85,7 @@ async function requireCoupleMembership(
 }
 
 /**
- * Activate Today's Focus on a paid order.
+ * Activate Setnayan AI on a paid order.
  *
  * RETIRED 2026-05-28 V2 cutover.
  * V1 framing was a single Concierge ₱2,499 SKU; V2 replaces with the
@@ -149,8 +149,8 @@ export async function activateConcierge(input: {
     void emitNotification({
       userId,
       type: 'chat_message',
-      title: "Today's Focus — long-engagement advisory",
-      body: `Your wedding is more than 24 months away. Today's Focus runs for up to 24 months from your purchase date — you'll have ~${monthsBetween(expiresAt, weddingDate!)} months between expiry and your wedding day. Re-purchase closer to the date to keep the daily planner running through to the wedding.`,
+      title: "Setnayan AI — long-engagement advisory",
+      body: `Your wedding is more than 24 months away. Setnayan AI runs for up to 24 months from your purchase date — you'll have ~${monthsBetween(expiresAt, weddingDate!)} months between expiry and your wedding day. Re-purchase closer to the date to keep the daily planner running through to the wedding.`,
       relatedUrl: `/dashboard/${eventId}`,
     });
   }
@@ -164,8 +164,8 @@ export async function activateConcierge(input: {
   void emitNotification({
     userId,
     type: 'order_paid',
-    title: "Today's Focus active",
-    body: "Today's Focus is now active on your event. Open your dashboard to see today's recommended step.",
+    title: "Setnayan AI active",
+    body: "Setnayan AI is now active on your event. Open your dashboard to see today's recommended step.",
     relatedUrl: `/dashboard/${eventId}`,
   });
 
@@ -175,7 +175,7 @@ export async function activateConcierge(input: {
 }
 
 /**
- * Cancel Today's Focus — surface "cancellation requested" client-side
+ * Cancel Setnayan AI — surface "cancellation requested" client-side
  * only. Status remains 'active' until natural expiry per the lazy sweep.
  * The host keeps the access they paid for.
  *
@@ -282,7 +282,7 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
     void emitNotification({
       userId,
       type: 'chat_message',
-      title: "Today's Focus — account under review",
+      title: "Setnayan AI — account under review",
       body: 'Your account is under review. Contact support if you believe this is in error.',
       relatedUrl: `/help#concierge`,
     });
@@ -317,8 +317,8 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
   void emitNotification({
     userId,
     type: 'chat_message',
-    title: "Today's Focus active",
-    body: `Today's Focus is now active on your event. Open your dashboard to see today's recommended step.`,
+    title: "Setnayan AI active",
+    body: `Setnayan AI is now active on your event. Open your dashboard to see today's recommended step.`,
     relatedUrl: `/dashboard/${eventId}`,
   });
   // 2026-05-28 V2 cutover note: the expiresAt timestamp above is still
@@ -393,8 +393,8 @@ export async function recomputeConciergeExpiry(input: {
     void emitNotification({
       userId,
       type: 'chat_message',
-      title: "Today's Focus — long-engagement advisory",
-      body: `Your wedding is more than 24 months away. Today's Focus runs for up to 24 months from your purchase date — you'll have ~${monthsBetween(newExpires, weddingDate!)} months between expiry and your wedding day. Re-purchase closer to the date to keep the daily planner running through to the wedding.`,
+      title: "Setnayan AI — long-engagement advisory",
+      body: `Your wedding is more than 24 months away. Setnayan AI runs for up to 24 months from your purchase date — you'll have ~${monthsBetween(newExpires, weddingDate!)} months between expiry and your wedding day. Re-purchase closer to the date to keep the daily planner running through to the wedding.`,
       relatedUrl: `/dashboard/${eventId}`,
     });
   }

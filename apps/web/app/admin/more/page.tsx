@@ -36,11 +36,11 @@ const MORE_ITEMS: LandingItem[] = [
   // Content group
   {
     key: 'brain',
-    label: "Today's Focus brain",
+    label: "Setnayan AI brain",
     href: '/admin/brain',
     icon: Brain,
     description:
-      'Curated knowledge feeding the AI Today’s Focus chat. Browse chunks by topic.',
+      'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
   },
   {
     key: 'moodboard-library',

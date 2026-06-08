@@ -1,5 +1,5 @@
 /**
- * Concierge Active Wizard · WizardHero · top-level Today's Focus surface.
+ * Concierge Active Wizard · WizardHero · top-level Setnayan AI surface.
  *
  * Iteration 0016 · Phase 1 PR consumes the Phase 0 framework: reads
  * events.wizard_state · resolves the active task via resolveWizardFocus ·

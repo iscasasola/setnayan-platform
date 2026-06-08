@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           <p className="pt-2">
             Cross-border data transfers — Singapore (Supabase), United States
             (Cloudflare R2 PH-region buckets), United States (Anthropic Console
-            for Today&rsquo;s Focus AI), and United States (Persona for vendor
+            for Setnayan AI AI), and United States (Persona for vendor
             verification) — are subject to RA 10173 § 21 and the cloud
             provider&rsquo;s adequacy commitments.
           </p>

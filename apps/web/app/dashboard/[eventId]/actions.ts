@@ -168,7 +168,7 @@ export async function updateEventDate(formData: FormData) {
  *
  * Owner 2026-06-05 (iteration 0021). Manual mode turns OFF Setnayan's
  * automated layer (vendor-match personalization · per-service + statutory
- * deadlines · "Today's Focus" auto-tasks); the app + a compatibility-scoped
+ * deadlines · "Setnayan AI" auto-tasks); the app + a compatibility-scoped
  * vendor directory + messaging stay fully usable. The flag lives on the
  * events row and is read by Home, the Services tab, and the deadline layer.
  * Mirrors updateEventDate's auth + `event_id` update + layout revalidate.

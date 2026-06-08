@@ -4,7 +4,7 @@
  * CustomerBottomNav — customer mobile primary nav.
  *
  * 5 TABS (owner directive 2026-06-02):
- *   1. Home     — Event-home cockpit: live countdown · Today's focus ·
+ *   1. Home     — Event-home cockpit: live countdown · Setnayan AI ·
  *                 upcoming schedules · activity feed. (The couple's match
  *                 criteria moved to the "Matching you on" strip on the
  *                 Vendors/Services tab — see match-criteria-strip.tsx.)

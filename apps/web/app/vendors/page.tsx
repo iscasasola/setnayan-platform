@@ -1144,7 +1144,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Sort chain.
   //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
   //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
-  //      Patiktok, Pakanta, Today's Focus, Animated Monogram,
+  //      Patiktok, Pakanta, Setnayan AI, Animated Monogram,
   //      Save-the-Date Video, AI Highlights) float ABOVE everything else,
   //      including paid sponsors. Vendor's services[] is checked at view-compute
   //      time via the 10-canonical array in migration 20260607020000.
@@ -2833,7 +2833,7 @@ async function CatalogView({
           // venue_setting backed, NOT category cards. Render the two venue
           // pickers (Ceremony venue panel + cards, Reception facet picker +
           // cards). Officiants auto-resolve from the ceremony venue (Card 04,
-          // 2026-05-29); pre-marriage paperwork lives in the Today's Focus
+          // 2026-05-29); pre-marriage paperwork lives in the Setnayan AI
           // wizard. The PairedVenuePanel (church/mosque/civil cards near the
           // host's venue) renders above this loop. Sub-block ids match
           // WEDDING_TILE_SLUG so dashboard venue [Search] deep-links anchor

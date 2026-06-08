@@ -37,6 +37,10 @@ import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ServicesTakeover } from './_components/services-takeover';
+import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation-planner';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { BuildSummary } from './_components/build-summary';
+import { BuildLocked } from './_components/build-locked';
 import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
 import { buildTasteChips } from '@/lib/personalized-menu';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -385,11 +389,34 @@ export default async function VendorsPage({ params }: Props) {
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).
   // When on, /vendors becomes a full-screen FOCUS MODE takeover with its own
-  // 5-tab section nav; Phase 1 houses today's Services experience under the
-  // Shortlist tab while Build / Compare / Summary / Lock fill in across later
-  // phases. When off, render exactly as before (zero production change).
+  // 5-tab section nav: Shortlist houses today's Services experience and Build
+  // hosts the median-anchored allocation planner (the auto-fit plan + shopping
+  // ranges + cushion + peso-pin tilt — the same engine the Budget tab uses).
+  // Compare / Summary / Lock fill in across later phases. When off, render
+  // exactly as before (zero production change — the alloc query is gated here so
+  // it never runs unless the flag is on).
   if (isBudgetBuildEnabled()) {
-    return <ServicesTakeover eventId={eventId} shortlistSlot={services} />;
+    const allocInputs = await resolveAllocationInputs(supabase, eventId);
+    const buildSlot = (
+      <BudgetAllocationPlanner
+        eventId={eventId}
+        budgetPhp={allocInputs.budgetPhp}
+        leaves={allocInputs.leaves}
+        config={allocInputs.config}
+        pax={allocInputs.pax}
+        region={ev?.region ?? null}
+      />
+    );
+    return (
+      <ServicesTakeover
+        eventId={eventId}
+        initialTab="summary"
+        summarySlot={<BuildSummary model={model} eventId={eventId} />}
+        shortlistSlot={services}
+        buildSlot={buildSlot}
+        lockSlot={<BuildLocked model={model} />}
+      />
+    );
   }
 
   return services;

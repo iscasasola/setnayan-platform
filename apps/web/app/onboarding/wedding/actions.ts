@@ -286,6 +286,20 @@ export type OnboardingCommitPayload = {
   /** screen-10 palette feel → derived basic moodboard (owner 2026-06-05 · G4): the deterministic
    *  FEELS[feel] hex palette (null for 'others'/none) → style_preferences.basic_moodboard. */
   basicMoodboard: string[] | null;
+  /**
+   * LOVE STAGE (the 6 love_* screens) → the couple's wedding-website "Our Love Story".
+   * The full told-back blob → events.love_story (JSONB). Voice + language → the
+   * story_tone / story_language columns (covert renames of editorial_tone/_language,
+   * land via migration 20260913000000). specialMessage / togetherSince → their own
+   * events columns. All BEST-EFFORT: the events insert never throws if a column is
+   * absent pre-migration (the love payload no-ops on write until the rename ships).
+   * COVERT: every key here is story-shaped — nothing names editorial / song / lyric.
+   */
+  loveStory: Record<string, unknown>;
+  storyTone: 'warm' | 'playful' | 'formal' | null;
+  storyLanguage: string | null;
+  specialMessage: string | null;
+  togetherSince: string | null;
 };
 
 export type OnboardingCommitResult =
@@ -399,6 +413,16 @@ export async function commitOnboardingWedding(
         ? payload.musicPlaylistSeed
         : null,
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
+      // -- LOVE STAGE → the couple's wedding-website "Our Love Story" --
+      // The full told-back blob → love_story (JSONB · foundation migration 20260912000000);
+      // voice/language → story_tone / story_language (covert renames · migration
+      // 20260913000000, which ships with this change). special_message / together_since
+      // are their own columns from the foundation migration. COVERT: story-shaped only.
+      love_story: payload.loveStory ?? {},
+      story_tone: payload.storyTone ?? null,
+      story_language: payload.storyLanguage ?? null,
+      special_message: payload.specialMessage ?? null,
+      together_since: payload.togetherSince ?? null,
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
       style_preferences: {

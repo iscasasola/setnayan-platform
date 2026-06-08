@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(pricing): customer catalog reader now honors `is_active` (retirements had NO live effect)
+
+**Context:** Found by verifying the live site (owner asked "on www.setnayan.com?"). The retired SKUs (Indoor Blueprint, High Res Archive, Call-Time Escalator, Pakulay, RSVP) were STILL showing on `/pricing` despite being `is_active=false` in the DB. Root cause: **`fetchV2CustomerCatalog` (`lib/v2-catalog.ts`) never filtered `is_active`** — it only excluded `TODAYS_FOCUS` by name. So the entire `is_active` retirement mechanism was inert for the customer catalog; admin "retire" did nothing on the live surfaces.
+
+**What landed (`lib/v2-catalog.ts`):**
+- Added **`.eq('is_active', true)`** to `fetchV2CustomerCatalog`. Now the 6 inactive customer SKUs (CALL_TIME_ESCALATOR · HIGH_RES_ARCHIVE · INDOOR_BLUEPRINT · PAKULAY · RSVP_WEBSITE · TODAYS_FOCUS) drop from `/pricing`, `/for-vendors`, the admin discount picker, AND the onboarding bundle worth; the 19 active SKUs remain. The `.neq('TODAYS_FOCUS')` is kept as belt-and-suspenders.
+
+**Verified:** the filter hides exactly the 6 inactive rows + keeps the 19 active (DB-counted). `tsc` clean · `next build` ✓. `/pricing` is `force-dynamic`, so the retired SKUs disappear as soon as this deploys. `admin/pricing` (the editor) intentionally still reads ALL rows so admins can re-activate. Pax-resolver + single-SKU `formatV2Sku` are by-code lookups (not display lists) — unaffected.
+
+**SPEC IMPACT:** None (bug fix). Makes the documented "retire via is_active=false" mechanism actually work. DECISION_LOG row added.
+
 ## 2026-06-08 · chore(pricing): RSVP consolidation + Event Website ₱1,999 (owner-decided)
 
 **Context:** Owner resolved the two catalog flags from the bundle-composition PR. (1) "RSVP Pro replaces RSVP" → retire `RSVP_WEBSITE`. (2) `EVENT_WEBSITE` → ₱1,999.

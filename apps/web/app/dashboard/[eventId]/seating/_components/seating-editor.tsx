@@ -7,6 +7,7 @@ import {
   DoorOpen,
   Eye,
   EyeOff,
+  FileDown,
   List,
   Map as MapIcon,
   Maximize2,
@@ -106,6 +107,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     length: floorPlan.venue_length_m ?? 30,
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [canvasW, setCanvasW] = useState(0);
   const [floorDirty, setFloorDirty] = useState(false);
 
@@ -741,6 +743,56 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                 <Save className="h-3.5 w-3.5" /> Save layout ({dirty.size + (floorDirty ? 1 : 0)})
               </button>
             ) : null}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowExport((v) => !v)}
+                disabled={tables.length === 0}
+                aria-haspopup="menu"
+                aria-expanded={showExport}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
+              >
+                <FileDown className="h-3.5 w-3.5" /> Export PDF
+                <ChevronDown className="h-3 w-3 text-ink/40" />
+              </button>
+              {showExport ? (
+                <>
+                  <button
+                    type="button"
+                    aria-hidden
+                    tabIndex={-1}
+                    onClick={() => setShowExport(false)}
+                    className="fixed inset-0 z-30 cursor-default"
+                  />
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-40 mt-1 w-56 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+                  >
+                    <a
+                      role="menuitem"
+                      href={`/dashboard/${eventId}/seating/export?mode=moodboard`}
+                      onClick={() => setShowExport(false)}
+                      className="flex flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04]"
+                    >
+                      <span className="text-sm font-medium text-ink">Mood-board colours</span>
+                      <span className="text-[11px] text-ink/55">Floor &amp; tables in your palette</span>
+                    </a>
+                    <a
+                      role="menuitem"
+                      href={`/dashboard/${eventId}/seating/export?mode=blueprint`}
+                      onClick={() => setShowExport(false)}
+                      className="flex flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04]"
+                    >
+                      <span className="text-sm font-medium text-ink">Blueprint</span>
+                      <span className="text-[11px] text-ink/55">Clean technical line drawing</span>
+                    </a>
+                    <p className="px-3 py-1.5 text-[10px] text-ink/45">
+                      A4 PDF · floor plan + seating arrangements · with your monogram &amp; website QR.
+                    </p>
+                  </div>
+                </>
+              ) : null}
+            </div>
             <button
               type="button"
               onClick={() => setConfirmAuto(true)}

@@ -4,17 +4,63 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-08 · refactor(onboarding): id-array `buildSequence()` nav core (behavior-preserving)
+## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
 
-**Context:** First PR of the adaptive-onboarding port (told-back love stage + Mirror + dashboard bloom + canonical pricing — plan `Onboarding_Production_Port_Plan_2026-06-08.md` in the specs corpus). The shipped flow hardcodes navigation as integer `step === N`, which can't express the redesign's adaptive forks. This swaps the navigation core to a string-id model so future screens/forks are array membership, not index arithmetic. **No visible change — same 17 screens, same order, same forks.**
+**Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). Two parts in one PR (the nav core can't ship without something using it, and it merged cleanly with the concurrent #1071 pure-moment intro): (1) the navigation core swap, (2) the told-back love stage.
 
-**What landed (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):**
-- New `FLOW_IDS` + `buildSequence(kind, authed)` — the two existing forks (Civil → skip faith, authed → skip account gate) become **array membership** instead of `n±1` skip arithmetic in `go()`.
-- `state.step` stays a `number` (localStorage drafts unchanged), reinterpreted as the index into `buildSequence()`; `activeId` derived each render. All 17 `step === N` render guards, the step-keyed effects (monogram replay/restyle, venue fetch, match fetch, services seed), `canContinue`, and the chrome (next label, skip, progress, commit gate) rekeyed to `activeId`.
-- `go()` / new `goToId()` navigate by sequence index; the prefs sub-stepper, `?resume` bounce, and skip behavior preserved exactly. Removed now-dead `NEXT_LABEL` / `CAN_SKIP` / `PHASE_SCREENS` (kept `FLOW_TOTAL` export in `types.ts`).
-- **Verified:** `tsc --noEmit` PASS + `next build` PASS (`/onboarding/wedding` compiles); diff reviewed for behavior parity.
+**What landed (`onboarding-shell.tsx`, `types.ts`, `actions.ts`, new `_components/weave-story.ts`, `_styles/onboarding.css`, new migration):**
+- **Nav core:** replaced the fixed-index `step === N` model with string-id `FLOW_IDS` + `buildSequence(kind, authed, loveSkipped)` — the forks (Civil → skip faith · authed → skip account · loveSkipped → skip the 5 love collection screens) are now **array membership**, not index arithmetic. `state.step` stays a number (drafts unchanged) reinterpreted as the index into the sequence; `activeId` derived per render; all screen guards, step-keyed effects, `canContinue`, and chrome rekeyed to `activeId`; `go()`/`goToId()` navigate by sequence index. Merged with #1071: its `finishMoments` jump is now `goToId('name')` (id-addressed, civil-safe) instead of a hardcoded `step: 4`.
+- **Love stage (6 screens, inserted after `name`, before `date`):** Hook · Spark+Almost · The Yes · Little Things · Voice · Reveal — sentence-stems + causal follow-ups + the obstacle beat + two-voice braid + a told-back "published page" reveal via `weave-story.ts`. New `OnboardingState` fields (`loveStory{spark,spark_why,obstacle*,proposal_voice,proposal_feel,anchors{},…}`, `storyTone`, `storyLanguage`, `specialMessage`, `togetherSince`) written to `events` at commit (best-effort).
+- **Migration `20260914000000_love_story_covert_renames.sql`:** `events.editorial_tone → story_tone` (+CHECK), `editorial_language → story_language`, documents the `love_story` v2 JSONB shape. **COVERT:** couple-facing love copy names only "your wedding website" — never editorial/song/Pakanta (grep-gated).
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS (`/onboarding/wedding` compiles) · covert grep clean · PR-1 nav-only variant passed full CI incl. `playwright e2e` (runtime nav parity).
 
-**SPEC IMPACT:** None — behavior-preserving refactor. The adaptive redesign it unlocks is specced in `Onboarding_Production_Port_Plan_2026-06-08.md` (specs corpus); subsequent PRs add the new screens/data.
+**SPEC IMPACT:** None on prices/SKUs. The flow redesign is specced in `Onboarding_Production_Port_Plan_2026-06-08.md` (specs corpus); subsequent PRs add the Mirror, Stage-4 pricing, and the dashboard bloom.
+
+## 2026-06-08 · feat(0016): pure-moment conversational onboarding intro (prototype→prod port)
+
+**Context:** Audit (this session) found the owner-2026-06-05 "pure-moment" conversational welcome — Setnayan "speaks" line-by-line, role/kind/faith asked inline, no Continue button — was built into the production-mirror prototype `Onboarding_Wedding_Flow_2026-06-01.html` but never ported to the live React onboarding (`apps/web/app/onboarding/wedding`), which still opened on a static hero + three separate Continue screens. Owner approved a full faithful port.
+
+**What landed:**
+- **New `app/onboarding/wedding/_components/welcome-moments.tsx`** — self-contained moment player. `speak` lines auto-advance (dwell scales with length; tap to skip) beside the gold Setnayan mark; `ask` beats collect role → kind → faith inline; civil skips the faith beat; the `when` gating mirrors the prototype `MOMENTS` script verbatim. Offers the LIVE active faith set (not the prototype's stale five) so coverage never narrows before the hand-off.
+- **`_components/onboarding-shell.tsx`** — step-0 welcome plays the conversation on first arrival then hands off to the Name screen (step 4); progress bar + bottom Continue are hidden during the conversation; the plain hero shows on back-nav re-entry so the screen never traps. Standalone role/kind/faith screens (steps 1-3) are retained as back/edit targets (matches the prototype).
+- **`_styles/onboarding.css`** — `.onbw`-scoped moment styles (`ob-momentIn`, `fm-react` serif line + `say-mark`, stacked `m-opt` cards) + `prefers-reduced-motion` fallback.
+
+**Not ported (flagged for owner):** the prototype's over-budget venue copy ("A touch over budget — still yours to consider" / "In your range") depends on per-venue pricing that the live `OnboardingVenueResult` / `searchOnboardingReceptionVenues` does not return; surfacing it would mean inventing prices (guardrail), so it needs a real data-wiring task + an owner call on showing venue prices in onboarding. Deferred.
+
+**Verify:** `pnpm typecheck` clean; `pnpm lint` clean (no new warnings — pre-existing warnings only); browser verification on the PR's Vercel preview deploy (`/onboarding/wedding`).
+
+**SPEC IMPACT:** None — brings live code in line with the already-locked owner-2026-06-05 prototype decision (no new product decision). The over-budget venue-pricing gap is flagged for owner, not silently changed.
+
+---
+
+## 2026-06-08 · feat(website): Special Message content block (live invitation site)
+
+**Context:** Increment A.1 of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07`). First content block built on the shipped schema foundation — a couple's note to guests, rendered live on the invitation site.
+
+**What landed:**
+- Migration `20260913000000_invitation_widgets_special_message.sql` — adds the `special_message` widget_type (CHECK + seed trigger + backfill); reads `events.special_message` (shipped 20260912000000).
+- `lib/invitation-widgets.ts` — `special_message` in WIDGET_TYPES + catalog (editor_subroute `special-message`), so it appears in the widget show/hide/reorder editor automatically.
+- `app/[slug]/page.tsx` — `SpecialMessageWidget` rendered on both the authed-guest and anonymous-public paths; **blank message → section hides** (no demo state).
+- New editor `app/dashboard/[eventId]/website/special-message/` (page + server action) — single textarea (≤600 chars) writing `events.special_message`, RLS-gated.
+
+**Verify:** CI typecheck + lint; migration additive + idempotent; applied to prod via `supabase db push`.
+
+**SPEC IMPACT:** §6.5 content block shipped → DECISION_LOG. Remaining blocks (Our Love Story · What to Bring · Our Photos) follow the same pattern.
+
+## 2026-06-08 · fix(marketing,0015): mobile hero overflow — responsive headline sizes
+
+**Context:** Owner 2026-06-08, reviewing setnayan.com on a phone: "having those large texts ate up the whole screen and we already lost the sale." The homepage `Hero` (`app/_components/marketing/_sections.tsx`) hard-coded the "Set na 'yan." `<h1>` to a fixed `fontSize: 152` and the "Plan your wedding the easy way" headline to a fixed `76`, inside `px-14` (56px) side padding — none responsive. On a 375px phone the headline can't fit, pushing the primary CTA far below the fold.
+
+**What landed (Hero only — presentation):**
+- `<h1>` "Set na 'yan." → `fontSize: clamp(3.1rem, 13vw, 152px)` (≈50px on a 375px phone · still 152px on desktop).
+- Headline "Plan your wedding the easy way" → `clamp(1.9rem, 6vw, 76px)`.
+- Hero padding responsive: `px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20` (was fixed `px-14 pt-20`).
+- The secondary "Wedding today. Every celebration tomorrow." pill → `hidden sm:inline-flex`, lede/CTA top-margins tightened on mobile, so the "Start planning · free" CTA sits above the fold on a phone.
+- Desktop hero is visually unchanged (the clamps cap at the original 152/76px).
+
+**Verify:** CSS/markup only, no type changes. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** None (presentation-only; no copy / SKU / pricing change). Tracked follow-up: the other 11 marketing sections share the same fixed `px-14` + `120px` vertical paddings → a broader mobile-padding pass, plus the new `/apps` + `/about` pages, the Premium-stance pricing ladder (a `v2-catalog` data change), and real photography.
 
 ## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
 

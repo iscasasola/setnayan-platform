@@ -74,6 +74,7 @@ import {
   type StoryTone,
   type WeaveContext,
 } from './weave-story';
+import { WelcomeMoments } from './welcome-moments';
 import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
@@ -1447,6 +1448,10 @@ export function OnboardingShell({
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
+  // Pure-moment conversational welcome (owner 2026-06-05): the intro plays once on
+  // first arrival at step 0, collecting role/kind/faith inline, then hands off to the
+  // Name screen. Re-entering step 0 (back-nav) shows the plain hero so it never traps.
+  const [momentsDone, setMomentsDone] = useState(false);
   const [monoPop, setMonoPop] = useState(false);
   const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
@@ -1894,6 +1899,29 @@ export function OnboardingShell({
       patch({ faith: [f] });
     }
   };
+
+  /* Pure-moment welcome handoff (owner 2026-06-05): the conversation collected
+     role/kind/faith inline → jump straight to the Name screen (step 4). Stable
+     identity so the WelcomeMoments effect dep doesn't re-fire. */
+  const finishMoments = useCallback(() => {
+    setMomentsDone(true);
+    goToId('name'); // jump past the screens the moments intro already answered (id-addressed, civil-safe)
+  }, [goToId]);
+
+  /* Active faith chips the moment player offers — mirror the standalone faith
+     screen's gate (admin /admin/wedding-types when available, else the soon flag),
+     so coverage never narrows below what the couple could otherwise pick. */
+  const momentFaithOptions = useMemo(
+    () =>
+      FAITH_CHIPS.filter((c) => (activeFaiths ? activeFaiths.includes(c.value) : !c.soon)).map((c) => ({
+        value: c.value,
+        label: c.label,
+      })),
+    [activeFaiths],
+  );
+
+  /* The conversational welcome plays only on the first arrival at step 0. */
+  const momentsActive = activeId === 'welcome' && !momentsDone;
 
   /* ── name / monogram ── */
   const firstInitial = (s: string) => {
@@ -2493,23 +2521,36 @@ export function OnboardingShell({
               Skip
             </button>
           </div>
-          {activeId === 'welcome' && <div className="brandtag">Wedding planning, simplified</div>}
-          <div className="bar">
+          {activeId === 'welcome' && !momentsActive && <div className="brandtag">Wedding planning, simplified</div>}
+          <div className="bar" style={momentsActive ? { visibility: 'hidden' } : undefined}>
             <div className="barfill" style={{ width: `${((stepClamped + 1) / seq.length) * 100}%` }} />
           </div>
         </div>
 
         {/* body — only the active screen displays */}
         <div className="body">
-          {/* 1 WELCOME */}
-          <section className={`screen welcomescreen${activeId === 'welcome' ? ' active' : ''}`}>
-            <div className="welcomehero">
-              <HeroImg src={ASSET('welcome')} />
-              <div className="welcomeoverlay">
-                <h1>Start with the view. We{'’'}ll handle the details.</h1>
-                <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
+          {/* 1 WELCOME — pure-moment conversation on first arrival (owner 2026-06-05);
+              plain hero on back-nav re-entry so the screen never traps. */}
+          <section className={`screen welcomescreen${activeId === 'welcome' ? ' active' : ''}${momentsActive ? ' moments-on' : ''}`}>
+            {momentsActive ? (
+              <div className="viewzone momentwrap">
+                <WelcomeMoments
+                  faithOptions={momentFaithOptions}
+                  onPickRole={selectRole}
+                  onPickKind={selectKind}
+                  onPickFaith={selectFaith}
+                  onDone={finishMoments}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="welcomehero">
+                <HeroImg src={ASSET('welcome')} />
+                <div className="welcomeoverlay">
+                  <h1>Start with the view. We{'’'}ll handle the details.</h1>
+                  <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* 2 ROLE */}
@@ -3526,7 +3567,7 @@ export function OnboardingShell({
               {commitError}
             </p>
           )}
-          {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId)) && (
+          {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId) || momentsActive) && (
             <button
               className="btn btn-primary"
               type="button"

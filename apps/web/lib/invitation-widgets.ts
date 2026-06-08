@@ -35,6 +35,7 @@ export const WIDGET_TYPES = [
   'photo_moments',
   'your_photos',
   'tier_comparison',
+  'special_message',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -152,6 +153,13 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     description: 'Public vs. Registered account for photos that last beyond 3 days.',
     is_always_on: false,
     editor_subroute: null,
+  },
+  {
+    type: 'special_message',
+    label: 'Special message',
+    description: 'A heartfelt note to your guests from the couple.',
+    is_always_on: false,
+    editor_subroute: 'special-message',
   },
 ];
 

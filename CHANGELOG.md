@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(seating): floor-plan markers — draggable Stage + Entrance door (0008)
+
+**Context:** Owner: "we also want to set the entrance door." Completes the floor-plan work (after the growable canvas, #1110). The stage was a fixed banner and auto-seat anchored at a hard-coded top-centre point; now both the **stage** and a single **entrance door** are placeable + persisted.
+
+**Schema (`20260922000000_iteration_0008_event_floor_plan.sql`, applied to prod):** new singleton `event_floor_plan(event_id PK, stage_x/y, entrance_enabled, entrance_x/y, updated_at)` — coords are canvas percent, like `event_tables`. Pattern B RLS (couple read+write). Applied directly to prod (idempotent `CREATE TABLE IF NOT EXISTS`) because the migration history is out-of-order; the file still ships for fresh DBs.
+
+**What landed:**
+- **Draggable Stage** — replaces the fixed banner; drag it anywhere on the (zoom/pan-aware) canvas. **Auto-seat now anchors its role-tier rings on the placed stage** (`computeAutoSeat` takes a `stage` arg; `autoSeatGuests` reads `fetchFloorPlan`).
+- **Entrance door** — owner-locked **one** entrance: an "Add entrance" toolbar button drops a draggable `🚪 Entrance` marker (default bottom-centre) with an × to remove it.
+- Both fold into the existing **Save layout** flow (`saveFloorPlan` upsert; the marker drags mark the layout dirty alongside table moves). Drag handling generalised to `kind: table | stage | entrance`.
+- `lib/seating.ts`: `FloorPlanRow` + `DEFAULT_FLOOR_PLAN` + graceful-degrading `fetchFloorPlan`.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (route 17.3 kB); table + RLS confirmed on prod; stage + entrance markers verified via a headless render.
+
+**SPEC IMPACT:** builds the 0008 spec's `event_floor_plan` (stage + door) — single-entrance variant per owner ("just 1"), not the spec's multi-door JSONB. Completes the seating floor-plan upgrade arc (chair-level → names → mobile list → zoom/pan → markers). → corpus DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): growable floor plan — zoom + pan + level-of-detail (0008)
 
 **Context:** Follow-up to the mobile list (PR #1108). For big guest counts the *spatial* floor plan must also scale — a fixed canvas can't show 50 tables. Adds pan/zoom with level-of-detail so the plan grows to fit. PR 2 of 2 for "scale to 50+"; **PR 3 next = floor-plan markers (draggable Stage + Entrance door)**, which needs a small `event_floor_plan` migration.

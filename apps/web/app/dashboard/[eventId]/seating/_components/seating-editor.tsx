@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   Armchair,
   ChevronDown,
+  DoorOpen,
   Eye,
   EyeOff,
   List,
@@ -26,12 +27,14 @@ import {
   shapeHintFor,
   tableGeometry,
   type EventTableRow,
+  type FloorPlanRow,
 } from '@/lib/seating';
 import {
   assignGuest,
   autoSeatGuests,
   createTable,
   deleteTable,
+  saveFloorPlan,
   unassignGuest,
   updateTablePosition,
 } from '../actions';
@@ -60,6 +63,7 @@ type Props = {
   tables: EventTableRow[];
   guests: SeatingGuest[];
   groups: SeatingGroup[];
+  floorPlan: FloorPlanRow;
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -75,10 +79,25 @@ function defaultGrid(index: number, total: number): LocalPos {
   };
 }
 
-export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
+export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ id: string; sx: number; sy: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{
+    kind: 'table' | 'stage' | 'entrance';
+    id: string;
+    sx: number;
+    sy: number;
+    moved: boolean;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Floor-plan markers (draggable stage + single entrance door).
+  const [stage, setStage] = useState({ x: floorPlan.stage_x, y: floorPlan.stage_y });
+  const [entrance, setEntrance] = useState({
+    enabled: floorPlan.entrance_enabled,
+    x: floorPlan.entrance_x,
+    y: floorPlan.entrance_y,
+  });
+  const [floorDirty, setFloorDirty] = useState(false);
 
   const [positions, setPositions] = useState<Record<string, LocalPos>>(() => {
     const out: Record<string, LocalPos> = {};
@@ -236,10 +255,24 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
       return;
     }
     e.preventDefault();
-    dragRef.current = { id: t.table_id, sx: e.clientX, sy: e.clientY, moved: false };
+    dragRef.current = { kind: 'table', id: t.table_id, sx: e.clientX, sy: e.clientY, moved: false };
     setDragId(t.table_id);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
+
+  // Drag the stage / entrance markers (same pointer model as a table hub).
+  const onMarkerPointerDown =
+    (kind: 'stage' | 'entrance') => (e: React.PointerEvent) => {
+      if (pickedId) {
+        // Don't seat onto a marker, and don't start a pan.
+        e.stopPropagation();
+        return;
+      }
+      e.preventDefault();
+      dragRef.current = { kind, id: kind, sx: e.clientX, sy: e.clientY, moved: false };
+      setDragId(`__${kind}__`);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    };
 
   const ZOOM_MIN = 0.2;
   const ZOOM_MAX = 2.6;
@@ -296,12 +329,15 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
       if (!rect || rect.width === 0) return;
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
-      const x = (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100;
-      const y = (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100;
-      setPositions((p) => ({
-        ...p,
-        [d.id]: { x: Math.max(2, Math.min(98, x)), y: Math.max(2, Math.min(98, y)) },
-      }));
+      const x = Math.max(2, Math.min(98, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
+      const y = Math.max(2, Math.min(98, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
+      if (d.kind === 'table') {
+        setPositions((p) => ({ ...p, [d.id]: { x, y } }));
+      } else if (d.kind === 'stage') {
+        setStage({ x, y });
+      } else {
+        setEntrance((en) => ({ ...en, x, y }));
+      }
       return;
     }
     if (!rect) return;
@@ -329,10 +365,22 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
-    if (d?.moved) setDirty((s) => new Set(s).add(d.id));
+    if (d?.moved) {
+      if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
+      else setFloorDirty(true);
+    }
     if (e) pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
     if (pointersRef.current.size === 0) panStartRef.current = null;
+  };
+
+  const addEntrance = () => {
+    setEntrance({ enabled: true, x: 50, y: 94 });
+    setFloorDirty(true);
+  };
+  const removeEntrance = () => {
+    setEntrance((en) => ({ ...en, enabled: false }));
+    setFloorDirty(true);
   };
 
   // Zoom around the viewport centre (for the +/- buttons).
@@ -377,8 +425,10 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
     applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
   };
 
+  const layoutDirty = dirty.size > 0 || floorDirty;
   const saveLayout = () => {
     const ids = Array.from(dirty);
+    const fdDirty = floorDirty;
     startTransition(async () => {
       for (const id of ids) {
         const pos = positions[id];
@@ -390,7 +440,18 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
         fd.set('y_pos', String(pos.y));
         await updateTablePosition(fd);
       }
+      if (fdDirty) {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('stage_x', String(stage.x));
+        fd.set('stage_y', String(stage.y));
+        fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
+        fd.set('entrance_x', String(entrance.x));
+        fd.set('entrance_y', String(entrance.y));
+        await saveFloorPlan(fd);
+      }
       setDirty(new Set());
+      setFloorDirty(false);
     });
   };
 
@@ -618,14 +679,23 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
                 <List className="h-3.5 w-3.5" /> List
               </button>
             </div>
-            {view === 'plan' && dirty.size > 0 ? (
+            {view === 'plan' && !entrance.enabled ? (
+              <button
+                type="button"
+                onClick={addEntrance}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+              >
+                <DoorOpen className="h-3.5 w-3.5" /> Add entrance
+              </button>
+            ) : null}
+            {view === 'plan' && layoutDirty ? (
               <button
                 type="button"
                 onClick={saveLayout}
                 disabled={isPending}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
               >
-                <Save className="h-3.5 w-3.5" /> Save layout ({dirty.size})
+                <Save className="h-3.5 w-3.5" /> Save layout ({dirty.size + (floorDirty ? 1 : 0)})
               </button>
             ) : null}
             <button
@@ -681,9 +751,46 @@ export function SeatingEditor({ eventId, tables, guests, groups }: Props) {
         >
           {/* world layer — pan/zoom applied to its transform directly via refs */}
           <div ref={worldRef} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '0 0' }}>
-          <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-md border border-ink/20 bg-cream/80 px-6 py-1.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 backdrop-blur-sm">
+          {/* draggable stage marker (auto-seat anchors its rings here) */}
+          <button
+            type="button"
+            onPointerDown={onMarkerPointerDown('stage')}
+            aria-label="Stage — drag to move"
+            className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 select-none rounded-md border bg-cream/85 px-6 py-1.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 shadow-sm backdrop-blur-sm ${
+              dragId === '__stage__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
+            }`}
+            style={{ left: `${stage.x}%`, top: `${stage.y}%` }}
+          >
             Stage · Head Table
-          </div>
+          </button>
+
+          {/* draggable entrance door marker */}
+          {entrance.enabled ? (
+            <div
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${entrance.x}%`, top: `${entrance.y}%` }}
+            >
+              <button
+                type="button"
+                onPointerDown={onMarkerPointerDown('entrance')}
+                aria-label="Entrance — drag to move"
+                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                  dragId === '__entrance__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
+                }`}
+              >
+                <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" /> Entrance
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={removeEntrance}
+                aria-label="Remove entrance"
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : null}
 
           {tables.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40">

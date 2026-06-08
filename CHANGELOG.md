@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(admin): onboarding refinements editor (follow-up to items 8/9)
+
+**Context:** The DB-backed refinements landed editable-via-SQL-only; this adds the admin UI so the catalogue is editable without SQL or a deploy.
+
+**What landed:**
+- **New `/admin/refinements`** (Platform group, next to Taxonomy): a collapsible card per leaf — edit the leaf (label · description · main photo · retire) + its options (emoji · label · photo · retire · add/remove). `page.tsx` (server, force-dynamic) reads both tables incl. retired rows + resolves photo display URLs; `_components/refinements-editor.tsx` (client, per-unit `<form action={…}>`); `actions.ts` (`updateLeaf`/`updateOption`/`addOption`/`removeOption`).
+- **R2-backed photo uploads** — `<FileUpload bucket="samples">` per photo (seeded `/public` photos stay verbatim until replaced; a hidden `*_current` keeps the value when no upload). `lib/onboarding-refinements.ts` `getOnboardingRefinements()` now resolves `r2://` refs → presigned display URLs (gathered in parallel; **no-op when there are no r2 photos**, so the seeded path is unchanged).
+- Admin-gated by the `/admin` layout + `requireAdmin()` in every action + RLS `is_admin()` write. Edits `revalidatePath('/onboarding/wedding')` → live immediately.
+
+**Verify:** `tsc` + `next lint` clean; an adversarial review workflow ran over auth/correctness/render-impact. (The admin page needs real admin auth + service-role key → CI-build-verified + owner-verifiable on deploy.)
+
+**SPEC IMPACT:** Completes the V1.x DB-backed-refinements admin surface (item 9 "full"). → corpus `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(onboarding): DB-backed refinements + main-photo/4:3-carousel card + 232 generated photos (items 8/9/10)
 
 **Context:** Punch-list items 8 + 9 + 10. (8) every refinement card gets a **main photo on top + a description + a 4:3-landscape option carousel**; (9) the refinements are **DB-backed, not hardcoded**, and only show for **chosen** services; (10) **fill the blank photos**. Owner chose the **full DB-backed taxonomy** option.

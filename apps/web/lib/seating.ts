@@ -106,6 +106,46 @@ export async function fetchAssignments(
   return (data ?? []) as SeatAssignmentRow[];
 }
 
+// Per-event floor-plan markers (stage + single entrance door). All coords are
+// percent (0–100) of the editor canvas. Defaults match the DB defaults so the
+// editor renders sensibly before the row exists.
+export type FloorPlanRow = {
+  stage_x: number;
+  stage_y: number;
+  entrance_enabled: boolean;
+  entrance_x: number;
+  entrance_y: number;
+};
+
+export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
+  stage_x: 50,
+  stage_y: 6,
+  entrance_enabled: false,
+  entrance_x: 50,
+  entrance_y: 94,
+};
+
+export async function fetchFloorPlan(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<FloorPlanRow> {
+  const { data, error } = await supabase
+    .from('event_floor_plan')
+    .select('stage_x,stage_y,entrance_enabled,entrance_x,entrance_y')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  // Graceful-degrade: a missing row (or a not-yet-migrated table) just yields
+  // the defaults so the seating page never crashes on the floor-plan read.
+  if (error || !data) return { ...DEFAULT_FLOOR_PLAN };
+  return {
+    stage_x: Number(data.stage_x),
+    stage_y: Number(data.stage_y),
+    entrance_enabled: Boolean(data.entrance_enabled),
+    entrance_x: Number(data.entrance_x),
+    entrance_y: Number(data.entrance_y),
+  };
+}
+
 export type SeatingStats = {
   tableCount: number;
   totalCapacity: number;
@@ -278,7 +318,7 @@ function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
   return 4;
 }
 
-// Stage sits top-center of the canvas; tables closer to it are filled first.
+// Default stage anchor (top-centre) when the event has no saved floor plan.
 const STAGE_POINT = { x: 50, y: 8 };
 
 function tablePoint(t: EventTableRow, index: number, total: number): { x: number; y: number } {
@@ -295,6 +335,7 @@ export function computeAutoSeat(
   tables: EventTableRow[],
   guests: AutoSeatGuest[],
   assignments: SeatAssignmentRow[],
+  stage: { x: number; y: number } = STAGE_POINT,
 ): AutoSeatRow[] {
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
 
@@ -318,8 +359,8 @@ export function computeAutoSeat(
     .map((t, i) => ({ t, p: tablePoint(t, i, tables.length) }))
     .filter((x) => x.t.table_type !== 'sweetheart_2')
     .sort((a, b) => {
-      const da = (a.p.x - STAGE_POINT.x) ** 2 + (a.p.y - STAGE_POINT.y) ** 2;
-      const db = (b.p.x - STAGE_POINT.x) ** 2 + (b.p.y - STAGE_POINT.y) ** 2;
+      const da = (a.p.x - stage.x) ** 2 + (a.p.y - stage.y) ** 2;
+      const db = (b.p.x - stage.x) ** 2 + (b.p.y - stage.y) ** 2;
       if (da !== db) return da - db;
       return a.p.y - b.p.y || a.p.x - b.p.x;
     })

@@ -36,6 +36,7 @@ export const WIDGET_TYPES = [
   'your_photos',
   'tier_comparison',
   'special_message',
+  'what_to_bring',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -160,6 +161,13 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
     description: 'A heartfelt note to your guests from the couple.',
     is_always_on: false,
     editor_subroute: 'special-message',
+  },
+  {
+    type: 'what_to_bring',
+    label: 'What to bring',
+    description: 'Gifts, registry, or a kind no-gift note for your guests.',
+    is_always_on: false,
+    editor_subroute: 'what-to-bring',
   },
 ];
 

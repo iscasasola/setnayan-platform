@@ -21,6 +21,35 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Extends the 2026-06-08 vendor token-purchase flow (0034 + 0022). DECISION_LOG row appended. No price changes.
 
+## 2026-06-08 · feat(website): Increment A.3 — What to Bring content block (LIVE)
+
+**Context:** Third content block on the wedding-website lifecycle foundation (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.5), after Special Message (A.1). A couple-curated gift / registry / no-gift note rendered on the live invitation site. Built fully **independent of the parallel onboarding session** — its own column, its own editor; onboarding never touches it.
+
+**What landed:**
+- **Migration `20260918000000_invitation_widgets_what_to_bring.sql`** — adds `events.what_to_bring` (TEXT) + the `what_to_bring` widget_type (CHECK recreated cumulatively with all 14 types incl. `special_message`; `populate_default_invitation_widgets()` seed adds row 14; backfill for existing events). Idempotent + additive.
+- **`lib/invitation-widgets.ts`** — `what_to_bring` added to `WIDGET_TYPES` + a `WIDGET_CATALOG` entry (editor_subroute `what-to-bring`, hideable) so it appears in the show/hide/reorder editor.
+- **`app/[slug]/page.tsx`** — `EventRow.what_to_bring`, added to the SELECT, both render switches (`HideableWidgetRender` + `PublicHideableWidget`), the `publicSafeWidgets` allow-list, and a new `WhatToBringWidget` (centered cream card, "What to bring" eyebrow; blank → renders nothing so the section hides).
+- **New editor** `/dashboard/[eventId]/website/what-to-bring/{page.tsx,actions.ts}` — single 600-char textarea writing `events.what_to_bring` via `updateWhatToBring`; mirrors the Special Message editor (auth + RLS gate; empty saves NULL → section hides).
+
+**Verify:** typecheck + production build on CI (no local node_modules in worktree). Migration timestamp bumped `20260917000000`→`20260918000000` on merge to clear a collision with `20260917000000_setnayan_ai_entitlement.sql` (parallel PR-2); strictly newest (monotonic guard passes). `our_love_story` deliberately NOT included — it remains parked off-main, so the CHECK/seed stay at 14 types.
+
+**SPEC IMPACT:** §6.5 (per-phase element matrix) — What to Bring now shipped. → DECISION_LOG.
+
+## 2026-06-08 · feat(seating): chair-level visual editor + role-tier auto-seat (0008)
+
+**Context:** Owner shared a polished seating-editor reference ("Nunta Pe Mese") and asked to bring our seat plan up to it. The look they wanted — per-seat chairs with guest names, a grouped/colour-coded sidebar, and a one-click auto-fill — is exactly what iteration **0008**'s locked spec already describes ("Chair-level interaction" + "Auto-fill — role-tier rings"); the 2026-05-13 MVP had shipped only plain table shapes + a dropdown assigner and deferred both. This PR catches the code up to its own spec. No migration — `event_seat_assignments.seat_number` and `guest_groups`/`guest_group_memberships` already existed.
+
+**What landed:**
+- **Chair-level canvas** (`_components/seating-editor.tsx`, replaces `floor-plan.tsx`) — each table renders its chairs around the hub (round/sweetheart/serpentine → circle; long-banquet/family-head → two long edges). Each seat is drawn as an **actual chair** (Lucide `Armchair`): empty chairs are open seats you tap to fill; an occupied chair is tinted in the guest's group/side colour with their photo/initials sitting on it, and the guest's **full name** fans out around the chair (radial on round tables; stacked above/below + chair-column-wrapped on banquet rows so adjacent names don't collide). Pure geometry lives in `lib/seating.ts` (`tableGeometry`).
+- **Seat / move / unseat by tap** — pick a guest in the sidebar, tap a chair (or the table hub for next-free seat); tap a seated chair to pick them up and move; Unseat from the action banner. Touch-friendly select-then-place (no fragile drag-to-assign). Table reposition stays a hub drag (4px threshold disambiguates click vs drag) → Save layout.
+- **Grouped, colour-coded sidebar** — Tables (fill state + delete + click-to-highlight), Individual Members, and custom Member Groups (deterministic accent colour via `groupColorFor`, member count, expand, eye-toggle to mute the colour on canvas). "Only show unseated" filter + people search. Inline Add-table.
+- **Auto-seat** (`autoSeatGuests` action + pure `computeAutoSeat`) — fills every unseated *attending* guest into the nearest tables to the stage, tier by tier (T1 family/sponsors/officiant → T4 friends/work), keeping plus-ones adjacent; idempotent (never moves a seated guest, skips sweetheart tables, never seats the couple). Confirm dialog before running.
+- Brand-native (Alabaster/Obsidian/Champagne/Mulberry), not the reference's teal/peach. Photo URLs resolved server-side via `displayUrlForStoredAsset`.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ (warnings only) · `next build` ✓ (route `/dashboard/[eventId]/seating` ~14.5 kB). PR #1070 CI green (ci/typecheck+lint+production build · playwright e2e · lighthouse · desktop build). Layout visually verified via a headless render of the seeded `couple.test` demo wedding (4 tables / 15 guests / 3 colour groups) before each push.
+
+**SPEC IMPACT:** Builds the previously-deferred "Chair-level interaction" + "Auto-fill — role-tier rings" sections of `0008_seating_chart_editor.md` (and flips that file's AS-BUILT note). Still deferred (the "full rebuild" the owner did not pick this pass): Add-Group modal w/ colour picker, two-tab Arrangements/Members layout, canvas zoom, dedicated mobile table-card view, publish-QR + print pack, per-seat serpentine wedge geometry. → corpus DECISION_LOG + 0008 AS-BUILT header.
+
 ## 2026-06-08 · feat(setnayan-ai): per-event paid entitlement, behind a default-off flag (PR-2)
 
 **Context:** Owner 2026-06-08 — make Setnayan AI a **paid per-event** SKU (₱3,999, `SETNAYAN_AI`, already live in `platform_retail_catalog_v2`), but **"build it, flip behind a flag"** so nothing changes for live couples until deliberately enabled. Builds on PR-1's governing gate (`isSetnayanAiActive`).
@@ -36,6 +65,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** flag is off by default → zero behavior change; gate logic unit-checkable; migration additive + applied to prod ahead of merge (selects depend on the column). CI typecheck + build.
 
 **SPEC IMPACT:** Implements the per-event paid gate from `What_Is_Setnayan_AI_2026-06-08.md` §2/§9. → DECISION_LOG. PR-2 of the build (next: last-minute · dependencies).
+
 ## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
 
 **Context:** Owner reported clicking "Prefer to plan it yourself? Switch to manual →" on the Services tab did nothing (no error, no change). The `setPlanningMode` server action is correctly wired (`'use server'`, valid form), but it wrote via the **user-scoped** Supabase client.

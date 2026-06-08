@@ -126,3 +126,256 @@ export function computeSeatingStats(
     unassignedCount: Math.max(0, totalGuests - assignments.length),
   };
 }
+
+export function shapeHintFor(type: TableType): TableShapeHint {
+  return TABLE_TYPE_CATALOG.find((t) => t.type === type)?.shapeHint ?? 'round';
+}
+
+// ---------------------------------------------------------------------------
+// Chair-level geometry (iteration 0008 "Chair-level interaction" — the
+// per-seat circles around each table that were deferred in the 2026-05-13
+// MVP). Returns center-origin pixel offsets so the editor can absolutely
+// position each chair around the table hub. Pure + deterministic so the
+// canvas and any future print-pack renderer share one source of truth.
+//
+// Serpentine renders on a full circle in this pass — the locked quarter-donut
+// wedge geometry (2026-05-09) is a visual follow-up; capacity + interaction are
+// already correct, only the curve is approximated.
+// ---------------------------------------------------------------------------
+
+export const CHAIR_PX = 40;
+
+export type SeatSlot = { x: number; y: number };
+
+export type TableGeometry = {
+  box: { w: number; h: number };
+  hub: { w: number; h: number; radius: number; shape: 'round' | 'rect' | 'pill' };
+  seats: SeatSlot[];
+};
+
+export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeometry {
+  const n = Math.max(1, capacity);
+
+  // Round / sweetheart / serpentine → chairs evenly around a circle.
+  if (shape === 'round' || shape === 'sweetheart' || shape === 'serpentine') {
+    const hubR = shape === 'sweetheart' ? 24 : Math.round(28 + n * 2.3);
+    const seatR = hubR + 32;
+    const seats: SeatSlot[] = [];
+    for (let i = 0; i < n; i++) {
+      const theta = (-90 + (360 / n) * i) * (Math.PI / 180);
+      seats.push({ x: Math.cos(theta) * seatR, y: Math.sin(theta) * seatR });
+    }
+    const reach = seatR + CHAIR_PX / 2 + 8;
+    return {
+      box: { w: reach * 2, h: reach * 2 },
+      hub: { w: hubR * 2, h: hubR * 2, radius: hubR, shape: 'round' },
+      seats,
+    };
+  }
+
+  // long_banquet / family_head → chairs along the two long (top + bottom) edges.
+  const wide = shape === 'family_head';
+  const per = Math.ceil(n / 2);
+  const gap = wide ? 44 : 40;
+  const hubW = per * gap + 16;
+  const hubH = wide ? 46 : 36;
+  const offsetY = hubH / 2 + 26;
+  const seats: SeatSlot[] = [];
+  for (let i = 0; i < n; i++) {
+    const top = i < per;
+    const idxInRow = top ? i : i - per;
+    const countInRow = top ? per : n - per;
+    const usableW = hubW - gap;
+    const x = countInRow <= 1 ? 0 : -usableW / 2 + (usableW / (countInRow - 1)) * idxInRow;
+    seats.push({ x, y: top ? -offsetY : offsetY });
+  }
+  return {
+    box: { w: hubW + CHAIR_PX + 12, h: hubH + 2 * (26 + CHAIR_PX) },
+    hub: { w: hubW, h: hubH, radius: 12, shape: 'rect' },
+    seats,
+  };
+}
+
+// Distinct accent colors for custom guest groups — earthy + editorial so they
+// read on the alabaster canvas without the template's neon. Indexed by the
+// group's position in the event's group list (deterministic, no schema column).
+export const GROUP_COLORS = [
+  '#C97B4B', // terracotta
+  '#5B8FA0', // teal-slate
+  '#7BA05B', // sage
+  '#A05B8F', // mulberry-rose
+  '#C2913B', // ochre
+  '#6B7FB0', // dusty blue
+  '#B0655B', // clay
+  '#4FA08C', // jade
+];
+
+export function groupColorFor(index: number): string {
+  return GROUP_COLORS[((index % GROUP_COLORS.length) + GROUP_COLORS.length) % GROUP_COLORS.length]!;
+}
+
+// Side-of-wedding fallback color for a guest who belongs to no custom group —
+// mirrors the rose / sky / amethyst chip language used across the guest list.
+export const SIDE_COLORS: Record<'bride' | 'groom' | 'both', string> = {
+  bride: '#D17A8A',
+  groom: '#5B92A6',
+  both: '#9B6FA0',
+};
+
+// ---------------------------------------------------------------------------
+// Role-tier auto-seat (iteration 0008 "Auto-fill — role-tier rings"). Maps the
+// 0001 role taxonomy onto four concentric tiers and fills the nearest tables to
+// the stage outward. Pure: takes the current tables/guests/assignments and
+// returns ONLY the new (guest → table → seat) rows to insert. Idempotent —
+// already-seated guests are never moved; the couple can re-run after edits.
+// ---------------------------------------------------------------------------
+
+const TIER1_ROLES = new Set<GuestRoleLike>([
+  'principal_sponsor',
+  'officiant',
+  'reader_lector',
+  'soloist_musician',
+  'bride_parents',
+  'groom_parents',
+  'bride_immediate_family',
+  'groom_immediate_family',
+]);
+
+const TIER2_ROLES = new Set<GuestRoleLike>([
+  'maid_of_honor',
+  'matron_of_honor',
+  'best_man',
+  'bridesmaid',
+  'groomsman',
+  'candle_sponsor',
+  'veil_sponsor',
+  'cord_sponsor',
+  'coin_sponsor',
+  'ring_bearer',
+  'bible_bearer',
+  'coin_bearer',
+  'flower_girl',
+]);
+
+type GuestRoleLike = string;
+
+export type AutoSeatGuest = {
+  guest_id: string;
+  role: GuestRoleLike;
+  group_category: string;
+  rsvp_status: string;
+  plus_one_of_guest_id: string | null;
+  last_name: string;
+  first_name: string;
+};
+
+export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: number };
+
+function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
+  if (TIER1_ROLES.has(g.role)) return 1;
+  if (TIER2_ROLES.has(g.role)) return 2;
+  if (g.group_category === 'family') return 3;
+  return 4;
+}
+
+// Stage sits top-center of the canvas; tables closer to it are filled first.
+const STAGE_POINT = { x: 50, y: 8 };
+
+function tablePoint(t: EventTableRow, index: number, total: number): { x: number; y: number } {
+  if (t.x_pos !== null && t.y_pos !== null) return { x: Number(t.x_pos), y: Number(t.y_pos) };
+  const cols = Math.max(2, Math.ceil(Math.sqrt(total)));
+  const rows = Math.max(1, Math.ceil(total / cols));
+  return {
+    x: ((index % cols) + 0.5) / cols * 100,
+    y: 20 + (Math.floor(index / cols) + 0.5) / rows * 75,
+  };
+}
+
+export function computeAutoSeat(
+  tables: EventTableRow[],
+  guests: AutoSeatGuest[],
+  assignments: SeatAssignmentRow[],
+): AutoSeatRow[] {
+  const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
+
+  // Per-table occupancy: which seat numbers are taken + a live free count.
+  const occupied = new Map<string, Set<number>>();
+  const freeCount = new Map<string, number>();
+  for (const t of tables) {
+    occupied.set(t.table_id, new Set());
+    freeCount.set(t.table_id, t.capacity);
+  }
+  for (const a of assignments) {
+    const occ = occupied.get(a.table_id);
+    if (!occ) continue;
+    if (a.seat_number !== null && a.seat_number >= 0) occ.add(a.seat_number);
+    freeCount.set(a.table_id, (freeCount.get(a.table_id) ?? 0) - 1);
+  }
+
+  // Table pool: everything except sweetheart (reserved for the couple),
+  // sorted nearest-to-stage first.
+  const pool = tables
+    .map((t, i) => ({ t, p: tablePoint(t, i, tables.length) }))
+    .filter((x) => x.t.table_type !== 'sweetheart_2')
+    .sort((a, b) => {
+      const da = (a.p.x - STAGE_POINT.x) ** 2 + (a.p.y - STAGE_POINT.y) ** 2;
+      const db = (b.p.x - STAGE_POINT.x) ** 2 + (b.p.y - STAGE_POINT.y) ** 2;
+      if (da !== db) return da - db;
+      return a.p.y - b.p.y || a.p.x - b.p.x;
+    })
+    .map((x) => x.t);
+
+  // Eligible: attending, not yet seated, not the couple themselves.
+  const eligible = guests.filter(
+    (g) =>
+      g.rsvp_status === 'attending' &&
+      !assignedGuestIds.has(g.guest_id) &&
+      g.role !== 'bride' &&
+      g.role !== 'groom',
+  );
+
+  // Order within each tier, keeping a guest's plus-one adjacent to its primary.
+  const byTier: Record<1 | 2 | 3 | 4, AutoSeatGuest[]> = { 1: [], 2: [], 3: [], 4: [] };
+  for (const g of eligible) byTier[tierOf(g)].push(g);
+
+  const nameKey = (g: AutoSeatGuest) => `${g.last_name} ${g.first_name}`.toLowerCase();
+  const ordered: AutoSeatGuest[] = [];
+  for (const tier of [1, 2, 3, 4] as const) {
+    const list = byTier[tier];
+    const plusOnesBy = new Map<string, AutoSeatGuest[]>();
+    const primaries: AutoSeatGuest[] = [];
+    for (const g of list) {
+      if (g.plus_one_of_guest_id) {
+        const arr = plusOnesBy.get(g.plus_one_of_guest_id) ?? [];
+        arr.push(g);
+        plusOnesBy.set(g.plus_one_of_guest_id, arr);
+      } else {
+        primaries.push(g);
+      }
+    }
+    primaries.sort((a, b) => nameKey(a).localeCompare(nameKey(b)));
+    for (const g of primaries) {
+      ordered.push(g);
+      for (const p of plusOnesBy.get(g.guest_id) ?? []) ordered.push(p);
+    }
+    // Plus-ones whose primary isn't in this tier still get seated here.
+    for (const [primaryId, arr] of plusOnesBy) {
+      if (!list.some((g) => g.guest_id === primaryId && !g.plus_one_of_guest_id)) {
+        for (const p of arr) ordered.push(p);
+      }
+    }
+  }
+
+  const result: AutoSeatRow[] = [];
+  for (const g of ordered) {
+    const table = pool.find((t) => (freeCount.get(t.table_id) ?? 0) > 0);
+    if (!table) break; // pool exhausted — remaining guests stay unseated
+    const occ = occupied.get(table.table_id)!;
+    let seat = 0;
+    while (occ.has(seat)) seat++;
+    occ.add(seat);
+    freeCount.set(table.table_id, (freeCount.get(table.table_id) ?? 0) - 1);
+    result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
+  }
+  return result;
+}

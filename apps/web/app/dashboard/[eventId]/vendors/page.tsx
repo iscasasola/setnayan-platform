@@ -66,8 +66,11 @@ type EventBudgetRow = {
   date_window_start: string | null;
   date_window_end: string | null;
   // Planning mode (owner 2026-06-05) — 'manual' collapses the strip + (Home)
-  // turns off Today's-Focus + deadlines. Default 'guided'.
+  // turns off Setnayan AI + deadlines. Default 'guided'.
   planning_mode: string | null;
+  // Per-event Setnayan AI entitlement — only consulted when the paywall flag
+  // is on (lib/setnayan-ai). Optional: absent on rows selected before the col.
+  setnayan_ai_active?: boolean | null;
 };
 
 export default async function VendorsPage({ params }: Props) {
@@ -86,7 +89,7 @@ export default async function VendorsPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode',
+        'event_date, event_date_precision, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
       )
       .eq('id', eventId)
       .maybeSingle(),

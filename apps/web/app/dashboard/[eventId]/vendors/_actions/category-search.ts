@@ -134,7 +134,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -144,7 +144,9 @@ export async function searchCategoryVendors(input: {
   // "% match" pill AND the reception-proximity sort, so the order falls back to
   // boosted → reviews → rating. The one governing gate lives in lib/setnayan-ai
   // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
-  const aiActive = isSetnayanAiActive(ev as { planning_mode?: string | null });
+  const aiActive = isSetnayanAiActive(
+    ev as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
+  );
   const assistOff = !aiActive;
 
   const lat = (ev.venue_latitude as number | null) ?? null;

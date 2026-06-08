@@ -39,6 +39,12 @@ import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 // SKU code · the code stays 'concierge_complete' until a coordinated migration
 // flips it everywhere at once).
 const TODAYS_FOCUS_SKU_CODE = 'concierge_complete';
+// New flat per-event Setnayan AI SKU (catalog service_code SETNAYAN_AI, ₱3,999).
+// ⚠ VERIFY this matches the actual order.service_key a SETNAYAN_AI checkout
+// writes before flipping SETNAYAN_AI_PAYWALL_ENABLED on — the order key is set
+// at checkout, not derived from the catalog code. Safe until then: the gate
+// ignores the entitlement while the paywall flag is off.
+const SETNAYAN_AI_SKU_CODE = 'SETNAYAN_AI';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -304,6 +310,26 @@ export async function approvePayment(formData: FormData) {
         // events row via Supabase Studio + re-run activation. Log + move
         // on so the parent approval flow completes.
         console.error('[approvePayment] Today\'s Focus activation threw:', e);
+      }
+    }
+
+    // Setnayan AI (new flat per-event SKU) activation hook. A confirmed
+    // SETNAYAN_AI order (₱3,999) is a one-time per-event purchase with NO
+    // expiry — distinct from the legacy concierge_complete machinery above
+    // (no activateConcierge, no wedding-anchored expiry, no trial). We stamp a
+    // single boolean: events.setnayan_ai_active = true. The gate
+    // (lib/setnayan-ai.ts) consults it ONLY when SETNAYAN_AI_PAYWALL_ENABLED is
+    // on (default off), so this is INERT until the paywall is deliberately
+    // flipped. Non-fatal + idempotent (a plain boolean set), like the hooks
+    // around it.
+    if (order?.service_key === SETNAYAN_AI_SKU_CODE && order.event_id) {
+      try {
+        await admin
+          .from('events')
+          .update({ setnayan_ai_active: true })
+          .eq('event_id', order.event_id);
+      } catch (e) {
+        console.error('[approvePayment] Setnayan AI activation threw:', e);
       }
     }
 

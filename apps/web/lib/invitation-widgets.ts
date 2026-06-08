@@ -6,12 +6,20 @@
  * /dashboard/[eventId]/website/widgets. The DB schema lives at
  * supabase/migrations/20260607030000_invitation_widgets.sql.
  *
+ * It ALSO owns the website lifecycle-phase engine (Increment C, flag-dark):
+ * the rsvp / event / editorial phase computation + the per-widget
+ * element×phase matrix. All of it is gated behind WEBSITE_PHASES_ENABLED
+ * (OFF by default) at the render call-site, so the live page is unchanged
+ * until the flag flips. See Wedding_Website_Lifecycle_Spec_2026-06-07 §2.
+ *
  * This file owns the canonical TypeScript shapes + the small set of
  * pure helpers that the editor page, the server actions, and the public
  * landing-page renderer all share. By centralizing the widget catalog
  * here we make it impossible for the editor UI, the seed migration, and
  * the renderer to drift on widget names, labels, or always-on flags.
  */
+
+import { getDayOfPhase } from './day-of-mode';
 
 /**
  * The 12 canonical widget types in the V1 landing-page render. This list
@@ -283,4 +291,92 @@ export function widgetShouldRender(row: InvitationWidgetRow | null): boolean {
   if (!row) return false;
   if (row.is_always_on) return true;
   return row.is_visible;
+}
+
+// ---------------------------------------------------------------------------
+// Website lifecycle-phase engine (Increment C · flag-dark)
+//
+// The public wedding website moves through three lifecycle phases as the
+// event date passes. Each phase shows a different subset of widgets per the
+// element×phase matrix in Wedding_Website_Lifecycle_Spec_2026-06-07 §2.
+//
+// EVERYTHING here is inert until WEBSITE_PHASES_ENABLED === 'true'. The
+// renderer at [slug]/page.tsx only consults widgetInPhase / getLifecyclePhase
+// when isWebsitePhasesEnabled() returns true; with the flag off (the
+// default) the page renders byte-for-byte as it does today.
+// ---------------------------------------------------------------------------
+
+/**
+ * The three website lifecycle phases:
+ *   - rsvp      : before the wedding — the invitation + RSVP-gathering site
+ *   - event     : the wedding day itself — the live day-of surface
+ *   - editorial : after the wedding — the story / gallery recap
+ */
+export type LifecyclePhase = 'rsvp' | 'event' | 'editorial';
+
+/**
+ * Per-widget phase visibility — the element×phase matrix (spec §2). A widget
+ * renders in a phase only when that phase is in its list. Exhaustive over
+ * WIDGET_TYPES (the Record type enforces this at compile time, so adding a
+ * widget type without a phase mapping is a type error).
+ */
+export const WIDGET_PHASES: Record<WidgetType, LifecyclePhase[]> = {
+  hero: ['rsvp', 'event', 'editorial'],
+  greeting: ['rsvp'],
+  qr_card: ['rsvp', 'event'],
+  event_details: ['rsvp', 'event'],
+  countdown: ['rsvp'],
+  schedule: ['rsvp', 'event'],
+  rsvp: ['rsvp'],
+  venue_map: ['rsvp', 'event'],
+  dress_code: ['rsvp'],
+  photo_moments: ['rsvp'],
+  your_photos: ['event', 'editorial'],
+  tier_comparison: ['rsvp', 'event', 'editorial'],
+  special_message: ['rsvp', 'editorial'],
+  what_to_bring: ['rsvp'],
+  our_photos: ['rsvp', 'editorial'],
+};
+
+/**
+ * Whether the given widget type should render in the given lifecycle phase.
+ * Fails OPEN: an unmapped widget type (future drift) renders in every phase
+ * rather than silently disappearing.
+ */
+export function widgetInPhase(type: WidgetType, phase: LifecyclePhase): boolean {
+  return WIDGET_PHASES[type]?.includes(phase) ?? true;
+}
+
+/**
+ * Feature flag for the website lifecycle-phase engine. OFF by default —
+ * only the literal string 'true' enables it. Read once per render at the
+ * page-component level + threaded down so the value is stable across the
+ * tree.
+ */
+export function isWebsitePhasesEnabled(): boolean {
+  return process.env.WEBSITE_PHASES_ENABLED === 'true';
+}
+
+/**
+ * Maps the event date to its lifecycle phase, reusing the day-of date math
+ * in lib/day-of-mode.ts rather than reinventing it:
+ *
+ *   DayOfPhase 'pre' | 'inactive'  → 'rsvp'      (before the wedding)
+ *   DayOfPhase 'live'              → 'event'     (the wedding day window)
+ *   DayOfPhase 'post'              → 'editorial' (after the wedding)
+ *
+ * A null event date (very early planning, no date set yet) maps to 'rsvp'.
+ */
+export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
+  if (!eventDate) return 'rsvp';
+  switch (getDayOfPhase(eventDate)) {
+    case 'live':
+      return 'event';
+    case 'post':
+      return 'editorial';
+    case 'pre':
+    case 'inactive':
+    default:
+      return 'rsvp';
+  }
 }

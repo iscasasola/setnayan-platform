@@ -79,7 +79,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'what-is-todays-focus',
-        title: "What is Today's Focus?",
+        title: "What is Setnayan AI?",
         body: 'A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock through thank-you cards, with religion-adaptive copy and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {

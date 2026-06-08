@@ -264,7 +264,7 @@ export type OnboardingCommitPayload = {
    */
   stylePreferences: Record<string, unknown>;
   /** screen-14 "keep guiding me" — free deadline-timeline guidance (default true). Persisted into
-   *  events.style_preferences.guidance_opt_in (no migration). NOT the retired paid Today's Focus. */
+   *  events.style_preferences.guidance_opt_in (no migration). NOT the retired paid Setnayan AI. */
   guidanceOptIn: boolean;
   /** screen-14 "reach my top 3 matches" — when true, fan out the first inquiry to the top-3 picked
    *  categories' best-fit vendor at commit (default false · explicit consent · RA 10173). */
@@ -276,6 +276,11 @@ export type OnboardingCommitPayload = {
    *  events.style_preferences.interested_services (no migration). Purchase Now routes to the
    *  dashboard services tab to pay per service via the existing 0034 apply-then-pay. */
   interestedServices: string[];
+  /** Dream Team chapter — per-leaf refinement picks (leafKey → option labels · additive).
+   *  Folded into events.style_preferences.refinements (JSONB · no migration) for DISPLAY +
+   *  future vendor-match. The production-known leaves are ALSO projected onto the prefs blob
+   *  (stylePreferences) by the shell before commit, so find/recap stay unchanged. Empty = no-op. */
+  refinements?: Record<string, string[]>;
   /** screen-2 role (owner 2026-06-05 · G1). bride/groom → event_moderators.role_subtype directly;
    *  helper → 'family_helper'; null → 'partner1'. The signing user becomes the event's first
    *  (auto-accepted) host. Previously DROPPED at commit. */
@@ -286,6 +291,20 @@ export type OnboardingCommitPayload = {
   /** screen-10 palette feel → derived basic moodboard (owner 2026-06-05 · G4): the deterministic
    *  FEELS[feel] hex palette (null for 'others'/none) → style_preferences.basic_moodboard. */
   basicMoodboard: string[] | null;
+  /**
+   * LOVE STAGE (the 6 love_* screens) → the couple's wedding-website "Our Love Story".
+   * The full told-back blob → events.love_story (JSONB). Voice + language → the
+   * story_tone / story_language columns (covert renames of editorial_tone/_language,
+   * land via migration 20260913000000). specialMessage / togetherSince → their own
+   * events columns. All BEST-EFFORT: the events insert never throws if a column is
+   * absent pre-migration (the love payload no-ops on write until the rename ships).
+   * COVERT: every key here is story-shaped — nothing names editorial / song / lyric.
+   */
+  loveStory: Record<string, unknown>;
+  storyTone: 'warm' | 'playful' | 'formal' | null;
+  storyLanguage: string | null;
+  specialMessage: string | null;
+  togetherSince: string | null;
 };
 
 export type OnboardingCommitResult =
@@ -399,6 +418,16 @@ export async function commitOnboardingWedding(
         ? payload.musicPlaylistSeed
         : null,
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
+      // -- LOVE STAGE → the couple's wedding-website "Our Love Story" --
+      // The full told-back blob → love_story (JSONB · foundation migration 20260912000000);
+      // voice/language → story_tone / story_language (covert renames · migration
+      // 20260913000000, which ships with this change). special_message / together_since
+      // are their own columns from the foundation migration. COVERT: story-shaped only.
+      love_story: payload.loveStory ?? {},
+      story_tone: payload.storyTone ?? null,
+      story_language: payload.storyLanguage ?? null,
+      special_message: payload.specialMessage ?? null,
+      together_since: payload.togetherSince ?? null,
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
       style_preferences: {
@@ -410,6 +439,9 @@ export async function commitOnboardingWedding(
         search_areas: payload.places ?? [],
         interested_categories: payload.picks ?? [],
         basic_moodboard: payload.basicMoodboard ?? null,
+        // Dream Team chapter — per-leaf refinement detail (additive · DISPLAY +
+        // future vendor-match). Empty {} until the refine passes ship (PR-4).
+        refinements: payload.refinements ?? {},
       },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use

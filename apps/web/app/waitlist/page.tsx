@@ -222,7 +222,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
             <li>· Free wedding website at setnayan.com/your-slug — branded QR, RSVP, event details</li>
             <li>· Free planning tools — guest list, RSVP, seating, budget, mood board, schedule</li>
             <li>· Marketplace browsing — real vendor portfolios + free vendor subdomain at slug.setnayan.com</li>
-            <li>· Today&rsquo;s Focus — Filipino-wedding AI guide that surfaces the next step</li>
+            <li>· Setnayan AI — Filipino-wedding AI guide that surfaces the next step</li>
             <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
             <li>· Zero commission on vendor bookings — Setnayan only sells software</li>
             <li>· BIR-compliant receipts on every software purchase</li>

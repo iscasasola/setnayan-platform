@@ -21,6 +21,7 @@ import {
 import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
@@ -47,7 +48,7 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // TodaysOneThing legacy component lives at ./_components/todays-one-thing.tsx
 // and the lib helpers (pickTodaysOneThing / countUnlockedCategories) live at
 // @/lib/todays-one-thing — both retained on disk as a quick-revert path
-// while the Today's Focus wizard (originally branded Concierge in V1; V2
+// while the Setnayan AI wizard (originally branded Concierge in V1; V2
 // cutover 2026-05-28 renamed the surface · iteration 0016 substrate
 // unchanged · CLAUDE.md Sixth 2026-05-23 row · Phase 1 PR #467) replaces
 // this surface.
@@ -60,7 +61,7 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // JSX in the section where the comment placeholder lives.
 // pickTodaysOneThing + countUnlockedCategories lib helpers retained at
 // @/lib/todays-one-thing for the quick-revert path. Unused here now that
-// the wizard owns the Today's Focus surface (on /today, not event-home).
+// the wizard owns the Setnayan AI surface (on /today, not event-home).
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
@@ -1322,7 +1323,7 @@ export default async function EventHomePage({
     }>,
   });
 
-  // Today's Focus computation moved UP into the couple-home-cockpit block
+  // Setnayan AI computation moved UP into the couple-home-cockpit block
   // (2026-06-04) — see `todaysTask` / `remainingTaskCount` near the render.
   // The single-focus hero (owner directive 2026-05-22, Headspace-pattern)
   // resolves the host's #1 unlocked task from the same `eventVendors` array
@@ -1331,7 +1332,7 @@ export default async function EventHomePage({
   // lightweight vendor-derived hero, NOT the wizard or the paid Concierge.)
 
   // Next 15 Steps · Parallel Work Map — REMOVED 2026-05-24 (owner directive).
-  // Today's Focus carousel + the 22-card Plan grid below cover the same
+  // Setnayan AI carousel + the 22-card Plan grid below cover the same
   // territory without the third ranked-ladder surface stealing attention.
   // The resolver + JSX block + sponsorRowsForNextSteps + nextSteps variable
   // are all gone. paperworkRowsForNextSteps is kept (used by paperwork
@@ -1525,11 +1526,11 @@ export default async function EventHomePage({
 
   // Couple-home-cockpit (owner-approved prototype 2026-06-04). Home leads with
   // the emotional anchor (countdown) + the single highest-priority next action
-  // ("Today's Focus"), NOT the text-heavy match-criteria recap (which moved to
+  // ("Setnayan AI"), NOT the text-heavy match-criteria recap (which moved to
   // the top of Services; the full editable record stays at /details). Every
   // input below is derived from data the page already loaded — no new fetches.
   // remainingTaskCount feeds the countdown's "X of N vendors locked" bar
-  // below (countUnlockedCategories — unchanged). The old "Today's Focus" hero
+  // below (countUnlockedCategories — unchanged). The old "Setnayan AI" hero
   // (pickTodaysOneThing) was replaced by the Things-to-complete roadmap, which
   // self-fetches; its compute no longer lives here.
   const remainingTaskCount = countUnlockedCategories(eventVendors);
@@ -1547,11 +1548,12 @@ export default async function EventHomePage({
     null;
 
   // Planning mode (owner 2026-06-05). 'manual' = the couple turned off
-  // Setnayan's automated layer: hide Today's Focus (auto-task) + Upcoming
+  // Setnayan's automated layer: hide Setnayan AI (auto-task) + Upcoming
   // schedules (per-service + statutory deadlines). The countdown + activity
   // feed stay. Default 'guided' (and any unknown value) keeps everything on.
-  const planningManual =
-    (event as { planning_mode?: string | null }).planning_mode === 'manual';
+  const planningManual = !isSetnayanAiActive(
+    event as { planning_mode?: string | null },
+  );
 
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
@@ -1581,7 +1583,7 @@ export default async function EventHomePage({
 
       {/* Couple-home-cockpit (owner-approved prototype 2026-06-04). Home is a
        *  cockpit, not a catalog — five beats answering "what now?":
-       *  1) the countdown (emotional anchor), 2) Today's Focus (the single
+       *  1) the countdown (emotional anchor), 2) Setnayan AI (the single
        *  next action), 3) Needs you (time-bound items that need the host),
        *  4) Recent activity (updates), 5) one doorway into the matched
        *  marketplace. The match-criteria recap moved to the top of Services;
@@ -1866,7 +1868,7 @@ function Checklist({
 }) {
   const progress = plannerProgress(statuses);
   const byKey = new Map(statuses.map((s) => [s.key, s]));
-  // v2.1 deep-fix (2026-05-28) — Today's Focus checklist card uses
+  // v2.1 deep-fix (2026-05-28) — Setnayan AI checklist card uses
   // --m-paper background + --m-line border + --m-shadow-sm rest. Progress
   // bar fill swaps from terracotta semantic class to sienna --m-orange.
   // Track bg uses --m-line-soft so the track has the warm ivory cast

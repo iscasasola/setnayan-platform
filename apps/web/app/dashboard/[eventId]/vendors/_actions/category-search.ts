@@ -33,6 +33,7 @@ import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { computeCompatScore } from '@/lib/compat-score';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   canonicalServicesForTile,
@@ -139,10 +140,12 @@ export async function searchCategoryVendors(input: {
     .maybeSingle();
   if (!ev) return EMPTY; // not a member of this event
 
-  // Setnayan Assist OFF (Manual mode) → drop the per-candidate "% match" pill
-  // (owner 2026-06-05). The result ORDER is unchanged (the tier ladder).
-  const assistOff =
-    (ev as { planning_mode?: string | null }).planning_mode === 'manual';
+  // Setnayan AI OFF (Manual mode) → GENERIC search: drop the per-candidate
+  // "% match" pill AND the reception-proximity sort, so the order falls back to
+  // boosted → reviews → rating. The one governing gate lives in lib/setnayan-ai
+  // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
+  const aiActive = isSetnayanAiActive(ev as { planning_mode?: string | null });
+  const assistOff = !aiActive;
 
   const lat = (ev.venue_latitude as number | null) ?? null;
   const lng = (ev.venue_longitude as number | null) ?? null;
@@ -294,7 +297,10 @@ export async function searchCategoryVendors(input: {
   // Tier 4 the rest, nearest-first when we have coords, else keep review order.
   const tail = rest0.filter((s) => !top10Ids.has(s.vendorProfileId));
   tail.sort((a, b) => {
-    if (hasCoords) {
+    // Reception-proximity sort is a Setnayan AI feature — gate on `aiActive`.
+    // AI off → keep review/rating order (generic), the same fallback used when
+    // the event has no reception coords.
+    if (hasCoords && aiActive) {
       const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
       const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
       if (da !== db) return da - db;

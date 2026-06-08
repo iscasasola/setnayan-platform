@@ -22,6 +22,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
@@ -327,10 +328,12 @@ export default async function VendorsPage({ params }: Props) {
     ev?.venue_setting ?? null,
   );
 
-  // Planning mode (owner 2026-06-05) — 'manual' = Setnayan Assist OFF: the
-  // strip collapses to a slim "you're driving" bar AND the accordion drops the
-  // per-candidate "% match" pills (neutral browse). Default 'guided'.
-  const planningManual = ev?.planning_mode === 'manual';
+  // Setnayan AI gate (owner 2026-06-05/06-08) — Manual mode = AI OFF: the strip
+  // collapses to a slim "you're driving" bar, the accordion drops the
+  // per-candidate "% match" pills, AND the "👀 eyeing your date" nudge is
+  // suppressed (generic browse). One governing gate: lib/setnayan-ai.
+  const aiActive = isSetnayanAiActive(ev);
+  const planningManual = !aiActive;
 
   const model = buildPlanBudgetModel({
     vendorRows,
@@ -340,10 +343,11 @@ export default async function VendorsPage({ params }: Props) {
     venueSetting: ev?.venue_setting ?? null,
     transportByVendorId,
     crewMealByVendorId,
-    eyeingByVendorId,
+    // Eyeing is a Setnayan AI nudge — pass an empty map when AI is off.
+    eyeingByVendorId: aiActive ? eyeingByVendorId : new Map<string, number>(),
     enrichmentByVendorId,
     marketPoolCount,
-    personalizationEnabled: !planningManual,
+    personalizationEnabled: aiActive,
   });
 
   // "Matching you on" strip (owner 2026-06-04) — the couple's curated match

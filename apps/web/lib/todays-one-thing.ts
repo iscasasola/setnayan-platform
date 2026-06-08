@@ -239,7 +239,7 @@ type Candidate = {
 /**
  * Foundation tier — canonical Filipino wedding-planner ordering for
  * within-bucket tie-breaks. Owner directive 2026-05-22 after a screenshot
- * showed Today's Focus picking Ceremony Venue when Next 15 Steps below
+ * showed Setnayan AI picking Ceremony Venue when Next 15 Steps below
  * (correctly) had Reception Venue at #1. Both groups have monthsBefore=12
  * + tier='foundation', so the prior monthsBefore-ascending tiebreak fell
  * back to PLAN_GROUPS array order — which lists ceremony first

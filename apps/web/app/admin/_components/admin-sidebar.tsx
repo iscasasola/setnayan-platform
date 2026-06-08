@@ -49,9 +49,9 @@
  * cluster reading of the Money group.
  *
  * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse remains as
- * an admin label per PR #579 ("Today's Focus abuse") because the route
+ * an admin label per PR #579 ("Setnayan AI abuse") because the route
  * path + DB table names (concierge_abuse_flags) stayed for bookmark +
- * audit-history continuity. We label the sidebar entry "Today's Focus
+ * audit-history continuity. We label the sidebar entry "Setnayan AI
  * abuse" to match the V2 brand surface (CLAUDE.md 10th 2026-05-28 row
  * v2.1 brief canonical lock).
  */
@@ -93,6 +93,7 @@ import {
   LineChart,
   Settings,
   Wallet,
+  ShoppingBag,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -107,7 +108,7 @@ import type { NavGroup } from '@/app/_components/nav/types';
  * /admin/more consume the same group definitions via shape introspection.
  *
  * Stable group/item `key` values mean future label edits (e.g., Concierge →
- * Today's Focus brand swap) don't reset the per-section
+ * Setnayan AI brand swap) don't reset the per-section
  * setnayan.nav.section.<key>.open localStorage state.
  */
 export const ADMIN_NAV_GROUPS: NavGroup[] = [
@@ -191,7 +192,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'concierge-abuse',
         // Brand-layer label per CLAUDE.md 2026-05-28 5th row PR #579
         // brand-layer rename — route + DB table names stay.
-        label: "Today's Focus abuse",
+        label: "Setnayan AI abuse",
         href: '/admin/concierge-abuse',
         icon: Flag,
       },
@@ -307,6 +308,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Coins,
       },
       {
+        // Vendor token-pack sales reconcile queue (apply-then-pay). Vendors
+        // start a purchase at /vendor-dashboard/tokens, pay our BDO/GCash
+        // account, and admin confirms here → wallet credited. Migration
+        // 20260916000000 · owner 2026-06-08 "make purchasing available".
+        key: 'token-purchases',
+        label: 'Token sales',
+        href: '/admin/token-purchases',
+        icon: ShoppingBag,
+        matchPrefix: '/admin/token-purchases',
+      },
+      {
         key: 'receipts',
         label: 'Receipts',
         href: '/admin/receipts',
@@ -415,7 +427,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         // Brand-layer label per CLAUDE.md 2026-05-28 brand cutover.
         key: 'brain',
-        label: "Today's Focus brain",
+        label: "Setnayan AI brain",
         href: '/admin/brain',
         icon: Brain,
       },

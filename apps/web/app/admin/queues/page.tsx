@@ -142,7 +142,7 @@ export default async function AdminQueuesLanding() {
     },
     {
       key: 'concierge-abuse',
-      label: "Today's Focus abuse",
+      label: "Setnayan AI abuse",
       href: '/admin/concierge-abuse',
       icon: Flag,
       description: 'Trial-cycling flags to review.',

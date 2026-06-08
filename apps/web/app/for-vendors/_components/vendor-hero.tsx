@@ -8,15 +8,17 @@
  *   - 0% commission · we never touch the money (preserved)
  *   - Pro ₱2,499/28d (CLAUDE.md 2026-05-30 § 1(a) cadence + price update)
  *   - 100 free bidding tokens on verification before 31 Jan 2027 (preserved)
- *   - "Concierge matchmaking" copy in hero blurb → "Today's Focus matchmaking"
+ *   - "Concierge matchmaking" copy in hero blurb → "Setnayan AI matchmaking"
  *     per V2 retire of Concierge brand
  *
  * Per [[feedback_setnayan_button_preservation]] — CTA placement +
  * interaction concept preserved verbatim from template.
  */
 import Link from 'next/link';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
-export function VendorHero() {
+export async function VendorHero() {
+  const p = await getVendorPrices();
   return (
     <section
       style={{
@@ -88,12 +90,12 @@ export function VendorHero() {
               marginTop: 28,
             }}
           >
-            Free profile + in-app chat + verified badge + real reviews — forever.{' '}
+            A verified profile + in-app chat + real reviews — free, forever.{' '}
             <strong style={{ color: 'var(--m-ink)' }}>
               0% commission · Setnayan never takes a cut of your bookings.
             </strong>{' '}
-            Pro at <strong style={{ color: 'var(--m-ink)' }}>₱2,499/28 days</strong>{' '}
-            unlocks Today&apos;s Focus matchmaking, boosted reach, AI proposal
+            Pro at <strong style={{ color: 'var(--m-ink)' }}>{p.proMonthly}/28 days</strong>{' '}
+            unlocks AI matchmaking, boosted reach, AI proposal
             drafting, demand pulse. Founder bonus{' '}
             <strong style={{ color: 'var(--m-ink)' }}>
               100 free bidding tokens

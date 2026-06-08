@@ -15,7 +15,7 @@
  * SCOPE: structural shell only. Sidebar content (groups + items) is
  * provided by the caller via `sidebar` prop. Mobile chrome (top bar
  * + bottom-nav) is also caller-injected so each doorway can keep its
- * existing mobile-only utilities cluster (Today's Focus eyebrow on
+ * existing mobile-only utilities cluster (Setnayan AI eyebrow on
  * couple side, role-switch + profile on vendor side, etc.).
  *
  * COLLAPSED STATE: persisted to localStorage under

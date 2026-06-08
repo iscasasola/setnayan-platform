@@ -24,7 +24,7 @@
  * v2.1 DRIFT SCRUBS applied throughout:
  *   - "5% platform fee" / "we take a cut" → "0% commission"
  *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
- *   - "Setnayan Concierge" → "Today's Focus"
+ *   - "Setnayan Concierge" → "Setnayan AI"
  *   - "₱1,499 one-time" + "₱499 refresh" preserved (v2.1-correct)
  *
  * Per [[feedback_setnayan_button_preservation]] all CTAs match template
@@ -34,6 +34,7 @@
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
+import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
@@ -114,28 +115,36 @@ export function Nav() {
 // ─────────────────────────────────────────────────────────────────────
 export function Hero() {
   return (
-    <section className="relative overflow-hidden px-14 pt-20 pb-14">
+    <section className="relative overflow-hidden px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20 lg:pb-14">
       <Blob top={-80} left={-80} size={620} color="var(--m-orange)" opacity={0.06} />
-      <div className="grid lg:grid-cols-[1.1fr_1fr] gap-16 items-center relative">
+      <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-center relative">
         <Reveal>
-          <div className="m-mono text-xs tracking-[0.18em] text-[var(--m-slate-2)] mb-7">
+          <div className="m-mono text-xs tracking-[0.18em] text-[var(--m-slate-2)] mb-4 sm:mb-7">
             SET NA ‘YAN · /sɛt na jan/
           </div>
           <h1
             className="font-[var(--font-serif-marketing,var(--font-serif))] italic text-[var(--m-ink)] m-0"
             style={{
-              fontSize: 152,
-              lineHeight: 0.96,
+              // Responsive: was a fixed 152px that overflowed mobile and buried
+              // the CTA below the fold (owner 2026-06-08 "large texts ate up the
+              // whole screen, we lost the sale"). clamp scales it down on phones.
+              fontSize: 'clamp(3.1rem, 13vw, 152px)',
+              lineHeight: 0.94,
               letterSpacing: '-0.035em',
               fontWeight: 400,
             }}
           >
             Set na ‘yan.
           </h1>
-          <div className="mt-3.5">
+          <div className="mt-2 sm:mt-3.5">
             <span
               className="m-display text-[var(--m-ink)]"
-              style={{ fontSize: 76, fontWeight: 800, letterSpacing: '-0.005em', lineHeight: 1 }}
+              style={{
+                fontSize: 'clamp(1.9rem, 6vw, 76px)',
+                fontWeight: 800,
+                letterSpacing: '-0.005em',
+                lineHeight: 1.02,
+              }}
             >
               Plan your wedding
               <br />
@@ -152,7 +161,7 @@ export function Hero() {
             </span>
           </div>
           <p
-            className="m-serif italic text-[var(--m-slate)] mt-8 max-w-[560px]"
+            className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
             A love letter, a guest list, a thousand tiny decisions, and a Saturday afternoon you&apos;ll remember forever.{' '}
@@ -162,7 +171,7 @@ export function Hero() {
               time being engaged.
             </span>
           </p>
-          <div className="mt-4 inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
+          <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
             <span className="w-[7px] h-[7px] rounded-full bg-[var(--m-orange)] shrink-0" />
             <div className="text-[13px] text-[var(--m-ink)] leading-snug">
               <strong className="font-medium">Wedding today. Every celebration tomorrow.</strong>{' '}
@@ -171,7 +180,7 @@ export function Hero() {
               </span>
             </div>
           </div>
-          <div className="flex gap-3 mt-8 flex-wrap">
+          <div className="flex gap-3 mt-6 sm:mt-8 flex-wrap">
             <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
               Start planning <span className="text-[var(--m-orange-3)]">· free</span>
             </Link>
@@ -691,7 +700,8 @@ export function PersonalSite() {
 // ─────────────────────────────────────────────────────────────────────
 // 9. DashboardPreview — full dashboard mock
 // ─────────────────────────────────────────────────────────────────────
-export function DashboardPreview() {
+export async function DashboardPreview() {
+  const plannerPrice = await getCustomerSkuPrice('TODAYS_FOCUS');
   return (
     <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div className="m-eyebrow">In the app</div>
@@ -699,11 +709,11 @@ export function DashboardPreview() {
         className="m-serif text-[var(--m-ink)] mt-5 mb-7"
         style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
       >
-        Today&rsquo;s Focus. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
+        Setnayan AI. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
-        Today&rsquo;s Focus is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
-        answers your questions in your own language. One purchase at ₱1,499, full access through your wedding day.
+        Setnayan AI is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
+        answers your questions in your own language. One purchase at {plannerPrice ?? '₱1,499'}, full access through your wedding day.
       </p>
 
       <div
@@ -758,7 +768,7 @@ export function DashboardPreview() {
               ))}
             </div>
             <div className="mt-7 p-5 bg-[var(--m-orange-4)] rounded-lg">
-              <div className="m-label-mono text-[10px] text-[var(--m-orange-2)]">Today&rsquo;s Focus</div>
+              <div className="m-label-mono text-[10px] text-[var(--m-orange-2)]">Setnayan AI</div>
               <div
                 className="font-[var(--font-display,var(--font-sans))] font-bold text-[24px] text-[var(--m-ink)] uppercase mt-1.5"
               >
@@ -783,7 +793,35 @@ export function DashboardPreview() {
 // ─────────────────────────────────────────────────────────────────────
 // 10. Pricing — publisher posture · 0% commission
 // ─────────────────────────────────────────────────────────────────────
-export function PricingSection() {
+export async function PricingSection() {
+  // De-hardcoded (owner 2026-06-08 "all values must not be hardcoded · verify
+  // from the DB created by admin"). Prices come from the admin-managed catalog
+  // tables — the same source /pricing reads — so /admin/pricing edits propagate
+  // here automatically. The homepage is force-dynamic for this reason.
+  const [bundles, catalog] = await Promise.all([
+    fetchV2BundleCatalog(),
+    fetchV2CustomerCatalog(),
+  ]);
+  const svc = (code: string) => catalog.find((s) => s.service_code === code);
+  const panood = svc('PANOOD_SYSTEM');
+  const sde = svc('SDE');
+  const monogram = svc('ANIMATED_MONOGRAM');
+  const sortedBundles = [...bundles].sort((a, b) => a.retail_price_php - b.retail_price_php);
+
+  // Labels are display-only; every PRICE is read from the DB.
+  const productionItems = [
+    panood && `Panood livestream · ${formatPeso(panood.retail_price_php)}/day`,
+    sde && `Same-Day Edit · ${formatPeso(sde.retail_price_php)}`,
+    monogram && `Animated Monogram · ${formatPeso(monogram.retail_price_php)}`,
+  ].filter(Boolean) as string[];
+
+  const bundleItems = [
+    ...sortedBundles.map(
+      (b) => `${b.title.replace(/^Setnayan /, '')} · ${formatPeso(b.retail_price_php)}`,
+    ),
+    'Save up to ~42% off à la carte',
+  ];
+
   return (
     <section className="px-14 bg-[var(--m-paper-2)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div className="m-eyebrow">Pricing</div>
@@ -795,7 +833,7 @@ export function PricingSection() {
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
         Setnayan never touches the money between you and your vendor. They quote, you pay them directly. The platform
-        earns from Setnayan Productions services you choose à la carte, and from vendor subscriptions.
+        earns only from the Setnayan Productions services you choose à la carte — never from what you pay your vendor.
       </p>
       <div className="grid lg:grid-cols-3 gap-5">
         {[
@@ -817,27 +855,18 @@ export function PricingSection() {
             title: 'Productions',
             price: 'À la carte',
             sub: 'Per service',
-            items: [
-              'Panood livestream · ₱3,499/day',
-              'Same-Day Edit · ₱3,499',
-              'Animated Monogram · ₱2,499',
-            ],
+            items: productionItems,
             cta: 'See services',
             ctaHref: '/pricing',
             tone: 'orange' as const,
           },
           {
-            title: 'Vendors',
-            price: 'Free to list',
-            sub: '₱1,999/28 days Pro',
-            items: [
-              'Free listing + 100 founder tokens',
-              '₱1,499 lifetime verification badge',
-              'Pro Vendor ₱1,999/28 days',
-              'Enterprise ₱5,499/28 days',
-            ],
-            cta: 'Register your business',
-            ctaHref: '/for-vendors',
+            title: 'Bundles',
+            price: 'Save big',
+            sub: 'Per event',
+            items: bundleItems,
+            cta: 'See bundles',
+            ctaHref: '/pricing',
             tone: 'ink' as const,
           },
         ].map((p, i) => (
@@ -935,8 +964,7 @@ export function ClosingCTA() {
           Let&rsquo;s do this <em className="italic text-[var(--m-orange)]">together.</em>
         </h2>
         <p className="text-[18px] text-[var(--m-slate-4)] max-w-[640px] mx-auto leading-relaxed mb-10">
-          Start your wedding plan in 90 seconds. Free forever for couples. ₱1,499 verification badge for vendors. No
-          commission, ever.
+          Start your wedding plan in 90 seconds. Free forever for couples. No commission on vendor bookings, ever.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Link href="/onboarding/wedding" className="m-btn m-btn-orange m-btn-lg">
@@ -964,9 +992,9 @@ export function Footer() {
     {
       title: 'Vendors',
       links: [
+        { label: 'Why Setnayan for vendors', href: '/for-vendors' },
         { label: 'Register your business', href: '/for-vendors' },
-        { label: 'Pro Vendor — ₱1,999/28d', href: '/for-vendors' },
-        { label: 'Enterprise — ₱5,499/28d', href: '/for-vendors' },
+        { label: 'Price tiers', href: '/for-vendors' },
         { label: 'Vendor handbook', href: '/help' },
       ],
     },

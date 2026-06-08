@@ -21,7 +21,7 @@
  * pivot from rows 7-9 same day · further amended 2026-05-30 row § 1(a) +
  * § 4 + § 7(d) Pro 28-day price flip to ₱2,499 + Pro Annual to ₱24,999):
  *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱2,499/28d" (2026-05-30)
- *   - "Setnayan Concierge matching/matchmaking" → "Today's Focus matching/matchmaking"
+ *   - "Setnayan Concierge matching/matchmaking" → "Setnayan AI matching/matchmaking"
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
  *   - ₱1,499 one-time verification + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
@@ -38,34 +38,38 @@ import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { ProductionsCatalog } from './_components/productions-catalog';
 import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
-// edge cache so static marketing routes serve Google's crawl rate-limit
-// budget without origin pressure. Each page rebuilds at most once per hour.
-export const revalidate = 3600;
+// Per-request rendering (owner 2026-06-08 "make sure these prices are based on
+// the admin page and not hardcoded"): the vendor tier prices now read the live
+// catalog DB via getVendorPrices(). force-dynamic = always-live prices + the CI
+// build skips the createAdminClient throw (the /pricing pattern). Was a 1hr ISR
+// edge cache (SEO/GEO Bucket 8); the trade-off is no static CDN cache here.
+export const dynamic = 'force-dynamic';
 
-export const metadata = {
-  title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
-  description:
-    'Free vendor profile + Pro tier ₱2,499/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
-  alternates: {
-    canonical: '/for-vendors',
-  },
-  openGraph: {
-    title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
-    description:
-      'Free vendor profile + Pro tier ₱2,499/28d. 0% commission on bookings — we never touch the money.',
-    url: '/for-vendors',
-    type: 'website',
-    siteName: 'Setnayan',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
-    description:
-      '0% commission. Free listing. Pro ₱2,499/28d. 100 founder bonus tokens on verification.',
-  },
-};
+// DB-driven metadata (owner 2026-06-08 "prices based on the admin page, not
+// hardcoded") — the Pro price comes from getVendorPrices().
+export async function generateMetadata() {
+  const p = await getVendorPrices();
+  const title = `Setnayan for Vendors — Verified free + Pro · ${p.proMonthly}/28d`;
+  return {
+    title,
+    description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. 100 free tokens on verification (until 31 Jan 2027).`,
+    alternates: { canonical: '/for-vendors' },
+    openGraph: {
+      title,
+      description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money.`,
+      url: '/for-vendors',
+      type: 'website',
+      siteName: 'Setnayan',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: `0% commission. Verified is free. Pro ${p.proMonthly}/28d. 100 free tokens on verification.`,
+    },
+  };
+}
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
   /\/$/,
@@ -73,7 +77,8 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 );
 
 // Schema.org pricing — v2.1 4-tier vendor matrix (CLAUDE.md 2026-05-28 11th row)
-const FOR_VENDORS_JSONLD = {
+function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
+  return {
   '@context': 'https://schema.org',
   '@graph': [
     {
@@ -88,7 +93,7 @@ const FOR_VENDORS_JSONLD = {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: 'Setnayan for vendors — Free + Pro · ₱2,499/28d',
+      name: `Setnayan for vendors — Verified free + Pro · ${p.proMonthly}/28d`,
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
@@ -112,16 +117,16 @@ const FOR_VENDORS_JSONLD = {
     {
       '@type': 'Offer',
       '@id': `${SITE_URL}/for-vendors#verified-vendor`,
-      name: 'Verified Vendor · one-time lifetime badge',
+      name: 'Verified Vendor · free verified badge',
       description:
-        'One-time ₱1,499 verification (DTI · BIR · Mayor’s Permit · sample work). Lifetime verified badge + unlimited bids + ratings on profile + video calls with couples.',
-      price: '1499',
+        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week + 100 free tokens on verification.',
+      price: '0',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '1499',
+        price: '0',
         priceCurrency: 'PHP',
-        unitText: 'ONE-TIME',
+        unitText: 'FREE',
       },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },
@@ -132,12 +137,12 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (28-day prepaid block)',
       description:
-        "One marketplace category · 5 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks (13 cycles/year).",
-      price: '2499',
+        "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. 28-day prepaid blocks (13 cycles/year).",
+      price: String(p.num.proMonthly),
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '2499',
+        price: String(p.num.proMonthly),
         priceCurrency: 'PHP',
         billingDuration: 'P28D',
         unitText: '28-DAY BLOCK',
@@ -152,11 +157,11 @@ const FOR_VENDORS_JSONLD = {
       name: 'Enterprise Vendor (28-day prepaid block)',
       description:
         'Multiple marketplace categories · unlimited team accounts · everything in Pro at extended 100km radius. 28-day prepaid blocks (13 cycles/year).',
-      price: '5499',
+      price: String(p.num.enterpriseMonthly),
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '5499',
+        price: String(p.num.enterpriseMonthly),
         priceCurrency: 'PHP',
         billingDuration: 'P28D',
         unitText: '28-DAY BLOCK',
@@ -180,12 +185,12 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
       name: 'Pro Vendor (annual subscription · save 23%)',
       description:
-        "₱24,999/year instead of ₱2,499 × 13 cycles = ₱32,487 · save ₱7,488. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
-      price: '24999',
+        `${p.proAnnual}/year instead of ${p.proMonthly} × 13 cycles · save ${p.proAnnualSave}. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. Single annual payment.`,
+      price: String(p.num.proAnnual),
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '24999',
+        price: String(p.num.proAnnual),
         priceCurrency: 'PHP',
         billingDuration: 'P1Y',
         unitText: 'YEAR',
@@ -199,12 +204,12 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#enterprise-annual-subscription`,
       name: 'Enterprise Vendor (annual subscription · save 23%)',
       description:
-        '₱54,999/year instead of ₱5,499 × 13 cycles = ₱71,487 · save ₱16,488. Same Enterprise tier · multiple marketplace categories · unlimited team accounts · extended 100km radius · Single annual payment.',
-      price: '54999',
+        `${p.enterpriseAnnual}/year instead of ${p.enterpriseMonthly} × 13 cycles · save ${p.enterpriseAnnualSave}. Same Enterprise tier · all marketplace categories · unlimited team accounts · extended 100km radius · Single annual payment.`,
+      price: String(p.num.enterpriseAnnual),
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '54999',
+        price: String(p.num.enterpriseAnnual),
         priceCurrency: 'PHP',
         billingDuration: 'P1Y',
         unitText: 'YEAR',
@@ -232,14 +237,16 @@ const FOR_VENDORS_JSONLD = {
       ],
     },
   ],
-};
+  };
+}
 
-export default function ForVendorsPage() {
+export default async function ForVendorsPage() {
+  const p = await getVendorPrices();
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(FOR_VENDORS_JSONLD) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
       />
       <main className="m-surface min-h-dvh">
         <VendorNav />
@@ -259,7 +266,13 @@ export default function ForVendorsPage() {
           /admin/pricing (revalidatePath fired from server action).
         */}
         <ProductionsCatalog />
-        <FAQ />
+        <FAQ
+          vendorPrices={{
+            proMonthly: p.proMonthly,
+            enterpriseMonthly: p.enterpriseMonthly,
+            tokenUnit: p.tokenUnit,
+          }}
+        />
         <ClosingCTA />
         <Footer />
       </main>

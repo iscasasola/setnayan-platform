@@ -49,7 +49,7 @@ import {
 // ── Category timeline · START window + LOCK-BY floor ─────────────────────
 // Two numbers per plan group, both in days-before-the-wedding, from the
 // 2026-06-01 taxonomy-timeline deep-dive (CLAUDE.md row + that study; grounded
-// in the locked Today's Focus per-card hard-floor table + the Concierge Brain
+// in the locked Setnayan AI per-card hard-floor table + the Concierge Brain
 // 04_Planning_Timelines.md windows + PH wedding reality):
 //
 //   START_DAYS — when the app STARTS recommending the couple begin shopping

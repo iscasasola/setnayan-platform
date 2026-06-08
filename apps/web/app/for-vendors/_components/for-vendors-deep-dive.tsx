@@ -13,8 +13,8 @@
  * DRIFT SCRUBS applied (CLAUDE.md 2026-05-28 11th row v2.1 canonical · further
  * amended 2026-05-30 row § 1(a) + § 4 Pro 28-day price flip to ₱2,499 + Pro
  * Annual to ₱24,999 + Boosters surface mention):
- *   - "Setnayan Concierge matching" rows → "Today's Focus matching" (V2 retire)
- *   - "Concierge matchmaking" in card titles → "Today's Focus matchmaking"
+ *   - "Setnayan Concierge matching" rows → "Setnayan AI matching" (V2 retire)
+ *   - "Concierge matchmaking" in card titles → "Setnayan AI matchmaking"
  *   - "Sponsored Boost ₱1,200/wk" preserved (matches v2.1 brief)
  *   - "Boosted Ads · ₱1,200/wk" preserved (matches v2.1 brief)
  *   - Boosters surface mention added (CLAUDE.md 2026-05-30 row § 1(d) reinstated)
@@ -28,6 +28,7 @@
  */
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
 type CellValue = string | boolean;
 
@@ -74,8 +75,8 @@ const MATRIX_SECTIONS: MatrixSection[] = [
       ['Boost radius', '10km', '20km', '50km', '100km'],
       ['Boosters · 7-day feature unlocks · 4–100 tokens each', true, true, true, true],
       ['Sponsored Boost · top of category search', false, false, true, true],
-      ['Boosted Ads · ₱1,200/wk add-on', false, false, true, true],
-      ['Add Branch · ₱999/28 days each', false, false, true, true],
+      ['Boosted Ads add-on', false, false, true, true],
+      ['Additional branch add-on', false, false, true, true],
       ['Sharable bid link for social media', false, false, false, true],
     ],
   },
@@ -169,7 +170,7 @@ const BENEFITS = [
   {
     tag: 'Sponsored boost',
     title: 'Pay-per-week visibility from 10km → 30km radius. Pause anytime.',
-    body: 'Ready to scale? Boost your profile across nearby cities for ₱1,200/week. Cancel mid-week, prorated refund.',
+    body: 'Ready to scale? Boost your profile across nearby cities for a week at a time. Cancel mid-week, prorated refund.',
   },
   {
     tag: 'Crew-rate marketplace',
@@ -268,7 +269,8 @@ function MatrixCell({
   );
 }
 
-export function ForVendorsDeepDive() {
+export async function ForVendorsDeepDive() {
+  const p = await getVendorPrices();
   return (
     <section
       style={{
@@ -405,14 +407,14 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱1,499{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>once</span>
+              ₱0{' '}
+              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>to start</span>
             </div>
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
             >
-              lifetime verified badge
+              verified badge · free to get
             </div>
           </div>
           {/* PRO (highlighted) */}
@@ -436,14 +438,14 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱2,499{' '}
+              {p.proMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}
             >
-              1 category · 5 accounts
+              3 categories · 3 accounts
             </div>
             {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
                 2026-05-28 row · price updated ₱19,999 → ₱24,999 per CLAUDE.md
@@ -454,7 +456,7 @@ export function ForVendorsDeepDive() {
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}
             >
-              or ₱24,999/yr · save ₱7,488
+              or {p.proAnnual}/yr · save {p.proAnnualSave}
             </div>
           </div>
           {/* ENTERPRISE */}
@@ -474,14 +476,14 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱5,499{' '}
+              {p.enterpriseMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
             >
-              multi-cat · unlimited team
+              all categories · unlimited team
             </div>
             {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
                 2026-05-28 row · vendor_billing_catalog row
@@ -491,7 +493,7 @@ export function ForVendorsDeepDive() {
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}
             >
-              or ₱54,999/yr · save ₱10,989
+              or {p.enterpriseAnnual}/yr · save {p.enterpriseAnnualSave}
             </div>
           </div>
         </div>
@@ -782,10 +784,10 @@ export function ForVendorsDeepDive() {
           className="m-display"
           style={{ fontSize: 36, color: 'var(--m-orange-2)' }}
         >
-          ₱5,499
+          {p.enterpriseMonthly}
         </div>
         <div>
-          <div className="m-label-mono">Enterprise · ₱5,499 / 28 days</div>
+          <div className="m-label-mono">Enterprise · {p.enterpriseMonthly} / 28 days</div>
           <div
             style={{
               fontSize: 14,

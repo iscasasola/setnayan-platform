@@ -133,7 +133,7 @@ export async function createOrder(formData: FormData) {
 
   // Wire payment instructions email · iteration 0034 apply-then-pay manual
   // reconciliation flow (CLAUDE.md 2026-05-12 lock · System_Wiring_Map RED #2
-  // pre-pilot fix 2026-05-28). Pilot couples submitting a Today's Focus
+  // pre-pilot fix 2026-05-28). Pilot couples submitting a Setnayan AI
   // ₱1,499 or any cart SKU need the reference code delivered to email so
   // they can paste it into the BDO/GCash transfer note AND retrieve it
   // anytime via the dashboard deep-link if they close the success tab.

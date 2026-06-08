@@ -528,8 +528,8 @@
 .onbw .svccard.sel .svcck{background:var(--gold);border-color:var(--gold);color:#fff;}
 .onbw .svccard.sel .svclb{color:#fff;}
 /* ── Song Bank — results-on-top, search pinned at the BOTTOM (Onboarding_Style_and_Song_Bank §5; mirrors the location screen) ── */
-.onbw .prefstep[data-dim="music"] .viewzone{flex:0 0 auto;}
-.onbw .prefstep[data-dim="music"] .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw .prefstep[data-dim="music"] .viewzone,.onbw #screen-songs .viewzone{flex:0 0 auto;}
+.onbw .prefstep[data-dim="music"] .tapzone,.onbw #screen-songs .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
 .onbw .prefstep[data-dim="music"] .tapzone .prefmicro{display:none;}
 .onbw .songbank{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:0;}
 .onbw .songbank .songresults{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:3px;}
@@ -675,3 +675,333 @@
 .onbw #screen-services-summary.screen.active{flex:1 1 auto;min-height:0;}
 .onbw .svc-rows-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -2px;padding:2px 2px 0;scrollbar-width:none;}
 .onbw .svc-rows-scroll::-webkit-scrollbar{display:none;}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LOVE STAGE — the 6 love_* screens (website "Our Love Story" voice).
+   Direct port of the love-stage <style> block from
+   Onboarding_Wedding_Adaptive_Flow_2026-06-07.html, scoped under .onbw and
+   re-targeted to the production section ids (#screen-love-met / #screen-love-preview).
+   COVERT: nothing here names editorial / song / lyric — only the wedding-website story.
+   Tokens already match (:root above): --paper/--ink/--ink-soft/--ink-faint/--gold/
+   --gold-deep/--gold-wash/--mulberry/--mulberry-wash/--line/--line-2/--surface/--serif/--mono.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* textarea variant of .field (the stems + follow-ups grow vertically, don't resize). */
+.onbw textarea.field{font-size:16px;line-height:1.5;min-height:64px;resize:none;display:block;}
+.onbw textarea.field::placeholder{color:var(--ink-faint);font-style:italic;}
+
+/* love-story hero glyph (love_intro) — same editorial weight as a round icon. */
+.onbw .loveglyph{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;color:var(--gold-deep);font-size:26px;margin-bottom:14px;background:var(--gold-wash);}
+
+/* partner / duet pill (display-only on love_intro; teases the two voices) */
+.onbw .duet{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap;}
+.onbw .vpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);min-height:30px;}
+.onbw .vpill .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:0 0 auto;}
+.onbw .vpill.muted{opacity:.5;}
+.onbw .vpill .dot.her{background:var(--mulberry);}
+
+/* whose-turn cue line above a stem */
+.onbw .turncue{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:7px;}
+
+/* a sentence-stem: a visible serif prefix + an auto-growing textarea, read as one sentence */
+.onbw .stem{margin-bottom:6px;}
+.onbw .stem .stem-pre{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.3;color:var(--ink);display:block;margin-bottom:6px;}
+.onbw .stem textarea.field{min-height:64px;}
+.onbw .stem.tight textarea.field{min-height:52px;}
+
+/* the causal follow-up — a quiet ghost line that appears once they start the sentence */
+.onbw .followup{margin-top:8px;border-left:2px solid var(--gold);padding-left:11px;display:none;animation:rise .35s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .followup.show{display:block;}
+.onbw .followup .fu-q{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:6px;}
+.onbw .followup textarea.field{min-height:48px;font-size:15px;}
+
+/* sensory starter-chips (drop a stem) + obstacle inspiration cues + setting chips */
+.onbw .sparkchips{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0 4px;}
+.onbw .sparkchips .sc{border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:6px 11px;font-size:12px;cursor:pointer;transition:.15s;color:var(--ink-soft);font-family:inherit;display:inline-flex;align-items:center;gap:5px;min-height:32px;}
+.onbw .sparkchips .sc:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-wash);}
+.onbw .sparkchips .sc.sel{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+/* the Almost block — folds under the Spark on love_met; a hairline divider sets it apart */
+.onbw .almost{margin-top:13px;padding-top:13px;border-top:1px dashed var(--line-2);}
+.onbw .almost .normalize{font-size:12px;color:var(--ink-faint);font-style:italic;margin-bottom:9px;line-height:1.4;}
+
+/* tiny inline year pills (love_met met/together · love_proposal year) */
+.onbw .tinyyear{display:inline-flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap;}
+.onbw .tinyyear label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);}
+.onbw .tinyyear input{width:72px;border:1px solid var(--line-2);border-radius:10px;padding:7px 10px;font-family:var(--serif);font-style:italic;font-size:15px;background:var(--surface);color:var(--ink);}
+.onbw .tinyyear input:focus{outline:none;border-color:var(--gold);}
+
+/* who-asked toggle (love_proposal, required two-tap) */
+.onbw .whoasked{display:flex;gap:7px;margin:12px 0 4px;}
+.onbw .whoasked .wa{flex:1 1 0;border:1px solid var(--line-2);background:var(--surface);border-radius:13px;padding:9px 8px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:.15s;min-height:44px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;font-family:inherit;}
+.onbw .whoasked .wa:hover{border-color:var(--gold);}
+.onbw .whoasked .wa.sel{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.onbw .walbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);margin:12px 0 5px;}
+
+/* love_milestones · 2×2 anchor tile grid (375px-safe · 44px+ targets) */
+.onbw .lovetiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px;}
+.onbw .lovetile{border:1px solid var(--line-2);background:var(--surface);border-radius:15px;padding:12px 12px;cursor:pointer;transition:.15s;min-height:64px;display:flex;flex-direction:column;justify-content:center;gap:3px;}
+.onbw .lovetile:hover{border-color:var(--gold);}
+.onbw .lovetile.filled{border-color:var(--gold);background:var(--gold-wash);}
+.onbw .lovetile.open{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset;cursor:default;}
+.onbw .lovetile .lt-ic{font-size:18px;line-height:1;}
+.onbw .lovetile .lt-lbl{font-size:13px;font-weight:600;color:var(--ink);}
+.onbw .lovetile .lt-val{font-family:var(--serif);font-style:italic;font-size:13.5px;color:var(--gold-deep);line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.onbw .lovetile .lt-in{width:100%;border:1px solid var(--line-2);border-radius:9px;padding:7px 9px;font-family:var(--serif);font-style:italic;font-size:14px;background:var(--surface);color:var(--ink);}
+.onbw .lovetile .lt-in:focus{outline:none;border-color:var(--gold);}
+
+/* love_milestones · gold-dot story timeline (in-screen collection view) */
+.onbw .lovetl{display:flex;flex-direction:column;gap:0;margin-top:4px;}
+.onbw .lovetl .tl{display:flex;gap:12px;align-items:flex-start;padding-bottom:15px;position:relative;}
+.onbw .lovetl .tl:last-child{padding-bottom:4px;}
+.onbw .lovetl .tl .d{width:11px;height:11px;border-radius:50%;background:var(--gold);margin-top:4px;flex:0 0 auto;position:relative;z-index:1;}
+.onbw .lovetl .tl .d::after{content:"";position:absolute;left:5px;top:11px;width:1px;height:34px;background:var(--line-2);}
+.onbw .lovetl .tl:last-child .d::after{display:none;}
+.onbw .lovetl .tl .yr{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--gold-deep);}
+.onbw .lovetl .tl .mm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;line-height:1.12;}
+
+/* + Add a moment — friendly inline mini-form (quick-pick chips + warm title + optional month/day) */
+.onbw .loveaddmom{margin-top:6px;width:100%;background:transparent;color:var(--ink-soft);border:1px dashed var(--gold);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.onbw .loveaddmom:hover{background:var(--gold-wash);color:var(--ink);}
+.onbw .momentform{margin-top:8px;border:1px solid var(--line-2);border-radius:14px;background:var(--surface);padding:14px;animation:momentIn .42s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .mf-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:9px;}
+.onbw .mf-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
+.onbw .mf-chip{border:1px solid var(--line-2);background:var(--paper);border-radius:30px;padding:6px 11px;font-size:12px;cursor:pointer;transition:.15s;color:var(--ink-soft);font-family:inherit;}
+.onbw .mf-chip:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-wash);}
+.onbw .mf-title{width:100%;margin-bottom:9px;}
+.onbw .mf-when{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap;}
+.onbw .mf-num{width:62px;text-align:center;}
+.onbw .mf-num.mf-mini{width:50px;}
+.onbw .mf-opt{font-size:11px;color:var(--ink-faint);font-style:italic;}
+.onbw .mf-actions{display:flex;align-items:center;gap:12px;}
+.onbw .mf-add{flex:1 1 auto;background:var(--mulberry);color:#fff;border:0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.onbw .mf-add:hover{filter:brightness(.93);}
+.onbw .mf-cancel{background:transparent;border:0;color:var(--ink-faint);font-size:13px;cursor:pointer;font-family:inherit;}
+.onbw .mf-remove{background:transparent;border:0;color:var(--mulberry);font-size:12px;cursor:pointer;font-family:inherit;}
+
+/* love_tone · the on-site section-name badge */
+.onbw .lovebadge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-wash);border:1px solid #e6d3a8;border-radius:999px;padding:6px 13px;margin-top:14px;}
+
+/* ── love_preview / love_tone "site card" — the told-back published page ── */
+.onbw .sitecard{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 12px 34px rgba(30,34,41,.07),0 2px 8px rgba(30,34,41,.04);position:relative;}
+.onbw .sitecard::before{content:"";position:absolute;inset:0 0 auto 0;height:150px;background:linear-gradient(180deg,var(--gold-wash),rgba(244,236,216,0));opacity:.6;pointer-events:none;}
+.onbw .sc-inner{position:relative;padding:22px 20px 20px;}
+.onbw .sc-masthead{display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:13px;}
+.onbw .sc-monorow{display:flex;align-items:baseline;justify-content:center;gap:9px;font-family:var(--serif);font-style:italic;font-weight:600;color:var(--mulberry);line-height:1;}
+.onbw .sc-monorow .ini{font-size:52px;letter-spacing:-.02em;}
+.onbw .sc-monorow .amp{font-size:29px;color:var(--gold-deep);position:relative;top:-3px;}
+.onbw .sc-dateline{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);text-align:center;line-height:1.5;}
+.onbw .sc-pull{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.28;color:var(--ink);text-align:center;letter-spacing:.005em;margin:6px 4px 16px;}
+.onbw .sc-pull .pk{color:var(--mulberry);}
+.onbw .sc-prose{font-family:var(--serif);font-weight:500;font-size:16px;line-height:1.62;color:var(--ink);text-align:left;letter-spacing:.004em;}
+.onbw .sc-prose .ln{display:block;margin-bottom:7px;animation:storyfade .5s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .sc-prose .ln:last-child{margin-bottom:0;}
+.onbw .sc-prose em{font-style:italic;color:var(--mulberry);font-weight:600;}
+.onbw .sc-tl{display:flex;flex-direction:column;gap:0;margin-top:20px;padding-top:18px;border-top:1px solid var(--line);}
+.onbw .sc-tlhd{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);text-align:center;margin-bottom:15px;}
+.onbw .sc-tl .tl{display:flex;gap:13px;align-items:flex-start;padding-bottom:15px;position:relative;}
+.onbw .sc-tl .tl:last-child{padding-bottom:0;}
+.onbw .sc-tl .tl .d{width:11px;height:11px;border-radius:50%;background:var(--gold);margin-top:3px;flex:0 0 auto;position:relative;z-index:1;box-shadow:0 0 0 4px var(--gold-wash);}
+.onbw .sc-tl .tl .d::after{content:"";position:absolute;left:5px;top:11px;width:1px;height:30px;background:var(--line-2);}
+.onbw .sc-tl .tl:last-child .d::after{display:none;}
+.onbw .sc-tl .tl .d.peak{background:var(--mulberry);box-shadow:0 0 0 4px var(--mulberry-wash);}
+.onbw .sc-tl .tl .yr{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--gold-deep);}
+.onbw .sc-tl .tl .mm{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:600;line-height:1.15;margin-top:1px;}
+.onbw .livecap{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:13px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);}
+.onbw .livecap .pulse{width:6px;height:6px;border-radius:50%;background:var(--gold);position:relative;}
+.onbw .livecap .pulse::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid var(--gold);opacity:.6;animation:ring 1.8s ease-out infinite;}
+
+@keyframes storyfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes momentIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes ring{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.7);opacity:0}}
+@media(prefers-reduced-motion:reduce){.onbw .sc-prose .ln{animation:none;}.onbw .livecap .pulse::after{animation:none;}}
+
+/* The Reveal (love_preview) is a scroll-to-explore "published page" — the viewzone scrolls
+   INTERNALLY (the full page can exceed the frame) while the twin-ghost CTA stays pinned. */
+.onbw #screen-love-preview.screen.active{flex:1 1 auto;min-height:0;}
+.onbw #screen-love-preview .viewzone{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.onbw #screen-love-preview .viewzone::-webkit-scrollbar{width:0;}
+.onbw #screen-love-preview .tapzone{flex:0 0 auto;}
+
+/* ════ THE DASHBOARD BLOOM (congrats) ════ the reveal that makes the couple feel their
+   wedding website already exists (ported from Onboarding_Wedding_Adaptive_Flow §3 ·
+   buildDashboard()). The whole "published page" lives inside one rounded .dash-site card;
+   the viewzone scrolls INTERNALLY while the chrome Continue stays pinned — same no-scroll
+   frame as the love reveal. Reuses .recap + .sc-prose (woven story) verbatim. */
+.onbw #screen-congrats.screen.active{flex:1 1 auto;min-height:0;}
+.onbw #screen-congrats .viewzone{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.onbw #screen-congrats .viewzone::-webkit-scrollbar{width:0;}
+.onbw #screen-congrats .eyebrow{margin-bottom:12px;}
+/* the published-site card — the whole page sits inside one rounded sheet */
+.onbw .dash-site{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 14px 38px rgba(30,34,41,.08),0 2px 8px rgba(30,34,41,.04);}
+.onbw .dash-sec{padding:20px 18px;border-bottom:1px solid var(--line);}
+.onbw .dash-sec:last-child{border-bottom:none;}
+/* HERO — monogram lockup + names + identity headline, on a warm gold wash */
+.onbw .dash-hero{position:relative;text-align:center;padding:26px 18px 24px;background:linear-gradient(180deg,var(--gold-wash),rgba(255,255,255,0));}
+.onbw .dash-mono{display:flex;justify-content:center;margin:0 auto 12px;animation:rise .45s cubic-bezier(.2,.7,.3,1) both;}
+/* trim the name-screen lockup to a tighter masthead scale (caps + amp + stroke line) */
+.onbw .dash-mono .mono-lk{gap:clamp(8px,2vh,14px);}
+.onbw .dash-mono .mono-lk .mt-cap{width:clamp(42px,12vw,54px);}
+.onbw .dash-mono .mono-lk .mt-line{width:clamp(22px,6.5vw,28px);}
+.onbw .dash-cnames{font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:13px;}
+.onbw .dash-head{font-family:var(--serif);font-style:italic;font-weight:600;font-size:23px;line-height:1.22;color:var(--ink);letter-spacing:.004em;margin:0 auto;max-width:24ch;}
+.onbw .dash-head .setna{font-style:normal;color:var(--mulberry);}
+/* COUNTDOWN — wraps the existing .cd timer; strip its own margin so the section owns spacing */
+.onbw .dash-count{padding-top:16px;padding-bottom:16px;}
+.onbw .dash-count .cd{margin:0;}
+/* section eyebrow (shared by Love Story / Your Wedding) */
+.onbw .dash-eb{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);text-align:center;margin-bottom:13px;}
+/* OUR LOVE STORY — .dash-story shares the .sc-prose look (braided lines from weaveStory) */
+.onbw .dash-story{text-align:left;}
+/* THE RECAP — drop the boxed border inside the card; the section divider already frames it */
+.onbw .dash-sec .recap{border:0;padding:0;background:transparent;border-radius:0;}
+/* SHARE footer — covert, website-framed; the real share link lives on the dashboard */
+.onbw .dash-share{background:linear-gradient(180deg,rgba(255,255,255,0),var(--gold-wash));}
+.onbw .dash-shrow{display:flex;flex-direction:column;gap:9px;margin-bottom:12px;}
+.onbw .dash-shbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid var(--line-2);background:var(--surface);border-radius:14px;padding:13px;font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink);}
+.onbw .dash-shbtn .lnk{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--gold-deep);font-weight:500;}
+.onbw .dash-guests{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);text-align:center;}
+
+/* NO-SCROLL TIGHTENING — love_met (Spark + Almost, the densest screen) stays within the
+   ~665px frame. Compresses spacing/sizes only; no content cut. */
+.onbw #screen-love-met .stem .stem-pre{font-size:16px;margin-bottom:4px;}
+.onbw #screen-love-met .stem textarea.field{min-height:48px;}
+.onbw #screen-love-met .followup{margin-top:6px;padding-left:10px;}
+.onbw #screen-love-met .followup textarea.field{min-height:38px;}
+.onbw #screen-love-met .sparkchips{margin:6px 0 2px;gap:6px;}
+.onbw #screen-love-met .sparkchips .sc{padding:4px 9px;min-height:27px;font-size:11.5px;}
+.onbw #screen-love-met .turncue{margin-bottom:4px;}
+.onbw #screen-love-met .tinyyear{margin-top:6px;}
+.onbw #screen-love-met .tinyyear input{padding:5px 9px;}
+.onbw #screen-love-met .almost{margin-top:9px;padding-top:9px;}
+.onbw #screen-love-met .almost .normalize{margin-bottom:6px;font-size:11.5px;line-height:1.35;}
+/* ── Pure-moment conversational welcome (owner 2026-06-05 · ported from the
+   production-mirror prototype Onboarding_Wedding_Flow_2026-06-01.html on 2026-06-08).
+   ONE moment on screen at a time: a serif "speak" line with the gold Setnayan mark, or
+   one question + stacked options. Runs on step 0, then hands off to the Name screen. */
+.onbw .welcomescreen.moments-on{padding:0;display:flex;flex-direction:column;}
+.onbw .welcomescreen.moments-on .momentwrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:10px 22px 22px;overflow-y:auto;}
+.onbw #momentHost{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;position:relative;}
+@keyframes ob-momentIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.onbw .moment{animation:ob-momentIn .52s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .fm-react{display:flex;align-items:flex-start;gap:11px;font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.2;color:var(--ink);margin:0;}
+.onbw .mo-speak .fm-react{font-size:28px;}
+.onbw .fm-react .say-mark{flex:0 0 auto;width:23px;height:23px;margin-top:5px;}
+.onbw .introhint{margin-top:18px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);opacity:.5;}
+.onbw .mo-ask .m-q{font-family:var(--serif);font-style:italic;font-weight:600;font-size:30px;line-height:1.13;letter-spacing:-.01em;color:var(--ink);margin:0 0 20px;}
+.onbw .m-opts{display:flex;flex-direction:column;gap:11px;}
+.onbw .m-opt{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line-2);border-radius:15px;padding:14px 16px;cursor:pointer;font-family:inherit;transition:transform .12s,border-color .12s;min-height:44px;}
+.onbw .m-opt:hover{border-color:var(--ink);}
+.onbw .m-opt:active{transform:scale(.992);}
+.onbw .m-ot{display:block;font-weight:700;font-size:16px;color:var(--ink);}
+.onbw .m-od{display:block;font-size:12.5px;line-height:1.4;color:var(--ink-soft);margin-top:3px;}
+@media(prefers-reduced-motion:reduce){.onbw .moment{animation:none;}}
+
+/* ── THE MIRROR · live wedding-website preview ribbon (ports the locked prototype
+   Onboarding_Wedding_Adaptive_Flow_2026-06-07.html .mirror/.mir-* · plan §4). Pinned in
+   .top under .bar — never in the scrollable body — so it can't grow the frame. Compact
+   (~56-60px) so every screen stays no-scroll; chips overflow horizontally, never wrap.
+   --ok (prototype) maps to the production green #2D4A3A. ── */
+.onbw .mirror{flex:0 0 auto;padding:5px 0 1px;background:var(--paper);z-index:4;animation:mirIn .5s cubic-bezier(.2,.8,.3,1) both;}
+@keyframes mirIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+.onbw .mir-card{display:flex;align-items:center;gap:9px;background:linear-gradient(180deg,#fff,#fdfbf7);
+  border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:11px;padding:7px 10px;
+  box-shadow:0 6px 14px -11px rgba(30,34,41,.3);cursor:pointer;position:relative;overflow:hidden;}
+.onbw .mir-card::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(110deg,transparent 32%,rgba(197,160,89,.12) 50%,transparent 68%);
+  transform:translateX(-100%);animation:mirShim 3.8s ease-in-out infinite;}
+@keyframes mirShim{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+.onbw .mir-mono{font-family:var(--serif);font-weight:600;font-size:17px;line-height:1;color:var(--mulberry);flex:0 0 auto;}
+.onbw .mir-mono .amp{color:var(--gold);font-style:italic;margin:0 1px;}
+.onbw .mir-mid{flex:1 1 auto;min-width:0;}
+.onbw .mir-top{display:flex;align-items:center;gap:7px;}
+.onbw .mir-names{font-family:var(--serif);font-weight:600;font-size:13.5px;line-height:1.12;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.onbw .mir-badge{flex:0 0 auto;margin-left:auto;font-family:var(--mono);font-size:7px;letter-spacing:.12em;text-transform:uppercase;
+  color:#2D4A3A;display:inline-flex;align-items:center;gap:3px;}
+.onbw .mir-badge .dot{width:5px;height:5px;border-radius:50%;background:#2D4A3A;animation:mirPulse 1.6s ease-in-out infinite;}
+@keyframes mirPulse{0%,100%{opacity:.4}50%{opacity:1}}
+.onbw .mir-r2{position:relative;margin-top:3px;min-height:15px;overflow:hidden;}
+.onbw .mir-chips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;}
+.onbw .mir-chips::-webkit-scrollbar{display:none;}
+.onbw .mir-chip{flex:0 0 auto;font-family:var(--mono);font-size:8px;letter-spacing:.01em;color:var(--gold-deep);
+  background:var(--gold-wash);border:1px solid rgba(197,160,89,.2);border-radius:999px;padding:2px 6px;white-space:nowrap;}
+.onbw .mir-chip.pop{animation:mirPop .55s cubic-bezier(.2,.85,.35,1);}
+@keyframes mirPop{0%{transform:scale(.5);opacity:0}55%{transform:scale(1.16)}100%{transform:scale(1);opacity:1}}
+/* payoff caption flashes OVER the chip row on accretion, then reverts — no extra height */
+.onbw .mir-cap{position:absolute;inset:0;display:flex;align-items:center;gap:5px;background:linear-gradient(180deg,#fff,#fdfbf7);
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.01em;color:var(--gold-deep);font-weight:500;
+  opacity:0;pointer-events:none;transition:opacity .3s;}
+.onbw .mir-cap.show{opacity:1;}
+@media(prefers-reduced-motion:reduce){
+  .onbw .mirror{animation:none;}
+  .onbw .mir-card::after{animation:none;}
+  .onbw .mir-badge .dot{animation:none;}
+  .onbw .mir-chip.pop{animation:none;}
+}
+
+/* ── "Your Dream Team" chapter — team_intro / reception_setting / team_payoff / aigate ──
+   Ports the prototype's aigate benefit rows + stay-free link (PR-2 chrome). Reused as-is:
+   .eyebrow / h1.q / .sub / .note.mul / .loveglyph / .tag.new / .statstrip / .stat /
+   .pgrid.strip / .pcard. Net-new = the aibenefits list + the stayfree decline link. */
+.onbw .aibenefits{display:flex;flex-direction:column;gap:10px;margin:4px 0 6px;}
+.onbw .aibene{display:flex;gap:11px;align-items:flex-start;}
+.onbw .aibene .ic{flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:var(--mulberry-wash);display:flex;align-items:center;justify-content:center;font-size:17px;}
+.onbw .aibene .tx b{display:block;font-size:14px;font-weight:700;color:var(--ink);}
+.onbw .aibene .tx span{font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
+.onbw .stayfree{text-align:center;margin:12px 0 2px;font-size:12px;color:var(--ink-faint);}
+.onbw .stayfree u{cursor:pointer;text-decoration-color:var(--line-2);text-underline-offset:3px;}
+.onbw .stayfree u:hover{color:var(--ink-soft);}
+
+/* ════ Dream Team picker (PR-3) — team_basics + team_extras + mood screen-scoped layout ════
+   team_basics: pax-style split — the focused essential's hero photo maximizes (top), the
+   4-card carousel docks (bottom). Reuses .styhero / .svccard / .rail.car. */
+.onbw #screen-team-basics .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw #screen-team-basics .styhero{flex:1 1 auto;height:auto;min-height:150px;margin-top:auto;}
+.onbw #screen-team-basics .styhcap{display:flex;flex-direction:column;gap:3px;}
+.onbw #screen-team-basics .styhcap .bft{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;}
+.onbw #screen-team-basics .styhcap .bfd{font-family:var(--sans);font-style:normal;font-weight:500;font-size:12px;line-height:1.35;color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(0,0,0,.45);}
+.onbw #screen-team-basics .tapzone{flex:0 0 auto;margin-top:12px;}
+.onbw #screen-team-basics .rail.car{gap:12px;padding:3px 30px 6px 2px;scroll-snap-type:x mandatory;}
+.onbw #screen-team-basics .rail.car .svccard{flex:0 0 44%;width:auto;height:148px;scroll-snap-align:center;}
+/* team_extras: the viewzone is fixed; the accordion browser fills the tapzone + scrolls
+   internally (no page scroll). Ported from the prototype's #s3pick + .exgroup rules. */
+.onbw #screen-team-extras .viewzone{flex:0 0 auto;}
+.onbw #screen-team-extras .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw .exscroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 4px;margin:0 -2px;scrollbar-width:none;}
+.onbw .exscroll::-webkit-scrollbar{width:0;}
+.onbw .exgroup{border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:9px;overflow:hidden;transition:border-color .15s;}
+.onbw .exgroup.open{border-color:var(--gold);}
+.onbw .exhead{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:14px 16px;font-family:inherit;text-align:left;-webkit-tap-highlight-color:transparent;}
+.onbw .exhead:hover{background:var(--gold-wash);}
+.onbw .exname{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);}
+.onbw .exmeta{display:flex;align-items:center;gap:9px;flex:0 0 auto;}
+.onbw .extiles{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-faint);background:rgba(30,34,41,.05);border-radius:999px;padding:3px 9px;}
+.onbw .excount{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;}
+.onbw .exchev{font-size:20px;color:var(--ink-faint);line-height:1;transition:transform .2s;display:inline-block;}
+.onbw .exgroup.open .exchev{transform:rotate(90deg);color:var(--gold-deep);}
+.onbw .exbody{padding:0 16px;}
+.onbw .exgroup.open .exbody{padding:2px 10px 13px 2px;animation:rise .3s cubic-bezier(.2,.7,.3,1) both;}
+.onbw .exbody .railwrap{margin:0;}
+.onbw .exbody .rail.car{gap:10px;padding:3px 30px 3px 2px;scroll-snap-type:x mandatory;}
+.onbw .exbody .rail.car .svccard{flex:0 0 42%;width:auto;height:120px;scroll-snap-align:start;}
+/* mood: the feel hero maximizes (the screen is no longer inside .prefstep, so re-state the
+   has-hero flex-fill); the swatch row + FEEL_CHIPS strip dock below. */
+.onbw #screen-mood .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw #screen-mood .feelphoto{flex:1 1 auto;height:auto;min-height:120px;margin-top:auto;}
+.onbw #screen-mood .tapzone{flex:0 0 auto;margin-top:10px;}
+.onbw #screen-mood .pgrid.strip .pcard .pimg{height:74px;}
+.onbw #screen-mood .pgrid.strip .pcard .pimg .g{font-size:27px;}
+
+/* ════ Refine passes (PR-4) — the UNIFORM RefineStep for both basic + extras ════
+   RefineStep wraps its body in .prefstep (which is display:none by default — it was the
+   retired sub-stepper's hidden host), so force it visible + column-fill inside an ACTIVE
+   refine section. The .prefstep .rail.car .pcard fill rules (≈L487-492) then drive the
+   photo-card carousel with no new carousel CSS; .prefprog/.prefcount/.prefdots (the header
+   progress + dots) and .pcard/.pimg/.plbl/.ck reuse their existing rules too. */
+.onbw #screen-refine-basic.active .prefstep,
+.onbw #screen-refine-extras.active .prefstep{display:flex;flex-direction:column;flex:1 0 auto;min-height:0;}
+.onbw #screen-refine-basic .prefstep .viewzone,
+.onbw #screen-refine-extras .prefstep .viewzone{flex:0 0 auto;}
+.onbw #screen-refine-basic .prefstep .tapzone,
+.onbw #screen-refine-extras .prefstep .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;margin-top:8px;}

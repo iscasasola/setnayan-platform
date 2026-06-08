@@ -20,6 +20,7 @@
  * retail directly from Setnayan as publisher.
  */
 
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type V2CustomerSku = {
@@ -77,7 +78,13 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   // Live and working today
   // (TODAYS_FOCUS removed 2026-06-05 — the AI-planner SKU is retired; the
   //  reader also filters its catalog row out via `.neq('service_code', …)`.)
-  PRO_WEBSITE:         'partial',  // free baseline live · Pro gating not built
+  PRO_WEBSITE:         'partial',  // = Editorial Website (post-event phase) · free baseline live · Pro gating not built
+  // Wedding-website lifecycle phases (owner 2026-06-08 · added to catalog DB):
+  // RSVP (before) · Event Website (during) · Editorial = PRO_WEBSITE (after).
+  // Same in-build state as the Editorial phase — baseline live, upgrades not built.
+  RSVP_WEBSITE:        'partial',  // RSVP phase ₱2,499
+  RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
+  EVENT_WEBSITE:       'partial',  // during-event website ₱1,500
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 
@@ -122,7 +129,7 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
-    // Today's Focus REMOVED COMPLETELY (owner 2026-06-05) — the retired AI
+    // Setnayan AI REMOVED COMPLETELY (owner 2026-06-05) — the retired AI
     // planner SKU must not surface on /pricing, /for-vendors, or the admin
     // discount picker (the three consumers of this reader). Excluded here so it
     // drops everywhere without a DB write (the row stays in the table, just
@@ -200,6 +207,69 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     display_order: Number(row.display_order ?? 0),
   }));
 }
+
+/**
+ * Vendor pricing for the marketing pages — DERIVED FROM THE DB so /for-vendors,
+ * /how-it-works etc. never hardcode vendor prices (owner 2026-06-08 "make sure
+ * these prices are based on the admin page and not hardcoded"). `cache()` dedupes
+ * to a single query per request even if several server components call it. The
+ * fallbacks (= current catalog) only ever render if the DB is unreachable.
+ */
+export const getVendorPrices = cache(async () => {
+  const rows = await fetchV2VendorCatalog();
+  const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;
+  const proMo = price('pro_vendor_monthly');
+  const proYr = price('pro_vendor_annual');
+  const entMo = price('enterprise_vendor_monthly');
+  const entYr = price('enterprise_vendor_annual');
+  const branch = price('vendor_branch_28day');
+  const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
+  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 100;
+  const fmt = (n: number | null, fb: string) => (n == null ? fb : formatPeso(n));
+  const save = (mo: number | null, yr: number | null, fb: string) =>
+    mo != null && yr != null ? formatPeso(mo * 13 - yr) : fb;
+  return {
+    verified: '₱0',
+    proMonthly: fmt(proMo, '₱6,000'),
+    proAnnual: fmt(proYr, '₱60,000'),
+    proAnnualSave: save(proMo, proYr, '₱18,000'),
+    enterpriseMonthly: fmt(entMo, '₱10,000'),
+    enterpriseAnnual: fmt(entYr, '₱100,000'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱30,000'),
+    branch: fmt(branch, '₱999'),
+    tokenUnit: formatPeso(tokenUnit),
+    // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
+    num: {
+      proMonthly: proMo ?? 6000,
+      proAnnual: proYr ?? 60000,
+      enterpriseMonthly: entMo ?? 10000,
+      enterpriseAnnual: entYr ?? 100000,
+    },
+  };
+});
+
+/**
+ * One customer-SKU price from the DB by service_code — including SKUs the public
+ * catalog reader filters out (e.g. TODAYS_FOCUS). cache()d per code. Returns the
+ * formatted string, or null if unavailable.
+ */
+export const getCustomerSkuPrice = cache(
+  async (serviceCode: string): Promise<string | null> => {
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch {
+      return null;
+    }
+    const { data, error } = await admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', serviceCode)
+      .maybeSingle();
+    if (error || !data) return null;
+    return formatPeso(Number((data as { retail_price_php: number }).retail_price_php));
+  },
+);
 
 /**
  * Format a peso amount with thousand separators · no decimals if whole.

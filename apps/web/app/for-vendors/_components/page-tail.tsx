@@ -474,7 +474,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How does Setnayan make money?',
-    a: "Three ways. (1) Verified vendors pay a one-time ₱1,499 verification fee, plus an optional 28-day prepaid subscription if they want extra reach — ₱2,499/28d Pro or ₱5,499/28d Enterprise. Annual prepay is also available at ~23% off. (2) Vendors buy tokens to send quotes when couples send them an inquiry, and they can spend tokens on 7-day Boosters that temporarily widen reach. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week, and everyone starts with 100 free tokens on verification. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',
@@ -486,8 +486,22 @@ const FAQ_ITEMS = [
   },
 ];
 
-export function FAQ() {
+export function FAQ({
+  vendorPrices,
+}: {
+  vendorPrices: { proMonthly: string; enterpriseMonthly: string; tokenUnit: string };
+}) {
   const [open, setOpen] = useState(0);
+  // De-hardcoded: the "how Setnayan makes money" answer reads the vendor prices
+  // passed from the (server) page, which read them from the catalog DB.
+  const items = FAQ_ITEMS.map((item) =>
+    item.q === 'How does Setnayan make money?'
+      ? {
+          ...item,
+          a: `Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ${vendorPrices.proMonthly}/28d Pro or ${vendorPrices.enterpriseMonthly}/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and a Pro/Enterprise vendor spends 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week, and everyone starts with 100 free tokens on verification. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
+        }
+      : item,
+  );
   return (
     <section
       style={{
@@ -535,7 +549,7 @@ export function FAQ() {
           has the long version, and our team replies within a day on email.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {FAQ_ITEMS.map((item, i) => (
+          {items.map((item, i) => (
             <div
               key={i}
               style={{

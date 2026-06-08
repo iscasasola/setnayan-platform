@@ -1,5 +1,5 @@
 /**
- * Settings → Today's Focus tab.
+ * Settings → Setnayan AI tab.
  *
  * V2 cutover (CLAUDE.md 2026-05-28 row 3 + PR #560 marketing rewrite):
  * the V1 Concierge ₱2,499 SKU + 3-day card-less free trial + wedding-
@@ -7,7 +7,7 @@
  * replaces them with a single TODAYS_FOCUS line item in
  * platform_retail_catalog_v2 — one purchase per event, full wedding
  * access, no trial mechanic. This page is now a thin V2-aligned settings
- * tab: status read, copy reframed to "Today's Focus", purchase CTA
+ * tab: status read, copy reframed to "Setnayan AI", purchase CTA
  * redirects to /pricing.
  *
  * Route URL kept at `/dashboard/profile/concierge` so existing bookmarks,
@@ -35,7 +35,7 @@ import {
   sweepExpiredConcierge,
 } from '@/lib/concierge';
 
-export const metadata = { title: "Today's Focus · Settings" };
+export const metadata = { title: "Setnayan AI · Settings" };
 
 type Props = {
   searchParams: Promise<{
@@ -68,14 +68,14 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
         <section className="mt-6 rounded-2xl border border-ink/10 bg-cream p-8 text-center">
           <Sparkles aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Today&rsquo;s Focus
+            Setnayan AI
           </h1>
           <p className="mt-2 text-base text-ink/65">
             Your in-app planner that surfaces the next step every time you open the dashboard.
           </p>
           <p className="mt-1 text-sm text-ink/55">
             All planning tools — guest list, vendors, mood board, schedule — work for every event,
-            regardless of whether Today&rsquo;s Focus is activated.
+            regardless of whether Setnayan AI is activated.
           </p>
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3">
             <Link href="/pricing" className="button-primary">
@@ -93,7 +93,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
     );
   }
 
-  // Lazy expiry sweep at the top of any Today's Focus-surfacing page
+  // Lazy expiry sweep at the top of any Setnayan AI-surfacing page
   // (no-cron architecture per CLAUDE.md 2026-05-14 lock / PR #47). The
   // underlying helper still reads the V1 concierge_* columns; the V2
   // schema migration retires those + this call alongside.
@@ -152,7 +152,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
           Back to profile
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Today&rsquo;s Focus
+          Setnayan AI
         </h1>
         <p className="text-base text-ink/60">
           Your in-app planner that surfaces the next step every time you open the dashboard.
@@ -179,7 +179,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
         />
       ) : (
         <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/60">
-          Create your first event from the dashboard to manage Today&rsquo;s Focus.
+          Create your first event from the dashboard to manage Setnayan AI.
         </p>
       )}
     </div>
@@ -236,7 +236,7 @@ function StatusPanel({
         <header className="mb-3 flex items-center gap-2">
           <CheckCircle2 aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900/75">
-            Today&rsquo;s Focus · active
+            Setnayan AI · active
           </p>
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
@@ -264,12 +264,12 @@ function StatusPanel({
         <header className="mb-3 flex items-center gap-2">
           <Clock aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Today&rsquo;s Focus ended
+            Setnayan AI ended
           </p>
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
         <p className="mt-1 text-sm text-ink/65">
-          Today&rsquo;s Focus ended on <strong>{formatConciergeDate(expiresAt)}</strong>. Your
+          Setnayan AI ended on <strong>{formatConciergeDate(expiresAt)}</strong>. Your
           planning progress is saved — pick it back up anytime.
         </p>
         <div className="mt-4">
@@ -281,7 +281,7 @@ function StatusPanel({
     );
   }
 
-  // DIY — Today's Focus not yet activated on this event.
+  // DIY — Setnayan AI not yet activated on this event.
   return (
     <section className="rounded-2xl border border-ink/10 bg-cream p-6">
       <header className="mb-3 flex items-center gap-2">
@@ -293,7 +293,7 @@ function StatusPanel({
       <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
       <p className="mt-1 text-sm text-ink/65">
         You&rsquo;re planning on your own. Every dashboard tool — guest list, vendors, mood board,
-        schedule — works the same. Today&rsquo;s Focus adds a daily &ldquo;here&rsquo;s the next
+        schedule — works the same. Setnayan AI adds a daily &ldquo;here&rsquo;s the next
         step&rdquo; suggestion every time you open the app.
       </p>
       <div className="mt-4">

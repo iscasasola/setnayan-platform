@@ -9,15 +9,320 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Context:** Owner shared a polished seating-editor reference ("Nunta Pe Mese") and asked to bring our seat plan up to it. The look they wanted — per-seat chairs with guest names, a grouped/colour-coded sidebar, and a one-click auto-fill — is exactly what iteration **0008**'s locked spec already describes ("Chair-level interaction" + "Auto-fill — role-tier rings"); the 2026-05-13 MVP had shipped only plain table shapes + a dropdown assigner and deferred both. This PR catches the code up to its own spec. No migration — `event_seat_assignments.seat_number` and `guest_groups`/`guest_group_memberships` already existed.
 
 **What landed:**
-- **Chair-level canvas** (`_components/seating-editor.tsx`, replaces `floor-plan.tsx`) — each table renders its chairs around the hub (round/sweetheart/serpentine → circle; long-banquet/family-head → two long edges). Each seat is drawn as an **actual chair** (Lucide `Armchair`): empty chairs are open seats you tap to fill; an occupied chair is tinted in the guest's group/side colour with their photo/initials sitting on it + a first-name label. Pure geometry lives in `lib/seating.ts` (`tableGeometry`).
+- **Chair-level canvas** (`_components/seating-editor.tsx`, replaces `floor-plan.tsx`) — each table renders its chairs around the hub (round/sweetheart/serpentine → circle; long-banquet/family-head → two long edges). Each seat is drawn as an **actual chair** (Lucide `Armchair`): empty chairs are open seats you tap to fill; an occupied chair is tinted in the guest's group/side colour with their photo/initials sitting on it, and the guest's **full name** fans out around the chair (radial on round tables; stacked above/below + chair-column-wrapped on banquet rows so adjacent names don't collide). Pure geometry lives in `lib/seating.ts` (`tableGeometry`).
 - **Seat / move / unseat by tap** — pick a guest in the sidebar, tap a chair (or the table hub for next-free seat); tap a seated chair to pick them up and move; Unseat from the action banner. Touch-friendly select-then-place (no fragile drag-to-assign). Table reposition stays a hub drag (4px threshold disambiguates click vs drag) → Save layout.
 - **Grouped, colour-coded sidebar** — Tables (fill state + delete + click-to-highlight), Individual Members, and custom Member Groups (deterministic accent colour via `groupColorFor`, member count, expand, eye-toggle to mute the colour on canvas). "Only show unseated" filter + people search. Inline Add-table.
 - **Auto-seat** (`autoSeatGuests` action + pure `computeAutoSeat`) — fills every unseated *attending* guest into the nearest tables to the stage, tier by tier (T1 family/sponsors/officiant → T4 friends/work), keeping plus-ones adjacent; idempotent (never moves a seated guest, skips sweetheart tables, never seats the couple). Confirm dialog before running.
 - Brand-native (Alabaster/Obsidian/Champagne/Mulberry), not the reference's teal/peach. Photo URLs resolved server-side via `displayUrlForStoredAsset`.
 
-**Verify:** `tsc` ✓ · `next lint` ✓ (warnings only) · `next build` ✓ (route `/dashboard/[eventId]/seating` 14.1 kB). PR #1070 CI (production build · playwright e2e · lighthouse) running; live visual still to confirm on the Vercel preview (no browser was connected to drive it from this session).
+**Verify:** `tsc` ✓ · `next lint` ✓ (warnings only) · `next build` ✓ (route `/dashboard/[eventId]/seating` ~14.5 kB). PR #1070 CI green (ci/typecheck+lint+production build · playwright e2e · lighthouse · desktop build). Layout visually verified via a headless render of the seeded `couple.test` demo wedding (4 tables / 15 guests / 3 colour groups) before each push.
 
 **SPEC IMPACT:** Builds the previously-deferred "Chair-level interaction" + "Auto-fill — role-tier rings" sections of `0008_seating_chart_editor.md` (and flips that file's AS-BUILT note). Still deferred (the "full rebuild" the owner did not pick this pass): Add-Group modal w/ colour picker, two-tab Arrangements/Members layout, canvas zoom, dedicated mobile table-card view, publish-QR + print pack, per-seat serpentine wedge geometry. → corpus DECISION_LOG + 0008 AS-BUILT header.
+
+## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
+
+**Context:** Owner reported clicking "Prefer to plan it yourself? Switch to manual →" on the Services tab did nothing (no error, no change). The `setPlanningMode` server action is correctly wired (`'use server'`, valid form), but it wrote via the **user-scoped** Supabase client.
+
+**Root cause:** the `couple_can_update_event` RLS policy keys on `event_members.member_type = 'couple'`. For **seeded / host / multi-host** events that row can be absent, so the user-client `UPDATE … SET planning_mode` matches **0 rows and returns no error** (PostgREST RLS no-op) — the page revalidates unchanged, i.e. "the switch did nothing." (Onboarding- and create-event-made events DO get the couple row, so real couples were unaffected — but the gate is fragile.)
+
+**Fix:** `setPlanningMode` now (1) **gates on a user-scoped read** of the event (read RLS = the caller is a member), then (2) applies the update via the **admin client**, landing the flip for every legitimate member regardless of the membership-row nuance. Security preserved by the read-gate (a non-member's read returns nothing → throws before any write). `revalidatePath('layout')` unchanged.
+
+**Verify:** typecheck/build on CI; the toggle now flips Guided ⇄ Manual on seeded/host events too.
+
+**SPEC IMPACT:** None (correctness fix to the existing Setnayan AI on/off toggle).
+
+## 2026-06-08 · feat(onboarding): Dream Team PR-4 (FINAL) — two-pass uniform refine engine · chapter fully live
+
+**Context:** Last of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §3.3/§5). Adds the per-leaf "what kind?" refinement engine — the explicit owner ask: ONE uniform template for every refinement. Built via an ultracode workflow; the workflow's auto-verify phase was killed by a transient API rate-limit, so the 3 adversarial lenses were **re-run manually** (all pass — see Verify).
+
+**What landed (`onboarding-shell.tsx` + `onboarding.css`):**
+- **`FLOW_IDS`**: `refine_basic` after `team_basics`, `refine_extras` after `team_extras`. **`TEAM_AI_ONLY`** adds both (buildSequence filter unchanged → AI=No still skips the whole chapter).
+- **`REFINEMENTS` map** (ported from the prototype, ~39 leaves): only a leaf WITH an entry gets a refine screen. The 3 **projectable** leaves reuse existing production consts so option keys match `prefs.*`: `ceremony` (faith-adaptive via `ceremonyOptsFor(faith)`), `catering` (`CUISINE_OPTS` + a synthetic `cuisine_halal`), `photo_video` (`PV_LOOKS`). The other ~35 carry verbatim string options (JSONB-only, lossless).
+- **Two-pass engine**: derived `refineBasicQueue`/`refineExtrasQueue` = `picks ∩ keys(REFINEMENTS)` (basics in `BASIC_CATS` order, extras in flat taxonomy order); an empty pass is skipped. `refineIdx` + the `go()` re-entry loop walks within a pass (forward/back) and skip-empties on entry. The chrome CTA reads "Next service" mid-queue / "Continue" last.
+- **`RefineStep`** — ONE component renders BOTH passes + every leaf identically (uniform template: "Service N of M · {leaf}" + progress dots + "What kind of {leaf}?" + a `.pgrid.car` photo-card carousel, multi-select).
+- **`patchRefine(leaf, opt)`** toggles `state.refinements[leaf]` AND applies `projectRefinementsToPrefs` LIVE. **`projectRefinementsToPrefs(refinements, faith)`** maps `ceremony`→`prefs.ceremony` (last valid pick), `catering`→`prefs.cuisine` (+`dietary:['halal']` on `cuisine_halal`), `photo_video`→`prefs.pvLook`. Applied live + idempotently in `buildCommitPayload` (`stylePreferences: {...prefs, ...projected}`), with raw `refinements` threaded to `style_preferences.refinements` JSONB.
+
+**Data safety:** `state.picks` is READ-only in refine (never mutated). The projector keeps `prefs.ceremony`/`cuisine`/`pvLook` consistent so the recap + commit reflect the refine picks. No migration (PR-1 already added the field).
+
+**⚠ FLAG for owner:** (1) `cuisine_halal` is a synthetic refinement key routing to `dietary` (keeps `CUISINE_OPTS` pristine) — Cowork should ratify it as canonical. (2) The ceremony recap shows the last pick (single) while refinements stores multi. (3) The refine CTA stays in the chrome bar (label computed) rather than in-component.
+
+**Verify (manual, workflow auto-verify rate-limited):** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` `ƒ`, 55.8 kB) · uniform-template confirmed (1 component / 2 passes) · projector keys match `ceremonyOptsFor`/`CUISINE_OPTS`/`PV_LOOKS` + the recap · `state.picks` never written by refine · covert grep clean (love screens untouched; refine copy service-shaped).
+
+**SPEC IMPACT:** The adaptive Dream Team chapter is now FULLY LIVE (aigate→team_basics→refine_basic→team_extras→refine_extras→songs→mood). `events.style_preferences.refinements` now carries the full per-leaf detail. DECISION_LOG row added.
+## 2026-06-08 · fix(vendor): show admin-uploaded BDO/GCash QR codes in token purchase
+
+**Context:** The token-purchase pending panel (shipped earlier today) showed only the BDO/GCash account name + number — but the admin has already uploaded **QR code images** for both channels (`platform_settings.bdo_qr_url` / `gcash_qr_url`, public Supabase-storage URLs). Scanning a QR is the easiest pay path (UX north star), so the panel should surface them.
+
+**What landed (`pending-purchases.tsx`):** `PayBox` now renders the QR image (when present) above the account number, using the same plain-`<img>` pattern as the customer `ManualCheckoutModal` (QR assets live on a separate CDN, outside `next/image`'s whitelist; explicit width/height to avoid layout shift). The data path was already wired — `fetchPlatformSettings` SELECTs both `*_qr_url` columns and `page.tsx` passes the full `settings` object — this just displays them. Falls back to "account details coming" only when neither a number nor a QR is configured.
+
+**SPEC IMPACT:** None — display-only fix connecting the existing admin Payment-methods QR uploads to the vendor token-purchase surface.
+
+## 2026-06-08 · feat(vendor): self-serve token-pack purchase (apply-then-pay)
+
+**Context:** Owner 2026-06-08 — "make purchasing available too" + "Both — manual now, automated later." The vendor token wallet (`/vendor-dashboard/tokens`) showed token packs as read-only educational copy ("purchase opens this week") with no way to actually buy. Vendors could only receive tokens via an admin grant or the founder bonus. This ships the real purchase path.
+
+**What landed:**
+- **Migration `20260916000000_vendor_token_purchase.sql`** (applied to prod) — new `vendor_token_purchases` table (RLS: vendor reads own, admin reads all; all writes via SECURITY DEFINER fns) + 3 functions: `create_vendor_token_purchase(sku)` (vendor-initiated; reads price + token count from `vendor_billing_catalog` — never a client-supplied amount — generates a `TKN-xxxxxxxx` reference, inserts `pending_payment`), `approve_vendor_token_purchase(id)` (admin/webhook confirms → credits `vendor_wallets.purchased_tokens`, the **never-expire** bucket, via UPSERT; idempotent on the status guard + row lock), `reject_vendor_token_purchase(id, reason)`. New `is_console_admin()` helper gates approve/reject on the console's `account_type='admin' OR is_internal OR is_team_member` (broader than the strict `is_admin()` so internal/team reviewers aren't locked out).
+- **Vendor UI** — `tokens/actions.ts` (`startTokenPurchase` server action) + `buy-tokens-cta.tsx` rewritten **DB-priced** (packs from `vendor_billing_catalog` via `fetchV2VendorCatalog`, no hardcoded ₱180–250/token ladder — admin `/admin/pricing` is source of truth; live DB = ₱100/token) with per-pack Buy forms + `pending-purchases.tsx` (reference code + BDO/GCash receiving accounts from `platform_settings` + "Setnayan does not hold these funds" disclosure). `page.tsx` fans in pending purchases + packs + settings and shows an `ordered`/`error` banner.
+- **Admin reconcile** — `/admin/token-purchases` (pending queue with Confirm/Reject + recently-resolved list) + `actions.ts` calling the RPCs through the admin's own user-scoped client (so `auth.uid()` resolves for the gate + audit). New sidebar entry under Money (after Token bands).
+
+**Why purchased (not earned):** the burn path `consume_vendor_assets_per_voucher()` spends earned vouchers FIFO **then** drains `purchased_tokens`, so both are spendable — but a paid pack must NOT silently expire (matches the wallet UI's "Purchased tokens never expire"). Earned/founder/referral tokens stay in their 45-day voucher bucket; bought tokens are permanent.
+
+**Automated-later seam:** `approve_vendor_token_purchase` is exactly the entry point a future Maya/PayMongo webhook calls to auto-credit on payment — no rebuild, just a webhook handler that resolves the order by reference code and calls approve.
+
+**Verify:** transactional smoke test (rolled back, prod untouched) confirmed — create reads correct DB price (25 tok/₱2,500), non-admin vendor **blocked** from approve (`FORBIDDEN: admin only`), admin approve credits `purchased_tokens` +25 with `earned_tokens` unchanged, approve idempotent (no double-credit). Migration applied + re-applied cleanly (idempotent). Frontend typecheck via CI required checks (passed).
+
+**SPEC IMPACT:** Vendor token economy now has a customer-initiated purchase flow (0034 payments/cart + 0022 vendor dashboard). DECISION_LOG row appended at corpus root. No price changes (packs unchanged at ₱100/token); the purchased-vs-earned expiry semantics are clarified, not changed.
+
+## 2026-06-08 · feat(setnayan-ai): governing gate — one chokepoint, AI-off → generic site-wide (PR-1)
+
+**Context:** Owner 2026-06-08 — "Setnayan AI must govern across the whole website," sequenced "govern now (free), monetize next." Today the AI on/off gate is scattered: every surface independently checks `events.planning_mode === 'manual'`, and two surfaces *leak* (run AI-only logic regardless of the gate).
+
+**What landed:** new **`lib/setnayan-ai.ts` → `isSetnayanAiActive(event)`** — the single governing gate. Routed the 3 scattered inline checks through it (`page.tsx` deadlines, `category-search.ts` search, `vendors/page.tsx` plan-budget). **Closed 2 leaks so AI-off is genuinely generic:** (1) `category-search.ts` — the reception-proximity tail sort now gates on `aiActive` (AI off → review/rating order, the same fallback as no-coords); (2) `vendors/page.tsx` — the "👀 eyeing your date" nudge is suppressed (empty map) when AI is off. No behavior change for the default Assisted case; Manual-mode (AI-off) couples now get a true region-scoped generic search (no proximity ranking, no % pill, no eyeing, no deadlines). Free floor (region filter + anti-double-book) unaffected.
+
+**Why centralize:** the locked design makes the gate a **paid per-event entitlement**; PR-2 swaps the body of `isSetnayanAiActive` to read that entitlement **without touching any call site**. This PR makes that a one-file change.
+
+**Verify:** no remaining inline `planning_mode === 'manual'` checks; no unused vars; diff is 4 files / +58−13. Build via CI required checks.
+
+**SPEC IMPACT:** Implements the §2 free-floor↔AI boundary + AI-off→generic from `What_Is_Setnayan_AI_2026-06-08.md` (corpus). → DECISION_LOG. PR-1 of the Setnayan AI build (next: paid entitlement · last-minute · dependencies).
+
+## 2026-06-08 · feat(onboarding): Dream Team PR-3 — two-screen picker, retire StyleSubStepper
+
+**Context:** Third of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§3.1/§5). Replaces the single flat `picker` + the `prefs` sub-stepper with a two-screen picker + standalone style screens. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed). Net shell-line reduction (StyleSubStepper retired).
+
+**What landed (`onboarding-shell.tsx` + `onboarding.css`):**
+- **`team_basics`** — pax-style screen: maximized hero of the focused basic + a 4-card carousel of `BASIC_CATS = ['ceremony','catering','coordinator','photo_video']` (production PICK_GROUPS keys). Cards toggle via the EXISTING `pickChip` → `state.picks`.
+- **`team_extras`** — expandable parent→tiles browser of the full taxonomy MINUS the 4 basics and `reception` (empty parents hidden). Tiles toggle via `pickChip`.
+- **`songs`** + **`mood`** — the music (`SongBankStep` → `prefs.music`) + palette/feel (`FEELS` → `prefs.feel`) dimensions lifted OUT of the retired StyleSubStepper into standalone screens (still AI-gated).
+- **`FLOW_IDS`**: `picker`→`team_basics`+`team_extras`, `prefs`→`songs`+`mood`. **`TEAM_AI_ONLY = {team_basics, team_extras, songs, mood}`** (buildSequence logic unchanged). **Retired** StyleSubStepper, the `prefs` render, `prefIdx`/`prefQueue`/`prefsLabel`, the `go()` prefs special-case (remaining refs are comments only).
+
+**Bridge (§3.1 Option A — verified):** basics vs extras is a RENDER-TIME partition of ONE flat `state.picks` — NO `basicPicks`/`enhancePicks`. `pickChip` stays the single mutator, so `interested_categories` (commit), `getOnboardingVendorCounts`, `recommendedInappFor` are byte-unchanged. `actions.ts` + `types.ts` untouched. `prefs.music`/`prefs.feel` still captured; `prefs.ceremony`/`cuisine`/`pvLook` intentionally uncaptured until PR-4 (find reads only `prefs.reception` — safe).
+
+**⚠ FLAG for owner:** (1) `songs`+`mood` screens RETAINED (the prototype dropped both; kept so the Song Bank + palette capture survives). (2) `songs` is currently Skippable (sort-not-gate) — say if you want a ≥10-song floor.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` `ƒ`, bundle 52.2 kB) · no dangling StyleSubStepper/prefs refs · covert grep clean · all 3 adversarial lenses passed.
+
+**SPEC IMPACT:** None (matches the locked porting spec). DECISION_LOG row at PR-4 when the chapter goes fully live.
+## 2026-06-08 · chore(branding): rename "Today's Focus" → "Setnayan AI" across the app UI
+
+**Context:** Owner 2026-06-08 locked the planner SKU's canonical consumer name as **Setnayan AI** (shorthand SAI), retiring the interim "Today's Focus" display name everywhere. The spec corpus was already fully scrubbed (new `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG rows); this brings the app UI into alignment.
+
+**What landed:** display-name-only rename of **"Today's Focus" → "Setnayan AI"** (all apostrophe forms incl. the `&rsquo;` HTML entity; caps preserved in headers) across **66 files** in `apps/web` — the homepage hero (`_components/marketing/_sections.tsx`), the retired-SKU concierge banner + settings copy, admin labels (brain / abuse / addons / queues / sidebar), the i18n nav label (`lib/i18n/dashboard.{en,tl}.json`), the help article, aria-labels + metadata titles, and history comments. Coherence fixes where the swap would have implied the *current* brand was retired: "retired Today's Focus wizard" → "retired planner wizard" (×3) + de-duplicated "AI Today's Focus" → "Setnayan AI".
+
+**Name only — prices + code identifiers untouched.** The ₱1,499 planner prose stays; the `todays_focus`/`TODAYS_FOCUS` SKU key, `events.todays_focus_*` columns, `users.show_todays_focus_wizard`, and the `/today` route are LEFT AS-IS (they mirror the live DB / catalog / routes — renaming them is a separate migration PR, owner to greenlight).
+
+**Verify:** display-name residual = 0 across `apps/web` (all forms); both i18n JSON re-validated; the diff is pure string/comment swaps (169 lines, no structural changes). Build via CI required checks.
+
+**SPEC IMPACT:** Corpus already aligned 2026-06-08 (the full Today's-Focus → Setnayan AI scrub + `What_Is_Setnayan_AI_2026-06-08.md` + DECISION_LOG). This PR closes the app↔corpus naming gap. Code-identifier rename intentionally deferred to a migration.
+
+## 2026-06-08 · feat(onboarding): Dream Team PR-2 — chapter chrome + AI-gate fork
+
+**Context:** Second of 4 PRs porting the "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §2/§4/§5). PR-2 adds the chapter CHROME + the AI-gate fork; the picks split + refine engine are PR-3/PR-4. Built via an ultracode workflow (understand→design→implement→3-lens adversarial verify · allPassed).
+
+**What landed (`onboarding-shell.tsx` + `_styles/onboarding.css`):**
+- **`FLOW_IDS`** — inserted the chapter after `budget`: `team_intro → reception_setting → find → team_payoff → aigate → picker → prefs → account → …`. `find` MOVES out of its old post-`account` slot into the chapter (after `reception_setting`); `picker`+`prefs` move to after `aigate` and become AI-gated; `account` now follows the AI screens.
+- **`buildSequence`** — gains an `ai` param + `TEAM_AI_ONLY = {picker, prefs}` (interim): `!(ai !== true && TEAM_AI_ONLY.has(id))` → picker/prefs show ONLY when the couple taps "Yes" on `aigate`; AI=No (or undecided) skips them straight to `account`. Composes with the existing civil/authed/loveSkipped filters. All 6 call sites updated (legacy drafts → `saved.ai ?? null`; `seq` useMemo dep array gains `state.ai`).
+- **4 new screens** — `team_intro` (education: reception is home base), `reception_setting` (photo-cards multi-select → `state.prefs.reception` via the EXISTING `RECEPTION_SETTINGS` keys + `PCard`; promotes the dimension out of `StyleSubStepper`), `team_payoff` (factual stats from `venues.length` + `state.shortlist.length`, no login), `aigate` (the AI offer with two in-screen CTAs → `aiAnswer(true/false)`; chrome Continue hidden via `AIGATE_NOCTA`). 3 net-new CSS rules (`.aibenefits/.aibene/.stayfree`) under `.onbw`.
+- **`PREF_ORDER`/`prefQueueFrom`** — dropped `reception` (now owned by `reception_setting`) so `StyleSubStepper` no longer double-asks it (its reception branch is now harmless dead code, retired in PR-3).
+
+**Data safety:** `state.picks`/`state.prefs`/`state.shortlist`/`buildCommitPayload`/the commit are UNCHANGED. `reception_setting` writes the SAME `prefs.reception` array. `find` is reused verbatim (string-addressed `activeId==='find'` effect is move-safe; the match effect's `seq.indexOf` stays valid). AI=No keeps `state.picks` empty-but-valid — find + commit don't crash.
+
+**⚠ FLAG for owner:** `account` now follows the AI screens (prototype order — captures email later). If you want it BEFORE the AI screens, it's a one-line `FLOW_IDS` reorder.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓ (`/onboarding/wedding` still `ƒ`) · covert grep clean (no pricing/song/editorial in the new copy; love screens untouched) · all 3 adversarial lenses passed.
+
+**SPEC IMPACT:** None (matches the locked porting spec). DECISION_LOG row at PR-4 when the chapter goes fully live.
+## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
+
+**Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 → should be ₱6,000).
+
+**What landed:** new **`getVendorPrices()`** in `lib/v2-catalog.ts` (`cache()`-wrapped, reads `vendor_billing_catalog`, formatted strings, resilience fallbacks only). `/for-vendors` (hero · comparison table + annuals + standalone Enterprise callout · stack-close) + `/how-it-works` (the stale Pro price) made async to read it; both pages → `force-dynamic`.
+
+**Verify:** typecheck/build on the PR. Prices flow from /admin/pricing.
+
+**SPEC IMPACT:** None (presentation; vendor prices DB-sourced). REMAINING hard-coded (follow-up): /for-vendors SEO metadata + JSON-LD Offers (`generateMetadata`), the money-FAQ prose, the module-level Add-Branch ₱999 / Boosted ₱1,200 rows, and the homepage planner "₱1,499" prose (TODAYS_FOCUS excluded from the fetcher).
+
+## 2026-06-08 · feat(onboarding): Dream Team PR-1 — additive scaffolding (ai + refinements state · ZERO behavior change)
+
+**Context:** First of 4 sequential PRs porting the prototype's "Your Dream Team" chapter (`Onboarding_DreamTeam_Port_Spec_2026-06-08.md`). PR-1 lands the two new bridge fields + the commit thread with EMPTY data, so the type/commit contract is proven byte-equivalent before any UI consumes it (later PRs never touch the contract again).
+
+**What landed (additive only · no migration):**
+- **`types.ts`** — `OnboardingState` gains `ai: boolean | null` (AI-gate answer; `null`=not-yet-asked, drives `buildSequence` in PR-2) and `refinements: Record<string, string[]>` (per-leaf "what kind?" picks; folded into `style_preferences.refinements` JSONB for display + future vendor-match). `EMPTY_ONBOARDING_STATE` defaults: `ai: null`, `refinements: {}`.
+- **`actions.ts`** — `OnboardingCommitPayload` gains optional `refinements`; the `style_preferences` insert adds `refinements: payload.refinements ?? {}` (additive JSONB key, no migration; `interested_categories` still reads `payload.picks`).
+- **`onboarding-shell.tsx`** — `buildCommitPayload` threads `refinements: s.refinements`.
+- **Draft resume** — automatic: the hydration `{ ...EMPTY_ONBOARDING_STATE, ...saved }` backfills `ai`/`refinements` for pre-port drafts (absent keys keep the EMPTY defaults).
+
+**Behavior:** With `refinements` always `{}` and `ai` always `null` (no UI sets them yet), the commit is identical to today except a new `style_preferences.refinements: {}` key — read by nothing. `find` + recap + vendor-matching untouched.
+
+**Verify:** `tsc --noEmit` clean · `next build` ✓. No other `OnboardingState` literal needed updating.
+
+**SPEC IMPACT:** None (additive scaffolding; the `style_preferences.refinements` JSONB key is new but additive — documented in `Onboarding_DreamTeam_Port_Spec_2026-06-08.md` §3.6). DECISION_LOG row at PR-4 when the chapter goes fully live.
+
+## 2026-06-08 · feat(onboarding,pricing): de-hardcode onboarding prices → read the live admin catalog (owner directive)
+
+**Context:** Owner directive 2026-06-08 — "our pricing must not be hardcoded but taken from the admin pricing page." The onboarding services screens (15 "Boost & enhance" / 16 "Services you're interested in") showed SELLING prices from a hardcoded `SVC` constant in `onboarding-shell.tsx`. They now read the SAME live, admin-managed catalog `/pricing` reads. Closes the explicit follow-up logged in the 2026-06-08 canonical-reprice entry below ("onboarding still reads the SVC demo constant … proper server-side wiring is deferred").
+
+**What landed:**
+- **New module `apps/web/app/onboarding/wedding/_components/onboarding-pricing.ts`** (pure, server-importable, no `'use client'`/`'server-only'`): `buildOnboardingPricing(customer, bundles, pax?)` turns the two live-catalog fetch results into one plain-JSON view-model (`OnboardingPricing = { svc, bundles, promo }`). Holds the verified 14-key `INAPP_TO_SERVICE_CODE` map (single source of truth), the illustrative `OUT_ANCHORS` (market "if hired elsewhere" anchors — NOT Setnayan prices), and the author-curated `BUNDLE_MEMBERS`.
+- **`page.tsx`**: added `export const dynamic = 'force-dynamic'` (mirrors `/pricing`); extended the existing `Promise.all` to also `fetchV2CustomerCatalog()` + `fetchV2BundleCatalog()`; built `pricing` and passed it as a new `pricing` prop to `<OnboardingShell>`.
+- **`onboarding-shell.tsx`**: added the `pricing: OnboardingPricing` prop; **DELETED the hardcoded `SVC` table** (both `set` and `out`); every consumer site (savings math ~2289, screen-15 detail card + carousel chip, screen-16 per-row + totals) now reads `pricing.svc[k]` with a crash-safe `₱0` default. Price strings render `pricing.svc[k].label` so the pax SKU (PAPIC_GUEST) shows "from ₱2,999" honestly; flat SKUs show "₱X". `BUNDLE_ITEMS`/`BUNDLE_BENEFIT`/`BUNDLE_ASSET`/`INAPP_VS`/`INAPP_KEYS`/`INAPP_TO_ADDON_SLUG`/`ONBOARDING_PROMO` untouched (display metadata + business rule).
+
+**Untouched (money path byte-identical):** `INAPP_TO_ADDON_SLUG` checkout routing (`/dashboard/{id}/add-ons/{slug}`), `submitOrderAction`, and `resolvePaxPricedOrderCentavos` — the authoritative order charge is still recomputed server-side from `events.estimated_pax` + the catalog at order submit, ignoring any client price. The onboarding wiring is DISPLAY-ONLY.
+
+**⚠ SURFACED FOR OWNER SIGN-OFF:**
+- **`BUNDLE_MEMBERS`** (which à-la-carte services each bundle contains) is author-curated — there is NO DB source for bundle membership (no `platform_package_items` table). It drives the displayed bundle "worth/save ₱X". The **bundle UI is DEFERRED** — the `pricing.bundles` view-model is built + typed but currently **UNCONSUMED** by the shell (the flow monetizes à-la-carte only). No invented membership is shown to users until the owner ratifies the list and a bundle card is wired.
+- **`out` market anchors** kept as a clearly-labeled illustrative constant (`OUT_ANCHORS`) — permitted by the directive ("those may remain as a clearly-labeled illustrative constant"). No `compare_at`/market column exists in the catalog.
+
+**Verification:** `tsc --noEmit` clean · `next build` succeeds · `/onboarding/wedding` renders dynamic (ƒ) · 0 `SVC[` code references remain · covert rule preserved (no pricing in the love-stage module).
+
+**SPEC IMPACT:** Onboarding now reads live prices from `platform_retail_catalog_v2` + `platform_package_catalog` (no hardcoded selling prices). DECISION_LOG row to add (2026-06-08 onboarding live-wire); the bundle-membership question stays open for the owner.
+## 2026-06-08 · feat(pricing): wedding-website phase SKUs in the catalog (RSVP · Event · Editorial)
+
+**Context:** Owner 2026-06-08 — the wedding website is ONE site with 3 date-driven phases (RSVP before · Event during · Editorial after). Added the paid phase SKUs to the admin catalog so they render on the now-DB-driven /pricing + homepage.
+
+**DB (`platform_retail_catalog_v2`, applied to prod via the catalog tables):**
+- `RSVP_WEBSITE` "RSVP" ₱2,499 · `RSVP_PRO_WEBSITE` "RSVP Pro" ₱4,499 (= RSVP + ₱2,000) · `EVENT_WEBSITE` "Event Website" ₱1,500.
+- (`PRO_WEBSITE` already renamed "Pro Website" → "Editorial Website" ₱7,999 = the post-event phase; Animated Monogram repriced ₱2,499→₱1,999 same day.)
+
+**Code:** added the 3 new service_codes to the `BUILD_STATUS` map as `'partial'` (matching the Editorial/`PRO_WEBSITE` phase — baseline live, upgrades not built) so they show "In build", not the default "Coming soon".
+
+**Verify:** typecheck/build on the PR. /pricing reads the DB, so the rows already render.
+
+**SPEC IMPACT:** New website-phase SKUs in the catalog (RSVP / RSVP Pro / Event / Editorial) → corpus Pricing.md + the wedding-website-lifecycle spec reconcile. Purchase/checkout wiring for the new SKUs is NOT in scope (catalog display only).
+
+## 2026-06-08 · feat(pricing): canonical customer reprice — apply to the live V2 catalog (owner-authorized)
+
+**Context:** Owner authorized ("apply now", 2026-06-08) the canonical customer pricing from `Pricing_Canonical_2026-06-08.md` across the app. The live source is the **V2 customer catalog** (`platform_retail_catalog_v2` + `platform_package_catalog`, read by `lib/v2-catalog.ts` → /pricing, /for-vendors, dashboard checkout) — NOT the retired V1 `service_catalog`. The two bundles were already at canonical (Essentials ₱12,999 / Complete ₱27,999); the retail catalog needed reconciliation.
+
+**What landed:**
+- **Migration `20260915000000_pricing_canonical_2026_06_08.sql`** (idempotent, FK-safe — `event_software_activations_v2.service_code` references the catalog, so retirements flip `is_active` only, never DELETE; verified 0 orders reference retired codes). **Applied to prod + recorded in `schema_migrations`.**
+  - Repriced 7: Custom QR ₱1,499→999 · Guest Stories ₱1,999→1,499 · Camera Bridge ₱1,999→1,499 · Patiktok ₱2,499→1,499 · Thank You ₱5,499→3,499 · Same Day Edit ₱3,499→**4,999** · Panood ₱3,499→2,499.
+  - Added 3: **Setnayan AI ₱3,999** · **Pro RSVP ₱1,999** · **Event Website ₱1,999**.
+  - Retired **Today's Focus** (`is_active=false`, superseded by Setnayan AI; 0 orders).
+  - Asserted both bundles at canonical (no-op).
+- **`onboarding-shell.tsx`** `SVC` demo constant `set` values aligned to canonical for the clean 1:1 maps (SDE 4999, Guest Stories 1499, Animated Monogram 1999, Thank You 3499, Custom QR 999, Panood 2499, advanced_website→7999).
+
+**⚠ SURFACED FOR OWNER SIGN-OFF (deliberately NOT changed):**
+- **Papic Guests** — canonical lists ₱1,999 flat, but `PAPIC_GUEST` is the owner-locked **pax-priced** SKU (₱2,999 floor, 2026-06-01 pax lock). Left pax-priced; needs reconciliation in the canonical doc.
+- **4 retirements the canonical doc itself flags "confirm"** — left ACTIVE pending sign-off: `HIGH_RES_ARCHIVE`, `CALL_TIME_ESCALATOR`, `INDOOR_BLUEPRINT`, `PAKULAY`.
+
+**Follow-up:** onboarding still reads the `SVC` demo constant, not v2-catalog live; proper server-side wiring is deferred to the Dream Team picker PR (which reworks the end-of-flow services screens).
+
+**SPEC IMPACT:** Pricing corpus — `Pricing_Canonical_2026-06-08.md` is the source applied. DECISION_LOG row added (2026-06-08 canonical reprice applied + 2 open conflicts). Owner to reconcile `Pricing.md §0` + the Papic-Guests-pax / 4-retirement questions.
+## 2026-06-08 · fix(home,pricing): de-hardcode homepage PricingSection → read admin catalog DB + reprice bundles/tokens
+
+**Context:** Owner 2026-06-08 — "all values must not be hardcoded · verify from the DB created by admin · find the amount on admin." Root cause of the recurring price drift: the homepage + /for-vendors hard-code their own copies while /pricing reads the DB. This wires the homepage to the DB.
+
+**1 · DB (admin catalog) brought to the owner's locked numbers** (applied to prod via the catalog tables — same effect as /admin/pricing edits):
+- `platform_package_catalog`: GUIDED_PACK → "Setnayan Essentials" ₱12,999 · MEDIA_PACK → "Setnayan Complete" ₱27,999 (was Guided Planner Suite ₱11,999 / Comprehensive Media Pack ₱16,999).
+- `vendor_billing_catalog` token packs → ₱100/token flat: 4=₱400 · 10=₱1,000 · 25=₱2,500 · 50=₱5,000 · 100=₱10,000 (was ₱1,000/₱2,400/₱5,500/₱10,000/₱18,000 ≈ ₱180–250/token).
+
+**2 · `PricingSection` de-hardcoded** (`_components/marketing/_sections.tsx`): now `async`, reads `fetchV2BundleCatalog` (Bundles card) + `fetchV2CustomerCatalog` (Productions à-la-carte: PANOOD_SYSTEM, SDE, ANIMATED_MONOGRAM). Labels stay; every price is from the DB. Homepage `page.tsx` flipped **force-static → force-dynamic** so admin edits show with no redeploy and the CI build skips the createAdminClient throw (the /pricing pattern).
+
+**Verify:** typecheck/build/Lighthouse/e2e on the PR. `/pricing` already reflects the new DB values.
+
+**SPEC IMPACT:** Bundles Guided/Media → Essentials/Complete (₱12,999/₱27,999) + token ₱100/token now in the DB (= admin source of truth) → corpus Pricing.md §0 reconcile. NOTE: the customer à-la-carte SKUs in the DB are still the OLDER prices (Animated Monogram ₱2,499, Custom QR ₱1,499, Panood ₱3,499/day…), NOT the "Premium stance" à-la-carte (₱1,999/₱999/₱2,499-day) — owner to update in /admin/pricing if intended. Follow-up: de-hardcode /for-vendors (its tier prices already match the DB, just hard-coded).
+
+## 2026-06-08 · feat(onboarding): dashboard bloom — the "Set na 'yan" reveal on the recap screen
+
+**Context:** Next chunk of the adaptive-onboarding port (`Onboarding_Production_Port_Plan_2026-06-08.md` §3). The reveal-before-the-offer: the `congrats` recap becomes the bloom — the couple sees their wedding website already exists.
+
+**What landed (`onboarding-shell.tsx`, `_styles/onboarding.css` — only the `congrats` `<section>` + its CSS):**
+- A `.dash-site` reveal card: monogram masthead (reused `MonoLockup`) + couple names + headline "Set na 'yan. ✨ This is the {Surname}–{Surname} wedding — and it already exists."; the existing `WeddingCountdown`; an **"Our Love Story"** block woven by the existing `weaveStory(storyTone, loveStory, ctx)` (shown only when the love stage was told; omitted gracefully otherwise); the existing recap list re-housed under the card; and a display-only share footer (Show {partner} · your page · N guests).
+- **COVERT:** the love block is "Our Love Story" only — never editorial/song/Pakanta. Reused `weaveStory`/`MonoLockup`/`WeddingCountdown` (no reimplementation). Nav/commit/redirect untouched.
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · covert grep clean. The congrats `.viewzone` scrolls internally (love-reveal pattern); chrome Continue stays pinned.
+
+**SPEC IMPACT:** None — content/visual enhancement of one existing screen.
+## 2026-06-08 · fix(home,0015): homepage Pricing section is customer-only (drop vendor card + ₱1,499 badge)
+
+**Context:** Owner 2026-06-08 — the homepage `PricingSection` had a 3rd "Vendors" card with stale + off-message vendor specs (₱1,999/28d Pro, ₱5,499 Enterprise, "₱1,499 lifetime verification badge"). The homepage is customer-dedicated; vendor pricing belongs on /for-vendors, and verification is now free (₱0, no badge fee).
+
+**What landed (homepage `_components/marketing/_sections.tsx`, presentation only):** PricingSection 3rd card **Vendors → Bundles** (Essentials ₱12,999 · Complete ₱27,999 → /pricing) · intro copy drops "vendor subscriptions" · ClosingCTA drops "₱1,499 verification badge for vendors" → "No commission on vendor bookings, ever." · Footer Vendors column drops the stale-priced links → "Why Setnayan for vendors · Register your business · Price tiers · Vendor handbook" (no prices).
+
+**Verify:** markup/copy only, no type/DB change. Vercel preview on the PR.
+
+**SPEC IMPACT:** None on SKU data (verification-badge fee retired → Verified ₱0 per the 2026-06-08 vendor-pricing DECISION_LOG row). Follow-up: a separate customer-planner "₱1,499" line in `_sections.tsx` may be stale vs the locked Setnayan AI ₱3,999 — left pending owner confirm.
+
+## 2026-06-08 · feat(onboarding): The Mirror — live wedding-website preview ribbon
+
+**Context:** Next chunk of the adaptive-onboarding port (`Onboarding_Production_Port_Plan_2026-06-08.md` §4). A persistent preview that makes the flow read as "watch your wedding website build itself."
+
+**What landed (`onboarding-shell.tsx`, `_styles/onboarding.css`):**
+- A pinned `.mirror` ribbon inside `.top` (under the progress bar), ~56–60px, from the `name` screen onward (hidden during the welcome-moments conversation, on the love reveal, and on the recap/plan/summary full-preview screens).
+- A derived `useMemo` read-model (no new authoritative state): live monogram initials + couple names + accreting `.mir-chip` pills — the love-story tone voice ("Our Love Story"), kind, location, guests, countdown, reception — each popping in once as its source fills, with a payoff caption that flashes over the chip row then reverts. Chips overflow horizontally; the ribbon never grows the no-scroll frame.
+- **COVERT:** chips surface only wedding-website-shaped facts; never a song/editorial/Pakanta chip (only the allowed tone-voice "Our Love Story").
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · covert grep clean · `prefers-reduced-motion` disables the animations.
+
+**SPEC IMPACT:** None — additive read-model over existing onboarding state.
+
+## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
+
+**Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). The nav core swap + the told-back love stage, in one PR (merged cleanly with the concurrent #1071 pure-moment intro).
+
+**What landed (`onboarding-shell.tsx`, `types.ts`, `actions.ts`, new `_components/weave-story.ts`, `_styles/onboarding.css`, migration `20260914000000_love_story_covert_renames.sql`):**
+- **Nav core:** `step === N` → string-id `FLOW_IDS` + `buildSequence(kind, authed, loveSkipped)`; forks (Civil→skip faith · authed→skip account · loveSkipped→skip the 5 love screens) are array membership. `state.step` stays a number (drafts unchanged) = index into the sequence; `activeId` derived per render; `go()`/`goToId()` by sequence index. #1071's `finishMoments` is now `goToId('name')` (id-addressed, civil-safe).
+- **Love stage (6 screens after `name`):** Hook · Spark+Almost · The Yes · Little Things · Voice · Reveal — sentence-stems + causal follow-ups + obstacle beat + two-voice braid + a told-back "published page" reveal via `weave-story.ts`. New `OnboardingState` love fields written to `events` at commit (best-effort). Migration renames `editorial_tone → story_tone` / `editorial_language → story_language` + documents the `love_story` v2 JSONB (applied to prod). **COVERT:** love copy names only "your wedding website" — never editorial/song/Pakanta (grep-gated).
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · `playwright e2e` PASS · covert grep clean.
+
+**SPEC IMPACT:** None on prices/SKUs. Mirror + Stage-4 pricing + dashboard bloom follow in later PRs.
+
+## 2026-06-08 · fix(for-vendors,0015): correct stale vendor pricing + token model on the marketing page
+
+**Context:** Owner 2026-06-08 — the live `/for-vendors` page showed the WRONG vendor pricing (₱2,499/₱5,499 + a ₱1,499 verification fee + a "Free" tier), contradicting the actual backend. The DB (`vendor_billing_catalog`, migration `20260911000000_vendor_tier_reprice_verified_free`) + `/pricing` already reflect the real model — this PR fixes the stale hard-coded marketing page to match. No DB / backend change.
+
+**The real model (already in the DB, now on the page):** **Verified ₱0** (free to get; no unverified-Free tier marketed) · **Pro ₱6,000/28d** (₱60,000/yr · save ₱18,000) · **Enterprise ₱10,000/28d** (₱100,000/yr · save ₱30,000) · **Token = ₱100 flat**, Pro/Enterprise burn **1–3 tokens (₱100–₱300), region-banded** (`token_burn_bands`) to unlock a couple (covers all their services), 100 free on verification. Matches `unlock_vendor_event`.
+
+**What landed (presentation only, 5 files):** `vendor-hero` · `for-vendors-deep-dive` 4-tier table + annuals + Enterprise callout · `stack-close-vendor` · `page-tail` money FAQ · `page.tsx` SEO metadata + 5 schema.org Offers.
+
+**Verify:** markup/SEO copy only, no type/DB change. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** Corrects the corpus stale vendor price (CLAUDE.md SKU table + Pricing.md §0.C) → ₱6,000/₱10,000 + Verified-₱0 + ₱100-token (DECISION_LOG row appended 2026-06-08). Follow-up: customer-dedicated nav + footer vendor menu.
+
+## 2026-06-08 · feat(0016): pure-moment conversational onboarding intro (prototype→prod port)
+
+**Context:** Audit (this session) found the owner-2026-06-05 "pure-moment" conversational welcome — Setnayan "speaks" line-by-line, role/kind/faith asked inline, no Continue button — was built into the production-mirror prototype `Onboarding_Wedding_Flow_2026-06-01.html` but never ported to the live React onboarding (`apps/web/app/onboarding/wedding`), which still opened on a static hero + three separate Continue screens. Owner approved a full faithful port.
+
+**What landed:**
+- **New `app/onboarding/wedding/_components/welcome-moments.tsx`** — self-contained moment player. `speak` lines auto-advance (dwell scales with length; tap to skip) beside the gold Setnayan mark; `ask` beats collect role → kind → faith inline; civil skips the faith beat; the `when` gating mirrors the prototype `MOMENTS` script verbatim. Offers the LIVE active faith set (not the prototype's stale five) so coverage never narrows before the hand-off.
+- **`_components/onboarding-shell.tsx`** — step-0 welcome plays the conversation on first arrival then hands off to the Name screen (step 4); progress bar + bottom Continue are hidden during the conversation; the plain hero shows on back-nav re-entry so the screen never traps. Standalone role/kind/faith screens (steps 1-3) are retained as back/edit targets (matches the prototype).
+- **`_styles/onboarding.css`** — `.onbw`-scoped moment styles (`ob-momentIn`, `fm-react` serif line + `say-mark`, stacked `m-opt` cards) + `prefers-reduced-motion` fallback.
+
+**Not ported (flagged for owner):** the prototype's over-budget venue copy ("A touch over budget — still yours to consider" / "In your range") depends on per-venue pricing that the live `OnboardingVenueResult` / `searchOnboardingReceptionVenues` does not return; surfacing it would mean inventing prices (guardrail), so it needs a real data-wiring task + an owner call on showing venue prices in onboarding. Deferred.
+
+**Verify:** `pnpm typecheck` clean; `pnpm lint` clean (no new warnings — pre-existing warnings only); browser verification on the PR's Vercel preview deploy (`/onboarding/wedding`).
+
+**SPEC IMPACT:** None — brings live code in line with the already-locked owner-2026-06-05 prototype decision (no new product decision). The over-budget venue-pricing gap is flagged for owner, not silently changed.
+
+---
+
+## 2026-06-08 · feat(website): Special Message content block (live invitation site)
+
+**Context:** Increment A.1 of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07`). First content block built on the shipped schema foundation — a couple's note to guests, rendered live on the invitation site.
+
+**What landed:**
+- Migration `20260913000000_invitation_widgets_special_message.sql` — adds the `special_message` widget_type (CHECK + seed trigger + backfill); reads `events.special_message` (shipped 20260912000000).
+- `lib/invitation-widgets.ts` — `special_message` in WIDGET_TYPES + catalog (editor_subroute `special-message`), so it appears in the widget show/hide/reorder editor automatically.
+- `app/[slug]/page.tsx` — `SpecialMessageWidget` rendered on both the authed-guest and anonymous-public paths; **blank message → section hides** (no demo state).
+- New editor `app/dashboard/[eventId]/website/special-message/` (page + server action) — single textarea (≤600 chars) writing `events.special_message`, RLS-gated.
+
+**Verify:** CI typecheck + lint; migration additive + idempotent; applied to prod via `supabase db push`.
+
+**SPEC IMPACT:** §6.5 content block shipped → DECISION_LOG. Remaining blocks (Our Love Story · What to Bring · Our Photos) follow the same pattern.
+
+## 2026-06-08 · fix(marketing,0015): mobile hero overflow — responsive headline sizes
+
+**Context:** Owner 2026-06-08, reviewing setnayan.com on a phone: "having those large texts ate up the whole screen and we already lost the sale." The homepage `Hero` (`app/_components/marketing/_sections.tsx`) hard-coded the "Set na 'yan." `<h1>` to a fixed `fontSize: 152` and the "Plan your wedding the easy way" headline to a fixed `76`, inside `px-14` (56px) side padding — none responsive. On a 375px phone the headline can't fit, pushing the primary CTA far below the fold.
+
+**What landed (Hero only — presentation):**
+- `<h1>` "Set na 'yan." → `fontSize: clamp(3.1rem, 13vw, 152px)` (≈50px on a 375px phone · still 152px on desktop).
+- Headline "Plan your wedding the easy way" → `clamp(1.9rem, 6vw, 76px)`.
+- Hero padding responsive: `px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20` (was fixed `px-14 pt-20`).
+- The secondary "Wedding today. Every celebration tomorrow." pill → `hidden sm:inline-flex`, lede/CTA top-margins tightened on mobile, so the "Start planning · free" CTA sits above the fold on a phone.
+- Desktop hero is visually unchanged (the clamps cap at the original 152/76px).
+
+**Verify:** CSS/markup only, no type changes. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** None (presentation-only; no copy / SKU / pricing change). Tracked follow-up: the other 11 marketing sections share the same fixed `px-14` + `120px` vertical paddings → a broader mobile-padding pass, plus the new `/apps` + `/about` pages, the Premium-stance pricing ladder (a `v2-catalog` data change), and real photography.
 
 ## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
 

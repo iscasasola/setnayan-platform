@@ -47,7 +47,7 @@
  *    created_at / paid_at / reviewed_at / expires_at). `expires_at` is a
  *    subscription-renewal date, surfaced on Home + Orders already; it is
  *    NOT a wedding-preparation milestone, so it is intentionally omitted.
- *  • Concierge / Today's Focus per-step milestones — the 0016 wizard is an
+ *  • Concierge / Setnayan AI per-step milestones — the 0016 wizard is an
  *    ordered card list with NO per-step due/target date column. The only
  *    concierge-adjacent dated data is the statutory windows, wired above as
  *    the Milestone source.

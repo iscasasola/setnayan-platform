@@ -1,9 +1,15 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { BalanceCard } from './_components/balance-card';
 import { VoucherList, type VoucherRow } from './_components/voucher-list';
-import { BuyTokensCta } from './_components/buy-tokens-cta';
+import { BuyTokensCta, type TokenPack } from './_components/buy-tokens-cta';
+import {
+  PendingPurchases,
+  type PendingPurchase,
+} from './_components/pending-purchases';
 import { RecentHistory, type HistoryEntry } from './_components/recent-history';
 
 /**
@@ -70,7 +76,12 @@ export const metadata = { title: 'Tokens · Vendor' };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
-export default async function VendorTokensPage() {
+type Props = {
+  searchParams: Promise<{ ordered?: string; error?: string }>;
+};
+
+export default async function VendorTokensPage({ searchParams }: Props) {
+  const search = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -100,39 +111,72 @@ export default async function VendorTokensPage() {
   }
 
   // ── PARALLEL READS ──────────────────────────────────────────────────────
-  // wallet · vouchers · grants · redemptions all fan out in one round trip.
-  const [walletRes, vouchersRes, grantsRes, redemptionsRes] = await Promise.all(
-    [
-      supabase
-        .from('vendor_wallets')
-        .select('purchased_tokens, earned_tokens')
-        .eq('vendor_id', vendorId)
-        .maybeSingle(),
-      supabase
-        .from('earned_token_vouchers')
-        .select(
-          'voucher_id, tokens_granted, tokens_remaining, granted_at, expires_at, grant_source',
-        )
-        .eq('vendor_id', vendorId)
-        .gt('tokens_remaining', 0)
-        .order('expires_at', { ascending: true })
-        .limit(10),
-      supabase
-        .from('token_grants_log')
-        .select(
-          'grant_id, grant_source, tokens_granted, granted_at, rationale',
-        )
-        .eq('vendor_id', vendorId)
-        .order('granted_at', { ascending: false })
-        .limit(10),
-      supabase
-        .from('token_redemptions_log')
-        .select('redemption_id, tokens_spent, service_code, redeemed_at')
-        .eq('vendor_id', vendorId)
-        .order('redeemed_at', { ascending: false })
-        .limit(10),
-    ],
-  );
+  // wallet · vouchers · grants · redemptions · pending purchases · packs ·
+  // platform settings all fan out in one round trip. Packs + settings drive
+  // the DB-priced buy card + apply-then-pay instructions (no hardcoded prices).
+  const [
+    walletRes,
+    vouchersRes,
+    grantsRes,
+    redemptionsRes,
+    pendingRes,
+    vendorCatalog,
+    settings,
+  ] = await Promise.all([
+    supabase
+      .from('vendor_wallets')
+      .select('purchased_tokens, earned_tokens')
+      .eq('vendor_id', vendorId)
+      .maybeSingle(),
+    supabase
+      .from('earned_token_vouchers')
+      .select(
+        'voucher_id, tokens_granted, tokens_remaining, granted_at, expires_at, grant_source',
+      )
+      .eq('vendor_id', vendorId)
+      .gt('tokens_remaining', 0)
+      .order('expires_at', { ascending: true })
+      .limit(10),
+    supabase
+      .from('token_grants_log')
+      .select('grant_id, grant_source, tokens_granted, granted_at, rationale')
+      .eq('vendor_id', vendorId)
+      .order('granted_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('token_redemptions_log')
+      .select('redemption_id, tokens_spent, service_code, redeemed_at')
+      .eq('vendor_id', vendorId)
+      .order('redeemed_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('vendor_token_purchases')
+      .select('purchase_id, reference_code, token_count, amount_php, created_at')
+      .eq('vendor_id', vendorId)
+      .eq('status', 'pending_payment')
+      .order('created_at', { ascending: false })
+      .limit(10),
+    fetchV2VendorCatalog(),
+    fetchPlatformSettings(supabase),
+  ]);
+
+  // DB-priced token packs (offering_type = 'token_pack'), cheapest first.
+  const packs: TokenPack[] = vendorCatalog
+    .filter((r) => r.offering_type === 'token_pack' && (r.token_grant_count ?? 0) > 0)
+    .map((r) => ({
+      sku_code: r.sku_code,
+      token_count: r.token_grant_count as number,
+      price_php: r.price_php,
+    }))
+    .sort((a, b) => a.token_count - b.token_count);
+
+  const pendingPurchases: PendingPurchase[] = (pendingRes.data ?? []).map((p) => ({
+    purchase_id: p.purchase_id,
+    reference_code: p.reference_code,
+    token_count: p.token_count,
+    amount_php: Number(p.amount_php),
+    created_at: p.created_at,
+  }));
 
   const purchased = walletRes.data?.purchased_tokens ?? 0;
   const earned = walletRes.data?.earned_tokens ?? 0;
@@ -192,6 +236,20 @@ export default async function VendorTokensPage() {
           Purchased tokens never expire.
         </p>
 
+        {search.ordered && (
+          <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            ✓ Purchase started. Pay with the reference{' '}
+            <span className="font-mono font-semibold">{search.ordered}</span> using
+            the instructions below — your tokens land once we confirm the payment.
+          </div>
+        )}
+
+        {search.error && (
+          <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            {search.error}
+          </div>
+        )}
+
         {expiringSoonCount > 0 && (
           <div
             className="mt-4 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
@@ -218,8 +276,9 @@ export default async function VendorTokensPage() {
           <RecentHistory entries={history} />
         </div>
         <div className="space-y-4 sm:space-y-6">
+          <PendingPurchases purchases={pendingPurchases} settings={settings} />
           <VoucherList vouchers={vouchers} />
-          <BuyTokensCta />
+          <BuyTokensCta packs={packs} />
         </div>
       </div>
     </main>

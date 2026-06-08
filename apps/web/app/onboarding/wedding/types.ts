@@ -156,6 +156,26 @@ export interface OnboardingState {
   prefs: OnboardingPrefs;
 
   /**
+   * AI-gate answer (Dream Team chapter · additive). `null` = not yet asked;
+   * `true` = "match the rest for me" (the picks + refine screens show);
+   * `false` = "I'll browse on my own" (skip straight to the plan/offer).
+   * Drives buildSequence membership; persisted so a resumed draft restores the
+   * fork. Default null is treated as "not yet AI" (fork OFF) until tapped.
+   */
+  ai: boolean | null;
+
+  /**
+   * Per-leaf refinement picks (the "what kind of {service}?" passes · Dream Team
+   * chapter · additive). leafKey (a PICK_GROUPS category key — 'ceremony',
+   * 'catering', 'photo_video', 'live_band', …) → selected option labels (multi).
+   * Folded into events.style_preferences.refinements (JSONB) at commit for
+   * DISPLAY + future vendor-match; the bridge ALSO projects the production-known
+   * leaves (ceremony/catering/photo_video) back onto `prefs` so the find search +
+   * recap keep working unchanged. Empty default = no refinements (commit unchanged).
+   */
+  refinements: Record<string, string[]>;
+
+  /**
    * Find-vendor shortlist (screen 12) — the REAL reception venues the couple
    * tapped to shortlist (from the criteria-based marketplace search, no longer
    * the prototype's hardcoded demo cards). Powers the recap count on screen 13
@@ -177,7 +197,7 @@ export interface OnboardingState {
 
   /**
    * Your Plan opt-ins (screen 14 · owner 2026-06-05). guidanceOptIn → free deadline-timeline
-   * guidance (default ON · ₱0 · NOT the retired paid Today's Focus). sendTopInquiries → fan out
+   * guidance (default ON · ₱0 · NOT the retired paid Setnayan AI). sendTopInquiries → fan out
    * the couple's first inquiry to the top-3 best-fit vendors at commit (default OFF · explicit
    * consent · RA 10173).
    */
@@ -193,6 +213,45 @@ export interface OnboardingState {
   inquiriesPerCategory: number;
   interestedServices: string[];
 
+  // -- Love stage fields (the 6 love_* screens · website "Our Love Story" voice) --
+
+  /**
+   * True once the couple taps "Add it later" on love_intro — drops the 5 collection
+   * love screens (the gate love_intro itself always shows). The whole love stage is
+   * optional; a skipped stage leaves the rest of the flow untouched.
+   * COVERT: this stage feeds ONLY the couple's wedding-website story.
+   */
+  loveSkipped: boolean;
+
+  /**
+   * The told-back love-story blob — every field the 6 love screens collect, persisted
+   * verbatim into events.love_story (JSONB). Names are story-shaped / love-shaped
+   * throughout (NEVER editorial/newspaper/song/lyric) so neither the state, the draft,
+   * nor the network payload leaks the downstream reuse. Blank-field defaults keep the
+   * reveal non-empty.
+   */
+  loveStory: LoveStory;
+
+  /**
+   * Love-story voice (love_tone screen) — drives how the website story reads. Maps to
+   * the events.story_tone column (covert rename of editorial_tone). null until picked
+   * (the screen defaults the live preview to 'warm' without committing a value).
+   */
+  storyTone: 'warm' | 'playful' | 'formal' | null;
+
+  /**
+   * Love-story generation language (silent-inherit from the account/site locale). Maps
+   * to events.story_language (covert rename of editorial_language). Reserved — the love
+   * screens don't surface a language picker in V1; it rides the commit for completeness.
+   */
+  storyLanguage: string | null;
+
+  /** A note the couple leaves for their guests on the wedding page. Maps to events.special_message. */
+  specialMessage: string;
+
+  /** When the two of you have been together (free text / year). Maps to events.together_since. */
+  togetherSince: string;
+
   /** Onboarding start (epoch ms) — powers the summary's "you did all this in X minutes" stat
    *  (owner 2026-06-05). Reset on resume after a long idle so it reflects the active sitting. */
   startedAt: number | null;
@@ -202,6 +261,57 @@ export interface OnboardingState {
 
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
+}
+
+/** A moment on the love-story timeline (love_milestones). Month + day are OPTIONAL. */
+export interface LoveMilestone {
+  /** 4-digit year (string, as typed). */
+  year: string;
+  /** 1-2 digit month (optional). */
+  month?: string;
+  /** 1-2 digit day (optional). */
+  day?: string;
+  /** Short title — "Our first trip together…". */
+  title: string;
+}
+
+/**
+ * The told-back love-story blob (the 6 love_* screens → events.love_story JSONB).
+ * v1 keys: how_we_met/met_year/together_since/proposal/proposal_setting/proposal_year.
+ * v2 keys (this redesign): + spark/spark_why/spark_anchor/obstacle/obstacle_kind/
+ * obstacle_kept/proposal_voice/proposal_feel/anchors{}/milestones[].
+ * COVERT: every key is story-shaped — nothing names editorial/song/lyric.
+ */
+export interface LoveStory {
+  /** Legacy free-text "how we met" (kept for v1 back-compat; the v2 flow leads with spark). */
+  how_we_met: string;
+  met_year: string;
+  together_since: string;
+  /** The Spark stem — "the first thing I noticed was…". */
+  spark: string;
+  /** The causal follow-up — "why did that stick?". */
+  spark_why: string;
+  /** The sensory starter-chip opener the couple dropped into the Spark box. */
+  spark_anchor: string;
+  /** The Almost stem — "there was a moment we almost didn't make it because…". */
+  obstacle: string;
+  /** The Almost cue → enum (distance|family|different_paths|doubt|timing|other). */
+  obstacle_kind: string;
+  /** The Almost follow-up — "what kept you going?". */
+  obstacle_kept: string;
+  /** The Yes stem — "I knew the moment…". */
+  proposal: string;
+  /** The Yes setting chip (beach|surprise|home|trip|meaningful). */
+  proposal_setting: string;
+  proposal_year: string;
+  /** Who asked (me|them|both) — unlocks the two-voice braid. */
+  proposal_voice: string;
+  /** The other side's felt moment (required) — seeds the braid. */
+  proposal_feel: string;
+  /** The 2×2 anchor tiles — the little things only the two of them would know. */
+  anchors: { song: string; place: string; injoke: string; food: string };
+  /** User-added moments, auto-sorted chronologically. */
+  milestones: LoveMilestone[];
 }
 
 /** An off-platform vendor the couple added via the "Add your own vendor" sheet (screen 12). */
@@ -303,12 +413,37 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     music: [],
     feel: null,
   },
+  ai: null,
+  refinements: {},
   shortlist: [],
   byoVendors: [],
   guidanceOptIn: true,
   sendTopInquiries: false,
   inquiriesPerCategory: 3,
   interestedServices: [],
+  loveSkipped: false,
+  loveStory: {
+    how_we_met: '',
+    met_year: '',
+    together_since: '',
+    spark: '',
+    spark_why: '',
+    spark_anchor: '',
+    obstacle: '',
+    obstacle_kind: '',
+    obstacle_kept: '',
+    proposal: '',
+    proposal_setting: '',
+    proposal_year: '',
+    proposal_voice: '',
+    proposal_feel: '',
+    anchors: { song: '', place: '', injoke: '', food: '' },
+    milestones: [],
+  },
+  storyTone: null,
+  storyLanguage: null,
+  specialMessage: '',
+  togetherSince: '',
   startedAt: null,
   servicesSeeded: false,
   lastSavedAt: '',

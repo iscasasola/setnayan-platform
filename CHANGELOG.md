@@ -19,6 +19,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** builds the 0008 spec's `venue_known` / `venue_width_m` / `venue_length_m` to-scale mode (free placement; hard wall-collision deferred). → corpus DECISION_LOG.
 
+## 2026-06-08 · fix(onboarding): flow reorder + monogram gate + love-story split + pax/budget defaults + Top-100 songs
+
+**Context:** Owner walked the live wedding onboarding (`/onboarding/wedding`) end-to-end (~15 min) and filed an 11-item punch list. This PR lands the structural + clarity items (Phases A–C of the plan); the heavier DB-backed-refinements, photo-generation, and background-music items follow in later PRs.
+
+**What landed (`app/onboarding/wedding/*`):**
+- **Date before the love story (item 4)** — `FLOW_IDS` now orders `name → date → love stage → region → pax → budget`. `loveSkip` ("Add it later") advances to `region` (the screen after the love stage). So the love-story timeline can anchor to the real wedding year.
+- **Love story = one story per page (items 2 + 4.1)** — the old `love_met` (Spark **and** Almost on one page) is split into **`love_spark`** ("How you two met") + **`love_almost`** ("The almost"), each with a clear `<h1>` + sub. `love_proposal` gains a "The proposal" title; all love eyebrows renumbered "Your love story · N of 4 · …". Every `ScreenId` map + the `goToId('love_met')` "Change a line" link updated.
+- **Timeline year follows the wedding date; shows both until finalized (item 4.2)** — new `weddingYearLabel` (distinct years across `dateCandidates`/window) threaded through `WeaveContext` → the timeline's "We do" row + the reveal dateline render **"2026 / 2027"** while candidate dates straddle a year boundary, collapsing once narrowed. (`weave-story.ts`.)
+- **Monogram finalize gate (item 3)** — new `monogramFinalized` state; the name screen's Continue is blocked until the couple taps **"Use this monogram"** (→ "✓ Monogram set" + "Change design"). "Generate another design" + editing a first name clear it; the 30s auto-restyle freezes once locked.
+- **Guests start at 200 (item 6)** — `EMPTY_ONBOARDING_STATE.pax = 200`.
+- **Budget starts halfway (item 7)** — entering the budget screen unset seeds the slider to the **midpoint** of the pax-derived `[floor, ceiling]`.
+- **Songs: Top-100 recommended + pinned search (item 5)** — `song-bank-step.tsx` default view restored to the curated **Top-100** (`fetchSongBankCuratedAction`), every row playable, picks pinned in; `SongPreviewList` gains `alwaysShowAll`. Search bar stays pinned. **⚠ Reverses the 2026-06-05 "search-only / songlist must not show" lock** (owner re-reversed 2026-06-08).
+
+**Verify:** `tsc --noEmit` ✓. Browser-verified (dev server, seeded drafts): date at step-after-name ✓ · love_spark/love_almost distinct titled pages ✓ · "We do" row = "2026 / 2027" for two-year candidates ✓ · Continue disabled on name until "Use this monogram" → enables ✓ · pax = 200 ✓ · budget opens at ₱1,950,000 (midpoint of 300k–3.6M) ✓ · songs recommended-list path + pinned search bar on-screen ✓ (Top-100 data + playback confirm on the Vercel preview).
+
+**SPEC IMPACT:** Reverses the **2026-06-05 search-only song lock** (item 5). Onboarding flow reorder + love-story-page split + monogram finalize gate + pax/budget defaults. → corpus `DECISION_LOG.md` (logged).
+
 ## 2026-06-08 · feat(website): Increments C + D — lifecycle phase engine + Editorial recap page (FLAG-DARK)
 
 **Context:** The two interdependent centerpiece pieces of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §1–2, §6.3–6.8), built **in parallel** (two isolated-worktree agents) and integrated here. **C** = the date engine that auto-switches the site through RSVP → Event → Editorial phases and gates widgets per phase. **D** = the post-wedding "newspaper front page" content that the Editorial phase renders. **Entirely behind `WEBSITE_PHASES_ENABLED` (env, default OFF)** — live sites are byte-for-byte unchanged until the flag flips, which also lets the owner preview on a real event before going live. **No migration** (uses existing columns/tables from the `20260912000000` foundation).

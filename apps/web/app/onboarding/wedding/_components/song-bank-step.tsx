@@ -2,22 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ItunesResult } from '@/lib/itunes-preview';
-import { searchSongBankAction, cacheSongItunesAction, type SongBankItem } from '../actions';
+import { searchSongBankAction, cacheSongItunesAction, fetchSongBankCuratedAction, type SongBankItem } from '../actions';
 import { SongPreviewList } from './song-preview-list';
 
 /**
  * Song Bank — the onboarding music step (Onboarding_Style_and_Song_Bank_2026-06-04 §5).
  *
- * SEARCH-ONLY (owner 2026-06-05: "our songlist must not show. we only want the
- * search bar"): there is NO browseable catalogue list. The couple SEARCHES our
- * curated `songs` bank — search hits OUR list (`searchSongBankAction` →
- * `lib/songs.searchSongBank`, a DB query), never iTunes; iTunes is used ONLY to
- * resolve each result's album cover + 30-sec preview (and the resolved value is
- * cached back to the DB, §5.4, so production trends to near-zero live calls).
- *
- * Default (no query) view shows ONLY the couple's own picks, so they can see and
- * remove their ≥10 selection — not the catalogue. Search pinned at the bottom.
+ * RECOMMENDED-LIST + SEARCH (owner 2026-06-08: "song list must still have the top 100
+ * recommended songs … can it also play. search bar should never go off the screen" —
+ * reverses the 2026-06-05 search-only lock). The default (no-query) view shows the curated
+ * TOP-100 recommended songs (`fetchSongBankCuratedAction` → `lib/songs.fetchSongBankCurated`),
+ * every one PLAYABLE via SongPreviewList, with the couple's own picks pinned in so they're
+ * always removable. Searching hits OUR whole bank (`searchSongBankAction` →
+ * `lib/songs.searchSongBank`), never iTunes; iTunes resolves only each row's album cover +
+ * 30-sec preview and is cached back to the DB (§5.4), so production trends to near-zero live
+ * calls. The search bar stays pinned at the bottom (`.songbank-bar`, flex:0 0 auto) while the
+ * list scrolls inside `.songresults` — so it never scrolls off-screen.
  */
+
+/** How many recommended songs the default browse shows (owner 2026-06-08 "top 100"). */
+const RECOMMENDED_LIMIT = 100;
 
 const SEARCH_DEBOUNCE_MS = 240;
 
@@ -46,6 +50,20 @@ export function SongBankStep({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Row[]>([]);
   const [searching, setSearching] = useState(false);
+  // The curated Top-100 recommended list — loaded once on mount (owner 2026-06-08).
+  const [curated, setCurated] = useState<Row[]>([]);
+  const [curatedLoaded, setCuratedLoaded] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void fetchSongBankCuratedAction().then((items) => {
+      if (!live) return;
+      setCurated(items.slice(0, RECOMMENDED_LIMIT).map(toRow));
+      setCuratedLoaded(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const n = picked.length;
   const q = query.trim();
@@ -93,15 +111,21 @@ export function SongBankStep({
     [],
   );
 
-  // Default (no-query) view = the couple's own picks ONLY (no catalogue browse).
-  const pickedRows = useMemo<Row[]>(
-    () => picked.map((lbl) => seenRef.current.get(lbl) ?? rowFromLbl(lbl)),
-    [picked],
-  );
+  // Default (no-query) view = the curated Top-100 recommended songs (owner 2026-06-08),
+  // with any of the couple's picks that fall OUTSIDE the Top-100 pinned in front so they
+  // stay visible + removable. Both the recommended songs and the picks are playable.
+  const defaultRows = useMemo<Row[]>(() => {
+    const inCurated = new Set(curated.map((r) => r.lbl));
+    const extraPicks = picked
+      .filter((lbl) => !inCurated.has(lbl))
+      .map((lbl) => seenRef.current.get(lbl) ?? rowFromLbl(lbl));
+    return [...extraPicks, ...curated];
+  }, [curated, picked]);
 
-  const rows = isSearch ? results : pickedRows;
-  // Search mode → pass the query so every server result shows. Picked view → ''
-  // so SongPreviewList shows them all (they're all selected).
+  const rows = isSearch ? results : defaultRows;
+  // Search mode → pass the query so every server result shows. Default browse → ''
+  // so SongPreviewList renders them all (alwaysShowAll keeps the whole Top-100 visible
+  // even after the couple has picked ≥10).
   const listQuery = isSearch ? q : '';
 
   const header = isSearch
@@ -110,9 +134,9 @@ export function SongBankStep({
       : results.length
         ? 'Tap to preview · tap again to add'
         : 'No match in our song bank — try another spelling'
-    : n === 0
-      ? 'Search for the songs you love'
-      : 'Your songs';
+    : !curatedLoaded
+      ? 'Loading recommended songs…'
+      : 'Top 100 for your day · tap to preview, tap again to add';
 
   return (
     <div className="songpick songbank">
@@ -124,6 +148,7 @@ export function SongBankStep({
           query={listQuery}
           onToggle={onToggle}
           onCacheSong={onCacheSong}
+          alwaysShowAll={!isSearch}
         />
       </div>
 

@@ -39,6 +39,7 @@ export function SongPreviewList({
   query,
   onToggle,
   onCacheSong,
+  alwaysShowAll = false,
 }: {
   songs: Song[];
   pickedLbls: string[];
@@ -46,6 +47,11 @@ export function SongPreviewList({
   onToggle: (lbl: string) => void;
   /** Persist a freshly live-resolved preview/artwork to the DB cache (§5.4). */
   onCacheSong?: (s: { title: string; artist: string; result: ItunesResult }) => void;
+  /**
+   * When true and there's no query, show EVERY row (the recommended Top-100 browse,
+   * owner 2026-06-08) instead of collapsing to only the picks once ≥10 are chosen.
+   */
+  alwaysShowAll?: boolean;
 }) {
   const picked = useMemo(() => new Set(pickedLbls), [pickedLbls]);
   const n = pickedLbls.length;
@@ -210,7 +216,7 @@ export function SongPreviewList({
       <audio ref={audioRef} preload="none" />
       {songs.map(({ title, artist, lbl }) => {
         const sel = picked.has(lbl);
-        const show = q ? `${title} ${artist}`.toLowerCase().includes(q) : sel || n < 10;
+        const show = q ? `${title} ${artist}`.toLowerCase().includes(q) : alwaysShowAll || sel || n < 10;
         const a = art[lbl];
         const cover = a && a !== 'loading' && a.status === 'ok' ? a.artworkUrl : null;
         const isPlaying = playing === lbl;

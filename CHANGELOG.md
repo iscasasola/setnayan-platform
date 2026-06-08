@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(onboarding): flow reorder + monogram gate + love-story split + pax/budget defaults + Top-100 songs
+
+**Context:** Owner walked the live wedding onboarding (`/onboarding/wedding`) end-to-end (~15 min) and filed an 11-item punch list. This PR lands the structural + clarity items (Phases A–C of the plan); the heavier DB-backed-refinements, photo-generation, and background-music items follow in later PRs.
+
+**What landed (`app/onboarding/wedding/*`):**
+- **Date before the love story (item 4)** — `FLOW_IDS` now orders `name → date → love stage → region → pax → budget`. `loveSkip` ("Add it later") advances to `region` (the screen after the love stage) instead of the old forward-jump to `date`. So the love-story timeline can anchor to the real wedding year.
+- **Love story = one story per page (items 2 + 4.1)** — the old `love_met` (which crammed the Spark **and** the Almost onto one page) is split into **`love_spark`** ("How you two met") + **`love_almost`** ("The almost"), each with a clear `<h1>` + sub. `love_proposal` gains a "The proposal" title; all love eyebrows renumbered "Your love story · N of 4 · …". Every `ScreenId` map (`NEXT_LABEL_BY_ID`, `CAN_SKIP_BY_ID`, `LOVE_SKIPPABLE`, `canContinue`) + the `goToId('love_met')` "Change a line" link updated.
+- **Timeline year follows the wedding date; shows both until finalized (item 4.2)** — new `weddingYearLabel` (distinct years across `dateCandidates`/window) threaded through `WeaveContext` → the love timeline's "We do" row + the reveal dateline render **"2026 / 2027"** while candidate dates straddle a year boundary, collapsing to one year once narrowed. (`weave-story.ts` `milestoneRows`/`dateline`.)
+- **Monogram finalize gate (item 3)** — new `monogramFinalized` state; the name screen's Continue is blocked until the couple taps **"Use this monogram"** (→ "✓ Monogram set" + "Change design"). "Generate another design" + editing a first name clear it; the 30s auto-restyle freezes once locked.
+- **Guests start at 200 (item 6)** — `EMPTY_ONBOARDING_STATE.pax = 200`.
+- **Budget starts halfway (item 7)** — entering the budget screen unset seeds the slider to the **midpoint** of the pax-derived `[floor, ceiling]` via `onBudgetAmount`.
+- **Songs: Top-100 recommended + pinned search (item 5)** — `song-bank-step.tsx` default (no-query) view restored to the curated **Top-100** (`fetchSongBankCuratedAction`), every row playable, picks pinned in; `SongPreviewList` gains `alwaysShowAll` so the list doesn't collapse to picks once ≥10. Search bar stays pinned (`.songbank-bar`). **⚠ Reverses the 2026-06-05 "search-only / songlist must not show" lock** (owner re-reversed 2026-06-08).
+
+**Verify:** `tsc --noEmit` ✓. Browser-verified (dev server, seeded drafts): date at step-after-name ✓ · love_spark/love_almost distinct titled pages ✓ · "We do" row = "2026 / 2027" for two-year candidates ✓ · Continue disabled on name until "Use this monogram" → enables ✓ · pax input+slider = 200 ✓ · budget opens at ₱1,950,000 (midpoint of 300k–3.6M) ✓ · songs recommended-list path + pinned search bar on-screen ✓ (Top-100 data + playback confirm on the Vercel preview w/ live Supabase).
+
+**SPEC IMPACT:** Reverses the **2026-06-05 search-only song lock** (item 5) → restored Top-100 recommended list. Onboarding flow reorder + love-story-page split + monogram finalize gate + pax/budget defaults. → corpus `DECISION_LOG.md` (logged).
+
 ## 2026-06-08 · feat(seating): mobile table-card list + Floor-plan/List toggle (0008)
 
 **Context:** The chair-level spatial canvas can't hold many tables on a phone — each chair-level table is ~220px across, so only ~2-3 fit on a ~340px-wide canvas. A 50-table wedding was unusable on mobile. The 0008 spec already anticipated this ("the spatial drag-drop editor is intentionally desktop-only; mobile is for review + quick edits via a card list"); we'd shipped the canvas everywhere. This is PR 1 of 2 for "scale to 50+ tables" (PR 2 = canvas zoom/pan + level-of-detail).

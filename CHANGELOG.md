@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(marketing,0015): mobile hero overflow — responsive headline sizes
+
+**Context:** Owner 2026-06-08, reviewing setnayan.com on a phone: "having those large texts ate up the whole screen and we already lost the sale." The homepage `Hero` (`app/_components/marketing/_sections.tsx`) hard-coded the "Set na 'yan." `<h1>` to a fixed `fontSize: 152` and the "Plan your wedding the easy way" headline to a fixed `76`, inside `px-14` (56px) side padding — none responsive. On a 375px phone the headline can't fit, pushing the primary CTA far below the fold.
+
+**What landed (Hero only — presentation):**
+- `<h1>` "Set na 'yan." → `fontSize: clamp(3.1rem, 13vw, 152px)` (≈50px on a 375px phone · still 152px on desktop).
+- Headline "Plan your wedding the easy way" → `clamp(1.9rem, 6vw, 76px)`.
+- Hero padding responsive: `px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20` (was fixed `px-14 pt-20`).
+- The secondary "Wedding today. Every celebration tomorrow." pill → `hidden sm:inline-flex`, and lede/CTA top-margins tightened on mobile, so the "Start planning · free" CTA sits above the fold on a phone.
+- Desktop hero is visually unchanged (the clamps cap at the original 152/76px).
+
+**Verify:** CSS/markup only, no type changes. Vercel preview + Lighthouse on the PR.
+
+**SPEC IMPACT:** None (presentation-only; no copy / SKU / pricing change). Tracked follow-up: the other 11 marketing sections share the same fixed `px-14` + `120px` vertical paddings → a broader mobile-padding pass, plus the new `/apps` + `/about` pages, the Premium-stance pricing ladder (a `v2-catalog` data change), and real photography.
+
 ## 2026-06-07 · feat(vendor-tiers): Phase B — count caps (agents · portfolio · parent categories)
 
 **Context:** Phase B of the tier matrix (owner: build all phases in sequence). Enforce the numeric caps from `Vendor_Tier_Capability_Matrix_2026-06-07.md`, all reading the `lib/vendor-tier-caps.ts` helper. No migration (app-layer). A pre-build audit found 2 of the 5 caps are blocked — see "Deferred" below.

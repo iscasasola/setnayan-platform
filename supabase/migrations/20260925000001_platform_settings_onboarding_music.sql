@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260925000000_platform_settings_onboarding_music.sql
+-- 20260925000001_platform_settings_onboarding_music.sql
 --
 -- Onboarding background music (owner 2026-06-08). Instead of committing an
 -- audio file, the owner uploads an OWNED / AI-generated track (e.g. a Suno

@@ -129,11 +129,13 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
-    // Setnayan AI REMOVED COMPLETELY (owner 2026-06-05) — the retired AI
-    // planner SKU must not surface on /pricing, /for-vendors, or the admin
-    // discount picker (the three consumers of this reader). Excluded here so it
-    // drops everywhere without a DB write (the row stays in the table, just
-    // unsurfaced). See DECISION_LOG 2026-06-05.
+    // RETIRED SKUs must not surface on /pricing, /for-vendors, the admin discount
+    // picker, or the onboarding bundle — honor the is_active flag (owner 2026-06-08:
+    // the only way to retire a customer SKU is is_active=false). Previously this
+    // reader IGNORED is_active, so admin retirements had NO effect on the live site.
+    .eq('is_active', true)
+    // Belt-and-suspenders: the old Today's-Focus / Setnayan-AI-planner SKU stays
+    // excluded by name too (it is also is_active=false). See DECISION_LOG 2026-06-05.
     .neq('service_code', 'TODAYS_FOCUS')
     .order('service_code', { ascending: true });
 

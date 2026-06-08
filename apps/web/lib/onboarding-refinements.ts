@@ -68,6 +68,31 @@ export const getOnboardingRefinements = cache(async (): Promise<RefineLeaf[]> =>
       const opt: RefineOption = { emoji: o.emoji ?? '', label: o.label_en, key: o.option_key, photo: o.photo };
       leaf.options.push(opt);
     }
+    // Admin-uploaded photos are stored as `r2://…` refs (the seeded ones are
+    // /public paths, used verbatim). Resolve ONLY the r2 refs to display URLs —
+    // gathered + presigned in parallel so a no-r2 catalogue costs zero awaits.
+    const r2refs = new Set<string>();
+    for (const leaf of byLeaf.values()) {
+      if (leaf.mainPhoto.startsWith('r2://')) r2refs.add(leaf.mainPhoto);
+      for (const o of leaf.options) if (o.photo && o.photo.startsWith('r2://')) r2refs.add(o.photo);
+    }
+    if (r2refs.size > 0) {
+      const { displayUrlForStoredAsset } = await import('./uploads');
+      const pairs = await Promise.all(
+        [...r2refs].map(async (ref) => [ref, await displayUrlForStoredAsset(ref).catch(() => null)] as const),
+      );
+      const urlByRef = new Map(pairs);
+      for (const leaf of byLeaf.values()) {
+        const m = urlByRef.get(leaf.mainPhoto);
+        if (m) leaf.mainPhoto = m;
+        for (const o of leaf.options) {
+          if (o.photo) {
+            const u = urlByRef.get(o.photo);
+            if (u) o.photo = u;
+          }
+        }
+      }
+    }
     return [...byLeaf.values()];
   } catch {
     return REFINEMENTS_DATA;

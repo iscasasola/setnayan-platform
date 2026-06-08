@@ -61,8 +61,12 @@ export async function uploadStylistAsset(
 
   if (!file) throw new Error('file required');
   if (!label) throw new Error('label required');
-  if (assetType !== 'venue_scene' && assetType !== 'figure_attire')
-    throw new Error('asset_type must be venue_scene or figure_attire');
+  if (
+    assetType !== 'venue_scene' &&
+    assetType !== 'figure_attire' &&
+    assetType !== 'florals'
+  )
+    throw new Error('asset_type must be venue_scene, figure_attire, or florals');
 
   const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
   const safeExt = ['png', 'jpg', 'jpeg', 'webp', 'avif'].includes(ext) ? ext : 'png';

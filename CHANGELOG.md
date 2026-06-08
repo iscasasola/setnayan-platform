@@ -9,16 +9,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. a Suno instrumental); the onboarding streams it. Owner-supplied + swappable with no deploy. Mirrors the per-event website background-music feature (site-chrome, Increment B).
 
 **What landed:**
-- **Migration `20260925000000`** — `platform_settings.onboarding_bg_music_r2_key` (r2:// ref) + `onboarding_bg_music_enabled` (bool, default TRUE). Applied to prod directly via `db query` (`ADD COLUMN IF NOT EXISTS`) — the remote ledger had an orphan `20260924000000` (the parallel mood-board PR #1120's migration, not yet on local main) that blocked `db push --include-all`; my file ships idempotent. Renamed off the colliding `20260924000000`.
-- **`lib/platform-settings.ts`** — type/SELECT/FALLBACK gain the 2 columns; `fetchOnboardingBgMusicUrl()` (admin-client read + `displayUrlForStoredAsset` presign, try/catch → null) resolves the stream URL server-side without a session / anon RLS.
-- **`/admin/settings`** — "Onboarding background music" card: `<FileUpload>` (audio ≤40 MB) + enable toggle + an **owned/AI-generated-track-only** helper; `updateOnboardingMusic` action ("enabled with no track" coerced off).
-- **`/api/upload`** — audio per-type cap 20 → 40 MB (image cap unchanged at 10 MB; existing flows byte-identical).
-- **`onboarding/page.tsx` + `onboarding-shell.tsx` + new `onboarding-music.tsx`** — header mute/unmute **pill** (`.brandrow`, `margin-left:auto`, beside Skip); streams (`preload="none"` + `loop`), **starts softly on the first user gesture**, volume 0.32, remembers mute in `localStorage`, pauses on unmount. **Unset/disabled → never mounts (silent).**
+- **Migration `20260925000000`** — `platform_settings.onboarding_bg_music_r2_key` + `onboarding_bg_music_enabled` (default TRUE). Applied to prod directly via `db query` (`ADD COLUMN IF NOT EXISTS`) — the remote ledger had an orphan `20260924000000` (the parallel mood-board PR's migration) blocking `db push`; my file ships idempotent. Renamed off the colliding `20260924000000`.
+- **`lib/platform-settings.ts`** — type/SELECT/FALLBACK + `fetchOnboardingBgMusicUrl()` (admin-client read + presign, try/catch → null) resolves the stream URL server-side.
+- **`/admin/settings`** — "Onboarding background music" card: `<FileUpload>` (audio ≤40 MB) + enable toggle + **owned/AI-generated-track-only** helper; `updateOnboardingMusic` action.
+- **`/api/upload`** — audio cap 20 → 40 MB (image cap unchanged; existing flows byte-identical).
+- **`onboarding/page.tsx` + `onboarding-shell.tsx` + new `onboarding-music.tsx`** — header mute/unmute **pill**; streams (`preload="none"` + `loop`), **starts on the first user gesture**, low volume, mute remembered in `localStorage`. **Unset/disabled → never mounts (silent).**
 
-**Verify:** `tsc --noEmit` ✓. Prod columns confirmed. Pill renders top-right with no overlap (forced test src, screenshot-verified, reverted). End-to-end confirms on the deploy once a track is uploaded.
+**Verify:** `tsc --noEmit` ✓. Prod columns confirmed. Pill layout screenshot-verified (forced test src, reverted). End-to-end confirms on the deploy once a track is uploaded.
 
-**SPEC IMPACT:** New admin onboarding-music uploader on `platform_settings`; honors "Setnayan-owned AI-generated catalogue only" via the uploader's owned-track helper. → corpus `DECISION_LOG.md`. (Also corrected there: item-10 Recraft photos ≈ ₱530, not ₱11.5k.)
+**SPEC IMPACT:** New admin onboarding-music uploader on `platform_settings`; honors "Setnayan-owned AI-generated catalogue only" via the owned-track helper. → corpus `DECISION_LOG.md`. (Also corrected there: item-10 Recraft photos ≈ ₱530, not ₱11.5k.)
 
+## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
+
+**Context:** Owner: "fully redesign the mood board… change the colors of specific parts of a photo like a color range selector. then just alter the hue, contrast, brightness or pick from the palette given… Flower? Attires? Reception? Church?" Coverage = Church · Reception · Attire · Flowers; tool depth = full recolor (both picked via in-session questions). Shipped as **one PR** (the planned 3-PR split was collapsed to dodge a fast-moving `main`; the Recraft Flowers seed + corpus sync follow separately).
+
+**Engine (`apps/web/lib/color-recolor.ts`, new):** color math lifted out of the admin-only Color Range Manipulator into a shared, DOM-free engine. `recolorPixel` has two modes — `palette` (snap to a target, unchanged HSL substitution) and `adjust` (hue shift / saturation / brightness / contrast). Plus `recolorRGBA` (per-pixel best-slot match), `buildMatchMask`, snapshot serialize/parse. Pure + headless-tested (15/15 assertions).
+
+**Recolor Studio (`recolor-studio.tsx`, new):** couples open a curated photo, pick a part (pre-tagged color range or eyedrop), then snap it to a palette color OR adjust H/S/B/C by hand. Live browser Canvas recolor (₱0 marginal cost). Read-only mode re-renders pinned saves.
+
+**4 chapters (`moodboard-chapters.tsx`, new + `page.tsx`):** replaces the 2-pillar "Visual preview" with **Church · Reception · Attire · Flowers**; pinned looks up top; silhouette attire guide kept below. Admin tagger refactored onto the shared engine (preview unchanged). Removed dead `visual-preview.tsx`.
+
+**Persistence + schema:** `event_moodboard_saves.palette_snapshot` now stores a self-describing `{ slot: { def, edit } }` (legacy `{ slot: "#hex" }` still parses). Migration `20260924000000` (applied to prod) widens `moodboard_library_assets.asset_type` + `event_moodboard_saves.pillar` to allow `'florals'`. Additive + idempotent.
+
+**SPEC IMPACT:** 0010 Mood Board — couples can now recolor library photos (was admin-only / view-only) and a Flowers chapter is added. Decision to ratify in `DECISION_LOG.md`: **couple recolor of library photos = FREE / AI Composite Scene generator = stays paid** (per the spec's Professional Mood Board tier). Corpus 0010 AS-BUILT + DECISION_LOG row + Recraft Flowers seed follow.
 ## 2026-06-09 · feat(services): Budget "Build" — Build tab hosts the allocation planner (Phase 2a, flag-dark)
 
 **Context:** Phase 2 of `Budget_Build_Services_Takeover_2026-06-08.md`. The takeover's **Build** tab (a stub in Phase 1) now renders the real median-anchored allocation planner — the auto-fit plan, per-service ₱ targets + shopping ranges, the Cushion / shortfall readouts, and the peso-pin tilt (Splurge / Standard / Save). Reuses the engine + UI already shipped on the Budget tab — no fork.
@@ -74,7 +87,6 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. `test-maria-and-jose` (event_date 2026-06-01) now computes `editorial`; a future-dated event stays `rsvp`. **Requires the flag ON + a redeploy to see live** — this bug would have shown RSVP even with the flag on, so it's a prerequisite for the Editorial phase to ever appear.
 
 **SPEC IMPACT:** correctness fix to the §1 phase model (Increment C). → DECISION_LOG.
-
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 
 **Context:** Owner: "set the length and width dimension of the venue… keep the tables in their right size." Tables previously rendered at a fixed on-screen size unrelated to real metres. Now the couple can enter the room's W×L and the floor plan renders **to scale** so it's obvious what fits. (Next, PR D: the A4 seating PDF — mood-board/blueprint modes, monogram + names + date + Setnayan logo + QR, floor plan page + arrangement pages.)

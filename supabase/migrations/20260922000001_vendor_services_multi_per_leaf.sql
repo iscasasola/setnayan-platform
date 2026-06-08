@@ -1,5 +1,7 @@
 -- ============================================================================
--- 20260922000000_vendor_services_multi_per_leaf.sql
+-- 20260922000001_vendor_services_multi_per_leaf.sql (renamed from ...000000 to
+-- clear a duplicate-timestamp collision with the parallel event_floor_plan
+-- migration — see CHANGELOG 2026-06-08 C+D entry).
 -- Vendor tier feature #1 — N service listings per leaf category (cap 2/2/5/∞).
 -- Canonical: Vendor_Tier_Capability_Matrix_2026-06-07.md ("Creating Package" =
 -- # of service listings per leaf, owner-defined 2026-06-07).

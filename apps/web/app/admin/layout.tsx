@@ -23,9 +23,11 @@ export const metadata = { title: 'Admin · Setnayan' };
  * + 14th rows + v2.1 brief canonical lock (10th 2026-05-28 row). Replaces
  * the prior horizontal pill bar (apps/web/app/admin/_components/admin-nav.tsx
  * 19-110) with the shared SidebarShell + SidebarSection + SidebarItem
- * primitives from PR #603. Mobile chrome moves to AdminBottomNav with
- * 4 overflow landing pages at /admin/queues + /admin/directory +
- * /admin/money + /admin/more.
+ * primitives from PR #603. Mobile chrome moves to AdminBottomNav — a 4-tab
+ * spine (Home · Work · Directory · More) with 3 overflow landing pages at
+ * /admin/work + /admin/directory + /admin/more (legacy /admin/queues +
+ * /admin/money redirect to /admin/work + /admin/more) — ops-shaped nav
+ * redesign 2026-06-08.
  *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
  * main content area with offset). topBar slot carries the admin utilities

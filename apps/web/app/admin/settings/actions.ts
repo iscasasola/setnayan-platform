@@ -52,6 +52,42 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   return t.length > 0 ? t : null;
 }
 
+function r2RefOrNull(v: FormDataEntryValue | null): string | null {
+  return typeof v === 'string' && v.startsWith('r2://') ? v : null;
+}
+
+/**
+ * Onboarding background music (owner 2026-06-08). The owner uploads an OWNED /
+ * AI-generated track (e.g. Suno) via <FileUpload> → /api/upload (the file is
+ * already in R2 and the form carries the r2:// ref by the time this runs);
+ * /onboarding/wedding streams it. Music plays only when enabled AND a track is
+ * set — "enabled with no track" is coerced off so the player never mounts with
+ * no source (same rule as the per-event site-chrome music).
+ */
+export async function updateOnboardingMusic(formData: FormData) {
+  await requireAdmin();
+  const musicRef = r2RefOrNull(formData.get('bg_music_url'));
+  const enabledRequested = formData.get('onboarding_bg_music_enabled') === 'on';
+  const enabled = enabledRequested && Boolean(musicRef);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({
+      onboarding_bg_music_r2_key: musicRef,
+      onboarding_bg_music_enabled: enabled,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  if (error) {
+    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath('/admin/settings');
+  revalidatePath('/onboarding/wedding');
+  redirect('/admin/settings?saved=1');
+}
+
 export async function saveBusinessIdentity(formData: FormData) {
   await requireAdmin();
 

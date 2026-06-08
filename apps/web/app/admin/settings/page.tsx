@@ -1,9 +1,11 @@
 import Link from 'next/link';
-import { Activity, ArrowRight, Building, CreditCard } from 'lucide-react';
+import { Activity, ArrowRight, Building, CreditCard, Music } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { saveBusinessIdentity } from './actions';
+import { saveBusinessIdentity, updateOnboardingMusic } from './actions';
 import { TinInput } from './_components/tin-input';
 import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
 
@@ -38,6 +40,18 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
+
+  // Onboarding background music — resolve the stored r2:// ref to a display URL
+  // so the uploader can show the current track (owner 2026-06-08).
+  const musicRef =
+    typeof settings.onboarding_bg_music_r2_key === 'string' &&
+    settings.onboarding_bg_music_r2_key.startsWith('r2://')
+      ? settings.onboarding_bg_music_r2_key
+      : null;
+  const musicUrl = musicRef ? await displayUrlForStoredAsset(musicRef) : null;
+  const musicDisplay: Record<string, string> = {};
+  if (musicRef && musicUrl) musicDisplay[musicRef] = musicUrl;
+  const musicEnabled = settings.onboarding_bg_music_enabled === true;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -144,6 +158,53 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           </SubmitButton>
         </div>
       </form>
+
+      <div className="mt-10 space-y-4 border-t border-ink/10 pt-8">
+        <header className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Music className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Onboarding background music
+            </h2>
+          </div>
+          <p className="text-sm text-ink/60">
+            A soft, low-volume soundtrack that plays while couples go through the
+            wedding onboarding at <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">/onboarding/wedding</code>.
+            It never blasts on — it starts quietly on the first tap and each
+            couple can mute it. Upload an <strong>owned / AI-generated</strong>{' '}
+            track only (e.g. your Suno instrumental) — Setnayan serves the file,
+            so it must be music you own the rights to. Leave empty for no music.
+          </p>
+        </header>
+
+        <form action={updateOnboardingMusic} className="space-y-3 rounded-2xl border border-ink/10 bg-cream/40 p-5">
+          <FileUpload
+            bucket="media"
+            pathPrefix="onboarding/background-music"
+            name="bg_music_url"
+            multiple={false}
+            maxSizeMB={40}
+            acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+            currentValue={musicRef}
+            initialDisplayUrls={musicDisplay}
+            variant="wide"
+            label="Music file"
+            help="MP3, M4A, AAC, OGG, or WAV. Up to 40 MB (a ~30-min instrumental fits). A seamless loop also works."
+          />
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              name="onboarding_bg_music_enabled"
+              defaultChecked={musicEnabled}
+              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+            Play background music during onboarding
+          </label>
+          <SubmitButton className="button-primary inline-flex items-center gap-2" pendingLabel="Saving…">
+            Save onboarding music
+          </SubmitButton>
+        </form>
+      </div>
 
       <div className="mt-10 border-t border-ink/10 pt-8">
         <Link

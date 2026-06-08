@@ -23,6 +23,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
+import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 
@@ -74,11 +75,14 @@ export default async function OnboardingWeddingPage({
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
+    // Owner-uploaded onboarding background music (owner 2026-06-08). Null when
+    // unset/disabled/no service-role env → the shell's player never mounts.
+    fetchOnboardingBgMusicUrl(),
   ]);
   const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
@@ -94,6 +98,7 @@ export default async function OnboardingWeddingPage({
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
       pricing={pricing}
+      bgMusicUrl={bgMusicUrl}
     />
   );
 }

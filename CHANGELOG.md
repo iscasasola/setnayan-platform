@@ -15,6 +15,81 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Migration `20260925000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
 
 **SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
+## 2026-06-09 · feat(services): Budget "Build" — available dates for your team in the Lock tab (flag-dark)
+
+**Context:** The "available dates" half of Phase 4's spec. The takeover's **Lock** tab now shows the wedding dates the couple's **confirmed team can all do** — the vendor-availability intersection — right where the locked vendors live. Reuses the exact event-home intersection (no new query type, no migration).
+
+**What landed (`vendors/page.tsx`, flag-gated):** when the event date is at year/month precision with ≥1 confirmed vendor, the page resolves `getCommonAvailableDays()` (same helper event Home uses) and renders `VendorAvailabilityIntersection` beneath `BuildLocked` in the Lock slot — the day chips / "N days work" / "no common day → release a vendor" states, each tappable to finalize the date. Fails silent (no panel) on any read error or when precision is already a specific day.
+
+**Reuse, not rebuild:** `lib/vendor-availability.ts` (`getCommonAvailableDays`, `rangeFromPrecision`, `formatDayKey`) + `_components/vendor-availability-intersection.tsx`, both shipped.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF).
+
+**SPEC IMPACT:** Completes the available-dates piece of `Budget_Build_Services_Takeover_2026-06-08.md` (over the confirmed team; per-saved-build dates remain a noted follow-on). Only the **Pin constraint solver** (Phase 3) remains. Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(services): Budget "Build" — save A/B/C builds in Compare (Phase 2b, flag-dark)
+
+**Context:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. The Compare tab gains persistence — couples can **save a basket (Lean/Fits/Stretch) into a named slot (A/B/C)** and compare the builds they've banked over time (vary budget/services on Build between saves).
+
+**Migration (`20260926000000_budget_builds.sql`, APPLIED to prod):** new `public.budget_builds` (event_id · label A/B/C · title · budget_php · basket · total_php · snapshot jsonb), UNIQUE(event_id,label) for upsert, **couple-own RLS** mirroring `budget_allocation_decisions`. Additive + idempotent; read/written ONLY behind `BUDGET_BUILD_ENABLED`, so prod is unchanged until the flag flips.
+
+**What landed:**
+- `vendors/build-actions.ts` — `saveBudgetBuild` (upsert on `event_id,label`) + `deleteBudgetBuild` server actions.
+- `vendors/_components/build-compare.tsx` — now a client component: the 3 baskets (as before) + a **Save [basket] to slot [A/B/C]** control + a **"Your saved builds"** grid (total · basket · budget · over/under · delete), `router.refresh()` after writes.
+- `vendors/page.tsx` — flag-gated fetch of `budget_builds` → passes `eventId` + `savedBuilds` into Compare.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Migration applied cleanly (no drift; remote was in sync through `20260925000000`).
+
+**SPEC IMPACT:** Phase 2b of `Budget_Build_Services_Takeover_2026-06-08.md`. Remaining: available-dates-per-saved-build + the Pin constraint solver (Phase 3). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(vendor-tiers): #2 — per-service daily booking capacity (✗/1/3/∞)
+
+**Context:** Build #2 of the "do 1–5" tier queue. "Slot per day" = a vendor declares how many of a service they can serve per day (e.g. 2 photobooths → 2/day); tier caps the max declarable (**FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞**).
+
+**What landed (migration `20260925000000`, applied to prod):** `vendor_services.daily_capacity INT` (nullable, `CHECK > 0`, graceful read fallback); `parseDailyCapacityOrThrow` (shared create+update) parses + rejects over the tier's `slotsPerDay`; tier-aware "Bookings per day" input on both forms; `finalizeVendor` blocks a lock once the service has `daily_capacity` confirmed bookings on the wedding's date (per-service same-date count; reuses the `soft_hold_limit_reached` modal; degrades open when unset). Enterprise time-bound slots (#3) layer time-of-day on top later.
+
+**Verify:** `tsc` clean · `next lint` exit 0. Migration applied to prod.
+
+**SPEC IMPACT:** Tier cap #2 enforced. Remaining: #3 enterprise time-bound slots · #4 Phase C · #5 Phase D. → corpus DECISION_LOG.
+
+## 2026-06-09 · refactor(admin): ops-shaped nav re-bucket (PR 1 of N) — verb spine + drift fixes
+
+**Context:** Owner-approved nav redesign (`Admin_Console_Nav_Redesign_2026-06-08.{md,html}` in the spec corpus · DECISION_LOG 2026-06-08, **conditional sign-off** — "for as long as everything is easier to manage"). The admin console was 6 noun-domain groups (Home/Queues/Directory/Money/Insights/Manage). This PR — the cheap, low-risk first slice — re-buckets the nav by **verb** (act / find / tune) and folds in the drift fixes. No new feature pages, no schema, no data changes.
+
+**What landed:**
+- `app/admin/_components/admin-sidebar.tsx` — `ADMIN_NAV_GROUPS` re-cut to a 3-item spine (**Home · Work · Directory**) + 3 collapsible tune-groups (**Insights · Money & Catalog · Platform**). **Group keys preserved** (`queues`→"Work", `money`→"Money & Catalog", `funnels`→"Insights", `content`→"Platform") so per-section localStorage open-state survives. The **Money group dissolves**: its queues (Payouts, Token sales) move into Work; its config stays as Money & Catalog. **Drift fixes:** `/admin/notifications` (was an orphan — no nav entry anywhere) gets a home under Platform; Wedding types + Wedding traditions move Directory → Platform (governance + content, not look-up).
+- `app/admin/_components/admin-bottom-nav.tsx` — mobile strip re-cut from 5 tabs (Home/Queues/Directory/Money/More) to a **4-tab spine** (Home · Work · Directory · More); `activeMatch` arrays updated; **Token sales added to the Work match** (it lit no tab before — drift fix).
+- `app/admin/work/page.tsx` — **new** mobile triage feed: the renamed + expanded successor to the queues feed (adds Payouts + Token sales counts). Reuses `QueuesTriageFeed` (now takes an optional `title` prop).
+- `app/admin/queues/page.tsx` → redirect to `/admin/work`; `app/admin/money/page.tsx` → redirect to `/admin/more` (bookmark continuity).
+- `app/admin/directory/page.tsx` — drop the two wedding-* cards; `app/admin/more/page.tsx` — now Insights + Money & Catalog + Platform (adds the money-config cards + wedding-* + notifications).
+
+**Not in this PR (committed follow-ups, per the redesign):** the Work master-detail + **Money-lane filter** (the owner sign-off condition — ships *with* the Work view PR so finance keeps a one-stop money view), the full command-center Home, the net-new `/admin/approvals` two-admin queue UI, and the mobile-More 3-section accordion. Desktop sidebar + mobile feed are the high-value, zero-risk slice.
+
+**Verify:** `tsc --noEmit` ✓ (only 2 pre-existing unrelated module errors from the local stale install — `@mediapipe/tasks-vision`, `sharp`; both present in CI's install) · `next lint --dir app/admin` ✓ (1 pre-existing warning in `moodboard-library`, untouched) · swept: no external importers of `ADMIN_NAV_GROUPS`, no code links to `/admin/queues|/admin/money`, no tests reference the admin nav.
+
+**SPEC IMPACT:** Implements PR 1 of `Admin_Console_Nav_Redesign_2026-06-08.md`. The Money-lane filter remains a committed follow-up (sign-off condition). Logged in corpus `DECISION_LOG.md` (2026-06-08 admin-nav rows).
+## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
+
+**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. Suno); the onboarding streams it. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+
+**What landed:** migration `20260925000000` (`platform_settings.onboarding_bg_music_r2_key` + `_enabled`, applied to prod directly — orphan `20260924000000` mood-board ledger entry blocked `db push`); `fetchOnboardingBgMusicUrl()`; `/admin/settings` "Onboarding background music" uploader (`<FileUpload>` audio ≤40 MB + enable toggle + owned-track-only helper) + `updateOnboardingMusic`; `/api/upload` audio cap 20→40 MB (image cap unchanged); header mute/unmute **pill** (`onboarding-music.tsx`) that streams (`preload="none"`+`loop`), starts on first gesture, low volume, mute remembered in `localStorage`; **unset/disabled → silent**.
+
+**Verify:** `tsc` ✓; prod columns confirmed; pill layout screenshot-verified. End-to-end on deploy once a track is uploaded.
+
+**SPEC IMPACT:** New admin onboarding-music uploader; honors "Setnayan-owned AI-generated catalogue only" via the owned-track helper. → corpus `DECISION_LOG.md` (item-10 Recraft cost also corrected there: ≈₱530, not ₱11.5k).
+
+
+## 2026-06-09 · feat(services): Budget "Build" — Compare tab (3 baskets, Phase 4 core, flag-dark)
+
+**Context:** Phase 4 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. The last stub tab becomes real — **all 5 takeover tabs now have content** (Summary · Shortlist · Build · Compare · Lock).
+
+**What landed:**
+- `vendors/_components/build-compare.tsx` — the **Compare** tab: the three budget baskets side-by-side — **Lean** (Σ range-low) · **Fits** (Σ median, the suggested plan) · **Stretch** (Σ range-high) — with a per-category breakdown table and each basket's over/under vs the couple's budget. Derived from a **single `computeBudgetAllocation` run** (each leaf already carries `amountPhp` + `rangeLowPhp/HighPhp`), so no extra query and no persistence.
+- `vendors/page.tsx` — passes `compareSlot` (reusing the `allocInputs` already resolved for the Build tab).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
+
+**SPEC IMPACT:** Phase 4 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-ons: saving named A/B/C combinations + "available wedding dates per build" (vendor-availability intersection over a build's specific vendors) + the Pin constraint solver (Phase 3) + save-A/B/C migration (Phase 2b). Logged in `DECISION_LOG.md`.
 
 ## 2026-06-09 · feat(services): Budget "Build" — Summary + Lock tabs (Phase 5 core, flag-dark)
 

@@ -113,7 +113,7 @@ const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
 // actual PUT, so a client can't claim a small size then send more.
 const TYPE_MAX_BYTES: ReadonlyArray<readonly [string, number]> = [
   ['video/', 60 * 1024 * 1024], // 60 MB — a short, compressed hero loop
-  ['audio/', 20 * 1024 * 1024], // 20 MB — a full-length background song
+  ['audio/', 40 * 1024 * 1024], // 40 MB — a full-length background song (covers a ~30-min onboarding track)
 ];
 
 // Maximum filename length we'll preserve in the object key. Anything longer

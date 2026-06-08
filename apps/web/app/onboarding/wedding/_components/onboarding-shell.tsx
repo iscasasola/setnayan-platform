@@ -2477,6 +2477,9 @@ export function OnboardingShell({
       sendTopInquiries: s.sendTopInquiries,
       inquiriesPerCategory: s.inquiriesPerCategory,
       interestedServices: s.interestedServices,
+      // Dream Team chapter — per-leaf refinement detail (additive · empty {} until
+      // the refine passes ship; projection onto prefs lands with PR-4).
+      refinements: s.refinements,
       // BYO vendors (screen-12 "Add your own vendor" sheet) — off-platform contacts
       // the couple typed in. Persisted at commit as event_vendors 'considering'
       // freeform rows so they show on the dashboard Services tab.

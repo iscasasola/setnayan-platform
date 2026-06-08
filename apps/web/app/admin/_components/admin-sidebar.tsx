@@ -93,6 +93,7 @@ import {
   LineChart,
   Settings,
   Wallet,
+  ShoppingBag,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -305,6 +306,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Token bands',
         href: '/admin/token-bands',
         icon: Coins,
+      },
+      {
+        // Vendor token-pack sales reconcile queue (apply-then-pay). Vendors
+        // start a purchase at /vendor-dashboard/tokens, pay our BDO/GCash
+        // account, and admin confirms here → wallet credited. Migration
+        // 20260916000000 · owner 2026-06-08 "make purchasing available".
+        key: 'token-purchases',
+        label: 'Token sales',
+        href: '/admin/token-purchases',
+        icon: ShoppingBag,
+        matchPrefix: '/admin/token-purchases',
       },
       {
         key: 'receipts',

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(onboarding): The Mirror — live wedding-website preview ribbon
+
+**Context:** Next chunk of the adaptive-onboarding port (`Onboarding_Production_Port_Plan_2026-06-08.md` §4). A persistent preview that makes the flow read as "watch your wedding website build itself."
+
+**What landed (`onboarding-shell.tsx`, `_styles/onboarding.css`):**
+- A pinned `.mirror` ribbon inside `.top` (under the progress bar), ~56–60px, from the `name` screen onward (hidden during the welcome-moments conversation, on the love reveal, and on the recap/plan/summary full-preview screens).
+- A derived `useMemo` read-model (no new authoritative state): live monogram initials + couple names + accreting `.mir-chip` pills — the love-story tone voice ("Our Love Story"), kind, location, guests, countdown, reception — each popping in once as its source fills, with a payoff caption that flashes over the chip row then reverts. Chips overflow horizontally; the ribbon never grows the no-scroll frame.
+- **COVERT:** chips surface only wedding-website-shaped facts; never a song/editorial/Pakanta chip (only the allowed tone-voice "Our Love Story").
+- **Verified:** `tsc --noEmit` PASS · `next build` PASS · covert grep clean · `prefers-reduced-motion` disables the animations.
+
+**SPEC IMPACT:** None — additive read-model over existing onboarding state.
+
 ## 2026-06-08 · feat(onboarding): adaptive id-array nav core + told-back love stage
 
 **Context:** First production landing of the adaptive-onboarding port (plan `Onboarding_Production_Port_Plan_2026-06-08.md`, specs corpus). The nav core swap + the told-back love stage, in one PR (merged cleanly with the concurrent #1071 pure-moment intro).

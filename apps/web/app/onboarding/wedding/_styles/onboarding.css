@@ -857,3 +857,46 @@
 .onbw .m-ot{display:block;font-weight:700;font-size:16px;color:var(--ink);}
 .onbw .m-od{display:block;font-size:12.5px;line-height:1.4;color:var(--ink-soft);margin-top:3px;}
 @media(prefers-reduced-motion:reduce){.onbw .moment{animation:none;}}
+
+/* ── THE MIRROR · live wedding-website preview ribbon (ports the locked prototype
+   Onboarding_Wedding_Adaptive_Flow_2026-06-07.html .mirror/.mir-* · plan §4). Pinned in
+   .top under .bar — never in the scrollable body — so it can't grow the frame. Compact
+   (~56-60px) so every screen stays no-scroll; chips overflow horizontally, never wrap.
+   --ok (prototype) maps to the production green #2D4A3A. ── */
+.onbw .mirror{flex:0 0 auto;padding:5px 0 1px;background:var(--paper);z-index:4;animation:mirIn .5s cubic-bezier(.2,.8,.3,1) both;}
+@keyframes mirIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+.onbw .mir-card{display:flex;align-items:center;gap:9px;background:linear-gradient(180deg,#fff,#fdfbf7);
+  border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:11px;padding:7px 10px;
+  box-shadow:0 6px 14px -11px rgba(30,34,41,.3);cursor:pointer;position:relative;overflow:hidden;}
+.onbw .mir-card::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(110deg,transparent 32%,rgba(197,160,89,.12) 50%,transparent 68%);
+  transform:translateX(-100%);animation:mirShim 3.8s ease-in-out infinite;}
+@keyframes mirShim{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+.onbw .mir-mono{font-family:var(--serif);font-weight:600;font-size:17px;line-height:1;color:var(--mulberry);flex:0 0 auto;}
+.onbw .mir-mono .amp{color:var(--gold);font-style:italic;margin:0 1px;}
+.onbw .mir-mid{flex:1 1 auto;min-width:0;}
+.onbw .mir-top{display:flex;align-items:center;gap:7px;}
+.onbw .mir-names{font-family:var(--serif);font-weight:600;font-size:13.5px;line-height:1.12;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.onbw .mir-badge{flex:0 0 auto;margin-left:auto;font-family:var(--mono);font-size:7px;letter-spacing:.12em;text-transform:uppercase;
+  color:#2D4A3A;display:inline-flex;align-items:center;gap:3px;}
+.onbw .mir-badge .dot{width:5px;height:5px;border-radius:50%;background:#2D4A3A;animation:mirPulse 1.6s ease-in-out infinite;}
+@keyframes mirPulse{0%,100%{opacity:.4}50%{opacity:1}}
+.onbw .mir-r2{position:relative;margin-top:3px;min-height:15px;overflow:hidden;}
+.onbw .mir-chips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;}
+.onbw .mir-chips::-webkit-scrollbar{display:none;}
+.onbw .mir-chip{flex:0 0 auto;font-family:var(--mono);font-size:8px;letter-spacing:.01em;color:var(--gold-deep);
+  background:var(--gold-wash);border:1px solid rgba(197,160,89,.2);border-radius:999px;padding:2px 6px;white-space:nowrap;}
+.onbw .mir-chip.pop{animation:mirPop .55s cubic-bezier(.2,.85,.35,1);}
+@keyframes mirPop{0%{transform:scale(.5);opacity:0}55%{transform:scale(1.16)}100%{transform:scale(1);opacity:1}}
+/* payoff caption flashes OVER the chip row on accretion, then reverts — no extra height */
+.onbw .mir-cap{position:absolute;inset:0;display:flex;align-items:center;gap:5px;background:linear-gradient(180deg,#fff,#fdfbf7);
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.01em;color:var(--gold-deep);font-weight:500;
+  opacity:0;pointer-events:none;transition:opacity .3s;}
+.onbw .mir-cap.show{opacity:1;}
+@media(prefers-reduced-motion:reduce){
+  .onbw .mirror{animation:none;}
+  .onbw .mir-card::after{animation:none;}
+  .onbw .mir-badge .dot{animation:none;}
+  .onbw .mir-chip.pop{animation:none;}
+}

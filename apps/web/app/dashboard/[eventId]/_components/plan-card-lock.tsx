@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   BookmarkCheck,
+  Clock,
   Loader2,
   Lock,
   X,
@@ -17,9 +18,14 @@ import {
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import {
   finalizeVendor,
+  listLockTimeSlots,
   revertVendorToConsidering,
   type FinalizeVendorResult,
 } from '../vendors/actions';
+import {
+  slotOptionLabel,
+  type VendorServiceTimeSlot,
+} from '@/lib/vendor-time-slots';
 
 // Lock-this-vendor inline CTA — for the single-pick case (2026-05-22).
 //
@@ -74,6 +80,13 @@ type LockState =
       kind: 'soft_hold_limit';
       currentLimit: number;
       existingHoldCount: number;
+    }
+  // Tier #3 (owner 2026-06-09): the booked service has active time windows —
+  // the couple must pick one before the lock proceeds.
+  | {
+      kind: 'slot_select';
+      slots: VendorServiceTimeSlot[];
+      selectedSlotId: string;
     }
   | { kind: 'error'; message: string };
 
@@ -141,13 +154,39 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
     setLockState({ kind: 'idle' });
   };
 
-  const performLock = (overrideExisting: boolean) => {
+  // "Yes, lock" entry point — if the booked service has time windows, open the
+  // in-modal picker; else lock straight through. Keeps the happy path one
+  // confirm for vendors without slots.
+  const requestLock = () => {
+    setLockState({ kind: 'pending' });
+    startTransition(async () => {
+      let slots: VendorServiceTimeSlot[] = [];
+      try {
+        slots = await listLockTimeSlots(eventId, pick.vendor_id);
+      } catch {
+        slots = [];
+      }
+      const firstSlot = slots[0];
+      if (firstSlot) {
+        setLockState({
+          kind: 'slot_select',
+          slots,
+          selectedSlotId: firstSlot.slot_id,
+        });
+        return;
+      }
+      performLock(false, null);
+    });
+  };
+
+  const performLock = (overrideExisting: boolean, slotId: string | null) => {
     setLockState({ kind: 'pending' });
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('vendor_id', pick.vendor_id);
       if (overrideExisting) fd.set('override_existing', '1');
+      if (slotId) fd.set('service_time_slot_id', slotId);
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -213,6 +252,30 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
             existingHoldCount: result.existingHoldCount,
           });
           return;
+        case 'slot_required': {
+          // The service needs a slot pick — re-fetch the windows + open the
+          // in-modal picker.
+          let slots: VendorServiceTimeSlot[] = [];
+          try {
+            slots = await listLockTimeSlots(eventId, pick.vendor_id);
+          } catch {
+            slots = [];
+          }
+          const firstSlot = slots[0];
+          if (firstSlot) {
+            setLockState({
+              kind: 'slot_select',
+              slots,
+              selectedSlotId: firstSlot.slot_id,
+            });
+          } else {
+            setLockState({
+              kind: 'error',
+              message: 'Please pick a time slot to lock this vendor.',
+            });
+          }
+          return;
+        }
         case 'not_signed_in':
           setLockState({
             kind: 'error',
@@ -352,7 +415,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => performLock(true)}
+                    onClick={() => performLock(true, null)}
                     disabled={isPending}
                     className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                   >
@@ -433,7 +496,72 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
               </div>
             ) : null}
 
-            {lockState.kind !== 'conflict' && lockState.kind !== 'soft_hold_limit' ? (
+            {/* Tier #3 — couple picks the time window (owner 2026-06-09). */}
+            {lockState.kind === 'slot_select' ? (
+              <div className="mt-4 space-y-3 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-3">
+                <div className="flex items-start gap-2">
+                  <Clock
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
+                    strokeWidth={2}
+                  />
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-semibold text-ink">
+                      Pick a time slot
+                    </h3>
+                    <p className="text-xs leading-snug text-ink/65">
+                      {pick.vendor_name} runs more than one window on your date —
+                      choose the one you&rsquo;re booking.
+                    </p>
+                  </div>
+                </div>
+                <select
+                  value={lockState.selectedSlotId}
+                  onChange={(e) =>
+                    setLockState({ ...lockState, selectedSlotId: e.target.value })
+                  }
+                  className="input-field cursor-pointer"
+                >
+                  {lockState.slots.map((slot) => (
+                    <option key={slot.slot_id} value={slot.slot_id}>
+                      {slotOptionLabel(slot)}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    disabled={isPending}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => performLock(false, lockState.selectedSlotId)}
+                    disabled={isPending || !lockState.selectedSlotId}
+                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+                        Locking…
+                      </>
+                    ) : (
+                      <>
+                        <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
+                        Lock this slot
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {lockState.kind !== 'conflict' &&
+            lockState.kind !== 'soft_hold_limit' &&
+            lockState.kind !== 'slot_select' ? (
               <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   ref={cancelBtnRef}
@@ -446,7 +574,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => performLock(false)}
+                  onClick={() => requestLock()}
                   disabled={isPending}
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                 >

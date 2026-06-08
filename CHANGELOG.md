@@ -20,6 +20,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched) · verification workflow green.
 
 **SPEC IMPACT:** PR 2 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(onboarding): DB-backed refinements + main-photo/4:3-carousel card + 232 generated photos (items 8/9/10)
+
+**Context:** Punch-list items 8 + 9 + 10. (8) every refinement card gets a **main photo on top + a description + a 4:3-landscape option carousel**; (9) the refinements are **DB-backed, not hardcoded**, and only show for **chosen** services; (10) **fill the blank photos**. Owner chose the **full DB-backed taxonomy** option.
+
+**What landed:**
+- **De-hardcoded the catalogue** — the ~40-leaf `REFINEMENTS` const is lifted out of `onboarding-shell.tsx` into a data module `app/onboarding/wedding/_data/refinements.ts` (37 leaves · 206 options · per-leaf description + main photo + per-option 4:3 photo). The shell's queue uses `REFINEMENTS_BY_KEY` only to know *which* leaves are refinable (the fixed PICK_GROUPS taxonomy); per-leaf CONTENT renders from data.
+- **DB-backed + admin-editable** — migration `20260927000000` adds `onboarding_refinements` + `onboarding_refinement_options` (public-read / admin-write RLS), **seeded from the module** (243 rows, applied to prod). New `lib/onboarding-refinements.ts` `getOnboardingRefinements()` reads **DB-first**, falling back to the module on any error/empty (behaviour-preserving). `page.tsx` fetches it and threads a `refinements` prop into the shell.
+- **New card (item 8)** — `RefineStep` rewritten: a 4:3 **hero photo** + the leaf **description** in the viewzone, then a horizontal **4:3 option carousel** (`RefineCard`); each option photo a URL from the data, emoji glyph as the graceful fallback. New `.refine-hero` / `.refine-card` CSS (`aspect-ratio:4/3`). Only chosen services produce a card (already gated by `queueFor`; unchanged).
+- **Photos (item 10)** — **232 on-brand 4:3 photos** (37 mains + 195 options) generated via Recraft (a 37-agent workflow, one per leaf, crafting Filipino-wedding editorial prompts), resized/recompressed with `sharp` to ~23 KB avg (5.3 MB total) and committed under `public/onboarding/refinements/`. The 3 projectable leaves (ceremony/catering/photo_video) reuse the existing `/prefs` option photos. **Cost: ~$9 (~₱530)** — the earlier ₱11.5k estimate was wrong (it used the bespoke-monogram multi-gen rate). Generator scripts kept under `scripts/` for reproducibility.
+
+**Verify:** `tsc --noEmit` ✓. Prod tables seeded (37 leaves · 206 options). Browser-verified: the `refine_extras` "What kind of cake?" card renders the cake hero photo + description + a 4:3 carousel of the generated option photos. (Local dev uses the module fallback + the committed photos; prod uses the DB.)
+
+**SPEC IMPACT:** Starts the V1.x **DB-backed expandable-taxonomy** work (owner-chosen) for the onboarding refinements. → corpus `DECISION_LOG.md`. **Follow-up:** an admin editor UI at `/admin/taxonomy` (the data is DB-editable via SQL today; photos are /public assets so photo-swap needs a deploy or an R2 wiring).
+
 
 ## 2026-06-09 · feat(mood-board): seed the Flowers chapter with Recraft floral photos (0010)
 

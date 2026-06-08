@@ -14,6 +14,7 @@
  *   - Wording preserved otherwise to honor [[feedback_setnayan_button_preservation]]
  */
 import { LogoMark } from '@/app/_components/brand-marks';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
 const VENDOR_STACK = [
   'Kasal.com listing',
@@ -28,7 +29,8 @@ const VENDOR_STACK = [
   'Drive folder per couple',
 ];
 
-export function StackCloseVendor() {
+export async function StackCloseVendor() {
+  const p = await getVendorPrices();
   return (
     <section
       style={{
@@ -404,7 +406,7 @@ export function StackCloseVendor() {
               Profile, inbox, pipeline, calendar, contracts, payments, BIR
               receipts, reviews — one login.{' '}
               <strong style={{ color: 'var(--m-paper)' }}>
-                Verified is free; Pro at ₱6,000/28d
+                Verified is free; Pro at {p.proMonthly}/28d
               </strong>{' '}
               for ecosystem-locked extras.
             </div>

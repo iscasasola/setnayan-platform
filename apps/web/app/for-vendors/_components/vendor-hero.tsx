@@ -15,8 +15,10 @@
  * interaction concept preserved verbatim from template.
  */
 import Link from 'next/link';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
-export function VendorHero() {
+export async function VendorHero() {
+  const p = await getVendorPrices();
   return (
     <section
       style={{
@@ -92,7 +94,7 @@ export function VendorHero() {
             <strong style={{ color: 'var(--m-ink)' }}>
               0% commission · Setnayan never takes a cut of your bookings.
             </strong>{' '}
-            Pro at <strong style={{ color: 'var(--m-ink)' }}>₱6,000/28 days</strong>{' '}
+            Pro at <strong style={{ color: 'var(--m-ink)' }}>{p.proMonthly}/28 days</strong>{' '}
             unlocks AI matchmaking, boosted reach, AI proposal
             drafting, demand pulse. Founder bonus{' '}
             <strong style={{ color: 'var(--m-ink)' }}>

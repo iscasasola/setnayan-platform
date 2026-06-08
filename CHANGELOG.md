@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(seating): mobile table-card list + Floor-plan/List toggle (0008)
+
+**Context:** The chair-level spatial canvas can't hold many tables on a phone — each chair-level table is ~220px across, so only ~2-3 fit on a ~340px-wide canvas. A 50-table wedding was unusable on mobile. The 0008 spec already anticipated this ("the spatial drag-drop editor is intentionally desktop-only; mobile is for review + quick edits via a card list"); we'd shipped the canvas everywhere. This is PR 1 of 2 for "scale to 50+ tables" (PR 2 = canvas zoom/pan + level-of-detail).
+
+**What landed (`_components/seating-editor.tsx`):**
+- **Table-card list view** — a vertical, scrollable list of table cards (group-colour dot · name · type · `seated/cap` chip · delete), each with a row of seated-guest avatars and, when a guest is picked, a **Seat here** button (seats them in the table's next free chair). Tap a card to expand → per-guest **Unseat** + open-seat count. Tap a seated avatar to pick them up and move. Scrolls to any number of tables — 50 just keep scrolling.
+- **Floor plan / List toggle** in the toolbar; **small screens default to List** (`matchMedia(max-width:1023px)` on mount), desktop defaults to Floor plan. Both views available on both platforms; reuses the same pick-then-place + group-colour model as the canvas. Save-layout button is plan-only. Sidebar height trimmed on mobile so both the people panel and the list are reachable.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (route `/dashboard/[eventId]/seating` 15.4 kB). Mobile list verified via a 375px headless render of the seeded demo wedding.
+
+**SPEC IMPACT:** Builds the 0008 spec's intended **mobile review/edit surface** (card list). Still deferred → PR 2: canvas pinch/scroll **zoom + pan** with level-of-detail (compact pucks when zoomed out, chairs when zoomed in) so the *spatial* view also scales to 50+ on both platforms. → corpus DECISION_LOG.
+
 ## 2026-06-08 · feat(website): Increment B — Music & Video hero chrome (LIVE)
 
 **Context:** Site-chrome layer of the wedding-website lifecycle (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.2), after the A.1/A.3/A.4 content blocks. Two presentation features on the **foundation columns already shipped** (`20260912000000`): a looping **background song** + a **video hero** behind the monogram. **No migration** — purely additive code on existing columns.

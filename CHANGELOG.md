@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(0016): pure-moment conversational onboarding intro (prototype→prod port)
+
+**Context:** Audit (this session) found the owner-2026-06-05 "pure-moment" conversational welcome — Setnayan "speaks" line-by-line, role/kind/faith asked inline, no Continue button — was built into the production-mirror prototype `Onboarding_Wedding_Flow_2026-06-01.html` but never ported to the live React onboarding (`apps/web/app/onboarding/wedding`), which still opened on a static hero + three separate Continue screens. Owner approved a full faithful port.
+
+**What landed:**
+- **New `app/onboarding/wedding/_components/welcome-moments.tsx`** — self-contained moment player. `speak` lines auto-advance (dwell scales with length; tap to skip) beside the gold Setnayan mark; `ask` beats collect role → kind → faith inline; civil skips the faith beat; the `when` gating mirrors the prototype `MOMENTS` script verbatim. Offers the LIVE active faith set (not the prototype's stale five) so coverage never narrows before the hand-off.
+- **`_components/onboarding-shell.tsx`** — step-0 welcome plays the conversation on first arrival then hands off to the Name screen (step 4); progress bar + bottom Continue are hidden during the conversation; the plain hero shows on back-nav re-entry so the screen never traps. Standalone role/kind/faith screens (steps 1-3) are retained as back/edit targets (matches the prototype).
+- **`_styles/onboarding.css`** — `.onbw`-scoped moment styles (`ob-momentIn`, `fm-react` serif line + `say-mark`, stacked `m-opt` cards) + `prefers-reduced-motion` fallback.
+
+**Not ported (flagged for owner):** the prototype's over-budget venue copy ("A touch over budget — still yours to consider" / "In your range") depends on per-venue pricing that the live `OnboardingVenueResult` / `searchOnboardingReceptionVenues` does not return; surfacing it would mean inventing prices (guardrail), so it needs a real data-wiring task + an owner call on showing venue prices in onboarding. Deferred.
+
+**Verify:** `pnpm typecheck` clean; `pnpm lint` clean (no new warnings — pre-existing warnings only); browser verification on the PR's Vercel preview deploy (`/onboarding/wedding`).
+
+**SPEC IMPACT:** None — brings live code in line with the already-locked owner-2026-06-05 prototype decision (no new product decision). The over-budget venue-pricing gap is flagged for owner, not silently changed.
+
+---
+
 ## 2026-06-07 · feat(website): wedding-website lifecycle foundation (schema)
 
 **Context:** Owner design session locked the couple's event website as ONE site with three date-driven phases (RSVP before · Event during · Editorial after) — spec `Wedding_Website_Lifecycle_Spec_2026-06-07.md` + corpus DECISION_LOG. This PR ships the safe, additive schema foundation; nothing consumes it yet (frontend ships ahead).

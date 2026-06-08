@@ -25,6 +25,7 @@ import {
   Lock,
   MailCheck,
   MonitorPlay,
+  Music,
   Newspaper,
   PartyPopper,
   Pencil,
@@ -506,6 +507,12 @@ function eventCards(p: SiteEditorProps): ReactNode[] {
       <Desc>The first thing guests see — a full-width photo behind your monogram.</Desc>
       <CardLink href={`/dashboard/${p.eventId}/website/hero-photo`} ghost>
         <ImagePlus aria-hidden /> Edit hero photo
+      </CardLink>
+    </Card>,
+    <Card key="chrome" icon={<Music />} title="Music & video hero" sub="Page soundtrack & motion">
+      <Desc>Add a looping background song (guests tap to play — never forced) and a short video behind your monogram instead of a still photo.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/site-chrome`} ghost>
+        <Music aria-hidden /> Edit music & video
       </CardLink>
     </Card>,
     <ProCard

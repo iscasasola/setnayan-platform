@@ -91,7 +91,30 @@ const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
   'image/heif',
   'image/avif',
   'application/pdf',
+  // Wedding-website chrome (Increment B · Wedding_Website_Lifecycle_Spec §6.2):
+  // a looping background song + a short hero video the couple uploads to the
+  // media bucket. Size-bounded by TYPE_MAX_BYTES below (NOT the 10 MB image
+  // cap) so a full-length song / a compressed clip fits while image uploads
+  // stay tight. Additive — existing image/PDF flows are unchanged.
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/aac',
+  'audio/ogg',
+  'audio/wav',
+  'audio/webm',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
 ]);
+
+// Per-MIME-prefix size overrides that take precedence over the per-bucket cap.
+// Keeps the image cap tight (10 MB on `media`) while allowing the larger
+// audio/video chrome uploads. Bytes. The signed content-length still binds the
+// actual PUT, so a client can't claim a small size then send more.
+const TYPE_MAX_BYTES: ReadonlyArray<readonly [string, number]> = [
+  ['video/', 60 * 1024 * 1024], // 60 MB — a short, compressed hero loop
+  ['audio/', 20 * 1024 * 1024], // 20 MB — a full-length background song
+];
 
 // Maximum filename length we'll preserve in the object key. Anything longer
 // is truncated. (Object keys themselves can be much longer, but the
@@ -226,7 +249,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
-  const maxBytes = BUCKET_MAX_BYTES[bucketKey];
+  // Per-type override (audio/video chrome) takes precedence over the bucket
+  // cap; otherwise the bucket's own cap applies.
+  const typeOverride = TYPE_MAX_BYTES.find(([prefix]) =>
+    baseContentType.startsWith(prefix),
+  )?.[1];
+  const maxBytes = typeOverride ?? BUCKET_MAX_BYTES[bucketKey];
   if (sizeBytes > maxBytes) {
     return NextResponse.json(
       {

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(website): Increment A.3 — What to Bring content block (LIVE)
+
+**Context:** Third content block on the wedding-website lifecycle foundation (`Wedding_Website_Lifecycle_Spec_2026-06-07.md` §6.5), after Special Message (A.1). A couple-curated gift / registry / no-gift note rendered on the live invitation site. Built fully **independent of the parallel onboarding session** — its own column, its own editor; onboarding never touches it.
+
+**What landed:**
+- **Migration `20260918000000_invitation_widgets_what_to_bring.sql`** — adds `events.what_to_bring` (TEXT) + the `what_to_bring` widget_type (CHECK recreated cumulatively with all 14 types incl. `special_message`; `populate_default_invitation_widgets()` seed adds row 14; backfill for existing events). Idempotent + additive.
+- **`lib/invitation-widgets.ts`** — `what_to_bring` added to `WIDGET_TYPES` + a `WIDGET_CATALOG` entry (editor_subroute `what-to-bring`, hideable) so it appears in the show/hide/reorder editor.
+- **`app/[slug]/page.tsx`** — `EventRow.what_to_bring`, added to the SELECT, both render switches (`HideableWidgetRender` + `PublicHideableWidget`), the `publicSafeWidgets` allow-list, and a new `WhatToBringWidget` (centered cream card, "What to bring" eyebrow; blank → renders nothing so the section hides).
+- **New editor** `/dashboard/[eventId]/website/what-to-bring/{page.tsx,actions.ts}` — single 600-char textarea writing `events.what_to_bring` via `updateWhatToBring`; mirrors the Special Message editor (auth + RLS gate; empty saves NULL → section hides).
+
+**Verify:** typecheck + production build on CI (no local node_modules in worktree). Migration timestamp bumped `20260917000000`→`20260918000000` on merge to clear a collision with `20260917000000_setnayan_ai_entitlement.sql` (parallel PR-2); strictly newest (monotonic guard passes). `our_love_story` deliberately NOT included — it remains parked off-main, so the CHECK/seed stay at 14 types.
+
+**SPEC IMPACT:** §6.5 (per-phase element matrix) — What to Bring now shipped. → DECISION_LOG.
+
 ## 2026-06-08 · feat(seating): chair-level visual editor + role-tier auto-seat (0008)
 
 **Context:** Owner shared a polished seating-editor reference ("Nunta Pe Mese") and asked to bring our seat plan up to it. The look they wanted — per-seat chairs with guest names, a grouped/colour-coded sidebar, and a one-click auto-fill — is exactly what iteration **0008**'s locked spec already describes ("Chair-level interaction" + "Auto-fill — role-tier rings"); the 2026-05-13 MVP had shipped only plain table shapes + a dropdown assigner and deferred both. This PR catches the code up to its own spec. No migration — `event_seat_assignments.seat_number` and `guest_groups`/`guest_group_memberships` already existed.
@@ -34,6 +48,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** flag is off by default → zero behavior change; gate logic unit-checkable; migration additive + applied to prod ahead of merge (selects depend on the column). CI typecheck + build.
 
 **SPEC IMPACT:** Implements the per-event paid gate from `What_Is_Setnayan_AI_2026-06-08.md` §2/§9. → DECISION_LOG. PR-2 of the build (next: last-minute · dependencies).
+
 ## 2026-06-08 · fix(dashboard): "Switch to manual" toggle silently did nothing on some events
 
 **Context:** Owner reported clicking "Prefer to plan it yourself? Switch to manual →" on the Services tab did nothing (no error, no change). The `setPlanningMode` server action is correctly wired (`'use server'`, valid form), but it wrote via the **user-scoped** Supabase client.

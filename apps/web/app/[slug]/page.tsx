@@ -103,7 +103,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -392,6 +392,10 @@ type EventRow = {
   // 20260912000000; edited at /dashboard/[eventId]/website/special-message.
   // Blank → SpecialMessageWidget renders nothing (section hides).
   special_message?: string | null;
+  // Host-curated gift / registry note (Increment A.3). TEXT column shipped
+  // 20260917000000; edited at /dashboard/[eventId]/website/what-to-bring.
+  // Blank → WhatToBringWidget renders nothing (section hides).
+  what_to_bring?: string | null;
 };
 
 type GuestRow = {
@@ -490,6 +494,7 @@ function PublicLanding({
         'photo_moments',
         'tier_comparison',
         'special_message',
+        'what_to_bring',
       ] as WidgetType[]
     ).includes(w.widget_type),
   );
@@ -657,6 +662,9 @@ function PublicHideableWidget({
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
+
+    case 'what_to_bring':
+      return <WhatToBringWidget text={event.what_to_bring ?? null} />;
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
@@ -1142,6 +1150,9 @@ function HideableWidgetRender({
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
 
+    case 'what_to_bring':
+      return <WhatToBringWidget text={event.what_to_bring ?? null} />;
+
     case 'tier_comparison':
       return <TierComparisonWidget limited={isLimitedPlusOne} />;
 
@@ -1171,6 +1182,26 @@ function SpecialMessageWidget({ text }: { text: string | null }) {
         A note from us
       </p>
       <p className="mx-auto mt-3 max-w-prose whitespace-pre-line font-serif text-xl italic leading-relaxed text-ink">
+        {msg}
+      </p>
+    </section>
+  );
+}
+
+/**
+ * What to Bring — the couple's gift / registry / no-gift note (Increment
+ * A.3). Reads events.what_to_bring; renders nothing when blank so the
+ * section hides.
+ */
+function WhatToBringWidget({ text }: { text: string | null }) {
+  const msg = (text ?? '').trim();
+  if (!msg) return null;
+  return (
+    <section className="rounded-xl border border-ink/10 bg-cream p-6 text-center">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+        What to bring
+      </p>
+      <p className="mx-auto mt-3 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
         {msg}
       </p>
     </section>

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260925001000_vendor_services_daily_capacity.sql
+-- 20260925000000_vendor_services_daily_capacity.sql
 -- Vendor tier feature #2 — per-service daily booking capacity.
 -- Canonical: Vendor_Tier_Capability_Matrix_2026-06-07.md ("Slot per day" =
 -- vendor-declared daily booking capacity per service; owner 2026-06-07).

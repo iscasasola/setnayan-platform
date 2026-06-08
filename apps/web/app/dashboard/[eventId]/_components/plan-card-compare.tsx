@@ -21,9 +21,14 @@ import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import {
   deleteVendor,
   finalizeVendor,
+  listLockTimeSlots,
   revertVendorToConsidering,
   type FinalizeVendorResult,
 } from '../vendors/actions';
+import {
+  slotOptionLabel,
+  type VendorServiceTimeSlot,
+} from '@/lib/vendor-time-slots';
 import { trackFailure } from '@/lib/telemetry/track-error';
 
 // Owner-locked 2026-05-24: comparison capped at 2 across every surface
@@ -95,6 +100,15 @@ type LockState =
       kind: 'just_locked';
       vendorId: string;
       vendorName: string;
+    }
+  // Tier #3 (owner 2026-06-09): the booked service has active time windows —
+  // the couple must pick one before this vendor locks.
+  | {
+      kind: 'slot_select';
+      vendorId: string;
+      vendorName: string;
+      slots: VendorServiceTimeSlot[];
+      selectedSlotId: string;
     }
   | { kind: 'error'; message: string };
 
@@ -193,10 +207,37 @@ export function PlanCardCompare({
     ([, list]) => list.length > 0,
   );
 
+  // Entry point from the per-vendor Lock button — open the slot picker if the
+  // booked service has time windows, else lock straight through.
+  const requestLock = (vendorId: string, vendorName: string) => {
+    setLockState({ kind: 'pending', vendorId });
+    startTransition(async () => {
+      let slots: VendorServiceTimeSlot[] = [];
+      try {
+        slots = await listLockTimeSlots(eventId, vendorId);
+      } catch {
+        slots = [];
+      }
+      const firstSlot = slots[0];
+      if (firstSlot) {
+        setLockState({
+          kind: 'slot_select',
+          vendorId,
+          vendorName,
+          slots,
+          selectedSlotId: firstSlot.slot_id,
+        });
+        return;
+      }
+      performLock(vendorId, vendorName, false, null);
+    });
+  };
+
   const performLock = (
     vendorId: string,
     vendorName: string,
     overrideExisting: boolean,
+    slotId: string | null,
   ) => {
     setLockState({ kind: 'pending', vendorId });
     startTransition(async () => {
@@ -204,6 +245,7 @@ export function PlanCardCompare({
       fd.set('event_id', eventId);
       fd.set('vendor_id', vendorId);
       if (overrideExisting) fd.set('override_existing', '1');
+      if (slotId) fd.set('service_time_slot_id', slotId);
       let result: FinalizeVendorResult;
       try {
         result = await finalizeVendor(fd);
@@ -320,6 +362,32 @@ export function PlanCardCompare({
             existingHoldCount: result.existingHoldCount,
           });
           return;
+        case 'slot_required': {
+          // The service needs a slot pick — re-fetch the windows + open the
+          // in-dialog picker for this vendor.
+          let slots: VendorServiceTimeSlot[] = [];
+          try {
+            slots = await listLockTimeSlots(eventId, vendorId);
+          } catch {
+            slots = [];
+          }
+          const firstSlot = slots[0];
+          if (firstSlot) {
+            setLockState({
+              kind: 'slot_select',
+              vendorId,
+              vendorName,
+              slots,
+              selectedSlotId: firstSlot.slot_id,
+            });
+          } else {
+            setLockState({
+              kind: 'error',
+              message: 'Please pick a time slot to lock this vendor.',
+            });
+          }
+          return;
+        }
         case 'not_signed_in':
           setLockState({
             kind: 'error',
@@ -420,7 +488,7 @@ export function PlanCardCompare({
               existingVendorName={lockState.existingVendorName}
               newVendorName={lockState.vendorName}
               onSwitch={() =>
-                performLock(lockState.vendorId, lockState.vendorName, true)
+                performLock(lockState.vendorId, lockState.vendorName, true, null)
               }
               onCancel={cancelConflict}
               isPending={isPending}
@@ -433,6 +501,27 @@ export function PlanCardCompare({
               currentLimit={lockState.currentLimit}
               existingHoldCount={lockState.existingHoldCount}
               browseSimilarHref={resolveBrowseSimilarHref(groupId)}
+              onDismiss={() => setLockState({ kind: 'idle' })}
+            />
+          ) : null}
+
+          {lockState.kind === 'slot_select' ? (
+            <SlotPickerModal
+              vendorName={lockState.vendorName}
+              slots={lockState.slots}
+              selectedSlotId={lockState.selectedSlotId}
+              isPending={isPending}
+              onSelect={(slotId) =>
+                setLockState({ ...lockState, selectedSlotId: slotId })
+              }
+              onConfirm={() =>
+                performLock(
+                  lockState.vendorId,
+                  lockState.vendorName,
+                  false,
+                  lockState.selectedSlotId,
+                )
+              }
               onDismiss={() => setLockState({ kind: 'idle' })}
             />
           ) : null}
@@ -556,7 +645,7 @@ export function PlanCardCompare({
                             <button
                               type="button"
                               onClick={() =>
-                                performLock(p.vendor_id, p.vendor_name, false)
+                                requestLock(p.vendor_id, p.vendor_name)
                               }
                               disabled={isPendingThis || lockState.kind === 'pending'}
                               className="mt-auto inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
@@ -624,6 +713,84 @@ export function PlanCardCompare({
         />
       ) : null}
     </>
+  );
+}
+
+/** Tier #3 couple slot picker (inline, matches the compare dialog's modal
+ *  style). The couple chooses the vendor's time window before locking. */
+function SlotPickerModal({
+  vendorName,
+  slots,
+  selectedSlotId,
+  isPending,
+  onSelect,
+  onConfirm,
+  onDismiss,
+}: {
+  vendorName: string;
+  slots: VendorServiceTimeSlot[];
+  selectedSlotId: string;
+  isPending: boolean;
+  onSelect: (slotId: string) => void;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-label={`Pick a time slot for ${vendorName}`}
+      className="space-y-3 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-4 py-3"
+    >
+      <div className="flex items-start gap-2">
+        <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+        <div className="space-y-0.5">
+          <h3 className="text-sm font-semibold text-ink">Pick a time slot</h3>
+          <p className="text-xs leading-snug text-ink/65">
+            {vendorName} runs more than one window on your date — choose the one
+            you&rsquo;re booking.
+          </p>
+        </div>
+      </div>
+      <select
+        value={selectedSlotId}
+        onChange={(e) => onSelect(e.target.value)}
+        className="input-field cursor-pointer"
+      >
+        {slots.map((slot) => (
+          <option key={slot.slot_id} value={slot.slot_id}>
+            {slotOptionLabel(slot)}
+          </option>
+        ))}
+      </select>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isPending || !selectedSlotId}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+        >
+          {isPending ? (
+            <>
+              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              Locking…
+            </>
+          ) : (
+            <>
+              <BookmarkCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Lock this slot
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          disabled={isPending}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 

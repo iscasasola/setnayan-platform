@@ -1,11 +1,18 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Briefcase, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { Briefcase, Clock, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
+import {
+  fetchVendorTimeSlotsByService,
+  formatSlotTime,
+  SLOT_CAPACITY_MAX,
+  SLOT_LABEL_MAX,
+  type VendorServiceTimeSlot,
+} from '@/lib/vendor-time-slots';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
@@ -21,6 +28,8 @@ import {
   updateVendorService,
   toggleVendorServiceActive,
   deleteVendorService,
+  addServiceTimeSlot,
+  deleteServiceTimeSlot,
 } from './actions';
 
 export const metadata = { title: 'Services · Vendor' };
@@ -79,6 +88,14 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   // the capacity input when the tier allows bookings at all (slotsCap > 0).
   const slotsCap = tierCaps(asVendorTier(tier)).slotsPerDay;
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
+  // #3 time-bound slots: ENTERPRISE-only plotting (slotsPerDay === Infinity).
+  // The slot LIST (read + delete) shows whenever a service has slots — even for
+  // a downgraded vendor — so they can clean up; only ADD is Enterprise-gated.
+  const canPlotSlots = canPlotTimeSlots(tier);
+  const slotsByService = await fetchVendorTimeSlotsByService(
+    supabase,
+    profile.vendor_profile_id,
+  );
   const branches =
     tier === 'enterprise'
       ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(
@@ -434,24 +451,42 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         />
                       </Field>
                     </div>
-                    {slotsCap > 0 ? (
-                      <Field
-                        label={`Bookings per day (max ${slotsCapForUi})`}
-                        htmlFor={`cap-${svc.vendor_service_id}`}
-                      >
-                        <input
-                          id={`cap-${svc.vendor_service_id}`}
-                          name="daily_capacity"
-                          type="number"
-                          min={1}
-                          max={slotsCapForUi}
-                          step={1}
-                          defaultValue={svc.daily_capacity ?? ''}
-                          placeholder="e.g. 2"
-                          className="input-field"
-                        />
-                      </Field>
-                    ) : null}
+                    {slotsCap > 0
+                      ? (() => {
+                          // #3 precedence (verifier C9): a service with >=1
+                          // active time slot uses the per-slot model and the
+                          // #2 daily_capacity input is disabled — slots
+                          // override "Bookings per day". The field still
+                          // submits its existing value (kept, not cleared).
+                          const hasSlots =
+                            (slotsByService.get(svc.vendor_service_id)?.length ??
+                              0) > 0;
+                          return (
+                            <Field
+                              label={`Bookings per day (max ${slotsCapForUi})`}
+                              htmlFor={`cap-${svc.vendor_service_id}`}
+                              help={
+                                hasSlots
+                                  ? 'Disabled — time slots below set capacity per window instead.'
+                                  : undefined
+                              }
+                            >
+                              <input
+                                id={`cap-${svc.vendor_service_id}`}
+                                name="daily_capacity"
+                                type="number"
+                                min={1}
+                                max={slotsCapForUi}
+                                step={1}
+                                defaultValue={svc.daily_capacity ?? ''}
+                                placeholder="e.g. 2"
+                                disabled={hasSlots}
+                                className="input-field disabled:cursor-not-allowed disabled:opacity-50"
+                              />
+                            </Field>
+                          );
+                        })()
+                      : null}
                     <label className="flex items-center gap-2 text-sm text-ink/75">
                       <input
                         type="checkbox"
@@ -482,6 +517,16 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                       </SubmitButton>
                     </div>
                   </form>
+                  {/* #3 time-bound slots — sibling of the edit form (its own
+                      server actions, so it must NOT nest inside the update
+                      form). Renders whenever the service has slots OR the
+                      vendor is Enterprise; the list (read+delete) shows for
+                      everyone with slots, the ADD form only for Enterprise. */}
+                  <SlotEditor
+                    serviceId={svc.vendor_service_id}
+                    slots={slotsByService.get(svc.vendor_service_id) ?? []}
+                    canPlot={canPlotSlots}
+                  />
                 </li>
               ))}
             </ul>
@@ -682,5 +727,131 @@ function BranchSelect({
         ))}
       </select>
     </Field>
+  );
+}
+
+/**
+ * Time-bound slot sub-editor (tier #3, Enterprise). When a service has >=1
+ * active slot it uses the per-slot capacity model and the #2 "Bookings per day"
+ * input is disabled (slots override it). The list (read + delete) renders for
+ * anyone who has slots — including a downgraded vendor cleaning up — while the
+ * ADD form only renders for Enterprise (canPlot). When there are no slots and
+ * the vendor isn't Enterprise, the whole block is hidden so non-Enterprise
+ * vendors see no change.
+ */
+function SlotEditor({
+  serviceId,
+  slots,
+  canPlot,
+}: {
+  serviceId: string;
+  slots: VendorServiceTimeSlot[];
+  canPlot: boolean;
+}) {
+  if (slots.length === 0 && !canPlot) return null;
+  return (
+    <div className="mt-3 space-y-2 rounded-xl border border-ink/10 bg-cream p-3">
+      <div className="flex items-center gap-1.5">
+        <Clock aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
+        <p className="text-sm font-medium text-ink">Time slots (Enterprise)</p>
+      </div>
+      <p className="text-xs text-ink/55">
+        Named per-day windows, each with its own capacity. When you set slots,
+        couples pick one at booking and they override &ldquo;Bookings per
+        day&rdquo; for this service.
+      </p>
+
+      {slots.length > 0 ? (
+        <ul className="divide-y divide-ink/10 rounded-lg border border-ink/10">
+          {slots.map((slot) => (
+            <li
+              key={slot.slot_id}
+              className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+            >
+              <span className="min-w-0">
+                <span className="font-medium text-ink">{slot.slot_label}</span>{' '}
+                <span className="text-ink/60">
+                  {formatSlotTime(slot.start_time)}–{formatSlotTime(slot.end_time)}
+                  {' · '}up to {slot.slot_capacity}/day
+                </span>
+              </span>
+              <form action={deleteServiceTimeSlot}>
+                <input type="hidden" name="slot_id" value={slot.slot_id} />
+                <button
+                  type="submit"
+                  aria-label={`Remove time slot ${slot.slot_label}`}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {canPlot ? (
+        <form
+          action={addServiceTimeSlot}
+          className="grid gap-2 rounded-lg border border-dashed border-ink/15 p-3 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-end"
+        >
+          <input type="hidden" name="vendor_service_id" value={serviceId} />
+          <Field label="Label" htmlFor={`slot-label-${serviceId}`}>
+            <input
+              id={`slot-label-${serviceId}`}
+              name="slot_label"
+              type="text"
+              required
+              maxLength={SLOT_LABEL_MAX}
+              placeholder="e.g. AM Ceremony"
+              className="input-field"
+            />
+          </Field>
+          <Field label="Start" htmlFor={`slot-start-${serviceId}`}>
+            <input
+              id={`slot-start-${serviceId}`}
+              name="start_time"
+              type="time"
+              required
+              step={1800}
+              className="input-field"
+            />
+          </Field>
+          <Field label="End" htmlFor={`slot-end-${serviceId}`}>
+            <input
+              id={`slot-end-${serviceId}`}
+              name="end_time"
+              type="time"
+              required
+              step={1800}
+              className="input-field"
+            />
+          </Field>
+          <Field label="Capacity" htmlFor={`slot-cap-${serviceId}`}>
+            <input
+              id={`slot-cap-${serviceId}`}
+              name="slot_capacity"
+              type="number"
+              min={1}
+              max={SLOT_CAPACITY_MAX}
+              step={1}
+              defaultValue={1}
+              className="input-field"
+            />
+          </Field>
+          <SubmitButton
+            className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-3 text-xs font-medium text-ink hover:border-ink/40"
+            pendingLabel="Adding…"
+          >
+            Add slot
+          </SubmitButton>
+        </form>
+      ) : (
+        <p className="text-xs text-ink/45">
+          Time slots are an Enterprise feature — these existing slots stay active
+          and you can remove them anytime.
+        </p>
+      )}
+    </div>
   );
 }

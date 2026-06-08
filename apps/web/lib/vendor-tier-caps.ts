@@ -228,3 +228,15 @@ export function isTrueNameTier(tier: string | null | undefined): boolean {
 export function canAcceptInAppInquiries(tier: string | null | undefined): boolean {
   return tierCaps(tier).inAppCustomersPerWeek > 0;
 }
+
+/**
+ * Tier #3 (owner 2026-06-07): only ENTERPRISE may plot time-bound booking
+ * slots. The Enterprise signal is `slotsPerDay === Infinity` (unbounded
+ * bookings/day) — NOT `slotsTimeBounded`, which is true for both Pro and
+ * Enterprise. Pro keeps the #2 daily_capacity model (finite slotsPerDay); only
+ * Enterprise gets the separate named-window model. Re-checked server-side on
+ * every plot/edit action so a downgrade can't keep adding slots.
+ */
+export function canPlotTimeSlots(tier: string | null | undefined): boolean {
+  return tierCaps(tier).slotsPerDay === Infinity;
+}

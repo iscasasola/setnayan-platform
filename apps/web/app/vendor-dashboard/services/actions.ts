@@ -7,7 +7,13 @@ import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { TILE_PARENT } from '@/lib/taxonomy';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
+import {
+  SLOT_LABEL_MAX,
+  SLOT_CAPACITY_MIN,
+  SLOT_CAPACITY_MAX,
+  SLOT_TIME_RE,
+} from '@/lib/vendor-time-slots';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -346,6 +352,125 @@ export async function toggleVendorServiceActive(formData: FormData) {
     .update({ is_active, updated_at: new Date().toISOString() })
     .eq('vendor_service_id', idRaw)
     .eq('vendor_profile_id', profile.vendor_profile_id);
+
+  if (error) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath('/vendor-dashboard/services');
+  redirect('/vendor-dashboard/services?saved=1');
+}
+
+// ============================================================================
+// Tier feature #3 — Enterprise-only time-bound slot CRUD.
+//
+// A service with >=1 ACTIVE slot uses the #3 per-slot capacity model and SKIPS
+// the #2 daily_capacity gate (finalizeVendor branches on slot presence). Adding
+// slots is gated on ENTERPRISE (re-derived server-side via canPlotTimeSlots —
+// never trusts the form). Deleting (soft-deactivating) is NOT tier-gated so a
+// downgraded vendor can always clean up stale slots that are still enforcing
+// against their bookings (verifier C8).
+// ============================================================================
+
+/** Re-derive the vendor's tier server-side; throw unless ENTERPRISE. */
+async function assertCanPlotSlots(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  vendorProfileId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
+  if (!canPlotTimeSlots(tier)) {
+    throw new Error('Time slots are an Enterprise feature. Upgrade to plot them.');
+  }
+}
+
+export async function addServiceTimeSlot(formData: FormData) {
+  const { supabase, profile } = await ensureProfile();
+
+  try {
+    await assertCanPlotSlots(supabase, profile.vendor_profile_id);
+
+    const serviceId = String(formData.get('vendor_service_id') ?? '');
+    const label = String(formData.get('slot_label') ?? '').trim();
+    const start = String(formData.get('start_time') ?? '');
+    const end = String(formData.get('end_time') ?? '');
+    const capRaw = String(formData.get('slot_capacity') ?? '').trim();
+    const cap = capRaw.length === 0 ? 1 : Number(capRaw);
+    const orderRaw = String(formData.get('display_order') ?? '').trim();
+    const displayOrder = orderRaw.length === 0 ? 0 : Number(orderRaw);
+
+    if (!label || label.length > SLOT_LABEL_MAX) {
+      throw new Error(`Slot label is required (up to ${SLOT_LABEL_MAX} characters).`);
+    }
+    if (!SLOT_TIME_RE.test(start) || !SLOT_TIME_RE.test(end)) {
+      throw new Error('Times must be on the hour or half-hour (e.g. 08:00, 14:30).');
+    }
+    if (end <= start) {
+      throw new Error('End time must be after start time.');
+    }
+    if (
+      !Number.isInteger(cap) ||
+      cap < SLOT_CAPACITY_MIN ||
+      cap > SLOT_CAPACITY_MAX
+    ) {
+      throw new Error(`Capacity must be a whole number ${SLOT_CAPACITY_MIN}–${SLOT_CAPACITY_MAX}.`);
+    }
+    if (!Number.isInteger(displayOrder) || displayOrder < 0) {
+      throw new Error('Display order must be a non-negative whole number.');
+    }
+
+    // Ownership: the service must belong to THIS vendor profile.
+    const { data: svc } = await supabase
+      .from('vendor_services')
+      .select('vendor_service_id')
+      .eq('vendor_service_id', serviceId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    if (!svc) {
+      throw new Error('Service not found.');
+    }
+
+    const { error } = await supabase.from('vendor_service_time_slots').insert({
+      vendor_profile_id: profile.vendor_profile_id, // stamped server-side
+      vendor_service_id: serviceId,
+      slot_label: label,
+      start_time: start,
+      end_time: end,
+      slot_capacity: cap,
+      display_order: displayOrder,
+    });
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent((e as Error).message)}`,
+    );
+  }
+
+  revalidatePath('/vendor-dashboard/services');
+  redirect('/vendor-dashboard/services?saved=1');
+}
+
+export async function deleteServiceTimeSlot(formData: FormData) {
+  const { supabase, profile } = await ensureProfile();
+
+  // No tier gate — a downgraded vendor must still be able to remove slots that
+  // are otherwise still enforcing against their bookings (verifier C8).
+  const slotId = String(formData.get('slot_id') ?? '');
+  if (!slotId) {
+    return redirect('/vendor-dashboard/services?error=Missing+slot+id');
+  }
+
+  const { error } = await supabase
+    .from('vendor_service_time_slots')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('slot_id', slotId)
+    .eq('vendor_profile_id', profile.vendor_profile_id); // double-scoped
 
   if (error) {
     return redirect(

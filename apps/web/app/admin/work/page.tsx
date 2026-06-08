@@ -11,7 +11,7 @@
  *
  * Counts mirror the exact filters each queue page uses so the number here
  * matches the rows the admin sees on arrival:
- *   verify          public_visibility='coming_soon'           → /admin/verify
+ *   verify          vendor_verification_applications status='pending_review' → /admin/verify
  *   payments        status='pending'                          → /admin/payments
  *   payouts         paid_at IS NULL AND on_hold=false         → /admin/payouts
  *   token-purchases status='pending_payment'                  → /admin/token-purchases
@@ -67,10 +67,13 @@ export default async function AdminWorkLanding() {
     abuseRes,
     helpRes,
   ] = await Promise.all([
+    // Verify — applications awaiting review. /admin/verify defaults to the
+    // 'applications' surface (vendor_verification_applications · pending_review),
+    // NOT the secondary ?surface=visibility (vendor_profiles coming_soon).
     admin
-      .from('vendor_profiles')
+      .from('vendor_verification_applications')
       .select('*', head)
-      .eq('public_visibility', 'coming_soon'),
+      .eq('status', 'pending_review'),
     admin.from('payments').select('*', head).eq('status', 'pending'),
     admin
       .from('vendor_payouts')

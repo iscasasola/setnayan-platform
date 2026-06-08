@@ -22,18 +22,34 @@ export default async function AdminOverview() {
     threadsRes,
     internalRes,
     teamPoolRes,
-    // Action queue counts (2026-05-29 · Task #11).
-    // Owner directive · surface live queue counts on Home so admin
-    // sees actionable work without drilling into each queue page.
-    // Each fetch uses head:true + count='exact' so we get count
-    // without pulling rows. The 4 queries below match the actual
-    // filters used by /admin/verify · /admin/payments · /admin/
-    // disputes · /admin/reviews so the counts on Home match the
-    // counts each queue page surfaces when admin opens it.
+    // ── Action-queue counts (command-center Home · 2026-06-09) ───────────
+    // Ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08): Home
+    // surfaces EVERY pending queue grouped by lane, not just 4. Each fetch
+    // uses head:true + count='exact' (count only, no rows) and mirrors the
+    // exact filter each queue page uses so the number here matches the rows
+    // the admin sees on arrival. A missing/renamed table resolves with an
+    // { error } (not a throw) → take() degrades that one tile to null (—)
+    // instead of 500-ing the whole page.
+    //
+    // Two-admin approvals are intentionally NOT surfaced yet: the
+    // `admin_approval_requests` table is unbuilt (V1.x per § 9.1), so there
+    // is nothing to count. It lands with the dedicated /admin/approvals PR.
+    //
+    // Trust & supply
     verifyQueueRes,
+    taxonomyReqRes,
+    paymentOptionsRes,
+    // Money to reconcile
     paymentsQueueRes,
+    payoutsRes,
+    tokenSalesRes,
+    // Recourse
     disputesQueueRes,
+    forceMajeureRes,
     appealsQueueRes,
+    abuseRes,
+    // Support
+    helpRes,
   ] = await Promise.all([
     admin.from('users').select('*', head),
     admin.from('users').select('*', head).eq('account_type', 'customer'),
@@ -43,23 +59,57 @@ export default async function AdminOverview() {
     admin.from('chat_threads').select('*', head),
     admin.from('users').select('*', head).eq('is_internal', true),
     admin.from('users').select('*', head).eq('is_team_member', true),
-    // Verification queue — vendor_profiles awaiting admin approval.
-    // public_visibility='coming_soon' matches the default tab on
-    // /admin/verify per parseVisibilityTab default branch.
+    // Verification — applications awaiting review. The /admin/verify DEFAULT
+    // surface is 'applications' (vendor_verification_applications · pending_review
+    // tab), NOT the secondary ?surface=visibility (vendor_profiles coming_soon).
+    // Count the applications queue so Home matches what the admin sees on arrival.
+    // (Fixes a pre-existing mismatch where Home/Work counted coming_soon.)
     admin
-      .from('vendor_profiles')
+      .from('vendor_verification_applications')
       .select('*', head)
-      .eq('public_visibility', 'coming_soon'),
-    // Payments queue — payments awaiting reconciliation.
-    // status='pending' matches the filter on /admin/payments.
+      .eq('status', 'pending_review'),
+    // Taxonomy requests — vendor category/refinement proposals awaiting review.
+    admin
+      .from('taxonomy_category_requests')
+      .select('*', head)
+      .eq('status', 'pending'),
+    // Payment options — vendor payment destinations awaiting a fraud screen.
+    admin
+      .from('vendor_payment_methods')
+      .select('*', head)
+      .in('moderation_status', ['pending_review', 'held']),
+    // Payments — order payments awaiting reconciliation.
     admin.from('payments').select('*', head).eq('status', 'pending'),
-    // Disputes queue — open disputes awaiting admin resolution.
-    // status='open' matches the default filter on /admin/disputes.
+    // Payouts — vendor payouts ready to release (unpaid, not on hold).
+    admin
+      .from('vendor_payouts')
+      .select('*', head)
+      .is('paid_at', null)
+      .eq('on_hold', false),
+    // Token sales — vendor token-pack purchases awaiting confirmation.
+    admin
+      .from('vendor_token_purchases')
+      .select('*', head)
+      .eq('status', 'pending_payment'),
+    // Disputes — open couple/vendor disputes.
     admin.from('vendor_disputes').select('*', head).eq('status', 'open'),
-    // Review appeals queue — self-review appeals awaiting admin
-    // decision. decided_at IS NULL matches the 'pending' filter on
-    // /admin/reviews.
+    // Force majeure — event-impacting flags to triage.
+    admin
+      .from('force_majeure_flags')
+      .select('*', head)
+      .in('status', ['open', 'under_review']),
+    // Review appeals — self-review gate appeals awaiting a decision.
     admin.from('vendor_review_appeals').select('*', head).is('decided_at', null),
+    // Setnayan AI abuse — trial-cycling flags to review.
+    admin
+      .from('concierge_abuse_flags')
+      .select('*', head)
+      .eq('status', 'pending_review'),
+    // Help — open help-center tickets.
+    admin
+      .from('help_messages')
+      .select('*', head)
+      .in('status', ['new', 'in_progress']),
   ]);
 
   const users = take(usersRes.count);
@@ -70,56 +120,149 @@ export default async function AdminOverview() {
   const threads = take(threadsRes.count);
   const internal = take(internalRes.count);
   const teamPool = take(teamPoolRes.count);
-  const verifyQueueCount = take(verifyQueueRes.count);
-  const paymentsQueueCount = take(paymentsQueueRes.count);
-  const disputesQueueCount = take(disputesQueueRes.count);
-  const appealsQueueCount = take(appealsQueueRes.count);
 
-  // Total open action items across all 4 queues — used to flavor the
-  // section subhead when there's work to do vs. when all queues are
-  // clear. Treat null counts as 0 so a transient query error doesn't
-  // make the action-queues section disappear.
-  const totalOpenActions =
-    (verifyQueueCount ?? 0) +
-    (paymentsQueueCount ?? 0) +
-    (disputesQueueCount ?? 0) +
-    (appealsQueueCount ?? 0);
+  // Per-queue open counts.
+  const q = {
+    verify: take(verifyQueueRes.count),
+    taxonomy: take(taxonomyReqRes.count),
+    paymentOptions: take(paymentOptionsRes.count),
+    payments: take(paymentsQueueRes.count),
+    payouts: take(payoutsRes.count),
+    tokenSales: take(tokenSalesRes.count),
+    disputes: take(disputesQueueRes.count),
+    forceMajeure: take(forceMajeureRes.count),
+    appeals: take(appealsQueueRes.count),
+    abuse: take(abuseRes.count),
+    help: take(helpRes.count),
+  };
+
+  // Lanes — mirror the Work nav grouping (Trust / Money / Recourse / Support).
+  const lanes: {
+    key: string;
+    label: string;
+    tiles: { label: string; value: number | null; sub: string; href: string }[];
+  }[] = [
+    {
+      key: 'trust',
+      label: 'Trust & supply',
+      tiles: [
+        {
+          label: 'Vendors to verify',
+          value: q.verify,
+          sub: 'Coming-soon awaiting review',
+          href: '/admin/verify',
+        },
+        {
+          label: 'Taxonomy requests',
+          value: q.taxonomy,
+          sub: 'New category / refinement proposals',
+          href: '/admin/taxonomy',
+        },
+        {
+          label: 'Payment options',
+          value: q.paymentOptions,
+          sub: 'Vendor bank/QR links to screen',
+          href: '/admin/payment-options',
+        },
+      ],
+    },
+    {
+      key: 'money',
+      label: 'Money to reconcile',
+      tiles: [
+        {
+          label: 'Payments to confirm',
+          value: q.payments,
+          sub: 'Awaiting reconciliation',
+          href: '/admin/payments?filter=pending',
+        },
+        {
+          label: 'Payouts to release',
+          value: q.payouts,
+          sub: 'Verified T+1 schedule',
+          href: '/admin/payouts',
+        },
+        {
+          label: 'Token sales',
+          value: q.tokenSales,
+          sub: 'Vendor packs to confirm',
+          href: '/admin/token-purchases',
+        },
+      ],
+    },
+    {
+      key: 'recourse',
+      label: 'Recourse',
+      tiles: [
+        {
+          label: 'Open disputes',
+          value: q.disputes,
+          sub: 'Couple ↔ vendor conflicts',
+          href: '/admin/disputes?status=open',
+        },
+        {
+          label: 'Force majeure',
+          value: q.forceMajeure,
+          sub: 'Event-impacting flags',
+          href: '/admin/force-majeure',
+        },
+        {
+          label: 'Review appeals',
+          value: q.appeals,
+          sub: 'Self-review claims pending',
+          href: '/admin/reviews?filter=pending',
+        },
+        {
+          label: 'Setnayan AI abuse',
+          value: q.abuse,
+          sub: 'Trial-cycling flags',
+          href: '/admin/concierge-abuse',
+        },
+      ],
+    },
+    {
+      key: 'support',
+      label: 'Support',
+      tiles: [
+        {
+          label: 'Help tickets',
+          value: q.help,
+          sub: 'Open · 24-hr SLA',
+          href: '/admin/help',
+        },
+      ],
+    },
+  ];
+
+  // Total open across every queue — null counts treated as 0 so a transient
+  // query error doesn't make the section read as "all clear".
+  const totalOpen = Object.values(q).reduce<number>(
+    (sum, v) => sum + Math.max(0, v ?? 0),
+    0,
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      {/*
-       * v2.1 admin chrome (overlay 2026-05-28). Eyebrow uses .m-eyebrow,
-       * heading uses .m-display-tight (Saira Condensed via the foundation
-       * tokens shipped in PR #566), supporting copy stays in the body sans
-       * stack. Mirrors couple-dashboard (PR #576) and vendor-dashboard (PR
-       * #577) overlays — same visual register across all three role surfaces.
-       * Logic + nav + per-iteration pages untouched.
-       */}
       <header className="mb-8 space-y-2">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">Overview</h1>
+        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">Home</h1>
         <p className="text-base text-ink/65">
-          A snapshot of the platform — counts at a glance, then jump into{' '}
-          <strong className="text-ink">Queues</strong> for action work,{' '}
-          <strong className="text-ink">Directory</strong> to look up people and
-          events, <strong className="text-ink">Money</strong> for payouts and
-          receipts, or <strong className="text-ink">Manage</strong> to update
-          the marketing site and taxonomy.
+          What needs admin action right now — every pending queue at a glance,
+          grouped the way <strong className="text-ink">Work</strong> is. Tap a
+          card to clear it, or use <strong className="text-ink">Directory</strong>{' '}
+          to look people up and <strong className="text-ink">More</strong> for
+          money &amp; catalog config, insights, and platform settings.
         </p>
       </header>
 
-      {/* ACTION QUEUES · 2026-05-29 Task #11.
-       *  Owner directive · surface live queue counts on Home so admin
-       *  lands and sees actionable work without drilling into each
-       *  queue page. Each tile shows the live count + tone-graded
-       *  treatment (amber when count > 0, muted when 0). All 4 tiles
-       *  route to their respective queue with the matching default
-       *  filter applied so the count on Home matches the queue's
-       *  visible rows when admin opens it.
-       *
-       *  Goes ABOVE the existing 8-tile platform-counts grid because
-       *  action work is more urgent than KPI awareness · 95% of admin
-       *  sessions are to clear a queue, not to monitor totals. */}
+      {/* COMMAND CENTER · action queues grouped by lane.
+       *  Ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08 ·
+       *  owner sign-off 2026-06-08). Surfaces ALL pending queues — not just
+       *  4 — so an admin lands and sees the whole workload without drilling.
+       *  Lanes mirror the Work nav grouping; the "Money to reconcile" lane
+       *  is the always-visible one-stop money view that satisfies the
+       *  Money-lane sign-off condition (the dissolved Money group's queues,
+       *  reunited here). */}
       <section
         aria-labelledby="action-queues-heading"
         className="mb-8 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6"
@@ -132,36 +275,31 @@ export default async function AdminOverview() {
             Action queues
           </h2>
           <p className="text-xs text-ink/55">
-            {totalOpenActions === 0
+            {totalOpen === 0
               ? 'All queues clear · nothing pending.'
-              : `${totalOpenActions} open across all queues`}
+              : `${totalOpen} open across all queues`}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <ActionQueueTile
-            label="Vendors to verify"
-            value={verifyQueueCount}
-            sub="Coming-soon awaiting review"
-            href="/admin/verify"
-          />
-          <ActionQueueTile
-            label="Payments to review"
-            value={paymentsQueueCount}
-            sub="Awaiting reconciliation"
-            href="/admin/payments?filter=pending"
-          />
-          <ActionQueueTile
-            label="Open disputes"
-            value={disputesQueueCount}
-            sub="Vendor-couple conflicts"
-            href="/admin/disputes?status=open"
-          />
-          <ActionQueueTile
-            label="Review appeals"
-            value={appealsQueueCount}
-            sub="Self-review claims pending"
-            href="/admin/reviews?filter=pending"
-          />
+
+        <div className="space-y-5">
+          {lanes.map((lane) => (
+            <div key={lane.key}>
+              <p className="mb-2 m-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+                {lane.label}
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {lane.tiles.map((t) => (
+                  <ActionQueueTile
+                    key={t.href}
+                    label={t.label}
+                    value={t.value}
+                    sub={t.sub}
+                    href={t.href}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -204,13 +342,6 @@ export default async function AdminOverview() {
           title="Moodboard library"
           body="Upload + tag template photos for Visual preview pillars (0010 · locked 2026-05-21)."
         />
-        {/*
-          v2.1 Nav Phase 3 cleanup — removed disabled-self-linking "Approval
-          queue" tile per the Phase 3 brief audit list (CLAUDE.md decision
-          log) + [[feedback_setnayan_no_dev_text_post_launch]]. Two-admin
-          approvals ship in a follow-on revision; surfacing a dead tile in
-          the meantime was a dev-text affordance, not a wired feature.
-        */}
       </section>
     </div>
   );
@@ -218,9 +349,6 @@ export default async function AdminOverview() {
 
 function Stat({ label, value }: { label: string; value: number | null }) {
   // v2.1 KPI card — .m-card chrome + .m-mono label + tabular display number.
-  // Same shape the admin-dashboard.jsx template uses for KPI strips; matches
-  // the AdminOverview template at /tmp/setnayan-keynote-template/components/
-  // admin-dashboard.jsx lines 193-199.
   return (
     <div className="m-card p-4">
       <p className="m-mono text-[10px] uppercase tracking-[0.15em] text-[color:var(--m-slate-3)]">
@@ -239,20 +367,14 @@ function Stat({ label, value }: { label: string; value: number | null }) {
 /**
  * ActionQueueTile — clickable KPI card for the Action queues section.
  *
- * Differs from <Stat> in three ways:
- *   1. Wraps in <Link> for one-click routing into the queue page with
- *      the matching default filter applied.
- *   2. Tone-graded · amber accent + AlertTriangle icon when value > 0,
- *      muted ink when value === 0. Admin's eye goes straight to the
- *      tiles with work pending.
- *   3. Right-arrow affordance on the title row so the tile reads as a
- *      destination, not just a count.
+ *   1. Wraps in <Link> for one-click routing into the queue page with the
+ *      matching default filter applied.
+ *   2. Tone-graded · amber accent + AlertTriangle icon when value > 0, muted
+ *      ink when value === 0. Admin's eye goes straight to tiles with work.
+ *   3. Right-arrow affordance so the tile reads as a destination.
  *
- * Brand voice · sub-line uses concrete copy ("Coming-soon awaiting
- * review" / "Awaiting reconciliation" / "Vendor-couple conflicts" /
- * "Self-review claims pending") per
- * `[[feedback_setnayan_no_dev_text_post_launch]]` · no engineering
- * jargon like "pending_review_count" or "queue_size".
+ * Brand voice · concrete sub-line copy (no engineering jargon) per
+ * [[feedback_setnayan_no_dev_text_post_launch]].
  */
 function ActionQueueTile({
   label,
@@ -313,4 +435,3 @@ function ActionQueueTile({
     </Link>
   );
 }
-

@@ -359,11 +359,19 @@ export function isWebsitePhasesEnabled(): boolean {
 
 /**
  * Maps the event date to its lifecycle phase, reusing the day-of date math
- * in lib/day-of-mode.ts rather than reinventing it:
+ * in lib/day-of-mode.ts for the near-event window:
  *
- *   DayOfPhase 'pre' | 'inactive'  → 'rsvp'      (before the wedding)
- *   DayOfPhase 'live'              → 'event'     (the wedding day window)
- *   DayOfPhase 'post'              → 'editorial' (after the wedding)
+ *   DayOfPhase 'live'  → 'event'     (T-1h .. T+8h — the wedding day window)
+ *   DayOfPhase 'post'  → 'editorial' (T+8h .. T+24h — just after)
+ *   DayOfPhase 'pre'   → 'rsvp'      (T-3d .. T-1h — run-up)
+ *
+ * ⚠ DayOfPhase 'inactive' is the catch-all for BOTH ends — *more than 3 days
+ * before* the wedding AND *more than 24 hours after* it. Those are opposite
+ * lifecycle phases, so 'inactive' MUST be disambiguated by comparing the event
+ * date to now: a wedding already in the past → 'editorial'; one still in the
+ * future → 'rsvp'. (Mapping 'inactive' straight to 'rsvp' would wrongly show
+ * the invitation on a wedding that happened a week ago — the day-of 'post'
+ * window only lasts 24h.)
  *
  * A null event date (very early planning, no date set yet) maps to 'rsvp'.
  */
@@ -375,8 +383,16 @@ export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
     case 'post':
       return 'editorial';
     case 'pre':
-    case 'inactive':
-    default:
       return 'rsvp';
+    case 'inactive':
+    default: {
+      // Far from the event window (>3d before or >24h after). The parse only
+      // needs day-granularity here (the near-event cases are already handled),
+      // so a plain Date parse is sufficient; timezone slop can't flip a date
+      // that is days away from now.
+      const eventMs = new Date(eventDate).getTime();
+      if (!Number.isFinite(eventMs)) return 'rsvp';
+      return eventMs < Date.now() ? 'editorial' : 'rsvp';
+    }
   }
 }

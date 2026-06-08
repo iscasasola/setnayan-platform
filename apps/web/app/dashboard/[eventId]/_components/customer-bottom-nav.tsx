@@ -147,7 +147,13 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
  * over). Per [[feedback_setnayan_orphan_prevention]] each tab's
  * destination route exists.
  */
-export function CustomerBottomNav({ eventId }: { eventId: string }) {
+export function CustomerBottomNav({
+  eventId,
+  budgetBuild = false,
+}: {
+  eventId: string;
+  budgetBuild?: boolean;
+}) {
   const pathname = usePathname();
 
   // FOCUS MODE — Guests page (owner directive 2026-06-03). The Guests list
@@ -161,6 +167,14 @@ export function CustomerBottomNav({ eventId }: { eventId: string }) {
   // usePathname() is populated during SSR for client components, so the nav
   // is absent from first paint on /guests — no hide-flash.
   if (pathname === `/dashboard/${eventId}/guests`) return null;
+
+  // FOCUS MODE — Services "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED,
+  // passed down as `budgetBuild`). /vendors runs its own 5-tab section nav
+  // (Summary · Shortlist · Build · Compare · Lock), so suppress the global
+  // bottom nav there too — same treatment as Guests. Exact-match only:
+  // sub-routes (/vendors/[id], /vendors/categories, /vendors/packages) keep the
+  // global nav, so nothing is orphaned (the floating X returns to Home).
+  if (budgetBuild && pathname === `/dashboard/${eventId}/vendors`) return null;
 
   return <BottomNav items={buildCustomerBottomNav(eventId)} />;
 }

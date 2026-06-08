@@ -6,18 +6,74 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(onboarding): admin-uploaded background music (item 1)
 
-**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding so it doesn't feel long. Owner's design: instead of committing an audio file, add an **admin uploader** so the owner uploads an **owned / AI-generated** track (e.g. a Suno instrumental); the onboarding streams it. Keeps the file owner-supplied + swappable with no deploy. Mirrors the per-event website background-music feature (site-chrome, Increment B).
+**Context:** Punch-list item 1 — background music for the ~15-min wedding onboarding. Owner's design: an **admin uploader** (not a committed file) so the owner uploads an **owned / AI-generated** track (e.g. a Suno instrumental); the onboarding streams it. Owner-supplied + swappable with no deploy. Mirrors the per-event website background-music feature (site-chrome, Increment B).
 
 **What landed:**
-- **Migration `20260925000000`** — adds `platform_settings.onboarding_bg_music_r2_key` (r2:// ref) + `onboarding_bg_music_enabled` (bool, default TRUE). Applied to prod directly via `db query` (ALTER … ADD COLUMN IF NOT EXISTS) because the remote ledger had an orphan `20260924000000` from a parallel session that blocked `db push --include-all` ("remote migration versions not found in local"); the file ships idempotent for fresh setups. *(Note: I renamed mine off the colliding `20260924000000` to `20260925000000`.)*
-- **`lib/platform-settings.ts`** — type + SELECT + FALLBACK gain the 2 columns; new `fetchOnboardingBgMusicUrl()` (self-contained admin-client read + `displayUrlForStoredAsset` presign, try/catch → null; mirrors `lib/v2-catalog`) so the anonymous onboarding flow resolves the stream URL server-side without depending on a session / anon RLS.
-- **`/admin/settings`** — new "Onboarding background music" card: `<FileUpload bucket="media">` (audio, ≤40 MB) + enable toggle + an **"owned/AI-generated track only"** helper (Setnayan serves the file, so it must be licensed). New `updateOnboardingMusic` action writes the columns ("enabled with no track" coerced off, like site-chrome).
-- **`/api/upload`** — audio per-type cap **20 → 40 MB** so a ~30-min instrumental fits (image cap unchanged at 10 MB; existing flows byte-identical).
-- **`onboarding/page.tsx` + `onboarding-shell.tsx` + new `onboarding-music.tsx`** — the page resolves `bgMusicUrl` and passes it to the shell, which renders a small mute/unmute **pill in the header** (`.brandrow`, `margin-left:auto`, beside Skip). The player streams (`preload="none"` + `loop`), **starts softly on the first user gesture** (gesture-gated so browsers allow it) at volume 0.32, remembers a mute choice in `localStorage`, and pauses on unmount. **Unset/disabled → the player never mounts** (silent, no error).
+- **Migration `20260925000000`** — `platform_settings.onboarding_bg_music_r2_key` (r2:// ref) + `onboarding_bg_music_enabled` (bool, default TRUE). Applied to prod directly via `db query` (`ADD COLUMN IF NOT EXISTS`) — the remote ledger had an orphan `20260924000000` (the parallel mood-board PR #1120's migration, not yet on local main) that blocked `db push --include-all`; my file ships idempotent. Renamed off the colliding `20260924000000`.
+- **`lib/platform-settings.ts`** — type/SELECT/FALLBACK gain the 2 columns; `fetchOnboardingBgMusicUrl()` (admin-client read + `displayUrlForStoredAsset` presign, try/catch → null) resolves the stream URL server-side without a session / anon RLS.
+- **`/admin/settings`** — "Onboarding background music" card: `<FileUpload>` (audio ≤40 MB) + enable toggle + an **owned/AI-generated-track-only** helper; `updateOnboardingMusic` action ("enabled with no track" coerced off).
+- **`/api/upload`** — audio per-type cap 20 → 40 MB (image cap unchanged at 10 MB; existing flows byte-identical).
+- **`onboarding/page.tsx` + `onboarding-shell.tsx` + new `onboarding-music.tsx`** — header mute/unmute **pill** (`.brandrow`, `margin-left:auto`, beside Skip); streams (`preload="none"` + `loop`), **starts softly on the first user gesture**, volume 0.32, remembers mute in `localStorage`, pauses on unmount. **Unset/disabled → never mounts (silent).**
 
-**Verify:** `tsc --noEmit` ✓. Prod columns confirmed present. Pill renders top-right in the header with no overlap (forced a test src locally, screenshot-verified, reverted). End-to-end (upload a track → hear it in onboarding) confirms on the deploy once the owner uploads their Suno track.
+**Verify:** `tsc --noEmit` ✓. Prod columns confirmed. Pill renders top-right with no overlap (forced test src, screenshot-verified, reverted). End-to-end confirms on the deploy once a track is uploaded.
 
-**SPEC IMPACT:** New admin surface (onboarding background-music uploader) on `platform_settings`; honors the "Setnayan-owned AI-generated catalogue only" music rule via the uploader's owned-track helper. → corpus `DECISION_LOG.md` (logged).
+**SPEC IMPACT:** New admin onboarding-music uploader on `platform_settings`; honors "Setnayan-owned AI-generated catalogue only" via the uploader's owned-track helper. → corpus `DECISION_LOG.md`. (Also corrected there: item-10 Recraft photos ≈ ₱530, not ₱11.5k.)
+
+## 2026-06-09 · feat(services): Budget "Build" — Build tab hosts the allocation planner (Phase 2a, flag-dark)
+
+**Context:** Phase 2 of `Budget_Build_Services_Takeover_2026-06-08.md`. The takeover's **Build** tab (a stub in Phase 1) now renders the real median-anchored allocation planner — the auto-fit plan, per-service ₱ targets + shopping ranges, the Cushion / shortfall readouts, and the peso-pin tilt (Splurge / Standard / Save). Reuses the engine + UI already shipped on the Budget tab — no fork.
+
+**What landed (`vendors/page.tsx`):** when `BUDGET_BUILD_ENABLED` is on, the page resolves `resolveAllocationInputs(supabase, eventId)` and passes a `<BudgetAllocationPlanner>` into the takeover's `buildSlot`. The alloc query is **gated inside the flag check** so it never runs in production while the flag is off. Shortlist still houses today's `PlanBudgetAccordion`; Compare / Summary / Lock remain Phase 3–5 stubs.
+
+**Reuse, not rebuild:** `lib/budget-allocation.ts`, `lib/budget-allocation-data.ts` (`resolveAllocationInputs`), and `budget/_components/budget-allocation-planner.tsx` are all rendered as-is.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Flag OFF by default → zero production change.
+
+**SPEC IMPACT:** Phase 2a of `Budget_Build_Services_Takeover_2026-06-08.md`. Follow-on Phase 2b: whole-plan baskets (Lean/Fits/Stretch) + save A/B/C (saved-builds migration). Logged in `DECISION_LOG.md`.
+
+## 2026-06-08 · feat(seating): A4 seating PDF — mood-board / blueprint, monogram + QR (0008)
+
+**Context:** Owner-specced export. Completes the seating arc (chair-level → names → mobile list → zoom/pan → markers → venue to-scale → **PDF**). The 0008 spec's "Print pack" — scoped to the owner's brief: A4, two print modes, branded header, floor-plan page + arrangement pages. No migration; reuses existing `pdf-lib` + `qrcode` + `events.slug`.
+
+**What landed:**
+- **`lib/seating-pdf.ts`** — `buildSeatingPdf()` draws an **A4** PDF with `pdf-lib`:
+  - **Header** (every page): couple **monogram** (text initials in `monogram_color`), **names** (`display_name`), **date**, **Setnayan logo** (fetched `brand/setnayan-mark-512.png`, optional), and a **website QR** (`{appUrl}/{slug}` via `QRCode.toBuffer`, "Scan to visit our website").
+  - **Page 1 = floor plan** — drawn **to scale** when a venue size is set (room rectangle at the room's aspect + metric labels; tables at true footprint via `TABLE_FOOTPRINT_M`), else fit-to-page. Round→circle, banquet/head→rectangle; stage + entrance markers; table number, label, fill.
+  - **Pages 2+ = seating arrangements** — per-table header (fill · type) + numbered guest list with roles, two-column, auto-paginated.
+  - **Two modes:** **mood-board** (floor + tables coloured from the couple's `event_moodboard_saves.palette_snapshot`) or **blueprint** (clean blue line-art). Page footer with couple name + page number.
+- **`/dashboard/[eventId]/seating/export` route** (Node runtime) — auth + RLS-scoped fetch of event/tables/assignments/guests/floor-plan/palette, builds the PDF, returns it as a download (`?mode=moodboard|blueprint`).
+- **Editor:** an **Export PDF ▾** toolbar menu (Mood-board colours / Blueprint).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓ (export route compiles). **Both modes + the floor-plan and arrangement pages were rendered from the actual generated PDF and visually inspected** (16×22 m to-scale room, palette-coloured tables, monogram+date+QR header, per-table guest lists).
+
+**SPEC IMPACT:** builds the 0008 spec's print/PDF export (single-website-QR variant per owner; per-table-sign / per-guest place-card sheets remain deferred). Completes the seating floor-plan arc. → corpus DECISION_LOG.
+
+## 2026-06-08 · feat(services): Budget "Build" — Services 5-tab takeover shell (Phase 1, flag-dark)
+
+**Context:** Owner design session (→ `Budget_Build_Services_Takeover_2026-06-08.md`): the couple's Services tab becomes a full-screen FOCUS MODE takeover (Summary · Shortlist · Build · Compare · Lock) that turns budget + pax + date + location into a complete, affordable, bookable plan. This PR lands **Phase 1 — the takeover shell only** — behind a flag, so production is unchanged.
+
+**Flag:** `BUDGET_BUILD_ENABLED` (env, default OFF — same posture as `WEBSITE_PHASES_ENABLED` / the Setnayan AI paywall). While OFF, `/vendors` renders exactly as today.
+
+**What landed:**
+- `lib/budget-build.ts` — `isBudgetBuildEnabled()` + the `BUDGET_BUILD_TABS` constant.
+- `vendors/_components/services-takeover.tsx` — the focus-mode shell: hides the global top bar (`.shell-topbar{display:none}`), a fixed floating X (mobile) → event Home, a desktop tab strip + a mobile fixed 5-tab section bottom nav. Phase 1: Shortlist renders today's `PlanBudgetAccordion`; the other tabs are stubs Phases 2–5 fill.
+- `customer-bottom-nav.tsx` — when `budgetBuild`, suppress the global bottom nav on the exact `/vendors` route (mirrors the Guests treatment); sub-routes keep it.
+- `layout.tsx` — passes `budgetBuild={isBudgetBuildEnabled()}` to `CustomerBottomNav`.
+- `vendors/page.tsx` — when the flag is on, wraps the existing Services content in `ServicesTakeover` (Shortlist slot); otherwise renders exactly as before.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Flag OFF by default → zero production change.
+
+**SPEC IMPACT:** Implements Phase 1 of `Budget_Build_Services_Takeover_2026-06-08.md` (corpus); logged in `DECISION_LOG.md` (2026-06-08 🧮 row). Transitional vs `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` (full migration across Phases 2–5).
+
+## 2026-06-08 · fix(website): lifecycle phase — past weddings now resolve to Editorial, not RSVP
+
+**Context:** With `WEBSITE_PHASES_ENABLED` on, a wedding **a week in the past** still rendered the **RSVP invitation** instead of the Editorial recap (verified on the `test-maria-and-jose` event dated June 1). Root cause in `getLifecyclePhase` (Increment C): it delegated to `getDayOfPhase`, whose `post` window is only **T+8h..T+24h** — beyond 24h after the wedding it returns `inactive`. But `inactive` is the catch-all for **both** ">3 days before" **and** ">24h after", and the engine mapped `inactive → rsvp`. So any wedding more than a day old fell back to the invitation.
+
+**Fix:** `getLifecyclePhase` now disambiguates the `inactive` case by comparing the event date to now — **past → 'editorial'**, future → 'rsvp' (`pre`→rsvp, `live`→event, `post`→editorial unchanged). The near-event windows are still handled by `getDayOfPhase`, so the new date compare only fires for the far-from-event cases where it's unambiguous. No migration; still entirely behind the (default-off) flag.
+
+**Verify:** typecheck + build on CI. `test-maria-and-jose` (event_date 2026-06-01) now computes `editorial`; a future-dated event stays `rsvp`. **Requires the flag ON + a redeploy to see live** — this bug would have shown RSVP even with the flag on, so it's a prerequisite for the Editorial phase to ever appear.
+
+**SPEC IMPACT:** correctness fix to the §1 phase model (Increment C). → DECISION_LOG.
 
 ## 2026-06-08 · feat(seating): venue dimensions + to-scale tables (0008)
 

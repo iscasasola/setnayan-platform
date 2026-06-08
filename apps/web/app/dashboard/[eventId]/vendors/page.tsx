@@ -23,6 +23,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
@@ -35,6 +36,9 @@ import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
+import { ServicesTakeover } from './_components/services-takeover';
+import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation-planner';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
 import { buildTasteChips } from '@/lib/personalized-menu';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -374,12 +378,39 @@ export default async function VendorsPage({ params }: Props) {
   // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a
   // "Tools & extras" strip — the standalone InAppServicesSection launcher grid
   // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
-  return (
+  const services = (
     <div className="space-y-4">
       <MatchCriteriaStrip eventId={eventId} chips={matchChips} manual={planningManual} />
       <PlanBudgetAccordion model={model} eventId={eventId} />
     </div>
   );
+
+  // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).
+  // When on, /vendors becomes a full-screen FOCUS MODE takeover with its own
+  // 5-tab section nav: Shortlist houses today's Services experience and Build
+  // hosts the median-anchored allocation planner (the auto-fit plan + shopping
+  // ranges + cushion + peso-pin tilt — the same engine the Budget tab uses).
+  // Compare / Summary / Lock fill in across later phases. When off, render
+  // exactly as before (zero production change — the alloc query is gated here so
+  // it never runs unless the flag is on).
+  if (isBudgetBuildEnabled()) {
+    const allocInputs = await resolveAllocationInputs(supabase, eventId);
+    const buildSlot = (
+      <BudgetAllocationPlanner
+        eventId={eventId}
+        budgetPhp={allocInputs.budgetPhp}
+        leaves={allocInputs.leaves}
+        config={allocInputs.config}
+        pax={allocInputs.pax}
+        region={ev?.region ?? null}
+      />
+    );
+    return (
+      <ServicesTakeover eventId={eventId} shortlistSlot={services} buildSlot={buildSlot} />
+    );
+  }
+
+  return services;
 }
 
 /**

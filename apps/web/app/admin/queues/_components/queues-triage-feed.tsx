@@ -39,9 +39,11 @@ type Props = {
   items: TriageItem[];
   /** Sum of open counts across all queues. */
   totalOpen: number;
+  /** Page heading. Defaults to "Queues"; the Work landing passes "Work". */
+  title?: string;
 };
 
-export function QueuesTriageFeed({ items, totalOpen }: Props) {
+export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) {
   const subtitle =
     totalOpen === 0
       ? "You're all caught up — nothing is waiting on you right now."
@@ -54,7 +56,7 @@ export function QueuesTriageFeed({ items, totalOpen }: Props) {
           Admin
         </p>
         <h1 className="m-display-tight text-3xl" style={{ color: 'var(--m-ink)' }}>
-          Queues
+          {title}
         </h1>
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           {subtitle}

@@ -4061,6 +4061,13 @@ export function OnboardingShell({
                       <span className="bc-now">{pesoB(b.price)}</span>
                     </div>
                     {b.savings > 0 && <div className="bc-save">Save {pesoB(b.savings)} vs buying each on its own</div>}
+                    {b.items.length > 0 && (
+                      <ul className="bc-items">
+                        {b.items.map((it) => (
+                          <li key={it}><span className="bci-ck">✓</span>{it}</li>
+                        ))}
+                      </ul>
+                    )}
                     <button
                       type="button"
                       className="bc-cta"

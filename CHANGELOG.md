@@ -17,9 +17,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Automated-later seam:** `approve_vendor_token_purchase` is exactly the entry point a future Maya/PayMongo webhook calls to auto-credit on payment — no rebuild, just a webhook handler that resolves the order by reference code and calls approve.
 
-**Verify:** transactional smoke test (rolled back, prod untouched) confirmed — create reads correct DB price (25 tok/₱2,500), non-admin vendor **blocked** from approve (`FORBIDDEN: admin only`), admin approve credits `purchased_tokens` +25 with `earned_tokens` unchanged, approve idempotent (no double-credit). Migration applied + re-applied cleanly (idempotent). Frontend typecheck via CI required checks.
+**Verify:** transactional smoke test (rolled back, prod untouched) confirmed — create reads correct DB price (25 tok/₱2,500), non-admin vendor **blocked** from approve (`FORBIDDEN: admin only`), admin approve credits `purchased_tokens` +25 with `earned_tokens` unchanged, approve idempotent (no double-credit). Migration applied + re-applied cleanly (idempotent). Frontend typecheck via CI required checks (passed).
 
 **SPEC IMPACT:** Vendor token economy now has a customer-initiated purchase flow (0034 payments/cart + 0022 vendor dashboard). DECISION_LOG row appended at corpus root. No price changes (packs unchanged at ₱100/token); the purchased-vs-earned expiry semantics are clarified, not changed.
+
+## 2026-06-08 · feat(setnayan-ai): governing gate — one chokepoint, AI-off → generic site-wide (PR-1)
+
+**Context:** Owner 2026-06-08 — "Setnayan AI must govern across the whole website," sequenced "govern now (free), monetize next." Today the AI on/off gate is scattered: every surface independently checks `events.planning_mode === 'manual'`, and two surfaces *leak* (run AI-only logic regardless of the gate).
+
+**What landed:** new **`lib/setnayan-ai.ts` → `isSetnayanAiActive(event)`** — the single governing gate. Routed the 3 scattered inline checks through it (`page.tsx` deadlines, `category-search.ts` search, `vendors/page.tsx` plan-budget). **Closed 2 leaks so AI-off is genuinely generic:** (1) `category-search.ts` — the reception-proximity tail sort now gates on `aiActive` (AI off → review/rating order, the same fallback as no-coords); (2) `vendors/page.tsx` — the "👀 eyeing your date" nudge is suppressed (empty map) when AI is off. No behavior change for the default Assisted case; Manual-mode (AI-off) couples now get a true region-scoped generic search (no proximity ranking, no % pill, no eyeing, no deadlines). Free floor (region filter + anti-double-book) unaffected.
+
+**Why centralize:** the locked design makes the gate a **paid per-event entitlement**; PR-2 swaps the body of `isSetnayanAiActive` to read that entitlement **without touching any call site**. This PR makes that a one-file change.
+
+**Verify:** no remaining inline `planning_mode === 'manual'` checks; no unused vars; diff is 4 files / +58−13. Build via CI required checks.
+
+**SPEC IMPACT:** Implements the §2 free-floor↔AI boundary + AI-off→generic from `What_Is_Setnayan_AI_2026-06-08.md` (corpus). → DECISION_LOG. PR-1 of the Setnayan AI build (next: paid entitlement · last-minute · dependencies).
 
 ## 2026-06-08 · feat(onboarding): Dream Team PR-3 — two-screen picker, retire StyleSubStepper
 

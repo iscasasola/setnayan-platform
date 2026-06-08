@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · fix(for-vendors,how-it-works): de-hardcode vendor prices → read the catalog DB
+
+**Context:** Owner 2026-06-08 "make sure these prices are based on the admin page and not hardcoded." The homepage PricingSection + /pricing already read the DB; /for-vendors + /how-it-works still hard-coded the vendor tier prices (and /how-it-works was STALE at ₱2,499 — should be ₱6,000).
+
+**What landed:**
+- New **`getVendorPrices()`** in `lib/v2-catalog.ts` — `cache()`-wrapped (one query/request even across components), reads `vendor_billing_catalog` (Pro/Enterprise monthly+annual, branch, derived token unit), returns formatted strings; resilience fallbacks only render if the DB is unreachable.
+- `/for-vendors` components → async + read it: `vendor-hero` (Pro price) · `for-vendors-deep-dive` (Pro/Enterprise tier cards + both annual lines + the standalone Enterprise callout) · `stack-close-vendor` (Pro price). Page → `force-dynamic`.
+- `/how-it-works` → async; the visible Pro price reads `getVendorPrices()` (was a stale hard-coded ₱2,499) + dropped the stale number from the role-card data string. Page → `force-dynamic`.
+
+**Verify:** typecheck/build on the PR. Prices now flow from /admin/pricing.
+
+**SPEC IMPACT:** None (presentation; vendor prices now DB-sourced). REMAINING hard-coded (follow-up): the /for-vendors SEO metadata + JSON-LD Offer prices (need async `generateMetadata`), the "how Setnayan makes money" FAQ prose, the module-level Add-Branch ₱999 / Boosted ₱1,200 comparison rows (Boosted isn't a catalog SKU), and the homepage planner "₱1,499" prose (TODAYS_FOCUS is excluded from the catalog fetcher).
+
 ## 2026-06-08 · feat(onboarding,pricing): de-hardcode onboarding prices → read the live admin catalog (owner directive)
 
 **Context:** Owner directive 2026-06-08 — "our pricing must not be hardcoded but taken from the admin pricing page." The onboarding services screens (15 "Boost & enhance" / 16 "Services you're interested in") showed SELLING prices from a hardcoded `SVC` constant in `onboarding-shell.tsx`. They now read the SAME live, admin-managed catalog `/pricing` reads. Closes the explicit follow-up logged in the 2026-06-08 canonical-reprice entry below ("onboarding still reads the SVC demo constant … proper server-side wiring is deferred").

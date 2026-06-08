@@ -39,10 +39,12 @@ import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { ProductionsCatalog } from './_components/productions-catalog';
 import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
-// edge cache so static marketing routes serve Google's crawl rate-limit
-// budget without origin pressure. Each page rebuilds at most once per hour.
-export const revalidate = 3600;
+// Per-request rendering (owner 2026-06-08 "make sure these prices are based on
+// the admin page and not hardcoded"): the vendor tier prices now read the live
+// catalog DB via getVendorPrices(). force-dynamic = always-live prices + the CI
+// build skips the createAdminClient throw (the /pricing pattern). Was a 1hr ISR
+// edge cache (SEO/GEO Bucket 8); the trade-off is no static CDN cache here.
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Setnayan for Vendors — Verified free + Pro · ₱6,000/28d',

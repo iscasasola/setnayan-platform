@@ -28,6 +28,7 @@
  */
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { getVendorPrices } from '@/lib/v2-catalog';
 
 type CellValue = string | boolean;
 
@@ -268,7 +269,8 @@ function MatrixCell({
   );
 }
 
-export function ForVendorsDeepDive() {
+export async function ForVendorsDeepDive() {
+  const p = await getVendorPrices();
   return (
     <section
       style={{
@@ -436,7 +438,7 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱6,000{' '}
+              {p.proMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
             </div>
             <div
@@ -454,7 +456,7 @@ export function ForVendorsDeepDive() {
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}
             >
-              or ₱60,000/yr · save ₱18,000
+              or {p.proAnnual}/yr · save {p.proAnnualSave}
             </div>
           </div>
           {/* ENTERPRISE */}
@@ -474,7 +476,7 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱10,000{' '}
+              {p.enterpriseMonthly}{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
             <div
@@ -491,7 +493,7 @@ export function ForVendorsDeepDive() {
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}
             >
-              or ₱100,000/yr · save ₱30,000
+              or {p.enterpriseAnnual}/yr · save {p.enterpriseAnnualSave}
             </div>
           </div>
         </div>
@@ -782,10 +784,10 @@ export function ForVendorsDeepDive() {
           className="m-display"
           style={{ fontSize: 36, color: 'var(--m-orange-2)' }}
         >
-          ₱10,000
+          {p.enterpriseMonthly}
         </div>
         <div>
-          <div className="m-label-mono">Enterprise · ₱10,000 / 28 days</div>
+          <div className="m-label-mono">Enterprise · {p.enterpriseMonthly} / 28 days</div>
           <div
             style={{
               fontSize: 14,

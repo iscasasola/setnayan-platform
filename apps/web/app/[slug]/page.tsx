@@ -24,6 +24,7 @@ import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
+import { EditorialContent } from './_components/editorial/editorial-content';
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -672,7 +673,7 @@ function PublicLanding({
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
           Otherwise fall back to the centered text-only treatment. */}
-      {hasHeroMedia ? (
+      {hasHeroMedia && !showEditorialPlaceholder ? (
         <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
           <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
           <div
@@ -702,10 +703,7 @@ function PublicLanding({
         </div>
       ) : null}
       {showEditorialPlaceholder ? (
-        <EditorialPhasePlaceholder
-          displayName={event.display_name}
-          eventDate={event.event_date}
-        />
+        <EditorialContent eventId={event.event_id} />
       ) : (
         <>
       <div className="space-y-6 text-center">
@@ -770,44 +768,6 @@ function PublicLanding({
         </>
       )}
     </InvitationShell>
-  );
-}
-
-/**
- * Editorial-phase stand-in (Increment C · flag-dark). A temporary centered
- * cream card shown after the wedding (lifecyclePhase === 'editorial') while a
- * parallel task builds the real editorial module under
- * app/[slug]/_components/editorial/. Rendered inside InvitationShell so the
- * header/footer chrome stays; the hero (monogram/photo) renders above it
- * because hero shows in all phases. Self-contained on purpose — no imports
- * from the editorial module this task must not touch.
- */
-function EditorialPhasePlaceholder({
-  displayName,
-  eventDate,
-}: {
-  displayName: string;
-  eventDate: string | null;
-}) {
-  return (
-    <section className="mt-10 flex justify-center">
-      <div className="mx-auto max-w-md space-y-4 rounded-2xl border border-ink/10 bg-cream p-8 text-center shadow-sm">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          The wedding
-        </p>
-        <h2 className="font-serif text-2xl italic tracking-tight text-ink">
-          {displayName}
-        </h2>
-        {eventDate ? (
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-            {formatEventDate(eventDate)}
-          </p>
-        ) : null}
-        <p className="mx-auto max-w-prose font-serif text-lg italic leading-relaxed text-ink/70">
-          The full story is being prepared — check back soon.
-        </p>
-      </div>
-    </section>
   );
 }
 
@@ -1103,7 +1063,7 @@ function InvitationSite({
             treatment. Gated on hero widget visibility — always-on by default
             (editor blocks hiding), but the gate exists so V1.1 can let
             exhibitions / private weddings drop the hero entirely if needed. */}
-        {heroShouldRender && hasHeroMedia ? (
+        {!showEditorialPlaceholder && heroShouldRender && hasHeroMedia ? (
           <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
             {/* Full-bleed video (Increment B) or photo. */}
             <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
@@ -1149,7 +1109,7 @@ function InvitationSite({
               <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
             </div>
           </section>
-        ) : heroShouldRender ? (
+        ) : !showEditorialPlaceholder && heroShouldRender ? (
           <section className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
@@ -1188,10 +1148,7 @@ function InvitationSite({
             hero is replaced by the editorial stand-in. The hero (above) +
             footer sign-out (below) stay. Bypassed when the flag is off. */}
         {showEditorialPlaceholder ? (
-          <EditorialPhasePlaceholder
-            displayName={event.display_name}
-            eventDate={event.event_date}
-          />
+          <EditorialContent eventId={event.event_id} />
         ) : (
           <>
         {/* Greeting — always-on per the editor contract; gated here so V1.1

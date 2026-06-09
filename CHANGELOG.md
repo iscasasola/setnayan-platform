@@ -10,12 +10,34 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **What landed:**
 - **Chat FREE-block** (`lib/chat-actions.ts`) — FREE vendors can't message couples in-app (`tierCaps(tier).chat === 'none'`; verified/pro/enterprise pass). The DB RPC `unlock_vendor_event` (migration `20260911000000:66-67`) already raises `TIER_FREE_NO_INAPP` on the normal accept path, but **`adminAcceptInquiry` (admin/demo-vendors) sets `inquiry_status='accepted'` via the service-role client without that RPC** — so a claimed demo FREE vendor could otherwise reach the `chat_messages` insert. This pre-insert gate (scoped to `senderRole==='vendor'`, isolated `tier_state` soft-probe) closes that hole. Couples/guests untouched.
-- **Editorial tag-gate** (`app/[slug]/_components/editorial/data.ts`) — the recap "Team behind the day" credit roll: `free` stays hidden (already shipped #1128); now **`verified` renders as a plain text credit** (logo + slug suppressed) and only **pro/enterprise get the showcase treatment** (logo + tier badge + profile link), matching the matrix Editorial row (free ✗ / verified ✗ / pro Tagged / ent Tagged). Verified vendors stay credited (the couple used them) — no UX regression to the recap; M1/M2/M3 headline stats still count ALL vendors.
+- **Editorial tag-gate** (`app/[slug]/_components/editorial/data.ts`) — the recap "Team behind the day" credit roll: `free` stays hidden (already shipped #1128); now **`verified` renders as a plain text credit** (logo + slug suppressed) and only **pro/enterprise get the showcase treatment** (logo + tier badge + profile link), matching the matrix Editorial row (free ✗ / verified ✗ / pro Tagged / ent Tagged). Verified vendors stay credited (the couple used them); M1/M2/M3 headline stats still count ALL vendors.
 - **Custom-slug PRO/ENT gate** (`vendor-dashboard/actions.ts` + `profile/page.tsx`) — a custom website slug is PRO/ENTERPRISE only (`caps.customWebsiteName`). The existing `tier_state` soft-probe in `saveVendorProfile` now also reads `business_slug` (one query) and **rejects a slug CHANGE for FREE/VERIFIED while never erroring on an unchanged save** (so a downgrade can't block ordinary profile edits). Advisory UI: the slug input is `disabled` + shows a "Pro feature" help line for FREE/VERIFIED. Server guard is the real gate.
 
 **Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new findings in touched files). No migration (all read `tier_state`, which exists in prod since `20260714000000`).
 
 **SPEC IMPACT:** #4 PR-a of the tier matrix → corpus `DECISION_LOG.md`. Next PR-b: name-reveal Part A + review display/sort + radius + searchability (flag-dark). PR-c: Enterprise video chat.
+
+## 2026-06-09 · feat(admin): mobile "More" → 3-section accordion (nav redesign PR 3)
+
+**Context:** PR 3 of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §5). The mobile "More" tab rendered a flat 24-card grid; the redesign calls for a grouped, **collapsible accordion** — never a flat dump.
+
+**What landed:**
+- New `app/admin/_components/mobile-landing-accordion.tsx` (client) — 3 collapsible sections (**Insights · Money & Catalog · Platform**), each an `m-label-mono` header (label + item count + chevron) over the **same `m-card` item grid** `MobileLandingGrid` uses. Sections start **expanded** (no discoverability regression vs the flat grid); each collapses via its chevron. `lg:hidden` (desktop uses the sidebar tree).
+- `app/admin/more/page.tsx` — the flat `MORE_ITEMS` array split into `INSIGHTS_ITEMS` / `MONEY_ITEMS` / `PLATFORM_ITEMS` and rendered through the accordion. Section keys mirror the desktop sidebar group keys (`funnels` / `money` / `content`) for continuity.
+
+No schema, no new routes, no data change. `MobileLandingGrid` stays in use by `/admin/directory`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched).
+
+**SPEC IMPACT:** PR 3 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-09 · fix(services): Budget "Build" — budget_builds RLS tightened to couple-only (owner-confirmed)
+
+**Context:** The post-launch review flagged that `budget_builds` (couple FINANCIAL snapshots) read/update/delete inherited the canonical `current_event_ids()` scope — i.e. any event member (helper/coordinator), not just the couple. Owner: *"why would we want it to be seen by other?"* → couple-only.
+
+**Migration (`20260929000000_budget_builds_rls_couple_only.sql`, APPLIED to prod):** `budget_builds` SELECT/UPDATE/DELETE now scope to `member_type='couple'` (matching the existing INSERT policy); UPDATE `WITH CHECK` also pins `created_by = auth.uid()`. Applied via `supabase db query` (idempotent `DROP POLICY IF EXISTS` + `CREATE`), **isolated from the unrelated pending `20260927` migrations** (other sessions' — left untouched). Verified on prod via `pg_policies` (`member_type = 'couple'`). **Zero functional regression** — only the couple-facing takeover touches the table, and INSERT was already couple-only.
+
+**SPEC IMPACT:** None (tightening). Flagged follow-up: the sibling `budget_allocation_decisions` inherits the same looser read/delete pattern — a shipped analytics table with a Layer-2 de-identified design, so it's a separate owner decision (not changed here). Logged in `DECISION_LOG.md`.
 
 ## 2026-06-09 · a11y(services): Budget "Build" — proper tab roles on the takeover
 

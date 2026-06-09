@@ -18,6 +18,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** onboarding reception/mood/songs → taxonomy-driven + gated; logged at corpus `DECISION_LOG.md` (2026-06-09). No SKU / pricing / schema-contract change.
 
+## 2026-06-09 · feat(admin): group onboarding settings into a type-organized /admin/onboarding surface
+
+**Context:** Owner 2026-06-09 — "there are parts in the admin that handle the onboarding wedding settings. In the future we'll have multiple onboardings. Group any custom settings needed for the onboarding (wedding), like the background music." Today there's exactly **one** onboarding-specific config knob — the wedding-onboarding **background music** — and it was buried in the generic `/admin/settings` page. This gives onboarding config its own home, **organized by onboarding type**, so each future flow (birthday, corporate, …) adds a section instead of scattering knobs.
+
+**What landed:**
+- **New** `app/admin/onboarding/page.tsx` — the Onboarding hub. A **Wedding** section houses the **background music** control (relocated) + a "content the wedding onboarding pulls from" links row (Songs · Refinements · Wedding types — those are product-wide catalogs, linked for discoverability, not duplicated). A dashed **"More onboarding flows"** placeholder communicates the multi-type future.
+- **New** `app/admin/onboarding/actions.ts` — `updateOnboardingMusic` moved here from `settings/actions.ts`. **Same `platform_settings` columns** (`onboarding_bg_music_r2_key` / `_enabled`) — the `/onboarding/wedding` read path is **unchanged**, so this is a relocation, not a behavior change (zero risk to the live music).
+- `settings/page.tsx` — music section removed; replaced with an "Onboarding →" link card (discoverability) + dropped now-unused imports/logic. `settings/actions.ts` — `updateOnboardingMusic` + its helper removed.
+- **Nav:** Onboarding added to the desktop Platform group, the mobile "More" Platform accordion, and the bottom-nav More match.
+
+**Data-model note (forward):** while only Wedding exists, its music is stored in the single `platform_settings` columns. When a 2nd onboarding type needs its own music/knobs, storage moves to a per-type `onboarding_settings` table; the UI is already type-organized so that's additive (deliberately deferred — YAGNI until a 2nd flow exists).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning). No migration, no DB change.
+
+**SPEC IMPACT:** new admin surface `/admin/onboarding` (0023). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(services): Budget "Build" — auto-fill seam in Summary (Phase 3d, flag-dark)
+
+**Context:** Phase 3d of the Pin solver — the paid auto-fill *seam*. Grounding confirmed the **per-category AI matcher already ships** on the Shortlist (`category-search.ts` + `compat-score.ts`, gated on `isSetnayanAiActive`), and a cross-tab CTA is blocked by the deferred URL-tab-state — so this lands the safe, contained piece: the gap-aware free/paid messaging, not a risky bulk auto-write.
+
+**What landed (`build-summary.tsx`):** counts the couple's **open categories** (budgeted, `state==='empty'`) and, in the Setnayan-AI section, surfaces the seam via `model.personalizationEnabled` — **paid:** "Setnayan AI is hand-picking vendors for your N open categories — open the Shortlist to see your matches"; **free:** "N categories still need a vendor. Turn on Setnayan AI to auto-match them, or browse the Shortlist." No new query, no write, no migration.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Phase 3d (seam) of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. **Follow-on (scoped, not built):** the *one-tap bulk auto-add* — an action that inserts the top-compat-matched available vendor into the Shortlist for every open category — is a write pipeline best built + runtime-tested deliberately, and needs URL-tab-state for a clean cross-tab CTA. Logged in `DECISION_LOG.md`. **Phase 3 complete (3a/3b/3c/3d).**
+
 ## 2026-06-09 · feat(budget): Budget "Build" — date-aware pricing scaffold (Phase 3b)
 
 **Context:** Phase 3b of the Pin solver. Two pieces: a **seasonality** scaffold (dormant) + a **last-minute** advisory.

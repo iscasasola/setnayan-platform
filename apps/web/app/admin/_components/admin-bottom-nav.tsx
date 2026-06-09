@@ -116,6 +116,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // Platform group (note: /admin/settings also covers
       // /admin/settings/payment-methods + /admin/settings/demo-mode)
       '/admin/settings',
+      '/admin/onboarding',
       '/admin/taxonomy',
       '/admin/website',
       '/admin/ads',

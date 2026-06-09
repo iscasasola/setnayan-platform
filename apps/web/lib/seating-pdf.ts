@@ -1,15 +1,15 @@
 import { PDFDocument, StandardFonts, rgb, degrees, type PDFPage, type RGB } from 'pdf-lib';
 import QRCode from 'qrcode';
 import {
-  TABLE_FOOTPRINT_M,
+  CHAIR_PX,
   TABLE_TYPE_LABEL,
   defaultTablePosition,
   fitFloorTransform,
   shapeHintFor,
+  tableGeometry,
   type EventTableRow,
   type FloorPlanRow,
   type SeatAssignmentRow,
-  type TableType,
 } from '@/lib/seating';
 
 export type SeatingPdfMode = 'moodboard' | 'blueprint';
@@ -103,9 +103,20 @@ function buildTheme(mode: SeatingPdfMode, palette: string[], monogramColor: stri
   };
 }
 
-function isRound(type: TableType): boolean {
-  const s = shapeHintFor(type);
-  return s === 'round' || s === 'sweetheart' || s === 'serpentine';
+// First name (or initials when it's long) for a chair label — keeps the ring of
+// names around a table legible instead of overflowing into neighbours.
+function chairLabel(name: string): string {
+  const clean = name.replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const first = clean.split(' ')[0]!;
+  if (first.length <= 11) return first;
+  // Long single token → initials of up to the first two words.
+  const inits = clean
+    .split(' ')
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join('');
+  return inits || first.slice(0, 10);
 }
 
 export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Array> {
@@ -118,12 +129,45 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
 
   const guestById = new Map(guests.map((g) => [g.guest_id, g]));
   const seatByTable = new Map<string, SeatingPdfGuest[]>();
+  const assignsByTable = new Map<string, SeatAssignmentRow[]>();
   for (const a of assignments) {
     const g = guestById.get(a.guest_id);
     if (!g) continue;
     const arr = seatByTable.get(a.table_id) ?? [];
     arr.push(g);
     seatByTable.set(a.table_id, arr);
+    const al = assignsByTable.get(a.table_id) ?? [];
+    al.push(a);
+    assignsByTable.set(a.table_id, al);
+  }
+
+  // Per-table occupant slots indexed by seat number — so the floor-plan chairs
+  // land each guest in their actual chair (mirrors the editor's occupantsFor:
+  // seat_number wins; anyone unnumbered/overflowing fills the next free slot).
+  const occByTable = new Map<string, (SeatingPdfGuest | null)[]>();
+  for (const t of tables) {
+    const occ: (SeatingPdfGuest | null)[] = new Array(t.capacity).fill(null);
+    const overflow: SeatingPdfGuest[] = [];
+    for (const a of assignsByTable.get(t.table_id) ?? []) {
+      const g = guestById.get(a.guest_id);
+      if (!g) continue;
+      if (
+        a.seat_number !== null &&
+        a.seat_number >= 0 &&
+        a.seat_number < t.capacity &&
+        occ[a.seat_number] === null
+      ) {
+        occ[a.seat_number] = g;
+      } else {
+        overflow.push(g);
+      }
+    }
+    let idx = 0;
+    for (const g of overflow) {
+      while (idx < occ.length && occ[idx] !== null) idx++;
+      if (idx < occ.length) occ[idx] = g;
+    }
+    occByTable.set(t.table_id, occ);
   }
 
   let logo = null;
@@ -274,36 +318,111 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     p1.drawText('ENTRANCE', { x: ex - 21, y: ey - 3, size: 6, font: bold, color: theme.soft });
   }
 
-  // tables
-  tables.forEach((t, i) => {
+  // tables + chairs, drawn as large as the layout allows ("full size"). We reuse
+  // the editor's chair geometry (tableGeometry) so the print matches the screen,
+  // then pick ONE global points-per-px scale: big enough to read each guest's
+  // name, small enough that neighbouring tables never collide and every table
+  // stays inside the floor box.
+  const geos = tables.map((t) => tableGeometry(shapeHintFor(t.table_type), t.capacity));
+  const centers = tables.map((t, i) => {
     const raw = tablePos(t, i);
     const p = tf(raw.x, raw.y);
-    const cx = px(p.x);
-    const cy = py(p.y);
+    return { x: px(p.x), y: py(p.y) };
+  });
+  const bbox = geos.map((g) => Math.max(g.box.w, g.box.h)); // px footprint incl. chairs
+  const maxBox = bbox.length ? Math.max(...bbox) : 1;
+
+  let scale = 240 / maxBox; // cap: keep a lone/sparse table from ballooning
+  for (let i = 0; i < centers.length; i++) {
+    // collision: drawn footprint ≤ ~0.9 × distance to the nearest other table
+    let nn = Infinity;
+    for (let j = 0; j < centers.length; j++) {
+      if (i === j) continue;
+      nn = Math.min(nn, Math.hypot(centers[i]!.x - centers[j]!.x, centers[i]!.y - centers[j]!.y));
+    }
+    if (Number.isFinite(nn)) scale = Math.min(scale, (0.9 * nn) / bbox[i]!);
+    // fit: the drawn footprint must stay inside the floor box on every side
+    const half = Math.max(
+      6,
+      Math.min(
+        centers[i]!.x - planX,
+        planX + planW - centers[i]!.x,
+        planYTop - centers[i]!.y,
+        centers[i]!.y - (planYTop - planH),
+      ),
+    );
+    scale = Math.min(scale, (2 * half) / bbox[i]!);
+  }
+  if (!Number.isFinite(scale) || scale <= 0) scale = 240 / maxBox;
+
+  const nameSize = Math.max(3.6, Math.min(7, scale * 17));
+  const chairR = Math.max(1.6, scale * (CHAIR_PX / 2) * 0.5);
+
+  tables.forEach((t, i) => {
+    const geo = geos[i]!;
+    const { x: cx, y: cy } = centers[i]!;
+    const occ = occByTable.get(t.table_id) ?? [];
     const seated = seatByTable.get(t.table_id)?.length ?? 0;
     const { fill, border } = theme.tableFor(i);
-    // size: to-scale when venue set, else a readable default by footprint
-    const footPt = venueSet
-      ? (TABLE_FOOTPRINT_M[t.table_type] / floorPlan.venue_width_m!) * planW
-      : Math.max(20, Math.min(46, (TABLE_FOOTPRINT_M[t.table_type] / 3) * 22));
-    const r = footPt / 2;
-    if (isRound(t.table_type)) {
-      p1.drawCircle({ x: cx, y: cy, size: r, color: fill, borderColor: border, borderWidth: 1 });
+
+    // hub (table body)
+    if (geo.hub.shape === 'round') {
+      p1.drawCircle({ x: cx, y: cy, size: geo.hub.radius * scale, color: fill, borderColor: border, borderWidth: 1 });
     } else {
-      p1.drawRectangle({ x: cx - r, y: cy - r * 0.5, width: r * 2, height: r, color: fill, borderColor: border, borderWidth: 1 });
+      const hw = geo.hub.w * scale;
+      const hh = geo.hub.h * scale;
+      p1.drawRectangle({ x: cx - hw / 2, y: cy - hh / 2, width: hw, height: hh, color: fill, borderColor: border, borderWidth: 1 });
     }
+
+    // chairs + the seated guest's name at each chair
+    geo.seats.forEach((s, si) => {
+      const chx = cx + s.x * scale;
+      const chy = cy - s.y * scale; // editor y-down → page y-up
+      const g = occ[si] ?? null;
+      p1.drawCircle({
+        x: chx,
+        y: chy,
+        size: chairR,
+        color: g ? lighten(border, 0.55) : theme.paper,
+        borderColor: border,
+        borderWidth: 0.6,
+      });
+      if (g) {
+        const label = chairLabel(g.name);
+        const halfW = font.widthOfTextAtSize(label, nameSize) / 2;
+        const halfH = nameSize * 0.5;
+        // unit radial direction from the hub centre (page-space, y-up)
+        const len = Math.hypot(s.x, s.y) || 1;
+        const dx = s.x / len;
+        const dy = -s.y / len;
+        // push far enough that the name's own box clears the chair on whichever
+        // side it sits — projects the label's half-extent onto the radial.
+        const dist = chairR + Math.abs(dx) * halfW + Math.abs(dy) * halfH + 2;
+        const nx = chx + dx * dist;
+        const ny = chy + dy * dist;
+        p1.drawText(label, { x: nx - halfW, y: ny - nameSize * 0.34, size: nameSize, font, color: theme.ink });
+      }
+    });
+
+    // table number in the hub centre
     const num = t.table_label.match(/\d+/)?.[0] ?? String(i + 1);
-    const nw = bold.widthOfTextAtSize(num, Math.min(11, r * 0.7));
-    p1.drawText(num, { x: cx - nw / 2, y: cy - 3, size: Math.min(11, r * 0.7), font: bold, color: theme.ink });
-    // label below
-    if (r >= 14) {
-      const lbl = t.table_label.length > 16 ? `${t.table_label.slice(0, 15)}…` : t.table_label;
-      const lw = font.widthOfTextAtSize(lbl, 6);
-      p1.drawText(lbl, { x: cx - lw / 2, y: cy - r - 8, size: 6, font, color: theme.soft });
-      const cap = `${seated}/${t.capacity}`;
-      const cw = font.widthOfTextAtSize(cap, 5.5);
-      p1.drawText(cap, { x: cx - cw / 2, y: cy - r - 15, size: 5.5, font, color: theme.soft });
-    }
+    const hubHalf = (geo.hub.shape === 'round' ? geo.hub.radius : geo.hub.h / 2) * scale;
+    const numSize = Math.max(6.5, Math.min(13, hubHalf * 0.95));
+    const nw = bold.widthOfTextAtSize(num, numSize);
+    p1.drawText(num, { x: cx - nw / 2, y: cy - numSize * 0.34, size: numSize, font: bold, color: theme.ink });
+
+    // table label just under the whole table footprint
+    const reachPt = (geo.box.h / 2) * scale;
+    const lbl = t.table_label.length > 18 ? `${t.table_label.slice(0, 17)}…` : t.table_label;
+    const lblSize = Math.max(5, Math.min(7.5, scale * 15));
+    const lw2 = bold.widthOfTextAtSize(`${lbl}  ${seated}/${t.capacity}`, lblSize);
+    p1.drawText(`${lbl}  ${seated}/${t.capacity}`, {
+      x: cx - lw2 / 2,
+      y: cy - reachPt - lblSize - 1.5,
+      size: lblSize,
+      font: bold,
+      color: theme.soft,
+    });
   });
 
   // ===================== PAGES 2+ — SEATING ARRANGEMENTS ==================

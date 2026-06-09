@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(tokens): manual-add claim → flat 1-token burn (0016 sync)
+
+**Context:** Owner 2026-06-09 — when a couple "Add manually"s a vendor on the Shortlist and that vendor claims the couple via the QR/claim-invite, the sync costs the vendor **1 token** ("adding customer will cost 1 ticket to sync"). Owner chose a **FLAT 1 token** (distinct from the region-banded 1/2/3 burn-on-answer) — a manual add is a couple-initiated, pre-qualified connection. The rest of the claim flow (QR mint via `NewManualVendorModal`, `/vendor/claim/[token]` + `/finalize`, both new-account and existing-account branches) already shipped; this adds only the burn.
+
+- `supabase/migrations/20261019000000_vendor_claim_flat_token_burn.sql` (new): `claim_unlock_vendor_event(p_vendor_profile_id, p_event_id)` RPC — flat 1-token burn, **idempotent** via the same `vendor_event_unlocks` record burn-on-answer uses (already-unlocked event → free sync, the one-unlock-per-(vendor,event) contract). Burns through `consume_vendor_assets_per_voucher` (reason `MANUAL_CLAIM_UNLOCK`). On shortfall it raises + rolls its own tx back (no phantom unlock). `SECURITY DEFINER`, **service_role EXECUTE only** (called server-side post-validation; no auth.uid ownership gate needed/possible under the admin client).
+- `apps/web/lib/vendor-invite-actions.ts`: `applyClaimAutoLink` calls the RPC **best-effort** after the link + thread are written (couple-source only). Any error — insufficient balance, or the RPC being absent before the migration is applied — is swallowed so **the couple's manual add is never blocked by the vendor's wallet** (the link already committed in earlier statements).
+
+**Verification:** `tsc --noEmit` clean (0 errors). **Migration NOT yet applied to prod** — the burn is inert (RPC-missing is swallowed → link stands, no charge) until `supabase db push` runs it. Apply is deferred to the owner because it's a billing behavior change.
+
+**OWNER SIGN-OFF NEEDED (load-bearing):** (1) Apply the migration to activate the burn. (2) **Zero-token new-vendor edge** — a claim-created NEW vendor is unverified → 0 tokens (founder tokens grant on verification). Today they connect for FREE (best-effort burn fails → link stands, no unlock recorded → a later inquiry-accept charges normally). Confirm that's the desired policy, or decide to grant claim-created vendors a starter token / defer-charge.
+
+**SPEC IMPACT:** Part 5/6 of the Services 5-tab redesign (owner 2026-06-09). New RPC + 1 best-effort call site; no destructive schema change. Reconcile the flat-claim-burn into the token-economy lock (`project_setnayan_vendor_token_model` + `DECISION_LOG` 2026-06-09) once the zero-token policy is settled.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist — 3-level accordion + remove dark P0 bar (0016 sync)
 
 **Context:** Owner 2026-06-09 — the Services **Shortlist** adopts the onboarding "The extras you love" drill-down: a 3-level accordion (parent folder → **leaf category** → its shortlisted services), and the dark "P0" budget bar is removed (the live budget readout now lives only on the Summary tab; the "Where your day stands" cover + "Matching you on" strip were already gone in earlier 0016 syncs).

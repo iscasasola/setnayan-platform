@@ -374,6 +374,29 @@ export async function applyClaimAutoLink(args: {
         },
         { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
       );
+
+    // 6. Flat 1-token claim burn (owner 2026-06-09 · "adding customer will cost
+    // 1 ticket to sync"). BEST-EFFORT + idempotent: the RPC shares
+    // vendor_event_unlocks with burn-on-answer, so a vendor that already
+    // unlocked this event syncs free. If the vendor can't afford the token the
+    // RPC raises INSUFFICIENT_WALLET_BALANCES and rolls its own tx back (no
+    // phantom unlock) — we SWALLOW it here so the couple's manual add is never
+    // blocked by the vendor's wallet (the link above already committed). When
+    // the RPC is absent (migration not yet applied) the .rpc call errors and is
+    // likewise swallowed — the link still stands. Couple-source only (admin-
+    // source invites have no event, handled in the outer `if (parent?.event_id)`).
+    try {
+      const { error: burnErr } = await admin.rpc('claim_unlock_vendor_event', {
+        p_vendor_profile_id: args.claimedVendorProfileId,
+        p_event_id: parent.event_id as string,
+      });
+      if (burnErr) {
+        // Insufficient balance / missing RPC / any DB error → link stands.
+        console.warn('[claim] flat token burn skipped:', burnErr.message);
+      }
+    } catch (e) {
+      console.warn('[claim] flat token burn threw (link kept):', e);
+    }
   }
 
   return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds };

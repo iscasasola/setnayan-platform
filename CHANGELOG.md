@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · refactor(plan-builder): Shortlist — remove the cover (MatchCriteriaStrip + "Where your day stands") (0016 sync)
+
+**Context:** Continuing the 0016 Plan Builder sync. The prototype's **Shortlist** opens straight into the grouped category list — the heavy cover is gone, because the same overview now lives on the **Summary** tab ("Where your day stands"). The live Shortlist still rendered both a "Matching you on" `MatchCriteriaStrip` above the accordion AND the in-accordion `Overview` cover (the two-state "Plan every service" / "Where your day stands" hero). This removes both from the Shortlist; the sticky budget `TopBar` stays.
+
+- `vendors/page.tsx`: drop `<MatchCriteriaStrip>` from the shortlist `services` slot (now just `<PlanBudgetAccordion>`); remove the now-unused `MatchCriteriaStrip` + `buildTasteChips` imports and the `matchChips` / `planningManual` locals. `matchPrecision` + `matchFormattedDate` are kept (they feed the Build/Lock date anchor + availability intersection). `MatchCriteriaStrip` itself is untouched — still used by `customer-bottom-nav.tsx`.
+- `_components/plan-budget-accordion.tsx`: remove the `<Overview>` render and delete the now-dead cover functions (`Overview`, `AlsoComingUp`, `NextAction`, `LoopLegend`, `DueRow` — 324 lines) plus their orphaned imports (`formatPesoPrecise`, `DueItem`). `FolderSection` and below (the actual category pile) are untouched. The "do this next" / due-list content these rendered already lives on Summary ("What to lock next").
+
+**Verification:** `tsc --noEmit` clean on touched files; `next lint --file` clean on both. (Env-missing `sharp`/`@mediapipe` aside.) CI gates the rest.
+
+**SPEC IMPACT:** None (UI sync to the approved prototype — the cover is relocated to Summary, not deleted as a concept). Part of the A–F Plan Builder program · corpus `DECISION_LOG` 2026-06-09.
+
 ## 2026-06-09 · feat(plan-builder): Summary tab — 4-tile recap (Viewed/Shortlisted/Builds/Locked) (0016 sync)
 
 **Context:** Continuing the 0016 Plan Builder prototype sync. The prototype's **Summary** cover opens with a 4-tile stat row — **Viewed · Shortlisted · Builds · Locked** — but the live `BuildSummary` showed only 3 (Locked · Shortlisted · Hours saved). This reconciles to the prototype's four. The Setnayan AI element stays **paywall-aware** (a status line + link to Manage/Turn-on at `/details`, NOT the prototype's free toggle — Setnayan AI is the ₱3,499 tier), so that block is untouched.

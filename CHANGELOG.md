@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): reception designer — stylized live venue (0010, Phase 2)
+
+**Context:** Owner directive 2026-06-09: *"can we actually design the elements? … the ceiling treatment will be made of lights/chandelier/hanging cloth … when i tap on table, can we edit the tablecloth, place colors, centerpieces? … editing the actual feel of the whole venue?"* Owner chose (in-session): **stylized live preview** (an illustrated venue that updates as you pick) over photoreal photos or the premium AI render; parts = **Stage · Ceiling · Walls/Backdrop · Tables · Entrance tunnel**.
+
+**Engine (`apps/web/lib/reception-scene.ts`, new):** a pure, DOM-free `renderVenueSvg(design, palette)` that draws a stylized one-point view down the aisle — ceiling overhead, entrance/tunnel arches, the couple's stage + backdrop at the far end, guest tables (with chairs) flanking. Each part has 3–4 **treatments** (e.g. ceiling: chandeliers / draped fabric / string lights / floral cloud; backdrop: draped / floral wall / greenery / marquee; tables: round-tall / round-low / long banquet; entrance: floral / draped / light tunnel). The couple's shared **Reception palette** drives the colors; treatments drive the shapes. **No asset library, no AI, ₱0** — pure SVG. (Visually iterated by rasterizing combos via sharp.)
+
+**Designer (`reception-designer.tsx`, new):** the venue renders live; the couple **taps a part** (SVG hotspots + a part selector) and picks a treatment → the scene updates instantly. Auto-saves to `events.reception_design`.
+
+**Wiring:** `page.tsx` adds a "Design your reception" section; **Reception is removed from the simple per-element board** (the designer replaces the static reception card). `saveReceptionDesign` action sanitizes against the known parts/treatments. Migration `20261002000000` (**applied to prod**) adds `events.reception_design JSONB DEFAULT '{}'` (additive, idempotent).
+
+**SPEC IMPACT:** 0010 Mood Board gains the free curated reception designer (the spec's stylist "Composite Scene" intent, delivered as a free stylized layer; the photoreal AI render stays the premium tier). Treatment taxonomy + the `reception_design` shape are new.
 ## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode
 
 **Context:** Owner walkthrough of the wedding onboarding (Photos 1–3). The `reception_setting`, `mood`, and `songs` screens were the last **hardcoded holdouts** in an otherwise taxonomy-DB-driven refinement flow (`onboarding_refinements` + the `RefineStep` template). Fold all three into the taxonomy pattern + two UX fixes.

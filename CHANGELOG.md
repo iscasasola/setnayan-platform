@@ -6,15 +6,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(plan-builder): Compare → named vendor-pick builds, retire Lean/Fits/Stretch (PR F — final of the 5-page redesign)
 
-**Context:** Last PR of the owner-approved 0016 redesign (A→G→D→E→**F**). Compare drops the Lean/Fits/Stretch budget-*estimate* baskets for the prototype's named-builds model: a "build" is a named snapshot of the couple's **real vendor picks per category**. They save the current plan into a slot, tweak picks, save another, and compare the actual vendors side by side vs budget.
+**Context:** Last PR of the owner-approved 0016 redesign (A→G→D→E→**F**). Compare drops the Lean/Fits/Stretch budget-*estimate* baskets for the prototype's named-builds model: a build is a named snapshot of the couple's **real vendor picks per category**, compared side by side vs budget (a live "Current" column + saved slots, blanks where a build lacks a category, totals + over/under, per-build delete).
 
-**No migration** — reuses `budget_builds`' 3 slots (A/B/C) as 3 named builds; the picks live in the `snapshot` JSONB (`basket` forced to 'fits' to satisfy the column's NOT NULL CHECK, no longer meaningful). New `build-actions.ts` types `PlanBuildPick`/`PlanBuildSnapshot`/`SavedPlanBuild` + `savePlanBuild`; `deleteBudgetBuild` reused. `build-compare.tsx` rewritten to a side-by-side table (categories × builds + a live "Current" column, blanks where a build lacks a category, totals + over/under budget, per-build delete). `page.tsx` builds the current-plan snapshot from the shared `PlanBudgetModel`, reads back the snapshot, and drops the now-unused `resolveAllocationInputs` call/import.
+**No migration** — reuses `budget_builds`' 3 slots; picks live in the `snapshot` JSONB (`basket` forced 'fits'). New `PlanBuildSnapshot`/`SavedPlanBuild` + `savePlanBuild`; `build-compare.tsx` rewritten; `page.tsx` builds the current snapshot from the shared `PlanBudgetModel`, reads the snapshot back, drops the now-unused `resolveAllocationInputs`. Per-build Modify/Lock deferred; `/budget` keeps the planner.
 
-**Deferred:** per-build Modify (reload a snapshot into the live plan) + Lock (bulk-finalize) — non-trivial against the single live `event_vendors` set; locking stays the Shortlist `finalizeVendor` flow. The `/budget` page keeps the Lean/Fits/Stretch planner; only the plan-builder's Compare changed.
+**Verification:** `pnpm typecheck` ✅ clean; CI lint + build + e2e green.
 
-**Verification:** `pnpm typecheck` ✅ clean. CI lint + production build + e2e.
+**SPEC IMPACT:** None yet — completes the 0016 prototype on the live surface (A: hero cards · G: DB categories · D: anchors · E: Build Flag/Compute · F: named-builds Compare). Corpus prototype + a DECISION_LOG summary of the A–F program land next.
 
-**SPEC IMPACT:** None yet — completes the 0016 prototype on the live surface. Corpus prototype + a DECISION_LOG summary of the A–F program land next.
+## 2026-06-09 · feat(seating-print): floor-plan PDF draws full-size tables WITH chairs + a name at every chair
+
+**Context:** Owner directive 2026-06-09 — "on the print … we want the pdf to have the full image size of the tables and chairs." The seating PDF's floor-plan page drew each table as a bare circle/rectangle with just its number — **no chairs at all** — an abstract dot-map, not the tables-with-chairs you see in the editor. (Confirmed scope with owner: floor-plan page · name at each chair.)
+
+**What changed (`lib/seating-pdf.ts`, page-1 floor plan):**
+- **Reuses the editor's chair geometry** (`tableGeometry` / `CHAIR_PX` from `lib/seating`) so the print matches the on-screen layout — one source of truth (the geometry comment always anticipated a "print-pack renderer").
+- **Full-size auto-scaling.** Picks ONE global points-per-px scale, as large as the layout allows: capped so a lone table doesn't balloon, shrunk so neighbouring tables never collide (≤ 0.9 × nearest-neighbour distance) and every table stays inside the floor box. Replaces the old fixed 20–46 pt table size.
+- **Chairs drawn** around each table — round/sweetheart/serpentine in a ring, banquet/family-head along both long edges. Occupied chairs are filled (tinted by the theme's table colour), empty chairs are outline-only.
+- **A name at every occupied chair**, placed at the guest's real seat (`seat_number` mapped to the chair slot, with overflow/unnumbered guests filling the next free slot — mirrors the editor's `occupantsFor`). Names are first-name (initials when long) and pushed radially outboard far enough to clear the chair on whichever side they sit.
+- Table number stays in the hub centre; the table label + `seated/capacity` sits just under the footprint.
+
+**Verification:** `tsc --noEmit` 0 errors. Runtime smoke test (esbuild-bundled `buildSeatingPdf` with round + family-head banquet + sweetheart + all-empty tables, an overflow null-seat assignment, single-table sparse case, both moodboard/blueprint themes) — no throws, valid 2-page PDFs. Rasterized page 1 and visually confirmed chairs + names render cleanly with no chair/name overlap.
+
+**SPEC IMPACT:** 0008 Seating print pack — the floor-plan page is now a true tables-and-chairs chart with per-chair names (was an abstract table-dot map). Logged in corpus `DECISION_LOG` 2026-06-09. No schema/pricing change.
 
 ## 2026-06-09 · feat(seating): seat a whole guest-group at one table + group-aware auto-seat
 

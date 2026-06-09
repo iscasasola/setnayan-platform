@@ -14,8 +14,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Flag, Lock, Loader2, Sparkles, Search } from 'lucide-react';
-import { flagCategory, unflagCategory } from '../build-flags-actions';
+import { Flag, Lock, Loader2, Sparkles, Search, Wand2 } from 'lucide-react';
+import { flagCategory, unflagCategory, generateFlaggedVendors } from '../build-flags-actions';
 
 type Cat = { groupId: string; label: string };
 
@@ -36,6 +36,25 @@ export function CategoryFlags({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const flagged = new Set(flaggedGroups);
+  const [genMsg, setGenMsg] = useState<string | null>(null);
+  const flaggedCount = flaggedGroups.length;
+
+  function generate() {
+    setGenMsg(null);
+    startTransition(async () => {
+      const res = await generateFlaggedVendors({ eventId });
+      if (!res.ok) {
+        setGenMsg(res.error);
+        return;
+      }
+      setGenMsg(
+        res.added > 0
+          ? `Added ${res.added} match${res.added === 1 ? '' : 'es'} to your Shortlist${res.skipped > 0 ? ` (${res.skipped} had no new options)` : ''}.`
+          : 'No new matches found — try widening your area or adjusting a constraint.',
+      );
+      router.refresh();
+    });
+  }
 
   function toggle(groupId: string, on: boolean) {
     setBusy(groupId);
@@ -69,6 +88,24 @@ export function CategoryFlags({
           {' '}your locked picks stay untouched.
         </p>
       </div>
+      {aiOn && flaggedCount > 0 ? (
+        <div className="space-y-1.5">
+          <button
+            type="button"
+            onClick={generate}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {pending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <Wand2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            )}
+            Auto-fill {flaggedCount} flagged with Setnayan AI
+          </button>
+          {genMsg ? <p className="text-xs text-ink/60">{genMsg}</p> : null}
+        </div>
+      ) : null}
       <ul className="space-y-2">
         {openCats.map((c) => {
           const on = flagged.has(c.groupId);

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — Flag generation / AI auto-fill (PR-2, flag-dark)
+
+**Context:** PR-2 of Lock vs Flag (plan §12) — the generation. For the couple's 🚩 flagged categories, Setnayan AI auto-adds the top match to the Shortlist.
+
+**What landed:** `build-flags-actions.ts` `generateFlaggedVendors({eventId})` — server-verifies the paid gate (`isSetnayanAiActive`) → per flagged `plan_group_id`: `searchCategoryVendors` → top **not-already-added** match → attaches via the **existing, proven `attachMarketplaceVendorToCategory`** (validates the category — invalid skipped, never mis-categorized — dedups via 'already_attached', stamps `source: 'host_marketplace_search'`). Non-destructive: `event_vendors` 'considering' only (couple-removable). `category-flags.tsx` gains an **"Auto-fill N flagged with Setnayan AI"** button (AI-on + flagged only) → result message. Reuses the proven add path, so the 3 write pitfalls (category/source/dedup) are handled; PR-2 only orchestrates.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. **⚠ The write orchestration is not runtime-tested** (no browser/test-couple this session) — recommend a smoke-test on a flipped-flag preview. Behind `BUDGET_BUILD_ENABLED`; AI-gated; explicit-click; reversible.
+
+**SPEC IMPACT:** Completes plan §12. **Budget "Build" total: 18 PRs.** Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(vendor-tier): #5 self-serve subscription checkout (apply-then-pay · admin-approve) — tier work COMPLETE
 
 **Context:** Final build of "do 1–5" (Phase D). Vendors self-serve upgrade to Pro/Enterprise: apply-then-pay → admin approves → `tier_state` flips + per-period token bundle granted; lapse auto-downgrades on next login (cron-free). Cloned from the vendor token-pack flow. Built by an impl agent against `Vendor_Tier_5_SelfServe_Spec_2026-06-09.json` with all 8 verifier fixes baked in; security-critical migration hand-reviewed + a non-destructive auto-rollback smoke test confirmed the money-path.

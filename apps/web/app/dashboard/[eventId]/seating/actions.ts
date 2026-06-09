@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchGuestsByEvent } from '@/lib/guests';
+import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import {
   TABLE_TYPE_CATALOG,
   computeAutoSeat,
@@ -128,6 +128,83 @@ export async function assignGuest(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Seat a whole custom group at one table in a single tap. Seats every member
+// who isn't already there into the table's open chairs, in the order given.
+// Capacity is enforced server-side (seat-what-fits): if the group is bigger
+// than the open seats, the overflow stays put and the count is returned so the
+// editor can prompt for another table. Members already at the table keep their
+// chair; members seated elsewhere are moved in (no other occupant is evicted).
+export async function assignGroup(
+  formData: FormData,
+): Promise<{ seated: number; requested: number; overflow: number }> {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const idsRaw = formData.get('guest_ids');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || typeof idsRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  let guestIds: string[];
+  try {
+    const parsed = JSON.parse(idsRaw);
+    guestIds = Array.isArray(parsed)
+      ? parsed.filter((x): x is string => typeof x === 'string' && x.length > 0)
+      : [];
+  } catch {
+    throw new Error('Invalid guest list');
+  }
+  if (guestIds.length === 0) return { seated: 0, requested: 0, overflow: 0 };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [tables, assignments] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+  ]);
+  const table = tables.find((t) => t.table_id === tableId);
+  if (!table) throw new Error('Table not found');
+
+  // Current occupants of the target table — we never evict them, so the seats
+  // they hold are off-limits and they count against capacity.
+  const occupiedSeats = new Set<number>();
+  const alreadyHere = new Set<string>();
+  for (const a of assignments) {
+    if (a.table_id !== tableId) continue;
+    alreadyHere.add(a.guest_id);
+    if (a.seat_number !== null && a.seat_number >= 0) occupiedSeats.add(a.seat_number);
+  }
+
+  // Members still needing a chair here (already-seated members keep theirs).
+  const incoming = guestIds.filter((id) => !alreadyHere.has(id));
+  const free = Math.max(0, table.capacity - alreadyHere.size);
+  const toSeat = incoming.slice(0, free);
+
+  let seat = 0;
+  const rows = toSeat.map((guestId) => {
+    while (occupiedSeats.has(seat)) seat++;
+    occupiedSeats.add(seat);
+    return { event_id: eventId, table_id: tableId, guest_id: guestId, seat_number: seat };
+  });
+
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from('event_seat_assignments')
+      .upsert(rows, { onConflict: 'event_id,guest_id' });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/dashboard/${eventId}/seating`);
+  }
+
+  return {
+    seated: rows.length + (guestIds.length - incoming.length),
+    requested: guestIds.length,
+    overflow: incoming.length - toSeat.length,
+  };
+}
+
 // Role-tier auto-seat: fills every unseated, attending guest into the nearest
 // tables to the stage, tier by tier. Idempotent — never moves a guest who is
 // already seated, never touches a sweetheart table, never seats the couple.
@@ -143,11 +220,12 @@ export async function autoSeatGuests(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [tables, assignments, guests, floorPlan] = await Promise.all([
+  const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
   ]);
 
   const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
@@ -158,6 +236,9 @@ export async function autoSeatGuests(formData: FormData) {
     plus_one_of_guest_id: g.plus_one_of_guest_id,
     last_name: g.last_name,
     first_name: g.first_name,
+    // Primary group = first membership, mirroring how the editor colours a
+    // guest, so auto-seat clusters the same groups the couple sees.
+    group_id: memberships.get(g.guest_id)?.[0] ?? null,
   }));
 
   // Anchor the role-tier rings on where the couple actually placed the stage.

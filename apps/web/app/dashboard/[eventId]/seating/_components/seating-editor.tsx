@@ -37,6 +37,7 @@ import {
   type FloorPlanRow,
 } from '@/lib/seating';
 import {
+  assignGroup,
   assignGuest,
   autoSeatGuests,
   createTable,
@@ -122,6 +123,14 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   const [dragId, setDragId] = useState<string | null>(null);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [pickedId, setPickedId] = useState<string | null>(null);
+  // A picked group (bulk-seat flow) is mutually exclusive with a picked guest —
+  // the effect below clears one when the other is set. `notice` carries the
+  // seat-what-fits message after a group overflows a table.
+  const [pickedGroupId, setPickedGroupId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (pickedId) setPickedGroupId(null);
+  }, [pickedId]);
 
   // --- zoom + pan (growable floor plan) ------------------------------------
   // The world transform is applied to the DOM directly (refs) so panning /
@@ -203,6 +212,13 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     [groups],
   );
   const pickedGuest = pickedId ? guestsById.get(pickedId) ?? null : null;
+  const pickedGroup = pickedGroupId ? groups.find((g) => g.group_id === pickedGroupId) ?? null : null;
+  // Members the bulk-seat will move — everyone whose primary group is the
+  // picked one, ignoring the search/unseated filters (seating the WHOLE group).
+  const pickedGroupMemberIds = useMemo(
+    () => (pickedGroupId ? guests.filter((g) => g.group_id === pickedGroupId).map((g) => g.guest_id) : []),
+    [pickedGroupId, guests],
+  );
 
   const colorFor = (g: SeatingGuest): string => {
     if (g.group_id) {
@@ -267,6 +283,31 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     const fd = new FormData();
     fd.set('event_id', eventId);
     startTransition(() => autoSeatGuests(fd));
+  };
+
+  // Bulk-seat the picked group onto a table. The server seats what fits and
+  // returns the counts; if any members overflow we surface a notice so the
+  // couple can drop the rest on another table.
+  const seatGroupAt = (tableId: string) => {
+    if (!pickedGroupId) return;
+    const groupLabel = groups.find((g) => g.group_id === pickedGroupId)?.label ?? 'group';
+    const memberIds = guests.filter((g) => g.group_id === pickedGroupId).map((g) => g.guest_id);
+    setPickedGroupId(null);
+    setNotice(null);
+    if (memberIds.length === 0) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', tableId);
+    fd.set('guest_ids', JSON.stringify(memberIds));
+    startTransition(async () => {
+      const res = await assignGroup(fd);
+      if (res && res.overflow > 0) {
+        const label = tableLabelById.get(tableId) ?? 'that table';
+        setNotice(
+          `${groupLabel}: seated ${res.seated} of ${res.requested} at ${label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+        );
+      }
+    });
   };
 
   // --- collision avoidance: tables never overlap ----------------------------
@@ -423,6 +464,12 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
 
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {
+    if (pickedGroupId) {
+      // A group is picked → pressing the hub seats the whole group here.
+      e.stopPropagation();
+      seatGroupAt(t.table_id);
+      return;
+    }
     if (pickedId) {
       // A guest is picked → pressing the hub seats them at the next free chair.
       e.stopPropagation();
@@ -737,12 +784,20 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                   <li
                     key={t.table_id}
                     className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
-                      highlightId === t.table_id ? 'border-terracotta bg-terracotta/5' : 'border-transparent hover:bg-ink/[0.03]'
+                      pickedGroupId
+                        ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
+                        : highlightId === t.table_id
+                          ? 'border-terracotta bg-terracotta/5'
+                          : 'border-transparent hover:bg-ink/[0.03]'
                     }`}
                   >
                     <button
                       type="button"
-                      onClick={() => setHighlightId((id) => (id === t.table_id ? null : t.table_id))}
+                      onClick={() =>
+                        pickedGroupId
+                          ? seatGroupAt(t.table_id)
+                          : setHighlightId((id) => (id === t.table_id ? null : t.table_id))
+                      }
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       <span
@@ -824,6 +879,27 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                         <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{grp.label}</span>
                         <span className="text-[11px] text-ink/50">{grp.member_count}</span>
                         <ChevronDown className={`h-3.5 w-3.5 text-ink/40 transition ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickedId(null);
+                          setNotice(null);
+                          setPickedGroupId((id) => (id === grp.group_id ? null : grp.group_id));
+                        }}
+                        aria-label={
+                          pickedGroupId === grp.group_id
+                            ? `Cancel seating ${grp.label}`
+                            : `Seat ${grp.label} at a table`
+                        }
+                        title="Seat this whole group at a table"
+                        className={`rounded p-1 ${
+                          pickedGroupId === grp.group_id
+                            ? 'bg-mulberry/10 text-mulberry'
+                            : 'text-ink/40 hover:bg-ink/5'
+                        }`}
+                      >
+                        <Armchair className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
@@ -1071,6 +1147,39 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
           </div>
         ) : null}
 
+        {pickedGroup ? (
+          <div className="flex items-center gap-3 rounded-xl border border-mulberry/40 bg-mulberry/5 px-3 py-2 text-sm">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: pickedGroup.color }} />
+            <span className="min-w-0 flex-1 truncate">
+              Seating <span className="font-semibold text-ink">{pickedGroup.label}</span> (
+              {pickedGroupMemberIds.length}{' '}
+              {pickedGroupMemberIds.length === 1 ? 'member' : 'members'}) — tap a table.
+            </span>
+            <button
+              type="button"
+              onClick={() => setPickedGroupId(null)}
+              className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
+              aria-label="Cancel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
+        {notice ? (
+          <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span className="min-w-0 flex-1">{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="rounded-md p-1 text-amber-700 hover:bg-amber-100"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
         {view === 'plan' ? (
         <>
         <div
@@ -1220,7 +1329,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                           type="button"
                           onPointerDown={(e) => {
                             e.stopPropagation();
-                            if (pickedId) place(t.table_id, i);
+                            if (pickedGroupId) seatGroupAt(t.table_id);
+                            else if (pickedId) place(t.table_id, i);
                             else setPickedId(occupant.guest_id);
                           }}
                           title={occupant.name}
@@ -1240,11 +1350,14 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                           type="button"
                           onPointerDown={(e) => {
                             e.stopPropagation();
-                            if (pickedId) place(t.table_id, i);
+                            if (pickedGroupId) seatGroupAt(t.table_id);
+                            else if (pickedId) place(t.table_id, i);
                           }}
                           aria-label={`Empty seat ${i + 1}`}
                           className={`block h-full w-full transition ${
-                            pickedId ? 'text-terracotta hover:text-terracotta-600' : 'text-ink/30 hover:text-ink/50'
+                            pickedId || pickedGroupId
+                              ? 'text-terracotta hover:text-terracotta-600'
+                              : 'text-ink/30 hover:text-ink/50'
                           }`}
                         >
                           <Armchair className="h-full w-full" strokeWidth={1.6} />
@@ -1353,11 +1466,13 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                         <button
                           type="button"
                           onClick={() =>
-                            setExpandedCards((s) => {
-                              const n = new Set(s);
-                              n.has(t.table_id) ? n.delete(t.table_id) : n.add(t.table_id);
-                              return n;
-                            })
+                            pickedGroupId
+                              ? seatGroupAt(t.table_id)
+                              : setExpandedCards((s) => {
+                                  const n = new Set(s);
+                                  n.has(t.table_id) ? n.delete(t.table_id) : n.add(t.table_id);
+                                  return n;
+                                })
                           }
                           className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         >
@@ -1409,6 +1524,15 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                             <Armchair className="h-3.5 w-3.5" /> Seat here
                           </button>
                         ) : null}
+                        {pickedGroupId && !full ? (
+                          <button
+                            type="button"
+                            onClick={() => seatGroupAt(t.table_id)}
+                            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
+                          >
+                            <Armchair className="h-3.5 w-3.5" /> Seat group here
+                          </button>
+                        ) : null}
                       </div>
 
                       {expanded ? (
@@ -1441,7 +1565,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             )}
             <p className="px-1 text-xs text-ink/50">
               Pick a guest in the panel above, then tap <span className="font-medium text-ink/70">Seat here</span> on a
-              table. Tap a seated avatar to move them.
+              table. Tap a seated avatar to move them. To seat a whole group at once, tap the{' '}
+              <Armchair className="inline h-3 w-3" /> beside a group, then choose a table.
             </p>
           </div>
         )}

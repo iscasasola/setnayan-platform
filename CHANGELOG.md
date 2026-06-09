@@ -15,6 +15,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Wiring:** `page.tsx` adds a "Design your reception" section; **Reception is removed from the simple per-element board** (the designer replaces the static reception card). `saveReceptionDesign` action sanitizes against the known parts/treatments. Migration `20261002000000` (**applied to prod**) adds `events.reception_design JSONB DEFAULT '{}'` (additive, idempotent).
 
 **SPEC IMPACT:** 0010 Mood Board gains the free curated reception designer (the spec's stylist "Composite Scene" intent, delivered as a free stylized layer; the photoreal AI render stays the premium tier). Treatment taxonomy + the `reception_design` shape are new.
+## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode
+
+**Context:** Owner walkthrough of the wedding onboarding (Photos 1–3). The `reception_setting`, `mood`, and `songs` screens were the last **hardcoded holdouts** in an otherwise taxonomy-DB-driven refinement flow (`onboarding_refinements` + the `RefineStep` template). Fold all three into the taxonomy pattern + two UX fixes.
+
+**What landed:**
+- **Photo 1 — Reception** (`onboarding-shell.tsx`): rebuilt on the uniform `RefineStep` template (4:3 hero + option carousel), options now **DB-sourced** from a new `reception` leaf (`getOnboardingRefinements`, static fallback). Option keys stay `setting_*` → `prefs.reception`, so the next screen (`find`) venue-match + the recap are unchanged. `RefineStep` generalized with optional `eyebrow`/`title`/`subtitle`/`hideProgress`; `#screen-reception-setting` added to the refine-screen CSS so `.prefstep` shows.
+- **Photo 2 — Songs** (`song-bank-step.tsx` + `onboarding.css`): **gated** — shows only when a **Live Band / Orchestra / Wedding Singer** is picked (`buildSequence` now takes `picks`). Redesigned into a **3-mode segmented control** (Top 100 · Search · Playlist) so all three are reachable; fixed the search bar + playlist falling below the fold (`#screen-songs.active` is now `flex:1 1 auto;min-height:0` so only `.songresults` scrolls).
+- **Photo 3 — Mood** (`onboarding-shell.tsx`): now the **Stylist / Decorator refinement** — options DB-sourced from the seeded `stylist` leaf, single-select, shown only when **Stylist/Decorator is picked** (and dropped from the `refine_extras` queue so it's never asked twice). The **colour-palette reveal is kept**: a `STYLE_TO_FEEL` map → the existing `FEELS` palettes + `feel_*` photos, so `prefs.feel` still seeds `mood_feel_key` + `basic_moodboard` at commit (no commit/migration change).
+- **Migration** `supabase/migrations/20261002000000_onboarding_reception_leaf.sql` — adds the `reception` leaf + 7 `setting_*` options (mirrors `_data/refinements.ts`). **⚠ Not yet applied to prod:** `supabase db push` is blocked by **pre-existing** migration-history drift (a remote-only orphan `20260925000000` with no local file) + 4 unrelated merged-but-unapplied migrations, incl. `20260927000001_onboarding_refinements` (the tables this leaf extends). The feature **works today on the TS fallback** (the live onboarding already runs on it — those tables aren't in prod yet). Owner action to go DB-backed: resolve the drift (`supabase migration repair --status reverted 20260925000000`) then `supabase db push`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new findings in touched files). Live visual walkthrough deferred to the Vercel PR preview + CI production-build check (no Supabase env in the build session).
+
+**SPEC IMPACT:** onboarding reception/mood/songs → taxonomy-driven + gated; logged at corpus `DECISION_LOG.md` (2026-06-09). No SKU / pricing / schema-contract change.
 
 ## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-b — tier-aware names + reviews + radius + searchability(flag-dark); video REMOVED
 

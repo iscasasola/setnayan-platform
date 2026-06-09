@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Build tab → category Flag/Compute, retire Lean/Fits/Stretch (PR E of the 5-page redesign)
+
+**Context:** Owner chose "replace the estimator fully." The Build tab drops the Lean/Fits/Stretch budget-*estimate* engine in favor of the prototype's compose-real-vendors model: the Date/Budget/Location anchors (PR D) on top, then **per-category Flag + Compute** — flag the categories to fill, then "Auto-fill with Setnayan AI" sources + writes the best-matched vendor into the Shortlist.
+
+**Reuses shipped backend, no new write path:** the Flag/Compute control is the existing `CategoryFlags` (already live on the Summary cover); Compute = `generateFlaggedVendors`, which is AI-gated (`isSetnayanAiActive`, server-verified) and writes via the validated `attachMarketplaceVendorToCategory`. `build-pins.tsx` is rewritten to render `BuildAnchors` + `CategoryFlags` (props: open categories / locked count / flagged groups / aiOn, derived from the shared `PlanBudgetModel`). `page.tsx` computes those from the model and drops the `BudgetAllocationPlanner` slot + import.
+
+**Note:** the Lean/Fits/Stretch planner is NOT deleted — it still lives on the `/budget` page; PR E only removes it from the *Build tab*. Compare still shows baskets until **PR F** retires them there too.
+
+**Verification:** `pnpm typecheck` ✅ clean. CI lint + production build + e2e. The Flag/Compute path itself is already live (Summary), so this is a relocation + estimator-removal, not a new mechanic.
+
+**SPEC IMPACT:** None yet — implements the 0016 prototype Build compose model. Corpus prototype + DECISION_LOG land once D/E/F settle.
+
 ## 2026-06-09 · feat(mood-board): "concept book" PDF export (Result + design + inspirations)
 
 **Context:** Owner directive 2026-06-09 — couples can download a printable "concept book" PDF of their mood board: the rendered concept (the Result) plus how they made it possible (their inspirations + the custom reception template they designed). Free, ₱0 marginal cost, reads only existing columns (no migration). The paid photoreal "Make it real" render stays owner-gated (needs the image-provider API key); until it ships, the stylized scene the couple designed is the PDF hero and page 2 auto-upgrades to the photoreal render later (`resultPng`).

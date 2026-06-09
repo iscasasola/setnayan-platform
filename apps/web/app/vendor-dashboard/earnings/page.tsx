@@ -142,9 +142,16 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         <p className="max-w-prose text-base text-ink/65">
           A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what
           couples pay you — Setnayan no longer routes payments between you and your
-          clients. This page is the running ledger you use to track direct bookings;
-          your Setnayan subscription invoices and token-pack purchases live on the
-          Tax documents tab.
+          clients. This page is the running ledger you use to track direct bookings.
+          Manage your plan on the{' '}
+          <Link href="/vendor-dashboard/subscription" className="underline hover:text-ink">
+            Subscription
+          </Link>{' '}
+          tab and your token packs on the{' '}
+          <Link href="/vendor-dashboard/tokens" className="underline hover:text-ink">
+            Tokens
+          </Link>{' '}
+          tab.
         </p>
       </header>
 

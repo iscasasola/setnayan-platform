@@ -100,6 +100,7 @@ import {
   Users,
   Wallet,
   Coins,
+  Crown,
   Building2,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -181,6 +182,8 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
       { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
+      // Subscription — self-serve Pro/Enterprise upgrade (Phase D · Tier #5).
+      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
       { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
       { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },

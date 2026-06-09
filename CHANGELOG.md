@@ -6,17 +6,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(services): Budget "Build" — Flag generation / AI auto-fill (PR-2, flag-dark)
 
-**Context:** PR-2 of Lock vs Flag (plan §12) — the generation. Owner: "build it now (reuse the live add-action)." For the couple's 🚩 flagged categories, Setnayan AI auto-adds the top match to the Shortlist.
+**Context:** PR-2 of Lock vs Flag (plan §12) — the generation. For the couple's 🚩 flagged categories, Setnayan AI auto-adds the top match to the Shortlist.
+
+**What landed:** `build-flags-actions.ts` `generateFlaggedVendors({eventId})` — server-verifies the paid gate (`isSetnayanAiActive`) → per flagged `plan_group_id`: `searchCategoryVendors` → top **not-already-added** match → attaches via the **existing, proven `attachMarketplaceVendorToCategory`** (validates the category — invalid skipped, never mis-categorized — dedups via 'already_attached', stamps `source: 'host_marketplace_search'`). Non-destructive: `event_vendors` 'considering' only (couple-removable). `category-flags.tsx` gains an **"Auto-fill N flagged with Setnayan AI"** button (AI-on + flagged only) → result message. Reuses the proven add path, so the 3 write pitfalls (category/source/dedup) are handled; PR-2 only orchestrates.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. **⚠ The write orchestration is not runtime-tested** (no browser/test-couple this session) — recommend a smoke-test on a flipped-flag preview. Behind `BUDGET_BUILD_ENABLED`; AI-gated; explicit-click; reversible.
+
+**SPEC IMPACT:** Completes plan §12. **Budget "Build" total: 18 PRs.** Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(vendor-tier): #5 self-serve subscription checkout (apply-then-pay · admin-approve) — tier work COMPLETE
+
+**Context:** Final build of "do 1–5" (Phase D). Vendors self-serve upgrade to Pro/Enterprise: apply-then-pay → admin approves → `tier_state` flips + per-period token bundle granted; lapse auto-downgrades on next login (cron-free). Cloned from the vendor token-pack flow. Built by an impl agent against `Vendor_Tier_5_SelfServe_Spec_2026-06-09.json` with all 8 verifier fixes baked in; security-critical migration hand-reviewed + a non-destructive auto-rollback smoke test confirmed the money-path.
 
 **What landed:**
-- `build-flags-actions.ts` — `generateFlaggedVendors({ eventId })`: **server-verifies the paid gate** (`isSetnayanAiActive`, never trusts the client) → for each flagged `plan_group_id`, runs `searchCategoryVendors({eventId, groupId})` → takes the top **not-already-added** ranked match → attaches it via the **existing, proven `attachMarketplaceVendorToCategory`** (which validates the category — invalid → skipped, never mis-categorized — dedups via 'already_attached', looks up the service, and stamps `source: 'host_marketplace_search'`). **Non-destructive:** writes only `event_vendors` 'considering' (the bench), couple-removable. Returns `{ added, skipped }`.
-- `category-flags.tsx` — an **"Auto-fill N flagged with Setnayan AI"** button (shown only when AI is on + there are flagged categories) → calls the action → result message ("Added N matches to your Shortlist" / "No new matches — widen your area").
+- **Migration `20261010000000_vendor_subscription_checkout.sql`** (applied to prod + tracked): `vendor_profiles.tier_expires_at`/`tier_billing_cycle`; `vendor_subscriptions` table (RLS at create — vendor-own + `is_console_admin()` reads; no direct write policy); 6 SECURITY DEFINER RPCs — `create_vendor_subscription` (price from DB catalog, ₱6,000/₱10,000 already canonical), `_apply_subscription_credit` (REVOKEd from PUBLIC/anon/authenticated; `FOR UPDATE` + idempotent guard; stacking renewal; bundle via 7-arg `grant_admin_direct_tokens(…,'admin_grant',…,'sub_bundle:'||id)` 30/300/100/1000), `approve_vendor_subscription` (`is_console_admin()` gate), `confirm_vendor_subscription_by_reference` (**service_role ONLY**), `reject_vendor_subscription`, `sweep_vendor_tier_expiry` (→verified-if-verified-else-free; flips tier only).
+- **Vendor UI** `/vendor-dashboard/subscription` + `startSubscriptionPurchase` + nav. **Admin queue** `/admin/subscriptions` (approve/reject) in Work nav. **Lapse wiring** in `vendor-dashboard/profile/page.tsx` (login-driven).
+- **Deferred (owner-confirmed):** import-customer 1-token charge (unbuilt parent feature). FREE-buys-tokens unchanged.
 
-**Reuse, not reinvent:** the 3 write pitfalls (category mapping, `source` enum, dedup) are all handled by the existing `attachMarketplaceVendorToCategory` — PR-2 only orchestrates (flag → search → attach).
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod (table + 2 cols + 6 RPCs + 2 policies + RLS) + tracked. Auto-rollback money-path smoke test: tier→pro, +30 tokens, idempotent, lapse→free — zero prod mutation.
 
-**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. **⚠ The write orchestration is not runtime-tested** (no browser/test-couple access this session) — recommend a smoke-test on a flipped-flag preview as the test couple. Behind `BUDGET_BUILD_ENABLED`; AI-gated; explicit-click; reversible.
-
-**SPEC IMPACT:** Completes plan §12 (Lock vs Flag). **Budget "Build" total: 18 PRs.** Logged in `DECISION_LOG.md`.
+**SPEC IMPACT:** #5 → corpus `DECISION_LOG.md`. **The vendor-tier program (#1–#5) is COMPLETE.**
 
 ## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
 

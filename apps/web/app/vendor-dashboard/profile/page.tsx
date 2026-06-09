@@ -164,6 +164,35 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     );
   }
 
+  // Login-driven vendor-tier lapse downgrade (Phase D · Tier #5, cron-free per
+  // [[project_setnayan_cron_free]]). sweep_vendor_tier_expiry reverts an expired
+  // pro/enterprise tier back to verified (if still verified) else free — and is
+  // idempotent + downgrade-only. We probe the vendor's profile id (the RPC keys
+  // on vendor_profile_id, not auth.uid()) and fire-and-forget so a failure never
+  // blocks the page. Best-effort: the next login retries the sweep.
+  try {
+    const { data: vp } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const vendorProfileId = (vp as { vendor_profile_id?: string } | null)
+      ?.vendor_profile_id;
+    if (vendorProfileId) {
+      void supabase
+        .rpc('sweep_vendor_tier_expiry', { p_vendor_id: vendorProfileId })
+        .then(({ error }) => {
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.error('[/vendor-dashboard] tier-expiry sweep failed', error);
+          }
+        });
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[/vendor-dashboard] tier-expiry sweep threw', err);
+  }
+
   // Crash guard — every subsequent fetch is wrapped so a transient DB / RLS
   // / column-drift failure shows a friendly error state instead of crashing
   // the whole page with a generic Next.js 5xx digest. Sentry still captures

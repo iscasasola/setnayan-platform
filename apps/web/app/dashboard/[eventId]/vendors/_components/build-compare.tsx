@@ -1,102 +1,82 @@
 'use client';
 
 /**
- * BuildCompare — the Services takeover's "Compare" tab (Budget "Build").
- * Spec: `Budget_Build_Services_Takeover_2026-06-08.md`.
+ * BuildCompare — the Compare tab (PR F of the 0016 Plan Builder redesign).
  *
- * Two layers:
- *  1. The three LIVE budget baskets, side-by-side, derived from a single
- *     `computeBudgetAllocation` run (each leaf carries amountPhp + rangeLow/HighPhp):
- *       Lean = Σ range-low · Fits = Σ median · Stretch = Σ range-high.
- *  2. SAVE the currently-viewed basket into a named slot (A/B/C) → `budget_builds`
- *     (couple-own), and compare the saved builds you've banked over time. A couple
- *     varies the budget/services on the Build tab between saves to bank real
- *     alternatives ("Fits at ₱500k" vs "Lean at ₱400k").
+ * Retires the Lean/Fits/Stretch budget-estimate baskets for the prototype's
+ * named-builds model: a "build" is a named snapshot of the couple's REAL vendor
+ * picks per category. The couple saves their current plan into a slot (A/B/C),
+ * tweaks their picks on Build/Shortlist, saves another, and compares the actual
+ * vendors side by side against their budget. No migration — reuses the existing
+ * `budget_builds` 3 slots; picks live in the `snapshot` JSONB.
  *
- * Client component (runs the pure engine like the planner, + the save/delete
- * actions). Follow-on: "available wedding dates per saved build" (the vendor-
- * availability intersection over a saved build's specific vendors).
+ * Client component. (Per-build Modify/Lock — reload a snapshot into the live
+ * plan / bulk-finalize — is a follow-up; locking stays the Shortlist flow.)
  */
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bookmark, Loader2, Trash2 } from 'lucide-react';
-import { computeBudgetAllocation, type AllocationConfig } from '@/lib/budget-allocation';
-import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import {
-  saveBudgetBuild,
+  savePlanBuild,
   deleteBudgetBuild,
-  type SavedBuild,
-  type BuildBasket,
+  type SavedPlanBuild,
+  type PlanBuildSnapshot,
   type BuildSlot,
 } from '../build-actions';
 
-const peso = (php: number) => `₱${Math.round(php ?? 0).toLocaleString('en-PH')}`;
+const peso = (php: number | null) =>
+  php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
 const SLOTS: BuildSlot[] = ['A', 'B', 'C'];
-const BASKETS: { key: BuildBasket; label: string }[] = [
-  { key: 'lean', label: 'Lean' },
-  { key: 'fits', label: 'Fits' },
-  { key: 'stretch', label: 'Stretch' },
-];
-const BASKET_LABEL: Record<BuildBasket, string> = { lean: 'Lean', fits: 'Fits', stretch: 'Stretch' };
 
 export function BuildCompare({
   eventId,
   budgetPhp,
-  leaves,
-  config,
+  currentPlan,
   savedBuilds,
 }: {
   eventId: string;
   budgetPhp: number | null;
-  leaves: PlannerLeafInput[];
-  config: Partial<AllocationConfig>;
-  savedBuilds: SavedBuild[];
+  currentPlan: PlanBuildSnapshot;
+  savedBuilds: SavedPlanBuild[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [basket, setBasket] = useState<BuildBasket>('fits');
   const takenSlots = useMemo(() => new Set(savedBuilds.map((b) => b.label)), [savedBuilds]);
-  const firstFreeSlot = SLOTS.find((s) => !takenSlots.has(s)) ?? 'A';
-  const [slot, setSlot] = useState<BuildSlot>(firstFreeSlot);
+  const [slot, setSlot] = useState<BuildSlot>(SLOTS.find((s) => !takenSlots.has(s)) ?? 'A');
+  const [name, setName] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
-  const computed = useMemo(() => {
-    if (budgetPhp == null || leaves.length === 0) return null;
-    const result = computeBudgetAllocation({ budgetPhp, leaves, config });
-    const labelOf = new Map(leaves.map((l) => [l.canonicalService, l.label]));
-    const rows = result.leaves.map((l) => ({
-      canonicalService: l.canonicalService,
-      label: labelOf.get(l.canonicalService) ?? l.canonicalService,
-      // Clamp so the three tiers never invert. Under a tight budget (budget <
-      // Σ medians, the common 'park' case) the engine compresses amountPhp (Fits)
-      // BELOW the unscaled rangeLow, which would otherwise make Lean read higher
-      // than Fits and flip the over/under labels. (Adversarial review 2026-06-09.)
-      lean: Math.min(l.rangeLowPhp, l.amountPhp),
-      fits: l.amountPhp,
-      stretch: Math.max(l.rangeHighPhp, l.amountPhp),
+  // Columns = saved builds, then the live "Current" plan last.
+  const columns = useMemo(() => {
+    const cols = savedBuilds.map((b) => ({
+      key: b.build_id,
+      title: b.title ?? `Plan ${b.label}`,
+      total: b.total_php,
+      picks: new Map(b.snapshot.picks.map((p) => [p.groupId, p])),
+      isCurrent: false,
     }));
-    const totals = rows.reduce(
-      (a, r) => ({ lean: a.lean + r.lean, fits: a.fits + r.fits, stretch: a.stretch + r.stretch }),
-      { lean: 0, fits: 0, stretch: 0 },
-    );
-    return { rows, totals };
-  }, [budgetPhp, leaves, config]);
+    cols.push({
+      key: 'current',
+      title: 'Current',
+      total: currentPlan.totalPhp,
+      picks: new Map(currentPlan.picks.map((p) => [p.groupId, p])),
+      isCurrent: true,
+    });
+    return cols;
+  }, [savedBuilds, currentPlan]);
 
-  if (budgetPhp == null || !computed) {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-16 text-center">
-        <h2 className="text-lg font-semibold text-ink">Set a budget to compare</h2>
-        <p className="text-sm text-ink/60">
-          Once you set a budget on the Build tab, you can compare a Lean, Fits and Stretch version of
-          your wedding — and save the ones you like to compare side by side.
-        </p>
-      </div>
-    );
-  }
+  // Rows = union of every category across the live plan + saved builds.
+  const rows = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const p of currentPlan.picks) seen.set(p.groupId, p.label);
+    for (const b of savedBuilds)
+      for (const p of b.snapshot.picks) if (!seen.has(p.groupId)) seen.set(p.groupId, p.label);
+    return [...seen.entries()].map(([groupId, label]) => ({ groupId, label }));
+  }, [currentPlan, savedBuilds]);
 
-  const { rows, totals } = computed;
-  const overUnder = (total: number) => {
+  const overUnder = (total: number | null) => {
+    if (total == null || budgetPhp == null) return null;
     const diff = total - budgetPhp;
     if (Math.abs(diff) < 1) return { text: 'on budget', tone: 'text-emerald-700' };
     return diff > 0
@@ -106,22 +86,22 @@ export function BuildCompare({
 
   function onSave() {
     setErr(null);
-    const snapshotLeaves = rows.map((r) => ({
-      canonicalService: r.canonicalService,
-      label: r.label,
-      amountPhp: r[basket],
-      rangeLowPhp: r.lean,
-      rangeHighPhp: r.stretch,
-    }));
-    const totalPhp = totals[basket];
+    if (currentPlan.picks.length === 0) {
+      setErr('Add some vendors to your plan first — shortlist on the Build tab, then save.');
+      return;
+    }
     startTransition(async () => {
-      const res = await saveBudgetBuild({
+      const res = await savePlanBuild({
         eventId,
         label: slot,
-        snapshot: { budgetPhp, basket, totalPhp, leaves: snapshotLeaves },
+        title: name.trim() || undefined,
+        snapshot: currentPlan,
       });
       if (!res.ok) setErr(res.error);
-      else router.refresh();
+      else {
+        setName('');
+        router.refresh();
+      }
     });
   }
 
@@ -137,49 +117,26 @@ export function BuildCompare({
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-1 py-2">
       <div className="space-y-1">
-        <h2 className="font-display text-2xl italic text-ink">Compare your options</h2>
+        <h2 className="font-display text-2xl italic text-ink">Compare your plans</h2>
         <p className="text-sm text-ink/60">
-          Three versions of the same wedding, against your {peso(budgetPhp)} budget.
+          Save versions of your plan and compare the real vendors side by side
+          {budgetPhp != null ? `, against your ${peso(budgetPhp)} budget` : ''}.
         </p>
       </div>
 
-      {/* Live baskets */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {BASKETS.map((b) => {
-          const total = totals[b.key];
-          const ou = overUnder(total);
-          const isFits = b.key === 'fits';
-          return (
-            <div
-              key={b.key}
-              className={`rounded-2xl border p-3 text-center ${isFits ? 'border-terracotta/40 bg-terracotta/5' : 'border-ink/10 bg-cream'}`}
-            >
-              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55">{b.label}</div>
-              <div className="mt-1 font-display text-xl italic text-ink sm:text-2xl">{peso(total)}</div>
-              <div className={`mt-0.5 text-[11px] ${ou.tone}`}>{ou.text}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Save control */}
+      {/* Save current plan into a named slot */}
       <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
-          <Bookmark className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
-          Save the
-          <select
-            value={basket}
-            onChange={(e) => setBasket(e.target.value as BuildBasket)}
-            className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-            aria-label="Basket to save"
-          >
-            {BASKETS.map((b) => (
-              <option key={b.key} value={b.key}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-          plan to slot
+          <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
+          Save your current plan as
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={`Plan ${slot}`}
+            className="min-w-[7rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
+            aria-label="Build name"
+          />
+          into
           <select
             value={slot}
             onChange={(e) => setSlot(e.target.value as BuildSlot)}
@@ -188,7 +145,7 @@ export function BuildCompare({
           >
             {SLOTS.map((s) => (
               <option key={s} value={s}>
-                {s}
+                Slot {s}
                 {takenSlots.has(s) ? ' (replace)' : ''}
               </option>
             ))}
@@ -206,69 +163,86 @@ export function BuildCompare({
         {err ? <p className="text-xs text-rose-700">{err}</p> : null}
       </div>
 
-      {/* Saved builds */}
-      {savedBuilds.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="font-display text-lg italic text-ink/85">Your saved builds</h3>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {savedBuilds.map((b) => {
-              const ou = b.total_php != null ? overUnder(b.total_php) : null;
-              return (
-                <div key={b.build_id} className="relative rounded-2xl border border-ink/10 bg-cream p-3">
-                  <button
-                    type="button"
-                    onClick={() => onDelete(b.build_id)}
-                    disabled={pending}
-                    aria-label={`Delete build ${b.label}`}
-                    className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/40 hover:bg-ink/5 hover:text-rose-600 disabled:opacity-50"
+      {/* Side-by-side comparison */}
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border border-ink/10 bg-cream px-4 py-10 text-center text-sm text-ink/60">
+          No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan
+          to compare versions side by side.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-ink/10">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-ink/[0.03] text-left">
+                <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                  Category
+                </th>
+                {columns.map((c) => (
+                  <th
+                    key={c.key}
+                    className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
                   >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                  </button>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-terracotta">
-                    Build {b.label}
-                  </div>
-                  <div className="mt-1 font-display text-lg italic text-ink">
-                    {b.total_php != null ? peso(b.total_php) : '—'}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-ink/55">
-                    {BASKET_LABEL[b.basket]}
-                    {b.budget_php != null ? ` · ${peso(b.budget_php)} budget` : ''}
-                  </div>
-                  {ou ? <div className={`mt-0.5 text-[11px] ${ou.tone}`}>{ou.text}</div> : null}
-                </div>
-              );
-            })}
-          </div>
+                    <div className={c.isCurrent ? 'text-terracotta' : 'text-ink/70'}>{c.title}</div>
+                    {!c.isCurrent ? (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(c.key)}
+                        disabled={pending}
+                        aria-label={`Delete ${c.title}`}
+                        className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-rose-600 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
+                      </button>
+                    ) : null}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.groupId} className="border-t border-ink/8 align-top">
+                  <td className="px-3 py-2 text-ink/80">{r.label}</td>
+                  {columns.map((c) => {
+                    const p = c.picks.get(r.groupId);
+                    return (
+                      <td key={c.key} className="px-2 py-2 text-right">
+                        {p ? (
+                          <>
+                            <div className="truncate font-medium text-ink">{p.vendorName}</div>
+                            <div className="tabular-nums text-[11px] text-ink/55">
+                              {peso(p.costPhp)}
+                              {p.locked ? ' · locked' : ''}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-ink/25">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              <tr className="border-t-2 border-ink/15 bg-ink/[0.02]">
+                <td className="px-3 py-2 font-semibold text-ink">Total</td>
+                {columns.map((c) => {
+                  const ou = overUnder(c.total);
+                  return (
+                    <td key={c.key} className="px-2 py-2 text-right">
+                      <div className="font-display text-base italic text-ink">{peso(c.total)}</div>
+                      {ou ? <div className={`text-[10px] ${ou.tone}`}>{ou.text}</div> : null}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Per-category breakdown of the live baskets */}
-      <div className="overflow-hidden rounded-2xl border border-ink/10">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-ink/[0.03] text-left">
-              <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">Category</th>
-              <th className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">Lean</th>
-              <th className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-terracotta">Fits</th>
-              <th className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">Stretch</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.canonicalService} className="border-t border-ink/8">
-                <td className="px-3 py-2 text-ink/80">{r.label}</td>
-                <td className="px-2 py-2 text-right tabular-nums text-ink/60">{peso(r.lean)}</td>
-                <td className="px-2 py-2 text-right tabular-nums font-medium text-ink">{peso(r.fits)}</td>
-                <td className="px-2 py-2 text-right tabular-nums text-ink/60">{peso(r.stretch)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
       <p className="text-xs text-ink/45">
-        Showing each saved build&rsquo;s available wedding dates (your team&rsquo;s common openings) is
-        coming next.
+        <span className="text-terracotta">Current</span> is your live plan. Save it into a slot to
+        bank a version, then change your picks and save another to compare. Locking stays on the
+        Shortlist.
       </p>
     </div>
   );

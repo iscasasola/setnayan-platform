@@ -1666,6 +1666,10 @@ function VendorCardAtom({
           vendorId={pick.vendor_id}
           vendorName={displayName}
           isBuildPick={pick.isBuildPick}
+          // Rule (owner 2026-06-09): a service can only be ADDED TO BUILD once
+          // the vendor has responded with a price. Still just an inquiry with no
+          // price → the button is disabled with a "waiting for the price" note.
+          priced={pick.rolled_cost_php != null}
           existing={
             existingBuildPick
               ? {

@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { searchCategoryVendors } from './_actions/category-search';
 import { attachMarketplaceVendorToCategory } from './actions';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 
 export type FlagActionResult = { ok: true } | { ok: false; error: string };
 export type GenerateResult =
@@ -120,4 +121,182 @@ export async function generateFlaggedVendors(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true, added, skipped };
+}
+
+// ── Budget-aware COMPUTE: assemble the build FROM THE SHORTLIST ──────────────
+// Owner 2026-06-09: the Build "Compute" auto-fills each FLAGGED category with
+// ONE shortlisted service that fits the PINNED budget — "auto generate 1
+// possible combination … following the rules of what are pinned". The build
+// REFERENCES the shortlist (owner: "it only references the list from the
+// shortlist") — so this never searches the marketplace; it picks from what the
+// couple already shortlisted. When a flagged category has no shortlisted option
+// that fits, it's returned in `noCompatible` so the UI can offer
+// "[Find Compatible] / [Remove Flag]" (Find Compatible is the marketplace
+// escape hatch — the existing generateFlaggedVendors / category search).
+//
+// Budget math: remaining = pinned budget − (locked picks + already-pinned build
+// picks). Locked + pinned categories are NOT recomputed (the owner's "already
+// locked … will not be counted to the budget to build but will show there"). No
+// budget set → no budget constraint (fill each flagged category with its best
+// shortlisted option). Greedy cheapest-first so the most categories get filled.
+export type ComputeResult =
+  | {
+      ok: true;
+      filled: number;
+      noCompatible: { groupId: string; label: string }[];
+    }
+  | { ok: false; error: string };
+
+const COMPUTE_LOCKED = new Set([
+  'contracted',
+  'deposit_paid',
+  'delivered',
+  'complete',
+]);
+
+export async function computeBuildFromShortlist(input: {
+  eventId: string;
+}): Promise<ComputeResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  // RLS scopes every read to the couple's own event (membership = readability).
+  const [evRes, vendorsRes, flagsRes, picksRes] = await Promise.all([
+    supabase
+      .from('events')
+      .select('estimated_budget_centavos')
+      .eq('event_id', input.eventId)
+      .maybeSingle(),
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, category, status, total_cost_php, transport_php, food_allowance_php')
+      .eq('event_id', input.eventId),
+    supabase
+      .from('budget_category_flags')
+      .select('plan_group_id')
+      .eq('event_id', input.eventId),
+    supabase
+      .from('event_build_picks')
+      .select('plan_group_id, vendor_id')
+      .eq('event_id', input.eventId),
+  ]);
+
+  if (!evRes.data) return { ok: false, error: 'Could not load this event.' };
+
+  type VRow = {
+    vendor_id: string;
+    category: string | null;
+    status: string | null;
+    total_cost_php: number | string | null;
+    transport_php: number | string | null;
+    food_allowance_php: number | string | null;
+  };
+  const vendors = (vendorsRes.data ?? []) as VRow[];
+  const flaggedGroups = ((flagsRes.data ?? []) as Array<{ plan_group_id: string }>).map(
+    (r) => r.plan_group_id,
+  );
+  const buildPicks = (picksRes.data ?? []) as Array<{ plan_group_id: string; vendor_id: string }>;
+
+  const num = (v: number | string | null): number => {
+    const n = typeof v === 'string' ? Number(v) : (v ?? 0);
+    return Number.isFinite(n) ? (n as number) : 0;
+  };
+  const rolled = (r: VRow) =>
+    num(r.total_cost_php) + num(r.transport_php) + num(r.food_allowance_php);
+  const costByVendor = new Map<string, number>();
+  const catByVendor = new Map<string, string | null>();
+  const statusByVendor = new Map<string, string | null>();
+  for (const r of vendors) {
+    costByVendor.set(r.vendor_id, rolled(r));
+    catByVendor.set(r.vendor_id, r.category);
+    statusByVendor.set(r.vendor_id, r.status);
+  }
+
+  // Committed = locked picks + already-pinned build picks (counted once). These
+  // are shown on the build but never recomputed — they reserve budget.
+  const pinnedGroupIds = new Set(buildPicks.map((p) => p.plan_group_id));
+  const pinnedVendorIds = new Set(buildPicks.map((p) => p.vendor_id));
+  const counted = new Set<string>();
+  let committed = 0;
+  for (const r of vendors) {
+    if (r.status && COMPUTE_LOCKED.has(r.status)) {
+      committed += rolled(r);
+      counted.add(r.vendor_id);
+    }
+  }
+  for (const vid of pinnedVendorIds) {
+    if (!counted.has(vid)) {
+      committed += costByVendor.get(vid) ?? 0;
+      counted.add(vid);
+    }
+  }
+
+  const budgetPhp =
+    evRes.data.estimated_budget_centavos != null
+      ? Math.round((evRes.data.estimated_budget_centavos as number) / 100)
+      : null;
+  let remaining = budgetPhp != null ? budgetPhp - committed : null;
+
+  // Candidate shortlist rows per category enum (status not locked, not already a
+  // pinned build pick, not already chosen this run).
+  const usedVendors = new Set<string>(pinnedVendorIds);
+  const noCompatible: { groupId: string; label: string }[] = [];
+  const toUpsert: Array<{ plan_group_id: string; vendor_id: string }> = [];
+
+  // Only fill FLAGGED categories that aren't already pinned.
+  for (const groupId of flaggedGroups) {
+    if (pinnedGroupIds.has(groupId)) continue;
+    const group = PLAN_GROUPS.find((g) => g.id === groupId);
+    if (!group) continue;
+    const cats = new Set<string>(group.categories as ReadonlyArray<string>);
+
+    const candidates = vendors
+      .filter(
+        (r) =>
+          r.category != null &&
+          cats.has(r.category) &&
+          // Rule (owner 2026-06-09): only services the vendor has RESPONDED with a
+          // price for are build-eligible — a price-less inquiry can't be computed
+          // into the build. total_cost_php is the vendor's responded package price.
+          r.total_cost_php != null &&
+          !(r.status && COMPUTE_LOCKED.has(r.status)) &&
+          !usedVendors.has(r.vendor_id),
+      )
+      .map((r) => ({ vendorId: r.vendor_id, cost: rolled(r) }))
+      // Cheapest-first → maximize the number of categories we can fill in budget.
+      .sort((a, b) => a.cost - b.cost);
+
+    const pick =
+      remaining != null
+        ? candidates.find((c) => c.cost <= (remaining as number))
+        : candidates[0];
+
+    if (!pick) {
+      noCompatible.push({ groupId, label: group.label });
+      continue;
+    }
+    toUpsert.push({ plan_group_id: groupId, vendor_id: pick.vendorId });
+    usedVendors.add(pick.vendorId);
+    if (remaining != null) remaining -= pick.cost;
+  }
+
+  if (toUpsert.length > 0) {
+    const { error } = await supabase.from('event_build_picks').upsert(
+      toUpsert.map((p) => ({
+        event_id: input.eventId,
+        plan_group_id: p.plan_group_id,
+        vendor_id: p.vendor_id,
+        picked_by: user.id,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: 'event_id,plan_group_id' },
+    );
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  return { ok: true, filled: toUpsert.length, noCompatible };
 }

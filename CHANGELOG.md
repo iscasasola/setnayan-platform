@@ -4,6 +4,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Build — only priced services are build-eligible (rule)
+
+**Context:** Owner 2026-06-09 rule — "they can only add to build the services that vendors responded with the price. if the service is still just inquiry and no price yet, it cannot be added to the build." Applied to both the Add-to-build button and Compute.
+
+- `_components/accordion-build.tsx` + `plan-budget-accordion.tsx`: `AccordionBuildButton` gains a `priced` prop (`pick.rolled_cost_php != null`). Unpriced picks render a disabled **"Waiting for the vendor's price"** note instead of the Add-to-build CTA.
+- `build-flags-actions.ts` (`computeBuildFromShortlist`): candidates now require `total_cost_php != null` (the vendor's responded price) — a price-less inquiry is never auto-filled into the build. (Compute's no-match path already opens the AI-gated `CategorySearchOverlay`, so the "scan the category with/without Setnayan AI" rule is satisfied by `[Find compatible]`.)
+
+**Verification:** `tsc --noEmit` clean. Folded into the Part-4 Build PR (#1208).
+
+**SPEC IMPACT:** Tightens Part 4/6 of the Services redesign. UI + read-model only; no schema change. → corpus `DECISION_LOG` 2026-06-09.
+
+## 2026-06-09 · feat(plan-builder): Build — budget-aware Compute from the shortlist (0016 sync)
+
+**Context:** Owner 2026-06-09 — the Build tab's **Compute** auto-fills every FLAGGED category with one shortlisted service that fits the **pinned budget** ("auto generate 1 possible combination … following the rules of what are pinned"). The build **references the shortlist** (owner: "it only references the list from the shortlist. so customers can create combinations of the best option for them"), so Compute never searches the marketplace — it picks from what the couple already shortlisted. The Build tab's other pieces were already in place: the **3-row cost strip** (locked / this-build / total + budget over-under) and **Reset** live in `BuildPicksList`; **Pin a category** = an "Add to build" pick (`event_build_picks`); Date/Budget/Location **Flag/Pin** anchors live in `BuildAnchors`.
+
+- `build-flags-actions.ts` — new `computeBuildFromShortlist({ eventId })` server action: `remaining = pinned budget − (locked picks + already-pinned build picks)`; for each flagged category WITHOUT a build pick, it buckets the shortlisted `event_vendors` by the group's `categories`, takes the **cheapest** rolled-cost (package+transport+meal) candidate that fits `remaining` (greedy → fills the most categories), and upserts it as the category's `event_build_picks`. Locked + pinned picks reserve budget but are never recomputed. No budget set → no budget constraint (best shortlisted option per flagged category). Returns `{ filled, noCompatible[] }`; couple-own RLS gates every read/write.
+- `_components/build-compute.tsx` (new) — the **Compute** button + the owner's **no-match prompt**: a flagged category with no fitting shortlisted option surfaces "No compatible **X** in your shortlist fits your budget — add more?" with **[Find compatible]** (opens the in-place `CategorySearchOverlay` scoped to that group — the marketplace escape hatch, budget/date/location-scoped, AI-ranked when on) and **[Remove flag]** (`unflagCategory`).
+- `_components/build-pins.tsx` — renders `BuildCompute` after `CategoryFlags` (which keeps the per-category Flag toggles). CategoryFlags' existing "Auto-fill with Setnayan AI" stays as the distinct marketplace-sourcing path; Compute is the shortlist-assembly path.
+
+**Verification:** `tsc --noEmit` clean (0 errors, whole web app). New action + 1 new client component + 1 wiring edit; reads/writes only existing tables (`event_vendors` / `budget_category_flags` / `event_build_picks` / `events`) — no migration. Vercel-preview click-through pending.
+
+**SPEC IMPACT:** Part 4/6 (final) of the Services 5-tab redesign (owner 2026-06-09). Adds the shortlist-assembly Compute semantics atop the existing marketplace auto-fill. UI + read-model only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09 (Plan Builder sync program).
+
 ## 2026-06-09 · feat(tokens): manual-add claim → flat 1-token burn (0016 sync)
 
 **Context:** Owner 2026-06-09 — when a couple "Add manually"s a vendor on the Shortlist and that vendor claims the couple via the QR/claim-invite, the sync costs the vendor **1 token** ("adding customer will cost 1 ticket to sync"). Owner chose a **FLAT 1 token** (distinct from the region-banded 1/2/3 burn-on-answer) — a manual add is a couple-initiated, pre-qualified connection. The rest of the claim flow (QR mint via `NewManualVendorModal`, `/vendor/claim/[token]` + `/finalize`, both new-account and existing-account branches) already shipped; this adds only the burn.

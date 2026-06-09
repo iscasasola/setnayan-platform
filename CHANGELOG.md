@@ -6,18 +6,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(vendor-tier): founder vendor → verified + unlimited categories/services + token-gate bypass
 
-**Context:** Owner 2026-06-09 — (1) bump the founder vendor to `verified`, and (2) give it unlimited categories + services and a full token-gate bypass. The founder vendor is the single non-demo account `Setnayan Founder · Ice` (`646c9457-3450-412e-8d60-7281224da157`).
+**Context:** Owner 2026-06-09 — bump the founder vendor to `verified` + give it unlimited categories/services and a full token-gate bypass. Founder = the single non-demo account `Setnayan Founder · Ice` (`646c9457-3450-412e-8d60-7281224da157`).
 
 **What landed (migration `20261013000000_founder_vendor_overrides.sql`, applied to prod):**
-- New `vendor_profiles.is_founder BOOLEAN NOT NULL DEFAULT false` (constant default → fast, no rewrite). Set `tier_state='verified'` + `is_founder=true` on the founder vendor (idempotent UPDATE).
-- `unlock_vendor_event` RPC gains a **founder branch**: a founder reads `is_founder` and unlocks **unlimited inquiries for free** — no FREE block, no verified 10/week cap, no token burn (records the unlock at 0 tokens for idempotency). All other paths unchanged (FREE blocked · verified ≤10/wk · PRO/ENT 1–3 region-banded burn · ownership · idempotency).
-- App caps (`vendor-dashboard/services/actions.ts createVendorService`): reads `is_founder`; when true, `parentCategories` + `servicesPerLeaf` are lifted to `Infinity` (unlimited categories + service listings). Other caps (daily capacity, portfolio) stay at the verified tier — not in scope of the owner's ask.
+- New `vendor_profiles.is_founder BOOLEAN NOT NULL DEFAULT false` (composes on top of `tier_state`). Set `tier_state='verified'` + `is_founder=true` on the founder.
+- `unlock_vendor_event` founder branch: unlimited inquiry unlocks for free — no FREE block, no verified 10/week cap, no token burn (records the unlock at 0 tokens for idempotency). All other paths unchanged.
+- `createVendorService` reads `is_founder` → lifts `parentCategories` + `servicesPerLeaf` to `Infinity`. Other caps stay at verified.
 
-**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod; founder row confirmed `tier=verified, is_founder=true`. Auto-rollback smoke test: `unlock_vendor_event` returns `founder:true, charged:false, tokens:0` and runs past 10 unlocks with no `VERIFIED_WEEKLY_LIMIT` (founder branch short-circuits before any gate).
-
-**Note:** the searchability gate stays flag-dark — the founder is now `verified` (would be searchable when flipped), but flipping `VENDOR_TIER_SEARCH_GATE` is still owner's call.
+**Verify:** `tsc` ✓ · `next lint` ✓. Founder row confirmed `tier=verified, is_founder=true`. Auto-rollback smoke test: `unlock_vendor_event` → `founder:true, charged:false, tokens:0`, past 10 unlocks with no `VERIFIED_WEEKLY_LIMIT`.
 
 **SPEC IMPACT:** founder override → corpus `DECISION_LOG.md` + tier matrix + memory.
+
+## 2026-06-09 · fix(brand): correct logo on seat-plan PDF / desktop / keynote + PDF "Created by" footer
+
+**Context:** Owner: the seat-plan PDF logo was wrong (an old black map-pin-with-star), "even the logo on the loading is wrong" — the gold mark (owner-supplied SVG) is the default; fix all logos. Plus show **"Created by WWW.SETNAYAN.COM"** at the bottom of the seat-plan print file.
+
+**Root cause:** the canonical `public/brand/setnayan-mark.svg` (gold `#cb9e4b`) + its SVG copies + favicon/manifest/web-init-splash + the mobile splash/launcher were **already correct**. Three **raster/desktop derivatives** had gone stale and were never regenerated:
+- `brand/setnayan-mark-512.png` — old **black pin+star** → embedded in the seat-plan PDF (the reported one).
+- `keynote/brand/setnayan-mark.png` — old **orange + grey circle**.
+- `src-tauri/icons/icon.svg` — wrong glyph → the **desktop app icon** (the build runs `tauri icon` on it → the desktop "loading" logo).
+
+**What landed:**
+- Regenerated all three from the canonical SVG (gold). New **`pnpm --filter @setnayan/web brand:icons`** (`scripts/regen-brand-rasters.mjs` · `sharp`) is the single source-of-truth mechanism: syncs the byte-identical SVG copies (favicons · Logo svg · proto · Tauri icon) + rasterizes the PNG derivatives. So changing the logo everywhere = replace `public/brand/setnayan-mark.svg`, run `brand:icons`. (Styled tiles — `setnayan-app-icon-512.png` on its white iOS tile, mobile launcher — keep their own treatment and are left as-is; already correct.)
+- **Seat-plan PDF** (`lib/seating-pdf.ts`): logo now renders gold; removed the mis-placed header logo that overlapped the monogram + spilled into the floor plan; added a centred **"Created by WWW.SETNAYAN.COM"** footer (with the gold mark) on every page.
+
+**Verify:** `tsc` + `next lint` clean. Rendered the regenerated PNGs (gold ✓, was pin-star/orange) and a sample seat-plan PDF — gold mark + "Created by WWW.SETNAYAN.COM" centred in the footer + a clean header.
+
+**SPEC IMPACT:** None (brand assets + PDF). → DECISION_LOG.
 
 ## 2026-06-09 · feat(mood-board): dedicated Entrance Tunnel part (0010)
 

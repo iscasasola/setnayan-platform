@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(seating): table capacity can't exceed the table type's seat count
+
+**Context:** Owner: "the seat count also must not exceed the seat count of the table." The Add-table form let you set any capacity 1–32 regardless of type — e.g. a **Sweetheart (2 seats)** with capacity **10**. Both form + server allowed it.
+
+**Fix (two layers):** Client `AddTablePanel` — type select + capacity input now controlled; capacity `max` = the selected type's `defaultCapacity`, resets on type change, clamps on input. Server `createTable` — capacity clamp `Math.min(32, …)` → `Math.min(typeSeats, …)`.
+
+**Verification:** `pnpm typecheck` ✅ clean.
+
+**SPEC IMPACT:** None — bug fix; 0008 `TABLE_TYPE_CATALOG.defaultCapacity` seat counts now enforced as the per-table cap.
+
 ## 2026-06-09 · feat(plan-builder): Compare → named vendor-pick builds, retire Lean/Fits/Stretch (PR F — final of the 5-page redesign)
 
 **Context:** Last PR of the owner-approved 0016 redesign (A→G→D→E→**F**). Compare drops the Lean/Fits/Stretch budget-*estimate* baskets for the prototype's named-builds model: a build is a named snapshot of the couple's **real vendor picks per category**, compared side by side vs budget (a live "Current" column + saved slots, blanks where a build lacks a category, totals + over/under, per-build delete).

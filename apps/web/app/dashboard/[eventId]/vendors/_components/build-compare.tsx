@@ -10,13 +10,15 @@
  * vendors side by side against their budget. No migration — reuses the existing
  * `budget_builds` 3 slots; picks live in the `snapshot` JSONB.
  *
- * Client component. (Per-build Modify/Lock — reload a snapshot into the live
- * plan / bulk-finalize — is a follow-up; locking stays the Shortlist flow.)
+ * Client component. Per-build Modify/Lock are now implemented: each saved build
+ * can load its vendor picks into the live working build and jump to the Build
+ * tab (Modify) or the Lock tab (Lock) — Lock does NOT bulk-finalize here, it just
+ * loads the picks and routes to the Lock tab's hardened finalize flow.
  */
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, Loader2, Trash2 } from 'lucide-react';
+import { Bookmark, ChevronDown, Loader2, Lock, Pencil, Trash2 } from 'lucide-react';
 import {
   savePlanBuild,
   deleteBudgetBuild,
@@ -24,6 +26,8 @@ import {
   type PlanBuildSnapshot,
   type BuildSlot,
 } from '../build-actions';
+import { applyBuildToWorking } from '../build-pick-actions';
+import { goToBuildTab } from './services-takeover';
 
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
@@ -46,6 +50,8 @@ export function BuildCompare({
   const [slot, setSlot] = useState<BuildSlot>(SLOTS.find((s) => !takenSlots.has(s)) ?? 'A');
   const [name, setName] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  // Per-cell inclusion expand state, keyed `${columnKey}::${groupId}`.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   // Columns = saved builds, then the live "Current" plan last.
   const columns = useMemo(() => {
@@ -55,6 +61,9 @@ export function BuildCompare({
       total: b.total_php,
       picks: new Map(b.snapshot.picks.map((p) => [p.groupId, p])),
       isCurrent: false,
+      // The saved snapshot, so the header can apply its picks. Old snapshots
+      // (saved before vendorId existed) have no vendorId → Modify/Lock disabled.
+      snapshot: b.snapshot,
     }));
     cols.push({
       key: 'current',
@@ -62,9 +71,19 @@ export function BuildCompare({
       total: currentPlan.totalPhp,
       picks: new Map(currentPlan.picks.map((p) => [p.groupId, p])),
       isCurrent: true,
+      snapshot: currentPlan,
     });
     return cols;
   }, [savedBuilds, currentPlan]);
+
+  function toggleCell(cellKey: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(cellKey)) next.delete(cellKey);
+      else next.add(cellKey);
+      return next;
+    });
+  }
 
   // Rows = union of every category across the live plan + saved builds.
   const rows = useMemo(() => {
@@ -111,6 +130,24 @@ export function BuildCompare({
       const res = await deleteBudgetBuild({ eventId, buildId });
       if (!res.ok) setErr(res.error);
       else router.refresh();
+    });
+  }
+
+  // Load a saved build's picks into the working build, then jump to a tab. Lock
+  // does NOT finalize here — the Lock tab hosts the hardened finalize flow.
+  function onApply(snapshot: PlanBuildSnapshot, destination: 'build' | 'lock') {
+    setErr(null);
+    const picks = snapshot.picks
+      .filter((p) => p.vendorId)
+      .map((p) => ({ planGroupId: p.groupId, vendorId: p.vendorId! }));
+    startTransition(async () => {
+      const res = await applyBuildToWorking({ eventId, picks });
+      if (!res.ok) {
+        setErr(res.error);
+        return;
+      }
+      router.refresh();
+      goToBuildTab(destination);
     });
   }
 
@@ -177,25 +214,57 @@ export function BuildCompare({
                 <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
                   Category
                 </th>
-                {columns.map((c) => (
-                  <th
-                    key={c.key}
-                    className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
-                  >
-                    <div className={c.isCurrent ? 'text-terracotta' : 'text-ink/70'}>{c.title}</div>
-                    {!c.isCurrent ? (
-                      <button
-                        type="button"
-                        onClick={() => onDelete(c.key)}
-                        disabled={pending}
-                        aria-label={`Delete ${c.title}`}
-                        className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-rose-600 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
-                      </button>
-                    ) : null}
-                  </th>
-                ))}
+                {columns.map((c) => {
+                  const canApply = !c.isCurrent && c.snapshot.picks.some((p) => p.vendorId);
+                  return (
+                    <th
+                      key={c.key}
+                      className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55"
+                    >
+                      <div className={c.isCurrent ? 'text-terracotta' : 'text-ink/70'}>
+                        {c.title}
+                      </div>
+                      {!c.isCurrent ? (
+                        <div className="mt-0.5 flex flex-col items-end gap-0.5">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onApply(c.snapshot, 'build')}
+                              disabled={pending || !canApply}
+                              aria-label={`Modify with ${c.title}`}
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"
+                            >
+                              <Pencil className="h-3 w-3" strokeWidth={1.75} aria-hidden /> modify
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onApply(c.snapshot, 'lock')}
+                              disabled={pending || !canApply}
+                              aria-label={`Lock ${c.title}`}
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"
+                            >
+                              <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> lock
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onDelete(c.key)}
+                              disabled={pending}
+                              aria-label={`Delete ${c.title}`}
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-rose-600 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
+                            </button>
+                          </div>
+                          {!canApply ? (
+                            <span className="text-[9px] normal-case tracking-normal text-ink/30">
+                              Re-save to enable
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -204,15 +273,50 @@ export function BuildCompare({
                   <td className="px-3 py-2 text-ink/80">{r.label}</td>
                   {columns.map((c) => {
                     const p = c.picks.get(r.groupId);
+                    const cellKey = `${c.key}::${r.groupId}`;
+                    const inclusions = p?.inclusions ?? [];
+                    const hasInclusions = inclusions.length > 0;
+                    const isOpen = expanded.has(cellKey);
                     return (
                       <td key={c.key} className="px-2 py-2 text-right">
                         {p ? (
                           <>
-                            <div className="truncate font-medium text-ink">{p.vendorName}</div>
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="truncate font-medium text-ink">{p.vendorName}</span>
+                              {hasInclusions ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCell(cellKey)}
+                                  aria-expanded={isOpen}
+                                  aria-label={
+                                    isOpen ? 'Hide inclusions' : 'Show inclusions'
+                                  }
+                                  className="shrink-0 text-ink/40 hover:text-terracotta"
+                                >
+                                  <ChevronDown
+                                    className={`h-3.5 w-3.5 transition-transform ${
+                                      isOpen ? 'rotate-180' : ''
+                                    }`}
+                                    strokeWidth={1.75}
+                                    aria-hidden
+                                  />
+                                </button>
+                              ) : null}
+                            </div>
                             <div className="tabular-nums text-[11px] text-ink/55">
                               {peso(p.costPhp)}
                               {p.locked ? ' · locked' : ''}
                             </div>
+                            {hasInclusions && isOpen ? (
+                              <div className="mt-0.5 text-[10px] leading-snug text-ink/45">
+                                {inclusions.map((inc, i) => (
+                                  <span key={`${cellKey}-inc-${i}`}>
+                                    {i === 0 ? '+ ' : ', '}
+                                    {inc}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
                           </>
                         ) : (
                           <span className="text-ink/25">—</span>
@@ -241,8 +345,10 @@ export function BuildCompare({
 
       <p className="text-xs text-ink/45">
         <span className="text-terracotta">Current</span> is your live plan. Save it into a slot to
-        bank a version, then change your picks and save another to compare. Locking stays on the
-        Shortlist.
+        bank a version, then change your picks and save another to compare. Use{' '}
+        <span className="text-ink/70">Modify</span> to load a saved plan back into your working
+        build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to
+        finalize those vendors.
       </p>
     </div>
   );

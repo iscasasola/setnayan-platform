@@ -100,6 +100,9 @@ export type PlanBuildPick = {
   vendorName: string;
   costPhp: number | null;
   locked: boolean;
+  // Optional so snapshots saved before PR-Compare-Modify still typecheck on read.
+  vendorId?: string;
+  inclusions?: string[];
 };
 
 export type PlanBuildSnapshot = {

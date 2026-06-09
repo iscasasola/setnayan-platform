@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Compare — per-build Modify + Lock + expand inclusions (0016 sync)
+
+**Context:** Finishes the prototype's Compare tab. Each saved build column previously had only a **Delete** button; it now also reloads its picks into the live working build and routes to the right tab, plus each vendor cell can expand to show that pick's inclusions.
+
+- `_components/build-compare.tsx`: per-saved-build **Modify** (load picks → Build tab) + **Lock** (load picks → Lock tab; does NOT bulk-finalize — the Lock tab hosts the hardened finalize flow). Both call the new `applyBuildToWorking` then `router.refresh()` + `goToBuildTab(...)`. Old snapshots (saved before vendorId existed) disable Modify/Lock with a subtle "Re-save to enable" hint. Each present pick cell gets an **expand toggle** (rotating `ChevronDown`) that reveals the pick's inclusions ("+ X, Y") — tracked per-cell in a `Set<string>` keyed `${columnKey}::${groupId}`. Save panel, Delete, and totals/over-under rows unchanged. Docstring + footer updated.
+- `build-actions.ts`: `PlanBuildPick` gains optional `vendorId?: string` + `inclusions?: string[]` (optional so pre-existing JSONB snapshots still typecheck on read).
+- `page.tsx`: the `planPicks` map now sets `vendorId: pick.vendor_id` + `inclusions: pick.linked_services?.map(l => l.label) ?? []`.
+- `build-pick-actions.ts`: new `applyBuildToWorking({ eventId, picks })` — clears all `event_build_picks` for the event, then upserts each pick one at a time (best-effort). A vendor that has left the shortlist FK-rejects (`event_build_picks.vendor_id → event_vendors.vendor_id`), so that single pick is skipped and the rest apply. Returns `ok` if ≥1 applied (or input had zero picks); otherwise the "none of this plan's vendors are still on your shortlist" error.
+
+**Verification:** `pnpm -C apps/web typecheck` (`tsc --noEmit`) clean. No migration (reuses `event_build_picks`).
+
+**SPEC IMPACT:** None — Compare tab UX; reuses `event_build_picks`, no schema change. → corpus `DECISION_LOG` 2026-06-09 (Plan Builder Compare).
+
 ## 2026-06-09 · feat(plan-builder): Build tab — totals row + Reset + "Lock your build" cross-tab nav (0016 sync)
 
 **Context:** Fills the prototype's Build-tab controls. After "Add to build" transfers items to the Build page (prior PR), the Build tab now caps the "Your build" list with the prototype's **persistent totals** + actions.

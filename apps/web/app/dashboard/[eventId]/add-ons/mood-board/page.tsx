@@ -5,6 +5,7 @@ import { fetchGuestsByEvent } from '@/lib/guests';
 import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
 import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
+import type { ReceptionDesign } from '@/lib/reception-scene';
 import { saveRolePalette } from './actions';
 import { PaletteEditor } from './_components/palette-editor';
 import {
@@ -12,6 +13,7 @@ import {
   type BoardSection,
   type BoardCard,
 } from './_components/moodboard-board';
+import { ReceptionDesigner } from './_components/reception-designer';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -64,7 +66,9 @@ export default async function MoodBoardPage({ params }: Props) {
   const [eventRes, guests, attireRes, venueFlowerRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, role_palette, mood_board_updated_at')
+      .select(
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
@@ -94,6 +98,10 @@ export default async function MoodBoardPage({ params }: Props) {
   if (!event) notFound();
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
+  const receptionDesign: ReceptionDesign =
+    event.reception_design && typeof event.reception_design === 'object'
+      ? (event.reception_design as ReceptionDesign)
+      : {};
 
   // ── present role groups drive which attire/role cards show ──────────────
   const presentRoleGroups = new Set<RoleGroup>();
@@ -140,7 +148,6 @@ export default async function MoodBoardPage({ params }: Props) {
       (r) => r.asset_type === 'venue_scene' && match((r.asset_subtype || '').toLowerCase()),
     );
   const churchRow = findVenue((s) => s === 'church' || s === 'ceremony');
-  const receptionRow = findVenue((s) => s === 'reception' || s === 'cocktail');
   const bouquetRow =
     vfRows.find((r) => r.asset_type === 'florals' && r.asset_subtype === 'bridal_bouquet') ||
     vfRows.find((r) => r.asset_type === 'florals');
@@ -156,23 +163,14 @@ export default async function MoodBoardPage({ params }: Props) {
     portrait: true,
   }));
 
-  const venueCards: BoardCard[] = [];
+  const ceremonyCards: BoardCard[] = [];
   if (churchRow) {
-    venueCards.push({
+    ceremonyCards.push({
       key: 'venue-ceremony',
       label: 'Ceremony',
       imageUrl: churchRow.storage_path,
       paletteColors: palette.ceremony ?? [],
       regions: toRegions(churchRow.moodboard_asset_color_ranges),
-    });
-  }
-  if (receptionRow) {
-    venueCards.push({
-      key: 'venue-reception',
-      label: 'Reception',
-      imageUrl: receptionRow.storage_path,
-      paletteColors: palette.reception ?? [],
-      regions: toRegions(receptionRow.moodboard_asset_color_ranges),
     });
   }
 
@@ -195,9 +193,9 @@ export default async function MoodBoardPage({ params }: Props) {
       cards: attireCards,
     },
     {
-      title: 'Venue',
-      blurb: 'Your ceremony and reception, shown in your palette.',
-      cards: venueCards,
+      title: 'Ceremony',
+      blurb: 'Your ceremony space, shown in your palette.',
+      cards: ceremonyCards,
     },
     {
       title: 'Flowers',
@@ -241,11 +239,26 @@ export default async function MoodBoardPage({ params }: Props) {
         <header>
           <h2 className="text-2xl font-semibold text-ink">In your colors</h2>
           <p className="text-sm text-ink/65">
-            One picture per thing that needs a color decision — your attire, venue, and
-            flowers. Venue and flowers preview your palette automatically.
+            One picture per thing that needs a color decision — your attire, ceremony, and
+            flowers. Ceremony and flowers preview your palette automatically.
           </p>
         </header>
         <MoodboardBoard sections={sections} />
+      </section>
+
+      <section className="space-y-4 border-t border-ink/10 pt-6">
+        <header>
+          <h2 className="text-2xl font-semibold text-ink">Design your reception</h2>
+          <p className="text-sm text-ink/65">
+            Tap a part of the room — ceiling, backdrop, stage, tables, or the entrance
+            tunnel — and choose its treatment. The venue updates live in your colors.
+          </p>
+        </header>
+        <ReceptionDesigner
+          eventId={eventId}
+          initialDesign={receptionDesign}
+          palette={palette.reception ?? []}
+        />
       </section>
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
@@ -253,14 +266,10 @@ export default async function MoodBoardPage({ params }: Props) {
           Coming next
         </p>
         <ul className="list-inside list-disc space-y-1 text-sm text-ink/65">
-          <li>
-            <strong>Design the reception</strong> — tap a part (ceiling, walls, tables,
-            tunnel) and choose its treatment: chandeliers vs draped fabric vs string
-            lights, linens, centerpieces.
-          </li>
+          <li>More treatment options + photo-real swatches per part</li>
           <li>Per-role attire styles you can recolor (photo-real samples)</li>
           <li>Custom role palettes + a curated theme library</li>
-          <li>AI Composite Scene — a bespoke render of your whole venue (premium)</li>
+          <li>AI Composite Scene — a bespoke photo-real render of your venue (premium)</li>
         </ul>
       </section>
     </div>

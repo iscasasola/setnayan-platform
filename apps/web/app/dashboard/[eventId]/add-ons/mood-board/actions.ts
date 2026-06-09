@@ -4,6 +4,41 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { RECEPTION_PARTS } from '@/lib/reception-scene';
+
+/**
+ * Persist the couple's reception design (per-part treatment choices) to
+ * events.reception_design (migration 20261002000000). Mood Board Phase 2.
+ * Sanitizes against the known parts + treatment ids so only valid choices land.
+ */
+export async function saveReceptionDesign(
+  eventId: string,
+  design: Record<string, string>,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const clean: Record<string, string> = {};
+  for (const part of RECEPTION_PARTS) {
+    const v = design[part.id];
+    if (v && part.treatments.some((t) => t.id === v)) clean[part.id] = v;
+  }
+
+  // RLS enforces host-only writes on their own events via event_members.
+  const { error } = await supabase
+    .from('events')
+    .update({
+      reception_design: clean,
+      mood_board_updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/add-ons/mood-board`);
+}
 
 export type MoodboardSelectionInput = {
   eventId: string;

@@ -72,6 +72,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/force-majeure',
       '/admin/reviews',
       '/admin/concierge-abuse',
+      '/admin/approvals',
       '/admin/help',
     ],
   },

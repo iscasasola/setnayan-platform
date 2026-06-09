@@ -183,12 +183,6 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
       page.drawText('Scan to visit', { x: right - s - 58, y: top - 18, size: 7.5, font, color: theme.soft });
       page.drawText('our website', { x: right - s - 58, y: top - 28, size: 7.5, font, color: theme.soft });
     }
-    if (logo) {
-      const lw = 60;
-      const lh = (logo.height / logo.width) * lw;
-      page.drawImage(logo, { x: MARGIN, y: A4.h - MARGIN - 56 - lh, width: lw, height: lh, opacity: 0.85 });
-    }
-
     page.drawLine({
       start: { x: MARGIN, y: top - 60 },
       end: { x: right, y: top - 60 },
@@ -370,10 +364,21 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     y -= 12;
   }
 
-  // footer line on every page
+  // footer on every page: event name (left) · gold mark + "Created by WWW.SETNAYAN.COM"
+  // (centre) · page no. (right)
   const pages = doc.getPages();
+  const credit = 'Created by WWW.SETNAYAN.COM';
+  const creditW = font.widthOfTextAtSize(credit, 6.5);
+  const markS = logo ? 9 : 0;
+  const markGap = logo ? 4 : 0;
+  const groupX = (A4.w - (markS + markGap + creditW)) / 2;
   pages.forEach((pg, i) => {
-    pg.drawText(`Setnayan · ${event.display_name}`, { x: MARGIN, y: MARGIN - 14, size: 6.5, font, color: theme.soft });
+    pg.drawText(event.display_name, { x: MARGIN, y: MARGIN - 14, size: 6.5, font, color: theme.soft });
+    if (logo) {
+      const lh = (logo.height / logo.width) * markS;
+      pg.drawImage(logo, { x: groupX, y: MARGIN - 16, width: markS, height: lh, opacity: 0.9 });
+    }
+    pg.drawText(credit, { x: groupX + markS + markGap, y: MARGIN - 14, size: 6.5, font, color: theme.soft });
     const pn = `${i + 1} / ${pages.length}`;
     const pw = font.widthOfTextAtSize(pn, 6.5);
     pg.drawText(pn, { x: A4.w - MARGIN - pw, y: MARGIN - 14, size: 6.5, font, color: theme.soft });

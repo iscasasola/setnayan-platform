@@ -11,6 +11,7 @@
     "lint:email-links": "node scripts/lint-email-links.mjs",
     "bundle-size-check": "node scripts/check-bundle-size.mjs",
     "check:no-demo-in-prod": "node scripts/check-no-demo-in-prod.mjs",
+    "brand:icons": "node scripts/regen-brand-rasters.mjs",
     "seed:demo-vendors": "tsx scripts/seed-demo-vendors.ts",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"

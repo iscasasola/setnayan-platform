@@ -32,6 +32,7 @@ import {
   Banknote,
   Wallet,
   ShoppingBag,
+  Crown,
   CreditCard,
   Shield,
   AlertOctagon,
@@ -62,6 +63,7 @@ export default async function AdminWorkLanding() {
     paymentsRes,
     payoutsRes,
     tokenSalesRes,
+    subscriptionsRes,
     paymentOptionsRes,
     disputesRes,
     forceMajeureRes,
@@ -85,6 +87,10 @@ export default async function AdminWorkLanding() {
       .eq('on_hold', false),
     admin
       .from('vendor_token_purchases')
+      .select('*', head)
+      .eq('status', 'pending_payment'),
+    admin
+      .from('vendor_subscriptions')
       .select('*', head)
       .eq('status', 'pending_payment'),
     admin
@@ -144,6 +150,14 @@ export default async function AdminWorkLanding() {
       icon: ShoppingBag,
       description: 'Vendor token-pack purchases awaiting confirmation.',
       count: take(tokenSalesRes.count),
+    },
+    {
+      key: 'subscriptions',
+      label: 'Subscriptions',
+      href: '/admin/subscriptions',
+      icon: Crown,
+      description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
+      count: take(subscriptionsRes.count),
     },
     {
       key: 'payment-options',

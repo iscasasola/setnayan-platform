@@ -185,7 +185,15 @@ export type AccordionPick = PlanCardPick & {
   is_verified?: boolean;
   is_setnayan_service?: boolean;
   recommended_reason?: string | null;
+  /** Back-compat single-name linked label (joined "X · Y" for CompareSheet). */
   linked_to_name?: string | null;
+  /**
+   * Linked-services-on-card (locked spec): categories the picked service
+   * auto-covers — card shows "comes with X · Y · Z". Populated from
+   * vendor_service_links for the picked event_vendors.service_id. Absent →
+   * no linked row renders.
+   */
+  linked_services?: { label: string }[];
   /**
    * Haversine distance (km) from the couple's reception venue. Renders
    * "Xkm from reception" in the card's distance slot; absent → the card
@@ -218,6 +226,8 @@ export type VendorEnrichment = {
   distance_km?: number | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
+  /** Linked-services-on-card labels for this vendor's picked service. */
+  linked_services?: { label: string }[];
 };
 
 /** One plan-group rail inside a folder (e.g. "Attire" inside Look). */
@@ -508,6 +518,12 @@ export function buildPlanBudgetModel(args: {
       ...(ext?.is_setnayan_service ? { is_setnayan_service: true } : {}),
       ...(ext?.distance_km != null ? { distance_km: ext.distance_km } : {}),
       ...(ext?.inquiry_status != null ? { inquiry_status: ext.inquiry_status } : {}),
+      ...(ext?.linked_services?.length
+        ? {
+            linked_services: ext.linked_services,
+            linked_to_name: ext.linked_services.map((l) => l.label).join(' · '),
+          }
+        : {}),
     };
   };
 

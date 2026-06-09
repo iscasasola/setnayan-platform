@@ -366,7 +366,8 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
       {create.kind === 'done' && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
           <p className="font-medium">
-            Created {create.vendors.toLocaleString()} demo vendors across the marketplace.
+            Created {create.vendors.toLocaleString()} demo vendors covering every
+            taxonomy node (some carry linked &ldquo;comes with&rdquo; services).
             Preview at <code className="rounded bg-emerald-100 px-1">/vendors?demo=1</code>.
           </p>
         </div>

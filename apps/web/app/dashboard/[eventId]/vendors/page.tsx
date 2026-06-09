@@ -249,6 +249,7 @@ export default async function VendorsPage({ params }: Props) {
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
+        linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
     }
   }
@@ -613,9 +614,12 @@ async function fetchVendorPhotoMaps(
 ): Promise<{
   servicePhotoByVendor: Map<string, string>;
   manualPhotoByVendor: Map<string, string>;
+  /** vendor_id → linked-services-on-card labels for its picked service. */
+  linkedByVendorId: Map<string, { label: string }[]>;
 }> {
   const servicePhotoByVendor = new Map<string, string>();
   const manualPhotoByVendor = new Map<string, string>();
+  const linkedByVendorId = new Map<string, { label: string }[]>();
 
   // 1. vendor_id → service_id / manual_vendor_id. Falls back to a service_id-
   //    only select when manual_vendor_id isn't migrated yet.
@@ -639,7 +643,7 @@ async function fetchVendorPhotoMaps(
     idRows = (reduced.data ?? []) as IdRow[];
   } else {
     // Any other error → no photos; the plan still renders.
-    return { servicePhotoByVendor, manualPhotoByVendor };
+    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
   }
 
   const serviceIdByVendor = new Map<string, string>();
@@ -651,14 +655,15 @@ async function fetchVendorPhotoMaps(
   const serviceIds = Array.from(new Set(serviceIdByVendor.values()));
   const manualIds = Array.from(new Set(manualIdByVendor.values()));
   if (serviceIds.length === 0 && manualIds.length === 0) {
-    return { servicePhotoByVendor, manualPhotoByVendor };
+    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
   }
 
   // 2. Batch-fetch the r2 keys (one round trip per table, only when needed).
   type SvcRow = { vendor_service_id: string; primary_photo_r2_key: string | null };
   type ManRow = { manual_vendor_id: string; photo_r2_key: string | null };
+  type LinkRow = { vendor_service_id: string; linked_label: string | null; linked_canonical_service: string; display_order: number };
   const admin = createAdminClient();
-  const [svcRes, manRes] = await Promise.all([
+  const [svcRes, manRes, linkRes] = await Promise.all([
     serviceIds.length > 0
       ? admin
           .from('vendor_services')
@@ -671,7 +676,28 @@ async function fetchVendorPhotoMaps(
           .select('manual_vendor_id, photo_r2_key')
           .in('manual_vendor_id', manualIds)
       : Promise.resolve({ data: [] as ManRow[] }),
+    // Linked-services-on-card: the categories each picked service "comes with".
+    serviceIds.length > 0
+      ? admin
+          .from('vendor_service_links')
+          .select('vendor_service_id, linked_label, linked_canonical_service, display_order')
+          .in('vendor_service_id', serviceIds)
+          .order('display_order', { ascending: true })
+      : Promise.resolve({ data: [] as LinkRow[] }),
   ]);
+
+  // service_id → ordered linked labels → resolve to vendor_id.
+  const linksByServiceId = new Map<string, { label: string }[]>();
+  for (const row of (linkRes.data ?? []) as LinkRow[]) {
+    const label = row.linked_label ?? row.linked_canonical_service;
+    const arr = linksByServiceId.get(row.vendor_service_id) ?? [];
+    arr.push({ label });
+    linksByServiceId.set(row.vendor_service_id, arr);
+  }
+  for (const [vendorId, serviceId] of serviceIdByVendor) {
+    const links = linksByServiceId.get(serviceId);
+    if (links && links.length > 0) linkedByVendorId.set(vendorId, links);
+  }
 
   // 3. r2 key → public URL, keyed first by the source id, then resolved to
   //    vendor_id (what the row map consumes). NULL keys skip (no photo yet).
@@ -702,7 +728,7 @@ async function fetchVendorPhotoMaps(
     if (url) manualPhotoByVendor.set(vendorId, url);
   }
 
-  return { servicePhotoByVendor, manualPhotoByVendor };
+  return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
 }
 
 /**

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Compare → named vendor-pick builds, retire Lean/Fits/Stretch (PR F — final of the 5-page redesign)
+
+**Context:** Last PR of the owner-approved 0016 redesign (A→G→D→E→**F**). Compare drops the Lean/Fits/Stretch budget-*estimate* baskets for the prototype's named-builds model: a "build" is a named snapshot of the couple's **real vendor picks per category**. They save the current plan into a slot, tweak picks, save another, and compare the actual vendors side by side vs budget.
+
+**No migration** — reuses `budget_builds`' 3 slots (A/B/C) as 3 named builds; the picks live in the `snapshot` JSONB (`basket` forced to 'fits' to satisfy the column's NOT NULL CHECK, no longer meaningful). New `build-actions.ts` types `PlanBuildPick`/`PlanBuildSnapshot`/`SavedPlanBuild` + `savePlanBuild`; `deleteBudgetBuild` reused. `build-compare.tsx` rewritten to a side-by-side table (categories × builds + a live "Current" column, blanks where a build lacks a category, totals + over/under budget, per-build delete). `page.tsx` builds the current-plan snapshot from the shared `PlanBudgetModel`, reads back the snapshot, and drops the now-unused `resolveAllocationInputs` call/import.
+
+**Deferred:** per-build Modify (reload a snapshot into the live plan) + Lock (bulk-finalize) — non-trivial against the single live `event_vendors` set; locking stays the Shortlist `finalizeVendor` flow. The `/budget` page keeps the Lean/Fits/Stretch planner; only the plan-builder's Compare changed.
+
+**Verification:** `pnpm typecheck` ✅ clean. CI lint + production build + e2e.
+
+**SPEC IMPACT:** None yet — completes the 0016 prototype on the live surface. Corpus prototype + a DECISION_LOG summary of the A–F program land next.
+
 ## 2026-06-09 · feat(seating): seat a whole guest-group at one table + group-aware auto-seat
 
 **Context:** Owner directive 2026-06-09 — on the seat plan, "can we pick groups to add on a table?" The editor previously seated one guest at a time (pick a person → click a chair); custom Member Groups were purely a colour-coding/visualisation device. Three additions, all couple-side, no migration (reuses `group_id` membership + `event_seat_assignments`).

@@ -67,6 +67,58 @@ export async function removeBuildPick(input: {
   return { ok: true };
 }
 
+/**
+ * Replace the entire working build with a saved plan's vendor picks (Compare
+ * "Modify"/"Lock"). Clears every existing build pick for the event, then upserts
+ * each (planGroupId → vendorId) one at a time, best-effort: a vendor that has
+ * since left the shortlist (event_vendors row gone) FK-rejects, so we skip that
+ * single pick and keep going. Couple-own RLS + the FK enforce ownership.
+ */
+export async function applyBuildToWorking(input: {
+  eventId: string;
+  picks: { planGroupId: string; vendorId: string }[];
+}): Promise<BuildPickResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  // Wipe the current working build first so a partial apply still reflects the
+  // chosen plan (no leftover picks from the previous build).
+  const { error: clearError } = await supabase
+    .from('event_build_picks')
+    .delete()
+    .eq('event_id', input.eventId);
+  if (clearError) return { ok: false, error: clearError.message };
+
+  let applied = 0;
+  for (const p of input.picks) {
+    const { error } = await supabase.from('event_build_picks').upsert(
+      {
+        event_id: input.eventId,
+        plan_group_id: p.planGroupId,
+        vendor_id: p.vendorId,
+        picked_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_id,plan_group_id' },
+    );
+    // A vendor removed from the shortlist since the build was saved FK-rejects;
+    // skip it and keep applying the rest.
+    if (!error) applied += 1;
+  }
+
+  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+
+  if (input.picks.length === 0 || applied > 0) return { ok: true };
+  return {
+    ok: false,
+    error:
+      'None of this plan’s vendors are still on your shortlist. Re-save the plan and try again.',
+  };
+}
+
 /** Reset the build — clear every build pick for the event. Does NOT touch the
  *  shortlist (event_vendors) or any locked/finalized vendor; build picks are a
  *  separate, reversible layer. */

@@ -439,6 +439,8 @@ export default async function VendorsPage({ params }: Props) {
           vendorName: pick.vendor_name ?? '(unnamed)',
           costPhp: pick.rolled_cost_php ?? null,
           locked: !!lockedPick,
+          vendorId: pick.vendor_id,
+          inclusions: pick.linked_services?.map((l) => l.label) ?? [],
         };
       });
     const currentPlan: PlanBuildSnapshot = {

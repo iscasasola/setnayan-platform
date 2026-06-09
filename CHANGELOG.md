@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(seating): seat a whole guest-group at one table + group-aware auto-seat
+
+**Context:** Owner directive 2026-06-09 — on the seat plan, "can we pick groups to add on a table?" The editor previously seated one guest at a time (pick a person → click a chair); custom Member Groups were purely a colour-coding/visualisation device. Three additions, all couple-side, no migration (reuses `group_id` membership + `event_seat_assignments`).
+
+**1 · Bulk-seat a group (`assignGroup` action + editor flow).** Each Member-Group row gets an Armchair "seat this whole group" button → pick a group, then tap any table (sidebar list, canvas hub/chairs, or list-view card / "Seat group here"). A mulberry banner shows the picked group + member count; picking a group and picking a guest are mutually exclusive.
+
+**2 · Seat-what-fits capacity handling.** `assignGroup` enforces capacity server-side: members already at the table keep their chair, members elsewhere are moved in, no other occupant is evicted, and the group fills only the open seats. On overflow it returns `{seated, requested, overflow}` and the editor surfaces an amber notice ("seated 6 of 8 at Table 3 — 2 didn't fit; pick another table for the rest") so the couple places the remainder elsewhere.
+
+**3 · Group-aware auto-seat (`computeAutoSeat`).** Within each role tier, primaries now cluster by custom group (members name-sorted inside the cluster, clusters ordered by first-member name) so a group lands on the same/neighbouring tables instead of being scattered by the old flat name sort. Ungrouped guests become singleton clusters → identical to prior behaviour. `AutoSeatGuest` gains `group_id`; `autoSeatGuests` now fetches memberships and passes the primary group.
+
+**Files:** `app/dashboard/[eventId]/seating/actions.ts` (new `assignGroup`, membership-aware `autoSeatGuests`), `lib/seating.ts` (`AutoSeatGuest.group_id` + cluster ordering), `_components/seating-editor.tsx` (group-pick state, `seatGroupAt`, banners, wired click targets). Typecheck clean (`tsc --noEmit`, 0 errors).
+
+**SPEC IMPACT:** 0008 Seating gains group bulk-seat + group-clustered auto-seat. Logged in corpus `DECISION_LOG` 2026-06-09. No schema/pricing change. Auto-seat output ordering changes when custom groups exist (a deliberate behaviour change — surfaced for owner awareness).
+
 ## 2026-06-09 · feat(mood-board): "concept book" PDF export (Result + design + inspirations)
 
 **Context:** Owner directive 2026-06-09 — couples can download a printable "concept book" PDF of their mood board: the rendered concept (the Result) plus how they made it possible (their inspirations + the custom reception template they designed). Free, ₱0 marginal cost, reads only existing columns (no migration). The paid photoreal "Make it real" render stays owner-gated (needs the image-provider API key); until it ships, the stylized scene the couple designed is the PDF hero and page 2 auto-upgrades to the photoreal render later (`resultPng`).

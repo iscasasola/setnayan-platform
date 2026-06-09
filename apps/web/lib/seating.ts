@@ -396,6 +396,10 @@ export type AutoSeatGuest = {
   plus_one_of_guest_id: string | null;
   last_name: string;
   first_name: string;
+  // Primary custom group (first membership) — auto-seat keeps a group's
+  // members contiguous within their tier so they land together. null = the
+  // guest belongs to no custom group and falls back to pure name order.
+  group_id: string | null;
 };
 
 export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: number };
@@ -464,7 +468,9 @@ export function computeAutoSeat(
       g.role !== 'groom',
   );
 
-  // Order within each tier, keeping a guest's plus-one adjacent to its primary.
+  // Order within each tier: cluster a custom group's members together, and
+  // keep a guest's plus-one adjacent to its primary. Contiguous order → the
+  // sequential fill below drops a group onto the same/neighbouring tables.
   const byTier: Record<1 | 2 | 3 | 4, AutoSeatGuest[]> = { 1: [], 2: [], 3: [], 4: [] };
   for (const g of eligible) byTier[tierOf(g)].push(g);
 
@@ -483,10 +489,27 @@ export function computeAutoSeat(
         primaries.push(g);
       }
     }
-    primaries.sort((a, b) => nameKey(a).localeCompare(nameKey(b)));
+
+    // Bucket primaries by custom group; an ungrouped guest is its own singleton
+    // bucket, so the cluster sort below leaves them in pure name order (matches
+    // the prior behaviour). Each bucket is name-sorted internally, and buckets
+    // are ordered by their first member's name — deterministic across runs.
+    const clusters = new Map<string, AutoSeatGuest[]>();
     for (const g of primaries) {
-      ordered.push(g);
-      for (const p of plusOnesBy.get(g.guest_id) ?? []) ordered.push(p);
+      const key = g.group_id ?? `__solo__${g.guest_id}`;
+      const arr = clusters.get(key) ?? [];
+      arr.push(g);
+      clusters.set(key, arr);
+    }
+    const orderedClusters = [...clusters.values()]
+      .map((members) => members.sort((a, b) => nameKey(a).localeCompare(nameKey(b))))
+      .sort((a, b) => nameKey(a[0]!).localeCompare(nameKey(b[0]!)));
+
+    for (const cluster of orderedClusters) {
+      for (const g of cluster) {
+        ordered.push(g);
+        for (const p of plusOnesBy.get(g.guest_id) ?? []) ordered.push(p);
+      }
     }
     // Plus-ones whose primary isn't in this tier still get seated here.
     for (const [primaryId, arr] of plusOnesBy) {

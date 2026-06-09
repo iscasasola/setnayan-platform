@@ -21,6 +21,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Owner action:** the migration must be applied to prod (`supabase db push` / direct DDL) for the feature to activate; until then the page degrades to empty (graceful).
 
 **SPEC IMPACT:** PR 4 of `Admin_Console_Nav_Redesign_2026-06-08.md`; builds the §9.1 two-admin primitive (0023 §4). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-a — chat FREE-block · editorial tag-gate · custom-slug PRO/ENT
+
+**Context:** #4 (Phase C feature gates) of "do 1–5" on the tier matrix, split into 3 PRs by file-locality. **PR-a = the 3 clean, zero-migration, low-risk gates** verified "sound/ship-it" by the banked design pass (`Vendor_Tier_4_PhaseC_Gates_Spec_2026-06-09.json`).
+
+**What landed:**
+- **Chat FREE-block** (`lib/chat-actions.ts`) — FREE vendors can't message couples in-app (`tierCaps(tier).chat === 'none'`; verified/pro/enterprise pass). The DB RPC `unlock_vendor_event` (migration `20260911000000:66-67`) already raises `TIER_FREE_NO_INAPP` on the normal accept path, but **`adminAcceptInquiry` (admin/demo-vendors) sets `inquiry_status='accepted'` via the service-role client without that RPC** — so a claimed demo FREE vendor could otherwise reach the `chat_messages` insert. This pre-insert gate (scoped to `senderRole==='vendor'`, isolated `tier_state` soft-probe) closes that hole. Couples/guests untouched.
+- **Editorial tag-gate** (`app/[slug]/_components/editorial/data.ts`) — the recap "Team behind the day" credit roll: `free` stays hidden (already shipped #1128); now **`verified` renders as a plain text credit** (logo + slug suppressed) and only **pro/enterprise get the showcase treatment** (logo + tier badge + profile link), matching the matrix Editorial row (free ✗ / verified ✗ / pro Tagged / ent Tagged). Verified vendors stay credited (the couple used them); M1/M2/M3 headline stats still count ALL vendors.
+- **Custom-slug PRO/ENT gate** (`vendor-dashboard/actions.ts` + `profile/page.tsx`) — a custom website slug is PRO/ENTERPRISE only (`caps.customWebsiteName`). The existing `tier_state` soft-probe in `saveVendorProfile` now also reads `business_slug` (one query) and **rejects a slug CHANGE for FREE/VERIFIED while never erroring on an unchanged save** (so a downgrade can't block ordinary profile edits). Advisory UI: the slug input is `disabled` + shows a "Pro feature" help line for FREE/VERIFIED. Server guard is the real gate.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new findings in touched files). No migration (all read `tier_state`, which exists in prod since `20260714000000`).
+
+**SPEC IMPACT:** #4 PR-a of the tier matrix → corpus `DECISION_LOG.md`. Next PR-b: name-reveal Part A + review display/sort + radius + searchability (flag-dark). PR-c: Enterprise video chat.
 
 ## 2026-06-09 · feat(admin): mobile "More" → 3-section accordion (nav redesign PR 3)
 

@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from './chat';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -143,6 +144,32 @@ export async function sendChatMessage(formData: FormData) {
     }
   } else if (thread.inquiry_status !== 'accepted') {
     throw new Error('Accept the inquiry first to reply.');
+  }
+
+  // Tier gate (Phase C #4). FREE vendors cannot message couples in-app
+  // (tierCaps.chat === 'none'); verified/pro/enterprise pass. The DB RPC
+  // `unlock_vendor_event` (migration 20260911000000:66-67) already raises
+  // TIER_FREE_NO_INAPP on the normal accept path, but `adminAcceptInquiry`
+  // (admin/demo-vendors/inquiries/actions.ts) sets inquiry_status='accepted'
+  // via the service-role client WITHOUT that RPC — so a claimed demo FREE
+  // vendor could otherwise reach this insert. This closes that hole.
+  // tier_state is excluded from FULL_VENDOR_PROFILE_SELECT → isolated probe
+  // (matches the branches/actions.ts soft-probe convention).
+  if (senderRole === 'vendor') {
+    let tier: string | null = null;
+    try {
+      const { data: tierRow } = await supabase
+        .from('vendor_profiles')
+        .select('tier_state')
+        .eq('vendor_profile_id', thread.vendor_profile_id)
+        .maybeSingle();
+      tier = (tierRow as { tier_state?: string } | null)?.tier_state ?? null;
+    } catch {
+      tier = null;
+    }
+    if (tierCaps(tier).chat === 'none') {
+      throw new Error('Get your account verified to message couples in the app.');
+    }
   }
 
   const { error } = await supabase.from('chat_messages').insert({

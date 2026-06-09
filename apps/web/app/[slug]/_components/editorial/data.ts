@@ -450,15 +450,21 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         if (!name) continue;
         const prof = profiles.get(asString(r.linked_vendor_profile_id) ?? '');
         const tier = prof?.tier ?? null;
-        // §3: Free vendors are hidden from the Editorial entirely.
+        // §3 + tier matrix (Phase C #4): Free vendors are hidden from the
+        // Editorial entirely. Editorial *tagging* — the showcase treatment
+        // (logo + tier badge + profile link) — is PRO/ENTERPRISE only (matrix
+        // "Editorial" row: free ✗ / verified ✗ / pro Tagged / ent Tagged).
+        // Verified vendors stay credited (the couple used them) but as a plain
+        // text credit: suppress logo + slug so they get no card/link/badge.
         if (tier === 'free') continue;
+        const tagged = tier === 'pro' || tier === 'enterprise';
         vendors.push({
           name,
           category: asString(r.category),
           isFirstPick,
           tier,
-          logoUrl: prof?.logoUrl ?? null,
-          slug: prof?.slug ?? null,
+          logoUrl: tagged ? prof?.logoUrl ?? null : null,
+          slug: tagged ? prof?.slug ?? null : null,
         });
       }
     }

@@ -183,6 +183,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         portfolioDisplayMap: Record<string, string>;
         logoDisplayMap: Record<string, string>;
         portfolioMax: number;
+        canCustomSlug: boolean;
       }
     | { ok: false; message: string };
   try {
@@ -196,10 +197,14 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       .select('tier_state')
       .eq('user_id', user.id)
       .maybeSingle();
-    const portfolioCap = tierCaps(
+    const caps = tierCaps(
       asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
-    ).portfolioPhotos;
+    );
+    const portfolioCap = caps.portfolioPhotos;
     const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
+    // Phase C #4 — a custom website slug is PRO/ENTERPRISE only. Advisory UI;
+    // the server guard in saveVendorProfile is the real gate.
+    const canCustomSlug = caps.customWebsiteName;
 
     // Vendor-side event-day pre-load: surface a CTA per upcoming event the
     // vendor has a contracted relationship with (proxied through their open
@@ -250,6 +255,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       portfolioDisplayMap,
       logoDisplayMap,
       portfolioMax,
+      canCustomSlug,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -298,6 +304,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     portfolioDisplayMap,
     logoDisplayMap,
     portfolioMax,
+    canCustomSlug,
   } = loaderState;
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
@@ -436,7 +443,11 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         <Field
           label="Slug"
           htmlFor="business_slug"
-          help="3–32 chars: lowercase letters, numbers, hyphens. Used in your public vendor URL (coming soon)."
+          help={
+            canCustomSlug
+              ? '3–32 chars: lowercase letters, numbers, hyphens. Used in your public vendor URL (coming soon).'
+              : 'A custom website address is a Pro feature. Upgrade to Pro or Enterprise to set or change your slug.'
+          }
         >
           <input
             id="business_slug"
@@ -445,6 +456,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             defaultValue={profile?.business_slug ?? ''}
             placeholder="bistro-ramos"
             className="input-field font-mono"
+            disabled={!canCustomSlug}
           />
         </Field>
 

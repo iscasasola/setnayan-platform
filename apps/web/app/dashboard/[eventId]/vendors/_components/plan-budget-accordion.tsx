@@ -1670,7 +1670,16 @@ function VendorCardAtom({
     typeof pick.recommended_reason === 'string' && pick.recommended_reason
       ? pick.recommended_reason
       : null;
-  const linked = pick.linked_to_name ?? null;
+  // Linked-services-on-card (locked spec): the categories this service
+  // auto-covers → "comes with X · Y · Z". Prefer the structured list; fall
+  // back to the joined single-name field for back-compat.
+  const linkedLabels =
+    Array.isArray(pick.linked_services) && pick.linked_services.length > 0
+      ? pick.linked_services.map((l) => l.label)
+      : pick.linked_to_name
+        ? [pick.linked_to_name]
+        : [];
+  const linked = linkedLabels.length > 0 ? linkedLabels.join(' · ') : null;
 
   // Accept-gate status (#1c, CLAUDE.md 2026-06-02). Surfaces where the
   // auto-inquiry for this marketplace vendor stands. pending → gold (in
@@ -1759,7 +1768,7 @@ function VendorCardAtom({
           )}
 
           {linked ? (
-            <div className="linked">🔗 Linked with {linked}</div>
+            <div className="linked">✓ comes with {linked}</div>
           ) : (
             !price && <div className="price">Price on inquiry</div>
           )}
@@ -2070,7 +2079,7 @@ function CompareSheet({
       priceNum !== null
         ? formatPhp(priceNum)
         : pick.linked_to_name
-          ? `Linked with ${pick.linked_to_name}`
+          ? `Comes with ${pick.linked_to_name}`
           : 'On inquiry';
     const rating =
       typeof pick.rating === 'number' && pick.rating > 0 ? pick.rating : null;

@@ -1894,6 +1894,118 @@ export async function fetchCanonicalServices(
   return limit !== null && Number.isFinite(limit) ? all.slice(0, limit) : all;
 }
 
+function humanizeKey(key: string): string {
+  return key
+    .split(/[_-]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+export type CoverageNode = {
+  /** vendor_services.category value — a canonical_service OR a leaf id. */
+  key: string;
+  /** tier-1 folder id (service_categories), for sibling grouping. */
+  folderId: string | null;
+  /** tier-2 leaf id this node sits under (null for backfill leaves = self). */
+  tileId: string | null;
+  /** human label for the card / linked_label. */
+  label: string;
+  /** true = a leaf with zero canonical services, backfilled for coverage. */
+  isLeafBackfill: boolean;
+};
+
+export type CoverageData = {
+  nodes: CoverageNode[];
+  /** folderId → sibling node keys in that folder (for studio links). */
+  relatedByFolder: Map<string, string[]>;
+  /** node key → label. */
+  labelByKey: Map<string, string>;
+};
+
+// The "cover all taxonomy" node set (owner: BOTH leaf + canonical, 2026-06-09).
+// = every canonical_service_taxonomy row (each transitively covers its leaf
+//   tile) ∪ every service_categories tier-2 leaf with ZERO canonical services
+//   (backfilled so empty leaves still get a demo vendor). Driven by the live
+//   taxonomy DB, so it grows automatically as the taxonomy grows. Replaces the
+//   old canonical_service_schemas-only source (which missed any node without a
+//   schema row).
+export async function fetchCoverageNodes(admin: SupabaseClient): Promise<CoverageData> {
+  const [{ data: canon, error: e1 }, { data: cats, error: e2 }] = await Promise.all([
+    admin
+      .from('canonical_service_taxonomy')
+      .select('canonical_service, folder_id, tile_id, marketplace_hidden')
+      .order('canonical_service', { ascending: true }),
+    admin
+      .from('service_categories')
+      .select('id, parent_id, tier, kind, label_en, marketplace_hidden, status')
+      .eq('kind', 'leaf'),
+  ]);
+  if (e1) throw new Error(`load canonical_service_taxonomy: ${e1.message}`);
+  if (e2) throw new Error(`load service_categories: ${e2.message}`);
+
+  const leafLabel = new Map<string, string>();
+  for (const c of (cats ?? []) as Array<{ id: string; label_en: string }>) {
+    leafLabel.set(c.id, c.label_en);
+  }
+
+  const nodes: CoverageNode[] = [];
+  const labelByKey = new Map<string, string>();
+  const coveredTiles = new Set<string>();
+
+  for (const c of (canon ?? []) as Array<{
+    canonical_service: string;
+    folder_id: string | null;
+    tile_id: string | null;
+    marketplace_hidden: boolean | null;
+  }>) {
+    if (c.marketplace_hidden) continue; // not browsable → no demo coverage
+    if (c.tile_id) coveredTiles.add(c.tile_id);
+    const label = (c.tile_id ? leafLabel.get(c.tile_id) : undefined) ?? humanizeKey(c.canonical_service);
+    nodes.push({
+      key: c.canonical_service,
+      folderId: c.folder_id,
+      tileId: c.tile_id,
+      label,
+      isLeafBackfill: false,
+    });
+    labelByKey.set(c.canonical_service, label);
+  }
+
+  // Backfill: leaves no canonical service points at.
+  for (const c of (cats ?? []) as Array<{
+    id: string;
+    parent_id: string | null;
+    label_en: string;
+    marketplace_hidden: boolean | null;
+    status: string | null;
+  }>) {
+    if (c.marketplace_hidden || (c.status && c.status !== 'active')) continue;
+    if (coveredTiles.has(c.id)) continue;
+    nodes.push({
+      key: c.id,
+      folderId: c.parent_id,
+      tileId: c.id,
+      label: c.label_en,
+      isLeafBackfill: true,
+    });
+    labelByKey.set(c.id, c.label_en);
+  }
+
+  // Stable order so chunk offsets are deterministic across requests.
+  nodes.sort((a, b) => a.key.localeCompare(b.key));
+
+  const relatedByFolder = new Map<string, string[]>();
+  for (const n of nodes) {
+    const f = n.folderId ?? '_';
+    const arr = relatedByFolder.get(f) ?? [];
+    arr.push(n.key);
+    relatedByFolder.set(f, arr);
+  }
+
+  return { nodes, relatedByFolder, labelByKey };
+}
+
 export async function findLatestDemoBatch(admin: SupabaseClient): Promise<string | null> {
   // Pick the most-recently-created non-legacy batch (excludes the
   // deterministic 2026-06-01 legacy batch UUID).
@@ -1925,6 +2037,8 @@ export type SeedCategoryResult = {
   vendorsCreated: number;
   servicesCreated: number;
   attrsCreated: number;
+  /** vendor_service_links rows created (studio "comes with …" associations). */
+  linksCreated: number;
   /** Caller bulk-inserts these (the CLI accumulates across all categories;
    *  the chunked API inserts per chunk) so the vendor_review_stats matview
    *  refreshes a few times, not once per category. */
@@ -1945,6 +2059,12 @@ export async function seedCategory(
     schemaMap: Map<string, ResolvedDemoSchema>;
     reviewEventPool: string[];
     cfg: SeedConfig;
+    /** Sibling node keys in the same taxonomy folder a STUDIO vendor can also
+     *  offer (multi-service) or auto-cover (linked-on-card). Omitted → every
+     *  vendor stays single-service. */
+    relatedKeys?: string[];
+    /** node key → human label, for vendor_service_links.linked_label. */
+    labelByKey?: Map<string, string>;
   },
 ): Promise<SeedCategoryResult> {
   const { service, batchId, schemaMap, reviewEventPool, cfg } = opts;
@@ -2056,8 +2176,25 @@ export async function seedCategory(
     }
   }
 
-  // vendor_services (1 row per vendor, collapsed packages).
+  // vendor_services — every vendor offers its node's service (the "anchor").
+  // A deterministic minority become STUDIOS that also offer sibling services in
+  // the same taxonomy folder, exercising the two locked multi-service shapes:
+  //   • 'multi'  — sibling listings are independently priced (a plain
+  //                multi-service vendor: "multiple listings under one vendor").
+  //   • 'linked' — sibling listings are is_linked_only (no standalone price) +
+  //                a vendor_service_links row each, so the anchor card shows
+  //                "comes with X · Y" (the locked linked-services-on-card).
+  // Most vendors stay single-service ("some can stay 1").
+  const relatedKeys = (opts.relatedKeys ?? []).filter((k) => k !== service);
+  const labelByKey = opts.labelByKey ?? new Map<string, string>();
+
+  type StudioPlan = { kind: 'linked' | 'multi'; siblings: string[] };
+
   const servicesToInsert: Array<Record<string, unknown>> = [];
+  // anchorRowIndex[i] = position of vendor i's anchor row in servicesToInsert;
+  // studioPlans[i] = its studio plan (or null). Aligned with insertedIds.
+  const anchorRowIndex: number[] = [];
+  const studioPlans: Array<StudioPlan | null> = [];
   for (let i = 0; i < insertedIds.length; i++) {
     const vendorProfileId = insertedIds[i]!;
     const v = local[i]!;
@@ -2078,6 +2215,7 @@ export async function seedCategory(
     }
     const [crewLo, crewHi] = v.pkgRanges.crewSize();
     const crewSize = intBetween(rng, crewLo, crewHi);
+    anchorRowIndex[i] = servicesToInsert.length;
     servicesToInsert.push({
       vendor_profile_id: vendorProfileId,
       category: service,
@@ -2087,20 +2225,117 @@ export async function seedCategory(
       crew_size: crewSize,
       crew_meal_required: v.pkgRanges.crewMealRequired,
       is_active: true,
+      is_linked_only: false,
     });
+
+    // ~1 in 6 vendors becomes a studio (only when siblings exist). Dedupe
+    // siblings by display label so a card never reads "comes with X · X".
+    let plan: StudioPlan | null = null;
+    if (relatedKeys.length >= 1 && rng() < 0.16) {
+      const kind: 'linked' | 'multi' = rng() < 0.5 ? 'linked' : 'multi';
+      const want = Math.min(relatedKeys.length, intBetween(rng, 2, 4));
+      const shuffled = [...relatedKeys].sort(() => rng() - 0.5);
+      const seenLabel = new Set<string>([labelByKey.get(service) ?? service]);
+      const picked: string[] = [];
+      for (const k of shuffled) {
+        const lbl = labelByKey.get(k) ?? k;
+        if (seenLabel.has(lbl)) continue;
+        seenLabel.add(lbl);
+        picked.push(k);
+        if (picked.length >= want) break;
+      }
+      if (picked.length >= 1) plan = { kind, siblings: picked };
+    }
+    studioPlans[i] = plan;
+
+    if (plan) {
+      for (const sib of plan.siblings) {
+        const sp = priceProfileFor(sib).packages[0]!;
+        if (plan.kind === 'multi') {
+          const sStart = intBetween(rng, sp.minCentavos, sp.maxCentavos);
+          servicesToInsert.push({
+            vendor_profile_id: vendorProfileId,
+            category: sib,
+            starting_price_php: Math.floor(sStart / 100),
+            starts_at_centavos: sStart,
+            package_inclusions: sp.inclusions.slice(0, 4),
+            crew_size: crewSize,
+            crew_meal_required: false,
+            is_active: true,
+            is_linked_only: false,
+          });
+        } else {
+          // linked-only: included in the anchor's price, no standalone price.
+          servicesToInsert.push({
+            vendor_profile_id: vendorProfileId,
+            category: sib,
+            starting_price_php: null,
+            starts_at_centavos: null,
+            package_inclusions: [],
+            crew_size: null,
+            crew_meal_required: false,
+            is_active: true,
+            is_linked_only: true,
+          });
+        }
+      }
+    }
   }
+
+  // Insert all vendor_services rows (anchors + studio siblings), capturing ids
+  // in order so vendor_service_links can point at the anchor rows.
+  const serviceIds: string[] = [];
   for (let chunk = 0; chunk < servicesToInsert.length; chunk += 500) {
     const slice = servicesToInsert.slice(chunk, chunk + 500);
-    const { error } = await admin.from('vendor_services').insert(slice);
+    const { data, error } = await admin
+      .from('vendor_services')
+      .insert(slice)
+      .select('vendor_service_id');
     if (error) {
       throw new Error(
         `Insert vendor_services for ${service} failed at chunk ${chunk}: ${error.message}`,
       );
     }
+    for (const row of data ?? []) {
+      serviceIds.push((row as { vendor_service_id: string }).vendor_service_id);
+    }
+  }
+
+  // vendor_service_links — for 'linked' studios, the anchor service "comes
+  // with" each sibling category (couple card renders "comes with X · Y").
+  const linkRows: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < insertedIds.length; i++) {
+    const plan = studioPlans[i];
+    if (!plan || plan.kind !== 'linked') continue;
+    const anchorServiceId = serviceIds[anchorRowIndex[i]!];
+    if (!anchorServiceId) continue;
+    let order = 0;
+    for (const sib of plan.siblings) {
+      linkRows.push({
+        vendor_service_id: anchorServiceId,
+        vendor_profile_id: insertedIds[i],
+        linked_canonical_service: sib,
+        linked_label: labelByKey.get(sib) ?? humanizeKey(sib),
+        display_order: order++,
+      });
+    }
+  }
+  for (let chunk = 0; chunk < linkRows.length; chunk += 500) {
+    const slice = linkRows.slice(chunk, chunk + 500);
+    const { error } = await admin.from('vendor_service_links').insert(slice);
+    if (error && !/duplicate key/i.test(error.message)) {
+      throw new Error(`Insert vendor_service_links for ${service}: ${error.message}`);
+    }
   }
 
   // vendor_service_attributes — schema-driven refinements + honest scoring.
+  // ANCHOR services only, and ONLY when `service` is a real
+  // canonical_service_schemas key (the FK target). Coverage nodes outside the
+  // schema set (extra taxonomy canonicals + backfilled empty leaves) and the
+  // studio sibling rows skip attributes — inserting them would violate the
+  // canonical_service FK.
   const resolvedSchema = schemaMap.get(service);
+  const attrsToInsert: Array<Record<string, unknown>> = [];
   if (resolvedSchema) {
     const undefinedMins = resolvedSchema.minimumFields.filter(
       (f) => !(f in resolvedSchema.fields),
@@ -2110,44 +2345,32 @@ export async function seedCategory(
         `  ! ${service}: minimum field(s) absent from schema, excluded from visibility gate: ${undefinedMins.join(', ')}\n`,
       );
     }
-  }
-  const attrsToInsert: Array<Record<string, unknown>> = [];
-  for (let i = 0; i < insertedIds.length; i++) {
-    const vendorProfileId = insertedIds[i]!;
-    if (!resolvedSchema) {
+    for (let i = 0; i < insertedIds.length; i++) {
+      const vendorProfileId = insertedIds[i]!;
+      const startsCentavos =
+        (servicesToInsert[anchorRowIndex[i]!]?.starts_at_centavos as number | undefined) ??
+        profile.packages[0]!.minCentavos;
+      const city =
+        (vendorRows[i]?.location_city as string | undefined) ?? 'the Philippines';
+      const payload = generateAttributePayload(resolvedSchema, rng, {
+        startsCentavos,
+        kindWord,
+        coarse,
+        city,
+      });
+      const definableMins = resolvedSchema.minimumFields.filter(
+        (f) => f in resolvedSchema.fields,
+      );
+      const meetsVisibility = definableMins.every((f) => isFilledValue(payload[f]));
       attrsToInsert.push({
         vendor_profile_id: vendorProfileId,
         canonical_service: service,
-        attribute_payload: { bio_blurb: `Demo seed vendor for ${kindWord.toLowerCase()}.` },
-        schema_version_at_fill: 1,
-        completeness_score: 0,
-        meets_visibility_minimum: false,
+        attribute_payload: payload,
+        schema_version_at_fill: resolvedSchema.schemaVersion,
+        completeness_score: computeCompleteness(resolvedSchema.fields, payload),
+        meets_visibility_minimum: meetsVisibility,
       });
-      continue;
     }
-    const startsCentavos =
-      (servicesToInsert[i]?.starts_at_centavos as number | undefined) ??
-      profile.packages[0]!.minCentavos;
-    const city =
-      (vendorRows[i]?.location_city as string | undefined) ?? 'the Philippines';
-    const payload = generateAttributePayload(resolvedSchema, rng, {
-      startsCentavos,
-      kindWord,
-      coarse,
-      city,
-    });
-    const definableMins = resolvedSchema.minimumFields.filter(
-      (f) => f in resolvedSchema.fields,
-    );
-    const meetsVisibility = definableMins.every((f) => isFilledValue(payload[f]));
-    attrsToInsert.push({
-      vendor_profile_id: vendorProfileId,
-      canonical_service: service,
-      attribute_payload: payload,
-      schema_version_at_fill: resolvedSchema.schemaVersion,
-      completeness_score: computeCompleteness(resolvedSchema.fields, payload),
-      meets_visibility_minimum: meetsVisibility,
-    });
   }
   for (let chunk = 0; chunk < attrsToInsert.length; chunk += 500) {
     const slice = attrsToInsert.slice(chunk, chunk + 500);
@@ -2182,6 +2405,7 @@ export async function seedCategory(
     vendorsCreated: insertedIds.length,
     servicesCreated: servicesToInsert.length,
     attrsCreated: attrsToInsert.length,
+    linksCreated: linkRows.length,
     reviewRows,
     blockRows,
   };
@@ -2216,13 +2440,17 @@ async function seed(args: SeedArgs): Promise<void> {
   );
   console.log(`Limit canonical services: ${args.limit ?? 'all'}`);
 
-  // 1. Pull canonical_services
-  const services = await fetchCanonicalServices(admin, args.limit);
-  console.log(`Canonical services loaded: ${services.length}`);
+  // 1. Pull the full-taxonomy coverage node set (canonical ∪ backfill leaves).
+  const coverage = await fetchCoverageNodes(admin);
+  const nodes =
+    args.limit !== null && Number.isFinite(args.limit)
+      ? coverage.nodes.slice(0, args.limit)
+      : coverage.nodes;
+  console.log(`Coverage nodes loaded: ${nodes.length} (of ${coverage.nodes.length} total)`);
 
   // 2. Plan batch
   const batchId = randomUUID();
-  const totalVendors = services.length * Math.round((args.vendorsMin + args.vendorsMax) / 2);
+  const totalVendors = nodes.length * Math.round((args.vendorsMin + args.vendorsMax) / 2);
 
   // 3. Optionally clean previous batch
   let previousBatchId: string | null = null;
@@ -2267,30 +2495,37 @@ async function seed(args: SeedArgs): Promise<void> {
   // Calendar blocks (busy dates) accumulated + bulk-inserted after the loop.
   const allBlocks: Array<Record<string, unknown>> = [];
 
-  // 4. Iterate canonical services, build vendor rows + child rows
+  // 4. Iterate coverage nodes, build vendor rows + child rows
   let totalVendorsCreated = 0;
   let totalServicesCreated = 0;
   let totalAttrsCreated = 0;
+  let totalLinksCreated = 0;
   let totalReviewsCreated = 0;
   let totalBlocksCreated = 0;
 
-  for (const service of services) {
+  for (const node of nodes) {
+    const relatedKeys = (coverage.relatedByFolder.get(node.folderId ?? '_') ?? []).filter(
+      (k) => k !== node.key,
+    );
     const r = await seedCategory(admin, {
-      service,
+      service: node.key,
       batchId,
       schemaMap,
       reviewEventPool,
       cfg: { vendorsMin: args.vendorsMin, vendorsMax: args.vendorsMax },
+      relatedKeys,
+      labelByKey: coverage.labelByKey,
     });
     allReviews.push(...r.reviewRows);
     allBlocks.push(...r.blockRows);
     totalVendorsCreated += r.vendorsCreated;
     totalServicesCreated += r.servicesCreated;
     totalAttrsCreated += r.attrsCreated;
+    totalLinksCreated += r.linksCreated;
 
     // Compact progress line
     process.stdout.write(
-      `  ${service.padEnd(40)} ${String(r.vendorsCreated).padStart(3)} vendors\n`,
+      `  ${node.key.padEnd(40)} ${String(r.vendorsCreated).padStart(3)} vendors\n`,
     );
   }
 
@@ -2322,6 +2557,7 @@ async function seed(args: SeedArgs): Promise<void> {
   console.log(`Batch ID:       ${batchId}`);
   console.log(`Vendor rows:    ${totalVendorsCreated}`);
   console.log(`Service rows:   ${totalServicesCreated}`);
+  console.log(`Link rows:      ${totalLinksCreated}`);
   console.log(`Attr rows:      ${totalAttrsCreated}`);
   console.log(`Review rows:    ${totalReviewsCreated}`);
   console.log(`Block rows:     ${totalBlocksCreated}`);

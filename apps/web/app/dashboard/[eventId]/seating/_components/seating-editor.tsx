@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 
 // useLayoutEffect on the server is a no-op + warns; fall back to useEffect there.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -86,11 +86,52 @@ const NEUTRAL = '#B7B1A6';
 
 type LocalPos = { x: number; y: number };
 
+// Optimistic seating ops — applied instantly client-side, then reconciled when
+// the server action's revalidation lands (so seating/unseating feels instant).
+type GuestSeatOp =
+  | { type: 'seat'; guestId: string; tableId: string; seat: number | null }
+  | { type: 'unseat'; guestId: string }
+  | { type: 'seatGroup'; ids: string[]; tableId: string };
+
 // Default placement for an un-positioned table — shared with the PDF + day-of
 // map (lib/seating) so the layout matches everywhere.
 const defaultGrid = defaultTablePosition;
 
-export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Props) {
+export function SeatingEditor({
+  eventId,
+  tables: tablesProp,
+  guests: guestsProp,
+  groups,
+  floorPlan,
+}: Props) {
+  // Optimistic overlays: a seat/unseat/delete shows immediately, then the
+  // server action revalidates and these reconcile to the authoritative data.
+  const [guests, applyGuestOpt] = useOptimistic(guestsProp, (state: SeatingGuest[], op: GuestSeatOp) => {
+    switch (op.type) {
+      case 'seat':
+        return state.map((g) =>
+          g.guest_id === op.guestId ? { ...g, seated_table_id: op.tableId, seat_number: op.seat } : g,
+        );
+      case 'unseat':
+        return state.map((g) =>
+          g.guest_id === op.guestId ? { ...g, seated_table_id: null, seat_number: null } : g,
+        );
+      case 'seatGroup': {
+        const set = new Set(op.ids);
+        return state.map((g) =>
+          set.has(g.guest_id) ? { ...g, seated_table_id: op.tableId, seat_number: null } : g,
+        );
+      }
+      default:
+        return state;
+    }
+  });
+  const [tables, applyTableOpt] = useOptimistic(
+    tablesProp,
+    (state: EventTableRow[], op: { type: 'delete'; id: string }) =>
+      op.type === 'delete' ? state.filter((t) => t.table_id !== op.id) : state,
+  );
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     kind: 'table' | 'stage' | 'entrance';
@@ -273,13 +314,17 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   // --- seat / move / unseat -------------------------------------------------
   const place = (tableId: string, seatNumber: number | null) => {
     if (!pickedId) return;
+    const guestId = pickedId;
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('table_id', tableId);
-    fd.set('guest_id', pickedId);
+    fd.set('guest_id', guestId);
     if (seatNumber !== null) fd.set('seat_number', String(seatNumber));
     setPickedId(null);
-    startTransition(() => assignGuest(fd));
+    startTransition(async () => {
+      applyGuestOpt({ type: 'seat', guestId, tableId, seat: seatNumber });
+      await assignGuest(fd);
+    });
   };
 
   const unseat = (guestId: string) => {
@@ -287,14 +332,21 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     fd.set('event_id', eventId);
     fd.set('guest_id', guestId);
     if (pickedId === guestId) setPickedId(null);
-    startTransition(() => unassignGuest(fd));
+    startTransition(async () => {
+      applyGuestOpt({ type: 'unseat', guestId });
+      await unassignGuest(fd);
+    });
   };
 
   const removeTable = (tableId: string) => {
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('table_id', tableId);
-    startTransition(() => deleteTable(fd));
+    if (highlightId === tableId) setHighlightId(null);
+    startTransition(async () => {
+      applyTableOpt({ type: 'delete', id: tableId });
+      await deleteTable(fd);
+    });
   };
 
   const runAutoSeat = () => {
@@ -319,6 +371,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     fd.set('table_id', tableId);
     fd.set('guest_ids', JSON.stringify(memberIds));
     startTransition(async () => {
+      applyGuestOpt({ type: 'seatGroup', ids: memberIds, tableId });
       const res = await assignGroup(fd);
       if (res && res.overflow > 0) {
         const label = tableLabelById.get(tableId) ?? 'that table';
@@ -646,6 +699,9 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     if (d?.moved) {
       if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
       else setFloorDirty(true);
+    } else if (d && d.kind === 'table' && !pickedId && !pickedGroupId) {
+      // A tap (no drag) on a table selects it → opens the rotate / delete bar.
+      setHighlightId((id) => (id === d.id ? null : d.id));
     }
     if (e) pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
@@ -1226,6 +1282,61 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
           </div>
         ) : null}
 
+        {/* selected-table bar — rotate (to connect tables) + delete. Appears
+            when a table is selected (tap it on the canvas, or in the sidebar). */}
+        {(() => {
+          const st = highlightId ? tables.find((t) => t.table_id === highlightId) : null;
+          if (!st) return null;
+          const curRot = rotationOf(st);
+          return (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
+              <span className="min-w-0 flex-1 truncate font-medium text-ink">{st.table_label}</span>
+              <div className="flex items-center gap-0.5 rounded-lg border border-ink/15 bg-cream px-1 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => rotateTable(st, -15)}
+                  aria-label="Rotate 15° left"
+                  className="rounded p-1 text-ink/60 hover:bg-ink/5"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+                <span className="w-9 text-center text-xs tabular-nums text-ink/55">{curRot}°</span>
+                <button
+                  type="button"
+                  onClick={() => rotateTable(st, 15)}
+                  aria-label="Rotate 15° right"
+                  className="rounded p-1 text-ink/60 hover:bg-ink/5"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => rotateTable(st, 180)}
+                  title="Flip 180° — chains serpentine wedges into an S"
+                  className="rounded px-1.5 py-1 text-[11px] font-semibold text-ink/60 hover:bg-ink/5"
+                >
+                  Flip
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeTable(st.table_id)}
+                className="inline-flex items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2 py-1 text-xs text-ink hover:border-rose-400 hover:text-rose-600"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete table
+              </button>
+              <button
+                type="button"
+                onClick={() => setHighlightId(null)}
+                className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
+                aria-label="Done"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })()}
+
         {view === 'plan' ? (
         <>
         <div
@@ -1495,41 +1606,6 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                   );
                     })
                   : null}
-
-                {/* rotate toolbar — shown above a selected table. Rotation is
-                    what lets wedges/banquets connect into custom patterns
-                    (flip 180° to chain serpentine wedges into an S). */}
-                {highlighted && detail ? (
-                  <div
-                    className="absolute left-1/2 top-0 z-30 flex -translate-x-1/2 -translate-y-[150%] items-center gap-0.5 rounded-lg border border-ink/15 bg-cream/95 px-1 py-0.5 shadow-sm backdrop-blur-sm"
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => rotateTable(t, -15)}
-                      aria-label="Rotate 15° left"
-                      className="rounded p-1 text-ink/60 hover:bg-ink/5"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => rotateTable(t, 180)}
-                      title="Flip 180°"
-                      className="rounded px-1 py-0.5 text-[9px] font-semibold text-ink/60 hover:bg-ink/5"
-                    >
-                      180°
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => rotateTable(t, 15)}
-                      aria-label="Rotate 15° right"
-                      className="rounded p-1 text-ink/60 hover:bg-ink/5"
-                    >
-                      <RotateCw className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : null}
 
                 {/* hub (drag handle + place-at-next-free target) — for the
                     serpentine ribbon the SVG above is the body + drag handle, so

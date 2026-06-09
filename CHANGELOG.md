@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
+
+**Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category two-state control: **🔒 Lock** = decided, untouched (= the existing finalize/peso-pin); **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). This PR-1 ships the marker + persistence + UX; the generation that writes a matched vendor is PR-2.
+
+**Migration (`20261006000000_budget_category_flags.sql`, APPLIED to prod):** `public.budget_category_flags(event_id, plan_group_id, flagged_by)` — couple-own RLS (read/insert/delete, `member_type='couple'`). The marker only; generation writes to `event_vendors`, not here. Read/written behind `BUDGET_BUILD_ENABLED`.
+
+**What landed:**
+- `vendors/build-flags-actions.ts` — `flagCategory` (upsert DO-NOTHING) + `unflagCategory`.
+- `vendors/_components/category-flags.tsx` — the **"Fill these for me"** control: open categories with a 🚩 Flag/Unflag toggle; flagged → "Setnayan AI will match this" (paid) / "we'll surface options" (free); a 🔒 locked-count line ("N picks stay untouched"). No vendor write.
+- `build-summary.tsx` — derives open vs locked categories, renders `CategoryFlags` (replacing the 3d open-count blurb); + `flaggedGroups` prop.
+- `vendors/page.tsx` — fetches `budget_category_flags` (flag-gated) → `flaggedGroups`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Plan §12 (Lock vs Flag). **PR-2 (next):** the generation action — AI auto-adds the top-compat match to the Shortlist per flagged category; regular surfaces options (reuses `category-search` + `compat-score`). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode
 
 **Context:** Owner walkthrough of the wedding onboarding (Photos 1–3). The `reception_setting`, `mood`, and `songs` screens were the last **hardcoded holdouts** in an otherwise taxonomy-DB-driven refinement flow (`onboarding_refinements` + the `RefineStep` template). Fold all three into the taxonomy pattern + two UX fixes.

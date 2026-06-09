@@ -3,6 +3,8 @@ import QRCode from 'qrcode';
 import {
   TABLE_FOOTPRINT_M,
   TABLE_TYPE_LABEL,
+  defaultTablePosition,
+  fitFloorTransform,
   shapeHintFor,
   type EventTableRow,
   type FloorPlanRow,
@@ -246,27 +248,44 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     });
   }
 
-  // percent (0–100, y-down) → page point (y-up)
+  // The free auto-grow board can place tables beyond 0–100; fit such a spread
+  // layout back into the box (no-op for in-bounds / to-scale-room layouts).
+  const tablePos = (t: EventTableRow, i: number) =>
+    t.x_pos !== null && t.y_pos !== null
+      ? { x: Number(t.x_pos), y: Number(t.y_pos) }
+      : defaultTablePosition(i, tables.length, !venueSet);
+  const tablePts = tables.map((t, i) => tablePos(t, i));
+  const allPts = [...tablePts, { x: floorPlan.stage_x, y: floorPlan.stage_y }];
+  if (floorPlan.entrance_enabled) {
+    allPts.push({ x: floorPlan.entrance_x, y: floorPlan.entrance_y });
+  }
+  const tf = fitFloorTransform(allPts);
+
+  // percent (0–100, y-down) → page point (y-up), via the fit transform
   const px = (xPct: number) => planX + (xPct / 100) * planW;
   const py = (yPct: number) => planYTop - (yPct / 100) * planH;
 
   // stage
-  const sx = px(floorPlan.stage_x);
-  const sy = py(floorPlan.stage_y);
+  const stageP = tf(floorPlan.stage_x, floorPlan.stage_y);
+  const sx = px(stageP.x);
+  const sy = py(stageP.y);
   p1.drawRectangle({ x: sx - 38, y: sy - 8, width: 76, height: 16, color: theme.paper, borderColor: theme.ink, borderWidth: 0.75 });
   p1.drawText('STAGE', { x: sx - 14, y: sy - 3.5, size: 7, font: bold, color: theme.soft });
   // entrance
   if (floorPlan.entrance_enabled) {
-    const ex = px(floorPlan.entrance_x);
-    const ey = py(floorPlan.entrance_y);
+    const eP = tf(floorPlan.entrance_x, floorPlan.entrance_y);
+    const ex = px(eP.x);
+    const ey = py(eP.y);
     p1.drawRectangle({ x: ex - 26, y: ey - 7, width: 52, height: 14, color: theme.paper, borderColor: theme.accent, borderWidth: 0.75 });
     p1.drawText('ENTRANCE', { x: ex - 21, y: ey - 3, size: 6, font: bold, color: theme.soft });
   }
 
   // tables
   tables.forEach((t, i) => {
-    const cx = px(t.x_pos !== null ? Number(t.x_pos) : 50);
-    const cy = py(t.y_pos !== null ? Number(t.y_pos) : 50);
+    const raw = tablePos(t, i);
+    const p = tf(raw.x, raw.y);
+    const cx = px(p.x);
+    const cy = py(p.y);
     const seated = seatByTable.get(t.table_id)?.length ?? 0;
     const { fill, border } = theme.tableFor(i);
     // size: to-scale when venue set, else a readable default by footprint

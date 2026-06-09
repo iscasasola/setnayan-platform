@@ -12,6 +12,7 @@
 import Link from 'next/link';
 import { Clock, Sparkles, Wallet } from 'lucide-react';
 import type { PlanBudgetModel } from '@/lib/vendors-plan-budget';
+import { CategoryFlags } from './category-flags';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
 
@@ -22,7 +23,15 @@ const STATUS_COPY: Record<PlanBudgetModel['budgetStatus'], { label: string; tone
   over: { label: 'Over your budget', tone: 'text-rose-700' },
 };
 
-export function BuildSummary({ model, eventId }: { model: PlanBudgetModel; eventId: string }) {
+export function BuildSummary({
+  model,
+  eventId,
+  flaggedGroups = [],
+}: {
+  model: PlanBudgetModel;
+  eventId: string;
+  flaggedGroups?: string[];
+}) {
   const status = STATUS_COPY[model.budgetStatus];
   const pct = Math.round(Math.min(1, Math.max(0, model.meterFill)) * 100);
   const meterTone =
@@ -32,13 +41,13 @@ export function BuildSummary({ model, eventId }: { model: PlanBudgetModel; event
         ? 'bg-amber-500'
         : 'bg-emerald-500';
 
-  // Open categories (budgeted, no vendor yet) — the auto-fill seam (Phase 3d):
-  // paid Setnayan AI hand-picks them; free surfaces the gap. The per-category
-  // matcher already runs on the Shortlist; a one-tap bulk auto-add is a follow-on.
-  const openCount = model.folders.reduce(
-    (a, f) => a + f.children.filter((c) => c.state === 'empty').length,
-    0,
-  );
+  // Lock vs Flag (plan §12): OPEN categories (budgeted, no vendor) can be flagged
+  // to fill; LOCKED (finalized) picks stay untouched.
+  const children = model.folders.flatMap((f) => f.children);
+  const openCats = children
+    .filter((c) => c.state === 'empty')
+    .map((c) => ({ groupId: c.groupId, label: c.label }));
+  const lockedCount = children.filter((c) => c.state === 'finalized').length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-1 py-2">
@@ -97,26 +106,25 @@ export function BuildSummary({ model, eventId }: { model: PlanBudgetModel; event
         )}
       </section>
 
-      <section className="space-y-2 rounded-xl border border-ink/10 bg-cream px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-sm text-ink/70">
-            <Sparkles className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
-            Setnayan AI {model.personalizationEnabled ? 'is on' : 'is off'}
-          </span>
-          <Link
-            href={`/dashboard/${eventId}/details`}
-            className="text-xs font-medium text-terracotta hover:underline"
-          >
-            {model.personalizationEnabled ? 'Manage' : 'Turn on'}
-          </Link>
-        </div>
-        {openCount > 0 ? (
-          <p className="text-xs text-ink/55">
-            {model.personalizationEnabled
-              ? `Setnayan AI is hand-picking vendors for your ${openCount} open ${openCount === 1 ? 'category' : 'categories'} — open the Shortlist to see your matches.`
-              : `${openCount} ${openCount === 1 ? 'category' : 'categories'} still need a vendor. Turn on Setnayan AI to auto-match them, or browse the Shortlist.`}
-          </p>
-        ) : null}
+      <CategoryFlags
+        eventId={eventId}
+        openCats={openCats}
+        lockedCount={lockedCount}
+        flaggedGroups={flaggedGroups}
+        aiOn={model.personalizationEnabled}
+      />
+
+      <section className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+        <span className="flex items-center gap-2 text-sm text-ink/70">
+          <Sparkles className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
+          Setnayan AI {model.personalizationEnabled ? 'is on' : 'is off'}
+        </span>
+        <Link
+          href={`/dashboard/${eventId}/details`}
+          className="text-xs font-medium text-terracotta hover:underline"
+        >
+          {model.personalizationEnabled ? 'Manage' : 'Turn on'}
+        </Link>
       </section>
     </div>
   );

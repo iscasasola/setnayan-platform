@@ -28,6 +28,7 @@ import {
   CHAIR_PX,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
+  defaultTablePosition,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -76,14 +77,9 @@ const NEUTRAL = '#B7B1A6';
 
 type LocalPos = { x: number; y: number };
 
-function defaultGrid(index: number, total: number): LocalPos {
-  const cols = Math.max(2, Math.ceil(Math.sqrt(total)));
-  const rows = Math.max(1, Math.ceil(total / cols));
-  return {
-    x: ((index % cols) + 0.5) / cols * 100,
-    y: 22 + (Math.floor(index / cols) + 0.5) / rows * 70,
-  };
-}
+// Default placement for an un-positioned table — shared with the PDF + day-of
+// map (lib/seating) so the layout matches everywhere.
+const defaultGrid = defaultTablePosition;
 
 export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -125,7 +121,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
       out[t.table_id] =
         t.x_pos !== null && t.y_pos !== null
           ? { x: Number(t.x_pos), y: Number(t.y_pos) }
-          : defaultGrid(i, tables.length);
+          : defaultGrid(i, tables.length, !venueScaled);
     });
     return out;
   });
@@ -309,7 +305,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     };
 
-  const ZOOM_MIN = 0.2;
+  const ZOOM_MIN = 0.1; // low enough that Fit frames even a large free auto-grow board
   const ZOOM_MAX = 2.6;
   const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
   const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
@@ -364,8 +360,12 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
       if (!rect || rect.width === 0) return;
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
-      const x = Math.max(2, Math.min(98, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
-      const y = Math.max(2, Math.min(98, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
+      // Inside a defined room, keep tables within the walls (2–98%). On the
+      // free auto-grow board, allow a wide range so tables can spread out.
+      const lo = venueScaled ? 2 : -200;
+      const hi = venueScaled ? 98 : 600;
+      const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
+      const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
         setPositions((p) => ({ ...p, [d.id]: { x, y } }));
       } else if (d.kind === 'stage') {
@@ -442,8 +442,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    for (const t of tables) {
-      const pos = positions[t.table_id] ?? { x: 50, y: 50 };
+    tables.forEach((t, i) => {
+      const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
       const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
       // Use the ON-SCREEN size (to-scale shrinks tables in venue mode), so the
       // bounding box is tight and Fit zooms in enough to make tables readable.
@@ -454,7 +454,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
       maxX = Math.max(maxX, cx + (geo.box.w * s) / 2);
       minY = Math.min(minY, cy - (geo.box.h * s) / 2);
       maxY = Math.max(maxY, cy + (geo.box.h * s) / 2);
-    }
+    });
     const bw = Math.max(1, maxX - minX);
     const bh = Math.max(1, maxY - minY);
     const z1 = clampZoom(Math.min(rect.width / bw, rect.height / bh) * 0.86);
@@ -467,9 +467,30 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   // toggles — the height-capped canvas then shows every table at once. The
   // couple zooms in (smooth pan, or Fit) to work on individual tables.
   useEffect(() => {
-    applyView(1, { x: 0, y: 0 });
+    if (venueScaled) applyView(1, { x: 0, y: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueScaled]);
+
+  // Free (no room size) mode: the board auto-grows as tables are added, so
+  // auto-fit to keep them all framed at comfortable spacing. Fires on the
+  // table count changing (the deliberate "board grew" moment) — not while
+  // seating guests — so it never yanks the view mid-work.
+  const prevFreeCountRef = useRef(-1);
+  useEffect(() => {
+    if (view !== 'plan' || venueScaled) {
+      prevFreeCountRef.current = -1;
+      return;
+    }
+    if (tables.length === 0) {
+      applyView(1, { x: 0, y: 0 });
+      return;
+    }
+    if (prevFreeCountRef.current !== tables.length) {
+      prevFreeCountRef.current = tables.length;
+      fitView();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tables.length, venueScaled, view]);
 
   const layoutDirty = dirty.size > 0 || floorDirty;
   const saveLayout = () => {
@@ -985,8 +1006,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             </div>
           ) : null}
 
-          {tables.map((t) => {
-            const pos = positions[t.table_id] ?? { x: 50, y: 50 };
+          {tables.map((t, i) => {
+            const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
             const shape = shapeHintFor(t.table_type);
             const geo = tableGeometry(shape, t.capacity);
             const rectish = shape === 'long_banquet' || shape === 'family_head';

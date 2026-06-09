@@ -6,24 +6,53 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(vendor-tier): #5 self-serve subscription checkout (apply-then-pay · admin-approve) — tier work COMPLETE
 
-**Context:** Final build of "do 1–5" (Phase D). Vendors self-serve upgrade to Pro/Enterprise: apply-then-pay → admin approves the payment → `tier_state` flips + the per-period token bundle is granted; lapse auto-downgrades on next login (cron-free). Cloned from the proven vendor token-pack purchase flow. Built by an impl agent against the banked spec `Vendor_Tier_5_SelfServe_Spec_2026-06-09.json` **with all 8 verifier fixes baked in**; the security-critical migration was hand-reviewed + a non-destructive auto-rollback smoke test confirmed the money-path.
+**Context:** Final build of "do 1–5" (Phase D). Vendors self-serve upgrade to Pro/Enterprise: apply-then-pay → admin approves → `tier_state` flips + per-period token bundle granted; lapse auto-downgrades on next login (cron-free). Cloned from the vendor token-pack flow. Built by an impl agent against `Vendor_Tier_5_SelfServe_Spec_2026-06-09.json` with all 8 verifier fixes baked in; security-critical migration hand-reviewed + a non-destructive auto-rollback smoke test confirmed the money-path.
 
 **What landed:**
-- **Migration `20261010000000_vendor_subscription_checkout.sql`** (applied to prod + tracked): `vendor_profiles.tier_expires_at` + `tier_billing_cycle`; new `vendor_subscriptions` table (RLS at create — vendor-reads-own + `is_console_admin()` reads-all; no direct write policy); 6 SECURITY DEFINER RPCs:
-  - `create_vendor_subscription(sku)` — vendor mints a `SUB-` pending order; **price resolved from the DB `vendor_billing_catalog`** (Pro ₱6,000/28d·₱60,000/yr · Ent ₱10,000/28d·₱100,000/yr — already canonical at HEAD, no reprice needed).
-  - `_apply_subscription_credit` — shared core, **REVOKEd from PUBLIC/anon/authenticated**; `FOR UPDATE` + idempotent `status='paid'` guard; **stacking renewal** (`GREATEST(now, expires) + period`); grants the bundle via the real 7-arg `grant_admin_direct_tokens(…, 'admin_grant', reviewer, …, 'sub_bundle:'||id)` (30/300/100/1000 per tier×cycle, one-shot TTL=period).
-  - `approve_vendor_subscription` (internal `is_console_admin()` gate), `confirm_vendor_subscription_by_reference` (**service_role ONLY** — a vendor can never self-confirm), `reject_vendor_subscription`, `sweep_vendor_tier_expiry` (downgrade `tier_state` → `verified` if verification_state='verified' else `free`; flips tier only — over-cap agents/photos/categories intentionally left intact in V1).
-- **Vendor UI** `/vendor-dashboard/subscription` (Pro/Ent cards · monthly/annual toggle · current-tier + renewal-date + expires-soon badge · `?ordered=` BDO/GCash instructions) + `startSubscriptionPurchase` action + sidebar "Subscription" nav.
-- **Admin queue** `/admin/subscriptions` (pending list · Approve/Reject) registered in the admin Work nav + bottom-nav + `/admin/work` feed.
-- **Lapse wiring** — `sweep_vendor_tier_expiry` called best-effort beside the existing `sweepLapsedSubscriptions` in `vendor-dashboard/profile/page.tsx` (login-driven, cron-free).
-- **Deferred (owner-confirmed):** import-customer 1-token charge (depends on the unbuilt outside-event sync feature). FREE-can-buy-tokens unchanged (2026-06-07 override stands). Buy-token flow already shipped.
+- **Migration `20261010000000_vendor_subscription_checkout.sql`** (applied to prod + tracked): `vendor_profiles.tier_expires_at`/`tier_billing_cycle`; `vendor_subscriptions` table (RLS at create — vendor-own + `is_console_admin()` reads; no direct write policy); 6 SECURITY DEFINER RPCs — `create_vendor_subscription` (price from DB catalog, ₱6,000/₱10,000 already canonical), `_apply_subscription_credit` (REVOKEd from PUBLIC/anon/authenticated; `FOR UPDATE` + idempotent guard; stacking renewal; bundle via 7-arg `grant_admin_direct_tokens(…,'admin_grant',…,'sub_bundle:'||id)` 30/300/100/1000), `approve_vendor_subscription` (`is_console_admin()` gate), `confirm_vendor_subscription_by_reference` (**service_role ONLY**), `reject_vendor_subscription`, `sweep_vendor_tier_expiry` (→verified-if-verified-else-free; flips tier only).
+- **Vendor UI** `/vendor-dashboard/subscription` + `startSubscriptionPurchase` + nav. **Admin queue** `/admin/subscriptions` (approve/reject) in Work nav. **Lapse wiring** in `vendor-dashboard/profile/page.tsx` (login-driven).
+- **Deferred (owner-confirmed):** import-customer 1-token charge (unbuilt parent feature). FREE-buys-tokens unchanged.
 
-**Verify:** `tsc --noEmit` ✓ · `next lint` ✓. Migration applied to prod (table + 2 cols + 6 RPCs + 2 policies + RLS) + version recorded. **Money-path smoke test (auto-rollback):** tier→pro, +30 wallet tokens, idempotent re-apply, lapse→free — all confirmed, zero prod mutation. Notification types reuse existing enum values (the single transactional migration can't `ALTER TYPE ADD VALUE`; bodies carry full specifics + deep-links).
-
-**Owner sign-off notes (defaults I chose — flag if you want different):** bundle `grant_source='admin_grant'` (the helper's CHECK forbids a `subscription_bundle` value · no migration); annual bundle = one-shot grant, TTL = 365d (not monthly-drip); lapse → verified-if-verified-else-free; over-cap data left intact in V1; multiple pending orders allowed (no "one-open" guard, matches token-pack).
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod (table + 2 cols + 6 RPCs + 2 policies + RLS) + tracked. Auto-rollback money-path smoke test: tier→pro, +30 tokens, idempotent, lapse→free — zero prod mutation.
 
 **SPEC IMPACT:** #5 → corpus `DECISION_LOG.md`. **The vendor-tier program (#1–#5) is COMPLETE.**
 
+## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
+
+**Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category: **🔒 Lock** = decided, untouched; **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). PR-1 = marker + persistence + UX; generation is PR-2.
+
+**Migration (`20261006000000_budget_category_flags.sql`, APPLIED to prod):** `public.budget_category_flags(event_id, plan_group_id, flagged_by)` — couple-own RLS. The marker only; generation writes to `event_vendors`. Behind `BUDGET_BUILD_ENABLED`.
+
+**What landed:** `build-flags-actions.ts` (`flagCategory`/`unflagCategory`); `category-flags.tsx` ("Fill these for me" — open categories with a 🚩 Flag toggle; flagged → AI-will-match/surface-options; 🔒 locked-count line; no vendor write); `build-summary.tsx` (derive open/locked + render `CategoryFlags`, replacing the 3d open-count blurb; `flaggedGroups` prop); `vendors/page.tsx` (flag-gated flags fetch).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓.
+
+**SPEC IMPACT:** Plan §12. **PR-2 (next):** generation — AI auto-adds the top-compat match to the Shortlist per flagged category; regular surfaces options (`category-search` + `compat-score`). Logged in `DECISION_LOG.md`.
+
+## 2026-06-08 · feat(seating): auto-grow board for the free (no room size) plan (0008)
+
+**Context:** Owner asked: with no room size set, should the board "expand as we add more tables?" — yes (the 0008 spec's `venue_known=false` auto-grow). Previously the un-set board packed tables tighter into a fixed 0–100% space (they overlapped); now it grows. Built + adversarially reviewed (14-agent workflow) — the review's main catch (free-mode positions leaking into 0–100%-assuming renderers) is fixed here too.
+
+**What landed:**
+- **Auto-grow placement** — new tables sit at FIXED comfortable spacing (`defaultTablePosition(spread=true)`, ~48% grid), so the board grows outward (positions can exceed 100%) instead of crowding. The free-mode drag + save clamps widened to match; the view **auto-fits when the table count changes** (not while seating) so all tables stay framed; `ZOOM_MIN` lowered to 0.1 so even large boards fit.
+- **Venue mode unchanged** — with a room size set, `defaultTablePosition(spread=false)` still packs tables inside the walls (0–100%), drag clamps stay 2–98%, to-scale rendering as before.
+- **Downstream made spread-safe** (the review's HIGH finding) — `fitFloorTransform` (new, in `lib/seating`) fits any >100% layout back into the 0–100 box (no-op when already in-bounds, so existing events are untouched), applied in the **PDF export** and the **day-of wayfinding map** (+ find-my-table). Verified by rendering a PDF with spread positions → tables land on-page, not off it.
+- **One shared default** (the review's MEDIUM finding) — moved `defaultTablePosition` to `lib/seating`; the editor, PDF and wayfinding all use it, so an un-arranged layout looks the same everywhere (the PDF no longer stacks null-position tables at centre).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered before/after auto-grow (12 tables: overlapping → comfortably spread + framed) and a spread-position PDF (on-page). SPEC IMPACT: builds 0008 `venue_known=false` auto-grow. → corpus DECISION_LOG.
+=======
+
+## 2026-06-09 · feat(mood-board): reception designer — stylized live venue (0010, Phase 2)
+
+**Context:** Owner directive 2026-06-09: *"can we actually design the elements? … the ceiling treatment will be made of lights/chandelier/hanging cloth … when i tap on table, can we edit the tablecloth, place colors, centerpieces? … editing the actual feel of the whole venue?"* Owner chose (in-session): **stylized live preview** (an illustrated venue that updates as you pick) over photoreal photos or the premium AI render; parts = **Stage · Ceiling · Walls/Backdrop · Tables · Entrance tunnel**.
+
+**Engine (`apps/web/lib/reception-scene.ts`, new):** a pure, DOM-free `renderVenueSvg(design, palette)` that draws a stylized one-point view down the aisle — ceiling overhead, entrance/tunnel arches, the couple's stage + backdrop at the far end, guest tables (with chairs) flanking. Each part has 3–4 **treatments** (e.g. ceiling: chandeliers / draped fabric / string lights / floral cloud; backdrop: draped / floral wall / greenery / marquee; tables: round-tall / round-low / long banquet; entrance: floral / draped / light tunnel). The couple's shared **Reception palette** drives the colors; treatments drive the shapes. **No asset library, no AI, ₱0** — pure SVG. (Visually iterated by rasterizing combos via sharp.)
+
+**Designer (`reception-designer.tsx`, new):** the venue renders live; the couple **taps a part** (SVG hotspots + a part selector) and picks a treatment → the scene updates instantly. Auto-saves to `events.reception_design`.
+
+**Wiring:** `page.tsx` adds a "Design your reception" section; **Reception is removed from the simple per-element board** (the designer replaces the static reception card). `saveReceptionDesign` action sanitizes against the known parts/treatments. Migration `20261003000000` (**applied to prod**) adds `events.reception_design JSONB DEFAULT '{}'` (additive, idempotent).
+
+**SPEC IMPACT:** 0010 Mood Board gains the free curated reception designer (the spec's stylist "Composite Scene" intent, delivered as a free stylized layer; the photoreal AI render stays the premium tier). Treatment taxonomy + the `reception_design` shape are new.
 ## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode
 
 **Context:** Owner walkthrough of the wedding onboarding (Photos 1–3). The `reception_setting`, `mood`, and `songs` screens were the last **hardcoded holdouts** in an otherwise taxonomy-DB-driven refinement flow (`onboarding_refinements` + the `RefineStep` template). Fold all three into the taxonomy pattern + two UX fixes.

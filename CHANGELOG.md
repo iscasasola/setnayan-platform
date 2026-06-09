@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Lock tab — Date/Budget/Location summary tiles (0016 prototype sync)
+
+**Context:** Syncing the live Plan Builder (`/dashboard/[eventId]/vendors`, 5-tab `ServicesTakeover` behind `BUDGET_BUILD_ENABLED`) to the owner-approved 0016 prototype (`Plan_Builder_5Page_Prototype_2026-06-09.html`). The prototype's **Lock** page opens with a `.lock-sum` grid (Date · Budget · Location · Committed) atop the locked-services list; the live `BuildLocked` only rendered the list + chosen total. This PR adds the missing summary tiles. Pure render — no schema, no behavior change to locking (still the hardened `finalizeVendor` flow on Shortlist cards).
+
+- `_components/build-locked.tsx`: new optional `summary: LockSummary` prop (`dateLabel` · `budgetPhp` · `region`); the populated branch now renders a 2×2 tile grid — **Date** (event date label), **Budget** (`estimated_budget_centavos`), **Location** (`region`), **Committed** (`model.chosenCentavos`, terracotta accent) — via a small `LockTile` helper. Empty state unchanged.
+- `vendors/page.tsx`: passes `summary` from the already-computed `buildAnchors` (date iso→label, budget php, region) — no new query.
+
+**Verification:** `tsc --noEmit` clean on touched files (`build-locked.tsx`, `page.tsx`); the only tsc errors are pre-existing env-missing native deps (`sharp`, `@mediapipe/tasks-vision`) unrelated to this change. CI typecheck/lint/build + Vercel preview gate the rest.
+
+**SPEC IMPACT:** None (additive UI sync to an already-approved prototype). Part of the A–F Plan Builder program logged in corpus `DECISION_LOG` 2026-06-09.
+
 ## 2026-06-09 · feat(marketplace): near/far vendor coverage + "show vendors farther away" (service-radius surfacing)
 
 **Context:** Owner: "vendors have a pin location covering a city radius — Free 20km, Pro/Enterprise a different rule. We want to locate them and identify which vendor is near and far a reception." The tier service-radius (`vendor-tier-caps.serviceRadiusKm`: entry/verified 20 · Pro 50 · Enterprise ∞) was already a **silent hard filter** on the couple's category search — out-of-range vendors were just *excluded*, with distance shown as raw "14 km." So couples couldn't actually "identify near vs far." Owner choices: keep in-range as the default, add a **"show vendors farther away"** expander, label near/far, radii unchanged.

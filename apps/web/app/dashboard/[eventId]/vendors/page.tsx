@@ -525,7 +525,14 @@ export default async function VendorsPage({ params }: Props) {
         }
         lockSlot={
           <div className="space-y-4">
-            <BuildLocked model={model} />
+            <BuildLocked
+              model={model}
+              summary={{
+                dateLabel: buildAnchors.date.iso ? buildAnchors.date.label : null,
+                budgetPhp: buildAnchors.budget.php,
+                region: buildAnchors.location.region,
+              }}
+            />
             {lockAvailability ? (
               <VendorAvailabilityIntersection eventId={eventId} {...lockAvailability} />
             ) : null}

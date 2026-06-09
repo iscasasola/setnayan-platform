@@ -18,7 +18,12 @@ const pesoFromPhp = (php: number | null) =>
 // Mirrors LOCKED_STATUSES in vendors-plan-budget.ts (raw event_vendors.status).
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
-export function BuildLocked({ model }: { model: PlanBudgetModel }) {
+/** The committed anchors shown as summary tiles atop the locked list (prototype
+ *  `.lock-sum`). Date label + region come from the event; budget + committed come
+ *  off the model. */
+export type LockSummary = { dateLabel: string | null; budgetPhp: number | null; region: string | null };
+
+export function BuildLocked({ model, summary }: { model: PlanBudgetModel; summary?: LockSummary }) {
   const rows = model.folders.flatMap((f) =>
     f.children.flatMap((c) =>
       c.picks
@@ -53,6 +58,16 @@ export function BuildLocked({ model }: { model: PlanBudgetModel }) {
         <h2 className="font-display text-2xl italic text-ink">Locked in</h2>
         <span className="font-display text-xl italic text-ink/80">{peso(model.chosenCentavos)}</span>
       </div>
+
+      {/* Committed-anchor summary tiles (prototype `.lock-sum`) — Date · Budget ·
+          Location · Committed. Mirrors the Lock page's confirmed-shape header. */}
+      <div className="grid grid-cols-2 gap-3">
+        <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
+        <LockTile k="Budget" v={pesoFromPhp(summary?.budgetPhp ?? null) ?? '—'} />
+        <LockTile k="Location" v={summary?.region ?? '—'} />
+        <LockTile k="Committed" v={peso(model.chosenCentavos)} accent />
+      </div>
+
       <ul className="space-y-2">
         {rows.map((r, i) => (
           <li
@@ -74,6 +89,17 @@ export function BuildLocked({ model }: { model: PlanBudgetModel }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function LockTile({ k, v, accent = false }: { k: string; v: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl border border-ink/10 bg-cream px-4 py-3">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
+      <div className={`mt-1 truncate font-display text-lg italic ${accent ? 'text-terracotta' : 'text-ink'}`}>
+        {v}
+      </div>
     </div>
   );
 }

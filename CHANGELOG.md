@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): people layer in the reception scene (0010)
+
+**Context:** Owner: "how about the people/different roles — we want them to render on the same photo, so it takes 1 render only." So the venue scene (and its render brief) now includes the wedding party, and one ₱300 render captures the venue **and** everyone in their attire.
+
+**`lib/reception-scene.ts`:** new **People** part with a "Show" toggle — Couple · Couple + entourage · Everyone (+ guests) · Empty venue. Stylized figures render in their **role attire colors** (bride gown / groom suit / entourage / guests, pulled from the mood-board role palettes): the couple focal at center stage, entourage flanking, guests seated at the tables. `buildPrompt()` injects a people clause with the actual role colors (*"the bride in a #… gown and the groom in a #… suit at center stage, bridesmaids and groomsmen in #… beside them, guests in #… at the tables"*). `renderVenueSvg`/`buildPrompt` take an optional `roleColors`; `page.tsx` passes bride/groom/wedding_party/guest first-colors; the designer threads it through. No migration.
+
+**Verification:** typecheck + lint ✅. **A 5-agent legibility workflow** rendered the "everyone" scene across stress-test palettes (pastel / mono-white / dark-moody / jewel / bright) and inspected each — all passed, but flagged the white-gown-on-light-backdrop and dark-suit-on-dark-backdrop blend risks. Fixed with **contrast-aware figure outlines** (`outlineOf`: darker edge on light fills, lighter on dark) + slightly larger guests; re-rendered the two worst palettes — couple/entourage/guests now read clearly on any palette.
+
+**SPEC IMPACT:** 0010 reception designer renders the people in-scene; the AI render brief now includes the wedding party so one render shows the whole wedding.
+
 ## 2026-06-09 · fix(brand): correct logo on seat-plan PDF / desktop / keynote + PDF "Created by" footer
 
 **Context:** Owner: the seat-plan PDF logo was wrong (an old black map-pin-with-star), "even the logo on the loading is wrong" — the gold mark (owner-supplied SVG) is the default; fix all logos. Plus show **"Created by WWW.SETNAYAN.COM"** at the bottom of the seat-plan print file.

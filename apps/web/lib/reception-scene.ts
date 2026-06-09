@@ -15,7 +15,10 @@
  * flanking. Treatments swap the shapes; the shared Reception palette colors it.
  */
 
-export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'tunnel' | 'entrance';
+export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'tunnel' | 'entrance' | 'people';
+
+/** Per-role attire colors (first color of each role palette) for the people layer. */
+export type RoleColors = { bride?: string; groom?: string; party?: string; guest?: string };
 
 export type Option = { id: string; label: string; prompt: string };
 export type Attribute = { id: string; label: string; options: Option[] };
@@ -209,6 +212,25 @@ export const RECEPTION_PARTS: Part[] = [
       },
     ],
   },
+  {
+    id: 'people',
+    label: 'People',
+    blurb: 'Who’s in the scene — so one render shows everyone in their attire',
+    attributes: [
+      {
+        // prompt phrases are injected by buildPrompt with the actual role
+        // colors, so these stay empty (the generic loop skips them).
+        id: 'who',
+        label: 'Show',
+        options: [
+          O('couple', 'Couple', ''),
+          O('couple_party', 'Couple + entourage', ''),
+          O('everyone', 'Everyone (+ guests)', ''),
+          O('none', 'Empty venue', ''),
+        ],
+      },
+    ],
+  },
 ];
 
 export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
@@ -218,6 +240,7 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   tables: { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'tall', place: 'gold' },
   tunnel: { style: 'floral' },
   entrance: { runner: 'fabric' },
+  people: { who: 'couple' },
 };
 
 /** Selected option id for a part+attribute, falling back to the default. */
@@ -235,6 +258,15 @@ const LEAF = '#7F9A6E';
 const GOLD = '#CBA85C';
 const SILVER = '#C7CBD1';
 const GLASS = '#DCE6E6';
+const SKIN = '#E7C8A2';
+const HAIR = '#352720';
+
+const DEFAULT_ROLE: Required<RoleColors> = {
+  bride: '#FAF7F2',
+  groom: '#222634',
+  party: '#B98AA0',
+  guest: '#9AA7B0',
+};
 
 function clampHex(h: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(h) ? h : '#CCCCCC';
@@ -252,6 +284,16 @@ function shade(hex: string, amt: number): string {
   g = Math.max(0, Math.min(255, Math.round(g + amt)));
   b = Math.max(0, Math.min(255, Math.round(b + amt)));
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+function lum(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+}
+/** A contrast edge for a figure: darker if the fill is light, lighter if dark —
+ *  so figures separate from a same-toned background (white gown on a pale wall,
+ *  dark suit on a dark backdrop). */
+function outlineOf(hex: string): string {
+  return lum(hex) > 150 ? shade(hex, -82) : shade(hex, 92);
 }
 
 // ---- shape helpers ----
@@ -711,9 +753,67 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
   return s;
 }
 
-/** Compose the full venue SVG for a given design + palette. */
-export function renderVenueSvg(design: ReceptionDesign, palette: string[]): string {
+// ---- people ----
+// Figures carry a contrast outline so they never blend into a same-toned
+// backdrop (white gown on a pale wall, dark suit on a dark backdrop) — issue
+// caught by the legibility-verification workflow 2026-06-09.
+function figHead(cx: number, cy: number, r: number): string {
+  return (
+    `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${SKIN}" stroke="${shade(SKIN, -55)}" stroke-width="0.7"/>` +
+    `<path d="M ${(cx - r).toFixed(1)} ${cy.toFixed(1)} a ${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${(2 * r).toFixed(1)} 0 Z" fill="${HAIR}"/>`
+  );
+}
+function gownFig(cx: number, baseY: number, h: number, color: string): string {
+  const w = h * 0.5;
+  const ol = outlineOf(color);
+  return (
+    `<polygon points="${(cx - w / 2).toFixed(1)},${baseY.toFixed(1)} ${(cx + w / 2).toFixed(1)},${baseY.toFixed(1)} ${(cx + w * 0.18).toFixed(1)},${(baseY - h * 0.58).toFixed(1)} ${(cx - w * 0.18).toFixed(1)},${(baseY - h * 0.58).toFixed(1)}" fill="${color}" stroke="${ol}" stroke-width="1.3" stroke-linejoin="round"/>` +
+    `<rect x="${(cx - w * 0.18).toFixed(1)}" y="${(baseY - h * 0.78).toFixed(1)}" width="${(w * 0.36).toFixed(1)}" height="${(h * 0.26).toFixed(1)}" rx="3" fill="${color}" stroke="${ol}" stroke-width="1.1"/>` +
+    figHead(cx, baseY - h * 0.86, h * 0.13)
+  );
+}
+function suitFig(cx: number, baseY: number, h: number, color: string): string {
+  const w = h * 0.34;
+  const ol = outlineOf(color);
+  return (
+    `<rect x="${(cx - w / 2).toFixed(1)}" y="${(baseY - h * 0.72).toFixed(1)}" width="${w.toFixed(1)}" height="${(h * 0.72).toFixed(1)}" rx="2" fill="${color}" stroke="${ol}" stroke-width="1.2"/>` +
+    `<rect x="${(cx - 1.6).toFixed(1)}" y="${(baseY - h * 0.72).toFixed(1)}" width="3.2" height="${(h * 0.5).toFixed(1)}" fill="${shade(color, 40)}" opacity="0.5"/>` +
+    figHead(cx, baseY - h * 0.8, h * 0.13)
+  );
+}
+function people(who: string, rc: Required<RoleColors>): string {
+  if (who === 'none') return '';
+  let s = '';
+  if (who === 'couple_party' || who === 'everyone') {
+    s += suitFig(360, 386, 42, rc.party) + gownFig(388, 386, 42, rc.party);
+    s += gownFig(572, 386, 42, rc.party) + suitFig(600, 386, 42, rc.party);
+  }
+  if (who === 'everyone') {
+    const gol = outlineOf(rc.guest);
+    for (const [tx, ty] of [[150, 498], [810, 498], [240, 414], [720, 414]] as [number, number][]) {
+      s += `<rect x="${(tx - 21).toFixed(1)}" y="${(ty + 2).toFixed(1)}" width="13" height="10" rx="3" fill="${rc.guest}" stroke="${gol}" stroke-width="0.8"/><rect x="${(tx + 8).toFixed(1)}" y="${(ty + 2).toFixed(1)}" width="13" height="10" rx="3" fill="${rc.guest}" stroke="${gol}" stroke-width="0.8"/>`;
+      s += figHead(tx - 14.5, ty, 6.5) + figHead(tx + 14.5, ty, 6.5);
+    }
+  }
+  // couple — focal, in front of the stage
+  s += `<ellipse cx="480" cy="404" rx="46" ry="9" fill="#000" opacity="0.08"/>`;
+  s += gownFig(463, 402, 62, rc.bride) + suitFig(499, 402, 60, rc.groom);
+  return s;
+}
+
+/** Compose the full venue SVG for a given design + palette + role attire colors. */
+export function renderVenueSvg(
+  design: ReceptionDesign,
+  palette: string[],
+  roleColors?: RoleColors,
+): string {
   const P = paletteFn(palette);
+  const rc: Required<RoleColors> = {
+    bride: clampHex(roleColors?.bride || DEFAULT_ROLE.bride),
+    groom: clampHex(roleColors?.groom || DEFAULT_ROLE.groom),
+    party: clampHex(roleColors?.party || DEFAULT_ROLE.party),
+    guest: clampHex(roleColors?.guest || DEFAULT_ROLE.guest),
+  };
   const W = 960,
     H = 640;
   const aisleTint = sel(design, 'entrance', 'runner') === 'fabric' ? P(1) : shade(P(1), 70);
@@ -739,6 +839,7 @@ export function renderVenueSvg(design: ReceptionDesign, palette: string[]): stri
       sel(design, 'tables', 'place'),
       P,
     ),
+    people(sel(design, 'people', 'who'), rc),
     entrance(sel(design, 'tunnel', 'style'), sel(design, 'entrance', 'runner'), P),
     `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
     `</svg>`,
@@ -746,7 +847,11 @@ export function renderVenueSvg(design: ReceptionDesign, palette: string[]): stri
 }
 
 /** Assemble a stylist-brief prompt from the design — drives the AI render. */
-export function buildPrompt(design: ReceptionDesign, palette: string[]): string {
+export function buildPrompt(
+  design: ReceptionDesign,
+  palette: string[],
+  roleColors?: RoleColors,
+): string {
   const phrases: string[] = [];
   for (const part of RECEPTION_PARTS) {
     for (const attr of part.attributes) {
@@ -755,8 +860,24 @@ export function buildPrompt(design: ReceptionDesign, palette: string[]): string 
       if (opt?.prompt) phrases.push(opt.prompt);
     }
   }
+  // People clause — injected with the actual role attire colors so one render
+  // shows the venue AND everyone in their attire.
+  const rc: Required<RoleColors> = {
+    bride: roleColors?.bride || DEFAULT_ROLE.bride,
+    groom: roleColors?.groom || DEFAULT_ROLE.groom,
+    party: roleColors?.party || DEFAULT_ROLE.party,
+    guest: roleColors?.guest || DEFAULT_ROLE.guest,
+  };
+  const who = sel(design, 'people', 'who');
+  if (who !== 'none') {
+    let people = `the bride in a ${rc.bride} gown and the groom in a ${rc.groom} suit standing at the center stage`;
+    if (who === 'couple_party' || who === 'everyone')
+      people += `, bridesmaids and groomsmen in ${rc.party} attire beside them`;
+    if (who === 'everyone') people += `, and guests in ${rc.guest} attire seated at the tables`;
+    phrases.push(people);
+  }
   const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 4);
-  const colorClause = colors.length ? ` Color palette: ${colors.join(', ')}.` : '';
+  const colorClause = colors.length ? ` Venue color palette: ${colors.join(', ')}.` : '';
   return (
     `Photorealistic editorial photograph of an elegant Filipino wedding reception. ` +
     `Recreate the exact layout and structure of the reference image as a real photo, featuring ` +

@@ -18,6 +18,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0008 Seating gains group bulk-seat + group-clustered auto-seat. Logged in corpus `DECISION_LOG` 2026-06-09. No schema/pricing change. Auto-seat output ordering changes when custom groups exist (a deliberate behaviour change — surfaced for owner awareness).
 
+## 2026-06-09 · feat(plan-builder): Build tab → category Flag/Compute, retire Lean/Fits/Stretch (PR E of the 5-page redesign)
+
+**Context:** Owner chose "replace the estimator fully." The Build tab drops the Lean/Fits/Stretch budget-*estimate* engine for the prototype's compose-real-vendors model: the Date/Budget/Location anchors (PR D) on top, then **per-category Flag + Compute** — flag the categories to fill, then "Auto-fill with Setnayan AI" sources + writes the best-matched vendor into the Shortlist.
+
+**Reuses shipped backend, no new write path:** the control is the existing `CategoryFlags` (already live on the Summary cover); Compute = `generateFlaggedVendors`, AI-gated (`isSetnayanAiActive`, server-verified) + writing via the validated `attachMarketplaceVendorToCategory`. `build-pins.tsx` rewritten → `BuildAnchors` + `CategoryFlags` (open/locked/flagged/aiOn derived from the shared `PlanBudgetModel`); `page.tsx` drops the `BudgetAllocationPlanner` slot + import.
+
+**Note:** the planner is NOT deleted — it still lives on `/budget`; PR E only removes it from the *Build tab*. Compare keeps baskets until **PR F**.
+
+**Verification:** `pnpm typecheck` ✅ clean; CI lint + build + e2e green. The Flag/Compute path is already live on Summary — this is a relocation + estimator-removal, not a new mechanic.
+
+**SPEC IMPACT:** None yet — implements the 0016 prototype Build compose model.
+
+## 2026-06-09 · fix(admin): /admin/more crash — lucide icon refs crossing the Server→Client boundary
+
+**Context:** Owner reported the admin console mobile "More" tab showed the root error screen ("Something on our end didn't work." · Reference digest `1687835579`). Reproduced as a deterministic server-side throw on `/admin/more`.
+
+**Root cause:** the 2026-06-08 nav-redesign PR 3 (`b29fee95`) swapped the More renderer from `MobileLandingGrid` (a Server Component) to the new `MobileLandingAccordion`, which is `'use client'` because its collapsible sections need `useState`. But `more/page.tsx` stayed a Server Component (it exports route `metadata`) and kept building `SECTIONS` with `icon: <LucideIcon>` forwardRef refs, then passed them as props into the client accordion. Next.js can't serialize those function refs across the Server→Client boundary, so the render throws into the root error boundary (`app/error.tsx`). This is the **exact** failure mode already fixed for `admin-bottom-nav.tsx` in `ad29cb04` (`Functions cannot be passed directly to Client Components`). The sibling `/admin/directory` never crashed because its renderer (`MobileLandingGrid`) stayed server-side.
+
+**Fix:** moved the icon-carrying section data + the accordion render into a new `'use client'` wrapper `app/admin/more/more-landing.tsx` (`AdminMoreAccordion`), so the lucide refs live inside the client bundle end-to-end and never cross the boundary. `page.tsx` stays a Server Component (keeps `metadata`) and now renders `<AdminMoreAccordion />` with no props — symmetric with how `AdminBottomNav` / `AdminSidebar` own their icon-ref item lists. No behavior/markup change for the user.
+
+**Verification:** structural review + faithful code-move of the original (already-compiling) page; relies on the required CI production build + Vercel preview as the type/build gate. Owner can confirm on the mobile admin "More" tab once deployed.
+
+**SPEC IMPACT:** None — pure regression fix, no schema/pricing/surface change.
+
 ## 2026-06-09 · feat(mood-board): "concept book" PDF export (Result + design + inspirations)
 
 **Context:** Owner directive 2026-06-09 — couples can download a printable "concept book" PDF of their mood board: the rendered concept (the Result) plus how they made it possible (their inspirations + the custom reception template they designed). Free, ₱0 marginal cost, reads only existing columns (no migration). The paid photoreal "Make it real" render stays owner-gated (needs the image-provider API key); until it ships, the stylized scene the couple designed is the PDF hero and page 2 auto-upgrades to the photoreal render later (`resultPng`).

@@ -59,8 +59,11 @@ export type EventTableRow = {
   sort_order: number;
   x_pos: number | null;
   y_pos: number | null;
-  rotation_deg: number;
-  removed_seats: number[];
+  // Optional on the type so render-only literals (e.g. the indoor-blueprint
+  // sample tables) need not set them; fetchTables always returns concrete
+  // values, and every reader coalesces (`?? 0` / removedSeatSet / effectiveCapacity).
+  rotation_deg?: number;
+  removed_seats?: number[];
 };
 
 export type SeatAssignmentRow = {

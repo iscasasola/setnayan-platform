@@ -541,7 +541,7 @@ export default async function VendorsPage({ params }: Props) {
       <ServicesTakeover
         eventId={eventId}
         initialTab="summary"
-        summarySlot={<BuildSummary model={model} eventId={eventId} flaggedGroups={flaggedGroups} buildsCount={savedBuilds.length} />}
+        summarySlot={<BuildSummary model={model} eventId={eventId} buildsCount={savedBuilds.length} />}
         shortlistSlot={services}
         buildSlot={buildSlot}
         compareSlot={

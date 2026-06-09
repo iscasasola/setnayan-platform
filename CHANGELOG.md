@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Summary — inline Setnayan AI toggle, drop Flag control (0016 sync)
+
+**Context:** Owner 2026-06-09 — the Services "Summary" tab is a read-only progress cover with exactly ONE control: an inline Setnayan AI on/off toggle that flips in place (no navigation). The old cover linked out to `/details` ("Manage / Turn on") and also hosted the per-category Flag/Compute control — both moved off Summary (Flag/Compute belongs on the Build tab).
+
+- `_components/summary-ai-toggle.tsx` (new): a client `role="switch"` that flips `events.planning_mode` (guided ⇄ manual) via the shared `setPlanningMode` server action — the SAME governing gate `lib/setnayan-ai` reads everywhere — with `useOptimistic` + `useTransition` so the switch is instant and the server revalidate re-grounds it. No new write path, no navigation.
+- `_components/build-summary.tsx`: removed the `CategoryFlags` block + the `/details` link section; dropped the now-unused `flaggedGroups` prop, `Link`/`Sparkles` imports, and the `openCats`/`lockedCount` derivations. Renders `SummaryAiToggle` as the cover's single control.
+- `vendors/page.tsx`: drops `flaggedGroups` from the `<BuildSummary>` call (still computed + passed to `BuildPins` on the Build tab).
+
+**Verification:** `tsc --noEmit` clean (0 errors, whole web app). Pure client interaction over an existing action — no schema/data change. Vercel-preview click-through pending.
+
+**SPEC IMPACT:** First of the 6-part Services 5-tab redesign (owner 2026-06-09: Summary toggle · 3-level Shortlist · Build Flag/Pin + budget compute · QR claim · Compare/Lock polish). UI-only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09 (Plan Builder sync program).
+
 ## 2026-06-09 · feat(plan-builder): Shortlist — single-open accordion (0016 sync)
 
 **Context:** Final 0016 Plan Builder sync. The prototype's category list is **single-open** ("when a category is opened, the other collapses"); the live Shortlist rendered all 10 folders **always-open** as a sticky-stacking pile. Owner green-lit the switch this session (the prior held item). The sticky **header** pile is unchanged — only the **bodies** now collapse.

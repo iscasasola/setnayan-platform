@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(onboarding): Google-only login on the wedding account gate (remove Facebook)
+
+**Context:** Owner report 2026-06-09 — "login on the onboarding wedding is not working." The wedding onboarding account gate (screen 11, "Your plan is ready") offered Google + Facebook + email "Create account". Owner directive: **just use Google to login for now on the onboarding, make sure it bounces back to onboarding after login, and remove Facebook login.**
+
+**Change (`onboarding-shell.tsx`):** removed the `<form action={signInWithFacebook}>` block from the account gate + dropped the now-unused `signInWithFacebook` import. Google is now the primary login; the "Use email instead" fallback stays (safety net for couples without a Google account — only Facebook was asked to be removed).
+
+**Bounce-back (verified, not changed):** the round-trip was already wired correctly — the Google form posts `next=/onboarding/wedding?resume=1` → `signInWithGoogle` → Supabase → `/auth/callback` (`safeNext` preserves the `?resume=1` query) → back to onboarding, where the resume effect (`hydrated && resume && authed`) restores the localStorage draft and advances past the gate to the `congrats`/plan screen. localStorage survives the OAuth navigation (same origin). **If login still does not return today, the cause is almost certainly Google OAuth not completing at Supabase (owner-side: paste Google client ID/secret into Supabase Studio + the `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED` flag) — not onboarding code.** The plain `/login` "Continue with Google" is the bisection test.
+
+**Verification:** removed-import-only change, no remaining `signInWithFacebook`/`Facebook` refs in the file; CI typecheck + build cover compile. Onboarding gate to be eyeballed on the Vercel preview.
+
+**SPEC IMPACT:** Onboarding (0016) wedding account gate is now Google + email (Facebook removed). Logged in corpus `DECISION_LOG` 2026-06-09. No pricing change. The shared `/login` + `/signup` OAuthButtonRow still offers Facebook (gated by `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED`) — removal there is a separate decision pending owner confirm.
+
 ## 2026-06-09 · fix(onboarding-music): single-click unmute + invite pulse on the control
 
 **Context:** Owner: the onboarding music control "needed to click it twice to unmute," and asked for "a pulse for them to press the button to unmute."

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { EventTableRow, TableType } from '@/lib/seating';
+import { defaultTablePosition, type EventTableRow, type TableType } from '@/lib/seating';
 
 /**
  * apps/web/lib/indoor-blueprint.ts
@@ -115,7 +115,9 @@ export function wayfindingPosition(
   if (table.x_pos !== null && table.y_pos !== null) {
     return { x: Number(table.x_pos), y: Number(table.y_pos) };
   }
-  return wayfindingDefaultGrid(index, total);
+  // Match the editor's free auto-grow default so an un-arranged layout looks the
+  // same here as in the editor (the map fits it via fitFloorTransform).
+  return defaultTablePosition(index, total, true);
 }
 
 /**

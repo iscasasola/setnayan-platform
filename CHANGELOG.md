@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-08 · feat(seating): auto-grow board for the free (no room size) plan (0008)
+
+**Context:** Owner asked: with no room size set, should the board "expand as we add more tables?" — yes (the 0008 spec's `venue_known=false` auto-grow). Previously the un-set board packed tables tighter into a fixed 0–100% space (they overlapped); now it grows. Built + adversarially reviewed (14-agent workflow) — the review's main catch (free-mode positions leaking into 0–100%-assuming renderers) is fixed here too.
+
+**What landed:**
+- **Auto-grow placement** — new tables sit at FIXED comfortable spacing (`defaultTablePosition(spread=true)`, ~48% grid), so the board grows outward (positions can exceed 100%) instead of crowding. The free-mode drag + save clamps widened to match; the view **auto-fits when the table count changes** (not while seating) so all tables stay framed; `ZOOM_MIN` lowered to 0.1 so even large boards fit.
+- **Venue mode unchanged** — with a room size set, `defaultTablePosition(spread=false)` still packs tables inside the walls (0–100%), drag clamps stay 2–98%, to-scale rendering as before.
+- **Downstream made spread-safe** (the review's HIGH finding) — `fitFloorTransform` (new, in `lib/seating`) fits any >100% layout back into the 0–100 box (no-op when already in-bounds, so existing events are untouched), applied in the **PDF export** and the **day-of wayfinding map** (+ find-my-table). Verified by rendering a PDF with spread positions → tables land on-page, not off it.
+- **One shared default** (the review's MEDIUM finding) — moved `defaultTablePosition` to `lib/seating`; the editor, PDF and wayfinding all use it, so an un-arranged layout looks the same everywhere (the PDF no longer stacks null-position tables at centre).
+
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered before/after auto-grow (12 tables: overlapping → comfortably spread + framed) and a spread-position PDF (on-page). SPEC IMPACT: builds 0008 `venue_known=false` auto-grow. → corpus DECISION_LOG.
+
 ## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-a — chat FREE-block · editorial tag-gate · custom-slug PRO/ENT
 
 **Context:** #4 (Phase C feature gates) of "do 1–5" on the tier matrix, split into 3 PRs by file-locality. **PR-a = the 3 clean, zero-migration, low-risk gates** verified "sound/ship-it" by the banked design pass (`Vendor_Tier_4_PhaseC_Gates_Spec_2026-06-09.json`).

@@ -16,6 +16,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0008 Seating — UX/perf only (optimistic seating + delete, discoverable rotate). No schema/pricing/action-signature change. Logged in corpus `DECISION_LOG` 2026-06-09.
 
+## 2026-06-09 · fix(onboarding-music): single-click unmute + invite pulse on the control
+
+**Context:** Owner: the onboarding music control "needed to click it twice to unmute," and asked for "a pulse for them to press the button to unmute."
+
+**Double-click bug:** when the music pill was the couple's FIRST gesture, two handlers raced on that one tap — the window `pointerdown` auto-start listener fired first and *started* the audio, then the button's `onClick` saw `el.paused === false` and immediately *paused* it (net: silence). The second click worked only because the auto-start listener was already removed. Fix: `onFirst` now ignores gestures whose target is inside the music button (`buttonRef.contains(e.target)`) and tears down its listeners, so a first-tap-on-the-button is a clean single toggle; incidental gestures elsewhere still auto-start as before.
+
+**Pulse:** new `showPulse` state — the control pulses (gold ring) to invite a tap from load until the track has played once OR the couple opts out (explicit mute / previously-muted via localStorage), so it never nags. CSS adds `.onb-music.pulse` + `@keyframes onbMusicPulse` with a `prefers-reduced-motion` guard (reduced-motion users still get the static gold highlight, no animation).
+
+**Verification:** CSS patched via asserted single-anchor replace + brace check; types/lint/build via CI. (True autoplay-with-sound on load remains impossible by browser policy — unchanged.)
+
+**SPEC IMPACT:** None — bug fix + UX polish on the 2026-06-08 onboarding background-music feature; no schema/SKU/surface change.
+
 ## 2026-06-09 · feat(seating): table rotation + delete chairs → connect tables into custom patterns (PR B of 2)
 
 **Context:** Owner directive 2026-06-09 — couples connect tables into custom patterns (serpentine S-curves, circles, U-shapes — per the reference layouts) by **rotating** a table and **deleting the chair** on the edge where it meets another. PR B builds on PR A's single-wedge serpentine; together they deliver the connect workflow (each wedge in an S is the same quarter-donut rotated 180° and butted at its chair-free radial edge).

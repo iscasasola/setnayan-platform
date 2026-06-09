@@ -14,6 +14,13 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0010 reception designer shows guests in their dress-code attire (Guest Dress Code palette), so the AI render brief carries the dress code too.
 
+## 2026-06-09 · feat(vendor-tier): founder vendor → verified + unlimited categories/services + token-gate bypass
+
+**Context:** Owner 2026-06-09 — bump the founder vendor to `verified` + unlimited categories/services + full token-gate bypass. Founder = the single non-demo account `Setnayan Founder · Ice` (`646c9457-3450-412e-8d60-7281224da157`).
+
+**Migration `20261013000000_founder_vendor_overrides.sql` (applied to prod):** new `vendor_profiles.is_founder` flag (composes on `tier_state`); founder set `verified` + `is_founder=true`; `unlock_vendor_event` founder branch = unlimited free unlocks (no FREE block / verified 10-week cap / burn). **App:** `createVendorService` lifts `parentCategories` + `servicesPerLeaf` to `Infinity` for the founder (other caps stay verified).
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Founder row `tier=verified, is_founder=true`; auto-rollback smoke test → `founder:true, charged:false`, past 10 unlocks no weekly limit. SPEC IMPACT: → corpus `DECISION_LOG.md` + tier matrix + memory.
 
 ## 2026-06-09 · feat(website): demo phase override — preview RSVP / Event / Editorial on a test event
 

@@ -147,15 +147,22 @@ export async function createVendorService(formData: FormData) {
   );
 
   // Tier caps on service creation (Vendor_Tier_Capability_Matrix_2026-06-07).
-  // Fetch tier + the vendor's existing service rows ONCE; both caps read them.
+  // Fetch tier + the founder flag ONCE; both caps read them.
   const { data: tierRow } = await supabase
     .from('vendor_profiles')
-    .select('tier_state')
+    .select('tier_state, is_founder')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  const caps = tierCaps(
-    asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
-  );
+  const tierRowTyped = tierRow as
+    | { tier_state?: string | null; is_founder?: boolean | null }
+    | null;
+  const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
+  // Founder override (owner 2026-06-09): unlimited categories + services-per-leaf
+  // (the token-gate bypass lives in unlock_vendor_event). Other caps unchanged.
+  const caps =
+    tierRowTyped?.is_founder === true
+      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      : baseCaps;
 
   // (0) Per-service daily capacity (#2), capped by the tier's slotsPerDay.
   let daily_capacity: number | null;

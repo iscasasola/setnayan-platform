@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Build tab — totals row + Reset + "Lock your build" cross-tab nav (0016 sync)
+
+**Context:** Fills the prototype's Build-tab controls. After "Add to build" transfers items to the Build page (prior PR), the Build tab now caps the "Your build" list with the prototype's **persistent totals** + actions.
+
+- `_components/build-picks-list.tsx`: a dark **totals block** (prototype `.totals`) — **Already locked (held separately)** · **This build (chosen services)** · **Total commitment** + the budget over/under line (needs the new `budgetPhp` prop). Plus a **Reset** (tap-to-confirm → `clearBuildPicks`, wipes all build picks; leaves the Shortlist + locked vendors untouched) and a **"Lock your build"** button that jumps to the Lock tab.
+- `_components/services-takeover.tsx`: a small **cross-tab nav** primitive — `goToBuildTab(tab)` dispatches a `bb:tab` CustomEvent; the takeover listens and `setTab`s. Lets server-rendered slots switch tabs **client-side** (no server round-trip) while staying decoupled from the tab state. (Reused next by Compare "Modify".)
+- `build-pick-actions.ts`: `clearBuildPicks({ eventId })` — couple-own delete of all `event_build_picks` rows for the event.
+- `build-pins.tsx` + `page.tsx`: thread `budgetPhp` (`buildAnchors.budget.php`) through to the totals.
+
+**Verification:** `tsc --noEmit` + `next lint --file` clean across all 5 touched files. No migration (reuses `event_build_picks`). Vercel-preview click-through pending.
+
+**SPEC IMPACT:** None beyond the already-logged build-pick model — these are the prototype's Build controls over the existing state. → corpus `DECISION_LOG` 2026-06-09 (A–F + this session's sync).
+
 ## 2026-06-09 · feat(plan-builder): "Add to build" — build picks transfer Shortlist → Build page (0016 sync)
 
 **Context:** The headline 0016 Plan Builder gap. The Shortlist card CTA was **"Lock this pick"** (the hardened `finalizeVendor`); the prototype replaces it with **"Add to build"** — a soft, reversible pick that **transfers the item to the Build page** (owner 2026-06-09: "add to build will be used to transfer the item to the build page"). Hardened locking **relocates** to the Lock tab, unchanged. Introduces a per-category "build pick" — a third state distinct from shortlisted (`event_vendors.status='considering'`) and locked (`contracted`/…).

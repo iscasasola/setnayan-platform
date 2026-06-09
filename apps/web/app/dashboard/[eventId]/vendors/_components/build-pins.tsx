@@ -31,12 +31,15 @@ export function BuildPins({
   anchors,
   categoryFill,
   buildItems,
+  budgetPhp,
 }: {
   eventId: string;
   anchors: AnchorData;
   categoryFill: CategoryFillData;
   /** The items transferred here via Shortlist "Add to build" (event_build_picks). */
   buildItems: BuildPickItem[];
+  /** Pinned budget (events.estimated_budget_centavos → PHP) for the totals line. */
+  budgetPhp: number | null;
 }) {
   return (
     <div className="space-y-4">
@@ -47,7 +50,7 @@ export function BuildPins({
       {/* "Your build" — the items the couple added from the Shortlist land here
           (owner 2026-06-09: "Add to build transfers the item to the build page").
           Lock them on the Lock tab. */}
-      <BuildPicksList eventId={eventId} items={buildItems} />
+      <BuildPicksList eventId={eventId} items={buildItems} budgetPhp={budgetPhp} />
 
       {/* Per-category Flag + Compute — flag the categories to fill, then auto-fill
           the flagged ones with the best match (writes to the Shortlist). The same

@@ -66,3 +66,22 @@ export async function removeBuildPick(input: {
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }
+
+/** Reset the build — clear every build pick for the event. Does NOT touch the
+ *  shortlist (event_vendors) or any locked/finalized vendor; build picks are a
+ *  separate, reversible layer. */
+export async function clearBuildPicks(input: { eventId: string }): Promise<BuildPickResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  const { error } = await supabase
+    .from('event_build_picks')
+    .delete()
+    .eq('event_id', input.eventId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  return { ok: true };
+}

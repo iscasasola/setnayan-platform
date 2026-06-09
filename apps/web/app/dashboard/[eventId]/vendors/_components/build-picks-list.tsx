@@ -11,10 +11,11 @@
  * Client component (the Remove action). Locking the build stays the Lock tab.
  */
 
-import { useTransition } from 'react';
-import { Hammer, Lock as LockIcon, X } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { Hammer, Lock as LockIcon, RotateCcw, X } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
-import { removeBuildPick } from '../build-pick-actions';
+import { removeBuildPick, clearBuildPicks } from '../build-pick-actions';
+import { goToBuildTab } from './services-takeover';
 
 export type BuildPickItem = {
   groupId: string;
@@ -29,8 +30,20 @@ export type BuildPickItem = {
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
 
-export function BuildPicksList({ eventId, items }: { eventId: string; items: BuildPickItem[] }) {
-  const total = items.reduce((s, it) => s + (it.pricePhp ?? 0), 0);
+export function BuildPicksList({
+  eventId,
+  items,
+  budgetPhp,
+}: {
+  eventId: string;
+  items: BuildPickItem[];
+  budgetPhp: number | null;
+}) {
+  const lockedTotal = items.filter((it) => it.locked).reduce((s, it) => s + (it.pricePhp ?? 0), 0);
+  const thisBuildTotal = items
+    .filter((it) => !it.locked)
+    .reduce((s, it) => s + (it.pricePhp ?? 0), 0);
+  const total = lockedTotal + thisBuildTotal;
 
   if (items.length === 0) {
     return (
@@ -61,7 +74,105 @@ export function BuildPicksList({ eventId, items }: { eventId: string; items: Bui
       {items.map((it) => (
         <BuildPickRow key={`${it.groupId}-${it.vendorId}`} eventId={eventId} item={it} />
       ))}
+
+      <BuildTotals
+        lockedTotal={lockedTotal}
+        thisBuildTotal={thisBuildTotal}
+        total={total}
+        budgetPhp={budgetPhp}
+      />
+
+      <BuildControls eventId={eventId} hasUnlocked={thisBuildTotal > 0 || items.some((it) => !it.locked)} />
     </section>
+  );
+}
+
+/** Persistent totals (prototype `.totals`): locked (held separately) · this build
+ *  (chosen) · total commitment, with the budget over/under. */
+function BuildTotals({
+  lockedTotal,
+  thisBuildTotal,
+  total,
+  budgetPhp,
+}: {
+  lockedTotal: number;
+  thisBuildTotal: number;
+  total: number;
+  budgetPhp: number | null;
+}) {
+  const remaining = budgetPhp == null ? null : budgetPhp - total;
+  return (
+    <div className="mt-1 rounded-2xl bg-ink px-4 py-3 text-cream">
+      {lockedTotal > 0 && (
+        <Line k="Already locked (held separately)" v={peso(lockedTotal)} />
+      )}
+      <Line k="This build (chosen services)" v={peso(thisBuildTotal)} />
+      <div className="mt-1 flex items-baseline justify-between border-t border-cream/15 pt-2">
+        <span className="text-[12.5px] font-semibold">Total commitment</span>
+        <span className="font-display text-xl italic text-terracotta-200">{peso(total)}</span>
+      </div>
+      {remaining != null && (
+        <p
+          className={`mt-1.5 text-right text-[11px] ${remaining < 0 ? 'text-rose-300' : 'text-emerald-300'}`}
+        >
+          {remaining >= 0
+            ? `${peso(remaining)} under your ${peso(budgetPhp)} budget`
+            : `${peso(-remaining)} over your ${peso(budgetPhp)} budget`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Line({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-baseline justify-between py-0.5">
+      <span className="text-[11.5px] text-cream/70">{k}</span>
+      <span className="font-display text-[15px] italic">{v}</span>
+    </div>
+  );
+}
+
+/** Reset (clear all build picks · confirm) + Lock (jump to the Lock tab). */
+function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked: boolean }) {
+  const [confirm, setConfirm] = useState(false);
+  const [pending, start] = useTransition();
+  const reset = () => {
+    haptic('tick');
+    start(async () => {
+      await clearBuildPicks({ eventId });
+      setConfirm(false);
+    });
+  };
+  return (
+    <div className="mt-1 grid grid-cols-2 gap-2">
+      {confirm ? (
+        <button
+          type="button"
+          onClick={reset}
+          disabled={pending}
+          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-rose-300 px-3 py-2.5 text-[12.5px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+        >
+          {pending ? 'Resetting…' : 'Tap to confirm reset'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirm(true)}
+          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[12.5px] font-medium text-ink/70 hover:bg-ink/5"
+        >
+          <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> Reset
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => goToBuildTab('lock')}
+        disabled={!hasUnlocked}
+        className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-50"
+      >
+        <LockIcon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> Lock your build
+      </button>
+    </div>
   );
 }
 

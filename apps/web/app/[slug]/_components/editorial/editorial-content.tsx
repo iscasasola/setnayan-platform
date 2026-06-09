@@ -98,15 +98,23 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
           </p>
         </section>
 
-        {/* Main grid: lead article + by-the-numbers --------------------------- */}
-        <div className="grid grid-cols-1 gap-7 pt-2 lg:grid-cols-[1.65fr_0.9fr] lg:gap-8">
-          <div>
-            {data.heroPhotoUrl ? <HeroPhoto url={data.heroPhotoUrl} names={data.firstNames} /> : null}
+        {/* Full-width hero — the cover photo spans the whole row. */}
+        {data.heroPhotoUrl ? (
+          <div className="pt-2">
+            <HeroPhoto url={data.heroPhotoUrl} names={data.firstNames} />
+          </div>
+        ) : null}
+
+        {/* Below the photo: the write-up takes the wide column; the Setnayan
+            "By the Numbers" sits in a slim corner sidebar. On mobile both stack
+            (story first, numbers as the recap right after). */}
+        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[1.95fr_0.85fr] lg:gap-9">
+          <div className="min-w-0">
             <LeadArticle paragraphs={copy.leadParagraphs} pullQuote={copy.pullQuote} />
             {data.vendors.length ? <TeamBehindTheDay vendors={data.vendors} /> : null}
           </div>
 
-          <aside>
+          <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
             <ByTheNumbers data={data} />
           </aside>
         </div>
@@ -227,10 +235,10 @@ function EditionLine({
 
 function HeroPhoto({ url, names }: { url: string; names: string }): ReactElement {
   return (
-    <figure className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-ink/10">
+    <figure className="relative aspect-[16/9] w-full overflow-hidden rounded-sm bg-ink/10">
       {/* Raw <img>: presigned R2 URLs expire; next/image would cache stale.
-          aspect-[16/10] keeps the full landscape hero visible (a fixed pixel
-          height + object-cover was cropping the couple out of frame). */}
+          Full-width cinematic banner at the photo's native 16:9 → zero crop
+          (a fixed pixel height + object-cover used to crop the couple out). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={url}

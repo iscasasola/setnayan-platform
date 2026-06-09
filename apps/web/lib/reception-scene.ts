@@ -17,8 +17,15 @@
 
 export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'tunnel' | 'entrance' | 'people';
 
-/** Per-role attire colors (first color of each role palette) for the people layer. */
-export type RoleColors = { bride?: string; groom?: string; party?: string; guest?: string };
+/** Per-role attire colors for the people layer. `guestPalette` is the guest
+ *  dress-code palette (multiple approved colors) — guests render in a mix of them. */
+export type RoleColors = {
+  bride?: string;
+  groom?: string;
+  party?: string;
+  guest?: string;
+  guestPalette?: string[];
+};
 
 export type Option = { id: string; label: string; prompt: string };
 export type Attribute = { id: string; label: string; options: Option[] };
@@ -261,7 +268,9 @@ const GLASS = '#DCE6E6';
 const SKIN = '#E7C8A2';
 const HAIR = '#352720';
 
-const DEFAULT_ROLE: Required<RoleColors> = {
+/** Resolved single colors for the people layer (no palette array). */
+type RC = { bride: string; groom: string; party: string; guest: string };
+const DEFAULT_ROLE: RC = {
   bride: '#FAF7F2',
   groom: '#222634',
   party: '#B98AA0',
@@ -781,7 +790,7 @@ function suitFig(cx: number, baseY: number, h: number, color: string): string {
     figHead(cx, baseY - h * 0.8, h * 0.13)
   );
 }
-function people(who: string, rc: Required<RoleColors>): string {
+function people(who: string, rc: RC, guestPalette: string[]): string {
   if (who === 'none') return '';
   let s = '';
   if (who === 'couple_party' || who === 'everyone') {
@@ -789,10 +798,23 @@ function people(who: string, rc: Required<RoleColors>): string {
     s += gownFig(572, 386, 42, rc.party) + suitFig(600, 386, 42, rc.party);
   }
   if (who === 'everyone') {
-    const gol = outlineOf(rc.guest);
-    for (const [tx, ty] of [[150, 498], [810, 498], [240, 414], [720, 414]] as [number, number][]) {
-      s += `<rect x="${(tx - 21).toFixed(1)}" y="${(ty + 2).toFixed(1)}" width="13" height="10" rx="3" fill="${rc.guest}" stroke="${gol}" stroke-width="0.8"/><rect x="${(tx + 8).toFixed(1)}" y="${(ty + 2).toFixed(1)}" width="13" height="10" rx="3" fill="${rc.guest}" stroke="${gol}" stroke-width="0.8"/>`;
-      s += figHead(tx - 14.5, ty, 6.5) + figHead(tx + 14.5, ty, 6.5);
+    // guests as visible standing figures flanking each table, showing their
+    // dress code — cycle the guest dress-code palette so the code reads as a
+    // coordinated set, not one flat color.
+    const gp = guestPalette.length ? guestPalette : [rc.guest];
+    let gi = 0;
+    const tablePos: [number, number, number][] = [
+      [150, 520, 60],
+      [810, 520, 60],
+      [240, 432, 44],
+      [720, 432, 44],
+    ];
+    for (const [tx, ty, r] of tablePos) {
+      const baseY = ty + r * 0.36;
+      const gh = r > 50 ? 32 : 27;
+      const cL = gp[gi++ % gp.length]!;
+      const cR = gp[gi++ % gp.length]!;
+      s += gownFig(tx - r - 5, baseY, gh, cL) + suitFig(tx + r + 5, baseY, gh, cR);
     }
   }
   // couple — focal, in front of the stage
@@ -808,12 +830,15 @@ export function renderVenueSvg(
   roleColors?: RoleColors,
 ): string {
   const P = paletteFn(palette);
-  const rc: Required<RoleColors> = {
+  const rc: RC = {
     bride: clampHex(roleColors?.bride || DEFAULT_ROLE.bride),
     groom: clampHex(roleColors?.groom || DEFAULT_ROLE.groom),
     party: clampHex(roleColors?.party || DEFAULT_ROLE.party),
     guest: clampHex(roleColors?.guest || DEFAULT_ROLE.guest),
   };
+  const guestPalette = (roleColors?.guestPalette ?? []).filter((c) =>
+    /^#[0-9a-fA-F]{6}$/.test(c),
+  );
   const W = 960,
     H = 640;
   const aisleTint = sel(design, 'entrance', 'runner') === 'fabric' ? P(1) : shade(P(1), 70);
@@ -839,7 +864,7 @@ export function renderVenueSvg(
       sel(design, 'tables', 'place'),
       P,
     ),
-    people(sel(design, 'people', 'who'), rc),
+    people(sel(design, 'people', 'who'), rc, guestPalette),
     entrance(sel(design, 'tunnel', 'style'), sel(design, 'entrance', 'runner'), P),
     `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
     `</svg>`,
@@ -862,7 +887,7 @@ export function buildPrompt(
   }
   // People clause — injected with the actual role attire colors so one render
   // shows the venue AND everyone in their attire.
-  const rc: Required<RoleColors> = {
+  const rc: RC = {
     bride: roleColors?.bride || DEFAULT_ROLE.bride,
     groom: roleColors?.groom || DEFAULT_ROLE.groom,
     party: roleColors?.party || DEFAULT_ROLE.party,
@@ -873,7 +898,15 @@ export function buildPrompt(
     let people = `the bride in a ${rc.bride} gown and the groom in a ${rc.groom} suit standing at the center stage`;
     if (who === 'couple_party' || who === 'everyone')
       people += `, bridesmaids and groomsmen in ${rc.party} attire beside them`;
-    if (who === 'everyone') people += `, and guests in ${rc.guest} attire seated at the tables`;
+    if (who === 'everyone') {
+      const dress = (roleColors?.guestPalette ?? [])
+        .filter((c) => /^#[0-9a-fA-F]{6}$/.test(c))
+        .slice(0, 4);
+      const dressClause = dress.length
+        ? `a coordinated ${dress.join(', ')} dress code`
+        : `${rc.guest} attire`;
+      people += `, and well-dressed guests in ${dressClause} around the tables`;
+    }
     phrases.push(people);
   }
   const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 4);

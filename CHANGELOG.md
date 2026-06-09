@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): guests show their dress code in-scene (0010)
+
+**Context:** Owner: "each guest needs a dress code — we need them to show their dress code, not just sitting behind." Guests were tiny seated heads; now they're **visible standing figures** flanking each table, each wearing a color from the **guest dress-code palette** (cycled so the code reads as a coordinated set, not one flat color).
+
+**`lib/reception-scene.ts`:** `RoleColors` gains `guestPalette` (the multi-color dress code); the People layer renders gown/suit guest figures beside the 4 tables in cycling dress-code colors (with the contrast outlines). `buildPrompt()` describes it: *"well-dressed guests in a coordinated #…, #…, #… dress code around the tables."* `page.tsx` passes `guestPalette: palette.guest`. Internal `RC` type split out so the single-color role set isn't forced to carry the palette array. No migration.
+
+**Verification:** typecheck + lint ✅; rendered the "everyone" scene with a 4-color dress code — guests visibly wear the varied dress-code colors at every table.
+
+**SPEC IMPACT:** 0010 reception designer shows guests in their dress-code attire (Guest Dress Code palette), so the AI render brief carries the dress code too.
+
+
 ## 2026-06-09 · feat(website): demo phase override — preview RSVP / Event / Editorial on a test event
 
 **Context:** Owner wants the **RSVP demo and the Event demo working** too (not just Editorial). The lifecycle phase is date-driven, and the "Event" (live day-of) phase is only a **T-1h…T+8h window**, so it can't be demoed on a fixed date. Added a **preview override** so all three phases are viewable anytime on the test event.

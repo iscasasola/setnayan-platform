@@ -21,6 +21,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Owner action:** the migration must be applied to prod (`supabase db push` / direct DDL) for the feature to activate; until then the page degrades to empty (graceful).
 
 **SPEC IMPACT:** PR 4 of `Admin_Console_Nav_Redesign_2026-06-08.md`; builds the §9.1 two-admin primitive (0023 §4). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(services): Budget "Build" — Pin modes on the Build tab (Phase 3a, flag-dark)
+
+**Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md`). "Pin one, recommend the rest" — a **"What is fixed?"** segmented control wraps the Build allocator. Two of the three pins already work on today's engine, so this is the UI that exposes them; date re-pricing is Phase 3b.
+
+**What landed (`build-pins.tsx`, wrapping the planner in `page.tsx` `buildSlot`):**
+- **Budget** (default) → the median-anchored allocator recommends the service mix (unchanged).
+- **Services** → "your chosen services typically cost **₱X–₱Y**" (Σ of the leaf ranges) + a **Find your date** CTA → `/find-date`.
+- **Date** → a Pin-your-date panel bridging to `/find-date` (which already ranks dates by vendors-kept). Date-aware pricing labelled "coming next" (3b).
+
+**Reuse, not fork:** the per-category price pin is already the planner's peso-pin; the date-solve is the existing `/find-date` Schedule-Matrix Date Finder. The shared `BudgetAllocationPlanner` is untouched (wrapped, not modified — Budget tab unaffected). Pin mode is local UI state.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Phase 3a of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. Next: 3c (pax-axis pricing) → 3b (date-aware pricing) → 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-a — chat FREE-block · editorial tag-gate · custom-slug PRO/ENT
 
 **Context:** #4 (Phase C feature gates) of "do 1–5" on the tier matrix, split into 3 PRs by file-locality. **PR-a = the 3 clean, zero-migration, low-risk gates** verified "sound/ship-it" by the banked design pass (`Vendor_Tier_4_PhaseC_Gates_Spec_2026-06-09.json`).

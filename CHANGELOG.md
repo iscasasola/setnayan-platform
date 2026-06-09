@@ -25,7 +25,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Designer (`reception-designer.tsx`, new):** the venue renders live; the couple **taps a part** (SVG hotspots + a part selector) and picks a treatment → the scene updates instantly. Auto-saves to `events.reception_design`.
 
-**Wiring:** `page.tsx` adds a "Design your reception" section; **Reception is removed from the simple per-element board** (the designer replaces the static reception card). `saveReceptionDesign` action sanitizes against the known parts/treatments. Migration `20261002000000` (**applied to prod**) adds `events.reception_design JSONB DEFAULT '{}'` (additive, idempotent).
+**Wiring:** `page.tsx` adds a "Design your reception" section; **Reception is removed from the simple per-element board** (the designer replaces the static reception card). `saveReceptionDesign` action sanitizes against the known parts/treatments. Migration `20261003000000` (**applied to prod**) adds `events.reception_design JSONB DEFAULT '{}'` (additive, idempotent).
 
 **SPEC IMPACT:** 0010 Mood Board gains the free curated reception designer (the spec's stylist "Composite Scene" intent, delivered as a free stylized layer; the photoreal AI render stays the premium tier). Treatment taxonomy + the `reception_design` shape are new.
 ## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode

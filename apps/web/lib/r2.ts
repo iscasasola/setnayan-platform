@@ -96,6 +96,22 @@ export function getR2Client(): S3Client | null {
       accessKeyId: accessKeyId as string,
       secretAccessKey: secretAccessKey as string,
     },
+    // Cloudflare R2 compatibility. As of @aws-sdk/client-s3 v3.729 the SDK
+    // defaults `requestChecksumCalculation` to `WHEN_SUPPORTED`, which injects
+    // an `x-amz-checksum-crc32` (+ `x-amz-sdk-checksum-algorithm`) header into
+    // PutObject — including the headers it folds into a PRESIGNED PUT URL. R2
+    // doesn't implement that header, so a browser XHR PUT to the presigned URL
+    // is rejected ("NotImplemented: Header 'x-amz-checksum-crc32' …"), which
+    // the browser surfaces as an opaque network error. That broke every
+    // direct-to-R2 browser upload (<FileUpload> → /api/upload): payment-proof
+    // screenshots, vendor/contract files, website chrome, and the onboarding
+    // background-music uploader. Forcing `WHEN_REQUIRED` restores the
+    // pre-3.729 behavior (no checksum unless a command explicitly asks for
+    // one), which is what R2 expects.
+    // Refs: github.com/aws/aws-sdk-js-v3/issues/6810 ·
+    //       community.cloudflare.com/t/758637
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   return _client;
 }

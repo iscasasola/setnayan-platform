@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tier): #5 self-serve subscription checkout (apply-then-pay · admin-approve) — tier work COMPLETE
+
+**Context:** Final build of "do 1–5" (Phase D). Vendors self-serve upgrade to Pro/Enterprise: apply-then-pay → admin approves the payment → `tier_state` flips + the per-period token bundle is granted; lapse auto-downgrades on next login (cron-free). Cloned from the proven vendor token-pack purchase flow. Built by an impl agent against the banked spec `Vendor_Tier_5_SelfServe_Spec_2026-06-09.json` **with all 8 verifier fixes baked in**; the security-critical migration was hand-reviewed + a non-destructive auto-rollback smoke test confirmed the money-path.
+
+**What landed:**
+- **Migration `20261010000000_vendor_subscription_checkout.sql`** (applied to prod + tracked): `vendor_profiles.tier_expires_at` + `tier_billing_cycle`; new `vendor_subscriptions` table (RLS at create — vendor-reads-own + `is_console_admin()` reads-all; no direct write policy); 6 SECURITY DEFINER RPCs:
+  - `create_vendor_subscription(sku)` — vendor mints a `SUB-` pending order; **price resolved from the DB `vendor_billing_catalog`** (Pro ₱6,000/28d·₱60,000/yr · Ent ₱10,000/28d·₱100,000/yr — already canonical at HEAD, no reprice needed).
+  - `_apply_subscription_credit` — shared core, **REVOKEd from PUBLIC/anon/authenticated**; `FOR UPDATE` + idempotent `status='paid'` guard; **stacking renewal** (`GREATEST(now, expires) + period`); grants the bundle via the real 7-arg `grant_admin_direct_tokens(…, 'admin_grant', reviewer, …, 'sub_bundle:'||id)` (30/300/100/1000 per tier×cycle, one-shot TTL=period).
+  - `approve_vendor_subscription` (internal `is_console_admin()` gate), `confirm_vendor_subscription_by_reference` (**service_role ONLY** — a vendor can never self-confirm), `reject_vendor_subscription`, `sweep_vendor_tier_expiry` (downgrade `tier_state` → `verified` if verification_state='verified' else `free`; flips tier only — over-cap agents/photos/categories intentionally left intact in V1).
+- **Vendor UI** `/vendor-dashboard/subscription` (Pro/Ent cards · monthly/annual toggle · current-tier + renewal-date + expires-soon badge · `?ordered=` BDO/GCash instructions) + `startSubscriptionPurchase` action + sidebar "Subscription" nav.
+- **Admin queue** `/admin/subscriptions` (pending list · Approve/Reject) registered in the admin Work nav + bottom-nav + `/admin/work` feed.
+- **Lapse wiring** — `sweep_vendor_tier_expiry` called best-effort beside the existing `sweepLapsedSubscriptions` in `vendor-dashboard/profile/page.tsx` (login-driven, cron-free).
+- **Deferred (owner-confirmed):** import-customer 1-token charge (depends on the unbuilt outside-event sync feature). FREE-can-buy-tokens unchanged (2026-06-07 override stands). Buy-token flow already shipped.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓. Migration applied to prod (table + 2 cols + 6 RPCs + 2 policies + RLS) + version recorded. **Money-path smoke test (auto-rollback):** tier→pro, +30 wallet tokens, idempotent re-apply, lapse→free — all confirmed, zero prod mutation. Notification types reuse existing enum values (the single transactional migration can't `ALTER TYPE ADD VALUE`; bodies carry full specifics + deep-links).
+
+**Owner sign-off notes (defaults I chose — flag if you want different):** bundle `grant_source='admin_grant'` (the helper's CHECK forbids a `subscription_bundle` value · no migration); annual bundle = one-shot grant, TTL = 365d (not monthly-drip); lapse → verified-if-verified-else-free; over-cap data left intact in V1; multiple pending orders allowed (no "one-open" guard, matches token-pack).
+
+**SPEC IMPACT:** #5 → corpus `DECISION_LOG.md`. **The vendor-tier program (#1–#5) is COMPLETE.**
+
 ## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode
 
 **Context:** Owner walkthrough of the wedding onboarding (Photos 1–3). The `reception_setting`, `mood`, and `songs` screens were the last **hardcoded holdouts** in an otherwise taxonomy-DB-driven refinement flow (`onboarding_refinements` + the `RefineStep` template). Fold all three into the taxonomy pattern + two UX fixes.

@@ -67,6 +67,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/payments',
       '/admin/payouts',
       '/admin/token-purchases',
+      '/admin/subscriptions',
       '/admin/payment-options',
       '/admin/disputes',
       '/admin/force-majeure',

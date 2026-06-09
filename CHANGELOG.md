@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(budget): pax-axis benchmark normalization (Phase 3c — LIVE, both surfaces)
+
+**Context:** Phase 3c of the Pin solver plan. The admin **benchmark** amounts are flat (seeded around a typical wedding), so a 250-guest estimate was priced like a 150-guest one. This scales the benchmark band of clearly **per-head** leaves by `pax / 150`.
+
+**Change (`lib/budget-allocation-data.ts` · `resolveAllocationInputs`):** for `catering` (linear with guests) + `reception_venue`/`ceremony_venue` (size-driven), the benchmark `benchmark_php/floor/p25/p75` scale by `clamp(pax/150, 0.5, 3)`. **REAL vendor prices (medians + real ranges) are never scaled** — they already reflect the market. No effect at the 150 baseline or when pax is unknown.
+
+**⚠ Not flag-gated — by design.** `resolveAllocationInputs` is shared by the **Budget tab** (`/budget`) *and* the Build takeover, so the fix applies to **both** (they must agree). It only moves benchmark-regime per-head leaves; at ~150 pax nothing changes. `BASELINE_PAX` (150) + the per-head set are engineering constants (admin-tunable later), not invented prices.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓.
+
+**SPEC IMPACT:** Phase 3c of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. Next: 3b (date pricing) → 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(admin): two-admin (four-eyes) approval queue — /admin/approvals (nav redesign PR 4)
 
 **Context:** PR 4 (final core piece) of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §3.3). The audit found the §9.1 four-eyes loop **unbuilt** — `admin_approval_requests` was only a comment ("ships V1.x"). This builds the primitive end-to-end: one admin initiates a major decision, a **different** admin approves before it executes.

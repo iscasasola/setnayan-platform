@@ -26,6 +26,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean (0 errors, whole web app). New action + 1 new client component + 1 wiring edit; reads/writes only existing tables (`event_vendors` / `budget_category_flags` / `event_build_picks` / `events`) — no migration. Vercel-preview click-through pending.
 
 **SPEC IMPACT:** Part 4/6 (final) of the Services 5-tab redesign (owner 2026-06-09). Adds the shortlist-assembly Compute semantics atop the existing marketplace auto-fill. UI + read-model only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09 (Plan Builder sync program).
+## 2026-06-09 · feat(admin): "New vendor requests" — couple manual-adds surface in admin
+
+**Context:** Owner 2026-06-09 — when a couple "Add manually"s a vendor on their Shortlist, that mints a **couple-source** claim invite; those should be "listed as new vendor requests on admin." The admin Vendors page previously surfaced only **admin-source** unclaimed invites.
+
+- `apps/web/app/admin/vendors/page.tsx`: a new **"New vendor requests"** section above the Unclaimed list — fetches `vendor_invites` where `source='couple'` AND `status='pending'` (limit 50, newest first) and renders a table (Business · Category · Contact · Requested date · Claim link → `/vendor/claim/[token]`). Hidden entirely when there are none. Admin client read (admin-only surface).
+
+**Verification:** `tsc --noEmit` clean. Read-only admin surface; no schema change (the couple-source invite is already minted by the existing manual-add flow).
+
+**SPEC IMPACT:** Adds the admin visibility for the manual-add → claim flow (companion to the Services redesign Part 5). No SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09.
 
 ## 2026-06-09 · feat(tokens): manual-add claim → flat 1-token burn (0016 sync)
 

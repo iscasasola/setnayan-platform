@@ -130,6 +130,30 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
     };
   });
 
+  // New vendor requests (owner 2026-06-09) — when a couple "Add manually"s a
+  // vendor on their Shortlist, that mints a COUPLE-source claim invite. Surface
+  // those pending requests here so the team can see who's being invited onto the
+  // platform + nudge / reach out. Pending + couple-source only (admin-source
+  // rows render in the Unclaimed section above; claimed/expired drop off).
+  const { data: requestRaw } = await admin
+    .from('vendor_invites')
+    .select('invite_id, public_id, business_name, service_category, email, claim_token, sent_at, expires_at')
+    .eq('source', 'couple')
+    .eq('status', 'pending')
+    .order('sent_at', { ascending: false })
+    .limit(50);
+  type CoupleRequestRow = {
+    invite_id: string;
+    public_id: string | null;
+    business_name: string | null;
+    service_category: string | null;
+    email: string | null;
+    claim_token: string | null;
+    sent_at: string | null;
+    expires_at: string | null;
+  };
+  const requestRows = (requestRaw ?? []) as CoupleRequestRow[];
+
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
@@ -145,6 +169,68 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
       </header>
 
       <InviteVendorForm />
+
+      {/* New vendor requests — couples' manual-adds awaiting a vendor claim
+          (owner 2026-06-09). Each is a couple-source pending invite minted by
+          the Shortlist "Add manually" flow. Hidden when there are none. */}
+      {requestRows.length > 0 ? (
+        <section className="mb-8 space-y-3">
+          <header>
+            <h2 className="text-base font-semibold tracking-tight">
+              New vendor requests
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                {requestRows.length}
+              </span>
+            </h2>
+            <p className="text-sm text-ink/60">
+              Vendors a couple added by hand on their plan — waiting for the vendor to claim the
+              invite. Reach out to help them onboard.
+            </p>
+          </header>
+          <div className="overflow-hidden rounded-xl border border-ink/10">
+            <table className="w-full text-sm">
+              <thead className="bg-ink/[0.03] text-left text-xs uppercase tracking-wide text-ink/55">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Business</th>
+                  <th className="px-4 py-2 font-medium">Category</th>
+                  <th className="px-4 py-2 font-medium">Contact</th>
+                  <th className="px-4 py-2 font-medium">Requested</th>
+                  <th className="px-4 py-2 font-medium">Claim link</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/8">
+                {requestRows.map((r) => (
+                  <tr key={r.invite_id}>
+                    <td className="px-4 py-2.5 font-medium text-ink">
+                      {r.business_name ?? '—'}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink/70">
+                      {r.service_category ? displayServiceLabel(r.service_category) : '—'}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink/70">{r.email ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-ink/55">
+                      {r.sent_at ? new Date(r.sent_at).toLocaleDateString('en-PH') : '—'}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {r.claim_token ? (
+                        <Link
+                          href={`${siteUrl}/vendor/claim/${r.claim_token}`}
+                          className="text-mulberry hover:underline"
+                          target="_blank"
+                        >
+                          Open
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {unclaimedRows.length > 0 ? (
         <section className="mb-8 space-y-3">

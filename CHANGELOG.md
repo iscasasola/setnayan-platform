@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — Flag generation / AI auto-fill (PR-2, flag-dark)
+
+**Context:** PR-2 of Lock vs Flag (plan §12) — the generation. Owner: "build it now (reuse the live add-action)." For the couple's 🚩 flagged categories, Setnayan AI auto-adds the top match to the Shortlist.
+
+**What landed:**
+- `build-flags-actions.ts` — `generateFlaggedVendors({ eventId })`: **server-verifies the paid gate** (`isSetnayanAiActive`, never trusts the client) → for each flagged `plan_group_id`, runs `searchCategoryVendors({eventId, groupId})` → takes the top **not-already-added** ranked match → attaches it via the **existing, proven `attachMarketplaceVendorToCategory`** (which validates the category — invalid → skipped, never mis-categorized — dedups via 'already_attached', looks up the service, and stamps `source: 'host_marketplace_search'`). **Non-destructive:** writes only `event_vendors` 'considering' (the bench), couple-removable. Returns `{ added, skipped }`.
+- `category-flags.tsx` — an **"Auto-fill N flagged with Setnayan AI"** button (shown only when AI is on + there are flagged categories) → calls the action → result message ("Added N matches to your Shortlist" / "No new matches — widen your area").
+
+**Reuse, not reinvent:** the 3 write pitfalls (category mapping, `source` enum, dedup) are all handled by the existing `attachMarketplaceVendorToCategory` — PR-2 only orchestrates (flag → search → attach).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. **⚠ The write orchestration is not runtime-tested** (no browser/test-couple access this session) — recommend a smoke-test on a flipped-flag preview as the test couple. Behind `BUDGET_BUILD_ENABLED`; AI-gated; explicit-click; reversible.
+
+**SPEC IMPACT:** Completes plan §12 (Lock vs Flag). **Budget "Build" total: 18 PRs.** Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
 
 **Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category: **🔒 Lock** = decided, untouched; **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). PR-1 = marker + persistence + UX; generation is PR-2.

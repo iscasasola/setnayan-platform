@@ -1278,6 +1278,13 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             const highlighted = highlightId === t.table_id;
             const dragging = dragId === t.table_id;
             const num = t.table_label.match(/\d+/)?.[0] ?? '';
+            // Serpentine (and any future curved shape) carries a closed polygon
+            // we draw as an SVG ribbon instead of a circle/rect hub. Seat-space
+            // is y-down, matching SVG, so the points feed straight in.
+            const ribbonPath = geo.outline
+              ? geo.outline.map((p, k) => `${k === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + 'Z'
+              : null;
+            const showRibbon = ribbonPath !== null && detail;
             // To-scale factor: render the table at its true footprint relative
             // to the room (1 when no venue size is set → unchanged appearance).
             const tableScale = pxPerMeter
@@ -1311,6 +1318,24 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                       opacity: 0.18,
                     }}
                   />
+                ) : null}
+
+                {/* serpentine ribbon body (curved table) — drawn behind the
+                    chairs, and itself the drag handle */}
+                {showRibbon ? (
+                  <svg
+                    className="absolute inset-0 h-full w-full overflow-visible"
+                    viewBox={`${-geo.box.w / 2} ${-geo.box.h / 2} ${geo.box.w} ${geo.box.h}`}
+                    onPointerDown={onHubPointerDown(t)}
+                    style={{ cursor: pickedId || pickedGroupId ? 'pointer' : dragging ? 'grabbing' : 'grab' }}
+                  >
+                    <path
+                      d={ribbonPath!}
+                      className={`fill-cream ${highlighted ? 'stroke-terracotta' : 'stroke-ink/25'}`}
+                      strokeWidth={2}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
                 ) : null}
 
                 {/* chairs — only at detail zoom; pucks when zoomed out */}
@@ -1382,25 +1407,36 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                     })
                   : null}
 
-                {/* hub (drag handle + place-at-next-free target) */}
-                <button
-                  type="button"
-                  onPointerDown={onHubPointerDown(t)}
-                  aria-label={`${t.table_label} — drag to move`}
-                  className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 select-none flex-col items-center justify-center border-2 bg-cream text-center shadow-sm transition ${
-                    highlighted ? 'border-terracotta' : 'border-ink/25'
-                  } ${pickedId ? 'cursor-pointer' : dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-                  style={{
-                    width: geo.hub.w,
-                    height: geo.hub.h,
-                    borderRadius: geo.hub.shape === 'round' ? '9999px' : geo.hub.radius,
-                  }}
-                >
-                  <span className="text-sm font-semibold text-ink">{num || '·'}</span>
-                  <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
-                    {filled}/{t.capacity}
-                  </span>
-                </button>
+                {/* hub (drag handle + place-at-next-free target) — for the
+                    serpentine ribbon the SVG above is the body + drag handle, so
+                    we show only a centred number/count badge here instead. */}
+                {showRibbon ? (
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
+                    <span className="text-sm font-semibold text-ink">{num || '·'}</span>
+                    <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                      {filled}/{t.capacity}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onPointerDown={onHubPointerDown(t)}
+                    aria-label={`${t.table_label} — drag to move`}
+                    className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 select-none flex-col items-center justify-center border-2 bg-cream text-center shadow-sm transition ${
+                      highlighted ? 'border-terracotta' : 'border-ink/25'
+                    } ${pickedId ? 'cursor-pointer' : dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                    style={{
+                      width: geo.hub.w,
+                      height: geo.hub.h,
+                      borderRadius: geo.hub.shape === 'round' ? '9999px' : geo.hub.radius,
+                    }}
+                  >
+                    <span className="text-sm font-semibold text-ink">{num || '·'}</span>
+                    <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                      {filled}/{t.capacity}
+                    </span>
+                  </button>
+                )}
               </div>
             );
           })}

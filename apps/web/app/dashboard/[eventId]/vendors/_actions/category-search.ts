@@ -31,6 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
@@ -291,6 +292,14 @@ export async function searchCategoryVendors(input: {
     // onboarding-only (the dashboard stores just the coarse venue_setting).
     eventType: (ev.event_type as string | null) ?? null,
     pax: (ev.estimated_pax as number | null) ?? null,
+    // Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). The
+    // dashboard Services surface is the ONLY caller that passes anchor coords,
+    // so the radius cut applies here but NOT on /vendors browse / onboarding.
+    // Verified vendors drop beyond 20km of the event, Pro beyond 50km;
+    // Enterprise (∞) + Free (0 = unscoped) + unknown tier are admitted.
+    // Null coords (event has no venue lat/lng) → radius scope off (fail-open).
+    anchorLat: lat,
+    anchorLng: lng,
     searchQuery: input.query,
     limit: 60,
   });
@@ -302,11 +311,16 @@ export async function searchCategoryVendors(input: {
   const ids = recs.map((r) => r.vendor_profile_id);
   const { data: profRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at, services')
+    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state')
     .in('vendor_profile_id', ids);
   const profById = new Map<
     string,
-    { screen_name: string | null; name_revealed_at: string | null; services: string[] | null }
+    {
+      screen_name: string | null;
+      name_revealed_at: string | null;
+      services: string[] | null;
+      tier_state: string | null;
+    }
   >();
   for (const p of profRows ?? []) {
     const row = p as {
@@ -314,11 +328,13 @@ export async function searchCategoryVendors(input: {
       screen_name: string | null;
       name_revealed_at: string | null;
       services: string[] | null;
+      tier_state: string | null;
     };
     profById.set(row.vendor_profile_id, {
       screen_name: row.screen_name,
       name_revealed_at: row.name_revealed_at,
       services: row.services,
+      tier_state: row.tier_state,
     });
   }
 
@@ -400,6 +416,8 @@ export async function searchCategoryVendors(input: {
       screen_name: prof?.screen_name ?? null,
       name_revealed_at: prof?.name_revealed_at ?? null,
       services: prof?.services ?? null,
+      // Phase C: Pro/Enterprise reveal real business_name day-1.
+      isPaidTier: isTrueNameTier(prof?.tier_state ?? null),
       primary_canonical_service: prof?.services?.[0] ?? null,
       location_city: r.location_city ?? null,
     });

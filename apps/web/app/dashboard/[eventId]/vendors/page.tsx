@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
@@ -153,7 +154,7 @@ export default async function VendorsPage({ params }: Props) {
         .in('vendor_profile_id', marketplaceIds),
       supabase
         .from('vendor_profiles')
-        .select('vendor_profile_id, name_revealed_at, screen_name')
+        .select('vendor_profile_id, name_revealed_at, screen_name, tier_state')
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
       // picked marketplace vendor for THIS event. Surfaces a Waiting / Open /
@@ -184,6 +185,7 @@ export default async function VendorsPage({ params }: Props) {
       vendor_profile_id: string;
       name_revealed_at: string | null;
       screen_name: string | null;
+      tier_state: string | null;
     };
 
     const statsByProfile = new Map<string, StatsRow>();
@@ -212,12 +214,13 @@ export default async function VendorsPage({ params }: Props) {
       const a = anonByProfile.get(pid);
 
       // Resolved (hybrid-anonymity) name: real business_name once revealed /
-      // venue-exempt; the screen name while still hidden. Marketplace surfaces
-      // have no subscription join, so isPaidTier=false (matches vendor-card).
+      // venue-exempt; the screen name while still hidden. Phase C: Pro/
+      // Enterprise (isTrueNameTier) reveal day-1; Free/Verified stay
+      // anonymized until name_revealed_at is stamped. `?? null` → free → hidden.
       const resolvedName = resolveVendorDisplayName({
         business_name: s.business_name,
         name_revealed_at: a?.name_revealed_at ?? null,
-        isPaidTier: false,
+        isPaidTier: isTrueNameTier(a?.tier_state ?? null),
         primary_canonical_service: s.services?.[0] ?? null,
         location_city: s.location_city,
         services: s.services,

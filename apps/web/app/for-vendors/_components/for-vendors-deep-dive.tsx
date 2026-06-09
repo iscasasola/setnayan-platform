@@ -87,7 +87,6 @@ const MATRIX_SECTIONS: MatrixSection[] = [
       ['Public vendor website', '—', 'Website', 'Custom website', 'Custom website'],
       ['Custom slug · setnayan.com/v/yourname', false, false, true, true],
       ['Bid Button on your website', false, false, true, true],
-      ['Video call with couples', false, true, true, true],
       ['Show star ratings on profile', false, true, true, true],
       ['Show full reviews on profile', false, false, true, true],
     ],

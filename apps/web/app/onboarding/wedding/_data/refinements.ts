@@ -76,9 +76,24 @@ const PV: RefineOption[] = [
   { emoji: '🎞️', label: 'Fine-art / film', key: 'pv_fineart', photo: PREFS('pv_fineart') },
   { emoji: '🎬', label: 'Cinematic', key: 'pv_cinematic', photo: PREFS('pv_cinematic') },
 ];
+/* Reception setting — the early "What setting do you love?" screen. Option keys are
+   PRESERVED as `setting_*` (load-bearing: the find screen's matchReceptionVenues + the
+   recap read prefs.reception keyed on these). Photos reuse the existing /prefs assets. */
+const RECEPTION: RefineOption[] = [
+  { emoji: '✨', label: 'Hotel ballroom', key: 'setting_ballroom', photo: PREFS('setting_ballroom') },
+  { emoji: '🎪', label: 'Events place', key: 'setting_events_place', photo: PREFS('setting_events_place') },
+  { emoji: '🏛️', label: 'Heritage', key: 'setting_heritage', photo: PREFS('setting_heritage') },
+  { emoji: '🍽️', label: 'Restaurant', key: 'setting_restaurant', photo: PREFS('setting_restaurant') },
+  { emoji: '🌿', label: 'Garden', key: 'setting_garden', photo: PREFS('setting_garden') },
+  { emoji: '🏖️', label: 'Beach', key: 'setting_beach', photo: PREFS('setting_beach') },
+  { emoji: '🌴', label: 'Resort / destination', key: 'setting_resort', photo: PREFS('setting_resort') },
+];
 
 export const REFINEMENTS_DATA: RefineLeaf[] = [
   // ── PROJECTABLE ──
+  // Reception is rendered EARLY (its own screen feeding `find`), not in the refine
+  // queue — stored straight to prefs.reception by the screen, never projected here.
+  { key: 'reception', label: 'Reception venue', description: 'Where your celebration happens — the dinner, the program, and the dancing.', mainPhoto: PREFS('setting_ballroom'), options: RECEPTION },
   { key: 'ceremony', label: 'Ceremony venue', description: 'Where you’ll say your vows.', mainPhoto: MAIN('ceremony'), dynamic: 'ceremony', options: [] },
   { key: 'catering', label: 'Catering', description: 'The feast your guests will remember.', mainPhoto: MAIN('catering'), options: CUISINE },
   { key: 'photo_video', label: 'Photo & Video', description: 'How your day is captured to keep.', mainPhoto: MAIN('photo_video'), options: PV },

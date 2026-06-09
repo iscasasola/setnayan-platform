@@ -14,6 +14,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { SaveVendorButton } from '../_components/save-vendor-button';
@@ -54,6 +55,10 @@ type CompareRow = {
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
   is_demo: boolean | null;
+  // Phase C tier gate (vendor-tier-caps) · drives the Rating-cell display
+  // gate: Free (reviewStarsCounted=false) renders 'new' instead of the
+  // hidden star average. `?? null` → free → gated when the column is absent.
+  tier_state: string | null;
 };
 
 /**
@@ -136,7 +141,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   const { data: rowsRaw } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,tier_state',
     )
     .in('vendor_profile_id', ids)
     .in('public_visibility', ['verified', 'coming_soon'])
@@ -411,8 +416,15 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
               <CompareRowEl label="Rating">
                 {rows.map((row) => {
                   const stats = reviewStats.get(row.vendor_profile_id);
-                  const rating = stats?.avg_rating_overall ?? 0;
-                  const count = stats?.total_count ?? 0;
+                  // Phase C review-display gate (vendor-tier-caps · surface
+                  // layer). Free vendors (reviewStarsCounted=false) render
+                  // 'new' / no count rather than their tier-HIDDEN stars.
+                  // Gated HERE, not in fetchReviewStatsForMany, so the vendor's
+                  // own dashboard self-view stays ungated. `?? null` → free.
+                  const starsCounted = tierCaps(row.tier_state ?? null)
+                    .reviewStarsCounted;
+                  const rating = starsCounted ? (stats?.avg_rating_overall ?? 0) : 0;
+                  const count = starsCounted ? (stats?.total_count ?? 0) : 0;
                   return (
                     <td
                       key={row.vendor_profile_id}

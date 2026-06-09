@@ -125,12 +125,21 @@ const LOVE_SKIPPABLE: ReadonlySet<ScreenId> = new Set(['love_spark','love_almost
    kind of X?" engine) are present too — both AI-gated, so AI=No (or undecided) skips straight
    past all six to account → congrats. */
 const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['team_basics','refine_basic','team_extras','refine_extras','songs','mood']);
-function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null): ScreenId[] {
+/* `songs` shows only when the couple picked a live-music maker (owner 2026-06-09 — "only
+   show when Band/Orchestra/Wedding Singer is picked"); `mood` shows only when they picked a
+   Stylist/Decorator (mood IS that refinement now). Both still ride the AI gate above; picks
+   are known by these screens (they follow team_basics/team_extras in the flow). */
+const SONG_PICK_CATS: ReadonlySet<string> = new Set(['live_band', 'orchestra', 'wedding_singer']);
+function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
+  const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
+  const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(id === 'account' && authed) &&                // signed-in users skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
-    !(ai !== true && TEAM_AI_ONLY.has(id))          // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
+    !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
+    !(id === 'songs' && !hasMusician) &&            // songs only when a Band / Orchestra / Wedding Singer is picked
+    !(id === 'mood' && !hasStylist)                 // mood (= the stylist refinement) only when Stylist/Decorator is picked
   );
 }
 
@@ -420,9 +429,21 @@ const FEELS: Record<string, string[] | null> = {
   others: null,
 };
 const FEELLBL: Record<string, string> = { timeless: 'Timeless', modern: 'Modern', boho: 'Boho', rustic: 'Rustic', glam: 'Glam', royalty: 'Royalty', filipiniana: 'Filipiniana', others: 'Others' };
-/* placeholder glyph — shown only for a feel with no photo (just `others`). */
-const FEELEMOJI: Record<string, string> = { timeless: '✨', modern: '◻️', boho: '🌾', rustic: '🌿', glam: '💎', royalty: '👑', filipiniana: '🌺', others: '🎨' };
-const FEEL_CHIPS = ['timeless', 'modern', 'boho', 'rustic', 'glam', 'royalty', 'filipiniana', 'others'];
+/* mood `stylist` refinement option → existing palette feel (owner 2026-06-09 — "keep the
+   palette, mapped per stylist style"). The stylist option keys (=== labels, from the DB
+   `stylist` leaf) map onto the FEELS palettes + feel_*_<tier> photos so the swatch reveal +
+   the commit's moodFeelKey/basic_moodboard are unchanged. `Themed` → 'others' (no fixed palette).
+   An unmapped (admin-added) style falls back to the timeless palette so it never breaks. */
+const STYLE_TO_FEEL: Record<string, string> = {
+  'Modern minimalist': 'modern',
+  'Traditional classic': 'timeless',
+  'Rustic / industrial': 'rustic',
+  Bohemian: 'boho',
+  'Luxe glamour': 'glam',
+  'Garden / organic': 'boho',
+  Themed: 'others',
+};
+const feelForStyle = (styleKey: string): string => STYLE_TO_FEEL[styleKey] ?? 'timeless';
 /* photo-card option sets: [emoji, label, prefs-photo-key] */
 const RECEPTION_SETTINGS: [string, string, string][] = [['✨', 'Hotel ballroom', 'setting_ballroom'], ['🎪', 'Events place', 'setting_events_place'], ['🏛️', 'Heritage', 'setting_heritage'], ['🍽️', 'Restaurant', 'setting_restaurant'], ['🌿', 'Garden', 'setting_garden'], ['🏖️', 'Beach', 'setting_beach'], ['🌴', 'Resort / destination', 'setting_resort']];
 // Ceremony venue options are FAITH-ADAPTIVE — Setnayan caters every tradition,
@@ -496,7 +517,9 @@ const PV_INCLUDED = ['Pre-nup', 'Wedding day', 'Same-day edit', 'Drone', 'Save-t
    picked AND has a REFINEMENTS entry → an extras-pick like host_mc (no entry) drops out,
    and a pass can end up empty → the go() re-entry loop skips it. */
 const REFINE_BASIC_ORDER: readonly string[] = BASIC_CATS;
-const EXTRAS_ORDER: string[] = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat)).filter((c) => c !== 'reception' && !BASIC_SET.has(c));
+// Exclude reception (captured on reception_setting) AND stylist (captured on the `mood`
+// screen — it IS the stylist refinement now, owner 2026-06-09) so neither is re-asked here.
+const EXTRAS_ORDER: string[] = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat)).filter((c) => c !== 'reception' && c !== 'stylist' && !BASIC_SET.has(c));
 function refineBasicQueueFor(picks: string[]): string[] {
   return REFINE_BASIC_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS_BY_KEY);
 }
@@ -540,21 +563,31 @@ function projectRefinementsToPrefs(refinements: Record<string, string[]>, faith:
    ceremony leaf is faith-adaptive (options from ceremonyOptsFor, reusing the /prefs photos).
    COVERT: copy is "what kind of X?" service-shaped only — never love/song/pricing. */
 function RefineStep({
-  scope,
-  queue,
-  idx,
+  scope = 'extras',
+  queue = [],
+  idx = 0,
   leafData,
   faith,
   chosen,
   onToggle,
+  hideProgress = false,
+  eyebrow: eyebrowProp,
+  title: titleProp,
+  subtitle: subtitleProp,
 }: {
-  scope: 'basic' | 'extras';
-  queue: string[];
-  idx: number;
+  scope?: 'basic' | 'extras';
+  queue?: string[];
+  idx?: number;
   leafData: RefineLeaf;
   faith: OnboardingFaith[];
   chosen: string[];
   onToggle: (leaf: string, optKey: string) => void;
+  /** Standalone (non-queue) use — hides the "Service N of M" progress + dots. */
+  hideProgress?: boolean;
+  /** Override eyebrow / title / sub for a standalone screen (reception, mood). */
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
 }) {
   const leaf = leafData.key;
   // Ceremony is faith-adaptive: resolve its options from ceremonyOptsFor + reuse the /prefs photos.
@@ -562,14 +595,19 @@ function RefineStep({
     leafData.dynamic === 'ceremony'
       ? ceremonyOptsFor(faith).map(([emoji, label, key]) => ({ emoji, label, key, photo: PREFS_ASSET(key) }))
       : leafData.options;
-  const eyebrow = scope === 'basic' ? 'Refine your essentials' : 'Refine the extras you love';
+  const eyebrow = eyebrowProp ?? (scope === 'basic' ? 'Refine your essentials' : 'Refine the extras you love');
+  const title = titleProp ?? `What kind of ${leafData.label.toLowerCase()}?`;
+  const subtitle =
+    subtitleProp ?? `${leafData.description ? leafData.description + ' ' : ''}Pick the ones that feel like you — we’ll match the rest.`;
   return (
     <div className="prefstep refinestep">
       <div className="viewzone">
-        <div className="prefprog">
-          <span className="prefcount">Service {idx + 1} of {queue.length} · {leafData.label}</span>
-          <span className="prefdots">{queue.map((_, d) => <i key={d} className={d <= idx ? 'on' : ''} />)}</span>
-        </div>
+        {hideProgress ? null : (
+          <div className="prefprog">
+            <span className="prefcount">Service {idx + 1} of {queue.length} · {leafData.label}</span>
+            <span className="prefdots">{queue.map((_, d) => <i key={d} className={d <= idx ? 'on' : ''} />)}</span>
+          </div>
+        )}
         {/* MAIN photo on top + description (owner 2026-06-08, item 8) */}
         {leafData.mainPhoto ? (
           <figure className="refine-hero">
@@ -577,8 +615,8 @@ function RefineStep({
           </figure>
         ) : null}
         <div className="eyebrow">{eyebrow}</div>
-        <h1 className="q">What kind of {leafData.label.toLowerCase()}?</h1>
-        <p className="sub">{leafData.description ? leafData.description + ' ' : ''}Pick the ones that feel like you {'\u2014'} we{'\u2019'}ll match the rest.</p>
+        <h1 className="q">{title}</h1>
+        <p className="sub">{subtitle}</p>
       </div>
       <div className="tapzone">
         <Rail className="car refine-rail">
@@ -1536,7 +1574,7 @@ export function OnboardingShell({
             Math.max(0, saved.step ?? 0),
             // Pass saved.ai (PR-1 field; legacy drafts saved before PR-1 fall back to null
             // = AI not yet asked → picker/prefs filtered out until they tap Yes on aigate).
-            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null).length - 1,
+            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null, saved.picks ?? []).length - 1,
           );
           setState({ ...EMPTY_ONBOARDING_STATE, ...saved, step: clampedStep, startedAt });
         } else {
@@ -1577,7 +1615,7 @@ export function OnboardingShell({
   useEffect(() => {
     if (hydrated && resume && authed) {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks);
         const ci = sq.indexOf('congrats');
         return ci >= 0 && s.step < ci ? { ...s, step: ci } : s;
       });
@@ -1598,7 +1636,7 @@ export function OnboardingShell({
      sequence). buildSequence drops faith for Civil + account for signed-in users,
      so the same numeric step addresses a different screen depending on those forks —
      exactly the old skip behaviour, now via array membership. */
-  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai), [state.kind, authed, state.loveSkipped, state.ai]);
+  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks), [state.kind, authed, state.loveSkipped, state.ai, state.picks]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
 
@@ -1672,7 +1710,7 @@ export function OnboardingShell({
     (d: number) => {
       if (d === 0) return;
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks);
         const activeIdNow = sq[Math.min(Math.max(0, s.step), sq.length - 1)] ?? 'welcome';
         // ── refine re-entry: walk the queued leaves within the active pass before leaving ──
         if (REFINE_SCREENS.has(activeIdNow) && s.ai === true) {
@@ -1704,7 +1742,7 @@ export function OnboardingShell({
   const goToId = useCallback(
     (id: ScreenId) => {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks);
         const i = sq.indexOf(id);
         return i >= 0 ? { ...s, step: i } : s;
       });
@@ -1800,7 +1838,7 @@ export function OnboardingShell({
      excludes the love screens when we resolve 'region''s index. */
   const loveSkip = useCallback(() => {
     setState((s) => {
-      const sq = buildSequence(s.kind, authed, true, s.ai);
+      const sq = buildSequence(s.kind, authed, true, s.ai, s.picks);
       const i = sq.indexOf('region');
       return { ...s, loveSkipped: true, step: i >= 0 ? i : s.step };
     });
@@ -1936,6 +1974,21 @@ export function OnboardingShell({
       const nextLeaf = cur.includes(optKey) ? cur.filter((x) => x !== optKey) : [...cur, optKey];
       const refinements = { ...s.refinements, [leaf]: nextLeaf };
       return { ...s, refinements, prefs: { ...s.prefs, ...projectRefinementsToPrefs(refinements, s.faith) } };
+    });
+  }, []);
+
+  /* mood = the stylist refinement (owner 2026-06-09). SINGLE-select: store the chosen style in
+     refinements.stylist (taxonomy) AND derive prefs.feel via STYLE_TO_FEEL in the SAME setState so
+     the palette swatches + the commit's moodFeelKey/basic_moodboard keep working. Tapping the
+     selected style again clears both (lets the couple un-pick). */
+  const pickStyle = useCallback((optKey: string) => {
+    setState((s) => {
+      const isOn = s.refinements.stylist?.[0] === optKey;
+      return {
+        ...s,
+        refinements: { ...s.refinements, stylist: isOn ? [] : [optKey] },
+        prefs: { ...s.prefs, feel: isOn ? null : feelForStyle(optKey) },
+      };
     });
   }, []);
 
@@ -3588,29 +3641,34 @@ export function OnboardingShell({
             <div className="tapzone" />
           </section>
 
-          {/* RECEPTION_SETTING — photo-card multi-select → prefs.reception (prototype s1type).
-              Promotes the reception dimension OUT of the StyleSubStepper; reuses the existing
-              RECEPTION_SETTINGS keys + PCard + Rail so prefs.reception keeps its exact shape. */}
+          {/* RECEPTION_SETTING — now the FIRST taxonomy refinement, rendered with the UNIFORM
+              RefineStep template (4:3 hero + 4:3 option carousel · owner 2026-06-09), DB-sourced
+              from the `reception` leaf (getOnboardingRefinements → refinementsByKey, static fallback).
+              Option keys stay `setting_*` and write straight to prefs.reception (NOT state.refinements)
+              so the `find` venue match + the recap keep working unchanged. Standalone (early, pre-aigate,
+              always shown) → hideProgress + custom copy. */}
           <section className={`screen${activeId === 'reception_setting' ? ' active' : ''}`} id="screen-reception-setting">
-            <div className="viewzone">
-              <div className="eyebrow">Reception</div>
-              <h1 className="q">What setting do you love?</h1>
-              <p className="sub">Pick one or two — we{'’'}ll lead with venues that match.</p>
-            </div>
-            <div className="tapzone">
-              <Rail className="pgrid strip">
-                {RECEPTION_SETTINGS.map(([e, l, k]) => (
-                  <PCard
-                    key={k}
-                    emoji={e}
-                    label={l}
-                    photoKey={k}
-                    selected={state.prefs.reception.includes(k)}
-                    onClick={() => patchPrefs({ reception: state.prefs.reception.includes(k) ? state.prefs.reception.filter((x) => x !== k) : [...state.prefs.reception, k] })}
-                  />
-                ))}
-              </Rail>
-            </div>
+            {activeId === 'reception_setting' && (() => {
+              const receptionLeaf = refinementsByKey['reception'] ?? REFINEMENTS_BY_KEY['reception'];
+              return receptionLeaf ? (
+                <RefineStep
+                  leafData={receptionLeaf}
+                  faith={state.faith}
+                  chosen={state.prefs.reception}
+                  onToggle={(_leaf, key) =>
+                    patchPrefs({
+                      reception: state.prefs.reception.includes(key)
+                        ? state.prefs.reception.filter((x) => x !== key)
+                        : [...state.prefs.reception, key],
+                    })
+                  }
+                  hideProgress
+                  eyebrow="Reception"
+                  title="What setting do you love?"
+                  subtitle="Pick one or two — we’ll lead with venues that match."
+                />
+              ) : null;
+            })()}
           </section>
 
           {/* TEAM_BASICS — pax-style: a maximized hero photo of the focused essential (top)
@@ -3741,7 +3799,7 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Music</div>
               <h1 className="q">Your songs</h1>
-              <p className="sub">Tap the ones you love {'—'} search for any song below. Pick at least 10; we{'’'}ll build the rest of your playlist.</p>
+              <p className="sub">Browse the top 100, search for any song, or check your playlist. Pick at least 10 {'—'} we{'’'}ll build the rest.</p>
             </div>
             <div className="tapzone">
               <SongBankStep
@@ -3757,9 +3815,16 @@ export function OnboardingShell({
             </div>
           </section>
 
-          {/* MOOD — the palette/feel dimension, lifted out of the retired StyleSubStepper.
-              Writes prefs.feel → buildCommitPayload.moodFeelKey + basicMoodboard (FEELS). */}
+          {/* MOOD — now the Stylist / Decorator refinement (owner 2026-06-09), DB-sourced from the
+              `stylist` leaf (taxonomy-driven options · getOnboardingRefinements, static fallback),
+              SINGLE-select. The colour-palette reveal is KEPT: each style maps to a FEELS palette via
+              STYLE_TO_FEEL, so prefs.feel still seeds buildCommitPayload.moodFeelKey + basicMoodboard.
+              Gated to couples who picked Stylist (buildSequence) + dropped from the refine_extras
+              queue (EXTRAS_ORDER) so it's never asked twice. */}
           {(() => {
+            const stylistLeaf = refinementsByKey['stylist'] ?? REFINEMENTS_BY_KEY['stylist'];
+            const styleOpts = stylistLeaf?.options ?? [];
+            const selectedStyle = state.refinements.stylist?.[0] ?? null;
             const feel = state.prefs.feel ?? 'timeless';
             const cols = FEELS[feel];
             return (
@@ -3767,12 +3832,12 @@ export function OnboardingShell({
                 <div className="viewzone">
                   <div className="eyebrow">Your overall feel</div>
                   <h1 className="q">Set the mood</h1>
-                  <p className="sub">Swipe a feel {'—'} see it in its colors. It guides your stylist, florist, cake &amp; gown.</p>
+                  <p className="sub">Pick the look you love {'—'} see it in its colors. It guides your stylist, florist, cake &amp; gown.</p>
                   {FEELS[feel] ? (
                     <figure className="feelphoto">
                       <HeroImg src={PREFS_ASSET(`feel_${feel}_${budgetTier}`)} />
                       <figcaption className="feelcap">
-                        <span>{`${FEELLBL[feel] ?? ''} · ${budgetLabel}`}</span>
+                        <span>{`${selectedStyle ?? FEELLBL[feel] ?? ''} · ${budgetLabel}`}</span>
                       </figcaption>
                     </figure>
                   ) : null}
@@ -3782,16 +3847,19 @@ export function OnboardingShell({
                     {cols ? cols.map((c, j) => <span key={j} className="fsw" style={{ background: c }} />) : <div className="feelnote">We{'’'}ll build your palette together in the mood board.</div>}
                   </div>
                   <div className="pgrid strip" data-feel>
-                    {FEEL_CHIPS.map((f) => (
-                      <PCard
-                        key={f}
-                        emoji={FEELEMOJI[f] ?? '🎨'}
-                        label={FEELLBL[f] ?? f}
-                        photoKey={FEELS[f] ? `feel_${f}_${budgetTier}` : undefined}
-                        selected={feel === f}
-                        onClick={() => patchPrefs({ feel: f })}
-                      />
-                    ))}
+                    {styleOpts.map((o) => {
+                      const cf = STYLE_TO_FEEL[o.key];
+                      return (
+                        <PCard
+                          key={o.key}
+                          emoji={o.emoji || '🎨'}
+                          label={o.label}
+                          photoKey={cf && FEELS[cf] ? `feel_${cf}_${budgetTier}` : undefined}
+                          selected={selectedStyle === o.key}
+                          onClick={() => pickStyle(o.key)}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </section>

@@ -7,6 +7,8 @@ import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
@@ -446,6 +448,10 @@ type VendorCardRow = {
   ad_sku_code: string | null;
   ad_radius_km: number | null;
   ad_expires_at: string | null;
+  // Sort key #1 (first-party Setnayan canonicals float above all else, incl.
+  // paid sponsors — owner directive 2026-05-22 PM). Selected so the Phase C
+  // in-memory rating/review re-sort can preserve this precedence explicitly.
+  is_setnayan_service?: boolean | null;
   // PR brief 2026-05-22 evening — demo-mode marketplace simulation.
   // Optional because (a) Agent 1's `is_demo` column may not be on main
   // yet, and (b) the vendor_market_stats view doesn't currently surface
@@ -487,6 +493,15 @@ type VendorCardRow = {
    *  a screen_name yet (pre-backfill OR venue-exempt vendor where the
    *  generator deliberately skipped). */
   screen_name?: string | null;
+  /** Phase C tier gate (vendor-tier-caps). `tier_state` enum on
+   *  vendor_profiles (free | verified | pro | enterprise). NOT carried by
+   *  the vendor_market_stats view, so pulled in the SAME vendor_profiles
+   *  follow-up batch as verification_state / name_revealed_at / screen_name.
+   *  Drives (a) the day-1 name reveal (isTrueNameTier → pro/enterprise show
+   *  real business_name) and (b) the review-display gate (tierCaps
+   *  reviewStarsCounted — Free hides its star rating + review count). Null =
+   *  pre-migration deploy → free → hidden + gated. */
+  tier_state?: string | null;
   /** Resolved public URL for the vendor's hero service photo
    *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
    *  the vendor has no service with a photo set. */
@@ -1018,12 +1033,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   let query = admin
     .from('vendor_market_stats')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,ad_rank,ad_tier,ad_sku_code,ad_radius_km,ad_expires_at',
+      // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
+      // only used in .order() before) so the in-memory rating/review re-sort
+      // below can preserve the first-party float precedence explicitly.
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,ad_rank,ad_tier,ad_sku_code,ad_radius_km,ad_expires_at,is_setnayan_service',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '');
+
+  // Phase C searchability gate (vendor-tier-caps · FLAG-DARK). The matrix says
+  // FREE = not marketplace-searchable, but a raw `.neq('tier_state','free')`
+  // would EMPTY the live marketplace today (the lone real founder vendor + all
+  // demo vendors are tier_state='free'). So it's behind VENDOR_TIER_SEARCH_GATE
+  // (default OFF → this branch is skipped → query unchanged → prod identical).
+  // Suppressed in demo mode so admins still see demo (free) vendors. Reads the
+  // `tier_state` column the migration 20260929000000 adds to the view.
+  if (isVendorSearchGateEnabled() && !inDemoMode) {
+    query = query.neq('tier_state', 'free');
+  }
 
   // PR brief 2026-05-22 evening — exclude demo vendor IDs unless an
   // admin has demo mode on. PostgREST's NOT IN syntax expects a
@@ -1404,6 +1433,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             verification_state: string | null;
             name_revealed_at: string | null;
             screen_name: string | null;
+            tier_state: string | null;
           }
         >
       > => {
@@ -1422,9 +1452,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
            migration `20260714000000`). When present, surfaces render
            the stable Bark format ("Manila Wedding Photographer #4218")
            instead of computing taxonomy-and-city on every render. */
+        /* Phase C tier gate (vendor-tier-caps) extends this batch with
+           tier_state — the day-1 name reveal + the review-display gate both
+           key off it. Same pre-migration-deploy resilience: optional row
+           field, `?? null` → free → hidden + gated. */
         const { data, error } = await admin
           .from('vendor_profiles')
-          .select('vendor_profile_id, verification_state, name_revealed_at, screen_name')
+          .select(
+            'vendor_profile_id, verification_state, name_revealed_at, screen_name, tier_state',
+          )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
           console.error('[vendors] verification_state fetch failed', error);
@@ -1436,6 +1472,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             verification_state: string | null;
             name_revealed_at: string | null;
             screen_name: string | null;
+            tier_state: string | null;
           }
         >();
         for (const row of data ?? []) {
@@ -1444,11 +1481,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             verification_state: string | null;
             name_revealed_at?: string | null;
             screen_name?: string | null;
+            tier_state?: string | null;
           };
           out.set(r.vendor_profile_id, {
             verification_state: r.verification_state ?? null,
             name_revealed_at: r.name_revealed_at ?? null,
             screen_name: r.screen_name ?? null,
+            tier_state: r.tier_state ?? null,
           });
         }
         return out;
@@ -1535,6 +1574,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
        Bark-format stable identifier instead of computing the legacy
        taxonomy-and-city placeholder on every render. */
     v.screen_name = meta?.screen_name ?? null;
+    /* Phase C tier gate · drives the day-1 name reveal + the review-display
+       gate (stars/count) on this card. `?? null` → free → hidden + gated. */
+    v.tier_state = meta?.tier_state ?? null;
     const svc = servicesByVendorId.get(v.vendor_profile_id);
     v.primary_photo_url = svc?.photoR2Key
       ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)
@@ -1543,6 +1585,46 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // keep the price line hidden per hide-prices lock.
     v.starting_price_php =
       v.is_demo === true && svc?.startingPrice ? svc.startingPrice : null;
+  }
+
+  // ── Phase C sort-leak fix (rating/review sorts) ─────────────────────────
+  // The SQL query ordered `highest_rated` / `most_reviews` by the raw
+  // avg_rating_overall / review_count on the vendor_market_stats view — BEFORE
+  // tier_state was read in the enrichment loop above. That let a FREE vendor
+  // with high (but tier-HIDDEN) stars sort to the top while the card displays
+  // "new". Re-sort the page array in-memory using the GATED values (a vendor
+  // whose tier can't count stars sorts as rating 0 / count 0), so the visible
+  // order matches the visible numbers. This is a POST-PAGINATION re-sort —
+  // acceptable for the founder-only marketplace; the fuller fix is a
+  // tier-aware ORDER BY in a view that exposes tier_state (deferred). The
+  // primary is_setnayan_service → ad_rank precedence is preserved (compared
+  // first); only the rating/review tiebreak uses gated values. Array#sort is
+  // stable in V8 so equal-key rows keep their SQL order.
+  if (filters.sort === 'highest_rated' || filters.sort === 'most_reviews') {
+    const gatedRatingOf = (v: VendorCardRow): number =>
+      tierCaps(v.tier_state ?? null).reviewStarsCounted
+        ? Number(v.avg_rating_overall ?? 0)
+        : 0;
+    const gatedReviewsOf = (v: VendorCardRow): number =>
+      tierCaps(v.tier_state ?? null).reviewStarsCounted ? (v.review_count ?? 0) : 0;
+    const setnayanRank = (v: VendorCardRow): number => (v.is_setnayan_service ? 1 : 0);
+    visible = [...visible].sort((a, b) => {
+      // 1. is_setnayan_service DESC (first-party float — unchanged).
+      const setnayanDiff = setnayanRank(b) - setnayanRank(a);
+      if (setnayanDiff !== 0) return setnayanDiff;
+      // 2. ad_rank DESC (paid sponsors/boosts — unchanged).
+      const adDiff = (b.ad_rank ?? 0) - (a.ad_rank ?? 0);
+      if (adDiff !== 0) return adDiff;
+      // 3. GATED rating / review sort.
+      if (filters.sort === 'highest_rated') {
+        const r = gatedRatingOf(b) - gatedRatingOf(a);
+        if (r !== 0) return r;
+        return gatedReviewsOf(b) - gatedReviewsOf(a); // volume tiebreak
+      }
+      const c = gatedReviewsOf(b) - gatedReviewsOf(a);
+      if (c !== 0) return c;
+      return gatedRatingOf(b) - gatedRatingOf(a);
+    });
   }
 
   // Badge computation runs against the enriched `visible` set so
@@ -1790,6 +1872,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                       expires_at: v.ad_expires_at,
                     }
                   : null;
+              /* Phase C review-display gate (vendor-tier-caps · surface-layer
+                 gate). Stars/count show only when reviewStarsCounted (Free =
+                 hidden → card renders "new"); review comment bodies (the
+                 carousel) show only when reviewCommentsViewable (Free +
+                 Verified hidden, Pro/Ent shown). Gated here, NOT in the shared
+                 review libs, so the vendor's own dashboard self-view stays
+                 ungated. `?? null` → free → hidden. */
+              const vCaps = tierCaps(v.tier_state ?? null);
+              const gatedRating = vCaps.reviewStarsCounted
+                ? Number(v.avg_rating_overall ?? 0)
+                : 0;
+              const gatedReviewCount = vCaps.reviewStarsCounted
+                ? (v.review_count ?? 0)
+                : 0;
+              const gatedReviews = vCaps.reviewCommentsViewable
+                ? (reviewsByVendorId.get(v.vendor_profile_id) ?? [])
+                : [];
               return (
                 <li key={v.vendor_profile_id}>
                   {/* 2026-05-22 quick-view redesign — VendorCard
@@ -1799,8 +1898,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                       the owner directive (CLAUDE.md decision log). */}
                   <VendorCard
                     vendor={v}
-                    rating={Number(v.avg_rating_overall ?? 0)}
-                    reviewCount={v.review_count ?? 0}
+                    rating={gatedRating}
+                    reviewCount={gatedReviewCount}
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
@@ -1808,7 +1907,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     venueAnchor={venueAnchor}
                     ad={ad}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
-                    reviews={reviewsByVendorId.get(v.vendor_profile_id) ?? []}
+                    reviews={gatedReviews}
                   />
                 </li>
               );

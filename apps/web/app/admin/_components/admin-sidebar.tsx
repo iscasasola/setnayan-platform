@@ -165,6 +165,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/token-purchases',
       },
       {
+        // Money queue — vendor Pro/Enterprise subscription reconcile (Phase D).
+        key: 'subscriptions',
+        label: 'Subscriptions',
+        href: '/admin/subscriptions',
+        icon: BadgeCheck,
+        matchPrefix: '/admin/subscriptions',
+      },
+      {
         key: 'payment-options',
         label: 'Payment options',
         href: '/admin/payment-options',

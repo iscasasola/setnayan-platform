@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tier): #5 self-serve subscription checkout (apply-then-pay · admin-approve) — tier work COMPLETE
+
+**Context:** Final build of "do 1–5" (Phase D). Vendors self-serve upgrade to Pro/Enterprise: apply-then-pay → admin approves → `tier_state` flips + per-period token bundle granted; lapse auto-downgrades on next login (cron-free). Cloned from the vendor token-pack flow. Built by an impl agent against `Vendor_Tier_5_SelfServe_Spec_2026-06-09.json` with all 8 verifier fixes baked in; security-critical migration hand-reviewed + a non-destructive auto-rollback smoke test confirmed the money-path.
+
+**What landed:**
+- **Migration `20261010000000_vendor_subscription_checkout.sql`** (applied to prod + tracked): `vendor_profiles.tier_expires_at`/`tier_billing_cycle`; `vendor_subscriptions` table (RLS at create — vendor-own + `is_console_admin()` reads; no direct write policy); 6 SECURITY DEFINER RPCs — `create_vendor_subscription` (price from DB catalog, ₱6,000/₱10,000 already canonical), `_apply_subscription_credit` (REVOKEd from PUBLIC/anon/authenticated; `FOR UPDATE` + idempotent guard; stacking renewal; bundle via 7-arg `grant_admin_direct_tokens(…,'admin_grant',…,'sub_bundle:'||id)` 30/300/100/1000), `approve_vendor_subscription` (`is_console_admin()` gate), `confirm_vendor_subscription_by_reference` (**service_role ONLY**), `reject_vendor_subscription`, `sweep_vendor_tier_expiry` (→verified-if-verified-else-free; flips tier only).
+- **Vendor UI** `/vendor-dashboard/subscription` + `startSubscriptionPurchase` + nav. **Admin queue** `/admin/subscriptions` (approve/reject) in Work nav. **Lapse wiring** in `vendor-dashboard/profile/page.tsx` (login-driven).
+- **Deferred (owner-confirmed):** import-customer 1-token charge (unbuilt parent feature). FREE-buys-tokens unchanged.
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod (table + 2 cols + 6 RPCs + 2 policies + RLS) + tracked. Auto-rollback money-path smoke test: tier→pro, +30 tokens, idempotent, lapse→free — zero prod mutation.
+
+**SPEC IMPACT:** #5 → corpus `DECISION_LOG.md`. **The vendor-tier program (#1–#5) is COMPLETE.**
+
 ## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
 
 **Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category: **🔒 Lock** = decided, untouched; **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). PR-1 = marker + persistence + UX; generation is PR-2.

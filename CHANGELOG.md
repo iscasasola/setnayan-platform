@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(uploads): R2 presigned PUT broken by @aws-sdk/client-s3 default checksum (all direct-to-R2 uploads)
+
+**Context:** The admin wedding-onboarding background-music uploader (`/admin/onboarding`) failed every upload with "Upload failed for …. Check your connection and retry." — the `<FileUpload>` XHR PUT to the presigned R2 URL fired its `error` event (no readable HTTP status). Not a connection issue, not the filename (`/api/upload` already sanitizes it), not size. **Root cause:** the resolved `@aws-sdk/client-s3` is `3.1046.0`; since v3.729 the SDK defaults `requestChecksumCalculation` to `WHEN_SUPPORTED`, which injects `x-amz-checksum-crc32` (+ `x-amz-sdk-checksum-algorithm`) into PutObject **including the headers folded into a presigned PUT URL**. Cloudflare R2 doesn't implement that header and rejects the PUT (`NotImplemented`), which the browser surfaces as an opaque network error. This broke **every** browser-direct R2 upload via `<FileUpload>` → `/api/upload` — payment-proof screenshots (0034 apply-then-pay), order proof, vendor-contract files, website hero/photos/site-chrome, refinement samples — not just the music uploader; the new audio uploader is simply where it got noticed.
+
+**`apps/web/lib/r2.ts`:** the singleton `S3Client` now sets `requestChecksumCalculation: 'WHEN_REQUIRED'` + `responseChecksumValidation: 'WHEN_REQUIRED'`, restoring the pre-3.729 behavior (no checksum unless a command explicitly requests one) that R2's S3-compat API expects. One-place fix — every presign helper (`presignUploadUrl`, `presignDisplayUrl`, `r2*`) shares this client. Refs: [aws-sdk-js-v3#6810](https://github.com/aws/aws-sdk-js-v3/issues/6810) · [Cloudflare community 758637](https://community.cloudflare.com/t/758637).
+
+**Verification:** config keys + string-literal values type-checked against the installed `@aws-sdk/middleware-flexible-checksums` `resolveFlexibleChecksumsConfig` types (`requestChecksumCalculation?` / `responseChecksumValidation?`, values `WHEN_SUPPORTED | WHEN_REQUIRED`; default confirmed `WHEN_SUPPORTED`). Runtime PUT exercises only against live R2 with creds + behind admin auth → CI production build + Vercel preview gate; owner to retry an upload on the preview.
+
+**SPEC IMPACT:** None — SDK-compatibility fix, no product/pricing/schema change.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist vendor cards → hero-photo layout (PR A of the 5-page redesign)
 
 **Context:** First slice of porting the owner-approved 5-page Plan Builder redesign (`0016` prototype `Plan_Builder_5Page_Prototype_2026-06-09.html`) onto the live `/dashboard/[eventId]/vendors` surface. Approved sequence A→F, shipped sequentially. This PR is the Shortlist tab's vendor-card visual upgrade ONLY — no backend/flow change; all hardened actions (finalize/lock, remove, search, conflict gates) untouched.

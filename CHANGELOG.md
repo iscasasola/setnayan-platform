@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tier): subscription bundle tokens are LIFETIME (never-expire, granted in full on purchase)
+
+**Context:** Owner 2026-06-09 — the per-period free token bundle granted with a paid Pro/Enterprise subscription should "run lifetime and all tokens available upon purchase." Until now the bundle was granted via `grant_admin_direct_tokens` → an **expiring** `earned_token_vouchers` row (TTL capped at 1–365 days; a Pro-monthly bundle would vanish in 28 days). This moves it to the **never-expire `vendor_wallets.purchased_tokens` bucket** (the same bucket the buy-token flow credits), granted in full immediately. (Tokens are the vendor's currency to **answer a couple's inquiry** — Pro/Enterprise burn 1–3 region-banded tokens for the per-(vendor,event) unlock that opens chat + all their services.)
+
+**What changed (migration `20261012000000_vendor_lifetime_token_bundle.sql`, applied to prod):**
+- New reusable **`grant_vendor_lifetime_tokens(vendor, count, source, admin, rationale, idempotency_key)`** RPC — idempotent (UNIQUE `token_grants_log.idempotency_key`) credit to `purchased_tokens` (never-expire). `related_voucher_id` NULL; REVOKEd from anon/authenticated, GRANT to service_role.
+- `_apply_subscription_credit` now calls it instead of `grant_admin_direct_tokens` (amounts unchanged: Pro 5/50 · Ent 10/100; tier activation, stacking renewal, `FOR UPDATE`+status idempotency guard, REVOKE posture all untouched).
+- `setVendorTier` (admin comp tier-set) likewise switched to `grant_vendor_lifetime_tokens` (lifetime, key `tier_bundle:<vendor>:<tier>`), so comped tiers grant the same lifetime bundle.
+- `TIER_SUBSCRIPTION_BUNDLE_TOKENS` doc comment updated to note LIFETIME.
+
+The burn path `consume_vendor_assets_per_voucher` spends earned vouchers FIFO **then drains `purchased_tokens`**, so these lifetime bundle tokens are fully spendable on the answer-inquiry burn.
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod + tracked. Auto-rollback smoke tests: Pro-monthly → +5 in `purchased_tokens` / 0 expiring vouchers / idempotent (`already=true`, no double); Enterprise-annual → +100 in `purchased_tokens`. Zero prod mutation.
+
+**SPEC IMPACT:** bundle is lifetime → corpus `DECISION_LOG.md` + tier matrix + memory.
+
 ## 2026-06-09 · chore(db): prevent recurring migration timestamp collisions (allocator + pre-push guard)
 
 **Context:** Duplicate 14-digit migration prefixes have half-applied prod + blocked every open PR **4×** (`20260922`, `20260925`, `20261002`, …). Root cause: prefixes are hand-typed `YYYYMMDD000000` and two people pick the same date. The CI "migration timestamp guard" only catches it *reactively* on `main`. This adds prevention.

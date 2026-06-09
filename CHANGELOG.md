@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Build-tab Date/Budget/Location anchors with Flag/Pin (PR D of the 5-page redesign)
+
+**Context:** Owner-approved 0016 redesign, sequence A→G→D→E→F. The Build tab gains the prototype's three anchors above the existing planner: **Wedding date · Total budget · Location**, each Pin (couple fixes a value) or Flag (leave empty → Compute/Setnayan AI suggests).
+
+**No migration** — anchor state lives on the existing `events` columns (populated = Pinned, empty = Flagged): `event_date` · `estimated_budget_centavos` · `region`. New `build-anchors-actions.ts::setAnchor` writes the matching column (couple-owned via RLS, validated, clear-on-empty), mirroring `budget/actions.ts::setEventBudget`. New `build-anchors.tsx` (client) renders the rows + inline editors; wired into `build-pins.tsx` above the mode selector; `page.tsx` resolves the anchor data (reuses the already-computed `matchFormattedDate`/precision + `date_candidates`).
+
+**Behavior note for owner (flagged):** Flag clears the committed value (faithful to the approved prototype's Pin/Flag/none model) — so flagging the **date** un-sets `event_date` (recoverable by re-pinning). Low-stakes for budget/location. If you'd prefer a non-destructive "open to suggestions" state that preserves the value, that needs a per-anchor mode column (follow-up). **Also deferred:** the constrained candidate-date ∩ vendor-availability picker (the availability data is already resolved on the page via `getCommonAvailableDays` — next iteration of this component).
+
+**Verification:** `pnpm typecheck` ✅ clean. CI runs lint + production build + e2e. (Live click-through on a test couple not run this session.)
+
+**SPEC IMPACT:** None yet — implements the 0016 prototype Build anchors. Corpus prototype + DECISION_LOG rows land separately once D/E/F settle.
+
 ## 2026-06-09 · feat(plan-builder): DB-driven category folders across all 5 tabs (PR G of the 5-page redesign)
 
 **Context:** Owner: "categories will be taxonomy-DB-dependent, not hard coded … taxonomy applies to all 5 menus … if our taxonomy changes, the menu changes." The plan-builder's 10 folder headers came from the hardcoded `WEDDING_FOLDER_*` constants, so `/admin/taxonomy` edits never reached the couple's planner. All 5 tabs (Summary · Shortlist · Build · Compare · Lock) share one `PlanBudgetModel`, so wiring that model to the DB taxonomy covers every tab at once.

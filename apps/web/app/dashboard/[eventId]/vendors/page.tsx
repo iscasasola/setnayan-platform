@@ -41,6 +41,7 @@ import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation-planner';
 import { BuildPins } from './_components/build-pins';
+import type { AnchorData } from './_components/build-anchors';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
@@ -447,6 +448,23 @@ export default async function VendorsPage({ params }: Props) {
         return null;
       }
     })();
+    // Build-tab anchors (PR D) — Date/Budget/Location with Flag/Pin. State lives
+    // on the existing events columns (populated = Pinned, empty = Flagged); no
+    // migration. Reuses the already-computed matchFormattedDate + precision.
+    const buildAnchors: AnchorData = {
+      date: {
+        iso: ev?.event_date ?? null,
+        label: matchFormattedDate,
+        candidateCount: ev?.date_candidates?.length ?? 0,
+      },
+      budget: {
+        php:
+          ev?.estimated_budget_centavos != null
+            ? Math.round(ev.estimated_budget_centavos / 100)
+            : null,
+      },
+      location: { region: ev?.region ?? null },
+    };
     const buildSlot = (
       <BuildPins
         eventId={eventId}
@@ -454,6 +472,7 @@ export default async function VendorsPage({ params }: Props) {
         leaves={allocInputs.leaves}
         config={allocInputs.config}
         eventDate={ev?.event_date ?? null}
+        anchors={buildAnchors}
         plannerSlot={
           <BudgetAllocationPlanner
             eventId={eventId}

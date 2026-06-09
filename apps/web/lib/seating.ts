@@ -59,6 +59,8 @@ export type EventTableRow = {
   sort_order: number;
   x_pos: number | null;
   y_pos: number | null;
+  rotation_deg: number;
+  removed_seats: number[];
 };
 
 export type SeatAssignmentRow = {
@@ -75,13 +77,19 @@ export async function fetchTables(
   const { data, error } = await supabase
     .from('event_tables')
     .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos',
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchTables failed: ${error.message}`);
-  return (data ?? []) as EventTableRow[];
+  // Defensive defaults so the editor + PDF work even before the rotation/
+  // removed-seats migration is applied (the columns just read as 0 / []).
+  return (data ?? []).map((t) => ({
+    ...(t as EventTableRow),
+    rotation_deg: (t as EventTableRow).rotation_deg ?? 0,
+    removed_seats: (t as EventTableRow).removed_seats ?? [],
+  }));
 }
 
 export async function fetchAssignments(
@@ -274,6 +282,30 @@ export type TableGeometry = {
   // hub box when present. Omitted for the simple shapes.
   outline?: SeatSlot[];
 };
+
+// Rotate a center-origin point by `deg` (seat-space is y-down, so +deg reads as
+// clockwise on screen). Used by the editor + PDF to orient a table — the key to
+// connecting wedges/banquets edge-to-edge into custom patterns.
+export function rotatePoint(p: SeatSlot, deg: number): SeatSlot {
+  if (!deg) return p;
+  const r = (deg * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
+}
+
+// Seats the couple deleted (e.g. to clear a connection edge). Returns the valid
+// subset as a Set for O(1) skip checks; ignores out-of-range indices.
+export function removedSeatSet(removedSeats: number[] | null | undefined, capacity: number): Set<number> {
+  const out = new Set<number>();
+  for (const i of removedSeats ?? []) if (Number.isInteger(i) && i >= 0 && i < capacity) out.add(i);
+  return out;
+}
+
+// Occupiable seats = capacity minus deleted chairs.
+export function effectiveCapacity(capacity: number, removedSeats: number[] | null | undefined): number {
+  return capacity - removedSeatSet(removedSeats, capacity).size;
+}
 
 export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeometry {
   const n = Math.max(1, capacity);
@@ -520,11 +552,13 @@ export function computeAutoSeat(
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
 
   // Per-table occupancy: which seat numbers are taken + a live free count.
+  // Deleted chairs (removed_seats) are pre-marked occupied so auto-seat never
+  // fills them, and the free count starts at the effective (occupiable) capacity.
   const occupied = new Map<string, Set<number>>();
   const freeCount = new Map<string, number>();
   for (const t of tables) {
-    occupied.set(t.table_id, new Set());
-    freeCount.set(t.table_id, t.capacity);
+    occupied.set(t.table_id, removedSeatSet(t.removed_seats, t.capacity));
+    freeCount.set(t.table_id, effectiveCapacity(t.capacity, t.removed_seats));
   }
   for (const a of assignments) {
     const occ = occupied.get(a.table_id);

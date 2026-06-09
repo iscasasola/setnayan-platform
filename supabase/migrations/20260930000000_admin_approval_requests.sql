@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS admin_approval_requests_target_idx
   ON public.admin_approval_requests(target_user_id);
 
 COMMENT ON TABLE public.admin_approval_requests IS
-  'Two-admin (four-eyes) approval queue per §9.1 / §4. One admin initiates a major decision; a DIFFERENT admin approves before it executes. V1 governs privilege-escalation grants (internal §10a / team-pool §10b / promote-to-admin).';
+  'Two-admin (four-eyes) approval queue per §9.1 / §4. One admin initiates a major decision — a DIFFERENT admin approves before it executes. V1 governs privilege-escalation grants (internal §10a / team-pool §10b / promote-to-admin).';
 
 ALTER TABLE public.admin_approval_requests ENABLE ROW LEVEL SECURITY;
 

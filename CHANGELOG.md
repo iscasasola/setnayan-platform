@@ -18,6 +18,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0008 Seating — serpentine geometry changed from multi-segment ring to single quarter-donut wedge (≤3 outer + ≤2 inner); sweetheart seating corrected. Logged in corpus `DECISION_LOG` 2026-06-09 (incl. the migration-ledger drift finding). No pricing change.
 
+## 2026-06-09 · fix(seating): table capacity can't exceed the table type's seat count
+
+**Context:** Owner: "the seat count also must not exceed the seat count of the table." The Add-table form let you set any capacity 1–32 regardless of type — e.g. a **Sweetheart (2 seats)** with capacity **10**. Both form + server allowed it.
+
+**Fix (two layers):** Client `AddTablePanel` — type select + capacity input now controlled; capacity `max` = the selected type's `defaultCapacity`, resets on type change, clamps on input. Server `createTable` — capacity clamp `Math.min(32, …)` → `Math.min(typeSeats, …)`.
+
+**Verification:** `pnpm typecheck` ✅ clean.
+
+**SPEC IMPACT:** None — bug fix; 0008 `TABLE_TYPE_CATALOG.defaultCapacity` seat counts now enforced as the per-table cap.
+
+## 2026-06-09 · feat(plan-builder): Compare → named vendor-pick builds, retire Lean/Fits/Stretch (PR F — final of the 5-page redesign)
+
+**Context:** Last PR of the owner-approved 0016 redesign (A→G→D→E→**F**). Compare drops the Lean/Fits/Stretch budget-*estimate* baskets for the prototype's named-builds model: a build is a named snapshot of the couple's **real vendor picks per category**, compared side by side vs budget (a live "Current" column + saved slots, blanks where a build lacks a category, totals + over/under, per-build delete).
+
+**No migration** — reuses `budget_builds`' 3 slots; picks live in the `snapshot` JSONB (`basket` forced 'fits'). New `PlanBuildSnapshot`/`SavedPlanBuild` + `savePlanBuild`; `build-compare.tsx` rewritten; `page.tsx` builds the current snapshot from the shared `PlanBudgetModel`, reads the snapshot back, drops the now-unused `resolveAllocationInputs`. Per-build Modify/Lock deferred; `/budget` keeps the planner.
+
+**Verification:** `pnpm typecheck` ✅ clean; CI lint + build + e2e green.
+
+**SPEC IMPACT:** None yet — completes the 0016 prototype on the live surface (A: hero cards · G: DB categories · D: anchors · E: Build Flag/Compute · F: named-builds Compare). Corpus prototype + a DECISION_LOG summary of the A–F program land next.
+
 ## 2026-06-09 · feat(seating-print): floor-plan PDF draws full-size tables WITH chairs + a name at every chair
 
 **Context:** Owner directive 2026-06-09 — "on the print … we want the pdf to have the full image size of the tables and chairs." The seating PDF's floor-plan page drew each table as a bare circle/rectangle with just its number — **no chairs at all** — an abstract dot-map, not the tables-with-chairs you see in the editor. (Confirmed scope with owner: floor-plan page · name at each chair.)

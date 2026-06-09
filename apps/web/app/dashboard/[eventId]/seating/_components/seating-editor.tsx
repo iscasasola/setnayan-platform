@@ -35,6 +35,7 @@ import {
   tableGeometry,
   type EventTableRow,
   type FloorPlanRow,
+  type TableType,
 } from '@/lib/seating';
 import {
   assignGroup,
@@ -1783,6 +1784,14 @@ function SeatBadge({ guest, color }: { guest: SeatingGuest; color: string }) {
 
 function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
+  // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
+  // Capacity is capped at the selected type's seat count and resets to it when
+  // the type changes. (owner 2026-06-09)
+  const seatsFor = (t: TableType) =>
+    TABLE_TYPE_CATALOG.find((c) => c.type === t)?.defaultCapacity ?? 10;
+  const [tableType, setTableType] = useState<TableType>('round_10');
+  const [capacity, setCapacity] = useState(seatsFor('round_10'));
+  const maxSeats = seatsFor(tableType);
   return (
     <form
       action={(fd) => {
@@ -1804,7 +1813,12 @@ function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => voi
       <div className="flex gap-2">
         <select
           name="table_type"
-          defaultValue="round_10"
+          value={tableType}
+          onChange={(e) => {
+            const t = e.target.value as TableType;
+            setTableType(t);
+            setCapacity(seatsFor(t)); // reset to the new type's seat count
+          }}
           className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
         >
           {TABLE_TYPE_CATALOG.map((t) => (
@@ -1817,9 +1831,14 @@ function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => voi
           name="capacity"
           type="number"
           min={1}
-          max={32}
-          defaultValue={10}
+          max={maxSeats}
+          value={capacity}
+          onChange={(e) => {
+            const v = Math.round(Number(e.target.value));
+            setCapacity(Number.isFinite(v) ? Math.min(Math.max(1, v), maxSeats) : maxSeats);
+          }}
           aria-label="Capacity"
+          title={`Up to ${maxSeats} seats for this table type`}
           className="w-16 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
         />
       </div>

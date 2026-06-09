@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tier): founder vendor → verified + unlimited categories/services + token-gate bypass
+
+**Context:** Owner 2026-06-09 — (1) bump the founder vendor to `verified`, and (2) give it unlimited categories + services and a full token-gate bypass. The founder vendor is the single non-demo account `Setnayan Founder · Ice` (`646c9457-3450-412e-8d60-7281224da157`).
+
+**What landed (migration `20261013000000_founder_vendor_overrides.sql`, applied to prod):**
+- New `vendor_profiles.is_founder BOOLEAN NOT NULL DEFAULT false` (constant default → fast, no rewrite). Set `tier_state='verified'` + `is_founder=true` on the founder vendor (idempotent UPDATE).
+- `unlock_vendor_event` RPC gains a **founder branch**: a founder reads `is_founder` and unlocks **unlimited inquiries for free** — no FREE block, no verified 10/week cap, no token burn (records the unlock at 0 tokens for idempotency). All other paths unchanged (FREE blocked · verified ≤10/wk · PRO/ENT 1–3 region-banded burn · ownership · idempotency).
+- App caps (`vendor-dashboard/services/actions.ts createVendorService`): reads `is_founder`; when true, `parentCategories` + `servicesPerLeaf` are lifted to `Infinity` (unlimited categories + service listings). Other caps (daily capacity, portfolio) stay at the verified tier — not in scope of the owner's ask.
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod; founder row confirmed `tier=verified, is_founder=true`. Auto-rollback smoke test: `unlock_vendor_event` returns `founder:true, charged:false, tokens:0` and runs past 10 unlocks with no `VERIFIED_WEEKLY_LIMIT` (founder branch short-circuits before any gate).
+
+**Note:** the searchability gate stays flag-dark — the founder is now `verified` (would be searchable when flipped), but flipping `VENDOR_TIER_SEARCH_GATE` is still owner's call.
+
+**SPEC IMPACT:** founder override → corpus `DECISION_LOG.md` + tier matrix + memory.
+
 ## 2026-06-09 · feat(mood-board): dedicated Entrance Tunnel part (0010)
 
 **Context:** Owner: "also add tunnel." The grand-entrance tunnel is a Filipino-reception signature, so it's promoted from an attribute of Entrance to its **own part** with richer options; the aisle runner becomes its own part ("Aisle").

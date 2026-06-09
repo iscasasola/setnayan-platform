@@ -6,20 +6,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
 
-**Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000):
+**Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000): **Pro 5 (monthly) / 50 (annual) · Enterprise 10 (monthly) / 100 (annual)**. Subscription PRICES unchanged (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) — only the bundled tokens.
 
-| Tier | Monthly | Annual |
-|---|---|---|
-| Pro | 5 | 50 |
-| Enterprise | 10 | 100 |
+**What changed (two synced places):**
+- `lib/vendor-tier-caps.ts` — `TIER_SUBSCRIPTION_BUNDLE_TOKENS` → pro {5,50} · enterprise {10,100} (auto-updates the subscription-page display + the interim admin tier-set grant in `setVendorTier`).
+- Migration **`20261011000000_vendor_subscription_bundle_reprice.sql`** (applied to prod + tracked) — `CREATE OR REPLACE`s the money-path RPC `_apply_subscription_credit`'s bundle CASE to 5/50/10/100 (only the constants change; `20261010000000` created it with the old amounts).
 
-**What changed (the amounts live in two synced places):**
-- `lib/vendor-tier-caps.ts` — `TIER_SUBSCRIPTION_BUNDLE_TOKENS` set to pro {5,50} · enterprise {10,100}. This auto-updates the subscription page display AND the interim admin tier-set grant (`setVendorTier` reads `.monthly`).
-- Migration **`20261011000000_vendor_subscription_bundle_reprice.sql`** (applied to prod) — `CREATE OR REPLACE`s the money-path RPC `_apply_subscription_credit`'s hardcoded bundle CASE to 5/50/10/100 (the only change; table/RLS/REVOKE posture/stacking-renewal/idempotency all untouched). `20261010000000` created the function with the old amounts; this is the active version.
-
-**Verify:** `tsc` ✓ · `next lint` ✓. Applied to prod + version recorded; **auto-rollback smoke test confirms** Pro-monthly grants 5 and Enterprise-annual grants 100 (zero prod mutation). Subscription PRICES (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) are unchanged — only the bundled tokens.
+**Verify:** `tsc` ✓ · `next lint` ✓. Auto-rollback prod smoke test confirms Pro-monthly grants 5 and Enterprise-annual grants 100.
 
 **SPEC IMPACT:** bundle reprice → corpus `DECISION_LOG.md` + tier matrix + memory.
+
+## 2026-06-09 · feat(website): editorial layout — full-width hero + write-up-led grid, stats in the corner
+
+**Context:** Owner: the cover photo should take the whole row, with the Setnayan "By the Numbers" stats moved UNDER the photo sharing the column with the write-up (write-up dominant, stats a slim corner) — and stay proper on mobile. Previously the hero sat INSIDE the left grid column, so it was boxed at ~⅔ width next to the stats sidebar.
+
+**Change (`editorial-content.tsx`, layout-only):** the hero photo is hoisted OUT of the grid to a **full-width** banner at the photo's native **16:9** (was `aspect-[16/10]` in a narrow column). Below it, a `lg:grid-cols-[1.95fr_0.85fr]` grid puts the **write-up (wide)** on the left and **By the Numbers (slim sidebar, left-border)** on the right "corner." On mobile (`grid-cols-1`) it stacks cleanly: full-width photo → story → numbers recap.
+
+**Verify:** typecheck + build on CI; desktop = full-bleed hero + wide article + corner stats; mobile = stacked. No data/logic change, no migration.
+
+**SPEC IMPACT:** editorial presentation polish (§6.3 "feel like an editorial"). → none.
 
 ## 2026-06-09 · feat(seating): tables never overlap — collision avoidance (0008)
 

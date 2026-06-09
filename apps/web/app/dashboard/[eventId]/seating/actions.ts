@@ -7,9 +7,11 @@ import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import {
   TABLE_TYPE_CATALOG,
   computeAutoSeat,
+  effectiveCapacity,
   fetchAssignments,
   fetchFloorPlan,
   fetchTables,
+  removedSeatSet,
   type AutoSeatGuest,
   type TableType,
 } from '@/lib/seating';
@@ -171,8 +173,9 @@ export async function assignGroup(
   if (!table) throw new Error('Table not found');
 
   // Current occupants of the target table — we never evict them, so the seats
-  // they hold are off-limits and they count against capacity.
-  const occupiedSeats = new Set<number>();
+  // they hold are off-limits and they count against capacity. Deleted chairs
+  // (removed_seats) are pre-marked taken so the group never fills them.
+  const occupiedSeats = removedSeatSet(table.removed_seats, table.capacity);
   const alreadyHere = new Set<string>();
   for (const a of assignments) {
     if (a.table_id !== tableId) continue;
@@ -181,8 +184,9 @@ export async function assignGroup(
   }
 
   // Members still needing a chair here (already-seated members keep theirs).
+  // Free seats = effective (occupiable) capacity minus who's already here.
   const incoming = guestIds.filter((id) => !alreadyHere.has(id));
-  const free = Math.max(0, table.capacity - alreadyHere.size);
+  const free = Math.max(0, effectiveCapacity(table.capacity, table.removed_seats) - alreadyHere.size);
   const toSeat = incoming.slice(0, free);
 
   let seat = 0;
@@ -369,6 +373,82 @@ export async function unassignGuest(formData: FormData) {
     .delete()
     .eq('event_id', eventId)
     .eq('guest_id', guestId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Set a table's orientation (0–359°). Lets couples rotate a table so wedges /
+// banquets can be connected edge-to-edge into custom patterns.
+export async function updateTableRotation(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const degRaw = formData.get('rotation_deg');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || typeof degRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const n = Number(degRaw);
+  if (!Number.isFinite(n)) throw new Error('Rotation must be numeric');
+  const rotation = ((Math.round(n) % 360) + 360) % 360; // normalise to 0–359
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({ rotation_deg: rotation, updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Delete or restore a single chair at a table (toggles membership of
+// removed_seats). Clears the edge where two tables connect. Refuses to delete a
+// seat that's currently occupied — unseat the guest first.
+export async function setTableSeat(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const seatRaw = formData.get('seat_number');
+  const removed = formData.get('removed') === 'true';
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || typeof seatRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const seat = Number(seatRaw);
+  if (!Number.isInteger(seat) || seat < 0 || seat >= 64) throw new Error('Invalid seat');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [tables, assignments] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+  ]);
+  const table = tables.find((t) => t.table_id === tableId);
+  if (!table) throw new Error('Table not found');
+
+  // Can't delete a chair someone is sitting in.
+  if (removed) {
+    const occupied = assignments.some((a) => a.table_id === tableId && a.seat_number === seat);
+    if (occupied) throw new Error('Unseat the guest before removing this chair');
+  }
+
+  const next = new Set(removedSeatSet(table.removed_seats, table.capacity));
+  if (removed) next.add(seat);
+  else next.delete(seat);
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({ removed_seats: [...next].sort((a, b) => a - b), updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/seating`);

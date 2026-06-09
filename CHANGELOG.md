@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(seating): table rotation + delete chairs → connect tables into custom patterns (PR B of 2)
+
+**Context:** Owner directive 2026-06-09 — couples connect tables into custom patterns (serpentine S-curves, circles, U-shapes — per the reference layouts) by **rotating** a table and **deleting the chair** on the edge where it meets another. PR B builds on PR A's single-wedge serpentine; together they deliver the connect workflow (each wedge in an S is the same quarter-donut rotated 180° and butted at its chair-free radial edge).
+
+**Migration `20261016000000_iteration_0008_table_rotation_removed_seats.sql` (APPLIED to prod).** Two additive, non-destructive columns on `event_tables`: `rotation_deg INTEGER NOT NULL DEFAULT 0` and `removed_seats INTEGER[] NOT NULL DEFAULT '{}'`. Applied via the same scoped `db push` as PR A (the ledger still carries one duplicate-versioned remote-only migration from an unmerged branch).
+
+**Geometry (`lib/seating.ts`):** `EventTableRow` + `fetchTables` gain the columns (with defensive defaults so it works pre-migration). New `rotatePoint(p, deg)`, `removedSeatSet(...)`, `effectiveCapacity(...)` helpers. `computeAutoSeat` pre-marks deleted chairs occupied + uses effective capacity.
+
+**Editor (`seating-editor.tsx`):** rotates chairs / ribbon outline / rect hub by `rotation_deg` (chair names stay upright — we rotate coordinates, not text). A **rotate toolbar** (↺15° · flip 180° · ↻15°, 15° snap, optimistic) appears on the selected table; **delete-chair ✕** on empty chairs (restore "+" on deleted slots); `occupantsFor` skips deleted chairs; sidebar + list counts use effective capacity. New `updateTableRotation` + `setTableSeat` server actions (setTableSeat refuses to delete an occupied chair). `assignGroup` free-seat math + `assignGuest`/auto-seat all skip deleted chairs.
+
+**PDF (`lib/seating-pdf.ts`):** rotates seats + ribbon outline + rect-hub corners by `rotation_deg`; skips deleted chairs; effective capacity in the table label.
+
+**Verification:** `tsc` 0 errors; esbuild smoke + rasterized PDF page 1 — two serpentine wedges (one rotated 180° → convex flips) form an S, a banquet rotated 35°, and a round table with seats 2–3 deleted show a clean gap. Editor canvas to be eyeballed on the Vercel preview.
+
+**SPEC IMPACT:** 0008 Seating — tables can be rotated + have chairs deleted, enabling manual connection into custom patterns (serpentine S / circle / U). Auto-seat / group-seat / capacity all honor deleted chairs. Logged in corpus `DECISION_LOG` 2026-06-09. No pricing change. (Edge auto-snapping remains a possible follow-up.)
+
 ## 2026-06-09 · feat(seating): serpentine = single quarter-donut wedge + sweetheart fix (PR A of 2)
 
 **Context:** Owner directive 2026-06-09. The seating editor + print PDF rendered **serpentine** tables as a full circle (wrong — a serpentine is a curved wedge) and seated the **sweetheart** couple on opposite sides of a small circle (should be side-by-side). Both render from one shared `tableGeometry()` in `lib/seating.ts`, so the fix flows to the canvas and the PDF at once. This is **PR A**; rotation + delete-chairs + table-connection are **PR B**.

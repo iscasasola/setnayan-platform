@@ -12,9 +12,36 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - `app/onboarding/wedding/_components/onboarding-shell.tsx` — `heatTier(date)` deterministic 0–4 demand (peak month × Sat/Fri/Sun × repeating MM·DD × Valentine's); `DEMAND_LABEL` + `demandOf`; `WhyView.demand` populated in `dateReasons`/`rangeReasons`/`commonReasons`; cells get a `heat-N` class (enabled, non-selected, non-range only — mulberry selection fill always wins); a demand chip renders in the `whydate` nugget header.
 - `app/onboarding/wedding/_styles/onboarding.css` — on-brand warm ramp `.calday.heat-1..4` (gold → restrained terracotta · owner-chosen look) + `.wdemand` chip tiers.
 
-**Verify:** `tsc` ✓ · `next lint` ✓ (pre-existing warnings only) · `next build` ✓. Logic mirrors the verified prototype (Dec 12 = Hottest · Dec 5/19 = In-demand · plain weekdays = Quiet/Open). Visual walkthrough on the Vercel PR preview.
+**Verify:** `tsc` ✓ · `next lint` ✓ (pre-existing warnings only) · `next build` ✓ · full CI green (build · e2e · lighthouse · production build · Vercel). Logic mirrors the verified prototype (Dec 12 = Hottest · Dec 5/19 = In-demand · plain weekdays = Quiet/Open).
 
 **SPEC IMPACT:** builds Date-Aligner `Wedding_Date_Aligner_Expansion_2026-06-04.md` §L (predicted half) → corpus `DECISION_LOG.md` row.
+
+## 2026-06-09 · feat(mood-board): stylist-grade reception designer (0010, Phase 3)
+
+**Context:** Owner: *"make sure the details will be perfect first on the free mode … as intricate as possible … all the materials stylists use on the different parts of the reception."* The detailed free design IS the AI render's control image + prompt, so detail here = render fidelity. Owner chose **full multi-attribute depth**, **Core 5 parts**, and locked the paid render = **Nano Banana ($0.039/1K ≈ ₱2 cost) sold at ₱300** (wired later).
+
+**Taxonomy (`lib/reception-scene.ts`, rewritten):** each part now exposes its real materials as selectable attributes — **Ceiling** (8 treatments) · **Backdrop** (9 styles + florals) · **Stage** (5 setups + florals) · **Tables** (shape × **chairs** [Chiavari/cross-back/ghost/velvet/bentwood] × **linen** [plain/runner/full-drape/sequin] × **centerpiece** [tall/low/candelabra/candles/greenery/lanterns] × **place setting** [gold/silver/glass]) · **Entrance** (7 tunnels + aisle runner). Every option carries a prompt phrase; **`buildPrompt()`** assembles a stylist brief ready for the paid render.
+
+**Designer (`reception-designer.tsx`):** nested attribute UI — tap a part → set each material; the SVG updates live in the palette. Auto-saves the nested design to `events.reception_design`. `saveReceptionDesign` sanitizes against the taxonomy. No migration (JSONB flexes; legacy flat saves fall back to defaults).
+
+**Verification:** `pnpm typecheck` ✅ · `pnpm lint` ✅. Rendered 4 full stylist combos (classic / modern-glam / garden / candlelit) via sharp — every material reads distinctly and takes the palette.
+
+**SPEC IMPACT:** 0010 Mood Board reception designer is now stylist-grade (multi-attribute). `buildPrompt()` is the control prompt for the future paid Nano Banana "Make it real" render (₱300, ~99% margin).
+## 2026-06-09 · feat(vendor-tier): subscription bundle tokens are LIFETIME (never-expire, granted in full on purchase)
+
+**Context:** Owner 2026-06-09 — the per-period free token bundle granted with a paid Pro/Enterprise subscription should "run lifetime and all tokens available upon purchase." Until now the bundle was granted via `grant_admin_direct_tokens` → an **expiring** `earned_token_vouchers` row (TTL capped at 1–365 days; a Pro-monthly bundle would vanish in 28 days). This moves it to the **never-expire `vendor_wallets.purchased_tokens` bucket** (the same bucket the buy-token flow credits), granted in full immediately. (Tokens are the vendor's currency to **answer a couple's inquiry** — Pro/Enterprise burn 1–3 region-banded tokens for the per-(vendor,event) unlock that opens chat + all their services.)
+
+**What changed (migration `20261012000000_vendor_lifetime_token_bundle.sql`, applied to prod):**
+- New reusable **`grant_vendor_lifetime_tokens(vendor, count, source, admin, rationale, idempotency_key)`** RPC — idempotent (UNIQUE `token_grants_log.idempotency_key`) credit to `purchased_tokens` (never-expire). `related_voucher_id` NULL; REVOKEd from anon/authenticated, GRANT to service_role.
+- `_apply_subscription_credit` now calls it instead of `grant_admin_direct_tokens` (amounts unchanged: Pro 5/50 · Ent 10/100; tier activation, stacking renewal, `FOR UPDATE`+status idempotency guard, REVOKE posture all untouched).
+- `setVendorTier` (admin comp tier-set) likewise switched to `grant_vendor_lifetime_tokens` (lifetime, key `tier_bundle:<vendor>:<tier>`), so comped tiers grant the same lifetime bundle.
+- `TIER_SUBSCRIPTION_BUNDLE_TOKENS` doc comment updated to note LIFETIME.
+
+The burn path `consume_vendor_assets_per_voucher` spends earned vouchers FIFO **then drains `purchased_tokens`**, so these lifetime bundle tokens are fully spendable on the answer-inquiry burn.
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod + tracked. Auto-rollback smoke tests: Pro-monthly → +5 in `purchased_tokens` / 0 expiring vouchers / idempotent (`already=true`, no double); Enterprise-annual → +100 in `purchased_tokens`. Zero prod mutation.
+
+**SPEC IMPACT:** bundle is lifetime → corpus `DECISION_LOG.md` + tier matrix + memory.
 
 ## 2026-06-09 · chore(db): prevent recurring migration timestamp collisions (allocator + pre-push guard)
 

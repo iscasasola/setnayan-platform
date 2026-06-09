@@ -1,0 +1,69 @@
+#!/bin/sh
+# Block a push that would introduce a duplicate Supabase migration timestamp
+# prefix. A duplicate 14-digit prefix is a PK in
+# supabase_migrations.schema_migrations, so `supabase db push` crashes *after*
+# one migration's DDL ran (prod half-applied), and CI's "migration timestamp
+# guard" then blocks every open PR until it's fixed. Caught the repo 4×.
+#
+# This inspects the COMMITS BEING PUSHED (read from stdin) UNIONED with
+# origin/main — NOT the working tree. So it:
+#   • catches a collision with a migration already merged to main that this
+#     branch hasn't pulled (the cross-branch case), before the push lands;
+#   • never false-blocks on unrelated uncommitted/untracked WIP migrations.
+# Pure POSIX sh — runs under git's bundled shell on macOS / Linux / Windows.
+# Same rule on demand: `pnpm migration:check`.
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -d "$root/supabase/migrations" ] || exit 0
+
+zero="0000000000000000000000000000000000000000"
+list=""
+got_stdin=0
+
+# git feeds one line per pushed ref: "<local-ref> <local-sha> <remote-ref> <remote-sha>".
+while read -r _lref lsha _rref _rsha; do
+  got_stdin=1
+  [ -n "$lsha" ] || continue
+  [ "$lsha" = "$zero" ] && continue   # branch deletion — nothing to add
+  list="$list
+$(git ls-tree -r --name-only "$lsha" -- supabase/migrations 2>/dev/null)"
+done
+
+# Fallback when nothing arrived on stdin (e.g. invoked by hand): use HEAD.
+if [ "$got_stdin" -eq 0 ]; then
+  list="$(git ls-tree -r --name-only HEAD -- supabase/migrations 2>/dev/null)"
+fi
+
+# Fold in origin/main so an already-merged colliding prefix is caught pre-push.
+if git rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+  list="$list
+$(git ls-tree -r --name-only origin/main -- supabase/migrations 2>/dev/null)"
+fi
+
+# basename → keep migration files → DEDUPE identical files (same migration seen
+# in two trees) → look for two DIFFERENT files sharing one 14-digit prefix.
+dups=$(printf '%s\n' "$list" \
+  | sed 's#.*/##' \
+  | grep -E '^[0-9]{14}_' \
+  | sort -u \
+  | grep -oE '^[0-9]{14}_' \
+  | sed 's/_$//' \
+  | sort \
+  | uniq -d)
+
+if [ -n "$dups" ]; then
+  echo "" >&2
+  echo "✗ Push blocked — duplicate Supabase migration timestamp prefix(es):" >&2
+  for p in $dups; do
+    echo "    $p" >&2
+    printf '%s\n' "$list" | sed 's#.*/##' | grep "^${p}_" | sort -u | sed 's#^#      - supabase/migrations/#' >&2
+  done
+  echo "" >&2
+  echo "  A duplicate prefix half-applies prod on \`supabase db push\` and blocks every PR's CI." >&2
+  echo "  Fix: give one a fresh prefix  ->  pnpm migration:new \"<name>\"" >&2
+  echo "  (or bump the later/dependent one to <prefix>+1), commit, then push again." >&2
+  echo "" >&2
+  exit 1
+fi
+
+exit 0

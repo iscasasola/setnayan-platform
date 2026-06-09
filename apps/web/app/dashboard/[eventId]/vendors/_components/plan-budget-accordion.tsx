@@ -136,7 +136,11 @@ const PBA_CSS = `
   --mulberry:var(--m-mulberry,#5C2542); --mulberry-deep:var(--m-mulberry-2,#4A1D36);
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
   --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
-  --topbar-h:62px; --head-h:38px;
+  /* --topbar-h was the dark P0 budget bar height; that bar is removed (owner
+     2026-06-09) so the sticky parent-folder heads now pile from the very top of
+     the surface. Kept as a 0 alias so every calc(var(--topbar-h) + ...) sticky
+     offset still resolves. */
+  --topbar-h:0px; --head-h:38px;
   /* fixed mobile bottom nav height (≈66px + iOS safe-area). The cover reserves
      this below it so the ↓ cue snaps just above the nav, and the recap clears
      it so its bottom sits just above the nav with no dead scroll. */
@@ -283,6 +287,28 @@ const PBA_CSS = `
 .pbacc .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
 .pbacc .cat-body{padding:14px 0 22px;background:var(--paper)}
 .pbacc .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
+
+/* ---- Third level · leaf accordion (onboarding "The extras you love" look) ----
+   The leaf is a collapsed header (name + shortlist count + chevron) that opens
+   to reveal its service rail. Full-width head + body so the coverflow rail keeps
+   its existing width math (the engine measures .rail by viewport width). Ported
+   from onboarding's .exhead/.exname/.excount/.exchev (scoped here under .pbacc). */
+.pbacc .leaf{position:relative}
+.pbacc .leaf-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;border-bottom:1px solid var(--line-soft);cursor:pointer;padding:11px 20px;font:inherit;text-align:left;-webkit-tap-highlight-color:transparent;transition:background .2s var(--ease)}
+.pbacc .leaf-head:hover{background:rgba(197,160,89,.05)}
+.pbacc .leaf.open > .leaf-head{border-bottom-color:transparent}
+.pbacc .leaf-head .lh-nm{font-family:var(--serif);font-style:italic;font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbacc .leaf.open > .leaf-head .lh-nm{color:var(--mulberry)}
+.pbacc .leaf-head .lh-right{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+.pbacc .lh-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
+.pbacc .lh-svc{color:var(--gold-deep);font-size:13px;line-height:1}
+.pbacc .lh-zero{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
+.pbacc .lh-chev{font-size:19px;color:var(--ink-soft);line-height:1;transition:transform .2s var(--ease);display:inline-block}
+.pbacc .leaf.open > .leaf-head .lh-chev{transform:rotate(90deg);color:var(--gold-deep)}
+.pbacc .leaf-body{padding-bottom:6px;animation:pba-leafrise .26s var(--ease) both}
+@keyframes pba-leafrise{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.pbacc .leaf-tools{display:flex;justify-content:flex-end;padding:6px 20px 2px}
+@media (prefers-reduced-motion:reduce){.pbacc .leaf-body{animation:none}}
 
 /* ---- Child row header ---- */
 .pbacc .child-name{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 20px 8px}
@@ -650,6 +676,27 @@ export function PlanBudgetAccordion({
   );
   const toggleFolder = (folderId: string) =>
     setOpenFolder((cur) => (cur === folderId ? null : folderId));
+
+  // ── Third level: per-leaf collapse (owner 2026-06-09) ────────────────────
+  // The Shortlist is now a 3-level drill-down modelled on onboarding's "The
+  // extras you love": parent folder → LEAF category → its shortlisted services.
+  // Each leaf is collapsed by default (its header shows the pick count); tapping
+  // it reveals the service rail + Find / Add-manually row. Leaves toggle
+  // INDEPENDENTLY (a Set of open groupIds — unlike the single-open parents) so a
+  // couple can fan several leaves open at once while comparing. A leaf's rail
+  // only mounts when open, so the scroll engine re-caches on `openSig`.
+  const [openLeaves, setOpenLeaves] = useState<Set<string>>(() => new Set());
+  const toggleLeaf = (groupId: string) =>
+    setOpenLeaves((cur) => {
+      const next = new Set(cur);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  // Stable signature of the open-leaf set for effect deps (Sets aren't
+  // referentially comparable frame-to-frame).
+  const openLeafSig = [...openLeaves].sort().join(',');
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const applyHash = () => {
@@ -658,6 +705,8 @@ export function PlanBudgetAccordion({
       if (g?.[1]) {
         const fid = folderOfGroup.get(g[1]);
         if (fid) setOpenFolder(fid);
+        // Deep-link to a leaf → open it too, so its anchor actually renders.
+        setOpenLeaves((cur) => (cur.has(g[1]!) ? cur : new Set(cur).add(g[1]!)));
         return;
       }
       const f = h.match(/^#folder-(.+)$/);
@@ -852,36 +901,29 @@ export function PlanBudgetAccordion({
       window.removeEventListener('resize', schedule);
       if (raf) window.cancelAnimationFrame(raf);
     };
-    // Re-cache the scroll targets when the open folder changes — only the open
-    // folder's .child-block/.rail are in the DOM (single-open), so collapsed
-    // folders never get spurious curve transforms or rail-snap haptics.
-  }, [model, openFolder]);
+    // Re-cache the scroll targets when the open folder OR the open-leaf set
+    // changes — only the open folder's open leaves render a .rail (collapsed
+    // leaves render just their header), so the engine must re-query when either
+    // changes or it would curve-transform stale / missing rails.
+  }, [model, openFolder, openLeafSig]);
 
   return (
     <div className="pbacc" ref={rootRef}>
       <style>{PBA_CSS}</style>
-      {/* This page replaces the app top-nav with its own persistent black
-          budget bar. Hide the SidebarShell sticky top strip while the
-          Vendors tab is mounted (the rule lives only in this page's DOM, so
-          the nav returns the moment you navigate away). Bottom nav stays for
-          tab switching.
-
-          overscroll-behavior-y:none — the page scrolls on the WINDOW
+      {/* overscroll-behavior-y:none — the page scrolls on the WINDOW
           (SidebarShell main is min-h-screen, no inner overflow), so dragging
           past the recap rubber-banded the document down into the bare html
-          background (a gap below the dark sheet — owner 2026-06-01 "should not
+          background (a gap below the surface — owner 2026-06-01 "should not
           move up like this"). Pinning the document over-scroll stops that
-          bounce. Scoped to this tab via this injected rule (removed on nav
-          away), so pull-to-refresh elsewhere is untouched. PR #720 moved the
-          recap inside .cats (the pile fix); this is the separate over-scroll
-          half it did not cover. */}
-      <style>{`.shell-topbar{display:none}html,body{overscroll-behavior-y:none}`}</style>
-      <TopBar model={model} />
+          bounce. (The shell-topbar hide is owned by the ServicesTakeover wrapper
+          now — mobile-only — so it is NOT re-injected here; the dark P0 budget
+          bar was removed 2026-06-09, the live readout lives on the Summary tab.) */}
+      <style>{`html,body{overscroll-behavior-y:none}`}</style>
       <div className="body">
-        {/* The "Where your day stands" cover (Overview) was removed from the
-            Shortlist in the 0016 Plan Builder sync — that overview now lives on
-            the Summary tab. Shortlist opens straight into the category pile
-            (the TopBar above carries the live budget readout). */}
+        {/* The dark "P0" budget bar + the "Where your day stands" cover were both
+            removed from the Shortlist (owner 2026-06-09 · 0016 Plan Builder sync):
+            the budget readout + overview now live on the Summary tab. Shortlist
+            opens straight into the 3-level pile (parent folder → leaf → services). */}
 
         {/* Single shared scroll container: every category head + body is a
             flat sibling here, so each sticky head piles UNDER the black bar
@@ -906,18 +948,18 @@ export function PlanBudgetAccordion({
               </div>
               <div className="pc-list">
                 <div className="pc-row">
-                  <span className="pc-b">Tap</span>
-                  <span>a card to open the vendor and see the full details.</span>
+                  <span className="pc-b">Open</span>
+                  <span>a category, then a service to see the full details.</span>
                 </div>
                 <div className="pc-row">
                   <span className="pc-b">Compare</span>
                   <span>two or more side by side before you decide.</span>
                 </div>
                 <div className="pc-row">
-                  <span className="pc-b">Lock this pick</span>
+                  <span className="pc-b">Add to build</span>
                   <span>
-                    on the one you choose — your budget updates and the vendor
-                    is notified. You can change it anytime.
+                    the ones you like — assemble them on the Build tab, then
+                    lock your final picks. You can change it anytime.
                   </span>
                 </div>
               </div>
@@ -931,6 +973,8 @@ export function PlanBudgetAccordion({
               index={index}
               open={openFolder === folder.folder}
               onToggle={toggleFolder}
+              openLeaves={openLeaves}
+              onToggleLeaf={toggleLeaf}
               onCompare={setCompare}
               onOpenSearch={openSearch}
               onOpen={openService}
@@ -1010,66 +1054,6 @@ function ServiceOpenOverlay({ label }: { label: string }) {
 }
 
 // ── Surface 1 · Dark top budget bar ───────────────────────────────────────
-function TopBar({ model }: { model: PlanBudgetModel }) {
-  const hasRange = model.rangeHiCentavos > 0;
-  const tone: 'ok' | 'near' | 'over' =
-    model.budgetStatus === 'over'
-      ? 'over'
-      : model.budgetStatus === 'near'
-        ? 'near'
-        : 'ok';
-  const statusWord =
-    model.targetCentavos === null
-      ? null
-      : model.budgetStatus === 'over'
-        ? 'over target'
-        : model.budgetStatus === 'near'
-          ? 'close to target'
-          : 'on track';
-
-  // Fragment (not a wrapper <div>): the bar + meter must be DIRECT children
-  // of .pbacc so the sticky bar's containing block is .pbacc (tall, spans the
-  // whole list) and it stays pinned at top:0 for the entire scroll. A wrapper
-  // <div> would be only ~65px tall, so the sticky bar would un-stick the
-  // moment you scroll past it (the "black row goes up" bug).
-  return (
-    <>
-      <div className="topbar">
-        <div className="bleft">
-          <div className="fig">
-            <span className="figk">Chosen</span>
-            <span className="figv">{formatPesoCompact(model.chosenCentavos)}</span>
-          </div>
-          {hasRange && (
-            <div className="fig">
-              <span className="figk">Range</span>
-              <span className="rangev">
-                {formatPesoCompact(model.rangeLoCentavos)}–
-                {formatPesoCompact(model.rangeHiCentavos)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {model.targetCentavos !== null && (
-          <div className="bright">
-            <div className="tgt">of {formatPesoCompact(model.targetCentavos)}</div>
-            {statusWord && <div className={`status ${tone}`}>{statusWord}</div>}
-          </div>
-        )}
-      </div>
-      {model.targetCentavos !== null && (
-        <div className="meter">
-          <div
-            className={`fill ${tone}`}
-            style={{ width: `${Math.round(model.meterFill * 100)}%` }}
-          />
-        </div>
-      )}
-    </>
-  );
-}
-
 // ── Surface 3 · Folder section ────────────────────────────────────────────
 function FolderSection({
   folder,
@@ -1077,6 +1061,8 @@ function FolderSection({
   index,
   open,
   onToggle,
+  openLeaves,
+  onToggleLeaf,
   onCompare,
   onOpenSearch,
   onOpen,
@@ -1088,6 +1074,9 @@ function FolderSection({
   /** Single-open accordion — is THIS folder the one expanded? */
   open: boolean;
   onToggle: (folderId: string) => void;
+  /** The 3rd level: which leaf groups are expanded (independent multi-open). */
+  openLeaves: Set<string>;
+  onToggleLeaf: (groupId: string) => void;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
   onOpen: (href: string, label: string) => void;
@@ -1141,6 +1130,8 @@ function FolderSection({
                 eventId={eventId}
                 folderSlug={folder.slug}
                 folderIndex={index}
+                leafOpen={openLeaves.has(child.groupId)}
+                onToggleLeaf={onToggleLeaf}
                 onCompare={onCompare}
                 onOpenSearch={onOpenSearch}
                 onOpen={onOpen}
@@ -1174,6 +1165,8 @@ function ChildRail({
   eventId,
   folderSlug,
   folderIndex,
+  leafOpen,
+  onToggleLeaf,
   onCompare,
   onOpenSearch,
   onOpen,
@@ -1186,6 +1179,9 @@ function ChildRail({
    *  scroll-margin-top on #group-* IDs clears the piled headers above this
    *  group (topbar + folderIndex+1 category heads). */
   folderIndex: number;
+  /** Third-level collapse: is THIS leaf expanded (showing its services)? */
+  leafOpen: boolean;
+  onToggleLeaf: (groupId: string) => void;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
   onOpen: (href: string, label: string) => void;
@@ -1213,25 +1209,45 @@ function ChildRail({
   return (
     <div
       id={`group-${child.groupId}`}
+      className={`leaf${leafOpen ? ' open' : ''}`}
       style={{ ['--folder-idx']: folderIndex } as CSSProperties}
     >
-      <div className="child-name">
-        <span className="cn">{child.label}</span>
-        <span className="cn-right">
-          {canCompare && (
-            <button
-              type="button"
-              className="cmpbtn"
-              onClick={() => onCompare(child)}
-            >
-              ⇄ Compare {child.picks.length}
-            </button>
-          )}
+      {/* Third level (owner 2026-06-09 · onboarding "extras you love" pattern):
+          the leaf is a collapsed header showing its name + shortlist count; tap
+          to reveal its services. DeadlineChip stays in the head (a span, valid
+          inside the button); Compare + the dependency nudge live in the body. */}
+      <button
+        type="button"
+        className="leaf-head"
+        aria-expanded={leafOpen}
+        aria-controls={`leafbody-${child.groupId}`}
+        onClick={() => onToggleLeaf(child.groupId)}
+      >
+        <span className="lh-nm">{child.label}</span>
+        <span className="lh-right">
           {child.personalizationEnabled ? (
             <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
           ) : null}
+          {child.picks.length > 0 ? (
+            <span className="lh-count">{child.picks.length}</span>
+          ) : inApp.length > 0 ? (
+            <span className="lh-svc" aria-label="Setnayan service available">✦</span>
+          ) : (
+            <span className="lh-zero">Not started</span>
+          )}
+          <span className="lh-chev" aria-hidden>›</span>
         </span>
-      </div>
+      </button>
+
+      {!leafOpen ? null : (
+      <div className="leaf-body" id={`leafbody-${child.groupId}`}>
+      {canCompare && (
+        <div className="leaf-tools">
+          <button type="button" className="cmpbtn" onClick={() => onCompare(child)}>
+            ⇄ Compare {child.picks.length}
+          </button>
+        </div>
+      )}
 
       {child.dependency ? <DependencyNudge dep={child.dependency} label={child.label} /> : null}
 
@@ -1310,6 +1326,8 @@ function ChildRail({
             />
           )}
         </div>
+      )}
+      </div>
       )}
 
       {manualOpen && child.primaryCategory ? (

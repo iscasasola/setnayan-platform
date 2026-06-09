@@ -244,6 +244,10 @@ type Args = {
    *  coords (see the radiusOk predicate). Omit/null = no radius scope. */
   anchorLat?: number | null;
   anchorLng?: number | null;
+  /** When TRUE, the service-radius gate stops EXCLUDING out-of-range vendors —
+   *  they're returned too (the caller tags them for a "show vendors farther
+   *  away" expander). Default/false = the radius cut filters as before. */
+  includeOutOfRadius?: boolean;
 };
 
 /**
@@ -487,6 +491,7 @@ export async function fetchWizardVendorRecommendations(
       // the tier radius of the anchor.
       const radiusKm = a ? tierCaps(a.tier).serviceRadiusKm : Infinity;
       const radiusOk =
+        !!args.includeOutOfRadius || // expander mode → never exclude on radius
         !needsRadiusScope ||
         a === undefined || // row missing from probe → admit (unknown tier)
         r.hq_latitude == null ||

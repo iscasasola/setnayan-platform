@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(marketplace): near/far vendor coverage + "show vendors farther away" (service-radius surfacing)
+
+**Context:** Owner: "vendors have a pin location covering a city radius — Free 20km, Pro/Enterprise a different rule. We want to locate them and identify which vendor is near and far a reception." The tier service-radius (`vendor-tier-caps.serviceRadiusKm`: entry/verified 20 · Pro 50 · Enterprise ∞) was already a **silent hard filter** on the couple's category search — out-of-range vendors were just *excluded*, with distance shown as raw "14 km." So couples couldn't actually "identify near vs far." Owner choices: keep in-range as the default, add a **"show vendors farther away"** expander, label near/far, radii unchanged.
+
+**No migration** — radius is in tier caps, reception anchor + HQ coords already exist.
+
+- `lib/wizard-recommendations.ts`: new `includeOutOfRadius` arg — when set, the Phase-C `radiusOk` gate stops *excluding* out-of-range vendors (returns them for the expander). Default unchanged.
+- `vendors/_actions/category-search.ts`: each result now carries `withinRadius` + `serviceRadiusKm` (computed with the SAME fail-open logic as the gate: unknown/Free → unscoped → within · Enterprise ∞ → within · Verified 20 / Pro 50 → within iff distance ≤ radius). New `includeFarther` input returns ONLY the out-of-range set (nearest-first) so the default in-range view never loses a slot.
+- `category-search-overlay.tsx`: in-range vendors badge **"✓ Serves your area"**; a **"Show vendors farther away"** expander lazily fetches the far set under a divider, each labelled **"~X km · beyond their N km range · travel fee likely."** Reused row renderer; resets on new search.
+
+**Verification:** `tsc --noEmit` 0 errors. Demo vendors (verified tier = 20km, spread across 11 cities) exercise both near + far for any reception. CI build/lint/e2e gate the rest; preview on the PR's Vercel deploy.
+
+**SPEC IMPACT:** Confirms the locked tier radii (entry 20 · Pro 50 · Enterprise nationwide) and adds the near/far surfacing the spec implied but didn't build. Supersedes the stale "radius 10/25/100 CONFIRM" note in the vendor-tier-ladder memory. Map view (vendor pins) is a deliberate follow-up PR (owner: "labels now, map next"). → corpus DECISION_LOG.
 ## 2026-06-09 · feat(recap): Live Photo Wall section on the public event website + Maria & Jose demo data
 
 **Context:** Owner directive — make the `test-maria-and-jose` demo couple factual: a full ~10-minute onboarding, the whole search-and-book journey, Setnayan's own services availed, a Catholic **church + reception** venue (all in Tagaytay), guest comments, a set moodboard, and — since they availed the Live Photo Wall SKU — a **photowall on the event website**. Owner chose "Both" (data enrichment + a real recap section).

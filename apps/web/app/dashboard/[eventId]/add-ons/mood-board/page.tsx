@@ -14,6 +14,10 @@ import {
   type BoardCard,
 } from './_components/moodboard-board';
 import { ReceptionDesigner } from './_components/reception-designer';
+import {
+  InspirationBoard,
+  type InspirationItem,
+} from './_components/inspiration-board';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -63,7 +67,7 @@ export default async function MoodBoardPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, guests, attireRes, venueFlowerRes] = await Promise.all([
+  const [eventRes, guests, attireRes, venueFlowerRes, inspirationRes] = await Promise.all([
     supabase
       .from('events')
       .select(
@@ -93,9 +97,23 @@ export default async function MoodBoardPage({ params }: Props) {
       .in('asset_type', ['venue_scene', 'florals'])
       .not('approved_at', 'is', null)
       .is('retired_at', null),
+    // The couple's uploaded inspiration photos (per-event, from onboarding's
+    // intake) — surfaced here so they can add/manage them, and so they can feed
+    // the future "Make it real" render as extra references.
+    supabase
+      .from('event_inspiration_assets')
+      .select('slot_key, slot_position, image_url')
+      .eq('event_id', eventId)
+      .is('removed_at', null),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
+
+  const inspirations: InspirationItem[] = (inspirationRes.data ?? []).map((r) => ({
+    slot_key: r.slot_key,
+    slot_position: r.slot_position,
+    image_url: r.image_url,
+  }));
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
   const receptionDesign: ReceptionDesign =
@@ -267,6 +285,18 @@ export default async function MoodBoardPage({ params }: Props) {
             guestPalette: palette.guest ?? [],
           }}
         />
+      </section>
+
+      <section className="space-y-4 border-t border-ink/10 pt-6">
+        <header>
+          <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            Drop the looks you love — a venue, a backdrop, a bouquet, an outfit. We pull a
+            palette from each, and these references will make your photo-real render match
+            your taste, not a generic wedding.
+          </p>
+        </header>
+        <InspirationBoard eventId={eventId} initial={inspirations} />
       </section>
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">

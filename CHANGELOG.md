@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(onboarding): hot-date demand "heat" layer on the wedding date calendar
+
+**Context:** Designed this session (prototype `Hot_Date_Heat_Calendar_Prototype_2026-06-09.html` + Date-Aligner spec §L). The onboarding `DateCalendar` already owns 2-mode picking + a "why this date" nugget; this adds the **demand axis** — a predicted-heat tint on calendar cells + a demand chip in the nugget — so couples see how in-demand a date is alongside whether it fits their plan. **Predicted (deterministic) layer only** — the observed inquiry / relative-to-supply escalation (§L.2) is deferred (founder-only marketplace = no inquiry data; would be dead code).
+
+**What changed (presentation-only · no migration · no schema):**
+- `app/onboarding/wedding/_components/onboarding-shell.tsx` — `heatTier(date)` deterministic 0–4 demand (peak month × Sat/Fri/Sun × repeating MM·DD × Valentine's); `DEMAND_LABEL` + `demandOf`; `WhyView.demand` populated in `dateReasons`/`rangeReasons`/`commonReasons`; cells get a `heat-N` class (enabled, non-selected, non-range only — mulberry selection fill always wins); a demand chip renders in the `whydate` nugget header.
+- `app/onboarding/wedding/_styles/onboarding.css` — on-brand warm ramp `.calday.heat-1..4` (gold → restrained terracotta · owner-chosen look) + `.wdemand` chip tiers.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ (pre-existing warnings only) · `next build` ✓ · full CI green (build · e2e · lighthouse · production build · Vercel). Logic mirrors the verified prototype (Dec 12 = Hottest · Dec 5/19 = In-demand · plain weekdays = Quiet/Open).
+
+**SPEC IMPACT:** builds Date-Aligner `Wedding_Date_Aligner_Expansion_2026-06-04.md` §L (predicted half) → corpus `DECISION_LOG.md` row.
+
 ## 2026-06-09 · feat(mood-board): stylist-grade reception designer (0010, Phase 3)
 
 **Context:** Owner: *"make sure the details will be perfect first on the free mode … as intricate as possible … all the materials stylists use on the different parts of the reception."* The detailed free design IS the AI render's control image + prompt, so detail here = render fidelity. Owner chose **full multi-attribute depth**, **Core 5 parts**, and locked the paid render = **Nano Banana ($0.039/1K ≈ ₱2 cost) sold at ₱300** (wired later).

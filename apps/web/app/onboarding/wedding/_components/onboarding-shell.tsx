@@ -763,7 +763,36 @@ const fmtShort = (d: Date) => `${(M_FULL[d.getMonth()] ?? '').slice(0, 3)} ${d.g
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / DAY);
 const seasonOf = (m: number) => (m >= 6 && m <= 9 ? 'rainy' : m >= 2 && m <= 4 ? 'dry' : 'cool-and-clear');
 
-type WhyView = { tone: 'good' | 'note'; title: string; reasons: [string, string][]; more: string } | null;
+/* ── predicted demand "heat" (deterministic · cold-start-safe · spec Date-Aligner §L.1).
+   Stacks the same calendar signals the why-nugget already reads (peak month · weekday ·
+   repeating/symbolic) into a 0–4 tier. This is the PREDICTED half only — the observed
+   inquiry/relative-to-supply escalation (§L.2) is deferred until the marketplace has
+   inquiry data (founder-only today → it would be dead code). Mirrors the verified
+   prototype Hot_Date_Heat_Calendar_Prototype_2026-06-09.html. */
+const HEAT_PEAK: Record<number, number> = { 11: 2, 0: 2, 1: 2, 10: 2, 3: 1, 4: 1, 9: 1 }; // getMonth() idx: Dec/Jan/Feb/Nov=2 · Apr/May/Oct=1
+function heatTier(d: Date): 0 | 1 | 2 | 3 | 4 {
+  const m = d.getMonth();
+  const dow = d.getDay();
+  const n = d.getDate();
+  let s = HEAT_PEAK[m] ?? 0;
+  if (dow === 6) s += 2; // Saturday — the prime wedding day
+  else if (dow === 5 || dow === 0) s += 1; // Friday / Sunday
+  if (m + 1 === n) s += 2; // repeating MM·DD (12/12, 11/11…)
+  if (m === 1 && n === 14) s += 2; // Valentine's
+  if (dow === 6 && m + 1 === n) s += 1; // Saturday + repeating combo
+  return s <= 0 ? 0 : s <= 2 ? 1 : s === 3 ? 2 : s <= 5 ? 3 : 4;
+}
+const DEMAND_LABEL = ['Open', 'Quiet', 'Popular', 'In-demand', 'Hottest'] as const;
+const flamesFor = (t: number) => (t >= 3 ? '🔥' : ''); // single restrained accent on the hot tiers; the 1–4 gradient lives in the cell colour ramp
+const demandOf = (tier: number) => ({ tier, label: DEMAND_LABEL[tier]!, flames: flamesFor(tier) });
+
+type WhyView = {
+  tone: 'good' | 'note';
+  title: string;
+  reasons: [string, string][];
+  more: string;
+  demand?: { tier: number; label: string; flames: string };
+} | null;
 
 /** Fade-in hero image (prototype setHero: add `loaded` on load; gradient shows on error/missing). */
 function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
@@ -936,6 +965,10 @@ function DateCalendar({
       if (rEnd && keyOf(cur) === keyOf(rEnd)) cls += ' rend';
       if (rEnd && cur > rStart && cur < rEnd) cls += ' inrange';
     }
+    // predicted-demand heat tint — only on enabled, non-selected, non-range cells
+    // (selection/range mulberry fill always wins). tier 0 = no tint.
+    const ht = heatTier(cur);
+    if (ht > 0 && !disabled && !/\b(sel|rstart|rend|inrange)\b/.test(cls)) cls += ` heat-${ht}`;
     cells.push({ d, cur, cls, disabled });
   }
 
@@ -968,14 +1001,20 @@ function DateCalendar({
       title: note ? '✦ A few things to note' : '✦ Why this date works',
       reasons: r.slice(0, 3),
       more: 'See all 5 layers — liturgical · numerology · folklore · weather · astrology — with Setnayan Concierge →',
+      demand: demandOf(heatTier(d)),
     };
   };
   const rangeReasons = (a: Date, b: Date): WhyView => {
     const r: [string, string][] = [];
     let note = false;
     let sat = 0;
+    let peakTier = 0;
     const mid = new Date(a.getTime() + (b.getTime() - a.getTime()) / 2);
-    for (let t = a.getTime(); t <= b.getTime(); t += DAY) if (new Date(t).getDay() === 6) sat++;
+    for (let t = a.getTime(); t <= b.getTime(); t += DAY) {
+      const dd = new Date(t);
+      if (dd.getDay() === 6) sat++;
+      peakTier = Math.max(peakTier, heatTier(dd));
+    }
     r.push(['We lock the date, not you', 'we pick the day in this window every chosen vendor is free — nobody’s double-booked.']);
     if (sat > 0) r.push([`${sat} Saturday${sat > 1 ? 's' : ''} in here`, 'the prime wedding days — best shot your shortlist lines up.']);
     const mm = mid.getMonth();
@@ -991,6 +1030,7 @@ function DateCalendar({
       title: '✦ Why a flexible window works',
       reasons: r.slice(0, 3),
       more: 'As you shortlist vendors, your day settles on the date they’re all open inside this window.',
+      demand: demandOf(peakTier),
     };
   };
   const commonReasons = (ds: Date[]): WhyView => {
@@ -1017,6 +1057,7 @@ function DateCalendar({
       title: '✦ What your dates share',
       reasons: r.slice(0, 3),
       more: 'As vendors book up, your day settles on whichever of these stays open for all of them.',
+      demand: demandOf(Math.max(...ds.map(heatTier))),
     };
   };
 
@@ -1076,7 +1117,15 @@ function DateCalendar({
         <h1 className="q">When{'’'}s the big day?</h1>
         {why && (
           <div className="whydate">
-            <span className={`wtone ${why.tone}`}>{why.title}</span>
+            <div className="whead">
+              <span className={`wtone ${why.tone}`}>{why.title}</span>
+              {why.demand && why.demand.tier > 0 && (
+                <span className={`wdemand d${why.demand.tier}`}>
+                  {why.demand.flames && <span className="wflame">{why.demand.flames}</span>}
+                  {why.demand.label}
+                </span>
+              )}
+            </div>
             <div className="wsum">
               <b>{why.reasons[0]?.[0]}</b> — {why.reasons[0]?.[1]} <span className="wmore">{why.more}</span>
             </div>

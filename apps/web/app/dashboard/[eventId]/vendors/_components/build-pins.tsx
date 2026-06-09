@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { Wallet, ListChecks, CalendarRange, ArrowRight, type LucideIcon } from 'lucide-react';
 import { computeBudgetAllocation, type AllocationConfig } from '@/lib/budget-allocation';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
+import { BuildAnchors, type AnchorData } from './build-anchors';
 
 type PinMode = 'budget' | 'services' | 'date';
 const peso = (php: number) => `₱${Math.round(php ?? 0).toLocaleString('en-PH')}`;
@@ -51,6 +52,7 @@ export function BuildPins({
   leaves,
   config,
   eventDate,
+  anchors,
   plannerSlot,
 }: {
   eventId: string;
@@ -58,6 +60,7 @@ export function BuildPins({
   leaves: PlannerLeafInput[];
   config: Partial<AllocationConfig>;
   eventDate?: string | null;
+  anchors: AnchorData;
   plannerSlot: ReactNode;
 }) {
   const [mode, setMode] = useState<PinMode>('budget');
@@ -83,6 +86,10 @@ export function BuildPins({
 
   return (
     <div className="space-y-4">
+      {/* Date / Budget / Location anchors — Pin what's fixed, Flag what Setnayan
+          should suggest (PR D of the 0016 redesign). */}
+      <BuildAnchors eventId={eventId} data={anchors} />
+
       {/* What's fixed? — pin a dimension, the rest is recommended. */}
       <div>
         <div className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-ink/50">

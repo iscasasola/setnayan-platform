@@ -803,23 +803,61 @@ themes are popular. Cheap to set up, easy to skip.
 
 Same as Sentry — let me know when you're ready and I'll wire `posthog-js` in.
 
-### R2 file uploads (~2 hours, no signup if your R2 buckets are already provisioned)
+### R2 file uploads — set the bucket CORS policy (~5 min, ONE-TIME, blocking)
 
-**Why:** Right now vendor logos, payment screenshots, profile photos all
-accept URL strings only. Couples have to host their files elsewhere (Drive,
-Imgur). Wiring R2 lets them upload directly from the form.
+**Status:** The upload UI is already shipped and live (`<FileUpload>` → the
+`/api/upload` presigned-PUT route), and the R2 credentials are set in Vercel.
+The one remaining step is the **bucket CORS policy** — without it, every
+browser upload fails.
 
-1. Open https://dash.cloudflare.com → R2
-2. Confirm the 4 Setnayan buckets exist
-3. For each bucket, **Settings** → **CORS Policy** — allow PUT from `setnayan.com`
-4. Get an R2 access key (R2 → Manage R2 API Tokens → Create Token)
-5. Add to Vercel:
-   - `R2_ACCOUNT_ID`
-   - `R2_ACCESS_KEY_ID`
-   - `R2_SECRET_ACCESS_KEY`
-   - `R2_BUCKET_LOGOS`
-   - `R2_BUCKET_SCREENSHOTS`
-6. Let me know — I'll ship the upload UI as a follow-on (signed PUT URL pattern, ~2 hours of work)
+**Why:** Browser uploads go client → `/api/upload` (presign, same-origin) →
+XHR `PUT` straight to the R2 bucket (CROSS-origin). R2 only adds the
+`Access-Control-Allow-Origin` header when a bucket CORS rule matches the
+request, so with no rule the browser masks even a clean upload as a network
+error — the uploader shows *"Upload failed … Check your connection and retry."*
+with no HTTP status. (A presign that succeeds but an upload that `onerror`s,
+rather than "R2 rejected (status N)", is the tell-tale sign of missing CORS.)
+
+> ⚠ R2 matches `AllowedOrigins` **exactly**. The live site is served from
+> `https://www.setnayan.com`, so a policy listing only `https://setnayan.com`
+> (no `www`) still blocks every upload. List both.
+
+**Fastest path — run the checked-in script** (applies the policy to all 5
+buckets, idempotent):
+
+```bash
+R2_ACCOUNT_ID=…  R2_ACCESS_KEY_ID=…  R2_SECRET_ACCESS_KEY=… \
+  apps/web/scripts/r2-cors.sh
+```
+
+**Dashboard path** (no CLI): https://dash.cloudflare.com → R2 → for **each** of
+the 5 buckets (`setnayan-media`, `setnayan-thread-files`,
+`setnayan-vendor-contracts`, `setnayan-samples`, `setnayan-vendor-verification`)
+→ **Settings → CORS Policy** → paste:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://www.setnayan.com",
+      "https://setnayan.com",
+      "https://*.vercel.app",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+CORS takes effect immediately — no redeploy. Hard-refresh the page (to drop a
+cached failed preflight) and retry the upload.
+
+The R2 env vars themselves (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, and optional `R2_PUBLIC_URL`) are already set in Vercel;
+the bucket names are hardcoded in `apps/web/lib/r2.ts` (no per-bucket env vars).
 
 ### Daily.co video (for vendor meetings, ~30 min, free tier limited)
 

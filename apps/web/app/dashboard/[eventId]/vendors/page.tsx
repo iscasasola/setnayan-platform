@@ -23,6 +23,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
@@ -355,6 +356,12 @@ export default async function VendorsPage({ params }: Props) {
   const aiActive = isSetnayanAiActive(ev);
   const planningManual = !aiActive;
 
+  // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
+  // menus"): the 10 folder labels/order/slugs come from `service_categories`
+  // via getTaxonomy(), so an /admin/taxonomy edit flows to every plan-builder
+  // tab. Falls back to the TS constants on any read error (resolver-internal).
+  const taxonomy = await getTaxonomy();
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
@@ -369,6 +376,7 @@ export default async function VendorsPage({ params }: Props) {
     marketPoolCount,
     personalizationEnabled: aiActive,
     moodBoardSet: ev?.mood_board_updated_at != null,
+    taxonomy,
   });
 
   // "Matching you on" strip (owner 2026-06-04) — the couple's curated match

@@ -4,6 +4,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(website): demo phase override — preview RSVP / Event / Editorial on a test event
+
+**Context:** Owner wants the **RSVP demo and the Event demo working** too (not just Editorial). The lifecycle phase is date-driven, and the "Event" (live day-of) phase is only a **T-1h…T+8h window**, so it can't be demoed on a fixed date. Added a **preview override** so all three phases are viewable anytime on the test event.
+
+**Change (`app/[slug]/page.tsx`):** a `?phase=rsvp|event|editorial` query param overrides the computed `lifecyclePhase` **and** `dayOfPhase` (`event`→`live` so the day-of badge + pinned schedule show; `editorial`→`post`; `rsvp`→`pre`). **Strictly gated** — honored only when (a) `WEBSITE_PHASES_ENABLED` is on AND (b) the event is a demo event (slug starts with `test-` OR `[TEST]` display name). A crafted link can therefore **never** force a phase on a real couple's wedding; real events stay 100% date-driven.
+
+**Demo URLs (Maria & Jose):** `…/test-maria-and-jose?phase=rsvp` (invitation), `?phase=event` (live day-of), `?phase=editorial` (recap). All share the one seeded event's data.
+
+**Verify:** typecheck + build on CI. Real-event behavior unchanged (override ignored). No migration.
+
+**SPEC IMPACT:** demo/preview affordance for the §1 phase model. → none.
+
+## 2026-06-09 · feat(website): editorial — #1-pick count in stats + tagged-vendor "Show more"
+
+**Context:** Owner editorial tweaks. (1) Add the **First-Match count** to the By-the-Numbers table (the raw count, alongside the existing `6/9` ratio). (2) In **The Team**, only show **tagged** vendors by default — owner-defined as **Pro/Enterprise tier OR #1-match** — and collapse the rest under "Show more."
+
+**Change (`editorial-content.tsx`, presentation-only):**
+- **By the Numbers:** the supporting count strip is now a **2×2** grid — Guests · Photos · **#1 Picks** (`firstPickNum`) · Replied — so the first-match *count* shows next to the `6/9` first-match *ratio*.
+- **The Team:** extracted `VendorRow`; `isTaggedVendor()` = `tier ∈ {pro,enterprise}` **OR** `isFirstPick`. Tagged vendors render by default; the rest collapse inside a **native `<details>`/`<summary>` "+ N more vendors"** disclosure (no client JS — works in the server component). Fallback shows the first 4 if nothing is tagged. (Free vendors stay hidden from the editorial entirely, per §3 / data.ts.)
+- `EditorialContent` is the single editorial component (imported only by `[slug]/page.tsx`), so this updates the editorial everywhere it renders.
+
+**Verify:** typecheck + build on CI. On Maria & Jose: stats show **#1 Picks = 6**; The Team shows the 6 tagged (Aperture/Grazia/Casa Verde/Manila Strings/Glow/Eventful) with **+ 2 more vendors** (Lumiere, Sweet Layers) under Show more. Mobile-safe. No migration.
+
+**SPEC IMPACT:** editorial presentation (§6.3/§6.4 impact stats). → none.
 ## 2026-06-09 · feat(mood-board): people layer in the reception scene (0010)
 
 **Context:** Owner: "how about the people/different roles — we want them to render on the same photo, so it takes 1 render only." So the venue scene (and its render brief) now includes the wedding party, and one ₱300 render captures the venue **and** everyone in their attire.

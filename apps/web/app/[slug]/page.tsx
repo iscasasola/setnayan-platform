@@ -85,7 +85,7 @@ const RESERVED_TOP_LEVEL = new Set([
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ invite?: string; invite_error?: string }>;
+  searchParams: Promise<{ invite?: string; invite_error?: string; phase?: string }>;
 };
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
@@ -265,21 +265,42 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     // handles the rest of the page exactly as it would for a public event.
   }
 
-  // Task #13 — compute day-of phase server-side so each branch ships as plain
-  // server-rendered HTML the CDN can cache and the SW can offline-fallback.
-  // Falls through to `inactive` for events without dates (very early planning).
-  const dayOfPhase: DayOfPhase = event.event_date
-    ? getDayOfPhase(event.event_date)
-    : 'inactive';
-
   // Website lifecycle-phase engine (Increment C · flag-dark). `phasesEnabled`
   // is OFF by default (WEBSITE_PHASES_ENABLED !== 'true'); when off, every
   // new phase-gated behavior below is bypassed and the page renders exactly
-  // as it does today. `lifecyclePhase` is computed unconditionally (cheap,
-  // pure) but only consumed when `phasesEnabled` is true. Both thread into
-  // PublicLanding + InvitationSite like heroPhotoUrl.
+  // as it does today.
   const phasesEnabled = isWebsitePhasesEnabled();
-  const lifecyclePhase: LifecyclePhase = getLifecyclePhase(event.event_date);
+
+  // Date-driven phase by default. DEMO/PREVIEW override: `?phase=rsvp|event|
+  // editorial` lets the owner view any phase of a TEST event regardless of its
+  // date (the live "event" phase is otherwise only a T-1h..T+8h window, so it
+  // can't be demoed on a fixed date). Gated to demo events only — slug starting
+  // with `test-` OR a `[TEST]` display name — so a crafted link can NEVER force
+  // a phase on a real couple's wedding. Only honored when phases are enabled.
+  const isDemoEvent =
+    event.slug?.toLowerCase().startsWith('test-') === true ||
+    (event.display_name ?? '').toUpperCase().includes('[TEST]');
+  const phaseParam = typeof search.phase === 'string' ? search.phase.toLowerCase() : '';
+  const phaseOverride: LifecyclePhase | null =
+    phasesEnabled && isDemoEvent && (phaseParam === 'rsvp' || phaseParam === 'event' || phaseParam === 'editorial')
+      ? (phaseParam as LifecyclePhase)
+      : null;
+
+  // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
+  // unless the demo override forces a phase (event→live so the day-of UI shows).
+  const dayOfPhase: DayOfPhase = phaseOverride
+    ? phaseOverride === 'event'
+      ? 'live'
+      : phaseOverride === 'editorial'
+        ? 'post'
+        : 'pre'
+    : event.event_date
+      ? getDayOfPhase(event.event_date)
+      : 'inactive';
+
+  // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into
+  // PublicLanding + InvitationSite like heroPhotoUrl.
+  const lifecyclePhase: LifecyclePhase = phaseOverride ?? getLifecyclePhase(event.event_date);
 
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)

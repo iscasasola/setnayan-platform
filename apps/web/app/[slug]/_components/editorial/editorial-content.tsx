@@ -285,73 +285,90 @@ function LeadArticle({
   );
 }
 
+/** A vendor is "tagged" when it carries a tag worth featuring: a Pro/Enterprise
+ *  tier badge OR a #1-match label. Tagged vendors show by default; the rest
+ *  (plain credits) collapse under a native "Show more" disclosure. */
+function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
+  return v.tier === 'pro' || v.tier === 'enterprise' || v.isFirstPick;
+}
+
+function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement {
+  // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
+  // a link to their marketplace profile; others render as a plain credit.
+  // (Free vendors are already filtered out in data.ts.)
+  const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
+  return (
+    <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
+      {v.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={v.logoUrl} alt="" aria-hidden className="h-7 w-7 shrink-0 rounded-sm object-cover" />
+      ) : (
+        <span
+          aria-hidden
+          className="h-7 w-7 shrink-0 rounded-sm bg-gradient-to-br from-terracotta-100 to-terracotta-300"
+        />
+      )}
+      <span className="min-w-0 flex-1">
+        {featured ? (
+          <a
+            href={`/vendors/${v.slug}`}
+            className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
+          >
+            {v.name}
+          </a>
+        ) : (
+          <span className="block truncate font-serif text-sm font-semibold leading-tight">{v.name}</span>
+        )}
+        {v.category ? (
+          <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
+            {prettyCategory(v.category)}
+            {v.isFirstPick ? ' · #1 match' : ''}
+          </span>
+        ) : null}
+      </span>
+      {v.tier === 'pro' || v.tier === 'enterprise' ? (
+        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta">
+          {v.tier}
+        </span>
+      ) : null}
+    </li>
+  );
+}
+
 function TeamBehindTheDay({
   vendors,
 }: {
   vendors: EditorialData['vendors'];
 }): ReactElement {
+  const tagged = vendors.filter(isTaggedVendor);
+  const rest = vendors.filter((v) => !isTaggedVendor(v));
+  // If nothing is tagged (no badges/#1-matches), fall back to showing the
+  // first few so the section is never empty.
+  const shown = (tagged.length ? tagged : vendors.slice(0, 4)).slice(0, 10);
+  const collapsed = (tagged.length ? rest : vendors.slice(4)).slice(0, 20);
+
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
       <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-ink/45">
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
-        {vendors.slice(0, 8).map((v, i) => {
-          // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier
-          // badge + a link to their marketplace profile; others render as a
-          // plain credit. (Free vendors are already filtered out in data.ts.)
-          const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
-          const nameEl = (
-            <span className="block truncate font-serif text-sm font-semibold leading-tight">
-              {v.name}
-            </span>
-          );
-          return (
-            <li
-              key={i}
-              className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0"
-            >
-              {v.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={v.logoUrl}
-                  alt=""
-                  aria-hidden
-                  className="h-7 w-7 shrink-0 rounded-sm object-cover"
-                />
-              ) : (
-                <span
-                  aria-hidden
-                  className="h-7 w-7 shrink-0 rounded-sm bg-gradient-to-br from-terracotta-100 to-terracotta-300"
-                />
-              )}
-              <span className="min-w-0 flex-1">
-                {featured ? (
-                  <a
-                    href={`/vendors/${v.slug}`}
-                    className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
-                  >
-                    {v.name}
-                  </a>
-                ) : (
-                  nameEl
-                )}
-                {v.category ? (
-                  <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
-                    {prettyCategory(v.category)}
-                    {v.isFirstPick ? ' · #1 match' : ''}
-                  </span>
-                ) : null}
-              </span>
-              {v.tier === 'pro' || v.tier === 'enterprise' ? (
-                <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta">
-                  {v.tier}
-                </span>
-              ) : null}
-            </li>
-          );
-        })}
+        {shown.map((v, i) => (
+          <VendorRow key={`t-${i}`} v={v} />
+        ))}
       </ul>
+      {collapsed.length ? (
+        <details className="mt-2">
+          <summary className="cursor-pointer list-none font-mono text-[9px] uppercase tracking-[0.16em] text-terracotta hover:text-terracotta-700">
+            + {collapsed.length} more {collapsed.length === 1 ? 'vendor' : 'vendors'}
+          </summary>
+          <ul className="m-0 mt-1 list-none p-0">
+            {collapsed.map((v, i) => (
+              <VendorRow key={`c-${i}`} v={v} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -395,15 +412,20 @@ function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
         note="estimated"
       />
 
-      {/* Supporting count strip: guests · photos · replied */}
-      <div className="grid grid-cols-3 border-b border-ink/15 text-center">
-        <StripCell value={fmt(m.guests)} label="Guests" />
-        {m.photos != null ? (
-          <StripCell value={fmt(m.photos)} label="Photos" />
-        ) : (
-          <StripCell value={m.attending ? fmt(m.attending) : '—'} label="Attending" />
-        )}
-        <StripCell value={m.rsvpPct != null ? `${m.rsvpPct}%` : '—'} label="Replied" last />
+      {/* Supporting count strip (2×2): guests · photos · #1 picks · replied */}
+      <div className="text-center">
+        <div className="grid grid-cols-2 border-b border-ink/15">
+          <StripCell value={fmt(m.guests)} label="Guests" />
+          {m.photos != null ? (
+            <StripCell value={fmt(m.photos)} label="Photos" last />
+          ) : (
+            <StripCell value={m.attending ? fmt(m.attending) : '—'} label="Attending" last />
+          )}
+        </div>
+        <div className="grid grid-cols-2 border-b border-ink/15">
+          <StripCell value={m.firstPickDen > 0 ? fmt(m.firstPickNum) : '—'} label="#1 Picks" />
+          <StripCell value={m.rsvpPct != null ? `${m.rsvpPct}%` : '—'} label="Replied" last />
+        </div>
       </div>
 
       <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry">

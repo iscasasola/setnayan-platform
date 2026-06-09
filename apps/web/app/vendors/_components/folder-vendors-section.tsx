@@ -12,6 +12,7 @@ import {
 import { type WeddingFolder } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { resolveVendorDisplayName } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
 /**
  * Inline real-vendor cards for a marketplace folder, rendered in catalog
@@ -156,6 +157,8 @@ function FolderVendorCard({
     name_revealed_at: vendor.name_revealed_at ?? null,
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
+    // Phase C: Pro/Enterprise reveal real business_name day-1.
+    isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
     primary_canonical_service: vendor.services?.[0] ?? null,
     location_city: vendor.location_city ?? null,
   });

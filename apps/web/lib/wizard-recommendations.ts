@@ -41,6 +41,8 @@ import {
 import { fetchPreferenceMatches, type PreferenceMatch } from '@/lib/preference-match';
 import { regionForCity } from '@/lib/regions';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+import { haversineKm } from '@/lib/geo';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -95,6 +97,16 @@ export type WizardVendorRec = {
    *  Card 02 reception venue land on dedicated venue-directory
    *  surfaces, not wizard vendor picks). */
   screen_name: string | null;
+  /** Phase C tier gates (vendor-tier-caps). `tier_state` enum on
+   *  vendor_profiles (free | verified | pro | enterprise) · NOT NULL
+   *  DEFAULT 'free'. Drives the day-1 name reveal on the wizard grid
+   *  card (isTrueNameTier → pro/enterprise reveal real business_name) +
+   *  the optional service-radius scope (tierCaps.serviceRadiusKm) when
+   *  the caller passes anchor coords. Populated from the same batched
+   *  vendor_profiles read as verification_state + name_revealed_at +
+   *  screen_name. Null = unknown tier → treated as free (name hidden,
+   *  radius unscoped / admit). */
+  tier_state: string | null;
   /** Vendor HQ location · drives the Card 03 ceremony-venue distance
    *  filter (kms from the host's locked reception venue). Pulled from
    *  vendor_market_stats.hq_latitude / hq_longitude. Null when the
@@ -222,6 +234,16 @@ type Args = {
    *  (`event_song_picks`) they perform, and each row gets a match label. Omit
    *  (or non-music category) → exact prior behavior, no extra reads. */
   matchEventId?: string;
+  /** Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). Anchor
+   *  coordinates (the event venue) the per-vendor distance is measured FROM.
+   *  Supplied ONLY by the dashboard Services surface (category-search.ts); the
+   *  /vendors browse + onboarding region-ring callers omit them, so the radius
+   *  cut never applies there. When BOTH are non-null the candidate pool drops
+   *  any vendor whose tier radius (Verified 20km · Pro 50km · Enterprise ∞ ·
+   *  Free 0 = unscoped) is exceeded — fail-open for unknown tier / missing
+   *  coords (see the radiusOk predicate). Omit/null = no radius scope. */
+  anchorLat?: number | null;
+  anchorLng?: number | null;
 };
 
 /**
@@ -276,13 +298,19 @@ export async function fetchWizardVendorRecommendations(
   // ranked outside the top-N by ad_rank can still float up. Inert until vendor
   // facet tags exist, so this only widens the read when an event is in context.
   const needsPreferenceMatch = !!args.matchEventId;
+  // Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). Only
+  // active when the caller supplies anchor coords (dashboard Services surface);
+  // narrows the candidate pool in JS post-fetch, so it over-fetches like the
+  // region / pax scopes to keep a full `limit` of in-radius rows.
+  const needsRadiusScope = !!(args.anchorLat != null && args.anchorLng != null);
   const fetchLimit =
     needsPreferenceMatch ||
     isMusicMatch ||
     needsRegionScope ||
     needsPaxScope ||
     needsVenueTypeScope ||
-    needsScheduleScope
+    needsScheduleScope ||
+    needsRadiusScope
       ? Math.max(limit, 100)
       : limit;
 
@@ -390,6 +418,7 @@ export async function fetchWizardVendorRecommendations(
     | 'presentation_pattern'
     | 'services_preview'
     | 'screen_name'
+    | 'tier_state'
   >[];
   if (baseRows.length === 0) return [];
 
@@ -406,30 +435,40 @@ export async function fetchWizardVendorRecommendations(
     if (baseRows.length === 0) return [];
   }
 
-  // Pax + venue-type scope (Hybrid · admit-unknown). Both capacity_max and
-  // venue_type live on vendor_profiles, not the market_stats view, so resolve
-  // them for the candidate pool with ONE small lookup, then drop venues that
-  // can't seat the wedding (capacity_max < pax) or aren't the picked fine venue
-  // type. A NULL on either — every non-venue vendor + venues that haven't stated
-  // it — is admitted (no constraint). We over-fetched above so the slice fills.
-  if (needsPaxScope || needsVenueTypeScope) {
+  // Pax + venue-type + Phase C service-radius scope (Hybrid · admit-unknown).
+  // capacity_max + venue_type + tier_state all live on vendor_profiles, not the
+  // market_stats view, so resolve them for the candidate pool with ONE small
+  // lookup, then drop venues that can't seat the wedding (capacity_max < pax),
+  // aren't the picked fine venue type, OR are outside the vendor tier's service
+  // radius from the event anchor. A NULL on capacity/type — every non-venue
+  // vendor + venues that haven't stated it — is admitted (no constraint). We
+  // over-fetched above so the slice fills.
+  if (needsPaxScope || needsVenueTypeScope || needsRadiusScope) {
     const pax = args.pax && args.pax > 0 ? args.pax : null;
     const vType = args.venueType ?? null;
     const attrIds = baseRows.map((r) => r.vendor_profile_id);
     const { data: attrRows } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, capacity_max, venue_type')
+      .select('vendor_profile_id, capacity_max, venue_type, tier_state')
       .in('vendor_profile_id', attrIds);
-    const attrById = new Map<string, { cap: number | null; type: string | null }>(
+    const attrById = new Map<
+      string,
+      { cap: number | null; type: string | null; tier: string | null }
+    >(
       (attrRows ?? []).map((r) => {
         const row = r as {
           vendor_profile_id: string;
           capacity_max: number | null;
           venue_type: string | null;
+          tier_state: string | null;
         };
         return [
           row.vendor_profile_id,
-          { cap: row.capacity_max ?? null, type: row.venue_type ?? null },
+          {
+            cap: row.capacity_max ?? null,
+            type: row.venue_type ?? null,
+            tier: row.tier_state ?? null,
+          },
         ];
       }),
     );
@@ -439,7 +478,24 @@ export async function fetchWizardVendorRecommendations(
       const type = a?.type ?? null;
       const paxOk = pax === null || cap === null || cap >= pax;
       const typeOk = vType === null || type === null || type === vType;
-      return paxOk && typeOk;
+      // Phase C service-radius gate. EXPLICIT fail-open — do NOT route an
+      // unknown/missing tier through tierCaps (which coerces null → free → 0
+      // and would wrongly distance-scope it). A vendor is admitted when:
+      // radius scope is off · the tier probe row is missing (unknown tier) ·
+      // the vendor has no HQ coords · the tier radius is Infinity (Enterprise)
+      // · the tier radius is 0 (Free = not distance-scoped) · OR it's within
+      // the tier radius of the anchor.
+      const radiusKm = a ? tierCaps(a.tier).serviceRadiusKm : Infinity;
+      const radiusOk =
+        !needsRadiusScope ||
+        a === undefined || // row missing from probe → admit (unknown tier)
+        r.hq_latitude == null ||
+        r.hq_longitude == null ||
+        !Number.isFinite(radiusKm) || // enterprise = Infinity → admit
+        radiusKm <= 0 || // free = 0 → not distance-scoped → admit
+        haversineKm(args.anchorLat!, args.anchorLng!, r.hq_latitude, r.hq_longitude) <=
+          radiusKm;
+      return paxOk && typeOk && radiusOk;
     });
     if (baseRows.length === 0) return [];
   }
@@ -572,13 +628,18 @@ export async function fetchWizardVendorRecommendations(
            *  anonymized name. Optional in the row destructure for the
            *  same pre-migration-deploy resilience pattern. */
           screen_name: string | null;
+          /** Phase C tier gate (vendor-tier-caps) · drives the day-1 name
+           *  reveal on the grid card (isTrueNameTier → pro/enterprise).
+           *  Pulled in the same vendor_profiles batch so the per-vendor read
+           *  count stays constant. Null = pre-migration deploy → free. */
+          tier_state: string | null;
         }
       >
     > => {
       const { data: rows, error: err } = await admin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id,verification_state,presentation_pattern,name_revealed_at,screen_name',
+          'vendor_profile_id,verification_state,presentation_pattern,name_revealed_at,screen_name,tier_state',
         )
         .in('vendor_profile_id', vendorIds);
       if (err || !rows) return new Map();
@@ -589,6 +650,7 @@ export async function fetchWizardVendorRecommendations(
           presentation_pattern: 'creations' | 'locked' | null;
           name_revealed_at: string | null;
           screen_name: string | null;
+          tier_state: string | null;
         }
       >();
       for (const row of rows as Array<{
@@ -597,6 +659,7 @@ export async function fetchWizardVendorRecommendations(
         presentation_pattern: string | null;
         name_revealed_at?: string | null;
         screen_name?: string | null;
+        tier_state?: string | null;
       }>) {
         const pattern =
           row.presentation_pattern === 'creations' ||
@@ -608,6 +671,7 @@ export async function fetchWizardVendorRecommendations(
           presentation_pattern: pattern,
           name_revealed_at: row.name_revealed_at ?? null,
           screen_name: row.screen_name ?? null,
+          tier_state: row.tier_state ?? null,
         });
       }
       return out;
@@ -667,6 +731,7 @@ export async function fetchWizardVendorRecommendations(
       verification_state: meta?.verification_state ?? null,
       name_revealed_at: meta?.name_revealed_at ?? null,
       screen_name: meta?.screen_name ?? null,
+      tier_state: meta?.tier_state ?? null,
       presentation_pattern: presentationPattern,
       services_preview,
       ...matchFields,

@@ -258,6 +258,12 @@ export default async function MoodBoardPage({ params }: Props) {
           eventId={eventId}
           initialDesign={receptionDesign}
           palette={palette.reception ?? []}
+          roleColors={{
+            bride: palette.bride?.[0],
+            groom: palette.groom?.[0],
+            party: palette.wedding_party?.[0],
+            guest: palette.guest?.[0],
+          }}
         />
       </section>
 

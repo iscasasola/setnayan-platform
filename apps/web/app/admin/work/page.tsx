@@ -37,6 +37,7 @@ import {
   AlertOctagon,
   Star,
   Flag,
+  CheckCheck,
   LifeBuoy,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -54,6 +55,7 @@ function take(c: number | null | undefined): number | null {
 export default async function AdminWorkLanding() {
   const admin = createAdminClient();
   const head = { count: 'exact', head: true } as const;
+  const nowIso = new Date().toISOString();
 
   const [
     verifyRes,
@@ -65,6 +67,7 @@ export default async function AdminWorkLanding() {
     forceMajeureRes,
     reviewsRes,
     abuseRes,
+    approvalsRes,
     helpRes,
   ] = await Promise.all([
     // Verify — applications awaiting review. /admin/verify defaults to the
@@ -98,6 +101,11 @@ export default async function AdminWorkLanding() {
       .from('concierge_abuse_flags')
       .select('*', head)
       .eq('status', 'pending_review'),
+    admin
+      .from('admin_approval_requests')
+      .select('*', head)
+      .eq('status', 'pending')
+      .gt('expires_at', nowIso),
     admin
       .from('help_messages')
       .select('*', head)
@@ -176,6 +184,14 @@ export default async function AdminWorkLanding() {
       icon: Flag,
       description: 'Trial-cycling flags to review.',
       count: take(abuseRes.count),
+    },
+    {
+      key: 'approvals',
+      label: 'Two-admin approvals',
+      href: '/admin/approvals',
+      icon: CheckCheck,
+      description: 'A colleague is waiting on your second sign-off.',
+      count: take(approvalsRes.count),
     },
     {
       key: 'help',

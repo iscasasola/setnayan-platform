@@ -237,6 +237,21 @@ export async function resolveAllocationInputs(
   const medians = await fetchLeafMedians(client, benchmarks.map((b) => b.plan_group_id));
   const minN = config.minSampleN ?? 3;
 
+  // Pax-axis normalization (Phase 3c · Budget_Build_Pin_Solver_Plan_2026-06-09.md).
+  // The admin BENCHMARK amounts are flat, seeded around a typical wedding
+  // (BASELINE_PAX). For clearly per-head leaves — catering scales linearly with
+  // guests; venues scale with room size — scale the benchmark band by pax/baseline
+  // so a 250-guest estimate isn't priced like a 150-guest one. Clamped to avoid
+  // extremes; REAL vendor prices (medians + real ranges) are NEVER scaled (they
+  // already reflect the market). No effect at the baseline or when pax is unknown.
+  const PER_HEAD_LEAVES = new Set(['catering', 'reception_venue', 'ceremony_venue']);
+  const BASELINE_PAX = 150;
+  const paxScale = (planGroupId: string): number => {
+    if (pax == null || pax <= 0 || !PER_HEAD_LEAVES.has(planGroupId)) return 1;
+    return Math.min(3, Math.max(0.5, pax / BASELINE_PAX));
+  };
+  const sc = (v: number | null, f: number): number | null => (v == null ? null : Math.round(v * f));
+
   const leaves: PlannerLeafInput[] = benchmarks
     // Show a leaf only once SOMETHING can price it — an admin benchmark OR at
     // least one real vendor price. No-data leaves stay hidden (no ₱0 ghost rows)
@@ -248,15 +263,16 @@ export async function resolveAllocationInputs(
       // prices, its band (min · p25 · p75) comes from the REAL distribution;
       // below that, the admin-seeded benchmark band carries it.
       const realRange = mk != null && mk.count >= minN && mk.p25 != null && mk.p75 != null;
+      const f = paxScale(b.plan_group_id);
       return {
         canonicalService: b.plan_group_id,
         label: b.label,
         medianPhp: mk?.median ?? null,
         sampleCount: mk?.count ?? 0,
-        benchmarkPhp: b.benchmark_php,
-        floorPhp: realRange ? mk!.min : b.floor_php,
-        p25Php: realRange ? mk!.p25 : b.p25_php,
-        p75Php: realRange ? mk!.p75 : b.p75_php,
+        benchmarkPhp: sc(b.benchmark_php, f),
+        floorPhp: realRange ? mk!.min : sc(b.floor_php, f),
+        p25Php: realRange ? mk!.p25 : sc(b.p25_php, f),
+        p75Php: realRange ? mk!.p75 : sc(b.p75_php, f),
         // fixedPhp (Setnayan-SKU carve-out) + pinnedAmountPhp are wired in a
         // follow-on; V1 returns the default (benchmark/median-derived) allocation.
         fixedPhp: null,

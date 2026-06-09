@@ -60,6 +60,7 @@ import {
   Banknote,
   Coins,
   BadgeCheck,
+  CheckCheck,
   Shield,
   AlertOctagon,
   Star,
@@ -194,6 +195,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: "Setnayan AI abuse",
         href: '/admin/concierge-abuse',
         icon: Flag,
+      },
+      {
+        // Two-admin (four-eyes) approval queue — §9.1. A different admin
+        // approves a major decision before it executes.
+        key: 'approvals',
+        label: 'Approvals',
+        href: '/admin/approvals',
+        icon: CheckCheck,
       },
       {
         key: 'help',

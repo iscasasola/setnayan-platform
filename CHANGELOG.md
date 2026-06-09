@@ -15,6 +15,49 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Next (Phase 2, owner-locked direction):** a **curated treatment library** — tap a reception part (ceiling / wall / tables / tunnel) and choose its treatment (chandelier vs draped cloth vs string lights, linens, centerpieces), free + instant; AI Composite Scene stays the premium upgrade.
 
 **SPEC IMPACT:** 0010 Mood Board simplified to a palette-first, one-per-element board. Follow-up (flagged, not in this PR): the seating PDF mood-board mode should read `events.role_palette` directly now that the board no longer writes `event_moodboard_saves`.
+## 2026-06-09 · feat(budget): pax-axis benchmark normalization (Phase 3c — LIVE, both surfaces)
+
+**Context:** Phase 3c of the Pin solver plan. The admin **benchmark** amounts are flat (seeded around a typical wedding), so a 250-guest estimate was priced like a 150-guest one. This scales the benchmark band of clearly **per-head** leaves by `pax / 150`.
+
+**Change (`lib/budget-allocation-data.ts` · `resolveAllocationInputs`):** for `catering` (linear with guests) + `reception_venue`/`ceremony_venue` (size-driven), the benchmark `benchmark_php/floor/p25/p75` scale by `clamp(pax/150, 0.5, 3)`. **REAL vendor prices (medians + real ranges) are never scaled** — they already reflect the market. No effect at the 150 baseline or when pax is unknown.
+
+**⚠ Not flag-gated — by design.** `resolveAllocationInputs` is shared by the **Budget tab** (`/budget`) *and* the Build takeover, so the fix applies to **both** (they must agree). It only moves benchmark-regime per-head leaves; at ~150 pax nothing changes. `BASELINE_PAX` (150) + the per-head set are engineering constants (admin-tunable later), not invented prices.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓.
+
+**SPEC IMPACT:** Phase 3c of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. Next: 3b (date pricing) → 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(admin): two-admin (four-eyes) approval queue — /admin/approvals (nav redesign PR 4)
+
+**Context:** PR 4 (final core piece) of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §3.3). The audit found the §9.1 four-eyes loop **unbuilt** — `admin_approval_requests` was only a comment ("ships V1.x"). This builds the primitive end-to-end: one admin initiates a major decision, a **different** admin approves before it executes.
+
+**Migration** `20260930000000_admin_approval_requests.sql` (idempotent): new `admin_approval_requests` table (action_type · target_user_id · payload · rationale · status · initiated_by · decided_by · decision_reason · expires_at(7d)) with a **four-eyes CHECK** `decided_by <> initiated_by`, status/action_type CHECKs, indexes, and admin-only RLS via `public.is_admin()` (mirrors `concierge_abuse_flags`). No XOR-on-users constraint added (would risk pre-existing rows) — mutual exclusivity is enforced in the executor.
+
+**Feature:**
+- `app/admin/approvals/page.tsx` — queue UI: a **New request** form (action + target email + rationale), a **Pending** list (Approve/Reject; the row is **disabled with a note when you are the initiator**), and a **Recently decided** table. Plus a bootstrap banner when <2 admins exist (§4.1).
+- `app/admin/approvals/actions.ts` — `requireAdmin()` (caller is admin, server-side) → `createAdminClient()` writes. `requestPrivilegedGrant`, `approveRequest`, `rejectRequest`. **Four-eyes enforced 3×** (atomic-claim `.neq('initiated_by', me)` + DB CHECK + UI disable). The approve/reject **atomic claim** (`UPDATE … WHERE status='pending' AND expires_at>now AND initiated_by<>me RETURNING …`) means a request is decided **once**, never after expiry, never by its initiator (no TOCTOU/double-execute). Execute-failure rolls the request back to `pending`. Every mutation audit-logs.
+- V1 action types = privilege-escalation grants (single-column `users` updates): `grant_internal_account` (§10a 🟣) · `grant_team_pool` (§10b 🟢) · `promote_to_admin`. Others opt in later via `action_type`+`payload`.
+- **Surfaced:** sidebar Work group + mobile Work tab match + `/admin/work` triage feed + Home command-center ("Approvals & support" lane). Counts query the new table.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning) · **adversarial 4-lens security review** (four-eyes/auth-bypass · TOCTOU/idempotency · executor/privilege-semantics · migration/RLS — 3/4 safe-to-ship). It caught + **fixed** two items: (1) status-guarded the execute-failure rollback (`.eq('status','approved')`) so a failed approval can't clobber a concurrent state; (2) added a self-targeting guard (an admin can't initiate a privileged grant for their own account). Four-eyes, RLS, executor, and migration verified clean.
+
+**Owner action:** the migration must be applied to prod (`supabase db push` / direct DDL) for the feature to activate; until then the page degrades to empty (graceful).
+
+**SPEC IMPACT:** PR 4 of `Admin_Console_Nav_Redesign_2026-06-08.md`; builds the §9.1 two-admin primitive (0023 §4). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(services): Budget "Build" — Pin modes on the Build tab (Phase 3a, flag-dark)
+
+**Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md`). "Pin one, recommend the rest" — a **"What is fixed?"** segmented control wraps the Build allocator. Two of the three pins already work on today's engine, so this is the UI that exposes them; date re-pricing is Phase 3b.
+
+**What landed (`build-pins.tsx`, wrapping the planner in `page.tsx` `buildSlot`):**
+- **Budget** (default) → the median-anchored allocator recommends the service mix (unchanged).
+- **Services** → "your chosen services typically cost **₱X–₱Y**" (Σ of the leaf ranges) + a **Find your date** CTA → `/find-date`.
+- **Date** → a Pin-your-date panel bridging to `/find-date` (which already ranks dates by vendors-kept). Date-aware pricing labelled "coming next" (3b).
+
+**Reuse, not fork:** the per-category price pin is already the planner's peso-pin; the date-solve is the existing `/find-date` Schedule-Matrix Date Finder. The shared `BudgetAllocationPlanner` is untouched (wrapped, not modified — Budget tab unaffected). Pin mode is local UI state.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Phase 3a of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. Next: 3c (pax-axis pricing) → 3b (date-aware pricing) → 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
 
 ## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-a — chat FREE-block · editorial tag-gate · custom-slug PRO/ENT
 

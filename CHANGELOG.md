@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
+
+**Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category: **🔒 Lock** = decided, untouched; **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). PR-1 = marker + persistence + UX; generation is PR-2.
+
+**Migration (`20261006000000_budget_category_flags.sql`, APPLIED to prod):** `public.budget_category_flags(event_id, plan_group_id, flagged_by)` — couple-own RLS. The marker only; generation writes to `event_vendors`. Behind `BUDGET_BUILD_ENABLED`.
+
+**What landed:** `build-flags-actions.ts` (`flagCategory`/`unflagCategory`); `category-flags.tsx` ("Fill these for me" — open categories with a 🚩 Flag toggle; flagged → AI-will-match/surface-options; 🔒 locked-count line; no vendor write); `build-summary.tsx` (derive open/locked + render `CategoryFlags`, replacing the 3d open-count blurb; `flaggedGroups` prop); `vendors/page.tsx` (flag-gated flags fetch).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓.
+
+**SPEC IMPACT:** Plan §12. **PR-2 (next):** generation — AI auto-adds the top-compat match to the Shortlist per flagged category; regular surfaces options (`category-search` + `compat-score`). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-08 · feat(seating): auto-grow board for the free (no room size) plan (0008)
 
 **Context:** Owner asked: with no room size set, should the board "expand as we add more tables?" — yes (the 0008 spec's `venue_known=false` auto-grow). Previously the un-set board packed tables tighter into a fixed 0–100% space (they overlapped); now it grows. Built + adversarially reviewed (14-agent workflow) — the review's main catch (free-mode positions leaking into 0–100%-assuming renderers) is fixed here too.

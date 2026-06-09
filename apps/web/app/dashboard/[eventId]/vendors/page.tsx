@@ -411,6 +411,13 @@ export default async function VendorsPage({ params }: Props) {
       .eq('event_id', eventId)
       .order('label');
     const savedBuilds = (savedBuildRows ?? []) as SavedBuild[];
+    const { data: flagRows } = await supabase
+      .from('budget_category_flags')
+      .select('plan_group_id')
+      .eq('event_id', eventId);
+    const flaggedGroups = ((flagRows ?? []) as Array<{ plan_group_id: string }>).map(
+      (r) => r.plan_group_id,
+    );
     // Available dates for the locked team — reuse the event-home intersection
     // (fires only at year/month precision with >=1 confirmed vendor). Fails silent
     // → the Lock tab just renders without the dates panel.
@@ -455,7 +462,7 @@ export default async function VendorsPage({ params }: Props) {
       <ServicesTakeover
         eventId={eventId}
         initialTab="summary"
-        summarySlot={<BuildSummary model={model} eventId={eventId} />}
+        summarySlot={<BuildSummary model={model} eventId={eventId} flaggedGroups={flaggedGroups} />}
         shortlistSlot={services}
         buildSlot={buildSlot}
         compareSlot={

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · refactor(mood-board): declutter to one-per-element design board (0010, Phase 1)
+
+**Context:** Owner feedback after the #1120 redesign: *"there are so many photos there… keep it simple. we want palette samples and the palette samples would be great if there is a picture to show how that looks like for the specific role (attire), flower, or part of the reception."* The board was dumping the whole library (**~75 attire variants** = 15 subtypes × 5 styles, plus venue + florals). Owner also chose (in-session): **auto-apply the palette** (no manual recolor tool) and **shared palettes**.
+
+**Phase 1 — one representative per design element.** New `moodboard-board.tsx` renders a short "design checklist": **Attire** (one figure per role, gated to the roles whose palette is visible), **Venue** (Ceremony + Reception), **Flowers** (bouquet). Each card shows the element + its shared palette swatches. For CORS-clean photos (picsum venue scenes + the app-served florals) the card **auto-applies the palette in-browser** (read-only `RecolorStudio` with slot→palette edits) so the picture shows your colors. Attire figures are colored SVG illustrations on a no-CORS host, so they're shown as reference images beside the role's palette (canvas recolor would taint).
+
+`page.tsx` rewritten to build the sections and render the board; the 75-photo `MoodboardChapters` gallery + the silhouette `WeddingAttireGuide` are no longer rendered (files kept — the `event_moodboard_saves` write path they own is still read by the seating PDF). The manual Recolor Studio + save flow stay in the codebase, dormant, to power Phase 2.
+
+**Next (Phase 2, owner-locked direction):** a **curated treatment library** — tap a reception part (ceiling / wall / tables / tunnel) and choose its treatment (chandelier vs draped cloth vs string lights, linens, centerpieces), free + instant; AI Composite Scene stays the premium upgrade.
+
+**SPEC IMPACT:** 0010 Mood Board simplified to a palette-first, one-per-element board. Follow-up (flagged, not in this PR): the seating PDF mood-board mode should read `events.role_palette` directly now that the board no longer writes `event_moodboard_saves`.
+
 ## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-a — chat FREE-block · editorial tag-gate · custom-slug PRO/ENT
 
 **Context:** #4 (Phase C feature gates) of "do 1–5" on the tier matrix, split into 3 PRs by file-locality. **PR-a = the 3 clean, zero-migration, low-risk gates** verified "sound/ship-it" by the banked design pass (`Vendor_Tier_4_PhaseC_Gates_Spec_2026-06-09.json`).

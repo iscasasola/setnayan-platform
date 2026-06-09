@@ -220,7 +220,7 @@ export async function resolveAllocationInputs(
   const [eventRes, benchmarks, config] = await Promise.all([
     client
       .from('events')
-      .select('event_id, estimated_budget_centavos, estimated_pax')
+      .select('event_id, estimated_budget_centavos, estimated_pax, event_date, region')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchActiveBenchmarks(client),
@@ -228,14 +228,38 @@ export async function resolveAllocationInputs(
   ]);
 
   const ev = eventRes.data as
-    | { estimated_budget_centavos?: number | null; estimated_pax?: number | null }
+    | {
+        estimated_budget_centavos?: number | null;
+        estimated_pax?: number | null;
+        event_date?: string | null;
+        region?: string | null;
+      }
     | null;
   const budgetPhp =
     ev?.estimated_budget_centavos != null ? Math.round(Number(ev.estimated_budget_centavos) / 100) : null;
   const pax = ev?.estimated_pax != null ? Number(ev.estimated_pax) : null;
+  const region = ev?.region ?? null;
+  const eventDate = ev?.event_date ?? null;
 
   const medians = await fetchLeafMedians(client, benchmarks.map((b) => b.plan_group_id));
   const minN = config.minSampleN ?? 3;
+
+  // Seasonality (Phase 3b) — a per-(region, month) benchmark multiplier (peak months
+  // cost more). NEUTRAL (1.0) until an admin seeds wedding_season_factors, so ZERO
+  // effect today. Applies to the benchmark band of ALL leaves (a general price level);
+  // never the real medians. Region + month derived from the event.
+  let seasonFactor = 1;
+  if (region && eventDate) {
+    const month = new Date(eventDate).getUTCMonth() + 1;
+    const { data: sf } = await client
+      .from('wedding_season_factors')
+      .select('factor')
+      .eq('region', region)
+      .eq('month', month)
+      .maybeSingle();
+    const f = (sf as { factor?: number | null } | null)?.factor;
+    if (f != null && Number(f) > 0) seasonFactor = Number(f);
+  }
 
   // Pax-axis normalization (Phase 3c · Budget_Build_Pin_Solver_Plan_2026-06-09.md).
   // The admin BENCHMARK amounts are flat, seeded around a typical wedding
@@ -263,7 +287,7 @@ export async function resolveAllocationInputs(
       // prices, its band (min · p25 · p75) comes from the REAL distribution;
       // below that, the admin-seeded benchmark band carries it.
       const realRange = mk != null && mk.count >= minN && mk.p25 != null && mk.p75 != null;
-      const f = paxScale(b.plan_group_id);
+      const f = paxScale(b.plan_group_id) * seasonFactor;
       return {
         canonicalService: b.plan_group_id,
         label: b.label,

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(budget): Budget "Build" — date-aware pricing scaffold (Phase 3b)
+
+**Context:** Phase 3b of the Pin solver. Two pieces: a **seasonality** scaffold (dormant) + a **last-minute** advisory.
+
+**Migration (`20261001000000_wedding_season_factors.sql`, APPLIED to prod):** new `public.wedding_season_factors(region, month, factor)` — a per-(region, month) benchmark price multiplier. **Ships NEUTRAL: the table is EMPTY**, and `resolveAllocationInputs` defaults the factor to **1.0** when no row exists → **zero pricing effect until an admin seeds real factors** (owner-to-set; never invented). Authenticated read · admin-only write (`is_admin()`).
+
+**Resolver (`lib/budget-allocation-data.ts`):** derives `region` + `month` from the event, looks up the season factor, multiplies it into the per-leaf benchmark scale (with the 3c pax factor). Benchmark band only; **real vendor medians never scaled.** Shared by /budget + the takeover. No effect today (empty table).
+
+**Last-minute advisory (`build-pins.tsx` · Date pin):** the vendor last-minute surcharge is *per-vendor*, not a category estimate — surfaced as a heads-up: date < ~6 months out → "your date is about N weeks away; some vendors add a last-minute surcharge." `eventDate` threaded from `page.tsx`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓.
+
+**SPEC IMPACT:** Phase 3b of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. **Owner TODO:** seed `wedding_season_factors` to activate seasonality. Next: 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · refactor(mood-board): declutter to one-per-element design board (0010, Phase 1)
 
 **Context:** Owner feedback after the #1120 redesign: *"there are so many photos there… keep it simple. we want palette samples and the palette samples would be great if there is a picture to show how that looks like for the specific role (attire), flower, or part of the reception."* The board was dumping the whole library (**~75 attire variants** = 15 subtypes × 5 styles, plus venue + florals). Owner also chose (in-session): **auto-apply the palette** (no manual recolor tool) and **shared palettes**.

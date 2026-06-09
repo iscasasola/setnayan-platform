@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): dedicated Entrance Tunnel part (0010)
+
+**Context:** Owner: "also add tunnel." The grand-entrance tunnel is a Filipino-reception signature, so it's promoted from an attribute of Entrance to its **own part** with richer options; the aisle runner becomes its own part ("Aisle").
+
+**`lib/reception-scene.ts`:** new `tunnel` part with **10 styles** — floral / draped / fairy-light / greenery / balloon / lantern arches **+ crystal-beaded, butterfly, cherry-blossom** + no-tunnel. The `entrance` part is now just the **Aisle** (runner: petals / fabric / mirror / candle / **floral-lined** / bare). New SVG branches for the crystal, butterfly, and cherry-blossom tunnels + floral-lined aisle. `buildPrompt()` + save sanitization + the part tabs pick up the new part automatically; the center-foreground tap hotspot now selects the tunnel. No migration (JSONB).
+
+**Verification:** `pnpm typecheck` ✅ · `pnpm lint` ✅. Rendered the 3 new tunnel styles via sharp — all read distinctly and take the palette.
+
+**SPEC IMPACT:** 0010 reception designer gains a dedicated Entrance Tunnel part (10 styles) split from the Aisle.
+
+
 ## 2026-06-09 · feat(mood-board): stylist-grade reception designer (0010, Phase 3)
 
 **Context:** Owner: *"make sure the details will be perfect first on the free mode … as intricate as possible … all the materials stylists use on the different parts of the reception."* The detailed free design IS the AI render's control image + prompt, so detail here = render fidelity. Owner chose **full multi-attribute depth**, **Core 5 parts**, and locked the paid render = **Nano Banana ($0.039/1K ≈ ₱2 cost) sold at ₱300** (wired later).

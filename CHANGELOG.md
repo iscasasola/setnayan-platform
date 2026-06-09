@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(onboarding): hot-date demand "heat" layer on the wedding date calendar
+
+**Context:** Designed this session (prototype `Hot_Date_Heat_Calendar_Prototype_2026-06-09.html` + Date-Aligner spec §L). The onboarding `DateCalendar` already owns 2-mode picking + a "why this date" nugget; this adds the **demand axis** — a predicted-heat tint on calendar cells + a demand chip in the nugget — so couples see how in-demand a date is alongside whether it fits their plan. **Predicted (deterministic) layer only** — the observed inquiry / relative-to-supply escalation (§L.2) is deferred (founder-only marketplace = no inquiry data; would be dead code).
+
+**What changed (presentation-only · no migration · no schema):**
+- `app/onboarding/wedding/_components/onboarding-shell.tsx` — `heatTier(date)` deterministic 0–4 demand (peak month × Sat/Fri/Sun × repeating MM·DD × Valentine's); `DEMAND_LABEL` + `demandOf`; `WhyView.demand` populated in `dateReasons`/`rangeReasons`/`commonReasons`; cells get a `heat-N` class (enabled, non-selected, non-range only — mulberry selection fill always wins); a demand chip renders in the `whydate` nugget header.
+- `app/onboarding/wedding/_styles/onboarding.css` — on-brand warm ramp `.calday.heat-1..4` (gold → restrained terracotta · owner-chosen look) + `.wdemand` chip tiers.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ (pre-existing warnings only) · `next build` ✓. Logic mirrors the verified prototype (Dec 12 = Hottest · Dec 5/19 = In-demand · plain weekdays = Quiet/Open). Visual walkthrough on the Vercel PR preview.
+
+**SPEC IMPACT:** builds Date-Aligner `Wedding_Date_Aligner_Expansion_2026-06-04.md` §L (predicted half) → corpus `DECISION_LOG.md` row.
+
 ## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
 
 **Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000): **Pro 5 (monthly) / 50 (annual) · Enterprise 10 (monthly) / 100 (annual)**. Subscription PRICES unchanged (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) — only the bundled tokens.

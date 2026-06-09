@@ -19,7 +19,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
-import { Hammer, Check, X } from 'lucide-react';
+import { Hammer, Check, X, Clock } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { setBuildPick, removeBuildPick } from '../build-pick-actions';
 
@@ -38,6 +38,7 @@ export function AccordionBuildButton({
   vendorId,
   vendorName,
   isBuildPick,
+  priced = true,
   existing,
 }: {
   eventId: string;
@@ -47,6 +48,10 @@ export function AccordionBuildButton({
   vendorName: string;
   /** Is THIS vendor the category's current build pick? */
   isBuildPick: boolean;
+  /** Has the vendor responded with a price? Only priced services can be added to
+   *  the build (owner 2026-06-09: "they can only add to build the services that
+   *  vendors responded with the price"). Unpriced inquiries show a disabled note. */
+  priced?: boolean;
   /** The category's current build pick, when it's a DIFFERENT vendor (→ popup). */
   existing: { name: string; pricePhp: number | null; thisPricePhp: number | null } | null;
 }) {
@@ -93,6 +98,17 @@ export function AccordionBuildButton({
         >
           {isPending ? '…' : 'Remove'}
         </button>
+      </div>
+    );
+  }
+
+  // Rule (owner 2026-06-09): only a priced service can be added to the build.
+  // An inquiry the vendor hasn't priced yet shows a disabled note instead.
+  if (!priced) {
+    return (
+      <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-ink/20 px-3 py-2.5 text-[11.5px] font-medium text-ink/45">
+        <Clock className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+        Waiting for the vendor&rsquo;s price
       </div>
     );
   }

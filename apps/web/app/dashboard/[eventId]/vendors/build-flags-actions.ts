@@ -258,6 +258,10 @@ export async function computeBuildFromShortlist(input: {
         (r) =>
           r.category != null &&
           cats.has(r.category) &&
+          // Rule (owner 2026-06-09): only services the vendor has RESPONDED with a
+          // price for are build-eligible — a price-less inquiry can't be computed
+          // into the build. total_cost_php is the vendor's responded package price.
+          r.total_cost_php != null &&
           !(r.status && COMPUTE_LOCKED.has(r.status)) &&
           !usedVendors.has(r.vendor_id),
       )

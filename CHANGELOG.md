@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Build — only priced services are build-eligible (rule)
+
+**Context:** Owner 2026-06-09 rule — "they can only add to build the services that vendors responded with the price. if the service is still just inquiry and no price yet, it cannot be added to the build." Applied to both the Add-to-build button and Compute.
+
+- `_components/accordion-build.tsx` + `plan-budget-accordion.tsx`: `AccordionBuildButton` gains a `priced` prop (`pick.rolled_cost_php != null`). Unpriced picks render a disabled **"Waiting for the vendor's price"** note instead of the Add-to-build CTA.
+- `build-flags-actions.ts` (`computeBuildFromShortlist`): candidates now require `total_cost_php != null` (the vendor's responded price) — a price-less inquiry is never auto-filled into the build. (Compute's no-match path already opens the AI-gated `CategorySearchOverlay`, so the "scan the category with/without Setnayan AI" rule is satisfied by `[Find compatible]`.)
+
+**Verification:** `tsc --noEmit` clean. Folded into the Part-4 Build PR (#1208).
+
+**SPEC IMPACT:** Tightens Part 4/6 of the Services redesign. UI + read-model only; no schema change. → corpus `DECISION_LOG` 2026-06-09.
+
 ## 2026-06-09 · feat(plan-builder): Build — budget-aware Compute from the shortlist (0016 sync)
 
 **Context:** Owner 2026-06-09 — the Build tab's **Compute** auto-fills every FLAGGED category with one shortlisted service that fits the **pinned budget** ("auto generate 1 possible combination … following the rules of what are pinned"). The build **references the shortlist** (owner: "it only references the list from the shortlist. so customers can create combinations of the best option for them"), so Compute never searches the marketplace — it picks from what the couple already shortlisted. The Build tab's other pieces were already in place: the **3-row cost strip** (locked / this-build / total + budget over-under) and **Reset** live in `BuildPicksList`; **Pin a category** = an "Add to build" pick (`event_build_picks`); Date/Budget/Location **Flag/Pin** anchors live in `BuildAnchors`.

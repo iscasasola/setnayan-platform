@@ -246,10 +246,11 @@ export async function updateTablePosition(formData: FormData) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     throw new Error('Position must be numeric');
   }
-  // Positions are stored as percent (0–100) of the canvas dimensions, so the
-  // layout adapts to whatever container size we render the floor plan in.
-  const clampedX = Math.max(0, Math.min(100, x));
-  const clampedY = Math.max(0, Math.min(100, y));
+  // Positions are stored as percent of the canvas; on the free auto-grow board
+  // they can exceed 0–100 (the board grows outward as tables are added), so
+  // clamp only to a generous safety range, not the viewport.
+  const clampedX = Math.max(-300, Math.min(900, x));
+  const clampedY = Math.max(-300, Math.min(900, y));
 
   const supabase = await createClient();
   const {

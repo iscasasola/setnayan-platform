@@ -6,20 +6,40 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(services): Budget "Build" — Lock vs Flag foundation (PR-1, flag-dark)
 
-**Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category two-state control: **🔒 Lock** = decided, untouched (= the existing finalize/peso-pin); **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). This PR-1 ships the marker + persistence + UX; the generation that writes a matched vendor is PR-2.
+**Context:** Owner refinement (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §12) — supersedes the deferred bulk-auto-fill. Per-category: **🔒 Lock** = decided, untouched; **🚩 Flag** = "fill this for me" → sourced + recommended (shortlist first → marketplace next-best; AI auto-picks · regular surfaces options). PR-1 = marker + persistence + UX; generation is PR-2.
 
-**Migration (`20261006000000_budget_category_flags.sql`, APPLIED to prod):** `public.budget_category_flags(event_id, plan_group_id, flagged_by)` — couple-own RLS (read/insert/delete, `member_type='couple'`). The marker only; generation writes to `event_vendors`, not here. Read/written behind `BUDGET_BUILD_ENABLED`.
+**Migration (`20261006000000_budget_category_flags.sql`, APPLIED to prod):** `public.budget_category_flags(event_id, plan_group_id, flagged_by)` — couple-own RLS. The marker only; generation writes to `event_vendors`. Behind `BUDGET_BUILD_ENABLED`.
+
+**What landed:** `build-flags-actions.ts` (`flagCategory`/`unflagCategory`); `category-flags.tsx` ("Fill these for me" — open categories with a 🚩 Flag toggle; flagged → AI-will-match/surface-options; 🔒 locked-count line; no vendor write); `build-summary.tsx` (derive open/locked + render `CategoryFlags`, replacing the 3d open-count blurb; `flaggedGroups` prop); `vendors/page.tsx` (flag-gated flags fetch).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓.
+
+**SPEC IMPACT:** Plan §12. **PR-2 (next):** generation — AI auto-adds the top-compat match to the Shortlist per flagged category; regular surfaces options (`category-search` + `compat-score`). Logged in `DECISION_LOG.md`.
+
+## 2026-06-08 · feat(seating): auto-grow board for the free (no room size) plan (0008)
+
+**Context:** Owner asked: with no room size set, should the board "expand as we add more tables?" — yes (the 0008 spec's `venue_known=false` auto-grow). Previously the un-set board packed tables tighter into a fixed 0–100% space (they overlapped); now it grows. Built + adversarially reviewed (14-agent workflow) — the review's main catch (free-mode positions leaking into 0–100%-assuming renderers) is fixed here too.
 
 **What landed:**
-- `vendors/build-flags-actions.ts` — `flagCategory` (upsert DO-NOTHING) + `unflagCategory`.
-- `vendors/_components/category-flags.tsx` — the **"Fill these for me"** control: open categories with a 🚩 Flag/Unflag toggle; flagged → "Setnayan AI will match this" (paid) / "we'll surface options" (free); a 🔒 locked-count line ("N picks stay untouched"). No vendor write.
-- `build-summary.tsx` — derives open vs locked categories, renders `CategoryFlags` (replacing the 3d open-count blurb); + `flaggedGroups` prop.
-- `vendors/page.tsx` — fetches `budget_category_flags` (flag-gated) → `flaggedGroups`.
+- **Auto-grow placement** — new tables sit at FIXED comfortable spacing (`defaultTablePosition(spread=true)`, ~48% grid), so the board grows outward (positions can exceed 100%) instead of crowding. The free-mode drag + save clamps widened to match; the view **auto-fits when the table count changes** (not while seating) so all tables stay framed; `ZOOM_MIN` lowered to 0.1 so even large boards fit.
+- **Venue mode unchanged** — with a room size set, `defaultTablePosition(spread=false)` still packs tables inside the walls (0–100%), drag clamps stay 2–98%, to-scale rendering as before.
+- **Downstream made spread-safe** (the review's HIGH finding) — `fitFloorTransform` (new, in `lib/seating`) fits any >100% layout back into the 0–100 box (no-op when already in-bounds, so existing events are untouched), applied in the **PDF export** and the **day-of wayfinding map** (+ find-my-table). Verified by rendering a PDF with spread positions → tables land on-page, not off it.
+- **One shared default** (the review's MEDIUM finding) — moved `defaultTablePosition` to `lib/seating`; the editor, PDF and wayfinding all use it, so an un-arranged layout looks the same everywhere (the PDF no longer stacks null-position tables at centre).
 
-**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+**Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered before/after auto-grow (12 tables: overlapping → comfortably spread + framed) and a spread-position PDF (on-page). SPEC IMPACT: builds 0008 `venue_known=false` auto-grow. → corpus DECISION_LOG.
+=======
 
-**SPEC IMPACT:** Plan §12 (Lock vs Flag). **PR-2 (next):** the generation action — AI auto-adds the top-compat match to the Shortlist per flagged category; regular surfaces options (reuses `category-search` + `compat-score`). Logged in `DECISION_LOG.md`.
+## 2026-06-09 · feat(mood-board): reception designer — stylized live venue (0010, Phase 2)
 
+**Context:** Owner directive 2026-06-09: *"can we actually design the elements? … the ceiling treatment will be made of lights/chandelier/hanging cloth … when i tap on table, can we edit the tablecloth, place colors, centerpieces? … editing the actual feel of the whole venue?"* Owner chose (in-session): **stylized live preview** (an illustrated venue that updates as you pick) over photoreal photos or the premium AI render; parts = **Stage · Ceiling · Walls/Backdrop · Tables · Entrance tunnel**.
+
+**Engine (`apps/web/lib/reception-scene.ts`, new):** a pure, DOM-free `renderVenueSvg(design, palette)` that draws a stylized one-point view down the aisle — ceiling overhead, entrance/tunnel arches, the couple's stage + backdrop at the far end, guest tables (with chairs) flanking. Each part has 3–4 **treatments** (e.g. ceiling: chandeliers / draped fabric / string lights / floral cloud; backdrop: draped / floral wall / greenery / marquee; tables: round-tall / round-low / long banquet; entrance: floral / draped / light tunnel). The couple's shared **Reception palette** drives the colors; treatments drive the shapes. **No asset library, no AI, ₱0** — pure SVG. (Visually iterated by rasterizing combos via sharp.)
+
+**Designer (`reception-designer.tsx`, new):** the venue renders live; the couple **taps a part** (SVG hotspots + a part selector) and picks a treatment → the scene updates instantly. Auto-saves to `events.reception_design`.
+
+**Wiring:** `page.tsx` adds a "Design your reception" section; **Reception is removed from the simple per-element board** (the designer replaces the static reception card). `saveReceptionDesign` action sanitizes against the known parts/treatments. Migration `20261002000000` (**applied to prod**) adds `events.reception_design JSONB DEFAULT '{}'` (additive, idempotent).
+
+**SPEC IMPACT:** 0010 Mood Board gains the free curated reception designer (the spec's stylist "Composite Scene" intent, delivered as a free stylized layer; the photoreal AI render stays the premium tier). Treatment taxonomy + the `reception_design` shape are new.
 ## 2026-06-09 · feat(onboarding): reception + mood = taxonomy refinements · songs gated + 3-mode
 
 **Context:** Owner walkthrough of the wedding onboarding (Photos 1–3). The `reception_setting`, `mood`, and `songs` screens were the last **hardcoded holdouts** in an otherwise taxonomy-DB-driven refinement flow (`onboarding_refinements` + the `RefineStep` template). Fold all three into the taxonomy pattern + two UX fixes.

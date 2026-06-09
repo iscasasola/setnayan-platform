@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { EventTableRow } from '@/lib/seating';
+import { fitFloorTransform, type EventTableRow } from '@/lib/seating';
 import {
   type EntrancePos,
   wayfindingPath,
@@ -58,8 +58,21 @@ export function WayfindingMap({ tables, entrance, targetTableId }: Props) {
   // Path points (0–100 grid) → an SVG polyline string. Only drawn when there's
   // a target to walk to.
   const pathPoints = target ? wayfindingPath(entrance, target.pos) : null;
+
+  // The free auto-grow board can save table positions beyond 0–100; fit such a
+  // spread layout back into the 0–100 map box (no-op for in-bounds layouts).
+  const tf = useMemo(
+    () =>
+      fitFloorTransform([
+        ...positioned.map((p) => p.pos),
+        entrance,
+        ...(pathPoints ?? []),
+      ]),
+    [positioned, entrance, pathPoints],
+  );
+  const tEntrance = tf(entrance.x, entrance.y);
   const polyline = pathPoints
-    ? pathPoints.map((p) => `${p.x},${p.y}`).join(' ')
+    ? pathPoints.map((p) => { const q = tf(p.x, p.y); return `${q.x},${q.y}`; }).join(' ')
     : null;
 
   return (
@@ -106,7 +119,7 @@ export function WayfindingMap({ tables, entrance, targetTableId }: Props) {
       {/* Entrance marker. */}
       <div
         className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-        style={{ left: `${entrance.x}%`, top: `${entrance.y}%` }}
+        style={{ left: `${tEntrance.x}%`, top: `${tEntrance.y}%` }}
       >
         <div className="flex flex-col items-center gap-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta shadow-sm">
@@ -122,11 +135,12 @@ export function WayfindingMap({ tables, entrance, targetTableId }: Props) {
           muted so the guest's eye lands on their destination first. */}
       {positioned.map(({ table, pos, shape }) => {
         const isTarget = table.table_id === targetTableId;
+        const q = tf(pos.x, pos.y);
         return (
           <div
             key={table.table_id}
             className={`absolute -translate-x-1/2 -translate-y-1/2 ${isTarget ? 'z-20' : 'z-0'}`}
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            style={{ left: `${q.x}%`, top: `${q.y}%` }}
           >
             <TableMarker label={table.table_label} shape={shape} isTarget={isTarget} />
           </div>

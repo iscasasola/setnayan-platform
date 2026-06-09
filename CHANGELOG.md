@@ -16,6 +16,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Additive recap surface for the `LIVE_WALL` SKU (`platform_retail_catalog_v2`) — the Live Photo Wall now renders on the public editorial/recap page when activated. No pricing/SKU change. Logged in corpus `DECISION_LOG` 2026-06-09. (Future: source the wall from `papic_photos` once iteration 0012 ships its live tagged-photo pipeline.)
 
+## 2026-06-09 · fix(seating): instant seating (optimistic), instant table-delete, discoverable rotation
+
+**Context:** Owner feedback on the live seat plan: (1) seating a guest "takes too long — we want it instant"; (2) deleting a table had no feedback that it was working; (3) "still not rotating." All three in `seating-editor.tsx`.
+
+**1 + 2 — Optimistic UI (instant).** Every seat/unseat/group-seat/table-delete went through `startTransition(() => action())` + `revalidatePath` — a full server round-trip with no client update, so the UI froze until the refetch streamed back. Now uses React 19 **`useOptimistic`**: the guest moves to / leaves the chair (or the table disappears) **immediately**, and the server action reconciles in the background. `guests`/`tables` props are renamed to `*Prop` and overlaid with optimistic state (reducers handle seat · unseat · seatGroup · delete-table); all read-sites use the optimistic value unchanged.
+
+**3 — Rotation was undiscoverable.** The rotate control only appeared as a tiny in-canvas toolbar gated on *sidebar-highlight + zoomed-in*, positioned inside the pan/zoom world (often off-screen / mis-scaled). Replaced with: **tap a table on the canvas to select it** (pointer-up with no drag toggles selection), and a **selected-table bar** (rotate ↺ / ↻ 15° + **Flip** 180° with a live angle readout, plus **Delete table**) that renders in normal DOM flow above the canvas — reliable, visible in both plan + list views. (Rotation render itself was already correct from PR B; it just couldn't be triggered. Note: rotation is visually meaningful on serpentine/banquet/sweetheart — a round table looks the same rotated; the angle readout gives feedback either way.)
+
+**Files:** `apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx` only. Verified: real `pnpm typecheck` + `pnpm lint` clean. Editor interactions to be eyeballed on the Vercel preview.
+
+**SPEC IMPACT:** 0008 Seating — UX/perf only (optimistic seating + delete, discoverable rotate). No schema/pricing/action-signature change. Logged in corpus `DECISION_LOG` 2026-06-09.
+
 ## 2026-06-09 · fix(onboarding): Google-only login on the wedding account gate (remove Facebook)
 
 **Context:** Owner report 2026-06-09 — "login on the onboarding wedding is not working." The wedding onboarding account gate (screen 11, "Your plan is ready") offered Google + Facebook + email "Create account". Owner directive: **just use Google to login for now on the onboarding, make sure it bounces back to onboarding after login, and remove Facebook login.**

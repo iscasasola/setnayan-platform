@@ -16,6 +16,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** builds Date-Aligner `Wedding_Date_Aligner_Expansion_2026-06-04.md` §L (predicted half) → corpus `DECISION_LOG.md` row.
 
+## 2026-06-09 · chore(db): prevent recurring migration timestamp collisions (allocator + pre-push guard)
+
+**Context:** Duplicate 14-digit migration prefixes have half-applied prod + blocked every open PR **4×** (`20260922`, `20260925`, `20261002`, …). Root cause: prefixes are hand-typed `YYYYMMDD000000` and two people pick the same date. The CI "migration timestamp guard" only catches it *reactively* on `main`. This adds prevention.
+
+**What landed (no migration; tooling only):**
+- **`pnpm migration:new "<name>"`** (`scripts/new-migration.mjs`) — allocates a collision-free prefix + writes an idempotent stub. Prefixes have **drifted ~4 months ahead of wall-clock** (max `20261010000000` vs real now `20260609`), so a plain real-timestamp allocator would sort *before* existing migrations — this one is **monotonic** (`max(realNow, maxKnown+1)`), consults **local ∪ `origin/main`** (fetches first), and **loops on prefix-level uniqueness**.
+- **Pre-push hook** (`.githooks/pre-push`, pure POSIX sh) — blocks a push that introduces a duplicate prefix. Inspects the **commits being pushed ∪ `origin/main`**, *not* the working tree, so unrelated uncommitted WIP never false-blocks and a collision with an already-merged migration is caught **before** the push. Mirrors the CI guard's pipeline. Committed `100755`.
+- **`prepare` script** (`scripts/setup-git-hooks.mjs`) — wires `core.hooksPath=.githooks` on `pnpm install` (husky pattern, no dep); never throws (CI/Docker/non-git safe), self-heals the exec bit, respects a custom hooks path with a loud advisory.
+- **`pnpm migration:check`** + `supabase/migrations/README.md`.
+
+**Adversarial review (4-dimension workflow, 19 agents):** 15 raw findings → **9 confirmed, all fixed** — prefix-level (not filename) uniqueness + `origin/main` awareness (was blind to merged-but-unpulled), hook checks pushed commits not the working tree (was false-blocking the owner's WIP), committed exec bit, honest "CI is the final backstop for truly-simultaneous in-flight migrations" wording. 6 findings correctly rejected (TOCTOU non-issue, etc.).
+
+**Verify:** `node --check` all scripts ✓; allocator monotonic + origin/main-aware ✓; hook clean/WIP-ignore/committed-dup/origin-main-dedup/cross-branch-catch (6 scenarios) ✓; setup-git-hooks all 5 branches (wire/self-heal/respect-custom/CI-noop/missing-hook) ✓. 285 migrations, guard green.
+
+**SPEC IMPACT:** None (dev tooling; the spec corpus is unaffected). Logged in DECISION_LOG.
+
 ## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
 
 **Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000): **Pro 5 (monthly) / 50 (annual) · Enterprise 10 (monthly) / 100 (annual)**. Subscription PRICES unchanged (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) — only the bundled tokens.

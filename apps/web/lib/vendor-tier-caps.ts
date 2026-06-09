@@ -173,9 +173,15 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
 };
 
 /**
- * Free tokens bundled with a paid subscription, granted on activation/renewal
- * (owner reissue 2026-06-07). Interim: granted on admin tier-set (the monthly
- * amount); the per-renewal grant + annual amount arrive with Phase D checkout.
+ * Free tokens bundled with a paid subscription, granted per paid period
+ * (activation/renewal) by `_apply_subscription_credit`, and on admin tier-set
+ * (the monthly amount) by `setVendorTier`.
+ *
+ * RATES REVISED 2026-06-09 (owner): Pro 5/50 · Enterprise 10/100 (was 30/300 ·
+ * 100/1000). These numbers are MIRRORED in the SQL CASE inside
+ * `_apply_subscription_credit` (migration 20261011000000 — the active version;
+ * 20261010000000 created it with the old amounts). Keep BOTH in sync on any
+ * future reprice.
  */
 export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
   VendorTier,
@@ -183,8 +189,8 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 > = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  pro: { monthly: 30, annual: 300 },
-  enterprise: { monthly: 100, annual: 1000 },
+  pro: { monthly: 5, annual: 50 },
+  enterprise: { monthly: 10, annual: 100 },
 };
 
 /** Price to buy one additional lifetime (non-expiring) token. */

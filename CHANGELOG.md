@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
+
+**Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000):
+
+| Tier | Monthly | Annual |
+|---|---|---|
+| Pro | 5 | 50 |
+| Enterprise | 10 | 100 |
+
+**What changed (the amounts live in two synced places):**
+- `lib/vendor-tier-caps.ts` — `TIER_SUBSCRIPTION_BUNDLE_TOKENS` set to pro {5,50} · enterprise {10,100}. This auto-updates the subscription page display AND the interim admin tier-set grant (`setVendorTier` reads `.monthly`).
+- Migration **`20261011000000_vendor_subscription_bundle_reprice.sql`** (applied to prod) — `CREATE OR REPLACE`s the money-path RPC `_apply_subscription_credit`'s hardcoded bundle CASE to 5/50/10/100 (the only change; table/RLS/REVOKE posture/stacking-renewal/idempotency all untouched). `20261010000000` created the function with the old amounts; this is the active version.
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Applied to prod + version recorded; **auto-rollback smoke test confirms** Pro-monthly grants 5 and Enterprise-annual grants 100 (zero prod mutation). Subscription PRICES (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) are unchanged — only the bundled tokens.
+
+**SPEC IMPACT:** bundle reprice → corpus `DECISION_LOG.md` + tier matrix + memory.
+
 ## 2026-06-09 · feat(seating): tables never overlap — collision avoidance (0008)
 
 **Context:** Owner: "the tables will never overlap each other." Auto-grow (PR #1153) spaced *new* tables apart but didn't stop a **drag** from covering another, and a 16-seat family-head table (far wider than a grid cell) could still touch its neighbours. This adds true collision avoidance.

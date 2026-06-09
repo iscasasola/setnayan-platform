@@ -23,6 +23,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
@@ -40,6 +41,7 @@ import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation-planner';
 import { BuildPins } from './_components/build-pins';
+import type { AnchorData } from './_components/build-anchors';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
@@ -355,6 +357,12 @@ export default async function VendorsPage({ params }: Props) {
   const aiActive = isSetnayanAiActive(ev);
   const planningManual = !aiActive;
 
+  // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
+  // menus"): the 10 folder labels/order/slugs come from `service_categories`
+  // via getTaxonomy(), so an /admin/taxonomy edit flows to every plan-builder
+  // tab. Falls back to the TS constants on any read error (resolver-internal).
+  const taxonomy = await getTaxonomy();
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
@@ -369,6 +377,7 @@ export default async function VendorsPage({ params }: Props) {
     marketPoolCount,
     personalizationEnabled: aiActive,
     moodBoardSet: ev?.mood_board_updated_at != null,
+    taxonomy,
   });
 
   // "Matching you on" strip (owner 2026-06-04) — the couple's curated match
@@ -439,6 +448,23 @@ export default async function VendorsPage({ params }: Props) {
         return null;
       }
     })();
+    // Build-tab anchors (PR D) — Date/Budget/Location with Flag/Pin. State lives
+    // on the existing events columns (populated = Pinned, empty = Flagged); no
+    // migration. Reuses the already-computed matchFormattedDate + precision.
+    const buildAnchors: AnchorData = {
+      date: {
+        iso: ev?.event_date ?? null,
+        label: matchFormattedDate,
+        candidateCount: ev?.date_candidates?.length ?? 0,
+      },
+      budget: {
+        php:
+          ev?.estimated_budget_centavos != null
+            ? Math.round(ev.estimated_budget_centavos / 100)
+            : null,
+      },
+      location: { region: ev?.region ?? null },
+    };
     const buildSlot = (
       <BuildPins
         eventId={eventId}
@@ -446,6 +472,7 @@ export default async function VendorsPage({ params }: Props) {
         leaves={allocInputs.leaves}
         config={allocInputs.config}
         eventDate={ev?.event_date ?? null}
+        anchors={buildAnchors}
         plannerSlot={
           <BudgetAllocationPlanner
             eventId={eventId}

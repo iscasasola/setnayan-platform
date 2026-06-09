@@ -22,6 +22,40 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0010 Mood Board gains the concept-book PDF export (revives the deferred "PDF design book"). Logged in corpus `DECISION_LOG` 2026-06-09. No schema/pricing change. The paid render + galleries + ₱500/5-render credits + consent-bonus remain owner-gated design locks (separate corpus rows), unbuilt pending the image-provider API key.
 
+## 2026-06-09 · feat(plan-builder): Build-tab Date/Budget/Location anchors with Flag/Pin (PR D of the 5-page redesign)
+
+**Context:** Owner-approved 0016 redesign, sequence A→G→D→E→F. The Build tab gains the prototype's three anchors above the existing planner: **Wedding date · Total budget · Location**, each Pin (couple fixes a value) or Flag (leave empty → Compute/Setnayan AI suggests).
+
+**No migration** — anchor state lives on the existing `events` columns (populated = Pinned, empty = Flagged): `event_date` · `estimated_budget_centavos` · `region`. New `build-anchors-actions.ts::setAnchor` writes the matching column (couple-owned via RLS, validated, clear-on-empty), mirroring `budget/actions.ts::setEventBudget`. New `build-anchors.tsx` (client) renders the rows + inline editors; wired into `build-pins.tsx` above the mode selector; `page.tsx` resolves the anchor data (reuses the already-computed `matchFormattedDate`/precision + `date_candidates`).
+
+**Behavior note for owner (flagged):** Flag clears the committed value (faithful to the approved prototype's Pin/Flag/none model) — so flagging the **date** un-sets `event_date` (recoverable by re-pinning). Low-stakes for budget/location. A non-destructive "open to suggestions" state that preserves the value would need a per-anchor mode column (follow-up). **Also deferred:** the constrained candidate-date ∩ vendor-availability picker (availability already resolved on the page via `getCommonAvailableDays`).
+
+**Verification:** `pnpm typecheck` ✅ clean. CI lint + production build + e2e green.
+
+**SPEC IMPACT:** None yet — implements the 0016 prototype Build anchors. Corpus prototype + DECISION_LOG rows land separately once D/E/F settle.
+
+## 2026-06-09 · fix(uploads): R2 presigned PUT broken by @aws-sdk/client-s3 default checksum (all direct-to-R2 uploads)
+
+**Context:** The admin wedding-onboarding background-music uploader (`/admin/onboarding`) failed every upload with "Upload failed for …. Check your connection and retry." — the `<FileUpload>` XHR PUT to the presigned R2 URL fired its `error` event (no readable HTTP status). Not a connection issue, not the filename (`/api/upload` already sanitizes it), not size. **Root cause:** the resolved `@aws-sdk/client-s3` is `3.1046.0`; since v3.729 the SDK defaults `requestChecksumCalculation` to `WHEN_SUPPORTED`, which injects `x-amz-checksum-crc32` (+ `x-amz-sdk-checksum-algorithm`) into PutObject **including the headers folded into a presigned PUT URL**. Cloudflare R2 doesn't implement that header and rejects the PUT (`NotImplemented`), which the browser surfaces as an opaque network error. This broke **every** browser-direct R2 upload via `<FileUpload>` → `/api/upload` — payment-proof screenshots (0034 apply-then-pay), order proof, vendor-contract files, website hero/photos/site-chrome, refinement samples — not just the music uploader; the new audio uploader is simply where it got noticed.
+
+**`apps/web/lib/r2.ts`:** the singleton `S3Client` now sets `requestChecksumCalculation: 'WHEN_REQUIRED'` + `responseChecksumValidation: 'WHEN_REQUIRED'`, restoring the pre-3.729 behavior (no checksum unless a command explicitly requests one) that R2's S3-compat API expects. One-place fix — every presign helper (`presignUploadUrl`, `presignDisplayUrl`, `r2*`) shares this client. Refs: [aws-sdk-js-v3#6810](https://github.com/aws/aws-sdk-js-v3/issues/6810) · [Cloudflare community 758637](https://community.cloudflare.com/t/758637).
+
+**Verification:** config keys + string-literal values type-checked against the installed `@aws-sdk/middleware-flexible-checksums` `resolveFlexibleChecksumsConfig` types (`requestChecksumCalculation?` / `responseChecksumValidation?`, values `WHEN_SUPPORTED | WHEN_REQUIRED`; default confirmed `WHEN_SUPPORTED`). Runtime PUT exercises only against live R2 with creds + behind admin auth → CI production build + Vercel preview gate; owner to retry an upload on the preview.
+
+**SPEC IMPACT:** None — SDK-compatibility fix, no product/pricing/schema change.
+
+## 2026-06-09 · feat(plan-builder): DB-driven category folders across all 5 tabs (PR G of the 5-page redesign)
+
+**Context:** Owner: "categories will be taxonomy-DB-dependent, not hard coded … taxonomy applies to all 5 menus … if our taxonomy changes, the menu changes." The plan-builder's 10 folder headers came from the hardcoded `WEDDING_FOLDER_*` constants, so `/admin/taxonomy` edits never reached the couple's planner. All 5 tabs (Summary · Shortlist · Build · Compare · Lock) share one `PlanBudgetModel`, so wiring that model to the DB taxonomy covers every tab at once.
+
+**`lib/vendors-plan-budget.ts`:** `buildPlanBudgetModel` gains an optional `taxonomy?: TaxonomySnapshot` arg (from the existing `getTaxonomy()` resolver). Folder order/label/slug now resolve from `taxonomy.folderOrder/folderLabel/folderSlug`, each with a per-key `?? WEDDING_FOLDER_*` fallback so a partial/absent snapshot still renders every folder. **`page.tsx`:** `await getTaxonomy()` and pass it in (the `/vendors` marketplace already uses this resolver; same pattern, per-request `cache()`, safe constant fallback on any read error).
+
+**Scope note:** this is the **folder level** (the 10 parent category headers). Child planning cards keep their curated `PLAN_GROUP` labels because tile labels differ in granularity (e.g. plan-group "Ceremony venue" vs tile "Ceremony") — switching those is a separate label-reconciliation decision flagged for the owner. Planning metadata (`tier`, deadlines) stays in `PLAN_GROUPS` (scheduling, not taxonomy).
+
+**Verification:** `pnpm typecheck` ✅ (clean). No migration, no data change, no new runtime dep (type-only import; resolver already shipped). Behavior-preserving until an admin edits the DB (seed is byte-equivalent to the constants).
+
+**SPEC IMPACT:** None — wires an existing DB resolver to the couple planner; foundational for the `0016` Build/Compare rewrite (D/E) which must read DB categories.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist vendor cards → hero-photo layout (PR A of the 5-page redesign)
 
 **Context:** First slice of porting the owner-approved 5-page Plan Builder redesign (`0016` prototype `Plan_Builder_5Page_Prototype_2026-06-09.html`) onto the live `/dashboard/[eventId]/vendors` surface. Approved sequence A→F, shipped sequentially. This PR is the Shortlist tab's vendor-card visual upgrade ONLY — no backend/flow change; all hardened actions (finalize/lock, remove, search, conflict gates) untouched.

@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * Reception Designer — Mood Board Phase 2 (owner directive 2026-06-09:
- * "editing the actual feel of the whole venue"). A stylized, palette-tinted
- * SVG venue (lib/reception-scene) that updates live as the couple taps a part
- * (ceiling / backdrop / stage / tables / entrance tunnel) and picks its
- * treatment. Free + instant — no AI render, no asset library. Colors flow from
- * the couple's shared Reception palette.
+ * Reception Designer — stylist-grade (owner directive 2026-06-09: "as intricate
+ * as possible … all the materials stylists use"). A palette-tinted stylized SVG
+ * venue (lib/reception-scene) the couple designs material-by-material: tap a
+ * part (ceiling / backdrop / stage / tables / entrance) and set each of its
+ * attributes (e.g. tables = shape · chairs · linen · centerpiece · place
+ * setting). The scene updates live; every choice also builds a stylist brief
+ * that will drive the paid "Make it real" photoreal render (Nano Banana).
+ * Free + instant — pure SVG, no AI, ₱0.
  */
 
 import { useMemo, useState, useTransition } from 'react';
@@ -14,6 +16,7 @@ import {
   RECEPTION_PARTS,
   DEFAULT_DESIGN,
   renderVenueSvg,
+  sel,
   type PartId,
   type ReceptionDesign,
 } from '@/lib/reception-scene';
@@ -27,11 +30,9 @@ type Props = {
   palette: string[];
 };
 
-// Tap targets over the SVG (percent of the 960×640 viewBox). A couple of parts
-// get two hotspots (the tables sit on both sides of the aisle).
 const HOTSPOTS: ReadonlyArray<{ part: PartId; l: number; t: number; w: number; h: number }> = [
   { part: 'ceiling', l: 4, t: 0, w: 92, h: 20 },
-  { part: 'walls', l: 33, t: 22, w: 34, h: 26 },
+  { part: 'backdrop', l: 33, t: 22, w: 34, h: 26 },
   { part: 'stage', l: 36, t: 49, w: 28, h: 13 },
   { part: 'entrance', l: 35, t: 63, w: 30, h: 35 },
   { part: 'tables', l: 3, t: 49, w: 29, h: 45 },
@@ -39,7 +40,9 @@ const HOTSPOTS: ReadonlyArray<{ part: PartId; l: number; t: number; w: number; h
 ];
 
 export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
-  const [design, setDesign] = useState<ReceptionDesign>(initialDesign);
+  const [design, setDesign] = useState<ReceptionDesign>(
+    initialDesign && typeof initialDesign === 'object' ? initialDesign : {},
+  );
   const [activePart, setActivePart] = useState<PartId>('ceiling');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -47,12 +50,19 @@ export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
   const svg = useMemo(() => renderVenueSvg(design, palette), [design, palette]);
   const activeDef = RECEPTION_PARTS.find((p) => p.id === activePart)!;
 
-  function choose(part: PartId, treatmentId: string) {
-    const next: ReceptionDesign = { ...design, [part]: treatmentId };
+  function choose(part: PartId, attr: string, optionId: string) {
+    const cur =
+      design[part] && typeof design[part] === 'object'
+        ? (design[part] as Record<string, string>)
+        : {};
+    const next: ReceptionDesign = {
+      ...design,
+      [part]: { ...DEFAULT_DESIGN[part], ...cur, [attr]: optionId },
+    };
     setDesign(next);
     startTransition(async () => {
       try {
-        await saveReceptionDesign(eventId, next as Record<string, string>);
+        await saveReceptionDesign(eventId, next as Record<string, Record<string, string>>);
         setError(null);
       } catch (err) {
         setError('Could not save — try again.');
@@ -62,16 +72,16 @@ export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
           filePath:
             'app/dashboard/[eventId]/add-ons/mood-board/_components/reception-designer.tsx',
           error: err,
-          payload: { part, treatmentId },
+          payload: { part, attr, optionId },
         });
       }
     });
   }
 
-  function treatmentLabel(part: PartId): string {
-    const def = RECEPTION_PARTS.find((p) => p.id === part)!;
-    const chosen = design[part] ?? DEFAULT_DESIGN[part];
-    return def.treatments.find((t) => t.id === chosen)?.label ?? '';
+  function primaryLabel(part: (typeof RECEPTION_PARTS)[number]): string {
+    const a = part.attributes[0]!;
+    const id = sel(design, part.id, a.id);
+    return a.options.find((o) => o.id === id)?.label ?? '';
   }
 
   return (
@@ -90,16 +100,9 @@ export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
             onClick={() => setActivePart(z.part)}
             aria-label={`Design the ${z.part}`}
             className={`absolute rounded-lg transition ${
-              activePart === z.part
-                ? 'ring-2 ring-terracotta/70'
-                : 'hover:bg-white/15'
+              activePart === z.part ? 'ring-2 ring-terracotta/70' : 'hover:bg-white/15'
             }`}
-            style={{
-              left: `${z.l}%`,
-              top: `${z.t}%`,
-              width: `${z.w}%`,
-              height: `${z.h}%`,
-            }}
+            style={{ left: `${z.l}%`, top: `${z.t}%`, width: `${z.w}%`, height: `${z.h}%` }}
           />
         ))}
         <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-ink/55 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-cream">
@@ -127,41 +130,45 @@ export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
             }`}
           >
             {p.label}
-            <span className="ml-1 text-ink/40">· {treatmentLabel(p.id)}</span>
+            <span className="ml-1 text-ink/40">· {primaryLabel(p)}</span>
           </button>
         ))}
       </div>
 
-      {/* tapzone — treatment options for the active part */}
-      <div className="space-y-2 rounded-xl border border-ink/10 bg-white p-3">
+      {/* tapzone — every material for the active part */}
+      <div className="space-y-3 rounded-xl border border-ink/10 bg-white p-3">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
           {activeDef.label} · {activeDef.blurb}
         </p>
-        <div className="flex flex-wrap gap-2">
-          {activeDef.treatments.map((tr) => {
-            const selected =
-              (design[activePart] ?? DEFAULT_DESIGN[activePart]) === tr.id;
-            return (
-              <button
-                key={tr.id}
-                type="button"
-                onClick={() => choose(activePart, tr.id)}
-                className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                  selected
-                    ? 'border-terracotta bg-terracotta/10 text-ink ring-1 ring-terracotta/40'
-                    : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                }`}
-              >
-                {tr.label}
-              </button>
-            );
-          })}
-        </div>
+        {activeDef.attributes.map((attr) => (
+          <div key={attr.id} className="space-y-1.5">
+            <p className="text-[11px] font-medium text-ink/60">{attr.label}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {attr.options.map((opt) => {
+                const selected = sel(design, activePart, attr.id) === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => choose(activePart, attr.id, opt.id)}
+                    className={`rounded-lg border px-2.5 py-1.5 text-xs transition ${
+                      selected
+                        ? 'border-terracotta bg-terracotta/10 text-ink ring-1 ring-terracotta/40'
+                        : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       <p className="text-[11px] text-ink/50">
-        {isPending ? 'Saving…' : 'Saved'} · colors come from your Reception palette
-        above. {palette.length === 0 ? 'Set it to see your colors here.' : ''}
+        {isPending ? 'Saving…' : 'Saved'} · colors come from your Reception palette above.
+        {palette.length === 0 ? ' Set it to see your colors here.' : ''}
       </p>
     </div>
   );

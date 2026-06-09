@@ -7,13 +7,14 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 import { RECEPTION_PARTS } from '@/lib/reception-scene';
 
 /**
- * Persist the couple's reception design (per-part treatment choices) to
- * events.reception_design (migration 20261002000000). Mood Board Phase 2.
- * Sanitizes against the known parts + treatment ids so only valid choices land.
+ * Persist the couple's reception design (per-part, per-attribute material
+ * choices) to events.reception_design (migration 20261002000000). Mood Board
+ * Phase 2/3. Nested shape { part: { attribute: optionId } }. Sanitizes against
+ * the known parts/attributes/options so only valid choices land.
  */
 export async function saveReceptionDesign(
   eventId: string,
-  design: Record<string, string>,
+  design: Record<string, Record<string, string>>,
 ): Promise<void> {
   const supabase = await createClient();
   const {
@@ -21,10 +22,16 @@ export async function saveReceptionDesign(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const clean: Record<string, string> = {};
+  const clean: Record<string, Record<string, string>> = {};
   for (const part of RECEPTION_PARTS) {
-    const v = design[part.id];
-    if (v && part.treatments.some((t) => t.id === v)) clean[part.id] = v;
+    const pd = design[part.id];
+    if (!pd || typeof pd !== 'object') continue;
+    const cp: Record<string, string> = {};
+    for (const attr of part.attributes) {
+      const v = pd[attr.id];
+      if (v && attr.options.some((o) => o.id === v)) cp[attr.id] = v;
+    }
+    if (Object.keys(cp).length > 0) clean[part.id] = cp;
   }
 
   // RLS enforces host-only writes on their own events via event_members.

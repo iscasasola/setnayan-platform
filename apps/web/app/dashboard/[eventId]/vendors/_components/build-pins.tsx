@@ -50,15 +50,25 @@ export function BuildPins({
   budgetPhp,
   leaves,
   config,
+  eventDate,
   plannerSlot,
 }: {
   eventId: string;
   budgetPhp: number | null;
   leaves: PlannerLeafInput[];
   config: Partial<AllocationConfig>;
+  eventDate?: string | null;
   plannerSlot: ReactNode;
 }) {
   const [mode, setMode] = useState<PinMode>('budget');
+
+  // Months until the event — drives the last-minute-surcharge heads-up (Phase 3b).
+  const monthsUntil = useMemo(() => {
+    if (!eventDate) return null;
+    const t = new Date(eventDate).getTime();
+    if (Number.isNaN(t)) return null;
+    return (t - Date.now()) / (1000 * 60 * 60 * 24 * 30.44);
+  }, [eventDate]);
 
   const cost = useMemo(() => {
     if (leaves.length === 0) return null;
@@ -153,9 +163,13 @@ export function BuildPins({
           >
             Find your date <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           </Link>
-          <p className="text-xs text-ink/45">
-            Date-aware pricing (peak-season + last-minute) is coming next.
-          </p>
+          {monthsUntil != null && monthsUntil >= 0 && monthsUntil < 6 ? (
+            <p className="rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Your date is about {Math.max(1, Math.round(monthsUntil * 4.345))} weeks away — some
+              vendors add a last-minute surcharge for bookings this close, so lock the ones you love
+              early.
+            </p>
+          ) : null}
         </div>
       )}
     </div>

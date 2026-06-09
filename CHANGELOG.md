@@ -20,6 +20,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** new admin surface `/admin/onboarding` (0023). Logged in corpus `DECISION_LOG.md`.
 
+## 2026-06-09 · feat(budget): Budget "Build" — date-aware pricing scaffold (Phase 3b)
+
+**Context:** Phase 3b of the Pin solver. Two pieces: a **seasonality** scaffold (dormant) + a **last-minute** advisory.
+
+**Migration (`20261001000000_wedding_season_factors.sql`, APPLIED to prod):** new `public.wedding_season_factors(region, month, factor)` — a per-(region, month) benchmark price multiplier. **Ships NEUTRAL: the table is EMPTY**, and `resolveAllocationInputs` defaults the factor to **1.0** when no row exists → **zero pricing effect until an admin seeds real factors** (owner-to-set; never invented). Authenticated read · admin-only write (`is_admin()`).
+
+**Resolver (`lib/budget-allocation-data.ts`):** derives `region` + `month` from the event, looks up the season factor, multiplies it into the per-leaf benchmark scale (with the 3c pax factor). Benchmark band only; **real vendor medians never scaled.** Shared by /budget + the takeover. No effect today (empty table).
+
+**Last-minute advisory (`build-pins.tsx` · Date pin):** the vendor last-minute surcharge is *per-vendor*, not a category estimate — surfaced as a heads-up: date < ~6 months out → "your date is about N weeks away; some vendors add a last-minute surcharge." `eventDate` threaded from `page.tsx`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓.
+
+**SPEC IMPACT:** Phase 3b of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. **Owner TODO:** seed `wedding_season_factors` to activate seasonality. Next: 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · refactor(mood-board): declutter to one-per-element design board (0010, Phase 1)
+
+**Context:** Owner feedback after the #1120 redesign: *"there are so many photos there… keep it simple. we want palette samples and the palette samples would be great if there is a picture to show how that looks like for the specific role (attire), flower, or part of the reception."* The board was dumping the whole library (**~75 attire variants** = 15 subtypes × 5 styles, plus venue + florals). Owner also chose (in-session): **auto-apply the palette** (no manual recolor tool) and **shared palettes**.
+
+**Phase 1 — one representative per design element.** New `moodboard-board.tsx` renders a short "design checklist": **Attire** (one figure per role, gated to the roles whose palette is visible), **Venue** (Ceremony + Reception), **Flowers** (bouquet). Each card shows the element + its shared palette swatches. For CORS-clean photos (picsum venue scenes + the app-served florals) the card **auto-applies the palette in-browser** (read-only `RecolorStudio` with slot→palette edits) so the picture shows your colors. Attire figures are colored SVG illustrations on a no-CORS host, so they're shown as reference images beside the role's palette (canvas recolor would taint).
+
+`page.tsx` rewritten to build the sections and render the board; the 75-photo `MoodboardChapters` gallery + the silhouette `WeddingAttireGuide` are no longer rendered (files kept — the `event_moodboard_saves` write path they own is still read by the seating PDF). The manual Recolor Studio + save flow stay in the codebase, dormant, to power Phase 2.
+
+**Next (Phase 2, owner-locked direction):** a **curated treatment library** — tap a reception part (ceiling / wall / tables / tunnel) and choose its treatment (chandelier vs draped cloth vs string lights, linens, centerpieces), free + instant; AI Composite Scene stays the premium upgrade.
+
+**SPEC IMPACT:** 0010 Mood Board simplified to a palette-first, one-per-element board. Follow-up (flagged, not in this PR): the seating PDF mood-board mode should read `events.role_palette` directly now that the board no longer writes `event_moodboard_saves`.
 ## 2026-06-09 · feat(budget): pax-axis benchmark normalization (Phase 3c — LIVE, both surfaces)
 
 **Context:** Phase 3c of the Pin solver plan. The admin **benchmark** amounts are flat (seeded around a typical wedding), so a 250-guest estimate was priced like a 150-guest one. This scales the benchmark band of clearly **per-head** leaves by `pax / 150`.

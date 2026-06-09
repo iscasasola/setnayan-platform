@@ -318,9 +318,17 @@ const PBA_CSS = `
 .pbacc .card{position:relative;flex:0 0 min(300px, calc(100vw - 96px));scroll-snap-align:center;display:flex;flex-direction:column}
 .pbacc .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
 .pbacc .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
-.pbacc .v .img{height:128px;flex:0 0 128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}
+.pbacc .v .img{height:158px;flex:0 0 158px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .pbacc .v .img img{width:100%;height:100%;object-fit:cover}
 .pbacc .v .img .ini{font-family:var(--serif);font-style:italic;font-size:30px;color:rgba(255,255,255,.7)}
+/* hero overlays — %match (bottom-left) + price (bottom-right) ride on the photo,
+   clear of the remove-× (top-left) and ★Chosen (top-right) corners */
+.pbacc .v .img .hero-scrim{position:absolute;inset:auto 0 0 0;height:56%;background:linear-gradient(to top,rgba(18,20,24,.6),transparent);z-index:1;pointer-events:none}
+.pbacc .v .img .hmatch{position:absolute;left:10px;bottom:10px;z-index:2;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.93);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.pbacc .v .img .hmatch.strong{color:#2e7d4f}
+.pbacc .v .img .hmatch.good{color:var(--gold-deep)}
+.pbacc .v .img .hmatch.fair{color:var(--ink-soft)}
+.pbacc .v .img .hprice{position:absolute;right:10px;bottom:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius:9px;background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .pbacc .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .pbacc .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .pbacc .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
@@ -1715,6 +1723,16 @@ function VendorCardAtom({
           ) : (
             <span className="ini">{initials(displayName)}</span>
           )}
+          {(match || (price && !linked)) && <span className="hero-scrim" />}
+          {match && (
+            <span
+              className={`hmatch ${match.tier}`}
+              title="How well this candidate fits your event — based on distance, reviews, and verification. Sharpens as vendors fill in their service details."
+            >
+              {match.score}% match
+            </span>
+          )}
+          {price && !linked && <span className="hprice">{price}</span>}
         </div>
         <div className="meta">
           <div className="vn">{displayName}</div>
@@ -1730,16 +1748,8 @@ function VendorCardAtom({
             </div>
           )}
 
-          {(match || verified || setnayan || recommendedReason) && (
+          {(verified || setnayan || recommendedReason) && (
             <div className="badges">
-              {match && (
-                <span
-                  className={`bdg match ${match.tier}`}
-                  title="How well this candidate fits your event — based on distance, reviews, and verification. Sharpens as vendors fill in their service details."
-                >
-                  {match.score}% match
-                </span>
-              )}
               {verified && <span className="bdg verified">Verified</span>}
               {setnayan && <span className="bdg setnayan">Setnayan</span>}
               {recommendedReason && (
@@ -1751,7 +1761,7 @@ function VendorCardAtom({
           {linked ? (
             <div className="linked">🔗 Linked with {linked}</div>
           ) : (
-            <div className="price">{price ?? 'Price on inquiry'}</div>
+            !price && <div className="price">Price on inquiry</div>
           )}
 
           {pick.eyeing > 0 && (

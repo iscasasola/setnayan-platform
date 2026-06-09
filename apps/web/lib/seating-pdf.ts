@@ -4,7 +4,10 @@ import {
   CHAIR_PX,
   TABLE_TYPE_LABEL,
   defaultTablePosition,
+  effectiveCapacity,
   fitFloorTransform,
+  removedSeatSet,
+  rotatePoint,
   shapeHintFor,
   tableGeometry,
   type EventTableRow,
@@ -162,9 +165,10 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
         overflow.push(g);
       }
     }
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
     let idx = 0;
     for (const g of overflow) {
-      while (idx < occ.length && occ[idx] !== null) idx++;
+      while (idx < occ.length && (occ[idx] !== null || removed.has(idx))) idx++;
       if (idx < occ.length) occ[idx] = g;
     }
     occByTable.set(t.table_id, occ);
@@ -323,7 +327,19 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
   // then pick ONE global points-per-px scale: big enough to read each guest's
   // name, small enough that neighbouring tables never collide and every table
   // stays inside the floor box.
-  const geos = tables.map((t) => tableGeometry(shapeHintFor(t.table_type), t.capacity));
+  // Geometry per table, rotated by the table's orientation (seats + ribbon
+  // outline) so rotated/connected tables print as laid out. Box stays unrotated
+  // (it only feeds the spacing scale below).
+  const geos = tables.map((t) => {
+    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    const rot = t.rotation_deg || 0;
+    if (!rot) return g;
+    return {
+      ...g,
+      seats: g.seats.map((p) => rotatePoint(p, rot)),
+      outline: g.outline?.map((p) => rotatePoint(p, rot)),
+    };
+  });
   const centers = tables.map((t, i) => {
     const raw = tablePos(t, i);
     const p = tf(raw.x, raw.y);
@@ -379,13 +395,26 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     } else if (geo.hub.shape === 'round') {
       p1.drawCircle({ x: cx, y: cy, size: geo.hub.radius * scale, color: fill, borderColor: border, borderWidth: 1 });
     } else {
-      const hw = geo.hub.w * scale;
-      const hh = geo.hub.h * scale;
-      p1.drawRectangle({ x: cx - hw / 2, y: cy - hh / 2, width: hw, height: hh, color: fill, borderColor: border, borderWidth: 1 });
+      // rect / pill — draw as a (possibly rotated) corner polygon so a rotated
+      // banquet/sweetheart body matches its rotated chairs.
+      const hw = geo.hub.w / 2;
+      const hh = geo.hub.h / 2;
+      const rot = t.rotation_deg || 0;
+      const corners = [
+        { x: -hw, y: -hh },
+        { x: hw, y: -hh },
+        { x: hw, y: hh },
+        { x: -hw, y: hh },
+      ].map((c) => rotatePoint(c, rot));
+      const d =
+        corners.map((p, k) => `${k === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' Z';
+      p1.drawSvgPath(d, { x: cx, y: cy, scale, color: fill, borderColor: border, borderWidth: 1 });
     }
 
-    // chairs + the seated guest's name at each chair
+    // chairs + the seated guest's name at each chair (deleted chairs skipped)
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
     geo.seats.forEach((s, si) => {
+      if (removed.has(si)) return;
       const chx = cx + s.x * scale;
       const chy = cy - s.y * scale; // editor y-down → page y-up
       const g = occ[si] ?? null;
@@ -425,8 +454,9 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     const reachPt = (geo.box.h / 2) * scale;
     const lbl = t.table_label.length > 18 ? `${t.table_label.slice(0, 17)}…` : t.table_label;
     const lblSize = Math.max(5, Math.min(7.5, scale * 15));
-    const lw2 = bold.widthOfTextAtSize(`${lbl}  ${seated}/${t.capacity}`, lblSize);
-    p1.drawText(`${lbl}  ${seated}/${t.capacity}`, {
+    const effCap = effectiveCapacity(t.capacity, t.removed_seats);
+    const lw2 = bold.widthOfTextAtSize(`${lbl}  ${seated}/${effCap}`, lblSize);
+    p1.drawText(`${lbl}  ${seated}/${effCap}`, {
       x: cx - lw2 / 2,
       y: cy - reachPt - lblSize - 1.5,
       size: lblSize,

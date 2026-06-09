@@ -16,6 +16,8 @@ import {
   Maximize2,
   Minus,
   Plus,
+  RotateCcw,
+  RotateCw,
   Ruler,
   Save,
   Search,
@@ -29,6 +31,9 @@ import {
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
   defaultTablePosition,
+  effectiveCapacity,
+  removedSeatSet,
+  rotatePoint,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -44,8 +49,10 @@ import {
   createTable,
   deleteTable,
   saveFloorPlan,
+  setTableSeat,
   unassignGuest,
   updateTablePosition,
+  updateTableRotation,
 } from '../actions';
 
 export type SeatingGuest = {
@@ -132,6 +139,9 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   useEffect(() => {
     if (pickedId) setPickedGroupId(null);
   }, [pickedId]);
+  // Optimistic rotation override so a rotate tap is instant (the server action
+  // revalidates + the prop catches up). Keyed by table_id; falls back to the row.
+  const [rotById, setRotById] = useState<Record<string, number>>({});
 
   // --- zoom + pan (growable floor plan) ------------------------------------
   // The world transform is applied to the DOM directly (refs) so panning /
@@ -230,6 +240,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   };
 
   const occupantsFor = (t: EventTableRow): (SeatingGuest | null)[] => {
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
     const occ: (SeatingGuest | null)[] = new Array(t.capacity).fill(null);
     const leftovers: SeatingGuest[] = [];
     for (const g of guests) {
@@ -240,8 +251,15 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
         leftovers.push(g);
       }
     }
+    // Fill leftovers into the next free, non-deleted chair.
     for (const g of leftovers) {
-      const free = occ.indexOf(null);
+      let free = -1;
+      for (let i = 0; i < occ.length; i++) {
+        if (occ[i] === null && !removed.has(i)) {
+          free = i;
+          break;
+        }
+      }
       if (free < 0) break;
       occ[free] = g;
     }
@@ -309,6 +327,32 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
         );
       }
     });
+  };
+
+  // The table's current orientation (optimistic override → row default).
+  const rotationOf = (t: EventTableRow) => rotById[t.table_id] ?? t.rotation_deg ?? 0;
+
+  // Rotate a table by `delta` degrees (or to an absolute angle). Snaps to 15°,
+  // updates instantly, persists. Rotation is what lets wedges/banquets connect.
+  const rotateTable = (t: EventTableRow, delta: number, absolute = false) => {
+    const base = absolute ? 0 : rotationOf(t);
+    const next = ((Math.round((base + delta) / 15) * 15) % 360 + 360) % 360;
+    setRotById((m) => ({ ...m, [t.table_id]: next }));
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', t.table_id);
+    fd.set('rotation_deg', String(next));
+    startTransition(() => updateTableRotation(fd));
+  };
+
+  // Delete / restore a single chair (clears the edge where two tables connect).
+  const toggleSeat = (tableId: string, seatNumber: number, removed: boolean) => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', tableId);
+    fd.set('seat_number', String(seatNumber));
+    fd.set('removed', removed ? 'true' : 'false');
+    startTransition(() => setTableSeat(fd));
   };
 
   // --- collision avoidance: tables never overlap ----------------------------
@@ -780,7 +824,8 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
               {tables.map((t) => {
                 const occ = occupantsFor(t);
                 const filled = occ.filter(Boolean).length;
-                const full = filled >= t.capacity;
+                const cap = effectiveCapacity(t.capacity, t.removed_seats);
+                const full = filled >= cap;
                 return (
                   <li
                     key={t.table_id}
@@ -808,7 +853,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-ink">{t.table_label}</span>
                         <span className="block text-[11px] text-ink/50">
-                          {filled}/{t.capacity} · {TABLE_TYPE_LABEL[t.table_type]}
+                          {filled}/{cap} · {TABLE_TYPE_LABEL[t.table_type]}
                         </span>
                       </span>
                       <span
@@ -1278,11 +1323,17 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
             const highlighted = highlightId === t.table_id;
             const dragging = dragId === t.table_id;
             const num = t.table_label.match(/\d+/)?.[0] ?? '';
+            const rot = rotationOf(t); // table orientation (deg)
+            const removed = removedSeatSet(t.removed_seats, t.capacity);
+            const effCap = effectiveCapacity(t.capacity, t.removed_seats);
             // Serpentine (and any future curved shape) carries a closed polygon
             // we draw as an SVG ribbon instead of a circle/rect hub. Seat-space
-            // is y-down, matching SVG, so the points feed straight in.
+            // is y-down, matching SVG; rotate the points by the table orientation.
             const ribbonPath = geo.outline
-              ? geo.outline.map((p, k) => `${k === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + 'Z'
+              ? geo.outline
+                  .map((p0) => (rot ? rotatePoint(p0, rot) : p0))
+                  .map((p, k) => `${k === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+                  .join(' ') + 'Z'
               : null;
             const showRibbon = ribbonPath !== null && detail;
             // To-scale factor: render the table at its true footprint relative
@@ -1340,10 +1391,32 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
 
                 {/* chairs — only at detail zoom; pucks when zoomed out */}
                 {detail
-                  ? geo.seats.map((s, i) => {
+                  ? geo.seats.map((s0, i) => {
+                  const s = rot ? rotatePoint(s0, rot) : s0;
                   const occupant = occ[i] ?? null;
                   const cx = geo.box.w / 2 + s.x;
                   const cy = geo.box.h / 2 + s.y;
+                  // A deleted chair: show nothing, or a faint restore "+" when the
+                  // table is selected so the couple can bring the chair back.
+                  if (removed.has(i)) {
+                    if (!highlighted) return null;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          toggleSeat(t.table_id, i, false);
+                        }}
+                        aria-label={`Restore seat ${i + 1}`}
+                        title="Restore this chair"
+                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-ink/30 text-ink/35 transition hover:border-emerald-500 hover:text-emerald-600"
+                        style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX }}
+                      >
+                        <Plus className="mx-auto h-1/2 w-1/2" />
+                      </button>
+                    );
+                  }
                   return (
                     <div
                       key={i}
@@ -1389,6 +1462,22 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                           <Armchair className="h-full w-full" strokeWidth={1.6} />
                         </button>
                       )}
+                      {/* delete this chair — only on a selected table, on an empty
+                          seat, when not mid-seating. Clears a connection edge. */}
+                      {!occupant && highlighted && !pickedId && !pickedGroupId ? (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            toggleSeat(t.table_id, i, true);
+                          }}
+                          aria-label={`Delete seat ${i + 1}`}
+                          title="Delete this chair"
+                          className="absolute -right-1 -top-1 z-20 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/40 shadow-sm transition hover:border-rose-400 hover:text-rose-600"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      ) : null}
                       {occupant
                         ? (() => {
                             const lbl = seatLabel(s.x, s.y, rectish);
@@ -1407,6 +1496,41 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                     })
                   : null}
 
+                {/* rotate toolbar — shown above a selected table. Rotation is
+                    what lets wedges/banquets connect into custom patterns
+                    (flip 180° to chain serpentine wedges into an S). */}
+                {highlighted && detail ? (
+                  <div
+                    className="absolute left-1/2 top-0 z-30 flex -translate-x-1/2 -translate-y-[150%] items-center gap-0.5 rounded-lg border border-ink/15 bg-cream/95 px-1 py-0.5 shadow-sm backdrop-blur-sm"
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => rotateTable(t, -15)}
+                      aria-label="Rotate 15° left"
+                      className="rounded p-1 text-ink/60 hover:bg-ink/5"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rotateTable(t, 180)}
+                      title="Flip 180°"
+                      className="rounded px-1 py-0.5 text-[9px] font-semibold text-ink/60 hover:bg-ink/5"
+                    >
+                      180°
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rotateTable(t, 15)}
+                      aria-label="Rotate 15° right"
+                      className="rounded p-1 text-ink/60 hover:bg-ink/5"
+                    >
+                      <RotateCw className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+
                 {/* hub (drag handle + place-at-next-free target) — for the
                     serpentine ribbon the SVG above is the body + drag handle, so
                     we show only a centred number/count badge here instead. */}
@@ -1414,7 +1538,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
                     <span className="text-sm font-semibold text-ink">{num || '·'}</span>
                     <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
-                      {filled}/{t.capacity}
+                      {filled}/{effCap}
                     </span>
                   </div>
                 ) : (
@@ -1422,19 +1546,27 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                     type="button"
                     onPointerDown={onHubPointerDown(t)}
                     aria-label={`${t.table_label} — drag to move`}
-                    className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 select-none flex-col items-center justify-center border-2 bg-cream text-center shadow-sm transition ${
-                      highlighted ? 'border-terracotta' : 'border-ink/25'
-                    } ${pickedId ? 'cursor-pointer' : dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                    className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border-2 bg-cream text-center shadow-sm transition ${
+                      rot ? '' : '-translate-x-1/2 -translate-y-1/2'
+                    } ${highlighted ? 'border-terracotta' : 'border-ink/25'} ${
+                      pickedId ? 'cursor-pointer' : dragging ? 'cursor-grabbing' : 'cursor-grab'
+                    }`}
                     style={{
                       width: geo.hub.w,
                       height: geo.hub.h,
                       borderRadius: geo.hub.shape === 'round' ? '9999px' : geo.hub.radius,
+                      transform: rot ? `translate(-50%, -50%) rotate(${rot}deg)` : undefined,
                     }}
                   >
-                    <span className="text-sm font-semibold text-ink">{num || '·'}</span>
-                    <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
-                      {filled}/{t.capacity}
-                    </span>
+                    <div
+                      className="flex flex-col items-center"
+                      style={rot ? { transform: `rotate(${-rot}deg)` } : undefined}
+                    >
+                      <span className="text-sm font-semibold text-ink">{num || '·'}</span>
+                      <span className="text-[8px] font-medium uppercase tracking-wide text-ink/45">
+                        {filled}/{effCap}
+                      </span>
+                    </div>
                   </button>
                 )}
               </div>
@@ -1488,11 +1620,13 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                 {tables.map((t) => {
                   const occ = occupantsFor(t);
                   const seated = occ.filter((g): g is SeatingGuest => g !== null);
-                  const full = seated.length >= t.capacity;
-                  const free = occ.indexOf(null);
+                  const removed = removedSeatSet(t.removed_seats, t.capacity);
+                  const cap = effectiveCapacity(t.capacity, t.removed_seats);
+                  const full = seated.length >= cap;
+                  const free = occ.findIndex((g, i) => g === null && !removed.has(i));
                   const expanded = expandedCards.has(t.table_id);
                   const halo = dominantColor(occ, colorFor);
-                  const open = t.capacity - seated.length;
+                  const open = cap - seated.length;
                   return (
                     <li key={t.table_id} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
                       <div className="flex items-center gap-2 p-3">
@@ -1522,7 +1656,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                               full ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/5 text-ink/55'
                             }`}
                           >
-                            {seated.length}/{t.capacity}
+                            {seated.length}/{cap}
                           </span>
                           <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>

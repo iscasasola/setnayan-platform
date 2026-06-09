@@ -32,6 +32,14 @@ export function BuildSummary({ model, eventId }: { model: PlanBudgetModel; event
         ? 'bg-amber-500'
         : 'bg-emerald-500';
 
+  // Open categories (budgeted, no vendor yet) — the auto-fill seam (Phase 3d):
+  // paid Setnayan AI hand-picks them; free surfaces the gap. The per-category
+  // matcher already runs on the Shortlist; a one-tap bulk auto-add is a follow-on.
+  const openCount = model.folders.reduce(
+    (a, f) => a + f.children.filter((c) => c.state === 'empty').length,
+    0,
+  );
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-1 py-2">
       <section className="rounded-2xl border border-ink/10 bg-cream p-5">
@@ -89,17 +97,26 @@ export function BuildSummary({ model, eventId }: { model: PlanBudgetModel; event
         )}
       </section>
 
-      <section className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
-        <span className="flex items-center gap-2 text-sm text-ink/70">
-          <Sparkles className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
-          Setnayan AI {model.personalizationEnabled ? 'is on' : 'is off'}
-        </span>
-        <Link
-          href={`/dashboard/${eventId}/details`}
-          className="text-xs font-medium text-terracotta hover:underline"
-        >
-          {model.personalizationEnabled ? 'Manage' : 'Turn on'}
-        </Link>
+      <section className="space-y-2 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm text-ink/70">
+            <Sparkles className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
+            Setnayan AI {model.personalizationEnabled ? 'is on' : 'is off'}
+          </span>
+          <Link
+            href={`/dashboard/${eventId}/details`}
+            className="text-xs font-medium text-terracotta hover:underline"
+          >
+            {model.personalizationEnabled ? 'Manage' : 'Turn on'}
+          </Link>
+        </div>
+        {openCount > 0 ? (
+          <p className="text-xs text-ink/55">
+            {model.personalizationEnabled
+              ? `Setnayan AI is hand-picking vendors for your ${openCount} open ${openCount === 1 ? 'category' : 'categories'} — open the Shortlist to see your matches.`
+              : `${openCount} ${openCount === 1 ? 'category' : 'categories'} still need a vendor. Turn on Setnayan AI to auto-match them, or browse the Shortlist.`}
+          </p>
+        ) : null}
       </section>
     </div>
   );

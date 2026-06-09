@@ -10,11 +10,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **No migration** — anchor state lives on the existing `events` columns (populated = Pinned, empty = Flagged): `event_date` · `estimated_budget_centavos` · `region`. New `build-anchors-actions.ts::setAnchor` writes the matching column (couple-owned via RLS, validated, clear-on-empty), mirroring `budget/actions.ts::setEventBudget`. New `build-anchors.tsx` (client) renders the rows + inline editors; wired into `build-pins.tsx` above the mode selector; `page.tsx` resolves the anchor data (reuses the already-computed `matchFormattedDate`/precision + `date_candidates`).
 
-**Behavior note for owner (flagged):** Flag clears the committed value (faithful to the approved prototype's Pin/Flag/none model) — so flagging the **date** un-sets `event_date` (recoverable by re-pinning). Low-stakes for budget/location. If you'd prefer a non-destructive "open to suggestions" state that preserves the value, that needs a per-anchor mode column (follow-up). **Also deferred:** the constrained candidate-date ∩ vendor-availability picker (the availability data is already resolved on the page via `getCommonAvailableDays` — next iteration of this component).
+**Behavior note for owner (flagged):** Flag clears the committed value (faithful to the approved prototype's Pin/Flag/none model) — so flagging the **date** un-sets `event_date` (recoverable by re-pinning). Low-stakes for budget/location. A non-destructive "open to suggestions" state that preserves the value would need a per-anchor mode column (follow-up). **Also deferred:** the constrained candidate-date ∩ vendor-availability picker (availability already resolved on the page via `getCommonAvailableDays`).
 
-**Verification:** `pnpm typecheck` ✅ clean. CI runs lint + production build + e2e. (Live click-through on a test couple not run this session.)
+**Verification:** `pnpm typecheck` ✅ clean. CI lint + production build + e2e green.
 
 **SPEC IMPACT:** None yet — implements the 0016 prototype Build anchors. Corpus prototype + DECISION_LOG rows land separately once D/E/F settle.
+
+## 2026-06-09 · fix(uploads): R2 presigned PUT broken by @aws-sdk/client-s3 default checksum (all direct-to-R2 uploads)
+
+**Context:** The admin wedding-onboarding background-music uploader (`/admin/onboarding`) failed every upload with "Upload failed for …. Check your connection and retry." — the `<FileUpload>` XHR PUT to the presigned R2 URL fired its `error` event (no readable HTTP status). Not a connection issue, not the filename (`/api/upload` already sanitizes it), not size. **Root cause:** the resolved `@aws-sdk/client-s3` is `3.1046.0`; since v3.729 the SDK defaults `requestChecksumCalculation` to `WHEN_SUPPORTED`, which injects `x-amz-checksum-crc32` (+ `x-amz-sdk-checksum-algorithm`) into PutObject **including the headers folded into a presigned PUT URL**. Cloudflare R2 doesn't implement that header and rejects the PUT (`NotImplemented`), which the browser surfaces as an opaque network error. This broke **every** browser-direct R2 upload via `<FileUpload>` → `/api/upload` — payment-proof screenshots (0034 apply-then-pay), order proof, vendor-contract files, website hero/photos/site-chrome, refinement samples — not just the music uploader; the new audio uploader is simply where it got noticed.
+
+**`apps/web/lib/r2.ts`:** the singleton `S3Client` now sets `requestChecksumCalculation: 'WHEN_REQUIRED'` + `responseChecksumValidation: 'WHEN_REQUIRED'`, restoring the pre-3.729 behavior (no checksum unless a command explicitly requests one) that R2's S3-compat API expects. One-place fix — every presign helper (`presignUploadUrl`, `presignDisplayUrl`, `r2*`) shares this client. Refs: [aws-sdk-js-v3#6810](https://github.com/aws/aws-sdk-js-v3/issues/6810) · [Cloudflare community 758637](https://community.cloudflare.com/t/758637).
+
+**Verification:** config keys + string-literal values type-checked against the installed `@aws-sdk/middleware-flexible-checksums` `resolveFlexibleChecksumsConfig` types (`requestChecksumCalculation?` / `responseChecksumValidation?`, values `WHEN_SUPPORTED | WHEN_REQUIRED`; default confirmed `WHEN_SUPPORTED`). Runtime PUT exercises only against live R2 with creds + behind admin auth → CI production build + Vercel preview gate; owner to retry an upload on the preview.
+
+**SPEC IMPACT:** None — SDK-compatibility fix, no product/pricing/schema change.
 
 ## 2026-06-09 · feat(plan-builder): DB-driven category folders across all 5 tabs (PR G of the 5-page redesign)
 

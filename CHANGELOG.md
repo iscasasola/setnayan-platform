@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(seating): tables never overlap — collision avoidance (0008)
+
+**Context:** Owner: "the tables will never overlap each other." Auto-grow (PR #1153) spaced *new* tables apart but didn't stop a **drag** from covering another, and a 16-seat family-head table (far wider than a grid cell) could still touch its neighbours. This adds true collision avoidance.
+
+**What landed** (`seating-editor.tsx`, no migration):
+- **Footprint-aware overlap test** (`footprintPx` + `overlapsAny`) — AABB in px honouring the to-scale shrink inside a sized room, with a 10px breathing gap.
+- **`nearestFree`** — spiral-out search for the closest non-overlapping spot, clamped to the walls in venue mode, with a **fine grid-scan fallback** guaranteed to find the nearest clear cell when one physically exists.
+- **Drag = slide, not cover** — a dragged table snaps to the nearest clear spot each move, so it slides *around* others instead of overlapping (free + venue modes).
+- **Auto-place pass** (a layout-effect now owns `positions`) — saved tables anchor exactly where the couple left them; every other table gets a non-overlapping home on mount + on add/room-change, then up to 3 cleanup passes resolve any straggler. Smooth `left/top` transition on the slide (off while actively dragging).
+- **Venue (to-scale) base** — `venueShelfBase`: a footprint-aware shelf pack so to-scale tables fit whenever the room is physically big enough (a count-based grid can't — its cells ignore that a family-head is far wider than a sweetheart).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓ (exit 0). Collision-invariant test against the real `lib/seating` geometry (scratch, removed after): **46/46** — 0 overlaps across the free board (3–50 tables · 0/1/3 family-heads · 3 canvas sizes), sized rooms (tight 10m → extreme 30-table), and drag-onto resolution. Visual before/after repro: tight 9-table grid 16 overlapping pairs → 0.
+
+**SPEC IMPACT:** 0008 — tables never overlap (collision avoidance) → DECISION_LOG.
+
 ## 2026-06-09 · feat(services): Budget "Build" — Flag generation / AI auto-fill (PR-2, flag-dark)
 
 **Context:** PR-2 of Lock vs Flag (plan §12) — the generation. For the couple's 🚩 flagged categories, Setnayan AI auto-adds the top match to the Shortlist.
@@ -50,7 +65,6 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **One shared default** (the review's MEDIUM finding) — moved `defaultTablePosition` to `lib/seating`; the editor, PDF and wayfinding all use it, so an un-arranged layout looks the same everywhere (the PDF no longer stacks null-position tables at centre).
 
 **Verify:** `tsc` ✓ · `next lint` ✓ · `next build` ✓. Repro-rendered before/after auto-grow (12 tables: overlapping → comfortably spread + framed) and a spread-position PDF (on-page). SPEC IMPACT: builds 0008 `venue_known=false` auto-grow. → corpus DECISION_LOG.
-=======
 
 ## 2026-06-09 · feat(mood-board): reception designer — stylized live venue (0010, Phase 2)
 

@@ -115,16 +115,10 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
   // multiply this by their real footprint to render at true scale.
   const pxPerMeter = venueScaled && canvasW > 0 ? canvasW / venue.width : null;
 
-  const [positions, setPositions] = useState<Record<string, LocalPos>>(() => {
-    const out: Record<string, LocalPos> = {};
-    tables.forEach((t, i) => {
-      out[t.table_id] =
-        t.x_pos !== null && t.y_pos !== null
-          ? { x: Number(t.x_pos), y: Number(t.y_pos) }
-          : defaultGrid(i, tables.length, !venueScaled);
-    });
-    return out;
-  });
+  // Positions are owned by the auto-place layout-effect below (it resolves a
+  // non-overlapping home for every table before paint). Until it runs, the
+  // render falls back to defaultGrid, which keeps SSR + first paint stable.
+  const [positions, setPositions] = useState<Record<string, LocalPos>>({});
   const [dragId, setDragId] = useState<string | null>(null);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [pickedId, setPickedId] = useState<string | null>(null);
@@ -275,6 +269,158 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
     startTransition(() => autoSeatGuests(fd));
   };
 
+  // --- collision avoidance: tables never overlap ----------------------------
+  // A table's on-screen footprint in px, honouring the to-scale shrink inside a
+  // sized room (same maths as fitView + the table render).
+  const footprintPx = (t: EventTableRow) => {
+    const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    const s = pxPerMeter ? (TABLE_FOOTPRINT_M[t.table_type] * pxPerMeter) / geo.box.w : 1;
+    return { w: geo.box.w * s, h: geo.box.h * s };
+  };
+  // Breathing gap (px) kept between any two tables.
+  const COLLIDE_GAP = 10;
+  // Would `moving` sitting at (x%,y%) overlap any OTHER table? AABB test in px.
+  // `posFor` yields each table's %-position, or null to skip one (used while the
+  // auto-place pass is still deciding where un-placed tables go).
+  const overlapsAny = (
+    x: number,
+    y: number,
+    moving: EventTableRow,
+    rect: { width: number; height: number },
+    posFor: (o: EventTableRow, i: number) => LocalPos | null,
+  ) => {
+    const m = footprintPx(moving);
+    return tables.some((o, i) => {
+      if (o.table_id === moving.table_id) return false;
+      const op = posFor(o, i);
+      if (!op) return false;
+      const of = footprintPx(o);
+      const dx = Math.abs(((x - op.x) / 100) * rect.width);
+      const dy = Math.abs(((y - op.y) / 100) * rect.height);
+      return dx < (m.w + of.w) / 2 + COLLIDE_GAP && dy < (m.h + of.h) / 2 + COLLIDE_GAP;
+    });
+  };
+  // Nearest %-position to (x,y) where `moving` clears every other table. Spirals
+  // outward from the desired spot; stays inside the walls when a room is sized.
+  const nearestFree = (
+    x: number,
+    y: number,
+    moving: EventTableRow,
+    rect: { width: number; height: number },
+    posFor: (o: EventTableRow, i: number) => LocalPos | null,
+  ): LocalPos => {
+    if (!overlapsAny(x, y, moving, rect, posFor)) return { x, y };
+    const f = footprintPx(moving);
+    const stepPx = Math.max(10, Math.min(f.w, f.h) / 2.5);
+    const lo = venueScaled ? 2 : -200;
+    const hi = venueScaled ? 98 : 600;
+    for (let ring = 1; ring <= 48; ring++) {
+      const radPx = ring * stepPx;
+      for (let deg = 0; deg < 360; deg += 18) {
+        const a = (deg * Math.PI) / 180;
+        const nx = x + ((Math.cos(a) * radPx) / rect.width) * 100;
+        const ny = y + ((Math.sin(a) * radPx) / rect.height) * 100;
+        if (nx < lo || nx > hi || ny < lo || ny > hi) continue;
+        if (!overlapsAny(nx, ny, moving, rect, posFor)) return { x: nx, y: ny };
+      }
+    }
+    // Spiral missed a gap (dense room) — scan a fine grid for the nearest clear
+    // cell. Guarantees a non-overlapping home whenever one physically exists.
+    const span = hi - lo;
+    const stepPct = span / 72;
+    let best: LocalPos | null = null;
+    let bestD = Infinity;
+    for (let gy = lo; gy <= hi; gy += stepPct) {
+      for (let gx = lo; gx <= hi; gx += stepPct) {
+        if (overlapsAny(gx, gy, moving, rect, posFor)) continue;
+        const d = (gx - x) ** 2 + (gy - y) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = { x: gx, y: gy };
+        }
+      }
+    }
+    return best ?? { x, y };
+  };
+
+  // Footprint-aware shelf pack for a sized room: lay tables left→right in rows
+  // sized to their REAL to-scale footprint, wrapping at the wall. Gives the
+  // resolver a tight, gap-free starting layout so to-scale tables fit whenever
+  // the room is physically big enough (a count-based grid can't — its cells
+  // ignore that a family-head is far wider than a sweetheart table).
+  const venueShelfBase = (rect: { width: number; height: number }): Record<string, LocalPos> => {
+    const out: Record<string, LocalPos> = {};
+    const pad = rect.width * 0.02;
+    let cx = pad;
+    let cy = pad;
+    let rowH = 0;
+    tables.forEach((t) => {
+      const f = footprintPx(t);
+      if (cx + f.w > rect.width - pad && cx > pad) {
+        cx = pad;
+        cy += rowH + COLLIDE_GAP;
+        rowH = 0;
+      }
+      out[t.table_id] = {
+        x: ((cx + f.w / 2) / rect.width) * 100,
+        y: ((cy + f.h / 2) / rect.height) * 100,
+      };
+      cx += f.w + COLLIDE_GAP;
+      rowH = Math.max(rowH, f.h);
+    });
+    return out;
+  };
+
+  // Auto-place: give every table a non-overlapping home. Saved tables anchor
+  // exactly where the couple left them; an un-saved table keeps its current spot
+  // when it's already clear and only slides aside when it would collide. Runs on
+  // mount (resolving the initial grid) and whenever tables / the room change.
+  useIsoLayoutEffect(() => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    const shelf = venueScaled ? venueShelfBase(rect) : null;
+    setPositions((prev) => {
+      const placed: Record<string, LocalPos> = {};
+      tables.forEach((t) => {
+        if (t.x_pos !== null && t.y_pos !== null) {
+          placed[t.table_id] = { x: Number(t.x_pos), y: Number(t.y_pos) };
+        }
+      });
+      tables.forEach((t, i) => {
+        if (placed[t.table_id]) return;
+        const base = prev[t.table_id] ?? shelf?.[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+        placed[t.table_id] = nearestFree(base.x, base.y, t, rect, (o) => placed[o.table_id] ?? null);
+      });
+      // Cleanup: greedy placement (each table only dodges earlier ones) can leave
+      // a straggler overlapping a later table. Re-resolve any residual collision;
+      // converges to zero overlaps whenever the room physically has room.
+      for (let pass = 0; pass < 3; pass++) {
+        let moved = false;
+        tables.forEach((t) => {
+          if (t.x_pos !== null && t.y_pos !== null) return; // saved anchors hold
+          const cur = placed[t.table_id];
+          if (cur && overlapsAny(cur.x, cur.y, t, rect, (o) => placed[o.table_id] ?? null)) {
+            placed[t.table_id] = nearestFree(cur.x, cur.y, t, rect, (o) => placed[o.table_id] ?? null);
+            moved = true;
+          }
+        });
+        if (!moved) break;
+      }
+      const keys = Object.keys(placed);
+      let changed = keys.length !== Object.keys(prev).length;
+      for (const k of keys) {
+        const a = placed[k];
+        const b = prev[k];
+        if (!a || !b || Math.abs(a.x - b.x) > 0.01 || Math.abs(a.y - b.y) > 0.01) {
+          changed = true;
+          break;
+        }
+      }
+      return changed ? placed : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tables, venueScaled, canvasW]);
+
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {
     if (pickedId) {
@@ -367,7 +513,12 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
-        setPositions((p) => ({ ...p, [d.id]: { x, y } }));
+        // Slide around neighbours: snap to the nearest spot that doesn't overlap.
+        const moving = tables.find((t) => t.table_id === d.id);
+        const free = moving
+          ? nearestFree(x, y, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
+          : { x, y };
+        setPositions((p) => ({ ...p, [d.id]: free }));
       } else if (d.kind === 'stage') {
         setStage({ x, y });
       } else {
@@ -1034,6 +1185,7 @@ export function SeatingEditor({ eventId, tables, guests, groups, floorPlan }: Pr
                   width: detail ? geo.box.w : geo.hub.w + 12,
                   height: detail ? geo.box.h : geo.hub.h + 12,
                   transform: `translate(-50%, -50%) scale(${tableScale})`,
+                  transition: dragging ? 'none' : 'left 140ms ease, top 140ms ease',
                   zIndex: dragging ? 30 : 20,
                 }}
               >

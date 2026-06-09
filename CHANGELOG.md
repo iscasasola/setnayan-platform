@@ -21,6 +21,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None (brand assets + PDF). → DECISION_LOG.
 
+## 2026-06-09 · feat(mood-board): dedicated Entrance Tunnel part (0010)
+
+**Context:** Owner: "also add tunnel." The grand-entrance tunnel is a Filipino-reception signature, so it's promoted from an attribute of Entrance to its **own part** with richer options; the aisle runner becomes its own part ("Aisle").
+
+**`lib/reception-scene.ts`:** new `tunnel` part with **10 styles** — floral / draped / fairy-light / greenery / balloon / lantern arches **+ crystal-beaded, butterfly, cherry-blossom** + no-tunnel. The `entrance` part is now just the **Aisle** (runner: petals / fabric / mirror / candle / **floral-lined** / bare). New SVG branches for the crystal, butterfly, and cherry-blossom tunnels + floral-lined aisle. `buildPrompt()` + save sanitization + the part tabs pick up the new part automatically; the center-foreground tap hotspot now selects the tunnel. No migration (JSONB).
+
+**Verification:** `pnpm typecheck` ✅ · `pnpm lint` ✅. Rendered the 3 new tunnel styles via sharp — all read distinctly and take the palette.
+
+**SPEC IMPACT:** 0010 reception designer gains a dedicated Entrance Tunnel part (10 styles) split from the Aisle.
+
 ## 2026-06-09 · feat(onboarding): hot-date demand "heat" layer on the wedding date calendar
 
 **Context:** Designed this session (prototype `Hot_Date_Heat_Calendar_Prototype_2026-06-09.html` + Date-Aligner spec §L). The onboarding `DateCalendar` already owns 2-mode picking + a "why this date" nugget; this adds the **demand axis** — a predicted-heat tint on calendar cells + a demand chip in the nugget — so couples see how in-demand a date is alongside whether it fits their plan. **Predicted (deterministic) layer only** — the observed inquiry / relative-to-supply escalation (§L.2) is deferred (founder-only marketplace = no inquiry data; would be dead code).

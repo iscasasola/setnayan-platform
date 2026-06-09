@@ -62,6 +62,14 @@ const CSS = `
 /* Last-minute (Setnayan AI §4) — opportunity tone, not alarm. */
 .csov .r .badge.lm{font-weight:600;color:var(--gold-deep);background:rgba(197,160,89,.16);border:1px solid rgba(197,160,89,.4)}
 .csov .r .badge.lm .pct{font-weight:700;margin-left:2px}
+.csov .r .badge.near{color:#2f7d4f;background:rgba(47,125,79,.12)}
+.csov .r .badge.far{color:#9a6a00;background:rgba(197,160,89,.16)}
+.csov .r .sub .faraway{color:#9a6a00}
+.csov .farther-btn{display:block;width:100%;margin:2px 0 14px;border:1px dashed var(--line);border-radius:14px;background:transparent;color:var(--ink-soft);padding:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;transition:border-color .2s,color .2s}
+.csov .farther-btn:active{border-color:var(--gold);color:var(--gold-deep)}
+.csov .farther-divider{display:flex;align-items:center;gap:10px;margin:6px 2px 12px;color:var(--ink-soft);font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase}
+.csov .farther-divider::before,.csov .farther-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.csov .empty.sm{font-size:13px;padding:18px 16px}
 .csov .r .addbtn{flex:0 0 auto;align-self:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius:999px;padding:8px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;min-height:38px;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
 .csov .r .addbtn:active{transform:scale(.93)}
 .csov .r .addbtn:disabled{opacity:.6}
@@ -123,6 +131,11 @@ export function CategorySearchOverlay({
   const [results, setResults] = useState<CategoryVendorResult[]>([]);
   const [hasCoords, setHasCoords] = useState(false);
   const [loading, setLoading] = useState(true);
+  // "Show vendors farther away" expander — the out-of-range vendors, fetched
+  // lazily on demand so the default view stays in-range (the radius reach gate).
+  const [farther, setFarther] = useState<CategoryVendorResult[]>([]);
+  const [fartherShown, setFartherShown] = useState(false);
+  const [fartherLoading, setFartherLoading] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -149,6 +162,9 @@ export function CategorySearchOverlay({
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
+        // New search → collapse any expanded "farther away" set.
+        setFarther([]);
+        setFartherShown(false);
         setAdded((prev) => {
           const next = new Set(prev);
           for (const r of res.results) if (r.alreadyAdded) next.add(r.vendorProfileId);
@@ -160,6 +176,30 @@ export function CategorySearchOverlay({
     },
     [eventId, groupId],
   );
+
+  // Expander: fetch the out-of-range vendors for the current search.
+  const showFarther = useCallback(async () => {
+    setFartherShown(true);
+    setFartherLoading(true);
+    try {
+      const res = await searchCategoryVendors({
+        eventId,
+        groupId,
+        query: query.trim(),
+        verifiedOnly,
+        maxKm,
+        includeFarther: true,
+      });
+      setFarther(res.results);
+      setAdded((prev) => {
+        const next = new Set(prev);
+        for (const r of res.results) if (r.alreadyAdded) next.add(r.vendorProfileId);
+        return next;
+      });
+    } finally {
+      setFartherLoading(false);
+    }
+  }, [eventId, groupId, query, verifiedOnly, maxKm]);
 
   // initial load
   useEffect(() => {
@@ -233,6 +273,87 @@ export function CategorySearchOverlay({
   // Portaling to <body> removes the descendant relationship, killing every
   // `.pbacc *` bleed at once. (A position:fixed full-screen overlay belongs at
   // <body> anyway.)
+  const renderRow = (r: CategoryVendorResult) => {
+    const isAdded = added.has(r.vendorProfileId);
+    const isPending = pendingId === r.vendorProfileId;
+    return (
+      <div className={`r${isAdded ? ' added' : ''}`} key={r.vendorProfileId}>
+        <div className="img">
+          {r.logoUrl && !failedLogos.has(r.vendorProfileId) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={r.logoUrl}
+              alt=""
+              onError={() =>
+                setFailedLogos((s) => {
+                  if (s.has(r.vendorProfileId)) return s;
+                  const next = new Set(s);
+                  next.add(r.vendorProfileId);
+                  return next;
+                })
+              }
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={VENDOR_PLACEHOLDER_PHOTO} alt="" />
+          )}
+        </div>
+        <div className="meta">
+          <div className="vn">{r.name}</div>
+          <div className="sub">
+            {hasCoords && r.distanceKm !== null ? (
+              r.withinRadius ? (
+                <span className="badge near">✓ Serves your area</span>
+              ) : (
+                <span className="badge far">Outside service area</span>
+              )
+            ) : null}
+            {r.compatScore !== null ? (
+              <span
+                className={`badge mt${r.compatTier === 'good' ? ' good' : r.compatTier === 'fair' ? ' fair' : ''}`}
+              >
+                {r.compatScore}% match
+              </span>
+            ) : null}
+            {r.rating !== null && r.reviewCount ? (
+              <span className="stars">
+                ★ {r.rating.toFixed(1)} ({r.reviewCount})
+              </span>
+            ) : null}
+            {r.distanceKm !== null ? (
+              <span className={r.withinRadius ? undefined : 'faraway'}>
+                {r.distanceKm} km
+                {!r.withinRadius && r.serviceRadiusKm
+                  ? ` · beyond their ${r.serviceRadiusKm} km range · travel fee likely`
+                  : ''}
+              </span>
+            ) : r.city ? (
+              <span>{r.city}</span>
+            ) : null}
+            {r.verified ? <span className="badge vrf">Verified</span> : null}
+            {r.boosted ? <span className="badge bst">Featured</span> : null}
+            {r.lastMinuteAvailable ? (
+              <span className="badge lm" title="Still booking close to your date">
+                Last-minute
+                {r.lastMinuteSurchargePct ? (
+                  <span className="pct">+{r.lastMinuteSurchargePct}%</span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={`addbtn${isAdded ? ' done' : ''}`}
+          onClick={() => add(r.vendorProfileId)}
+          disabled={isAdded || isPending}
+        >
+          {isAdded ? '✓ Added' : isPending ? '…' : '+ Add'}
+        </button>
+      </div>
+    );
+  };
+
   if (!mounted) return null;
 
   return createPortal(
@@ -257,70 +378,38 @@ export function CategorySearchOverlay({
             or widen your filters.
           </div>
         ) : (
-          results.map((r) => {
-            const isAdded = added.has(r.vendorProfileId);
-            const isPending = pendingId === r.vendorProfileId;
-            return (
-              <div className={`r${isAdded ? ' added' : ''}`} key={r.vendorProfileId}>
-                <div className="img">
-                  {r.logoUrl && !failedLogos.has(r.vendorProfileId) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={r.logoUrl}
-                      alt=""
-                      onError={() =>
-                        setFailedLogos((s) => {
-                          if (s.has(r.vendorProfileId)) return s;
-                          const next = new Set(s);
-                          next.add(r.vendorProfileId);
-                          return next;
-                        })
-                      }
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={VENDOR_PLACEHOLDER_PHOTO} alt="" />
-                  )}
+          <>
+            {results.map(renderRow)}
+            {/* Show-farther expander — in-range vendors are the default; this
+                reveals the out-of-range ones (the radius reach gate stays the
+                default view). Only when a reception location is known. */}
+            {hasCoords && !fartherShown ? (
+              <button
+                type="button"
+                className="farther-btn"
+                onClick={() => void showFarther()}
+              >
+                Show vendors farther away
+              </button>
+            ) : null}
+            {fartherShown ? (
+              <div className="farther-wrap">
+                <div className="farther-divider">
+                  <span>Farther away · outside their service area</span>
                 </div>
-                <div className="meta">
-                  <div className="vn">{r.name}</div>
-                  <div className="sub">
-                    {r.compatScore !== null ? (
-                      <span
-                        className={`badge mt${r.compatTier === 'good' ? ' good' : r.compatTier === 'fair' ? ' fair' : ''}`}
-                      >
-                        {r.compatScore}% match
-                      </span>
-                    ) : null}
-                    {r.rating !== null && r.reviewCount ? (
-                      <span className="stars">
-                        ★ {r.rating.toFixed(1)} ({r.reviewCount})
-                      </span>
-                    ) : null}
-                    {r.distanceKm !== null ? <span>{r.distanceKm} km</span> : r.city ? <span>{r.city}</span> : null}
-                    {r.verified ? <span className="badge vrf">Verified</span> : null}
-                    {r.boosted ? <span className="badge bst">Featured</span> : null}
-                    {r.lastMinuteAvailable ? (
-                      <span className="badge lm" title="Still booking close to your date">
-                        Last-minute
-                        {r.lastMinuteSurchargePct ? (
-                          <span className="pct">+{r.lastMinuteSurchargePct}%</span>
-                        ) : null}
-                      </span>
-                    ) : null}
+                {fartherLoading ? (
+                  <div className="loading">Finding vendors farther away…</div>
+                ) : farther.length === 0 ? (
+                  <div className="empty sm">
+                    No vendors farther away — everyone covering your area is
+                    listed above.
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className={`addbtn${isAdded ? ' done' : ''}`}
-                  onClick={() => add(r.vendorProfileId)}
-                  disabled={isAdded || isPending}
-                >
-                  {isAdded ? '✓ Added' : isPending ? '…' : '+ Add'}
-                </button>
+                ) : (
+                  farther.map(renderRow)
+                )}
               </div>
-            );
-          })
+            ) : null}
+          </>
         )}
       </div>
 

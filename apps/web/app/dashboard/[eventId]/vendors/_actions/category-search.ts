@@ -31,7 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
@@ -78,6 +78,14 @@ export type CategoryVendorResult = {
   lastMinuteSurchargePct: number | null;
   /** Already in this event's picks → render "✓ Added", not an Add button. */
   alreadyAdded: boolean;
+  /** Service-radius coverage (vendor-tier-caps · serviceRadiusKm vs the
+   *  reception anchor). TRUE = the vendor's tier radius reaches this reception
+   *  ("✓ Serves your area"); FALSE = out of range ("travel fee likely"). Always
+   *  TRUE when distance is unknown / the vendor is unscoped (fail-open). */
+  withinRadius: boolean;
+  /** The vendor's tier service radius in km (20 verified · 50 pro). null =
+   *  unscoped (Free 0) or nationwide (Enterprise ∞) — no finite range to show. */
+  serviceRadiusKm: number | null;
 };
 
 export type CategorySearchResult = {
@@ -130,6 +138,10 @@ export async function searchCategoryVendors(input: {
   query?: string;
   verifiedOnly?: boolean;
   maxKm?: number | null;
+  /** "Show vendors farther away" expander: when TRUE, return ONLY the
+   *  out-of-range vendors (the in-range set is already on screen from the
+   *  default fetch), each tagged withinRadius=false + sorted nearest-first. */
+  includeFarther?: boolean;
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
@@ -300,8 +312,11 @@ export async function searchCategoryVendors(input: {
     // Null coords (event has no venue lat/lng) → radius scope off (fail-open).
     anchorLat: lat,
     anchorLng: lng,
+    // Expander: stop excluding out-of-range vendors so the action can return
+    // the farther set. Over-fetch a bit wider so the far group is well-stocked.
+    includeOutOfRadius: input.includeFarther === true,
     searchQuery: input.query,
-    limit: 60,
+    limit: input.includeFarther === true ? 100 : 60,
   });
   if (recs.length === 0) return { ...EMPTY, hasReceptionCoords: hasCoords };
 
@@ -427,6 +442,14 @@ export async function searchCategoryVendors(input: {
       hasCoords && vLat !== null && vLng !== null
         ? Math.round(distanceKm(lat as number, lng as number, vLat, vLng) * 10) / 10
         : null;
+    // Service-radius coverage — same fail-open as the recs radiusOk gate
+    // (vendor-tier-caps): unknown/Free tier → 0 (unscoped → within), Enterprise
+    // → ∞ (within), Verified 20 / Pro 50 → within iff distance ≤ radius.
+    const radiusKm = tierCaps(asVendorTier(prof?.tier_state ?? null)).serviceRadiusKm;
+    const withinRadius =
+      dKm === null || !Number.isFinite(radiusKm) || radiusKm <= 0 || dKm <= radiusKm;
+    const serviceRadiusKm =
+      Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : null;
     const adRank = (r.ad_rank as number | null) ?? 0;
     const compat = assistOff
       ? null
@@ -459,6 +482,8 @@ export async function searchCategoryVendors(input: {
       lastMinuteAvailable: lm.zone === 'last_minute' && searchable,
       lastMinuteSurchargePct: lm.zone === 'last_minute' ? lm.surchargePct : null,
       alreadyAdded: addedIds.has(r.vendor_profile_id),
+      withinRadius,
+      serviceRadiusKm,
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
       _rating: r.avg_rating_overall ?? 0,
@@ -499,6 +524,21 @@ export async function searchCategoryVendors(input: {
 
   let ordered = [...boosted, ...top10, ...tail];
 
+  // Show-farther expander: the default fetch already shows the in-range set, so
+  // return ONLY the out-of-range vendors here (nearest-first), tagged for the
+  // "farther away" section. The default fetch (includeFarther=false) keeps the
+  // full in-range ladder above — all withinRadius=true (the recs gate filtered
+  // the far ones out), so the partition is a no-op there.
+  if (input.includeFarther) {
+    ordered = ordered
+      .filter((s) => !s.withinRadius)
+      .sort(
+        (a, b) =>
+          (a.distanceKm ?? Number.POSITIVE_INFINITY) -
+          (b.distanceKm ?? Number.POSITIVE_INFINITY),
+      );
+  }
+
   // Client filters (applied here so the count + tiers stay coherent).
   if (input.verifiedOnly) ordered = ordered.filter((s) => s.verified);
   if (typeof input.maxKm === 'number' && hasCoords) {
@@ -522,6 +562,8 @@ export async function searchCategoryVendors(input: {
     lastMinuteAvailable: s.lastMinuteAvailable,
     lastMinuteSurchargePct: s.lastMinuteSurchargePct,
     alreadyAdded: s.alreadyAdded,
+    withinRadius: s.withinRadius,
+    serviceRadiusKm: s.serviceRadiusKm,
   }));
 
   return { results, total: results.length, hasReceptionCoords: hasCoords };

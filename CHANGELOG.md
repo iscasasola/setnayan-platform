@@ -25,6 +25,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Linked-services-on-card moves from locked-but-unbuilt → **BUILT**. Corpus: `DECISION_LOG` row (2026-06-09); marked built in `Customer_Vendor_Marketplace_Architecture_2026-06-04.md` + `Service_Specifications_2026-06-02.md`; `Budget_Planner_Allocation_Engine_2026-06-05.md` forward-flag resolved (`is_linked_only` now exists). No pricing/SKU change.
 
+## 2026-06-09 · fix(uploads): document + script the R2 bucket CORS policy (the real cause of "Upload failed")
+
+**Context:** Owner reported the onboarding background-music uploader (`/admin/onboarding` → `media` bucket) "still failed" after the checksum fix `e55a67b7`. Root cause is a layer past the code: the error is the `xhr.onerror` path (status 0, "Check your connection"), not "R2 rejected (status N)". On a cross-origin PUT, R2 only attaches `Access-Control-Allow-Origin` when a bucket **CORS rule matches** — with no match the browser masks the response as a network error. Presign 200 + upload onerror = missing/mismatched bucket CORS. The credentials are set (presign works); CORS is separate, was never applied, and the existing `OWNER_ACTIONS.md` step said to allow only `setnayan.com` — but the live origin is `https://www.setnayan.com` and R2 matches origins **exactly**.
+
+**No app code change** (the uploader, presign route, checksum fix in `lib/r2.ts`, and the `frame-ancestors`-only CSP are all already correct). Two ops deliverables: (1) new `apps/web/scripts/r2-cors.sh` — idempotent `aws s3api put-bucket-cors` across all 5 FileUpload buckets, origins overridable via `R2_CORS_ORIGINS`, dashboard/wrangler JSON in the header; (2) rewrote the stale `OWNER_ACTIONS.md` R2 section (was "~2h, ship UI follow-on / 4 buckets / allow setnayan.com / R2_BUCKET_LOGOS") → "UI is live, set CORS on 5 buckets, www+apex, here's the script + JSON". **The live unblock is an owner Cloudflare action — no code deploys it.**
+
+**Verification:** `bash -n` clean; assembled CORS JSON validated via `node`/`JSON.parse`.
+
+**SPEC IMPACT:** None — ops/runbook + helper script only; no schema, SKU, or surface change.
+
 ## 2026-06-09 · fix(seating): table capacity can't exceed the table type's seat count
 
 **Context:** Owner: "the seat count also must not exceed the seat count of the table." The Add-table form let you set any capacity 1–32 regardless of type — e.g. a **Sweetheart (2 seats)** with capacity **10**. Both form + server allowed it.

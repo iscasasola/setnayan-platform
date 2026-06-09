@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
@@ -40,7 +41,7 @@ export default async function CoupleThreadPage({ params }: Props) {
   const { data: vendor } = await supabase
     .from('vendor_profiles')
     .select(
-      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city',
+      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state',
     )
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
@@ -55,6 +56,8 @@ export default async function CoupleThreadPage({ params }: Props) {
         name_revealed_at: vendor.name_revealed_at ?? null,
         services: vendor.services ?? null,
         screen_name: vendor.screen_name ?? null,
+        // Phase C: Pro/Enterprise reveal real business_name day-1.
+        isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
         primary_canonical_service: vendor.services?.[0] ?? null,
         location_city: vendor.location_city ?? null,
       })

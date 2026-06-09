@@ -47,6 +47,14 @@ export type CoupleThreadWithVendor = ChatThreadRow & {
     name_revealed_at: string | null;
     services: string[] | null;
     location_city: string | null;
+    /**
+     * Phase C tier gate (vendor-tier-caps). `tier_state` enum on
+     * vendor_profiles (free | verified | pro | enterprise) drives the
+     * day-1 name reveal — Pro/Enterprise (isTrueNameTier) surface the
+     * real business_name in the thread list even before name_revealed_at
+     * is stamped. Null (pre-migration deploy / missing) → free → hidden.
+     */
+    tier_state: string | null;
   } | null;
 };
 
@@ -128,7 +136,7 @@ export async function fetchCoupleThreads(
   const { data, error } = await supabase
     .from('chat_threads')
     .select(
-      `${THREAD_SELECT}, vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city)`,
+      `${THREAD_SELECT}, vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state)`,
     )
     .eq('event_id', eventId)
     .order('updated_at', { ascending: false });

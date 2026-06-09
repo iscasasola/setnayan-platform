@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-b — tier-aware names + reviews + radius + searchability(flag-dark); video REMOVED
+
+**Context:** Second of the #4 PRs (PR-c Enterprise video is **cancelled** — see below). The interlocking "task #19 family" + the radius gate, all sharing the `tier_state`-into-select reads. Built via an implementation agent, then a 5-agent adversarial verification panel (name-reveal=sound · radius=sound · reviews=sound · searchability=sound — the only panel defect was the migration-timestamp collision, now fixed).
+
+**What landed:**
+- **Name-reveal Part A** — threaded `isPaidTier: isTrueNameTier(<row>.tier_state ?? null)` into **all 9 `resolveVendorDisplayName` call sites** (was hardcoded `false` → Pro/Enterprise names *never revealed day-1*; now they do). Every feeding query adds `tier_state` to its select. Verified vendors stay anonymized (`isTrueNameTier('verified')===false`); `?? null` → free → hidden (no leak). The vendor's own dashboard self-view stays ungated.
+- **Review display gate + sort-leak fix** — stars on `reviewStarsCounted` (free hidden), comment bodies on `reviewCommentsViewable` (free+verified hidden), gated at the **surface** layer (NOT the shared review libs → self-view ungated). Marketplace re-sorts `highest_rated`/`most_reviews` on **gated** values (no ranking by hidden stars), preserving `is_setnayan_service → ad_rank` precedence.
+- **Service-radius gate** (`lib/wizard-recommendations.ts` + dashboard `category-search.ts`) — `tierCaps.serviceRadiusKm`, dashboard-Services-only (anchor coords), **explicit fail-open** (missing tier probe → admit). Onboarding region-ring + /vendors browse untouched.
+- **Searchability gate — FLAG-DARK** (`lib/vendor-search-gate.ts` + `app/vendors/page.tsx`) — `.neq('tier_state','free')` only when `VENDOR_TIER_SEARCH_GATE==='true'` && not demo. **Default OFF → query never references `tier_state` → prod byte-identical** (a raw filter would empty the founder-only marketplace). Migration **`20261005000000_vendor_market_stats_tier_state.sql`** (applied to prod + tracked) appends `tier_state` to the view (rebased on `20260620000000`, hq_region preserved). *(Renamed off `20260929000000`→`20260930000000`→`20261005000000` — each earlier prefix collided with a merged migration; panel caught the first.)*
+- **Enterprise VIDEO CALLS — REMOVED** (owner). `ChatLevel` drops `'chat_video'`; Enterprise `chat:'chat'`. FREE chat-block unaffected. Stripped 2 `/for-vendors` video-call claims; kept Pabati "video greetings" + external prep/verification labels. 2026-05-16 video-retired lock stands; PR-c cancelled.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓. Migration applied to prod (view exposes `tier_state`, 26 cols). 5-agent adversarial panel green.
+
+**SPEC IMPACT:** #4 PR-b + video removal → corpus `DECISION_LOG.md` + tier matrix. #4 COMPLETE. Next: #5 self-serve subscription checkout.
+
 ## 2026-06-09 · feat(admin): group onboarding settings into a type-organized /admin/onboarding surface
 
 **Context:** Owner 2026-06-09 — "there are parts in the admin that handle the onboarding wedding settings. In the future we'll have multiple onboardings. Group any custom settings needed for the onboarding (wedding), like the background music." Today there's exactly **one** onboarding-specific config knob — the wedding-onboarding **background music** — and it was buried in the generic `/admin/settings` page. This gives onboarding config its own home, **organized by onboarding type**, so each future flow (birthday, corporate, …) adds a section instead of scattering knobs.

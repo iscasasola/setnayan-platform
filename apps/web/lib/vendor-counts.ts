@@ -96,6 +96,12 @@ export type VendorPreviewRow = {
   // paid + revealed + venue-exempt vendors render real business_name.
   screen_name: string | null;
   name_revealed_at: string | null;
+  // Phase C tier gate (vendor-tier-caps) · also absent from the
+  // market_stats view, so filled by the SAME secondary vendor_profiles
+  // batched read as screen_name / name_revealed_at. Drives the day-1
+  // name reveal in FolderVendorsSection (isTrueNameTier → pro/enterprise
+  // show real business_name). Null = pre-migration deploy → free → hidden.
+  tier_state: string | null;
 };
 
 /**
@@ -292,7 +298,7 @@ async function topVendorsByServices(
 
   const baseRows = data as Omit<
     VendorPreviewRow,
-    'screen_name' | 'name_revealed_at'
+    'screen_name' | 'name_revealed_at' | 'tier_state'
   >[];
 
   // Secondary batched read against `vendor_profiles` for the two
@@ -306,22 +312,28 @@ async function topVendorsByServices(
 
   const { data: anonymityRows, error: anonymityErr } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at')
+    .select('vendor_profile_id, screen_name, name_revealed_at, tier_state')
     .in('vendor_profile_id', vendorIds);
 
   const anonymityByVendor = new Map<
     string,
-    { screen_name: string | null; name_revealed_at: string | null }
+    {
+      screen_name: string | null;
+      name_revealed_at: string | null;
+      tier_state: string | null;
+    }
   >();
   if (!anonymityErr && anonymityRows) {
     for (const row of anonymityRows as Array<{
       vendor_profile_id: string;
       screen_name?: string | null;
       name_revealed_at?: string | null;
+      tier_state?: string | null;
     }>) {
       anonymityByVendor.set(row.vendor_profile_id, {
         screen_name: row.screen_name ?? null,
         name_revealed_at: row.name_revealed_at ?? null,
+        tier_state: row.tier_state ?? null,
       });
     }
   }
@@ -332,6 +344,7 @@ async function topVendorsByServices(
       ...row,
       screen_name: meta?.screen_name ?? null,
       name_revealed_at: meta?.name_revealed_at ?? null,
+      tier_state: meta?.tier_state ?? null,
     } as VendorPreviewRow;
   });
 }

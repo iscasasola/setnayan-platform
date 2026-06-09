@@ -66,7 +66,6 @@ const COMPLIMENTARY_TOOLS = {
     'Side-by-side quote comparison',
     'Unlimited bid requests',
     'Direct chat with vendors',
-    'Video call with Verified+ vendors',
     "Bring your tita's florist (BYO vendor flow)",
     'Choose freely',
   ],

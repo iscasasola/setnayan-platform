@@ -1049,3 +1049,18 @@
 .onbw #screen-bundle .bdl-card.reco .bc-cta{background:var(--mulberry);color:#fff;box-shadow:0 7px 20px rgba(92,37,66,.26);}
 .onbw #screen-bundle .bc-cta:active{transform:translateY(1px);}
 .onbw #screen-bundle .bc-cta:disabled{opacity:.5;cursor:not-allowed;}
+/* ── predicted-demand "heat" tints (Date-Aligner §L.1 · on-brand warm ramp: gold → restrained terracotta).
+   Only applied to enabled, non-selected, non-range cells (JS-gated) so the mulberry selection fill always wins. */
+.onbw .calday.heat-1{background:rgba(197,160,89,.12);}
+.onbw .calday.heat-2{background:rgba(197,160,89,.26);}
+.onbw .calday.heat-3{background:rgba(190,106,69,.34);}
+.onbw .calday.heat-4{background:#BD5B3D;color:var(--paper);font-weight:700;}
+/* demand chip in the why-this-date nugget */
+.onbw .whydate .whead{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:7px;}
+.onbw .whydate .whead .wtone{margin-bottom:0;}
+.onbw .whydate .wdemand{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex:0 0 auto;}
+.onbw .whydate .wdemand .wflame{font-size:9px;letter-spacing:0;}
+.onbw .whydate .wdemand.d1{background:rgba(138,143,151,.16);color:var(--ink-soft);}
+.onbw .whydate .wdemand.d2{background:rgba(197,160,89,.22);color:var(--gold-deep);}
+.onbw .whydate .wdemand.d3{background:rgba(190,106,69,.2);color:#B5532F;}
+.onbw .whydate .wdemand.d4{background:#BD5B3D;color:#fff;}

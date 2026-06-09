@@ -194,6 +194,279 @@ No schema, no new routes, no data change. `MobileLandingGrid` stays in use by `/
 **Migration `20260927000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
 
 **SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
+
+## 2026-06-09 · feat(admin): group onboarding settings into a type-organized /admin/onboarding surface
+
+**Context:** Owner 2026-06-09 — "there are parts in the admin that handle the onboarding wedding settings. In the future we'll have multiple onboardings. Group any custom settings needed for the onboarding (wedding), like the background music." Today there's exactly **one** onboarding-specific config knob — the wedding-onboarding **background music** — and it was buried in the generic `/admin/settings` page. This gives onboarding config its own home, **organized by onboarding type**, so each future flow (birthday, corporate, …) adds a section instead of scattering knobs.
+
+**What landed:**
+- **New** `app/admin/onboarding/page.tsx` — the Onboarding hub. A **Wedding** section houses the **background music** control (relocated) + a "content the wedding onboarding pulls from" links row (Songs · Refinements · Wedding types — those are product-wide catalogs, linked for discoverability, not duplicated). A dashed **"More onboarding flows"** placeholder communicates the multi-type future.
+- **New** `app/admin/onboarding/actions.ts` — `updateOnboardingMusic` moved here from `settings/actions.ts`. **Same `platform_settings` columns** (`onboarding_bg_music_r2_key` / `_enabled`) — the `/onboarding/wedding` read path is **unchanged**, so this is a relocation, not a behavior change (zero risk to the live music).
+- `settings/page.tsx` — music section removed; replaced with an "Onboarding →" link card (discoverability) + dropped now-unused imports/logic. `settings/actions.ts` — `updateOnboardingMusic` + its helper removed.
+- **Nav:** Onboarding added to the desktop Platform group, the mobile "More" Platform accordion, and the bottom-nav More match.
+
+**Data-model note (forward):** while only Wedding exists, its music is stored in the single `platform_settings` columns. When a 2nd onboarding type needs its own music/knobs, storage moves to a per-type `onboarding_settings` table; the UI is already type-organized so that's additive (deliberately deferred — YAGNI until a 2nd flow exists).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning). No migration, no DB change.
+
+**SPEC IMPACT:** new admin surface `/admin/onboarding` (0023). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(services): Budget "Build" — auto-fill seam in Summary (Phase 3d, flag-dark)
+
+**Context:** Phase 3d of the Pin solver — the paid auto-fill *seam*. Grounding confirmed the **per-category AI matcher already ships** on the Shortlist (`category-search.ts` + `compat-score.ts`, gated on `isSetnayanAiActive`), and a cross-tab CTA is blocked by the deferred URL-tab-state — so this lands the safe, contained piece: the gap-aware free/paid messaging, not a risky bulk auto-write.
+
+**What landed (`build-summary.tsx`):** counts the couple's **open categories** (budgeted, `state==='empty'`) and, in the Setnayan-AI section, surfaces the seam via `model.personalizationEnabled` — **paid:** "Setnayan AI is hand-picking vendors for your N open categories — open the Shortlist to see your matches"; **free:** "N categories still need a vendor. Turn on Setnayan AI to auto-match them, or browse the Shortlist." No new query, no write, no migration.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Phase 3d (seam) of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. **Follow-on (scoped, not built):** the *one-tap bulk auto-add* — an action that inserts the top-compat-matched available vendor into the Shortlist for every open category — is a write pipeline best built + runtime-tested deliberately, and needs URL-tab-state for a clean cross-tab CTA. Logged in `DECISION_LOG.md`. **Phase 3 complete (3a/3b/3c/3d).**
+
+## 2026-06-09 · feat(budget): Budget "Build" — date-aware pricing scaffold (Phase 3b)
+
+**Context:** Phase 3b of the Pin solver. Two pieces: a **seasonality** scaffold (dormant) + a **last-minute** advisory.
+
+**Migration (`20261001000000_wedding_season_factors.sql`, APPLIED to prod):** new `public.wedding_season_factors(region, month, factor)` — a per-(region, month) benchmark price multiplier. **Ships NEUTRAL: the table is EMPTY**, and `resolveAllocationInputs` defaults the factor to **1.0** when no row exists → **zero pricing effect until an admin seeds real factors** (owner-to-set; never invented). Authenticated read · admin-only write (`is_admin()`).
+
+**Resolver (`lib/budget-allocation-data.ts`):** derives `region` + `month` from the event, looks up the season factor, multiplies it into the per-leaf benchmark scale (with the 3c pax factor). Benchmark band only; **real vendor medians never scaled.** Shared by /budget + the takeover. No effect today (empty table).
+
+**Last-minute advisory (`build-pins.tsx` · Date pin):** the vendor last-minute surcharge is *per-vendor*, not a category estimate — surfaced as a heads-up: date < ~6 months out → "your date is about N weeks away; some vendors add a last-minute surcharge." `eventDate` threaded from `page.tsx`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓.
+
+**SPEC IMPACT:** Phase 3b of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. **Owner TODO:** seed `wedding_season_factors` to activate seasonality. Next: 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · refactor(mood-board): declutter to one-per-element design board (0010, Phase 1)
+
+**Context:** Owner feedback after the #1120 redesign: *"there are so many photos there… keep it simple. we want palette samples and the palette samples would be great if there is a picture to show how that looks like for the specific role (attire), flower, or part of the reception."* The board was dumping the whole library (**~75 attire variants** = 15 subtypes × 5 styles, plus venue + florals). Owner also chose (in-session): **auto-apply the palette** (no manual recolor tool) and **shared palettes**.
+
+**Phase 1 — one representative per design element.** New `moodboard-board.tsx` renders a short "design checklist": **Attire** (one figure per role, gated to the roles whose palette is visible), **Venue** (Ceremony + Reception), **Flowers** (bouquet). Each card shows the element + its shared palette swatches. For CORS-clean photos (picsum venue scenes + the app-served florals) the card **auto-applies the palette in-browser** (read-only `RecolorStudio` with slot→palette edits) so the picture shows your colors. Attire figures are colored SVG illustrations on a no-CORS host, so they're shown as reference images beside the role's palette (canvas recolor would taint).
+
+`page.tsx` rewritten to build the sections and render the board; the 75-photo `MoodboardChapters` gallery + the silhouette `WeddingAttireGuide` are no longer rendered (files kept — the `event_moodboard_saves` write path they own is still read by the seating PDF). The manual Recolor Studio + save flow stay in the codebase, dormant, to power Phase 2.
+
+**Next (Phase 2, owner-locked direction):** a **curated treatment library** — tap a reception part (ceiling / wall / tables / tunnel) and choose its treatment (chandelier vs draped cloth vs string lights, linens, centerpieces), free + instant; AI Composite Scene stays the premium upgrade.
+
+**SPEC IMPACT:** 0010 Mood Board simplified to a palette-first, one-per-element board. Follow-up (flagged, not in this PR): the seating PDF mood-board mode should read `events.role_palette` directly now that the board no longer writes `event_moodboard_saves`.
+## 2026-06-09 · feat(budget): pax-axis benchmark normalization (Phase 3c — LIVE, both surfaces)
+
+**Context:** Phase 3c of the Pin solver plan. The admin **benchmark** amounts are flat (seeded around a typical wedding), so a 250-guest estimate was priced like a 150-guest one. This scales the benchmark band of clearly **per-head** leaves by `pax / 150`.
+
+**Change (`lib/budget-allocation-data.ts` · `resolveAllocationInputs`):** for `catering` (linear with guests) + `reception_venue`/`ceremony_venue` (size-driven), the benchmark `benchmark_php/floor/p25/p75` scale by `clamp(pax/150, 0.5, 3)`. **REAL vendor prices (medians + real ranges) are never scaled** — they already reflect the market. No effect at the 150 baseline or when pax is unknown.
+
+**⚠ Not flag-gated — by design.** `resolveAllocationInputs` is shared by the **Budget tab** (`/budget`) *and* the Build takeover, so the fix applies to **both** (they must agree). It only moves benchmark-regime per-head leaves; at ~150 pax nothing changes. `BASELINE_PAX` (150) + the per-head set are engineering constants (admin-tunable later), not invented prices.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓.
+
+**SPEC IMPACT:** Phase 3c of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. Next: 3b (date pricing) → 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(admin): two-admin (four-eyes) approval queue — /admin/approvals (nav redesign PR 4)
+
+**Context:** PR 4 (final core piece) of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §3.3). The audit found the §9.1 four-eyes loop **unbuilt** — `admin_approval_requests` was only a comment ("ships V1.x"). This builds the primitive end-to-end: one admin initiates a major decision, a **different** admin approves before it executes.
+
+**Migration** `20260930000000_admin_approval_requests.sql` (idempotent): new `admin_approval_requests` table (action_type · target_user_id · payload · rationale · status · initiated_by · decided_by · decision_reason · expires_at(7d)) with a **four-eyes CHECK** `decided_by <> initiated_by`, status/action_type CHECKs, indexes, and admin-only RLS via `public.is_admin()` (mirrors `concierge_abuse_flags`). No XOR-on-users constraint added (would risk pre-existing rows) — mutual exclusivity is enforced in the executor.
+
+**Feature:**
+- `app/admin/approvals/page.tsx` — queue UI: a **New request** form (action + target email + rationale), a **Pending** list (Approve/Reject; the row is **disabled with a note when you are the initiator**), and a **Recently decided** table. Plus a bootstrap banner when <2 admins exist (§4.1).
+- `app/admin/approvals/actions.ts` — `requireAdmin()` (caller is admin, server-side) → `createAdminClient()` writes. `requestPrivilegedGrant`, `approveRequest`, `rejectRequest`. **Four-eyes enforced 3×** (atomic-claim `.neq('initiated_by', me)` + DB CHECK + UI disable). The approve/reject **atomic claim** (`UPDATE … WHERE status='pending' AND expires_at>now AND initiated_by<>me RETURNING …`) means a request is decided **once**, never after expiry, never by its initiator (no TOCTOU/double-execute). Execute-failure rolls the request back to `pending`. Every mutation audit-logs.
+- V1 action types = privilege-escalation grants (single-column `users` updates): `grant_internal_account` (§10a 🟣) · `grant_team_pool` (§10b 🟢) · `promote_to_admin`. Others opt in later via `action_type`+`payload`.
+- **Surfaced:** sidebar Work group + mobile Work tab match + `/admin/work` triage feed + Home command-center ("Approvals & support" lane). Counts query the new table.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning) · **adversarial 4-lens security review** (four-eyes/auth-bypass · TOCTOU/idempotency · executor/privilege-semantics · migration/RLS — 3/4 safe-to-ship). It caught + **fixed** two items: (1) status-guarded the execute-failure rollback (`.eq('status','approved')`) so a failed approval can't clobber a concurrent state; (2) added a self-targeting guard (an admin can't initiate a privileged grant for their own account). Four-eyes, RLS, executor, and migration verified clean.
+
+**Owner action:** the migration must be applied to prod (`supabase db push` / direct DDL) for the feature to activate; until then the page degrades to empty (graceful).
+
+**SPEC IMPACT:** PR 4 of `Admin_Console_Nav_Redesign_2026-06-08.md`; builds the §9.1 two-admin primitive (0023 §4). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(services): Budget "Build" — Pin modes on the Build tab (Phase 3a, flag-dark)
+
+**Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md`). "Pin one, recommend the rest" — a **"What is fixed?"** segmented control wraps the Build allocator. Two of the three pins already work on today's engine, so this is the UI that exposes them; date re-pricing is Phase 3b.
+
+**What landed (`build-pins.tsx`, wrapping the planner in `page.tsx` `buildSlot`):**
+- **Budget** (default) → the median-anchored allocator recommends the service mix (unchanged).
+- **Services** → "your chosen services typically cost **₱X–₱Y**" (Σ of the leaf ranges) + a **Find your date** CTA → `/find-date`.
+- **Date** → a Pin-your-date panel bridging to `/find-date` (which already ranks dates by vendors-kept). Date-aware pricing labelled "coming next" (3b).
+
+**Reuse, not fork:** the per-category price pin is already the planner's peso-pin; the date-solve is the existing `/find-date` Schedule-Matrix Date Finder. The shared `BudgetAllocationPlanner` is untouched (wrapped, not modified — Budget tab unaffected). Pin mode is local UI state.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Phase 3a of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. Next: 3c (pax-axis pricing) → 3b (date-aware pricing) → 3d (paid auto-fill). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-a — chat FREE-block · editorial tag-gate · custom-slug PRO/ENT
+
+**Context:** #4 (Phase C feature gates) of "do 1–5" on the tier matrix, split into 3 PRs by file-locality. **PR-a = the 3 clean, zero-migration, low-risk gates** verified "sound/ship-it" by the banked design pass (`Vendor_Tier_4_PhaseC_Gates_Spec_2026-06-09.json`).
+
+**What landed:**
+- **Chat FREE-block** (`lib/chat-actions.ts`) — FREE vendors can't message couples in-app (`tierCaps(tier).chat === 'none'`; verified/pro/enterprise pass). The DB RPC `unlock_vendor_event` (migration `20260911000000:66-67`) already raises `TIER_FREE_NO_INAPP` on the normal accept path, but **`adminAcceptInquiry` (admin/demo-vendors) sets `inquiry_status='accepted'` via the service-role client without that RPC** — so a claimed demo FREE vendor could otherwise reach the `chat_messages` insert. This pre-insert gate (scoped to `senderRole==='vendor'`, isolated `tier_state` soft-probe) closes that hole. Couples/guests untouched.
+- **Editorial tag-gate** (`app/[slug]/_components/editorial/data.ts`) — the recap "Team behind the day" credit roll: `free` stays hidden (already shipped #1128); now **`verified` renders as a plain text credit** (logo + slug suppressed) and only **pro/enterprise get the showcase treatment** (logo + tier badge + profile link), matching the matrix Editorial row (free ✗ / verified ✗ / pro Tagged / ent Tagged). Verified vendors stay credited (the couple used them); M1/M2/M3 headline stats still count ALL vendors.
+- **Custom-slug PRO/ENT gate** (`vendor-dashboard/actions.ts` + `profile/page.tsx`) — a custom website slug is PRO/ENTERPRISE only (`caps.customWebsiteName`). The existing `tier_state` soft-probe in `saveVendorProfile` now also reads `business_slug` (one query) and **rejects a slug CHANGE for FREE/VERIFIED while never erroring on an unchanged save** (so a downgrade can't block ordinary profile edits). Advisory UI: the slug input is `disabled` + shows a "Pro feature" help line for FREE/VERIFIED. Server guard is the real gate.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new findings in touched files). No migration (all read `tier_state`, which exists in prod since `20260714000000`).
+
+**SPEC IMPACT:** #4 PR-a of the tier matrix → corpus `DECISION_LOG.md`. Next PR-b: name-reveal Part A + review display/sort + radius + searchability (flag-dark). PR-c: Enterprise video chat.
+
+## 2026-06-09 · feat(admin): mobile "More" → 3-section accordion (nav redesign PR 3)
+
+**Context:** PR 3 of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §5). The mobile "More" tab rendered a flat 24-card grid; the redesign calls for a grouped, **collapsible accordion** — never a flat dump.
+
+**What landed:**
+- New `app/admin/_components/mobile-landing-accordion.tsx` (client) — 3 collapsible sections (**Insights · Money & Catalog · Platform**), each an `m-label-mono` header (label + item count + chevron) over the **same `m-card` item grid** `MobileLandingGrid` uses. Sections start **expanded** (no discoverability regression vs the flat grid); each collapses via its chevron. `lg:hidden` (desktop uses the sidebar tree).
+- `app/admin/more/page.tsx` — the flat `MORE_ITEMS` array split into `INSIGHTS_ITEMS` / `MONEY_ITEMS` / `PLATFORM_ITEMS` and rendered through the accordion. Section keys mirror the desktop sidebar group keys (`funnels` / `money` / `content`) for continuity.
+
+No schema, no new routes, no data change. `MobileLandingGrid` stays in use by `/admin/directory`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched).
+
+**SPEC IMPACT:** PR 3 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-09 · fix(services): Budget "Build" — budget_builds RLS tightened to couple-only (owner-confirmed)
+
+**Context:** The post-launch review flagged that `budget_builds` (couple FINANCIAL snapshots) read/update/delete inherited the canonical `current_event_ids()` scope — i.e. any event member (helper/coordinator), not just the couple. Owner: *"why would we want it to be seen by other?"* → couple-only.
+
+**Migration (`20260929000000_budget_builds_rls_couple_only.sql`, APPLIED to prod):** `budget_builds` SELECT/UPDATE/DELETE now scope to `member_type='couple'` (matching the existing INSERT policy); UPDATE `WITH CHECK` also pins `created_by = auth.uid()`. Applied via `supabase db query` (idempotent `DROP POLICY IF EXISTS` + `CREATE`), **isolated from the unrelated pending `20260927` migrations** (other sessions' — left untouched). Verified on prod via `pg_policies` (`member_type = 'couple'`). **Zero functional regression** — only the couple-facing takeover touches the table, and INSERT was already couple-only.
+
+**SPEC IMPACT:** None (tightening). Flagged follow-up: the sibling `budget_allocation_decisions` inherits the same looser read/delete pattern — a shipped analytics table with a Layer-2 de-identified design, so it's a separate owner decision (not changed here). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · a11y(services): Budget "Build" — proper tab roles on the takeover
+
+**Context:** Review nice-to-have. The takeover's two tab strips (desktop + mobile) were plain `<button>`s with only `aria-current`, so screen readers didn't announce them as a tab set.
+
+**What landed (`services-takeover.tsx`):** both strips now use `role="tablist"`; each tab `role="tab"` + `aria-selected` + `aria-controls="budget-build-panel"` + a stable `id`; the content region is `role="tabpanel"` with `id="budget-build-panel"`, `tabIndex={0}`, and an `aria-label` tracking the active tab. (Buttons are natively keyboard-operable; roving-tabindex arrow-keys remain a small optional enhancement.)
+
+**Verify:** `tsc --noEmit` ✓ · `next build` ✓. Behavior unchanged.
+
+**SPEC IMPACT:** None. Remaining review follow-ups (surfaced): URL/hash-backed tab state, and the owner decision on tightening `budget_builds` RLS to couple-only read/delete + pinning `created_by`. Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · fix(website): editorial write-up restored + hero un-cropped + shared-photo gallery
+
+**Context:** First real look at the populated editorial surfaced 3 issues. **(1) No write-up:** the entire composed article (kicker/deck/lede/pull-quote) collapsed to the bare catch fallback. Root cause: `love_story.met_year`/`proposal_year` arrive as JSON **numbers**, and `compose.ts`'s `clean()` did `(s ?? '').trim()` — `.trim()` on a number **throws**, and that one exception dropped `composeCopy()` into its minimal fallback (only "A celebration" + headline). Fixed `clean()` to coerce via `String()` (also tolerant of any future non-string storyline field). **(2) Hero cropped:** `HeroPhoto` used a fixed pixel height + `object-cover`, cropping the couple out of the 16:9 hero → switched to `aspect-[16/10]` so the full landscape frame shows. **(3) No shared photos:** added a **"From the Day"** photo gallery to the editorial — `data.ts` now reads `events.our_photos` → `galleryPhotos` (display URLs, same legacy/relative-URL tolerance), rendered as a lead frame + grid.
+
+**Files:** `editorial/compose.ts` (`clean` coercion), `editorial/data.ts` (`galleryPhotos`), `editorial/editorial-content.tsx` (`HeroPhoto` ratio + `PhotoGallery`).
+
+**Verify:** typecheck + build on CI. On `test-maria-and-jose` the editorial now renders the "Sweeping" kicker + composed lede (UP Diliman → Batanes → Tagaytay) + deck + pull-quote, the full hero photo, and the 5 shared photos. No migration; demo data unchanged.
+
+**SPEC IMPACT:** correctness (composer robustness) + §2 editorial "Our Photos" gallery. → DECISION_LOG.
+## 2026-06-09 · fix(services): Budget "Build" — adversarial-review fixes (basket clamp + desktop topbar)
+
+**Context:** Post-launch adversarial multi-agent review of the live takeover surfaced **no must-fix blockers** (RLS cross-event isolation holds; no data loss/leak) but **two real should-fix bugs**, fixed here.
+
+1. **Basket inversion under a tight budget** (`build-compare.tsx`): when budget < Σ medians (the common `surplusMode:'park'` case) the engine compresses `amountPhp` (Fits) below the unscaled `rangeLowPhp`, so the Lean column read *higher* than Fits and the over/under labels flipped. **Fix:** clamp per leaf — `lean = min(rangeLow, amount)`, `stretch = max(rangeHigh, amount)` — guaranteeing `lean ≤ fits ≤ stretch` (flows through to the saved-build snapshot too).
+2. **Desktop lost the EventSwitcher + notifications** (`services-takeover.tsx`): the `.shell-topbar{display:none}` was global; on desktop the top bar is the only host of multi-event switching + the notifications bell (no sidebar fallback). **Fix:** scope the hide to `@media (max-width:1023px)` — desktop keeps its top bar (the desktop tab strip lives in the content area; the floating X was already `lg:hidden`).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Flag stays default-ON.
+
+**SPEC IMPACT:** None (behavior fixes). Remaining review **nice-to-haves** (surfaced, not yet done): tab a11y roles, URL-backed tab state, and an owner decision on tightening `budget_builds` RLS to couple-only read/delete + pinning `created_by` on the upsert. Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(vendor-tier): #3 Enterprise time-bound slots — per-service named time windows w/ per-slot allotment (✗/✗/✗/∞)
+
+**Context:** Build #3 of "do 1–5" on the owner's 4-tier capability matrix (`Vendor_Tier_Capability_Matrix_2026-06-07.md`). #2 shipped a flat per-service daily booking capacity (e.g. 2 photobooths → 2 bookings/day). #3 layers **time-of-day on top, ENTERPRISE-ONLY** (owner 2026-06-07: *"venues like hotels can plot timeslot for their different rooms"*): an Enterprise vendor plots **named time windows on a service, each with its own allotted capacity**; couples picking that service choose a window at lock time; each window books independently. Pro stays a flat 3/day (no am/pm); FREE/VERIFIED unchanged. Design adversarially verified by a 3-workflow design pass (banked `Vendor_Tier_3_TimeSlots_Spec_2026-06-09.json`; 5 verifier fixes applied).
+
+**What landed:**
+- **Migration `20260928000000_vendor_service_time_slots.sql`** (applied to prod): new `vendor_service_time_slots` (service-scoped: `slot_label`, `window_start`/`window_end` time, `allotment` int, `is_active`) with CHECK constraints (label len, window ordering, :00/:30 granularity), RLS at CREATE (vendor-owner write · admin read · couple read), unique active label per service. `event_vendors.service_time_slot_id UUID NULL REFERENCES … ON DELETE SET NULL` binds a booking to its chosen window. Atomic **`acquire_service_time_slot(p_event_id,p_vendor_id,p_service_id,p_slot_id)` RPC** (SECURITY DEFINER): couple-only auth via `current_couple_event_ids()`, reads `events.event_date` gated on `event_date_precision='day'`, `FOR UPDATE`-locks the slot row, counts the full `CONFIRMED_VENDOR_STATUSES` set, and does the capacity-consuming `UPDATE event_vendors … status='contracted', service_time_slot_id=…` **inside the lock** (closes the TOCTOU). Returns a JSONB envelope (`ok`/`full`/`not_authorized`/`slot_not_found`/`no_date`).
+- **`lib/vendor-tier-caps.ts`** — `canPlotTimeSlots(tier)` = `tierCaps(tier).slotsPerDay === Infinity` (Enterprise-only; matrix `slotsTimeBounded` true for Enterprise only).
+- **`lib/vendor-time-slots.ts`** (new) — `VendorServiceTimeSlot` type + `fetchVendorTimeSlotsByService` / `fetchSlotsForCoupleBooking`.
+- **Vendor services** (`app/vendor-dashboard/services/{actions,page}.ts/tsx`) — `assertCanPlotSlots` gate, `addServiceTimeSlot` (Enterprise-gated), `deleteServiceTimeSlot` (ungated soft-deactivate); a `SlotEditor` sub-editor (list/delete always when slots exist; **ADD Enterprise-only**); the #2 daily-capacity input is disabled when slots exist (slots become the capacity source).
+- **`finalizeVendor`** (`app/dashboard/[eventId]/vendors/actions.ts`) — new `slot_required` + `slot_full` result variants; slot path activates when the service has ≥1 active slot **and** `event_date_precision='day'`, else falls back to #2 flat daily-capacity; calls `acquire_service_time_slot` (handles every envelope status); `slotPathLocked` suppresses the vendor-level soft-hold gate **and** the generic lock write so the RPC's atomic write isn't duplicated; **repointed #2's two `wedding_date` reads → `event_date`** (the generated `wedding_date` mirror has no backing DDL — latent no-op; now reads the canonical column).
+- **Couple slot-picker** wired into all 3 lock surfaces (`accordion-lock.tsx`, `plan-card-lock.tsx`, `plan-card-compare.tsx`): each calls `listLockTimeSlots`, renders a `<select>` when ≥1 active slot exists, and passes the chosen `service_time_slot_id` into `finalizeVendor`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (only pre-existing unrelated warnings). Migration applied to prod via statement-by-statement apply (cross-session migration-tracking is out of order); verified post-apply: table + `event_vendors.service_time_slot_id` column + RPC + 3 RLS policies + RLS-on all present; version recorded in `supabase_migrations.schema_migrations`.
+
+**SPEC IMPACT:** #3 of the tier matrix → corpus `DECISION_LOG.md` + `Vendor_Tier_Capability_Matrix_2026-06-07.md` (Slot-per-day row: Enterprise time-bound now ENFORCED). Next: #4 Phase C feature gates · #5 Phase D self-serve subscription checkout.
+
+## 2026-06-09 · feat(admin): onboarding refinements editor (follow-up to items 8/9)
+
+**Context:** The DB-backed refinements landed editable-via-SQL-only; this adds the admin UI so the catalogue is editable without SQL or a deploy.
+
+**What landed:**
+- **New `/admin/refinements`** (Platform group, next to Taxonomy): a collapsible card per leaf — edit the leaf (label · description · main photo · retire) + its options (emoji · label · photo · retire · add/remove). `page.tsx` (server, force-dynamic) reads both tables incl. retired rows + resolves photo display URLs; `_components/refinements-editor.tsx` (client, per-unit `<form action={…}>`); `actions.ts` (`updateLeaf`/`updateOption`/`addOption`/`removeOption`).
+- **R2-backed photo uploads** — `<FileUpload bucket="samples">` per photo (seeded `/public` photos stay verbatim until replaced; a hidden `*_current` keeps the value when no upload). `lib/onboarding-refinements.ts` `getOnboardingRefinements()` now resolves `r2://` refs → presigned display URLs (gathered in parallel; **no-op when there are no r2 photos**, so the seeded path is unchanged).
+- Admin-gated by the `/admin` layout + `requireAdmin()` in every action + RLS `is_admin()` write. Edits `revalidatePath('/onboarding/wedding')` → live immediately.
+
+**Verify:** `tsc` + `next lint` clean; an adversarial review workflow ran over auth/correctness/render-impact. (The admin page needs real admin auth + service-role key → CI-build-verified + owner-verifiable on deploy.)
+
+**SPEC IMPACT:** Completes the V1.x DB-backed-refinements admin surface (item 9 "full"). → corpus `DECISION_LOG.md`.
+
+
+## 2026-06-09 · feat(website): editorial reviews + "Powered by Setnayan" services strip (+ Maria & Jose scaled to 280pax / ₱5M)
+
+**Context:** Owner asked the demo wedding to (1) reflect commentary/reviews, (2) show the couple availed ALL in-app services, and (3) be a 280-guest / ₱5,000,000 wedding (→ "Sweeping" luxurious archetype). Also confirmed the website maker reads the real `events.event_date` everywhere — **audit found no hardcoded dates / placeholders** (every wedding-date read flows from `event_date`: countdown, schedule, editorial dateline, and the lifecycle-phase computation).
+
+**Code (editorial module):**
+- **`data.ts`** — `EditorialData` gains `reviews: Review[]` (read from `event_editorial.draft_json.reviews` — author/role/quote/stars; the full §3 event-bound review system lands later) + `servicesAvailed: string[]` (distinct paid `orders.service_key` for the event → display labels via a `SERVICE_LABELS` map + `prettyServiceKey` fallback). Best-effort, never throws.
+- **`editorial-content.tsx`** — "What They Said" now renders a `ReviewsWall` (pull-quote grid w/ stars) when reviews exist (else the empty state); new "Powered by Setnayan" section (`SetnayanExperience` chip row) lists the in-app services availed.
+
+**Seed (prod, idempotent `DO` block · test event):** scaled `[TEST] Maria & Jose` to **280 guests** (234 attending; named entourage + 250 filler), distributed **₱5,000,000** across the 9 `event_vendors.total_cost_php`, froze `event_editorial.impact_metrics` (`per_guest_spend` 17857 → Grand×Luxurious = **Sweeping**; photos 1840; services_total 18; guests 280), seeded **6 reviews** (couple/sponsor/vendor/MOH/guest) into `draft_json.reviews`, and inserted **paid `orders` for all 18 in-app service codes** (Animated Monogram, Papic, Panood, Pakanta, SDE, Patiktok, …) so every SKU-gated element lights up (animated monogram hero draws itself; Papic-guest CTA; etc.).
+
+**Verify:** typecheck + build on CI. Editorial now shows reviews + services strip + Sweeping framing; date-integrity audit clean. Demo data disposable.
+
+**SPEC IMPACT:** editorial reviews surface (interim source) + add-ons-owned strip (§6.4) → DECISION_LOG.
+
+## 2026-06-09 · feat(website): "Maria & Jose" full demo wedding + tier-aware editorial vendor showcase
+
+**Context:** Owner asked to see all three website phases (RSVP / Event / Editorial) on a fully-populated, photo-rich wedding, with vendors at Free / Pro / Enterprise tiers to see how each renders on the editorial. Seeds the existing `[TEST] Maria & Jose` event (slug `test-maria-and-jose`, dated 2026-06-01 so it sits in the Editorial phase) + the code to make the demo render.
+
+**Code (renders the demo; all flag-dark-safe):**
+- **`app/[slug]/page.tsx`** — relaxed the `our_photos` resolution to accept ANY non-empty asset ref (was `r2://`-only). `displayUrlForStoredAsset` already presigns `r2://` and passes plain/relative URLs through, so seeded `/demo/...` URLs (and any legacy URL) now render in the gallery — matching how the hero photo already tolerates legacy URLs.
+- **`_components/editorial/data.ts`** — the editorial "Team" is now **tier-aware** (`Wedding_Website_Lifecycle_Spec §3`): each `event_vendors` row resolves its `linked_vendor_profile_id` → `vendor_profiles` (`tier_state`, `logo_url`, `business_slug`). **Free vendors are excluded from the editorial entirely** (§3); Pro/Enterprise carry tier + logo + slug. M1/M2 still count ALL event_vendors (tier-independent). Editorial hero now **falls back to `events.landing_page_hero_image_url`** when there's no curated `event_editorial.hero_photo_id`.
+- **`_components/editorial/editorial-content.tsx`** — `TeamBehindTheDay` renders Pro/Enterprise as **featured cards** (real logo + a tier badge + a link to `/vendors/[slug]`); other credits render plain. This is the visible Free-vs-Pro-vs-Enterprise difference on the editorial.
+- **`public/demo/maria-jose/*.webp`** — 9 AI-generated (Recraft) photorealistic Filipino-wedding photos (hero + 5 gallery + 3 vendor) committed under `public/` so they serve at `/demo/maria-jose/*` (no R2 needed for the demo).
+
+**Seed (prod, idempotent `DO` block — test event only):** rich `love_story` (how-we-met / spark / proposal / 6 milestones / anchors) + `special_message` + `what_to_bring` + `dress_code_config` + `photo_moments_config` + `our_photos` (5) + hero + venue + monogram; 6 public `event_schedule_blocks`; 30 `guests` (24 attending → ~80% RSVP); 9 `event_vendors` (6 #1-match) of which 3 link to new **Free/Pro/Enterprise** `vendor_profiles` (`is_demo=true`, `public_visibility='hidden'` so they stay out of marketplace browse); `event_editorial` snapshot freezing the few non-computable numbers (photos 1240, services_total 18, per_guest_spend 6200 → "Jewel-box" archetype).
+
+**Verify:** typecheck + build on CI. Demo renders on `setnayan.com/test-maria-and-jose` once deployed — RSVP shows hero + countdown + venue + schedule + dress code + photo moments + special message + what-to-bring + Our Photos gallery; Editorial (date is past + `WEBSITE_PHASES_ENABLED` on) shows masthead + composed story + By-the-Numbers + timeline + tiered Team (Enterprise/Pro featured, Free hidden).
+
+**SPEC IMPACT:** implements §3 tier-gated editorial vendor showcase (was a deferred D gap) + editorial hero fallback. → DECISION_LOG. Demo data is disposable.
+## 2026-06-09 · feat(services): Budget "Build" — ACTIVATED on production (flag default → ON)
+
+**Context:** Owner: "build it to the website please." After the 6 flag-dark PRs (#1119/#1121/#1125/#1127/#1129/#1132) shipped the full 5-tab Services takeover, this flips it **live** for all couples.
+
+**Change (`lib/budget-build.ts`):** `isBudgetBuildEnabled()` now returns `process.env.BUDGET_BUILD_ENABLED !== 'false'` (was `=== 'true'`). So with no env set, the takeover is **ON in production**. `/dashboard/[eventId]/vendors` is now the full-screen FOCUS MODE takeover: **Summary · Shortlist · Build · Compare · Lock**.
+
+**Kill-switch preserved:** set `BUDGET_BUILD_ENABLED=false` (Vercel env) to instantly fall back to the previous `PlanBudgetAccordion` + global bottom nav — no revert needed. Or revert this commit.
+
+**Verify:** `tsc --noEmit` ✓ · `next build` ✓. The flag-on path is defensive — the new `budget_builds` + availability queries fail-soft, the planner is the same one proven on the Budget tab, and the global nav can't orphan (sub-routes keep it; the takeover provides its own nav + floating X). Post-deploy smoke: load a couple's `/vendors`.
+
+**SPEC IMPACT:** Activates `Budget_Build_Services_Takeover_2026-06-08.md` in production. Pin constraint solver (Phase 3) remains deferred (engine prereqs — see the 2026-06-09 DECISION_LOG row). Logged in `DECISION_LOG.md`.
+
+## 2026-06-09 · feat(admin): command-center Home — all pending queues grouped by lane (nav redesign PR 2)
+
+**Context:** PR 2 of the owner-approved admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` · conditional sign-off "for as long as everything is easier to manage"). The shipped Home surfaced only **4 of ~12** action queues. This makes Home the real command center — "what needs admin action right now" — and **satisfies the Money-lane sign-off condition**: the money queues are reunited into an always-visible "Money to reconcile" block (the dissolved Money group's queues), so finance gets a one-stop money view on the landing page.
+
+**What landed (`app/admin/page.tsx`):**
+- Action queues expanded **4 → 11**, grouped into 4 lanes mirroring the Work nav: **Trust & supply** (Verify · Taxonomy requests · Payment options) · **Money to reconcile** (Payments · Payouts · Token sales) · **Recourse** (Disputes · Force majeure · Review appeals · Setnayan AI abuse) · **Support** (Help). Each tile is a live `head:true` count linking to its queue with the matching default filter; tone-graded (amber when work pending); total-open summary in the section header.
+- Each count query mirrors the exact filter its queue page uses (adversarially cross-checked by a verification workflow against all 11 queue pages + a holistic destructuring-order/regression review).
+- **Bug fix (pre-existing, caught by the verification pass):** the *Vendors to verify* count now reads `vendor_verification_applications WHERE status='pending_review'` (the verify page's **default** Applications surface) instead of `vendor_profiles WHERE public_visibility='coming_soon'` (the secondary `?surface=visibility` tab). The old filter — inherited from the prior shipped Home **and** the PR-1 `/admin/work` feed — counted the wrong table, so Home/Work showed a number that didn't match the verify queue an admin lands on. Fixed in **both** `page.tsx` and `work/page.tsx`.
+- A missing/renamed table degrades that one tile to "—" (never 500s the page).
+- Preserved the 8 platform-stats grid + the 7 shortcut tiles.
+
+**Not surfaced (yet):** two-admin approvals — the `admin_approval_requests` table is unbuilt (V1.x per § 9.1), so there is nothing to count; it lands with the dedicated `/admin/approvals` PR. Platform-alerts + recent-admin-activity feed deferred (no real data source wired — no fake data).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched) · verification workflow green.
+
+**SPEC IMPACT:** PR 2 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(onboarding): DB-backed refinements + main-photo/4:3-carousel card + 232 generated photos (items 8/9/10)
+
+**Context:** Punch-list items 8 + 9 + 10. (8) every refinement card gets a **main photo on top + a description + a 4:3-landscape option carousel**; (9) the refinements are **DB-backed, not hardcoded**, and only show for **chosen** services; (10) **fill the blank photos**. Owner chose the **full DB-backed taxonomy** option.
+
+**What landed:**
+- **De-hardcoded the catalogue** — the ~40-leaf `REFINEMENTS` const is lifted out of `onboarding-shell.tsx` into a data module `app/onboarding/wedding/_data/refinements.ts` (37 leaves · 206 options · per-leaf description + main photo + per-option 4:3 photo). The shell's queue uses `REFINEMENTS_BY_KEY` only to know *which* leaves are refinable (the fixed PICK_GROUPS taxonomy); per-leaf CONTENT renders from data.
+- **DB-backed + admin-editable** — migration `20260927000000` adds `onboarding_refinements` + `onboarding_refinement_options` (public-read / admin-write RLS), **seeded from the module** (243 rows, applied to prod). New `lib/onboarding-refinements.ts` `getOnboardingRefinements()` reads **DB-first**, falling back to the module on any error/empty (behaviour-preserving). `page.tsx` fetches it and threads a `refinements` prop into the shell.
+- **New card (item 8)** — `RefineStep` rewritten: a 4:3 **hero photo** + the leaf **description** in the viewzone, then a horizontal **4:3 option carousel** (`RefineCard`); each option photo a URL from the data, emoji glyph as the graceful fallback. New `.refine-hero` / `.refine-card` CSS (`aspect-ratio:4/3`). Only chosen services produce a card (already gated by `queueFor`; unchanged).
+- **Photos (item 10)** — **232 on-brand 4:3 photos** (37 mains + 195 options) generated via Recraft (a 37-agent workflow, one per leaf, crafting Filipino-wedding editorial prompts), resized/recompressed with `sharp` to ~23 KB avg (5.3 MB total) and committed under `public/onboarding/refinements/`. The 3 projectable leaves (ceremony/catering/photo_video) reuse the existing `/prefs` option photos. **Cost: ~$9 (~₱530)** — the earlier ₱11.5k estimate was wrong (it used the bespoke-monogram multi-gen rate). Generator scripts kept under `scripts/` for reproducibility.
+
+**Verify:** `tsc --noEmit` ✓. Prod tables seeded (37 leaves · 206 options). Browser-verified: the `refine_extras` "What kind of cake?" card renders the cake hero photo + description + a 4:3 carousel of the generated option photos. (Local dev uses the module fallback + the committed photos; prod uses the DB.)
+
+**SPEC IMPACT:** Starts the V1.x **DB-backed expandable-taxonomy** work (owner-chosen) for the onboarding refinements. → corpus `DECISION_LOG.md`. **Follow-up:** an admin editor UI at `/admin/taxonomy` (the data is DB-editable via SQL today; photos are /public assets so photo-swap needs a deploy or an R2 wiring).
+
+
+## 2026-06-09 · feat(mood-board): seed the Flowers chapter with Recraft floral photos (0010)
+
+**Context:** Follow-up to the mood-board redesign (#1120). The new Flowers chapter shipped with a graceful empty state; this seeds it so couples can recolor real florals.
+
+**Five Recraft-generated, Setnayan-owned photos** (one per subtype — bridal bouquet · bridesmaid bouquet · ceremony arrangement · reception centerpiece · boutonniere), generated as tight studio shots on clean neutral backdrops so each bloom color is distinct from the frame and recolors cleanly. Hosted **in-repo at `apps/web/public/moodboard-seed/florals/*.webp`** (43–113 KB each, optimized + auto-cropped) and served same-origin — no Supabase Storage upload (service-role key unavailable in the build env), and IP-clean vs hot-linked stock.
+
+**Resolver (`page.tsx`):** a leading-`/` `storage_path` is now treated as an app-relative URL (alongside the existing absolute-URL + bucket-key cases), so the Recolor Studio loads the seed images same-origin and `getImageData` never taints the canvas.
+
+**Migration `20260927000000` (apply after deploy):** widens the `source` CHECK to allow `recraft_generated`, then idempotently inserts the 5 `florals` assets + one slot-1 color range each over the dominant bloom color (hex sampled from the actual image, tolerance tuned per bloom — saturated reds/purples wider, pale blush tighter — for clean recolor with minimal background spill). Each tag verified by rendering the engine's own palette-snap recolor and visually confirming the blooms recolor while the background stays clean.
+
+**SPEC IMPACT:** 0010 Mood Board — Flowers chapter is now populated. No spec text change; the DECISION_LOG mood-board row already flagged this seed as a follow-up.
 ## 2026-06-08 · fix(seating): smooth pan + tables visible in to-scale mode (0008)
 
 **Context:** Two bugs the owner hit once a venue Width×Length was set (to-scale mode), root-caused via a 6-agent adversarial workflow + a faithful render-repro:

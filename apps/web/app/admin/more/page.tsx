@@ -37,6 +37,7 @@ import {
   CreditCard,
   // Platform
   Settings,
+  Compass,
   Tag,
   Globe,
   Megaphone,
@@ -173,6 +174,14 @@ const PLATFORM_ITEMS: LandingItem[] = [
     icon: Settings,
     description:
       'Platform identity, business details, and Sentry smoke-test. Edit gated to internal admins.',
+  },
+  {
+    key: 'onboarding',
+    label: 'Onboarding',
+    href: '/admin/onboarding',
+    icon: Compass,
+    description:
+      'New-account onboarding settings grouped by type — background music and future per-flow knobs.',
   },
   {
     key: 'taxonomy',

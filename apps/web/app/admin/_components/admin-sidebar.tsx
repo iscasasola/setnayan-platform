@@ -60,6 +60,8 @@ import {
   Banknote,
   Coins,
   BadgeCheck,
+  CheckCheck,
+  Compass,
   Shield,
   AlertOctagon,
   Star,
@@ -194,6 +196,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: "Setnayan AI abuse",
         href: '/admin/concierge-abuse',
         icon: Flag,
+      },
+      {
+        // Two-admin (four-eyes) approval queue — §9.1. A different admin
+        // approves a major decision before it executes.
+        key: 'approvals',
+        label: 'Approvals',
+        href: '/admin/approvals',
+        icon: CheckCheck,
       },
       {
         key: 'help',
@@ -359,6 +369,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // /admin/settings/payment-methods lives under Money & Catalog —
         // exclude it so that entry stays lit when viewing payment methods.
         matchPrefix: '/admin/settings',
+      },
+      {
+        // Onboarding-flow config (background music + future per-flow knobs),
+        // grouped by onboarding type. Scales as new event-type onboardings ship.
+        key: 'onboarding',
+        label: 'Onboarding',
+        href: '/admin/onboarding',
+        icon: Compass,
       },
       {
         key: 'taxonomy',

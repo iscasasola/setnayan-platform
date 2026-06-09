@@ -72,6 +72,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/force-majeure',
       '/admin/reviews',
       '/admin/concierge-abuse',
+      '/admin/approvals',
       '/admin/help',
     ],
   },
@@ -115,6 +116,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // Platform group (note: /admin/settings also covers
       // /admin/settings/payment-methods + /admin/settings/demo-mode)
       '/admin/settings',
+      '/admin/onboarding',
       '/admin/taxonomy',
       '/admin/website',
       '/admin/ads',

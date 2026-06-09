@@ -18,6 +18,7 @@
 import { BuildAnchors, type AnchorData } from './build-anchors';
 import { CategoryFlags } from './category-flags';
 import { BuildPicksList, type BuildPickItem } from './build-picks-list';
+import { BuildCompute } from './build-compute';
 
 export type CategoryFillData = {
   openCats: { groupId: string; label: string }[];
@@ -52,10 +53,8 @@ export function BuildPins({
           Lock them on the Lock tab. */}
       <BuildPicksList eventId={eventId} items={buildItems} budgetPhp={budgetPhp} />
 
-      {/* Per-category Flag + Compute — flag the categories to fill, then auto-fill
-          the flagged ones with the best match (writes to the Shortlist). The same
-          control the Summary cover uses; reused here as the Build tab's compose
-          surface (PR E). */}
+      {/* Per-category Flag — mark the categories Compute should fill. Pinned
+          categories (already an "Add to build" pick) stay fixed. */}
       <CategoryFlags
         eventId={eventId}
         openCats={categoryFill.openCats}
@@ -63,6 +62,14 @@ export function BuildPins({
         flaggedGroups={categoryFill.flaggedGroups}
         aiOn={categoryFill.aiOn}
       />
+
+      {/* COMPUTE — assemble the build from the SHORTLIST within the pinned
+          budget (owner 2026-06-09). Fills each flagged category with one fitting
+          shortlisted service; categories with no fitting option surface the
+          "[Find compatible] / [Remove flag]" prompt (Find compatible = the
+          marketplace escape hatch). Distinct from CategoryFlags' Setnayan-AI
+          marketplace auto-fill, which sources NEW options into the shortlist. */}
+      <BuildCompute eventId={eventId} flaggedCount={categoryFill.flaggedGroups.length} />
     </div>
   );
 }

@@ -39,7 +39,6 @@ import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ServicesTakeover } from './_components/services-takeover';
-import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation-planner';
 import { BuildPins } from './_components/build-pins';
 import type { AnchorData } from './_components/build-anchors';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
@@ -465,24 +464,23 @@ export default async function VendorsPage({ params }: Props) {
       },
       location: { region: ev?.region ?? null },
     };
+    // Build tab (PR E) — anchors (PR D) + per-category Flag/Compute. The
+    // Lean/Fits/Stretch planner is retired here (owner: "replace the estimator
+    // fully"). Open categories (budgeted, no vendor) can be flagged → Compute
+    // auto-fills them; finalized ones are the locked count.
+    const buildChildren = model.folders.flatMap((f) => f.children);
     const buildSlot = (
       <BuildPins
         eventId={eventId}
-        budgetPhp={allocInputs.budgetPhp}
-        leaves={allocInputs.leaves}
-        config={allocInputs.config}
-        eventDate={ev?.event_date ?? null}
         anchors={buildAnchors}
-        plannerSlot={
-          <BudgetAllocationPlanner
-            eventId={eventId}
-            budgetPhp={allocInputs.budgetPhp}
-            leaves={allocInputs.leaves}
-            config={allocInputs.config}
-            pax={allocInputs.pax}
-            region={ev?.region ?? null}
-          />
-        }
+        categoryFill={{
+          openCats: buildChildren
+            .filter((c) => c.state === 'empty')
+            .map((c) => ({ groupId: c.groupId, label: c.label })),
+          lockedCount: buildChildren.filter((c) => c.state === 'finalized').length,
+          flaggedGroups,
+          aiOn: aiActive,
+        }}
       />
     );
     return (

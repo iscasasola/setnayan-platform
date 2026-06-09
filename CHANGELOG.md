@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Build tab → category Flag/Compute, retire Lean/Fits/Stretch (PR E of the 5-page redesign)
+
+**Context:** Owner chose "replace the estimator fully." The Build tab drops the Lean/Fits/Stretch budget-*estimate* engine for the prototype's compose-real-vendors model: the Date/Budget/Location anchors (PR D) on top, then **per-category Flag + Compute** — flag the categories to fill, then "Auto-fill with Setnayan AI" sources + writes the best-matched vendor into the Shortlist.
+
+**Reuses shipped backend, no new write path:** the control is the existing `CategoryFlags` (already live on the Summary cover); Compute = `generateFlaggedVendors`, AI-gated (`isSetnayanAiActive`, server-verified) + writing via the validated `attachMarketplaceVendorToCategory`. `build-pins.tsx` rewritten → `BuildAnchors` + `CategoryFlags` (open/locked/flagged/aiOn derived from the shared `PlanBudgetModel`); `page.tsx` drops the `BudgetAllocationPlanner` slot + import.
+
+**Note:** the planner is NOT deleted — it still lives on `/budget`; PR E only removes it from the *Build tab*. Compare keeps baskets until **PR F**.
+
+**Verification:** `pnpm typecheck` ✅ clean; CI lint + build + e2e green. The Flag/Compute path is already live on Summary — this is a relocation + estimator-removal, not a new mechanic.
+
+**SPEC IMPACT:** None yet — implements the 0016 prototype Build compose model.
+
 ## 2026-06-09 · fix(admin): /admin/more crash — lucide icon refs crossing the Server→Client boundary
 
 **Context:** Owner reported the admin console mobile "More" tab showed the root error screen ("Something on our end didn't work." · Reference digest `1687835579`). Reproduced as a deterministic server-side throw on `/admin/more`.

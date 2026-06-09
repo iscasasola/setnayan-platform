@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(brand): correct logo on seat-plan PDF / desktop / keynote + PDF "Created by" footer
+
+**Context:** Owner: the seat-plan PDF logo was wrong (an old black map-pin-with-star), "even the logo on the loading is wrong" — the gold mark (owner-supplied SVG) is the default; fix all logos. Plus show **"Created by WWW.SETNAYAN.COM"** at the bottom of the seat-plan print file.
+
+**Root cause:** the canonical `public/brand/setnayan-mark.svg` (gold `#cb9e4b`) + its SVG copies + favicon/manifest/web-init-splash + the mobile splash/launcher were **already correct**. Three **raster/desktop derivatives** had gone stale and were never regenerated:
+- `brand/setnayan-mark-512.png` — old **black pin+star** → embedded in the seat-plan PDF (the reported one).
+- `keynote/brand/setnayan-mark.png` — old **orange + grey circle**.
+- `src-tauri/icons/icon.svg` — wrong glyph → the **desktop app icon** (the build runs `tauri icon` on it → the desktop "loading" logo).
+
+**What landed:**
+- Regenerated all three from the canonical SVG (gold). New **`pnpm --filter @setnayan/web brand:icons`** (`scripts/regen-brand-rasters.mjs` · `sharp`) is the single source-of-truth mechanism: syncs the byte-identical SVG copies (favicons · Logo svg · proto · Tauri icon) + rasterizes the PNG derivatives. So changing the logo everywhere = replace `public/brand/setnayan-mark.svg`, run `brand:icons`. (Styled tiles — `setnayan-app-icon-512.png` on its white iOS tile, mobile launcher — keep their own treatment and are left as-is; already correct.)
+- **Seat-plan PDF** (`lib/seating-pdf.ts`): logo now renders gold; removed the mis-placed header logo that overlapped the monogram + spilled into the floor plan; added a centred **"Created by WWW.SETNAYAN.COM"** footer (with the gold mark) on every page.
+
+**Verify:** `tsc` + `next lint` clean. Rendered the regenerated PNGs (gold ✓, was pin-star/orange) and a sample seat-plan PDF — gold mark + "Created by WWW.SETNAYAN.COM" centred in the footer + a clean header.
+
+**SPEC IMPACT:** None (brand assets + PDF). → DECISION_LOG.
+
 ## 2026-06-09 · feat(mood-board): dedicated Entrance Tunnel part (0010)
 
 **Context:** Owner: "also add tunnel." The grand-entrance tunnel is a Filipino-reception signature, so it's promoted from an attribute of Entrance to its **own part** with richer options; the aisle runner becomes its own part ("Aisle").

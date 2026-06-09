@@ -466,22 +466,22 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     console.error('[setVendorTier] audit log insert failed', auditErr.message);
   }
 
-  // Subscription token bundle (owner 2026-06-07). Granting on admin tier-set is
-  // the INTERIM activation until self-serve subscription checkout (Phase D).
-  // Idempotent per (vendor, tier) via grant_admin_direct_tokens' unique key, so
-  // re-setting the same tier never double-grants. Monthly amount (Pro 30 /
-  // Enterprise 100); the annual amount + the per-renewal grant come with the
-  // real billing flow. Best-effort — never blocks the tier change.
+  // Subscription token bundle on admin tier-set (comp / manual path; the paid
+  // self-serve flow grants its own via _apply_subscription_credit). LIFETIME
+  // tokens (owner 2026-06-09) — grant_vendor_lifetime_tokens credits the
+  // never-expire purchased_tokens bucket, available in full immediately.
+  // Idempotent per (vendor, tier) via the unique key, so re-setting the same
+  // tier never double-grants. Monthly amount (Pro 5 / Enterprise 10).
+  // Best-effort — never blocks the tier change.
   if (tier === 'pro' || tier === 'enterprise') {
     const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier].monthly;
     if (bundle > 0) {
-      const { error: bundleErr } = await admin.rpc('grant_admin_direct_tokens', {
+      const { error: bundleErr } = await admin.rpc('grant_vendor_lifetime_tokens', {
         p_vendor_id: vendorId,
         p_token_count: bundle,
-        p_ttl_days: 28,
         p_grant_source: 'admin_grant',
         p_granted_by_admin_id: adminUserId,
-        p_rationale: `${tier === 'pro' ? 'Pro' : 'Enterprise'} subscription token bundle (admin-set · interim)`,
+        p_rationale: `${tier === 'pro' ? 'Pro' : 'Enterprise'} subscription token bundle (admin-set · lifetime)`,
         p_idempotency_key: `tier_bundle:${vendorId}:${tier}`,
       });
       if (bundleErr) {

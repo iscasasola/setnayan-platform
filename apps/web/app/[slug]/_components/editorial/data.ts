@@ -179,6 +179,10 @@ export type EditorialData = {
   // Shared photos from the day (events.our_photos), resolved to display URLs —
   // the editorial photo gallery.
   galleryPhotos: string[];
+  // Live Photo Wall (events.photo_wall_photos), resolved to display URLs.
+  // Only surfaced when photoWallActive is true (LIVE_WALL SKU activated).
+  photoWallPhotos: string[];
+  photoWallActive: boolean;
 };
 
 export type Review = {
@@ -314,7 +318,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos',
+        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos, photo_wall_photos',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -528,6 +532,32 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
 
+  // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
+  // only when the couple availed the LIVE_WALL SKU. Same resolver as the
+  // gallery. Best-effort: a missing activation table just hides the section.
+  const wallRefs = Array.isArray((event as Record<string, unknown>).photo_wall_photos)
+    ? ((event as Record<string, unknown>).photo_wall_photos as unknown[]).filter(
+        (r): r is string => typeof r === 'string' && r.trim().length > 0,
+      )
+    : [];
+  const photoWallPhotos = (
+    await Promise.all(wallRefs.map((ref) => displayUrlForStoredAsset(ref)))
+  ).filter((u): u is string => Boolean(u));
+  let photoWallActive = false;
+  if (photoWallPhotos.length > 0) {
+    try {
+      const { data: act } = await admin
+        .from('event_software_activations_v2')
+        .select('service_code')
+        .eq('event_id', eventId)
+        .eq('service_code', 'LIVE_WALL')
+        .maybeSingle();
+      photoWallActive = Boolean(act);
+    } catch {
+      photoWallActive = false;
+    }
+  }
+
   // 7. Reviews (best-effort). Seeded via event_editorial.draft_json.reviews
   // until the §3 event-bound review system ships.
   const reviews: Review[] = [];
@@ -623,6 +653,8 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     reviews,
     servicesAvailed,
     galleryPhotos,
+    photoWallPhotos,
+    photoWallActive,
   };
 }
 

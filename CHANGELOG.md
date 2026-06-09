@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): DB-driven category folders across all 5 tabs (PR G of the 5-page redesign)
+
+**Context:** Owner: "categories will be taxonomy-DB-dependent, not hard coded … taxonomy applies to all 5 menus … if our taxonomy changes, the menu changes." The plan-builder's 10 folder headers came from the hardcoded `WEDDING_FOLDER_*` constants, so `/admin/taxonomy` edits never reached the couple's planner. All 5 tabs (Summary · Shortlist · Build · Compare · Lock) share one `PlanBudgetModel`, so wiring that model to the DB taxonomy covers every tab at once.
+
+**`lib/vendors-plan-budget.ts`:** `buildPlanBudgetModel` gains an optional `taxonomy?: TaxonomySnapshot` arg (from the existing `getTaxonomy()` resolver). Folder order/label/slug now resolve from `taxonomy.folderOrder/folderLabel/folderSlug`, each with a per-key `?? WEDDING_FOLDER_*` fallback so a partial/absent snapshot still renders every folder. **`page.tsx`:** `await getTaxonomy()` and pass it in (the `/vendors` marketplace already uses this resolver; same pattern, per-request `cache()`, safe constant fallback on any read error).
+
+**Scope note:** this is the **folder level** (the 10 parent category headers). Child planning cards keep their curated `PLAN_GROUP` labels because tile labels differ in granularity (e.g. plan-group "Ceremony venue" vs tile "Ceremony") — switching those is a separate label-reconciliation decision flagged for the owner. Planning metadata (`tier`, deadlines) stays in `PLAN_GROUPS` (scheduling, not taxonomy).
+
+**Verification:** `pnpm typecheck` ✅ (clean). No migration, no data change, no new runtime dep (type-only import; resolver already shipped). Behavior-preserving until an admin edits the DB (seed is byte-equivalent to the constants).
+
+**SPEC IMPACT:** None — wires an existing DB resolver to the couple planner; foundational for the `0016` Build/Compare rewrite (D/E) which must read DB categories.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist vendor cards → hero-photo layout (PR A of the 5-page redesign)
 
 **Context:** First slice of porting the owner-approved 5-page Plan Builder redesign (`0016` prototype `Plan_Builder_5Page_Prototype_2026-06-09.html`) onto the live `/dashboard/[eventId]/vendors` surface. Approved sequence A→F, shipped sequentially. This PR is the Shortlist tab's vendor-card visual upgrade ONLY — no backend/flow change; all hardened actions (finalize/lock, remove, search, conflict gates) untouched.

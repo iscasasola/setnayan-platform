@@ -19,6 +19,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning). No migration, no DB change.
 
 **SPEC IMPACT:** new admin surface `/admin/onboarding` (0023). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-09 · feat(services): Budget "Build" — auto-fill seam in Summary (Phase 3d, flag-dark)
+
+**Context:** Phase 3d of the Pin solver — the paid auto-fill *seam*. Grounding confirmed the **per-category AI matcher already ships** on the Shortlist (`category-search.ts` + `compat-score.ts`, gated on `isSetnayanAiActive`), and a cross-tab CTA is blocked by the deferred URL-tab-state — so this lands the safe, contained piece: the gap-aware free/paid messaging, not a risky bulk auto-write.
+
+**What landed (`build-summary.tsx`):** counts the couple's **open categories** (budgeted, `state==='empty'`) and, in the Setnayan-AI section, surfaces the seam via `model.personalizationEnabled` — **paid:** "Setnayan AI is hand-picking vendors for your N open categories — open the Shortlist to see your matches"; **free:** "N categories still need a vendor. Turn on Setnayan AI to auto-match them, or browse the Shortlist." No new query, no write, no migration.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓ · `next build` ✓. Behind `BUDGET_BUILD_ENABLED`.
+
+**SPEC IMPACT:** Phase 3d (seam) of `Budget_Build_Pin_Solver_Plan_2026-06-09.md`. **Follow-on (scoped, not built):** the *one-tap bulk auto-add* — an action that inserts the top-compat-matched available vendor into the Shortlist for every open category — is a write pipeline best built + runtime-tested deliberately, and needs URL-tab-state for a clean cross-tab CTA. Logged in `DECISION_LOG.md`. **Phase 3 complete (3a/3b/3c/3d).**
 
 ## 2026-06-09 · feat(budget): Budget "Build" — date-aware pricing scaffold (Phase 3b)
 

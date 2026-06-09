@@ -6,15 +6,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(plan-builder): Build tab → category Flag/Compute, retire Lean/Fits/Stretch (PR E of the 5-page redesign)
 
-**Context:** Owner chose "replace the estimator fully." The Build tab drops the Lean/Fits/Stretch budget-*estimate* engine in favor of the prototype's compose-real-vendors model: the Date/Budget/Location anchors (PR D) on top, then **per-category Flag + Compute** — flag the categories to fill, then "Auto-fill with Setnayan AI" sources + writes the best-matched vendor into the Shortlist.
+**Context:** Owner chose "replace the estimator fully." The Build tab drops the Lean/Fits/Stretch budget-*estimate* engine for the prototype's compose-real-vendors model: the Date/Budget/Location anchors (PR D) on top, then **per-category Flag + Compute** — flag the categories to fill, then "Auto-fill with Setnayan AI" sources + writes the best-matched vendor into the Shortlist.
 
-**Reuses shipped backend, no new write path:** the Flag/Compute control is the existing `CategoryFlags` (already live on the Summary cover); Compute = `generateFlaggedVendors`, which is AI-gated (`isSetnayanAiActive`, server-verified) and writes via the validated `attachMarketplaceVendorToCategory`. `build-pins.tsx` is rewritten to render `BuildAnchors` + `CategoryFlags` (props: open categories / locked count / flagged groups / aiOn, derived from the shared `PlanBudgetModel`). `page.tsx` computes those from the model and drops the `BudgetAllocationPlanner` slot + import.
+**Reuses shipped backend, no new write path:** the control is the existing `CategoryFlags` (already live on the Summary cover); Compute = `generateFlaggedVendors`, AI-gated (`isSetnayanAiActive`, server-verified) + writing via the validated `attachMarketplaceVendorToCategory`. `build-pins.tsx` rewritten → `BuildAnchors` + `CategoryFlags` (open/locked/flagged/aiOn derived from the shared `PlanBudgetModel`); `page.tsx` drops the `BudgetAllocationPlanner` slot + import.
 
-**Note:** the Lean/Fits/Stretch planner is NOT deleted — it still lives on the `/budget` page; PR E only removes it from the *Build tab*. Compare still shows baskets until **PR F** retires them there too.
+**Note:** the planner is NOT deleted — it still lives on `/budget`; PR E only removes it from the *Build tab*. Compare keeps baskets until **PR F**.
 
-**Verification:** `pnpm typecheck` ✅ clean. CI lint + production build + e2e. The Flag/Compute path itself is already live (Summary), so this is a relocation + estimator-removal, not a new mechanic.
+**Verification:** `pnpm typecheck` ✅ clean; CI lint + build + e2e green. The Flag/Compute path is already live on Summary — this is a relocation + estimator-removal, not a new mechanic.
 
-**SPEC IMPACT:** None yet — implements the 0016 prototype Build compose model. Corpus prototype + DECISION_LOG land once D/E/F settle.
+**SPEC IMPACT:** None yet — implements the 0016 prototype Build compose model.
+
+## 2026-06-09 · fix(admin): /admin/more crash — lucide icon refs crossing the Server→Client boundary
+
+**Context:** Owner reported the admin console mobile "More" tab showed the root error screen ("Something on our end didn't work." · Reference digest `1687835579`). Reproduced as a deterministic server-side throw on `/admin/more`.
+
+**Root cause:** the 2026-06-08 nav-redesign PR 3 (`b29fee95`) swapped the More renderer from `MobileLandingGrid` (a Server Component) to the new `MobileLandingAccordion`, which is `'use client'` because its collapsible sections need `useState`. But `more/page.tsx` stayed a Server Component (it exports route `metadata`) and kept building `SECTIONS` with `icon: <LucideIcon>` forwardRef refs, then passed them as props into the client accordion. Next.js can't serialize those function refs across the Server→Client boundary, so the render throws into the root error boundary (`app/error.tsx`). This is the **exact** failure mode already fixed for `admin-bottom-nav.tsx` in `ad29cb04` (`Functions cannot be passed directly to Client Components`). The sibling `/admin/directory` never crashed because its renderer (`MobileLandingGrid`) stayed server-side.
+
+**Fix:** moved the icon-carrying section data + the accordion render into a new `'use client'` wrapper `app/admin/more/more-landing.tsx` (`AdminMoreAccordion`), so the lucide refs live inside the client bundle end-to-end and never cross the boundary. `page.tsx` stays a Server Component (keeps `metadata`) and now renders `<AdminMoreAccordion />` with no props — symmetric with how `AdminBottomNav` / `AdminSidebar` own their icon-ref item lists. No behavior/markup change for the user.
+
+**Verification:** structural review + faithful code-move of the original (already-compiling) page; relies on the required CI production build + Vercel preview as the type/build gate. Owner can confirm on the mobile admin "More" tab once deployed.
+
+**SPEC IMPACT:** None — pure regression fix, no schema/pricing/surface change.
 
 ## 2026-06-09 · feat(mood-board): "concept book" PDF export (Result + design + inspirations)
 

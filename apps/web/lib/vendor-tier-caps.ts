@@ -12,7 +12,10 @@
 export const VENDOR_TIERS = ['free', 'verified', 'pro', 'enterprise'] as const;
 export type VendorTier = (typeof VENDOR_TIERS)[number];
 
-export type ChatLevel = 'none' | 'chat' | 'chat_video';
+// Video calls REMOVED 2026-06-09 (owner). ChatLevel is text-only now — no
+// 'chat_video'; Enterprise chat == Pro/Verified. The 2026-05-16 "video
+// meetings retired" lock stands.
+export type ChatLevel = 'none' | 'chat';
 export type SchedulingMode = 'manual' | 'hybrid';
 /** hidden = ✗ (no marketplace presence) · screen = anonymized screen name · true = real business name day-1 */
 export type NameMode = 'hidden' | 'screen' | 'true';
@@ -27,7 +30,7 @@ export interface TierCaps {
    * leaf). Infinity = unlimited.
    */
   servicesPerLeaf: number;
-  /** Chat capability. 'none' = ✗ (FREE), 'chat' = text, 'chat_video' = +video (Enterprise). */
+  /** Chat capability. 'none' = ✗ (FREE), 'chat' = text (Verified/Pro/Enterprise). Video removed 2026-06-09. */
   chat: ChatLevel;
   /** Distinct parent (of the 10) categories the vendor may list under. Infinity = unlimited. */
   parentCategories: number;
@@ -137,7 +140,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   enterprise: {
     serviceRadiusKm: Infinity,
     servicesPerLeaf: Infinity,
-    chat: 'chat_video',
+    chat: 'chat',
     parentCategories: Infinity,
     agentAccounts: Infinity,
     scheduling: 'hybrid',

@@ -9,6 +9,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { isFollowingVendor } from '@/lib/follow';
 import { resolveVendorDisplayName } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { startThreadByVendorEmail } from './actions';
 
 export const metadata = { title: 'Messages' };
@@ -60,7 +61,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     const { data: vendor } = await supabase
       .from('vendor_profiles')
       .select(
-        'business_name, contact_email, screen_name, name_revealed_at, services, location_city',
+        'business_name, contact_email, screen_name, name_revealed_at, services, location_city, tier_state',
       )
       .eq('vendor_profile_id', search.vendor_profile_id)
       .maybeSingle();
@@ -79,6 +80,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         name_revealed_at: vendor.name_revealed_at ?? null,
         services: vendor.services ?? null,
         screen_name: vendor.screen_name ?? null,
+        // Phase C: Pro/Enterprise reveal real business_name day-1.
+        isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
         primary_canonical_service: vendor.services?.[0] ?? null,
         location_city: vendor.location_city ?? null,
       });
@@ -213,6 +216,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                   name_revealed_at: t.vendor.name_revealed_at ?? null,
                   services: t.vendor.services ?? null,
                   screen_name: t.vendor.screen_name ?? null,
+                  // Phase C: Pro/Enterprise reveal real business_name day-1.
+                  isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
                   primary_canonical_service: t.vendor.services?.[0] ?? null,
                   location_city: t.vendor.location_city ?? null,
                 })

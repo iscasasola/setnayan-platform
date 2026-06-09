@@ -59,6 +59,7 @@ import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink } from 'lucide-react';
 
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { formatStarRating } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
@@ -132,6 +133,14 @@ export type VendorCardData = {
    *  venue); resolver falls back to the legacy computed placeholder
    *  in that case so existing behavior preserves. */
   screen_name?: string | null;
+  /** Phase C tier gate (vendor-tier-caps). `tier_state` enum on
+   *  vendor_profiles (free | verified | pro | enterprise) · NOT in the
+   *  market_stats view, so hydrated by page.tsx from the same
+   *  vendor_profiles enrichment batch as screen_name / name_revealed_at.
+   *  Drives the day-1 name reveal (isTrueNameTier → pro/enterprise show
+   *  real business_name) + the review-display gate (stars / comments).
+   *  Optional + `?? null` → free → hidden when absent. */
+  tier_state?: string | null;
 };
 
 type Props = {
@@ -175,10 +184,11 @@ export function VendorCard({
   // venue exception applies (Ceremony + Reception Venues always real-
   // name) + pass `screen_name` so the Bark-format stable identifier
   // surfaces when present instead of the computed "service · city"
-  // legacy placeholder. Marketplace page still doesn't join vendor
-  // subscription state so isPaidTier defaults to false; venue
-  // exception fires first if applicable, then name_revealed_at gates
-  // the rest.
+  // legacy placeholder. Phase C #4 (2026-06-09): isPaidTier now derives
+  // from the vendor's real tier_state via isTrueNameTier — Pro/Enterprise
+  // reveal their business_name day-1 (the marketplace enrichment batch
+  // selects tier_state). Venue exception fires first if applicable, then
+  // name_revealed_at gates the rest for Free/Verified.
   const displayLabel = resolveVendorDisplayName({
     business_name: vendor.business_name,
     name_revealed_at: vendor.name_revealed_at ?? null,
@@ -186,6 +196,8 @@ export function VendorCard({
     location_city: vendor.location_city,
     services: vendor.services,
     screen_name: vendor.screen_name ?? null,
+    // Phase C: Pro/Enterprise reveal real business_name day-1.
+    isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
   });
   const slug = vendor.business_slug ?? null;
   const href = slug ? `/v/${slug}` : `#`;

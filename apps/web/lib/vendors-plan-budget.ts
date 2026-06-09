@@ -45,6 +45,7 @@ import {
   WEDDING_FOLDER_SLUG,
   type WeddingFolder,
 } from '@/lib/taxonomy';
+import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import {
   resolveDependency,
   type DependencyState,
@@ -441,6 +442,15 @@ export function buildPlanBudgetModel(args: {
   /** Has the couple set/locked their mood board (events.mood_board_updated_at)?
    *  Feeds the dependency engine (florals/cake/LED/invites design from it). */
   moodBoardSet?: boolean;
+  /**
+   * DB-driven taxonomy snapshot (from `getTaxonomy()`). When present, the 10
+   * folder headers' order + labels + slugs come from the `service_categories`
+   * table, so an admin edit in `/admin/taxonomy` flows to ALL 5 plan-builder
+   * tabs that read this model. Omitted/undefined → the TS constants are used
+   * (behavior-preserving fallback). Planning metadata (tier, deadlines) stays in
+   * `PLAN_GROUPS` — that's scheduling, not taxonomy.
+   */
+  taxonomy?: TaxonomySnapshot;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -455,7 +465,16 @@ export function buildPlanBudgetModel(args: {
     marketPoolCount = 0,
     personalizationEnabled = true,
     moodBoardSet = false,
+    taxonomy,
   } = args;
+
+  // Folder headers (order · label · slug) come from the DB taxonomy when a
+  // snapshot is passed, else the TS constants. Per-key `?? constant` so a
+  // partial snapshot still resolves every folder. (Children keep PLAN_GROUP
+  // labels — planning cards, not taxonomy nodes.)
+  const folderOrder = taxonomy?.folderOrder ?? WEDDING_FOLDER_ORDER;
+  const folderLabelMap = taxonomy?.folderLabel ?? WEDDING_FOLDER_LABEL;
+  const folderSlugMap = taxonomy?.folderSlug ?? WEDDING_FOLDER_SLUG;
 
   // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
   // so compatibility chips + status all stay consistent with event-home).
@@ -494,7 +513,7 @@ export function buildPlanBudgetModel(args: {
 
   // Group PLAN_GROUPS by their catalogFolder → one AccordionFolder each.
   const childrenByFolder = new Map<WeddingFolder, AccordionChild[]>();
-  for (const folder of WEDDING_FOLDER_ORDER) childrenByFolder.set(folder, []);
+  for (const folder of folderOrder) childrenByFolder.set(folder, []);
 
   // Preserve tier order within a folder so cards read foundation→paper.
   const tierRank = new Map<string, number>(
@@ -599,14 +618,14 @@ export function buildPlanBudgetModel(args: {
     );
   }
 
-  const folders: AccordionFolder[] = WEDDING_FOLDER_ORDER.map((folder) => {
+  const folders: AccordionFolder[] = folderOrder.map((folder) => {
     const children = childrenByFolder.get(folder) ?? [];
     const lockedTotal = children.reduce((s, c) => s + c.lockedTotal, 0);
     const pickCount = children.reduce((s, c) => s + c.picks.length, 0);
     return {
       folder,
-      label: WEDDING_FOLDER_LABEL[folder],
-      slug: WEDDING_FOLDER_SLUG[folder],
+      label: folderLabelMap[folder] ?? WEDDING_FOLDER_LABEL[folder],
+      slug: folderSlugMap[folder] ?? WEDDING_FOLDER_SLUG[folder],
       children,
       lockedTotal,
       pickCount,

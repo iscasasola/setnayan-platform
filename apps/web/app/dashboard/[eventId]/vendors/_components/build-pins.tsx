@@ -17,6 +17,7 @@
 
 import { BuildAnchors, type AnchorData } from './build-anchors';
 import { CategoryFlags } from './category-flags';
+import { BuildPicksList, type BuildPickItem } from './build-picks-list';
 
 export type CategoryFillData = {
   openCats: { groupId: string; label: string }[];
@@ -29,16 +30,24 @@ export function BuildPins({
   eventId,
   anchors,
   categoryFill,
+  buildItems,
 }: {
   eventId: string;
   anchors: AnchorData;
   categoryFill: CategoryFillData;
+  /** The items transferred here via Shortlist "Add to build" (event_build_picks). */
+  buildItems: BuildPickItem[];
 }) {
   return (
     <div className="space-y-4">
       {/* Date / Budget / Location anchors — Pin what's fixed, Flag what Setnayan
           should suggest (PR D). */}
       <BuildAnchors eventId={eventId} data={anchors} />
+
+      {/* "Your build" — the items the couple added from the Shortlist land here
+          (owner 2026-06-09: "Add to build transfers the item to the build page").
+          Lock them on the Lock tab. */}
+      <BuildPicksList eventId={eventId} items={buildItems} />
 
       {/* Per-category Flag + Compute — flag the categories to fill, then auto-fill
           the flagged ones with the best match (writes to the Shortlist). The same

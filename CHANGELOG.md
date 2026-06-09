@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): "Add to build" — build picks transfer Shortlist → Build page (0016 sync)
+
+**Context:** The headline 0016 Plan Builder gap. The Shortlist card CTA was **"Lock this pick"** (the hardened `finalizeVendor`); the prototype replaces it with **"Add to build"** — a soft, reversible pick that **transfers the item to the Build page** (owner 2026-06-09: "add to build will be used to transfer the item to the build page"). Hardened locking **relocates** to the Lock tab, unchanged. Introduces a per-category "build pick" — a third state distinct from shortlisted (`event_vendors.status='considering'`) and locked (`contracted`/…).
+
+**Migration (APPLIED to prod).** New `supabase/migrations/20261018000000_event_build_picks.sql`: table `event_build_picks (event_id, plan_group_id, vendor_id, picked_by, …)` — **PK (event_id, plan_group_id) enforces one pick per category** at the DB level (the prototype's single-pin model). `vendor_id` FKs `event_vendors ON DELETE CASCADE` (un-shortlisting a vendor clears its build pick — no dangling pointer). Couple-own RLS (mirrors `budget_category_flags`: read/insert/update/delete via `event_members member_type='couple'`). Couple-WRITE-ONLY → outside the booking-conflict surface entirely. _Applied via `supabase db push` after reconciling pre-existing migration-history drift: repaired 1 stale remote-only row (`20260925000000` → reverted) + recorded 6 already-applied-but-unrecorded migrations (`…25000001`/`…25000002`/`…27000000`/`…27000001`/`…30000000`/`…01000000`) as applied — metadata only, no DDL re-run, so no duplicate seed data. Only `event_build_picks` DDL actually executed._
+
+**Server actions.** `vendors/build-pick-actions.ts`: `setBuildPick` (upsert on the PK → swap the pinned vendor) + `removeBuildPick`. Stamp `picked_by`; `revalidatePath`. The action returns `{ok}`; the page query **fails open** (no rows) so the surface degrades gracefully if the table is ever absent.
+
+**Model.** `lib/vendors-plan-budget.ts`: `AccordionPick.isBuildPick` + `AccordionChild.buildPickVendorId`; `buildPlanBudgetModel` takes `buildPicksByGroup` (plan_group_id → vendor_id) and marks the matching pick. `page.tsx` fetches `event_build_picks` → the map.
+
+**UI — across 4 surfaces:**
+- **Shortlist card** (`plan-budget-accordion.tsx` + new `accordion-build.tsx`): CTA → **"Add to build"** (gold). When a DIFFERENT vendor is already pinned, opens the **Replace / Add-both** popup (both stay shortlisted; only the single build-pick pointer moves). Once pinned → **"✓ In your build"** + Remove. Popup portals to `<body>` (escapes the rail's coverflow transform). The one-time hint reworded for the build model.
+- **Build page** (new `build-picks-list.tsx` in `BuildPins`): a **"Your build"** section lists the transferred items per category (vendor · category · rolled cost) with a running total + per-item Remove — the visible destination of "Add to build".
+- **Lock tab** (`build-locked.tsx`): new **"Ready to lock"** section — each build pick not yet finalized gets a **"Lock to confirm"** button that reuses the canonical `AccordionLockButton` (`finalizeVendor` + conflict/soft-hold gates, **unchanged**), so locking is always reachable after leaving the Shortlist card. Locking relocated here, not removed.
+- `accordion-lock.tsx`: `AccordionLockButton` gains optional `label`/`pendingLabel`/`className`/`wrapperClassName` so it renders Tailwind-styled outside the accordion's scoped CSS (its modals already portal to `<body>`). Defaults preserve the Shortlist behavior.
+
+**Verification:** `tsc --noEmit` + `next lint --file` clean across all 9 touched/new files. Migration applied + recorded (local+remote aligned). Behavioral click-through on the Vercel preview (test couple) pending.
+
+**SPEC IMPACT:** New durable state (`event_build_picks`) + a reworked Shortlist→Build→Lock funnel — load-bearing, owner-confirmed this session (Shortlist CTA "Replace w/ Add to build"; locking relocates to Build/Lock). → land in corpus `DECISION_LOG` 2026-06-09 with the A–F program summary.
+
 ## 2026-06-09 · refactor(plan-builder): Shortlist — remove the cover (MatchCriteriaStrip + "Where your day stands") (0016 sync)
 
 **Context:** Continuing the 0016 Plan Builder sync. The prototype's **Shortlist** opens straight into the grouped category list — the heavy cover is gone, because the same overview now lives on the **Summary** tab ("Where your day stands"). The live Shortlist still rendered both a "Matching you on" `MatchCriteriaStrip` above the accordion AND the in-accordion `Overview` cover (the two-state "Plan every service" / "Where your day stands" hero). This removes both from the Shortlist; the sticky budget `TopBar` stays.

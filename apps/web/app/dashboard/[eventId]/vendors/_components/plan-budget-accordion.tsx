@@ -51,7 +51,8 @@ import { computeCompatScore } from '@/lib/compat-score';
 import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
-import { AccordionLockButton, ChangePickButton } from './accordion-lock';
+import { ChangePickButton } from './accordion-lock';
+import { AccordionBuildButton } from './accordion-build';
 import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
@@ -1128,6 +1129,11 @@ function ChildRail({
   const inApp = SVC_BY_GROUP.get(child.groupId) ?? [];
   const empty = child.picks.length === 0 && inApp.length === 0;
   const canCompare = child.picks.length >= 2;
+  // The single vendor pinned to the build for this category (if any) — passed to
+  // every OTHER card so "Add to build" knows to open the Replace/Add-both popup.
+  const buildPickRow = child.buildPickVendorId
+    ? child.picks.find((p) => p.vendor_id === child.buildPickVendorId) ?? null
+    : null;
   return (
     <div
       id={`group-${child.groupId}`}
@@ -1186,6 +1192,17 @@ function ChildRail({
               onOpen={onOpen}
               lockHintKey={lockHintKey}
               personalizationEnabled={child.personalizationEnabled}
+              existingBuildPick={
+                buildPickRow && buildPickRow.vendor_id !== pick.vendor_id
+                  ? {
+                      name:
+                        buildPickRow.marketplace_business_name ??
+                        buildPickRow.vendor_name ??
+                        'Vendor',
+                      pricePhp: buildPickRow.rolled_cost_php,
+                    }
+                  : null
+              }
             />
           ))}
           {/* Collapse on a hard-single finalize: the slot is filled (one
@@ -1283,6 +1300,7 @@ function VendorCardAtom({
   onOpen,
   lockHintKey,
   personalizationEnabled,
+  existingBuildPick,
 }: {
   pick: AccordionPick;
   eventId: string;
@@ -1292,6 +1310,9 @@ function VendorCardAtom({
   lockHintKey: string | null;
   /** Setnayan Assist on? When false (Manual mode) the "% match" pill is hidden. */
   personalizationEnabled: boolean;
+  /** The category's current build pick when it's a DIFFERENT vendor than this
+   *  card (→ the "Add to build" Replace/Add-both popup). null otherwise. */
+  existingBuildPick: { name: string; pricePhp: number | null } | null;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -1510,24 +1531,37 @@ function VendorCardAtom({
           </button>
         ))}
 
-      {/* Lock CTA — the canonical finalizeVendor (conflict + soft-hold gates +
-          auto-archive + cascade), one-tap happy path, exception modals. */}
+      {/* "Add to build" CTA (0016 sync) — a soft, reversible build pick
+          (event_build_picks). Locking relocated to the Lock tab (per build
+          pick → finalizeVendor). One vendor per category: tapping when another
+          is pinned opens the Replace/Add-both popup. */}
       {!locked && (
-        <AccordionLockButton
+        <AccordionBuildButton
           eventId={eventId}
           groupId={groupId}
           groupLabel={groupLabel}
           vendorId={pick.vendor_id}
           vendorName={displayName}
+          isBuildPick={pick.isBuildPick}
+          existing={
+            existingBuildPick
+              ? {
+                  name: existingBuildPick.name,
+                  pricePhp: existingBuildPick.pricePhp,
+                  thisPricePhp: pick.rolled_cost_php,
+                }
+              : null
+          }
         />
       )}
 
-      {/* One-time helper under the first lockable card — demystifies what
-          "Lock this pick" actually commits to (owner 2026-06-04). */}
+      {/* One-time helper under the first card — demystifies "Add to build"
+          (owner 2026-06-04, reworded for the build-pick model). */}
       {!locked && showLockHint && (
         <p className="lockhint">
-          Locking sets this as your pick, updates your budget, and lets the
-          vendor know — you can change it anytime.
+          Adding to your build pins this pick for the category — your budget
+          updates. Confirm it on the Lock tab when you&rsquo;re ready; nothing&rsquo;s
+          committed until you lock.
         </p>
       )}
 

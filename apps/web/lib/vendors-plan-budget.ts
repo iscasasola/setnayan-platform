@@ -173,6 +173,13 @@ export type AccordionPick = PlanCardPick & {
   /** Same-date competition count (aggregate, never identities). 0 = none. */
   eyeing: number;
   /**
+   * Is THIS vendor the category's "build pick" — the one the couple slotted
+   * into their working build (event_build_picks · Shortlist "Add to build")?
+   * One pick per category, so at most one pick in a rail is true. Reversible,
+   * distinct from locked. Drives the card's "Add to build" ↔ "In your build".
+   */
+  isBuildPick: boolean;
+  /**
    * Optional card-enrichment — populated only once the page fetch joins
    * vendor_profiles for picked marketplace vendors (spec §13, post-pilot).
    * The 300px card renders each of these ONLY when present, never
@@ -245,6 +252,10 @@ export type AccordionChild = {
   lockedTotal: number;
   /** Whether the group is hard-single (one pick max). */
   hardSingle: boolean;
+  /** The vendor_id pinned to the build for this category (event_build_picks),
+   *  or null. Lets a card tell when ANOTHER vendor is already the build pick
+   *  (→ the Replace/Add-both popup). */
+  buildPickVendorId: string | null;
   /** Setnayan Assist on? (event `planning_mode` !== 'manual'). When false the
    *  vendor cards drop the "% match" pill — Manual mode browses neutrally. */
   personalizationEnabled: boolean;
@@ -461,6 +472,9 @@ export function buildPlanBudgetModel(args: {
    * `PLAN_GROUPS` — that's scheduling, not taxonomy.
    */
   taxonomy?: TaxonomySnapshot;
+  /** plan_group_id → vendor_id pinned to the build (event_build_picks). Marks the
+   *  one pick per category the couple "added to build"; absent → no build pick. */
+  buildPicksByGroup?: ReadonlyMap<string, string>;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -476,6 +490,7 @@ export function buildPlanBudgetModel(args: {
     personalizationEnabled = true,
     moodBoardSet = false,
     taxonomy,
+    buildPicksByGroup,
   } = args;
 
   // Folder headers (order · label · slug) come from the DB taxonomy when a
@@ -509,6 +524,8 @@ export function buildPlanBudgetModel(args: {
       ...pick,
       rolled_cost_php: rolled,
       eyeing: eyeingByVendorId?.get(pick.vendor_id) ?? 0,
+      // Overridden per-group below once we know the category's build pick.
+      isBuildPick: false,
       // Card-enrichment from the marketplace join. Each field is set ONLY
       // when the map actually carries it — absent → the card renders bare
       // for that field, never a fabricated rating / badge / distance.
@@ -579,6 +596,19 @@ export function buildPlanBudgetModel(args: {
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
 
+    // The build pick for this category (event_build_picks) — only valid if that
+    // vendor is still on the shortlist (a removed vendor's pick is FK-cascaded
+    // away, but guard anyway). Mark the matching pick so the card shows "In your
+    // build"; expose the id so other cards know a different vendor is pinned.
+    const rawBuildPickVendorId = buildPicksByGroup?.get(group.id) ?? null;
+    const buildPickVendorId =
+      rawBuildPickVendorId && picks.some((p) => p.vendor_id === rawBuildPickVendorId)
+        ? rawBuildPickVendorId
+        : null;
+    if (buildPickVendorId) {
+      for (const p of picks) p.isBuildPick = p.vendor_id === buildPickVendorId;
+    }
+
     const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
     const state = childStateOf(picks, hardSingle);
     const timelineStatus = timelineStatusOf(group.id, daysUntilWedding, state);
@@ -609,6 +639,7 @@ export function buildPlanBudgetModel(args: {
       timelineStatus,
       lockedTotal,
       hardSingle,
+      buildPickVendorId,
       personalizationEnabled,
       dependency,
     };

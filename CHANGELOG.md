@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(services): Budget "Build" — budget_builds RLS tightened to couple-only (owner-confirmed)
+
+**Context:** The post-launch review flagged that `budget_builds` (couple FINANCIAL snapshots) read/update/delete inherited the canonical `current_event_ids()` scope — i.e. any event member (helper/coordinator), not just the couple. Owner: *"why would we want it to be seen by other?"* → couple-only.
+
+**Migration (`20260929000000_budget_builds_rls_couple_only.sql`, APPLIED to prod):** `budget_builds` SELECT/UPDATE/DELETE now scope to `member_type='couple'` (matching the existing INSERT policy); UPDATE `WITH CHECK` also pins `created_by = auth.uid()`. Applied via `supabase db query` (idempotent `DROP POLICY IF EXISTS` + `CREATE`), **isolated from the unrelated pending `20260927` migrations** (other sessions' — left untouched). Verified on prod via `pg_policies` (`member_type = 'couple'`). **Zero functional regression** — only the couple-facing takeover touches the table, and INSERT was already couple-only.
+
+**SPEC IMPACT:** None (tightening). Flagged follow-up: the sibling `budget_allocation_decisions` inherits the same looser read/delete pattern — a shipped analytics table with a Layer-2 de-identified design, so it's a separate owner decision (not changed here). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-09 · a11y(services): Budget "Build" — proper tab roles on the takeover
 
 **Context:** Review nice-to-have. The takeover's two tab strips (desktop + mobile) were plain `<button>`s with only `aria-current`, so screen readers didn't announce them as a tab set.

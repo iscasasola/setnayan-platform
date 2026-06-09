@@ -263,6 +263,8 @@ export default async function MoodBoardPage({ params }: Props) {
             groom: palette.groom?.[0],
             party: palette.wedding_party?.[0],
             guest: palette.guest?.[0],
+            // the guest dress-code palette (multiple approved colors)
+            guestPalette: palette.guest ?? [],
           }}
         />
       </section>

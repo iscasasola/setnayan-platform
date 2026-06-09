@@ -45,23 +45,33 @@ function r2RefOrNull(v: FormDataEntryValue | null): string | null {
 }
 
 /**
- * Wedding onboarding background music. Owner uploads an OWNED / AI-generated
- * track via <FileUpload> → /api/upload (the form carries the r2:// ref by the
- * time this runs); /onboarding/wedding streams it. Plays only when enabled AND
- * a track is set — "enabled with no track" is coerced off so the player never
- * mounts with no source.
+ * Wedding onboarding background music — now an ORDERED PLAYLIST (owner 2026-06-09;
+ * was a single track 2026-06-08). The owner uploads one or more OWNED /
+ * AI-generated tracks via <FileUpload multiple> → /api/upload (the form carries
+ * one `bg_music_url` r2:// ref per track, in display order, by the time this
+ * runs); /onboarding/wedding streams them back-to-back and loops the set. Plays
+ * only when enabled AND ≥1 track is set — "enabled with no tracks" is coerced
+ * off so the player never mounts with no source.
+ *
+ * We persist the full ordered list to `onboarding_bg_music_r2_keys` and mirror
+ * the FIRST track into the legacy singular `onboarding_bg_music_r2_key` so any
+ * code still reading the old column keeps working through the transition.
  */
 export async function updateOnboardingMusic(formData: FormData) {
   await requireAdmin();
-  const musicRef = r2RefOrNull(formData.get('bg_music_url'));
+  const musicRefs = formData
+    .getAll('bg_music_url')
+    .map(r2RefOrNull)
+    .filter((r): r is string => r !== null);
   const enabledRequested = formData.get('onboarding_bg_music_enabled') === 'on';
-  const enabled = enabledRequested && Boolean(musicRef);
+  const enabled = enabledRequested && musicRefs.length > 0;
 
   const admin = createAdminClient();
   const { error } = await admin
     .from('platform_settings')
     .update({
-      onboarding_bg_music_r2_key: musicRef,
+      onboarding_bg_music_r2_keys: musicRefs,
+      onboarding_bg_music_r2_key: musicRefs[0] ?? null,
       onboarding_bg_music_enabled: enabled,
       updated_at: new Date().toISOString(),
     })

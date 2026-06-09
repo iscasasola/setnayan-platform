@@ -1,7 +1,9 @@
 -- ============================================================================
--- 20260930000000_vendor_market_stats_tier_state.sql
--- (renamed from 20260929000000 — that prefix collided with the already-merged
---  20260929000000_budget_builds_rls_couple_only.sql; bumped to a unique later ts.)
+-- 20261005000000_vendor_market_stats_tier_state.sql
+-- (renamed off 20260929000000 → 20260930000000 → 20261005000000: each earlier
+--  prefix collided with an already-merged migration — 20260929000000 with
+--  budget_builds_rls_couple_only, 20260930000000 with admin_approval_requests.
+--  Bumped to a unique later timestamp clear of in-flight parallel sessions.)
 --
 -- Phase C searchability gate (vendor-tier-caps · FLAG-DARK). Appends
 -- `tier_state` to the `vendor_market_stats` view so the marketplace query in

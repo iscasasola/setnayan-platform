@@ -48,7 +48,8 @@ export default async function AdminOverview() {
     forceMajeureRes,
     appealsQueueRes,
     abuseRes,
-    // Support
+    // Approvals & support
+    approvalsRes,
     helpRes,
   ] = await Promise.all([
     admin.from('users').select('*', head),
@@ -105,6 +106,12 @@ export default async function AdminOverview() {
       .from('concierge_abuse_flags')
       .select('*', head)
       .eq('status', 'pending_review'),
+    // Two-admin approvals — pending requests awaiting a second admin (§9.1).
+    admin
+      .from('admin_approval_requests')
+      .select('*', head)
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString()),
     // Help — open help-center tickets.
     admin
       .from('help_messages')
@@ -133,6 +140,7 @@ export default async function AdminOverview() {
     forceMajeure: take(forceMajeureRes.count),
     appeals: take(appealsQueueRes.count),
     abuse: take(abuseRes.count),
+    approvals: take(approvalsRes.count),
     help: take(helpRes.count),
   };
 
@@ -222,8 +230,14 @@ export default async function AdminOverview() {
     },
     {
       key: 'support',
-      label: 'Support',
+      label: 'Approvals & support',
       tiles: [
+        {
+          label: 'Two-admin approvals',
+          value: q.approvals,
+          sub: 'A colleague needs your second sign-off',
+          href: '/admin/approvals',
+        },
         {
           label: 'Help tickets',
           value: q.help,

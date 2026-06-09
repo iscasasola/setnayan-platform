@@ -39,6 +39,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BudgetAllocationPlanner } from '../budget/_components/budget-allocation-planner';
+import { BuildPins } from './_components/build-pins';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
@@ -432,13 +433,22 @@ export default async function VendorsPage({ params }: Props) {
       }
     })();
     const buildSlot = (
-      <BudgetAllocationPlanner
+      <BuildPins
         eventId={eventId}
         budgetPhp={allocInputs.budgetPhp}
         leaves={allocInputs.leaves}
         config={allocInputs.config}
-        pax={allocInputs.pax}
-        region={ev?.region ?? null}
+        eventDate={ev?.event_date ?? null}
+        plannerSlot={
+          <BudgetAllocationPlanner
+            eventId={eventId}
+            budgetPhp={allocInputs.budgetPhp}
+            leaves={allocInputs.leaves}
+            config={allocInputs.config}
+            pax={allocInputs.pax}
+            region={ev?.region ?? null}
+          />
+        }
       />
     );
     return (

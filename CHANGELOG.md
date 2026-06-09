@@ -14,6 +14,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None — adopts the already-locked `0016` prototype design; that prototype + its DECISION_LOG rows land in the spec corpus separately.
 
+## 2026-06-09 · feat(mood-board): inspiration board on the mood-board page (0010)
+
+**Context:** Owner: "we also want a place where they can upload inspirations. can we use that to further enhance the photo output to be more accurate?" Yes — Nano Banana takes **multiple references**, so the future "Make it real" render will feed it the stylized scene (structure) PLUS the couple's inspiration photos (aesthetic) → the photoreal output matches their taste. This PR surfaces the upload; the render wiring follows.
+
+**`inspiration-board.tsx` (new) + `lib/extract-palette.ts` (new):** surfaces the per-event inspiration intake (the same one onboarding's Card 15 uses) on the mood-board add-on page — 13 named slots × 2 photos (Venue&feel / Palette / Dress codes), stored in `event_inspiration_assets`, with a 6-color palette auto-extracted from each upload (Canvas extractor lifted into a shared lib). **Reuses the proven `uploadMoodboardSlot` / `removeMoodboardSlot` server actions** (R2 upload via `uploadPublicAsset`, replace-in-place). `page.tsx` fetches the event's inspirations + renders a "Your inspirations" section. No migration (table + actions already shipped).
+
+**Verification:** `pnpm typecheck` ✅ · `pnpm lint` ✅. Upload/remove are the exact onboarding actions (already in production); browser-tested via this PR's Vercel preview (no local auth/storage env).
+
+**SPEC IMPACT:** 0010 Mood Board surfaces inspiration upload on the add-on page (was onboarding-only). The inspirations become the additional reference inputs for the future paid Nano Banana render — improving on-taste accuracy.
+
+
 ## 2026-06-09 · feat(mood-board): guests show their dress code in-scene (0010)
 
 **Context:** Owner: "each guest needs a dress code — we need them to show their dress code, not just sitting behind." Guests were tiny seated heads; now they're **visible standing figures** flanking each table, each wearing a color from the **guest dress-code palette** (cycled so the code reads as a coordinated set, not one flat color).

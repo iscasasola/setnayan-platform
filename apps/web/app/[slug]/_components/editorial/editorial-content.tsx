@@ -143,6 +143,15 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
           </>
         ) : null}
 
+        {/* Live Photo Wall (LIVE_WALL SKU) — a dense masonry of the day's
+            candid photos, surfaced only when the couple availed the wall. ---- */}
+        {data.photoWallActive && data.photoWallPhotos.length ? (
+          <>
+            <SectionRule title="Live Photo Wall" />
+            <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
+          </>
+        ) : null}
+
         {/* What they said (reviews from guests / vendors / the couple) -------- */}
         <SectionRule title="What They Said" />
         {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
@@ -583,6 +592,50 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * "Live Photo Wall" — the LIVE_WALL add-on, surfaced on the recap as a dense
+ * column-masonry of the day's candid photos (events.photo_wall_photos). A
+ * caption strip credits the Setnayan service + the live capture count. Raw
+ * <img> (presigned/relative URLs), lazy-loaded. Mixed aspect ratios fall into
+ * a Pinterest-style wall via CSS columns.
+ */
+function LivePhotoWall({
+  photos,
+  photoCount,
+}: {
+  photos: string[];
+  photoCount: number | null;
+}): ReactElement {
+  return (
+    <div className="mt-4">
+      <p className="mb-3 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+        Powered by Setnayan
+        {typeof photoCount === 'number' && photoCount > 0
+          ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
+          : ' · captured live during the celebration'}
+      </p>
+      <div className="gap-2 [column-fill:_balance] columns-2 sm:columns-3 lg:columns-4">
+        {photos.slice(0, 24).map((url, i) => (
+          <figure
+            key={`${i}-${url.slice(0, 24)}`}
+            className="mb-2 overflow-hidden rounded-sm bg-ink/10 break-inside-avoid"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt=""
+              aria-hidden
+              className="w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        ))}
+      </div>
     </div>
   );
 }

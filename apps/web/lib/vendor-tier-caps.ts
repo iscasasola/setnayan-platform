@@ -177,11 +177,11 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
  * (activation/renewal) by `_apply_subscription_credit`, and on admin tier-set
  * (the monthly amount) by `setVendorTier`.
  *
- * RATES REVISED 2026-06-09 (owner): Pro 5/50 · Enterprise 10/100 (was 30/300 ·
- * 100/1000). These numbers are MIRRORED in the SQL CASE inside
- * `_apply_subscription_credit` (migration 20261011000000 — the active version;
- * 20261010000000 created it with the old amounts). Keep BOTH in sync on any
- * future reprice.
+ * RATES (owner 2026-06-09): Pro 5/50 · Enterprise 10/100. **LIFETIME** — the
+ * bundle is credited to the never-expire `vendor_wallets.purchased_tokens`
+ * bucket and available in full immediately (via `grant_vendor_lifetime_tokens`,
+ * migration 20261012000000). The amounts are MIRRORED in the SQL CASE inside
+ * `_apply_subscription_credit`; keep BOTH in sync on any future reprice.
  */
 export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
   VendorTier,

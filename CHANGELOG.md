@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Summary tab — 4-tile recap (Viewed/Shortlisted/Builds/Locked) (0016 sync)
+
+**Context:** Continuing the 0016 Plan Builder prototype sync. The prototype's **Summary** cover opens with a 4-tile stat row — **Viewed · Shortlisted · Builds · Locked** — but the live `BuildSummary` showed only 3 (Locked · Shortlisted · Hours saved). This reconciles to the prototype's four. The Setnayan AI element stays **paywall-aware** (a status line + link to Manage/Turn-on at `/details`, NOT the prototype's free toggle — Setnayan AI is the ₱3,499 tier), so that block is untouched.
+
+- `_components/build-summary.tsx`: stat row → `grid-cols-4`. **Viewed** = `model.recap.searched` (marketplace pool seen), **Shortlisted** = `recap.shortlisted` (mulberry), **Builds** = new `buildsCount` prop, **Locked** = `recap.finalized` (terracotta/"gold"). `Stat` helper gains a `tone` (ink/gold/mulberry) + tighter padding for 4-up. `hoursSaved` is still modeled (used elsewhere) — just not one of the four prototype tiles.
+- `vendors/page.tsx`: passes `buildsCount={savedBuilds.length}` (the already-fetched `budget_builds` rows) — no new query.
+
+**Verification:** `tsc --noEmit` clean on touched files (env-missing `sharp`/`@mediapipe` aside). CI gates the rest.
+
+**SPEC IMPACT:** None (additive UI sync to the approved prototype). Part of the A–F Plan Builder program · corpus `DECISION_LOG` 2026-06-09.
+
 ## 2026-06-09 · feat(plan-builder): Lock tab — Date/Budget/Location summary tiles (0016 prototype sync)
 
 **Context:** Syncing the live Plan Builder (`/dashboard/[eventId]/vendors`, 5-tab `ServicesTakeover` behind `BUDGET_BUILD_ENABLED`) to the owner-approved 0016 prototype (`Plan_Builder_5Page_Prototype_2026-06-09.html`). The prototype's **Lock** page opens with a `.lock-sum` grid (Date · Budget · Location · Committed) atop the locked-services list; the live `BuildLocked` only rendered the list + chosen total. This PR adds the missing summary tiles. Pure render — no schema, no behavior change to locking (still the hardened `finalizeVendor` flow on Shortlist cards).

@@ -17,7 +17,10 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "tauri:icons": "cargo tauri icon src-tauri/icons/icon.svg",
     "tauri:dev": "pnpm --filter @setnayan/web dev & cargo tauri dev",
-    "tauri:build": "pnpm tauri:icons && cargo tauri build"
+    "tauri:build": "pnpm tauri:icons && cargo tauri build",
+    "migration:new": "node scripts/new-migration.mjs",
+    "migration:check": "node scripts/check-migration-timestamps.mjs",
+    "prepare": "node scripts/setup-git-hooks.mjs"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

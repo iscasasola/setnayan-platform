@@ -20,10 +20,21 @@
  * Entirely behind `BUDGET_BUILD_ENABLED` — off in production until the owner flips it.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { X, Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
 import { BUDGET_BUILD_TABS, type BudgetBuildTab } from '@/lib/budget-build';
+
+/** Cross-tab navigation: any slot can `window.dispatchEvent(new CustomEvent(
+ *  'bb:tab', { detail: 'build' }))` to switch the takeover's active tab without a
+ *  server round-trip (e.g. Compare "Modify" → Build, Build "Lock your build" →
+ *  Lock). Kept here so the server-rendered slots stay decoupled from the tab state. */
+export const BB_TAB_EVENT = 'bb:tab';
+export function goToBuildTab(tab: BudgetBuildTab) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(BB_TAB_EVENT, { detail: tab }));
+  }
+}
 
 const TAB_META: Record<BudgetBuildTab, { label: string; icon: LucideIcon; blurb: string }> = {
   summary: {
@@ -71,6 +82,16 @@ export function ServicesTakeover({
   initialTab?: BudgetBuildTab;
 }) {
   const [tab, setTab] = useState<BudgetBuildTab>(initialTab);
+
+  // Let slots request a tab switch via the `bb:tab` CustomEvent (see goToBuildTab).
+  useEffect(() => {
+    const onTab = (e: Event) => {
+      const next = (e as CustomEvent<BudgetBuildTab>).detail;
+      if (next && BUDGET_BUILD_TABS.includes(next)) setTab(next);
+    };
+    window.addEventListener(BB_TAB_EVENT, onTab);
+    return () => window.removeEventListener(BB_TAB_EVENT, onTab);
+  }, []);
 
   const slots: Record<BudgetBuildTab, ReactNode> = {
     summary: summarySlot,

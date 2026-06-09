@@ -524,6 +524,7 @@ export default async function VendorsPage({ params }: Props) {
         eventId={eventId}
         anchors={buildAnchors}
         buildItems={buildItems}
+        budgetPhp={buildAnchors.budget.php}
         categoryFill={{
           openCats: buildChildren
             .filter((c) => c.state === 'empty')

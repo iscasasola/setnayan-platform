@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(admin): mobile "More" → 3-section accordion (nav redesign PR 3)
+
+**Context:** PR 3 of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §5). The mobile "More" tab rendered a flat 24-card grid; the redesign calls for a grouped, **collapsible accordion** — never a flat dump.
+
+**What landed:**
+- New `app/admin/_components/mobile-landing-accordion.tsx` (client) — 3 collapsible sections (**Insights · Money & Catalog · Platform**), each an `m-label-mono` header (label + item count + chevron) over the **same `m-card` item grid** `MobileLandingGrid` uses. Sections start **expanded** (no discoverability regression vs the flat grid); each collapses via its chevron. `lg:hidden` (desktop uses the sidebar tree).
+- `app/admin/more/page.tsx` — the flat `MORE_ITEMS` array split into `INSIGHTS_ITEMS` / `MONEY_ITEMS` / `PLATFORM_ITEMS` and rendered through the accordion. Section keys mirror the desktop sidebar group keys (`funnels` / `money` / `content`) for continuity.
+
+No schema, no new routes, no data change. `MobileLandingGrid` stays in use by `/admin/directory`.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning, untouched).
+
+**SPEC IMPACT:** PR 3 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-09 · fix(services): Budget "Build" — budget_builds RLS tightened to couple-only (owner-confirmed)
 
 **Context:** The post-launch review flagged that `budget_builds` (couple FINANCIAL snapshots) read/update/delete inherited the canonical `current_event_ids()` scope — i.e. any event member (helper/coordinator), not just the couple. Owner: *"why would we want it to be seen by other?"* → couple-only.

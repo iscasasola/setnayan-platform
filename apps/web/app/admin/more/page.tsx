@@ -11,8 +11,9 @@
  * Work. Notifications gets a home here (it was an orphan), and Wedding types +
  * traditions moved in from Directory (governance + content, not look-up).
  *
- * Cards are ordered by group (Insights → Money & Catalog → Platform). A
- * 3-section accordion is a follow-up polish; the flat grid ships first.
+ * Rendered as a **3-section accordion** (Insights → Money & Catalog →
+ * Platform · PR 3 of the redesign §5) — grouped + collapsible, never a flat
+ * dump. Sections start expanded; each collapses via its chevron.
  *
  * Telemetry + Offline daemon remain FORWARD-REFERENCE entries until their
  * sprints land.
@@ -46,12 +47,15 @@ import {
   BookOpen,
   Bell,
 } from 'lucide-react';
-import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
+import type { LandingItem } from '../_components/mobile-landing-grid';
+import {
+  MobileLandingAccordion,
+  type AccordionSectionData,
+} from '../_components/mobile-landing-accordion';
 
 export const metadata = { title: 'More · Admin' };
 
-const MORE_ITEMS: LandingItem[] = [
-  // ── Insights ──────────────────────────────────────────────────────────
+const INSIGHTS_ITEMS: LandingItem[] = [
   {
     key: 'growth',
     label: 'Growth',
@@ -100,7 +104,9 @@ const MORE_ITEMS: LandingItem[] = [
     description:
       'Offline sync queue and conflict resolution. Forward-reference — ships with the next refresh.',
   },
-  // ── Money & Catalog ───────────────────────────────────────────────────
+];
+
+const MONEY_ITEMS: LandingItem[] = [
   {
     key: 'pricing',
     label: 'Pricing',
@@ -157,7 +163,9 @@ const MORE_ITEMS: LandingItem[] = [
     description:
       'BDO and GCash receiving accounts shown on customer orders. Edit account numbers and QR codes.',
   },
-  // ── Platform ──────────────────────────────────────────────────────────
+];
+
+const PLATFORM_ITEMS: LandingItem[] = [
   {
     key: 'settings',
     label: 'Settings',
@@ -248,12 +256,20 @@ const MORE_ITEMS: LandingItem[] = [
   },
 ];
 
+const SECTIONS: AccordionSectionData[] = [
+  // Keys mirror the desktop sidebar group keys (funnels / money / content)
+  // for conceptual continuity with admin-sidebar.tsx.
+  { key: 'funnels', label: 'Insights', items: INSIGHTS_ITEMS },
+  { key: 'money', label: 'Money & Catalog', items: MONEY_ITEMS },
+  { key: 'content', label: 'Platform', items: PLATFORM_ITEMS },
+];
+
 export default function AdminMoreLanding() {
   return (
-    <MobileLandingGrid
+    <MobileLandingAccordion
       title="More"
-      subtitle="Insights, money & catalog config, content, and platform settings. Less-frequent admin surfaces live here."
-      items={MORE_ITEMS}
+      subtitle="Insights, money & catalog config, content, and platform settings. Tap a group to expand or collapse."
+      sections={SECTIONS}
     />
   );
 }

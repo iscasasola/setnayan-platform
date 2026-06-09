@@ -6,15 +6,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · fix(seating): table capacity can't exceed the table type's seat count
 
-**Context:** Owner: "the seat count also must not exceed the seat count of the table." The Add-table form let you set any capacity 1–32 regardless of the chosen type — e.g. a **Sweetheart (2 seats)** with a capacity of **10**. Both the form and the server allowed it.
+**Context:** Owner: "the seat count also must not exceed the seat count of the table." The Add-table form let you set any capacity 1–32 regardless of type — e.g. a **Sweetheart (2 seats)** with capacity **10**. Both form + server allowed it.
 
-**Fix (two layers):**
-- **Client** (`seating-editor.tsx` `AddTablePanel`): the type select + capacity input are now controlled. Capacity's `max` = the selected type's `defaultCapacity`; changing the type resets capacity to that type's seats; typing clamps to `[1, typeSeats]`. (Sweetheart → max 2, Round-12 → max 12, etc.)
-- **Server** (`seating/actions.ts` `createTable`): the capacity clamp changed from a global `Math.min(32, …)` to `Math.min(typeSeats, …)` (the type's `defaultCapacity`), so a hand-crafted request can't exceed it either.
+**Fix (two layers):** Client `AddTablePanel` — type select + capacity input now controlled; capacity `max` = the selected type's `defaultCapacity`, resets on type change, clamps on input. Server `createTable` — capacity clamp `Math.min(32, …)` → `Math.min(typeSeats, …)`.
 
 **Verification:** `pnpm typecheck` ✅ clean.
 
-**SPEC IMPACT:** None — bug fix; the 0008 seating catalog seat counts (`TABLE_TYPE_CATALOG.defaultCapacity`) are unchanged, now enforced as the per-table cap.
+**SPEC IMPACT:** None — bug fix; 0008 `TABLE_TYPE_CATALOG.defaultCapacity` seat counts now enforced as the per-table cap.
+
+## 2026-06-09 · feat(plan-builder): Compare → named vendor-pick builds, retire Lean/Fits/Stretch (PR F — final of the 5-page redesign)
+
+**Context:** Last PR of the owner-approved 0016 redesign (A→G→D→E→**F**). Compare drops the Lean/Fits/Stretch budget-*estimate* baskets for the prototype's named-builds model: a build is a named snapshot of the couple's **real vendor picks per category**, compared side by side vs budget (a live "Current" column + saved slots, blanks where a build lacks a category, totals + over/under, per-build delete).
+
+**No migration** — reuses `budget_builds`' 3 slots; picks live in the `snapshot` JSONB (`basket` forced 'fits'). New `PlanBuildSnapshot`/`SavedPlanBuild` + `savePlanBuild`; `build-compare.tsx` rewritten; `page.tsx` builds the current snapshot from the shared `PlanBudgetModel`, reads the snapshot back, drops the now-unused `resolveAllocationInputs`. Per-build Modify/Lock deferred; `/budget` keeps the planner.
+
+**Verification:** `pnpm typecheck` ✅ clean; CI lint + build + e2e green.
+
+**SPEC IMPACT:** None yet — completes the 0016 prototype on the live surface (A: hero cards · G: DB categories · D: anchors · E: Build Flag/Compute · F: named-builds Compare). Corpus prototype + a DECISION_LOG summary of the A–F program land next.
 
 ## 2026-06-09 · feat(seating-print): floor-plan PDF draws full-size tables WITH chairs + a name at every chair
 

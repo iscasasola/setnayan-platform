@@ -41,11 +41,10 @@ import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BuildPins } from './_components/build-pins';
 import type { AnchorData } from './_components/build-anchors';
-import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare } from './_components/build-compare';
-import { type SavedBuild } from './build-actions';
+import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import { VendorAvailabilityIntersection } from '../_components/vendor-availability-intersection';
 import { getCommonAvailableDays, rangeFromPrecision, formatDayKey } from '@/lib/vendor-availability';
 import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
@@ -412,13 +411,38 @@ export default async function VendorsPage({ params }: Props) {
   // exactly as before (zero production change — the alloc query is gated here so
   // it never runs unless the flag is on).
   if (isBudgetBuildEnabled()) {
-    const allocInputs = await resolveAllocationInputs(supabase, eventId);
     const { data: savedBuildRows } = await supabase
       .from('budget_builds')
-      .select('build_id, label, title, budget_php, basket, total_php')
+      .select('build_id, label, title, budget_php, total_php, snapshot')
       .eq('event_id', eventId)
       .order('label');
-    const savedBuilds = (savedBuildRows ?? []) as SavedBuild[];
+    const savedBuilds = (savedBuildRows ?? []) as SavedPlanBuild[];
+
+    // Current plan snapshot (PR F) — the couple's live vendor picks per category.
+    // Compare shows this as the "Current" column and saves it into a slot.
+    const PLAN_LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+    const planPicks = model.folders
+      .flatMap((f) => f.children)
+      .filter((c) => c.picks.length > 0)
+      .map((c) => {
+        const lockedPick = c.picks.find((p) => p.raw_status && PLAN_LOCKED.has(p.raw_status));
+        const pick = lockedPick ?? c.picks[0]!;
+        return {
+          groupId: c.groupId as string,
+          label: c.label,
+          vendorName: pick.vendor_name ?? '(unnamed)',
+          costPhp: pick.rolled_cost_php ?? null,
+          locked: !!lockedPick,
+        };
+      });
+    const currentPlan: PlanBuildSnapshot = {
+      budgetPhp:
+        ev?.estimated_budget_centavos != null
+          ? Math.round(ev.estimated_budget_centavos / 100)
+          : null,
+      totalPhp: planPicks.reduce((s, p) => s + (p.costPhp ?? 0), 0),
+      picks: planPicks,
+    };
     const { data: flagRows } = await supabase
       .from('budget_category_flags')
       .select('plan_group_id')
@@ -493,9 +517,8 @@ export default async function VendorsPage({ params }: Props) {
         compareSlot={
           <BuildCompare
             eventId={eventId}
-            budgetPhp={allocInputs.budgetPhp}
-            leaves={allocInputs.leaves}
-            config={allocInputs.config}
+            budgetPhp={currentPlan.budgetPhp}
+            currentPlan={currentPlan}
             savedBuilds={savedBuilds}
           />
         }

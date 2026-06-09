@@ -18,6 +18,7 @@ import {
   InspirationBoard,
   type InspirationItem,
 } from './_components/inspiration-board';
+import { ConceptPdfButton } from './_components/concept-pdf-button';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -297,6 +298,18 @@ export default async function MoodBoardPage({ params }: Props) {
           </p>
         </header>
         <InspirationBoard eventId={eventId} initial={inspirations} />
+      </section>
+
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+        <header className="space-y-1">
+          <h2 className="text-2xl font-semibold text-ink">Your concept book</h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            Your palette, your reception design, your custom template, and your inspirations —
+            gathered into a printable PDF to keep or share. When you’re ready, “Make it real”
+            adds the photo-real render to it.
+          </p>
+        </header>
+        <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
       </section>
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">

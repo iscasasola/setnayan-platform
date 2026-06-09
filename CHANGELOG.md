@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(mood-board): "concept book" PDF export (Result + design + inspirations)
+
+**Context:** Owner directive 2026-06-09 — couples can download a printable "concept book" PDF of their mood board: the rendered concept (the Result) plus how they made it possible (their inspirations + the custom reception template they designed). Free, ₱0 marginal cost, reads only existing columns (no migration). The paid photoreal "Make it real" render stays owner-gated (needs the image-provider API key); until it ships, the stylized scene the couple designed is the PDF hero and page 2 auto-upgrades to the photoreal render later (`resultPng`).
+
+**New `lib/concept-pdf.ts`:** pure `pdf-lib` layout (mirrors `lib/seating-pdf.ts`). 3 A4 pages — Cover (monogram · names · date · hero, **shrink-to-fit** so long Filipino names + wide monograms never overflow), The Concept/Result (stylized scene full-bleed), How you made this (palette swatches · per-part design choices derived from the live `RECEPTION_PARTS` taxonomy · the custom-template thumbnail · the uploaded inspirations grid). WinAnsi-safe text sanitizer (ñ, smart quotes, dashes, arrows).
+
+**New `app/dashboard/[eventId]/add-ons/mood-board/concept-pdf/route.ts`:** `GET` (mirrors `seating/export`). Auth + RLS-scoped event read; renders the stylized scene via `renderVenueSvg` + `sharp`, fetches + square-crops up to 6 inspiration images, brand mark + website QR; returns `application/pdf` attachment. node runtime, `force-dynamic`, `maxDuration = 20`.
+
+**New `lib/safe-image-fetch.ts`:** reusable SSRF-guarded server-side image fetch (blocks private/loopback/link-local/metadata IPs, no redirect follow, `image/*` + size + timeout caps). Used for the inspiration fetch because `event_inspiration_assets.image_url` can, by schema (`source_kind = 'url_paste'`), hold a host-pasted URL once that writer ships.
+
+**New `_components/concept-pdf-button.tsx`:** client download with busy/success/error states; **deferred** objectURL revoke (iOS Safari), 401-aware error copy, `aria-live`.
+
+**`mood-board/page.tsx`:** new "Your concept book" section wiring the button.
+
+**Verification:** typecheck + lint + production build green; all 3 PDF pages visually rendered (incl. ñ name, long-name shrink-to-fit, empty-palette skip, no-inspirations placeholder); SSRF guard unit-tested (9/9 block cases + public allow); 4-lens adversarial review (security/runtime/correctness/UX) — all findings triaged, real ones fixed.
+
+**SPEC IMPACT:** 0010 Mood Board gains the concept-book PDF export (revives the deferred "PDF design book"). Logged in corpus `DECISION_LOG` 2026-06-09. No schema/pricing change. The paid render + galleries + ₱500/5-render credits + consent-bonus remain owner-gated design locks (separate corpus rows), unbuilt pending the image-provider API key.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist vendor cards → hero-photo layout (PR A of the 5-page redesign)
 
 **Context:** First slice of porting the owner-approved 5-page Plan Builder redesign (`0016` prototype `Plan_Builder_5Page_Prototype_2026-06-09.html`) onto the live `/dashboard/[eventId]/vendors` surface. Approved sequence A→F, shipped sequentially. This PR is the Shortlist tab's vendor-card visual upgrade ONLY — no backend/flow change; all hardened actions (finalize/lock, remove, search, conflict gates) untouched.

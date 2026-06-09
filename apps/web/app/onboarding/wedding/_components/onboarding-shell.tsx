@@ -48,7 +48,7 @@ import {
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
-import { signInWithGoogle, signInWithFacebook } from '@/app/auth/oauth-actions';
+import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
 import {
   EMPTY_ONBOARDING_STATE,
@@ -3936,16 +3936,6 @@ export function OnboardingShell({
                   style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
                 >
                   <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div>
-                </button>
-              </form>
-              <form action={signInWithFacebook}>
-                <input type="hidden" name="next" value={RESUME_NEXT} />
-                <button
-                  className="opt"
-                  type="submit"
-                  style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
-                >
-                  <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Facebook</div>
                 </button>
               </form>
             </div>

@@ -18,6 +18,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Confirms the locked tier radii (entry 20 · Pro 50 · Enterprise nationwide) and adds the near/far surfacing the spec implied but didn't build. Supersedes the stale "radius 10/25/100 CONFIRM" note in the vendor-tier-ladder memory. Map view (vendor pins) is a deliberate follow-up PR (owner: "labels now, map next"). → corpus DECISION_LOG.
 
+## 2026-06-09 · fix(onboarding): Google-only login on the wedding account gate (remove Facebook)
+
+**Context:** Owner report 2026-06-09 — "login on the onboarding wedding is not working." The wedding onboarding account gate (screen 11, "Your plan is ready") offered Google + Facebook + email "Create account". Owner directive: **just use Google to login for now on the onboarding, make sure it bounces back to onboarding after login, and remove Facebook login.**
+
+**Change (`onboarding-shell.tsx`):** removed the `<form action={signInWithFacebook}>` block from the account gate + dropped the now-unused `signInWithFacebook` import. Google is now the primary login; the "Use email instead" fallback stays (safety net for couples without a Google account — only Facebook was asked to be removed).
+
+**Bounce-back (verified, not changed):** the round-trip was already wired correctly — the Google form posts `next=/onboarding/wedding?resume=1` → `signInWithGoogle` → Supabase → `/auth/callback` (`safeNext` preserves the `?resume=1` query) → back to onboarding, where the resume effect (`hydrated && resume && authed`) restores the localStorage draft and advances past the gate to the `congrats`/plan screen. localStorage survives the OAuth navigation (same origin). **If login still does not return today, the cause is almost certainly Google OAuth not completing at Supabase (owner-side: paste Google client ID/secret into Supabase Studio + the `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED` flag) — not onboarding code.** The plain `/login` "Continue with Google" is the bisection test.
+
+**Verification:** removed-import-only change, no remaining `signInWithFacebook`/`Facebook` refs in the file; CI typecheck + build cover compile. Onboarding gate to be eyeballed on the Vercel preview.
+
+**SPEC IMPACT:** Onboarding (0016) wedding account gate is now Google + email (Facebook removed). Logged in corpus `DECISION_LOG` 2026-06-09. No pricing change. The shared `/login` + `/signup` OAuthButtonRow still offers Facebook (gated by `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED`) — removal there is a separate decision pending owner confirm.
+
+## 2026-06-09 · fix(onboarding-music): single-click unmute + invite pulse on the control
+
+**Context:** Owner: the onboarding music control "needed to click it twice to unmute," and asked for "a pulse for them to press the button to unmute."
+
+**Double-click bug:** when the music pill was the couple's FIRST gesture, two handlers raced on that one tap — the window `pointerdown` auto-start listener fired first and *started* the audio, then the button's `onClick` saw `el.paused === false` and immediately *paused* it (net: silence). The second click worked only because the auto-start listener was already removed. Fix: `onFirst` now ignores gestures whose target is inside the music button (`buttonRef.contains(e.target)`) and tears down its listeners, so a first-tap-on-the-button is a clean single toggle; incidental gestures elsewhere still auto-start as before.
+
+**Pulse:** new `showPulse` state — the control pulses (gold ring) to invite a tap from load until the track has played once OR the couple opts out (explicit mute / previously-muted via localStorage), so it never nags. CSS adds `.onb-music.pulse` + `@keyframes onbMusicPulse` with a `prefers-reduced-motion` guard (reduced-motion users still get the static gold highlight, no animation).
+
+**Verification:** CSS patched via asserted single-anchor replace + brace check; types/lint/build via CI. (True autoplay-with-sound on load remains impossible by browser policy — unchanged.)
+
+**SPEC IMPACT:** None — bug fix + UX polish on the 2026-06-08 onboarding background-music feature; no schema/SKU/surface change.
+
 ## 2026-06-09 · feat(seating): table rotation + delete chairs → connect tables into custom patterns (PR B of 2)
 
 **Context:** Owner directive 2026-06-09 — couples connect tables into custom patterns (serpentine S-curves, circles, U-shapes — per the reference layouts) by **rotating** a table and **deleting the chair** on the edge where it meets another. PR B builds on PR A's single-wedge serpentine; together they deliver the connect workflow (each wedge in an S is the same quarter-donut rotated 180° and butted at its chair-free radial edge).

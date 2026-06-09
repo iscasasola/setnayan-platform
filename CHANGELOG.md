@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(website): demo phase override — preview RSVP / Event / Editorial on a test event
+
+**Context:** Owner wants the **RSVP demo and the Event demo working** too (not just Editorial). The lifecycle phase is date-driven, and the "Event" (live day-of) phase is only a **T-1h…T+8h window**, so it can't be demoed on a fixed date. Added a **preview override** so all three phases are viewable anytime on the test event.
+
+**Change (`app/[slug]/page.tsx`):** a `?phase=rsvp|event|editorial` query param overrides the computed `lifecyclePhase` **and** `dayOfPhase` (`event`→`live` so the day-of badge + pinned schedule show; `editorial`→`post`; `rsvp`→`pre`). **Strictly gated** — honored only when (a) `WEBSITE_PHASES_ENABLED` is on AND (b) the event is a demo event (slug starts with `test-` OR `[TEST]` display name). A crafted link can therefore **never** force a phase on a real couple's wedding; real events stay 100% date-driven.
+
+**Demo URLs (Maria & Jose):** `…/test-maria-and-jose?phase=rsvp` (invitation), `?phase=event` (live day-of), `?phase=editorial` (recap). All share the one seeded event's data.
+
+**Verify:** typecheck + build on CI. Real-event behavior unchanged (override ignored). No migration.
+
+**SPEC IMPACT:** demo/preview affordance for the §1 phase model. → none.
+
 ## 2026-06-09 · feat(website): editorial — #1-pick count in stats + tagged-vendor "Show more"
 
 **Context:** Owner editorial tweaks. (1) Add the **First-Match count** to the By-the-Numbers table (the raw count, alongside the existing `6/9` ratio). (2) In **The Team**, only show **tagged** vendors by default — owner-defined as **Pro/Enterprise tier OR #1-match** — and collapse the rest under "Show more."
@@ -16,6 +28,60 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. On Maria & Jose: stats show **#1 Picks = 6**; The Team shows the 6 tagged (Aperture/Grazia/Casa Verde/Manila Strings/Glow/Eventful) with **+ 2 more vendors** (Lumiere, Sweet Layers) under Show more. Mobile-safe. No migration.
 
 **SPEC IMPACT:** editorial presentation (§6.3/§6.4 impact stats). → none.
+## 2026-06-09 · feat(onboarding): hot-date demand "heat" layer on the wedding date calendar
+
+**Context:** Designed this session (prototype `Hot_Date_Heat_Calendar_Prototype_2026-06-09.html` + Date-Aligner spec §L). The onboarding `DateCalendar` already owns 2-mode picking + a "why this date" nugget; this adds the **demand axis** — a predicted-heat tint on calendar cells + a demand chip in the nugget — so couples see how in-demand a date is alongside whether it fits their plan. **Predicted (deterministic) layer only** — the observed inquiry / relative-to-supply escalation (§L.2) is deferred (founder-only marketplace = no inquiry data; would be dead code).
+
+**What changed (presentation-only · no migration · no schema):**
+- `app/onboarding/wedding/_components/onboarding-shell.tsx` — `heatTier(date)` deterministic 0–4 demand (peak month × Sat/Fri/Sun × repeating MM·DD × Valentine's); `DEMAND_LABEL` + `demandOf`; `WhyView.demand` populated in `dateReasons`/`rangeReasons`/`commonReasons`; cells get a `heat-N` class (enabled, non-selected, non-range only — mulberry selection fill always wins); a demand chip renders in the `whydate` nugget header.
+- `app/onboarding/wedding/_styles/onboarding.css` — on-brand warm ramp `.calday.heat-1..4` (gold → restrained terracotta · owner-chosen look) + `.wdemand` chip tiers.
+
+**Verify:** `tsc` ✓ · `next lint` ✓ (pre-existing warnings only) · `next build` ✓ · full CI green (build · e2e · lighthouse · production build · Vercel). Logic mirrors the verified prototype (Dec 12 = Hottest · Dec 5/19 = In-demand · plain weekdays = Quiet/Open).
+
+**SPEC IMPACT:** builds Date-Aligner `Wedding_Date_Aligner_Expansion_2026-06-04.md` §L (predicted half) → corpus `DECISION_LOG.md` row.
+
+## 2026-06-09 · feat(mood-board): stylist-grade reception designer (0010, Phase 3)
+
+**Context:** Owner: *"make sure the details will be perfect first on the free mode … as intricate as possible … all the materials stylists use on the different parts of the reception."* The detailed free design IS the AI render's control image + prompt, so detail here = render fidelity. Owner chose **full multi-attribute depth**, **Core 5 parts**, and locked the paid render = **Nano Banana ($0.039/1K ≈ ₱2 cost) sold at ₱300** (wired later).
+
+**Taxonomy (`lib/reception-scene.ts`, rewritten):** each part now exposes its real materials as selectable attributes — **Ceiling** (8 treatments) · **Backdrop** (9 styles + florals) · **Stage** (5 setups + florals) · **Tables** (shape × **chairs** [Chiavari/cross-back/ghost/velvet/bentwood] × **linen** [plain/runner/full-drape/sequin] × **centerpiece** [tall/low/candelabra/candles/greenery/lanterns] × **place setting** [gold/silver/glass]) · **Entrance** (7 tunnels + aisle runner). Every option carries a prompt phrase; **`buildPrompt()`** assembles a stylist brief ready for the paid render.
+
+**Designer (`reception-designer.tsx`):** nested attribute UI — tap a part → set each material; the SVG updates live in the palette. Auto-saves the nested design to `events.reception_design`. `saveReceptionDesign` sanitizes against the taxonomy. No migration (JSONB flexes; legacy flat saves fall back to defaults).
+
+**Verification:** `pnpm typecheck` ✅ · `pnpm lint` ✅. Rendered 4 full stylist combos (classic / modern-glam / garden / candlelit) via sharp — every material reads distinctly and takes the palette.
+
+**SPEC IMPACT:** 0010 Mood Board reception designer is now stylist-grade (multi-attribute). `buildPrompt()` is the control prompt for the future paid Nano Banana "Make it real" render (₱300, ~99% margin).
+## 2026-06-09 · feat(vendor-tier): subscription bundle tokens are LIFETIME (never-expire, granted in full on purchase)
+
+**Context:** Owner 2026-06-09 — the per-period free token bundle granted with a paid Pro/Enterprise subscription should "run lifetime and all tokens available upon purchase." Until now the bundle was granted via `grant_admin_direct_tokens` → an **expiring** `earned_token_vouchers` row (TTL capped at 1–365 days; a Pro-monthly bundle would vanish in 28 days). This moves it to the **never-expire `vendor_wallets.purchased_tokens` bucket** (the same bucket the buy-token flow credits), granted in full immediately. (Tokens are the vendor's currency to **answer a couple's inquiry** — Pro/Enterprise burn 1–3 region-banded tokens for the per-(vendor,event) unlock that opens chat + all their services.)
+
+**What changed (migration `20261012000000_vendor_lifetime_token_bundle.sql`, applied to prod):**
+- New reusable **`grant_vendor_lifetime_tokens(vendor, count, source, admin, rationale, idempotency_key)`** RPC — idempotent (UNIQUE `token_grants_log.idempotency_key`) credit to `purchased_tokens` (never-expire). `related_voucher_id` NULL; REVOKEd from anon/authenticated, GRANT to service_role.
+- `_apply_subscription_credit` now calls it instead of `grant_admin_direct_tokens` (amounts unchanged: Pro 5/50 · Ent 10/100; tier activation, stacking renewal, `FOR UPDATE`+status idempotency guard, REVOKE posture all untouched).
+- `setVendorTier` (admin comp tier-set) likewise switched to `grant_vendor_lifetime_tokens` (lifetime, key `tier_bundle:<vendor>:<tier>`), so comped tiers grant the same lifetime bundle.
+- `TIER_SUBSCRIPTION_BUNDLE_TOKENS` doc comment updated to note LIFETIME.
+
+The burn path `consume_vendor_assets_per_voucher` spends earned vouchers FIFO **then drains `purchased_tokens`**, so these lifetime bundle tokens are fully spendable on the answer-inquiry burn.
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Migration applied to prod + tracked. Auto-rollback smoke tests: Pro-monthly → +5 in `purchased_tokens` / 0 expiring vouchers / idempotent (`already=true`, no double); Enterprise-annual → +100 in `purchased_tokens`. Zero prod mutation.
+
+**SPEC IMPACT:** bundle is lifetime → corpus `DECISION_LOG.md` + tier matrix + memory.
+
+## 2026-06-09 · chore(db): prevent recurring migration timestamp collisions (allocator + pre-push guard)
+
+**Context:** Duplicate 14-digit migration prefixes have half-applied prod + blocked every open PR **4×** (`20260922`, `20260925`, `20261002`, …). Root cause: prefixes are hand-typed `YYYYMMDD000000` and two people pick the same date. The CI "migration timestamp guard" only catches it *reactively* on `main`. This adds prevention.
+
+**What landed (no migration; tooling only):**
+- **`pnpm migration:new "<name>"`** (`scripts/new-migration.mjs`) — allocates a collision-free prefix + writes an idempotent stub. Prefixes have **drifted ~4 months ahead of wall-clock** (max `20261010000000` vs real now `20260609`), so a plain real-timestamp allocator would sort *before* existing migrations — this one is **monotonic** (`max(realNow, maxKnown+1)`), consults **local ∪ `origin/main`** (fetches first), and **loops on prefix-level uniqueness**.
+- **Pre-push hook** (`.githooks/pre-push`, pure POSIX sh) — blocks a push that introduces a duplicate prefix. Inspects the **commits being pushed ∪ `origin/main`**, *not* the working tree, so unrelated uncommitted WIP never false-blocks and a collision with an already-merged migration is caught **before** the push. Mirrors the CI guard's pipeline. Committed `100755`.
+- **`prepare` script** (`scripts/setup-git-hooks.mjs`) — wires `core.hooksPath=.githooks` on `pnpm install` (husky pattern, no dep); never throws (CI/Docker/non-git safe), self-heals the exec bit, respects a custom hooks path with a loud advisory.
+- **`pnpm migration:check`** + `supabase/migrations/README.md`.
+
+**Adversarial review (4-dimension workflow, 19 agents):** 15 raw findings → **9 confirmed, all fixed** — prefix-level (not filename) uniqueness + `origin/main` awareness (was blind to merged-but-unpulled), hook checks pushed commits not the working tree (was false-blocking the owner's WIP), committed exec bit, honest "CI is the final backstop for truly-simultaneous in-flight migrations" wording. 6 findings correctly rejected (TOCTOU non-issue, etc.).
+
+**Verify:** `node --check` all scripts ✓; allocator monotonic + origin/main-aware ✓; hook clean/WIP-ignore/committed-dup/origin-main-dedup/cross-branch-catch (6 scenarios) ✓; setup-git-hooks all 5 branches (wire/self-heal/respect-custom/CI-noop/missing-hook) ✓. 285 migrations, guard green.
+
+**SPEC IMPACT:** None (dev tooling; the spec corpus is unaffected). Logged in DECISION_LOG.
 
 ## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
 

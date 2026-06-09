@@ -6,16 +6,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-09 · feat(vendor-tier): founder vendor → verified + unlimited categories/services + token-gate bypass
 
-**Context:** Owner 2026-06-09 — bump the founder vendor to `verified` + give it unlimited categories/services and a full token-gate bypass. Founder = the single non-demo account `Setnayan Founder · Ice` (`646c9457-3450-412e-8d60-7281224da157`).
+**Context:** Owner 2026-06-09 — bump the founder vendor to `verified` + unlimited categories/services + full token-gate bypass. Founder = the single non-demo account `Setnayan Founder · Ice` (`646c9457-3450-412e-8d60-7281224da157`).
 
-**What landed (migration `20261013000000_founder_vendor_overrides.sql`, applied to prod):**
-- New `vendor_profiles.is_founder BOOLEAN NOT NULL DEFAULT false` (composes on top of `tier_state`). Set `tier_state='verified'` + `is_founder=true` on the founder.
-- `unlock_vendor_event` founder branch: unlimited inquiry unlocks for free — no FREE block, no verified 10/week cap, no token burn (records the unlock at 0 tokens for idempotency). All other paths unchanged.
-- `createVendorService` reads `is_founder` → lifts `parentCategories` + `servicesPerLeaf` to `Infinity`. Other caps stay at verified.
+**Migration `20261013000000_founder_vendor_overrides.sql` (applied to prod):** new `vendor_profiles.is_founder` flag (composes on `tier_state`); founder set `verified` + `is_founder=true`; `unlock_vendor_event` founder branch = unlimited free unlocks (no FREE block / verified 10-week cap / burn). **App:** `createVendorService` lifts `parentCategories` + `servicesPerLeaf` to `Infinity` for the founder (other caps stay verified).
 
-**Verify:** `tsc` ✓ · `next lint` ✓. Founder row confirmed `tier=verified, is_founder=true`. Auto-rollback smoke test: `unlock_vendor_event` → `founder:true, charged:false, tokens:0`, past 10 unlocks with no `VERIFIED_WEEKLY_LIMIT`.
+**Verify:** `tsc` ✓ · `next lint` ✓. Founder row `tier=verified, is_founder=true`; auto-rollback smoke test → `founder:true, charged:false`, past 10 unlocks no weekly limit. SPEC IMPACT: → corpus `DECISION_LOG.md` + tier matrix + memory.
 
-**SPEC IMPACT:** founder override → corpus `DECISION_LOG.md` + tier matrix + memory.
+## 2026-06-09 · feat(mood-board): people layer in the reception scene (0010)
+
+**Context:** Owner: "how about the people/different roles — we want them to render on the same photo, so it takes 1 render only." So the venue scene (and its render brief) now includes the wedding party, and one ₱300 render captures the venue **and** everyone in their attire.
+
+**`lib/reception-scene.ts`:** new **People** part with a "Show" toggle — Couple · Couple + entourage · Everyone (+ guests) · Empty venue. Stylized figures render in their **role attire colors** (bride gown / groom suit / entourage / guests, pulled from the mood-board role palettes): the couple focal at center stage, entourage flanking, guests seated at the tables. `buildPrompt()` injects a people clause with the actual role colors (*"the bride in a #… gown and the groom in a #… suit at center stage, bridesmaids and groomsmen in #… beside them, guests in #… at the tables"*). `renderVenueSvg`/`buildPrompt` take an optional `roleColors`; `page.tsx` passes bride/groom/wedding_party/guest first-colors; the designer threads it through. No migration.
+
+**Verification:** typecheck + lint ✅. **A 5-agent legibility workflow** rendered the "everyone" scene across stress-test palettes (pastel / mono-white / dark-moody / jewel / bright) and inspected each — all passed, but flagged the white-gown-on-light-backdrop and dark-suit-on-dark-backdrop blend risks. Fixed with **contrast-aware figure outlines** (`outlineOf`: darker edge on light fills, lighter on dark) + slightly larger guests; re-rendered the two worst palettes — couple/entourage/guests now read clearly on any palette.
+
+**SPEC IMPACT:** 0010 reception designer renders the people in-scene; the AI render brief now includes the wedding party so one render shows the whole wedding.
 
 ## 2026-06-09 · fix(brand): correct logo on seat-plan PDF / desktop / keynote + PDF "Created by" footer
 

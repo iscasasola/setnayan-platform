@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(website): editorial — #1-pick count in stats + tagged-vendor "Show more"
+
+**Context:** Owner editorial tweaks. (1) Add the **First-Match count** to the By-the-Numbers table (the raw count, alongside the existing `6/9` ratio). (2) In **The Team**, only show **tagged** vendors by default — owner-defined as **Pro/Enterprise tier OR #1-match** — and collapse the rest under "Show more."
+
+**Change (`editorial-content.tsx`, presentation-only):**
+- **By the Numbers:** the supporting count strip is now a **2×2** grid — Guests · Photos · **#1 Picks** (`firstPickNum`) · Replied — so the first-match *count* shows next to the `6/9` first-match *ratio*.
+- **The Team:** extracted `VendorRow`; `isTaggedVendor()` = `tier ∈ {pro,enterprise}` **OR** `isFirstPick`. Tagged vendors render by default; the rest collapse inside a **native `<details>`/`<summary>` "+ N more vendors"** disclosure (no client JS — works in the server component). Fallback shows the first 4 if nothing is tagged. (Free vendors stay hidden from the editorial entirely, per §3 / data.ts.)
+- `EditorialContent` is the single editorial component (imported only by `[slug]/page.tsx`), so this updates the editorial everywhere it renders.
+
+**Verify:** typecheck + build on CI. On Maria & Jose: stats show **#1 Picks = 6**; The Team shows the 6 tagged (Aperture/Grazia/Casa Verde/Manila Strings/Glow/Eventful) with **+ 2 more vendors** (Lumiere, Sweet Layers) under Show more. Mobile-safe. No migration.
+
+**SPEC IMPACT:** editorial presentation (§6.3/§6.4 impact stats). → none.
+
 ## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
 
 **Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000): **Pro 5 (monthly) / 50 (annual) · Enterprise 10 (monthly) / 100 (annual)**. Subscription PRICES unchanged (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) — only the bundled tokens.

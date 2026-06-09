@@ -19,6 +19,7 @@ import {
   sel,
   type PartId,
   type ReceptionDesign,
+  type RoleColors,
 } from '@/lib/reception-scene';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { saveReceptionDesign } from '../actions';
@@ -28,6 +29,8 @@ type Props = {
   initialDesign: ReceptionDesign;
   /** The couple's shared Reception palette (hex colors). */
   palette: string[];
+  /** Per-role attire colors for the People layer (bride/groom/party/guest). */
+  roleColors?: RoleColors;
 };
 
 const HOTSPOTS: ReadonlyArray<{ part: PartId; l: number; t: number; w: number; h: number }> = [
@@ -39,7 +42,7 @@ const HOTSPOTS: ReadonlyArray<{ part: PartId; l: number; t: number; w: number; h
   { part: 'tables', l: 68, t: 49, w: 29, h: 45 },
 ];
 
-export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
+export function ReceptionDesigner({ eventId, initialDesign, palette, roleColors }: Props) {
   const [design, setDesign] = useState<ReceptionDesign>(
     initialDesign && typeof initialDesign === 'object' ? initialDesign : {},
   );
@@ -47,7 +50,10 @@ export function ReceptionDesigner({ eventId, initialDesign, palette }: Props) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const svg = useMemo(() => renderVenueSvg(design, palette), [design, palette]);
+  const svg = useMemo(
+    () => renderVenueSvg(design, palette, roleColors),
+    [design, palette, roleColors],
+  );
   const activeDef = RECEPTION_PARTS.find((p) => p.id === activePart)!;
 
   function choose(part: PartId, attr: string, optionId: string) {

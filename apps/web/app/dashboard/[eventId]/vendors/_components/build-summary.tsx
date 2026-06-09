@@ -4,15 +4,15 @@
  *
  * A read-only progress cover derived from the same `PlanBudgetModel` the accordion
  * uses: the chosen total vs budget (a meter), what's locked vs still open, and the
- * "what to lock next" list. (The Setnayan AI Assisted/Manual *toggle* is a Phase-5
- * follow-on — this surfaces its current status + a pointer to Manage.)
+ * "what to lock next" list. The ONE control on this cover is the inline Setnayan
+ * AI toggle (owner 2026-06-09) — flips planning_mode in place, no navigation. The
+ * Flag/Compute control moved to the Build tab where it belongs.
  *
  * Server component (pure render) — passed as the takeover's `summarySlot`.
  */
-import Link from 'next/link';
-import { Clock, Sparkles, Wallet } from 'lucide-react';
+import { Clock, Wallet } from 'lucide-react';
 import type { PlanBudgetModel } from '@/lib/vendors-plan-budget';
-import { CategoryFlags } from './category-flags';
+import { SummaryAiToggle } from './summary-ai-toggle';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
 
@@ -26,12 +26,10 @@ const STATUS_COPY: Record<PlanBudgetModel['budgetStatus'], { label: string; tone
 export function BuildSummary({
   model,
   eventId,
-  flaggedGroups = [],
   buildsCount = 0,
 }: {
   model: PlanBudgetModel;
   eventId: string;
-  flaggedGroups?: string[];
   /** Number of saved builds (budget_builds rows) — drives the "Builds" tile. */
   buildsCount?: number;
 }) {
@@ -43,14 +41,6 @@ export function BuildSummary({
       : model.budgetStatus === 'near'
         ? 'bg-amber-500'
         : 'bg-emerald-500';
-
-  // Lock vs Flag (plan §12): OPEN categories (budgeted, no vendor) can be flagged
-  // to fill; LOCKED (finalized) picks stay untouched.
-  const children = model.folders.flatMap((f) => f.children);
-  const openCats = children
-    .filter((c) => c.state === 'empty')
-    .map((c) => ({ groupId: c.groupId, label: c.label }));
-  const lockedCount = children.filter((c) => c.state === 'finalized').length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-1 py-2">
@@ -114,26 +104,8 @@ export function BuildSummary({
         )}
       </section>
 
-      <CategoryFlags
-        eventId={eventId}
-        openCats={openCats}
-        lockedCount={lockedCount}
-        flaggedGroups={flaggedGroups}
-        aiOn={model.personalizationEnabled}
-      />
-
-      <section className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
-        <span className="flex items-center gap-2 text-sm text-ink/70">
-          <Sparkles className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
-          Setnayan AI {model.personalizationEnabled ? 'is on' : 'is off'}
-        </span>
-        <Link
-          href={`/dashboard/${eventId}/details`}
-          className="text-xs font-medium text-terracotta hover:underline"
-        >
-          {model.personalizationEnabled ? 'Manage' : 'Turn on'}
-        </Link>
-      </section>
+      {/* The Summary's single control — flips Setnayan AI in place (no nav). */}
+      <SummaryAiToggle eventId={eventId} enabled={model.personalizationEnabled} />
     </div>
   );
 }

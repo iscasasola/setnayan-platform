@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261002000000_iteration_0010_reception_design.sql
+-- 20261003000000_iteration_0010_reception_design.sql
 -- Mood Board Phase 2 — the stylized reception designer.
 --
 -- Owner directive 2026-06-09: "editing the actual feel of the whole venue" —

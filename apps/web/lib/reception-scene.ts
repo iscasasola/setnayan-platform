@@ -15,7 +15,7 @@
  * flanking. Treatments swap the shapes; the shared Reception palette colors it.
  */
 
-export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'entrance';
+export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'tunnel' | 'entrance';
 
 export type Option = { id: string; label: string; prompt: string };
 export type Attribute = { id: string; label: string; options: Option[] };
@@ -168,23 +168,33 @@ export const RECEPTION_PARTS: Part[] = [
     ],
   },
   {
-    id: 'entrance',
+    id: 'tunnel',
     label: 'Entrance tunnel',
-    blurb: 'The grand entrance',
+    blurb: 'The grand-entrance walk-through',
     attributes: [
       {
-        id: 'tunnel',
+        id: 'style',
         label: 'Tunnel',
         options: [
-          O('floral', 'Floral arches', 'a tunnel of floral arches'),
-          O('draped', 'Draped arches', 'a tunnel of draped fabric arches'),
-          O('fairy_light', 'Fairy-light tunnel', 'a glowing fairy-light tunnel'),
-          O('greenery', 'Greenery tunnel', 'a lush greenery arch tunnel'),
-          O('balloon', 'Balloon tunnel', 'an arch tunnel of balloons'),
-          O('lantern', 'Lantern walkway', 'a walkway lined with hanging lanterns'),
-          O('none', 'Open aisle', 'an open aisle, no tunnel'),
+          O('floral', 'Floral arches', 'a grand-entrance tunnel of floral arches'),
+          O('draped', 'Draped arches', 'a grand-entrance tunnel of draped fabric arches'),
+          O('fairy_light', 'Fairy-light tunnel', 'a glowing fairy-light entrance tunnel'),
+          O('greenery', 'Greenery tunnel', 'a lush greenery arch entrance tunnel'),
+          O('balloon', 'Balloon tunnel', 'a grand-entrance balloon arch tunnel'),
+          O('lantern', 'Lantern walkway', 'an entrance walkway lined with hanging lanterns'),
+          O('crystal', 'Crystal tunnel', 'a sparkling crystal-beaded entrance tunnel'),
+          O('butterfly', 'Butterfly tunnel', 'a whimsical butterfly entrance tunnel'),
+          O('cherry_blossom', 'Cherry blossom', 'a cherry-blossom entrance tunnel'),
+          O('none', 'No tunnel', 'no entrance tunnel'),
         ],
       },
+    ],
+  },
+  {
+    id: 'entrance',
+    label: 'Aisle',
+    blurb: 'The walkway to the stage',
+    attributes: [
       {
         id: 'runner',
         label: 'Aisle runner',
@@ -193,6 +203,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('petals', 'Petals', 'an aisle scattered with petals'),
           O('mirror', 'Mirror', 'a mirrored aisle'),
           O('candle', 'Candle-lined', 'an aisle lined with candles'),
+          O('floral_lined', 'Floral-lined', 'an aisle lined with florals'),
           O('none', 'Bare', 'a bare aisle'),
         ],
       },
@@ -205,7 +216,8 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   backdrop: { style: 'draped', florals: 'corner' },
   stage: { setup: 'sweetheart', florals: 'arch' },
   tables: { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'tall', place: 'gold' },
-  entrance: { tunnel: 'floral', runner: 'fabric' },
+  tunnel: { style: 'floral' },
+  entrance: { runner: 'fabric' },
 };
 
 /** Selected option id for a part+attribute, falling back to the default. */
@@ -604,6 +616,12 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
       const sp = 40 + i * 16;
       s += candle(cx - sp, yy, 12) + candle(cx + sp, yy, 12);
     }
+  else if (runnerT === 'floral_lined')
+    for (let i = 0; i < 5; i++) {
+      const yy = 430 + i * 42;
+      const sp = 46 + i * 16;
+      s += flower(cx - sp, yy, 8, P(2)) + flower(cx + sp, yy, 8, P(2));
+    }
 
   if (tunnelT === 'none') return s;
   depths.forEach((d, idx) => {
@@ -653,6 +671,32 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
         const [px, py] = qpoint(p0, ctl, p2, i / n);
         s += lantern(px, py + 8, 14 - idx * 3, GOLD);
       }
+    } else if (tunnelT === 'crystal') {
+      s += stroke(shade(GLASS, -20), 3 - idx * 0.6);
+      const n = 8 - idx * 2;
+      for (let i = 0; i <= n; i++) {
+        const [px, py] = qpoint(p0, ctl, p2, i / n);
+        s += `<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${px.toFixed(1)}" y2="${(py + (18 - idx * 4)).toFixed(1)}" stroke="${shade(GLASS, -20)}" stroke-width="0.7"/>`;
+        for (let k = 1; k <= 2; k++)
+          s += `<circle cx="${px.toFixed(1)}" cy="${(py + k * (9 - idx * 2)).toFixed(1)}" r="${(2.6 - idx * 0.5).toFixed(1)}" fill="${shade(GLASS, 30)}" stroke="${shade(GLASS, -15)}" stroke-width="0.5"/>`;
+        s += bulb(px, py, 2.6 - idx * 0.4);
+      }
+    } else if (tunnelT === 'butterfly') {
+      s += stroke(shade(WALL, -20), 2.5 - idx * 0.5);
+      const n = 7 - idx * 2;
+      for (let i = 0; i <= n; i++) {
+        const [px, py] = qpoint(p0, ctl, p2, i / n);
+        const c = [P(0), P(1), P(2)][i % 3]!;
+        const r = 8 - idx * 2;
+        s += `<ellipse cx="${(px - r * 0.4).toFixed(1)}" cy="${py.toFixed(1)}" rx="${(r * 0.5).toFixed(1)}" ry="${(r * 0.72).toFixed(1)}" fill="${c}" opacity="0.9"/><ellipse cx="${(px + r * 0.4).toFixed(1)}" cy="${py.toFixed(1)}" rx="${(r * 0.5).toFixed(1)}" ry="${(r * 0.72).toFixed(1)}" fill="${c}" opacity="0.9"/><line x1="${px.toFixed(1)}" y1="${(py - r * 0.5).toFixed(1)}" x2="${px.toFixed(1)}" y2="${(py + r * 0.5).toFixed(1)}" stroke="${shade(c, -35)}" stroke-width="1"/>`;
+      }
+    } else if (tunnelT === 'cherry_blossom') {
+      s += stroke('#A9824E', 7 - idx * 2);
+      const n = 9 - idx * 2;
+      for (let i = 0; i <= n; i++) {
+        const [px, py] = qpoint(p0, ctl, p2, i / n);
+        s += flower(px, py, 9 - idx * 2, shade(P(2), 45), '#F7E6EB');
+      }
     } else {
       // floral (default)
       s += stroke(LEAF, 9 - idx * 2);
@@ -695,7 +739,7 @@ export function renderVenueSvg(design: ReceptionDesign, palette: string[]): stri
       sel(design, 'tables', 'place'),
       P,
     ),
-    entrance(sel(design, 'entrance', 'tunnel'), sel(design, 'entrance', 'runner'), P),
+    entrance(sel(design, 'tunnel', 'style'), sel(design, 'entrance', 'runner'), P),
     `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
     `</svg>`,
   ].join('');

@@ -28,6 +28,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI. On Maria & Jose: stats show **#1 Picks = 6**; The Team shows the 6 tagged (Aperture/Grazia/Casa Verde/Manila Strings/Glow/Eventful) with **+ 2 more vendors** (Lumiere, Sweet Layers) under Show more. Mobile-safe. No migration.
 
 **SPEC IMPACT:** editorial presentation (§6.3/§6.4 impact stats). → none.
+## 2026-06-09 · fix(brand): correct logo on seat-plan PDF / desktop / keynote + PDF "Created by" footer
+
+**Context:** Owner: the seat-plan PDF logo was wrong (an old black map-pin-with-star), "even the logo on the loading is wrong" — the gold mark (owner-supplied SVG) is the default; fix all logos. Plus show **"Created by WWW.SETNAYAN.COM"** at the bottom of the seat-plan print file.
+
+**Root cause:** the canonical `public/brand/setnayan-mark.svg` (gold `#cb9e4b`) + its SVG copies + favicon/manifest/web-init-splash + the mobile splash/launcher were **already correct**. Three **raster/desktop derivatives** had gone stale and were never regenerated:
+- `brand/setnayan-mark-512.png` — old **black pin+star** → embedded in the seat-plan PDF (the reported one).
+- `keynote/brand/setnayan-mark.png` — old **orange + grey circle**.
+- `src-tauri/icons/icon.svg` — wrong glyph → the **desktop app icon** (the build runs `tauri icon` on it → the desktop "loading" logo).
+
+**What landed:**
+- Regenerated all three from the canonical SVG (gold). New **`pnpm --filter @setnayan/web brand:icons`** (`scripts/regen-brand-rasters.mjs` · `sharp`) is the single source-of-truth mechanism: syncs the byte-identical SVG copies (favicons · Logo svg · proto · Tauri icon) + rasterizes the PNG derivatives. So changing the logo everywhere = replace `public/brand/setnayan-mark.svg`, run `brand:icons`. (Styled tiles — `setnayan-app-icon-512.png` on its white iOS tile, mobile launcher — keep their own treatment and are left as-is; already correct.)
+- **Seat-plan PDF** (`lib/seating-pdf.ts`): logo now renders gold; removed the mis-placed header logo that overlapped the monogram + spilled into the floor plan; added a centred **"Created by WWW.SETNAYAN.COM"** footer (with the gold mark) on every page.
+
+**Verify:** `tsc` + `next lint` clean. Rendered the regenerated PNGs (gold ✓, was pin-star/orange) and a sample seat-plan PDF — gold mark + "Created by WWW.SETNAYAN.COM" centred in the footer + a clean header.
+
+**SPEC IMPACT:** None (brand assets + PDF). → DECISION_LOG.
+
+## 2026-06-09 · feat(mood-board): dedicated Entrance Tunnel part (0010)
+
+**Context:** Owner: "also add tunnel." The grand-entrance tunnel is a Filipino-reception signature, so it's promoted from an attribute of Entrance to its **own part** with richer options; the aisle runner becomes its own part ("Aisle").
+
+**`lib/reception-scene.ts`:** new `tunnel` part with **10 styles** — floral / draped / fairy-light / greenery / balloon / lantern arches **+ crystal-beaded, butterfly, cherry-blossom** + no-tunnel. The `entrance` part is now just the **Aisle** (runner: petals / fabric / mirror / candle / **floral-lined** / bare). New SVG branches for the crystal, butterfly, and cherry-blossom tunnels + floral-lined aisle. `buildPrompt()` + save sanitization + the part tabs pick up the new part automatically; the center-foreground tap hotspot now selects the tunnel. No migration (JSONB).
+
+**Verification:** `pnpm typecheck` ✅ · `pnpm lint` ✅. Rendered the 3 new tunnel styles via sharp — all read distinctly and take the palette.
+
+**SPEC IMPACT:** 0010 reception designer gains a dedicated Entrance Tunnel part (10 styles) split from the Aisle.
+
 ## 2026-06-09 · feat(onboarding): hot-date demand "heat" layer on the wedding date calendar
 
 **Context:** Designed this session (prototype `Hot_Date_Heat_Calendar_Prototype_2026-06-09.html` + Date-Aligner spec §L). The onboarding `DateCalendar` already owns 2-mode picking + a "why this date" nugget; this adds the **demand axis** — a predicted-heat tint on calendar cells + a demand chip in the nugget — so couples see how in-demand a date is alongside whether it fits their plan. **Predicted (deterministic) layer only** — the observed inquiry / relative-to-supply escalation (§L.2) is deferred (founder-only marketplace = no inquiry data; would be dead code).

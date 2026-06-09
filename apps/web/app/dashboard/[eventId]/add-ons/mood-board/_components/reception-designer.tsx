@@ -34,7 +34,7 @@ const HOTSPOTS: ReadonlyArray<{ part: PartId; l: number; t: number; w: number; h
   { part: 'ceiling', l: 4, t: 0, w: 92, h: 20 },
   { part: 'backdrop', l: 33, t: 22, w: 34, h: 26 },
   { part: 'stage', l: 36, t: 49, w: 28, h: 13 },
-  { part: 'entrance', l: 35, t: 63, w: 30, h: 35 },
+  { part: 'tunnel', l: 35, t: 63, w: 30, h: 35 },
   { part: 'tables', l: 3, t: 49, w: 29, h: 45 },
   { part: 'tables', l: 68, t: 49, w: 29, h: 45 },
 ];

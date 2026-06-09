@@ -359,6 +359,20 @@ export default async function VendorsPage({ params }: Props) {
   // tab. Falls back to the TS constants on any read error (resolver-internal).
   const taxonomy = await getTaxonomy();
 
+  // Build picks (Shortlist "Add to build" / Build "Pin") — plan_group_id →
+  // pinned vendor_id. One per category; the model marks the matching pick
+  // `isBuildPick` + exposes `buildPickVendorId`. Fails open (no picks) on error.
+  const { data: buildPickRows } = await supabase
+    .from('event_build_picks')
+    .select('plan_group_id, vendor_id')
+    .eq('event_id', eventId);
+  const buildPicksByGroup = new Map<string, string>(
+    ((buildPickRows ?? []) as Array<{ plan_group_id: string; vendor_id: string }>).map((r) => [
+      r.plan_group_id,
+      r.vendor_id,
+    ]),
+  );
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
@@ -374,6 +388,7 @@ export default async function VendorsPage({ params }: Props) {
     personalizationEnabled: aiActive,
     moodBoardSet: ev?.mood_board_updated_at != null,
     taxonomy,
+    buildPicksByGroup,
   });
 
   // Committed-date label + precision — feed the Build/Lock date anchor + the
@@ -484,10 +499,31 @@ export default async function VendorsPage({ params }: Props) {
     // fully"). Open categories (budgeted, no vendor) can be flagged → Compute
     // auto-fills them; finalized ones are the locked count.
     const buildChildren = model.folders.flatMap((f) => f.children);
+    // "Your build" — the items transferred via Shortlist "Add to build"
+    // (event_build_picks): the pinned vendor per category, resolved off the model.
+    const buildItems = model.folders.flatMap((f) =>
+      f.children.flatMap((c) => {
+        if (!c.buildPickVendorId) return [];
+        const p = c.picks.find((pp) => pp.vendor_id === c.buildPickVendorId);
+        if (!p) return [];
+        return [
+          {
+            groupId: c.groupId as string,
+            group: c.label,
+            folder: f.label,
+            vendorId: p.vendor_id,
+            name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+            pricePhp: p.rolled_cost_php,
+            locked: !!(p.raw_status && PLAN_LOCKED.has(p.raw_status)),
+          },
+        ];
+      }),
+    );
     const buildSlot = (
       <BuildPins
         eventId={eventId}
         anchors={buildAnchors}
+        buildItems={buildItems}
         categoryFill={{
           openCats: buildChildren
             .filter((c) => c.state === 'empty')
@@ -517,6 +553,7 @@ export default async function VendorsPage({ params }: Props) {
           <div className="space-y-4">
             <BuildLocked
               model={model}
+              eventId={eventId}
               summary={{
                 dateLabel: buildAnchors.date.iso ? buildAnchors.date.label : null,
                 budgetPhp: buildAnchors.budget.php,

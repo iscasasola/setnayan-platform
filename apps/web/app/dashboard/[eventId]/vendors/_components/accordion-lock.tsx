@@ -78,12 +78,24 @@ export function AccordionLockButton({
   groupLabel,
   vendorId,
   vendorName,
+  label = 'Lock this pick',
+  pendingLabel = 'Locking…',
+  className = 'lockbtn',
+  wrapperClassName = 'lockbar',
 }: {
   eventId: string;
   groupId: PlanGroupId;
   groupLabel: string;
   vendorId: string;
   vendorName: string;
+  /** CTA copy. Defaults to the Shortlist card's "Lock this pick"; the Lock tab
+   *  passes "Lock to confirm". */
+  label?: string;
+  pendingLabel?: string;
+  /** Button class — defaults to the accordion-scoped `.lockbtn`; the Lock tab
+   *  passes a Tailwind class (outside the accordion's scoped CSS). */
+  className?: string;
+  wrapperClassName?: string;
 }) {
   const [state, setState] = useState<LockState>({ kind: 'idle' });
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
@@ -252,17 +264,17 @@ export function AccordionLockButton({
   };
 
   return (
-    <div className="lockbar">
+    <div className={wrapperClassName}>
       <button
         type="button"
-        className="lockbtn"
+        className={className}
         disabled={isPending}
         onClick={() => {
           haptic('confirm');
           requestLock();
         }}
       >
-        {isPending && state.kind === 'idle' ? 'Locking…' : 'Lock this pick'}
+        {isPending && state.kind === 'idle' ? pendingLabel : label}
       </button>
 
       {state.kind === 'error' ? (

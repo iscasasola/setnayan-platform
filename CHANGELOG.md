@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Shortlist — taxonomy leaf labels + "Add manually" empty state (0016 sync)
+
+**Context:** Two Shortlist refinements. (1) Each child card's label was the hardcoded `group.label`; the 10 folder headers already follow `/admin/taxonomy` renames via `taxonomy.folderLabel`, but the leaves did not. (2) An empty category showed a single "Find {label}" affordance (marketplace search) with no way to add a vendor the couple already knows by hand.
+
+- **Leaf-label propagation** (`lib/vendors-plan-budget.ts`): a child whose `catalogTile` is used by exactly one `PlanGroup` now resolves its label from the live DB tile label (`taxonomy.tileLabel[tile]`), so an admin tile rename flows to the card. A `tileUseCount` map + single-use guard keep the **collision tiles** on their distinct hardcoded labels — `ceremony_venue` (shared by `officiant` + `ceremony_venue`) and `reception` (shared by `accommodation` + `reception_venue`) both have count ≥ 2 → unchanged. Entry-point groups (no `catalogTile`) and the no-snapshot path also keep `group.label`. Downstream (dueList · Compare currentPlan · recap) reads `child.label`, so it inherits automatically.
+- **"Add manually" empty state** (`plan-budget-accordion.tsx`): the empty branch now lays out TWO dashed pills in a wrap-friendly `.empty-row` flex — the existing "Find {label}" (marketplace search) plus a new "Add manually" that opens the **existing `NewManualVendorModal`** scoped to the child's category. Its two-step submit already auto-creates the claim-link invite server-side (the QR the vendor scans to sync), so no new QR UI was built. "Add manually" renders only when the child carries a backing category.
+- **Model plumbing** (`lib/vendors-plan-budget.ts`): `AccordionChild` gains `primaryCategory: string | null` (= `group.categories[0] ?? null`, kept a plain string to avoid `VendorCategory` import churn in the modal-consuming component). Entry-point groups with an empty `categories` array → null → no "Add manually" button.
+
+**Verification:** `pnpm -C apps/web typecheck` (`tsc --noEmit`) clean. No migration (reuses the manual-vendor flow + its existing claim-invite). Vercel-preview click-through pending.
+
+**SPEC IMPACT:** Leaf card labels now follow `/admin/taxonomy` tile renames (single-use collision guard preserves the 4 dual-mapped labels); the empty-state "Add manually" reuses `NewManualVendorModal` + its existing claim-invite/QR sync — no new SKU, schema, or pricing change. → corpus `DECISION_LOG` 2026-06-09 (with the A–F + sync program).
+
 ## 2026-06-09 · feat(plan-builder): Build tab — totals row + Reset + "Lock your build" cross-tab nav (0016 sync)
 
 **Context:** Fills the prototype's Build-tab controls. After "Add to build" transfers items to the Build page (prior PR), the Build tab now caps the "Your build" list with the prototype's **persistent totals** + actions.

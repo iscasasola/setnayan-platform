@@ -51,6 +51,7 @@ import { computeCompatScore } from '@/lib/compat-score';
 import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { ChangePickButton } from './accordion-lock';
 import { AccordionBuildButton } from './accordion-build';
 import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
@@ -381,6 +382,15 @@ const PBA_CSS = `
 /* Empty-category "Find …" rows stretch full width (minus the 20px side
    margins) instead of shrink-wrapping their label (owner 2026-05-31). */
 .pbacc .empty-child{width:calc(100% - 40px)}
+/* Empty-state action row: "Find …" + "Add manually" sit side-by-side, share
+   the row evenly, and wrap to stacked full-width buttons on narrow screens.
+   The buttons drop their own 20px side margins (the row owns them) and reset
+   to a flex-shared width. (2026-06-09) */
+.pbacc .empty-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 20px 8px}
+.pbacc .empty-row .empty-child{margin:0;width:auto;flex:1 1 160px}
+/* "Add manually" mirrors the dashed "Find" pill; the ✎ glyph reads a touch
+   smaller than the ＋ so they optically align. */
+.pbacc .empty-manual .ep{font-size:14px}
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
 .pbacc .cn-right{display:flex;align-items:center;gap:8px}
@@ -1129,6 +1139,11 @@ function ChildRail({
   const inApp = SVC_BY_GROUP.get(child.groupId) ?? [];
   const empty = child.picks.length === 0 && inApp.length === 0;
   const canCompare = child.picks.length >= 2;
+  // Empty-state "Add manually" → reuse the existing manual-vendor modal scoped
+  // to this category. The modal's two-step submit also auto-creates the
+  // claim-invite (the QR the vendor scans to sync), so no QR UI is built here.
+  const router = useRouter();
+  const [manualOpen, setManualOpen] = useState(false);
   // The single vendor pinned to the build for this category (if any) — passed to
   // every OTHER card so "Add to build" knows to open the Replace/Add-both popup.
   const buildPickRow = child.buildPickVendorId
@@ -1160,17 +1175,33 @@ function ChildRail({
       {child.dependency ? <DependencyNudge dep={child.dependency} label={child.label} /> : null}
 
       {empty ? (
-        <button
-          type="button"
-          className="empty-child"
-          onClick={() => onOpenSearch(child.groupId, child.label)}
-        >
-          <span className="ep">＋</span>
-          {/* Keep the label's own casing — lowercasing mangles acronym/proper
-              category names ("LED Background"→"led background", "DJ"→"dj"). */}
-          <span className="en">Find {child.label}</span>
-          <span className="eh">Search</span>
-        </button>
+        <div className="empty-row">
+          <button
+            type="button"
+            className="empty-child"
+            onClick={() => onOpenSearch(child.groupId, child.label)}
+          >
+            <span className="ep">＋</span>
+            {/* Keep the label's own casing — lowercasing mangles acronym/proper
+                category names ("LED Background"→"led background", "DJ"→"dj"). */}
+            <span className="en">Find {child.label}</span>
+            <span className="eh">Search</span>
+          </button>
+          {/* "Add manually" reuses the existing manual-vendor modal (incl. its
+              auto claim-invite/QR sync). Only when the child carries a backing
+              VendorCategory — entry-point groups (no category) skip it. */}
+          {child.primaryCategory ? (
+            <button
+              type="button"
+              className="empty-child empty-manual"
+              onClick={() => setManualOpen(true)}
+            >
+              <span className="ep">✎</span>
+              <span className="en">Add manually</span>
+              <span className="eh">Add</span>
+            </button>
+          ) : null}
+        </div>
       ) : (
         <div className="rail">
           {/* Setnayan first-party services float to the TOP of the rail. */}
@@ -1219,6 +1250,19 @@ function ChildRail({
           )}
         </div>
       )}
+
+      {manualOpen && child.primaryCategory ? (
+        <NewManualVendorModal
+          eventId={eventId}
+          category={child.primaryCategory}
+          categoryLabel={child.label}
+          onClose={() => setManualOpen(false)}
+          onCreated={() => {
+            setManualOpen(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

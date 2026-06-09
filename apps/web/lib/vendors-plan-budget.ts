@@ -44,6 +44,7 @@ import {
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SLUG,
   type WeddingFolder,
+  type WeddingTile,
 } from '@/lib/taxonomy';
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import {
@@ -241,6 +242,11 @@ export type VendorEnrichment = {
 export type AccordionChild = {
   groupId: PlanGroupId;
   label: string;
+  /** The primary VendorCategory enum for this group (group.categories[0]), or
+   *  null for entry-point groups with no backing category. Lets the empty-state
+   *  "Add manually" affordance scope the manual-vendor modal to the right
+   *  category. Kept a plain string to avoid enum import churn downstream. */
+  primaryCategory: string | null;
   hint: string;
   picks: AccordionPick[];
   state: ChildState;
@@ -592,6 +598,32 @@ export function buildPlanBudgetModel(args: {
   satisfiedNodes.add('rsvp_headcount');
   satisfiedNodes.add('seating_chart');
 
+  // Child-label propagation from the DB taxonomy (2026-06-09). The folder
+  // headers already follow `/admin/taxonomy` renames (folderLabel above); we
+  // extend that to each child card's label when it maps 1:1 to a tile. Count
+  // how many PLAN_GROUPS share each catalogTile — only a single-use tile is
+  // safe to rename from, because two groups on one tile (officiant +
+  // ceremony_venue → `ceremony_venue`; accommodation + reception_venue →
+  // `reception`) need their distinct hardcoded labels to stay distinguishable.
+  const tileUseCount = new Map<WeddingTile, number>();
+  for (const group of PLAN_GROUPS) {
+    if (!group.catalogTile) continue;
+    tileUseCount.set(
+      group.catalogTile,
+      (tileUseCount.get(group.catalogTile) ?? 0) + 1,
+    );
+  }
+  // Resolve a child's label: a single-use tile with a live DB label wins
+  // (so an admin tile rename flows through); otherwise the hardcoded
+  // PLAN_GROUP label (collision tiles + entry-point groups + no snapshot).
+  const resolveChildLabel = (group: PlanGroup): string => {
+    if (group.catalogTile && tileUseCount.get(group.catalogTile) === 1) {
+      const tileLabel = taxonomy?.tileLabel[group.catalogTile];
+      if (typeof tileLabel === 'string' && tileLabel.length > 0) return tileLabel;
+    }
+    return group.label;
+  };
+
   for (const group of orderedGroups) {
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
@@ -631,7 +663,8 @@ export function buildPlanBudgetModel(args: {
 
     const child: AccordionChild = {
       groupId: group.id,
-      label: group.label,
+      label: resolveChildLabel(group),
+      primaryCategory: group.categories[0] ?? null,
       hint: group.hint,
       picks,
       state,

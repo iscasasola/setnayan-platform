@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(demo + marketplace): full-taxonomy demo coverage + formal linked-services-on-card
+
+**Context:** The admin "Create demo vendors" tool seeded vendors per `canonical_service_schemas` row (~192) — any taxonomy node without a schema row was invisible, and the seeder wasn't driven by the *live* taxonomy DB. Owner (2026-06-09): make the populator cover **every** taxonomy node, with a **blend** of single- and multi-service vendors, and **build the formal linked-services-on-card model** (multi-service vendors *and* the locked "comes with X · Y · Z" card relationship).
+
+**Migration `20261014000000_vendor_service_links.sql` (applied to prod):**
+- New `vendor_service_links` (anchor `vendor_service_id` → `linked_canonical_service` + `linked_label`, denormalized `vendor_profile_id`, `UNIQUE(service, linked)`). RLS mirrors existing conventions: public read gated on parent service active + vendor published; owner + admin write.
+- `vendor_services.is_linked_only BOOLEAN DEFAULT FALSE` — the locked forward-flag marker (budget medians will later drop linked-only rows).
+
+**Seeder (`scripts/seed-demo-vendors.ts` + `api/admin/demo/seed`):**
+- New `fetchCoverageNodes()` replaces `canonical_service_schemas` as the node source: every `canonical_service_taxonomy` row ∪ every `service_categories` leaf with zero canonical coverage (backfill). Live count = **179 canonical + 3 backfilled leaves = 182 nodes**, all 54 active leaves covered. Grows automatically with the taxonomy.
+- `seedCategory` now promotes ~1-in-6 vendors to **studios**: `multi` (extra independently-priced listings) or `linked` (is_linked_only siblings + `vendor_service_links` rows → "comes with"). Most vendors stay single-service.
+- FK-safe: attributes are inserted only for real `canonical_service_schemas` keys (anchor only), so backfill/non-schema/sibling rows never violate the `vendor_service_attributes` FK.
+
+**Couple card (read side):** `vendors/page.tsx` `fetchVendorPhotoMaps` joins `vendor_service_links` → `linked_services` enrichment; `plan-budget-accordion.tsx` renders **"✓ comes with X · Y · Z"** (CompareSheet "Comes with …"). Populates the previously-dead `linked_to_name` hook.
+
+**Vendor editor (create side, architect mandate):** `/vendor-dashboard/services` gains a per-service **"Comes with"** picker (vendor's own other categories only, server-validated) → new `setServiceLinks` action.
+
+**Verification:** `tsc --noEmit` 0 errors; coverage query verified against prod (182 nodes); seed row shapes (anchor + null-priced linked-only sibling + link row) accepted by prod schema in a rolled-back transaction. End-to-end seed run is the owner's admin-gated Create button (demo mode on).
+
+**SPEC IMPACT:** Linked-services-on-card moves from locked-but-unbuilt → **BUILT**. Corpus: `DECISION_LOG` row (2026-06-09); marked built in `Customer_Vendor_Marketplace_Architecture_2026-06-04.md` + `Service_Specifications_2026-06-02.md`; `Budget_Planner_Allocation_Engine_2026-06-05.md` forward-flag resolved (`is_linked_only` now exists). No pricing/SKU change.
+
 ## 2026-06-09 · fix(uploads): document + script the R2 bucket CORS policy (the real cause of "Upload failed")
 
 **Context:** Owner reported the onboarding background-music uploader (`/admin/onboarding` → `media` bucket) "still failed" after the checksum fix `e55a67b7`. Root cause is a layer past the code: the error is the `xhr.onerror` path (status 0, "Check your connection"), not "R2 rejected (status N)". On a cross-origin PUT, R2 only attaches `Access-Control-Allow-Origin` when a bucket **CORS rule matches** — with no match the browser masks the response as a network error. Presign 200 + upload onerror = missing/mismatched bucket CORS. The credentials are set (presign works); CORS is separate, was never applied, and the existing `OWNER_ACTIONS.md` step said to allow only `setnayan.com` — but the live origin is `https://www.setnayan.com` and R2 matches origins **exactly**.

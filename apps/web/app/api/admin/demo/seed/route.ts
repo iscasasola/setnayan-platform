@@ -25,7 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   isNonProdUrl,
-  fetchCanonicalServices,
+  fetchCoverageNodes,
   fetchResolvedSchemas,
   fetchReviewEventPool,
   seedCategory,
@@ -111,7 +111,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (error) {
       return NextResponse.json({ error: `Cleanup failed: ${error.message}` }, { status: 500 });
     }
-    const services = await fetchCanonicalServices(admin, null);
+    // Full-taxonomy coverage node set (canonical services ∪ backfilled empty
+    // leaves) — the client chunks through these by offset. `services` stays a
+    // string[] for the client contract (node keys).
+    const { nodes } = await fetchCoverageNodes(admin);
+    const services = nodes.map((n) => n.key);
     const batchId = randomUUID();
     await admin.from('admin_audit_log').insert({
       action: 'demo_vendors_create_start',
@@ -139,10 +143,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const vendorsMin = Math.max(1, Math.min(80, Number(body.vendorsMin ?? 20)));
     const vendorsMaxRaw = Math.max(vendorsMin, Math.min(80, Number(body.vendorsMax ?? 50)));
 
-    const services = await fetchCanonicalServices(admin, null);
-    const slice = services.slice(offset, offset + limit);
+    const coverage = await fetchCoverageNodes(admin);
+    const nodes = coverage.nodes;
+    const slice = nodes.slice(offset, offset + limit);
     if (slice.length === 0) {
-      return NextResponse.json({ ok: true, done: true, nextOffset: services.length, seeded: { vendors: 0, reviews: 0, blocks: 0 } });
+      return NextResponse.json({ ok: true, done: true, nextOffset: nodes.length, seeded: { vendors: 0, links: 0, reviews: 0, blocks: 0 } });
     }
 
     const schemaMap = await fetchResolvedSchemas(admin);
@@ -151,15 +156,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const reviewRows: Array<Record<string, unknown>> = [];
     const blockRows: Array<Record<string, unknown>> = [];
     let vendors = 0;
-    for (const service of slice) {
+    let links = 0;
+    for (const node of slice) {
+      const relatedKeys = (coverage.relatedByFolder.get(node.folderId ?? '_') ?? []).filter(
+        (k) => k !== node.key,
+      );
       const r = await seedCategory(admin, {
-        service,
+        service: node.key,
         batchId,
         schemaMap,
         reviewEventPool,
         cfg: { vendorsMin, vendorsMax: vendorsMaxRaw },
+        relatedKeys,
+        labelByKey: coverage.labelByKey,
       });
       vendors += r.vendorsCreated;
+      links += r.linksCreated;
       reviewRows.push(...r.reviewRows);
       blockRows.push(...r.blockRows);
     }
@@ -181,9 +193,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const nextOffset = offset + slice.length;
     return NextResponse.json({
       ok: true,
-      done: nextOffset >= services.length,
+      done: nextOffset >= nodes.length,
       nextOffset,
-      seeded: { vendors, reviews: reviewRows.length, blocks: blockRows.length },
+      seeded: { vendors, links, reviews: reviewRows.length, blocks: blockRows.length },
     });
   }
 

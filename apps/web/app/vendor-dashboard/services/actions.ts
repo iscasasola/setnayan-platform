@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import {
+  VENDOR_CATEGORIES,
+  displayServiceLabel,
+  type VendorCategory,
+} from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { TILE_PARENT } from '@/lib/taxonomy';
@@ -338,6 +342,83 @@ export async function updateVendorService(formData: FormData) {
     return redirect(
       `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
     );
+  }
+
+  revalidatePath('/vendor-dashboard/services');
+  redirect('/vendor-dashboard/services?saved=1');
+}
+
+/**
+ * Linked-services-on-card (locked spec). Set which OTHER categories THIS
+ * service "comes with" — the couple's card renders "comes with X · Y · Z" and
+ * the linked tiles auto-tag "✓ included with {vendor}". The chosen categories
+ * must be ones the vendor actually offers (validated server-side), so a vendor
+ * can only advertise coverage they really provide. Replaces the full link set
+ * for the anchor service each save. RLS double-scopes every write to the
+ * vendor's own profile; we also re-check ownership of the anchor here.
+ */
+export async function setServiceLinks(formData: FormData) {
+  const { supabase, profile } = await ensureProfile();
+
+  const anchorId = formData.get('vendor_service_id');
+  if (typeof anchorId !== 'string' || anchorId.length === 0) {
+    return redirect('/vendor-dashboard/services?error=Missing+service+id');
+  }
+
+  // The vendor's own services: validates the anchor + bounds the link choices
+  // to categories this vendor genuinely offers (no advertising coverage they
+  // don't have). category → distinct, excludes the anchor's own category.
+  const { data: ownRows } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id, category')
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  const own = (ownRows ?? []) as { vendor_service_id: string; category: string }[];
+  const anchor = own.find((r) => r.vendor_service_id === anchorId);
+  if (!anchor) {
+    return redirect('/vendor-dashboard/services?error=Service+not+found');
+  }
+  const offeredCategories = new Set(
+    own.map((r) => r.category).filter((c) => c !== anchor.category),
+  );
+
+  // Submitted checkboxes (name="linked"); keep only categories the vendor
+  // actually offers, dedupe, cap at 6 for a tidy card.
+  const chosen = Array.from(
+    new Set(
+      formData
+        .getAll('linked')
+        .filter((v): v is string => typeof v === 'string')
+        .filter((c) => offeredCategories.has(c)),
+    ),
+  ).slice(0, 6);
+
+  // Replace the anchor's link set atomically-enough for this flow: clear then
+  // re-insert. Both writes are owner-scoped (RLS + explicit profile filter).
+  const del = await supabase
+    .from('vendor_service_links')
+    .delete()
+    .eq('vendor_service_id', anchorId)
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (del.error) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent(del.error.message)}`,
+    );
+  }
+
+  if (chosen.length > 0) {
+    const rows = chosen.map((category, i) => ({
+      vendor_service_id: anchorId,
+      vendor_profile_id: profile.vendor_profile_id,
+      linked_canonical_service: category,
+      linked_label: displayServiceLabel(category),
+      display_order: i,
+    }));
+    const ins = await supabase.from('vendor_service_links').insert(rows);
+    if (ins.error) {
+      return redirect(
+        `/vendor-dashboard/services?error=${encodeURIComponent(ins.error.message)}`,
+      );
+    }
   }
 
   revalidatePath('/vendor-dashboard/services');

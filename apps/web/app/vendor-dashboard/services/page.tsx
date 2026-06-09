@@ -30,6 +30,7 @@ import {
   deleteVendorService,
   addServiceTimeSlot,
   deleteServiceTimeSlot,
+  setServiceLinks,
 } from './actions';
 
 export const metadata = { title: 'Services · Vendor' };
@@ -58,6 +59,29 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   if (!profile) redirect('/vendor-dashboard');
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
+
+  // Linked-services-on-card (locked spec): which OTHER categories each service
+  // "comes with". Pre-checks the "Comes with" picker on each edit form. The
+  // option set is the vendor's own distinct categories — a vendor can only
+  // advertise coverage they actually offer (enforced again in setServiceLinks).
+  const linkedByServiceId = new Map<string, Set<string>>();
+  const serviceIdList = services.map((s) => s.vendor_service_id);
+  if (serviceIdList.length > 0) {
+    const { data: linkRows } = await supabase
+      .from('vendor_service_links')
+      .select('vendor_service_id, linked_canonical_service')
+      .in('vendor_service_id', serviceIdList);
+    for (const r of (linkRows ?? []) as {
+      vendor_service_id: string;
+      linked_canonical_service: string;
+    }[]) {
+      const set = linkedByServiceId.get(r.vendor_service_id) ?? new Set<string>();
+      set.add(r.linked_canonical_service);
+      linkedByServiceId.set(r.vendor_service_id, set);
+    }
+  }
+  const distinctCategories = Array.from(new Set(services.map((s) => s.category)));
+
   // #1 multi-service-per-leaf: a category can now hold several listings, so we
   // track a COUNT per category (not just presence) to show on the picker.
   const serviceCountByCategory = services.reduce<Record<string, number>>(
@@ -517,6 +541,55 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                       </SubmitButton>
                     </div>
                   </form>
+                  {/* Linked-services-on-card — its own server action, so it
+                      must NOT nest inside the update form above. Shows only
+                      when the vendor offers ≥1 OTHER category to bundle in. */}
+                  {distinctCategories.filter((c) => c !== svc.category).length > 0 ? (
+                    <form
+                      action={setServiceLinks}
+                      className="mt-3 rounded-md border border-ink/10 bg-ink/[0.02] p-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="vendor_service_id"
+                        value={svc.vendor_service_id}
+                      />
+                      <p className="text-xs font-medium text-ink/75">Comes with</p>
+                      <p className="mt-0.5 text-[11px] text-ink/50">
+                        Other categories this service bundles in — the couple&rsquo;s
+                        card shows &ldquo;comes with&rdquo; these, included in your price.
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+                        {distinctCategories
+                          .filter((c) => c !== svc.category)
+                          .map((cat) => (
+                            <label
+                              key={cat}
+                              className="flex items-center gap-1.5 text-xs text-ink/75"
+                            >
+                              <input
+                                type="checkbox"
+                                name="linked"
+                                value={cat}
+                                defaultChecked={linkedByServiceId
+                                  .get(svc.vendor_service_id)
+                                  ?.has(cat)}
+                                className="h-3.5 w-3.5 cursor-pointer accent-terracotta"
+                              />
+                              <span>{displayServiceLabel(cat)}</span>
+                            </label>
+                          ))}
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <SubmitButton
+                          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-cream px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+                          pendingLabel="Saving…"
+                        >
+                          Save links
+                        </SubmitButton>
+                      </div>
+                    </form>
+                  ) : null}
                   {/* #3 time-bound slots — sibling of the edit form (its own
                       server actions, so it must NOT nest inside the update
                       form). Renders whenever the service has slots OR the

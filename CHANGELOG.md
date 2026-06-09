@@ -25,6 +25,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verify:** typecheck + build on CI; desktop = full-bleed hero + wide article + corner stats; mobile = stacked. No data/logic change, no migration.
 
 **SPEC IMPACT:** editorial presentation polish (§6.3 "feel like an editorial"). → none.
+## 2026-06-09 · feat(admin): recent-admin-activity feed on Home (nav redesign §3.4)
+
+**Context:** Completes the command-center Home from the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §3.4) — the last designed-but-deferred piece. So an admin landing on Home sees **what teammates just did** (avoids two admins working the same row).
+
+**What landed (`app/admin/page.tsx`):**
+- A **Recent admin activity** card reading the last 8 `admin_audit_log` rows (real data — no fake feed), with actor names resolved in one round trip. Each row: actor · friendly action phrase · optional reason snippet · relative time.
+- `friendlyAction()` maps known action codes to past-tense phrases (demo mode, widget reorder, ceremony type, two-admin approvals, taxonomy requests, …) and **humanizes unknown codes** (strip `:suffix`, underscores→spaces) so future audit actions read sensibly without a code change. Degrades to an "No admin actions logged yet" empty state.
+
+Read-only; no schema, no new route, no data change.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning).
+
+**SPEC IMPACT:** completes §3.4 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-09 · feat(seating): tables never overlap — collision avoidance (0008)
 

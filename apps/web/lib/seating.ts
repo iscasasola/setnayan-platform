@@ -15,9 +15,7 @@ export type TableType =
   | 'family_head_14'
   | 'family_head_16'
   | 'sweetheart_2'
-  | 'serpentine_6'
-  | 'serpentine_12'
-  | 'serpentine_18';
+  | 'serpentine';
 
 export type TableShapeHint =
   | 'round'
@@ -42,18 +40,10 @@ export const TABLE_TYPE_CATALOG: ReadonlyArray<{
   { type: 'family_head_14', label: 'Family head (14 seats)', defaultCapacity: 14, shapeHint: 'family_head' },
   { type: 'family_head_16', label: 'Family head (16 seats)', defaultCapacity: 16, shapeHint: 'family_head' },
   { type: 'sweetheart_2', label: 'Sweetheart (2 seats)', defaultCapacity: 2, shapeHint: 'sweetheart' },
-  { type: 'serpentine_6', label: 'Serpentine (6 seats · 1 segment)', defaultCapacity: 6, shapeHint: 'serpentine' },
-  { type: 'serpentine_12', label: 'Serpentine (12 seats · 2 segments)', defaultCapacity: 12, shapeHint: 'serpentine' },
-  { type: 'serpentine_18', label: 'Serpentine (18 seats · 3 segments)', defaultCapacity: 18, shapeHint: 'serpentine' },
+  // One quarter-donut wedge, up to 5 seats (≤3 outer · ≤2 inner). Chain + rotate
+  // several to build an S / circle / oval (2026-05-09 lock, single-wedge model).
+  { type: 'serpentine', label: 'Serpentine (up to 5 · curved)', defaultCapacity: 5, shapeHint: 'serpentine' },
 ];
-
-// Number of donut-wedge segments per serpentine type. Each segment seats 6
-// (2 inner-cove chairs + 4 outer-edge chairs). Per 2026-05-09 spec lock.
-export const SERPENTINE_SEGMENTS: Partial<Record<TableType, number>> = {
-  serpentine_6: 1,
-  serpentine_12: 2,
-  serpentine_18: 3,
-};
 
 export const TABLE_TYPE_LABEL: Record<TableType, string> = Object.fromEntries(
   TABLE_TYPE_CATALOG.map((t) => [t.type, t.label]),
@@ -168,9 +158,7 @@ export const TABLE_FOOTPRINT_M: Record<TableType, number> = {
   family_head_14: 5.1,
   family_head_16: 5.8,
   sweetheart_2: 1.6,
-  serpentine_6: 2.6,
-  serpentine_12: 3.6,
-  serpentine_18: 4.6,
+  serpentine: 2.4,
 };
 
 // Default placement for a table that hasn't been positioned yet — shared by
@@ -265,11 +253,12 @@ export function shapeHintFor(type: TableType): TableShapeHint {
 // per-seat circles around each table that were deferred in the 2026-05-13
 // MVP). Returns center-origin pixel offsets so the editor can absolutely
 // position each chair around the table hub. Pure + deterministic so the
-// canvas and any future print-pack renderer share one source of truth.
+// canvas and the print-pack renderer share one source of truth.
 //
-// Serpentine renders on a full circle in this pass — the locked quarter-donut
-// wedge geometry (2026-05-09) is a visual follow-up; capacity + interaction are
-// already correct, only the curve is approximated.
+// Shapes: round (chair ring) · sweetheart (couple side-by-side on one edge) ·
+// long_banquet / family_head (chairs along both long edges) · serpentine (the
+// 2026-05-09 quarter-donut-wedge S-curve — a wavy `outline` ribbon with chairs
+// on its concave inner + convex outer edges, ~2 inner : 4 outer per segment).
 // ---------------------------------------------------------------------------
 
 export const CHAIR_PX = 40;
@@ -278,16 +267,20 @@ export type SeatSlot = { x: number; y: number };
 
 export type TableGeometry = {
   box: { w: number; h: number };
-  hub: { w: number; h: number; radius: number; shape: 'round' | 'rect' | 'pill' };
+  hub: { w: number; h: number; radius: number; shape: 'round' | 'rect' | 'pill' | 'ribbon' };
   seats: SeatSlot[];
+  // Closed polygon (center-origin px) for a shape a circle/rectangle can't
+  // express — the serpentine ribbon. Renderers fill + stroke this instead of the
+  // hub box when present. Omitted for the simple shapes.
+  outline?: SeatSlot[];
 };
 
 export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeometry {
   const n = Math.max(1, capacity);
 
-  // Round / sweetheart / serpentine → chairs evenly around a circle.
-  if (shape === 'round' || shape === 'sweetheart' || shape === 'serpentine') {
-    const hubR = shape === 'sweetheart' ? 24 : Math.round(28 + n * 2.3);
+  // Round → chairs evenly around a circle.
+  if (shape === 'round') {
+    const hubR = Math.round(28 + n * 2.3);
     const seatR = hubR + 32;
     const seats: SeatSlot[] = [];
     for (let i = 0; i < n; i++) {
@@ -299,6 +292,100 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
       box: { w: reach * 2, h: reach * 2 },
       hub: { w: hubR * 2, h: hubR * 2, radius: hubR, shape: 'round' },
       seats,
+    };
+  }
+
+  // Sweetheart → the couple sit SIDE BY SIDE on one side of a small table
+  // (facing the room), not opposite each other. Up to 2 chairs on the top edge.
+  if (shape === 'sweetheart') {
+    const seatGap = 46;
+    const hubW = seatGap + 30;
+    const hubH = 30;
+    const seatY = -(hubH / 2 + 26); // both chairs above the table body
+    const all: SeatSlot[] = [
+      { x: -seatGap / 2, y: seatY },
+      { x: seatGap / 2, y: seatY },
+    ];
+    const seats = all.slice(0, Math.min(n, 2));
+    const halfW = Math.max(hubW / 2, seatGap / 2 + CHAIR_PX / 2) + 6;
+    const halfH = Math.max(hubH / 2, Math.abs(seatY) + CHAIR_PX / 2 + 6);
+    return {
+      box: { w: halfW * 2, h: halfH * 2 },
+      hub: { w: hubW, h: hubH, radius: hubH / 2, shape: 'pill' },
+      seats,
+    };
+  }
+
+  // Serpentine → ONE quarter-donut wedge (2026-05-09 lock). A curved band with
+  // up to 3 chairs on the convex OUTER arc + up to 2 on the concave INNER arc.
+  // Couples chain + rotate several wedges to build an S / circle / oval. Default
+  // fill is outer-first: 1→1+0 · 2→2+0 · 3→2+1 · 4→3+1 · 5→3+2.
+  if (shape === 'serpentine') {
+    const cap = Math.max(1, Math.min(5, n));
+    const FILL: Record<number, [number, number]> = {
+      1: [1, 0],
+      2: [2, 0],
+      3: [2, 1],
+      4: [3, 1],
+      5: [3, 2],
+    };
+    const [outerN, innerN] = FILL[cap]!;
+
+    const Ri = 80; // inner (concave) radius
+    const Ro = 120; // outer (convex) radius
+    const sweep = (104 * Math.PI) / 180; // total angular span of the wedge
+    const chairGap = CHAIR_PX / 2 + 4;
+    const Rco = Ro + chairGap; // outer chairs sit just beyond the convex edge
+    const Rci = Ri - chairGap; // inner chairs sit just inside the concave edge
+
+    // φ = 0 points straight up (−y); +φ sweeps to the right. Center of curvature
+    // is below the wedge so it bulges upward (convex on top).
+    const at = (r: number, phi: number): SeatSlot => ({ x: r * Math.sin(phi), y: -r * Math.cos(phi) });
+    const along = (count: number, r: number, inset: number): SeatSlot[] => {
+      const half = sweep / 2 - inset;
+      const out: SeatSlot[] = [];
+      for (let i = 0; i < count; i++) {
+        const phi = count === 1 ? 0 : -half + (2 * half * i) / (count - 1);
+        out.push(at(r, phi));
+      }
+      return out;
+    };
+
+    // Seat order: outer left→right, then inner left→right (stable seat_number map).
+    const seats: SeatSlot[] = [
+      ...along(outerN, Rco, 0.18),
+      ...along(innerN, Rci, 0.32),
+    ];
+
+    // Ribbon body: outer arc left→right, then inner arc right→left, closed.
+    const STEP = sweep / 16;
+    const outline: SeatSlot[] = [];
+    for (let phi = -sweep / 2; phi <= sweep / 2 + 1e-9; phi += STEP) outline.push(at(Ro, phi));
+    for (let phi = sweep / 2; phi >= -sweep / 2 - 1e-9; phi -= STEP) outline.push(at(Ri, phi));
+
+    // Recenter on the band's bounding box so rotation pivots on the visual centre.
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of outline) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
+    const ox = (minX + maxX) / 2;
+    const oy = (minY + maxY) / 2;
+    const shift = (p: SeatSlot): SeatSlot => ({ x: p.x - ox, y: p.y - oy });
+    const seatsC = seats.map(shift);
+    const outlineC = outline.map(shift);
+
+    const pad = CHAIR_PX / 2 + 6;
+    let halfW = 0, halfH = 0;
+    for (const p of [...seatsC, ...outlineC]) {
+      halfW = Math.max(halfW, Math.abs(p.x));
+      halfH = Math.max(halfH, Math.abs(p.y));
+    }
+    return {
+      box: { w: (halfW + pad) * 2, h: (halfH + pad) * 2 },
+      hub: { w: Ro - Ri + 18, h: maxY - minY, radius: 16, shape: 'ribbon' },
+      seats: seatsC,
+      outline: outlineC,
     };
   }
 

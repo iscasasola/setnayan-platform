@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(seating): serpentine = single quarter-donut wedge + sweetheart fix (PR A of 2)
+
+**Context:** Owner directive 2026-06-09. The seating editor + print PDF rendered **serpentine** tables as a full circle (wrong — a serpentine is a curved wedge) and seated the **sweetheart** couple on opposite sides of a small circle (should be side-by-side). Both render from one shared `tableGeometry()` in `lib/seating.ts`, so the fix flows to the canvas and the PDF at once. This is **PR A**; rotation + delete-chairs + table-connection are **PR B**.
+
+**Serpentine → one quarter-donut wedge (single-wedge model, supersedes the 2026-05-09 multi-segment "6 per segment" lock).** A serpentine table is now ONE curved wedge seating up to 5: ≤3 chairs on the convex **outer** arc + ≤2 on the concave **inner** arc, default fill outer-first (1→1+0 · 2→2+0 · 3→2+1 · 4→3+1 · 5→3+2). Couples chain + rotate several (PR B) to build S-curves / circles / ovals. `tableGeometry` returns a closed `outline` ribbon polygon (`hub.shape='ribbon'`); the editor draws it as an SVG `<path>` (also the drag handle, number badge centered), and the PDF draws it via `drawSvgPath`. Catalog: `serpentine_6/12/18` → a single `serpentine` (default 5); `SERPENTINE_SEGMENTS` removed; `TABLE_FOOTPRINT_M` updated.
+
+**Sweetheart fix.** Couple now sit side-by-side on one edge (small pill hub, ≤2 chairs on the top edge), not opposite each other.
+
+**Migration `20261015000000_iteration_0008_serpentine_single_wedge.sql` (APPLIED to prod 2026-06-09).** Enum swap (mirrors the 2026-06-03 realignment pattern — staging text col → recreate enum → swap → backfill): drops `serpentine_6/12/18`, adds `serpentine`. Backfills existing rows `serpentine_6/12/18 → serpentine`, clamps `capacity` to 5, and unseats overflow assignments (`seat_number >= 5`). ⚠ Destructive backfill (clamp + unseat) — low risk on the founder-only marketplace. Applied via a **scoped `db push`** (the prod migration ledger has duplicate-versioned migrations from unmerged branches at `20260925000000`/`20261014000000` with no files in `origin/main`, so a plain push is unsafe — see DECISION_LOG; resolved by staging only this migration as pending).
+
+**Files:** `apps/web/lib/seating.ts` (catalog + `tableGeometry` serpentine/sweetheart + `TableGeometry.outline`), `apps/web/lib/seating-pdf.ts` (ribbon via `drawSvgPath`), `apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx` (SVG ribbon hub), the migration. Verified: `tsc` 0 errors; esbuild smoke + rasterized PDF page 1 — serpentine wedge (3 outer + 2 inner), sweetheart side-by-side, round/banquet unchanged.
+
+**SPEC IMPACT:** 0008 Seating — serpentine geometry changed from multi-segment ring to single quarter-donut wedge (≤3 outer + ≤2 inner); sweetheart seating corrected. Logged in corpus `DECISION_LOG` 2026-06-09 (incl. the migration-ledger drift finding). No pricing change.
+
 ## 2026-06-09 · feat(seating-print): floor-plan PDF draws full-size tables WITH chairs + a name at every chair
 
 **Context:** Owner directive 2026-06-09 — "on the print … we want the pdf to have the full image size of the tables and chairs." The seating PDF's floor-plan page drew each table as a bare circle/rectangle with just its number — **no chairs at all** — an abstract dot-map, not the tables-with-chairs you see in the editor. (Confirmed scope with owner: floor-plan page · name at each chair.)

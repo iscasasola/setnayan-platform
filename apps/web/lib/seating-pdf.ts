@@ -365,8 +365,18 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     const seated = seatByTable.get(t.table_id)?.length ?? 0;
     const { fill, border } = theme.tableFor(i);
 
-    // hub (table body)
-    if (geo.hub.shape === 'round') {
+    // hub (table body) — a curved ribbon for serpentine (outline polygon),
+    // else a circle (round) or rectangle. Seat-space is y-down; map each point
+    // to the page the same way chairs are (cx + x·s, cy − y·s).
+    if (geo.outline) {
+      // pdf-lib maps a path point (px,py) → page (x + px·scale, y − py·scale),
+      // i.e. the same y-down→y-up flip we use for chairs, so feed raw seat-space.
+      const d =
+        geo.outline
+          .map((p, k) => `${k === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+          .join(' ') + ' Z';
+      p1.drawSvgPath(d, { x: cx, y: cy, scale, color: fill, borderColor: border, borderWidth: 1 });
+    } else if (geo.hub.shape === 'round') {
       p1.drawCircle({ x: cx, y: cy, size: geo.hub.radius * scale, color: fill, borderColor: border, borderWidth: 1 });
     } else {
       const hw = geo.hub.w * scale;

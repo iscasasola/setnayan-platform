@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Shortlist — 3-level accordion + remove dark P0 bar (0016 sync)
+
+**Context:** Owner 2026-06-09 — the Services **Shortlist** adopts the onboarding "The extras you love" drill-down: a 3-level accordion (parent folder → **leaf category** → its shortlisted services), and the dark "P0" budget bar is removed (the live budget readout now lives only on the Summary tab; the "Where your day stands" cover + "Matching you on" strip were already gone in earlier 0016 syncs).
+
+- `_components/plan-budget-accordion.tsx`:
+  - **Removed the dark `TopBar`** (the P0 black budget bar) + its component definition; aliased `--topbar-h:0px` so every `calc(var(--topbar-h)+…)` sticky-pile offset still resolves and the parent-folder heads now pile from the top of the surface. Dropped the unconditional `.shell-topbar{display:none}` injection — the `ServicesTakeover` wrapper owns that (mobile-only), so desktop keeps its EventSwitcher/notifications.
+  - **Third collapse level:** each leaf (`ChildRail`) is now a collapsed `.leaf-head` button (leaf name + shortlist-count pill / "Not started" + chevron, ported from onboarding `.exhead`/`.excount`/`.exchev`) that opens to reveal its service rail + Find / Add-manually row. Leaves toggle **independently** (a `Set<string>` of open groupIds lifted to the root, vs the single-open parents) so a couple can fan several open while comparing. `Compare` + the dependency nudge moved into the open body (valid HTML — no nested buttons; `DeadlineChip` stays in the head as a span). Rails stay **full-width** so the coverflow engine's width math is untouched.
+  - **Scroll engine:** the cosmetic curve-zoom effect re-caches its `.child-block`/`.rail` targets on a new `openLeafSig` dep (collapsed leaves render no `.rail`). The `#group-<id>` hash deep-link now opens the target **leaf** too (so its anchor renders).
+  - **Coachmark copy** updated off the retired "Lock this pick" → "Open a category → Compare → Add to build".
+
+**Verification:** `tsc --noEmit` clean (0 errors, whole web app). Pure client interaction + scoped CSS — no schema/data change. Visual check via the Vercel preview (per owner's minimize-verify preference).
+
+**SPEC IMPACT:** Part 2/6 of the Services 5-tab redesign (owner 2026-06-09). UI-only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09 (Plan Builder sync program).
+
 ## 2026-06-09 · feat(plan-builder): Summary — inline Setnayan AI toggle, drop Flag control (0016 sync)
 
 **Context:** Owner 2026-06-09 — the Services "Summary" tab is a read-only progress cover with exactly ONE control: an inline Setnayan AI on/off toggle that flips in place (no navigation). The old cover linked out to `/details` ("Manage / Turn on") and also hosted the per-category Flag/Compute control — both moved off Summary (Flag/Compute belongs on the Build tab).

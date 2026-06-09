@@ -173,6 +173,68 @@ export const TABLE_FOOTPRINT_M: Record<TableType, number> = {
   serpentine_18: 4.6,
 };
 
+// Default placement for a table that hasn't been positioned yet — shared by
+// the editor, the PDF export and the day-of map so an un-arranged layout looks
+// the same everywhere.
+//   spread=true  (free / no room size): FIXED comfortable spacing, so adding
+//     more grows the board outward (positions can exceed 100%); the editor
+//     auto-fits and the fixed-frame renderers fit via fitFloorTransform.
+//   spread=false (inside a defined room): pack within the walls (0–100%).
+export const FREE_GRID_SPACING = 48;
+export function defaultTablePosition(
+  index: number,
+  total: number,
+  spread: boolean,
+): { x: number; y: number } {
+  if (spread) {
+    const cols = Math.max(3, Math.ceil(Math.sqrt(total * 1.4)));
+    return {
+      x: 16 + (index % cols) * FREE_GRID_SPACING,
+      y: 20 + Math.floor(index / cols) * FREE_GRID_SPACING,
+    };
+  }
+  const cols = Math.max(2, Math.ceil(Math.sqrt(total)));
+  const rows = Math.max(1, Math.ceil(total / cols));
+  return {
+    x: ((index % cols) + 0.5) / cols * 100,
+    y: 22 + (Math.floor(index / cols) + 0.5) / rows * 70,
+  };
+}
+
+// Fixed-frame renderers (PDF export, day-of "find my table" map) draw table
+// positions as 0–100% of their box. The free auto-grow board in the editor can
+// place tables BEYOND 0–100 (it grows as tables are added and uses zoom/pan).
+// This returns a transform that fits such a spread layout back into the 0–100
+// box (uniform scale, centred) so those renderers show it correctly — and is a
+// NO-OP when everything is already within bounds, so existing layouts are
+// unchanged.
+export function fitFloorTransform(
+  points: ReadonlyArray<{ x: number; y: number }>,
+  pad = 6,
+): (x: number, y: number) => { x: number; y: number } {
+  const identity = (x: number, y: number) => ({ x, y });
+  if (points.length === 0) return identity;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  // Already comfortably inside the box → leave it exactly as-is.
+  if (minX >= -2 && minY >= -2 && maxX <= 102 && maxY <= 102) return identity;
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  const avail = 100 - 2 * pad;
+  const scale = avail / Math.max(w, h); // uniform → preserve the layout's aspect
+  const offX = pad + (avail - w * scale) / 2 - minX * scale;
+  const offY = pad + (avail - h * scale) / 2 - minY * scale;
+  return (x: number, y: number) => ({ x: x * scale + offX, y: y * scale + offY });
+}
+
 export type SeatingStats = {
   tableCount: number;
   totalCapacity: number;

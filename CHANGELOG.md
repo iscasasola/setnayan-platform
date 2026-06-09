@@ -20,6 +20,41 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None (dev tooling; the spec corpus is unaffected). Logged in DECISION_LOG.
 
+## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
+
+**Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000): **Pro 5 (monthly) / 50 (annual) · Enterprise 10 (monthly) / 100 (annual)**. Subscription PRICES unchanged (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) — only the bundled tokens.
+
+**What changed (two synced places):**
+- `lib/vendor-tier-caps.ts` — `TIER_SUBSCRIPTION_BUNDLE_TOKENS` → pro {5,50} · enterprise {10,100} (auto-updates the subscription-page display + the interim admin tier-set grant in `setVendorTier`).
+- Migration **`20261011000000_vendor_subscription_bundle_reprice.sql`** (applied to prod + tracked) — `CREATE OR REPLACE`s the money-path RPC `_apply_subscription_credit`'s bundle CASE to 5/50/10/100 (only the constants change; `20261010000000` created it with the old amounts).
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Auto-rollback prod smoke test confirms Pro-monthly grants 5 and Enterprise-annual grants 100.
+
+**SPEC IMPACT:** bundle reprice → corpus `DECISION_LOG.md` + tier matrix + memory.
+
+## 2026-06-09 · feat(website): editorial layout — full-width hero + write-up-led grid, stats in the corner
+
+**Context:** Owner: the cover photo should take the whole row, with the Setnayan "By the Numbers" stats moved UNDER the photo sharing the column with the write-up (write-up dominant, stats a slim corner) — and stay proper on mobile. Previously the hero sat INSIDE the left grid column, so it was boxed at ~⅔ width next to the stats sidebar.
+
+**Change (`editorial-content.tsx`, layout-only):** the hero photo is hoisted OUT of the grid to a **full-width** banner at the photo's native **16:9** (was `aspect-[16/10]` in a narrow column). Below it, a `lg:grid-cols-[1.95fr_0.85fr]` grid puts the **write-up (wide)** on the left and **By the Numbers (slim sidebar, left-border)** on the right "corner." On mobile (`grid-cols-1`) it stacks cleanly: full-width photo → story → numbers recap.
+
+**Verify:** typecheck + build on CI; desktop = full-bleed hero + wide article + corner stats; mobile = stacked. No data/logic change, no migration.
+
+**SPEC IMPACT:** editorial presentation polish (§6.3 "feel like an editorial"). → none.
+## 2026-06-09 · feat(admin): recent-admin-activity feed on Home (nav redesign §3.4)
+
+**Context:** Completes the command-center Home from the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §3.4) — the last designed-but-deferred piece. So an admin landing on Home sees **what teammates just did** (avoids two admins working the same row).
+
+**What landed (`app/admin/page.tsx`):**
+- A **Recent admin activity** card reading the last 8 `admin_audit_log` rows (real data — no fake feed), with actor names resolved in one round trip. Each row: actor · friendly action phrase · optional reason snippet · relative time.
+- `friendlyAction()` maps known action codes to past-tense phrases (demo mode, widget reorder, ceremony type, two-admin approvals, taxonomy requests, …) and **humanizes unknown codes** (strip `:suffix`, underscores→spaces) so future audit actions read sensibly without a code change. Degrades to an "No admin actions logged yet" empty state.
+
+Read-only; no schema, no new route, no data change.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning).
+
+**SPEC IMPACT:** completes §3.4 of `Admin_Console_Nav_Redesign_2026-06-08.md`. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(seating): tables never overlap — collision avoidance (0008)
 
 **Context:** Owner: "the tables will never overlap each other." Auto-grow (PR #1153) spaced *new* tables apart but didn't stop a **drag** from covering another, and a 16-seat family-head table (far wider than a grid cell) could still touch its neighbours. This adds true collision avoidance.

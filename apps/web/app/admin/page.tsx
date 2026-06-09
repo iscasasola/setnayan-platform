@@ -255,6 +255,41 @@ export default async function AdminOverview() {
     0,
   );
 
+  // Recent admin activity — the last few admin_audit_log entries (real data,
+  // not a fake feed) so an admin lands and sees what teammates just did, which
+  // avoids two admins working the same row. Actor names resolved in one extra
+  // round trip; degrades to an empty state if the log query fails.
+  const { data: auditRows } = await admin
+    .from('admin_audit_log')
+    .select('audit_log_id, action, target_id, reason, actor_user_id, created_at')
+    .order('created_at', { ascending: false })
+    .limit(8);
+  const activity = (auditRows ?? []) as Array<{
+    audit_log_id: string;
+    action: string;
+    target_id: string | null;
+    reason: string | null;
+    actor_user_id: string | null;
+    created_at: string;
+  }>;
+  const actorIds = [
+    ...new Set(activity.map((a) => a.actor_user_id).filter((x): x is string => !!x)),
+  ];
+  const actorName = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const { data: actors } = await admin
+      .from('users')
+      .select('user_id, email, display_name')
+      .in('user_id', actorIds);
+    for (const u of (actors ?? []) as Array<{
+      user_id: string;
+      email: string | null;
+      display_name: string | null;
+    }>) {
+      actorName.set(u.user_id, u.display_name || u.email || 'An admin');
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
@@ -328,6 +363,38 @@ export default async function AdminOverview() {
         <Stat label="🟢 Team Pool" value={teamPool} />
       </section>
 
+      {/* Recent admin activity — real admin_audit_log entries (§3.4 of the
+          redesign). Shows who-did-what so admins don't collide on the same row. */}
+      <section className="mb-8 rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6">
+        <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Recent admin activity
+        </h2>
+        {activity.length === 0 ? (
+          <p className="text-sm text-ink/55">No admin actions logged yet.</p>
+        ) : (
+          <ul className="divide-y divide-ink/5">
+            {activity.map((a) => (
+              <li key={a.audit_log_id} className="flex items-start gap-3 py-2.5">
+                <span
+                  aria-hidden
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta/60"
+                />
+                <span className="min-w-0 flex-1 text-sm text-ink/80">
+                  <strong className="font-semibold text-ink">
+                    {a.actor_user_id ? actorName.get(a.actor_user_id) ?? 'An admin' : 'System'}
+                  </strong>{' '}
+                  {friendlyAction(a.action)}
+                  {a.reason ? (
+                    <span className="text-ink/50"> — “{a.reason.slice(0, 80)}”</span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-xs text-ink/45">{timeAgo(a.created_at)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Tile href="/admin/users" icon="users" title="Users" body="Search, filter, flag team-pool members." />
         <Tile href="/admin/events" icon="calendar" title="Events" body="All events in the system + couple-side stats." />
@@ -359,6 +426,40 @@ export default async function AdminOverview() {
       </section>
     </div>
   );
+}
+
+function timeAgo(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+// Friendly past-tense phrasing for an admin_audit_log action code. Known codes
+// get a hand-written phrase; everything else is humanized (strip any ":suffix",
+// underscores → spaces, lowercased) so NEW action codes still read sensibly
+// without needing a code change here.
+const ACTION_PHRASES: Record<string, string> = {
+  demo_mode_enabled: 'turned demo mode on',
+  demo_mode_disabled: 'turned demo mode off',
+  site_widgets_reorder: 'reordered marketing-site widgets',
+  ceremony_type_set: 'set a wedding ceremony type',
+  ceremony_type_updated: 'updated a wedding ceremony type',
+  demo_vendors_create_start: 'started creating demo vendors',
+  user_team_member_toggle: 'changed a team-pool flag',
+  approval_request_created: 'requested a two-admin approval',
+  approval_execute_failed: 'hit a failed two-admin action',
+  taxonomy_request_promote: 'promoted a taxonomy request',
+  taxonomy_request_map: 'mapped a taxonomy request',
+};
+function friendlyAction(action: string): string {
+  const base = action.split(':')[0] ?? action;
+  if (ACTION_PHRASES[base]) return ACTION_PHRASES[base];
+  if (base.startsWith('approval_approved')) return 'approved a two-admin request';
+  if (base.startsWith('approval_rejected')) return 'rejected a two-admin request';
+  return base.replace(/_/g, ' ').toLowerCase();
 }
 
 function Stat({ label, value }: { label: string; value: number | null }) {

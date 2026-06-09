@@ -47,8 +47,6 @@ import { BuildCompare } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import { VendorAvailabilityIntersection } from '../_components/vendor-availability-intersection';
 import { getCommonAvailableDays, rangeFromPrecision, formatDayKey } from '@/lib/vendor-availability';
-import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
-import { buildTasteChips } from '@/lib/personalized-menu';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 
 export const metadata = { title: 'Vendors' };
@@ -72,7 +70,7 @@ type EventBudgetRow = {
   ceremony_type: string | null;
   secondary_ceremony_type: string | null;
   venue_setting: string | null;
-  // Match-criteria columns for the "Matching you on" strip (buildTasteChips).
+  // Match-criteria columns — feed the plan-budget model + Build/Lock anchors.
   region: string | null;
   estimated_pax: number | null;
   mood_feel_key: string | null;
@@ -354,7 +352,6 @@ export default async function VendorsPage({ params }: Props) {
   // per-candidate "% match" pills, AND the "👀 eyeing your date" nudge is
   // suppressed (generic browse). One governing gate: lib/setnayan-ai.
   const aiActive = isSetnayanAiActive(ev);
-  const planningManual = !aiActive;
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -379,29 +376,22 @@ export default async function VendorsPage({ params }: Props) {
     taxonomy,
   });
 
-  // "Matching you on" strip (owner 2026-06-04) — the couple's curated match
-  // criteria (date · region · ceremony · venue · guests · style · budget) shown
-  // where they browse services, with "Refine" → the editable Personalization
-  // page (/details). Same buildTasteChips source the retired home/for-you block
-  // used: the committed date wins, else the onboarding candidate/window capture
-  // (handled inside buildTasteChips). Chips render only for present criteria.
+  // Committed-date label + precision — feed the Build/Lock date anchor + the
+  // vendor-availability intersection. (The "Matching you on" strip that also
+  // used these was removed from the Shortlist in the 0016 Plan Builder sync —
+  // the cover now lives only on the Summary tab; Refine personalization is
+  // reachable from Summary's Setnayan-AI row → /details.)
   const matchPrecision =
     (ev?.event_date_precision as EventDatePrecision | null | undefined) ?? 'day';
   const matchFormattedDate = ev?.event_date
     ? formatEventDateWithPrecision(ev.event_date, matchPrecision)
     : null;
-  const matchChips = ev ? buildTasteChips(ev, matchFormattedDate) : [];
 
   // In-app Setnayan services now nest INSIDE the accordion's category rails
   // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a
   // "Tools & extras" strip — the standalone InAppServicesSection launcher grid
   // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
-  const services = (
-    <div className="space-y-4">
-      <MatchCriteriaStrip eventId={eventId} chips={matchChips} manual={planningManual} />
-      <PlanBudgetAccordion model={model} eventId={eventId} />
-    </div>
-  );
+  const services = <PlanBudgetAccordion model={model} eventId={eventId} />;
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).
   // When on, /vendors becomes a full-screen FOCUS MODE takeover with its own

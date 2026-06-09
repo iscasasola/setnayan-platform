@@ -27,10 +27,13 @@ export function BuildSummary({
   model,
   eventId,
   flaggedGroups = [],
+  buildsCount = 0,
 }: {
   model: PlanBudgetModel;
   eventId: string;
   flaggedGroups?: string[];
+  /** Number of saved builds (budget_builds rows) — drives the "Builds" tile. */
+  buildsCount?: number;
 }) {
   const status = STATUS_COPY[model.budgetStatus];
   const pct = Math.round(Math.min(1, Math.max(0, model.meterFill)) * 100);
@@ -73,10 +76,15 @@ export function BuildSummary({
         )}
       </section>
 
-      <section className="grid grid-cols-3 gap-3">
-        <Stat label="Locked" value={model.recap.finalized} />
-        <Stat label="Shortlisted" value={model.recap.shortlisted} />
-        <Stat label="Hours saved" value={model.recap.hoursSaved} />
+      {/* Prototype's 4-tile recap: Viewed · Shortlisted · Builds · Locked.
+          Viewed = the marketplace pool the couple has seen (recap.searched);
+          Builds = saved compare-builds (budget_builds). (Hours-saved is still
+          modeled; the approved prototype surfaces these four instead.) */}
+      <section className="grid grid-cols-4 gap-2">
+        <Stat label="Viewed" value={model.recap.searched} />
+        <Stat label="Shortlisted" value={model.recap.shortlisted} tone="mulberry" />
+        <Stat label="Builds" value={buildsCount} />
+        <Stat label="Locked" value={model.recap.finalized} tone="gold" />
       </section>
 
       <section className="space-y-3">
@@ -130,11 +138,20 @@ export function BuildSummary({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  tone = 'ink',
+}: {
+  label: string;
+  value: number;
+  tone?: 'ink' | 'gold' | 'mulberry';
+}) {
+  const numTone = tone === 'gold' ? 'text-terracotta' : tone === 'mulberry' ? 'text-mulberry' : 'text-ink';
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream px-3 py-3 text-center">
-      <div className="font-display text-2xl italic text-ink">{value}</div>
-      <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">{label}</div>
+    <div className="rounded-xl border border-ink/10 bg-cream px-2 py-3 text-center">
+      <div className={`font-display text-2xl italic ${numTone}`}>{value}</div>
+      <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/50">{label}</div>
     </div>
   );
 }

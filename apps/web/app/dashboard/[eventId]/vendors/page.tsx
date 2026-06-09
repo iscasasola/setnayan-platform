@@ -435,6 +435,7 @@ export default async function VendorsPage({ params }: Props) {
         budgetPhp={allocInputs.budgetPhp}
         leaves={allocInputs.leaves}
         config={allocInputs.config}
+        eventDate={ev?.event_date ?? null}
         plannerSlot={
           <BudgetAllocationPlanner
             eventId={eventId}

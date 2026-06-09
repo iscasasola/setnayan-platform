@@ -24,6 +24,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
+import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import { fetchUserEvents } from '@/lib/events';
 import { isFollowingVendor } from '@/lib/follow';
@@ -115,6 +116,15 @@ type PublicVendorRow = {
   // returns this as the placeholder instead of computing the legacy
   // "service · city" string.
   screen_name?: string | null;
+  // Phase C tier gates (vendor-tier-caps). `tier_state` is a NOT NULL
+  // DEFAULT 'free' enum on vendor_profiles (free | verified | pro |
+  // enterprise) but absent from FULL_VENDOR_PROFILE_SELECT, so it's
+  // explicitly added to `fullSelect`. Drives the day-1 name reveal
+  // (isTrueNameTier → pro/enterprise) and the review-display gate
+  // (tierCaps.reviewStarsCounted / reviewCommentsViewable). Optional +
+  // `?? null` everywhere so a missing column degrades to free (safe:
+  // name stays hidden, reviews stay gated).
+  tier_state?: string | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -194,7 +204,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -203,7 +213,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .select(fullSelect)
     .ilike('business_slug', slug)
     .maybeSingle();
-  if (error && /(is_demo|name_revealed_at|screen_name)/i.test(error.message)) {
+  if (error && /(is_demo|name_revealed_at|screen_name|tier_state)/i.test(error.message)) {
     ({ data } = await admin
       .from('vendor_profiles')
       .select(legacySelect)
@@ -252,6 +262,11 @@ export async function generateMetadata({ params }: Props) {
     // them post-this-PR (see microsite vendor query below).
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
+    // Phase C: thread the vendor's real tier_state into the day-1 name
+    // reveal. Pro/Enterprise (isTrueNameTier === true) reveal the real
+    // business_name immediately; Free (hidden) + Verified (screen) stay
+    // anonymized. `?? null` → isTrueNameTier(null) → free → hidden.
+    isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
   });
   const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
@@ -457,11 +472,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
      once at the page level so the hero, "Get in touch" copy,
      LocalBusiness JSON-LD's `name` field, BreadcrumbList's leaf
      label, and the FollowGate vendorName all surface the same
-     display label. Real business_name when the column says revealed
-     (or when the vendor's a paid tier · no subscription join here
-     yet, so isPaidTier=false today; the placeholder still only
-     renders while name_revealed_at IS NULL so a Pro+ vendor's name
-     reveals the moment they reply). */
+     display label. Real business_name when the column says revealed,
+     OR when the vendor is a true-name tier (Pro/Enterprise) per the
+     Phase C tier gates below; Free + Verified stay anonymized until
+     name_revealed_at is stamped on first reply. */
+  // Phase C tier caps for this vendor — drives the day-1 name reveal +
+  // the review-display gate (stars / comments) further down the page.
+  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
   const displayLabel = resolveVendorDisplayName({
     business_name: vendor.business_name,
     name_revealed_at: vendor.name_revealed_at ?? null,
@@ -475,6 +492,8 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     // computed taxonomy-and-city placeholder.
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
+    // Phase C: Pro/Enterprise reveal the real business_name day-1.
+    isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
   });
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
@@ -553,7 +572,14 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   }
 
   // Aggregate rating ONLY when real reviews exist. Never invent ratings.
-  if (reviewStats.total_count > 0 && reviewStats.avg_rating_overall > 0) {
+  // Phase C review-display gate (vendor-tier-caps): Free vendors
+  // (reviewStarsCounted=false) hide the star rating, so the schema.org
+  // aggregateRating is omitted too — no crawler-leak of tier-hidden stars.
+  if (
+    viewerTierCaps.reviewStarsCounted &&
+    reviewStats.total_count > 0 &&
+    reviewStats.avg_rating_overall > 0
+  ) {
     vendorJsonLd.aggregateRating = {
       '@type': 'AggregateRating',
       ratingValue: Number(reviewStats.avg_rating_overall.toFixed(2)),
@@ -973,6 +999,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           reviews={reviews}
           hasMore={hasMore}
           nextPage={reviewsPage + 1}
+          /* Phase C review-display gate (vendor-tier-caps · surface layer).
+             showStars: Free hides the star average + per-review star rows.
+             showComments: Free + Verified hide review bodies + axis stats +
+             vendor replies (Pro/Enterprise show them). Gated here, NOT in the
+             review libs, so the vendor dashboard self-view stays ungated. */
+          showStars={viewerTierCaps.reviewStarsCounted}
+          showComments={viewerTierCaps.reviewCommentsViewable}
         />
 
         <section className="space-y-4 py-8">
@@ -1194,6 +1227,8 @@ function ReviewsSection({
   reviews,
   hasMore,
   nextPage,
+  showStars,
+  showComments,
 }: {
   slug: string;
   businessName: string;
@@ -1201,6 +1236,10 @@ function ReviewsSection({
   reviews: ReadonlyArray<ReviewWithCouple>;
   hasMore: boolean;
   nextPage: number;
+  /** Phase C: Free hides the star average + per-review star rows. */
+  showStars: boolean;
+  /** Phase C: Free + Verified hide review bodies + axis stats + replies. */
+  showComments: boolean;
 }) {
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -1215,9 +1254,29 @@ function ReviewsSection({
         </div>
       </header>
 
-      <ReviewHeroMetrics stats={reviewStats} />
+      {/* Phase C: Free vendors (showStars=false) hide the star metrics
+          entirely — no average, no histogram. The per-card "new" treatment
+          on the marketplace already signals these vendors have no shown
+          rating; the microsite simply omits the metrics block. */}
+      {showStars ? <ReviewHeroMetrics stats={reviewStats} /> : null}
 
-      {reviews.length === 0 ? (
+      {/* Phase C: review bodies/comments are gated separately (showComments).
+          When OFF (Free + Verified), the per-review detail (body, axis stats,
+          vendor reply) is suppressed — but for Free (showStars also OFF) we
+          drop the review list entirely since nothing reviewable would render.
+          Verified (showStars ON, showComments OFF) still shows the star rows
+          without the comment bodies. */}
+      {!showStars && !showComments ? (
+        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
+          <p className="text-sm text-ink/65">
+            Reviews unlock when this vendor upgrades their Setnayan plan.
+          </p>
+          <p className="mt-1 text-xs text-ink/45">
+            Bookings through Setnayan generate a review request 24 hours after
+            the event.
+          </p>
+        </div>
+      ) : reviews.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
           <p className="text-sm text-ink/65">This vendor still has no review.</p>
           <p className="mt-1 text-xs text-ink/45">
@@ -1229,13 +1288,15 @@ function ReviewsSection({
         <ul className="space-y-4">
           {reviews.map((r) => (
             <li key={r.review_id}>
-              <ReviewRow review={r} />
+              <ReviewRow review={r} showStars={showStars} showComments={showComments} />
             </li>
           ))}
         </ul>
       )}
 
-      {hasMore ? (
+      {/* Hide the "Show more" pager when the whole review list is suppressed
+          (Free tier) — there's nothing more to page through. */}
+      {hasMore && (showStars || showComments) ? (
         <div className="pt-2">
           <Link
             href={`/v/${slug}?reviewsPage=${nextPage}#reviews`}
@@ -1297,7 +1358,17 @@ function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
   );
 }
 
-function ReviewRow({ review }: { review: ReviewWithCouple }) {
+function ReviewRow({
+  review,
+  showStars,
+  showComments,
+}: {
+  review: ReviewWithCouple;
+  /** Phase C: hide the overall star row when the tier can't count stars. */
+  showStars: boolean;
+  /** Phase C: hide the comment body + axis stats + vendor reply. */
+  showComments: boolean;
+}) {
   const author =
     review.couple_display_name && review.couple_display_name.trim().length > 0
       ? review.couple_display_name
@@ -1312,23 +1383,30 @@ function ReviewRow({ review }: { review: ReviewWithCouple }) {
     <article className="rounded-xl border border-ink/10 bg-cream p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <StarRow value={review.rating_overall} />
+          {/* Phase C: star row hidden for tiers that don't count stars. */}
+          {showStars ? <StarRow value={review.rating_overall} /> : null}
           <span className="text-sm font-medium text-ink">{author}</span>
         </div>
         <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
           {dateLabel}
         </time>
       </header>
-      {review.body ? (
-        <p className="mt-2 whitespace-pre-line text-sm text-ink/80">{review.body}</p>
+      {/* Phase C: comment body + per-axis stats + vendor reply are all gated
+          behind showComments (Free + Verified hidden, Pro/Enterprise shown). */}
+      {showComments ? (
+        <>
+          {review.body ? (
+            <p className="mt-2 whitespace-pre-line text-sm text-ink/80">{review.body}</p>
+          ) : null}
+          <dl className="mt-3 grid gap-2 text-[11px] text-ink/55 sm:grid-cols-4">
+            <AxisStat axis="communication" value={review.rating_communication} />
+            <AxisStat axis="quality" value={review.rating_quality} />
+            <AxisStat axis="value" value={review.rating_value} />
+            <AxisStat axis="on_time" value={review.rating_on_time} />
+          </dl>
+          {review.vendor_reply ? <VendorReplyBlock review={review} /> : null}
+        </>
       ) : null}
-      <dl className="mt-3 grid gap-2 text-[11px] text-ink/55 sm:grid-cols-4">
-        <AxisStat axis="communication" value={review.rating_communication} />
-        <AxisStat axis="quality" value={review.rating_quality} />
-        <AxisStat axis="value" value={review.rating_value} />
-        <AxisStat axis="on_time" value={review.rating_on_time} />
-      </dl>
-      {review.vendor_reply ? <VendorReplyBlock review={review} /> : null}
     </article>
   );
 }

@@ -136,6 +136,7 @@ const DISTANCE_MAX_KM = 100;
 import type { WizardTaskId } from '@/lib/wizard';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import { resolveVendorDisplayName } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import {
   completeVendorPickFromMarketplace,
   completeVendorPickFromCustom,
@@ -156,13 +157,12 @@ import {
  *     Catering / etc.) so the canonical_service is unambiguous at
  *     this surface — no need to thread it via WizardVendorRec.
  *
- *   • `isPaidTier` is `false` because the wizard surface doesn't
- *     join vendor subscription state. Per the canonical migration
- *     header pragmatic note in 20260530010000, the placeholder still
- *     only renders while `name_revealed_at IS NULL` — once a Pro or
- *     Enterprise vendor sends any chat reply (their first day, in
- *     practice) the DB trigger stamps `name_revealed_at` and the
- *     real name surfaces here anyway.
+ *   • `isPaidTier` is threaded from the rec's real `tier_state`
+ *     (Phase C tier gates · vendor-tier-caps) via `isTrueNameTier`,
+ *     so Pro/Enterprise reveal their real business_name day-1 — even
+ *     before any chat reply stamps `name_revealed_at`. Free + Verified
+ *     stay anonymized (`isTrueNameTier` returns false for both).
+ *     `?? null` → free → hidden when the column is absent.
  *
  * Cross-references:
  *   • CLAUDE.md 2026-05-30 row "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED"
@@ -176,6 +176,8 @@ function vendorDisplayName(
   return resolveVendorDisplayName({
     business_name: rec.business_name,
     name_revealed_at: rec.name_revealed_at,
+    // Phase C: Pro/Enterprise reveal real business_name day-1.
+    isPaidTier: isTrueNameTier(rec.tier_state ?? null),
     primary_canonical_service: canonicalServices[0] ?? null,
     location_city: rec.location_city,
     // CLAUDE.md 2026-05-30 refinement row · pass stored screen_name

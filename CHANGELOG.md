@@ -16,6 +16,36 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** 0010 Mood Board gains the free curated reception designer (the spec's stylist "Composite Scene" intent, delivered as a free stylized layer; the photoreal AI render stays the premium tier). Treatment taxonomy + the `reception_design` shape are new.
 
+## 2026-06-09 · feat(vendor-tier): #4 Phase C gates PR-b — tier-aware names + reviews + radius + searchability(flag-dark); video REMOVED
+
+**Context:** Second of the #4 PRs (PR-c Enterprise video is **cancelled** — see below). The interlocking "task #19 family" + the radius gate, all sharing the `tier_state`-into-select reads. Built via an implementation agent, then a 5-agent adversarial verification panel (name-reveal=sound · radius=sound · reviews=sound · searchability=sound — the only panel defect was the migration-timestamp collision, now fixed).
+
+**What landed:**
+- **Name-reveal Part A** — threaded `isPaidTier: isTrueNameTier(<row>.tier_state ?? null)` into **all 9 `resolveVendorDisplayName` call sites** (was hardcoded `false` → Pro/Enterprise names *never revealed day-1*; now they do). Every feeding query adds `tier_state` to its select. Verified vendors stay anonymized (`isTrueNameTier('verified')===false`); `?? null` → free → hidden (no leak). The vendor's own dashboard self-view stays ungated.
+- **Review display gate + sort-leak fix** — stars on `reviewStarsCounted` (free hidden), comment bodies on `reviewCommentsViewable` (free+verified hidden), gated at the **surface** layer (NOT the shared review libs → self-view ungated). Marketplace re-sorts `highest_rated`/`most_reviews` on **gated** values (no ranking by hidden stars), preserving `is_setnayan_service → ad_rank` precedence.
+- **Service-radius gate** (`lib/wizard-recommendations.ts` + dashboard `category-search.ts`) — `tierCaps.serviceRadiusKm`, dashboard-Services-only (anchor coords), **explicit fail-open** (missing tier probe → admit). Onboarding region-ring + /vendors browse untouched.
+- **Searchability gate — FLAG-DARK** (`lib/vendor-search-gate.ts` + `app/vendors/page.tsx`) — `.neq('tier_state','free')` only when `VENDOR_TIER_SEARCH_GATE==='true'` && not demo. **Default OFF → query never references `tier_state` → prod byte-identical** (a raw filter would empty the founder-only marketplace). Migration **`20261005000000_vendor_market_stats_tier_state.sql`** (applied to prod + tracked) appends `tier_state` to the view (rebased on `20260620000000`, hq_region preserved). *(Renamed off `20260929000000`→`20260930000000`→`20261005000000` — each earlier prefix collided with a merged migration; panel caught the first.)*
+- **Enterprise VIDEO CALLS — REMOVED** (owner). `ChatLevel` drops `'chat_video'`; Enterprise `chat:'chat'`. FREE chat-block unaffected. Stripped 2 `/for-vendors` video-call claims; kept Pabati "video greetings" + external prep/verification labels. 2026-05-16 video-retired lock stands; PR-c cancelled.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint` ✓. Migration applied to prod (view exposes `tier_state`, 26 cols). 5-agent adversarial panel green.
+
+**SPEC IMPACT:** #4 PR-b + video removal → corpus `DECISION_LOG.md` + tier matrix. #4 COMPLETE. Next: #5 self-serve subscription checkout.
+
+## 2026-06-09 · feat(admin): group onboarding settings into a type-organized /admin/onboarding surface
+
+**Context:** Owner 2026-06-09 — "there are parts in the admin that handle the onboarding wedding settings. In the future we'll have multiple onboardings. Group any custom settings needed for the onboarding (wedding), like the background music." Today there's exactly **one** onboarding-specific config knob — the wedding-onboarding **background music** — and it was buried in the generic `/admin/settings` page. This gives onboarding config its own home, **organized by onboarding type**, so each future flow (birthday, corporate, …) adds a section instead of scattering knobs.
+
+**What landed:**
+- **New** `app/admin/onboarding/page.tsx` — the Onboarding hub. A **Wedding** section houses the **background music** control (relocated) + a "content the wedding onboarding pulls from" links row (Songs · Refinements · Wedding types — those are product-wide catalogs, linked for discoverability, not duplicated). A dashed **"More onboarding flows"** placeholder communicates the multi-type future.
+- **New** `app/admin/onboarding/actions.ts` — `updateOnboardingMusic` moved here from `settings/actions.ts`. **Same `platform_settings` columns** (`onboarding_bg_music_r2_key` / `_enabled`) — the `/onboarding/wedding` read path is **unchanged**, so this is a relocation, not a behavior change (zero risk to the live music).
+- `settings/page.tsx` — music section removed; replaced with an "Onboarding →" link card (discoverability) + dropped now-unused imports/logic. `settings/actions.ts` — `updateOnboardingMusic` + its helper removed.
+- **Nav:** Onboarding added to the desktop Platform group, the mobile "More" Platform accordion, and the bottom-nav More match.
+
+**Data-model note (forward):** while only Wedding exists, its music is stored in the single `platform_settings` columns. When a 2nd onboarding type needs its own music/knobs, storage moves to a per-type `onboarding_settings` table; the UI is already type-organized so that's additive (deliberately deferred — YAGNI until a 2nd flow exists).
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning). No migration, no DB change.
+
+**SPEC IMPACT:** new admin surface `/admin/onboarding` (0023). Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-09 · feat(services): Budget "Build" — auto-fill seam in Summary (Phase 3d, flag-dark)
 
 **Context:** Phase 3d of the Pin solver — the paid auto-fill *seam*. Grounding confirmed the **per-category AI matcher already ships** on the Shortlist (`category-search.ts` + `compat-score.ts`, gated on `isSetnayanAiActive`), and a cross-tab CTA is blocked by the deferred URL-tab-state — so this lands the safe, contained piece: the gap-aware free/paid messaging, not a risky bulk auto-write.

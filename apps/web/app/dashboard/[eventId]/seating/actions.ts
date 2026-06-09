@@ -40,10 +40,12 @@ export async function createTable(formData: FormData) {
   if (trimmed.length === 0 || trimmed.length > 64) {
     throw new Error('Label must be 1–64 chars');
   }
-  const fallback = TABLE_TYPE_CATALOG.find((t) => t.type === type)?.defaultCapacity ?? 8;
+  // A table's capacity can't exceed its TYPE's seat count (a Sweetheart seats 2,
+  // not 10). Cap at the type's defaultCapacity, not a global 32. (owner 2026-06-09)
+  const typeSeats = TABLE_TYPE_CATALOG.find((t) => t.type === type)?.defaultCapacity ?? 8;
   const capacity = Math.max(
     1,
-    Math.min(32, typeof capacityRaw === 'string' ? Number(capacityRaw) || fallback : fallback),
+    Math.min(typeSeats, typeof capacityRaw === 'string' ? Number(capacityRaw) || typeSeats : typeSeats),
   );
 
   const supabase = await createClient();

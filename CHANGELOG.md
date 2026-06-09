@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(seating): table capacity can't exceed the table type's seat count
+
+**Context:** Owner: "the seat count also must not exceed the seat count of the table." The Add-table form let you set any capacity 1–32 regardless of the chosen type — e.g. a **Sweetheart (2 seats)** with a capacity of **10**. Both the form and the server allowed it.
+
+**Fix (two layers):**
+- **Client** (`seating-editor.tsx` `AddTablePanel`): the type select + capacity input are now controlled. Capacity's `max` = the selected type's `defaultCapacity`; changing the type resets capacity to that type's seats; typing clamps to `[1, typeSeats]`. (Sweetheart → max 2, Round-12 → max 12, etc.)
+- **Server** (`seating/actions.ts` `createTable`): the capacity clamp changed from a global `Math.min(32, …)` to `Math.min(typeSeats, …)` (the type's `defaultCapacity`), so a hand-crafted request can't exceed it either.
+
+**Verification:** `pnpm typecheck` ✅ clean.
+
+**SPEC IMPACT:** None — bug fix; the 0008 seating catalog seat counts (`TABLE_TYPE_CATALOG.defaultCapacity`) are unchanged, now enforced as the per-table cap.
+
 ## 2026-06-09 · feat(seating-print): floor-plan PDF draws full-size tables WITH chairs + a name at every chair
 
 **Context:** Owner directive 2026-06-09 — "on the print … we want the pdf to have the full image size of the tables and chairs." The seating PDF's floor-plan page drew each table as a bare circle/rectangle with just its number — **no chairs at all** — an abstract dot-map, not the tables-with-chairs you see in the editor. (Confirmed scope with owner: floor-plan page · name at each chair.)

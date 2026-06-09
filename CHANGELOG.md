@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Shortlist — single-open accordion (0016 sync)
+
+**Context:** Final 0016 Plan Builder sync. The prototype's category list is **single-open** ("when a category is opened, the other collapses"); the live Shortlist rendered all 10 folders **always-open** as a sticky-stacking pile. Owner green-lit the switch this session (the prior held item). The sticky **header** pile is unchanged — only the **bodies** now collapse.
+
+- `_components/plan-budget-accordion.tsx`: the folder `.cat-head` (was a non-interactive sticky label) becomes a single-open **toggle `<button>`** — `aria-expanded`/`aria-controls`, a rotating `▾` chevron (reuses the existing `.cat-head .chev` + `.active` CSS), and a UA button-reset rule so it keeps the sticky-label look. `FolderSection` gains `open`/`onToggle`; the body renders only when `open`. `PlanBudgetAccordion` holds `openFolder` state (default-open the first folder), a `toggleFolder`, and a `folderOfGroup` memo. A `#group-<id>`/`#folder-<id>` **hash deep-link** opens whichever folder contains the target (so its anchor renders), via a mount + `hashchange` effect. The scroll-engine effect re-caches its targets on `openFolder` change — only the open folder's `.child-block`/`.rail` are in the DOM, so collapsed folders get no spurious curve transforms or rail-snap haptics.
+
+**Verification:** `pnpm -C apps/web typecheck` (`tsc --noEmit`) + `next lint --file` clean. No schema/data change — pure client interaction. Vercel-preview click-through pending.
+
+**SPEC IMPACT:** Reverses the 2026-06-02 "restore the always-open signature vertical pile" choice in favor of the approved single-open prototype (owner-confirmed this session). UI-only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09 (Plan Builder sync program).
+
 ## 2026-06-09 · feat(plan-builder): Shortlist — taxonomy leaf labels + "Add manually" empty state (0016 sync)
 
 **Context:** Two Shortlist refinements. (1) Each child card's label was the hardcoded `group.label`; the 10 folder headers already follow `/admin/taxonomy` renames via `taxonomy.folderLabel`, but the leaves did not. (2) An empty category showed a single "Find {label}" affordance (marketplace search) with no way to add a vendor the couple already knows by hand.

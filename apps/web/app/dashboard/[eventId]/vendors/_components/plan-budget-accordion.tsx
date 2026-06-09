@@ -13,7 +13,9 @@
  *   1. Dark sticky top budget bar — Chosen Σ · Range vs target · meter.
  *   2. "Where your day stands" overview — estimate · chosen · could-land ·
  *      what-to-lock-next deadline list · scroll cue.
- *   3. 10 sticky-stacking category folders (the taxonomy shrink).
+ *   3. 10 sticky-stacking category folders (the taxonomy shrink). Single-open
+ *      (owner 2026-06-09): the sticky heads are toggle buttons; one body
+ *      expands at a time, opening another collapses the current.
  *   4. Per-category vendor rails — 300px cards (photo · name · city ·
  *      stars · badges · price/linked · eyeing) + a dashed Find-more card.
  *   5. Bottom recap "Look how far you've come".
@@ -36,6 +38,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -263,6 +266,9 @@ const PBA_CSS = `
    scroll-margin-top clears the bar + the heads piled above this one so a
    folder anchor (#folder-*) jump lands the head just below them, never hidden. */
 .pbacc .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h) + 2px)}
+/* The cat-head is now a single-open toggle <button> (owner 2026-06-09) — reset
+   the UA button chrome so it keeps the sticky label look. */
+.pbacc button.cat-head{appearance:none;-webkit-appearance:none;cursor:pointer;font:inherit;margin:0}
 /* Group anchor jumps (#group-* from "What to lock next") land the child rail
    just below the budget bar + the folder heads piled above it. --folder-idx is
    set inline on each group wrapper (ChildRail) = its folder's index, so the
@@ -626,6 +632,42 @@ export function PlanBudgetAccordion({
   const [search, setSearch] = useState<{ groupId: string; label: string } | null>(null);
   const openSearch = (groupId: string, label: string) => setSearch({ groupId, label });
 
+  // ── Single-open accordion (owner 2026-06-09) ─────────────────────────────
+  // One folder body expands at a time; opening another collapses the current
+  // (the prototype's single-open model — "when a category is opened, the other
+  // collapses"). The sticky-stacking HEADER pile is unchanged; only the bodies
+  // collapse, so the curve-merge scroll engine now operates within the single
+  // open folder. Default-open the first folder so the surface opens with
+  // content. A `#group-<id>` / `#folder-<id>` hash deep-link opens whichever
+  // folder contains the target so its anchor actually renders.
+  const folderOfGroup = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of model.folders) for (const c of f.children) m.set(c.groupId, f.folder);
+    return m;
+  }, [model.folders]);
+  const [openFolder, setOpenFolder] = useState<string | null>(
+    model.folders[0]?.folder ?? null,
+  );
+  const toggleFolder = (folderId: string) =>
+    setOpenFolder((cur) => (cur === folderId ? null : folderId));
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const applyHash = () => {
+      const h = window.location.hash;
+      const g = h.match(/^#group-(.+)$/);
+      if (g?.[1]) {
+        const fid = folderOfGroup.get(g[1]);
+        if (fid) setOpenFolder(fid);
+        return;
+      }
+      const f = h.match(/^#folder-(.+)$/);
+      if (f?.[1]) setOpenFolder(f[1]);
+    };
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, [folderOfGroup]);
+
   // ── "Dig deeper" open transition (owner 2026-06-05) ──────────────────────
   // Tapping a service/vendor card enlarges it (local .opening state on the card)
   // then opens its detail. The full-screen loading overlay is lifted to root —
@@ -810,7 +852,10 @@ export function PlanBudgetAccordion({
       window.removeEventListener('resize', schedule);
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [model]);
+    // Re-cache the scroll targets when the open folder changes — only the open
+    // folder's .child-block/.rail are in the DOM (single-open), so collapsed
+    // folders never get spurious curve transforms or rail-snap haptics.
+  }, [model, openFolder]);
 
   return (
     <div className="pbacc" ref={rootRef}>
@@ -884,6 +929,8 @@ export function PlanBudgetAccordion({
               folder={folder}
               eventId={eventId}
               index={index}
+              open={openFolder === folder.folder}
+              onToggle={toggleFolder}
               onCompare={setCompare}
               onOpenSearch={openSearch}
               onOpen={openService}
@@ -1028,6 +1075,8 @@ function FolderSection({
   folder,
   eventId,
   index,
+  open,
+  onToggle,
   onCompare,
   onOpenSearch,
   onOpen,
@@ -1036,22 +1085,29 @@ function FolderSection({
   folder: AccordionFolder;
   eventId: string;
   index: number;
+  /** Single-open accordion — is THIS folder the one expanded? */
+  open: boolean;
+  onToggle: (folderId: string) => void;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
 }) {
   const hasLocked = folder.lockedTotal > 0;
-  // Folders render always-open (the prototype model) so the scroll engine can
-  // curve-merge each .child-block into this sticky parent header as the couple
-  // scrolls past it. The .cat-head is a non-interactive sticky label, not a
-  // collapse toggle.
+  // Single-open (owner 2026-06-09): the .cat-head is now a toggle button; only
+  // the OPEN folder renders its body. The header pile still stack-and-stays
+  // (sticky top = topbar-h + idx*head-h) — collapsing only the bodies. The
+  // scroll engine curve-merges this folder's .child-blocks while it's open.
   return (
     <>
-      <div
+      <button
+        type="button"
         id={`folder-${folder.folder}`}
-        className="cat-head"
+        className={`cat-head${open ? ' active' : ''}`}
         style={{ ['--idx']: index, zIndex: 25 - index } as CSSProperties}
+        aria-expanded={open}
+        aria-controls={`catbody-${folder.folder}`}
+        onClick={() => onToggle(folder.folder)}
       >
         <span className="nm">{folder.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1062,10 +1118,14 @@ function FolderSection({
                 ? `${folder.pickCount} shortlisted`
                 : 'Not started'}
           </span>
+          <span className="chev" aria-hidden>
+            ▾
+          </span>
         </span>
-      </div>
+      </button>
 
-      <div className="cat-body">
+      {open ? (
+      <div className="cat-body" id={`catbody-${folder.folder}`}>
         {folder.children.length === 0 ? (
           // Design always has children + the Digital Services rail below, so
           // skip the "nothing here" line for it even in the (unreachable) empty
@@ -1103,6 +1163,7 @@ function FolderSection({
           </div>
         )}
       </div>
+      ) : null}
     </>
   );
 }

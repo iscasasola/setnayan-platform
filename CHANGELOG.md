@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · chore(vendor-tier): reprice subscription token bundles — Pro 5/50 · Enterprise 10/100
+
+**Context:** Owner reissued the per-period free-token bundle granted with a paid Pro/Enterprise subscription. New rates (replacing 30/300 · 100/1000): **Pro 5 (monthly) / 50 (annual) · Enterprise 10 (monthly) / 100 (annual)**. Subscription PRICES unchanged (Pro ₱6,000/₱60,000 · Ent ₱10,000/₱100,000) — only the bundled tokens.
+
+**What changed (two synced places):**
+- `lib/vendor-tier-caps.ts` — `TIER_SUBSCRIPTION_BUNDLE_TOKENS` → pro {5,50} · enterprise {10,100} (auto-updates the subscription-page display + the interim admin tier-set grant in `setVendorTier`).
+- Migration **`20261011000000_vendor_subscription_bundle_reprice.sql`** (applied to prod + tracked) — `CREATE OR REPLACE`s the money-path RPC `_apply_subscription_credit`'s bundle CASE to 5/50/10/100 (only the constants change; `20261010000000` created it with the old amounts).
+
+**Verify:** `tsc` ✓ · `next lint` ✓. Auto-rollback prod smoke test confirms Pro-monthly grants 5 and Enterprise-annual grants 100.
+
+**SPEC IMPACT:** bundle reprice → corpus `DECISION_LOG.md` + tier matrix + memory.
+
 ## 2026-06-09 · feat(website): editorial layout — full-width hero + write-up-led grid, stats in the corner
 
 **Context:** Owner: the cover photo should take the whole row, with the Setnayan "By the Numbers" stats moved UNDER the photo sharing the column with the write-up (write-up dominant, stats a slim corner) — and stay proper on mobile. Previously the hero sat INSIDE the left grid column, so it was boxed at ~⅔ width next to the stats sidebar.

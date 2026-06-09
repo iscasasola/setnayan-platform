@@ -202,16 +202,32 @@ export async function saveVendorProfile(formData: FormData) {
   const hq_address = nullIfBlank(formData.get('hq_address'));
   const location_city = nullIfBlank(formData.get('location_city'));
 
-  // Tier portfolio-photo cap (Phase B): FREE 30 · VERIFIED 50 · PRO 100 ·
-  // ENTERPRISE ∞. Soft-probe tier_state (not in FULL_VENDOR_PROFILE_SELECT).
+  // Tier caps (Phase B portfolio + Phase C #4 custom slug). Soft-probe
+  // tier_state + the current business_slug in one query (neither is in
+  // FULL_VENDOR_PROFILE_SELECT). One read, reused for both caps below.
   const { data: tierRow } = await supabase
     .from('vendor_profiles')
-    .select('tier_state')
+    .select('tier_state, business_slug')
     .eq('user_id', user.id)
     .maybeSingle();
-  const portfolioMax = tierCaps(
-    asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
-  ).portfolioPhotos;
+  const tierRowTyped = tierRow as
+    | { tier_state?: string | null; business_slug?: string | null }
+    | null;
+  const caps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
+  const portfolioMax = caps.portfolioPhotos;
+
+  // Phase C #4 — a custom website slug is a PRO/ENTERPRISE feature
+  // (caps.customWebsiteName). FREE/VERIFIED may keep their existing slug but
+  // cannot CHANGE it — reject only the change, never error on an unchanged
+  // save (so a downgrade never blocks ordinary profile edits).
+  const currentSlug = tierRowTyped?.business_slug ?? null;
+  if (!caps.customWebsiteName && business_slug !== currentSlug) {
+    return redirect(
+      `/vendor-dashboard?error=${encodeURIComponent(
+        'A custom website address is a Pro feature. Upgrade to change your slug.',
+      )}`,
+    );
+  }
 
   const payload = {
     business_name: nonBlank(formData.get('business_name'), 128),

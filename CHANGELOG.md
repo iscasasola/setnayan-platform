@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Shortlist vendor cards → hero-photo layout (PR A of the 5-page redesign)
+
+**Context:** First slice of porting the owner-approved 5-page Plan Builder redesign (`0016` prototype `Plan_Builder_5Page_Prototype_2026-06-09.html`) onto the live `/dashboard/[eventId]/vendors` surface. Approved sequence A→F, shipped sequentially. This PR is the Shortlist tab's vendor-card visual upgrade ONLY — no backend/flow change; all hardened actions (finalize/lock, remove, search, conflict gates) untouched.
+
+**`plan-budget-accordion.tsx`:** the card's 128px photo becomes a 158px **hero image** with the **%-match** badge (bottom-left, tier-colored) and **price** (bottom-right) lifted onto the photo as overlays over a legibility scrim — placed clear of the remove-× (top-left) and ★Chosen (top-right) corners. Match removed from the meta badge row; meta keeps price only as the "Price on inquiry" fallback when no price exists. CSS + JSX relocation; no new data, no type surface, no new imports.
+
+**Verification:** presentational change reusing existing `match`/`price`/`linked` values; CI typecheck + lint + production build + Vercel preview gate the merge.
+
+**SPEC IMPACT:** None — adopts the already-locked `0016` prototype design; that prototype + its DECISION_LOG rows land in the spec corpus separately.
+
 ## 2026-06-09 · feat(mood-board): inspiration board on the mood-board page (0010)
 
 **Context:** Owner: "we also want a place where they can upload inspirations. can we use that to further enhance the photo output to be more accurate?" Yes — Nano Banana takes **multiple references**, so the future "Make it real" render will feed it the stylized scene (structure) PLUS the couple's inspiration photos (aesthetic) → the photoreal output matches their taste. This PR surfaces the upload; the render wiring follows.

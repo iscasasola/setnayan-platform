@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(admin): two-admin (four-eyes) approval queue — /admin/approvals (nav redesign PR 4)
+
+**Context:** PR 4 (final core piece) of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §3.3). The audit found the §9.1 four-eyes loop **unbuilt** — `admin_approval_requests` was only a comment ("ships V1.x"). This builds the primitive end-to-end: one admin initiates a major decision, a **different** admin approves before it executes.
+
+**Migration** `20260930000000_admin_approval_requests.sql` (idempotent): new `admin_approval_requests` table (action_type · target_user_id · payload · rationale · status · initiated_by · decided_by · decision_reason · expires_at(7d)) with a **four-eyes CHECK** `decided_by <> initiated_by`, status/action_type CHECKs, indexes, and admin-only RLS via `public.is_admin()` (mirrors `concierge_abuse_flags`). No XOR-on-users constraint added (would risk pre-existing rows) — mutual exclusivity is enforced in the executor.
+
+**Feature:**
+- `app/admin/approvals/page.tsx` — queue UI: a **New request** form (action + target email + rationale), a **Pending** list (Approve/Reject; the row is **disabled with a note when you are the initiator**), and a **Recently decided** table. Plus a bootstrap banner when <2 admins exist (§4.1).
+- `app/admin/approvals/actions.ts` — `requireAdmin()` (caller is admin, server-side) → `createAdminClient()` writes. `requestPrivilegedGrant`, `approveRequest`, `rejectRequest`. **Four-eyes enforced 3×** (atomic-claim `.neq('initiated_by', me)` + DB CHECK + UI disable). The approve/reject **atomic claim** (`UPDATE … WHERE status='pending' AND expires_at>now AND initiated_by<>me RETURNING …`) means a request is decided **once**, never after expiry, never by its initiator (no TOCTOU/double-execute). Execute-failure rolls the request back to `pending`. Every mutation audit-logs.
+- V1 action types = privilege-escalation grants (single-column `users` updates): `grant_internal_account` (§10a 🟣) · `grant_team_pool` (§10b 🟢) · `promote_to_admin`. Others opt in later via `action_type`+`payload`.
+- **Surfaced:** sidebar Work group + mobile Work tab match + `/admin/work` triage feed + Home command-center ("Approvals & support" lane). Counts query the new table.
+
+**Verify:** `tsc --noEmit` ✓ · `next lint --dir app/admin` ✓ (1 pre-existing `moodboard-library` warning) · **adversarial 4-lens security review** (four-eyes/auth-bypass · TOCTOU/idempotency · executor/privilege-semantics · migration/RLS — 3/4 safe-to-ship). It caught + **fixed** two items: (1) status-guarded the execute-failure rollback (`.eq('status','approved')`) so a failed approval can't clobber a concurrent state; (2) added a self-targeting guard (an admin can't initiate a privileged grant for their own account). Four-eyes, RLS, executor, and migration verified clean.
+
+**Owner action:** the migration must be applied to prod (`supabase db push` / direct DDL) for the feature to activate; until then the page degrades to empty (graceful).
+
+**SPEC IMPACT:** PR 4 of `Admin_Console_Nav_Redesign_2026-06-08.md`; builds the §9.1 two-admin primitive (0023 §4). Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-09 · feat(admin): mobile "More" → 3-section accordion (nav redesign PR 3)
 
 **Context:** PR 3 of the admin nav redesign (`Admin_Console_Nav_Redesign_2026-06-08` §5). The mobile "More" tab rendered a flat 24-card grid; the redesign calls for a grouped, **collapsible accordion** — never a flat dump.

@@ -66,7 +66,13 @@ BEGIN
   -- on_auth_user_created → public.users (x3); on_users_vendor_created → vendor_profiles.
 
   -- 3. Role/display tweaks --------------------------------------------------
-  UPDATE public.users SET is_team_member = true, display_name = '[TEST] Admin' WHERE user_id = admin_id;
+  -- account_type='admin' so public.is_admin() (which checks ONLY account_type)
+  -- passes for the test admin — without it every is_admin() RLS policy returns
+  -- empty even though the /admin layout gate (is_internal OR is_team_member OR
+  -- account_type='admin') lets the account in. is_internal stays FALSE on
+  -- purpose: that flag carries §10a payment-skip semantics that must not
+  -- silently attach to a test account.
+  UPDATE public.users SET account_type = 'admin', is_team_member = true, display_name = '[TEST] Admin' WHERE user_id = admin_id;
   UPDATE public.users SET display_name = '[TEST] Maria & Jose' WHERE user_id = couple_id;
 
   -- 4. Couple wedding event -------------------------------------------------

@@ -32,6 +32,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only) · production build green · all six signatures rendered through the REAL component (tsx + react-dom/server harness, not a copy) and verified in-browser: settled states + colors correct for mulberry/gold inks, animation choreography introspected via `getAnimations()` (durations/delays/stagger/infinite-foil all as designed), foil sheen caught mid-sweep on screenshot. Gating unchanged — WHICH motion is a free choice; WHETHER the hero animates stays bound to ANIMATED_MONOGRAM order ownership.
 
 **SPEC IMPACT:** Phase 1 of the 2026-06-11 monogram overhaul (Phase 2 = Setnayan-AI bespoke vector generator, separate PR). Corpus: DECISION_LOG rows + 0037 as-built correction to follow with Phase 2's corpus pass.
+## 2026-06-11 · fix(seeds): admin.test gets account_type='admin' — is_admin() RLS finally passes for the test admin
+
+**Context:** the seeded `admin.test@setnayan.com` had `account_type='customer'` + `is_team_member=true`. The `/admin` layout gate (is_internal OR is_team_member OR account_type='admin') admitted it, but the SQL `public.is_admin()` helper checks ONLY `account_type='admin'` — so every is_admin() RLS policy returned empty for the test admin, making admin RLS paths untestable (caught 2026-06-11 while prod-verifying the account-deletion queue policies).
+
+- **`scripts/seed-test-accounts.sql`:** step-3 role tweak now also sets `account_type='admin'` for admin.test. `is_internal` stays FALSE on purpose — that flag carries §10a payment-skip semantics that must not silently attach to a test account.
+- **Prod:** the same one-row UPDATE applied directly (data fix, no migration); verified `is_admin()` → TRUE for admin.test via RLS simulation.
+- ⚠️ Surfaced for owner: the test password is hardcoded in this script and the account now passes is_admin() — consider rotating the test password to an env-supplied value (owner decision; app-level admin access already existed via is_team_member, so the marginal exposure is the direct-RLS read path).
+
+**SPEC IMPACT:** None (test fixture). Memory `project_setnayan_test_accounts` updated.
 
 ## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
 

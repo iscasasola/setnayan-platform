@@ -17,6 +17,7 @@ import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
+import { PICK_TO_GROUP } from '@/lib/onboarding-availability';
 import { regionForCity } from '@/lib/regions';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 
@@ -170,42 +171,8 @@ function onboardingRegionToPsgc(region: string | null | undefined): string | nul
 // engraving): the Booths folder only has cocktail_booths[=mobile_bar] +
 // photobooth as planning groups. The couple adds those from the dashboard
 // Unlock-categories page (same limitation, by design).
-const PICK_TO_GROUP: Record<string, string> = {
-  reception: 'reception_venue',
-  ceremony: 'ceremony_venue',
-  coordinator: 'coordinator',
-  catering: 'catering',
-  stations: 'catering',
-  cake: 'cake',
-  stylist: 'stylist',
-  lights_sound: 'lights_sound',
-  florist: 'florals_decor',
-  dance_floor: 'florals_decor',
-  led_wall: 'led_background',
-  host_mc: 'host_mc',
-  live_band: 'live_band',
-  orchestra: 'live_band',
-  choir: 'music_entertainment',
-  wedding_singer: 'music_entertainment',
-  dj: 'music_entertainment',
-  performers: 'music_entertainment',
-  choreographer: 'dance_instructor',
-  photo_video: 'photography',
-  bride_attire: 'attire',
-  groom_attire: 'attire',
-  women_attire: 'attire',
-  men_attire: 'attire',
-  filipiniana: 'attire',
-  grooming: 'hair_makeup',
-  hmua: 'hair_makeup',
-  jewelry: 'rings',
-  photo_booth: 'photobooth',
-  mobile_bar: 'cocktail_booths',
-  printing: 'invitations_stationery',
-  souvenirs: 'invitations_stationery',
-  bridal_car: 'bridal_car',
-  guest_shuttle: 'guest_shuttle',
-};
+// PICK_TO_GROUP now lives in lib/onboarding-availability.ts (single source, shared
+// with the picker's available-only supply filter) — imported at the top.
 
 export type OnboardingCommitPayload = {
   /** bride/groom first + last (screen 4) → events.bride_name/groom_name (joined) + the first two guest-list rows */

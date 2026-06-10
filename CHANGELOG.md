@@ -21,6 +21,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Migration-slot note:** originally numbered `20261107000000` — collided with `push_subscriptions` (applied from another in-flight branch). Renamed to the next free slot `20261109000000` at apply time per the 2026-06-11 collision lesson.
 
 **SPEC IMPACT:** Faith reconciliation per the design doc (§3 fix, §7 Phase 2). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): Camera Bridge core (C1+C2) + WiFi transport correction (0012)
+
+**Context:** Owner 2026-06-11 — Camera Bridge runs on THREE surfaces (Papic + Panood + Patiktok); "plan its build, in parallel if possible." The 18-agent build plan (corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`) found V1 is **Canon-only** (only CCAPI is a real mobile-WiFi capture API; Sony/Nikon have no mobile SDK, Fuji is Android-USB-only + warranty-void) and the real parallel axis is surfaces + now-vs-gated, not brands. This PR ships the first two now-track workstreams — the zero-hardware foundation everything else (brand adapters, surface sinks, pairing UI, native binary) plugs into.
+
+- **C1 — `lib/camera-bridge/`**: the brand-agnostic `CameraBridge` protocol (1:1 TS mirror of the locked Swift contract in `0012_papic_sdk_notes.md`) + `MockBridge` (deterministic, failure-injectable, fixture-JPEG) with the locked **5s clip cap enforced in-core** (`PAPIC_CLIP_DURATION_MS`). Brands plug the SOURCE side; surfaces plug the SINK side (file→Papic · stream→Patiktok/Panood) — additive 1+3, never multiplicative 4×3.
+- **C2 — `DslrPairingController`**: disconnected→pairing→live→recording→fallback FSM. **Immediate** fallback to the phone-internal bridge on drop (inside the locked 3s bar; the shutter never blocks — the fallback connects at start); gap-captures stamped `pairedCameraBrand=null`; 5s auto-retry; per-surface semantics (papic seamless · patiktok mid-take drop **keeps the take** with one seam + source-accurate segments, mid-take recovery defers the swap-back · panood zero-grace `maintain-stream-continuity` event); the V1 1-phone:1-DSLR slot guard.
+- **Tests:** `scripts/test-camera-bridge.ts` — 17-case deterministic suite (virtual clock, node:assert + tsx house pattern). **17/17 green**; `tsc` clean; scoped `next lint` clean.
+- **Transport correction** (build-plan day-one workstream — the shipped scaffolding encoded the WRONG transport): `apps/mobile` AndroidManifest BLE permission block → **WiFi** perms (`ACCESS/CHANGE_WIFI_STATE`, `CHANGE_NETWORK_STATE`, `NEARBY_WIFI_DEVICES` neverForLocation, `FINE_LOCATION` maxSdk 32); `@capacitor-community/bluetooth-le` removed (package.json + both generated gradle files + npm lock regenerated — no code imported it); `capacitor.config.ts` comment fixed; the offline-stub comment corrected from "USB/WiFi tether" to WiFi-SDK-only (USB is V2).
+
+**Verification:** 17/17 unit tests (deterministic, no hardware); `pnpm typecheck` clean; scoped lint clean; npm lock regenerated with zero bluetooth-le refs. No schema change; no route change; nothing user-visible yet (the core has no consumer until S0/U1).
+
+**SPEC IMPACT:** Canonical build plan landed at corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`; superseded-in-part callout added to the 0012 "Pro Camera Bridge" section (4-brand matrix → Canon-only V1 · Patiktok added as 3rd surface · Panood SFU target retired); 2 DECISION_LOG rows (plan + this ship). Owner sign-offs (brand fork, SKU Q1–Q3, Panood ingest, DSLR ownership, iOS-vs-Android, budget) pending — pricing batched to the holistic review.
 
 ## 2026-06-11 · test(taxonomy): unit-test foundation + taxonomy invariant guards (node:test via tsx)
 

@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · fix(migrations): resolve duplicate-timestamp collision (account-deletion was silently skipped on prod)
+
+**Context:** Two PRs independently picked migration timestamp `20261105000000` — `defaith_food_canonicals` (#1232) and `account_deletion_requests` — and both merged to `main`. Supabase keys applied migrations by the timestamp, so once `defaith` registered version `20261105000000`, the account-deletion migration would be **silently skipped forever** → `account_deletion_requests` never created on prod → the shipped `/admin/account-deletions` page + the in-app deletion-request flow (App Store 5.1.1(v) / Google Play) would error at runtime.
+
+- Re-timestamped `20261105000000_account_deletion_requests.sql` → **`20261106000000_account_deletion_requests.sql`** (content unchanged + idempotent; header notes the re-timestamp + reason).
+- **Applied to prod:** `account_deletion_requests` table + 5 RLS policies now exist; version `20261106000000` registered. The de-faith migration keeps `20261105000000` (already applied). Verified on prod.
+
+**SPEC IMPACT:** None — restores an already-specced 0025 feature. → `DECISION_LOG` note.
+
 ## 2026-06-11 · fix(taxonomy): de-faith food canonicals — halal caterers no longer hidden from non-Muslim couples
 
 **Context:** The dietary/halal audit (`Catering_Dietary_Halal_Model_2026-06-11.md`) found a **live bug**: `halal_catering` (faith=Muslim) and the three `mocktail_*` (faith=INC) were being **subtracted** from non-matching couples by `passesReligionFilter` (INCLUDE-only) — exactly the silent subtraction the 2026-06-10 faith lock forbids. A halal caterer / alcohol-free bar must be bookable by anyone.

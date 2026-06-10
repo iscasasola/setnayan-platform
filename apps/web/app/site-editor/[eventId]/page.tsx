@@ -4,6 +4,7 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { buildEventLandingUrl, renderEventLandingQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SiteEditor } from './_components/site-editor';
 
@@ -66,7 +67,9 @@ export default async function SiteEditorPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, slug, monogram_text, monogram_color')
+      .select(
+        'event_id, display_name, event_date, slug, monogram_text, monogram_color, landing_page_hero_image_url',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
@@ -116,6 +119,14 @@ export default async function SiteEditorPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  // Hero photo (Increment: inline Hero editing, PR #1 of the "edit on the page"
+  // rebuild). Resolve the stored r2:// ref to a presigned 24h GET URL so the
+  // editor can show the current photo + the live preview reflects it. Null =
+  // monogram-only fallback. Mirrors the resolution in app/[slug]/page.tsx.
+  const heroPhotoUrl = await displayUrlForStoredAsset(
+    event.landing_page_hero_image_url ?? null,
+  );
+
   // Graceful-degrade to empty (cards show their Upgrade CTA) on a pre-bootstrap
   // DB where the orders table is missing — never crash.
   if (ordersRes.error) {
@@ -135,6 +146,7 @@ export default async function SiteEditorPage({
       masterQrSvg={masterQrSvg}
       stats={{ attending: stats.attending, pending: stats.pending, declined: stats.declined }}
       ownedOrders={ownedOrders}
+      heroPhotoUrl={heroPhotoUrl}
     />
   );
 }

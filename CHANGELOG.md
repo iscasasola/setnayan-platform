@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(website): inline "edit on the page" Hero editing in /site-editor (PR #1)
+
+**Context:** Owner session designing the customer wedding-website rebuild (corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`). Today `/site-editor/[eventId]` is a *launcher* — its cards deep-link OUT to standalone `/website/*` sub-editors, so the couple leaves the live preview to edit anything. This is PR #1 of turning it into a real "edit on the page" editor: the Hero card now edits **inline** (bottom sheet on mobile / right-rail panel on desktop) without navigating away. Establishes the pattern the other sections fold into next.
+
+- **`site-editor/[eventId]/actions.ts` (new):** editor-local `saveHeroPhoto` / `clearHeroPhoto` — same DB write + `requireHostMembership` guard as `website/hero-photo/actions.ts`, but **revalidate the editor in place and return void** (no redirect-out) so the couple stays on the preview.
+- **`site-editor/[eventId]/page.tsx`:** fetch `landing_page_hero_image_url`, resolve it via `displayUrlForStoredAsset`, pass `heroPhotoUrl` to the editor.
+- **`_components/site-editor.tsx`:** inline-edit shell — `editing` state + `HeroEditSheet` (reuses the shared `<FileUpload>` → R2 + the editor-local actions); a `CardButton` (button-skinned `CardLink`) opens the sheet; the Hero card swaps its deep-link for it + shows a "Photo set" hint; after a save, `router.refresh()` + a `previewNonce`-keyed iframe remount reload the live preview. a11y: labelled dialog, Esc + backdrop close, ≥44px targets.
+
+**Verification:** brace/paren balance + symbol wiring checked locally (fresh worktree, deps not installed). Relies on CI (typecheck + lint + build) + the Vercel preview — **NOT auto-merged**; owner to try the inline Hero edit on the preview first (live customer surface, couldn't verify locally). No schema change (reuses existing `events.landing_page_hero_image_*` columns).
+
+**SPEC IMPACT:** Implements §1 (inline "edit on the page" model) of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` for the Hero section — the proof pattern. Remaining sections + the RSVP/Event/Editorial phase-data engine are follow-up PRs. Already logged in `DECISION_LOG` 2026-06-11 (the website spec rows).
+
 ## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
 
 **Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.

@@ -458,8 +458,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
       </div>
 
+      {/* Map view = DESKTOP ONLY. The view switcher lives in the desktop chrome,
+          so mobile never enters map mode; even if a ?gview=map URL is opened on a
+          phone, the list still renders below (the locked "mobile top = just the
+          list"). On desktop the placeholder shows and the list grid is hidden. */}
       {gview === 'map' ? (
-        <div className="rounded-xl border border-ink/10 bg-cream/50 px-6 py-16 text-center">
+        <div className="hidden rounded-xl border border-ink/10 bg-cream/50 px-6 py-16 text-center lg:block">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
             <LayoutGrid className="h-6 w-6" strokeWidth={1.5} aria-hidden />
           </div>
@@ -474,38 +478,48 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             </Link>
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
-          <FacetsSidebar
-            eventId={eventId}
-            view={view}
-            tagFilter={tagFilter}
-            tags={allTags}
-            search={search}
-            groups={groups}
-            currentGroupId={currentGroupId}
-          />
+      ) : null}
 
-          <div className="min-w-0 space-y-4">
-            {visible.length === 0 ? (
-              <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
-            ) : (
-              <GuestListMultiselect
-                eventId={eventId}
-                guests={visible}
-                palette={palette}
-                groups={groups}
-                groupMemberships={groupMemberships}
-                currentGroupId={currentGroupId}
-                photoDisplayUrls={photoDisplayUrls}
-                groupMode={
-                  sort === 'side' ? 'side' : sort === 'importance' ? 'importance' : 'flat'
-                }
-              />
-            )}
-          </div>
+      <div
+        className={`grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]${
+          gview === 'map' ? ' lg:hidden' : ''
+        }`}
+      >
+        <FacetsSidebar
+          eventId={eventId}
+          view={view}
+          tagFilter={tagFilter}
+          tags={allTags}
+          search={search}
+          groups={groups}
+          currentGroupId={currentGroupId}
+        />
+
+        <div className="min-w-0 space-y-4">
+          {visible.length === 0 ? (
+            <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
+          ) : (
+            <GuestListMultiselect
+              eventId={eventId}
+              guests={visible}
+              palette={palette}
+              groups={groups}
+              groupMemberships={groupMemberships}
+              currentGroupId={currentGroupId}
+              photoDisplayUrls={photoDisplayUrls}
+              groupMode={
+                sort === 'side'
+                  ? 'side'
+                  : sort === 'group'
+                    ? 'group'
+                    : sort === 'importance'
+                      ? 'importance'
+                      : 'flat'
+              }
+            />
+          )}
         </div>
-      )}
+      </div>
 
       <QuickAddSheet
         eventId={eventId}

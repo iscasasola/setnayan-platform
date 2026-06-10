@@ -52,24 +52,26 @@ export function BuildLocked({
     ),
   );
 
-  // Build picks NOT yet locked — the "ready to confirm" queue.
+  // Build picks NOT yet locked — the "ready to confirm" queue. Multi-pick
+  // categories (Look/Booths/Prints) contribute every build pick; single-pick one.
   const toLockRows = model.folders.flatMap((f) =>
-    f.children.flatMap((c) => {
-      if (!c.buildPickVendorId) return [];
-      const p = c.picks.find((pp) => pp.vendor_id === c.buildPickVendorId);
-      if (!p) return [];
-      if (p.raw_status && LOCKED.has(p.raw_status)) return []; // already locked → other list
-      return [
-        {
-          folder: f.label,
-          group: c.label,
-          groupId: c.groupId,
-          vendorId: p.vendor_id,
-          name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
-          cost: p.rolled_cost_php,
-        },
-      ];
-    }),
+    f.children.flatMap((c) =>
+      c.buildPickVendorIds.flatMap((vid) => {
+        const p = c.picks.find((pp) => pp.vendor_id === vid);
+        if (!p) return [];
+        if (p.raw_status && LOCKED.has(p.raw_status)) return []; // already locked → other list
+        return [
+          {
+            folder: f.label,
+            group: c.label,
+            groupId: c.groupId,
+            vendorId: p.vendor_id,
+            name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+            cost: p.rolled_cost_php,
+          },
+        ];
+      }),
+    ),
   );
 
   if (lockedRows.length === 0 && toLockRows.length === 0) {

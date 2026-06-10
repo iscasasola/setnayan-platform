@@ -366,12 +366,13 @@ export default async function VendorsPage({ params }: Props) {
     .from('event_build_picks')
     .select('plan_group_id, vendor_id')
     .eq('event_id', eventId);
-  const buildPicksByGroup = new Map<string, string>(
-    ((buildPickRows ?? []) as Array<{ plan_group_id: string; vendor_id: string }>).map((r) => [
-      r.plan_group_id,
-      r.vendor_id,
-    ]),
-  );
+  // plan_group_id → vendor_ids (multi-pick Look/Booths/Prints can have several).
+  const buildPicksByGroup = new Map<string, string[]>();
+  for (const r of (buildPickRows ?? []) as Array<{ plan_group_id: string; vendor_id: string }>) {
+    const arr = buildPicksByGroup.get(r.plan_group_id);
+    if (arr) arr.push(r.vendor_id);
+    else buildPicksByGroup.set(r.plan_group_id, [r.vendor_id]);
+  }
 
   const model = buildPlanBudgetModel({
     vendorRows,
@@ -502,24 +503,26 @@ export default async function VendorsPage({ params }: Props) {
     // auto-fills them; finalized ones are the locked count.
     const buildChildren = model.folders.flatMap((f) => f.children);
     // "Your build" — the items transferred via Shortlist "Add to build"
-    // (event_build_picks): the pinned vendor per category, resolved off the model.
+    // (event_build_picks). Multi-pick categories (Look/Booths/Prints) contribute
+    // SEVERAL rows; single-pick contribute one. Resolved off the model's picks.
     const buildItems = model.folders.flatMap((f) =>
-      f.children.flatMap((c) => {
-        if (!c.buildPickVendorId) return [];
-        const p = c.picks.find((pp) => pp.vendor_id === c.buildPickVendorId);
-        if (!p) return [];
-        return [
-          {
-            groupId: c.groupId as string,
-            group: c.label,
-            folder: f.label,
-            vendorId: p.vendor_id,
-            name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
-            pricePhp: p.rolled_cost_php,
-            locked: !!(p.raw_status && PLAN_LOCKED.has(p.raw_status)),
-          },
-        ];
-      }),
+      f.children.flatMap((c) =>
+        c.buildPickVendorIds.flatMap((vid) => {
+          const p = c.picks.find((pp) => pp.vendor_id === vid);
+          if (!p) return [];
+          return [
+            {
+              groupId: c.groupId as string,
+              group: c.label,
+              folder: f.label,
+              vendorId: p.vendor_id,
+              name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+              pricePhp: p.rolled_cost_php,
+              locked: !!(p.raw_status && PLAN_LOCKED.has(p.raw_status)),
+            },
+          ];
+        }),
+      ),
     );
     const buildSlot = (
       <BuildPins

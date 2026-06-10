@@ -79,7 +79,9 @@ export function AccordionBuildButton({
   const unpin = () => {
     haptic('tick');
     startTransition(async () => {
-      await removeBuildPick({ eventId, planGroupId: groupId });
+      // Pass vendorId so multi-pick categories (Look/Booths/Prints) remove only
+      // THIS vendor, not every pick in the group. Single-pick is unaffected.
+      await removeBuildPick({ eventId, planGroupId: groupId, vendorId });
     });
   };
 

@@ -262,6 +262,9 @@ export type AccordionChild = {
    *  or null. Lets a card tell when ANOTHER vendor is already the build pick
    *  (→ the Replace/Add-both popup). */
   buildPickVendorId: string | null;
+  /** ALL build picks for this category (multi-pick Look/Booths/Prints can have
+   *  several; single-pick groups have ≤1). `buildPickVendorId` is the first. */
+  buildPickVendorIds: string[];
   /** Setnayan Assist on? (event `planning_mode` !== 'manual'). When false the
    *  vendor cards drop the "% match" pill — Manual mode browses neutrally. */
   personalizationEnabled: boolean;
@@ -478,9 +481,10 @@ export function buildPlanBudgetModel(args: {
    * `PLAN_GROUPS` — that's scheduling, not taxonomy.
    */
   taxonomy?: TaxonomySnapshot;
-  /** plan_group_id → vendor_id pinned to the build (event_build_picks). Marks the
-   *  one pick per category the couple "added to build"; absent → no build pick. */
-  buildPicksByGroup?: ReadonlyMap<string, string>;
+  /** plan_group_id → vendor_ids pinned to the build (event_build_picks). One per
+   *  category for single-pick groups; several for multi-pick (Look/Booths/Prints).
+   *  Absent / empty → no build pick. */
+  buildPicksByGroup?: ReadonlyMap<string, string[]>;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -628,17 +632,19 @@ export function buildPlanBudgetModel(args: {
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
 
-    // The build pick for this category (event_build_picks) — only valid if that
-    // vendor is still on the shortlist (a removed vendor's pick is FK-cascaded
-    // away, but guard anyway). Mark the matching pick so the card shows "In your
-    // build"; expose the id so other cards know a different vendor is pinned.
-    const rawBuildPickVendorId = buildPicksByGroup?.get(group.id) ?? null;
-    const buildPickVendorId =
-      rawBuildPickVendorId && picks.some((p) => p.vendor_id === rawBuildPickVendorId)
-        ? rawBuildPickVendorId
-        : null;
-    if (buildPickVendorId) {
-      for (const p of picks) p.isBuildPick = p.vendor_id === buildPickVendorId;
+    // The build picks for this category (event_build_picks) — only the ones whose
+    // vendor is still on the shortlist (a removed vendor's pick FK-cascades away,
+    // but guard anyway). Multi-pick categories (Look/Booths/Prints) can hold
+    // several; single-pick categories hold at most one. Mark every matching pick
+    // "In your build"; `buildPickVendorId` stays the FIRST (back-compat singular).
+    const shortlistedVendorIds = new Set(picks.map((p) => p.vendor_id));
+    const buildPickVendorIds = (buildPicksByGroup?.get(group.id) ?? []).filter((vid) =>
+      shortlistedVendorIds.has(vid),
+    );
+    const buildPickSet = new Set(buildPickVendorIds);
+    const buildPickVendorId = buildPickVendorIds[0] ?? null;
+    if (buildPickSet.size > 0) {
+      for (const p of picks) p.isBuildPick = buildPickSet.has(p.vendor_id);
     }
 
     const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
@@ -673,6 +679,7 @@ export function buildPlanBudgetModel(args: {
       lockedTotal,
       hardSingle,
       buildPickVendorId,
+      buildPickVendorIds,
       personalizationEnabled,
       dependency,
     };

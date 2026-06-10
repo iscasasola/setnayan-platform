@@ -306,6 +306,24 @@ export function resolvePlanGroupHint(
 }
 
 /**
+ * MULTI-PICK folders (owner 2026-06-09): categories under these parents can hold
+ * MORE THAN ONE service in the build (a couple may book several booths, prints,
+ * or attire pieces). Every other folder is single-pick — adding a second vendor
+ * replaces the first. Keyed by `catalogFolder` so it tracks the taxonomy.
+ */
+export const MULTI_PICK_FOLDERS: ReadonlySet<WeddingFolder> = new Set<WeddingFolder>([
+  'look',
+  'booths',
+  'prints',
+]);
+
+/** Does this plan group allow multiple build picks? (catalogFolder ∈ multi-pick) */
+export function isMultiPickGroup(groupId: string): boolean {
+  const g = PLAN_GROUPS.find((x) => x.id === groupId);
+  return g ? MULTI_PICK_FOLDERS.has(g.catalogFolder) : false;
+}
+
+/**
  * Type guard for `events.ceremony_type` string columns coming off the
  * Supabase client. Keeps the upstream `unknown` strings from leaking
  * into the typed copy resolver.

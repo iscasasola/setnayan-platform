@@ -58,7 +58,7 @@ import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-
 import { ChangePickButton } from './accordion-lock';
 import { AccordionBuildButton } from './accordion-build';
 import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
-import type { PlanGroupId } from '@/lib/wedding-plan-groups';
+import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
   formatPesoCompact,
   type PlanBudgetModel,
@@ -1094,7 +1094,10 @@ function ChildRail({
   const [manualOpen, setManualOpen] = useState(false);
   // The single vendor pinned to the build for this category (if any) — passed to
   // every OTHER card so "Add to build" knows to open the Replace/Add-both popup.
-  const buildPickRow = child.buildPickVendorId
+  // MULTI-PICK categories (Look/Booths/Prints) skip this entirely: each card adds
+  // independently (no replace), so there's no "existing pick to replace".
+  const isMulti = isMultiPickGroup(child.groupId);
+  const buildPickRow = !isMulti && child.buildPickVendorId
     ? child.picks.find((p) => p.vendor_id === child.buildPickVendorId) ?? null
     : null;
   return (

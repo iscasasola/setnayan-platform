@@ -17,6 +17,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean. Pure client + scoped CSS — no schema change.
 
 **SPEC IMPACT:** Shortlist refinement of the Services redesign. UI-only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09. (Pending: the "red frame" removal — awaiting owner ID of the element; and multi-pick Look/Booths/Prints — separate schema PR.)
+## 2026-06-09 · feat(plan-builder): multi-pick categories (Look / Booths / Prints)
+
+**Context:** Owner 2026-06-09 — "there are services that can accept more than 1 services but there are also services that should only be 1." The multi-service folders are **Look · Booths · Prints**; every other category stays single-pick.
+
+- `supabase/migrations/20261020000000_event_build_picks_multi.sql` (new): widen the `event_build_picks` PK from `(event_id, plan_group_id)` to `(event_id, plan_group_id, vendor_id)`; add an `(event_id, plan_group_id)` lookup index. Existing rows are unique on the wider key → data-safe.
+- `lib/wedding-plan-groups.ts`: `MULTI_PICK_FOLDERS = {look, booths, prints}` + `isMultiPickGroup(groupId)` (keyed by `catalogFolder`).
+- `build-pick-actions.ts`: `setBuildPick` — single-pick categories delete the prior pick before insert (replace); multi-pick just insert (keep all). Conflict target → the 3-col key (also `applyBuildToWorking`). `removeBuildPick` gains optional `vendorId` (one vs all).
+- `lib/vendors-plan-budget.ts`: `buildPicksByGroup` → `Map<string, string[]>`; `AccordionChild` gains `buildPickVendorIds: string[]` (`buildPickVendorId` stays the first, back-compat); `isBuildPick` marks every pick in the set.
+- `page.tsx` / `build-locked.tsx`: `buildItems` + the Lock queue emit a row per build pick (multi-pick contributes several).
+- `accordion-build.tsx` + `plan-budget-accordion.tsx`: multi-pick categories skip the Replace/Add-both popup (each card adds independently); "Remove" passes `vendorId` to drop only that vendor.
+
+**⚠ DEPLOY COORDINATION:** the frontend does NOT degrade gracefully without this migration — `setBuildPick`'s conflict target `(event_id, plan_group_id, vendor_id)` needs the new PK. Apply the migration (`supabase db push`) and merge in close succession (brief old-frontend × new-schema window during the Vercel deploy; low impact pre-launch, "Add to build" is retryable).
+
+**Verification:** `tsc --noEmit` clean (whole web app).
+
+**SPEC IMPACT:** Build now models per-category pick multiplicity. New migration + build-pick model change. → corpus `DECISION_LOG` 2026-06-09 + reconcile into `project_setnayan_booking_ruleset`.
 
 ## 2026-06-09 · feat(plan-builder): Build — only priced services are build-eligible (rule)
 

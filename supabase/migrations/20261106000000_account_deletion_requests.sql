@@ -1,5 +1,13 @@
 -- ============================================================================
--- 20261105000000_account_deletion_requests.sql
+-- 20261106000000_account_deletion_requests.sql
+--
+-- ⚠ RE-TIMESTAMPED 2026-06-11 (was 20261105000000) — that version collided with
+-- 20261105000000_defaith_food_canonicals.sql (both PRs picked the same slot and
+-- merged to main). Supabase keys applied migrations by the timestamp, so the
+-- de-faith one registered version 20261105000000 first and this one would be
+-- SILENTLY SKIPPED forever (account_deletion_requests never created on prod).
+-- Bumped to the free 20261106000000 slot so it actually applies. Content
+-- unchanged + idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
 --
 -- Self-serve account-deletion REQUEST flow (App Store guideline 5.1.1(v) +
 -- Google Play data-deletion requirement). A user must be able to *initiate*

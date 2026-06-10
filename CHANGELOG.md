@@ -11,9 +11,35 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **Migration `20261104000959_papic_live_photo_wall_schema.sql`** (applied to prod): wall-state columns (`moderation_state`, `wall_safe_r2_key`, `wall_hidden_at`) on `papic_photos` + `papic_guest_captures`; `guests.faceblock_enabled`; `events.timezone` (PH default) + `live_mode_override` + `live_photo_wall_visibility`; new tables `photo_tags` (guest-in-photo, polymorphic over both capture tables), `wall_feed` (durable public-broadcast projection mirror — carries only the safe derivative key, never the original `r2_object_key`), `wall_display_sessions` (venue-screen claim handshake); `wall_feed` added to the `supabase_realtime` publication. RLS at create time (couple/coordinator/admin read; writes service-role/RPC-only; NO anon — policies pinned `TO authenticated`). Additive + idempotent.
 - **No app-code change** — no frontend reads the new objects yet; frontend ships after, per migrations-land-first.
 
-**Verification:** adversarial review (verdict SAFE-TO-APPLY) against the shipped schema; applied via `supabase db push` from a clean worktree off `origin/main` — required a metadata-only `migration repair --status reverted 20261104000000` to clear a pre-existing remote-only orphan blocking push (no DDL reverted); confirmed recorded in the remote ledger (local == remote). SQL-only → `tsc`/`lint`/build unaffected (repo has no generated Supabase types).
+**Verification:** adversarial review (verdict SAFE-TO-APPLY) against the shipped schema; applied via `supabase db push` from a clean worktree off `origin/main`; confirmed recorded in the remote ledger (local == remote). SQL-only → `tsc`/`lint`/build unaffected (repo has no generated Supabase types). *Ledger note: the concurrently-merged taxonomy migration `20261104000000` wasn't in this worktree at push time (branched off an earlier `main`), which blocked `db push`; resolved by merging `origin/main` in. Its ledger row was briefly reverted during the push dance, then re-recorded `--status applied` (metadata-only, no DDL re-run) so the prod ledger stays accurate.*
 
 **SPEC IMPACT:** Implements 0012 Salamisim P0. **Two shipped-vs-corpus drifts corrected in the corpus:** (1) `coordinator` IS a real `public.member_type` enum value → the Kwento + Salamisim specs' `thread_join_authorizations` table is unnecessary; wall control authority uses `member_type IN ('couple','coordinator')` directly (table NOT created). (2) `events` had no `timezone` column (added here for server-side day-of mode). Also corrects spec naming: shipped capture/guest tables use `id BIGSERIAL` + a UUID business key; the enrollment table is `guest_face_enrollments` with `face_vector` (not the spec's `face_enrollments`/`vector_blob`). → corpus `0012_papic.md` (Salamisim + Kwento RLS) + `DECISION_LOG` 2026-06-11.
+
+## 2026-06-11 · feat(taxonomy): admin can assign which events a category serves (Phase 1 wiring)
+
+**Context:** Phase 1 added the `applicable_event_types` columns + `event_type_vocab` (dormant). This wires the admin control so the team can actually assign multi-event scope — directly the owner's ask ("create assignments on which category can serve which event").
+
+- **`lib/taxonomy-db.ts`:** `TaxonomySnapshot` gains `tileEventTypes` (tile id → applicable event keys; null = universal); read from the new column; fallback snapshot = `{}` (all universal).
+- **`app/admin/taxonomy/actions.ts`:** `setCategoryEventTypes` — admin-gated (`requireAdmin`), audit-logged (`admin_audit_log`), revalidates `/admin/taxonomy` + `/vendors`. None checked = universal (NULL); every event checked collapses to NULL; unknown events rejected app-side + by the DB trigger backstop.
+- **`app/admin/taxonomy/page.tsx`:** each tile in the tree editor gets a collapsible **"Events:"** control (a chip per event type; the summary shows the current scope or "All events (universal)"). Fetches `event_type_vocab` live. Progressive-enhancement form (works without client JS).
+- Couple-side filtering (the never-empty-careful part) + the per-canonical override UI are a deliberate follow-up; this PR is the governance control only.
+
+**Verification:** type-consistent edits; CI typecheck/lint/build. Admin-only writes (`requireAdmin` + RLS-gated table). No migration (columns landed in Phase 1, `20261104000000`).
+
+**SPEC IMPACT:** Realizes the admin half of multi-event applicability. → corpus design doc §5 + `DECISION_LOG` 2026-06-10.
+
+## 2026-06-11 · feat(taxonomy): Phase 1 — multi-event applicability (which category serves which event)
+
+**Context:** Phase 1 of the taxonomy unification + multi-event design (owner-approved 2026-06-10; `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §2). The whole tree was implicitly wedding-only; this adds the structural ability to say which category serves which event type, ahead of unlocking non-wedding events.
+
+- **Migration `20261104000000_taxonomy_event_applicability.sql`** (applied to prod):
+  - New `event_type_vocab` table (12 seeded values: wedding/birthday/celebration/travel/corporate/tournament/christening/gender_reveal/debut/anniversary/graduation/reunion) — public read, admin write. A validation lookup, deliberately NOT the live `event_type` enum (which is rebuilt by a RENAME-swap migration that would break a column-level constraint mid-swap).
+  - `service_categories.applicable_event_types TEXT[]` (primary, tile grain) + `canonical_service_taxonomy.applicable_event_types TEXT[]` (optional per-service override), both GIN-indexed.
+  - BEFORE INSERT/UPDATE validation trigger on both — each array member must be an active `event_type_vocab` key; NULL/empty always valid.
+- **FAIL-OPEN:** NULL/empty = universal (serves all events). All 64 rows land NULL → byte-identical wedding behavior. Unlocking a new event type = tag the ~10 wedding-only tiles OUT, never re-tag 54.
+- Pure additive schema; no app behavior change yet (read-through + admin assignment UI + couple-side filter land in the wiring phase). Verified on prod: 12 vocab rows, both columns + 2 triggers present, all 64 tiles NULL, bogus-value insert correctly rejected.
+
+**SPEC IMPACT:** Multi-event taxonomy foundation. → corpus design doc §2/§7 Phase 1 + `DECISION_LOG` 2026-06-10.
 
 ## 2026-06-11 · feat(taxonomy): Phase 0 — anchor onboarding refinements to the taxonomy tree (single-source unification)
 

@@ -537,11 +537,27 @@ export type AutoSeatGuest = {
 
 export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: number };
 
-function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
-  if (TIER1_ROLES.has(g.role)) return 1;
-  if (TIER2_ROLES.has(g.role)) return 2;
-  if (g.group_category === 'family') return 3;
+// Public role-tier classifier — same mapping the auto-seat rings use, exported so
+// the editor's "seat a role tier at this table" action can group guests without
+// re-deriving the role sets. 1 = family + principal sponsors (innermost), 2 =
+// entourage, 3 = extended family, 4 = everyone else.
+export function roleTier(role: string, groupCategory: string): 1 | 2 | 3 | 4 {
+  if (TIER1_ROLES.has(role)) return 1;
+  if (TIER2_ROLES.has(role)) return 2;
+  if (groupCategory === 'family') return 3;
   return 4;
+}
+
+// Human labels for the four role tiers (the popup's "Role" picker tab).
+export const ROLE_TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
+  1: 'Family & principal sponsors',
+  2: 'Entourage',
+  3: 'Extended family',
+  4: 'Friends & others',
+};
+
+function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
+  return roleTier(g.role, g.group_category);
 }
 
 // Default stage anchor (top-centre) when the event has no saved floor plan.

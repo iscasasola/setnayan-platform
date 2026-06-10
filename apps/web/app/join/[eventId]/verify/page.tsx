@@ -8,9 +8,9 @@ import { verifyClaimOtpAction, resendClaimOtpAction, requestCoupleReviewAction }
 export const metadata = { title: 'Confirm it’s you' };
 
 const NOTICE: Record<string, string> = {
-  resent: 'A fresh code is on its way.',
-  cooldown: 'Hang on a few seconds before requesting another code.',
-  send_failed: "We couldn't send the email just now — the couple will confirm you directly.",
+  // Conditional copy shown identically for matched + unmatched resends, so the
+  // banner never reveals list membership (anti-enumeration).
+  resent: "If you're on the couple's list, a fresh code is on its way.",
 };
 const ERROR: Record<string, string> = {
   // Deliberately generic: the same message for a wrong code, an expired code,

@@ -115,14 +115,20 @@ export async function resendClaimOtpAction(eventId: string, token: string) {
     .eq('claimer_user_id', user.id)
     .maybeSingle();
 
-  // No OTP in flight → bounce back generically (no matched/unmatched signal).
+  // EVERY resend ends on the SAME neutral banner — whether a code was actually
+  // (re)sent, the claim is pending review (no match), it's in cooldown, or the
+  // send failed. Otherwise the banner's presence/variant would leak
+  // matched-vs-unmatched (the residual oracle the fix-review caught). The copy
+  // is conditional ("if you're on the list…") so it's honest for both cases.
+  const done = () => redirect(J(eventId, 'verify', token, '&notice=resent'));
+
   if (!claim || claim.status !== 'otp_sent' || !claim.otp_sent_to) {
-    return redirect(J(eventId, 'verify', token));
+    return done();
   }
 
   const lastSent = claim.otp_last_sent_at ? new Date(claim.otp_last_sent_at).getTime() : 0;
   if (Date.now() - lastSent < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
-    return redirect(J(eventId, 'verify', token, '&notice=cooldown'));
+    return done(); // silently rate-limited — no distinguishable cooldown signal
   }
 
   const { data: event } = await admin
@@ -144,8 +150,8 @@ export async function resendClaimOtpAction(eventId: string, token: string) {
     })
     .eq('claim_id', claim.claim_id);
 
-  const result = await sendClaimOtpEmail(claim.otp_sent_to, code, event?.display_name ?? 'a wedding');
-  return redirect(J(eventId, 'verify', token, result.ok ? '&notice=resent' : '&notice=send_failed'));
+  await sendClaimOtpEmail(claim.otp_sent_to, code, event?.display_name ?? 'a wedding');
+  return done();
 }
 
 /** "I can't access that email" → drop to the couple's review queue. */

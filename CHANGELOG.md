@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(seating): Phase 0 foundations — publish + per-table QR + print pack (0008)
+
+**Context:** Owner 2026-06-10 — seat-plan improvement program (audit vs market → leapfrog plan). Phase 0 = "fix foundations first": the live seating editor could not turn a finished plan into a printable venue pack, and had no per-table QR (which 0012 Papic's table-tag fan-out + the future day-of find-my-seat must resolve). Only the moodboard/blueprint PDF existed.
+
+- migration `20261101000000_iteration_0008_seating_publish_qr.sql`: `event_tables.qr_token` (32-hex · UNIQUE · same `encode(gen_random_bytes(16),'hex')` pattern as `guests.qr_token` · exists from creation) + `qr_published_at`; `event_floor_plan.published_at`. Additive · idempotent · RLS inherited.
+- `lib/seating.ts`: `EventTableRow` + `FloorPlanRow` carry the new columns; `fetchTables`/`fetchFloorPlan` select + default them.
+- `seating/actions.ts`: new `publishSeating` — stamps every table + the floor-plan singleton as published (idempotent; never re-rolls a token).
+- `seating/print/route.ts`: self-contained printable HTML pack (escapes the dashboard layout) — cover + table directory · one full-page table SIGN per table (big label + table QR) · place cards (name · table · personal QR, 8/page) · "Print → Save as PDF".
+- `seating-editor.tsx`: "Publish & print" toolbar button (fires `publishSeating` + opens the pack).
+
+**⚠ BLOCKED ON MIGRATION — DO NOT MERGE YET:** `supabase db push` is blocked by a pre-existing repo↔prod drift — prod has migration `20261021000000` applied that is NOT in `origin/main` (no local file), so the CLI refuses ("Remote migration versions not found in local"). My migration is additive + independent, but `fetchTables` throws on a missing column (no graceful-degrade), so the frontend must NOT go live before the columns exist. Resolving the drift (commit the missing migration, or `migration repair`) is an owner/infra decision — surfaced, not papered over. No psql available to apply out-of-band.
+
+**Verification:** code only (no local app env; node_modules not installed in this worktree). Awaiting migration apply + Vercel preview; CI typecheck/build validates compilation.
+
+**SPEC IMPACT:** 0008 gains the publish→table-QR→print-pack flow the AS-BUILT 2026-06-07 header flagged as not-built. → corpus `DECISION_LOG` + 0008 once merged.
+
 ## 2026-06-10 · feat(type): backend dashboards on Source Sans — one minimalist readable family
 
 **Context:** Owner 2026-06-10 — "we want a simple minimalist font for all... the backend like dashboards should have a simple minimalist font so everything is easy to read," websites excepted. Today the dashboards inherit Manrope (body) + Cormorant Garamond (headings via the global `font-display` default); the editorial serif headings were the readability friction. Owner chose **Source Sans** for the backend and "keep editorial" for the public/guest pages.

@@ -16,6 +16,7 @@ import {
   Maximize2,
   Minus,
   Plus,
+  Printer,
   RotateCcw,
   RotateCw,
   Ruler,
@@ -48,6 +49,7 @@ import {
   autoSeatGuests,
   createTable,
   deleteTable,
+  publishSeating,
   saveFloorPlan,
   setTableSeat,
   unassignGuest,
@@ -354,6 +356,17 @@ export function SeatingEditor({
     const fd = new FormData();
     fd.set('event_id', eventId);
     startTransition(() => autoSeatGuests(fd));
+  };
+
+  // Publish the seating pack + open the printable sign sheets. The print route
+  // reads live data so the pack works immediately; publishSeating stamps the
+  // "published" timestamps in the background. window.open is called synchronously
+  // in the click gesture so it isn't popup-blocked.
+  const publishAndPrint = () => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    startTransition(() => publishSeating(fd));
+    window.open(`/dashboard/${eventId}/seating/print`, '_blank');
   };
 
   // Bulk-seat the picked group onto a table. The server seats what fits and
@@ -1161,6 +1174,15 @@ export function SeatingEditor({
                 </>
               ) : null}
             </div>
+            <button
+              type="button"
+              onClick={publishAndPrint}
+              disabled={tables.length === 0}
+              title="Publish the plan and open printable table signs + place cards"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
+            >
+              <Printer className="h-3.5 w-3.5" /> Publish &amp; print
+            </button>
             <button
               type="button"
               onClick={() => setConfirmAuto(true)}

@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(papic): Live Photo Wall "Salamisim" — P0 schema (0012)
+
+**Context:** Owner 2026-06-11 — start building Papic's "Salamisim" Live Photo Wall (Phase 1 of the output layer), beginning with the P0 schema. Design: corpus `0012_papic.md` "Phase 1 — Live Photo Wall (Salamisim)". The venue projection is a real-time collage off the existing capture tables; this PR lands the net-new schema only (the gate-chain RPCs, the `/wall` route, and the couple/coordinator control surface are P1).
+
+- **Migration `20261104000959_papic_live_photo_wall_schema.sql`** (applied to prod): wall-state columns (`moderation_state`, `wall_safe_r2_key`, `wall_hidden_at`) on `papic_photos` + `papic_guest_captures`; `guests.faceblock_enabled`; `events.timezone` (PH default) + `live_mode_override` + `live_photo_wall_visibility`; new tables `photo_tags` (guest-in-photo, polymorphic over both capture tables), `wall_feed` (durable public-broadcast projection mirror — carries only the safe derivative key, never the original `r2_object_key`), `wall_display_sessions` (venue-screen claim handshake); `wall_feed` added to the `supabase_realtime` publication. RLS at create time (couple/coordinator/admin read; writes service-role/RPC-only; NO anon — policies pinned `TO authenticated`). Additive + idempotent.
+- **No app-code change** — no frontend reads the new objects yet; frontend ships after, per migrations-land-first.
+
+**Verification:** adversarial review (verdict SAFE-TO-APPLY) against the shipped schema; applied via `supabase db push` from a clean worktree off `origin/main`; confirmed recorded in the remote ledger (local == remote). SQL-only → `tsc`/`lint`/build unaffected (repo has no generated Supabase types). *Ledger note: the concurrently-merged taxonomy migration `20261104000000` wasn't in this worktree at push time (branched off an earlier `main`), which blocked `db push`; resolved by merging `origin/main` in. Its ledger row was briefly reverted during the push dance, then re-recorded `--status applied` (metadata-only, no DDL re-run) so the prod ledger stays accurate.*
+
+**SPEC IMPACT:** Implements 0012 Salamisim P0. **Two shipped-vs-corpus drifts corrected in the corpus:** (1) `coordinator` IS a real `public.member_type` enum value → the Kwento + Salamisim specs' `thread_join_authorizations` table is unnecessary; wall control authority uses `member_type IN ('couple','coordinator')` directly (table NOT created). (2) `events` had no `timezone` column (added here for server-side day-of mode). Also corrects spec naming: shipped capture/guest tables use `id BIGSERIAL` + a UUID business key; the enrollment table is `guest_face_enrollments` with `face_vector` (not the spec's `face_enrollments`/`vector_blob`). → corpus `0012_papic.md` (Salamisim + Kwento RLS) + `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(taxonomy): admin can assign which events a category serves (Phase 1 wiring)
 
 **Context:** Phase 1 added the `applicable_event_types` columns + `event_type_vocab` (dormant). This wires the admin control so the team can actually assign multi-event scope — directly the owner's ask ("create assignments on which category can serve which event").

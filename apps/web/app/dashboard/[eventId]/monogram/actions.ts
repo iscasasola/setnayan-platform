@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveMonogramMotion } from '@/lib/monogram-motion';
 
 /**
  * saveMonogram — persists the couple's monogram from the standalone Monogram
@@ -58,6 +59,10 @@ export async function saveMonogram(formData: FormData): Promise<void> {
     : 'bar';
   const design = DESIGNS[style];
 
+  // Motion-library signature (lib/monogram-motion.ts). Unknown/missing values
+  // resolve to 'draw' so the column never stores an off-registry key.
+  const motion = resolveMonogramMotion(String(formData.get('motion') ?? ''));
+
   const { error } = await supabase
     .from('events')
     .update({
@@ -66,6 +71,7 @@ export async function saveMonogram(formData: FormData): Promise<void> {
       monogram_style: style,
       monogram_font_key: design.font,
       monogram_frame_key: design.frame,
+      monogram_motion_key: motion,
     })
     .eq('event_id', eventId);
 

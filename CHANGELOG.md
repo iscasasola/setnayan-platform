@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Shortlist — remove the recap card ("the red frame")
+
+**Context:** Owner 2026-06-09 (confirmed by screenshot) — "the red frame" to remove from the Shortlist is the **mulberry Recap card** ("Look how far you've come · ~N hours saved · Searched/Shortlisted/Chosen"). Removed alongside the earlier Tools & Extras strip removal.
+
+- `_components/plan-budget-accordion.tsx`: dropped the `<Recap>` render from the end-spacer + the `Recap` component, the `RECAP_LINES` array, and the now-unused `RecapStats` import. The end-spacer keeps only the bottom-nav clearance + the "Unlock N more categories" link. (`model.recap` stays computed — the Summary tab's stat tiles still read it.)
+
+**Verification:** `tsc --noEmit` clean. UI-only; no schema/data change.
+
+**SPEC IMPACT:** Shortlist refinement of the Services redesign. UI-only. → corpus `DECISION_LOG` 2026-06-09.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist — flat carousel, end-marker, Find + Add-manually as last cards
 
 **Context:** Owner 2026-06-09 Shortlist polish: (1) drop the "Tools & extras" strip, (2) remove the carousel's grow + shake, (3) end the shortlist with a vertical line then `[Find XX +]` + `[Add manually]`, (4) snap cards to center incl. the first card and Add-manually as the last.

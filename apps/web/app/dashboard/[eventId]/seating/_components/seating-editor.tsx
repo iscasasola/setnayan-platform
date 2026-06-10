@@ -365,7 +365,12 @@ export function SeatingEditor({
   const publishAndPrint = () => {
     const fd = new FormData();
     fd.set('event_id', eventId);
-    startTransition(() => publishSeating(fd));
+    // Await inside the transition so the callback returns Promise<void>
+    // (startTransition rejects a value-returning promise); the {published}
+    // result is intentionally ignored — the print route reads live data.
+    startTransition(async () => {
+      await publishSeating(fd);
+    });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
   };
 

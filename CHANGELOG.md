@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(guests): privacy-first invite-claim + email-OTP double-verification (no auto-admit)
+
+**Context:** Owner 2026-06-10 authorized the "in-scope delta" of a proposed "Reverse Contact-Drop" guest system — keep the locked guardrails (no SMS, no NextAuth, no Prisma, no rolling QR), fix the real loophole. `/join/[eventId]` previously **silently auto-admitted** any signed-in user whose email didn't exactly match a `guests` (seed-list) row (minting a placeholder guest + membership) — a stranger with the universal link self-admits. This adds the couple-curated safety the live "personal QR" model promises, the Setnayan-native way.
+
+- **Migration `20261102000000_guest_invite_claim.sql`**: `guest_claims` ledger (RLS couple-read/update + admin; claimers never use their own JWT) + `guest_claim_status` enum + `join_method`/`notification_type` enum additions + `finalize_guest_claim()` and `register_guest_claim_otp_attempt()` service-role RPCs + **tightened `member_can_self_join`** + dedup + UNCONDITIONAL `UNIQUE(event_id,guest_id)` on `event_members`.
+- **`lib/guest-claim.ts`** — Unicode-safe fuzzy name match (Levenshtein + token-sort, length-capped), confident/ambiguous/none classifier, HMAC'd 6-digit OTP, throttle constants.
+- **`lib/guest-claim-flow.ts`** — server-only match → throttled claim → OTP-email (or couple review) orchestration; couple notified on review; send-failure downgrades to review.
+- **`app/join/[eventId]/`** — name+role picker, exact-email fast path (admin-client bind), unified `verify/` screen (indistinguishable matched/unmatched), `pending/`, shared shell.
+- **`app/dashboard/[eventId]/guests/claims/`** — couple review queue (confirm-matched · add-new · decline; emails guest on approval) + a "{N} requests waiting" banner.
+
+**Hardened after two adversarial-review passes (14 + 1 findings, all fixed):** pre-existing `member_can_self_join` let any authed user self-insert as `member_type='couple'` → tightened; OTP 5-try cap made atomic (`register_guest_claim_otp_attempt`); double-claim TOCTOU closed (advisory lock + unconditional unique index + `unique_violation` handler); guest-list enumeration oracle closed (uniform redirect + generic errors + no masked-email echo + uniform resend banner); name-length DoS cap; per-(user,event) claim throttle; non-Latin names normalize safely. Known low-risk residual: a noisy timing side-channel on the matched OTP send (left awaited — delivery reliability > a network-noisy oracle).
+
+**Verification:** `tsc --noEmit` + `next lint` clean. 6-dimension review + 5-cluster fix-verification (workflows). `GUEST_CLAIM_OTP_SECRET` set in prod.
+
+**DEPLOY ORDER:** new code works under BOTH the old and tightened `member_can_self_join` (admin-client binds); the OLD prod code does NOT work under the tightened policy. So **deploy code first, THEN apply the migration**.
+
+**SPEC IMPACT:** New guest-onboarding behavior on iterations 0000/0001/0002 + a fixed pre-existing privilege-escalation. **Load-bearing behavior change** (owner-approved 2026-06-10): unmatched/unverified guests no longer auto-admit → couple review queue. → corpus `DECISION_LOG` 2026-06-10 + 0001/0002 AS-BUILT note.
+
 ## 2026-06-10 · feat(seating): Phase 0 foundations — publish + per-table QR + print pack (0008)
 
 **Context:** Owner 2026-06-10 — seat-plan improvement program (audit vs market → leapfrog plan). Phase 0 = "fix foundations first": the live seating editor could not turn a finished plan into a printable venue pack, and had no per-table QR (which 0012 Papic's table-tag fan-out + the future day-of find-my-seat must resolve). Only the moodboard/blueprint PDF existed.

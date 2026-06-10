@@ -128,7 +128,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl] = await Promise.all([
+  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims] = await Promise.all([
     fetchGuestsByEvent(supabase, eventId),
     supabase
       .from('events')
@@ -138,7 +138,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
     fetchJoinUrl(supabase, eventId),
+    // Guest invite-claims awaiting the couple (migration 20261021). RLS scopes
+    // this to couples; a head+count read keeps it cheap.
+    supabase
+      .from('guest_claims')
+      .select('claim_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .in('status', ['pending_review', 'otp_sent']),
   ]);
+  const pendingClaimsCount = pendingClaims.count ?? 0;
   // Log silent palette-read errors so a future ADD COLUMN regression
   // would surface in Sentry instead of falling through to an empty
   // palette. sanitizeRolePalette already handles null input cleanly, so
@@ -375,6 +383,25 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         >
           {decodeURIComponent(search.error)}
         </p>
+      ) : null}
+
+      {pendingClaimsCount > 0 ? (
+        <Link
+          href={`/dashboard/${eventId}/guests/claims`}
+          className="group flex items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/10"
+        >
+          <span className="text-sm text-ink">
+            <span className="font-semibold text-terracotta-700">
+              {pendingClaimsCount} guest {pendingClaimsCount === 1 ? 'request' : 'requests'}
+            </span>{' '}
+            waiting for you to confirm
+          </span>
+          <ArrowRight
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-terracotta/60 transition-transform group-hover:translate-x-0.5"
+            strokeWidth={1.75}
+          />
+        </Link>
       ) : null}
 
       {/* Desktop-only chrome — owner directive 2026-06-02: on mobile the top

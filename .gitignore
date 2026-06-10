@@ -58,3 +58,4 @@ supabase/.branches/
 supabase/.temp/
 
 *.tsbuildinfo
+.vercel

@@ -68,7 +68,12 @@ export type NotificationType =
   | 'photo_delivery_complete'
   | 'photo_delivery_failed'
   | 'vendor_token_purchase_pending'
-  | 'vendor_tokens_credited';
+  | 'vendor_tokens_credited'
+  // Added 2026-06-10 alongside migration 20261102000000_guest_invite_claim.sql —
+  // fired (couple-recipient) from lib/guest-claim-flow.ts when an invite-claim
+  // lands in the couple's review queue (no/ambiguous fuzzy match, or OTP
+  // undeliverable). Replaces the signal the old auto-admit placeholder gave.
+  | 'guest_claim_pending';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -95,6 +100,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   photo_delivery_failed: 'Photo delivery failed',
   vendor_token_purchase_pending: 'Token purchase awaiting payment',
   vendor_tokens_credited: 'Tokens credited',
+  guest_claim_pending: 'Guest request to confirm',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -132,6 +138,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   vendor_token_purchase_pending: 'bg-amber-100 text-amber-900',
   // Tokens credited = positive money-in confirmation → emerald (matches order_paid).
   vendor_tokens_credited: 'bg-emerald-200 text-emerald-900',
+  // Guest request awaiting the couple's confirmation = action needed → amber.
+  guest_claim_pending: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

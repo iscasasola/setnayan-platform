@@ -218,6 +218,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/account-deletions',
       },
       {
+        // UGC report queue (Apple 1.2 / Google Play UGC). Reports filed against
+        // Papic guest gallery content land here for moderator review.
+        key: 'user-reports',
+        label: 'User reports',
+        href: '/admin/user-reports',
+        icon: Shield,
+        matchPrefix: '/admin/user-reports',
+      },
+      {
         // Two-admin (four-eyes) approval queue — §9.1. A different admin
         // approves a major decision before it executes.
         key: 'approvals',

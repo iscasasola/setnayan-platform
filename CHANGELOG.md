@@ -17,6 +17,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Canonical build plan landed at corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`; superseded-in-part callout added to the 0012 "Pro Camera Bridge" section (4-brand matrix → Canon-only V1 · Patiktok added as 3rd surface · Panood SFU target retired); 2 DECISION_LOG rows (plan + this ship). Owner sign-offs (brand fork, SKU Q1–Q3, Panood ingest, DSLR ownership, iOS-vs-Android, budget) pending — pricing batched to the holistic review.
 
+## 2026-06-11 · test(taxonomy): unit-test foundation + taxonomy invariant guards (node:test via tsx)
+
+**Context:** The repo had only Playwright e2e + node lint scripts — no unit tests. This stands up a **zero-new-dependency** unit-test layer using Node's built-in runner (`node:test`) through the already-present `tsx`, and lands the first suite.
+
+- **`apps/web/lib/taxonomy.test.ts`** — 5 invariants on `TAXONOMY_MAP` + the tile/folder tree: every entry maps to a known folder; every tile is known + sits under its declared folder; faith values ∈ the allowed FaithKey set; `TILE_PARENT` ↔ `WEDDING_TILES_BY_PARENT` consistency; and the **de-faith regression guard** — no `dietary`-tagged canonical may carry `faith` (the exact bug fixed earlier today). The guard **fails on the pre-fix code naming all 4 offenders and passes after** — verified both directions.
+- **`package.json`:** `test:unit` → `tsx --test "lib/**/*.test.ts"`.
+- **`.github/workflows/ci.yml`:** a "Unit tests" step in the `typecheck + lint` job (reuses its install; exits non-zero on failure — verified).
+
+**SPEC IMPACT:** None (test infra). → `DECISION_LOG` note.
+
 ## 2026-06-11 · fix(migrations): resolve duplicate-timestamp collision (account-deletion was silently skipped on prod)
 
 **Context:** Two PRs independently picked migration timestamp `20261105000000` — `defaith_food_canonicals` (#1232) and `account_deletion_requests` — and both merged to `main`. Supabase keys applied migrations by the timestamp, so once `defaith` registered version `20261105000000`, the account-deletion migration would be **silently skipped forever** → `account_deletion_requests` never created on prod → the shipped `/admin/account-deletions` page + the in-app deletion-request flow (App Store 5.1.1(v) / Google Play) would error at runtime.
@@ -36,6 +46,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Fixes a live never-subtract-lock violation; first slice of the dietary-capability model (option 1c). → corpus `Catering_Dietary_Halal_Model_2026-06-11.md` + `DECISION_LOG` 2026-06-11.
 
+## 2026-06-11 · feat(pwa): Web Push notifications + offline shell Phase 1 (Apple guideline 4.2)
+
+**Context:** The PWA / WebView app needs to be more than a repackaged website to clear Apple guideline 4.2 (minimum functionality). Push notifications + a real offline experience are the differentiators. Web Push rides the browser's own Push Service via VAPID keys the owner generates (`npx web-push generate-vapid-keys`) — **no Apple/Google developer account required**. Notifications were email-only via Resend (iteration 0028); there was no push, and `sw.js` did asset caching + an offline shell fallback only.
+
+- **Dependency:** added `web-push` (+ `@types/web-push`) to `apps/web`.
+- **Migration `supabase/migrations/20261107000000_push_subscriptions.sql`** (NOT yet applied to prod): new `push_subscriptions` table (`id`, `user_id` FK → `public.users(user_id)` ON DELETE CASCADE, `endpoint` UNIQUE, `p256dh`, `auth`, `topics text[]`, `created_at`, `last_seen_at`). RLS **enabled at CREATE time**, mirroring the 0028 notifications shape — a user manages (SELECT/INSERT/UPDATE/DELETE) only their own rows (`user_id = auth.uid()`). `pnpm migration:check` green.
+- **`lib/web-push.ts`** (new): server-only `sendWebPush(userId, payload)` — looks up the user's subscriptions via the service-role client and fans an encrypted payload out; prunes stale endpoints on 404/410. Gated on `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — **no-ops when unset** (build + site unaffected). `web-push` is lazy-imported.
+- **`lib/notification-emit.ts`:** fires `sendWebPush` **alongside** the existing in-app notification + Resend email, scoped to the two highest-signal types only (`chat_message`, `vendor_inquiry_received`) — best-effort, never blocks/rolls back the primary action. The rest of 0028 is untouched. *(Deviation: the brief named "wedding-day reminder" as the 2nd point, but no such notification type exists in code — day-of mode (0031) is UI/cron-free and emits no notification — so `vendor_inquiry_received` was wired instead.)*
+- **`lib/push-actions.ts`** (new): `savePushSubscription` / `removePushSubscription` server actions; writes go through the **RLS-scoped user client** (not admin), upsert on the unique endpoint.
+- **`app/dashboard/profile/_components/push-toggle.tsx`** (new) + wired into the profile "Notifications & feedback" section: a **non-intrusive** toggle — the browser permission prompt fires only on opt-in, never on first paint/login. Renders a quiet "not available"/"blocked" note when push is unsupported (e.g. iOS Safari outside an installed PWA) or denied.
+- **`public/sw.js`** (additive, `v2 → v3`): `push` + `notificationclick` handlers (render + route clicks back into the app, focus existing tab); precache `offline.html`; new `DAYOF_CACHE` serving the day-of guest landing page + `find-my-table` **stale-while-revalidate** (schedule/table/floorplan survive weak venue signal); offline navigation now falls back to `offline.html`; a `guestbook-sync` Background Sync **stub** that replays an IndexedDB queue when connectivity returns (no-ops gracefully until the feature owns the queue).
+- **`public/offline.html`** (new): branded static offline fallback.
+- **`.env.example`:** documented `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` with the `npx web-push generate-vapid-keys` note + the unset → no-op behavior.
+
+**Verification:** `pnpm typecheck` green, `pnpm lint` green (only pre-existing warnings in unrelated files), `pnpm --filter @setnayan/web build` succeeds. Migration NOT applied to prod (per task constraints).
+
+**SPEC IMPACT:** Adds Web Push to the email-only notification stack (iteration 0028) + an offline-data layer for the day-of guest experience (iteration 0031). New `push_subscriptions` table + three VAPID env vars. → fold into 0028/0031 corpus + `DECISION_LOG` 2026-06-11.
 ## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
 
 **Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.
@@ -70,6 +97,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `pnpm --filter @setnayan/web typecheck` ✓, `lint` ✓ (only pre-existing unrelated warnings), `build` ✓ (`/admin/account-deletions` compiled). No DB write performed (migration applies on merge); no browser verification (gated pages need a live DB + admin/couple sessions) — preview left for the owner.
 
 **SPEC IMPACT:** Iteration **0025** (Profile Settings · Privacy & Data) — the Delete-my-account control changes from immediate self soft-delete to a store-compliant request+admin-review flow; new `account_deletion_requests` table; new admin surface `/admin/account-deletions` in the 0023 console Work group. Surfaces a load-bearing UX change (self-delete → queued request) for owner sign-off. → corpus iteration 0025 `.md` + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): UGC moderation tooling — report to admin, event-scoped block, terms gate (0012/0031/0023)
+
+**Context:** Apple App Store guideline 1.2 (Safety · UGC) and Google Play's UGC policy require any app with user-posted media to provide a content filter (exists: NSFW), an in-app report mechanism, the ability to block an abusive user, a terms-of-use acceptance defining objectionable content, and reports that reach a moderator. The only UGC surface in V1 is the Papic guest camera (a wedding guest, identified by a guest-session cookie — not a `users` row — captures photos into `papic_guest_captures`). Live-code audit found: NSFW filter + face-blur exist, but there was NO report mechanism (the day-of "live photo wall" is still a stub), NO block, NO terms gate, and reports had no destination. There is NO gallery-comment feature, so per-comment reporting was intentionally skipped (the `target_type` CHECK still allows `'comment'` for forward-compat).
+
+- **Migration `20261108000000_ugc_moderation.sql`** (NOT applied to prod — local `migration:check` only):
+  - `user_reports` — report queue (`public_id` S89W-, reporter user OR guest, event_id, target_type photo|comment|user, target_id, reason enum, details, status open|actioned|dismissed, action_taken, reviewed_by/at). RLS at create: reporter INSERT/SELECT own · couple SELECT for `current_event_ids()` · admin (`is_admin`) SELECT + UPDATE.
+  - `event_blocked_users` — EVENT-SCOPED block (owner-locked). Keyed on `blocked_guest_id` (the real uploader actor is a guest, not a users row — documented deviation from the spec's `blocked_user_id`). UNIQUE(event_id, blocked_guest_id). RLS: event couple manages own-event rows; admin all.
+  - Terms acceptance stored minimally as `guests.ugc_terms_accepted_at` (the guest row is the natural per-event participant record — no new table, no backfill).
+  - `papic_record_guest_capture` RPC re-created with two new authoritative gates BEFORE the quota check: a blocked guest → `status: 'blocked'`; a guest with NULL terms stamp → `status: 'terms_required'`.
+  - New SECURITY DEFINER fns: `papic_accept_ugc_terms(guest)` (idempotent stamp) + `report_guest_capture(reporter,capture,reason,details)` (guest-filed report, one open report per target).
+- **Guest capture flow** (`app/papic/guest/page.tsx`, `_components/papic-guest-capture.tsx`, `api/papic/guest-capture/route.ts`, new `api/papic/accept-terms/route.ts`): one-time terms-of-use gate (checkbox + objectionable-content rules + /terms link) before the first capture; blocked-guest short-circuit screen; capture API pre-checks block + terms (avoids R2 orphans) and the client handles new `blocked`/`terms_required` statuses.
+- **Couple moderation surface** (new `app/dashboard/[eventId]/add-ons/papic/moderation/`): lists every guest capture with Hide (`hidden_at`) / Report (routes to admin too) / event-scoped Block + a blocked-guests panel. Entry-point card added to the Papic add-on page.
+- **Admin queue** (new `app/admin/user-reports/`): moderator queue matching the disputes-surface pattern — status filters, thumbnails, actions hide content / block uploader / escalate / dismiss; nav entry added in the Work group of `admin-sidebar.tsx`.
+
+**Verification:** `pnpm migration:check` green (301 migrations, unique prefixes); `pnpm --filter web typecheck`, `lint` (no new warnings), and `build` all pass; the 3 new routes appear in the build manifest. Migration deliberately NOT pushed to prod.
+
+**SPEC IMPACT:** New tables `user_reports` + `event_blocked_users` + `guests.ugc_terms_accepted_at`; new admin surface `/admin/user-reports`; new couple surface `/dashboard/[eventId]/add-ons/papic/moderation`; capture-RPC behavior change (block + terms gates). Touches iterations **0012 (Papic)**, **0031 (day-of guest)**, and **0023 (admin console)**. Corpus edit deferred to a Cowork pass (per the relaxed sync mandate — code is canonical); log a `DECISION_LOG.md` row: event-scoped block keyed on `blocked_guest_id` (the abusive uploader is a guest, not a `users` account); terms acceptance stored on `guests`; no comment-report path (no comment feature exists).
 
 ## 2026-06-11 · feat(taxonomy): admin can assign which events a category serves (Phase 1 wiring)
 

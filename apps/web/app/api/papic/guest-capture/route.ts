@@ -50,6 +50,30 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
+  // UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
+  // keep R2 free of orphan objects we'd only reject. The capture RPC re-checks
+  // both authoritatively (it's the real gate); these just short-circuit the
+  // common rejected cases before the R2 PUT.
+  const [{ data: blockRow }, { data: guestRow }] = await Promise.all([
+    admin
+      .from('event_blocked_users')
+      .select('id')
+      .eq('event_id', session.event_id)
+      .eq('blocked_guest_id', session.guest_id)
+      .maybeSingle(),
+    admin
+      .from('guests')
+      .select('ugc_terms_accepted_at')
+      .eq('guest_id', session.guest_id)
+      .maybeSingle(),
+  ]);
+  if (blockRow) {
+    return NextResponse.json({ status: 'blocked' }, { status: 403 });
+  }
+  if (!guestRow?.ugc_terms_accepted_at) {
+    return NextResponse.json({ status: 'terms_required' }, { status: 403 });
+  }
+
   // Pre-check the quota so we don't PUT an object that the RPC would then
   // reject — keeps R2 free of orphans for the common exhausted case. The RPC's
   // advisory-locked count is still the authoritative gate for the boundary.

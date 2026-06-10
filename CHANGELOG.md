@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(taxonomy): Phase 1 — multi-event applicability (which category serves which event)
+
+**Context:** Phase 1 of the taxonomy unification + multi-event design (owner-approved 2026-06-10; `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §2). The whole tree was implicitly wedding-only; this adds the structural ability to say which category serves which event type, ahead of unlocking non-wedding events.
+
+- **Migration `20261104000000_taxonomy_event_applicability.sql`** (applied to prod):
+  - New `event_type_vocab` table (12 seeded values: wedding/birthday/celebration/travel/corporate/tournament/christening/gender_reveal/debut/anniversary/graduation/reunion) — public read, admin write. A validation lookup, deliberately NOT the live `event_type` enum (which is rebuilt by a RENAME-swap migration that would break a column-level constraint mid-swap).
+  - `service_categories.applicable_event_types TEXT[]` (primary, tile grain) + `canonical_service_taxonomy.applicable_event_types TEXT[]` (optional per-service override), both GIN-indexed.
+  - BEFORE INSERT/UPDATE validation trigger on both — each array member must be an active `event_type_vocab` key; NULL/empty always valid.
+- **FAIL-OPEN:** NULL/empty = universal (serves all events). All 64 rows land NULL → byte-identical wedding behavior. Unlocking a new event type = tag the ~10 wedding-only tiles OUT, never re-tag 54.
+- Pure additive schema; no app behavior change yet (read-through + admin assignment UI + couple-side filter land in the wiring phase). Verified on prod: 12 vocab rows, both columns + 2 triggers present, all 64 tiles NULL, bogus-value insert correctly rejected.
+
+**SPEC IMPACT:** Multi-event taxonomy foundation. → corpus design doc §2/§7 Phase 1 + `DECISION_LOG` 2026-06-10.
+
 ## 2026-06-11 · feat(taxonomy): Phase 0 — anchor onboarding refinements to the taxonomy tree (single-source unification)
 
 **Context:** Owner 2026-06-10 approved consolidating the platform to ONE taxonomy source (design doc `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md`). Two parallel DB taxonomies exist today: the marketplace tree (`service_categories` → `canonical_service_taxonomy`) and the couple-facing onboarding refinements (`onboarding_refinements`), keyed independently. Phase 0 anchors the latter to the former so they can no longer drift, and so event-type / faith visibility can later inherit from the anchor tile.

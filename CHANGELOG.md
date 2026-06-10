@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(taxonomy): couple-side shared filters — mixed-faith union + civil + event-type gate
+
+**Context:** Phase 3 wiring of the unification design (§3 SET rewrite + §2 event applicability, couple side). Three live gaps closed: (1) the catalog faith filter was **scalar** (primary rite only) — a Mixed Cath+Muslim couple never saw the Muslim rite's specialist services even though `secondary_ceremony_type` was already threaded; (2) **civil couples saw all faith-tagged services** — the code contradicted its own documented intent ("civil couples keep faith-tagged tiles hidden"); (3) the dashboard category search applied **no taxonomy-level faith or event-type filter at all**.
+
+- **New `lib/taxonomy-filters.ts`** — the ONE shared predicate module for couple-facing scoping: `buildCoupleFaithSet` (union of primary+secondary rites; `civil`→first-class `Civil`; **wedding-guarded** — non-wedding events never faith-narrow, defense-in-depth alongside the `20260521080000` wedding↔ceremony constraint), `passesFaithFilter` (INCLUDE-only; untagged always delivered; empty set = no narrowing), `passesEventTypeFilter` (NULL = universal, fail-open), `resolveEventType` (NULL event_type = wedding; never-empty both sides).
+- **`lib/taxonomy-filters.test.ts`** — 17 new unit tests for the invariants (mixed-union, wedding guard, civil, fail-open, admit-unknown). Suite now 23/23.
+- **`app/vendors/page.tsx`** — `passesReligionFilter` rewritten onto the shared SET predicate; `coupleEventType` + `secondary_ceremony_type` threaded into `CatalogView`; the tile loop gains the **multi-event applicability gate** (`tax.tileEventTypes`, fail-open — zero change for weddings until admins scope tiles).
+- **`category-search.ts`** — outer-gate scoping before the vendor query, using the SAME shared predicates (the two couple surfaces can no longer disagree): canonical dropped if its tile doesn't serve the event type or its faith doesn't match the couple's rites; unmapped canonicals admitted.
+
+**Verified:** `tsc` clean · 23/23 unit tests · a live-data probe of 5 scenarios against the real taxonomy: Catholic 168/179 (Muslim/INC specialists excluded) · Muslim 177/179 · **Mixed Cath+Muslim 177/179 (the fix — scalar showed 168)** · Civil 168/179 (matches documented intent) · corporate-with-stale-catholic 179/179 (wedding guard, zero narrowing).
+
+**SPEC IMPACT:** Realizes design doc §3 (SET faith) + §2 (couple-side event gate). → corpus design doc + `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
 
 **Context:** Phase 2 of the unification (`Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §3/§7). The faith vocabulary was a hardcoded 5-value CHECK with **no admin write control** — every admin-minted service was born faith-blind, the faith badge was read-only, and `Chinese`/`Jewish`/`Born Again` (in the app's `FaithKey` union) were untaggable in the DB. Storage stays **TITLE-CASE** (the marketplace compares `===`; lowercasing = the landmine).

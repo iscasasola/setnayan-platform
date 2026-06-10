@@ -9,6 +9,7 @@ import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { makeT } from '@/lib/i18n';
 import { HapticsToggle } from './_components/haptics-toggle';
+import { PushToggle } from './_components/push-toggle';
 import {
   cancelAccountDeletionRequest,
   changePassword,
@@ -478,13 +479,15 @@ export default async function ProfilePage({ searchParams }: Props) {
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Feedback
+            Notifications &amp; feedback
           </h2>
           <p className="text-sm text-ink/60">
-            A gentle tap when you press buttons, on phones that support it. Turn
-            it off if you prefer silent taps.
+            Turn on push to hear about new messages and inquiries even when the
+            app is closed. Haptics adds a gentle tap when you press buttons, on
+            phones that support it.
           </p>
         </div>
+        <PushToggle />
         <HapticsToggle />
       </section>
 

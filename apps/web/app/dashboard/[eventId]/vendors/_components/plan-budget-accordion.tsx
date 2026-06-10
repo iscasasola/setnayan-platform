@@ -65,7 +65,6 @@ import {
   type AccordionFolder,
   type AccordionChild,
   type AccordionPick,
-  type RecapStats,
 } from '@/lib/vendors-plan-budget';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
@@ -881,9 +880,9 @@ export function PlanBudgetAccordion({
               from the market pool, so a no-pick event still shows a meaningful
               summary instead of nothing. */}
           <div className="end-spacer">
-            {/* "Tools & extras" strip removed from the Shortlist (owner
-                2026-06-09) — the couple-tools live on the full /add-ons page. */}
-            <Recap recap={model.recap} />
+            {/* The "Tools & extras" strip AND the "Look how far you've come"
+                recap card were both removed from the Shortlist (owner 2026-06-09)
+                — the end-spacer just provides the bottom-nav clearance now. */}
             {model.inactiveCategoryCount > 0 && (
               <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
                 <span className="cu-ico" aria-hidden>
@@ -1947,52 +1946,5 @@ function CompareSheet({
   );
 }
 
-// ── Surface 5 · Recap ─────────────────────────────────────────────────────
-// Feel-good lines — one shown at random on every open (owner 2026-06-01:
-// "different and randomized every time… we want to make them feel good").
-const RECAP_LINES = [
-  'Every pick brings your day into focus.',
-  'You’re closer than you think.',
-  'This is your wedding, taking shape.',
-  'Look at you, making it happen.',
-  'Each choice is one less thing to carry.',
-  'It’s all coming together beautifully.',
-  'Small steps, big day.',
-  'One vendor at a time — you’ve got this.',
-  'Future-you is grateful for today.',
-  'The hard part was starting. Done.',
-  'Set na ’yan — you’re almost there.',
-];
-
-function Recap({ recap }: { recap: RecapStats }) {
-  // Default to the first line for SSR (stable → no hydration mismatch), then
-  // swap to a random one once mounted, so it's fresh on each visit.
-  const [line, setLine] = useState(RECAP_LINES[0]);
-  useEffect(() => {
-    setLine(RECAP_LINES[Math.floor(Math.random() * RECAP_LINES.length)]);
-  }, []);
-  return (
-    <section className="endcard">
-      <p className="end-eyebrow">Look how far you&rsquo;ve come</p>
-      <h2 className="end-h">~{recap.hoursSaved} hours saved so far</h2>
-      <p className="end-line">
-        roughly what it&rsquo;d take to find and vet this many vendors yourself.
-      </p>
-      <div className="end-stats">
-        <div>
-          <div className="esv">{recap.searched}</div>
-          <div className="esk">Searched</div>
-        </div>
-        <div>
-          <div className="esv">{recap.shortlisted}</div>
-          <div className="esk">Shortlisted</div>
-        </div>
-        <div>
-          <div className="esv">{recap.finalized}</div>
-          <div className="esk">Chosen</div>
-        </div>
-      </div>
-      <p className="end-motivate">{line}</p>
-    </section>
-  );
-}
+// (Recap "Look how far you've come" card removed 2026-06-09 — owner pulled the
+// mulberry recap card off the Shortlist.)

@@ -16,6 +16,8 @@ import {
   DslrPairingController,
   resetBridgeSlots,
 } from '../lib/camera-bridge/pairing-fsm';
+import { deliverCapture } from '../lib/camera-bridge/papic-sink';
+import { syncOneWith } from '../lib/offline/service-handlers/camera-bridge-handler';
 import {
   BridgeError,
   BridgeSlotBusyError,
@@ -377,6 +379,242 @@ async function main(): Promise<void> {
     const attempts = primary.connectAttempts;
     await clock.advance(30_000); // any surviving retry timer would fire here
     assert.equal(primary.connectAttempts, attempts, 'no retries after stop()');
+  });
+
+  // T11 — S0 sink: delivery orchestration (deliverCapture)
+  const mkFile = (kind: 'still' | 'clip' = 'still'): import('../lib/camera-bridge/types').CapturedFile => ({
+    kind,
+    bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
+    mimeType: kind === 'clip' ? 'video/webm' : 'image/jpeg',
+    capturedAtMs: 1718000000000,
+    durationMs: kind === 'clip' ? 5000 : undefined,
+    pairedCameraBrand: 'canon',
+    pairedCameraModel: 'EOS R6 Mark II',
+  });
+
+  await test('sink: happy path — presign → put → record, correct meta', async () => {
+    const calls: string[] = [];
+    const result = await deliverCapture(
+      {
+        presign: async (req) => {
+          calls.push('presign');
+          assert.equal(req.pathPrefix, 'papic/seat-3');
+          assert.equal(req.contentType, 'image/jpeg');
+          assert.ok(req.filename.endsWith('.jpg'));
+          assert.equal(req.sizeBytes, 4);
+          return { uploadUrl: 'https://r2/put', r2Ref: 'r2://media/k1' };
+        },
+        put: async (url, bytes, ct) => {
+          calls.push('put');
+          assert.equal(url, 'https://r2/put');
+          assert.equal(bytes.byteLength, 4);
+          assert.equal(ct, 'image/jpeg');
+          return true;
+        },
+        record: async (r2Ref, kind) => {
+          calls.push('record');
+          assert.equal(r2Ref, 'r2://media/k1');
+          assert.equal(kind, 'photo');
+          return { ok: true, count: 7 };
+        },
+      },
+      mkFile(),
+      { seatIndex: 3 },
+    );
+    assert.deepEqual(calls, ['presign', 'put', 'record']);
+    assert.deepEqual(result, { ok: true, count: 7 });
+  });
+
+  await test('sink: clip kind maps to record(clip) + webm filename', async () => {
+    const result = await deliverCapture(
+      {
+        presign: async (req) => {
+          assert.ok(req.filename.endsWith('.webm'));
+          return { uploadUrl: 'u', r2Ref: 'r' };
+        },
+        put: async () => true,
+        record: async (_r, kind) => {
+          assert.equal(kind, 'clip');
+          return { ok: true, count: 1 };
+        },
+      },
+      mkFile('clip'),
+      { seatIndex: 1 },
+    );
+    assert.ok(result.ok);
+  });
+
+  await test('sink: presign failure → queued when a queue dep exists', async () => {
+    let queuedReason = '';
+    const result = await deliverCapture(
+      {
+        presign: async () => null,
+        put: async () => true,
+        record: async () => ({ ok: true, count: 0 }),
+        enqueueOffline: async (_f, reason) => {
+          queuedReason = reason;
+          return true;
+        },
+      },
+      mkFile(),
+      { seatIndex: 1 },
+    );
+    assert.deepEqual(result, { ok: false, error: 'presign_failed', queued: true });
+    assert.equal(queuedReason, 'presign_failed');
+  });
+
+  await test('sink: PUT failure → queued; record never called', async () => {
+    let recorded = false;
+    const result = await deliverCapture(
+      {
+        presign: async () => ({ uploadUrl: 'u', r2Ref: 'r' }),
+        put: async () => false,
+        record: async () => {
+          recorded = true;
+          return { ok: true, count: 0 };
+        },
+        enqueueOffline: async () => true,
+      },
+      mkFile(),
+      { seatIndex: 1 },
+    );
+    assert.deepEqual(result, { ok: false, error: 'upload_failed', queued: true });
+    assert.equal(recorded, false);
+  });
+
+  await test('sink: record NETWORK throw → queued (safe retry)', async () => {
+    const result = await deliverCapture(
+      {
+        presign: async () => ({ uploadUrl: 'u', r2Ref: 'r' }),
+        put: async () => true,
+        record: async () => {
+          throw new Error('network');
+        },
+        enqueueOffline: async () => true,
+      },
+      mkFile(),
+      { seatIndex: 1 },
+    );
+    assert.deepEqual(result, { ok: false, error: 'record_failed', queued: true });
+  });
+
+  await test('sink: server REJECTION → error surfaced, NOT queued', async () => {
+    let enqueued = false;
+    const result = await deliverCapture(
+      {
+        presign: async () => ({ uploadUrl: 'u', r2Ref: 'r' }),
+        put: async () => true,
+        record: async () => ({ ok: false, error: 'not_your_seat' }),
+        enqueueOffline: async () => {
+          enqueued = true;
+          return true;
+        },
+      },
+      mkFile(),
+      { seatIndex: 1 },
+    );
+    assert.deepEqual(result, { ok: false, error: 'not_your_seat', queued: false });
+    assert.equal(enqueued, false, 'a rejected capture must never be queued for retry');
+  });
+
+  await test('sink: no queue dep → queued:false on infra failure', async () => {
+    const result = await deliverCapture(
+      { presign: async () => null, put: async () => true, record: async () => ({ ok: true, count: 0 }) },
+      mkFile(),
+      { seatIndex: 1 },
+    );
+    assert.deepEqual(result, { ok: false, error: 'presign_failed', queued: false });
+  });
+
+  // T12 — O1 offline handler (syncOneWith)
+  const mkItem = (payload: Record<string, unknown>): import('../lib/offline/types').OfflineItem => ({
+    item_id: 'i1',
+    event_id: 'e1',
+    queued_at: new Date(0).toISOString(),
+    payload,
+    retry_count: 0,
+  });
+  const validPayload = () => ({
+    seat_token: 'tok',
+    seat_index: 2,
+    kind: 'photo',
+    content_type: 'image/jpeg',
+    captured_at_ms: 123,
+    bytes: Uint8Array.from([1, 2, 3]).buffer as ArrayBuffer,
+  });
+
+  await test('handler: valid queued item drains through the sink → ok', async () => {
+    const calls: string[] = [];
+    const result = await syncOneWith(
+      {
+        presign: async (req) => {
+          calls.push('presign');
+          assert.equal(req.pathPrefix, 'papic/seat-2');
+          return { uploadUrl: 'u', r2Ref: 'r' };
+        },
+        put: async (_u, bytes) => {
+          calls.push('put');
+          assert.equal(bytes.byteLength, 3);
+          return true;
+        },
+        record: async (_r, kind) => {
+          calls.push('record');
+          assert.equal(kind, 'photo');
+          return { ok: true, count: 4 };
+        },
+      },
+      mkItem(validPayload()),
+    );
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual(calls, ['presign', 'put', 'record']);
+  });
+
+  await test('handler: Blob bytes accepted (IndexedDB structured-clone shape)', async () => {
+    const payload = { ...validPayload(), bytes: new Blob([Uint8Array.from([9, 9])], { type: 'image/jpeg' }) };
+    const result = await syncOneWith(
+      {
+        presign: async () => ({ uploadUrl: 'u', r2Ref: 'r' }),
+        put: async (_u, bytes) => {
+          assert.equal(bytes.byteLength, 2);
+          return true;
+        },
+        record: async () => ({ ok: true, count: 1 }),
+      },
+      mkItem(payload),
+    );
+    assert.deepEqual(result, { ok: true });
+  });
+
+  await test('handler: invalid payload → invalid_payload (stays queued, visible)', async () => {
+    const result = await syncOneWith(
+      { presign: async () => null, put: async () => false, record: async () => ({ ok: false, error: 'x' }) },
+      mkItem({ seat_token: '', nope: true }),
+    );
+    assert.deepEqual(result, { ok: false, error: 'invalid_payload' });
+  });
+
+  await test('handler: infra failure during drain → ok:false, item stays', async () => {
+    const result = await syncOneWith(
+      {
+        presign: async () => null,
+        put: async () => true,
+        record: async () => ({ ok: true, count: 0 }),
+      },
+      mkItem(validPayload()),
+    );
+    assert.deepEqual(result, { ok: false, error: 'presign_failed' });
+  });
+
+  await test('handler: server rejection → reason surfaced on last_error path', async () => {
+    const result = await syncOneWith(
+      {
+        presign: async () => ({ uploadUrl: 'u', r2Ref: 'r' }),
+        put: async () => true,
+        record: async () => ({ ok: false, error: 'revoked' }),
+      },
+      mkItem(validPayload()),
+    );
+    assert.deepEqual(result, { ok: false, error: 'revoked' });
   });
 
   // ── results ──

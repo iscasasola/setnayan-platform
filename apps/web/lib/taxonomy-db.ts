@@ -55,6 +55,8 @@ export type TaxonomySnapshot = {
   tileLabel: Record<string, string>;
   tileSlug: Record<string, string>;
   tilesByParent: Record<string, WeddingTile[]>;
+  /** tile id → applicable event_type_vocab keys. null / [] = universal (serves all events). */
+  tileEventTypes: Record<string, string[] | null>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
@@ -74,6 +76,7 @@ function fallbackSnapshot(): TaxonomySnapshot {
     tilesByParent: Object.fromEntries(
       Object.entries(WEDDING_TILES_BY_PARENT).map(([k, v]) => [k, [...v]]),
     ),
+    tileEventTypes: {}, // constant fallback has no event scoping → all universal
     map: { ...TAXONOMY_MAP },
   };
 }
@@ -86,6 +89,7 @@ type CategoryRow = {
   label_short: string | null;
   slug: string;
   sort_order: number;
+  applicable_event_types: string[] | null;
 };
 
 type MapRow = {
@@ -125,6 +129,7 @@ function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomySnapshot
   const tileLabel: Record<string, string> = {};
   const tileSlug: Record<string, string> = {};
   const tilesByParent: Record<string, WeddingTile[]> = {};
+  const tileEventTypes: Record<string, string[] | null> = {};
   for (const p of parents) tilesByParent[p.id] = [];
   for (const t of tiles) {
     if (t.parent_id) {
@@ -133,6 +138,10 @@ function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomySnapshot
     }
     tileLabel[t.id] = t.label_en;
     tileSlug[t.id] = t.slug;
+    tileEventTypes[t.id] =
+      t.applicable_event_types && t.applicable_event_types.length > 0
+        ? t.applicable_event_types
+        : null; // null = universal (serves all events)
   }
 
   const map: Record<string, TaxonomyEntry> = {};
@@ -166,6 +175,7 @@ function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomySnapshot
     tileLabel,
     tileSlug,
     tilesByParent,
+    tileEventTypes,
     map,
   };
 }
@@ -180,7 +190,7 @@ export const getTaxonomy = cache(async (): Promise<TaxonomySnapshot> => {
     const [catsRes, mapsRes] = await Promise.all([
       sb
         .from('service_categories')
-        .select('id,parent_id,tier,label_en,label_short,slug,sort_order')
+        .select('id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types')
         .lte('tier', 2),
       sb
         .from('canonical_service_taxonomy')

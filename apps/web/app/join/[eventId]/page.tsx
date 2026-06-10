@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction } from './actions';
+import { JoinShell, InvalidTokenScreen } from './_components/join-shell';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 
 export const metadata = { title: 'Join event' };
@@ -30,8 +31,9 @@ const SELECTABLE_ROLES: GuestRole[] = [
 ];
 
 const ROLE_ERROR: Record<string, string> = {
-  invalid_token: "This invite link is no longer valid. Ask the couple to send you a fresh one.",
+  invalid_token: 'This invite link is no longer valid. Ask the couple to send you a fresh one.',
   invalid_role: 'Please pick a valid role.',
+  missing_name: 'Please enter your name so the couple can find you on their list.',
   already_member: "You're already on this event's guest list.",
 };
 
@@ -119,7 +121,16 @@ export default async function JoinPage({ params, searchParams }: Props) {
     redirect(`/join/${eventId}/success?token=${token}`);
   }
 
-  // 4. Show role picker.
+  // 4. Show name + role picker. Pre-fill the name from their account so the
+  //    couple's guest list can be matched against it (no public search field).
+  const metaFirst = (user.user_metadata?.first_name as string | undefined) ?? '';
+  const metaLast = (user.user_metadata?.last_name as string | undefined) ?? '';
+  const defaultName =
+    (user.user_metadata?.full_name as string | undefined) ??
+    (user.user_metadata?.name as string | undefined) ??
+    [metaFirst, metaLast].filter(Boolean).join(' ') ??
+    '';
+
   const errorMessage = errorKey ? (ROLE_ERROR[errorKey] ?? errorKey) : null;
   const action = joinEventAction.bind(null, eventId, token);
 
@@ -135,11 +146,29 @@ export default async function JoinPage({ params, searchParams }: Props) {
       ) : null}
 
       <p className="text-base text-ink/70">
-        Welcome, <span className="font-medium text-ink">{user.email}</span>. Pick the
-        role that best describes how you&rsquo;re part of this wedding.
+        Welcome, <span className="font-medium text-ink">{user.email}</span>. Tell us who
+        you are so the couple can match you to their guest list.
       </p>
 
       <form action={action} className="mt-6 space-y-4">
+        <div className="space-y-1.5">
+          <label htmlFor="name" className="block text-sm font-medium text-ink">
+            Your full name
+          </label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            defaultValue={defaultName}
+            placeholder="e.g. Maria Santos"
+            autoComplete="name"
+            className="input-field"
+          />
+          <p className="text-xs text-ink/50">
+            Use the name the couple would have on their list.
+          </p>
+        </div>
         <div className="space-y-1.5">
           <label htmlFor="role" className="block text-sm font-medium text-ink">
             Your role
@@ -155,56 +184,10 @@ export default async function JoinPage({ params, searchParams }: Props) {
             Pick &ldquo;Guest&rdquo; if your role isn&rsquo;t listed. The couple can refine it later.
           </p>
         </div>
-        <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Joining…">
-          Join event
+        <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Checking…">
+          Continue
         </SubmitButton>
       </form>
     </JoinShell>
-  );
-}
-
-function InvalidTokenScreen() {
-  return (
-    <JoinShell event={null}>
-      <h2 className="text-xl font-semibold text-ink">This invite link isn&rsquo;t valid.</h2>
-      <p className="mt-2 text-ink/70">
-        It might have been revoked or the URL got cut off. Ask the couple for a fresh
-        link.
-      </p>
-      <div className="mt-6">
-        <Link className="button-secondary" href="/">
-          Back home
-        </Link>
-      </div>
-    </JoinShell>
-  );
-}
-
-function JoinShell({
-  event,
-  children,
-}: {
-  event: { display_name: string; event_date: string | null; venue_name: string | null } | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6 py-12">
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Setnayan
-        </p>
-        {event ? (
-          <>
-            <h1 className="text-3xl font-semibold tracking-tight">{event.display_name}</h1>
-            <p className="text-sm text-ink/60">
-              {[event.event_date, event.venue_name].filter(Boolean).join(' · ')}
-            </p>
-          </>
-        ) : (
-          <h1 className="text-3xl font-semibold tracking-tight">Event invite</h1>
-        )}
-      </header>
-      {children}
-    </main>
   );
 }

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(guests): privacy-first invite-claim + email-OTP double-verification (no auto-admit)
+
+**Context:** Owner 2026-06-10 authorized the "in-scope delta" of a proposed "Reverse Contact-Drop" guest system — keep the locked guardrails (no SMS, no NextAuth, no Prisma, no rolling QR), fix the real loophole. Today `/join/[eventId]` **silently auto-admits** any signed-in user whose email doesn't exactly match a `guests` (seed-list) row — it mints a placeholder guest + membership. So a stranger with the universal link self-admits. This adds the couple-curated safety the live "personal QR" model promises, the Setnayan-native way.
+
+- **Migration `20261021000000_guest_invite_claim.sql`** (canonical `supabase/migrations/`): new `guest_claims` ledger (RLS: couple-read/update + admin only — claimers never touch it with their own JWT) + `guest_claim_status` enum + `join_method` gains `'invite_claim'` + `finalize_guest_claim()` SECURITY-DEFINER service-role RPC (atomic bind, anti-hijack guards) + a conditional `UNIQUE(event_id, guest_id)` index on `event_members` (created only when existing data is clean).
+- **`lib/guest-claim.ts`** — order-independent fuzzy name similarity (Levenshtein + token-sort), confident/ambiguous/none classifier, and an **HMAC'd** 6-digit OTP (secret = `GUEST_CLAIM_OTP_SECRET` ?? service-role key; a 6-digit SHA-256 would be trivially brute-forced, an HMAC isn't), `maskEmail`.
+- **`lib/guest-claim-flow.ts`** — server-only orchestration: match the claimer's name against *unclaimed* seed rows → exactly one confident match **with a seed email AND Resend configured** → email a code (OTP path); else (no/ambiguous match, no seed email, or email unconfigured) → couple review. **Never auto-admits.**
+- **`app/join/[eventId]/`** — role picker now also collects the claimer's name (pre-filled from their account); `actions.ts` keeps the exact-email fast path (now guarded against hijacking an already-bound row) and routes everything else into the claim flow; new `verify/` (enter code · resend · "can't access that email → couple review") + `pending/` screens; shared `_components/join-shell.tsx`.
+- **`app/dashboard/[eventId]/guests/claims/`** — couple review queue (approve-as-matched · add-as-new · decline; emails the guest on approval). A "{N} guest requests waiting" banner links from the guest list (count folded into the existing parallel read batch).
+
+**Verification:** `tsc --noEmit` 0 errors in changed files (4 residual `sharp`/`@mediapipe` errors are stale-borrowed-deps drift in untouched files — clean under CI's real lockfile). `next lint` clean. Runtime verification deferred to the Vercel preview, which needs the migration applied first (queries `guest_claims`). Coordinator-desk surface intentionally split to a follow-up PR.
+
+**SPEC IMPACT:** New guest-onboarding behavior layered on iterations 0000/0001/0002. **Load-bearing behavior change** (owner sign-off flagged): unmatched/unverified guests no longer auto-admit — they enter a couple review queue. Needs corpus `DECISION_LOG` 2026-06-10 + an 0001/0002 AS-BUILT note. Migration must be applied to prod (`supabase db push`) before the flow works.
+
 ## 2026-06-10 · feat(type): backend dashboards on Source Sans — one minimalist readable family
 
 **Context:** Owner 2026-06-10 — "we want a simple minimalist font for all... the backend like dashboards should have a simple minimalist font so everything is easy to read," websites excepted. Today the dashboards inherit Manrope (body) + Cormorant Garamond (headings via the global `font-display` default); the editorial serif headings were the readability friction. Owner chose **Source Sans** for the backend and "keep editorial" for the public/guest pages.

@@ -492,6 +492,26 @@ export type TaxonomyPhase =
   | 'V1.4'
   | 'V1.5+';
 
+/**
+ * Faith vocabulary — TITLE-CASE keys, the client-side mirror of `faith_vocab`
+ * (the DB source of truth, seeded identically). NEVER lowercase these: the
+ * marketplace religion filter compares with strict `===`. `Civil` is the
+ * civil/no-religion key (matches civil-officiant canonicals only).
+ */
+export const WEDDING_FAITH_KEYS = [
+  'Catholic',
+  'Christian',
+  'Born Again',
+  'INC',
+  'Muslim',
+  'Jewish',
+  'Chinese',
+  'Cultural',
+  'Civil',
+] as const;
+
+export type WeddingFaithKey = (typeof WEDDING_FAITH_KEYS)[number];
+
 export type TaxonomyEntry = {
   /** Parent placement (10-parent model, since 2026-05-31). */
   folder: WeddingFolder;
@@ -508,8 +528,12 @@ export type TaxonomyEntry = {
    */
   marketplaceHidden?: true;
   phase: TaxonomyPhase;
-  /** Surfaces conditionally per events.ceremony_type — null = everyone. */
-  faith?: 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural';
+  /**
+   * Surfaces conditionally per events.ceremony_type — null = everyone.
+   * Reserved for genuinely faith-restricted SERVICES (officiants / seminars /
+   * counseling) — never food or cultural items (de-faith lock, 2026-06-11).
+   */
+  faith?: WeddingFaithKey;
   /** PH-specific category WedMeGood structurally lacks. */
   ph?: true;
   /** First-party Setnayan service insert (rendered as an option, never a tile). */

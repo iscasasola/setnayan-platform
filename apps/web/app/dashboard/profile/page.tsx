@@ -10,8 +10,9 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { makeT } from '@/lib/i18n';
 import { HapticsToggle } from './_components/haptics-toggle';
 import {
+  cancelAccountDeletionRequest,
   changePassword,
-  softDeleteAccount,
+  requestAccountDeletion,
   updateLocalePreference,
   updatePersonalInfo,
   updatePlannerMode,
@@ -26,6 +27,8 @@ type Props = {
     error?: string;
     tour_restarted?: string;
     password_changed?: string;
+    deletion_requested?: string;
+    deletion_cancelled?: string;
   }>;
 };
 
@@ -63,6 +66,25 @@ export default async function ProfilePage({ searchParams }: Props) {
     logQueryError(
       'ProfilePage (users)',
       profileErr,
+      { user_id: user.id },
+      'graceful_degrade',
+    );
+  }
+
+  // Self-serve account-deletion request (App Store 5.1.1(v) / Google Play).
+  // We surface the latest still-pending request so the user sees its status +
+  // a Cancel control instead of being able to file a duplicate.
+  const { data: pendingDeletion, error: pendingDeletionErr } = await supabase
+    .from('account_deletion_requests')
+    .select('request_id, status, created_at')
+    .eq('user_id', user.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .maybeSingle();
+  if (pendingDeletionErr) {
+    logQueryError(
+      'ProfilePage (account_deletion_requests)',
+      pendingDeletionErr,
       { user_id: user.id },
       'graceful_degrade',
     );
@@ -134,6 +156,23 @@ export default async function ProfilePage({ searchParams }: Props) {
           className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
         >
           Password changed. Your session stays active; use the new password next time you sign in.
+        </p>
+      ) : null}
+      {search.deletion_requested ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Account-deletion request received. Our team will review it within 24 hours. You can
+          cancel any time before it&rsquo;s approved — see Privacy &amp; data below.
+        </p>
+      ) : null}
+      {search.deletion_cancelled ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Account-deletion request cancelled. Your account stays active.
         </p>
       ) : null}
 
@@ -455,8 +494,9 @@ export default async function ProfilePage({ searchParams }: Props) {
             Privacy &amp; data (RA 10173)
           </h2>
           <p className="text-sm text-ink/60">
-            Export your data or close your account at any time. Setnayan keeps
-            soft-deleted accounts for 30 days so an admin can restore by request.
+            Export your data or request account deletion at any time. Deletion
+            requests are reviewed by our team within 24 hours before they take
+            effect.
           </p>
         </div>
         <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -477,34 +517,80 @@ export default async function ProfilePage({ searchParams }: Props) {
           </a>
         </div>
 
-        <details className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/50 p-4">
-          <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-rose-800">
-            <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Delete my account
-          </summary>
-          <form action={softDeleteAccount} className="mt-3 space-y-3">
-            <p className="text-sm text-rose-900">
-              This soft-deletes your account. You won&rsquo;t be able to sign in, and your
-              events become invisible to you. Internal admins can restore within 30 days; after
-              that, deletion becomes permanent. Type{' '}
-              <code className="rounded bg-rose-100 px-1 font-mono text-xs">DELETE</code> below
-              to confirm.
-            </p>
-            <input
-              name="confirm"
-              required
-              autoComplete="off"
-              placeholder="Type DELETE to confirm"
-              className="input-field bg-cream"
-            />
-            <SubmitButton
-              className="inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
-              pendingLabel="Deleting…"
-            >
-              Delete account
-            </SubmitButton>
-          </form>
-        </details>
+        {pendingDeletion ? (
+          <div className="space-y-3 rounded-xl border border-amber-300/60 bg-amber-50/60 p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle
+                aria-hidden
+                className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                strokeWidth={1.75}
+              />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-900">
+                  Account-deletion request pending review
+                </p>
+                <p className="text-xs text-amber-900/85">
+                  Filed {pendingDeletion.created_at.slice(0, 10)}. Our team reviews
+                  deletion requests within 24 hours. If you have active events,
+                  bookings, or an outstanding balance, we may reach out before
+                  removing your account. Changed your mind? Cancel below.
+                </p>
+              </div>
+            </div>
+            <form action={cancelAccountDeletionRequest}>
+              <input type="hidden" name="request_id" value={pendingDeletion.request_id} />
+              <SubmitButton
+                className="button-secondary inline-flex items-center gap-2"
+                pendingLabel="Cancelling…"
+              >
+                Cancel deletion request
+              </SubmitButton>
+            </form>
+          </div>
+        ) : (
+          <details className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/50 p-4">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-rose-800">
+              <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Delete my account
+            </summary>
+            <form action={requestAccountDeletion} className="mt-3 space-y-3">
+              <p className="text-sm text-rose-900">
+                This files a request to delete your account. Our team reviews it
+                within 24 hours before it takes effect — this lets us check for
+                active events, bookings, or an outstanding balance first. Once
+                approved, deletion is permanent and your email may be blocked from
+                re-registering. Type{' '}
+                <code className="rounded bg-rose-100 px-1 font-mono text-xs">DELETE</code> below
+                to confirm.
+              </p>
+              <label className="block space-y-1">
+                <span className="block text-sm font-medium text-rose-900">
+                  Reason (optional)
+                </span>
+                <textarea
+                  name="reason"
+                  rows={2}
+                  maxLength={1000}
+                  placeholder="Helps us improve — and lets us flag anything we should handle before deletion."
+                  className="input-field bg-cream"
+                />
+              </label>
+              <input
+                name="confirm"
+                required
+                autoComplete="off"
+                placeholder="Type DELETE to confirm"
+                className="input-field bg-cream"
+              />
+              <SubmitButton
+                className="inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                pendingLabel="Submitting…"
+              >
+                Request account deletion
+              </SubmitButton>
+            </form>
+          </details>
+        )}
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

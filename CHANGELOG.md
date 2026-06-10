@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · fix(migrations): resolve duplicate-timestamp collision (account-deletion was silently skipped on prod)
+
+**Context:** Two PRs independently picked migration timestamp `20261105000000` — `defaith_food_canonicals` (#1232) and `account_deletion_requests` — and both merged to `main`. Supabase keys applied migrations by the timestamp, so once `defaith` registered version `20261105000000`, the account-deletion migration would be **silently skipped forever** → `account_deletion_requests` never created on prod → the shipped `/admin/account-deletions` page + the in-app deletion-request flow (App Store 5.1.1(v) / Google Play) would error at runtime.
+
+- Re-timestamped `20261105000000_account_deletion_requests.sql` → **`20261106000000_account_deletion_requests.sql`** (content unchanged + idempotent; header notes the re-timestamp + reason).
+- **Applied to prod:** `account_deletion_requests` table + 5 RLS policies now exist; version `20261106000000` registered. The de-faith migration keeps `20261105000000` (already applied). Verified on prod.
+
+**SPEC IMPACT:** None — restores an already-specced 0025 feature. → `DECISION_LOG` note.
+
+## 2026-06-11 · fix(taxonomy): de-faith food canonicals — halal caterers no longer hidden from non-Muslim couples
+
+**Context:** The dietary/halal audit (`Catering_Dietary_Halal_Model_2026-06-11.md`) found a **live bug**: `halal_catering` (faith=Muslim) and the three `mocktail_*` (faith=INC) were being **subtracted** from non-matching couples by `passesReligionFilter` (INCLUDE-only) — exactly the silent subtraction the 2026-06-10 faith lock forbids. A halal caterer / alcohol-free bar must be bookable by anyone.
+
+- **Migration `20261105000000_defaith_food_canonicals.sql`** (applied to prod): `SET faith=NULL` on the 4 food/beverage canonicals (`dietary` kept as a future capability signal). Fails loud if any food row stays faith-tagged. Per owner option **1(c)**: `halal_catering` remains the faith-NEUTRAL "Halal Catering Specialists" discovery canonical — now visible to all.
+- **`lib/taxonomy.ts`:** removed the hardcoded `faith` tags from the same 4 entries (lines 596, 739–741). Required in the **same PR** — `taxonomy.ts` is both the fallback and the re-seed source, so a DB-only change would leave stale TS driving the filter.
+- Verified on prod: all 4 `faith=NULL`, 0 food rows faith-tagged, 0 TS food-faith tags. `passesReligionFilter(meta)` → `!meta.faith` → `true` → visible to every couple.
+
+**SPEC IMPACT:** Fixes a live never-subtract-lock violation; first slice of the dietary-capability model (option 1c). → corpus `Catering_Dietary_Halal_Model_2026-06-11.md` + `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
 
 **Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.
@@ -24,6 +43,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** adversarial review (verdict SAFE-TO-APPLY) against the shipped schema; applied via `supabase db push` from a clean worktree off `origin/main`; confirmed recorded in the remote ledger (local == remote). SQL-only → `tsc`/`lint`/build unaffected (repo has no generated Supabase types). *Ledger note: the concurrently-merged taxonomy migration `20261104000000` wasn't in this worktree at push time (branched off an earlier `main`), which blocked `db push`; resolved by merging `origin/main` in. Its ledger row was briefly reverted during the push dance, then re-recorded `--status applied` (metadata-only, no DDL re-run) so the prod ledger stays accurate.*
 
 **SPEC IMPACT:** Implements 0012 Salamisim P0. **Two shipped-vs-corpus drifts corrected in the corpus:** (1) `coordinator` IS a real `public.member_type` enum value → the Kwento + Salamisim specs' `thread_join_authorizations` table is unnecessary; wall control authority uses `member_type IN ('couple','coordinator')` directly (table NOT created). (2) `events` had no `timezone` column (added here for server-side day-of mode). Also corrects spec naming: shipped capture/guest tables use `id BIGSERIAL` + a UUID business key; the enrollment table is `guest_face_enrollments` with `face_vector` (not the spec's `face_enrollments`/`vector_blob`). → corpus `0012_papic.md` (Salamisim + Kwento RLS) + `DECISION_LOG` 2026-06-11.
+
+## 2026-06-11 · feat(compliance): in-app self-serve account-deletion REQUEST flow (App Store 5.1.1(v) / Google Play)
+
+**Context:** Apple guideline 5.1.1(v) + Google Play's data-deletion requirement both mandate that a user be able to **initiate** account deletion from inside the app — "contact support" is not acceptable. The couple/vendor Privacy & data path previously offered an immediate self soft-delete (`softDeleteAccount`), which both bypassed the active-events / bookings / balance business guard and didn't match the store-required, owner-locked design. This ships the locked **"Request + admin review ≤24h"** flow: the user files a request in-app; an admin approves (running the EXISTING hard-delete / blacklist) or rejects within 24h.
+
+- **Migration `20261105000000_account_deletion_requests.sql`** (NOT yet applied — orchestrator applies on merge): new `public.account_deletion_requests` (`request_id` text PK via `generate_public_id('X')`, `user_id` → `auth.users` ON DELETE CASCADE, `status` pending/approved/rejected/cancelled default pending, `reason`, `created_at`, `reviewed_by`, `reviewed_at`, `admin_note`). Partial unique index = at most one pending request per user. **RLS enabled at CREATE TABLE** (Pattern A self-row + admin override): a user can INSERT/SELECT their own request and cancel it (UPDATE→cancelled) while pending; `is_admin()` can SELECT all + UPDATE status. `pnpm migration:check` green (301 unique prefixes).
+- **`app/dashboard/profile/actions.ts`:** retired `softDeleteAccount` (immediate self soft-delete); added `requestAccountDeletion` (files a pending row under the user's own session/RLS; duplicate-pending = friendly no-op) + `cancelAccountDeletionRequest` (RLS-gated self-cancel). Dropped now-unused `createAdminClient` import.
+- **`app/dashboard/profile/page.tsx`:** Privacy & data now shows the request form (with optional reason + DELETE confirm) when no request is open, or a "pending review" status card + Cancel control when one is. New `deletion_requested` / `deletion_cancelled` status banners.
+- **`app/admin/account-deletions/` (new surface):** review queue listing pending requests (email/type/reason/age + internal-account guard note) with **Approve + delete** / **Approve + blacklist** (delegates to the existing `deleteUser` / `blacklistUser` in `app/admin/users/actions.ts` — deletion is NOT reimplemented) and **Reject** (required note) + a recently-reviewed table. `actions.ts` marks the request approved before the cascade removes the row; `loadPendingRequest` guards against double-action.
+- **Nav wiring:** added "Account deletions" (UserX) to the admin **Work** group sidebar (`admin-sidebar.tsx`) + a live pending-count row to the mobile Work triage feed (`admin/work/page.tsx`); `loading.tsx` skeleton.
+
+**Verification:** `pnpm --filter @setnayan/web typecheck` ✓, `lint` ✓ (only pre-existing unrelated warnings), `build` ✓ (`/admin/account-deletions` compiled). No DB write performed (migration applies on merge); no browser verification (gated pages need a live DB + admin/couple sessions) — preview left for the owner.
+
+**SPEC IMPACT:** Iteration **0025** (Profile Settings · Privacy & Data) — the Delete-my-account control changes from immediate self soft-delete to a store-compliant request+admin-review flow; new `account_deletion_requests` table; new admin surface `/admin/account-deletions` in the 0023 console Work group. Surfaces a load-bearing UX change (self-delete → queued request) for owner sign-off. → corpus iteration 0025 `.md` + `DECISION_LOG` 2026-06-11.
 
 ## 2026-06-11 · feat(taxonomy): admin can assign which events a category serves (Phase 1 wiring)
 

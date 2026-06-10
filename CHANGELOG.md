@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(seating): Phase 0 foundations — publish + per-table QR + print pack (0008)
+
+**Context:** Owner 2026-06-10 — seat-plan improvement program (audit vs market → leapfrog plan). Phase 0 = "fix foundations first": the live seating editor could not turn a finished plan into a printable venue pack, and had no per-table QR (which 0012 Papic's table-tag fan-out + the future day-of find-my-seat must resolve). Only the moodboard/blueprint PDF existed.
+
+- migration `20261101000000_iteration_0008_seating_publish_qr.sql`: `event_tables.qr_token` (32-hex · UNIQUE · same `encode(gen_random_bytes(16),'hex')` pattern as `guests.qr_token` · exists from creation) + `qr_published_at`; `event_floor_plan.published_at`. Additive · idempotent · RLS inherited. **Applied to prod 2026-06-10 via `supabase db query`** (db push was ledger-blocked by `20261021000000` brand-icon, merged to main mid-session); verified — 14 existing tables backfilled distinct non-null tokens.
+- `lib/seating.ts`: `EventTableRow` + `FloorPlanRow` carry the new columns; `fetchTables`/`fetchFloorPlan` select + default them.
+- `seating/actions.ts`: new `publishSeating` — stamps every table + the floor-plan singleton as published (idempotent; never re-rolls a token).
+- `seating/print/route.ts`: self-contained printable HTML pack (escapes the dashboard layout) — cover + table directory · one full-page table SIGN per table (big label + table QR) · place cards (name · table · personal QR, 8/page) · "Print → Save as PDF".
+- `seating-editor.tsx`: "Publish & print" toolbar button (fires `publishSeating` + opens the pack).
+
+**SPEC IMPACT:** 0008 gains the publish→table-QR→print-pack flow the AS-BUILT 2026-06-07 header flagged as not-built. → corpus `DECISION_LOG` + 0008.
+
 ## 2026-06-10 · fix+feat(brand): real gold /favicon.ico (kills orange Safari tab) + admin-controlled default brand icon
 
 **Context:** Owner 2026-06-10 — Safari's browser tab still showed the retired orange "SET NA 'YAN" tile. Root cause: the app declared **SVG-only** favicons (`/icon-192.svg`, `/icon-512.svg`) and there was **no real `/favicon.ico`** anywhere. Safari has weak SVG-favicon support and always probes the bare `/favicon.ico` first → got HTML → fell back to its stale cached orange icon from before the 2026-05-31 gold rebrand. Fix = serve a genuine `.ico` at that path; while there, build the admin "default brand icon" the owner approved so one upload repaints the whole icon set everywhere.

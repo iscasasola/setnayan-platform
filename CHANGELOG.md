@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(onboarding): available-only picker — extras narrow to live marketplace supply
+
+**Context:** The wedding onboarding picker was the last couple-facing surface still on a hardcoded category list (`PICK_GROUPS` in onboarding-shell.tsx) rather than the single DB taxonomy. Spec `Onboarding_Taxonomy_Driven_Spec_2026-06-04` §0: the acquisition picker shows **available categories only** ("don't advertise empty inventory"). This makes the extras browser DB-driven off live marketplace supply **without re-keying the funnel's cat vocabulary** (which is load-bearing across ~15 module-scope derivations + the screen sequencer — a full re-key would be high-risk on the live funnel).
+
+- **NEW `lib/onboarding-availability.ts`**: single source for `PICK_TO_GROUP` (cat→plan-group, moved out of actions.ts) + `hiddenOnboardingExtraCats()` — extras cats whose plan group has zero live vendor supply (via `fetchVendorCountsByService`, which counts verified + coming_soon incl. Setnayan first-party listings). **NEVER-GUT (spec §6):** returns `[]` until ≥half the mapped cats have supply, so a thin/founder-only marketplace shows the full picker and it **self-heals** to available-only as vendors join (no deploy). Soft-fails to `[]` on any error → can never block onboarding.
+- `onboarding/wedding/actions.ts`: imports `PICK_TO_GROUP` from the new lib (drops the local copy — single source for the commit-time auto-inquiry fan-out too).
+- `onboarding/wedding/page.tsx`: fetches `hiddenOnboardingExtraCats()` in the existing `Promise.all` → passes a `hiddenCats` prop.
+- `onboarding-shell.tsx`: new optional `hiddenCats` prop; the team-extras browser filters those cats out. The 4 basics + cats with no plan group are **untouched** (unknown availability is admitted, not hidden).
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean on touched files (the `authed` exhaustive-deps warning at :1640 is pre-existing). **Dormant today** under founder-only supply (guard → `[]` → full picker, behavior unchanged); narrowing activates as the marketplace matures. Live funnel verified on the Vercel PR preview before merge (no local app env available).
+
+**SPEC IMPACT:** Implements `Onboarding_Taxonomy_Driven_Spec_2026-06-04` §0 available-only for the acquisition picker — onboarding now falls to the single taxonomy/marketplace, completing the couple-side single-source sweep. → corpus `DECISION_LOG` 2026-06-10.
+
 ## 2026-06-10 · feat(taxonomy): dual-write event_vendors.category_key (enum→key migration · PR-2)
 
 **Context:** Step 2 of the `event_vendors.category` enum → taxonomy-keyed `category_key` migration (`Onboarding_Taxonomy_Driven_Spec_2026-06-04`). PR-1 (migration 20260815000000) added the nullable `category_key TEXT` FK → `service_categories(id)` + backfilled it; **nothing wrote it since**, so new rows left it stale. This PR dual-writes `category_key` on every new `event_vendors` row alongside the legacy `category` — the prerequisite for cutting readers (PR-3) and flipping the onboarding picker to the DB tree.

@@ -1502,9 +1502,12 @@ export function OnboardingShell({
   pricing,
   bgMusicUrl = null,
   refinements = REFINEMENTS_DATA,
+  hiddenCats = [],
 }: {
   authed: boolean;
   resume: boolean;
+  /** Picker EXTRAS cats to hide (no live marketplace supply) — spec §0 available-only. */
+  hiddenCats?: string[];
   /**
    * Active wedding religions from wedding_type_launch_status (the per-religion
    * launch gate, admin-controlled at /admin/wedding-types). When provided, a
@@ -3784,8 +3787,9 @@ export function OnboardingShell({
             <div className="tapzone">
               <div className="exscroll">
                 {(() => {
+                  const hiddenSet = new Set(hiddenCats);
                   const extrasGroups = PICK_GROUPS
-                    .map((g) => ({ label: g.label, leaves: g.rows.flat().filter((c) => c.cat !== 'reception' && !BASIC_SET.has(c.cat)) }))
+                    .map((g) => ({ label: g.label, leaves: g.rows.flat().filter((c) => c.cat !== 'reception' && !BASIC_SET.has(c.cat) && !hiddenSet.has(c.cat)) }))
                     .filter((g) => g.leaves.length > 0);
                   // default-open the first group with a selection, else the first group
                   const openIdx = extrasOpen !== null

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · refactor(admin/taxonomy): merge tree editor + canonical mapping into one tree
+
+**Context:** Owner 2026-06-10 — the `/admin/taxonomy` page had the skeleton editor ("Tree · edit/add/remove") and the canonical→tile mapping ("Folder N · …" viewers) as two separate sections you scrolled between. Combine them into one tree so each tile shows the services filed under it, re-fileable inline. Step 1 (admin UI) of the broader "every taxonomy consumer reads one source" effort; the consumer unification (couple plan builder / onboarding / budget off `PLAN_GROUPS` + the `vendor_category` enum) is the in-flight 4-PR `Onboarding_Taxonomy_Driven_Spec_2026-06-04` sequence — not touched here.
+
+- `app/admin/taxonomy/page.tsx`:
+  1. **One tree.** Replaced the standalone Tree section + the per-folder mapping viewers with a single parent→tile tree. Each tile lists the `canonical_service_schemas` rows filed onto it (badges: phase/faith/Setnayan/PH/rental + N facets · visibility gate · N shared) with an inline re-file control (`remapCanonical`) and a quick `＋ svc` add (`createCanonicalLeaf`, tile pre-filled).
+  2. **Grouping flipped folder→tile.** New `rowsByTile` (keyed off the live `getTaxonomy()` snapshot's `tile` placement) replaces the old folder `buckets`. Rows with no mapping — or one pointing at a missing tile — collect into a new **Unfiled** tray (supersedes the old "Unmapped vs lib/taxonomy.ts" section); shared `ServiceLine` component renders both tile rows and unfiled rows.
+  3. **Add-service form** folded into a collapsed "Advanced — add a service with a starter refinement" `<details>` (the per-tile quick-add covers the common case; the advanced form keeps refinement-seed + Rental/PH flags).
+  - No server action changed (`renameTaxonomyNode` / `moveTaxonomyNode` / `deleteTaxonomyNode` / `createTaxonomyNode` / `createCanonicalLeaf` / `remapCanonical` / the request-review actions are all untouched). The three taxonomy tables are unchanged.
+
+**Verification:** `tsc --noEmit` clean (whole web app); `next lint` clean on the file. Behavior-preserving — same tables, same actions, same live-publish-no-deploy. Admin-only surface (`INTERNAL` gate).
+
+**SPEC IMPACT:** None on the data model or any locked decision — admin-tooling UX consolidation only. Relates to iterations 0023 (admin console) + 0044 (taxonomy). → corpus `DECISION_LOG` 2026-06-10 (log the admin-merge as step 1 of taxonomy single-source).
+
 ## 2026-06-09 · fix(plan-builder): DB-driven folder/tile structure + drop Officiant & Accommodation
 
 **Context:** Owner 2026-06-09 (checked the admin `/admin/taxonomy` tree) — the Shortlist's category tree diverged from the admin DB. The admin **Venue** parent has exactly **Reception + Ceremony**, but the Shortlist (grouped by the hardcoded `PLAN_GROUPS.catalogFolder`) also filed **Officiant** + **Accommodation** under Venue — and neither is a DB tile (they *borrow* the `ceremony_venue` / `reception` tiles). Per the standing "taxonomy is DB-driven, not hardcoded" lock, the structure must follow `service_categories` (via `getTaxonomy`).

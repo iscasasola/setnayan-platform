@@ -33,6 +33,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Fixes a live never-subtract-lock violation; first slice of the dietary-capability model (option 1c). → corpus `Catering_Dietary_Halal_Model_2026-06-11.md` + `DECISION_LOG` 2026-06-11.
 
+## 2026-06-11 · feat(pwa): Web Push notifications + offline shell Phase 1 (Apple guideline 4.2)
+
+**Context:** The PWA / WebView app needs to be more than a repackaged website to clear Apple guideline 4.2 (minimum functionality). Push notifications + a real offline experience are the differentiators. Web Push rides the browser's own Push Service via VAPID keys the owner generates (`npx web-push generate-vapid-keys`) — **no Apple/Google developer account required**. Notifications were email-only via Resend (iteration 0028); there was no push, and `sw.js` did asset caching + an offline shell fallback only.
+
+- **Dependency:** added `web-push` (+ `@types/web-push`) to `apps/web`.
+- **Migration `supabase/migrations/20261107000000_push_subscriptions.sql`** (NOT yet applied to prod): new `push_subscriptions` table (`id`, `user_id` FK → `public.users(user_id)` ON DELETE CASCADE, `endpoint` UNIQUE, `p256dh`, `auth`, `topics text[]`, `created_at`, `last_seen_at`). RLS **enabled at CREATE time**, mirroring the 0028 notifications shape — a user manages (SELECT/INSERT/UPDATE/DELETE) only their own rows (`user_id = auth.uid()`). `pnpm migration:check` green.
+- **`lib/web-push.ts`** (new): server-only `sendWebPush(userId, payload)` — looks up the user's subscriptions via the service-role client and fans an encrypted payload out; prunes stale endpoints on 404/410. Gated on `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — **no-ops when unset** (build + site unaffected). `web-push` is lazy-imported.
+- **`lib/notification-emit.ts`:** fires `sendWebPush` **alongside** the existing in-app notification + Resend email, scoped to the two highest-signal types only (`chat_message`, `vendor_inquiry_received`) — best-effort, never blocks/rolls back the primary action. The rest of 0028 is untouched. *(Deviation: the brief named "wedding-day reminder" as the 2nd point, but no such notification type exists in code — day-of mode (0031) is UI/cron-free and emits no notification — so `vendor_inquiry_received` was wired instead.)*
+- **`lib/push-actions.ts`** (new): `savePushSubscription` / `removePushSubscription` server actions; writes go through the **RLS-scoped user client** (not admin), upsert on the unique endpoint.
+- **`app/dashboard/profile/_components/push-toggle.tsx`** (new) + wired into the profile "Notifications & feedback" section: a **non-intrusive** toggle — the browser permission prompt fires only on opt-in, never on first paint/login. Renders a quiet "not available"/"blocked" note when push is unsupported (e.g. iOS Safari outside an installed PWA) or denied.
+- **`public/sw.js`** (additive, `v2 → v3`): `push` + `notificationclick` handlers (render + route clicks back into the app, focus existing tab); precache `offline.html`; new `DAYOF_CACHE` serving the day-of guest landing page + `find-my-table` **stale-while-revalidate** (schedule/table/floorplan survive weak venue signal); offline navigation now falls back to `offline.html`; a `guestbook-sync` Background Sync **stub** that replays an IndexedDB queue when connectivity returns (no-ops gracefully until the feature owns the queue).
+- **`public/offline.html`** (new): branded static offline fallback.
+- **`.env.example`:** documented `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` with the `npx web-push generate-vapid-keys` note + the unset → no-op behavior.
+
+**Verification:** `pnpm typecheck` green, `pnpm lint` green (only pre-existing warnings in unrelated files), `pnpm --filter @setnayan/web build` succeeds. Migration NOT applied to prod (per task constraints).
+
+**SPEC IMPACT:** Adds Web Push to the email-only notification stack (iteration 0028) + an offline-data layer for the day-of guest experience (iteration 0031). New `push_subscriptions` table + three VAPID env vars. → fold into 0028/0031 corpus + `DECISION_LOG` 2026-06-11.
 ## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
 
 **Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.

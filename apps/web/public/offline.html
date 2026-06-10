@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en-PH">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline · Setnayan</title>
+    <style>
+      :root {
+        --cream: #faf7f2;
+        --ink: #1e2229;
+        --terracotta: #c5a059;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--cream);
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+          Arial, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      .card {
+        max-width: 28rem;
+      }
+      .mark {
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: 0.06em;
+        color: var(--terracotta);
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        color: rgba(30, 34, 41, 0.65);
+        line-height: 1.55;
+        margin: 0 0 1.5rem;
+      }
+      button {
+        appearance: none;
+        border: 1px solid rgba(30, 34, 41, 0.15);
+        background: var(--ink);
+        color: var(--cream);
+        border-radius: 0.75rem;
+        padding: 0.7rem 1.4rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="mark">SETNAYAN</div>
+      <h1>You're offline</h1>
+      <p>
+        We can't reach Setnayan right now. Any pages and event details you've
+        already opened are still available — reconnect to load the rest. Set na
+        'yan.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>

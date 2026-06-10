@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · fix(shortlist): parent categories as separated cards (consistent container + nested children)
+
+**Context:** Owner 2026-06-10 (screenshot) — on the couple Shortlist (`/dashboard/[eventId]/vendors`), only the OPEN parent (Venue) looked like a contained card (`.cat-head.active` got a white bg + shadow); every collapsed parent was a flush divider row, and the open parent's sub-categories floated BELOW it instead of being held inside. Inconsistent container design.
+
+- `plan-budget-accordion.tsx`: each folder now renders as its own `.cat` card (new wrapping div, full-width, 10px vertical gap, 0.5px border, radius 14px). The OPEN card lifts (shadow) and its head rounds to the top + connects to the body so parent + sub-categories read as ONE container; the children get an indent + a mulberry nesting guide-line. Converts the flush sticky-pile → separated cards: only the OPEN card's head stays sticky (pins below the app header while its children scroll), collapsed heads are static. scroll-margin offsets simplified (no idx-pile term); dropped the now-unused `--idx`/zIndex inline on the head.
+- **Cards kept FULL-WIDTH (no side inset)** so the leaf vendor-rail's viewport-width coverflow math is untouched (the line-290 constraint).
+
+**Verification:** `tsc --noEmit` + `next lint` clean. Visual change — verify on the Vercel preview / production (no local app env: the surface needs auth + a real event). Build/Lock tabs unaffected (they don't use `.pbacc`/`.cat-head`/FolderSection).
+
+**SPEC IMPACT:** UI refinement of the Shortlist (couple plan-builder, iteration 0021). Relaxes the 2026-06-01/09 flush-pile in favour of separated parent cards (owner-approved 2026-06-10). → corpus `DECISION_LOG` 2026-06-10.
+
 ## 2026-06-10 · feat(onboarding): available-only picker — extras narrow to live marketplace supply
 
 **Context:** The wedding onboarding picker was the last couple-facing surface still on a hardcoded category list (`PICK_GROUPS` in onboarding-shell.tsx) rather than the single DB taxonomy. Spec `Onboarding_Taxonomy_Driven_Spec_2026-06-04` §0: the acquisition picker shows **available categories only** ("don't advertise empty inventory"). This makes the extras browser DB-driven off live marketplace supply **without re-keying the funnel's cat vocabulary** (which is load-bearing across ~15 module-scope derivations + the screen sequencer — a full re-key would be high-risk on the live funnel).

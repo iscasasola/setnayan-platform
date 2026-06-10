@@ -259,30 +259,31 @@ const PBA_CSS = `
 .pbacc .intro-meter .pm-fill.over{background:#ef9a9a}
 
 /* ---- Category sticky stacking head + body ---- */
-.pbacc .cat{border-top:1px solid var(--line)}
-/* Stack-and-stay folder pile: every folder head + body is a flat sibling in
-   one shared .cats scroll container (see the render), so each head pins at
-   top = topbar-h + idx*head-h and STAYS — heads stack under the budget bar
-   as you scroll (Venue→…→Transport) rather than replacing one another.
-   scroll-margin-top clears the bar + the heads piled above this one so a
-   folder anchor (#folder-*) jump lands the head just below them, never hidden. */
-.pbacc .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h) + 2px)}
+.pbacc .cat{margin:0 0 10px;background:var(--card);border:0.5px solid var(--line);border-radius:14px;position:relative;transition:box-shadow .35s var(--ease),border-color .35s var(--ease)}
+.pbacc .cat.open{box-shadow:0 8px 22px -12px rgba(30,34,41,.42);border-color:rgba(30,34,41,.18)}
+/* Separated cards (owner 2026-06-10): each folder renders as its OWN .cat card
+   (full-width, vertical gap between them) — not a flush pile. Only the OPEN
+   card's head is sticky (it pins below the app header while its children scroll);
+   collapsed heads are static. scroll-margin-top clears the app header + one
+   pinned head so a folder anchor (#folder-*) jump lands just below it. */
+.pbacc .cat-head{position:relative;z-index:1;width:100%;min-height:var(--head-h);background:transparent;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-radius:14px;text-align:left;transition:background .3s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + 10px)}
 /* The cat-head is now a single-open toggle <button> (owner 2026-06-09) — reset
    the UA button chrome so it keeps the sticky label look. */
 .pbacc button.cat-head{appearance:none;-webkit-appearance:none;cursor:pointer;font:inherit;margin:0}
 /* Group anchor jumps (#group-* from "What to lock next") land the child rail
-   just below the budget bar + the folder heads piled above it. --folder-idx is
-   set inline on each group wrapper (ChildRail) = its folder's index, so the
-   offset is exact per folder (heads 0..idx are all pinned at that scroll). */
-.pbacc [id^="group-"]{scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + (var(--folder-idx,0) + 1) * var(--head-h) + 8px)}
+   just below the app header + the single pinned open-card head. (Cards are now
+   separated — no folder pile — so the offset is a flat one-head clearance.) */
+.pbacc [id^="group-"]{scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--head-h) + 12px)}
 .pbacc .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
 .pbacc .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pbacc .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
 .pbacc .cat-head .chev{flex:0 0 auto;color:var(--ink-soft);transition:transform .3s var(--ease)}
-.pbacc .cat-head.active{background:var(--card);box-shadow:0 6px 14px -10px rgba(0,0,0,.4)}
+.pbacc .cat-head.active{position:sticky;top:calc(var(--pba-header-offset) + var(--topbar-h));z-index:6;background:var(--card);border-radius:14px 14px 0 0;border-bottom:0.5px solid var(--line-soft)}
 .pbacc .cat-head.active .nm{color:var(--mulberry)}
 .pbacc .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
-.pbacc .cat-body{padding:14px 0 22px;background:var(--paper)}
+.pbacc .cat-body{position:relative;padding:6px 0 12px;background:var(--card);border-radius:0 0 14px 14px}
+.pbacc .cat.open .cat-body::before{content:'';position:absolute;left:18px;top:0;bottom:12px;width:2px;background:rgba(92,37,66,.18);border-radius:2px;pointer-events:none}
+.pbacc .cat-body .leaf-head{padding-left:30px}
 .pbacc .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
 
 /* ---- Third level · leaf accordion (onboarding "The extras you love" look) ----
@@ -978,12 +979,11 @@ function FolderSection({
   // (sticky top = topbar-h + idx*head-h) — collapsing only the bodies. The
   // scroll engine curve-merges this folder's .child-blocks while it's open.
   return (
-    <>
+    <div className={`cat${open ? ' open' : ''}`}>
       <button
         type="button"
         id={`folder-${folder.folder}`}
         className={`cat-head${open ? ' active' : ''}`}
-        style={{ ['--idx']: index, zIndex: 25 - index } as CSSProperties}
         aria-expanded={open}
         aria-controls={`catbody-${folder.folder}`}
         onClick={() => onToggle(folder.folder)}
@@ -1045,7 +1045,7 @@ function FolderSection({
         )}
       </div>
       ) : null}
-    </>
+    </div>
   );
 }
 

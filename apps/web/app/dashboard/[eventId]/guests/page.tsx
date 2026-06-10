@@ -37,6 +37,7 @@ import {
   QuickAddSheet,
 } from './_components/quick-add-sheet';
 import { LifecycleRibbon } from './_components/lifecycle-ribbon';
+import { GuestsViewSwitcher } from './_components/view-switcher';
 
 export const metadata = { title: 'Guests' };
 
@@ -97,6 +98,7 @@ type Props = {
     q?: string;
     rsvp?: string;
     view?: string;
+    gview?: string;
     team?: string;
     tag?: string;
     sort?: string;
@@ -165,6 +167,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const q = (search.q ?? '').trim().toLowerCase();
   const rsvpFilter = (search.rsvp ?? '') as RsvpStatus | '';
   const view = search.view ?? 'all';
+  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
@@ -415,6 +418,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       <div className="hidden space-y-6 lg:block">
         <LifecycleRibbon eventId={eventId} active="build" pendingClaims={pendingClaimsCount} />
 
+        <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
+
         <TeamSegment
           eventId={eventId}
           team={teamFilter}
@@ -453,34 +458,52 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
-        <FacetsSidebar
-          eventId={eventId}
-          view={view}
-          tagFilter={tagFilter}
-          tags={allTags}
-          search={search}
-          groups={groups}
-          currentGroupId={currentGroupId}
-        />
-
-        <div className="min-w-0 space-y-4">
-          {visible.length === 0 ? (
-            <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
-          ) : (
-            <GuestListMultiselect
-              eventId={eventId}
-              guests={visible}
-              palette={palette}
-              groups={groups}
-              groupMemberships={groupMemberships}
-              currentGroupId={currentGroupId}
-              photoDisplayUrls={photoDisplayUrls}
-              grouped={sort === 'importance'}
-            />
-          )}
+      {gview === 'map' ? (
+        <div className="rounded-xl border border-ink/10 bg-cream/50 px-6 py-16 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
+            <LayoutGrid className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+          </div>
+          <h2 className="text-lg font-semibold text-ink">Mind map view is coming next</h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">
+            A visual way to grow your guest list — branch by side &amp; group, or by
+            entourage role. For now, switch back to the list to keep planning.
+          </p>
+          <div className="mt-5">
+            <Link href={`/dashboard/${eventId}/guests`} className="button-secondary">
+              Back to list
+            </Link>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
+          <FacetsSidebar
+            eventId={eventId}
+            view={view}
+            tagFilter={tagFilter}
+            tags={allTags}
+            search={search}
+            groups={groups}
+            currentGroupId={currentGroupId}
+          />
+
+          <div className="min-w-0 space-y-4">
+            {visible.length === 0 ? (
+              <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
+            ) : (
+              <GuestListMultiselect
+                eventId={eventId}
+                guests={visible}
+                palette={palette}
+                groups={groups}
+                groupMemberships={groupMemberships}
+                currentGroupId={currentGroupId}
+                photoDisplayUrls={photoDisplayUrls}
+                grouped={sort === 'importance'}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <QuickAddSheet
         eventId={eventId}

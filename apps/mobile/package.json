@@ -13,7 +13,6 @@
     "dev:android": "CAP_SERVER_URL=http://10.0.2.2:3000 cap run android"
   },
   "dependencies": {
-    "@capacitor-community/bluetooth-le": "^8.2.0",
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/camera": "^8.2.0",

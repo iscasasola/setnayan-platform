@@ -108,6 +108,24 @@ export function isExemptVendorCategory(category: VendorCategory): boolean {
   return VENDOR_CATEGORY_CANONICAL[category].kind === 'exempt';
 }
 
+/**
+ * The PRIMARY canonical tile a couple-side category anchors to — the single
+ * tier-2 `service_categories.id` written to `event_vendors.category_key` (the
+ * taxonomy-keyed column, migration 20260815000000). Mirrors that migration's
+ * backfill semantics exactly: bucket A → the one tile; bucket B (coarse alias)
+ * → the FIRST tile; bucket C (exempt) → null. Use this to dual-write
+ * `category_key` alongside the legacy `category` enum at every event_vendors
+ * insert (expand-phase PR-2 of the enum→key migration).
+ */
+export function primaryTileForVendorCategory(
+  category: VendorCategory,
+): WeddingTile | null {
+  const m = VENDOR_CATEGORY_CANONICAL[category];
+  if (m.kind === 'tile') return m.tile;
+  if (m.kind === 'tiles') return m.tiles[0] ?? null;
+  return null;
+}
+
 export type VendorCategoryDrift = {
   category: VendorCategory;
   /** Tiles this category maps to that no longer exist in the live DB tree. */

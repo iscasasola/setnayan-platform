@@ -36,6 +36,7 @@ import {
   canonicalServicesForFolder,
   canonicalServicesForTile,
 } from '@/lib/vendor-counts';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
@@ -117,6 +118,10 @@ export async function unlockCategoryWithInquiry(input: {
   let inquiredAny = false;
   let addedAny = false;
   let firstVendorName: string | null = null;
+  // Canonical→tile lookup for the dual-write of category_key (PR-2). Cached per
+  // request; the inserted `category` is a vendor_services canonical key, so its
+  // tile comes from the live taxonomy map (null when unknown — safe expand-phase).
+  const tax = await getTaxonomy();
 
   for (const cand of candidates) {
     const vendorProfileId = cand.vendorProfileId;
@@ -147,6 +152,7 @@ export async function unlockCategoryWithInquiry(input: {
     const { error: insertErr } = await supabase.from('event_vendors').insert({
       event_id: eventId,
       category,
+      category_key: tax.map[category]?.tile ?? null,
       vendor_name: vendorName,
       status: 'considering',
       marketplace_vendor_id: vendorProfileId,

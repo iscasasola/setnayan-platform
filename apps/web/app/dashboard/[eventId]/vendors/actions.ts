@@ -21,6 +21,7 @@ import {
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
+import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import {
   HARD_SINGLE_PICK_GROUPS,
   canonicalServiceToPlanGroupId,
@@ -80,6 +81,10 @@ export async function createVendor(formData: FormData) {
   const { error } = await supabase.from('event_vendors').insert({
     event_id: eventId,
     category,
+    // Dual-write the taxonomy-keyed column alongside the legacy enum (PR-2 of
+    // the enum→key migration, col added in 20260815000000). Nothing reads it
+    // yet — safe expand-phase; primary tile, or null for exempt categories.
+    category_key: primaryTileForVendorCategory(category),
     vendor_name: trimmedName,
     contact_email: nullIfBlank(formData.get('contact_email')),
     contact_phone: nullIfBlank(formData.get('contact_phone')),
@@ -1051,6 +1056,7 @@ export async function finalizeVendor(
           const insertRows: Array<{
             event_id: string;
             category: VendorCategory;
+            category_key: string | null;
             vendor_name: string;
             status: string;
             marketplace_vendor_id: string;
@@ -1066,6 +1072,7 @@ export async function finalizeVendor(
             insertRows.push({
               event_id: eventId,
               category: targetCategory,
+              category_key: primaryTileForVendorCategory(targetCategory),
               vendor_name: targetVendor.vendor_name as string,
               status: 'considering',
               marketplace_vendor_id: targetVendor.marketplace_vendor_id,

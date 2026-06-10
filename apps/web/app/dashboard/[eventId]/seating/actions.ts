@@ -12,6 +12,7 @@ import {
   fetchFloorPlan,
   fetchTables,
   removedSeatSet,
+  roleTier,
   type AutoSeatGuest,
   type TableType,
 } from '@/lib/seating';
@@ -492,4 +493,114 @@ export async function publishSeating(formData: FormData): Promise<{ published: n
   revalidatePath(`/dashboard/${eventId}/seating`);
   revalidatePath(`/dashboard/${eventId}/seating/print`);
   return { published: stamped?.length ?? 0 };
+}
+
+// Rename a table (the per-table popup's inline rename). Mirrors
+// updateTableRotation: a single guarded UPDATE under the couple's RLS.
+// `table_label` already exists — no schema change. Trim + 1–64 chars, matching
+// createTable's validation.
+export async function updateTableLabel(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const labelRaw = formData.get('table_label');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || typeof labelRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const label = labelRaw.trim();
+  if (label.length === 0 || label.length > 64) throw new Error('Label must be 1–64 chars');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({ table_label: label, updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Seat a whole ROLE TIER's unseated, attending guests at one table in a single
+// tap (the popup's "Role" picker). Tiers mirror the auto-seat rings (roleTier):
+// 1 = family + principal sponsors · 2 = entourage · 3 = extended family ·
+// 4 = friends & others. Seat-what-fits in name order; overflow stays unseated
+// and the count is returned so the editor can prompt for another table. Never
+// evicts a current occupant, never fills a removed chair, never seats the couple.
+export async function seatRoleAtTable(
+  formData: FormData,
+): Promise<{ seated: number; requested: number; overflow: number }> {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const tierRaw = formData.get('tier');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || typeof tierRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const tier = Number(tierRaw);
+  if (![1, 2, 3, 4].includes(tier)) throw new Error('Invalid tier');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [tables, assignments, guests] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+    fetchGuestsByEvent(supabase, eventId),
+  ]);
+  const table = tables.find((t) => t.table_id === tableId);
+  if (!table) throw new Error('Table not found');
+
+  // Eligible = attending, in this tier, not the couple, not already seated anywhere.
+  const seatedIds = new Set(assignments.map((a) => a.guest_id));
+  const eligible = guests
+    .filter(
+      (g) =>
+        g.rsvp_status === 'attending' &&
+        g.role !== 'bride' &&
+        g.role !== 'groom' &&
+        !seatedIds.has(g.guest_id) &&
+        roleTier(g.role, g.group_category) === tier,
+    )
+    .sort((a, b) =>
+      `${a.last_name} ${a.first_name}`
+        .toLowerCase()
+        .localeCompare(`${b.last_name} ${b.first_name}`.toLowerCase()),
+    );
+  if (eligible.length === 0) return { seated: 0, requested: 0, overflow: 0 };
+
+  // Open chairs = effective capacity minus current occupants; skip removed +
+  // already-taken seat numbers so the fill never collides.
+  const occupiedSeats = removedSeatSet(table.removed_seats, table.capacity);
+  let here = 0;
+  for (const a of assignments) {
+    if (a.table_id !== tableId) continue;
+    here += 1;
+    if (a.seat_number !== null && a.seat_number >= 0) occupiedSeats.add(a.seat_number);
+  }
+  const free = Math.max(0, effectiveCapacity(table.capacity, table.removed_seats) - here);
+  const toSeat = eligible.slice(0, free);
+
+  let seat = 0;
+  const rows = toSeat.map((g) => {
+    while (occupiedSeats.has(seat)) seat++;
+    occupiedSeats.add(seat);
+    return { event_id: eventId, table_id: tableId, guest_id: g.guest_id, seat_number: seat };
+  });
+
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from('event_seat_assignments')
+      .upsert(rows, { onConflict: 'event_id,guest_id' });
+    if (error) throw new Error(error.message);
+    revalidatePath(`/dashboard/${eventId}/seating`);
+  }
+
+  return { seated: rows.length, requested: eligible.length, overflow: eligible.length - rows.length };
 }

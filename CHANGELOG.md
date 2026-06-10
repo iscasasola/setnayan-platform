@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(monogram): Motion Library — 6 premium animation signatures replace the single stroke-trace
+
+**Context:** Owner 2026-06-11 — "the monogram we have now is too common… find a better way to execute." Research (market scan: Canva/AI-logo tools all ship template-pick + the stroke-trace reveal is the tutorial-default effect) split the fix into two phases; this is **Phase 1: the motion overhaul**. The single hardcoded draw-on the paid ANIMATED_MONOGRAM SKU shipped with is now one of **six premium motion signatures** the couple picks from: **Drawn** (original stroke-trace, default) · **Foil** (golden light band sweeps the letters, loops) · **Bloom** (ink blooms from center, blur-to-sharp) · **Editorial** (rise + letter-spacing settle, masthead-style) · **Halo** (ring sweeps around first — true circumference dash — then letters fade up) · **Stardust** (7 champagne-gold sparks twinkle in a stagger while letters settle). All pure SVG + scoped CSS — no animation runtime, SSR-safe, all collapse to the static mark under `prefers-reduced-motion` (WCAG 2.2 § 2.3.3).
+
+- **`apps/web/lib/monogram-motion.ts`** (new) — the motion registry: keys, labels, hints, descriptions + `resolveMonogramMotion()` (NULL/unknown → `'draw'` so every pre-library owner renders exactly as before).
+- **`AnimatedMonogramHero`** — rewritten around a `motion` prop (default `'draw'` = zero behavior change at untouched call sites). Halo paints its ring in-SVG (span border goes transparent, layout box intact).
+- **Monogram Maker** (`/dashboard/[eventId]/monogram`) — new "Choose a motion" picker (6 tiles) + Replay button; every motion previews free; saved via `saveMonogram()` (validated server-side against the registry). Supersedes the 23-style picker tracked in `Monogram_Maker_Plan_2026-06-05.md`.
+- **Landing hero** (`/[slug]`) — `animatedMonogram` threading upgraded `boolean` → `MonogramMotionKey | false`; the owned render plays the couple's chosen signature in all 3 hero branches (private, photo-hero, monogram-only).
+- **Add-ons detail page** — previews play the real chosen motion; copy sells the six-signature library; owned view names the active motion and links the Maker.
+- **Migration `20261111000000_event_monogram_motion.sql`** — additive nullable `events.monogram_motion_key` + CHECK (6 keys), `IF NOT EXISTS` idempotent, comment documents the registry mirror. **Applied to prod** (verified in migration history; column live before this code deploys). Re-timestamped from 20261107 (collision with `push_subscriptions`) past the remote head.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only) · production build green · all six signatures rendered through the REAL component (tsx + react-dom/server harness, not a copy) and verified in-browser: settled states + colors correct for mulberry/gold inks, animation choreography introspected via `getAnimations()` (durations/delays/stagger/infinite-foil all as designed), foil sheen caught mid-sweep on screenshot. Gating unchanged — WHICH motion is a free choice; WHETHER the hero animates stays bound to ANIMATED_MONOGRAM order ownership.
+
+**SPEC IMPACT:** Phase 1 of the 2026-06-11 monogram overhaul (Phase 2 = Setnayan-AI bespoke vector generator, separate PR). Corpus: DECISION_LOG rows + 0037 as-built correction to follow with Phase 2's corpus pass.
+
 ## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
 
 **Context:** Phase 2 of the unification (`Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §3/§7). The faith vocabulary was a hardcoded 5-value CHECK with **no admin write control** — every admin-minted service was born faith-blind, the faith badge was read-only, and `Chinese`/`Jewish`/`Born Again` (in the app's `FaithKey` union) were untaggable in the DB. Storage stays **TITLE-CASE** (the marketplace compares `===`; lowercasing = the landmine).

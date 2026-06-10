@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(taxonomy): admin can assign which events a category serves (Phase 1 wiring)
+
+**Context:** Phase 1 added the `applicable_event_types` columns + `event_type_vocab` (dormant). This wires the admin control so the team can actually assign multi-event scope — directly the owner's ask ("create assignments on which category can serve which event").
+
+- **`lib/taxonomy-db.ts`:** `TaxonomySnapshot` gains `tileEventTypes` (tile id → applicable event keys; null = universal); read from the new column; fallback snapshot = `{}` (all universal).
+- **`app/admin/taxonomy/actions.ts`:** `setCategoryEventTypes` — admin-gated (`requireAdmin`), audit-logged (`admin_audit_log`), revalidates `/admin/taxonomy` + `/vendors`. None checked = universal (NULL); every event checked collapses to NULL; unknown events rejected app-side + by the DB trigger backstop.
+- **`app/admin/taxonomy/page.tsx`:** each tile in the tree editor gets a collapsible **"Events:"** control (a chip per event type; the summary shows the current scope or "All events (universal)"). Fetches `event_type_vocab` live. Progressive-enhancement form (works without client JS).
+- Couple-side filtering (the never-empty-careful part) + the per-canonical override UI are a deliberate follow-up; this PR is the governance control only.
+
+**Verification:** type-consistent edits; CI typecheck/lint/build. Admin-only writes (`requireAdmin` + RLS-gated table). No migration (columns landed in Phase 1, `20261104000000`).
+
+**SPEC IMPACT:** Realizes the admin half of multi-event applicability. → corpus design doc §5 + `DECISION_LOG` 2026-06-10.
+
 ## 2026-06-11 · feat(taxonomy): Phase 1 — multi-event applicability (which category serves which event)
 
 **Context:** Phase 1 of the taxonomy unification + multi-event design (owner-approved 2026-06-10; `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §2). The whole tree was implicitly wedding-only; this adds the structural ability to say which category serves which event type, ahead of unlocking non-wedding events.

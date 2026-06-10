@@ -16,6 +16,7 @@ import {
   promoteCategoryRequest,
   mapCategoryRequest,
   resolveCategoryRequest,
+  setCategoryEventTypes,
 } from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
@@ -92,6 +93,15 @@ export default async function AdminTaxonomyPage({
   // service_categories + canonical_service_taxonomy, falling back to the
   // lib/taxonomy.ts constant if the tables are unseeded — see lib/taxonomy-db.ts.
   const tax = await getTaxonomy();
+
+  // Event-type vocabulary for the per-tile multi-event applicability control
+  // (Phase 1). Public catalogue data; admins assign which events a tile serves.
+  const { data: eventVocab } = await admin
+    .from('event_type_vocab')
+    .select('event_type, label_en, sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true });
+  const eventTypeVocab = (eventVocab ?? []) as { event_type: string; label_en: string }[];
 
   // Phase rank so each tile's services read V1.1 base first, then V1.1.x, then
   // V1.2+ — shared by the per-tile sort below.
@@ -626,6 +636,11 @@ export default async function AdminTaxonomyPage({
                             </button>
                           </form>
                         </div>
+                        <TileEventTypes
+                          tile={tile}
+                          current={tax.tileEventTypes[tile] ?? null}
+                          vocab={eventTypeVocab}
+                        />
                         {services.length > 0 ? (
                           <ul className="divide-y divide-ink/10">
                             {services.map((row) => (
@@ -802,6 +817,60 @@ export default async function AdminTaxonomyPage({
  * tree and in the Unfiled tray (where `row.meta` is null / has no tile, so the
  * select shows a "— pick a tile —" placeholder and the button reads "File").
  */
+/**
+ * Per-tile multi-event applicability control (Phase 1). Admins pick which event
+ * types a tile serves; none checked = universal (serves all events) — the
+ * FAIL-OPEN default. Writes service_categories.applicable_event_types live.
+ */
+function TileEventTypes({
+  tile,
+  current,
+  vocab,
+}: {
+  tile: string;
+  current: string[] | null;
+  vocab: { event_type: string; label_en: string }[];
+}) {
+  const sel = current ?? [];
+  const restricted = sel.length > 0;
+  const summary = restricted
+    ? sel.map((e) => vocab.find((v) => v.event_type === e)?.label_en ?? e).join(' · ')
+    : 'All events (universal)';
+  return (
+    <details className="border-b border-ink/10 bg-sky-50/30 px-2 py-1.5">
+      <summary className="cursor-pointer text-[11px] text-ink/60">
+        Events:{' '}
+        <span className={`font-medium ${restricted ? 'text-sky-800' : 'text-ink/70'}`}>{summary}</span>
+      </summary>
+      <form action={setCategoryEventTypes} className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <input type="hidden" name="category_id" value={tile} />
+        {vocab.map((v) => (
+          <label
+            key={v.event_type}
+            className="flex items-center gap-1 rounded-md border border-ink/15 bg-white px-1.5 py-0.5 text-[11px] text-ink/70"
+          >
+            <input
+              type="checkbox"
+              name="event_types"
+              value={v.event_type}
+              defaultChecked={sel.includes(v.event_type)}
+              className="h-3 w-3"
+            />
+            {v.label_en}
+          </label>
+        ))}
+        <button
+          type="submit"
+          className="rounded-md border border-ink/20 bg-ink px-2 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-ink/80"
+        >
+          Save
+        </button>
+        <span className="text-[10px] text-ink/40">none = universal</span>
+      </form>
+    </details>
+  );
+}
+
 function ServiceLine({ row, tax }: { row: ServiceRow; tax: TaxonomySnapshot }) {
   const facets = Array.isArray(row.filter_facets) ? row.filter_facets : [];
   const required = (row.required_for_visibility ?? {}) as Record<string, unknown>;

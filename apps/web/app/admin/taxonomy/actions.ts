@@ -231,6 +231,74 @@ export async function remapCanonical(formData: FormData) {
   redirect(`${BASE}?ok=${encodeURIComponent('Re-mapped — the marketplace re-buckets live.')}`);
 }
 
+/**
+ * Admin: set which event types a TILE serves (multi-event applicability, Phase 1).
+ * Writes `service_categories.applicable_event_types` — NULL = universal (serves
+ * ALL events; the FAIL-OPEN default). Read live by `getTaxonomy()` → the
+ * marketplace + onboarding scope to the couple's event type with no deploy.
+ * Audit-logged. The DB validation trigger rejects unknown event types as a
+ * backstop. Selecting EVERY event type collapses to NULL (universal) so we never
+ * store a brittle full-list array.
+ */
+export async function setCategoryEventTypes(formData: FormData) {
+  const user = await requireAdmin();
+  const categoryId = String(formData.get('category_id') ?? '').trim();
+  if (!categoryId) throw new Error('Missing category_id');
+  const selected = Array.from(
+    new Set(
+      formData
+        .getAll('event_types')
+        .map((v) => String(v).trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const admin = createAdminClient();
+  const { data: cat } = await admin
+    .from('service_categories')
+    .select('id, tier, applicable_event_types')
+    .eq('id', categoryId)
+    .maybeSingle();
+  if (!cat) redirect(`${BASE}?error=${encodeURIComponent('Category not found.')}`);
+
+  let next: string[] | null = null;
+  if (selected.length > 0) {
+    const { data: vocab } = await admin
+      .from('event_type_vocab')
+      .select('event_type')
+      .eq('status', 'active');
+    const valid = new Set((vocab ?? []).map((v) => v.event_type));
+    const unknown = selected.filter((s) => !valid.has(s));
+    if (unknown.length > 0) {
+      redirect(`${BASE}?error=${encodeURIComponent('Unknown event type(s): ' + unknown.join(', '))}`);
+    }
+    // Every event selected == no restriction → store NULL (universal).
+    next = selected.length >= valid.size ? null : selected.sort();
+  }
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ applicable_event_types: next })
+    .eq('id', categoryId);
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_event_types',
+    target_table: 'service_categories',
+    target_id: categoryId,
+    before_json: { applicable_event_types: cat.applicable_event_types ?? null },
+    after_json: { applicable_event_types: next },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(
+    `${BASE}?ok=${encodeURIComponent(
+      next === null ? 'Set to universal (all events).' : 'Event types updated — live on the marketplace.',
+    )}`,
+  );
+}
+
 /** Slugify a label into a stable key (sep '_' for the id, '-' for the slug). */
 function slugify(label: string, sep: '_' | '-'): string {
   return label

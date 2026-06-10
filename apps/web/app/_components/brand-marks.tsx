@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+'use client';
 /**
  * v2.1 brand marks · Setnayan Vendor Keynote template package.
  *
@@ -26,18 +27,24 @@
  * SVG is tiny (~2.5 KB), already optimized, and serving it through next/image
  * would add a presigning round-trip per render with zero payload win. Same
  * approach the existing `Logo` component takes.
+ *
+ * The mark image resolves via `useBrandMark()` so the admin-uploaded default
+ * brand icon (owner 2026-06-10) flows through here too — falling back to the
+ * canonical gold SVG when none is set. Only the IMAGE switches; the
+ * "SET NA 'YAN" text wordmark below is unaffected.
  */
 
-const MARK_SRC = '/brand/setnayan-mark.svg';
+import { useBrandMark } from './brand-provider';
 
 /**
  * Just the icon mark (no text). Use for favicons, avatar slots, monogram
  * stamps in keynote slides. SVG renders at 1:1 aspect ratio.
  */
 export function LogoMark({ size = 40, className }: { size?: number; className?: string }) {
+  const markSrc = useBrandMark();
   return (
     <img
-      src={MARK_SRC}
+      src={markSrc}
       alt=""
       width={size}
       height={size}

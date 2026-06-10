@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1a follow-up — responsive popup (mobile bottom sheet / desktop popover) (0008)
+
+**Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; on a phone that's cramped. This makes the popup adapt to the surface.
+
+- **`seating-editor.tsx`:** new `isPhone` breakpoint state (`matchMedia('(max-width: 767px)')`, tracked live on resize). The per-table popup now branches: **phone → a bottom sheet** pinned to the thumb zone (`fixed inset-x-0 bottom-0`, `env(safe-area-inset-bottom)` padding, ≥44px tap targets, 16px input to avoid iOS focus-zoom, full-width rename); **tablet/desktop → the existing beside-table popover** (unchanged positioning math). Both share the same rename/rotate/delete/close handlers.
+
+**Verification:** `tsc` + `next lint` clean; CI gates incl. Playwright e2e. The breakpoint swap is visual — confirm on the Vercel preview at phone + desktop widths. No schema change.
+
+**SPEC IMPACT:** Establishes the standing responsive pattern for the 0008 editor redesign — every Phase 1 surface (the coming Guest/Group/Role picker, rotate handle, resizable walls) ships popover-on-desktop / bottom-sheet-on-phone. → note in `DECISION_LOG` with the Phase 1 landing.
+
 ## 2026-06-11 · feat(taxonomy): Phase 0 — anchor onboarding refinements to the taxonomy tree (single-source unification)
 
 **Context:** Owner 2026-06-10 approved consolidating the platform to ONE taxonomy source (design doc `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md`). Two parallel DB taxonomies exist today: the marketplace tree (`service_categories` → `canonical_service_taxonomy`) and the couple-facing onboarding refinements (`onboarding_refinements`), keyed independently. Phase 0 anchors the latter to the former so they can no longer drift, and so event-type / faith visibility can later inherit from the anchor tile.

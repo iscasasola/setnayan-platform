@@ -17,6 +17,7 @@ import {
   mapCategoryRequest,
   resolveCategoryRequest,
   setCategoryEventTypes,
+  setServiceFaith,
 } from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
@@ -50,12 +51,17 @@ type DeadlineRow = {
 
 type FaithKey = NonNullable<TaxonomyEntry['faith']>;
 
+const FAITH_TONE_BASE = 'bg-ink/5 text-ink/70';
 const FAITH_TONE: Record<FaithKey, string> = {
   Catholic: 'bg-sky-100 text-sky-800',
   Christian: 'bg-violet-100 text-violet-800',
+  'Born Again': 'bg-violet-50 text-violet-700',
   INC: 'bg-emerald-100 text-emerald-800',
   Muslim: 'bg-amber-100 text-amber-900',
+  Jewish: 'bg-indigo-100 text-indigo-800',
+  Chinese: 'bg-red-100 text-red-800',
   Cultural: 'bg-rose-100 text-rose-800',
+  Civil: 'bg-stone-100 text-stone-700',
 };
 
 const PHASE_TONE_BASE = 'bg-ink/5 text-ink/70';
@@ -102,6 +108,15 @@ export default async function AdminTaxonomyPage({
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
   const eventTypeVocab = (eventVocab ?? []) as { event_type: string; label_en: string }[];
+
+  // Faith vocabulary for the per-service faith control (Phase 2). Faith is
+  // INCLUDE-only match-scope — reserved for officiants/seminars/counseling.
+  const { data: faithRows } = await admin
+    .from('faith_vocab')
+    .select('faith_key, label_en, sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true });
+  const faithVocab = (faithRows ?? []) as { faith_key: string; label_en: string }[];
 
   // Phase rank so each tile's services read V1.1 base first, then V1.1.x, then
   // V1.2+ — shared by the per-tile sort below.
@@ -644,7 +659,7 @@ export default async function AdminTaxonomyPage({
                         {services.length > 0 ? (
                           <ul className="divide-y divide-ink/10">
                             {services.map((row) => (
-                              <ServiceLine key={row.canonical_service} row={row} tax={tax} />
+                              <ServiceLine key={row.canonical_service} row={row} tax={tax} faiths={faithVocab} />
                             ))}
                           </ul>
                         ) : (
@@ -747,6 +762,23 @@ export default async function AdminTaxonomyPage({
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-ink/75">
+                Faith scope <span className="text-ink/45">(officiants/seminars only — leave Universal otherwise)</span>
+              </span>
+              <select
+                name="faith"
+                defaultValue=""
+                className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              >
+                <option value="">Universal (everyone)</option>
+                {faithVocab.map((f) => (
+                  <option key={f.faith_key} value={f.faith_key}>
+                    {f.label_en}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-ink/75">
                 Starter refinement <span className="text-ink/45">(optional)</span>
               </span>
               <input
@@ -802,7 +834,7 @@ export default async function AdminTaxonomyPage({
           </p>
           <ul className="divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/50">
             {unfiled.map((row) => (
-              <ServiceLine key={row.canonical_service} row={row} tax={tax} />
+              <ServiceLine key={row.canonical_service} row={row} tax={tax} faiths={faithVocab} />
             ))}
           </ul>
         </section>
@@ -871,7 +903,66 @@ function TileEventTypes({
   );
 }
 
-function ServiceLine({ row, tax }: { row: ServiceRow; tax: TaxonomySnapshot }) {
+/**
+ * Per-service faith control (Phase 2). The badge is now editable: expanding it
+ * reveals a faith_vocab dropdown backed by `setServiceFaith` (INCLUDE-only
+ * match-scope — a tagged service surfaces ONLY for matching couples; clear =
+ * universal). Dietary services are guarded server-side (never faith-gated).
+ */
+function ServiceFaithControl({
+  canonical,
+  current,
+  faiths,
+}: {
+  canonical: string;
+  current: FaithKey | undefined;
+  faiths: { faith_key: string; label_en: string }[];
+}) {
+  return (
+    <details className="relative">
+      <summary className="cursor-pointer list-none">
+        <Badge tone={current ? (FAITH_TONE[current] ?? FAITH_TONE_BASE) : 'bg-white text-ink/45 border border-ink/15'}>
+          {current ?? 'faith: all'} ▾
+        </Badge>
+      </summary>
+      <form
+        action={setServiceFaith}
+        className="absolute right-0 z-10 mt-1 flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white p-1.5 shadow-md"
+      >
+        <input type="hidden" name="canonical_service" value={canonical} />
+        <select
+          name="faith"
+          defaultValue={current ?? ''}
+          aria-label={`Faith scope for ${canonical}`}
+          className="rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+        >
+          <option value="">Universal (everyone)</option>
+          {faiths.map((f) => (
+            <option key={f.faith_key} value={f.faith_key}>
+              {f.label_en}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="rounded-md border border-ink/20 bg-ink px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-ink/80"
+        >
+          Set
+        </button>
+      </form>
+    </details>
+  );
+}
+
+function ServiceLine({
+  row,
+  tax,
+  faiths,
+}: {
+  row: ServiceRow;
+  tax: TaxonomySnapshot;
+  faiths: { faith_key: string; label_en: string }[];
+}) {
   const facets = Array.isArray(row.filter_facets) ? row.filter_facets : [];
   const required = (row.required_for_visibility ?? {}) as Record<string, unknown>;
   const hasRequired = Object.keys(required).length > 0;
@@ -893,7 +984,7 @@ function ServiceLine({ row, tax }: { row: ServiceRow; tax: TaxonomySnapshot }) {
         {meta ? (
           <>
             <Badge tone={PHASE_TONE[meta.phase] ?? PHASE_TONE_BASE}>{meta.phase}</Badge>
-            {meta.faith ? <Badge tone={FAITH_TONE[meta.faith]}>{meta.faith}</Badge> : null}
+            <ServiceFaithControl canonical={row.canonical_service} current={meta.faith} faiths={faiths} />
             {meta.setnayan ? <Badge tone="bg-terracotta/10 text-terracotta">Setnayan</Badge> : null}
             {meta.ph ? <Badge tone="bg-sky-50 text-sky-700">PH-specific</Badge> : null}
             {meta.rental ? <Badge tone="bg-ink/5 text-ink/70">Rental</Badge> : null}

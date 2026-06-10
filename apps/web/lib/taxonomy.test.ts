@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import {
   TAXONOMY_MAP,
   TILE_PARENT,
+  WEDDING_FAITH_KEYS,
   WEDDING_FOLDER_ORDER,
   WEDDING_TILE_ORDER,
   WEDDING_TILES_BY_PARENT,
@@ -23,17 +24,10 @@ import {
 
 const FOLDERS = new Set<string>(WEDDING_FOLDER_ORDER as readonly string[]);
 const TILES = new Set<string>(WEDDING_TILE_ORDER as readonly string[]);
-// The FaithKey set consumed by passesReligionFilter / mapCeremonyTypeToFaith.
-const ALLOWED_FAITHS = new Set([
-  'Catholic',
-  'Christian',
-  'INC',
-  'Muslim',
-  'Cultural',
-  'Chinese',
-  'Jewish',
-  'Born Again',
-]);
+// The canonical faith vocabulary (client mirror of the DB faith_vocab table;
+// consumed by passesReligionFilter / mapCeremonyTypeToFaith). Title-case —
+// the marketplace compares with strict ===.
+const ALLOWED_FAITHS = new Set<string>(WEDDING_FAITH_KEYS);
 
 const entries = Object.entries(TAXONOMY_MAP);
 
@@ -71,6 +65,14 @@ test('no dietary-tagged canonical is faith-gated (de-faith regression guard, 202
     [],
     `dietary canonicals must not carry faith (passesReligionFilter would hide them): ${offenders.join('; ')}`,
   );
+});
+
+test('faith keys are title-case (lowercasing breaks the === marketplace filter)', () => {
+  for (const key of WEDDING_FAITH_KEYS) {
+    assert.notEqual(key, key.toLowerCase(), `faith key "${key}" must not be all-lowercase`);
+    assert.equal(key.charAt(0), key.charAt(0).toUpperCase(), `faith key "${key}" must start upper-case`);
+  }
+  assert.equal(new Set(WEDDING_FAITH_KEYS).size, WEDDING_FAITH_KEYS.length, 'faith keys must be unique');
 });
 
 test('TILE_PARENT and WEDDING_TILES_BY_PARENT are mutually consistent', () => {

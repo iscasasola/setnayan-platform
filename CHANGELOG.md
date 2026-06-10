@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(taxonomy): Phase 0 — anchor onboarding refinements to the taxonomy tree (single-source unification)
+
+**Context:** Owner 2026-06-10 approved consolidating the platform to ONE taxonomy source (design doc `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md`). Two parallel DB taxonomies exist today: the marketplace tree (`service_categories` → `canonical_service_taxonomy`) and the couple-facing onboarding refinements (`onboarding_refinements`), keyed independently. Phase 0 anchors the latter to the former so they can no longer drift, and so event-type / faith visibility can later inherit from the anchor tile.
+
+- **Migration `20261103000000_onboarding_refinements_tile_fk.sql`** (applied to prod): additive `onboarding_refinements.tile_id` → `service_categories.id` FK (tier-2 tile) + NOT NULL + index. Backfills all 38 leaves — 27 whose `leaf_key` already equals a tile id, + 11 naming aliases (`bride_attire→brides_attire`, `jewelry→jewelleries_accessories`, `henna→henna_tattoo`, `coffee→coffee_espresso`, `souvenirs→souvenir_giveaways`, `stylist→stylist_decorator`, `ceremony→ceremony_venue`, + groom/men/women_attire, filipiniana). **No destructive `leaf_key` rename** — saved couple picks live in `events.style_preferences.refinements` (JSONB keyed by leaf_key) and keep resolving. Fails loud if any leaf can't be anchored. Verified on prod: 38/38 anchored, 0 invalid, FK + NOT NULL present.
+- No app-code change: `getOnboardingRefinements()` still reads by `leaf_key`; `tile_id` is the new structural link consumed in later phases (one read source · de-hardcode consumers · admin photo enforcement · event/faith inheritance).
+
+**Verification:** applied via `supabase db push` from a clean worktree off `origin/main`; post-apply DB asserts green (38/38 anchored, FK + NOT NULL confirmed).
+
+**SPEC IMPACT:** Foundation for the taxonomy single-source unification + multi-event/faith scoping. → corpus `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` (§7 Phase 0) + `DECISION_LOG` 2026-06-10.
+
 ## 2026-06-10 · feat(guests): privacy-first invite-claim + email-OTP double-verification (no auto-admit)
 
 **Context:** Owner 2026-06-10 authorized the "in-scope delta" of a proposed "Reverse Contact-Drop" guest system — keep the locked guardrails (no SMS, no NextAuth, no Prisma, no rolling QR), fix the real loophole. `/join/[eventId]` previously **silently auto-admitted** any signed-in user whose email didn't exactly match a `guests` (seed-list) row (minting a placeholder guest + membership) — a stranger with the universal link self-admits. This adds the couple-curated safety the live "personal QR" model promises, the Setnayan-native way.

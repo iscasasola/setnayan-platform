@@ -213,7 +213,10 @@ export default async function VendorDashboardLayout({
   );
 
   return (
-    <>
+    // app-surface → Source Sans backend typeface (globals.css). Plain block
+    // wrapper: no transform/filter so the BottomNav's fixed positioning and
+    // SidebarShell's own offset math are unaffected.
+    <div className="app-surface">
       <SidebarShell sidebar={<VendorSidebar role={vendorRole} />} sidebarFooter={switchViewPill} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
@@ -224,6 +227,6 @@ export default async function VendorDashboardLayout({
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <VendorBottomNav role={vendorRole} />
-    </>
+    </div>
   );
 }

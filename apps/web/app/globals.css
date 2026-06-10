@@ -477,6 +477,26 @@
 }
 
 /*
+ * Backend dashboard surface — opt-in. Applied to the root element of the
+ * couple / vendor / admin dashboard layouts so the whole operational backend
+ * renders in Source Sans, one simple minimalist family for body AND headings
+ * (owner-locked 2026-06-10 — "easy to read" backend). Overriding the --font-*
+ * vars here makes every `font-sans`/`font-display`/`font-serif` utility inside
+ * a dashboard resolve to Source Sans without touching the 200+ components; the
+ * direct font-family covers inherited text. --font-mono is left as DM Mono so
+ * IDs / reference codes keep their monospace alignment. The editorial
+ * Cormorant/Manrope stack stays on the public marketing site + guest-facing
+ * pages, which live outside these layouts. Mirrors `.m-surface` below.
+ */
+@layer components {
+  .app-surface {
+    --font-sans: var(--font-app);
+    --font-display: var(--font-app);
+    font-family: var(--font-app), system-ui, sans-serif;
+  }
+}
+
+/*
  * Marketing utility classes — opt-in only. Apply to a root element on a
  * marketing surface (e.g., a wrapping `<div className="m-surface">` around
  * the homepage hero) so child elements pick up paper background + ink color

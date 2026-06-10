@@ -3,6 +3,7 @@ import {
   Cormorant_Garamond,
   Manrope,
   DM_Mono,
+  Source_Sans_3,
   Saira_Condensed,
   Geist,
   Instrument_Serif,
@@ -82,6 +83,21 @@ const dmMono = DM_Mono({
   display: 'swap',
   weight: ['400', '500'],
   variable: '--font-mono',
+});
+
+// Backend (operational dashboards) typeface. Owner-locked 2026-06-10: the
+// couple / vendor / admin dashboards run on Source Sans for maximum
+// readability — one simple, minimalist family for body AND headings. The
+// editorial Cormorant/Manrope stack stays on the public marketing site +
+// guest-facing pages (landing / save-the-date / event pages). Scoped via the
+// `.app-surface` class in globals.css (opt-in, mirrors `.m-surface`), which
+// remaps --font-sans/--font-display to --font-app inside dashboards so the
+// 200+ shipped components don't churn. DM Mono is kept for IDs/ref codes.
+const sourceSans = Source_Sans_3({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-app',
 });
 
 // Monogram display faces — the couple's onboarding monogram renders in its
@@ -321,7 +337,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-PH"
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable}`}
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sourceSans.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable}`}
     >
       <head>
         {/*

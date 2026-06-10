@@ -183,7 +183,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // OuterDashboardHeader returns null there to avoid the two-stacked-row
   // drift confirmed in production 2026-05-15.
   return (
-    <div className="flex min-h-dvh flex-col bg-cream lg:pl-60">
+    <div className="app-surface flex min-h-dvh flex-col bg-cream lg:pl-60">
       {/* lg:pl-60 offset accounts for the OuterDashboardHeader's desktop
           sidebar (240px wide, fixed left) so main content sits to the
           right of it. Mobile pl is 0 — top strip stacks above the main

@@ -167,7 +167,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   );
 
   return (
-    <>
+    // app-surface → Source Sans backend typeface (globals.css). Plain block
+    // wrapper: no transform/filter so the BottomNav's fixed positioning and
+    // SidebarShell's own offset math are unaffected.
+    <div className="app-surface">
       <SidebarShell sidebar={<AdminSidebar />} sidebarFooter={switchViewPill} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
@@ -181,6 +184,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}
-    </>
+    </div>
   );
 }

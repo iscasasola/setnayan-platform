@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(type): backend dashboards on Source Sans — one minimalist readable family
+
+**Context:** Owner 2026-06-10 — "we want a simple minimalist font for all... the backend like dashboards should have a simple minimalist font so everything is easy to read," websites excepted. Today the dashboards inherit Manrope (body) + Cormorant Garamond (headings via the global `font-display` default); the editorial serif headings were the readability friction. Owner chose **Source Sans** for the backend and "keep editorial" for the public/guest pages.
+
+- `app/layout.tsx`: load **Source Sans 3** via `next/font/google` (weights 400/500/600/700) exposed as `--font-app`; added the variable to the `<html>` className list.
+- `app/globals.css`: new opt-in **`.app-surface`** component class (mirrors `.m-surface`) that remaps `--font-sans` + `--font-display` → `--font-app` and sets `font-family` directly. This flips every `font-sans`/`font-display`/`font-serif` utility AND inherited text inside a dashboard to Source Sans **without touching the 200+ shipped components**. `--font-mono` (DM Mono) is intentionally left for IDs/reference codes.
+- Applied `app-surface` to the three backend layout roots: `app/dashboard/layout.tsx` (couple — also covers `[eventId]` children), `app/vendor-dashboard/layout.tsx`, `app/admin/layout.tsx` (the latter two wrap the fragment root in a plain block div — no transform/filter, so the fixed BottomNav + SidebarShell offset math are unaffected).
+- **Untouched by design:** marketing site (`.m-surface`/`.m-*` own stack), guest-facing landing / save-the-date / public event pages (live outside these layouts → keep Cormorant/Manrope), and the couple's onboarding monogram faces (Cinzel/Playfair/Great Vibes via their own `--font-*` vars).
+
+**Verification:** `Source_Sans_3` export + weights 400–700/latin subset confirmed against installed `next/font` font-data. Visual-only change — verify on the Vercel preview / production (the backend surfaces need auth; no local app env). No local dev-server screenshot per owner's minimize-verify preference.
+
+**SPEC IMPACT:** Typography decision — backend dashboards (0021 couple, 0022 vendor, 0023 admin) move to Source Sans; public/guest surfaces keep the editorial Cormorant/Manrope stack. Drifts `UI_Design_Specification.md` ("Body: Manrope") for the *backend* only. → corpus `DECISION_LOG` 2026-06-10.
+
 ## 2026-06-10 · fix(shortlist): parent categories as separated cards (consistent container + nested children)
 
 **Context:** Owner 2026-06-10 (screenshot) — on the couple Shortlist (`/dashboard/[eventId]/vendors`), only the OPEN parent (Venue) looked like a contained card (`.cat-head.active` got a white bg + shadow); every collapsed parent was a flush divider row, and the open parent's sub-categories floated BELOW it instead of being held inside. Inconsistent container design.

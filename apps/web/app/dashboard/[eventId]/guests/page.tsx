@@ -36,6 +36,7 @@ import {
   OpenQuickAddButton,
   QuickAddSheet,
 } from './_components/quick-add-sheet';
+import { LifecycleRibbon } from './_components/lifecycle-ribbon';
 
 export const metadata = { title: 'Guests' };
 
@@ -412,6 +413,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           Customize); seating + share stay reachable from the planning nav /
           QR surfaces. */}
       <div className="hidden space-y-6 lg:block">
+        <LifecycleRibbon eventId={eventId} active="build" pendingClaims={pendingClaimsCount} />
+
         <TeamSegment
           eventId={eventId}
           team={teamFilter}

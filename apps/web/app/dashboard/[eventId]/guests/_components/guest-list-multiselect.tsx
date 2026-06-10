@@ -107,14 +107,34 @@ type GuestSection = {
   guests: GuestRow[];
 };
 
-function buildSections(guests: GuestRow[], grouped: boolean): GuestSection[] {
-  if (!grouped) {
-    // Non-importance sort → one flat group (flat desktop table · uniform
-    // mobile grid), no tier headers.
+// How the list breaks into sections (redesign Phase 1 — driven by the sort
+// control): 'importance' = role-tier sections (default); 'side' = group by
+// which side of the couple; 'flat' = one uniform section (name/rsvp/newest
+// sorts). Custom-group sectioning is a follow-up (it needs couple-pin handling).
+type GroupMode = 'importance' | 'side' | 'flat';
+
+function buildSections(guests: GuestRow[], mode: GroupMode): GuestSection[] {
+  if (mode === 'flat') {
+    // Flat sort (name / rsvp / newest) → one group, no tier headers.
     return [{ key: 'all', label: null, mobileCols: 'grid-cols-2', guests }];
   }
-  // `guests` is already importance-sorted, so bucketing preserves order within
-  // each tier. A guest buckets under their MOST important role (primary/extra).
+  if (mode === 'side') {
+    // Group by side. `guests` is already side-sorted with Bride #1 · Groom #2
+    // pinned (page sortCompare), so bride/groom stay first within their side
+    // section — the couple-pin holds. Bride's side renders first.
+    const order: GuestSide[] = ['bride', 'groom', 'both'];
+    return order
+      .map((side) => ({
+        key: `side-${side}`,
+        label: SIDE_LABELS[side],
+        mobileCols: 'grid-cols-2',
+        guests: guests.filter((g) => g.side === side),
+      }))
+      .filter((s) => s.guests.length > 0);
+  }
+  // importance — role-tier sections. `guests` is already importance-sorted, so
+  // bucketing preserves order within each tier. A guest buckets under their
+  // MOST important role (primary/extra).
   const byGroup = new Map<SectionGroup, GuestRow[]>();
   for (const g of guests) {
     const grp = importanceGroupOf([g.role, ...(g.extra_roles ?? [])]);
@@ -276,10 +296,10 @@ type Props = {
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
   photoDisplayUrls: Record<string, string>;
-  // When true (the importance sort — the default) the grid breaks into role-
-  // tier sections with owner-set densities (couple 2-up · roles 3-up · guests
-  // 4-up). Any other sort renders one uniform grid.
-  grouped: boolean;
+  // Which sectioning the list uses (redesign Phase 1) — derived from the sort
+  // control: 'importance' = role-tier sections (default), 'side' = group by the
+  // couple's side, 'flat' = one uniform grid (name / rsvp / newest sorts).
+  groupMode: GroupMode;
 };
 
 export function GuestListMultiselect({
@@ -290,7 +310,7 @@ export function GuestListMultiselect({
   groupMemberships,
   currentGroupId,
   photoDisplayUrls,
-  grouped,
+  groupMode,
 }: Props) {
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
@@ -315,12 +335,12 @@ export function GuestListMultiselect({
   const toggleAll = () =>
     allSelected ? guestSelection.clear() : guestSelection.setAll(allIds);
 
-  // Tiered sections when grouped (the importance sort) — one per role tier in
-  // importance order, each with its own density; otherwise a single uniform
-  // grid. Built from the already-sorted `guests`, so order within a tier holds.
+  // Sections derived from the sort control (redesign Phase 1): role tiers
+  // (importance · default), by-side, or one flat grid. Built from the already-
+  // sorted `guests`, so order within a section holds + the couple-pin survives.
   const sections = useMemo(
-    () => buildSections(guests, grouped),
-    [guests, grouped],
+    () => buildSections(guests, groupMode),
+    [guests, groupMode],
   );
 
   return (

@@ -110,9 +110,7 @@ const SVC_BY_GROUP: ReadonlyMap<PlanGroupId, AddOnEntry[]> = (() => {
 const DIGITAL_SVCS: ReadonlyArray<AddOnEntry> = ADD_ONS.filter(
   (a) => a.category === 'digital_services',
 );
-const TOOL_SVCS: ReadonlyArray<AddOnEntry> = ADD_ONS.filter(
-  (a) => a.category === 'tool' && a.status !== 'coming_soon',
-);
+// (TOOL_SVCS removed 2026-06-09 with the "Tools & extras" strip.)
 
 /**
  * Scoped CSS ported from the prototype. Prototype design vars are aliased to
@@ -345,8 +343,15 @@ const PBA_CSS = `
    rail, so 32px (half that gap) centers the end cards exactly; calc(50% - 150px)
    takes over once the card hits its 300px cap. (Was max(20px, …) for the 300px
    card; the 20px floor under-ran the runway for the now-narrower phone card.) */
-.pbacc .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 max(32px, calc(50% - 150px)) 6px;scrollbar-width:none}
+/* Asymmetric runway so EVERY card snaps to center (owner 2026-06-09): the
+   LEADING pad = 50% − 150px exactly centers the first 300px card at scrollLeft 0;
+   the TRAILING pad = 50% − 66px gives the narrower 132px end cards (Find / Add
+   manually) enough room to reach center as the last card. padding: t r b l. */
+.pbacc .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 max(32px, calc(50% - 66px)) 6px max(32px, calc(50% - 150px));scrollbar-width:none}
 .pbacc .rail::-webkit-scrollbar{display:none}
+/* End-of-shortlist marker — a thin vertical line between the last shortlisted
+   card and the Find / Add-manually cards. Not a snap target. */
+.pbacc .rail-end{flex:0 0 1px;align-self:stretch;min-height:120px;margin:0 2px;background:linear-gradient(to bottom,transparent 8%,var(--line) 50%,transparent 92%);scroll-snap-align:none}
 .pbacc .card{position:relative;flex:0 0 min(300px, calc(100vw - 96px));scroll-snap-align:center;display:flex;flex-direction:column}
 .pbacc .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
 .pbacc .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
@@ -400,6 +405,7 @@ const PBA_CSS = `
 .pbacc .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
 .pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:18px;color:var(--mulberry)}
 .pbacc .add .plus{font-size:26px;line-height:1;font-weight:300}
+.pbacc .add.add-manual .plus{font-size:19px;font-weight:400}
 .pbacc .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
 /* empty child — slim one-line row */
 .pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(92,37,66,.3);border-radius:12px;background:rgba(92,37,66,.03);text-decoration:none;color:inherit}
@@ -693,9 +699,6 @@ export function PlanBudgetAccordion({
       else next.add(groupId);
       return next;
     });
-  // Stable signature of the open-leaf set for effect deps (Sets aren't
-  // referentially comparable frame-to-frame).
-  const openLeafSig = [...openLeaves].sort().join(',');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -786,126 +789,13 @@ export function PlanBudgetAccordion({
   })();
   const lockHintKey = showCoach ? firstLockTarget : null;
 
-  // Scroll-driven motion (prototype Plan_Budget_Accordion_2026-05-31.html):
-  //   · sizeIntro   — the "Where your day stands" overview scales + fades as it
-  //                   scrolls up under the sticky topbar.
-  //   · syncStates  — each .child-block curve-zooms (scale + fade by distance
-  //                   from a focus line) so child categories visually merge into
-  //                   their sticky parent header as you scroll past them.
-  //   · curveRail   — per horizontal rail, cards get a scale/opacity zoom by
-  //                   offset from rail-center (the centered card is largest; NO
-  //                   3-D tilt — owner 2026-06-05 "no need for the tilt … it is
-  //                   shaking") + a haptic buzz when the centered card changes.
-  // Fail-safe by construction: every target is always rendered + visible; these
-  // are cosmetic transforms set per-frame. A null ref / bad calc degrades to
-  // "flat", never "hidden". prefers-reduced-motion → no-op. rAF-throttled; all
-  // listeners + the pending frame are torn down on unmount / model change.
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    if (
-      typeof window === 'undefined' ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      return;
-    }
-
-    let raf = 0;
-    const snapIndex = new WeakMap<Element, number>();
-
-    // Cache the scroll-driven targets ONCE per effect-run. The folders + rails
-    // all render up-front (no lazy mount), and the effect re-runs on [model]
-    // change — the only time the set changes — so per-frame querySelectorAll +
-    // tree-walks (3 of them, plus a `.card,.add` query per rail) were pure
-    // waste. Each rail's cards are cached too (the heaviest per-frame loop).
-    const intro = root.querySelector<HTMLElement>('.intro');
-    const childBlocks = Array.from(
-      root.querySelectorAll<HTMLElement>('.child-block'),
-    );
-    const rails = Array.from(root.querySelectorAll<HTMLElement>('.rail')).map(
-      (rail) => ({
-        rail,
-        cards: Array.from(rail.querySelectorAll<HTMLElement>('.card, .add')),
-      }),
-    );
-
-    const frame = () => {
-      raf = 0;
-      const vh = window.innerHeight || 1;
-
-      // sizeIntro
-      if (intro) {
-        const r = intro.getBoundingClientRect();
-        const p = Math.min(1, Math.max(0, -r.top / (r.height || 1)));
-        intro.style.transform = `scale(${(1 - p * 0.06).toFixed(4)})`;
-        intro.style.opacity = (1 - p * 0.55).toFixed(3);
-      }
-
-      // syncStates — child-block curve-merge into the sticky parent header
-      const focus = vh * 0.38;
-      for (const el of childBlocks) {
-        const r = el.getBoundingClientRect();
-        const center = r.top + r.height / 2;
-        const norm = Math.min(1, Math.abs(center - focus) / vh);
-        el.style.transform = `scale(${(1 - norm * 0.12).toFixed(4)})`;
-        el.style.opacity = (1 - norm * 0.45).toFixed(3);
-      }
-
-      // curveRail — coverflow + snap buzz
-      for (const { rail, cards } of rails) {
-        const rr = rail.getBoundingClientRect();
-        // Off-screen rail → skip its per-card transforms (the heaviest work).
-        // Its cards keep their last transform until it re-enters view; the
-        // effect is cosmetic, so a stale-while-offscreen transform is harmless.
-        if (rr.bottom < 0 || rr.top > vh) continue;
-        const railCenter = rr.left + rr.width / 2;
-        const half = rr.width / 2 || 1;
-        let nearest = -1;
-        let nearestDist = Infinity;
-        cards.forEach((card, i) => {
-          const cr = card.getBoundingClientRect();
-          const d = cr.left + cr.width / 2 - railCenter;
-          const n = Math.max(-1, Math.min(1, d / half));
-          // Scale-only zoom (owner 2026-06-05). The rotateY coverflow tilt was
-          // removed — its per-frame sign-flip near rail-center read as a wobble
-          // ("it is shaking"). Scale + opacity alone stay smooth and the centred
-          // card still reads as the focused one ("we can do the enlarge").
-          card.style.transform = `scale(${(1 - Math.abs(n) * 0.12).toFixed(4)})`;
-          card.style.opacity = (1 - Math.abs(n) * 0.4).toFixed(3);
-          const ad = Math.abs(d);
-          if (ad < nearestDist) {
-            nearestDist = ad;
-            nearest = i;
-          }
-        });
-        const prev = snapIndex.get(rail) ?? -1;
-        if (nearest !== -1 && nearest !== prev) {
-          snapIndex.set(rail, nearest);
-          // Rail-snap tick. Scroll context (not a tap), so iOS-switch is skipped
-          // — Android-only here; iOS scroll haptics need the native app (0052).
-          if (prev !== -1) haptic('tick', { iosSwitch: false });
-        }
-      }
-    };
-
-    const schedule = () => {
-      if (!raf) raf = window.requestAnimationFrame(frame);
-    };
-
-    frame(); // initial paint
-    window.addEventListener('scroll', schedule, { passive: true, capture: true });
-    window.addEventListener('resize', schedule, { passive: true });
-
-    return () => {
-      window.removeEventListener('scroll', schedule, { capture: true } as EventListenerOptions);
-      window.removeEventListener('resize', schedule);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-    // Re-cache the scroll targets when the open folder OR the open-leaf set
-    // changes — only the open folder's open leaves render a .rail (collapsed
-    // leaves render just their header), so the engine must re-query when either
-    // changes or it would curve-transform stale / missing rails.
-  }, [model, openFolder, openLeafSig]);
+  // Scroll-driven card motion REMOVED (owner 2026-06-09: "remove growing effect
+  // and shaking on Carousel"). The per-frame coverflow scale-zoom on rail cards
+  // + the child-block curve-merge (the "growing effect") and the rail-snap
+  // haptic buzz (the "shaking") are gone. Cards now render flat; horizontal
+  // centering is handled purely by CSS scroll-snap (.rail{scroll-snap-type} +
+  // .card{scroll-snap-align:center}), which snaps the focused card to center
+  // without any JS transform.
 
   return (
     <div className="pbacc" ref={rootRef}>
@@ -991,7 +881,8 @@ export function PlanBudgetAccordion({
               from the market pool, so a no-pick event still shows a meaningful
               summary instead of nothing. */}
           <div className="end-spacer">
-            <InAppToolsStrip eventId={eventId} />
+            {/* "Tools & extras" strip removed from the Shortlist (owner
+                2026-06-09) — the couple-tools live on the full /add-ons page. */}
             <Recap recap={model.recap} />
             {model.inactiveCategoryCount > 0 && (
               <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
@@ -1313,17 +1204,33 @@ function ChildRail({
               }
             />
           ))}
-          {/* Collapse on a hard-single finalize: the slot is filled (one
-              venue/officiant/coordinator/host/LED), and finalizeVendor already
-              auto-archived the losing shortlist — so drop the Find-more card.
-              "↩ Change pick" on the chosen card re-opens it. Multi-pick groups
-              keep Find-more (co-locks are the happy path there). */}
+          {/* End-of-shortlist marker, then Find + Add manually as the FINAL
+              cards (owner 2026-06-09). The vertical line signs where the
+              shortlist ends; after it, [Find XX +] (marketplace search) and
+              [Add manually] (own-vendor claim). Collapses on a hard-single
+              finalize (one venue/officiant/coordinator/host/LED — the slot is
+              filled + losers auto-archived). */}
           {!(child.state === 'finalized' && child.hardSingle) && (
-            <AddCard
-              label={child.label}
-              groupId={child.groupId}
-              onOpenSearch={onOpenSearch}
-            />
+            <>
+              <span className="rail-end" aria-hidden />
+              <AddCard
+                label={child.label}
+                groupId={child.groupId}
+                onOpenSearch={onOpenSearch}
+              />
+              {child.primaryCategory ? (
+                <button
+                  type="button"
+                  className="add add-manual"
+                  onClick={() => setManualOpen(true)}
+                >
+                  <span className="inner">
+                    <span className="plus">✎</span>
+                    <span className="at">Add manually</span>
+                  </span>
+                </button>
+              ) : null}
+            </>
           )}
         </div>
       )}
@@ -1717,7 +1624,7 @@ function AddCard({
     >
       <span className="inner">
         <span className="plus">＋</span>
-        <span className="at">Find more</span>
+        <span className="at">Find {label}</span>
       </span>
     </button>
   );
@@ -1852,39 +1759,8 @@ function DigitalServicesRail({
   );
 }
 
-// ── Tools & extras strip (end-spacer) ─────────────────────────────────────
-// Couple tools that aren't category services (Orders / Playlist / QR / Indoor
-// Blueprint / Photo Delivery / Paprint). A compact chip row above the recap so
-// they stay one tap away without crowding the category pile. coming_soon tools
-// are omitted (the full /add-ons page lists them); "See all" links there.
-function InAppToolsStrip({ eventId }: { eventId: string }) {
-  if (TOOL_SVCS.length === 0) return null;
-  return (
-    <section className="tools" aria-label="Tools & extras">
-      <div className="tools-tag">Tools &amp; extras</div>
-      <div className="tools-row">
-        {TOOL_SVCS.map((addon) => (
-          <Link
-            key={addon.key}
-            className="tool"
-            href={addOnHref(addon.key, eventId)}
-          >
-            <span className="tool-ico">
-              <addon.Icon aria-hidden size={16} strokeWidth={1.75} />
-            </span>
-            <span className="tool-tx">
-              <span className="tool-nm">{addon.label}</span>
-              <span className="tool-cta">{addon.cta}</span>
-            </span>
-          </Link>
-        ))}
-        <Link className="tools-all" href={`/dashboard/${eventId}/add-ons`}>
-          See all →
-        </Link>
-      </div>
-    </section>
-  );
-}
+// (InAppToolsStrip removed 2026-06-09 — the "Tools & extras" strip no longer
+// renders on the Shortlist; couple-tools live on the full /add-ons page.)
 
 // ── Compare sheet — like-for-like, read-only (never sets the pick) ────────
 function CompareSheet({

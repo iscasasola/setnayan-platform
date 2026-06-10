@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · feat(plan-builder): Shortlist — flat carousel, end-marker, Find + Add-manually as last cards
+
+**Context:** Owner 2026-06-09 Shortlist polish: (1) drop the "Tools & extras" strip, (2) remove the carousel's grow + shake, (3) end the shortlist with a vertical line then `[Find XX +]` + `[Add manually]`, (4) snap cards to center incl. the first card and Add-manually as the last.
+
+- `_components/plan-budget-accordion.tsx`:
+  - **Removed `InAppToolsStrip`** (the "Tools & extras" chip row) + its `TOOL_SVCS` source — couple-tools live on the full `/add-ons` page.
+  - **Removed the scroll-driven card motion effect** entirely — the per-frame coverflow **scale-zoom** (the "growing effect") on rail cards + child-blocks AND the **rail-snap haptic** (the "shaking") are gone. Cards render flat; centering is now pure CSS scroll-snap. Dropped the now-unused `openLeafSig`.
+  - **End-of-shortlist marker:** a thin vertical `.rail-end` line after the last shortlisted card, then the **Find {category}** card and a new **Add manually** rail card (opens the existing manual-vendor modal). Find's label changed from "Find more" → "Find {category}".
+  - **Center-snap runway:** the rail's padding is now asymmetric — leading `50% − 150px` centers the first 300px card at scroll 0; trailing `50% − 66px` lets the narrower 132px end cards (Find / Add manually) reach center as the last card.
+
+**Verification:** `tsc --noEmit` clean. Pure client + scoped CSS — no schema change.
+
+**SPEC IMPACT:** Shortlist refinement of the Services redesign. UI-only; no SKU/schema/pricing change. → corpus `DECISION_LOG` 2026-06-09. (Pending: the "red frame" removal — awaiting owner ID of the element; and multi-pick Look/Booths/Prints — separate schema PR.)
+
 ## 2026-06-09 · feat(plan-builder): Build — only priced services are build-eligible (rule)
 
 **Context:** Owner 2026-06-09 rule — "they can only add to build the services that vendors responded with the price. if the service is still just inquiry and no price yet, it cannot be added to the build." Applied to both the Add-to-build button and Compute.

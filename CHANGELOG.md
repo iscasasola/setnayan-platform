@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · test(taxonomy): unit-test foundation + taxonomy invariant guards (node:test via tsx)
+
+**Context:** The repo had only Playwright e2e + node lint scripts — no unit tests. This stands up a **zero-new-dependency** unit-test layer using Node's built-in runner (`node:test`) through the already-present `tsx`, and lands the first suite.
+
+- **`apps/web/lib/taxonomy.test.ts`** — 5 invariants on `TAXONOMY_MAP` + the tile/folder tree: every entry maps to a known folder; every tile is known + sits under its declared folder; faith values ∈ the allowed FaithKey set; `TILE_PARENT` ↔ `WEDDING_TILES_BY_PARENT` consistency; and the **de-faith regression guard** — no `dietary`-tagged canonical may carry `faith` (the exact bug fixed earlier today). The guard **fails on the pre-fix code naming all 4 offenders and passes after** — verified both directions.
+- **`package.json`:** `test:unit` → `tsx --test "lib/**/*.test.ts"`.
+- **`.github/workflows/ci.yml`:** a "Unit tests" step in the `typecheck + lint` job (reuses its install; exits non-zero on failure — verified).
+
+**SPEC IMPACT:** None (test infra). → `DECISION_LOG` note.
+
 ## 2026-06-11 · fix(migrations): resolve duplicate-timestamp collision (account-deletion was silently skipped on prod)
 
 **Context:** Two PRs independently picked migration timestamp `20261105000000` — `defaith_food_canonicals` (#1232) and `account_deletion_requests` — and both merged to `main`. Supabase keys applied migrations by the timestamp, so once `defaith` registered version `20261105000000`, the account-deletion migration would be **silently skipped forever** → `account_deletion_requests` never created on prod → the shipped `/admin/account-deletions` page + the in-app deletion-request flow (App Store 5.1.1(v) / Google Play) would error at runtime.

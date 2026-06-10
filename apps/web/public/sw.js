@@ -23,16 +23,68 @@
 // renames every cache; the `activate` handler then deletes the prior-version
 // caches (they fall out of KNOWN_CACHES) and the SW re-fetches fresh.
 //   v1 -> v2: 2026-05-31 brand-logo + app-icon swap (gold S/Y monogram).
+//   v2 -> v3: 2026-06-11 compliance/push-offline — Web Push handlers
+//             (push + notificationclick), a static offline.html fallback in
+//             the shell precache, and a day-of guest stale-while-revalidate
+//             cache (the personal landing page + find-my-table). Bumping
+//             renames every cache so the new precache + cache land cleanly.
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL_CACHE = `setnayan-${VERSION}`;
 const IMAGE_CACHE = `setnayan-images-${VERSION}`;
 const STATIC_CACHE = `setnayan-static-${VERSION}`;
 const FONT_CACHE = `setnayan-fonts-${VERSION}`;
+// Day-of guest data (the personal landing page + find-my-table). Served
+// stale-while-revalidate so a guest at a venue with flaky signal still sees
+// their schedule / table / floorplan from the last good fetch.
+const DAYOF_CACHE = `setnayan-dayof-${VERSION}`;
 
-const KNOWN_CACHES = [SHELL_CACHE, IMAGE_CACHE, STATIC_CACHE, FONT_CACHE];
+const KNOWN_CACHES = [
+  SHELL_CACHE,
+  IMAGE_CACHE,
+  STATIC_CACHE,
+  FONT_CACHE,
+  DAYOF_CACHE,
+];
 
-const SHELL_ASSETS = ['/', '/manifest.json', '/icon-192.svg', '/icon-512.svg'];
+const SHELL_ASSETS = [
+  '/',
+  '/manifest.json',
+  '/icon-192.svg',
+  '/icon-512.svg',
+  '/offline.html',
+];
+
+// A navigation to one of these path shapes is the day-of guest experience —
+// cache it stale-while-revalidate in DAYOF_CACHE. `/[slug]` is the guest's
+// personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
+// Dashboard + marketing routes are intentionally excluded (they stay on the
+// network-first navigation fallback below).
+function isDayOfGuestNavigation(url) {
+  const segments = url.pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return false;
+  const first = segments[0];
+  // Exclude known top-level app sections so only the bare guest slug matches.
+  const RESERVED = new Set([
+    'dashboard',
+    'vendor-dashboard',
+    'admin',
+    'login',
+    'signup',
+    'onboarding',
+    'help',
+    'blog',
+    'recommendations',
+    'pricing',
+    'for-vendors',
+    'auth',
+    'api',
+  ]);
+  if (RESERVED.has(first)) return false;
+  if (segments.length === 1) return true; // /[slug]
+  if (segments.length === 2 && segments[1] === 'find-my-table') return true;
+  return false;
+}
 
 // LRU + max-age caps per asset class. Soft splits per spec § 2 — whichever
 // layer fills first triggers eviction inside that layer, no cross-layer
@@ -50,6 +102,10 @@ const EXPIRATION = {
     maxEntries: 20,
     maxAgeMs: 365 * 24 * 60 * 60 * 1000, // 1 year
   },
+  [DAYOF_CACHE]: {
+    maxEntries: 50, // a handful of guests' landing pages per device
+    maxAgeMs: 2 * 24 * 60 * 60 * 1000, // 2 days — the event-day window
+  },
 };
 
 // LRU metadata lives in an in-memory map per-cache; the SW process is shared
@@ -61,6 +117,7 @@ const lru = {
   [IMAGE_CACHE]: new Map(),
   [STATIC_CACHE]: new Map(),
   [FONT_CACHE]: new Map(),
+  [DAYOF_CACHE]: new Map(),
 };
 
 function recordAccess(cacheName, url) {
@@ -252,21 +309,186 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Fallback: network with shell-cache offline support for navigations.
+  // Day-of guest navigation (the personal landing page + find-my-table):
+  // stale-while-revalidate so the schedule / table / floorplan render instantly
+  // and survive a venue with weak signal, while still refreshing in the
+  // background when the network is reachable.
+  const isNavigation =
+    request.mode === 'navigate' || request.destination === 'document';
+  if (isNavigation && isDayOfGuestNavigation(url)) {
+    event.respondWith(
+      staleWhileRevalidate(DAYOF_CACHE, request).then(
+        (res) =>
+          res ?? caches.match(request).then((c) => c ?? caches.match('/offline.html')),
+      ),
+    );
+    return;
+  }
+
+  // Fallback: network with shell-cache offline support for navigations. On a
+  // hard offline miss, serve the static offline.html fallback (added v3) before
+  // falling back to the cached shell root.
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (
-          response.ok &&
-          (request.mode === 'navigate' || request.destination === 'document')
-        ) {
+        if (response.ok && isNavigation) {
           const clone = response.clone();
           caches.open(SHELL_CACHE).then((cache) => cache.put(request, clone));
         }
         return response;
       })
       .catch(() =>
-        caches.match(request).then((cached) => cached ?? caches.match('/')),
+        caches.match(request).then(
+          (cached) =>
+            cached ??
+            (isNavigation
+              ? caches.match('/offline.html').then((o) => o ?? caches.match('/'))
+              : caches.match('/')),
+        ),
       ),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Web Push (compliance/push-offline — Apple guideline 4.2). The server's
+// sendWebPush() (apps/web/lib/web-push.ts) posts a JSON payload
+// { title, body, url, tag } to the user's subscriptions; we render it as a
+// notification and route clicks back into the app. Best-effort and defensive:
+// a malformed payload still shows a generic Setnayan notification rather than
+// throwing inside the push event.
+// ---------------------------------------------------------------------------
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: 'Setnayan', body: event.data ? event.data.text() : '' };
+  }
+
+  const title = payload.title || 'Setnayan';
+  const options = {
+    body: payload.body || '',
+    icon: '/icon-192.svg',
+    badge: '/icon-192.svg',
+    tag: payload.tag || undefined,
+    data: { url: payload.url || '/' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Focus an existing tab if one is already open, else open a new one.
+        for (const client of clientList) {
+          if ('focus' in client) {
+            client.navigate(target).catch(() => {});
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) return self.clients.openWindow(target);
+        return undefined;
+      }),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Background Sync stub (bonus) — flush queued day-of guestbook submissions
+// once connectivity returns. The page enqueues entries in IndexedDB and
+// registers a 'guestbook-sync' sync; here we replay them. This is a
+// best-effort stub: the IndexedDB queue + POST endpoint are owned by the
+// page/feature code, so we no-op gracefully when neither exists yet.
+// ---------------------------------------------------------------------------
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'guestbook-sync') {
+    event.waitUntil(flushGuestbookQueue());
+  }
+});
+
+async function flushGuestbookQueue() {
+  try {
+    // The guestbook feature stores pending entries under this IndexedDB store.
+    // If the DB/store isn't present, openGuestbookDb resolves null and we exit.
+    const db = await openGuestbookDb();
+    if (!db) return;
+    const entries = await idbGetAll(db, 'pending');
+    for (const entry of entries) {
+      try {
+        const res = await fetch('/api/guestbook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entry.payload),
+        });
+        if (res.ok) await idbDelete(db, 'pending', entry.id);
+      } catch {
+        // Leave it queued; the next sync attempt retries.
+      }
+    }
+  } catch {
+    // No queue yet / IndexedDB unavailable — nothing to flush.
+  }
+}
+
+function openGuestbookDb() {
+  return new Promise((resolve) => {
+    if (!('indexedDB' in self)) return resolve(null);
+    let req;
+    try {
+      req = indexedDB.open('setnayan-guestbook', 1);
+    } catch {
+      return resolve(null);
+    }
+    // Do NOT create the store here — the page owns the schema. If it doesn't
+    // exist yet, treat the queue as empty.
+    req.onsuccess = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('pending')) {
+        db.close();
+        return resolve(null);
+      }
+      resolve(db);
+    };
+    req.onerror = () => resolve(null);
+    req.onupgradeneeded = () => {
+      // Abort our own upgrade so we never race the page's schema definition.
+      try {
+        req.transaction && req.transaction.abort();
+      } catch {
+        /* ignore */
+      }
+      resolve(null);
+    };
+  });
+}
+
+function idbGetAll(db, store) {
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+function idbDelete(db, store, key) {
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}

@@ -60,7 +60,11 @@ export default async function PapicGuestPage() {
 
   const [{ data: ev }, { data: g }, quota] = await Promise.all([
     admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
-    admin.from('guests').select('first_name, display_name').eq('guest_id', session.guest_id).maybeSingle(),
+    admin
+      .from('guests')
+      .select('first_name, display_name, ugc_terms_accepted_at')
+      .eq('guest_id', session.guest_id)
+      .maybeSingle(),
     fetchGuestQuota(admin, session.event_id, session.guest_id),
   ]);
 
@@ -68,12 +72,41 @@ export default async function PapicGuestPage() {
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
   const eventName = (ev?.display_name as string | null) || 'the wedding';
 
+  // UGC moderation gate (Apple 1.2 / Google Play UGC): a guest can't be blocked
+  // from this event's gallery and must have accepted the objectionable-content
+  // terms before their first upload. The terms checkbox is shown when this is
+  // null; the block short-circuits the whole surface.
+  const termsAccepted = Boolean(
+    (g as { ugc_terms_accepted_at?: string | null } | null)?.ugc_terms_accepted_at,
+  );
+
+  const { data: blockRow } = await admin
+    .from('event_blocked_users')
+    .select('id')
+    .eq('event_id', session.event_id)
+    .eq('blocked_guest_id', session.guest_id)
+    .maybeSingle();
+
+  if (blockRow) {
+    return (
+      <Shell>
+        <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
+        <p className="mt-2 text-sm text-ink/65">
+          The couple has turned off your guest camera for this wedding. Photos
+          already shared remain in their gallery. If you think this is a
+          mistake, reach out to the couple directly.
+        </p>
+      </Shell>
+    );
+  }
+
   return (
     <PapicGuestCapture
       guestName={guestName}
       eventName={eventName}
       initialRemaining={quota.remaining}
       total={quota.total}
+      termsAccepted={termsAccepted}
     />
   );
 }

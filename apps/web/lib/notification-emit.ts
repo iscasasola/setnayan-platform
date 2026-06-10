@@ -1,7 +1,25 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import type { NotificationType } from '@/lib/notifications';
+
+// Web Push is wired at the same funnel as email but kept deliberately MINIMAL:
+// only the highest-signal, time-sensitive types fire a push on top of the
+// in-app notification + email. Everything else stays in-app/email only (the
+// rest of 0028 is untouched). `chat_message` is the canonical "new
+// vendor/couple message"; `vendor_inquiry_received` is its vendor-facing
+// counterpart (a new booking inquiry to answer). Add more types here later as
+// per-channel preferences (0028 deferred item) land.
+//
+// NOTE (deviation): the brief named "wedding-day reminder" as the 2nd emit
+// point, but no `wedding_day_reminder` notification type exists in the code —
+// day-of mode (0031) is UI/cron-free and emits no notification. We wired
+// `vendor_inquiry_received` instead as the second high-signal push type.
+const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
+  'chat_message',
+  'vendor_inquiry_received',
+]);
 
 export type EmitNotificationArgs = {
   userId: string;
@@ -78,6 +96,22 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
       }
     } catch (e) {
       console.error('[notifications] email-on-emit failed:', e);
+    }
+  }
+
+  // Best-effort Web Push for the high-signal types only. Gated on VAPID env
+  // (no-ops when unset) and fully fire-and-forget — a push failure never
+  // affects the in-app notification or the email that already landed.
+  if (isWebPushConfigured() && PUSH_ENABLED_TYPES.has(type)) {
+    try {
+      await sendWebPush(userId, {
+        title,
+        body,
+        url: relatedUrl,
+        tag: type,
+      });
+    } catch (e) {
+      console.error('[notifications] push-on-emit failed:', e);
     }
   }
 }

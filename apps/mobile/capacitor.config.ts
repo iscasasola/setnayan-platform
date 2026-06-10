@@ -7,7 +7,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * 111 Server Actions, 60 API routes, middleware-based Supabase auth). It CANNOT
  * be statically exported, so this shell does NOT bundle the app. Instead the
  * native WebView loads the live hosted app over HTTPS and bridges native
- * hardware (Camera / Network / Bluetooth LE) to the web JS via Capacitor
+ * hardware (Camera / Network; Camera Bridge DSLR pairing is WiFi-SDK, arriving with the true-native capture binary, not a WebView plugin) to the web JS via Capacitor
  * plugins. This keeps the single Next.js codebase 100% intact.
  *
  * `webDir` (./www) is the LOCAL FALLBACK shown when the remote URL is

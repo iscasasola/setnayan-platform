@@ -593,7 +593,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   wedding_cake:                      { folder: 'feast', tile: 'cake', phase: 'V1.1 base' },
   catering:                          { folder: 'feast', tile: 'catering', phase: 'V1.1 base' },
   lechonero:                         { folder: 'feast', tile: 'catering', phase: 'V1.1 base', ph: true },
-  halal_catering:                    { folder: 'feast', tile: 'catering', phase: 'V1.1.1', faith: 'Muslim', dietary: 'halal' },
+  halal_catering:                    { folder: 'feast', tile: 'catering', phase: 'V1.1.1', dietary: 'halal' },
   live_cooking_station:              { folder: 'feast', tile: 'stations', phase: 'V1.1.1' },
 
   // ════════════════════════════════════════════════════════════════════
@@ -736,9 +736,9 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   whiskey_cigar_bar:                 { folder: 'booths', tile: 'mobile_bar', phase: 'V1.1.6' },
   coffee_booth:                      { folder: 'booths', tile: 'coffee_espresso', phase: 'V1.1 base' },
   tea_bar:                           { folder: 'booths', tile: 'coffee_espresso', phase: 'V1.1.6' },
-  mocktail_bar:                      { folder: 'booths', tile: 'mocktail', phase: 'V1.1.1', faith: 'INC', dietary: 'alcohol_free' },
-  mocktail_only_caterer:             { folder: 'booths', tile: 'mocktail', phase: 'V1.1.1', faith: 'INC', dietary: 'alcohol_free' },
-  mocktail_booth_mini:               { folder: 'booths', tile: 'mocktail', phase: 'V1.1.6', faith: 'INC', dietary: 'alcohol_free' },
+  mocktail_bar:                      { folder: 'booths', tile: 'mocktail', phase: 'V1.1.1', dietary: 'alcohol_free' },
+  mocktail_only_caterer:             { folder: 'booths', tile: 'mocktail', phase: 'V1.1.1', dietary: 'alcohol_free' },
+  mocktail_booth_mini:               { folder: 'booths', tile: 'mocktail', phase: 'V1.1.6', dietary: 'alcohol_free' },
   // Food carts (cart-type facet)
   food_truck:                        { folder: 'booths', tile: 'food_truck', phase: 'V1.1.1' },
   dessert_station:                   { folder: 'booths', tile: 'dessert', phase: 'V1.1.1' },

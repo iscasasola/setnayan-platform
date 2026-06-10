@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · fix(taxonomy): de-faith food canonicals — halal caterers no longer hidden from non-Muslim couples
+
+**Context:** The dietary/halal audit (`Catering_Dietary_Halal_Model_2026-06-11.md`) found a **live bug**: `halal_catering` (faith=Muslim) and the three `mocktail_*` (faith=INC) were being **subtracted** from non-matching couples by `passesReligionFilter` (INCLUDE-only) — exactly the silent subtraction the 2026-06-10 faith lock forbids. A halal caterer / alcohol-free bar must be bookable by anyone.
+
+- **Migration `20261105000000_defaith_food_canonicals.sql`** (applied to prod): `SET faith=NULL` on the 4 food/beverage canonicals (`dietary` kept as a future capability signal). Fails loud if any food row stays faith-tagged. Per owner option **1(c)**: `halal_catering` remains the faith-NEUTRAL "Halal Catering Specialists" discovery canonical — now visible to all.
+- **`lib/taxonomy.ts`:** removed the hardcoded `faith` tags from the same 4 entries (lines 596, 739–741). Required in the **same PR** — `taxonomy.ts` is both the fallback and the re-seed source, so a DB-only change would leave stale TS driving the filter.
+- Verified on prod: all 4 `faith=NULL`, 0 food rows faith-tagged, 0 TS food-faith tags. `passesReligionFilter(meta)` → `!meta.faith` → `true` → visible to every couple.
+
+**SPEC IMPACT:** Fixes a live never-subtract-lock violation; first slice of the dietary-capability model (option 1c). → corpus `Catering_Dietary_Halal_Model_2026-06-11.md` + `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
 
 **Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.

@@ -28,19 +28,32 @@ export const CONFIDENT_MATCH = 0.86;
 /** Top-1 must beat top-2 by this margin, else it's an ambiguous collision. */
 export const UNAMBIGUOUS_MARGIN = 0.08;
 export const OTP_TTL_MINUTES = 10;
-export const OTP_MAX_ATTEMPTS = 5;
+export const OTP_MAX_ATTEMPTS = 5; // mirrored as a literal in register_guest_claim_otp_attempt()
 /** Don't re-send a fresh code more often than this. */
 export const OTP_RESEND_COOLDOWN_SECONDS = 30;
+/** Anti-enumeration / anti-email-bomb: min gap between claim submissions per (user,event). */
+export const CLAIM_COOLDOWN_SECONDS = 20;
+/** Hard cap on claim submissions per (user,event); beyond it we stop matching/emailing and route to review. */
+export const CLAIM_MAX_ATTEMPTS = 15;
+/** Cap attacker-controlled name length before the O(n·m) match (DoS guard). */
+export const MAX_NAME_LENGTH = 120;
 
 // ── Name normalization + similarity ──────────────────────────────────────────
 
-/** Lowercase, strip diacritics, drop punctuation, collapse whitespace. */
+/**
+ * Lowercase, strip diacritics, drop punctuation/symbols, collapse whitespace.
+ * Keeps letters + digits of ALL scripts (so 上海 / Москва / José survive — only
+ * pure punctuation/emoji normalizes away, which then fails the !na guard in
+ * nameSimilarity and safely routes to couple review). Input is capped first to
+ * bound the O(n·m) Levenshtein against an attacker-supplied name (DoS guard).
+ */
 export function normalizeName(raw: string): string {
   return raw
+    .slice(0, MAX_NAME_LENGTH)
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '') // combining diacritical marks
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[\p{P}\p{S}]+/gu, ' ') // punctuation + symbols → space (Unicode-aware)
     .replace(/\s+/g, ' ')
     .trim();
 }

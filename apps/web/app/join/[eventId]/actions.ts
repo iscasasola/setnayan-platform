@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { processGuestClaim } from '@/lib/guest-claim-flow';
+import { MAX_NAME_LENGTH } from '@/lib/guest-claim';
 import type { GuestRole } from '@/lib/guests';
 
 const VALID_ROLES: GuestRole[] = [
@@ -29,7 +30,9 @@ const VALID_ROLES: GuestRole[] = [
 
 export async function joinEventAction(eventId: string, token: string, formData: FormData) {
   const role = String(formData.get('role') ?? '') as GuestRole;
-  const presentedName = String(formData.get('name') ?? '').trim();
+  // Cap at the input boundary — bounds the O(n·m) fuzzy match against an
+  // attacker-supplied name (the client maxLength is non-authoritative).
+  const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
 
   if (!VALID_ROLES.includes(role)) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_role`);
@@ -122,7 +125,11 @@ export async function joinEventAction(eventId: string, token: string, formData: 
             .or('photo_url.is.null,photo_source.eq.oauth_google');
         }
 
-        const { error: memberErr } = await supabase.from('event_members').insert({
+        // Bind via the ADMIN client: member_can_self_join now forbids a
+        // user-scoped insert that sets guest_id (privileged identity bind), and
+        // the event-scoped + unclaimed checks above are the authorization. The
+        // event_members_event_guest_uniq index is the hard race backstop.
+        const { error: memberErr } = await admin.from('event_members').insert({
           event_id: eventId,
           user_id: user.id,
           member_type: 'guest',
@@ -131,12 +138,11 @@ export async function joinEventAction(eventId: string, token: string, formData: 
           guest_id: matchingGuest.guest_id,
         });
 
-        if (memberErr) {
-          return redirect(
-            `/join/${eventId}?token=${encodeURIComponent(token)}&error=${encodeURIComponent(memberErr.message)}`,
-          );
+        if (!memberErr) {
+          return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
         }
-        return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+        // Conflict (the seat got bound to someone else in a race) → fall through
+        // to the claim flow, which routes the couple a review request.
       }
     }
   }
@@ -145,7 +151,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   //    unmatched stranger anymore (the old behavior minted a placeholder guest +
   //    membership). Instead: fuzzy-match the name → email-OTP handshake on a
   //    confident match, otherwise route to the couple's review queue.
-  const outcome = await processGuestClaim({
+  await processGuestClaim({
     eventId,
     userId: user.id,
     loginEmail: user.email ?? null,
@@ -153,8 +159,9 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     role,
   });
 
-  if (outcome.step === 'otp') {
-    return redirect(`/join/${eventId}/verify?token=${encodeURIComponent(token)}`);
-  }
-  return redirect(`/join/${eventId}/pending?token=${encodeURIComponent(token)}`);
+  // Uniform redirect for BOTH outcomes (otp_sent AND pending_review). Matched
+  // vs unmatched MUST be indistinguishable or the page transition becomes a
+  // guest-list enumeration oracle — the /verify screen renders identically for
+  // either status and the code form is always shown.
+  return redirect(`/join/${eventId}/verify?token=${encodeURIComponent(token)}`);
 }

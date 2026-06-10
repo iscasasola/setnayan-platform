@@ -14,9 +14,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`app/join/[eventId]/`** — role picker now also collects the claimer's name (pre-filled from their account); `actions.ts` keeps the exact-email fast path (now guarded against hijacking an already-bound row) and routes everything else into the claim flow; new `verify/` (enter code · resend · "can't access that email → couple review") + `pending/` screens; shared `_components/join-shell.tsx`.
 - **`app/dashboard/[eventId]/guests/claims/`** — couple review queue (approve-as-matched · add-as-new · decline; emails the guest on approval). A "{N} guest requests waiting" banner links from the guest list (count folded into the existing parallel read batch).
 
-**Verification:** `tsc --noEmit` 0 errors in changed files (4 residual `sharp`/`@mediapipe` errors are stale-borrowed-deps drift in untouched files — clean under CI's real lockfile). `next lint` clean. Runtime verification deferred to the Vercel preview, which needs the migration applied first (queries `guest_claims`). Coordinator-desk surface intentionally split to a follow-up PR.
+**Hardened after a 6-dimension adversarial review (14 confirmed findings, all fixed):**
+- **SECURITY (pre-existing, found by review):** base `member_can_self_join` let ANY authed user self-insert as `member_type='couple'` (full event takeover) or bind an arbitrary `guest_id`. Tightened the self-branch to `guest` + null guest_id/vendor_id; the one user-scoped insert (exact-email) moved to the admin client. Couple creation already used the admin client, so blast radius is contained.
+- **OTP brute-force:** the 5-try cap was a non-atomic read-modify-write (concurrent verifies each got a fresh guess). Moved to an atomic `register_guest_claim_otp_attempt()` RPC (`WHERE otp_attempts < 5 AND otp_expires_at > now()` in one statement).
+- **Double-claim TOCTOU:** the anti-hijack index was created only on clean data (skippable); now dedup-then-create UNCONDITIONALLY + a per-(event,guest) `pg_advisory_xact_lock` in `finalize_guest_claim` + a `unique_violation` handler returning the clean `guest_already_claimed`.
+- **Enumeration oracle / PII leak:** the verify-vs-pending redirect + masked-email reveal let a link-holder probe the guest directory. Now a UNIFORM redirect to one screen with identical copy + generic errors + no email echo.
+- **DoS:** capped attacker-controlled name length (server-side) before the O(n·m) match.
+- **Throttle:** per-(user,event) claim cooldown + cap (anti-enumeration / anti-email-bomb).
+- **Resilience:** OTP send-failure now downgrades to couple review (no "we emailed you" dead-end); couple gets a `guest_claim_pending` notification when a claim enters review; non-Latin names normalize safely (route to review, never false-match); `+ guest↔event guard in finalize`.
 
-**SPEC IMPACT:** New guest-onboarding behavior layered on iterations 0000/0001/0002. **Load-bearing behavior change** (owner sign-off flagged): unmatched/unverified guests no longer auto-admit — they enter a couple review queue. Needs corpus `DECISION_LOG` 2026-06-10 + an 0001/0002 AS-BUILT note. Migration must be applied to prod (`supabase db push`) before the flow works.
+**Verification:** `tsc --noEmit` 0 errors in changed files (4 residual `sharp`/`@mediapipe` errors are stale-borrowed-deps drift in untouched files — clean under CI's real lockfile). `next lint` clean.
+
+**DEPLOY ORDER (important):** the new code is compatible with BOTH the old and new `member_can_self_join` policy (it binds via the admin client), but the OLD prod code is NOT compatible with the tightened policy. So **deploy code first, THEN apply the migration** — applying the migration ahead of the deploy would break live `/join`.
+
+**SPEC IMPACT:** New guest-onboarding behavior layered on iterations 0000/0001/0002. **Load-bearing behavior change** (owner-approved 2026-06-10): unmatched/unverified guests no longer auto-admit — they enter a couple review queue. Plus a fixed pre-existing privilege-escalation in `member_can_self_join`. Needs corpus `DECISION_LOG` 2026-06-10 + an 0001/0002 AS-BUILT note.
 
 ## 2026-06-10 · feat(type): backend dashboards on Source Sans — one minimalist readable family
 

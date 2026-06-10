@@ -8,7 +8,6 @@ import {
   generateOtpCode,
   hmacOtp,
   verifyOtp,
-  OTP_MAX_ATTEMPTS,
   OTP_RESEND_COOLDOWN_SECONDS,
   OTP_TTL_MINUTES,
 } from '@/lib/guest-claim';
@@ -16,7 +15,16 @@ import {
 const J = (eventId: string, sub: string, token: string, extra = '') =>
   `/join/${eventId}/${sub}?token=${encodeURIComponent(token)}${extra}`;
 
-/** Submit the 6-digit code → finalize the claim on success. */
+/**
+ * Submit the 6-digit code → finalize the claim on success.
+ *
+ * Every failure mode (no claim · expired · attempt budget spent · wrong code ·
+ * pending-review claim) redirects to the SAME /verify?error=bad_code so the
+ * response can't be used to distinguish "name is on the list" from "isn't" —
+ * the only distinguishable terminal state is /success, which requires the code
+ * that was emailed to the real guest. The attempt budget + expiry are enforced
+ * ATOMICALLY inside register_guest_claim_otp_attempt (no read-modify-write race).
+ */
 export async function verifyClaimOtpAction(eventId: string, token: string, formData: FormData) {
   const code = String(formData.get('code') ?? '').replace(/\D/g, '').slice(0, 6);
 
@@ -31,43 +39,34 @@ export async function verifyClaimOtpAction(eventId: string, token: string, formD
   const admin = createAdminClient();
   const { data: claim } = await admin
     .from('guest_claims')
-    .select('claim_id, target_guest_id, status, otp_code_hmac, otp_expires_at, otp_attempts')
+    .select('claim_id')
     .eq('event_id', eventId)
     .eq('claimer_user_id', user.id)
     .maybeSingle();
 
-  if (!claim || claim.status !== 'otp_sent' || !claim.target_guest_id) {
-    return redirect(J(eventId, 'pending', token));
+  if (!claim) {
+    return redirect(J(eventId, 'verify', token, '&error=bad_code'));
   }
 
-  const expired = claim.otp_expires_at && new Date(claim.otp_expires_at) < new Date();
-  if (expired || claim.otp_attempts >= OTP_MAX_ATTEMPTS) {
-    await admin
-      .from('guest_claims')
-      .update({ status: 'pending_review', otp_code_hmac: null, updated_at: new Date().toISOString() })
-      .eq('claim_id', claim.claim_id);
-    return redirect(J(eventId, 'pending', token, '&reason=otp_expired'));
-  }
+  // Atomic increment-and-check: returns the hmac+target only while a try is
+  // allowed (status=otp_sent, not expired, under the cap). No row → reject.
+  const { data: att } = await admin.rpc('register_guest_claim_otp_attempt', {
+    p_claim_id: claim.claim_id,
+  });
+  const attempt = att as { ok?: boolean; hmac?: string | null; target_guest_id?: string | null } | null;
 
-  // Count the attempt before checking, so brute force burns the 5-try budget.
-  await admin
-    .from('guest_claims')
-    .update({ otp_attempts: claim.otp_attempts + 1, updated_at: new Date().toISOString() })
-    .eq('claim_id', claim.claim_id);
-
-  if (!verifyOtp(code, claim.otp_code_hmac)) {
+  if (!attempt?.ok || !attempt.target_guest_id || !verifyOtp(code, attempt.hmac ?? null)) {
     return redirect(J(eventId, 'verify', token, '&error=bad_code'));
   }
 
   // Correct code → atomically bind to the seed row (service-role RPC).
   const { data: result } = await admin.rpc('finalize_guest_claim', {
     p_claim_id: claim.claim_id,
-    p_guest_id: claim.target_guest_id,
+    p_guest_id: attempt.target_guest_id,
     p_reviewer: null,
   });
 
-  const linked = (result as { linked?: boolean } | null)?.linked;
-  if (!linked) {
+  if (!(result as { linked?: boolean } | null)?.linked) {
     // Seed row got claimed by someone else in the meantime → couple review.
     await admin
       .from('guest_claims')
@@ -91,7 +90,7 @@ export async function verifyClaimOtpAction(eventId: string, token: string, formD
         photo_updated_at: new Date().toISOString(),
         photo_set_by_user_id: user.id,
       })
-      .eq('guest_id', claim.target_guest_id)
+      .eq('guest_id', attempt.target_guest_id)
       .or('photo_url.is.null,photo_source.eq.oauth_google');
   }
 
@@ -116,8 +115,9 @@ export async function resendClaimOtpAction(eventId: string, token: string) {
     .eq('claimer_user_id', user.id)
     .maybeSingle();
 
+  // No OTP in flight → bounce back generically (no matched/unmatched signal).
   if (!claim || claim.status !== 'otp_sent' || !claim.otp_sent_to) {
-    return redirect(J(eventId, 'pending', token));
+    return redirect(J(eventId, 'verify', token));
   }
 
   const lastSent = claim.otp_last_sent_at ? new Date(claim.otp_last_sent_at).getTime() : 0;
@@ -144,8 +144,8 @@ export async function resendClaimOtpAction(eventId: string, token: string) {
     })
     .eq('claim_id', claim.claim_id);
 
-  await sendClaimOtpEmail(claim.otp_sent_to, code, event?.display_name ?? 'a wedding');
-  return redirect(J(eventId, 'verify', token, '&notice=resent'));
+  const result = await sendClaimOtpEmail(claim.otp_sent_to, code, event?.display_name ?? 'a wedding');
+  return redirect(J(eventId, 'verify', token, result.ok ? '&notice=resent' : '&notice=send_failed'));
 }
 
 /** "I can't access that email" → drop to the couple's review queue. */

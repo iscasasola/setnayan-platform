@@ -3,17 +3,20 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { JoinShell, InvalidTokenScreen } from '../_components/join-shell';
-import { maskEmail } from '@/lib/guest-claim';
 import { verifyClaimOtpAction, resendClaimOtpAction, requestCoupleReviewAction } from '../claim-actions';
 
-export const metadata = { title: 'Verify it’s you' };
+export const metadata = { title: 'Confirm it’s you' };
 
 const NOTICE: Record<string, string> = {
   resent: 'A fresh code is on its way.',
   cooldown: 'Hang on a few seconds before requesting another code.',
+  send_failed: "We couldn't send the email just now — the couple will confirm you directly.",
 };
 const ERROR: Record<string, string> = {
-  bad_code: "That code didn't match. Check the email and try again.",
+  // Deliberately generic: the same message for a wrong code, an expired code,
+  // and a claim that has no code at all — so this page never reveals whether
+  // the name is on the couple's list (anti-enumeration, RA 10173).
+  bad_code: "That code didn't match or has expired. Check your email, or ask the couple to confirm you below.",
 };
 
 type Props = {
@@ -43,28 +46,28 @@ export default async function VerifyPage({ params, searchParams }: Props) {
 
   const { data: claim } = await admin
     .from('guest_claims')
-    .select('status, otp_sent_to')
+    .select('status')
     .eq('event_id', eventId)
     .eq('claimer_user_id', user!.id)
     .maybeSingle();
 
-  // Only the OTP step lands here; anything else routes to the right screen.
-  if (!claim || claim.status === 'pending_review') redirect(`/join/${eventId}/pending?token=${token}`);
+  // Already confirmed → straight to success. No claim at all → start over.
   if (claim?.status === 'confirmed') redirect(`/join/${eventId}/success?token=${token}`);
-  if (claim?.status !== 'otp_sent' || !claim.otp_sent_to) {
-    redirect(`/join/${eventId}/pending?token=${token}`);
-  }
+  if (!claim) redirect(`/join/${eventId}?token=${token}`);
 
-  const masked = maskEmail(claim!.otp_sent_to!);
   const errorMessage = error ? ERROR[error] ?? error : null;
   const noticeMessage = notice ? NOTICE[notice] ?? notice : null;
 
+  // IMPORTANT: this screen renders IDENTICALLY whether the claim is otp_sent
+  // (a code really was emailed) or pending_review (no/ambiguous match — the
+  // couple will confirm). The copy covers both so the page leaks no signal.
   return (
     <JoinShell event={event}>
       <h2 className="text-xl font-semibold text-ink">Confirm it&rsquo;s you</h2>
       <p className="mt-2 text-sm text-ink/70">
-        We found you on the couple&rsquo;s guest list and emailed a 6-digit code to{' '}
-        <span className="font-medium text-ink">{masked}</span>. Enter it below to finish.
+        If the couple has you on their guest list, we&rsquo;ve emailed you a 6-digit code —
+        enter it below. Not expecting one? The couple may confirm you directly (you can ask
+        them to below), and we&rsquo;ll email you when you&rsquo;re in.
       </p>
 
       {errorMessage ? (
@@ -106,7 +109,7 @@ export default async function VerifyPage({ params, searchParams }: Props) {
       <div className="mt-6 flex flex-col gap-2 text-sm">
         <form action={resendClaimOtpAction.bind(null, eventId, token)}>
           <button type="submit" className="text-terracotta underline-offset-2 hover:underline">
-            Didn&rsquo;t get it? Resend the code
+            Didn&rsquo;t get a code? Resend it
           </button>
         </form>
         <form action={requestCoupleReviewAction.bind(null, eventId, token)}>

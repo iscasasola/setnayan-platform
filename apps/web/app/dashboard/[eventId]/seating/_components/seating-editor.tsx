@@ -221,6 +221,17 @@ export function SeatingEditor({
       setView('list');
     }
   }, []);
+  // Phone breakpoint → the per-table popup renders as a bottom sheet (thumb-zone,
+  // larger tap targets) instead of a beside-table popover. Tracked live on resize
+  // so rotating a tablet or resizing a window swaps the surface correctly.
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   // Scroll-wheel / trackpad zoom toward the cursor (non-passive so we can
   // preventDefault the page scroll). Re-attached when the plan view mounts.
@@ -1681,9 +1692,89 @@ export function SeatingEditor({
               gesture-end), so it never taxes the continuous pan/zoom fast path. */}
           {(() => {
             const st = highlightId ? tables.find((t) => t.table_id === highlightId) : null;
+            if (!st) return null;
+            const curRot = rotationOf(st);
+
+            // Phone → a bottom sheet pinned to the thumb zone with ≥44px targets
+            // (the beside-table popover is too cramped on a small screen).
+            if (isPhone) {
+              return (
+                <div
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="fixed inset-x-0 bottom-0 z-50 border-t border-ink/15 bg-cream/95 px-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm"
+                  style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+                >
+                  <div className="mx-auto flex max-w-md flex-col gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        key={st.table_id}
+                        defaultValue={st.table_label}
+                        aria-label="Table name"
+                        maxLength={64}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur();
+                          if (e.key === 'Escape') {
+                            e.currentTarget.value = st.table_label;
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
+                        className="h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-base font-medium text-ink outline-none focus:border-terracotta"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setHighlightId(null)}
+                        aria-label="Done"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/50 hover:bg-ink/5"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-1 items-center justify-between rounded-xl border border-ink/15 px-1">
+                        <button
+                          type="button"
+                          onClick={() => rotateTable(st, -15)}
+                          aria-label="Rotate 15° left"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-ink/70 hover:bg-ink/5"
+                        >
+                          <RotateCcw className="h-5 w-5" />
+                        </button>
+                        <span className="text-sm tabular-nums text-ink/60">{curRot}°</span>
+                        <button
+                          type="button"
+                          onClick={() => rotateTable(st, 15)}
+                          aria-label="Rotate 15° right"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-ink/70 hover:bg-ink/5"
+                        >
+                          <RotateCw className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rotateTable(st, 180)}
+                          className="h-11 rounded-lg px-3 text-sm font-semibold text-ink/70 hover:bg-ink/5"
+                        >
+                          Flip
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeTable(st.table_id)}
+                        aria-label="Delete table"
+                        className="flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:border-rose-400 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-5 w-5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Desktop / tablet → a popover anchored beside the selected table.
             const rect = canvasRef.current?.getBoundingClientRect();
-            const pos = st ? positions[st.table_id] : null;
-            if (!st || !rect || !pos) return null;
+            const pos = positions[st.table_id];
+            if (!rect || !pos) return null;
             const z = zoomRef.current;
             const cx = (pos.x / 100) * rect.width * z + panRef.current.x;
             const cy = (pos.y / 100) * rect.height * z + panRef.current.y;
@@ -1698,7 +1789,6 @@ export function SeatingEditor({
               top = cy + halfH + 12;
             }
             const left = Math.max(10, Math.min(rect.width - 10, cx));
-            const curRot = rotationOf(st);
             return (
               <div
                 onPointerDown={(e) => e.stopPropagation()}

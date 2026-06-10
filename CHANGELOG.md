@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
+
+**Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.
+
+- **`seating-editor.tsx`:** new `isPhone` breakpoint (`matchMedia('(max-width: 767px)')`, tracked live on resize). The popup branches: **phone → a bottom sheet** pinned to the thumb zone (`fixed inset-x-0 bottom-0`, `env(safe-area-inset-bottom)` padding, ≥44px targets, 16px input to avoid iOS focus-zoom, full-width rename); **tablet/desktop → the existing beside-table popover**. Shared rename/rotate/delete/close handlers.
+
+**Verification:** `tsc` + `next lint` clean; CI gates incl. Playwright e2e. Breakpoint swap is visual — confirm on the Vercel preview at phone + desktop widths. No schema change.
+
+**SPEC IMPACT:** Establishes the standing responsive pattern for the 0008 editor redesign (every Phase 1 surface ships popover-on-desktop / bottom-sheet-on-phone). → note in `DECISION_LOG` with the Phase 1 landing.
+
 ## 2026-06-11 · feat(papic): Live Photo Wall "Salamisim" — P0 schema (0012)
 
 **Context:** Owner 2026-06-11 — start building Papic's "Salamisim" Live Photo Wall (Phase 1 of the output layer), beginning with the P0 schema. Design: corpus `0012_papic.md` "Phase 1 — Live Photo Wall (Salamisim)". The venue projection is a real-time collage off the existing capture tables; this PR lands the net-new schema only (the gate-chain RPCs, the `/wall` route, and the couple/coordinator control surface are P1).

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-09 · fix(plan-builder): DB-driven folder/tile structure + drop Officiant & Accommodation
+
+**Context:** Owner 2026-06-09 (checked the admin `/admin/taxonomy` tree) — the Shortlist's category tree diverged from the admin DB. The admin **Venue** parent has exactly **Reception + Ceremony**, but the Shortlist (grouped by the hardcoded `PLAN_GROUPS.catalogFolder`) also filed **Officiant** + **Accommodation** under Venue — and neither is a DB tile (they *borrow* the `ceremony_venue` / `reception` tiles). Per the standing "taxonomy is DB-driven, not hardcoded" lock, the structure must follow `service_categories` (via `getTaxonomy`).
+
+- `lib/vendors-plan-budget.ts` (`buildPlanBudgetModel`): the Shortlist/Build folder→child structure is now derived from the DB snapshot:
+  1. **Folder** = each plan group's tile's DB parent (`taxonomy.tileParent[catalogTile]`); falls back to the hardcoded `catalogFolder` only when the snapshot is absent or a group has no tile.
+  2. **Drop borrowers:** when ≥2 plan groups share one DB tile (the only two cases: `officiant`+`ceremony_venue`, `accommodation`+`reception_venue`), keep only the first in `PLAN_GROUPS` order — **retiring Officiant + Accommodation** from the couple Shortlist (owner-confirmed they aren't DB tiles).
+  3. **Child order** within a folder follows the tile's position in the DB parent (`taxonomy.tilesByParent`) — replacing the old hardcoded `VENUE_CHILD_ORDER`.
+
+**Verification:** `tsc --noEmit` clean. Confirmed exactly two shared-tile collisions exist (→ only Officiant + Accommodation drop). Shared model → Build / Compare / Lock inherit the structure. No schema/data change (keying stays `plan_group_id`).
+
+**SPEC IMPACT:** Aligns the couple plan-builder structure to the admin DB taxonomy + retires Officiant/Accommodation. **Phase 1** of the DB-driven rebuild (folder membership/order/labels now DB-sourced for the existing planning groups). Open follow-up: whether DB tiles with NO planning group (e.g. the 15 Booth sub-types) should render as planning rows. → corpus `DECISION_LOG` 2026-06-09 + reconcile `PLAN_GROUPS` vs `service_categories`.
+
 ## 2026-06-09 · feat(plan-builder): Shortlist — remove the recap card ("the red frame")
 
 **Context:** Owner 2026-06-09 (confirmed by screenshot) — "the red frame" to remove from the Shortlist is the **mulberry Recap card** ("Look how far you've come · ~N hours saved · Searched/Shortlisted/Chosen"). Removed alongside the earlier Tools & Extras strip removal.

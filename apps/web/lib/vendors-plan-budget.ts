@@ -628,7 +628,43 @@ export function buildPlanBudgetModel(args: {
     return group.label;
   };
 
+  // ── DB-driven taxonomy (owner 2026-06-09: "the taxonomy is DB-driven") ──────
+  // The Shortlist's folder→child structure follows the admin DB tree
+  // (service_categories via getTaxonomy), not the hardcoded catalogFolder map:
+  //   1. A child's FOLDER is its tile's DB parent (taxonomy.tileParent), so an
+  //      admin move of a tile to another parent flows straight through.
+  //   2. When several PLAN_GROUPS share one DB tile (the only cases today:
+  //      officiant + ceremony_venue → `ceremony_venue`; accommodation +
+  //      reception_venue → `reception`), only the FIRST (in PLAN_GROUPS order)
+  //      is kept — the others are DROPPED. That retires Officiant + Accommodation
+  //      from the couple Shortlist (owner 2026-06-09: they aren't DB tiles; the
+  //      admin Venue parent has exactly Reception + Ceremony).
+  //   3. Children sort by their tile's position in the DB parent (tilesByParent),
+  //      so the order matches the admin tree.
+  // Falls back to the hardcoded catalogFolder / tier order whenever the DB
+  // snapshot is absent (taxonomy undefined) or a group has no catalogTile.
+  const primaryGroupByTile = new Map<WeddingTile, PlanGroupId>();
+  for (const group of PLAN_GROUPS) {
+    if (group.catalogTile && !primaryGroupByTile.has(group.catalogTile)) {
+      primaryGroupByTile.set(group.catalogTile, group.id);
+    }
+  }
+  const isDroppedBorrower = (group: PlanGroup): boolean =>
+    !!group.catalogTile &&
+    (tileUseCount.get(group.catalogTile) ?? 0) > 1 &&
+    primaryGroupByTile.get(group.catalogTile) !== group.id;
+  const dbFolderOf = (group: PlanGroup): WeddingFolder => {
+    if (group.catalogTile && taxonomy) {
+      const parent = taxonomy.tileParent[group.catalogTile];
+      if (parent) return parent;
+    }
+    return group.catalogFolder;
+  };
+
   for (const group of orderedGroups) {
+    // Drop the secondary group that borrows another group's DB tile (Officiant,
+    // Accommodation) — the DB parent owns exactly one card per tile.
+    if (isDroppedBorrower(group)) continue;
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
 
@@ -683,26 +719,26 @@ export function buildPlanBudgetModel(args: {
       personalizationEnabled,
       dependency,
     };
-    childrenByFolder.get(group.catalogFolder)?.push(child);
+    childrenByFolder.get(dbFolderOf(group))?.push(child);
   }
 
-  // Venue folder reads Reception → Ceremony → Accommodation (owner 2026-06-01):
-  // the couple locks the reception first (it anchors the day), then the
-  // ceremony venue (the officiant rides its package — usually not its own
-  // card), then guest accommodation. Any other venue-folder entry sorts after.
-  // Children otherwise order by tier; this is a targeted per-folder override.
-  const VENUE_CHILD_ORDER: Partial<Record<PlanGroupId, number>> = {
-    reception_venue: 0,
-    ceremony_venue: 1,
-    accommodation: 2,
-  };
-  const venueChildren = childrenByFolder.get('venue');
-  if (venueChildren) {
-    venueChildren.sort(
-      (a, b) =>
-        (VENUE_CHILD_ORDER[a.groupId] ?? 99) -
-        (VENUE_CHILD_ORDER[b.groupId] ?? 99),
-    );
+  // Order each folder's children by their tile's position in the DB parent
+  // (taxonomy.tilesByParent), so the Shortlist order matches the admin tree.
+  // Entry-point / no-tile groups (and any tile missing from the snapshot) sort
+  // last, preserving their incoming tier order. No-op when the snapshot is absent.
+  if (taxonomy) {
+    const groupById = new Map<PlanGroupId, PlanGroup>(PLAN_GROUPS.map((g) => [g.id, g]));
+    for (const [folder, children] of childrenByFolder) {
+      const tileSeq = taxonomy.tilesByParent[folder] ?? [];
+      const tileRank = new Map<WeddingTile, number>(tileSeq.map((t, i) => [t, i]));
+      children.sort((a, b) => {
+        const ta = groupById.get(a.groupId)?.catalogTile;
+        const tb = groupById.get(b.groupId)?.catalogTile;
+        const ra = ta != null ? (tileRank.get(ta) ?? 999) : 999;
+        const rb = tb != null ? (tileRank.get(tb) ?? 999) : 999;
+        return ra - rb;
+      });
+    }
   }
 
   const folders: AccordionFolder[] = folderOrder.map((folder) => {

@@ -64,6 +64,11 @@ export type EventTableRow = {
   // values, and every reader coalesces (`?? 0` / removedSeatSet / effectiveCapacity).
   rotation_deg?: number;
   removed_seats?: number[];
+  // Per-table QR (32-hex). Exists from creation; printed on the table sign
+  // sheet + resolved by future Papic fan-out / day-of find-my-seat. Optional on
+  // the type so render-only literals need not set it; fetchTables always returns it.
+  qr_token?: string;
+  qr_published_at?: string | null;
 };
 
 export type SeatAssignmentRow = {
@@ -80,7 +85,7 @@ export async function fetchTables(
   const { data, error } = await supabase
     .from('event_tables')
     .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats',
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -92,6 +97,8 @@ export async function fetchTables(
     ...(t as EventTableRow),
     rotation_deg: (t as EventTableRow).rotation_deg ?? 0,
     removed_seats: (t as EventTableRow).removed_seats ?? [],
+    qr_token: (t as EventTableRow).qr_token ?? '',
+    qr_published_at: (t as EventTableRow).qr_published_at ?? null,
   }));
 }
 
@@ -118,6 +125,8 @@ export type FloorPlanRow = {
   entrance_y: number;
   venue_width_m: number | null;
   venue_length_m: number | null;
+  // When the couple last published the seating pack (stamped table QR sheets).
+  published_at: string | null;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -128,6 +137,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   entrance_y: 94,
   venue_width_m: null,
   venue_length_m: null,
+  published_at: null,
 };
 
 export async function fetchFloorPlan(
@@ -136,7 +146,7 @@ export async function fetchFloorPlan(
 ): Promise<FloorPlanRow> {
   const { data, error } = await supabase
     .from('event_floor_plan')
-    .select('stage_x,stage_y,entrance_enabled,entrance_x,entrance_y,venue_width_m,venue_length_m')
+    .select('stage_x,stage_y,entrance_enabled,entrance_x,entrance_y,venue_width_m,venue_length_m,published_at')
     .eq('event_id', eventId)
     .maybeSingle();
   // Graceful-degrade: a missing row (or a not-yet-migrated table) just yields
@@ -150,6 +160,7 @@ export async function fetchFloorPlan(
     entrance_y: Number(data.entrance_y),
     venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
+    published_at: (data as { published_at?: string | null }).published_at ?? null,
   };
 }
 

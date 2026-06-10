@@ -21,6 +21,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 
 import { getQueryClient } from '@/lib/query-client';
 import { LoaderOverlayProvider } from '@/components/sd-loader';
+import { BrandProvider } from './_components/brand-provider';
 import { DeferredObservability } from './_components/deferred-observability';
 import { GlobalHaptics } from './_components/global-haptics';
 import { PostHogProvider } from './_components/posthog-provider';
@@ -86,6 +87,7 @@ function createIdbStorage(): Storage {
 export function Providers({
   children,
   initialThemeMode = 'auto',
+  brandMarkUrl = null,
 }: {
   children: React.ReactNode;
   /**
@@ -95,6 +97,12 @@ export function Providers({
    * 2026-05-22 brand pivot — see CLAUDE.md decision-log.
    */
   initialThemeMode?: ThemeMode;
+  /**
+   * SSR-resolved admin brand mark URL (already version-busted), or null for the
+   * built-in gold default. Supplies <Logo>/<LogoMark> via BrandProvider with
+   * zero call-site churn. Owner 2026-06-10.
+   */
+  brandMarkUrl?: string | null;
 }) {
   const [queryClient] = useState(() => getQueryClient());
   const [persister] = useState(() =>
@@ -129,7 +137,9 @@ export function Providers({
             screen-covering "thinking" moments (sign-in, heavy submits) with a
             "Ready ✓" completion. Route-level loading still uses skeletons.
           */}
-          <LoaderOverlayProvider>{children}</LoaderOverlayProvider>
+          <LoaderOverlayProvider>
+            <BrandProvider markUrl={brandMarkUrl}>{children}</BrandProvider>
+          </LoaderOverlayProvider>
         </PostHogProvider>
         {/*
           Sentry browser SDK is lazy-loaded post-hydration via a deferred

@@ -69,7 +69,7 @@ export type NotificationType =
   | 'photo_delivery_failed'
   | 'vendor_token_purchase_pending'
   | 'vendor_tokens_credited'
-  // Added 2026-06-10 alongside migration 20261021000000_guest_invite_claim.sql —
+  // Added 2026-06-10 alongside migration 20261102000000_guest_invite_claim.sql —
   // fired (couple-recipient) from lib/guest-claim-flow.ts when an invite-claim
   // lands in the couple's review queue (no/ambiguous fuzzy match, or OTP
   // undeliverable). Replaces the signal the old auto-admit placeholder gave.

@@ -453,3 +453,43 @@ export async function setTableSeat(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
+
+// Publish the seating pack: stamp every table + the floor plan as published so
+// the print pack (table sign sheets carrying each table's QR, + guest place
+// cards) is ready for the venue. Idempotent — table qr_tokens already exist from
+// creation and are NEVER re-rolled here (a sign already at the venue keeps
+// working); publishing only stamps the "last published" timestamps. Returns the
+// table count so the editor can confirm. RLS scopes every write to the couple.
+export async function publishSeating(formData: FormData): Promise<{ published: number }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const now = new Date().toISOString();
+
+  // Stamp all of the event's tables (RLS limits this to the couple's own event).
+  const { data: stamped, error: tablesErr } = await supabase
+    .from('event_tables')
+    .update({ qr_published_at: now, updated_at: now })
+    .eq('event_id', eventId)
+    .select('table_id');
+  if (tablesErr) throw new Error(tablesErr.message);
+
+  // Stamp the per-event floor-plan singleton (create the row if it doesn't exist
+  // yet, preserving the default stage/entrance positions).
+  const { error: planErr } = await supabase
+    .from('event_floor_plan')
+    .upsert({ event_id: eventId, published_at: now, updated_at: now }, { onConflict: 'event_id' });
+  if (planErr) throw new Error(planErr.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  revalidatePath(`/dashboard/${eventId}/seating/print`);
+  return { published: stamped?.length ?? 0 };
+}

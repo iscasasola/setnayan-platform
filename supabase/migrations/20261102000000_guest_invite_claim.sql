@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261021000000_guest_invite_claim.sql
+-- 20261102000000_guest_invite_claim.sql
 -- Privacy-first guest invite-CLAIM + double-verification (in-scope delta of the
 -- "Reverse Contact-Drop" design, owner-authorized 2026-06-10). Hardened
 -- 2026-06-10 after a 6-dimension adversarial review (14 confirmed findings).

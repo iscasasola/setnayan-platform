@@ -24,6 +24,14 @@ import { NavProgress } from './_components/nav-progress';
 import { AppInitSplash } from './_components/app-init-splash';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
+import {
+  DEFAULT_APPLE_TOUCH,
+  DEFAULT_ICON_SVG_192,
+  DEFAULT_ICON_SVG_512,
+  getBrandSettings,
+  resolveBrandMarkUrl,
+  withBrandVersion,
+} from '@/lib/brand-settings';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -167,7 +175,10 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono-marketing',
 });
 
-export const metadata: Metadata = {
+// Static metadata baseline. `icons` is intentionally NOT here — it's resolved
+// per-request in generateMetadata() below so the admin-controlled brand icon
+// (owner 2026-06-10) can override the defaults. Everything else is constant.
+const baseMetadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
     default: "Setnayan · Filipino wedding planning + verified vendors",
@@ -177,18 +188,6 @@ export const metadata: Metadata = {
     "Set na 'yan. Setnayan is the Philippines-first wedding planning platform — free baseline tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   applicationName: 'Setnayan',
   manifest: '/manifest.json',
-  icons: {
-    // Browser-tab favicon = the transparent gold S/Y glyph (sits on the tab bg).
-    icon: [
-      { url: '/icon-192.svg', type: 'image/svg+xml', sizes: '192x192' },
-      { url: '/icon-512.svg', type: 'image/svg+xml', sizes: '512x512' },
-    ],
-    // iOS home-screen icon = the filled white app-icon tile (owner 2026-05-31).
-    // iOS composites transparency onto black, so apple-touch needs the opaque
-    // padded PNG, not the transparent glyph. PWA maskable entry lives in
-    // manifest.json pointing at the same /brand/setnayan-app-icon-512.png.
-    apple: [{ url: '/brand/setnayan-app-icon-512.png', sizes: '512x512' }],
-  },
   appleWebApp: {
     capable: true,
     title: 'Setnayan',
@@ -243,6 +242,58 @@ export const metadata: Metadata = {
     },
   },
 };
+
+/**
+ * Per-request metadata — spreads the static baseline and resolves the icon
+ * links from the admin-controlled brand icon (owner 2026-06-10), falling back
+ * to the built-in gold defaults when none is set.
+ *
+ *   - icon: a `<link rel="icon" href="/favicon.ico?v=N">` (the dynamic route
+ *     serves the admin .ico or the gold default — fixes the orange Safari tab)
+ *     plus the SVG favicon (admin SVG when uploaded, else the gold glyph).
+ *   - apple: the opaque apple-touch tile (admin or gold default).
+ *
+ * The `?v=<brand_icon_version>` cache-buster forces browsers to re-fetch past
+ * their sticky favicon caches whenever the admin changes the icon. The read is
+ * cached (lib/brand-settings) so marketing pages stay static-capable.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandSettings();
+  const v = brand.version;
+
+  const svgIcon = brand.svgUrl
+    ? [{ url: withBrandVersion(brand.svgUrl, v), type: 'image/svg+xml' }]
+    : [
+        {
+          url: withBrandVersion(DEFAULT_ICON_SVG_192, v),
+          type: 'image/svg+xml',
+          sizes: '192x192',
+        },
+        {
+          url: withBrandVersion(DEFAULT_ICON_SVG_512, v),
+          type: 'image/svg+xml',
+          sizes: '512x512',
+        },
+      ];
+
+  // iOS home-screen icon = the filled tile (iOS composites transparency onto
+  // black, so apple-touch must be opaque). Admin derives a 180×180 tile; the
+  // built-in default is the 512 gold tile.
+  const apple = brand.appleTouchUrl
+    ? [{ url: withBrandVersion(brand.appleTouchUrl, v), sizes: '180x180' }]
+    : [{ url: withBrandVersion(DEFAULT_APPLE_TOUCH, v), sizes: '512x512' }];
+
+  return {
+    ...baseMetadata,
+    icons: {
+      // Browser-tab favicon — the dynamic /favicon.ico route serves the .ico.
+      // `sizes: 'any'` flags the multi-size container so SVG-capable browsers
+      // still prefer the crisp SVG entry that follows.
+      icon: [{ url: withBrandVersion('/favicon.ico', v), sizes: 'any' }, ...svgIcon],
+      apple,
+    },
+  };
+}
 
 // Organization JSON-LD for the global brand entity — read by Google Knowledge
 // Graph + AI answer engines for entity grounding. The homepage Organization
@@ -326,13 +377,18 @@ function getOrigin(url: string | undefined): string | null {
   }
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
   // the first auth check, first analytics event, and first signed-URL fetch.
   const supabaseOrigin = getOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
+
+  // Admin-controlled brand mark for the in-app <Logo>/<LogoMark> (owner
+  // 2026-06-10). Cached read (deduped with generateMetadata's call) → null when
+  // no admin icon is set, so BrandProvider uses the built-in gold default.
+  const brandMarkUrl = resolveBrandMarkUrl(await getBrandSettings());
 
   return (
     <html
@@ -427,7 +483,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <DemoModeBanner />
         </Suspense>
-        <Providers>{children}</Providers>
+        <Providers brandMarkUrl={brandMarkUrl}>{children}</Providers>
         <ClientTypeDetector />
         <NativeBridge />
         {/*

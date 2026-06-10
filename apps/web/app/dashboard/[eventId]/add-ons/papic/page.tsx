@@ -351,6 +351,36 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </div>
       </section>
 
+      {/* ----------------------------------------------------------------
+          Photo moderation (Apple 1.2 / Google Play UGC)
+          ----------------------------------------------------------------
+          Entry point to the couple-side moderation surface: review every
+          guest photo, hide anything unwanted, report it to the Setnayan team,
+          or block a guest's camera for this wedding (event-scoped). The
+          underlying report path also reaches the /admin/user-reports queue. */}
+      <section className="flex flex-col gap-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+            <Lock aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+            Keep your gallery safe
+          </p>
+          <p className="max-w-prose text-sm text-ink/65">
+            Review every photo your guests share. Hide anything you don&rsquo;t
+            want, report it to the Setnayan team, or block a guest&rsquo;s
+            camera for this wedding.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <Link
+            href={`/dashboard/${eventId}/add-ons/papic/moderation`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2 text-sm font-medium text-mulberry hover:bg-mulberry/10 sm:w-auto"
+          >
+            Open photo moderation
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        </div>
+      </section>
+
       <StatusBanners
         driveConnected={!!driveConnected}
         driveDisconnected={!!driveDisconnected}

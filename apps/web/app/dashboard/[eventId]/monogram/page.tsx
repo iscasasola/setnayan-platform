@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram, deriveMonogram } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import {
+  MONOGRAM_MOTIONS,
+  resolveMonogramMotion,
+} from '@/lib/monogram-motion';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { MonogramMaker } from './monogram-maker';
 
@@ -20,9 +24,11 @@ export const metadata = { title: 'Monogram Maker · Setnayan' };
  * center, landing hero. The free static/draw monogram is never gated.
  *
  * The "How it animates" section upsells the paid ANIMATED_MONOGRAM SKU
- * (₱2,499 · gated via orders, not a column) and teases the wider animation
- * library that the picker will draw from — that 23-style picker is a tracked
- * scope expansion (Monogram_Maker_Plan_2026-06-05.md), not built here.
+ * (₱2,499 · gated via orders, not a column). The Motion Library
+ * (lib/monogram-motion.ts · 6 signatures) supersedes the 23-style picker
+ * tracked in Monogram_Maker_Plan_2026-06-05.md — every motion previews free
+ * in the maker; the saved one plays on the landing hero when the SKU is
+ * owned.
  */
 
 const VALID_STYLES = ['bar', 'script', 'duo', 'framed', 'infinity'] as const;
@@ -39,13 +45,18 @@ export default async function MonogramMakerPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, monogram_text, monogram_color, monogram_style')
+    .select(
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_motion_key',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const owns = await eventOwnsAnimatedMonogram(supabase, eventId).catch(() => false);
   const monogram = resolveMonogram(event);
+  const motion = resolveMonogramMotion(event.monogram_motion_key);
+  const motionLabel =
+    MONOGRAM_MOTIONS.find((m) => m.key === motion)?.label ?? 'Drawn';
 
   const source = event.monogram_text?.trim() || deriveMonogram(event.display_name);
   const initialInitials =
@@ -81,6 +92,7 @@ export default async function MonogramMakerPage({ params }: Props) {
         eventId={eventId}
         initialInitials={initialInitials}
         initialStyle={initialStyle}
+        initialMotion={motion}
       />
 
       {/* ── How it animates ── */}
@@ -88,10 +100,11 @@ export default async function MonogramMakerPage({ params }: Props) {
         <div className="grid grid-cols-1 items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)]">
           <div className="flex justify-center sm:justify-start">
             <AnimatedMonogramHero
-              key={`anim-${monogram.text}`}
+              key={`anim-${monogram.text}-${motion}`}
               text={monogram.text}
               color={monogram.color}
               size="lg"
+              motion={motion}
             />
           </div>
           <div className="space-y-2 text-center sm:text-left">
@@ -102,23 +115,23 @@ export default async function MonogramMakerPage({ params }: Props) {
               <>
                 <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
                   <Check aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-                  Your monogram draws itself in
+                  Your monogram plays the {motionLabel} motion
                 </h2>
                 <p className="max-w-prose text-sm text-ink/65">
-                  The animated draw-on is live on your wedding website&rsquo;s hero —
-                  it plays every time a guest lands. More animation styles are on the
-                  way.
+                  It plays on your wedding website&rsquo;s hero every time a guest
+                  lands. Pick a different motion above any time — six signatures,
+                  all included.
                 </p>
               </>
             ) : (
               <>
                 <h2 className="text-lg font-semibold tracking-tight">
-                  Make it draw itself in
+                  Make it move
                 </h2>
                 <p className="max-w-prose text-sm text-ink/65">
-                  Upgrade to the Animated Monogram and your initials trace on, line by
-                  line, the moment a guest lands on your wedding website. More
-                  animation styles are coming soon.
+                  Upgrade to the Animated Monogram and the motion you pick above —
+                  Drawn, Foil, Bloom, Editorial, Halo, or Stardust — plays the
+                  moment a guest lands on your wedding website.
                 </p>
                 <Link
                   href={`/dashboard/${eventId}/add-ons/animated-monogram`}

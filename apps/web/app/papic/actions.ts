@@ -91,6 +91,7 @@ export type RecordSeatCaptureResult =
 export async function recordSeatCapture(
   token: string,
   r2ObjectKey: string,
+  kind: 'photo' | 'clip' = 'photo',
 ): Promise<RecordSeatCaptureResult> {
   const cleanToken = token?.trim();
   const cleanKey = r2ObjectKey?.trim();
@@ -125,7 +126,7 @@ export async function recordSeatCapture(
     event_id: seat.event_id,
     paparazzi_seat_id: seat.seat_id,
     r2_object_key: cleanKey,
-    photo_type: 'photo',
+    photo_type: kind === 'clip' ? 'clip' : 'photo',
   });
 
   if (insertError) {
@@ -145,8 +146,8 @@ export async function recordSeatCapture(
       files: [
         {
           r2ObjectKey: cleanKey,
-          fileName: cleanKey.split('/').pop() || 'papic.jpg',
-          mimeType: 'image/jpeg',
+          fileName: cleanKey.split('/').pop() || (kind === 'clip' ? 'papic.webm' : 'papic.jpg'),
+          mimeType: kind === 'clip' ? 'video/webm' : 'image/jpeg',
           sourceTable: 'papic_photos',
         },
       ],

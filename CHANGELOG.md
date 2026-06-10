@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(papic): Camera Bridge M1 — Papic sink + offline transit + pairing UI (S0+O1+U1, mock-driven · 0012)
+
+**Context:** Owner: "build it." The M1 now-track of the Camera Bridge build plan — the demoable, zero-hardware bridge chain on top of the C1+C2 core (PR #1239). Grounding win: the seat capture path already shipped end-to-end (presign `/api/upload` → R2 PUT → `recordSeatCapture` → `papic_photos` + Drive-copy), so S0 is a reuse-first sink over the SAME pipeline, not a parallel one.
+
+- **S0 — `lib/camera-bridge/papic-sink.ts`**: DI'd `deliverCapture` (presign → PUT → record) shared by the live panel AND the offline drain. Failure policy: infra failures (presign/PUT/network) queue into the `camera_bridge` offline store; server REJECTIONS (`not_your_seat`/`revoked`) surface and never queue (retry can't fix them). `makeBrowserSinkDeps` mirrors the shipped seat-capture chain byte-for-byte.
+- **O1 — `lib/offline/service-handlers/camera-bridge-handler.ts`**: the Phase-G stub replaced with the real drain — queued payload (Blob/ArrayBuffer via IndexedDB structured clone) → the same sink → `{ok:true}` dequeues; failures keep the item visible with `last_error`. DI'd `syncOneWith` for tests; browser `syncOne` lazy-imports the action.
+- **InternalCameraBridge — `lib/camera-bridge/internal-bridge.ts`**: the phone's own camera as the 5th `CameraBridge` impl (getUserMedia, rear-only per the 0012 lock; stills via canvas grab, 5s-capped clips via MediaRecorder) — the REAL fallback target of the pairing FSM on web.
+- **U1 — `camera-bridge-panel.tsx`** on the seat page, **dark-launched** (`?bridge=demo` or `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED=true`; invisible by default, no SKU active): Pair (Demo DSLR mock) → live-view canvas → Still / 5s-clip → deliveries land in the real gallery → **Simulate WiFi drop** → instant fallback banner ("switched to your phone camera"), gap-captures via the REAL phone camera stamped null, 5s auto-retry, Restore → back to the DSLR. The full M1 demo, no hardware.
+- **`recordSeatCapture`** gains an additive `kind: 'photo'|'clip' = 'photo'` param (photo_type + Drive mime); existing callers unchanged. Seat page now selects `event_id` (offline-queue key) + threads the gate.
+
+**Verification:** suite extended to **29 cases — 29/29 green** (12 new: sink orchestration order, queue-vs-reject policy, clip meta, handler payload validation, Blob/ArrayBuffer drain); `pnpm typecheck` clean; scoped `next lint` clean. The panel is auth+token-gated — visual check on the Vercel preview: open a claimed seat at `/papic/seat/<token>?bridge=demo`.
+
+**SPEC IMPACT:** Implements build-plan workstreams S0/O1/U1 + the InternalBridge (5th impl); M1 "demoable, no hardware" milestone reached in code. → corpus build-plan doc shipped-status note + DECISION_LOG row.
+
 ## 2026-06-11 · feat(monogram): Motion Library — 6 premium animation signatures replace the single stroke-trace
 
 **Context:** Owner 2026-06-11 — "the monogram we have now is too common… find a better way to execute." Research (market scan: Canva/AI-logo tools all ship template-pick + the stroke-trace reveal is the tutorial-default effect) split the fix into two phases; this is **Phase 1: the motion overhaul**. The single hardcoded draw-on the paid ANIMATED_MONOGRAM SKU shipped with is now one of **six premium motion signatures** the couple picks from: **Drawn** (original stroke-trace, default) · **Foil** (golden light band sweeps the letters, loops) · **Bloom** (ink blooms from center, blur-to-sharp) · **Editorial** (rise + letter-spacing settle, masthead-style) · **Halo** (ring sweeps around first — true circumference dash — then letters fade up) · **Stardust** (7 champagne-gold sparks twinkle in a stagger while letters settle). All pure SVG + scoped CSS — no animation runtime, SSR-safe, all collapse to the static mark under `prefers-reduced-motion` (WCAG 2.2 § 2.3.3).

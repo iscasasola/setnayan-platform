@@ -14,6 +14,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** applied via `supabase db push` from a clean worktree off `origin/main`; post-apply DB asserts green (38/38 anchored, FK + NOT NULL confirmed).
 
 **SPEC IMPACT:** Foundation for the taxonomy single-source unification + multi-event/faith scoping. → corpus `Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` (§7 Phase 0) + `DECISION_LOG` 2026-06-10.
+## 2026-06-11 · feat(seating): Phase 1a — per-table popup toolbar (rename · rotate · delete) (0008)
+
+**Context:** Owner 2026-06-10/11 — seat-plan editor UX redesign. Owner asked for a popup toolbar *beside the table* (replacing the top bar) with rename + pick group/role/guest + rotate/delete. This first slice lands the popup + rename + rotate + delete; the in-popup Guest/Group/Role picker, the desktop rotate handle + two-finger rotate are the immediate follow-ups (the role-seating backend already landed in this PR).
+
+- **`lib/seating.ts`:** export `roleTier()` + `ROLE_TIER_LABELS` (public tier classifier; `tierOf` delegates) — feeds the upcoming Role picker.
+- **`actions.ts`:** `updateTableLabel` (inline rename; no schema — `table_label` exists) + `seatRoleAtTable` (seat a role tier's unseated guests, seat-what-fits, idempotent).
+- **`seating-editor.tsx`:** retired the top-column selected-table bar → a floating **per-table popup** anchored beside the selected table (rename field · rotate ±15/flip · delete · close). **Settle-positioned:** a `bumpOverlay` re-render fires only at gesture-end (pan/pinch up + button-zoom), never per-frame, so the deliberate "`worldRef` transforms via refs during continuous pan/zoom, no 50-table re-render" fast path is preserved. Popup flips above/below near the top edge; clamped within the canvas.
+
+**Verification:** `tsc` + `next lint` clean; CI green incl. Playwright e2e. Popup positioning is visual — eyeball on the Vercel preview. No schema change.
+
+**SPEC IMPACT:** 0008 editor gains a contextual per-table popup (replaces the top selected-table bar). The continuous **rotation** that follows reverses the 0008 "no continuous rotation" lock — will log in `DECISION_LOG` when that slice lands. → corpus `DECISION_LOG` + 0008.
 
 ## 2026-06-10 · feat(guests): privacy-first invite-claim + email-OTP double-verification (no auto-admit)
 

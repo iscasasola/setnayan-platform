@@ -53,6 +53,7 @@ import {
   saveFloorPlan,
   setTableSeat,
   unassignGuest,
+  updateTableLabel,
   updateTablePosition,
   updateTableRotation,
 } from '../actions';
@@ -203,6 +204,11 @@ export function SeatingEditor({
   const [hiddenGroups, setHiddenGroups] = useState<Set<string>>(new Set());
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  // Re-render trigger for the per-table popup overlay. Bumped only when the view
+  // SETTLES (pan/pinch/zoom-button end) — never per-frame — so the popup
+  // repositions to the selected table without touching the 50-table fast path
+  // (worldRef still transforms via refs during continuous pan/zoom).
+  const [, bumpOverlay] = useState(0);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   // The spatial chair canvas can't hold many tables on a phone, so small
@@ -372,6 +378,19 @@ export function SeatingEditor({
       await publishSeating(fd);
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
+  };
+
+  // Rename a table from the popup's inline field. No-op on an empty/unchanged
+  // label; revalidation reflects the new name across the sidebar, list + print.
+  const renameTable = (tableId: string, label: string) => {
+    const trimmed = label.trim();
+    const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
+    if (!trimmed || trimmed === current) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', tableId);
+    fd.set('table_label', trimmed.slice(0, 64));
+    startTransition(() => updateTableLabel(fd));
   };
 
   // Bulk-seat the picked group onto a table. The server seats what fits and
@@ -724,6 +743,8 @@ export function SeatingEditor({
     if (e) pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
     if (pointersRef.current.size === 0) panStartRef.current = null;
+    // View settled after a pan/pinch — reposition the popup to its table.
+    bumpOverlay((v) => v + 1);
   };
 
   const addEntrance = () => {
@@ -745,6 +766,7 @@ export function SeatingEditor({
     const p0 = panRef.current;
     const z1 = clampZoom(z0 * factor);
     applyView(z1, { x: sx - z1 * ((sx - p0.x) / z0), y: sy - z1 * ((sy - p0.y) / z0) });
+    bumpOverlay((v) => v + 1);
   };
 
   // Frame every table in view (the "see all 50" button).
@@ -1309,60 +1331,8 @@ export function SeatingEditor({
           </div>
         ) : null}
 
-        {/* selected-table bar — rotate (to connect tables) + delete. Appears
-            when a table is selected (tap it on the canvas, or in the sidebar). */}
-        {(() => {
-          const st = highlightId ? tables.find((t) => t.table_id === highlightId) : null;
-          if (!st) return null;
-          const curRot = rotationOf(st);
-          return (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
-              <span className="min-w-0 flex-1 truncate font-medium text-ink">{st.table_label}</span>
-              <div className="flex items-center gap-0.5 rounded-lg border border-ink/15 bg-cream px-1 py-0.5">
-                <button
-                  type="button"
-                  onClick={() => rotateTable(st, -15)}
-                  aria-label="Rotate 15° left"
-                  className="rounded p-1 text-ink/60 hover:bg-ink/5"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </button>
-                <span className="w-9 text-center text-xs tabular-nums text-ink/55">{curRot}°</span>
-                <button
-                  type="button"
-                  onClick={() => rotateTable(st, 15)}
-                  aria-label="Rotate 15° right"
-                  className="rounded p-1 text-ink/60 hover:bg-ink/5"
-                >
-                  <RotateCw className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => rotateTable(st, 180)}
-                  title="Flip 180° — chains serpentine wedges into an S"
-                  className="rounded px-1.5 py-1 text-[11px] font-semibold text-ink/60 hover:bg-ink/5"
-                >
-                  Flip
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeTable(st.table_id)}
-                className="inline-flex items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2 py-1 text-xs text-ink hover:border-rose-400 hover:text-rose-600"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete table
-              </button>
-              <button
-                type="button"
-                onClick={() => setHighlightId(null)}
-                className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
-                aria-label="Done"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          );
-        })()}
+        {/* Per-table actions (rename · rotate · delete) now live in the floating
+            popup overlay anchored beside the selected table on the canvas — see below. */}
 
         {view === 'plan' ? (
         <>
@@ -1705,6 +1675,97 @@ export function SeatingEditor({
               <Maximize2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {/* Per-table popup toolbar — rename · rotate · delete, anchored beside the
+              selected table. Settle-positioned (re-rendered on bumpOverlay at
+              gesture-end), so it never taxes the continuous pan/zoom fast path. */}
+          {(() => {
+            const st = highlightId ? tables.find((t) => t.table_id === highlightId) : null;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            const pos = st ? positions[st.table_id] : null;
+            if (!st || !rect || !pos) return null;
+            const z = zoomRef.current;
+            const cx = (pos.x / 100) * rect.width * z + panRef.current.x;
+            const cy = (pos.y / 100) * rect.height * z + panRef.current.y;
+            const geo = tableGeometry(shapeHintFor(st.table_type), st.capacity);
+            const tScale = pxPerMeter ? (TABLE_FOOTPRINT_M[st.table_type] * pxPerMeter) / geo.box.w : 1;
+            const halfH = (geo.box.h / 2) * tScale * z;
+            const POP_H = 52;
+            let below = false;
+            let top = cy - halfH - 12;
+            if (top - POP_H < 4) {
+              below = true;
+              top = cy + halfH + 12;
+            }
+            const left = Math.max(10, Math.min(rect.width - 10, cx));
+            const curRot = rotationOf(st);
+            return (
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                className="absolute z-40 flex items-center gap-1 rounded-xl border border-ink/15 bg-cream/95 px-1.5 py-1 shadow-lg backdrop-blur-sm"
+                style={{ left, top, transform: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)' }}
+              >
+                <input
+                  key={st.table_id}
+                  defaultValue={st.table_label}
+                  aria-label="Table name"
+                  maxLength={64}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                    if (e.key === 'Escape') {
+                      e.currentTarget.value = st.table_label;
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
+                  className="w-28 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream"
+                />
+                <div className="flex items-center gap-0.5 rounded-lg border border-ink/15 px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => rotateTable(st, -15)}
+                    aria-label="Rotate 15° left"
+                    className="rounded p-1 text-ink/60 hover:bg-ink/5"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                  <span className="w-8 text-center text-[11px] tabular-nums text-ink/55">{curRot}°</span>
+                  <button
+                    type="button"
+                    onClick={() => rotateTable(st, 15)}
+                    aria-label="Rotate 15° right"
+                    className="rounded p-1 text-ink/60 hover:bg-ink/5"
+                  >
+                    <RotateCw className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => rotateTable(st, 180)}
+                    title="Flip 180°"
+                    className="rounded px-1 py-1 text-[11px] font-semibold text-ink/60 hover:bg-ink/5"
+                  >
+                    Flip
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeTable(st.table_id)}
+                  aria-label="Delete table"
+                  className="rounded-lg p-1.5 text-ink/50 hover:bg-rose-50 hover:text-rose-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHighlightId(null)}
+                  aria-label="Done"
+                  className="rounded-lg p-1.5 text-ink/40 hover:bg-ink/5"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })()}
         </div>
 
         <p className="text-xs text-ink/50">

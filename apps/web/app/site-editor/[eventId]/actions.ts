@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isSpatialThemeKey } from '@/lib/spatial-backdrop';
 
 /**
  * Server actions for INLINE editing inside the full-screen site editor
@@ -82,6 +83,50 @@ export async function saveHeroPhoto(formData: FormData): Promise<void> {
       landing_page_hero_image_uploaded_by_user_id: userId,
     })
     .eq('event_id', eventId);
+
+  revalidatePath(`/site-editor/${eventId}`);
+  revalidatePath('/[slug]', 'page');
+}
+
+/**
+ * Save the spatial RSVP backdrop pick: `{ theme, intensity }` into
+ * events.rsvp_backdrop (migration 20261105000000). Theme is validated against
+ * the code registry — the DB never stores asset URLs, so this action can't be
+ * used to inject arbitrary imagery into the public page. Unknown intensity
+ * falls back to 'standard' (mirrors parseRsvpBackdropConfig's forgiveness).
+ */
+export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const themeRaw = formData.get('theme');
+  const intensityRaw = formData.get('intensity');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!isSpatialThemeKey(themeRaw)) return;
+  const intensity =
+    intensityRaw === 'subtle' || intensityRaw === 'lavish' ? intensityRaw : 'standard';
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+
+  await supabase
+    .from('events')
+    .update({ rsvp_backdrop: { theme: themeRaw, intensity } })
+    .eq('event_id', eventId);
+
+  revalidatePath(`/site-editor/${eventId}`);
+  revalidatePath('/[slug]', 'page');
+}
+
+/** Turn the spatial backdrop off (null the column). */
+export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+
+  await supabase.from('events').update({ rsvp_backdrop: null }).eq('event_id', eventId);
 
   revalidatePath(`/site-editor/${eventId}`);
   revalidatePath('/[slug]', 'page');

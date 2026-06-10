@@ -1,9 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  type WeddingFolder,
-  type TaxonomyEntry,
-} from '@/lib/taxonomy';
-import { getTaxonomy } from '@/lib/taxonomy-db';
+import { type TaxonomyEntry } from '@/lib/taxonomy';
+import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
 import { validateVendorCategoryMapping } from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
@@ -35,11 +32,8 @@ type SchemaRow = {
   required_for_visibility: unknown;
 };
 
-type Grouped = {
-  folder: WeddingFolder;
-  label: string;
-  rows: Array<SchemaRow & { meta: TaxonomyEntry }>;
-};
+/** A canonical service row joined to its live taxonomy placement (null = unfiled). */
+type ServiceRow = SchemaRow & { meta: TaxonomyEntry | null };
 
 type DeadlineRow = {
   deadline_id: string;
@@ -94,30 +88,13 @@ export default async function AdminTaxonomyPage({
 
   const schemas = (rows ?? []) as SchemaRow[];
 
-  // Bucket each row into a wedding folder via TAXONOMY_MAP. Unknown keys land
-  // in a separate "Unmapped" group so admins can spot drift between DB seeds
-  // and the lib/taxonomy.ts metadata map.
   // DB-backed taxonomy (Phase 2): the tree + canonical mapping are read from
   // service_categories + canonical_service_taxonomy, falling back to the
   // lib/taxonomy.ts constant if the tables are unseeded — see lib/taxonomy-db.ts.
   const tax = await getTaxonomy();
-  const buckets = new Map<WeddingFolder, Grouped>();
-  for (const folder of tax.folderOrder) {
-    buckets.set(folder, { folder, label: tax.folderLabel[folder] ?? folder, rows: [] });
-  }
-  const unmapped: SchemaRow[] = [];
 
-  for (const row of schemas) {
-    const meta = tax.map[row.canonical_service];
-    if (!meta) {
-      unmapped.push(row);
-      continue;
-    }
-    buckets.get(meta.folder)?.rows.push({ ...row, meta });
-  }
-
-  // Sort each bucket by phase severity then display name so V1.1 base reads
-  // first, then V1.1.x, then V1.2+, etc.
+  // Phase rank so each tile's services read V1.1 base first, then V1.1.x, then
+  // V1.2+ — shared by the per-tile sort below.
   const phaseRank: Record<string, number> = {
     'V1.1 base': 0,
     'V1.1.1': 1,
@@ -131,17 +108,34 @@ export default async function AdminTaxonomyPage({
     'V1.4': 9,
     'V1.5+': 10,
   };
-  for (const bucket of buckets.values()) {
-    bucket.rows.sort((a, b) => {
-      const ra = phaseRank[a.meta.phase] ?? 99;
-      const rb = phaseRank[b.meta.phase] ?? 99;
+
+  // Unified tree grouping: file every canonical service under its TILE (from the
+  // live taxonomy mapping). Rows with no mapping — or a mapping that points at no
+  // tile / a tile that no longer exists — fall into `unfiled` so an admin can
+  // file them straight from the tree (the merged tree + mapping surface).
+  const rowsByTile = new Map<string, ServiceRow[]>();
+  for (const t of tax.tileOrder) rowsByTile.set(t, []);
+  const unfiled: ServiceRow[] = [];
+  for (const row of schemas) {
+    const meta = tax.map[row.canonical_service] ?? null;
+    if (meta && meta.tile && rowsByTile.has(meta.tile)) {
+      rowsByTile.get(meta.tile)!.push({ ...row, meta });
+    } else {
+      unfiled.push({ ...row, meta });
+    }
+  }
+  const sortRows = (rows: ServiceRow[]) =>
+    rows.sort((a, b) => {
+      const ra = a.meta ? phaseRank[a.meta.phase] ?? 99 : 99;
+      const rb = b.meta ? phaseRank[b.meta.phase] ?? 99 : 99;
       if (ra !== rb) return ra - rb;
       return a.display_name_en.localeCompare(b.display_name_en);
     });
-  }
+  for (const rows of rowsByTile.values()) sortRows(rows);
+  sortRows(unfiled);
 
   const totalRows = schemas.length;
-  const totalMapped = totalRows - unmapped.length;
+  const totalMapped = totalRows - unfiled.length;
   const facetedCount = schemas.filter((r) => {
     const facets = Array.isArray(r.filter_facets) ? r.filter_facets : [];
     return facets.length > 0;
@@ -241,10 +235,14 @@ export default async function AdminTaxonomyPage({
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Taxonomy</h1>
         <p className="text-base text-ink/65">
-          Read-only viewer over <code className="font-mono text-sm">canonical_service_schemas</code>, grouped into the 10 wedding parents via the{' '}
-          <strong>{tax.source === 'db' ? 'DB-backed taxonomy' : 'code fallback'}</strong>{' '}(<code className="font-mono text-sm">service_categories</code> + <code className="font-mono text-sm">canonical_service_taxonomy</code>
-          {tax.source === 'fallback' ? ' — tables unseeded, using lib/taxonomy.ts' : ''}). Faith badges surface conditionally on
-          {' '}<code className="font-mono text-sm">events.ceremony_type</code>; phase badges show launch sequencing.
+          The single live taxonomy — one tree of{' '}
+          <code className="font-mono text-sm">service_categories</code> (parents → tiles) with every{' '}
+          <code className="font-mono text-sm">canonical_service_schemas</code> service filed onto a tile via{' '}
+          <code className="font-mono text-sm">canonical_service_taxonomy</code>. Edits save to the{' '}
+          <strong>{tax.source === 'db' ? 'DB' : 'code fallback'}</strong> and publish live to the marketplace,
+          vendor onboarding, and the couple planner with no deploy
+          {tax.source === 'fallback' ? ' (tables unseeded — using lib/taxonomy.ts)' : ''}. Faith badges surface on{' '}
+          <code className="font-mono text-sm">events.ceremony_type</code>; phase badges show launch sequencing.
         </p>
       </header>
 
@@ -257,9 +255,9 @@ export default async function AdminTaxonomyPage({
 
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total rows" value={totalRows} />
-        <Stat label="Mapped to a folder" value={totalMapped} />
+        <Stat label="Filed on a tile" value={totalMapped} />
         <Stat label="With filter_facets" value={facetedCount} />
-        <Stat label="Unmapped (drift)" value={unmapped.length} />
+        <Stat label="Unfiled" value={unfiled.length} />
       </section>
 
       <p
@@ -552,61 +550,115 @@ export default async function AdminTaxonomyPage({
       <section className="mb-10">
         <header className="mb-2 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Tree · edit / add / remove{' '}
-            <span className="font-normal text-ink/55">(live — saves to the DB, no deploy)</span>
+            Category tree{' '}
+            <span className="font-normal text-ink/55">— rename · file services · reorder · add · remove (live, no deploy)</span>
           </h2>
           <span className="font-mono text-xs text-ink/55">
             {tax.source === 'db' ? 'editing the DB tree' : 'fallback — DB unseeded'}
           </span>
         </header>
-        <div className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4">
-          {tax.folderOrder.map((folder) => (
-            <div key={folder}>
-              <NodeRenameForm id={folder} label={tax.folderLabel[folder] ?? folder} kind="Parent" />
-              <ul className="ml-3 mt-2 space-y-1.5 border-l border-ink/10 pl-3">
-                {(tax.tilesByParent[folder] ?? []).map((tile) => (
-                  <li key={tile} className="flex items-center gap-1.5">
-                    <div className="min-w-0 flex-1">
-                      <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
-                    </div>
-                    <form action={moveTaxonomyNode}>
-                      <input type="hidden" name="id" value={tile} />
-                      <input type="hidden" name="direction" value="up" />
-                      <button
-                        type="submit"
-                        aria-label={`Move ${tile} up`}
-                        title="Move up"
-                        className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
-                      >
-                        ▲
-                      </button>
-                    </form>
-                    <form action={moveTaxonomyNode}>
-                      <input type="hidden" name="id" value={tile} />
-                      <input type="hidden" name="direction" value="down" />
-                      <button
-                        type="submit"
-                        aria-label={`Move ${tile} down`}
-                        title="Move down"
-                        className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
-                      >
-                        ▼
-                      </button>
-                    </form>
-                    <form action={deleteTaxonomyNode}>
-                      <input type="hidden" name="id" value={tile} />
-                      <button
-                        type="submit"
-                        aria-label={`Delete ${tile}`}
-                        title="Delete — blocked if services are still mapped here"
-                        className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
-                      >
-                        ✕
-                      </button>
-                    </form>
-                  </li>
-                ))}
-                <li>
+        <p className="mb-3 text-sm text-ink/60">
+          One tree for the whole taxonomy. Rename a parent or tile, reorder (▲▼) or
+          remove a tile, and see every bookable service filed under it — re-file any
+          service to another tile inline. Adding a tile or a service publishes live to{' '}
+          <code className="font-mono text-xs">/vendors</code> + onboarding with no deploy.
+        </p>
+        <div className="space-y-5">
+          {tax.folderOrder.map((folder, idx) => {
+            const tiles = tax.tilesByParent[folder] ?? [];
+            const folderCount = tiles.reduce(
+              (n, t) => n + (rowsByTile.get(t)?.length ?? 0),
+              0,
+            );
+            return (
+              <div key={folder} className="rounded-xl border border-ink/10 bg-cream p-4">
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <NodeRenameForm id={folder} label={tax.folderLabel[folder] ?? folder} kind="Parent" />
+                  </div>
+                  <span className="shrink-0 font-mono text-[11px] text-ink/45">
+                    Folder {idx + 1} · {folderCount} svc
+                  </span>
+                </div>
+                <div className="ml-1 space-y-3 border-l border-ink/10 pl-3">
+                  {tiles.map((tile) => {
+                    const services = rowsByTile.get(tile) ?? [];
+                    return (
+                      <div key={tile} className="overflow-hidden rounded-lg border border-ink/10 bg-white/60">
+                        <div className="flex items-center gap-1.5 border-b border-ink/10 px-2 py-1.5">
+                          <div className="min-w-0 flex-1">
+                            <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
+                          </div>
+                          <span className="shrink-0 font-mono text-[10px] text-ink/40">{services.length}</span>
+                          <form action={moveTaxonomyNode}>
+                            <input type="hidden" name="id" value={tile} />
+                            <input type="hidden" name="direction" value="up" />
+                            <button
+                              type="submit"
+                              aria-label={`Move ${tile} up`}
+                              title="Move up"
+                              className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                            >
+                              ▲
+                            </button>
+                          </form>
+                          <form action={moveTaxonomyNode}>
+                            <input type="hidden" name="id" value={tile} />
+                            <input type="hidden" name="direction" value="down" />
+                            <button
+                              type="submit"
+                              aria-label={`Move ${tile} down`}
+                              title="Move down"
+                              className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                            >
+                              ▼
+                            </button>
+                          </form>
+                          <form action={deleteTaxonomyNode}>
+                            <input type="hidden" name="id" value={tile} />
+                            <button
+                              type="submit"
+                              aria-label={`Delete ${tile}`}
+                              title="Delete — blocked if services are still filed here"
+                              className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
+                            >
+                              ✕
+                            </button>
+                          </form>
+                        </div>
+                        {services.length > 0 ? (
+                          <ul className="divide-y divide-ink/10">
+                            {services.map((row) => (
+                              <ServiceLine key={row.canonical_service} row={row} tax={tax} />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="px-3 py-2 text-xs text-ink/45">No services filed here yet.</p>
+                        )}
+                        <form
+                          action={createCanonicalLeaf}
+                          className="flex items-center gap-2 border-t border-ink/10 bg-emerald-50/30 px-2 py-1.5"
+                        >
+                          <input type="hidden" name="tile_id" value={tile} />
+                          <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
+                            ＋ svc
+                          </span>
+                          <input
+                            name="display_name_en"
+                            placeholder="New service name…"
+                            aria-label={`Add a service under ${tile}`}
+                            className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                          />
+                          <button
+                            type="submit"
+                            className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                          >
+                            Add
+                          </button>
+                        </form>
+                      </div>
+                    );
+                  })}
                   <form
                     action={createTaxonomyNode}
                     className="flex items-center gap-2 rounded-md border border-dashed border-emerald-300/60 bg-emerald-50/30 px-2 py-1.5"
@@ -628,216 +680,190 @@ export default async function AdminTaxonomyPage({
                       Add
                     </button>
                   </form>
-                </li>
-              </ul>
-            </div>
-          ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
       <section className="mb-10">
-        <header className="mb-2 flex items-baseline justify-between gap-3">
-          <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Add a new service{' '}
-            <span className="font-normal text-ink/55">
-              (a bookable leaf — appears on /vendors + onboarding live, no deploy)
-            </span>
-          </h2>
-        </header>
-        <p className="mb-3 text-sm text-ink/60">
-          Mints a brand-new canonical service under a tile. Writes the{' '}
-          <code className="font-mono text-xs">canonical_service_schemas</code> stub (so vendors can
-          add it during onboarding) and the{' '}
-          <code className="font-mono text-xs">canonical_service_taxonomy</code> mapping (so the
-          marketplace buckets it). Optionally seed its first refinement.
-        </p>
-        <form
-          action={createCanonicalLeaf}
-          className="grid gap-3 rounded-xl border border-emerald-300/50 bg-emerald-50/30 p-4 sm:grid-cols-2"
-        >
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/75">Service name</span>
-            <input
-              name="display_name_en"
-              required
-              placeholder="e.g. Table Linen Rental"
-              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/75">Under tile</span>
-            <select
-              name="tile_id"
-              required
-              defaultValue=""
-              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
-            >
-              <option value="" disabled>
-                — pick a tile —
-              </option>
-              {tax.folderOrder.map((folder) => (
-                <optgroup key={folder} label={tax.folderLabel[folder] ?? folder}>
-                  {(tax.tilesByParent[folder] ?? []).map((t) => (
-                    <option key={t} value={t}>
-                      {tax.tileLabel[t] ?? t}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/75">
-              Starter refinement <span className="text-ink/45">(optional)</span>
-            </span>
-            <input
-              name="refinement_label"
-              placeholder="e.g. Customization"
-              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/75">
-              Refinement options <span className="text-ink/45">(comma-separated)</span>
-            </span>
-            <input
-              name="refinement_options"
-              placeholder="e.g. plain, custom monogram, custom logo"
-              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
-          <div className="flex items-center gap-4 sm:col-span-2">
-            <label className="flex items-center gap-1.5 text-sm text-ink/75">
-              <input type="checkbox" name="is_rental" className="h-4 w-4" />
-              Rental
+        <details className="rounded-xl border border-ink/10 bg-cream/60 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-ink/80">
+            Advanced — add a service with a starter refinement
+          </summary>
+          <p className="mb-3 mt-2 text-sm text-ink/60">
+            The quick <strong>＋ svc</strong> box on each tile adds a plain service. Use this when you also want
+            to seed its first refinement or mark it Rental / PH-specific. Writes the{' '}
+            <code className="font-mono text-xs">canonical_service_schemas</code> stub (vendor onboarding) + the{' '}
+            <code className="font-mono text-xs">canonical_service_taxonomy</code> mapping (marketplace).
+          </p>
+          <form action={createCanonicalLeaf} className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-ink/75">Service name</span>
+              <input
+                name="display_name_en"
+                required
+                placeholder="e.g. Table Linen Rental"
+                className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              />
             </label>
-            <label className="flex items-center gap-1.5 text-sm text-ink/75">
-              <input type="checkbox" name="is_ph" className="h-4 w-4" />
-              PH-specific
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-ink/75">Under tile</span>
+              <select
+                name="tile_id"
+                required
+                defaultValue=""
+                className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              >
+                <option value="" disabled>
+                  — pick a tile —
+                </option>
+                {tax.folderOrder.map((folder) => (
+                  <optgroup key={folder} label={tax.folderLabel[folder] ?? folder}>
+                    {(tax.tilesByParent[folder] ?? []).map((t) => (
+                      <option key={t} value={t}>
+                        {tax.tileLabel[t] ?? t}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </label>
-            <button
-              type="submit"
-              className="ml-auto rounded-md border border-emerald-300 bg-white px-4 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
-            >
-              Add service
-            </button>
-          </div>
-        </form>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-ink/75">
+                Starter refinement <span className="text-ink/45">(optional)</span>
+              </span>
+              <input
+                name="refinement_label"
+                placeholder="e.g. Customization"
+                className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-ink/75">
+                Refinement options <span className="text-ink/45">(comma-separated)</span>
+              </span>
+              <input
+                name="refinement_options"
+                placeholder="e.g. plain, custom monogram, custom logo"
+                className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+              />
+            </label>
+            <div className="flex items-center gap-4 sm:col-span-2">
+              <label className="flex items-center gap-1.5 text-sm text-ink/75">
+                <input type="checkbox" name="is_rental" className="h-4 w-4" />
+                Rental
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-ink/75">
+                <input type="checkbox" name="is_ph" className="h-4 w-4" />
+                PH-specific
+              </label>
+              <button
+                type="submit"
+                className="ml-auto rounded-md border border-emerald-300 bg-white px-4 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+              >
+                Add service
+              </button>
+            </div>
+          </form>
+        </details>
       </section>
 
-      {tax.folderOrder.map((folder, idx) => {
-        const bucket = buckets.get(folder);
-        if (!bucket) return null;
-        return (
-          <section key={folder} className="mb-10">
-            <header className="mb-3 flex items-baseline justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight text-ink">
-                <span className="font-mono text-xs text-ink/55">Folder {idx + 1}</span> · {bucket.label}
-              </h2>
-              <span className="font-mono text-xs text-ink/55">{bucket.rows.length} categories</span>
-            </header>
-            {bucket.rows.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/55">
-                No categories in this folder yet.
-              </p>
-            ) : (
-              <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
-                {bucket.rows.map((row) => {
-                  const facets = Array.isArray(row.filter_facets) ? row.filter_facets : [];
-                  const required = (row.required_for_visibility ?? {}) as Record<string, unknown>;
-                  const hasRequired =
-                    Object.keys(required).length > 0;
-                  return (
-                    <li key={row.canonical_service} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-ink">{row.display_name_en}</span>
-                          {row.display_name_tl ? (
-                            <span className="hidden truncate font-mono text-[11px] text-ink/45 sm:inline">
-                              ({row.display_name_tl})
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-0.5 truncate font-mono text-[11px] text-ink/45">
-                          {row.canonical_service}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge tone={PHASE_TONE[row.meta.phase] ?? PHASE_TONE_BASE}>
-                          {row.meta.phase}
-                        </Badge>
-                        {row.meta.faith ? (
-                          <Badge tone={FAITH_TONE[row.meta.faith]}>{row.meta.faith}</Badge>
-                        ) : null}
-                        {row.meta.setnayan ? (
-                          <Badge tone="bg-terracotta/10 text-terracotta">Setnayan</Badge>
-                        ) : null}
-                        {row.meta.ph ? (
-                          <Badge tone="bg-sky-50 text-sky-700">PH-specific</Badge>
-                        ) : null}
-                        {row.meta.rental ? (
-                          <Badge tone="bg-ink/5 text-ink/70">Rental</Badge>
-                        ) : null}
-                        <Badge tone="bg-ink/5 text-ink/55">
-                          {facets.length} facet{facets.length === 1 ? '' : 's'}
-                        </Badge>
-                        {hasRequired ? (
-                          <Badge tone="bg-emerald-50 text-emerald-700">visibility gate</Badge>
-                        ) : null}
-                        <Badge tone="bg-ink/5 text-ink/55">
-                          {row.shared_attribute_groups.length} shared
-                        </Badge>
-                      </div>
-                      <form action={remapCanonical} className="flex shrink-0 items-center gap-1.5">
-                        <input type="hidden" name="canonical_service" value={row.canonical_service} />
-                        <select
-                          name="tile_id"
-                          defaultValue={row.meta.tile ?? ''}
-                          aria-label={`Move ${row.canonical_service} to tile`}
-                          className="max-w-[150px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
-                        >
-                          {row.meta.tile ? null : <option value="">— unmapped —</option>}
-                          {tax.tileOrder.map((t) => (
-                            <option key={t} value={t}>
-                              {tax.tileLabel[t] ?? t}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="submit"
-                          className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
-                        >
-                          Move
-                        </button>
-                      </form>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-        );
-      })}
-
-      {unmapped.length > 0 ? (
+      {unfiled.length > 0 ? (
         <section className="mb-10">
-          <header className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 className="text-lg font-semibold tracking-tight text-rose-700">
-              ⚠ Unmapped (canonical_service rows missing from <code className="font-mono text-sm">lib/taxonomy.ts</code>)
+          <header className="mb-2 flex items-baseline justify-between gap-3">
+            <h2 className="text-lg font-semibold tracking-tight text-amber-800">
+              ⚠ Unfiled services{' '}
+              <span className="font-normal text-ink/55">— not on any tile</span>
             </h2>
-            <span className="font-mono text-xs text-rose-700">{unmapped.length} rows</span>
+            <span className="font-mono text-xs text-amber-800">{unfiled.length}</span>
           </header>
-          <ul className="divide-y divide-rose-200 rounded-xl border border-rose-200 bg-rose-50">
-            {unmapped.map((row) => (
-              <li key={row.canonical_service} className="px-4 py-3 text-sm">
-                <span className="font-medium text-ink">{row.display_name_en}</span>
-                <span className="ml-2 font-mono text-[11px] text-ink/50">{row.canonical_service}</span>
-              </li>
+          <p className="mb-3 text-sm text-ink/60">
+            These <code className="font-mono text-xs">canonical_service_schemas</code> rows aren&apos;t placed on a
+            tile — no <code className="font-mono text-xs">canonical_service_taxonomy</code> mapping, or it points at
+            a tile that no longer exists. They still appear in the vendor &quot;add a service&quot; picker, but the
+            marketplace can&apos;t bucket them until they&apos;re filed. Pick a tile and File.
+          </p>
+          <ul className="divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/50">
+            {unfiled.map((row) => (
+              <ServiceLine key={row.canonical_service} row={row} tax={tax} />
             ))}
           </ul>
         </section>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * One bookable service line — name + slug, metadata badges, and an inline
+ * re-file control (remap to another tile). Used both under each tile in the
+ * tree and in the Unfiled tray (where `row.meta` is null / has no tile, so the
+ * select shows a "— pick a tile —" placeholder and the button reads "File").
+ */
+function ServiceLine({ row, tax }: { row: ServiceRow; tax: TaxonomySnapshot }) {
+  const facets = Array.isArray(row.filter_facets) ? row.filter_facets : [];
+  const required = (row.required_for_visibility ?? {}) as Record<string, unknown>;
+  const hasRequired = Object.keys(required).length > 0;
+  const meta = row.meta;
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-3 py-2.5 sm:flex-nowrap">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium text-ink">{row.display_name_en}</span>
+          {row.display_name_tl ? (
+            <span className="hidden truncate font-mono text-[11px] text-ink/45 sm:inline">
+              ({row.display_name_tl})
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-0.5 truncate font-mono text-[11px] text-ink/45">{row.canonical_service}</div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {meta ? (
+          <>
+            <Badge tone={PHASE_TONE[meta.phase] ?? PHASE_TONE_BASE}>{meta.phase}</Badge>
+            {meta.faith ? <Badge tone={FAITH_TONE[meta.faith]}>{meta.faith}</Badge> : null}
+            {meta.setnayan ? <Badge tone="bg-terracotta/10 text-terracotta">Setnayan</Badge> : null}
+            {meta.ph ? <Badge tone="bg-sky-50 text-sky-700">PH-specific</Badge> : null}
+            {meta.rental ? <Badge tone="bg-ink/5 text-ink/70">Rental</Badge> : null}
+          </>
+        ) : null}
+        <Badge tone="bg-ink/5 text-ink/55">
+          {facets.length} facet{facets.length === 1 ? '' : 's'}
+        </Badge>
+        {hasRequired ? <Badge tone="bg-emerald-50 text-emerald-700">visibility gate</Badge> : null}
+        <Badge tone="bg-ink/5 text-ink/55">{row.shared_attribute_groups.length} shared</Badge>
+      </div>
+      <form action={remapCanonical} className="flex shrink-0 items-center gap-1.5">
+        <input type="hidden" name="canonical_service" value={row.canonical_service} />
+        <select
+          name="tile_id"
+          required
+          defaultValue={meta?.tile ?? ''}
+          aria-label={`File ${row.canonical_service} under a tile`}
+          className="max-w-[150px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+        >
+          {meta?.tile ? null : (
+            <option value="" disabled>
+              — pick a tile —
+            </option>
+          )}
+          {tax.tileOrder.map((t) => (
+            <option key={t} value={t}>
+              {tax.tileLabel[t] ?? t}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        >
+          {meta?.tile ? 'Move' : 'File'}
+        </button>
+      </form>
+    </li>
   );
 }
 

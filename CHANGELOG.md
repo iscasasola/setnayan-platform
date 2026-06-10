@@ -16,8 +16,40 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verification:** suite extended to **29 cases — 29/29 green** (12 new: sink orchestration order, queue-vs-reject policy, clip meta, handler payload validation, Blob/ArrayBuffer drain); `pnpm typecheck` clean; scoped `next lint` clean. The panel is auth+token-gated — visual check on the Vercel preview: open a claimed seat at `/papic/seat/<token>?bridge=demo`.
 
-**SPEC IMPACT:** Implements build-plan workstreams S0/O1/U1 + the InternalBridge (5th impl); M1 "demoable, no hardware" milestone reached in code (the plan's M1 = this chain). → corpus build-plan doc gains a shipped-status note + DECISION_LOG row.
+**SPEC IMPACT:** Implements build-plan workstreams S0/O1/U1 + the InternalBridge (5th impl); M1 "demoable, no hardware" milestone reached in code. → corpus build-plan doc shipped-status note + DECISION_LOG row.
 
+## 2026-06-11 · feat(monogram): Motion Library — 6 premium animation signatures replace the single stroke-trace
+
+**Context:** Owner 2026-06-11 — "the monogram we have now is too common… find a better way to execute." Research (market scan: Canva/AI-logo tools all ship template-pick + the stroke-trace reveal is the tutorial-default effect) split the fix into two phases; this is **Phase 1: the motion overhaul**. The single hardcoded draw-on the paid ANIMATED_MONOGRAM SKU shipped with is now one of **six premium motion signatures** the couple picks from: **Drawn** (original stroke-trace, default) · **Foil** (golden light band sweeps the letters, loops) · **Bloom** (ink blooms from center, blur-to-sharp) · **Editorial** (rise + letter-spacing settle, masthead-style) · **Halo** (ring sweeps around first — true circumference dash — then letters fade up) · **Stardust** (7 champagne-gold sparks twinkle in a stagger while letters settle). All pure SVG + scoped CSS — no animation runtime, SSR-safe, all collapse to the static mark under `prefers-reduced-motion` (WCAG 2.2 § 2.3.3).
+
+- **`apps/web/lib/monogram-motion.ts`** (new) — the motion registry: keys, labels, hints, descriptions + `resolveMonogramMotion()` (NULL/unknown → `'draw'` so every pre-library owner renders exactly as before).
+- **`AnimatedMonogramHero`** — rewritten around a `motion` prop (default `'draw'` = zero behavior change at untouched call sites). Halo paints its ring in-SVG (span border goes transparent, layout box intact).
+- **Monogram Maker** (`/dashboard/[eventId]/monogram`) — new "Choose a motion" picker (6 tiles) + Replay button; every motion previews free; saved via `saveMonogram()` (validated server-side against the registry). Supersedes the 23-style picker tracked in `Monogram_Maker_Plan_2026-06-05.md`.
+- **Landing hero** (`/[slug]`) — `animatedMonogram` threading upgraded `boolean` → `MonogramMotionKey | false`; the owned render plays the couple's chosen signature in all 3 hero branches (private, photo-hero, monogram-only).
+- **Add-ons detail page** — previews play the real chosen motion; copy sells the six-signature library; owned view names the active motion and links the Maker.
+- **Migration `20261111000000_event_monogram_motion.sql`** — additive nullable `events.monogram_motion_key` + CHECK (6 keys), `IF NOT EXISTS` idempotent, comment documents the registry mirror. **Applied to prod** (verified in migration history; column live before this code deploys). Re-timestamped from 20261107 (collision with `push_subscriptions`) past the remote head.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only) · production build green · all six signatures rendered through the REAL component (tsx + react-dom/server harness, not a copy) and verified in-browser: settled states + colors correct for mulberry/gold inks, animation choreography introspected via `getAnimations()` (durations/delays/stagger/infinite-foil all as designed), foil sheen caught mid-sweep on screenshot. Gating unchanged — WHICH motion is a free choice; WHETHER the hero animates stays bound to ANIMATED_MONOGRAM order ownership.
+
+**SPEC IMPACT:** Phase 1 of the 2026-06-11 monogram overhaul (Phase 2 = Setnayan-AI bespoke vector generator, separate PR). Corpus: DECISION_LOG rows + 0037 as-built correction to follow with Phase 2's corpus pass.
+
+## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
+
+**Context:** Phase 2 of the unification (`Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §3/§7). The faith vocabulary was a hardcoded 5-value CHECK with **no admin write control** — every admin-minted service was born faith-blind, the faith badge was read-only, and `Chinese`/`Jewish`/`Born Again` (in the app's `FaithKey` union) were untaggable in the DB. Storage stays **TITLE-CASE** (the marketplace compares `===`; lowercasing = the landmine).
+
+- **Migration `20261109000000_faith_vocab.sql`** (applied to prod): `faith_vocab` table (9 title-case keys: the 8 FaithKey values + `Civil` w/ `is_civil`; public read, admin write) · `canonical_service_taxonomy.faith` 5-value CHECK → **FK to faith_vocab** (widens the taggable set; delete-protects in-use keys; the 21 live tagged rows pass as-is — zero data mutation) · fail-loud validation.
+- **Re-seed durability:** edited the applied `20260803001000` seed — de-faithed the 4 food rows in VALUES + **dropped `faith = EXCLUDED.faith`** from `ON CONFLICT` so re-seeds can never clobber admin-set faith (fresh-rebuild correctness; prod unaffected).
+- **`lib/taxonomy.ts`:** exported `WEDDING_FAITH_KEYS`/`WeddingFaithKey` (client mirror of `faith_vocab`); `TaxonomyEntry['faith']` widened to it.
+- **`app/admin/taxonomy/actions.ts`:** `setServiceFaith` (vocab-validated, audit-logged, **dietary-guard** — refuses to faith-gate a dietary canonical, the 2026-06-11 de-faith lock) + optional vocab-validated `faith` in `createCanonicalLeaf`.
+- **`app/admin/taxonomy/page.tsx`:** the read-only faith Badge → an editable `ServiceFaithControl` dropdown on every service row (Universal + 9 faiths); faith select in the Advanced-add form; `FAITH_TONE` covers all 9 keys + fallback.
+- **`app/vendors/page.tsx`:** `FaithKey` now derives from the lib union (`Exclude<WeddingFaithKey,'Civil'>`) — future vocab drift fails typecheck; `passesReligionFilter` accepts the widened union; `crossFolderFaithCounts` covers `Civil`.
+- **Tests:** suite now reads `WEDDING_FAITH_KEYS` + a new title-case guard (6/6 green). `tsc --noEmit` clean.
+
+**Verified on prod:** 9 vocab rows · FK present · old CHECK gone · 21 tagged rows unchanged · RLS (read-all/admin-write) · smoke: `Born Again` now taggable, bogus faith rejected by FK, in-use vocab key delete-blocked, smoke updates rolled back.
+
+**Migration-slot note:** originally numbered `20261107000000` — collided with `push_subscriptions` (applied from another in-flight branch). Renamed to the next free slot `20261109000000` at apply time per the 2026-06-11 collision lesson.
+
+**SPEC IMPACT:** Faith reconciliation per the design doc (§3 fix, §7 Phase 2). → corpus design doc + `DECISION_LOG` 2026-06-11.
 ## 2026-06-11 · feat(papic): Camera Bridge core (C1+C2) + WiFi transport correction (0012)
 
 **Context:** Owner 2026-06-11 — Camera Bridge runs on THREE surfaces (Papic + Panood + Patiktok); "plan its build, in parallel if possible." The 18-agent build plan (corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`) found V1 is **Canon-only** (only CCAPI is a real mobile-WiFi capture API; Sony/Nikon have no mobile SDK, Fuji is Android-USB-only + warranty-void) and the real parallel axis is surfaces + now-vs-gated, not brands. This PR ships the first two now-track workstreams — the zero-hardware foundation everything else (brand adapters, surface sinks, pairing UI, native binary) plugs into.

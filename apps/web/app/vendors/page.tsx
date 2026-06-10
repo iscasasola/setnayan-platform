@@ -54,6 +54,7 @@ import {
   TILE_PARENT,
   type WeddingFolder,
   type WeddingTile,
+  type WeddingFaithKey,
   type TaxonomyEntry,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
@@ -700,7 +701,10 @@ function parseFilters(
  * INC stays uppercase as the label (it's an organization name —
  * Iglesia Ni Cristo) but the URL param is `inc` for consistency.
  */
-export type FaithKey = 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' | 'Chinese' | 'Jewish' | 'Born Again';
+// Derived from the canonical lib vocabulary (minus Civil — civil couples have
+// no faith pill; they simply see the universal set). Adding a faith to
+// WEDDING_FAITH_KEYS forces the URL/label maps below to be extended here.
+export type FaithKey = Exclude<WeddingFaithKey, 'Civil'>;
 const FAITH_URL_TO_KEY: Record<string, FaithKey> = {
   catholic: 'Catholic',
   christian: 'Christian',
@@ -2479,9 +2483,7 @@ async function CatalogView({
   const religionFilteringActive = matchEvent && matchableEvent !== null;
   const activeFaith: FaithKey | null =
     faithFilter ?? (religionFilteringActive ? (coupleFaith as FaithKey | null) : null);
-  const passesReligionFilter = (
-    meta: { faith?: 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' },
-  ): boolean => {
+  const passesReligionFilter = (meta: { faith?: WeddingFaithKey }): boolean => {
     if (activeFaith === null) return true;
     if (!meta.faith) return true;
     return meta.faith === activeFaith;
@@ -2696,7 +2698,7 @@ async function CatalogView({
   // couple still needs to see the Muslim chip if Muslim has underlying
   // tiles, so they can override into Muslim for context (interfaith
   // family events, sibling weddings, etc.).
-  const crossFolderFaithCounts: Record<FaithKey, number> = {
+  const crossFolderFaithCounts: Record<WeddingFaithKey, number> = {
     Catholic: 0,
     Christian: 0,
     INC: 0,
@@ -2705,6 +2707,9 @@ async function CatalogView({
     Chinese: 0,
     Jewish: 0,
     'Born Again': 0,
+    // Civil-tagged canonicals (civil officiants) are marketplace_hidden, so
+    // this stays 0 — present only to satisfy the widened faith union.
+    Civil: 0,
   };
   for (const row of schemas) {
     const meta = TAXONOMY_MAP[row.canonical_service];

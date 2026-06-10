@@ -97,6 +97,7 @@ import {
   ShoppingBag,
   Bell,
   SlidersHorizontal,
+  UserX,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -204,6 +205,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: "Setnayan AI abuse",
         href: '/admin/concierge-abuse',
         icon: Flag,
+      },
+      {
+        // Self-serve account-deletion request queue (App Store 5.1.1(v) /
+        // Google Play data-deletion). Couples + vendors file deletion requests
+        // from Profile → Privacy & data; an admin approves (runs the existing
+        // hard-delete / blacklist) or rejects within 24h.
+        key: 'account-deletions',
+        label: 'Account deletions',
+        href: '/admin/account-deletions',
+        icon: UserX,
+        matchPrefix: '/admin/account-deletions',
       },
       {
         // Two-admin (four-eyes) approval queue — §9.1. A different admin

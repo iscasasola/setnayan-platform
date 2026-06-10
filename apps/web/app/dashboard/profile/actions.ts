@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -111,14 +110,80 @@ export async function updatePersonalInfo(formData: FormData) {
 }
 
 /**
- * Soft-delete the current account (RA 10173 §16 right-to-erasure, V1 slice).
- * Sets users.deleted_at, signs the user out. Internal admins can un-delete
- * via Supabase dashboard until the admin console gains the action.
+ * File a self-serve account-deletion REQUEST (App Store guideline 5.1.1(v) +
+ * Google Play data-deletion requirement — a user must be able to *initiate*
+ * deletion from inside the app).
+ *
+ * Owner-locked design "Request + admin review ≤24h": this does NOT delete the
+ * account. It queues a `pending` row in account_deletion_requests; an admin
+ * approves (running the existing hard-delete / blacklist logic in
+ * app/admin/users/actions.ts) or rejects within 24h. Keeping a human in the
+ * loop preserves the business guard on active events / bookings / outstanding
+ * balances — the admin sees those before approving.
+ *
+ * A partial unique index (`...one_pending_per_user_idx`) blocks a second
+ * pending request; we surface that as a friendly message rather than a raw
+ * constraint error.
  */
-export async function softDeleteAccount(formData: FormData) {
+export async function requestAccountDeletion(formData: FormData) {
   const confirm = formData.get('confirm');
   if (typeof confirm !== 'string' || confirm !== 'DELETE') {
     return redirect('/dashboard/profile?error=Type+DELETE+to+confirm');
+  }
+
+  const reasonRaw = formData.get('reason');
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim().slice(0, 1000)
+      : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Insert under the user's own session — RLS policy `adr_user_insert_own`
+  // enforces user_id = auth.uid(), so the request is provably self-filed.
+  const { error } = await supabase.from('account_deletion_requests').insert({
+    user_id: user.id,
+    reason,
+  });
+
+  if (error) {
+    // Partial-unique-index violation = a pending request already exists. Treat
+    // it as a no-op success so re-submitting just shows the existing pending state.
+    if (
+      error.code === '23505' ||
+      error.message.toLowerCase().includes('duplicate') ||
+      error.message.includes('one_pending_per_user')
+    ) {
+      revalidatePath('/dashboard/profile');
+      return redirect('/dashboard/profile?deletion_requested=1#settings');
+    }
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Request account deletion',
+      file_path: 'app/dashboard/profile/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { userId: user.id, hasReason: reason !== null },
+    });
+    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}#settings`);
+  }
+
+  revalidatePath('/dashboard/profile');
+  redirect('/dashboard/profile?deletion_requested=1#settings');
+}
+
+/**
+ * Cancel the current user's OWN pending account-deletion request. RLS policy
+ * `adr_user_cancel_own` only lets a user move their own still-pending row to
+ * status='cancelled', so this is safe under the user's session.
+ */
+export async function cancelAccountDeletionRequest(formData: FormData) {
+  const requestId = formData.get('request_id');
+  if (typeof requestId !== 'string' || requestId.length === 0) {
+    return redirect('/dashboard/profile?error=Invalid+request#settings');
   }
 
   const supabase = await createClient();
@@ -127,22 +192,19 @@ export async function softDeleteAccount(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Use admin client so the update bypasses any user-row RLS edge cases.
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('users')
-    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
+  const { error } = await supabase
+    .from('account_deletion_requests')
+    .update({ status: 'cancelled' })
+    .eq('request_id', requestId)
+    .eq('user_id', user.id)
+    .eq('status', 'pending');
 
   if (error) {
-    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}#settings`);
   }
 
-  // Best-effort sign-out — sessions may still be valid until expiry, but the
-  // layout gate (added in this iteration) rejects deleted accounts on every
-  // request regardless of cookie state.
-  await supabase.auth.signOut();
-  redirect('/login?error=Account+deleted');
+  revalidatePath('/dashboard/profile');
+  redirect('/dashboard/profile?deletion_cancelled=1#settings');
 }
 
 export async function changePassword(formData: FormData) {

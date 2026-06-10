@@ -583,6 +583,9 @@ export async function commitOnboardingWedding(
     .map((v) => ({
       event_id: insertedEvent.event_id,
       category: 'misc' as const,
+      // 'misc' is exempt in the enum→tile bridge (no marketplace tile), so the
+      // taxonomy-keyed column is null (PR-2 dual-write, migration 20260815000000).
+      category_key: null,
       vendor_name: v.name.slice(0, 128),
       contact_email: v.email || null,
       notes: v.person || null,

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-10 · feat(taxonomy): dual-write event_vendors.category_key (enum→key migration · PR-2)
+
+**Context:** Step 2 of the `event_vendors.category` enum → taxonomy-keyed `category_key` migration (`Onboarding_Taxonomy_Driven_Spec_2026-06-04`). PR-1 (migration 20260815000000) added the nullable `category_key TEXT` FK → `service_categories(id)` + backfilled it; **nothing wrote it since**, so new rows left it stale. This PR dual-writes `category_key` on every new `event_vendors` row alongside the legacy `category` — the prerequisite for cutting readers (PR-3) and flipping the onboarding picker to the DB tree.
+
+- `lib/vendor-category-taxonomy.ts`: new `primaryTileForVendorCategory()` — couple-side enum → its PRIMARY tier-2 tile (bucket A/B → first tile · bucket C exempt → null), mirroring the migration's backfill semantics exactly.
+- Dual-write `category_key` at all **4** `event_vendors` insert sites:
+  1. `vendors/actions.ts` `createVendor` (host-manual add) — enum `category` → `primaryTileForVendorCategory(category)`.
+  2. `vendors/actions.ts` `finalizeVendor` auto-cascade batch — same, per row (+ `category_key` on the row type).
+  3. `onboarding/wedding/actions.ts` BYO-vendor seed — always `'misc'` (exempt) → `category_key: null`.
+  4. `vendors/_actions/unlock-category.ts` (marketplace add-a-category) — here `category` is a vendor_services **canonical** key, so tile = the live `getTaxonomy()` map (`tax.map[canonical]?.tile`). This path is *why* `event_vendors.category` holds mixed vocabularies (enum vs canonical); the keyed column resolves that.
+
+**Verification:** `tsc --noEmit` clean (whole web app); `next lint` clean on all 4 files. Supabase clients are untyped (no `<Database>` generic) so the insert shape is unconstrained — new values are `WeddingTile | null`. **Expand-phase-safe:** nothing reads `category_key` yet (PR-3), so a wrong derivation can't change user-facing behavior — it would only surface in the admin taxonomy drift checker. Legacy enum untouched → reversible.
+
+**SPEC IMPACT:** Advances `Onboarding_Taxonomy_Driven_Spec_2026-06-04` to PR-2-complete. No locked decision changed; no user-facing behavior change. → corpus `DECISION_LOG` 2026-06-10 (PR-2 dual-write landed; next = PR-3 cut readers).
+
 ## 2026-06-10 · refactor(admin/taxonomy): merge tree editor + canonical mapping into one tree
 
 **Context:** Owner 2026-06-10 — the `/admin/taxonomy` page had the skeleton editor ("Tree · edit/add/remove") and the canonical→tile mapping ("Folder N · …" viewers) as two separate sections you scrolled between. Combine them into one tree so each tile shows the services filed under it, re-fileable inline. Step 1 (admin UI) of the broader "every taxonomy consumer reads one source" effort; the consumer unification (couple plan builder / onboarding / budget off `PLAN_GROUPS` + the `vendor_category` enum) is the in-flight 4-PR `Onboarding_Taxonomy_Driven_Spec_2026-06-04` sequence — not touched here.

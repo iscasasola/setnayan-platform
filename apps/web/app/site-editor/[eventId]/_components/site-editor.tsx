@@ -190,16 +190,29 @@ export function SiteEditor(props: SiteEditorProps) {
         </Link>
         <span className="absolute right-3 top-4 z-30 flex items-center gap-1.5 rounded-full bg-ink/40 px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-cream backdrop-blur-sm">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
-          Live preview
+          {tab === 'settings' ? 'Live preview' : `Previewing · ${TAB_TITLE[tab]} page`}
         </span>
 
-        {tab === 'editorial' ? (
-          <PreviewSoon />
-        ) : publicLandingUrl ? (
+        {publicLandingUrl ? (
+          // Per-phase preview (owner 2026-06-11 "can you always preview that?"):
+          // the RSVP / Event / Editorial tabs load the public page with the
+          // matching `?phase=` override — honored because the couple's own
+          // session rides into the same-origin iframe (the [slug] page verifies
+          // host membership before honoring the param). Settings shows the
+          // real live page (whatever phase the calendar says). Keying by tab
+          // remounts the iframe on switch so each phase loads fresh.
           <iframe
-            key={`preview-${previewNonce}`}
-            title="Live preview of your wedding website"
-            src={publicLandingUrl}
+            key={`preview-${previewNonce}-${tab}`}
+            title={
+              tab === 'settings'
+                ? 'Live preview of your wedding website'
+                : `Preview of your ${TAB_TITLE[tab]} page`
+            }
+            src={
+              tab === 'settings'
+                ? publicLandingUrl
+                : `${publicLandingUrl}?phase=${tab}`
+            }
             className="pointer-events-none h-full w-full border-0 bg-white"
             sandbox="allow-scripts allow-same-origin"
             loading="lazy"
@@ -763,20 +776,8 @@ function editorialCards(): ReactNode[] {
 }
 
 /* ─────────────────────────── preview placeholders ─────────────────────────── */
-
-function PreviewSoon() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2.5 px-6 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta/15 text-terracotta [&_svg]:h-6 [&_svg]:w-6">
-        <Newspaper aria-hidden />
-      </span>
-      <p className="font-serif text-2xl italic">Your story, after the day</p>
-      <p className="max-w-[280px] text-[12px] leading-relaxed text-ink/55">
-        Your wedding editorial appears here once the celebration is over. Coming soon.
-      </p>
-    </div>
-  );
-}
+/* (PreviewSoon retired 2026-06-11 — the Editorial tab now previews the REAL
+   editorial page via the host-gated `?phase=editorial` override.) */
 
 function PreviewNoSlug({ eventId }: { eventId: string }) {
   return (

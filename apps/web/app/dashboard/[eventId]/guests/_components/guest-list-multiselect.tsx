@@ -107,14 +107,83 @@ type GuestSection = {
   guests: GuestRow[];
 };
 
-function buildSections(guests: GuestRow[], grouped: boolean): GuestSection[] {
-  if (!grouped) {
-    // Non-importance sort → one flat group (flat desktop table · uniform
-    // mobile grid), no tier headers.
+// How the list breaks into sections (redesign Phase 1 — driven by the sort
+// control): 'importance' = role-tier sections (default); 'side' = group by
+// which side of the couple; 'group' = group by custom group (couple pinned
+// first); 'flat' = one uniform section (name/rsvp/newest sorts).
+type GroupMode = 'importance' | 'side' | 'group' | 'flat';
+
+// groupKey (group mode only): guest_id → its first custom group {key,label},
+// precomputed by the caller from groupMemberships + groups.
+function buildSections(
+  guests: GuestRow[],
+  mode: GroupMode,
+  groupKey?: Map<string, { key: string; label: string }>,
+): GuestSection[] {
+  if (mode === 'flat' || (mode === 'group' && !groupKey)) {
+    // Flat sort (name / rsvp / newest) → one group, no tier headers.
     return [{ key: 'all', label: null, mobileCols: 'grid-cols-2', guests }];
   }
-  // `guests` is already importance-sorted, so bucketing preserves order within
-  // each tier. A guest buckets under their MOST important role (primary/extra).
+  if (mode === 'side') {
+    // Group by side. `guests` is already side-sorted with Bride #1 · Groom #2
+    // pinned (page sortCompare), so bride/groom stay first within their side
+    // section — the couple-pin holds. Bride's side renders first.
+    const order: GuestSide[] = ['bride', 'groom', 'both'];
+    return order
+      .map((side) => ({
+        key: `side-${side}`,
+        label: SIDE_LABELS[side],
+        mobileCols: 'grid-cols-2',
+        guests: guests.filter((g) => g.side === side),
+      }))
+      .filter((s) => s.guests.length > 0);
+  }
+  if (mode === 'group') {
+    // Group by custom group. Bride & Groom are pulled into a pinned leading
+    // section (preserves the couple-pin); everyone else buckets by their first
+    // custom group (alphabetical); the ungrouped trail at the end.
+    const couple: GuestRow[] = [];
+    const byKey = new Map<string, { label: string; guests: GuestRow[] }>();
+    const ungrouped: GuestRow[] = [];
+    for (const g of guests) {
+      if (importanceGroupOf([g.role, ...(g.extra_roles ?? [])]) === 'couple') {
+        couple.push(g);
+        continue;
+      }
+      const gk = groupKey!.get(g.guest_id);
+      if (!gk) {
+        ungrouped.push(g);
+        continue;
+      }
+      const bucket = byKey.get(gk.key);
+      if (bucket) bucket.guests.push(g);
+      else byKey.set(gk.key, { label: gk.label, guests: [g] });
+    }
+    const out: GuestSection[] = [];
+    if (couple.length)
+      out.push({
+        key: 'couple',
+        label: ROLE_GROUP_LABELS.couple,
+        mobileCols: 'grid-cols-2',
+        guests: couple,
+      });
+    for (const [key, v] of [...byKey.entries()].sort((a, b) =>
+      a[1].label.localeCompare(b[1].label),
+    )) {
+      out.push({ key: `grp-${key}`, label: v.label, mobileCols: 'grid-cols-2', guests: v.guests });
+    }
+    if (ungrouped.length)
+      out.push({
+        key: 'grp-none',
+        label: 'No group yet',
+        mobileCols: 'grid-cols-2',
+        guests: ungrouped,
+      });
+    return out;
+  }
+  // importance — role-tier sections. `guests` is already importance-sorted, so
+  // bucketing preserves order within each tier. A guest buckets under their
+  // MOST important role (primary/extra).
   const byGroup = new Map<SectionGroup, GuestRow[]>();
   for (const g of guests) {
     const grp = importanceGroupOf([g.role, ...(g.extra_roles ?? [])]);
@@ -132,14 +201,44 @@ function buildSections(guests: GuestRow[], grouped: boolean): GuestSection[] {
 }
 
 // Subtle tier label above each section (Bride & Groom / Wedding Party / …).
-function TierHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="mb-2 flex items-baseline gap-2">
+// When onToggle is provided the header becomes a collapse control (redesign
+// Phase 1) — a chevron that hides/shows the section's guests.
+function TierHeader({
+  label,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  label: string;
+  count: number;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
+  const labelEls = (
+    <>
       <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
         {label}
       </h3>
       <span className="text-[11px] text-ink/35">{count}</span>
-    </div>
+    </>
+  );
+  if (!onToggle) {
+    return <div className="mb-2 flex items-baseline gap-2">{labelEls}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={!collapsed}
+      className="mb-2 -ml-1 flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-ink/[0.03]"
+    >
+      <ChevronDown
+        className={`h-3.5 w-3.5 shrink-0 text-ink/40 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+        strokeWidth={2}
+        aria-hidden
+      />
+      {labelEls}
+    </button>
   );
 }
 
@@ -276,10 +375,10 @@ type Props = {
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
   photoDisplayUrls: Record<string, string>;
-  // When true (the importance sort — the default) the grid breaks into role-
-  // tier sections with owner-set densities (couple 2-up · roles 3-up · guests
-  // 4-up). Any other sort renders one uniform grid.
-  grouped: boolean;
+  // Which sectioning the list uses (redesign Phase 1) — derived from the sort
+  // control: 'importance' = role-tier sections (default), 'side' = group by the
+  // couple's side, 'flat' = one uniform grid (name / rsvp / newest sorts).
+  groupMode: GroupMode;
 };
 
 export function GuestListMultiselect({
@@ -290,7 +389,7 @@ export function GuestListMultiselect({
   groupMemberships,
   currentGroupId,
   photoDisplayUrls,
-  grouped,
+  groupMode,
 }: Props) {
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
@@ -299,6 +398,15 @@ export function GuestListMultiselect({
   // desktop grid keeps its always-interactive checkbox overlay.
   const { selectMode, ids: selectedIds, set: selectedSet } = useGuestSelection();
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
+  // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleSection = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const allIds = useMemo(() => guests.map((g) => g.guest_id), [guests]);
   const allSelected =
@@ -315,13 +423,27 @@ export function GuestListMultiselect({
   const toggleAll = () =>
     allSelected ? guestSelection.clear() : guestSelection.setAll(allIds);
 
-  // Tiered sections when grouped (the importance sort) — one per role tier in
-  // importance order, each with its own density; otherwise a single uniform
-  // grid. Built from the already-sorted `guests`, so order within a tier holds.
-  const sections = useMemo(
-    () => buildSections(guests, grouped),
-    [guests, grouped],
-  );
+  // Sections derived from the sort control (redesign Phase 1): role tiers
+  // (importance · default), by-side, or one flat grid. Built from the already-
+  // sorted `guests`, so order within a section holds + the couple-pin survives.
+  const sections = useMemo(() => {
+    let groupKey: Map<string, { key: string; label: string }> | undefined;
+    if (groupMode === 'group') {
+      // Each guest's first custom group (alphabetical) → section key + label.
+      groupKey = new Map();
+      for (const g of guests) {
+        let best: { key: string; label: string } | null = null;
+        for (const id of groupMemberships[g.guest_id] ?? []) {
+          const grp = groupsById[id];
+          if (!grp) continue;
+          if (!best || grp.label.localeCompare(best.label) < 0)
+            best = { key: id, label: grp.label };
+        }
+        if (best) groupKey.set(g.guest_id, best);
+      }
+    }
+    return buildSections(guests, groupMode, groupKey);
+  }, [guests, groupMode, groupMemberships, groupsById]);
 
   return (
     <div className="space-y-4">
@@ -389,11 +511,12 @@ export function GuestListMultiselect({
                       colSpan={7}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
-                      <TierHeader label={sec.label} count={sec.guests.length} />
+                      <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
                     </td>
                   </tr>
                 ) : null}
-                {sec.guests.map((guest) => (
+                {(!sec.label || !collapsed.has(sec.key)) &&
+                  sec.guests.map((guest) => (
                   <DesktopRow
                     key={guest.guest_id}
                     guest={guest}
@@ -418,8 +541,9 @@ export function GuestListMultiselect({
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (
-              <TierHeader label={sec.label} count={sec.guests.length} />
+              <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
             ) : null}
+            {!sec.label || !collapsed.has(sec.key) ? (
             <ul className={`grid gap-2 ${sec.mobileCols}`}>
               {sec.guests.map((guest) => (
                 <MobileGridItem
@@ -437,6 +561,7 @@ export function GuestListMultiselect({
                 />
               ))}
             </ul>
+            ) : null}
           </section>
         ))}
       </div>

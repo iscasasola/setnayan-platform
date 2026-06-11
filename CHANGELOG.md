@@ -12,9 +12,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`actions.ts`:** `updateTableLabel` strips control characters (NULL/newline/tab → space, whitespace collapsed) — they'd otherwise survive into the printed sign-sheet HTML.
 - **`tests/e2e/seating-logic.spec.ts` (NEW — the repo's first seating tests):** 20 pure-logic tests pinning the seat-plan engine in CI — `computeAutoSeat` (attending-only, idempotency, nearest-to-stage tiering, sweetheart skip, removed-chair + effective-capacity respect, plus-one adjacency, group contiguity, pool exhaustion), `removedSeatSet`/`effectiveCapacity`, `roleTier`, `tableGeometry` (all 11 catalog types), `rotatePoint`, `fitFloorTransform`, stats + default placement. Runs inside the existing Playwright job (no browser/server needed) — zero CI config change.
 
-**Verification:** all 20 tests pass locally (530ms) · `tsc` + `next lint` clean. One test initially over-asserted group clustering (same-table) vs the documented contract (contiguous fill order → same/neighbouring tables) — test corrected to pin the real guarantee; whole-group same-table packing noted as a future enhancement, not silently changed.
+**Verification:** all 20 tests pass locally · `tsc` + `next lint` clean. One test initially over-asserted group clustering (same-table) vs the documented contract (contiguous fill order → same/neighbouring tables) — test corrected to pin the real guarantee; whole-group same-table packing noted as a future enhancement, not silently changed.
 
 **SPEC IMPACT:** None (behavior-preserving fixes + tests). The deferred findings (occupantsFor null-seat UI drift · 0-capacity table edge · 44px chair targets · belt-and-braces IDOR validation · list-view actions reachability) are logged here as the known-backlog for the next editor slice.
+
+## 2026-06-11 · feat(guests): dashboard redesign — multi-view shell + mind-map editor (PR #1227)
+
+**Context:** Owner 2026-06-10/11 — "redesign the whole customer-dashboard-guests according to our plan" (List default + Map a tap away · rework the list · responsive both · a Build→Invite→Confirm→Seat→Day-of lifecycle). Built in safe increments over the 1286-line `guest-list-multiselect.tsx` + the page, each mapped + adversarially reviewed first; every locked behavior preserved (focus-mode X, "mobile top = just the list", carousel controls, importance sort, couple-pinning, the `guestSelection` bulk-select store).
+
+- **Lifecycle ribbon** (`_components/lifecycle-ribbon.tsx`) — desktop chrome; Confirm badges the pending invite-claims count.
+- **View switcher** (`_components/view-switcher.tsx`) — `?gview=list|map` (SSR, shareable). Map is desktop-gated; mobile always renders the list (a phone with a `gview=map` URL still gets the list).
+- **Reworked list** — `buildSections()` gains a `groupMode` ('importance'|'side'|'group'|'flat') driven by the existing sort control, so Side/Group sorts now SECTION the list (couple pinned first in group mode); **collapsible** tier sections.
+- **Mind-map editor** (`_components/guest-mind-map.tsx`, `map-actions.ts`) — `gview=map`: one tree, two lenses (Side+group · Entourage with sponsors as PEERS of the wedding party), desktop node/edge canvas + mobile accordion (DFS-ordered), inline `+` creates REAL records via `quickAddGuest` + new `mapAddGroup`/`mapAddPlusOne` (user-client, RLS-gated). **No new tables.**
+- **Mobile carousel** (`mobile-guest-carousel.tsx`) — 5th "Journey" panel (lifecycle + List/Map switch); Customize gated to a "switch to list" hint in map mode.
+- `guestDisplayName` widened to a `Pick<>` so the page can hand the map a slim `GuestMapRow` projection (no qr_token/email over the wire).
+
+**Verification:** real `next build` (exit 0) · full `tsc` · `next lint` on every increment. **3 adversarial-review workflows** (P1 list · P1 integration · P2 map+journey) — all findings fixed (mobile-tree DFS scramble, desktop inline-editor overlap, commit Enter+blur double-fire, map-mode bulk-select gate, `mapAddPlusOne` silent zero-row, idempotent group create). **Browser-driven on the preview** as `couple.test` (280-guest fixture): both lenses render; `+` DB-confirmed a real guest + its group membership (round-trip), test guest cleaned up after.
+
+**SPEC IMPACT:** UX redesign of iteration 0001/0021 guest dashboard (multi-view + mind-map editor). No schema change. → corpus `DECISION_LOG` 2026-06-11 (Phase 1+2; Phase 3 = deeper lifecycle integration + day-of check-in desk + deferred progress-bar/row-polish, not built).
 
 ## 2026-06-11 · feat(vendors): Build tab "What's fixed?" pin modes — Pin solver Phase 3a
 

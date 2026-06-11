@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1c — two-finger rotate + desktop rotate handle (0008)
+
+**Context:** Owner 2026-06-10/11 — "use two fingers to turn the tables" + "maximize multi-finger gestures." Touch gets the full twist gesture; mouse/trackpad get the on-screen handle (trackpad rotation is Safari-only per the cross-platform gesture research, so the handle is the universal fallback).
+
+- **Two-finger rotate (touch):** a second finger landing during a table drag CONVERTS the drag into a rotation — Δangle between the two pointers, shortest-arc wrap, **~6° dead-zone** (a pinch that brushes a table never nudges it), live preview snapped to 15° via the existing optimistic `rotById` path, **one commit on release** (`commitRotation` → `updateTableRotation`). Plumbing: `onHubPointerDown` now registers its pointer in `pointersRef`; `onCanvasPointerDown`'s `if (dragRef) return` became the rotate-init branch; the move handler gained branch 0 (rotate) ahead of drag/pinch/pan; background two-finger pinch-zoom is untouched.
+- **Desktop rotate handle:** a circular handle on the opposite side of the table from the popup — drag in a circle to rotate, **15° snaps, hold Shift for 1°**. Pointer-captured on the handle; commits once on release.
+- Rotation persists at 1° granularity (the server already normalises 0–359); the ±15° popup buttons are unchanged.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · CI gates. Gesture feel is physical — verify on a touch device + desktop on the Vercel preview.
+
+**SPEC IMPACT: REVERSES the 0008 lock "no continuous rotation / keep V1 spatial editing dumb"** (spec § Stack line ~488) — owner-directed 2026-06-10 ("two fingers to turn the tables", "maximize multi-finger gestures"). → corpus `DECISION_LOG` row + 0008 AS-BUILT note this session.
+
 ## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
 
 **Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").

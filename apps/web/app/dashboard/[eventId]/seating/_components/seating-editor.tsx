@@ -504,6 +504,47 @@ export function SeatingEditor({
   // The table's current orientation (optimistic override → row default).
   const rotationOf = (t: EventTableRow) => rotById[t.table_id] ?? t.rotation_deg ?? 0;
 
+  // --- continuous rotation (two-finger twist + the desktop rotate handle) ----
+  // Two-finger: first finger starts a table drag; when a SECOND finger lands,
+  // the drag converts into a rotate gesture (Δangle between the two pointers).
+  // A ~6° dead-zone stops an intended pinch from nudging the table. The live
+  // angle previews via rotById (same optimistic path the rotate buttons use)
+  // and commits once on release.
+  const rotateGestureRef = useRef<{
+    tableId: string;
+    startAngle: number;
+    startRot: number;
+    latched: boolean;
+    latest: number;
+  } | null>(null);
+  // Desktop fallback: a handle above the selected table dragged in a circle.
+  // cx/cy = the table centre in client coords, frozen at handle-grab.
+  const handleRotRef = useRef<{
+    tableId: string;
+    cx: number;
+    cy: number;
+    startAngle: number;
+    startRot: number;
+    latest: number;
+  } | null>(null);
+
+  const angleDeg = (cx: number, cy: number, px: number, py: number) =>
+    (Math.atan2(py - cy, px - cx) * 180) / Math.PI;
+  const normDeg = (d: number) => ((Math.round(d) % 360) + 360) % 360;
+  const snapDeg = (d: number, step: number) => normDeg(Math.round(d / step) * step);
+
+  // Persist a final orientation exactly (1° granularity — unlike the ±15°
+  // buttons, a continuous gesture may land on a fine angle via Shift).
+  const commitRotation = (tableId: string, deg: number) => {
+    const next = normDeg(deg);
+    setRotById((m) => ({ ...m, [tableId]: next }));
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', tableId);
+    fd.set('rotation_deg', String(next));
+    startTransition(() => updateTableRotation(fd));
+  };
+
   // Rotate a table by `delta` degrees (or to an absolute angle). Snaps to 15°,
   // updates instantly, persists. Rotation is what lets wedges/banquets connect.
   const rotateTable = (t: EventTableRow, delta: number, absolute = false) => {
@@ -698,6 +739,9 @@ export function SeatingEditor({
     e.preventDefault();
     dragRef.current = { kind: 'table', id: t.table_id, sx: e.clientX, sy: e.clientY, moved: false };
     setDragId(t.table_id);
+    // Tracked in pointersRef too, so a SECOND finger landing on the canvas can
+    // pair with this one and convert the drag into a two-finger rotate.
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -736,9 +780,32 @@ export function SeatingEditor({
   };
 
   // Background drag pans; two fingers pinch-zoom. A table-hub drag (dragRef set)
-  // takes precedence and is handled in the move branch below.
+  // takes precedence and is handled in the move branch below. A second finger
+  // landing DURING a table drag converts it into a two-finger ROTATE of that
+  // table (touch parity with the desktop rotate handle).
   const onCanvasPointerDown = (e: React.PointerEvent) => {
-    if (dragRef.current) return;
+    const d = dragRef.current;
+    if (d) {
+      if (d.kind !== 'table') return; // stage/entrance: ignore extra fingers
+      const first = pointersRef.current.get([...pointersRef.current.keys()][0] ?? -1);
+      if (!first || pointersRef.current.size !== 1) return;
+      const t = tables.find((x) => x.table_id === d.id);
+      if (!t) return;
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      canvasRef.current?.setPointerCapture(e.pointerId);
+      rotateGestureRef.current = {
+        tableId: d.id,
+        startAngle: angleDeg(first.x, first.y, e.clientX, e.clientY),
+        startRot: rotationOf(t),
+        latched: false,
+        latest: rotationOf(t),
+      };
+      // The drag is over — the gesture is now a rotation.
+      dragRef.current = null;
+      panStartRef.current = null;
+      pinchRef.current = null;
+      return;
+    }
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -762,6 +829,28 @@ export function SeatingEditor({
 
   const onCanvasPointerMove = (e: React.PointerEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    // 0) two-finger rotate of a table — Δangle between the two pointers, with
+    // a ~6° dead-zone so a pinch that brushes a table doesn't nudge it. Live
+    // preview through rotById (snapped to 15°); committed once on release.
+    const rg = rotateGestureRef.current;
+    if (rg && pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      const cur = angleDeg(pts[0]!.x, pts[0]!.y, pts[1]!.x, pts[1]!.y);
+      let delta = cur - rg.startAngle;
+      // shortest-arc wrap so crossing ±180° doesn't spin the table
+      delta = ((delta + 540) % 360) - 180;
+      if (!rg.latched && Math.abs(delta) < 6) return;
+      rg.latched = true;
+      const next = snapDeg(rg.startRot + delta, 15);
+      if (next !== rg.latest) {
+        rg.latest = next;
+        setRotById((m) => ({ ...m, [rg.tableId]: next }));
+      }
+      return;
+    }
     // 1) dragging a table hub (zoom/pan-aware: screen px → world %)
     const d = dragRef.current;
     if (d) {
@@ -791,9 +880,6 @@ export function SeatingEditor({
       return;
     }
     if (!rect) return;
-    if (pointersRef.current.has(e.pointerId)) {
-      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
     // 2) pinch-zoom
     if (pinchRef.current && pointersRef.current.size >= 2) {
       const pts = [...pointersRef.current.values()];
@@ -812,6 +898,13 @@ export function SeatingEditor({
   };
 
   const onCanvasPointerUp = (e?: React.PointerEvent) => {
+    // End of a two-finger rotate: persist the final angle once (only if it
+    // actually latched past the dead-zone) when either finger lifts.
+    const rg = rotateGestureRef.current;
+    if (rg) {
+      rotateGestureRef.current = null;
+      if (rg.latched && rg.latest !== rg.startRot) commitRotation(rg.tableId, rg.latest);
+    }
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
@@ -1893,7 +1986,55 @@ export function SeatingEditor({
               top = cy + halfH + 12;
             }
             const left = Math.max(10, Math.min(rect.width - 10, cx));
+            // Rotate handle sits on the OPPOSITE side of the table from the
+            // popup (below when the popup is above, and vice-versa). Drag it in
+            // a circle to rotate — 15° snaps, hold Shift for 1° fine-tuning.
+            const handleTop = below ? cy - halfH - 24 : cy + halfH + 24;
             return (
+              <>
+              <button
+                type="button"
+                aria-label="Rotate table — drag in a circle (hold Shift for 1° steps)"
+                title="Drag to rotate · Shift = fine"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                  handleRotRef.current = {
+                    tableId: st.table_id,
+                    cx: rect.left + cx,
+                    cy: rect.top + cy,
+                    startAngle: angleDeg(rect.left + cx, rect.top + cy, e.clientX, e.clientY),
+                    startRot: rotationOf(st),
+                    latest: rotationOf(st),
+                  };
+                }}
+                onPointerMove={(e) => {
+                  const h = handleRotRef.current;
+                  if (!h) return;
+                  e.stopPropagation();
+                  let delta = angleDeg(h.cx, h.cy, e.clientX, e.clientY) - h.startAngle;
+                  delta = ((delta + 540) % 360) - 180;
+                  const next = snapDeg(h.startRot + delta, e.shiftKey ? 1 : 15);
+                  if (next !== h.latest) {
+                    h.latest = next;
+                    setRotById((m) => ({ ...m, [h.tableId]: next }));
+                  }
+                }}
+                onPointerUp={(e) => {
+                  const h = handleRotRef.current;
+                  handleRotRef.current = null;
+                  if (h && h.latest !== h.startRot) commitRotation(h.tableId, h.latest);
+                  e.stopPropagation();
+                }}
+                onPointerCancel={() => {
+                  handleRotRef.current = null;
+                }}
+                className="absolute z-40 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta shadow-sm hover:bg-terracotta/10 active:cursor-grabbing"
+                style={{ left, top: handleTop }}
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+              </button>
               <div
                 onPointerDown={(e) => e.stopPropagation()}
                 className="absolute z-40 flex w-max max-w-[22rem] flex-col gap-1.5 rounded-xl border border-ink/15 bg-cream/95 px-1.5 py-1 shadow-lg backdrop-blur-sm"
@@ -1990,6 +2131,7 @@ export function SeatingEditor({
                   />
                 ) : null}
               </div>
+              </>
             );
           })()}
         </div>

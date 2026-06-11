@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { fetchGuestQuota } from '@/lib/papic-guest';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
+import { screenCapture } from '@/lib/nsfw-screen';
 
 // POST /api/papic/guest-capture
 //
@@ -112,6 +113,17 @@ export async function POST(req: Request) {
   };
 
   if (result.status === 'ok') {
+    // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs
+    // in the BACKGROUND with after() so the shutter stays instant. We already
+    // hold the JPEG bytes, so no R2 round-trip. Fail-open: any classifier error
+    // leaves the row 'unscreened' and the photo flows normally.
+    after(() =>
+      screenCapture({
+        table: 'papic_guest_captures',
+        r2ObjectKey: r2Ref,
+        bytes,
+      }).catch(() => {}),
+    );
     // Auto-sync this guest capture into the couple's Google Drive (Phase 2),
     // cron-free: enqueue the artifact, then copy it in the BACKGROUND with
     // after() so the response returns immediately. No-op until Drive is

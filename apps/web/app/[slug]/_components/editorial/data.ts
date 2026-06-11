@@ -478,13 +478,20 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const servicesSetnayan = firstPickDen; // count of event_vendors = services planned with Setnayan
 
   // 5. Photos delivered (best-effort; omit if the count can't be had cheaply).
+  // PUBLIC surface → exclude moderation-withheld captures (NSFW screen +
+  // consent/faceblock verdicts). 'unscreened' still counts (fail-open).
   let photos: number | null = null;
   try {
     const { count, error } = await admin
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .is('hidden_at', null);
+      .is('hidden_at', null)
+      .not(
+        'moderation_state',
+        'in',
+        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+      );
     if (!error && typeof count === 'number') photos = count;
   } catch {
     photos = null;
@@ -496,11 +503,20 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const heroPhotoId = asString(editorial?.hero_photo_id);
   if (heroPhotoId) {
     try {
+      // PUBLIC surface → a moderation-withheld capture never renders as the
+      // hero, even if the couple picked it before the screen finished. The
+      // couple can restore it via the moderation page's "Approve" override
+      // (sets 'clean'), after which it resolves again.
       const { data: photoRow } = await admin
         .from('papic_photos')
         .select('r2_object_key, photo_type')
         .eq('photo_id', heroPhotoId)
         .eq('event_id', eventId)
+        .not(
+          'moderation_state',
+          'in',
+          '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+        )
         .maybeSingle();
       const key = asString((photoRow as Record<string, unknown> | null)?.r2_object_key);
       const ptype = asString((photoRow as Record<string, unknown> | null)?.photo_type);

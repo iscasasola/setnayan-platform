@@ -4,6 +4,8 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { buildEventLandingUrl, renderEventLandingQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SiteEditor } from './_components/site-editor';
 
@@ -57,7 +59,7 @@ export default async function SiteEditorPage({
   // event slug — stays sequential. Net: 6 sequential awaits → 2 phases, so the
   // Website tab (this route, outside the dashboard layout) reaches its editor
   // faster behind PR #892's BoardPageSkeleton loading shell.
-  const [membershipRes, eventRes, guests, ordersRes] = await Promise.all([
+  const [membershipRes, eventRes, guests, ordersRes, backdropRes] = await Promise.all([
     supabase
       .from('event_members')
       .select('member_type')
@@ -66,7 +68,9 @@ export default async function SiteEditorPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, slug, monogram_text, monogram_color')
+      .select(
+        'event_id, display_name, event_date, slug, monogram_text, monogram_color, landing_page_hero_image_url',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
@@ -80,6 +84,14 @@ export default async function SiteEditorPage({
       .eq('event_id', eventId)
       .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
       .not('status', 'in', '("cancelled","refunded","lapsed")'),
+    // Spatial backdrop pick — SEPARATE tolerant select (not a column on the
+    // main events read) so a DB where migration 20261105000000 hasn't applied
+    // degrades to "backdrop off" instead of erroring the whole editor fetch.
+    supabase
+      .from('events')
+      .select('rsvp_backdrop')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
 
   const { data: membership, error: membershipError } = membershipRes;
@@ -116,6 +128,14 @@ export default async function SiteEditorPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  // Hero photo (Increment: inline Hero editing, PR #1 of the "edit on the page"
+  // rebuild). Resolve the stored r2:// ref to a presigned 24h GET URL so the
+  // editor can show the current photo + the live preview reflects it. Null =
+  // monogram-only fallback. Mirrors the resolution in app/[slug]/page.tsx.
+  const heroPhotoUrl = await displayUrlForStoredAsset(
+    event.landing_page_hero_image_url ?? null,
+  );
+
   // Graceful-degrade to empty (cards show their Upgrade CTA) on a pre-bootstrap
   // DB where the orders table is missing — never crash.
   if (ordersRes.error) {
@@ -126,6 +146,14 @@ export default async function SiteEditorPage({
     status: string;
   }[];
 
+  // Pre-migration DBs (or any read error) → null = "backdrop off" in the
+  // editor, mirroring the public page's graceful degrade.
+  const rsvpBackdrop = backdropRes.error
+    ? null
+    : parseRsvpBackdropConfig(
+        (backdropRes.data as { rsvp_backdrop?: unknown } | null)?.rsvp_backdrop,
+      );
+
   return (
     <SiteEditor
       eventId={eventId}
@@ -135,6 +163,8 @@ export default async function SiteEditorPage({
       masterQrSvg={masterQrSvg}
       stats={{ attending: stats.attending, pending: stats.pending, declined: stats.declined }}
       ownedOrders={ownedOrders}
+      heroPhotoUrl={heroPhotoUrl}
+      rsvpBackdrop={rsvpBackdrop}
     />
   );
 }

@@ -20,6 +20,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Revives + supersedes iteration 0037 (Bespoke Monogram) — DALL-E-raster+vectorizer plan → native-SVG via Recraft, refinement-pack SKU model dropped (round cap instead, pricing batched to the holistic review). RECRAFT_API_KEY becomes an optional RUNTIME dependency (studio self-hides when unset). Corpus: DECISION_LOG rows + a 0037 as-built correction header to follow.
 
+## 2026-06-11 · feat(website): spatial RSVP backdrop — AI-generated world with scroll-through depth
+
+**Context:** Owner directive (full authority, "make sure this works"): the RSVP page can sit inside an **AI-generated world** — as guests scroll, layered scene imagery moves with parallax push-in and crosses a **spatial seam into a second space** (explicitly NOT Keynote-style transitions and NOT the love-story clips — an ambient backdrop for the whole RSVP phase; owner correction 2026-06-11). Spec: corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` §2.1b.
+
+- **`lib/spatial-backdrop.ts` (new, pure TS):** theme registry (2 launch worlds: Gilded Dusk · Capiz Glow, each 2 scenes × far-scene + screen-blend glow layer), `parseRsvpBackdropConfig` (strict on theme, forgiving on intensity, null on junk), and the scroll math — `computeLayerState` (push-in scale + parallax rise + cross-scene crossfade seam), `sceneWindows`, `smoothstep`. React-free so the math is directly unit-tested.
+- **`app/_components/spatial-backdrop.tsx` (new):** fixed full-viewport renderer — rAF-coalesced passive scroll → imperative transform/opacity writes (zero re-renders/frame, compositor-only), SSR-correct p=0 first paint, `prefers-reduced-motion` → static, aria-hidden + pointer-events-none, scene-0 eager / rest lazy.
+- **`app/[slug]/page.tsx`:** tolerant separate read of `events.rsvp_backdrop` (pre-migration DB degrades to "off" instead of 404ing the wedding page); backdrop renders in RSVP era only (`pre`/`inactive` day-of phases — live day stays lean for venue WiFi); `InvitationShell` gains a `backdrop` prop — content floats on a translucent **vellum panel** (≥88% cream = legibility guarantee; backdrop-blur only ≥sm for low-end phones).
+- **`site-editor`:** new RSVP-tab "Living backdrop" card + inline `BackdropEditSheet` (registry-driven theme picker with thumbnails · Subtle/Standard/Lavish motion words · Turn off), server actions `saveRsvpBackdrop`/`clearRsvpBackdrop` (theme re-validated against the registry — DB never stores asset URLs).
+- **Migration `20261110000000_rsvp_spatial_backdrop.sql` (applied to prod):** `events.rsvp_backdrop JSONB NULL`; additive + idempotent; no new RLS (host-scoped UPDATE already covers it). *(Ledger note: remote had `20261109000000` from another session's unmerged branch — pushed via a local-only stub for the ledger comparison, deleted after; only this migration was applied.)*
+- **Assets `public/spatial/` (676KB total):** generated with Recraft v3, recompressed via sharp (q62–68 WebP), human-reviewed — two raw generations contained AI people; one re-generated with upward-camera framing, one top-cropped to the sky band. Provenance README included.
+
+**Verification:** `tsc --noEmit` + `next lint` clean · GitHub CI fully green (production build · playwright e2e · bundle size · lighthouse · migration guard · macOS+Windows) · **10/10 pure-math Playwright invariants** (bounds, monotonic push-in, seam-never-blank, B-hidden-pre-seam, parser fuzz, registry shape) · **end-to-end on the Vercel preview against prod DB** (couple.test → Living backdrop → Gilded Dusk saved → row written → editor shows On) · **live scroll motion verified in a real browser**: layer transforms at p=0.30/0.53/0.85 match the math to 3 decimals, seam keeps ≥0.95 combined visibility, fully reversible, zero console errors, screenshots at all three journey legs. *(Initial Vercel preview build failed on a container OOM — environmental; same-commit redeploy succeeded.)* **Watch-item (pre-existing, tracked separately):** under the 0031 PWA service worker, a cold STREAMED `/[slug]` render can leave an invisible duplicated tree in React's `#S:0` streaming container (server HTML always correct; prod unaffected via warm ISR).
+
+**SPEC IMPACT:** Implements spec §2.1b (spatial backdrop); §2.1a (multi-clip journey) marked SUPERSEDED/PARKED per the owner correction — both edits + DECISION_LOG rows applied in the corpus 2026-06-11.
+
+## 2026-06-11 · feat(website): inline "edit on the page" Hero editing in /site-editor (PR #1)
+
+**Context:** Owner session designing the customer wedding-website rebuild (corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`). Today `/site-editor/[eventId]` is a *launcher* — its cards deep-link OUT to standalone `/website/*` sub-editors, so the couple leaves the live preview to edit anything. This is PR #1 of turning it into a real "edit on the page" editor: the Hero card now edits **inline** (bottom sheet on mobile / right-rail panel on desktop) without navigating away. Establishes the pattern the other sections fold into next.
+
+- **`site-editor/[eventId]/actions.ts` (new):** editor-local `saveHeroPhoto` / `clearHeroPhoto` — same DB write + `requireHostMembership` guard as `website/hero-photo/actions.ts`, but **revalidate the editor in place and return void** (no redirect-out) so the couple stays on the preview.
+- **`site-editor/[eventId]/page.tsx`:** fetch `landing_page_hero_image_url`, resolve via `displayUrlForStoredAsset`, pass `heroPhotoUrl` to the editor.
+- **`_components/site-editor.tsx`:** inline-edit shell — `editing` state + `HeroEditSheet` (reuses the shared `<FileUpload>` → R2 + the editor-local actions); a `CardButton` opens the sheet; the Hero card swaps its deep-link for it; after a save, `router.refresh()` + a `previewNonce`-keyed iframe remount reload the live preview. a11y: labelled dialog, Esc + backdrop close, ≥44px targets.
+
+**Verification:** typecheck + lint green on CI (PR #1233). No schema change (reuses existing `events.landing_page_hero_image_*` columns).
+
+**SPEC IMPACT:** Implements §1 (inline "edit on the page" model) of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` for the Hero section — the proof pattern. Logged in `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(taxonomy): couple-side shared filters — mixed-faith union + civil + event-type gate
 
 **Context:** Phase 3 wiring of the unification design (§3 SET rewrite + §2 event applicability, couple side). Three live gaps closed: (1) the catalog faith filter was **scalar** (primary rite only) — a Mixed Cath+Muslim couple never saw the Muslim rite's specialist services even though `secondary_ceremony_type` was already threaded; (2) **civil couples saw all faith-tagged services** — the code contradicted its own documented intent ("civil couples keep faith-tagged tiles hidden"); (3) the dashboard category search applied **no taxonomy-level faith or event-type filter at all**.
@@ -60,6 +87,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only) · production build green · all six signatures rendered through the REAL component (tsx + react-dom/server harness, not a copy) and verified in-browser: settled states + colors correct for mulberry/gold inks, animation choreography introspected via `getAnimations()` (durations/delays/stagger/infinite-foil all as designed), foil sheen caught mid-sweep on screenshot. Gating unchanged — WHICH motion is a free choice; WHETHER the hero animates stays bound to ANIMATED_MONOGRAM order ownership.
 
 **SPEC IMPACT:** Phase 1 of the 2026-06-11 monogram overhaul (Phase 2 = Setnayan-AI bespoke vector generator, separate PR). Corpus: DECISION_LOG rows + 0037 as-built correction to follow with Phase 2's corpus pass.
+## 2026-06-11 · fix(seeds): admin.test gets account_type='admin' — is_admin() RLS finally passes for the test admin
+
+**Context:** the seeded `admin.test@setnayan.com` had `account_type='customer'` + `is_team_member=true`. The `/admin` layout gate (is_internal OR is_team_member OR account_type='admin') admitted it, but the SQL `public.is_admin()` helper checks ONLY `account_type='admin'` — so every is_admin() RLS policy returned empty for the test admin, making admin RLS paths untestable (caught 2026-06-11 while prod-verifying the account-deletion queue policies).
+
+- **`scripts/seed-test-accounts.sql`:** step-3 role tweak now also sets `account_type='admin'` for admin.test. `is_internal` stays FALSE on purpose — that flag carries §10a payment-skip semantics that must not silently attach to a test account.
+- **Prod:** the same one-row UPDATE applied directly (data fix, no migration); verified `is_admin()` → TRUE for admin.test via RLS simulation.
+- ⚠️ Surfaced for owner: the test password is hardcoded in this script and the account now passes is_admin() — consider rotating the test password to an env-supplied value (owner decision; app-level admin access already existed via is_team_member, so the marginal exposure is the direct-RLS read path).
+
+**SPEC IMPACT:** None (test fixture). Memory `project_setnayan_test_accounts` updated.
 
 ## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
 
@@ -78,6 +114,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Migration-slot note:** originally numbered `20261107000000` — collided with `push_subscriptions` (applied from another in-flight branch). Renamed to the next free slot `20261109000000` at apply time per the 2026-06-11 collision lesson.
 
 **SPEC IMPACT:** Faith reconciliation per the design doc (§3 fix, §7 Phase 2). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): NSFW screening engine — the Apple 1.2 "filter" leg, always on (0012/0031)
+
+**Context:** Apple guideline 1.2 (UGC) requires filter + report + block. Report + block shipped in PR #1230; the corpus claimed an NSFW filter existed but it was **not in the capture path** — this builds it. Corpus hard constraint honored: on by default, no toggle anywhere.
+
+- **`lib/nsfw-screen.ts`** (new): nsfwjs (quantized MobileNetV2-mid) on pure-JS `@tensorflow/tfjs` (NOT tfjs-node — native bindings break on Vercel) + `sharp` decode (already a dep). Model **self-hosted**: ~4.4 MB committed under `apps/web/models/nsfw/`, read via a custom node:fs `tf.io.IOHandler`, traced into every serverless function via `outputFileTracingIncludes` ('/**' — server actions can execute under any route's lambda). Module-level cache: a warm lambda loads once (~2.8 s cold incl. classify, per the smoke script).
+- **Decision (`decideNsfw`, unit-tested 14/14):** block at Porn ≥ 0.7 OR Hentai ≥ 0.75 OR Porn+Hentai ≥ 0.8. **"Sexy" alone NEVER blocks** — weddings are full of dancing/gowns/beachwear. Thresholds are named exports.
+- **No migration:** verdicts land in the EXISTING `moderation_state` column (Salamisim P0, 20261104000959): 'unscreened' → 'clean' | 'nsfw_blocked'. The UPDATE matches only rows still 'unscreened' — a couple's override is never clobbered by a late background screen. **Fail-open:** any error (model/R2/decode/clip) leaves 'unscreened' + one console.warn; a capture is never lost to a classifier hiccup. `papic_photos.photo_type='clip'` skipped (image-only classifier).
+- **Hooks (both capture funnels, `after()` so the shutter stays instant):** guest camera (`/api/papic/guest-capture` — bytes already in hand, no R2 round-trip) + paparazzi seat (`recordSeatCapture` — fetches back from R2 via `readR2Object` on the stored `r2://` ref).
+- **Display gates (guest/public only):** `[slug]` editorial photo count + hero-photo resolution now exclude `('nsfw_blocked','consent_withheld','faceblock_withheld')` — forward-compatible with the Salamisim P1 consent/faceblock verdicts. 'unscreened' still shows (fail-open). Couple + admin surfaces keep seeing everything.
+- **Couple override UI:** the `#1230` moderation page gains a "Filtered by the content screen" section (both capture tables) with **"Approve — show this photo"** → sets 'clean' (couple-authorized action; same auth pattern as the existing moderation actions). Screening itself stays always-on.
+- **`scripts/nsfw-smoke.mjs`** (new): generates a synthetic neutral JPEG with sharp, loads the committed model, classifies, prints scores + decision — proves the fs-IOHandler + sharp + tfjs pipeline in plain Node. Latest run: Neutral 89.74% → clean, 2771 ms cold.
+
+**Verification:** unit 14/14 · smoke OK · `tsc` clean · lint 0 errors · `migration:check` 305 unique (no migration) · production build OK (model traced). Residual: first live-capture screen lands a real verdict — check `/dashboard/[eventId]/add-ons/papic/moderation` after the next capture.
+
+**SPEC IMPACT:** Builds the filter the corpus already claimed (0012 §NSFW + the privacy hard-constraint line). Salamisim P1's wall gate chain can now consume real `moderation_state` verdicts. → DECISION_LOG 2026-06-11.
+
 ## 2026-06-11 · feat(papic): Camera Bridge core (C1+C2) + WiFi transport correction (0012)
 
 **Context:** Owner 2026-06-11 — Camera Bridge runs on THREE surfaces (Papic + Panood + Patiktok); "plan its build, in parallel if possible." The 18-agent build plan (corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`) found V1 is **Canon-only** (only CCAPI is a real mobile-WiFi capture API; Sony/Nikon have no mobile SDK, Fuji is Android-USB-only + warranty-void) and the real parallel axis is surfaces + now-vs-gated, not brands. This PR ships the first two now-track workstreams — the zero-hardware foundation everything else (brand adapters, surface sinks, pairing UI, native binary) plugs into.

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
+import { screenCapture } from '@/lib/nsfw-screen';
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -132,6 +133,16 @@ export async function recordSeatCapture(
   if (insertError) {
     return { ok: false, error: insertError.message.slice(0, 80) };
   }
+
+  // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in
+  // the BACKGROUND with after() so the camera stays responsive. The bytes are
+  // already in R2 (client PUT via /api/upload), so the screen fetches them back
+  // by the stored r2:// ref. Fail-open: any error leaves the row 'unscreened'.
+  after(() =>
+    screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(
+      () => {},
+    ),
+  );
 
   // Auto-sync this capture into the couple's Google Drive (Phase 2), cron-free:
   // enqueue the artifact, then copy it in the BACKGROUND with after() so the

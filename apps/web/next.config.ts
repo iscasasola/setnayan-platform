@@ -117,10 +117,24 @@ const nextConfig: NextConfig = {
   // for Tauri desktop wrapping + container deploys.
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Self-hosted NSFW model (lib/nsfw-screen.ts) — the quantized MobileNetV2-mid
+  // graph-model files under models/nsfw/ are read with node:fs at runtime, so
+  // the bundler can't see them. Trace them into EVERY serverless function
+  // ('/**' route glob): screening fires from the guest-capture API route AND
+  // the papic seat server action, and server actions can execute under any
+  // route's lambda.
+  outputFileTracingIncludes: {
+    '/**': ['./models/nsfw/**/*'],
+  },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required
   // at runtime + traced into the standalone bundle, not webpack-bundled.
-  serverExternalPackages: ['sharp'],
+  // `@tensorflow/tfjs` + `nsfwjs` (lib/nsfw-screen.ts) are external for the
+  // same reason — tfjs is a multi-MB pure-JS package that crashes the webpack
+  // server-bundle minifier when inlined; as externals they're required at
+  // runtime and traced like any node_modules dep. (Pure-JS tfjs, NOT
+  // @tensorflow/tfjs-node — native bindings break on Vercel.)
+  serverExternalPackages: ['sharp', '@tensorflow/tfjs', 'nsfwjs'],
   images: {
     // AVIF first — ~50% smaller than WebP for the photographic content
     // marketing surfaces use (hero, coverage, vendor portfolios). Next.js

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ShieldCheck, EyeOff, Eye, Flag, UserX, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -11,6 +11,7 @@ import {
   setCaptureHidden,
   blockUploader,
   unblockUploader,
+  approveScreenedCapture,
 } from './actions';
 
 export const metadata = { title: 'Photo moderation · Papic · Setnayan' };
@@ -62,9 +63,16 @@ export default async function PapicModerationPage({
 
   const owns = await eventOwnsPapicGuest(admin, eventId);
 
-  // Captures (newest first), the blocked-guest list, and any open reports for
-  // this event — one parallel batch.
-  const [{ data: captures }, { data: blocks }, { data: reports }] = await Promise.all([
+  // Captures (newest first), the blocked-guest list, any open reports, and the
+  // NSFW-screened (auto-filtered) captures from BOTH capture tables — one
+  // parallel batch.
+  const [
+    { data: captures },
+    { data: blocks },
+    { data: reports },
+    { data: screenedGuest },
+    { data: screenedSeat },
+  ] = await Promise.all([
     admin
       .from('papic_guest_captures')
       .select('capture_id, guest_id, r2_object_key, captured_at, hidden_at')
@@ -80,17 +88,51 @@ export default async function PapicModerationPage({
       .select('target_id, status')
       .eq('event_id', eventId)
       .eq('target_type', 'photo'),
+    admin
+      .from('papic_guest_captures')
+      .select('capture_id, guest_id, r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'nsfw_blocked')
+      .order('captured_at', { ascending: false })
+      .limit(100),
+    admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, captured_at')
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'nsfw_blocked')
+      .order('captured_at', { ascending: false })
+      .limit(100),
   ]);
 
   const captureRows = captures ?? [];
   const blockRows = blocks ?? [];
   const reportRows = reports ?? [];
+  // Auto-filtered captures (NSFW screen) from both tables, normalized into one
+  // list. Null data (pre-migration env without moderation_state) just hides
+  // the section.
+  const screenedRows = [
+    ...(screenedGuest ?? []).map((r) => ({
+      table: 'papic_guest_captures' as const,
+      id: r.capture_id as string,
+      guestId: (r.guest_id as string | null) ?? null,
+      r2Ref: (r.r2_object_key as string | null) ?? null,
+      capturedAt: (r.captured_at as string | null) ?? null,
+    })),
+    ...(screenedSeat ?? []).map((r) => ({
+      table: 'papic_photos' as const,
+      id: r.photo_id as string,
+      guestId: null as string | null,
+      r2Ref: (r.r2_object_key as string | null) ?? null,
+      capturedAt: (r.captured_at as string | null) ?? null,
+    })),
+  ].sort((a, b) => (b.capturedAt ?? '').localeCompare(a.capturedAt ?? ''));
 
   // Resolve guest names + presigned thumbnails for the visible page.
   const guestIds = Array.from(
     new Set([
       ...captureRows.map((c) => c.guest_id as string),
       ...blockRows.map((b) => b.blocked_guest_id as string),
+      ...screenedRows.flatMap((s) => (s.guestId ? [s.guestId] : [])),
     ]),
   );
   const { data: guestData } = guestIds.length
@@ -121,12 +163,22 @@ export default async function PapicModerationPage({
   const thumbUrl = new Map<string, string | null>();
   for (const [id, url] of thumbs) thumbUrl.set(id, url);
 
+  const screenedThumbs = await Promise.all(
+    screenedRows.map(async (s) => {
+      const url = s.r2Ref ? await displayUrlForStoredAsset(s.r2Ref) : null;
+      return [s.id, url] as const;
+    }),
+  );
+  const screenedThumbUrl = new Map<string, string | null>();
+  for (const [id, url] of screenedThumbs) screenedThumbUrl.set(id, url);
+
   const notice =
     (search.reported && 'Report sent to the Setnayan team.') ||
     (search.hidden && 'Photo hidden from your gallery.') ||
     (search.unhidden && 'Photo restored to your gallery.') ||
     (search.blocked && 'That guest can no longer add photos to this wedding.') ||
     (search.unblocked && 'Block lifted — that guest can add photos again.') ||
+    (search.approved && 'Photo approved — it will show in your gallery again.') ||
     null;
   const errorMsg = search.error ? 'Something went wrong — please try again.' : null;
 
@@ -318,6 +370,64 @@ export default async function PapicModerationPage({
                       className="rounded-md border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/[0.04]"
                     >
                       Unblock
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {screenedRows.length > 0 && (
+        <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
+            <ShieldAlert className="h-4 w-4 text-amber-600" strokeWidth={1.75} />
+            Filtered by the content screen
+          </h2>
+          <p className="max-w-2xl text-xs text-ink/60">
+            Setnayan automatically screens every photo for explicit content —
+            the screen is always on and can&rsquo;t be turned off. Photos it
+            filters are hidden from guests and your public pages, but you can
+            review them here. Approving restores a single photo.
+          </p>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {screenedRows.map((s) => {
+              const url = screenedThumbUrl.get(s.id) ?? null;
+              const name = s.guestId
+                ? guestName.get(s.guestId) ?? 'Guest'
+                : 'Papic crew';
+              return (
+                <li
+                  key={`${s.table}:${s.id}`}
+                  className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-surface p-2"
+                >
+                  <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/[0.04]">
+                    {url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt={`Filtered photo from ${name}`}
+                        className="h-full w-full object-cover blur-md"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-ink/40">
+                        Preview unavailable
+                      </div>
+                    )}
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                      <ShieldAlert aria-hidden className="h-3 w-3" strokeWidth={2} /> Filtered
+                    </span>
+                  </div>
+                  <span className="truncate text-xs font-medium text-ink/70">{name}</span>
+                  <form action={approveScreenedCapture.bind(null, eventId)}>
+                    <input type="hidden" name="table" value={s.table} />
+                    <input type="hidden" name="id" value={s.id} />
+                    <button
+                      type="submit"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+                    >
+                      <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Approve — show this photo
                     </button>
                   </form>
                 </li>

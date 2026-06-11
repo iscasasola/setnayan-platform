@@ -30,6 +30,8 @@ import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
+import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
+import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -335,6 +337,29 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // public — safe to show to anonymous visitors.
   const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
 
+  // Spatial backdrop (Wedding_Website_Effects_and_Editing_Spec_2026-06-11
+  // §2.1b) — the AI-generated world behind the RSVP page. SEPARATE tolerant
+  // read instead of a column on the main events select: on a DB where
+  // migration 20261105000000 hasn't applied yet, an unknown column in the
+  // MAIN select would error the whole fetch and 404 every wedding page —
+  // here it just degrades to "no backdrop". RSVP-era only (pre/inactive):
+  // the live day-of page stays lean for weak venue WiFi, and the post-event
+  // page belongs to the editorial treatment.
+  let backdrop: React.ReactNode = null;
+  if (dayOfPhase === 'pre' || dayOfPhase === 'inactive') {
+    const { data: backdropRow, error: backdropError } = await admin
+      .from('events')
+      .select('rsvp_backdrop')
+      .eq('event_id', event.event_id)
+      .maybeSingle();
+    const backdropConfig = backdropError
+      ? null
+      : parseRsvpBackdropConfig(
+          (backdropRow as { rsvp_backdrop?: unknown } | null)?.rsvp_backdrop,
+        );
+    if (backdropConfig) backdrop = <SpatialBackdrop config={backdropConfig} />;
+  }
+
   if (!session) {
     return (
       <PublicLanding
@@ -349,6 +374,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
+        backdrop={backdrop}
       />
     );
   }
@@ -369,6 +395,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
+        backdrop={backdrop}
       />
     );
   }
@@ -396,6 +423,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
+        backdrop={backdrop}
       />
     );
   }
@@ -446,6 +474,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         bgMusicUrl={bgMusicUrl}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
+        backdrop={backdrop}
       />
       {papicGuestActive && (
         <Link
@@ -541,10 +570,25 @@ type GuestRow = {
   photo_source: 'oauth_google' | 'selfie' | 'couple_upload' | null;
 };
 
-function InvitationShell({ children }: { children: React.ReactNode }) {
+/**
+ * Page chrome shared by every landing state. When `backdrop` is provided (the
+ * spatial RSVP backdrop), the world renders FIXED behind everything and the
+ * content column floats above it on a translucent "vellum" panel — that panel
+ * is the legibility guarantee: whatever the generated art does, text always
+ * sits on ≥88% cream. backdrop-blur only kicks in at sm+ (it's GPU-costly on
+ * low-end phones; mobile gets a slightly more opaque panel instead).
+ */
+function InvitationShell({
+  children,
+  backdrop,
+}: {
+  children: React.ReactNode;
+  backdrop?: React.ReactNode;
+}) {
   return (
-    <main className="min-h-dvh bg-cream text-ink">
-      <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
+    <main className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}>
+      {backdrop}
+      <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
@@ -557,13 +601,25 @@ function InvitationShell({ children }: { children: React.ReactNode }) {
           </span>
         </div>
       </header>
-      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
+      <div
+        className={
+          backdrop
+            ? 'relative z-10 mx-auto my-6 w-full max-w-3xl overflow-hidden rounded-3xl bg-cream/[0.93] px-4 py-10 shadow-xl ring-1 ring-ink/10 sm:my-10 sm:bg-cream/[0.88] sm:px-6 sm:py-14 sm:backdrop-blur-md'
+            : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
+        }
+      >
+        {children}
+      </div>
       {/* Quiet footer signature — structural addition from v2.1 guest-microsite
           template's "See you on the 12th." closing line. Italic serif treatment
           gives the page an editorial sign-off without competing with the
           functional widgets above. Couple palette tokens (terracotta · ink)
           untouched. */}
-      <footer className="border-t border-ink/10 px-4 py-8 text-center">
+      <footer
+        className={`relative z-10 border-t border-ink/10 px-4 py-8 text-center ${
+          backdrop ? 'bg-cream/90' : ''
+        }`}
+      >
         <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
         <p className="mt-3 text-xs text-ink/50">
           Powered by Setnayan · setnayan.com
@@ -631,6 +687,7 @@ function PublicLanding({
   ourPhotoUrls,
   widgets,
   scheduleBlocks,
+  backdrop,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -665,6 +722,8 @@ function PublicLanding({
   // already returns host-marked-public rows only — safe for anonymous
   // visitors to see.
   scheduleBlocks: ScheduleBlockRow[];
+  /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
+  backdrop?: React.ReactNode;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -715,7 +774,7 @@ function PublicLanding({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell>
+    <InvitationShell backdrop={backdrop}>
       <GuestPreload eventSlug={event.slug} />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -1004,6 +1063,7 @@ function InvitationSite({
   bgMusicUrl,
   ourPhotoUrls,
   widgets,
+  backdrop,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1043,6 +1103,8 @@ function InvitationSite({
   // greeting, qr_card, rsvp) render in fixed positions per the editor
   // contract; hideable widgets render in display_order after RSVP.
   widgets: readonly InvitationWidgetRow[];
+  /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
+  backdrop?: React.ReactNode;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1112,7 +1174,7 @@ function InvitationSite({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell>
+    <InvitationShell backdrop={backdrop}>
       <GuestPreload eventSlug={event.slug} />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">

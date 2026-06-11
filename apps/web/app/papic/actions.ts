@@ -5,6 +5,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
+import { ingestToWall } from '@/lib/live-wall';
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -123,26 +124,35 @@ export async function recordSeatCapture(
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
 
-  const { error: insertError } = await supabase.from('papic_photos').insert({
-    event_id: seat.event_id,
-    paparazzi_seat_id: seat.seat_id,
-    r2_object_key: cleanKey,
-    photo_type: kind === 'clip' ? 'clip' : 'photo',
-  });
+  const { data: inserted, error: insertError } = await supabase
+    .from('papic_photos')
+    .insert({
+      event_id: seat.event_id,
+      paparazzi_seat_id: seat.seat_id,
+      r2_object_key: cleanKey,
+      photo_type: kind === 'clip' ? 'clip' : 'photo',
+    })
+    .select('photo_id')
+    .single();
 
   if (insertError) {
     return { ok: false, error: insertError.message.slice(0, 80) };
   }
+  const insertedPhotoId = (inserted?.photo_id as string) ?? null;
 
   // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in
   // the BACKGROUND with after() so the camera stays responsive. The bytes are
   // already in R2 (client PUT via /api/upload), so the screen fetches them back
   // by the stored r2:// ref. Fail-open: any error leaves the row 'unscreened'.
-  after(() =>
-    screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(
-      () => {},
-    ),
-  );
+  // Salamisim chain: screen FIRST (the wall is an allowlist — only 'clean'
+  // projects), THEN run the wall gate. ingestToWall never throws; a non-clean
+  // or non-LIVE_WALL event is a silent no-op.
+  after(async () => {
+    await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});
+    if (insertedPhotoId) {
+      await ingestToWall('papic_photos', insertedPhotoId);
+    }
+  });
 
   // Auto-sync this capture into the couple's Google Drive (Phase 2), cron-free:
   // enqueue the artifact, then copy it in the BACKGROUND with after() so the

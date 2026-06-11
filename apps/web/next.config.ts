@@ -152,6 +152,16 @@ const nextConfig: NextConfig = {
   // logos + payment screenshots). Default 1MB is too small for phone-camera
   // screenshots — raise to 6MB so a single image plus form fields fit.
   experimental: {
+    // Reduce peak webpack memory during `next build`. Next.js 15's
+    // build sits right at Vercel's standard 8GB build-machine ceiling
+    // for this app's route count, so a build that normally fits would
+    // intermittently OOM (no routes-manifest.json → deploy fails) when a
+    // new page tipped it over the edge. This flag trades a slightly slower
+    // build for a meaningfully lower memory high-water mark, with no change
+    // to build output. Paired with the --max-old-space-size cap on the
+    // build script so the ceiling is deterministic, not GC-timing-dependent.
+    // https://nextjs.org/docs/app/api-reference/config/next-config-js/webpackMemoryOptimizations
+    webpackMemoryOptimizations: true,
     serverActions: {
       bodySizeLimit: '6mb',
     },

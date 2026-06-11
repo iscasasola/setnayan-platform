@@ -38,6 +38,7 @@ import {
 } from './_components/quick-add-sheet';
 import { LifecycleRibbon } from './_components/lifecycle-ribbon';
 import { GuestsViewSwitcher } from './_components/view-switcher';
+import { GuestMindMap } from './_components/guest-mind-map';
 
 export const metadata = { title: 'Guests' };
 
@@ -458,33 +459,29 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
       </div>
 
-      {/* Map view = DESKTOP ONLY. The view switcher lives in the desktop chrome,
-          so mobile never enters map mode; even if a ?gview=map URL is opened on a
-          phone, the list still renders below (the locked "mobile top = just the
-          list"). On desktop the placeholder shows and the list grid is hidden. */}
+      {/* Mind-map view (redesign Phase 2) — the full editor over the SAME
+          records as the list. The component splits responsively itself:
+          desktop = node/edge canvas, mobile = vertical expand/collapse tree.
+          Mobile reaches map mode only via the carousel's Journey panel (a
+          deliberate choice — the default stays "just the list"). */}
       {gview === 'map' ? (
-        <div className="hidden rounded-xl border border-ink/10 bg-cream/50 px-6 py-16 text-center lg:block">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-            <LayoutGrid className="h-6 w-6" strokeWidth={1.5} aria-hidden />
-          </div>
-          <h2 className="text-lg font-semibold text-ink">Mind map view is coming next</h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">
-            A visual way to grow your guest list — branch by side &amp; group, or by
-            entourage role. For now, switch back to the list to keep planning.
-          </p>
-          <div className="mt-5">
-            <Link href={`/dashboard/${eventId}/guests`} className="button-secondary">
-              Back to list
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
-      <div
-        className={`grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]${
-          gview === 'map' ? ' lg:hidden' : ''
-        }`}
-      >
+        <GuestMindMap
+          eventId={eventId}
+          guests={guests.map((g) => ({
+            guest_id: g.guest_id,
+            first_name: g.first_name,
+            last_name: g.last_name,
+            display_name: g.display_name,
+            side: g.side,
+            role: g.role,
+            extra_roles: g.extra_roles ?? [],
+            plus_one_name: g.plus_one_name,
+          }))}
+          groups={groups}
+          groupMemberships={groupMemberships}
+        />
+      ) : (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
         <FacetsSidebar
           eventId={eventId}
           view={view}
@@ -520,6 +517,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           )}
         </div>
       </div>
+      )}
 
       <QuickAddSheet
         eventId={eventId}
@@ -527,7 +525,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         groups={quickAddGroups}
       />
 
-      {/* mobile/tablet only — lower-third 4-panel carousel (summary /
+      {/* mobile/tablet only — lower-third 5-panel carousel (summary /
           search&sort / add / customize) docked above the bottom nav. It
           renders its own in-flow spacer so the guest list clears the fixed
           carousel. The Summary panel carries the [Total][Attending][Pending]
@@ -555,6 +553,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           pending={stats.pending}
           declined={stats.declined}
           teamFilter={teamFilter}
+          pendingClaims={pendingClaimsCount}
         />
       </Suspense>
     </section>

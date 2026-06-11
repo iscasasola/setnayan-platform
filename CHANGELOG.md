@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(website): hosts can ALWAYS preview any phase + the editor tabs become real phase previews
+
+**Context:** Owner: *"okay can you always preview that?"* — previously `?phase=rsvp|event|editorial` worked only on demo events (`test-*` slug), so a real couple could never see their on-the-day page or editorial before the date, and the editor's Editorial tab showed a "coming soon" placeholder.
+
+- **`app/[slug]/page.tsx`:** the phase override is now honored for **the event's own signed-in hosts** (event_members couple OR accepted event_moderators) on ANY event — checked against the VIEWER's session, so a crafted link still can't force a phase for guests/anonymous visitors. Host lookups only run when a `?phase=` param is present (zero cost on the guest path). Demo events keep the open override.
+- **`site-editor`:** the RSVP / Event / Editorial tabs now load the live preview iframe with the matching `?phase=` (same-origin → couple's session honored) — each tab is a TRUE preview of that phase; the Editorial "coming soon" placeholder is retired. Pill reads "Previewing · {Phase} page".
+
+**Verification:** `tsc` clean; host-gating is by construction (viewer's own session); editor-tab preview verified on prod post-merge.
+
+**SPEC IMPACT:** First step of §1.2's phase-switcher in `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` — editor phase tabs now preview for real. DECISION_LOG row added.
+
 ## 2026-06-11 · feat(seating): Phase 1c — two-finger rotate + desktop rotate handle (0008)
 
 **Context:** Owner 2026-06-10/11 — "use two fingers to turn the tables" + "maximize multi-finger gestures." Touch gets the full twist gesture; mouse/trackpad get the on-screen handle (trackpad rotation is Safari-only per the cross-platform gesture research, so the handle is the universal fallback).

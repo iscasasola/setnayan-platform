@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(website): spatial backdrop v4 — the world is now a VIDEO scrubbed by scroll
+
+**Context:** Owner: *"the background need to be a video that moves as we scroll."* The backdrop's still-layer worlds become living film: each theme now ships a pre-rendered **journey video** (camera pushing through scene A → crossfade → deeper into scene B) whose **playhead is the scroll position**.
+
+- **Assets:** `public/spatial/<theme>/journey.mp4` ×2 — rendered offline with FFmpeg (static binary, no system install) from the original hi-res Recraft scenes: 8000×4500 zoompan intermediates (kills subpixel jitter) → 1600×900 @30fps, 14.5s, H.264 CRF 26 with **keyframe-dense encode (`-g 6`)** so `currentTime` seeks are frame-accurate. The baked crossfade sits at ≈0.45 of the timeline — the same scroll fraction as the layer math's seam, so everything stays in sync.
+- **`lib/spatial-backdrop.ts`:** `SpatialJourney` type + registry entries + pure `journeyTimeAt(p, durationS)` (linear, clamped 50ms shy of the end so the final frame holds instead of snapping black) — unit-tested (monotonic, clamped, NaN-safe; 12/12 spec green).
+- **`app/_components/spatial-backdrop.tsx`:** hybrid renderer — on qualifying devices (≥1024px viewport, no reduced-motion, no save-data) the journey video mounts client-side, fades in on first `canplay`, and **scroll scrubs it** (lerp-smoothed seeks, never play()ed, ~1-frame deadband). Far still layers hand over to the film; **near bokeh layers keep rendering on top** as live screen-blend parallax — baked camera motion below, real-time depth above. Non-qualifying devices keep the v3 layered stills automatically; until `canplay` the stills ARE the world (no blank, no pop).
+
+**Verification:** `tsc` clean · 12/12 math invariants (incl. new journey-time cases) · local harness: video mounts on desktop viewport, `currentTime` tracks scroll targets, visually distinct frames at p=0.2/0.5/0.9, stills fallback on narrow viewport, zero console errors.
+
+**SPEC IMPACT:** §2.1b extended — "journey film" mode documented (scroll-scrubbed theme video + live near-layer parallax; stills = universal fallback). Applied in the corpus with this change's DECISION_LOG row.
+
 ## 2026-06-11 · style(website): spatial backdrop v3 — wash to /12 + cream text-halo (kill the milky veil)
 
 **Context:** Owner, from the live v2 screenshot: the `/35` light column still read as a milky white veil over the middle — the world wasn't truly showing through.

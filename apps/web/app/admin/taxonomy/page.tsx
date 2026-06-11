@@ -17,6 +17,7 @@ import {
   mapCategoryRequest,
   resolveCategoryRequest,
   setCategoryEventTypes,
+  setFolderEventTypes,
   setServiceFaith,
 } from './actions';
 
@@ -49,6 +50,18 @@ type DeadlineRow = {
   is_active: boolean;
 };
 
+type ReqRow = {
+  request_id: string;
+  proposed_label: string;
+  proposed_note: string | null;
+  status: string;
+  mapped_to_canonical: string | null;
+  proposed_by_vendor_id: string;
+};
+
+/** The `?q=` / `?view=` filter state every form echoes back through `redirectBack`. */
+type Back = { q?: string; view?: string | null };
+
 type FaithKey = NonNullable<TaxonomyEntry['faith']>;
 
 const FAITH_TONE_BASE = 'bg-ink/5 text-ink/70';
@@ -79,44 +92,82 @@ const PHASE_TONE: Record<string, string> = {
   'V1.5+': 'bg-rose-50 text-rose-800',
 };
 
+const JUMP_PILL =
+  'rounded-full border border-ink/15 bg-white px-2.5 py-0.5 font-mono text-[11px] text-ink/70 hover:border-terracotta/50 hover:text-terracotta';
+
 export default async function AdminTaxonomyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; error?: string }>;
+  searchParams: Promise<Record<'ok' | 'error' | 'q' | 'view' | 'open' | 'openf', string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
+  // Next delivers repeated params (`?q=a&q=b`) as string[] — coerce to the first
+  // value so a crafted URL can't 500 the page (A2).
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const q = (first(sp.q) ?? '').trim().toLowerCase().slice(0, 80);
+  const viewRaw = first(sp.view);
+  const view = viewRaw === 'faith' || viewRaw === 'scoped' || viewRaw === 'unfiled' ? viewRaw : null;
+  const open = first(sp.open) ?? null;
+  const openf = first(sp.openf) ?? null;
+  const ok = first(sp.ok);
+  const error = first(sp.error);
+
   const admin = createAdminClient();
-  const { data: rows } = await admin
-    .from('canonical_service_schemas')
-    .select(
-      'canonical_service, display_name_en, display_name_tl, shared_attribute_groups, filter_facets, required_for_visibility',
-    )
-    .order('canonical_service', { ascending: true });
 
-  const schemas = (rows ?? []) as SchemaRow[];
+  // The 6 independent top-level reads run in parallel (A7) — only the
+  // vendor_profiles byline lookup depends on the requests rows, so it stays
+  // sequential after. The redirect contract makes this page's render the
+  // per-edit loop latency, so the serial → parallel change pays on every save.
+  const [schemasRes, tax, eventVocabRes, faithRes, reqRes, deadlinesRes] = await Promise.all([
+    admin
+      .from('canonical_service_schemas')
+      .select(
+        'canonical_service, display_name_en, display_name_tl, shared_attribute_groups, filter_facets, required_for_visibility',
+      )
+      .order('canonical_service', { ascending: true }),
+    // DB-backed taxonomy (Phase 2): the tree + canonical mapping are read from
+    // service_categories + canonical_service_taxonomy, falling back to the
+    // lib/taxonomy.ts constant if the tables are unseeded — see lib/taxonomy-db.ts.
+    getTaxonomy(),
+    // Event-type vocabulary for the per-tile multi-event applicability control
+    // (Phase 1). Public catalogue data; admins assign which events a tile serves.
+    admin
+      .from('event_type_vocab')
+      .select('event_type, label_en, sort_order')
+      .eq('status', 'active')
+      .order('sort_order', { ascending: true }),
+    // Faith vocabulary for the per-service faith control (Phase 2). Faith is
+    // INCLUDE-only match-scope — reserved for officiants/seminars/counseling.
+    admin
+      .from('faith_vocab')
+      .select('faith_key, label_en, sort_order')
+      .eq('status', 'active')
+      .order('sort_order', { ascending: true }),
+    // Vendor "request a category" queue (§3.2c). Pending = the review queue;
+    // mapped history feeds the demand signal. Missing table (migration not yet
+    // applied) → [].
+    admin
+      .from('taxonomy_category_requests')
+      .select('request_id, proposed_label, proposed_note, status, mapped_to_canonical, proposed_by_vendor_id')
+      .order('created_at', { ascending: false }),
+    // Admin-managed deadlines (planning_deadlines) — the recommended lock-by
+    // dates the Home reminders read. A missing table (migration not applied)
+    // returns null → the section degrades to "0 set" + the coverage flag shows
+    // every category as falling back to code.
+    admin
+      .from('planning_deadlines')
+      .select(
+        'deadline_id, kind, ref_key, scope, label, offset_value, offset_unit, applies_to, is_active',
+      )
+      .order('kind', { ascending: true })
+      .order('offset_value', { ascending: false }),
+  ]);
 
-  // DB-backed taxonomy (Phase 2): the tree + canonical mapping are read from
-  // service_categories + canonical_service_taxonomy, falling back to the
-  // lib/taxonomy.ts constant if the tables are unseeded — see lib/taxonomy-db.ts.
-  const tax = await getTaxonomy();
-
-  // Event-type vocabulary for the per-tile multi-event applicability control
-  // (Phase 1). Public catalogue data; admins assign which events a tile serves.
-  const { data: eventVocab } = await admin
-    .from('event_type_vocab')
-    .select('event_type, label_en, sort_order')
-    .eq('status', 'active')
-    .order('sort_order', { ascending: true });
-  const eventTypeVocab = (eventVocab ?? []) as { event_type: string; label_en: string }[];
-
-  // Faith vocabulary for the per-service faith control (Phase 2). Faith is
-  // INCLUDE-only match-scope — reserved for officiants/seminars/counseling.
-  const { data: faithRows } = await admin
-    .from('faith_vocab')
-    .select('faith_key, label_en, sort_order')
-    .eq('status', 'active')
-    .order('sort_order', { ascending: true });
-  const faithVocab = (faithRows ?? []) as { faith_key: string; label_en: string }[];
+  const schemas = (schemasRes.data ?? []) as SchemaRow[];
+  const eventTypeVocab = (eventVocabRes.data ?? []) as { event_type: string; label_en: string }[];
+  const faithVocab = (faithRes.data ?? []) as { faith_key: string; label_en: string }[];
+  const allRequests = (reqRes.data ?? []) as ReqRow[];
+  const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
 
   // Phase rank so each tile's services read V1.1 base first, then V1.1.x, then
   // V1.2+ — shared by the per-tile sort below.
@@ -172,23 +223,8 @@ export default async function AdminTaxonomyPage({
   // lib/vendor-category-taxonomy.ts for the A/B/C bucket study.
   const coupleSideDrift = validateVendorCategoryMapping(tax);
 
-  // Vendor "request a category" queue (§3.2c). Pending = the review queue;
-  // mapped history feeds the demand signal. Missing table (migration not yet
-  // applied) → []. Pending requests resolve to a vendor business_name for the
-  // ghost-card byline.
-  type ReqRow = {
-    request_id: string;
-    proposed_label: string;
-    proposed_note: string | null;
-    status: string;
-    mapped_to_canonical: string | null;
-    proposed_by_vendor_id: string;
-  };
-  const { data: reqRows } = await admin
-    .from('taxonomy_category_requests')
-    .select('request_id, proposed_label, proposed_note, status, mapped_to_canonical, proposed_by_vendor_id')
-    .order('created_at', { ascending: false });
-  const allRequests = (reqRows ?? []) as ReqRow[];
+  // Pending requests resolve to a vendor business_name for the ghost-card byline
+  // (the one read that depends on the requests rows — kept sequential).
   const pendingRequests = allRequests.filter((r) => r.status === 'pending');
   const reqVendorName = new Map<string, string>();
   const reqVendorIds = [...new Set(pendingRequests.map((r) => r.proposed_by_vendor_id))];
@@ -212,20 +248,6 @@ export default async function AdminTaxonomyPage({
   const demandSignals = [...demandCounts.entries()]
     .filter(([, n]) => n >= 2)
     .sort((a, b) => b[1] - a[1]);
-
-  // Admin-managed deadlines (planning_deadlines) — the recommended lock-by
-  // dates the Home reminders read. Service category rows + documents are
-  // editable below. A missing table (migration not applied) returns null → the
-  // section degrades to "0 set" + the coverage flag shows every category as
-  // falling back to code.
-  const { data: deadlineRowsRaw } = await admin
-    .from('planning_deadlines')
-    .select(
-      'deadline_id, kind, ref_key, scope, label, offset_value, offset_unit, applies_to, is_active',
-    )
-    .order('kind', { ascending: true })
-    .order('offset_value', { ascending: false });
-  const deadlines = (deadlineRowsRaw ?? []) as DeadlineRow[];
 
   // Last-minute START (Setnayan AI §4) lives in the same table under
   // kind='last_minute_start'. Split it out: it has its own editor section below
@@ -252,6 +274,77 @@ export default async function AdminTaxonomyPage({
     (g) => g.countsTowardLockable !== false && !serviceDeadlineKeys.has(g.id),
   );
 
+  // ── Filter derivations (`?q=` + `?view=`) — server-side, in-memory, zero JS ──
+  // The filter touches ONLY the category tree + the unfiled tray; the request
+  // queue + both deadline sections are PLAN_GROUPS vocabulary and render
+  // unconditionally (scope honesty — the result bar says so).
+  const filtered = Boolean(q) || Boolean(view);
+
+  const svcHaystack = (r: ServiceRow) =>
+    `${r.display_name_en} ${r.display_name_tl ?? ''} ${r.canonical_service}`.toLowerCase();
+  const svcVisible = (r: ServiceRow) =>
+    (!q || svcHaystack(r).includes(q)) && (view !== 'faith' || Boolean(r.meta?.faith));
+
+  // Per tile: a label match shows ALL rows; otherwise only matching rows.
+  const tileLabelMatch = (t: string) => Boolean(q) && (tax.tileLabel[t] ?? t).toLowerCase().includes(q);
+  const visibleRowsByTile = new Map(
+    [...rowsByTile].map(([t, rows]) => [
+      t,
+      tileLabelMatch(t) && view !== 'faith' ? rows : rows.filter(svcVisible),
+    ]),
+  );
+  // The pure filter predicate (no `?open=` clause) — counts read this; render
+  // visibility adds the open-tile exception so the tile you just edited is
+  // always on screen even when the edit made it stop matching (A3).
+  const tileMatches = (t: string) =>
+    view === 'scoped'
+      ? (tax.tileEventTypes[t]?.length ?? 0) > 0 &&
+        (!q || tileLabelMatch(t) || (visibleRowsByTile.get(t)?.length ?? 0) > 0)
+      : tileLabelMatch(t) || (visibleRowsByTile.get(t)?.length ?? 0) > 0;
+  // Precomputed once — the sticky bar and the tree both read these Sets (5c).
+  const visibleTiles = new Set(tax.tileOrder.filter((t) => (filtered ? tileMatches(t) : true) || open === t));
+  const visibleFolders = new Set(
+    tax.folderOrder.filter(
+      (f) => !filtered || openf === f || (tax.tilesByParent[f] ?? []).some((t) => visibleTiles.has(t)),
+    ),
+  );
+  const matchedTileList = filtered ? tax.tileOrder.filter(tileMatches) : tax.tileOrder;
+  const visibleSvcTotal = matchedTileList.reduce((n, t) => n + (visibleRowsByTile.get(t)?.length ?? 0), 0);
+  const visibleTileCount = matchedTileList.length;
+  const visibleUnfiled = filtered ? unfiled.filter(svcVisible) : unfiled;
+
+  // Chip + pill counts — O(n) over data already in memory.
+  const faithCount = schemas.filter((r) => Boolean(tax.map[r.canonical_service]?.faith)).length;
+  const scopedTileCount = tax.tileOrder.filter((t) => (tax.tileEventTypes[t]?.length ?? 0) > 0).length;
+  const folderSvcCount: Record<string, number> = {};
+  for (const f of tax.folderOrder) {
+    folderSvcCount[f] = (tax.tilesByParent[f] ?? []).reduce(
+      (n, t) => n + (rowsByTile.get(t)?.length ?? 0),
+      0,
+    );
+  }
+  const eventLabel = (e: string) => eventTypeVocab.find((v) => v.event_type === e)?.label_en ?? e;
+  const back: Back = { q, view };
+
+  const viewChip = (v: 'faith' | 'scoped' | 'unfiled' | null, label: string) => {
+    const p = new URLSearchParams();
+    if (q) p.set('q', q);
+    if (v) p.set('view', v);
+    const qs = p.toString();
+    const active = view === v;
+    return (
+      <a
+        href={qs ? `/admin/taxonomy?${qs}` : '/admin/taxonomy'}
+        aria-current={active ? 'page' : undefined}
+        className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] ${
+          active ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+        }`}
+      >
+        {label}
+      </a>
+    );
+  };
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
@@ -271,12 +364,105 @@ export default async function AdminTaxonomyPage({
         </p>
       </header>
 
-      {sp.ok ? (
-        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{sp.ok}</div>
+      {ok ? (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{ok}</div>
       ) : null}
-      {sp.error ? (
-        <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{sp.error}</div>
+      {error ? (
+        <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
       ) : null}
+
+      {/* Sticky utility bar — search + filtered views + section jump pills.
+          Zero JS: a GET form, server-rendered chips, plain hash anchors. The
+          feedback strip duplicates the top banners so anchored landings see
+          them. NOTE (A8): do NOT wrap the tree below in a Suspense boundary —
+          fragment scroll + layout stability depend on the single-pass render. */}
+      <div className="sticky top-[57px] z-[15] -mx-4 mb-6 border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-cream/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        {ok ? (
+          <p role="status" title={ok} className="mb-1.5 truncate text-xs font-medium text-emerald-700">
+            ✓ {ok}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" title={error} className="mb-1.5 truncate text-xs font-medium text-rose-700">
+            ⚠ {error}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <form method="get" action="/admin/taxonomy" className="flex items-center gap-1.5">
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              maxLength={80}
+              placeholder="Find a service or tile…"
+              aria-label="Find a service or tile"
+              className="w-44 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs text-ink"
+            />
+            {view ? <input type="hidden" name="view" value={view} /> : null}
+            <button
+              type="submit"
+              className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+            >
+              Find
+            </button>
+            {q ? (
+              <a
+                href={view ? `/admin/taxonomy?view=${view}` : '/admin/taxonomy'}
+                className="text-[11px] text-ink/50 underline"
+              >
+                Clear
+              </a>
+            ) : null}
+          </form>
+          {viewChip(null, 'All')}
+          {viewChip('faith', `Faith-tagged ${faithCount}`)}
+          {viewChip('scoped', `Event-scoped ${scopedTileCount}`)}
+          {viewChip('unfiled', `Unfiled ${unfiled.length}`)}
+          <span className="mx-1 h-4 w-px bg-ink/15" aria-hidden />
+          <nav aria-label="Page sections" className="flex flex-wrap items-center gap-1.5">
+            {tax.folderOrder.map((f) => {
+              const label = tax.folderLabel[f] ?? f;
+              const count = folderSvcCount[f] ?? 0;
+              if (view === 'unfiled') {
+                return (
+                  <span key={f} title="Tree hidden in Unfiled view" className={`${JUMP_PILL} opacity-40`}>
+                    {label} <span className="text-ink/40">{count}</span>
+                  </span>
+                );
+              }
+              const noMatch = filtered && !visibleFolders.has(f);
+              return (
+                <a
+                  key={f}
+                  href={`#f-${f}`}
+                  title={noMatch ? 'No matches in this folder' : undefined}
+                  className={`${JUMP_PILL} ${noMatch ? 'opacity-40' : ''}`}
+                >
+                  {label} <span className="text-ink/40">{count}</span>
+                  {noMatch ? <span className="sr-only"> (no matches)</span> : null}
+                </a>
+              );
+            })}
+            <a href="#queue" className={JUMP_PILL}>
+              Queue{pendingRequests.length > 0 ? <span className="text-ink/40"> {pendingRequests.length}</span> : null}
+            </a>
+            <a href="#deadlines" className={JUMP_PILL}>
+              Deadlines
+            </a>
+            <a href="#advanced" className={JUMP_PILL}>
+              + Advanced
+            </a>
+            {unfiled.length > 0 ? (
+              <a
+                href="#unfiled"
+                className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 font-mono text-[11px] text-amber-800"
+              >
+                Unfiled {unfiled.length}
+              </a>
+            ) : null}
+          </nav>
+        </div>
+      </div>
 
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total rows" value={totalRows} />
@@ -306,7 +492,7 @@ export default async function AdminTaxonomyPage({
         )}
       </p>
 
-      <section className="mb-10">
+      <section id="queue" className="mb-10 scroll-mt-32">
         <header className="mb-2 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">
             Vendor category requests{' '}
@@ -341,6 +527,7 @@ export default async function AdminTaxonomyPage({
                 <div className="flex flex-wrap items-end gap-2">
                   <form action={promoteCategoryRequest} className="flex items-center gap-1">
                     <input type="hidden" name="request_id" value={r.request_id} />
+                    <BackFields q={back.q} view={back.view} anchor="queue" />
                     <select
                       name="tile_id"
                       defaultValue=""
@@ -370,6 +557,7 @@ export default async function AdminTaxonomyPage({
                   </form>
                   <form action={mapCategoryRequest} className="flex items-center gap-1">
                     <input type="hidden" name="request_id" value={r.request_id} />
+                    <BackFields q={back.q} view={back.view} anchor="queue" />
                     <select
                       name="mapped_to_canonical"
                       defaultValue=""
@@ -396,6 +584,7 @@ export default async function AdminTaxonomyPage({
                   <form action={resolveCategoryRequest}>
                     <input type="hidden" name="request_id" value={r.request_id} />
                     <input type="hidden" name="outcome" value="kept_private" />
+                    <BackFields q={back.q} view={back.view} anchor="queue" />
                     <button
                       type="submit"
                       className="rounded-md border border-ink/20 bg-white px-2 py-1 text-[11px] font-medium text-ink/70 hover:border-ink/40"
@@ -406,6 +595,7 @@ export default async function AdminTaxonomyPage({
                   <form action={resolveCategoryRequest} className="flex items-center gap-1">
                     <input type="hidden" name="request_id" value={r.request_id} />
                     <input type="hidden" name="outcome" value="rejected" />
+                    <BackFields q={back.q} view={back.view} anchor="queue" />
                     <input
                       name="resolution_note"
                       placeholder="reason (optional)"
@@ -426,7 +616,7 @@ export default async function AdminTaxonomyPage({
         )}
       </section>
 
-      <section className="mb-10">
+      <section id="deadlines" className="mb-10 scroll-mt-32">
         <header className="mb-2 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">Recommended deadlines</h2>
           <span className="font-mono text-xs text-ink/55">{recommendedDeadlines.length} set</span>
@@ -468,6 +658,7 @@ export default async function AdminTaxonomyPage({
                   </div>
                   <form action={updatePlanningDeadline} className="flex shrink-0 items-center gap-2">
                     <input type="hidden" name="deadline_id" value={d.deadline_id} />
+                    <BackFields q={back.q} view={back.view} anchor="deadlines" />
                     <input
                       type="number"
                       name="offset_value"
@@ -499,7 +690,7 @@ export default async function AdminTaxonomyPage({
         )}
       </section>
 
-      <section className="mb-10">
+      <section id="lastminute" className="mb-10 scroll-mt-32">
         <header className="mb-2 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">
             Last-minute window start{' '}
@@ -537,6 +728,7 @@ export default async function AdminTaxonomyPage({
                 <form action={setLastMinuteStart} className="flex shrink-0 items-center gap-2">
                   <input type="hidden" name="ref_key" value={g.id} />
                   <input type="hidden" name="label" value={g.label} />
+                  <BackFields q={back.q} view={back.view} anchor="lastminute" />
                   <input
                     type="number"
                     name="months"
@@ -558,6 +750,7 @@ export default async function AdminTaxonomyPage({
                 {current != null ? (
                   <form action={clearLastMinuteStart} className="shrink-0">
                     <input type="hidden" name="ref_key" value={g.id} />
+                    <BackFields q={back.q} view={back.view} anchor="lastminute" />
                     <button
                       type="submit"
                       className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
@@ -572,152 +765,295 @@ export default async function AdminTaxonomyPage({
         </ul>
       </section>
 
-      <section className="mb-10">
-        <header className="mb-2 flex items-baseline justify-between gap-3">
-          <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Category tree{' '}
-            <span className="font-normal text-ink/55">— rename · file services · reorder · add · remove (live, no deploy)</span>
-          </h2>
-          <span className="font-mono text-xs text-ink/55">
-            {tax.source === 'db' ? 'editing the DB tree' : 'fallback — DB unseeded'}
-          </span>
-        </header>
-        <p className="mb-3 text-sm text-ink/60">
-          One tree for the whole taxonomy. Rename a parent or tile, reorder (▲▼) or
-          remove a tile, and see every bookable service filed under it — re-file any
-          service to another tile inline. Adding a tile or a service publishes live to{' '}
-          <code className="font-mono text-xs">/vendors</code> + onboarding with no deploy.
-        </p>
-        <div className="space-y-5">
-          {tax.folderOrder.map((folder, idx) => {
-            const tiles = tax.tilesByParent[folder] ?? [];
-            const folderCount = tiles.reduce(
-              (n, t) => n + (rowsByTile.get(t)?.length ?? 0),
-              0,
-            );
-            return (
-              <div key={folder} className="rounded-xl border border-ink/10 bg-cream p-4">
-                <div className="mb-2 flex items-baseline justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <NodeRenameForm id={folder} label={tax.folderLabel[folder] ?? folder} kind="Parent" />
-                  </div>
-                  <span className="shrink-0 font-mono text-[11px] text-ink/45">
-                    Folder {idx + 1} · {folderCount} svc
-                  </span>
-                </div>
-                <div className="ml-1 space-y-3 border-l border-ink/10 pl-3">
-                  {tiles.map((tile) => {
-                    const services = rowsByTile.get(tile) ?? [];
-                    return (
-                      <div key={tile} className="overflow-hidden rounded-lg border border-ink/10 bg-white/60">
-                        <div className="flex items-center gap-1.5 border-b border-ink/10 px-2 py-1.5">
-                          <div className="min-w-0 flex-1">
-                            <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
-                          </div>
-                          <span className="shrink-0 font-mono text-[10px] text-ink/40">{services.length}</span>
-                          <form action={moveTaxonomyNode}>
-                            <input type="hidden" name="id" value={tile} />
-                            <input type="hidden" name="direction" value="up" />
-                            <button
-                              type="submit"
-                              aria-label={`Move ${tile} up`}
-                              title="Move up"
-                              className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
-                            >
-                              ▲
-                            </button>
-                          </form>
-                          <form action={moveTaxonomyNode}>
-                            <input type="hidden" name="id" value={tile} />
-                            <input type="hidden" name="direction" value="down" />
-                            <button
-                              type="submit"
-                              aria-label={`Move ${tile} down`}
-                              title="Move down"
-                              className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
-                            >
-                              ▼
-                            </button>
-                          </form>
-                          <form action={deleteTaxonomyNode}>
-                            <input type="hidden" name="id" value={tile} />
-                            <button
-                              type="submit"
-                              aria-label={`Delete ${tile}`}
-                              title="Delete — blocked if services are still filed here"
-                              className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
-                            >
-                              ✕
-                            </button>
-                          </form>
-                        </div>
-                        <TileEventTypes
-                          tile={tile}
-                          current={tax.tileEventTypes[tile] ?? null}
-                          vocab={eventTypeVocab}
-                        />
-                        {services.length > 0 ? (
-                          <ul className="divide-y divide-ink/10">
-                            {services.map((row) => (
-                              <ServiceLine key={row.canonical_service} row={row} tax={tax} faiths={faithVocab} />
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="px-3 py-2 text-xs text-ink/45">No services filed here yet.</p>
-                        )}
-                        <form
-                          action={createCanonicalLeaf}
-                          className="flex items-center gap-2 border-t border-ink/10 bg-emerald-50/30 px-2 py-1.5"
-                        >
-                          <input type="hidden" name="tile_id" value={tile} />
-                          <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
-                            ＋ svc
-                          </span>
-                          <input
-                            name="display_name_en"
-                            placeholder="New service name…"
-                            aria-label={`Add a service under ${tile}`}
-                            className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
-                          />
-                          <button
-                            type="submit"
-                            className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
-                          >
-                            Add
-                          </button>
-                        </form>
-                      </div>
-                    );
-                  })}
-                  <form
-                    action={createTaxonomyNode}
-                    className="flex items-center gap-2 rounded-md border border-dashed border-emerald-300/60 bg-emerald-50/30 px-2 py-1.5"
-                  >
-                    <input type="hidden" name="parent_id" value={folder} />
-                    <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
-                      ＋ tile
+      {view !== 'unfiled' ? (
+        <section id="tree" className="mb-10 scroll-mt-32">
+          <header className="mb-2 flex items-baseline justify-between gap-3">
+            <h2 className="text-lg font-semibold tracking-tight text-ink">
+              Category tree{' '}
+              <span className="font-normal text-ink/55">— rename · file services · reorder · add · remove (live, no deploy)</span>
+            </h2>
+            <span className="font-mono text-xs text-ink/55">
+              {tax.source === 'db' ? 'editing the DB tree' : 'fallback — DB unseeded'}
+            </span>
+          </header>
+          <p className="mb-3 text-sm text-ink/60">
+            One tree for the whole taxonomy. Rename a parent or tile, reorder (▲▼) or
+            remove a tile, and see every bookable service filed under it — re-file any
+            service to another tile inline. Adding a tile or a service publishes live to{' '}
+            <code className="font-mono text-xs">/vendors</code> + onboarding with no deploy.
+          </p>
+          {filtered ? (
+            <p className="mb-3 rounded-lg border border-ink/10 bg-white/70 px-3 py-1.5 text-xs text-ink/60">
+              {visibleSvcTotal} service{visibleSvcTotal === 1 ? '' : 's'} in {visibleTileCount} tile
+              {visibleTileCount === 1 ? '' : 's'} match ·{' '}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+                  deliberate full-reload <a>: clearing ?q=/?view= must drop ALL
+                  params + re-render server-side (zero-JS contract, §3). */}
+              <a href="/admin/taxonomy" className="underline">
+                Clear
+              </a>{' '}
+              · Filter applies to the category tree only.
+            </p>
+          ) : null}
+          <div className="space-y-5">
+            {tax.folderOrder.map((folder, idx) => {
+              if (!visibleFolders.has(folder)) return null;
+              const tiles = tax.tilesByParent[folder] ?? [];
+              const folderCount = folderSvcCount[folder] ?? 0;
+              const scopedTiles = tiles.filter((t) => (tax.tileEventTypes[t]?.length ?? 0) > 0).length;
+              const folderFaithCount = tiles.reduce(
+                (n, t) => n + (rowsByTile.get(t) ?? []).filter((r) => Boolean(r.meta?.faith)).length,
+                0,
+              );
+              return (
+                <div key={folder} id={`f-${folder}`} className="scroll-mt-32 rounded-xl border border-ink/10 bg-cream p-4">
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <NodeRenameForm
+                        id={folder}
+                        label={tax.folderLabel[folder] ?? folder}
+                        kind="Parent"
+                        back={back}
+                        anchor={`f-${folder}`}
+                      />
+                    </div>
+                    <span className="shrink-0 font-mono text-[11px] text-ink/45">
+                      Folder {idx + 1} · {folderCount} svc
+                      {scopedTiles > 0 ? ` · ${scopedTiles}/${tiles.length} scoped` : ''}
+                      {folderFaithCount > 0 ? ` · ${folderFaithCount} faith` : ''}
                     </span>
-                    <input
-                      name="label_en"
-                      placeholder="New tile name…"
-                      aria-label={`Add a tile under ${folder}`}
-                      className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
-                    />
-                    <button
-                      type="submit"
-                      className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                  </div>
+                  {/* Folder-grain bulk event-type set (§5). Explicit overwrite by
+                      construction: required scope_mode radio + required confirm
+                      checkbox (A4) — never a silent cascade. */}
+                  <details className="mb-2 rounded-md border border-sky-200/60 bg-sky-50/40 px-2 py-1.5">
+                    <summary className="cursor-pointer text-[11px] text-ink/60">
+                      Events — all {tiles.length} tiles:{' '}
+                      <span className="font-medium">
+                        {scopedTiles === 0
+                          ? 'All universal'
+                          : scopedTiles === tiles.length
+                            ? `all ${tiles.length} scoped`
+                            : `mixed — ${scopedTiles} scoped`}
+                      </span>
+                    </summary>
+                    <form action={setFolderEventTypes} className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <input type="hidden" name="parent_id" value={folder} />
+                      <BackFields q={back.q} view={back.view} anchor={`f-${folder}`} />
+                      <label className="flex items-center gap-1 rounded-md border border-ink/15 bg-white px-1.5 py-0.5 text-[11px] text-ink/70">
+                        <input type="radio" name="scope_mode" value="universal" required className="h-3 w-3" />
+                        Universal (all events)
+                      </label>
+                      <label className="flex items-center gap-1 rounded-md border border-ink/15 bg-white px-1.5 py-0.5 text-[11px] text-ink/70">
+                        <input type="radio" name="scope_mode" value="scoped" required className="h-3 w-3" />
+                        Scoped to:
+                      </label>
+                      {eventTypeVocab.map((v) => (
+                        <label
+                          key={v.event_type}
+                          className="flex items-center gap-1 rounded-md border border-ink/15 bg-white px-1.5 py-0.5 text-[11px] text-ink/70"
+                        >
+                          <input type="checkbox" name="event_types" value={v.event_type} className="h-3 w-3" />
+                          {v.label_en}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-1 text-[11px] font-medium text-rose-700">
+                        <input type="checkbox" name="confirm_overwrite" required className="h-3 w-3" />
+                        Overwrite the scopes of all {tiles.length} tiles
+                      </label>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                      >
+                        Apply to all {tiles.length} tiles
+                      </button>
+                      <span className="text-[10px] text-ink/40">overwrites every tile in this folder</span>
+                    </form>
+                  </details>
+                  <div className="ml-1 space-y-3 border-l border-ink/10 pl-3">
+                    {tiles.map((tile) => {
+                      if (!visibleTiles.has(tile)) return null;
+                      const services = rowsByTile.get(tile) ?? [];
+                      const visibleRows = visibleRowsByTile.get(tile) ?? [];
+                      const contentMatch = tileLabelMatch(tile) || visibleRows.length > 0;
+                      // `open` wins unconditionally (A3): the tile you just edited is
+                      // always expanded, even if the edit made it stop matching.
+                      const tileOpen = open === tile || (filtered && contentMatch);
+                      const evts = tax.tileEventTypes[tile] ?? [];
+                      const faithSvcCount = services.filter((r) => Boolean(r.meta?.faith)).length;
+                      const hiddenCount = services.length - visibleRows.length;
+                      return (
+                        <details
+                          key={tile}
+                          id={`t-${tile}`}
+                          open={tileOpen}
+                          className="group scroll-mt-32 rounded-lg border border-ink/10 bg-white/60"
+                        >
+                          <summary className="flex cursor-pointer list-none items-center gap-2 rounded-t-lg px-2 py-1.5 text-sm">
+                            <span
+                              aria-hidden="true"
+                              className="shrink-0 text-[10px] text-ink/40 transition-transform group-open:rotate-90"
+                            >
+                              ▸
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium text-ink">
+                              {tax.tileLabel[tile] ?? tile}
+                            </span>
+                            {evts.length > 0 ? (
+                              <Badge tone="bg-sky-50 text-sky-700">
+                                {evts.length === 1 ? `${eventLabel(evts[0]!)}-only` : `${evts.length} events`}
+                              </Badge>
+                            ) : null}
+                            {faithSvcCount > 0 ? (
+                              <Badge tone="bg-amber-50 text-amber-800">{faithSvcCount} faith</Badge>
+                            ) : null}
+                            {services.length === 0 ? <Badge tone="bg-ink/5 text-ink/45">empty</Badge> : null}
+                            <span className="shrink-0 font-mono text-[10px] text-ink/40">{services.length} svc</span>
+                          </summary>
+                          <div className="border-t border-ink/10">
+                            <div className="flex items-center gap-1.5 border-b border-ink/10 px-2 py-1.5">
+                              <div className="min-w-0 flex-1">
+                                <NodeRenameForm
+                                  id={tile}
+                                  label={tax.tileLabel[tile] ?? tile}
+                                  kind="Tile"
+                                  back={back}
+                                  anchor={`t-${tile}`}
+                                />
+                              </div>
+                              <span className="shrink-0 font-mono text-[10px] text-ink/40">{services.length}</span>
+                              <form action={moveTaxonomyNode}>
+                                <input type="hidden" name="id" value={tile} />
+                                <input type="hidden" name="direction" value="up" />
+                                <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
+                                <button
+                                  type="submit"
+                                  aria-label={`Move ${tile} up`}
+                                  title="Move up"
+                                  className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                                >
+                                  ▲
+                                </button>
+                              </form>
+                              <form action={moveTaxonomyNode}>
+                                <input type="hidden" name="id" value={tile} />
+                                <input type="hidden" name="direction" value="down" />
+                                <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
+                                <button
+                                  type="submit"
+                                  aria-label={`Move ${tile} down`}
+                                  title="Move down"
+                                  className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                                >
+                                  ▼
+                                </button>
+                              </form>
+                              <form action={deleteTaxonomyNode}>
+                                <input type="hidden" name="id" value={tile} />
+                                <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
+                                <button
+                                  type="submit"
+                                  aria-label={`Delete ${tile}`}
+                                  title="Delete — blocked if services are still filed here"
+                                  className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
+                                >
+                                  ✕
+                                </button>
+                              </form>
+                            </div>
+                            <TileEventTypes
+                              tile={tile}
+                              current={tax.tileEventTypes[tile] ?? null}
+                              vocab={eventTypeVocab}
+                              back={back}
+                            />
+                            {open === tile && filtered && !contentMatch ? (
+                              <p className="px-3 py-2 text-xs italic text-ink/45">
+                                This tile no longer matches the active filter.
+                              </p>
+                            ) : null}
+                            {visibleRows.length > 0 ? (
+                              <ul className="divide-y divide-ink/10">
+                                {visibleRows.map((row) => (
+                                  <ServiceLine
+                                    key={row.canonical_service}
+                                    row={row}
+                                    tax={tax}
+                                    faiths={faithVocab}
+                                    back={back}
+                                    anchor={`t-${tile}`}
+                                  />
+                                ))}
+                                {filtered && hiddenCount > 0 ? (
+                                  <li className="px-3 py-2 text-xs italic text-ink/45">
+                                    {hiddenCount} hidden by the filter
+                                  </li>
+                                ) : null}
+                              </ul>
+                            ) : filtered && services.length > 0 ? (
+                              <p className="px-3 py-2 text-xs italic text-ink/45">
+                                {services.length} hidden by the filter
+                              </p>
+                            ) : (
+                              <p className="px-3 py-2 text-xs text-ink/45">No services filed here yet.</p>
+                            )}
+                            <form
+                              action={createCanonicalLeaf}
+                              className="flex items-center gap-2 rounded-b-lg border-t border-ink/10 bg-emerald-50/30 px-2 py-1.5"
+                            >
+                              <input type="hidden" name="tile_id" value={tile} />
+                              <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
+                              <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
+                                ＋ svc
+                              </span>
+                              <input
+                                name="display_name_en"
+                                placeholder="New service name…"
+                                aria-label={`Add a service under ${tile}`}
+                                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                              />
+                              <button
+                                type="submit"
+                                className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                              >
+                                Add
+                              </button>
+                            </form>
+                          </div>
+                        </details>
+                      );
+                    })}
+                    <form
+                      action={createTaxonomyNode}
+                      className="flex items-center gap-2 rounded-md border border-dashed border-emerald-300/60 bg-emerald-50/30 px-2 py-1.5"
                     >
-                      Add
-                    </button>
-                  </form>
+                      <input type="hidden" name="parent_id" value={folder} />
+                      <BackFields q={back.q} view={back.view} anchor={`f-${folder}`} />
+                      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
+                        ＋ tile
+                      </span>
+                      <input
+                        name="label_en"
+                        placeholder="New tile name…"
+                        aria-label={`Add a tile under ${folder}`}
+                        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                      />
+                      <button
+                        type="submit"
+                        className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                      >
+                        Add
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
-      <section className="mb-10">
+      <section id="advanced" className="mb-10 scroll-mt-32">
         <details className="rounded-xl border border-ink/10 bg-cream/60 p-4">
           <summary className="cursor-pointer text-sm font-medium text-ink/80">
             Advanced — add a service with a starter refinement
@@ -729,6 +1065,7 @@ export default async function AdminTaxonomyPage({
             <code className="font-mono text-xs">canonical_service_taxonomy</code> mapping (marketplace).
           </p>
           <form action={createCanonicalLeaf} className="grid gap-3 sm:grid-cols-2">
+            <BackFields q={back.q} view={back.view} anchor="advanced" />
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-ink/75">Service name</span>
               <input
@@ -817,8 +1154,8 @@ export default async function AdminTaxonomyPage({
         </details>
       </section>
 
-      {unfiled.length > 0 ? (
-        <section className="mb-10">
+      {unfiled.length > 0 || view === 'unfiled' ? (
+        <section id="unfiled" className="mb-10 scroll-mt-32">
           <header className="mb-2 flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-semibold tracking-tight text-amber-800">
               ⚠ Unfiled services{' '}
@@ -832,11 +1169,29 @@ export default async function AdminTaxonomyPage({
             a tile that no longer exists. They still appear in the vendor &quot;add a service&quot; picker, but the
             marketplace can&apos;t bucket them until they&apos;re filed. Pick a tile and File.
           </p>
-          <ul className="divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/50">
-            {unfiled.map((row) => (
-              <ServiceLine key={row.canonical_service} row={row} tax={tax} faiths={faithVocab} />
-            ))}
-          </ul>
+          {unfiled.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/55">
+              Nothing unfiled — every service is placed on a tile.
+            </p>
+          ) : (
+            <ul className="divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/50">
+              {visibleUnfiled.map((row) => (
+                <ServiceLine
+                  key={row.canonical_service}
+                  row={row}
+                  tax={tax}
+                  faiths={faithVocab}
+                  back={back}
+                  anchor="unfiled"
+                />
+              ))}
+              {filtered && visibleUnfiled.length < unfiled.length ? (
+                <li className="px-3 py-2 text-xs italic text-ink/45">
+                  {unfiled.length - visibleUnfiled.length} hidden by the filter
+                </li>
+              ) : null}
+            </ul>
+          )}
         </section>
       ) : null}
     </div>
@@ -844,11 +1199,20 @@ export default async function AdminTaxonomyPage({
 }
 
 /**
- * One bookable service line — name + slug, metadata badges, and an inline
- * re-file control (remap to another tile). Used both under each tile in the
- * tree and in the Unfiled tray (where `row.meta` is null / has no tile, so the
- * select shows a "— pick a tile —" placeholder and the button reads "File").
+ * Hidden return-address fields (`_q` / `_view` / `_anchor`) every mutating form
+ * carries so `redirectBack` in actions.ts can land the admin back where they
+ * were — filter intact, edited tile re-opened, anchored on screen.
  */
+function BackFields({ q, view, anchor }: { q?: string; view?: string | null; anchor: string }) {
+  return (
+    <>
+      {q ? <input type="hidden" name="_q" value={q} /> : null}
+      {view ? <input type="hidden" name="_view" value={view} /> : null}
+      <input type="hidden" name="_anchor" value={anchor} />
+    </>
+  );
+}
+
 /**
  * Per-tile multi-event applicability control (Phase 1). Admins pick which event
  * types a tile serves; none checked = universal (serves all events) — the
@@ -858,10 +1222,12 @@ function TileEventTypes({
   tile,
   current,
   vocab,
+  back,
 }: {
   tile: string;
   current: string[] | null;
   vocab: { event_type: string; label_en: string }[];
+  back: Back;
 }) {
   const sel = current ?? [];
   const restricted = sel.length > 0;
@@ -876,6 +1242,7 @@ function TileEventTypes({
       </summary>
       <form action={setCategoryEventTypes} className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <input type="hidden" name="category_id" value={tile} />
+        <BackFields q={back.q} view={back.view} anchor={`t-${tile}`} />
         {vocab.map((v) => (
           <label
             key={v.event_type}
@@ -913,10 +1280,14 @@ function ServiceFaithControl({
   canonical,
   current,
   faiths,
+  back,
+  anchor,
 }: {
   canonical: string;
   current: FaithKey | undefined;
   faiths: { faith_key: string; label_en: string }[];
+  back: Back;
+  anchor: string;
 }) {
   return (
     <details className="relative">
@@ -930,6 +1301,7 @@ function ServiceFaithControl({
         className="absolute right-0 z-10 mt-1 flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white p-1.5 shadow-md"
       >
         <input type="hidden" name="canonical_service" value={canonical} />
+        <BackFields q={back.q} view={back.view} anchor={anchor} />
         <select
           name="faith"
           defaultValue={current ?? ''}
@@ -954,14 +1326,24 @@ function ServiceFaithControl({
   );
 }
 
+/**
+ * One bookable service line — name + slug, metadata badges, and an inline
+ * re-file control (remap to another tile). Used both under each tile in the
+ * tree and in the Unfiled tray (where `row.meta` is null / has no tile, so the
+ * select shows a "— pick a tile —" placeholder and the button reads "File").
+ */
 function ServiceLine({
   row,
   tax,
   faiths,
+  back,
+  anchor,
 }: {
   row: ServiceRow;
   tax: TaxonomySnapshot;
   faiths: { faith_key: string; label_en: string }[];
+  back: Back;
+  anchor: string;
 }) {
   const facets = Array.isArray(row.filter_facets) ? row.filter_facets : [];
   const required = (row.required_for_visibility ?? {}) as Record<string, unknown>;
@@ -984,7 +1366,13 @@ function ServiceLine({
         {meta ? (
           <>
             <Badge tone={PHASE_TONE[meta.phase] ?? PHASE_TONE_BASE}>{meta.phase}</Badge>
-            <ServiceFaithControl canonical={row.canonical_service} current={meta.faith} faiths={faiths} />
+            <ServiceFaithControl
+              canonical={row.canonical_service}
+              current={meta.faith}
+              faiths={faiths}
+              back={back}
+              anchor={anchor}
+            />
             {meta.setnayan ? <Badge tone="bg-terracotta/10 text-terracotta">Setnayan</Badge> : null}
             {meta.ph ? <Badge tone="bg-sky-50 text-sky-700">PH-specific</Badge> : null}
             {meta.rental ? <Badge tone="bg-ink/5 text-ink/70">Rental</Badge> : null}
@@ -998,6 +1386,7 @@ function ServiceLine({
       </div>
       <form action={remapCanonical} className="flex shrink-0 items-center gap-1.5">
         <input type="hidden" name="canonical_service" value={row.canonical_service} />
+        <BackFields q={back.q} view={back.view} anchor={anchor} />
         <select
           name="tile_id"
           required
@@ -1010,10 +1399,14 @@ function ServiceLine({
               — pick a tile —
             </option>
           )}
-          {tax.tileOrder.map((t) => (
-            <option key={t} value={t}>
-              {tax.tileLabel[t] ?? t}
-            </option>
+          {tax.folderOrder.map((folder) => (
+            <optgroup key={folder} label={tax.folderLabel[folder] ?? folder}>
+              {(tax.tilesByParent[folder] ?? []).map((t) => (
+                <option key={t} value={t}>
+                  {tax.tileLabel[t] ?? t}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <button
@@ -1036,13 +1429,26 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function NodeRenameForm({ id, label, kind }: { id: string; label: string; kind: string }) {
+function NodeRenameForm({
+  id,
+  label,
+  kind,
+  back,
+  anchor,
+}: {
+  id: string;
+  label: string;
+  kind: string;
+  back: Back;
+  anchor: string;
+}) {
   return (
     <form action={renameTaxonomyNode} className="flex items-center gap-2">
       <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
         {kind}
       </span>
       <input type="hidden" name="id" value={id} />
+      <BackFields q={back.q} view={back.view} anchor={anchor} />
       <input
         name="label_en"
         defaultValue={label}

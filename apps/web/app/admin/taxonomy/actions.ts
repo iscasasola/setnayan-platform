@@ -7,6 +7,40 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const BASE = '/admin/taxonomy';
 
+const SAFE_ANCHOR = /[^a-z0-9_-]/g;
+const VIEWS = new Set(['faith', 'scoped', 'unfiled']);
+
+/**
+ * Redirect back to the spot the form was submitted from (the admin/users
+ * `#u-<id>` pattern). Reads the hidden `_q` / `_view` / `_anchor` fields every
+ * form carries (page-side `BackFields`); `override.anchor` lets actions that
+ * KNOW the destination (remap, create-leaf, promote, delete) land there
+ * instead. A `t-<tile>` anchor also sets `?open=` so the edited tile re-opens;
+ * an `f-<folder>` anchor sets `?openf=` so a filter-hidden folder stays
+ * visible. `q` is NOT character-stripped (it's never interpolated into SQL or
+ * HTML and URLSearchParams percent-encodes it); only the anchor — appended raw
+ * after `#` — gets the strict charset.
+ */
+function redirectBack(
+  formData: FormData,
+  kind: 'ok' | 'error',
+  msg: string,
+  override?: { anchor?: string },
+): never {
+  const q = String(formData.get('_q') ?? '').slice(0, 80).trim();
+  const view = String(formData.get('_view') ?? '').trim();
+  const rawAnchor = override?.anchor ?? String(formData.get('_anchor') ?? '');
+  const anchor = rawAnchor.replace(SAFE_ANCHOR, '').slice(0, 80);
+  const p = new URLSearchParams();
+  if (q) p.set('q', q);
+  if (VIEWS.has(view)) p.set('view', view);
+  if (anchor.startsWith('t-')) p.set('open', anchor.slice(2));
+  if (anchor.startsWith('f-')) p.set('openf', anchor.slice(2));
+  p.set(kind, msg);
+  const url = `${BASE}?${p.toString()}${anchor ? `#${anchor}` : ''}`;
+  redirect(url);
+}
+
 /**
  * Defense-in-depth admin gate (the /admin layout already 404s non-admins;
  * server actions re-check). Mirrors /admin/songs + /admin/pricing. Returns the
@@ -68,6 +102,7 @@ export async function updatePlanningDeadline(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/admin/taxonomy');
+  redirectBack(formData, 'ok', 'Deadline saved.');
 }
 
 /**
@@ -85,9 +120,7 @@ export async function setLastMinuteStart(formData: FormData) {
   const months = Number(formData.get('months'));
   if (!refKey) throw new Error('Missing ref_key');
   if (!Number.isInteger(months) || months < 0 || months > 60) {
-    redirect(
-      `${BASE}?error=${encodeURIComponent('Last-minute start must be a whole number of months (0–60).')}`,
-    );
+    redirectBack(formData, 'error', 'Last-minute start must be a whole number of months (0–60).');
   }
   const admin = createAdminClient();
   const { error } = await admin.from('planning_deadlines').upsert(
@@ -103,7 +136,7 @@ export async function setLastMinuteStart(formData: FormData) {
     },
     { onConflict: 'kind,ref_key,scope' },
   );
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.set_last_minute_start',
     target_table: 'planning_deadlines',
@@ -112,8 +145,10 @@ export async function setLastMinuteStart(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  redirect(
-    `${BASE}?ok=${encodeURIComponent(`Last-minute starts ${months} month${months === 1 ? '' : 's'} before the wedding for ${refKey}.`)}`,
+  redirectBack(
+    formData,
+    'ok',
+    `Last-minute starts ${months} month${months === 1 ? '' : 's'} before the wedding for ${refKey}.`,
   );
 }
 
@@ -132,7 +167,7 @@ export async function clearLastMinuteStart(formData: FormData) {
     .eq('kind', 'last_minute_start')
     .eq('scope', 'category')
     .eq('ref_key', refKey);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.clear_last_minute_start',
     target_table: 'planning_deadlines',
@@ -140,7 +175,7 @@ export async function clearLastMinuteStart(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  redirect(`${BASE}?ok=${encodeURIComponent(`Last-minute disabled for ${refKey}.`)}`);
+  redirectBack(formData, 'ok', `Last-minute disabled for ${refKey}.`);
 }
 
 /**
@@ -154,7 +189,7 @@ export async function renameTaxonomyNode(formData: FormData) {
   const label = String(formData.get('label_en') ?? '').trim();
   if (!id) throw new Error('Missing node id');
   if (label.length < 2 || label.length > 80) {
-    redirect(`${BASE}?error=${encodeURIComponent('Label must be 2–80 characters.')}`);
+    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
   }
   const admin = createAdminClient();
   const { data: before } = await admin
@@ -162,13 +197,13 @@ export async function renameTaxonomyNode(formData: FormData) {
     .select('id, label_en')
     .eq('id', id)
     .maybeSingle();
-  if (!before) redirect(`${BASE}?error=${encodeURIComponent('Node not found.')}`);
-  if (before.label_en === label) redirect(`${BASE}?ok=${encodeURIComponent('No change.')}`);
+  if (!before) redirectBack(formData, 'error', 'Node not found.');
+  if (before.label_en === label) redirectBack(formData, 'ok', 'No change.');
   const { error } = await admin
     .from('service_categories')
     .update({ label_en: label, updated_at: new Date().toISOString() })
     .eq('id', id);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.rename',
     target_table: 'service_categories',
@@ -179,19 +214,23 @@ export async function renameTaxonomyNode(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(`${BASE}?ok=${encodeURIComponent(`Renamed to "${label}".`)}`);
+  redirectBack(formData, 'ok', `Renamed to "${label}".`);
 }
 
 /**
  * Admin: re-map a `canonical_service` to a different tile (+ its parent folder)
  * in `canonical_service_taxonomy`. Read live by `getCanonicalBuckets()` → the
  * /vendors marketplace re-buckets that vendor set with no deploy. Audit-logged.
+ * Success lands on the DESTINATION tile (opened) so the move is verifiable —
+ * EXCEPT when filing from the Unfiled view, where the tree isn't rendered:
+ * stay in the tray so serial filing keeps its place (E1).
  */
 export async function remapCanonical(formData: FormData) {
   const user = await requireAdmin();
   const canonical = String(formData.get('canonical_service') ?? '').trim();
   const tileId = String(formData.get('tile_id') ?? '').trim();
   if (!canonical || !tileId) throw new Error('Missing canonical_service or tile_id');
+  const stayInTray = formData.get('_view') === 'unfiled';
   const admin = createAdminClient();
   // The destination must exist + be a tile (tier 2); derive its parent folder.
   const { data: tile } = await admin
@@ -200,15 +239,17 @@ export async function remapCanonical(formData: FormData) {
     .eq('id', tileId)
     .maybeSingle();
   if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid tile.')}`);
+    redirectBack(formData, 'error', 'Pick a valid tile.');
   }
   const { data: before } = await admin
     .from('canonical_service_taxonomy')
     .select('canonical_service, folder_id, tile_id')
     .eq('canonical_service', canonical)
     .maybeSingle();
-  if (!before) redirect(`${BASE}?error=${encodeURIComponent('Canonical not found.')}`);
-  if (before.tile_id === tileId) redirect(`${BASE}?ok=${encodeURIComponent('Already on that tile.')}`);
+  if (!before) redirectBack(formData, 'error', 'Canonical not found.');
+  if (before.tile_id === tileId) {
+    redirectBack(formData, 'ok', 'Already on that tile.', stayInTray ? undefined : { anchor: `t-${tileId}` });
+  }
   const { error } = await admin
     .from('canonical_service_taxonomy')
     .update({
@@ -217,7 +258,7 @@ export async function remapCanonical(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('canonical_service', canonical);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.remap_canonical',
     target_table: 'canonical_service_taxonomy',
@@ -228,7 +269,12 @@ export async function remapCanonical(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(`${BASE}?ok=${encodeURIComponent('Re-mapped — the marketplace re-buckets live.')}`);
+  redirectBack(
+    formData,
+    'ok',
+    'Re-mapped — the marketplace re-buckets live.',
+    stayInTray ? undefined : { anchor: `t-${tileId}` },
+  );
 }
 
 /**
@@ -257,7 +303,7 @@ export async function setServiceFaith(formData: FormData) {
       .eq('status', 'active')
       .maybeSingle();
     if (!vocabRow) {
-      redirect(`${BASE}?error=${encodeURIComponent(`Unknown faith "${faithRaw}".`)}`);
+      redirectBack(formData, 'error', `Unknown faith "${faithRaw}".`);
     }
     faith = faithRaw;
   }
@@ -267,17 +313,17 @@ export async function setServiceFaith(formData: FormData) {
     .select('canonical_service, faith, dietary')
     .eq('canonical_service', canonical)
     .maybeSingle();
-  if (!before) redirect(`${BASE}?error=${encodeURIComponent('Canonical not found.')}`);
-  if (before.faith === faith) redirect(`${BASE}?ok=${encodeURIComponent('Faith unchanged.')}`);
+  if (!before) redirectBack(formData, 'error', 'Canonical not found.');
+  if (before.faith === faith) redirectBack(formData, 'ok', 'Faith unchanged.');
 
   // De-faith guard: a dietary canonical must never be faith-gated — the
   // marketplace filter is INCLUDE-only and would hide it from every
   // non-matching couple (the exact bug fixed 2026-06-11).
   if (faith && before.dietary) {
-    redirect(
-      `${BASE}?error=${encodeURIComponent(
-        'Dietary services stay universal — dietary capability is a per-vendor grade, not a faith gate.',
-      )}`,
+    redirectBack(
+      formData,
+      'error',
+      'Dietary services stay universal — dietary capability is a per-vendor grade, not a faith gate.',
     );
   }
 
@@ -285,7 +331,7 @@ export async function setServiceFaith(formData: FormData) {
     .from('canonical_service_taxonomy')
     .update({ faith, updated_at: new Date().toISOString() })
     .eq('canonical_service', canonical);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
 
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.set_faith',
@@ -297,10 +343,10 @@ export async function setServiceFaith(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(
-    `${BASE}?ok=${encodeURIComponent(
-      faith ? `Faith set to ${faith} — surfaces only for matching couples.` : 'Faith cleared — universal.',
-    )}`,
+  redirectBack(
+    formData,
+    'ok',
+    faith ? `Faith set to ${faith} — surfaces only for matching couples.` : 'Faith cleared — universal.',
   );
 }
 
@@ -332,7 +378,7 @@ export async function setCategoryEventTypes(formData: FormData) {
     .select('id, tier, applicable_event_types')
     .eq('id', categoryId)
     .maybeSingle();
-  if (!cat) redirect(`${BASE}?error=${encodeURIComponent('Category not found.')}`);
+  if (!cat) redirectBack(formData, 'error', 'Category not found.');
 
   let next: string[] | null = null;
   if (selected.length > 0) {
@@ -343,7 +389,7 @@ export async function setCategoryEventTypes(formData: FormData) {
     const valid = new Set((vocab ?? []).map((v) => v.event_type));
     const unknown = selected.filter((s) => !valid.has(s));
     if (unknown.length > 0) {
-      redirect(`${BASE}?error=${encodeURIComponent('Unknown event type(s): ' + unknown.join(', '))}`);
+      redirectBack(formData, 'error', 'Unknown event type(s): ' + unknown.join(', '));
     }
     // Every event selected == no restriction → store NULL (universal).
     next = selected.length >= valid.size ? null : selected.sort();
@@ -353,7 +399,7 @@ export async function setCategoryEventTypes(formData: FormData) {
     .from('service_categories')
     .update({ applicable_event_types: next })
     .eq('id', categoryId);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
 
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.set_event_types',
@@ -365,10 +411,114 @@ export async function setCategoryEventTypes(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(
-    `${BASE}?ok=${encodeURIComponent(
-      next === null ? 'Set to universal (all events).' : 'Event types updated — live on the marketplace.',
-    )}`,
+  redirectBack(
+    formData,
+    'ok',
+    next === null ? 'Set to universal (all events).' : 'Event types updated — live on the marketplace.',
+  );
+}
+
+/**
+ * Admin: set the event-type scope of EVERY tile under a parent folder in one
+ * submit (the parent-grain bulk control — design-memo §5). Explicit by
+ * construction (A4): a required `scope_mode` radio (universal | scoped) means
+ * the destructive "wipe every per-tile scope" meaning is always a deliberate
+ * choice, and a required `confirm_overwrite` checkbox is re-checked server-side
+ * (native `required` is the zero-JS first layer). Scoped + zero chips = error,
+ * never a silent universal. All-chips-selected still collapses to NULL (house
+ * semantics). ONE audit row carries the per-tile before-map — the manual-restore
+ * path (no UI undo in V1).
+ */
+export async function setFolderEventTypes(formData: FormData) {
+  const user = await requireAdmin();
+  const parentId = String(formData.get('parent_id') ?? '').trim();
+  if (!parentId) throw new Error('Missing parent_id');
+
+  const admin = createAdminClient();
+  const { data: parent } = await admin
+    .from('service_categories')
+    .select('id, tier')
+    .eq('id', parentId)
+    .maybeSingle();
+  if (!parent || parent.tier !== 1) {
+    redirectBack(formData, 'error', 'Pick a valid parent.');
+  }
+
+  // Server re-check of the native `required` confirmation (zero-JS guard).
+  if (formData.get('confirm_overwrite') !== 'on') {
+    redirectBack(formData, 'error', 'Tick the overwrite confirmation first.');
+  }
+
+  const scopeMode = String(formData.get('scope_mode') ?? '');
+  if (scopeMode !== 'universal' && scopeMode !== 'scoped') {
+    redirectBack(formData, 'error', 'Choose Universal or Scoped first.');
+  }
+
+  const selected = Array.from(
+    new Set(
+      formData
+        .getAll('event_types')
+        .map((v) => String(v).trim())
+        .filter(Boolean),
+    ),
+  );
+
+  let next: string[] | null = null;
+  if (scopeMode === 'scoped') {
+    if (selected.length === 0) {
+      redirectBack(formData, 'error', 'Pick at least one event, or choose Universal.');
+    }
+    const { data: vocab } = await admin
+      .from('event_type_vocab')
+      .select('event_type')
+      .eq('status', 'active');
+    const valid = new Set((vocab ?? []).map((v) => v.event_type));
+    const unknown = selected.filter((s) => !valid.has(s));
+    if (unknown.length > 0) {
+      redirectBack(formData, 'error', 'Unknown event type(s): ' + unknown.join(', '));
+    }
+    // Every event selected == no restriction → store NULL (universal).
+    next = selected.length >= valid.size ? null : selected.sort();
+  }
+
+  const { data: tiles } = await admin
+    .from('service_categories')
+    .select('id, applicable_event_types')
+    .eq('parent_id', parentId)
+    .eq('tier', 2);
+  const tileRows = (tiles ?? []) as { id: string; applicable_event_types: string[] | null }[];
+  if (tileRows.length === 0) {
+    redirectBack(formData, 'error', 'No tiles under this folder.');
+  }
+  const tileIds = tileRows.map((t) => t.id);
+
+  const scopeKey = (v: string[] | null) => JSON.stringify((v ?? []).slice().sort());
+  const nextKey = scopeKey(next);
+  const changedIds = tileRows.filter((t) => scopeKey(t.applicable_event_types ?? null) !== nextKey).map((t) => t.id);
+  const prevScopedCount = tileRows.filter((t) => (t.applicable_event_types?.length ?? 0) > 0).length;
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ applicable_event_types: next })
+    .in('id', tileIds);
+  if (error) redirectBack(formData, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.bulk_set_event_types',
+    target_table: 'service_categories',
+    target_id: parentId,
+    before_json: {
+      tiles: Object.fromEntries(tileRows.map((t) => [t.id, t.applicable_event_types ?? null])),
+    },
+    after_json: { applicable_event_types: next, tile_ids: tileIds, changed_tile_ids: changedIds },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirectBack(
+    formData,
+    'ok',
+    `Applied to ${tileIds.length} tiles (${changedIds.length} changed${prevScopedCount ? `, ${prevScopedCount} previously had their own scope` : ''}).`,
   );
 }
 
@@ -392,12 +542,12 @@ export async function createTaxonomyNode(formData: FormData) {
   const label = String(formData.get('label_en') ?? '').trim();
   if (!parentId) throw new Error('Missing parent_id');
   if (label.length < 2 || label.length > 80) {
-    redirect(`${BASE}?error=${encodeURIComponent('Label must be 2–80 characters.')}`);
+    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
   }
   const id = slugify(label, '_');
   const slug = slugify(label, '-');
   if (!id || !slug) {
-    redirect(`${BASE}?error=${encodeURIComponent('Label needs letters or numbers.')}`);
+    redirectBack(formData, 'error', 'Label needs letters or numbers.');
   }
   const admin = createAdminClient();
   const { data: parent } = await admin
@@ -406,7 +556,7 @@ export async function createTaxonomyNode(formData: FormData) {
     .eq('id', parentId)
     .maybeSingle();
   if (!parent || parent.tier !== 1) {
-    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid parent.')}`);
+    redirectBack(formData, 'error', 'Pick a valid parent.');
   }
   const { data: existing } = await admin
     .from('service_categories')
@@ -414,7 +564,7 @@ export async function createTaxonomyNode(formData: FormData) {
     .eq('id', id)
     .maybeSingle();
   if (existing) {
-    redirect(`${BASE}?error=${encodeURIComponent(`A node "${id}" already exists — pick a different label.`)}`);
+    redirectBack(formData, 'error', `A node "${id}" already exists — pick a different label.`);
   }
   const { data: lastSibling } = await admin
     .from('service_categories')
@@ -437,7 +587,7 @@ export async function createTaxonomyNode(formData: FormData) {
     status: 'active',
   };
   const { error } = await admin.from('service_categories').insert(row);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.create',
     target_table: 'service_categories',
@@ -447,13 +597,14 @@ export async function createTaxonomyNode(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(`${BASE}?ok=${encodeURIComponent(`Added tile "${label}" under ${parentId}.`)}`);
+  redirectBack(formData, 'ok', `Added tile "${label}" under ${parentId}.`);
 }
 
 /**
  * Admin: delete a tile. Guarded against orphans — refuses if it has child nodes
  * or any canonical_service still mapped to it (re-map those first). Parents are
- * owner-managed and not deletable here. Audit-logged.
+ * owner-managed and not deletable here. Audit-logged. Success lands on the
+ * parent FOLDER (the tile is gone); failures land back on the tile, open.
  */
 export async function deleteTaxonomyNode(formData: FormData) {
   const user = await requireAdmin();
@@ -465,26 +616,26 @@ export async function deleteTaxonomyNode(formData: FormData) {
     .select('id, tier, label_en, parent_id')
     .eq('id', id)
     .maybeSingle();
-  if (!before) redirect(`${BASE}?error=${encodeURIComponent('Node not found.')}`);
+  if (!before) redirectBack(formData, 'error', 'Node not found.');
   if (before.tier === 1) {
-    redirect(`${BASE}?error=${encodeURIComponent('Parents are owner-managed — can’t delete here.')}`);
+    redirectBack(formData, 'error', 'Parents are owner-managed — can’t delete here.');
   }
   const { count: childCount } = await admin
     .from('service_categories')
     .select('id', { count: 'exact', head: true })
     .eq('parent_id', id);
   if ((childCount ?? 0) > 0) {
-    redirect(`${BASE}?error=${encodeURIComponent('Has sub-categories — remove them first.')}`);
+    redirectBack(formData, 'error', 'Has sub-categories — remove them first.');
   }
   const { count: mappedCount } = await admin
     .from('canonical_service_taxonomy')
     .select('canonical_service', { count: 'exact', head: true })
     .eq('tile_id', id);
   if ((mappedCount ?? 0) > 0) {
-    redirect(`${BASE}?error=${encodeURIComponent(`${mappedCount} service(s) still mapped here — re-map them first.`)}`);
+    redirectBack(formData, 'error', `${mappedCount} service(s) still mapped here — re-map them first.`);
   }
   const { error } = await admin.from('service_categories').delete().eq('id', id);
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.delete',
     target_table: 'service_categories',
@@ -494,7 +645,12 @@ export async function deleteTaxonomyNode(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(`${BASE}?ok=${encodeURIComponent(`Deleted "${before.label_en}".`)}`);
+  redirectBack(
+    formData,
+    'ok',
+    `Deleted "${before.label_en}".`,
+    before.parent_id ? { anchor: `f-${before.parent_id}` } : undefined,
+  );
 }
 
 /**
@@ -515,7 +671,7 @@ export async function moveTaxonomyNode(formData: FormData) {
     .eq('id', id)
     .maybeSingle();
   if (!node || node.parent_id == null) {
-    redirect(`${BASE}?error=${encodeURIComponent('This node can’t be moved.')}`);
+    redirectBack(formData, 'error', 'This node can’t be moved.');
   }
   // Adjacent sibling: same parent + tier, nearest sort_order in the direction.
   const base = admin
@@ -535,7 +691,7 @@ export async function moveTaxonomyNode(formData: FormData) {
           .order('sort_order', { ascending: true })
           .limit(1)
           .maybeSingle();
-  if (!sibling) redirect(`${BASE}?ok=${encodeURIComponent('Already at the edge.')}`);
+  if (!sibling) redirectBack(formData, 'ok', 'Already at the edge.');
   // Swap (no unique constraint on sort_order, so the interim collision is fine).
   await admin
     .from('service_categories')
@@ -555,7 +711,7 @@ export async function moveTaxonomyNode(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(`${BASE}?ok=${encodeURIComponent(`Moved ${direction}.`)}`);
+  redirectBack(formData, 'ok', `Moved ${direction}.`);
 }
 
 /**
@@ -574,7 +730,8 @@ export async function moveTaxonomyNode(formData: FormData) {
  * An optional starter refinement seeds the leaf's first category-specific
  * attribute as a `multi_select` (e.g. a "Customization" refinement with
  * options plain · custom_monogram · custom_logo for a new table-linen-rental
- * service). Audit-logged.
+ * service). Audit-logged. Success lands on the destination tile, opened, so
+ * the new service is on screen.
  */
 export async function createCanonicalLeaf(formData: FormData) {
   const user = await requireAdmin();
@@ -588,11 +745,11 @@ export async function createCanonicalLeaf(formData: FormData) {
 
   if (!tileId) throw new Error('Missing tile_id');
   if (label.length < 2 || label.length > 80) {
-    redirect(`${BASE}?error=${encodeURIComponent('Service name must be 2–80 characters.')}`);
+    redirectBack(formData, 'error', 'Service name must be 2–80 characters.');
   }
   const canonical = slugify(label, '_');
   if (!canonical) {
-    redirect(`${BASE}?error=${encodeURIComponent('Name needs letters or numbers.')}`);
+    redirectBack(formData, 'error', 'Name needs letters or numbers.');
   }
 
   const admin = createAdminClient();
@@ -608,7 +765,7 @@ export async function createCanonicalLeaf(formData: FormData) {
       .eq('status', 'active')
       .maybeSingle();
     if (!vocabRow) {
-      redirect(`${BASE}?error=${encodeURIComponent(`Unknown faith "${faithRaw}".`)}`);
+      redirectBack(formData, 'error', `Unknown faith "${faithRaw}".`);
     }
     faith = faithRaw;
   }
@@ -621,7 +778,7 @@ export async function createCanonicalLeaf(formData: FormData) {
     .eq('id', tileId)
     .maybeSingle();
   if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid tile.')}`);
+    redirectBack(formData, 'error', 'Pick a valid tile.');
   }
 
   // The key must be free in BOTH leaf tables (schema PK + mapping PK).
@@ -638,9 +795,7 @@ export async function createCanonicalLeaf(formData: FormData) {
       .maybeSingle(),
   ]);
   if (schemaDupeRes.data || taxDupeRes.data) {
-    redirect(
-      `${BASE}?error=${encodeURIComponent(`A service "${canonical}" already exists — pick a different name.`)}`,
-    );
+    redirectBack(formData, 'error', `A service "${canonical}" already exists — pick a different name.`);
   }
 
   // Optional starter refinement → one multi_select category-specific attribute.
@@ -671,7 +826,7 @@ export async function createCanonicalLeaf(formData: FormData) {
     required_for_visibility: {},
     ranking_signal_weights: {},
   });
-  if (schemaErr) redirect(`${BASE}?error=${encodeURIComponent(schemaErr.message)}`);
+  if (schemaErr) redirectBack(formData, 'error', schemaErr.message);
 
   // 2. Tile placement — /vendors buckets it live.
   const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
@@ -690,7 +845,7 @@ export async function createCanonicalLeaf(formData: FormData) {
   if (taxErr) {
     // Roll back the schema stub so a half-created leaf can't linger.
     await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
-    redirect(`${BASE}?error=${encodeURIComponent(taxErr.message)}`);
+    redirectBack(formData, 'error', taxErr.message);
   }
 
   await admin.from('admin_audit_log').insert({
@@ -709,10 +864,11 @@ export async function createCanonicalLeaf(formData: FormData) {
 
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(
-    `${BASE}?ok=${encodeURIComponent(
-      `Added service "${label}" under ${tileId}${refinementLabel ? ` with a "${refinementLabel}" refinement` : ''}.`,
-    )}`,
+  redirectBack(
+    formData,
+    'ok',
+    `Added service "${label}" under ${tileId}${refinementLabel ? ` with a "${refinementLabel}" refinement` : ''}.`,
+    { anchor: `t-${tileId}` },
   );
 }
 
@@ -723,7 +879,8 @@ export async function createCanonicalLeaf(formData: FormData) {
 /**
  * PROMOTE — mint a real canonical leaf for the request under a chosen tile, then
  * mark the request `promoted` (the proposing vendor keeps first-vendor credit via
- * the audit trail). Same two-table leaf write as `createCanonicalLeaf`.
+ * the audit trail). Same two-table leaf write as `createCanonicalLeaf`. Success
+ * lands on the destination tile, opened, so the new service is on screen.
  */
 export async function promoteCategoryRequest(formData: FormData) {
   const user = await requireAdmin();
@@ -737,9 +894,9 @@ export async function promoteCategoryRequest(formData: FormData) {
     .select('request_id, proposed_label, status')
     .eq('request_id', requestId)
     .maybeSingle();
-  if (!req) redirect(`${BASE}?error=${encodeURIComponent('Request not found.')}`);
+  if (!req) redirectBack(formData, 'error', 'Request not found.');
   if (req.status !== 'pending') {
-    redirect(`${BASE}?error=${encodeURIComponent('That request was already resolved.')}`);
+    redirectBack(formData, 'error', 'That request was already resolved.');
   }
 
   const { data: tile } = await admin
@@ -748,12 +905,12 @@ export async function promoteCategoryRequest(formData: FormData) {
     .eq('id', tileId)
     .maybeSingle();
   if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid tile.')}`);
+    redirectBack(formData, 'error', 'Pick a valid tile.');
   }
 
   const canonical = slugify(req.proposed_label, '_');
   if (!canonical) {
-    redirect(`${BASE}?error=${encodeURIComponent('Label needs letters or numbers.')}`);
+    redirectBack(formData, 'error', 'Label needs letters or numbers.');
   }
 
   const [schemaDupe, taxDupe] = await Promise.all([
@@ -761,9 +918,7 @@ export async function promoteCategoryRequest(formData: FormData) {
     admin.from('canonical_service_taxonomy').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
   ]);
   if (schemaDupe.data || taxDupe.data) {
-    redirect(
-      `${BASE}?error=${encodeURIComponent(`"${canonical}" already exists — use Map instead of Promote.`)}`,
-    );
+    redirectBack(formData, 'error', `"${canonical}" already exists — use Map instead of Promote.`);
   }
 
   const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
@@ -776,7 +931,7 @@ export async function promoteCategoryRequest(formData: FormData) {
     required_for_visibility: {},
     ranking_signal_weights: {},
   });
-  if (schemaErr) redirect(`${BASE}?error=${encodeURIComponent(schemaErr.message)}`);
+  if (schemaErr) redirectBack(formData, 'error', schemaErr.message);
 
   const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
     canonical_service: canonical,
@@ -788,7 +943,7 @@ export async function promoteCategoryRequest(formData: FormData) {
   });
   if (taxErr) {
     await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
-    redirect(`${BASE}?error=${encodeURIComponent(taxErr.message)}`);
+    redirectBack(formData, 'error', taxErr.message);
   }
 
   await admin
@@ -812,7 +967,9 @@ export async function promoteCategoryRequest(formData: FormData) {
 
   revalidatePath(BASE);
   revalidatePath('/vendors');
-  redirect(`${BASE}?ok=${encodeURIComponent(`Promoted "${req.proposed_label}" → new service "${canonical}".`)}`);
+  redirectBack(formData, 'ok', `Promoted "${req.proposed_label}" → new service "${canonical}".`, {
+    anchor: `t-${tileId}`,
+  });
 }
 
 /**
@@ -833,7 +990,7 @@ export async function mapCategoryRequest(formData: FormData) {
     .eq('canonical_service', canonical)
     .maybeSingle();
   if (!target) {
-    redirect(`${BASE}?error=${encodeURIComponent('Pick an existing service to map to.')}`);
+    redirectBack(formData, 'error', 'Pick an existing service to map to.');
   }
 
   const { error } = await admin
@@ -848,7 +1005,7 @@ export async function mapCategoryRequest(formData: FormData) {
     })
     .eq('request_id', requestId)
     .eq('status', 'pending');
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
 
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.request_map',
@@ -859,7 +1016,7 @@ export async function mapCategoryRequest(formData: FormData) {
   });
 
   revalidatePath(BASE);
-  redirect(`${BASE}?ok=${encodeURIComponent(`Mapped to "${canonical}".`)}`);
+  redirectBack(formData, 'ok', `Mapped to "${canonical}".`);
 }
 
 /**
@@ -888,7 +1045,7 @@ export async function resolveCategoryRequest(formData: FormData) {
     })
     .eq('request_id', requestId)
     .eq('status', 'pending');
-  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirectBack(formData, 'error', error.message);
 
   await admin.from('admin_audit_log').insert({
     action: `taxonomy.request_${outcome}`,
@@ -899,7 +1056,5 @@ export async function resolveCategoryRequest(formData: FormData) {
   });
 
   revalidatePath(BASE);
-  redirect(
-    `${BASE}?ok=${encodeURIComponent(outcome === 'kept_private' ? 'Kept private.' : 'Request rejected.')}`,
-  );
+  redirectBack(formData, 'ok', outcome === 'kept_private' ? 'Kept private.' : 'Request rejected.');
 }

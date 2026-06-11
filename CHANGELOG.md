@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
+
+**Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").
+
+**Zero client JS — the page stays a server component; every form works without JS.** Two files only.
+
+- **Keystone — `redirectBack` (actions.ts):** all 61 `redirect(BASE?ok|error=…)` sites now return you to the exact tile/section you edited, with `?q=`/`?view=` preserved and the edited tile re-opened (`?open=`/`?openf=` + `#anchor`). Destination overrides: re-file/create/promote land on the destination tile; delete lands on the parent; filing from the Unfiled view stays in the tray (serial filing). `updatePlanningDeadline` is no longer silent.
+- **Sticky bar:** search (`?q=` GET, server-side in-memory filter over name/TL/canonical), view chips (`All · Faith-tagged · Event-scoped · Unfiled` with live counts), folder jump pills with counts (dimmed when no matches), Queue/Deadlines/Advanced/Unfiled anchors, single-line ok/error strip (`role=status/alert`) so feedback is visible at any scroll position.
+- **Collapse:** 54 tiles are now closed-by-default `<details>` — the quiet page drops ~18k px → ~4k px and becomes a scannable overview; searching/filtering auto-opens matches; a save re-opens exactly the tile you edited. Parents stay open. The tile rename/reorder/delete row moved inside the body (clicks in a summary toggle it).
+- **Scope badges on closed summaries:** `wedding-only`/`N events`, `N faith`, `empty` — scoped-vs-universal is visible without expanding; folder headers roll up `X/N scoped · Y faith`.
+- **Parent-grain bulk event-set:** one form per folder writes all child tiles in a single UPDATE + ONE audit row (`taxonomy.bulk_set_event_types`, per-tile before-map + `changed_tile_ids`). Guarded per the adversarial critique: required `scope_mode` radio (universal vs scoped — no default) + required overwrite-confirmation checkbox + server re-checks; success message reports how many tiles actually changed. No UI undo in V1 — the audit before-map is the manual-restore path.
+- **Fix-alongs:** remap select gains folder optgroups (was a flat 54-option list); the faith-popover clipping bug fixed structurally (`overflow-hidden` removed); the page's 6 independent reads now run in one `Promise.all` (every save round-trip was paying ~7 serial DB RTTs); a11y pass (nav landmark, aria-current, sr-only no-match hints, rotating disclosure glyph, no outline suppression).
+
+**Verification:** `tsc` 0 errors · `next lint` clean · 40/40 unit tests · structural greps (0 leftover BASE redirects, login redirects intact, all `revalidatePath('/vendors')` pairs preserved, 0 `overflow-hidden`, no Suspense added). Behavioral checklist on the Vercel preview (hash-scroll after redirect, JS-off end-to-end) per the spec's verify list.
+
+**SPEC IMPACT:** Realizes design-memo §5 (bulk set + filtered views + admin assignment ergonomics). → corpus design doc + `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(website): spatial backdrop v4 — the world is now a VIDEO scrubbed by scroll
 
 **Context:** Owner: *"the background need to be a video that moves as we scroll."* Each backdrop theme now ships a pre-rendered **journey film** (camera pushing through scene A → crossfade → deeper into scene B) whose **playhead is the scroll position**.

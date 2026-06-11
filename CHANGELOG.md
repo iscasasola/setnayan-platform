@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(website): hosts can ALWAYS preview any phase + the editor tabs become real phase previews
+
+**Context:** Owner: *"okay can you always preview that?"* — previously `?phase=rsvp|event|editorial` worked only on demo events (`test-*` slug), so a real couple could never see their on-the-day page or editorial before the date, and the editor's Editorial tab showed a "coming soon" placeholder.
+
+- **`app/[slug]/page.tsx`:** the phase override is now honored for **the event's own signed-in hosts** (event_members couple OR accepted event_moderators) on ANY event — checked against the VIEWER's session, so a crafted link still can't force a phase for guests/anonymous visitors (the original safety rationale holds). Host lookups only run when a `?phase=` param is present — the normal guest path pays zero extra queries. Demo events keep the open override.
+- **`site-editor`:** the RSVP / Event / Editorial tabs now load the live preview iframe with the matching `?phase=` — the couple's session rides into the same-origin iframe, so each tab is a TRUE preview of that phase (the Editorial "coming soon" placeholder is retired). The preview pill reads "Previewing · {Phase} page"; iframe re-keys per tab.
+
+**Verification:** `tsc` clean; behavior verified on prod after merge (host preview on the editor tabs + anonymous `?phase=` ignored on non-demo events — by construction, host check requires the viewer's own session).
+
+**SPEC IMPACT:** §1.2 phase-switcher of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` — the editor's phase TABS now preview for real (first step toward the full phase-switcher model). DECISION_LOG row added.
+
 ## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
 
 **Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").

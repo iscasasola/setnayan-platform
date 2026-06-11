@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · style(website): spatial backdrop — seamless floating widgets (vellum sheet removed)
+
+**Context:** Owner, from a live prod screenshot of the new spatial backdrop: *"remove the white background. so the widgets feels seamless on the background."* The full-column translucent vellum panel read as one big white card.
+
+- **`app/[slug]/page.tsx` (InvitationShell):** backdrop mode no longer wraps content in the vellum panel (no bg/ring/shadow/rounded) — each widget's own cream card now floats DIRECTLY on the generated world, with art visible between cards. Footer over the backdrop goes transparent (cream text on the backdrop's bottom vignette).
+- **`app/_components/spatial-backdrop.tsx`:** new **light column** — a heavily blurred `bg-cream/35` wash behind the content column, INSIDE the backdrop. This replaces the vellum as the legibility layer for loose ink text (intro copy, eyebrows, greetings) while reading as ambient glow, not paper. Widget cards carry their own surfaces.
+
+**Verification:** `tsc` clean · visual check on the local harness at desktop width — cards float on the Gilded Dusk world with the art flowing between them, loose text readable on the wash, footer legible on the vignette.
+
+**SPEC IMPACT:** `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` §2.1b "vellum panel" wording superseded by "seamless floating widgets + light column" (corpus edit applied with this change's DECISION_LOG row).
+
 ## 2026-06-11 · feat(monogram): Setnayan AI Bespoke Monogram studio — native-SVG generator (Phase 2)
 
 **Context:** Phase 2 of the 2026-06-11 monogram overhaul (owner: current monogram is "too common… find a better way"). Revives the long-deferred 0037 bespoke-monogram vision on a **native-vector pipeline** — the original DALL-E-raster + vectorizer.ai plan never shipped because raster marks couldn't recolor or stay crisp at QR/print size. The couple fills a short brief (style direction: Interlocked · Botanical · Heirloom Crest · Modern Geometric · + optional motif), **Setnayan AI** generates 4 native-SVG candidate marks per round, they refine with feedback, and apply one as their event monogram. Live-tested: the marks are designer-tier (interlocked letterforms, fine-line botanical wreaths, engraved crests) — genuinely on-par-with-market, well past the commodity lettered lockup.

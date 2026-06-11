@@ -151,6 +151,16 @@ export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
             'linear-gradient(to bottom, rgba(10,10,16,0.55), transparent 18%, transparent 82%, rgba(10,10,16,0.6))',
         }}
       />
+      {/* Light column — the legibility layer that replaced the vellum panel
+          (owner 2026-06-11 "remove the white background"). A heavily blurred
+          cream wash sitting behind the content column so LOOSE ink text
+          (intro copy, eyebrows, greetings) stays readable while the world
+          shows through everywhere; widget cards carry their own surfaces.
+          Blur softens the edges so it reads as ambient glow, not paper. */}
+      <div
+        aria-hidden
+        className="absolute inset-y-0 left-1/2 w-full max-w-[860px] -translate-x-1/2 bg-cream/35 blur-3xl"
+      />
     </div>
   );
 }

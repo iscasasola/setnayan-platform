@@ -573,10 +573,13 @@ type GuestRow = {
 /**
  * Page chrome shared by every landing state. When `backdrop` is provided (the
  * spatial RSVP backdrop), the world renders FIXED behind everything and the
- * content column floats above it on a translucent "vellum" panel — that panel
- * is the legibility guarantee: whatever the generated art does, text always
- * sits on ≥88% cream. backdrop-blur only kicks in at sm+ (it's GPU-costly on
- * low-end phones; mobile gets a slightly more opaque panel instead).
+ * content column sits DIRECTLY on the world — no panel. (Owner 2026-06-11:
+ * "remove the white background, so the widgets feel seamless" — the original
+ * vellum sheet read as a big white card.) Each widget keeps its own cream
+ * card surface, so the cards float on the art; legibility for the LOOSE text
+ * between cards comes from the soft blurred light-column the SpatialBackdrop
+ * itself renders behind the content area (reads as ambient glow, not paper).
+ * The footer goes transparent over the backdrop's bottom vignette.
  */
 function InvitationShell({
   children,
@@ -604,7 +607,7 @@ function InvitationShell({
       <div
         className={
           backdrop
-            ? 'relative z-10 mx-auto my-6 w-full max-w-3xl overflow-hidden rounded-3xl bg-cream/[0.93] px-4 py-10 shadow-xl ring-1 ring-ink/10 sm:my-10 sm:bg-cream/[0.88] sm:px-6 sm:py-14 sm:backdrop-blur-md'
+            ? 'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
             : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
         }
       >
@@ -616,12 +619,18 @@ function InvitationShell({
           functional widgets above. Couple palette tokens (terracotta · ink)
           untouched. */}
       <footer
-        className={`relative z-10 border-t border-ink/10 px-4 py-8 text-center ${
-          backdrop ? 'bg-cream/90' : ''
+        className={`relative z-10 px-4 py-8 text-center ${
+          backdrop ? 'border-t border-cream/15' : 'border-t border-ink/10'
         }`}
       >
-        <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
-        <p className="mt-3 text-xs text-ink/50">
+        <p
+          className={`font-serif text-lg italic ${
+            backdrop ? 'text-cream/90' : 'text-terracotta'
+          }`}
+        >
+          See you soon.
+        </p>
+        <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
           Powered by Setnayan · setnayan.com
         </p>
       </footer>

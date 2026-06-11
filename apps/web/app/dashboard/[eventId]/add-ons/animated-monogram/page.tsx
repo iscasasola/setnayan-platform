@@ -6,6 +6,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import {
+  MONOGRAM_MOTIONS,
+  resolveMonogramMotion,
+  type MonogramMotionKey,
+} from '@/lib/monogram-motion';
 import { buildEventLandingUrl } from '@/lib/qr';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -67,7 +72,7 @@ export default async function AnimatedMonogramPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, monogram_text, monogram_color',
+      'event_id, display_name, slug, monogram_text, monogram_color, monogram_motion_key',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -75,6 +80,12 @@ export default async function AnimatedMonogramPage({ params }: Props) {
 
   const owns = await eventOwnsAnimatedMonogram(supabase, eventId);
   const monogram = resolveMonogram(event);
+  // The couple's chosen Motion Library signature (lib/monogram-motion.ts ·
+  // picked in the Monogram Maker · NULL → 'draw'). Both previews below play
+  // the real motion so the page shows exactly what guests would see.
+  const motion = resolveMonogramMotion(event.monogram_motion_key);
+  const motionLabel =
+    MONOGRAM_MOTIONS.find((m) => m.key === motion)?.label ?? 'Drawn';
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
@@ -107,8 +118,9 @@ export default async function AnimatedMonogramPage({ params }: Props) {
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Your monogram already opens your wedding website. This upgrade makes
-          it draw itself in — your initials traced on, line by line, the moment
-          a guest lands on your page.
+          it move — pick from six motion signatures (Drawn, Foil, Bloom,
+          Editorial, Halo, Stardust) and it plays the moment a guest lands on
+          your page.
         </p>
       </header>
 
@@ -117,6 +129,8 @@ export default async function AnimatedMonogramPage({ params }: Props) {
           monogram={monogram}
           publicLandingUrl={publicLandingUrl}
           eventId={eventId}
+          motion={motion}
+          motionLabel={motionLabel}
         />
       ) : (
         <UnownedView
@@ -125,6 +139,8 @@ export default async function AnimatedMonogramPage({ params }: Props) {
           eventId={eventId}
           displayName={event.display_name}
           supabase={supabase}
+          motion={motion}
+          motionLabel={motionLabel}
         />
       )}
     </section>
@@ -139,17 +155,21 @@ function OwnedView({
   monogram,
   publicLandingUrl,
   eventId,
+  motion,
+  motionLabel,
 }: {
   monogram: ReturnType<typeof resolveMonogram>;
   publicLandingUrl: string | null;
   eventId: string;
+  motion: MonogramMotionKey;
+  motionLabel: string;
 }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-300/60 bg-emerald-50 px-4 py-3">
         <p className="inline-flex items-center gap-2 text-sm font-medium text-emerald-800">
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Your monogram draws itself in on your wedding website.
+          Your monogram plays the {motionLabel} motion on your wedding website.
         </p>
         {publicLandingUrl ? (
           <a
@@ -169,12 +189,13 @@ function OwnedView({
           Live preview
         </p>
         <div className="mt-6 flex justify-center">
-          {/* key forces a remount so the draw-on replays each page visit */}
+          {/* key forces a remount so the chosen motion replays each page visit */}
           <AnimatedMonogramHero
-            key={`owned-${monogram.text}`}
+            key={`owned-${monogram.text}-${motion}`}
             text={monogram.text}
             color={monogram.color}
             size="lg"
+            motion={motion}
           />
         </div>
         <p className="mt-5 text-sm text-ink/60">
@@ -183,14 +204,15 @@ function OwnedView({
       </section>
 
       <p className="text-xs text-ink/50">
-        Want to change the initials or colour? Set them in your{' '}
+        Want different initials or a different motion? Pick from all six
+        signatures in your{' '}
         <Link
-          href={`/dashboard/${eventId}/website`}
+          href={`/dashboard/${eventId}/monogram`}
           className="font-medium text-terracotta underline-offset-4 hover:underline"
         >
-          Website tab
+          Monogram Maker
         </Link>{' '}
-        — the animation follows whatever your monogram says.
+        — the animation follows whatever you save.
       </p>
     </>
   );
@@ -208,12 +230,16 @@ async function UnownedView({
   eventId,
   displayName,
   supabase,
+  motion,
+  motionLabel,
 }: {
   monogram: ReturnType<typeof resolveMonogram>;
   pricePhp: number;
   eventId: string;
   displayName: string | null;
   supabase: SupabaseLike;
+  motion: MonogramMotionKey;
+  motionLabel: string;
 }) {
   const settings = await fetchPlatformSettings(supabase);
 
@@ -228,7 +254,8 @@ async function UnownedView({
           <h2 className="text-xl font-semibold tracking-tight">See the difference</h2>
           <p className="max-w-prose text-sm text-ink/60">
             Same initials, same colours — straight from your monogram. The
-            upgrade makes it draw itself in instead of just appearing.
+            upgrade makes it move instead of just appearing, in the motion you
+            pick from the six-signature library.
           </p>
         </header>
 
@@ -252,15 +279,20 @@ async function UnownedView({
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               Upgrade
             </span>
-            {/* key remounts the component so the trace replays on each render */}
+            {/* key remounts the component so the motion replays on each render */}
             <AnimatedMonogramHero
-              key={`preview-${monogram.text}`}
+              key={`preview-${monogram.text}-${motion}`}
               text={monogram.text}
               color={monogram.color}
               size="md"
+              motion={motion}
             />
-            <p className="text-sm font-medium text-ink">Animated — drawn live</p>
-            <p className="text-xs text-ink/55">Traces on, line by line, then settles.</p>
+            <p className="text-sm font-medium text-ink">
+              Animated — your {motionLabel} motion
+            </p>
+            <p className="text-xs text-ink/55">
+              One of six signatures — pick yours in the Monogram Maker.
+            </p>
           </div>
         </div>
         <p className="mt-4 text-xs text-ink/50">

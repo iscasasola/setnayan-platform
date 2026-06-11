@@ -68,6 +68,15 @@ export type GenerateVectorSvgArgs = {
   size?: '1024x1024' | '1365x1024' | '1024x1365' | '1707x1024' | '1024x1707';
   /** Model to invoke. Defaults to the V4 vector model. */
   model?: string;
+  /** Optional palette steering (Recraft `controls`). `colors` biases the
+   *  working palette; `background_color` pins the canvas. Verified live
+   *  2026-06-11 against recraftv4_1_vector + b64_json (bespoke monogram
+   *  studio). Callers needing graceful degradation should retry WITHOUT
+   *  controls on a 400 (API-drift tolerance). */
+  controls?: {
+    colors?: { rgb: [number, number, number] }[];
+    background_color?: { rgb: [number, number, number] };
+  };
 };
 
 export type GenerateVectorSvgResult = {
@@ -101,6 +110,7 @@ export async function generateVectorSvg(
     model: args.model ?? 'recraftv4_1_vector',
     style: args.style ?? 'vector_illustration',
     ...(args.substyle ? { substyle: args.substyle } : {}),
+    ...(args.controls ? { controls: args.controls } : {}),
     size: args.size ?? '1024x1024',
     response_format: 'b64_json' as const,
     n: 1,

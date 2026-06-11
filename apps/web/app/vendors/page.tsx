@@ -54,10 +54,12 @@ import {
   TILE_PARENT,
   type WeddingFolder,
   type WeddingTile,
+  type WeddingFaithKey,
   type TaxonomyEntry,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
@@ -700,7 +702,10 @@ function parseFilters(
  * INC stays uppercase as the label (it's an organization name —
  * Iglesia Ni Cristo) but the URL param is `inc` for consistency.
  */
-export type FaithKey = 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' | 'Chinese' | 'Jewish' | 'Born Again';
+// Derived from the canonical lib vocabulary (minus Civil — civil couples have
+// no faith pill; they simply see the universal set). Adding a faith to
+// WEDDING_FAITH_KEYS forces the URL/label maps below to be extended here.
+export type FaithKey = Exclude<WeddingFaithKey, 'Civil'>;
 const FAITH_URL_TO_KEY: Record<string, FaithKey> = {
   catholic: 'Catholic',
   christian: 'Christian',
@@ -988,6 +993,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           venueAnchor={venueAnchor}
           venueAnchorName={venueAnchorName}
           coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
+          coupleEventType={coupleEventType}
           currentEventId={coupleEventId}
           isAuthenticated={user !== null}
           noticeKey={noticeKey}
@@ -2354,6 +2360,7 @@ async function CatalogView({
   venueAnchor,
   venueAnchorName,
   coupleCeremonyType,
+  coupleEventType,
   currentEventId,
   isAuthenticated,
   noticeKey,
@@ -2366,12 +2373,18 @@ async function CatalogView({
   faithFilter,
 }: {
   admin: ReturnType<typeof createAdminClient>;
-  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+  matchableEvent: {
+    ceremony_type: string;
+    secondary_ceremony_type?: string | null;
+    venue_setting: string;
+  } | null;
   matchEvent: boolean;
   coupleFaith: CoupleFaith;
   venueAnchor: { lat: number; lng: number } | null;
   venueAnchorName: string | null;
   coupleCeremonyType: string | null;
+  /** events.event_type — drives the tile-level multi-event applicability gate. */
+  coupleEventType: string | null;
   currentEventId: string | null;
   /** Whether the viewer has a Setnayan session. Drives the header CTA
    *  ("Return to Dashboard" for couples, "Plan with Setnayan" for guests). */
@@ -2476,16 +2489,27 @@ async function CatalogView({
   // The "untagged-tiles-always-surface" rule still holds across all
   // three branches (civil judge, generic officiant, marriage license,
   // CFO, apostille all stay regardless of pick).
+  // SET-based rewrite (2026-06-11, design doc §3): the filter set is the
+  // UNION of the couple's primary + secondary rites, so a Mixed/inter-faith
+  // couple sees BOTH rites' specialist services (the scalar version read only
+  // the primary). Civil maps to the first-class 'Civil' key — universal +
+  // civil-officiant canonicals pass, religious-tagged ones don't (this makes
+  // the code match the documented intent above). Wedding-guarded inside
+  // buildCoupleFaithSet (defense-in-depth alongside the 20260521080000
+  // wedding↔ceremony_type constraint). An explicit faithFilter pill still
+  // overrides everything as a single-member set.
   const religionFilteringActive = matchEvent && matchableEvent !== null;
-  const activeFaith: FaithKey | null =
-    faithFilter ?? (religionFilteringActive ? (coupleFaith as FaithKey | null) : null);
-  const passesReligionFilter = (
-    meta: { faith?: 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' },
-  ): boolean => {
-    if (activeFaith === null) return true;
-    if (!meta.faith) return true;
-    return meta.faith === activeFaith;
-  };
+  const activeFaithSet: ReadonlySet<string> = faithFilter
+    ? new Set([faithFilter])
+    : religionFilteringActive && matchableEvent
+      ? buildCoupleFaithSet({
+          eventType: coupleEventType,
+          ceremonyType: matchableEvent.ceremony_type,
+          secondaryCeremonyType: matchableEvent.secondary_ceremony_type ?? null,
+        })
+      : new Set<string>();
+  const passesReligionFilter = (meta: { faith?: WeddingFaithKey }): boolean =>
+    passesFaithFilter(meta.faith ?? null, activeFaithSet);
 
   // 2026-05-30 — "Only show categories with vendors" hide-empty filter.
   // Future-phase tiles with zero vendors (V1.2 / V1.3 / V1.4 / V1.5+) drop
@@ -2531,6 +2555,11 @@ async function CatalogView({
   for (const tile of WEDDING_TILE_ORDER) {
     const parent = TILE_PARENT[tile];
     if (parent === 'venue') continue;
+    // Multi-event applicability (Phase 1 wiring): a tile scoped to specific
+    // event types drops out for non-matching events. NULL = universal
+    // (fail-open) — today every tile is NULL, so weddings see no change;
+    // this gate activates as admins scope tiles on /admin/taxonomy.
+    if (!passesEventTypeFilter(tax.tileEventTypes[tile] ?? null, coupleEventType)) continue;
     const canonicals = (await getCanonicalBuckets()).byTile.get(tile) ?? [];
     if (canonicals.length === 0) continue;
 
@@ -2696,7 +2725,7 @@ async function CatalogView({
   // couple still needs to see the Muslim chip if Muslim has underlying
   // tiles, so they can override into Muslim for context (interfaith
   // family events, sibling weddings, etc.).
-  const crossFolderFaithCounts: Record<FaithKey, number> = {
+  const crossFolderFaithCounts: Record<WeddingFaithKey, number> = {
     Catholic: 0,
     Christian: 0,
     INC: 0,
@@ -2705,6 +2734,9 @@ async function CatalogView({
     Chinese: 0,
     Jewish: 0,
     'Born Again': 0,
+    // Civil-tagged canonicals (civil officiants) are marketplace_hidden, so
+    // this stays 0 — present only to satisfy the widened faith union.
+    Civil: 0,
   };
   for (const row of schemas) {
     const meta = TAXONOMY_MAP[row.canonical_service];

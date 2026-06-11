@@ -231,6 +231,147 @@ export async function remapCanonical(formData: FormData) {
   redirect(`${BASE}?ok=${encodeURIComponent('Re-mapped — the marketplace re-buckets live.')}`);
 }
 
+/**
+ * Admin: set (or clear) the faith tag on a canonical service — the write
+ * control the faith column never had (`createCanonicalLeaf` minted every
+ * service faith-NULL and the badge was read-only). Validated against
+ * `faith_vocab` (active rows); empty selection = NULL = universal ("untagged
+ * always delivered"). Faith is INCLUDE-only match-scope: it makes a service
+ * surface ONLY for matching couples, so it stays reserved for genuinely
+ * faith-restricted services (officiants / seminars / counseling) — never food
+ * or cultural items (de-faith lock, 2026-06-11). Audit-logged.
+ */
+export async function setServiceFaith(formData: FormData) {
+  const user = await requireAdmin();
+  const canonical = String(formData.get('canonical_service') ?? '').trim();
+  const faithRaw = String(formData.get('faith') ?? '').trim();
+  if (!canonical) throw new Error('Missing canonical_service');
+
+  const admin = createAdminClient();
+  let faith: string | null = null;
+  if (faithRaw) {
+    const { data: vocabRow } = await admin
+      .from('faith_vocab')
+      .select('faith_key')
+      .eq('faith_key', faithRaw)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (!vocabRow) {
+      redirect(`${BASE}?error=${encodeURIComponent(`Unknown faith "${faithRaw}".`)}`);
+    }
+    faith = faithRaw;
+  }
+
+  const { data: before } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service, faith, dietary')
+    .eq('canonical_service', canonical)
+    .maybeSingle();
+  if (!before) redirect(`${BASE}?error=${encodeURIComponent('Canonical not found.')}`);
+  if (before.faith === faith) redirect(`${BASE}?ok=${encodeURIComponent('Faith unchanged.')}`);
+
+  // De-faith guard: a dietary canonical must never be faith-gated — the
+  // marketplace filter is INCLUDE-only and would hide it from every
+  // non-matching couple (the exact bug fixed 2026-06-11).
+  if (faith && before.dietary) {
+    redirect(
+      `${BASE}?error=${encodeURIComponent(
+        'Dietary services stay universal — dietary capability is a per-vendor grade, not a faith gate.',
+      )}`,
+    );
+  }
+
+  const { error } = await admin
+    .from('canonical_service_taxonomy')
+    .update({ faith, updated_at: new Date().toISOString() })
+    .eq('canonical_service', canonical);
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_faith',
+    target_table: 'canonical_service_taxonomy',
+    target_id: canonical,
+    before_json: { faith: before.faith ?? null },
+    after_json: { faith },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(
+    `${BASE}?ok=${encodeURIComponent(
+      faith ? `Faith set to ${faith} — surfaces only for matching couples.` : 'Faith cleared — universal.',
+    )}`,
+  );
+}
+
+/**
+ * Admin: set which event types a TILE serves (multi-event applicability, Phase 1).
+ * Writes `service_categories.applicable_event_types` — NULL = universal (serves
+ * ALL events; the FAIL-OPEN default). Read live by `getTaxonomy()` → the
+ * marketplace + onboarding scope to the couple's event type with no deploy.
+ * Audit-logged. The DB validation trigger rejects unknown event types as a
+ * backstop. Selecting EVERY event type collapses to NULL (universal) so we never
+ * store a brittle full-list array.
+ */
+export async function setCategoryEventTypes(formData: FormData) {
+  const user = await requireAdmin();
+  const categoryId = String(formData.get('category_id') ?? '').trim();
+  if (!categoryId) throw new Error('Missing category_id');
+  const selected = Array.from(
+    new Set(
+      formData
+        .getAll('event_types')
+        .map((v) => String(v).trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const admin = createAdminClient();
+  const { data: cat } = await admin
+    .from('service_categories')
+    .select('id, tier, applicable_event_types')
+    .eq('id', categoryId)
+    .maybeSingle();
+  if (!cat) redirect(`${BASE}?error=${encodeURIComponent('Category not found.')}`);
+
+  let next: string[] | null = null;
+  if (selected.length > 0) {
+    const { data: vocab } = await admin
+      .from('event_type_vocab')
+      .select('event_type')
+      .eq('status', 'active');
+    const valid = new Set((vocab ?? []).map((v) => v.event_type));
+    const unknown = selected.filter((s) => !valid.has(s));
+    if (unknown.length > 0) {
+      redirect(`${BASE}?error=${encodeURIComponent('Unknown event type(s): ' + unknown.join(', '))}`);
+    }
+    // Every event selected == no restriction → store NULL (universal).
+    next = selected.length >= valid.size ? null : selected.sort();
+  }
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ applicable_event_types: next })
+    .eq('id', categoryId);
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_event_types',
+    target_table: 'service_categories',
+    target_id: categoryId,
+    before_json: { applicable_event_types: cat.applicable_event_types ?? null },
+    after_json: { applicable_event_types: next },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(
+    `${BASE}?ok=${encodeURIComponent(
+      next === null ? 'Set to universal (all events).' : 'Event types updated — live on the marketplace.',
+    )}`,
+  );
+}
+
 /** Slugify a label into a stable key (sep '_' for the id, '-' for the slug). */
 function slugify(label: string, sep: '_' | '-'): string {
   return label
@@ -441,6 +582,7 @@ export async function createCanonicalLeaf(formData: FormData) {
   const label = String(formData.get('display_name_en') ?? '').trim();
   const isRental = formData.get('is_rental') === 'on';
   const isPh = formData.get('is_ph') === 'on';
+  const faithRaw = String(formData.get('faith') ?? '').trim();
   const refinementLabel = String(formData.get('refinement_label') ?? '').trim();
   const refinementOptionsRaw = String(formData.get('refinement_options') ?? '').trim();
 
@@ -454,6 +596,22 @@ export async function createCanonicalLeaf(formData: FormData) {
   }
 
   const admin = createAdminClient();
+
+  // Optional faith scope — validated against faith_vocab so admin-minted
+  // services are no longer born faith-blind (Phase 2). Empty = universal.
+  let faith: string | null = null;
+  if (faithRaw) {
+    const { data: vocabRow } = await admin
+      .from('faith_vocab')
+      .select('faith_key')
+      .eq('faith_key', faithRaw)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (!vocabRow) {
+      redirect(`${BASE}?error=${encodeURIComponent(`Unknown faith "${faithRaw}".`)}`);
+    }
+    faith = faithRaw;
+  }
 
   // Destination must exist + be a tier-2 tile; derive its parent folder so the
   // mapping's folder_id stays consistent with remapCanonical's invariant.
@@ -521,6 +679,7 @@ export async function createCanonicalLeaf(formData: FormData) {
     folder_id: tile.parent_id,
     tile_id: tileId,
     phase: 'V1.1 base',
+    faith,
     is_ph: isPh,
     is_rental: isRental,
     is_setnayan: false,

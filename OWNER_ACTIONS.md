@@ -20,6 +20,26 @@
 > Engineering work has landed and is awaiting these owner actions to be
 > production-effective. Numbered in recommended execution order.
 
+### 2026-06-11 — generate Web Push VAPID keys + paste 3 Vercel env vars (~5 min · unlocks push notifications)
+
+Web Push shipped (PR #1229) but **no-ops until you give it keys**. VAPID keys are self-generated — no Apple/Google account needed.
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Copy the two values it prints, then in **Vercel → setnayan-platform-web → Settings → Environment Variables** add (Production + Preview):
+
+| Name | Value |
+|---|---|
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | the **Public Key** it printed |
+| `VAPID_PRIVATE_KEY` | the **Private Key** it printed |
+| `VAPID_SUBJECT` | `mailto:iscasasolaii@gmail.com` |
+
+Redeploy (Vercel → Deployments → ⋯ → Redeploy on latest).
+
+**Check it worked:** log in as `couple.test@setnayan.com` on Chrome (desktop or Android), Profile → Notifications → flip **Push notifications** on → accept the browser prompt. Then send that couple a chat message from the vendor test account → a push notification appears even with the tab in the background. (iPhone: only works after the site is installed to the Home Screen — that's an iOS platform rule, not a bug.)
+
 ### 2026-06-03 — push the hybrid-Preparation migration (~2 min · recommended)
 
 Push migration `supabase/migrations/20260729000000_event_preparation_items.sql` (hybrid + vendor prep items — **additive**; manual/vendor-added items are hidden until applied). This adds the `event_preparation_items` table that powers the new **hybrid Preparation schedule**: couples can add/delete their own dated prep items, and booked vendors (accepted chat thread) can add items to the couple's prep schedule from their Bookings view. The app **graceful-degrades** without it — the couple's Schedule → Preparation tab still renders the read-only autofill (payments / paperwork / meetings / milestones); the **+ Add to schedule** and vendor **Add to prep schedule** controls only function once this migration lands.

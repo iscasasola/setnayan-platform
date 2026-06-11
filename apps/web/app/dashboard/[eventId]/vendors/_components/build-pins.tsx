@@ -16,6 +16,7 @@
  */
 
 import { BuildAnchors, type AnchorData } from './build-anchors';
+import { BuildPinModeControl } from './build-pin-mode';
 import { CategoryFlags } from './category-flags';
 import { BuildPicksList, type BuildPickItem } from './build-picks-list';
 import { BuildCompute } from './build-compute';
@@ -33,6 +34,8 @@ export function BuildPins({
   categoryFill,
   buildItems,
   budgetPhp,
+  rangeLoPhp,
+  rangeHiPhp,
 }: {
   eventId: string;
   anchors: AnchorData;
@@ -41,9 +44,23 @@ export function BuildPins({
   buildItems: BuildPickItem[];
   /** Pinned budget (events.estimated_budget_centavos → PHP) for the totals line. */
   budgetPhp: number | null;
+  /** The plan's cheapest→priciest span (PHP) — the Services pin-mode readout. */
+  rangeLoPhp: number;
+  rangeHiPhp: number;
 }) {
   return (
     <div className="space-y-4">
+      {/* "What's fixed?" pin mode — which dimension leads the solve (Pin solver
+          Phase 3a). Client-local state + the find-date bridges. */}
+      <BuildPinModeControl
+        eventId={eventId}
+        budgetPhp={budgetPhp}
+        dateIso={anchors.date.iso}
+        dateLabel={anchors.date.label}
+        rangeLoPhp={rangeLoPhp}
+        rangeHiPhp={rangeHiPhp}
+      />
+
       {/* Date / Budget / Location anchors — Pin what's fixed, Flag what Setnayan
           should suggest (PR D). */}
       <BuildAnchors eventId={eventId} data={anchors} />

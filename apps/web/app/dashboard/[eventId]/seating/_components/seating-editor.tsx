@@ -238,6 +238,7 @@ export function SeatingEditor({
   useEffect(() => {
     const el = canvasRef.current;
     if (!el || view !== 'plan') return;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
@@ -247,9 +248,16 @@ export function SeatingEditor({
       const p0 = panRef.current;
       const z1 = clampZoom(z0 * Math.exp(-e.deltaY * 0.0015));
       applyView(z1, { x: sx - z1 * ((sx - p0.x) / z0), y: sy - z1 * ((sy - p0.y) / z0) });
+      // Reposition the popup once the trackpad/wheel zoom SETTLES (debounced —
+      // never per-frame, so the worldRef pan/zoom fast path stays intact).
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => bumpOverlay((v) => v + 1), 140);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (settleTimer) clearTimeout(settleTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
@@ -811,6 +819,7 @@ export function SeatingEditor({
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
     applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
+    bumpOverlay((v) => v + 1);
   };
 
   // Reset to a clean whole-room overview (zoom 1, no pan) whenever to-scale mode
@@ -1999,7 +2008,7 @@ export function SeatingEditor({
 
       {/* auto-seat confirm */}
       {confirmAuto ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
           <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />

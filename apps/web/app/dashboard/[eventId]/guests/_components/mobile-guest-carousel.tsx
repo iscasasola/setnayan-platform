@@ -11,11 +11,11 @@
  *
  * Layout: the guest list scrolls in the top region; this component docks a
  * fixed, ~one-third-height panel sheet at the bottom of the screen, with the
- * 4 guest menus rendered as a real bottom-nav bar pinned to the very bottom
- * edge BELOW the sheet (owner directive 2026-06-03 — "place the 4 menus of
+ * guest menus rendered as a real bottom-nav bar pinned to the very bottom
+ * edge BELOW the sheet (owner directive 2026-06-03 — "place the menus of
  * guest as bottom nav, not on the top of carousel"). In FOCUS MODE the global
- * 5-tab nav is already hidden on the Guests page, so this 4-item menu IS the
- * page's bottom navigation. It is four swipeable panels (owner directive
+ * 5-tab nav is already hidden on the Guests page, so this menu IS the
+ * page's bottom navigation. It is FIVE swipeable panels (owner directive
  * 2026-06-02 — the top is now JUST
  * the guest list, so the RSVP counts that used to sit in the page's top
  * StatsStrip move into the Summary panel here):
@@ -29,9 +29,12 @@
  *   3. Add      — opens the existing QuickAddSheet (rapid add + dup detect
  *                 + multi-role) + Quick-add list + Import CSV
  *   4. Customize — select guests + bulk-assign Side / Role / Group via the
- *                 Assign sheet
+ *                 Assign sheet (a "switch to list" hint in mind-map mode)
+ *   5. Journey  — the guest lifecycle (Build→Invite→Confirm→Seat→Day-of) +
+ *                 the List/Mind-map view switch (redesign Phase 1; the mobile
+ *                 twin of the desktop ribbon + switcher)
  *
- * Supersedes the single docked MobileActionBar. The 4-item bottom nav (the
+ * Supersedes the single docked MobileActionBar. The bottom nav (the
  * guest menus, rendered below the sheet) jumps between panels; horizontal
  * swipe works too. All `lg:hidden` — desktop keeps the inline Toolbar +
  * sticky FacetsSidebar + StatsStrip untouched.
@@ -47,7 +50,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowUpDown, BarChart3, Check, ChevronDown, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { ArrowUpDown, BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, LayoutGrid, List, Network, PencilLine, QrCode, Route, Search, Send, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -69,6 +72,10 @@ const PANELS = [
   { key: 'find', label: 'Search', icon: Search },
   { key: 'add', label: 'Add', icon: UserPlus },
   { key: 'customize', label: 'Customize', icon: SlidersHorizontal },
+  // Journey — the guest lifecycle (Build → Invite → Confirm → Seat → Day-of)
+  // + the List/Mind-map view switch, mobile home (redesign Phase 1; the desktop
+  // ribbon + switcher live in the page chrome, which is hidden below lg).
+  { key: 'journey', label: 'Journey', icon: Route },
 ] as const;
 
 const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -121,6 +128,7 @@ export function MobileGuestCarousel({
   pending,
   declined,
   teamFilter,
+  pendingClaims,
 }: {
   eventId: string;
   q: string;
@@ -138,6 +146,9 @@ export function MobileGuestCarousel({
   pending: number;
   declined: number;
   teamFilter: 'all' | 'bride' | 'groom';
+  // Pending invite-claims (review queue) — badges the Journey panel's Confirm
+  // step, mirroring the desktop ribbon (redesign Phase 1).
+  pendingClaims: number;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -208,6 +219,10 @@ export function MobileGuestCarousel({
     Boolean(activeTag);
 
   const currentRsvp = searchParams.get('rsvp') ?? '';
+  // In Mind-map mode the guest LIST isn't rendered (page swaps in GuestMindMap),
+  // so the carousel's bulk-select would act on guests the user can't see. Gate
+  // Customize to a "switch to list" hint while the map is up.
+  const mapMode = searchParams.get('gview') === 'map';
 
   // --- Bottom-sheet height + drag-to-close (owner 2026-06-03) ---
   // The sheet opens to ONLY the height the active panel needs — Summary's 2×2
@@ -337,7 +352,7 @@ export function MobileGuestCarousel({
             />
           </button>
         )}
-        {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
+        {/* swipe track — 5 panels, scroll-snap; full sheet height now that the
             tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
           ref={trackRef}
@@ -432,10 +447,95 @@ export function MobileGuestCarousel({
               2026-06-03). Tap "Select" → checkboxes appear on the cards; the
               select-all + live count + Assign live here; Assign opens the
               bottom sheet (Side / Role / Group, with a create-new text box). */}
-          <CustomizePanel
-            allVisibleIds={allVisibleIds}
-            onAssign={() => setAssignOpen(true)}
-          />
+          {mapMode ? (
+            <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col items-center justify-center gap-2 px-6 py-6 text-center">
+              <p className="text-sm text-ink/60">
+                Bulk-select works in list view. The mind map adds people with its
+                own <span aria-hidden>+</span> buttons.
+              </p>
+              <Link
+                href={buildHref({ gview: null })}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+              >
+                <List className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Switch to list
+              </Link>
+            </section>
+          ) : (
+            <CustomizePanel
+              allVisibleIds={allVisibleIds}
+              onAssign={() => setAssignOpen(true)}
+            />
+          )}
+
+          {/* 5 — Journey: the guest lifecycle + the List/Mind-map view switch
+              (redesign Phase 1). Mobile twin of the desktop ribbon + switcher;
+              lives HERE (not atop the page) per the locked "mobile top = just
+              the guest list" directive. */}
+          <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] space-y-3 overflow-y-auto px-4 py-3">
+            <div className="flex items-center gap-0.5 overflow-x-auto overscroll-x-contain">
+              {(
+                [
+                  { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
+                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims` },
+                  { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
+                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating` },
+                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}`, soon: true },
+                ] as const
+              ).map((s, i) => (
+                <span key={s.key} className="flex shrink-0 items-center gap-0.5">
+                  {i > 0 ? (
+                    <ChevronRight className="h-3.5 w-3.5 text-ink/30" strokeWidth={1.75} aria-hidden />
+                  ) : null}
+                  <Link
+                    href={s.href}
+                    aria-current={'active' in s && s.active ? 'step' : undefined}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] ${
+                      'active' in s && s.active
+                        ? 'bg-terracotta/10 font-medium text-terracotta-700'
+                        : 'text-ink/60'
+                    } ${'soon' in s && s.soon ? 'opacity-60' : ''}`}
+                  >
+                    <s.Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                    {s.label}
+                    {'badge' in s && s.badge ? (
+                      <span className="rounded-full bg-terracotta/15 px-1.5 text-[10px] font-semibold text-terracotta-700">
+                        {s.badge}
+                      </span>
+                    ) : null}
+                    {'soon' in s && s.soon ? (
+                      <span className="rounded-full bg-ink/10 px-1 text-[9px] font-medium text-ink/55">soon</span>
+                    ) : null}
+                  </Link>
+                </span>
+              ))}
+            </div>
+            <div role="tablist" aria-label="Guest list view" className="flex rounded-lg border border-ink/15 bg-cream p-0.5">
+              <Link
+                href={buildHref({ gview: null })}
+                role="tab"
+                aria-selected={searchParams.get('gview') !== 'map'}
+                className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm ${
+                  searchParams.get('gview') !== 'map'
+                    ? 'bg-white font-medium text-ink shadow-sm'
+                    : 'text-ink/55'
+                }`}
+              >
+                <List className="h-4 w-4" strokeWidth={1.75} aria-hidden /> List
+              </Link>
+              <Link
+                href={buildHref({ gview: 'map' })}
+                role="tab"
+                aria-selected={searchParams.get('gview') === 'map'}
+                className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm ${
+                  searchParams.get('gview') === 'map'
+                    ? 'bg-white font-medium text-ink shadow-sm'
+                    : 'text-ink/55'
+                }`}
+              >
+                <Network className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Mind map
+              </Link>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -450,7 +550,7 @@ export function MobileGuestCarousel({
           kbOpen ? 'hidden' : ''
         }`}
       >
-        <ul className="grid grid-cols-4 px-1 py-1">
+        <ul className="grid grid-cols-5 px-1 py-1">
           {PANELS.map((p, i) => {
             const Icon = p.icon;
             const isActive = active === i;

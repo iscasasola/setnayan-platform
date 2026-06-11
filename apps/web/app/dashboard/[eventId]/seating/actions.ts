@@ -506,7 +506,10 @@ export async function updateTableLabel(formData: FormData) {
   if (typeof eventId !== 'string' || typeof tableId !== 'string' || typeof labelRaw !== 'string') {
     throw new Error('Invalid input');
   }
-  const label = labelRaw.trim();
+  // Strip control characters (NULL/newline/tab/…) — they'd survive into the
+  // printed sign sheets and break the HTML layout. esc() covers entities only.
+  // eslint-disable-next-line no-control-regex
+  const label = labelRaw.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
   if (label.length === 0 || label.length > 64) throw new Error('Label must be 1–64 chars');
 
   const supabase = await createClient();

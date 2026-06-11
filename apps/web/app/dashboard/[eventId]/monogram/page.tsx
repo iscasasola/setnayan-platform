@@ -62,6 +62,14 @@ const BESPOKE_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = 
   },
   save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
   'not-found': { tone: 'error', text: 'That design could not be found.' },
+  reported: {
+    tone: 'ok',
+    text: 'Thank you — your report is with the Setnayan team for review.',
+  },
+  'report-failed': {
+    tone: 'error',
+    text: 'Your report could not be sent — please try again.',
+  },
 };
 
 export default async function MonogramMakerPage({ params, searchParams }: Props) {

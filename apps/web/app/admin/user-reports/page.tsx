@@ -24,7 +24,7 @@ type ReportRow = {
   reporter_user_id: string | null;
   reporter_guest_id: string | null;
   event_id: string;
-  target_type: 'photo' | 'comment' | 'user';
+  target_type: 'photo' | 'comment' | 'user' | 'ai_output';
   target_id: string;
   reason: string;
   details: string | null;
@@ -54,6 +54,23 @@ const REASON_LABEL: Record<string, string> = {
   spam: 'Spam',
   not_my_event: 'Not from this event',
   other: 'Other',
+};
+
+// How the target reads in the queue. 'ai_output' = a Setnayan AI generation
+// (bespoke monogram studio — Google Play GenAI policy reporting path); its
+// target_id is a bespoke_monogram_generations.generation_id, no photo
+// thumbnail to resolve.
+const TARGET_PHRASE: Record<ReportRow['target_type'], string> = {
+  photo: 'a photo',
+  comment: 'a comment',
+  user: 'a user',
+  ai_output: 'an AI-generated result',
+};
+const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
+  photo: 'photo',
+  comment: 'comment',
+  user: 'user',
+  ai_output: 'AI output',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -156,9 +173,10 @@ export default async function AdminUserReportsPage({
           <h1 className="text-2xl font-semibold tracking-tight">User reports</h1>
         </div>
         <p className="text-sm text-ink/65">
-          Reports filed against guest gallery content (Papic). Hide the photo,
-          block the uploader for that event, escalate for owner/legal review, or
-          dismiss. The latest 200 matching the filter, newest first.
+          Reports filed against guest gallery content (Papic) and Setnayan AI
+          output (Play GenAI policy). Hide the photo, block the uploader for
+          that event, escalate for owner/legal review, or dismiss. The latest
+          200 matching the filter, newest first.
         </p>
       </header>
 
@@ -218,7 +236,7 @@ export default async function AdminUserReportsPage({
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-center text-[10px] text-ink/40">
-                      {r.target_type}
+                      {TARGET_SHORT[r.target_type] ?? r.target_type}
                     </div>
                   )}
                 </div>
@@ -241,11 +259,16 @@ export default async function AdminUserReportsPage({
                     <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
                   </div>
                   <p className="text-sm text-ink/80">
-                    {reporter} reported a {r.target_type} in{' '}
+                    {reporter} reported {TARGET_PHRASE[r.target_type] ?? `a ${r.target_type}`} in{' '}
                     <span className="font-medium">{eventName.get(r.event_id) ?? 'an event'}</span>
                     {' · '}
                     <span className="text-ink/50">{relativeTime(r.created_at)}</span>
                   </p>
+                  {r.target_type === 'ai_output' && (
+                    <p className="font-mono text-[10px] text-ink/45">
+                      generation {r.target_id}
+                    </p>
+                  )}
                   {r.details && (
                     <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-sm text-ink/70">
                       “{r.details}”
@@ -272,16 +295,21 @@ export default async function AdminUserReportsPage({
                           </button>
                         </form>
                       )}
-                      <form action={resolveReport}>
-                        <input type="hidden" name="report_id" value={r.report_id} />
-                        <input type="hidden" name="action" value="block" />
-                        <button
-                          type="submit"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
-                        >
-                          <UserX aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Block uploader
-                        </button>
-                      </form>
+                      {/* Block resolves a GUEST uploader — only meaningful for
+                          photo/user targets. An ai_output target is a Setnayan
+                          AI generation; there is no uploader to block. */}
+                      {(r.target_type === 'photo' || r.target_type === 'user') && (
+                        <form action={resolveReport}>
+                          <input type="hidden" name="report_id" value={r.report_id} />
+                          <input type="hidden" name="action" value="block" />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
+                          >
+                            <UserX aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Block uploader
+                          </button>
+                        </form>
+                      )}
                       <form action={resolveReport}>
                         <input type="hidden" name="report_id" value={r.report_id} />
                         <input type="hidden" name="action" value="escalate" />

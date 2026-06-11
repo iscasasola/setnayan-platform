@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
+import { KwentoQueue } from './_components/kwento-queue';
 import {
   reportCapture,
   setCaptureHidden,
@@ -436,6 +437,8 @@ export default async function PapicModerationPage({
           </ul>
         </section>
       )}
+
+      <KwentoQueue eventId={eventId} />
 
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · iteration 0012 Papic · UGC moderation (Apple 1.2 / Google Play UGC)

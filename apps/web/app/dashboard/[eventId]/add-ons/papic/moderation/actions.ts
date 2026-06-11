@@ -250,3 +250,112 @@ export async function unblockUploader(eventId: string, formData: FormData) {
   revalidatePath(MODERATION_PATH(eventId));
   redirect(`${MODERATION_PATH(eventId)}?unblocked=1`);
 }
+
+// ─── Kwento (photo_messages) moderation — 0012 § Kwento P2 ───────────────────
+// The couple/coordinator moderates via their OWN session: status updates ride
+// the photo_messages_moderate RLS policy; the wall gate goes through the
+// wall_approve_caption / wall_clear_caption DEFINER RPCs which re-check
+// membership INTERNALLY per call (owner-locked one-tap approve-to-wall).
+
+type KwentoActionResult = { ok: true } | { ok: false; error: string };
+
+function kwentoPath(eventId: string): string {
+  return `/dashboard/${eventId}/add-ons/papic/moderation`;
+}
+
+export async function approveKwento(
+  eventId: string,
+  messageId: string,
+): Promise<KwentoActionResult> {
+  if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('photo_messages')
+    .update({
+      status: 'approved',
+      reviewed_by_couple_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('message_id', messageId)
+    .eq('event_id', eventId)
+    .eq('status', 'pending');
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  revalidatePath(kwentoPath(eventId));
+  return { ok: true };
+}
+
+export async function rejectKwento(
+  eventId: string,
+  messageId: string,
+): Promise<KwentoActionResult> {
+  if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('photo_messages')
+    .update({
+      status: 'rejected',
+      wall_eligible: false,
+      reviewed_by_couple_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('message_id', messageId)
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  revalidatePath(kwentoPath(eventId));
+  return { ok: true };
+}
+
+/** The owner-locked ONE-TAP wall gate (flagged can never pass — DB CHECK). */
+export async function kwentoToWall(
+  eventId: string,
+  messageId: string,
+): Promise<KwentoActionResult> {
+  if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('wall_approve_caption', {
+    p_message_id: messageId,
+  });
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes('kwento:not_clean')
+        ? 'Held messages can never go on the wall.'
+        : error.message.slice(0, 80),
+    };
+  }
+  revalidatePath(kwentoPath(eventId));
+  return { ok: true };
+}
+
+export async function kwentoOffWall(
+  eventId: string,
+  messageId: string,
+): Promise<KwentoActionResult> {
+  if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('wall_clear_caption', {
+    p_message_id: messageId,
+  });
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  revalidatePath(kwentoPath(eventId));
+  return { ok: true };
+}
+
+/** Per-(event, guest) message block — the harassment lever (0012 § abuse). */
+export async function blockKwentoGuest(
+  eventId: string,
+  guestId: string,
+): Promise<KwentoActionResult> {
+  if (!guestId?.trim()) return { ok: false, error: 'missing_input' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('guest_message_blocks').insert({
+    event_id: eventId,
+    guest_id: guestId,
+  });
+  if (error && !error.message.includes('uq_guest_message_block')) {
+    return { ok: false, error: error.message.slice(0, 80) };
+  }
+  revalidatePath(kwentoPath(eventId));
+  return { ok: true };
+}
+

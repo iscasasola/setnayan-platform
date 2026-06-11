@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   FileDown,
+  Footprints,
   List,
   Map as MapIcon,
   Maximize2,
@@ -24,6 +25,7 @@ import {
   Search,
   Sparkles,
   Trash2,
+  Truck,
   UserMinus,
   UserPlus,
   X,
@@ -144,7 +146,7 @@ export function SeatingEditor({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
-    kind: 'table' | 'stage' | 'entrance';
+    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance';
     id: string;
     sx: number;
     sy: number;
@@ -152,13 +154,54 @@ export function SeatingEditor({
   } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Floor-plan markers (draggable stage + single entrance door).
-  const [stage, setStage] = useState({ x: floorPlan.stage_x, y: floorPlan.stage_y });
+  // Floor-plan kit (all coords/sizes are percent of the canvas): a resizable
+  // stage, the main entrance, an optional service door, and a resizable
+  // dance-floor zone that tables can't be dropped inside.
+  const [stage, setStage] = useState({
+    x: floorPlan.stage_x,
+    y: floorPlan.stage_y,
+    w: floorPlan.stage_w,
+    h: floorPlan.stage_h,
+  });
   const [entrance, setEntrance] = useState({
     enabled: floorPlan.entrance_enabled,
     x: floorPlan.entrance_x,
     y: floorPlan.entrance_y,
   });
+  const [serviceDoor, setServiceDoor] = useState({
+    enabled: floorPlan.service_entrance_enabled,
+    x: floorPlan.service_entrance_x,
+    y: floorPlan.service_entrance_y,
+  });
+  const [dance, setDance] = useState({
+    enabled: floorPlan.dance_enabled,
+    x: floorPlan.dance_x,
+    y: floorPlan.dance_y,
+    w: floorPlan.dance_w,
+    h: floorPlan.dance_h,
+  });
+  // Drag-resize of the stage / dance-floor (SE grip, NW corner anchored) and
+  // of the venue walls. Self-contained pointer handlers on the grips; the
+  // pxPerMeter is FROZEN at wall-grab so the canvas resizing mid-drag can't
+  // feed back into the drag math.
+  const rectDragRef = useRef<{
+    kind: 'stage' | 'dance';
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+    sx: number;
+    sy: number;
+  } | null>(null);
+  const wallDragRef = useRef<{
+    edge: 'e' | 's' | 'se';
+    startW: number;
+    startL: number;
+    sx: number;
+    sy: number;
+    ppm: number;
+  } | null>(null);
+  const [wallSettled, setWallSettled] = useState(0);
   // Venue dimensions (metres) → render the room + tables to scale.
   const [venue, setVenue] = useState({
     enabled: floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null,
@@ -589,6 +632,15 @@ export function SeatingEditor({
     posFor: (o: EventTableRow, i: number) => LocalPos | null,
   ) => {
     const m = footprintPx(moving);
+    // The dance floor is a no-table zone: a table can't be dropped inside it
+    // (drags slide around it via nearestFree, same as around other tables).
+    if (dance.enabled) {
+      const dzw = (dance.w / 100) * rect.width;
+      const dzh = (dance.h / 100) * rect.height;
+      const ddx = Math.abs(((x - dance.x) / 100) * rect.width);
+      const ddy = Math.abs(((y - dance.y) / 100) * rect.height);
+      if (ddx < (m.w + dzw) / 2 && ddy < (m.h + dzh) / 2) return true;
+    }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
       const op = posFor(o, i);
@@ -674,7 +726,10 @@ export function SeatingEditor({
   // exactly where the couple left them; an un-saved table keeps its current spot
   // when it's already clear and only slides aside when it would collide. Runs on
   // mount (resolving the initial grid) and whenever tables / the room change.
+  // Skipped DURING a wall drag (the canvas resizes every frame, which would
+  // reshuffle un-anchored tables); re-resolves once on release via wallSettled.
   useIsoLayoutEffect(() => {
+    if (wallDragRef.current) return;
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
     const shelf = venueScaled ? venueShelfBase(rect) : null;
@@ -718,7 +773,7 @@ export function SeatingEditor({
       return changed ? placed : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables, venueScaled, canvasW]);
+  }, [tables, venueScaled, canvasW, wallSettled]);
 
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {
@@ -745,9 +800,9 @@ export function SeatingEditor({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  // Drag the stage / entrance markers (same pointer model as a table hub).
+  // Drag the floor-plan elements (same pointer model as a table hub).
   const onMarkerPointerDown =
-    (kind: 'stage' | 'entrance') => (e: React.PointerEvent) => {
+    (kind: 'stage' | 'entrance' | 'service' | 'dance') => (e: React.PointerEvent) => {
       if (pickedId) {
         // Don't seat onto a marker, and don't start a pan.
         e.stopPropagation();
@@ -873,7 +928,11 @@ export function SeatingEditor({
           : { x, y };
         setPositions((p) => ({ ...p, [d.id]: free }));
       } else if (d.kind === 'stage') {
-        setStage({ x, y });
+        setStage((s) => ({ ...s, x, y }));
+      } else if (d.kind === 'dance') {
+        setDance((dz) => ({ ...dz, x, y }));
+      } else if (d.kind === 'service') {
+        setServiceDoor((sd) => ({ ...sd, x, y }));
       } else {
         setEntrance((en) => ({ ...en, x, y }));
       }
@@ -929,6 +988,100 @@ export function SeatingEditor({
   const removeEntrance = () => {
     setEntrance((en) => ({ ...en, enabled: false }));
     setFloorDirty(true);
+  };
+  const addServiceDoor = () => {
+    setServiceDoor({ enabled: true, x: 97, y: 50 });
+    setFloorDirty(true);
+  };
+  const removeServiceDoor = () => {
+    setServiceDoor((sd) => ({ ...sd, enabled: false }));
+    setFloorDirty(true);
+  };
+  const addDanceFloor = () => {
+    setDance((dz) => ({ ...dz, enabled: true }));
+    setFloorDirty(true);
+  };
+  const removeDanceFloor = () => {
+    setDance((dz) => ({ ...dz, enabled: false }));
+    setFloorDirty(true);
+  };
+
+  // SE resize grip for the stage / dance-floor rects. NW-corner anchored: the
+  // grip drags the bottom-right corner; the centre shifts by half the delta so
+  // the top-left edge stays put. Self-contained pointer capture on the grip.
+  const onRectGripDown = (kind: 'stage' | 'dance') => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const cur = kind === 'stage' ? stage : dance;
+    rectDragRef.current = {
+      kind,
+      startX: cur.x,
+      startY: cur.y,
+      startW: cur.w,
+      startH: cur.h,
+      sx: e.clientX,
+      sy: e.clientY,
+    };
+  };
+  const onRectGripMove = (e: React.PointerEvent) => {
+    const r = rectDragRef.current;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!r || !rect || rect.width === 0) return;
+    e.stopPropagation();
+    const dW = ((e.clientX - r.sx) / zoomRef.current / rect.width) * 100;
+    const dH = ((e.clientY - r.sy) / zoomRef.current / rect.height) * 100;
+    const w = Math.max(4, Math.min(96, r.startW + dW));
+    const h = Math.max(3, Math.min(96, r.startH + dH));
+    const x = r.startX + (w - r.startW) / 2;
+    const y = r.startY + (h - r.startH) / 2;
+    if (r.kind === 'stage') setStage({ x, y, w, h });
+    else setDance((dz) => ({ ...dz, x, y, w, h }));
+    setFloorDirty(true);
+  };
+  const onRectGripUp = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    rectDragRef.current = null;
+  };
+
+  // Venue wall handles (to-scale mode): drag the right/bottom edge or the SE
+  // corner to resize the ROOM. px→metres uses the scale FROZEN at grab time —
+  // the canvas itself resizes during the drag, so reading it live would feed
+  // back into the math. Auto-place is paused during the drag (wallDragRef) and
+  // re-resolves once on release (wallSettled).
+  const onWallGripDown = (edge: 'e' | 's' | 'se') => (e: React.PointerEvent) => {
+    if (!pxPerMeter) return;
+    e.stopPropagation();
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    wallDragRef.current = {
+      edge,
+      startW: venue.width,
+      startL: venue.length,
+      sx: e.clientX,
+      sy: e.clientY,
+      ppm: pxPerMeter,
+    };
+  };
+  const onWallGripMove = (e: React.PointerEvent) => {
+    const w = wallDragRef.current;
+    if (!w) return;
+    e.stopPropagation();
+    // Half-metre steps keep the readout clean while dragging.
+    const stepM = (px: number) => Math.round((px / w.ppm) * 2) / 2;
+    setVenue((v) => ({
+      ...v,
+      width: w.edge !== 's' ? Math.max(4, Math.min(500, w.startW + stepM(e.clientX - w.sx))) : v.width,
+      length: w.edge !== 'e' ? Math.max(4, Math.min(500, w.startL + stepM(e.clientY - w.sy))) : v.length,
+    }));
+    setFloorDirty(true);
+  };
+  const onWallGripUp = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (wallDragRef.current) {
+      wallDragRef.current = null;
+      setWallSettled((v) => v + 1);
+    }
   };
 
   // Zoom around the viewport centre (for the +/- buttons).
@@ -1027,9 +1180,19 @@ export function SeatingEditor({
         fd.set('event_id', eventId);
         fd.set('stage_x', String(stage.x));
         fd.set('stage_y', String(stage.y));
+        fd.set('stage_w', String(stage.w));
+        fd.set('stage_h', String(stage.h));
         fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
         fd.set('entrance_x', String(entrance.x));
         fd.set('entrance_y', String(entrance.y));
+        fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
+        fd.set('dance_x', String(dance.x));
+        fd.set('dance_y', String(dance.y));
+        fd.set('dance_w', String(dance.w));
+        fd.set('dance_h', String(dance.h));
+        fd.set('service_entrance_enabled', serviceDoor.enabled ? 'true' : 'false');
+        fd.set('service_entrance_x', String(serviceDoor.x));
+        fd.set('service_entrance_y', String(serviceDoor.y));
         if (venue.enabled && venue.width > 0 && venue.length > 0) {
           fd.set('venue_width_m', String(venue.width));
           fd.set('venue_length_m', String(venue.length));
@@ -1317,6 +1480,26 @@ export function SeatingEditor({
                 <DoorOpen className="h-3.5 w-3.5" /> Add entrance
               </button>
             ) : null}
+            {view === 'plan' && !serviceDoor.enabled ? (
+              <button
+                type="button"
+                onClick={addServiceDoor}
+                title="Optional load-in / caterer door"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+              >
+                <Truck className="h-3.5 w-3.5" /> Service door
+              </button>
+            ) : null}
+            {view === 'plan' && !dance.enabled ? (
+              <button
+                type="button"
+                onClick={addDanceFloor}
+                title="A no-table zone — tables can't be dropped inside"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+              >
+                <Footprints className="h-3.5 w-3.5" /> Dance floor
+              </button>
+            ) : null}
             {view === 'plan' && layoutDirty ? (
               <button
                 type="button"
@@ -1549,18 +1732,82 @@ export function SeatingEditor({
               </span>
             </>
           ) : null}
-          {/* draggable stage marker (auto-seat anchors its rings here) */}
-          <button
-            type="button"
-            onPointerDown={onMarkerPointerDown('stage')}
-            aria-label="Stage — drag to move"
-            className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 select-none rounded-md border bg-cream/85 px-6 py-1.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 shadow-sm backdrop-blur-sm ${
-              dragId === '__stage__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
-            }`}
-            style={{ left: `${stage.x}%`, top: `${stage.y}%` }}
+          {/* dance-floor zone — a draggable, resizable no-table area. Rendered
+              under the tables so it reads as floor, not furniture. */}
+          {dance.enabled ? (
+            <div
+              className="absolute z-[5]"
+              style={{
+                left: `${dance.x}%`,
+                top: `${dance.y}%`,
+                width: `${dance.w}%`,
+                height: `${dance.h}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <button
+                type="button"
+                onPointerDown={onMarkerPointerDown('dance')}
+                aria-label="Dance floor — drag to move"
+                className={`flex h-full w-full select-none items-center justify-center rounded-lg border-2 border-dashed bg-mulberry/[0.04] text-[10px] font-semibold uppercase tracking-[0.2em] text-mulberry/70 ${
+                  dragId === '__dance__' ? 'border-mulberry cursor-grabbing' : 'border-mulberry/40 cursor-grab'
+                }`}
+              >
+                Dance floor
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={removeDanceFloor}
+                aria-label="Remove dance floor"
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onPointerDown={onRectGripDown('dance')}
+                onPointerMove={onRectGripMove}
+                onPointerUp={onRectGripUp}
+                onPointerCancel={onRectGripUp}
+                aria-label="Resize dance floor"
+                className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border-2 border-mulberry bg-cream"
+              />
+            </div>
+          ) : null}
+
+          {/* resizable stage (auto-seat anchors its rings here) — drag the body
+              to move, the corner grip to resize */}
+          <div
+            className="absolute z-10"
+            style={{
+              left: `${stage.x}%`,
+              top: `${stage.y}%`,
+              width: `${stage.w}%`,
+              height: `${stage.h}%`,
+              transform: 'translate(-50%, -50%)',
+            }}
           >
-            Stage · Head Table
-          </button>
+            <button
+              type="button"
+              onPointerDown={onMarkerPointerDown('stage')}
+              aria-label="Stage — drag to move"
+              className={`flex h-full w-full select-none items-center justify-center overflow-hidden rounded-md border bg-cream/85 text-[10px] font-semibold uppercase tracking-[0.25em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                dragId === '__stage__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
+              }`}
+            >
+              Stage
+            </button>
+            <button
+              type="button"
+              onPointerDown={onRectGripDown('stage')}
+              onPointerMove={onRectGripMove}
+              onPointerUp={onRectGripUp}
+              onPointerCancel={onRectGripUp}
+              aria-label="Resize stage"
+              className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border-2 border-terracotta bg-cream"
+            />
+          </div>
 
           {/* draggable entrance door marker */}
           {entrance.enabled ? (
@@ -1583,6 +1830,34 @@ export function SeatingEditor({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={removeEntrance}
                 aria-label="Remove entrance"
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : null}
+
+          {/* optional service entrance (load-in / caterer door) */}
+          {serviceDoor.enabled ? (
+            <div
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${serviceDoor.x}%`, top: `${serviceDoor.y}%` }}
+            >
+              <button
+                type="button"
+                onPointerDown={onMarkerPointerDown('service')}
+                aria-label="Service entrance — drag to move"
+                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                  dragId === '__service__' ? 'border-terracotta cursor-grabbing' : 'border-ink/25 cursor-grab'
+                }`}
+              >
+                <Truck className="h-3.5 w-3.5 text-ink/50" /> Service
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={removeServiceDoor}
+                aria-label="Remove service entrance"
                 className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
               >
                 <X className="h-3 w-3" />
@@ -1851,6 +2126,45 @@ export function SeatingEditor({
               <Maximize2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {/* wall handles (to-scale mode) — drag the right/bottom edge or the
+              SE corner to resize the ROOM; the typed Room-size inputs stay as
+              the precision alternative. px→metres uses the scale frozen at
+              grab (the canvas itself resizes mid-drag). */}
+          {venueScaled ? (
+            <>
+              <button
+                type="button"
+                onPointerDown={onWallGripDown('e')}
+                onPointerMove={onWallGripMove}
+                onPointerUp={onWallGripUp}
+                onPointerCancel={onWallGripUp}
+                aria-label="Drag to change the room width"
+                title="Drag to resize the room width"
+                className="absolute right-0 top-1/2 z-20 h-10 w-2.5 -translate-y-1/2 cursor-ew-resize rounded-l bg-ink/25 hover:bg-terracotta"
+              />
+              <button
+                type="button"
+                onPointerDown={onWallGripDown('s')}
+                onPointerMove={onWallGripMove}
+                onPointerUp={onWallGripUp}
+                onPointerCancel={onWallGripUp}
+                aria-label="Drag to change the room length"
+                title="Drag to resize the room length"
+                className="absolute bottom-0 left-1/2 z-20 h-2.5 w-10 -translate-x-1/2 cursor-ns-resize rounded-t bg-ink/25 hover:bg-terracotta"
+              />
+              <button
+                type="button"
+                onPointerDown={onWallGripDown('se')}
+                onPointerMove={onWallGripMove}
+                onPointerUp={onWallGripUp}
+                onPointerCancel={onWallGripUp}
+                aria-label="Drag to resize the room"
+                title="Drag to resize the room"
+                className="absolute bottom-0 right-0 z-20 h-4 w-4 cursor-nwse-resize rounded-tl bg-ink/30 hover:bg-terracotta"
+              />
+            </>
+          ) : null}
 
           {/* Per-table popup toolbar — rename · rotate · delete, anchored beside the
               selected table. Settle-positioned (re-rendered on bumpOverlay at

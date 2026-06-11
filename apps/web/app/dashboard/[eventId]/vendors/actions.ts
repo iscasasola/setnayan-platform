@@ -28,7 +28,7 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
-import { ensureAutoShareInvite } from '@/lib/vendor-invites';
+import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
 import {
   fetchSlotsForCoupleBooking,
   type VendorServiceTimeSlot,
@@ -1785,6 +1785,68 @@ export async function attachManualVendorToCategory(
     eventVendorId: inserted.vendor_id,
     manualVendorId: manualVendorIdRaw,
   };
+}
+
+// ============================================================================
+// createManualVendorInvite (2026-06-11) — the "Add a contact" modal's
+// post-save step lets the host generate the claim link RIGHT after adding
+// their own vendor (owner: Shortlist must make adding-your-vendor easy —
+// entry + price + invite in one place). Reuses the same idempotent
+// ensureAutoShareInvite primitive finalizeVendor uses; this just makes it
+// host-initiated at add time instead of lock time. Returns the URL so the
+// client renders copy/share affordances without another round trip.
+// ============================================================================
+
+export type ManualVendorInviteResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+export async function createManualVendorInvite(input: {
+  eventId: string;
+  vendorId: string;
+}): Promise<ManualVendorInviteResult> {
+  if (
+    !input ||
+    typeof input.eventId !== 'string' ||
+    input.eventId.length === 0 ||
+    typeof input.vendorId !== 'string' ||
+    input.vendorId.length === 0
+  ) {
+    return { ok: false, error: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  // RLS scopes the read to the host's own events. Only manual (off-platform)
+  // vendors get a claim link — marketplace vendors already have an account.
+  const { data: row } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, category, manual_vendor_id, marketplace_vendor_id')
+    .eq('event_id', input.eventId)
+    .eq('vendor_id', input.vendorId)
+    .maybeSingle();
+  if (!row) return { ok: false, error: 'Vendor not found.' };
+  if (!row.manual_vendor_id || row.marketplace_vendor_id) {
+    return { ok: false, error: 'This vendor is already on Setnayan.' };
+  }
+
+  const invite = await ensureAutoShareInvite(supabase, {
+    eventVendorId: input.vendorId,
+    invitedByUserId: user.id,
+    businessName:
+      typeof row.vendor_name === 'string' && row.vendor_name.trim().length > 0
+        ? row.vendor_name.trim()
+        : 'Vendor',
+    serviceCategory: typeof row.category === 'string' ? row.category : null,
+  });
+  if (!invite) {
+    return { ok: false, error: 'Could not create the invite link. Try again.' };
+  }
+  return { ok: true, url: buildClaimUrl(invite.claim_token) };
 }
 
 // ============================================================================

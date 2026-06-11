@@ -9,12 +9,14 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, Sparkles, Store, ArrowLeft, MapPin } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, Sparkles, Store, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
 import {
   createManualVendor,
   attachManualVendorToCategory,
   attachMarketplaceVendorToCategory,
+  createManualVendorInvite,
   searchMarketplaceVendorsByName,
+  updateVendorCosts,
   type MarketplaceVendorSuggestion,
 } from '../vendors/actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
@@ -91,6 +93,21 @@ export function NewManualVendorModal({
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Post-save step (owner 2026-06-11: adding your own vendor must be easy to
+  // manage — price + invite land HERE, zero navigation). Set after the manual
+  // two-step submit succeeds; the form swaps for the quick-options panel.
+  // Marketplace-link mode skips it (already on Setnayan, price comes from
+  // their listing).
+  const [created, setCreated] = useState<{ eventVendorId: string; name: string } | null>(null);
+  // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
+  // route through onCreated so the parent refreshes the page — the row is
+  // real even if the host skips the quick options.
+  const dismissRef = useRef(onClose);
+  useEffect(() => {
+    dismissRef.current = created ? onCreated : onClose;
+  }, [created, onClose, onCreated]);
+  const dismiss = () => dismissRef.current();
+
   // Autocomplete state — owner directive 2026-05-22.
   // `nameQuery` is the live value of the Vendor Name input. Debounced
   // 300ms before firing the search. `suggestions` holds the latest
@@ -109,14 +126,15 @@ export function NewManualVendorModal({
   const queryGenerationRef = useRef(0);
 
   // Initial focus on Vendor Name + ESC closes. Tiny accessibility win.
+  // ESC goes through dismissRef so a post-save ESC still refreshes the page.
   useEffect(() => {
     firstFieldRef.current?.focus();
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') dismissRef.current();
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   // Debounced marketplace search. Fires 300ms after typing stops to
   // avoid spamming the server on every keystroke. Empty / <2 chars
@@ -254,8 +272,14 @@ export function NewManualVendorModal({
       return;
     }
 
-    // Manual-mode branch (unchanged · existing two-step path).
+    // Manual-mode branch (existing two-step path; success now lands on the
+    // post-save quick-options step instead of closing).
     const fd = new FormData(e.currentTarget);
+    const nameEntry = fd.get('business_name');
+    const savedName =
+      typeof nameEntry === 'string' && nameEntry.trim().length > 0
+        ? nameEntry.trim()
+        : 'Your vendor';
     startTransition(async () => {
       const createResult = await createManualVendor(fd);
       if (createResult.status === 'not_signed_in') {
@@ -291,7 +315,8 @@ export function NewManualVendorModal({
         );
         return;
       }
-      onCreated();
+      setErrorMsg(null);
+      setCreated({ eventVendorId: attachResult.eventVendorId, name: savedName });
     });
   }
 
@@ -303,7 +328,7 @@ export function NewManualVendorModal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={(e) => {
         // Click backdrop to close, but ignore clicks inside the form.
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div
@@ -322,12 +347,14 @@ export function NewManualVendorModal({
               Add a contact
             </h2>
             <p className="mt-1 text-xs text-ink/65">
-              Save once · reuse anywhere on your plan.
+              {created
+                ? 'Saved! Two quick options — both optional.'
+                : 'Save once · reuse anywhere on your plan.'}
             </p>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={dismiss}
             aria-label="Close"
             className="-mr-1 -mt-1 inline-flex h-10 w-10 items-center justify-center rounded-md text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink"
           >
@@ -335,6 +362,15 @@ export function NewManualVendorModal({
           </button>
         </header>
 
+        {created ? (
+          <PostSaveStep
+            eventId={eventId}
+            eventVendorId={created.eventVendorId}
+            vendorName={created.name}
+            categoryLabel={categoryLabel}
+            onDone={onCreated}
+          />
+        ) : (
         <form
           onSubmit={handleSubmit}
           className="space-y-3.5"
@@ -524,7 +560,225 @@ export function NewManualVendorModal({
             </button>
           </div>
         </form>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// PostSaveStep — the quick-options panel shown right after a manual contact
+// is saved (owner 2026-06-11: adding your own vendor must be easy to manage).
+// Two optional moves, zero navigation:
+//   1. Price — one ₱ field. A priced service passes the "only priced services
+//      can join the build" gate immediately, so the host can Add-to-build
+//      without ever opening the workspace.
+//   2. Invite — generates the idempotent auto-share claim link (same primitive
+//      finalizeVendor uses at lock). When the vendor signs up through it,
+//      everything the host recorded auto-links to their new account.
+// ============================================================================
+
+function PostSaveStep({
+  eventId,
+  eventVendorId,
+  vendorName,
+  categoryLabel,
+  onDone,
+}: {
+  eventId: string;
+  eventVendorId: string;
+  vendorName: string;
+  categoryLabel: string;
+  onDone: () => void;
+}) {
+  const [pricePending, startPrice] = useTransition();
+  const [priceInput, setPriceInput] = useState('');
+  const [priceSavedPhp, setPriceSavedPhp] = useState<number | null>(null);
+  const [priceErr, setPriceErr] = useState<string | null>(null);
+
+  const [invitePending, startInvite] = useTransition();
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteErr, setInviteErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  function savePrice() {
+    const n = Number.parseFloat(priceInput);
+    if (!Number.isFinite(n) || n <= 0) {
+      setPriceErr('Enter their package price in pesos.');
+      return;
+    }
+    setPriceErr(null);
+    startPrice(async () => {
+      try {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('vendor_id', eventVendorId);
+        fd.set('total_cost_php', String(Math.round(n)));
+        await updateVendorCosts(fd);
+        setPriceSavedPhp(Math.round(n));
+      } catch {
+        setPriceErr('Could not save — you can add the price from the vendor page.');
+      }
+    });
+  }
+
+  function getInvite() {
+    setInviteErr(null);
+    startInvite(async () => {
+      const res = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
+      if (res.ok) setInviteUrl(res.url);
+      else setInviteErr(res.error);
+    });
+  }
+
+  async function copyInvite() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked — the host can long-press/select the visible URL.
+    }
+  }
+
+  function shareInvite() {
+    if (!inviteUrl) return;
+    navigator
+      .share({ title: `Join me on Setnayan, ${vendorName}!`, url: inviteUrl })
+      .catch(() => {
+        // Host dismissed the share sheet — nothing to do.
+      });
+  }
+
+  return (
+    <div className="space-y-3.5">
+      <p className="flex items-center gap-2 rounded-md border border-emerald-300/50 bg-emerald-50/60 px-3 py-2 text-sm text-emerald-900">
+        <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+        <span>
+          <span className="font-semibold">{vendorName}</span> added to {categoryLabel}.
+        </span>
+      </p>
+
+      {/* Quick price — unlocks "Add to build" without opening the workspace. */}
+      <div className="rounded-xl border border-ink/10 bg-paper p-3">
+        <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
+          Their package price <span className="font-normal normal-case text-ink/45">(optional)</span>
+        </p>
+        {priceSavedPhp != null ? (
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-emerald-800">
+            <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+            ₱{priceSavedPhp.toLocaleString('en-PH')} saved — ready for your build.
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={priceInput}
+                onChange={(e) => setPriceInput(e.target.value)}
+                placeholder="e.g. 45000"
+                aria-label="Package price in pesos"
+                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                disabled={pricePending}
+              />
+              <button
+                type="button"
+                onClick={savePrice}
+                disabled={pricePending || priceInput.trim().length === 0}
+                className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-3.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60"
+              >
+                {pricePending ? <Spinner /> : 'Save price'}
+              </button>
+            </div>
+            <p className="mt-1.5 text-[10px] text-ink/45">
+              With a price, this service can join your build right away.
+            </p>
+          </>
+        )}
+        {priceErr ? (
+          <p role="alert" className="mt-1.5 text-[11px] text-rose-900">
+            {priceErr}
+          </p>
+        ) : null}
+      </div>
+
+      {/* Invite — the claim link the vendor uses to join + auto-link. */}
+      <div className="rounded-xl border border-ink/10 bg-paper p-3">
+        <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
+          Invite them to Setnayan <span className="font-normal normal-case text-ink/45">(optional)</span>
+        </p>
+        {inviteUrl ? (
+          <>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                readOnly
+                value={inviteUrl}
+                aria-label="Invite link"
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-2 font-mono text-[11px] text-ink/80 focus:border-terracotta focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={copyInvite}
+                aria-label="Copy invite link"
+                className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
+              >
+                {copied ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} /> : <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+              {canShare ? (
+                <button
+                  type="button"
+                  onClick={shareInvite}
+                  aria-label="Share invite link"
+                  className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
+                >
+                  <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+                  Share
+                </button>
+              ) : null}
+            </div>
+            <p className="mt-1.5 text-[10px] text-ink/45">
+              Send it over Viber, Messenger, or SMS — when they join, your prices,
+              payments, and chat link to their account automatically.
+            </p>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={getInvite}
+              disabled={invitePending}
+              className="mt-2 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-mulberry/40 bg-mulberry/5 px-3.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60"
+            >
+              {invitePending ? <Spinner /> : <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+              Get their invite link
+            </button>
+            <p className="mt-1.5 text-[10px] text-ink/45">
+              Not on Setnayan yet? When they join through your link, everything you
+              recorded carries over — nothing is re-entered.
+            </p>
+          </>
+        )}
+        {inviteErr ? (
+          <p role="alert" className="mt-1.5 text-[11px] text-rose-900">
+            {inviteErr}
+          </p>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onDone}
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-3.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
+      >
+        Done
+      </button>
     </div>
   );
 }

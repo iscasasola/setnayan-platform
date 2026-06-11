@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(vendors): Shortlist "Add a contact" post-save step — quick price + invite link (DIY add made easy)
+
+**Context:** Owner (2026-06-11, dual-path doctrine session): adding your own vendor from the Shortlist "needs to be easy to manage." Study of the shipped flow: the Add-manually entry points were already everywhere (empty-state row + end-of-rail card, every category), but the modal closed instantly on save — the new card landed UNPRICED (so the owner's "only priced services join the build" gate kept Add-to-build disabled) and pricing meant navigating into the workspace's costing section. The invite link was discoverable only in the workspace (or auto at lock).
+
+- **`new-manual-vendor-modal.tsx` — post-save step:** after the manual two-step save, the form swaps for a quick-options panel (same modal, zero navigation): ✓ "{Vendor} added to {category}" → **(1) Their package price** (one ₱ field → `updateVendorCosts` → "ready for your build" — opens the Add-to-build gate on the spot) → **(2) Invite them to Setnayan** ("Get their invite link" → copy + native-share affordances + the carries-over reassurance) → Done. Marketplace-link mode keeps the instant close (already on Setnayan; price comes from their listing). Every close affordance (X / backdrop / ESC) routes through `onCreated` once the row exists so the page always refreshes.
+- **`vendors/actions.ts` — `createManualVendorInvite` (new):** host-initiated claim link at ADD time — auth + RLS-scoped row check (manual-only; marketplace vendors rejected), then the SAME idempotent `ensureAutoShareInvite` primitive `finalizeVendor` uses at lock; returns `buildClaimUrl` for the client.
+- **`plan-budget-accordion.tsx`:** fixed a stale comment claiming the modal "auto-creates the claim-invite" (it never did — that was drift; the invite was lock-time only).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only). The add form's locked field set (Photo + Name + Contact Person + Number, owner 2026-05-22) is untouched — the step is purely additive after save.
+
+**SPEC IMPACT:** Extends the 2026-06-11 dual-path doctrine row in corpus `DECISION_LOG.md` (DIY add → price → invite, one surface). The two larger gaps from that audit (couple-authored inclusions + "also covers" links) remain open/queued.
+
 ## 2026-06-11 · feat(vendors): Build tab "What's fixed?" pin modes — Pin solver Phase 3a
 
 **Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §4), owner green-lit 2026-06-11 ("can we jump to build?"). The couple declares which dimension LEADS the solve — Budget (default, unchanged behavior) · Services (the picked set is fixed; budget becomes a derived readout) · Date (the day is fixed) — and the Build tab reframes around it. No engine work, no migration, `/find-date` reused (never forked), exactly as planned.

@@ -1086,9 +1086,10 @@ function ChildRail({
   const inApp = SVC_BY_GROUP.get(child.groupId) ?? [];
   const empty = child.picks.length === 0 && inApp.length === 0;
   const canCompare = child.picks.length >= 2;
-  // Empty-state "Add manually" → reuse the existing manual-vendor modal scoped
-  // to this category. The modal's two-step submit also auto-creates the
-  // claim-invite (the QR the vendor scans to sync), so no QR UI is built here.
+  // "Add manually" → reuse the manual-vendor modal scoped to this category.
+  // Its post-save step (2026-06-11) offers the quick price (opens the
+  // Add-to-build gate) + the claim-invite link; locking later also
+  // auto-creates the invite via finalizeVendor.
   const router = useRouter();
   const [manualOpen, setManualOpen] = useState(false);
   // The single vendor pinned to the build for this category (if any) — passed to

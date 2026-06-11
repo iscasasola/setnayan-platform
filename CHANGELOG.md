@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · fix(build): cap build memory so prod deploys stop OOMing on Vercel's standard machine
+
+**Context:** After the guests-dashboard redesign merged (#1227), every production build OOM-failed on Vercel (`OOM event detected` → no `routes-manifest.json` → deploy errored), so www.setnayan.com kept serving the pre-merge deploy. Root cause is infra, not the redesign: this app's route count puts `next build` right at Vercel's standard 8GB build-machine ceiling, and a new page intermittently tips it over (a successful pre-merge build proves it normally fits). Owner chose the free fix over Enhanced Builds (a paid bigger machine).
+
+- **`next.config.ts`:** `experimental.webpackMemoryOptimizations: true` — Next 15's documented flag that lowers peak webpack build memory with **no change to build output** (slightly slower build is the only trade-off).
+- **`apps/web/package.json`:** build script → `NODE_OPTIONS=--max-old-space-size=4096 next build` — caps the V8 heap at 4GB so the ceiling is deterministic (removes the GC-timing variance that made the OOM intermittent) instead of letting Node's default heap scale with machine RAM. POSIX env-prefix is safe: every builder that runs this script is Linux (CI/Lighthouse/e2e) or macOS (Vercel/local) — no Windows job invokes it.
+
+**Verification:** Real `pnpm --filter @setnayan/web build` locally **completes exit 0 under the 4GB cap** (~2m46s, zero `out of memory`/`heap limit`/`SIGKILL` signals) — proving live heap fits well under 4GB, so Vercel's 8GB container holds it with wide margin. Config loads with no `Invalid/Unrecognized` warning; bundle-size gate unchanged at 199.2/200KB (output identical). The PR's own Vercel preview build is the live end-to-end confirmation before this reaches prod.
+
+**SPEC IMPACT:** None — build-infrastructure tuning only, no product/schema/pricing change.
+
 ## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
 
 **Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").

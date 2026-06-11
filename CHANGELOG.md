@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(papic): Kwento P0–P2 — guest photo messages: schema + author sheet + couple review + wall lower-third (0012)
+
+**Context:** Owner: "continue." Kwento (owner-locked 2026-06-10: text-only · free for EVERY guest incl. zero-account Receivers · wall captions are ONE-TAP approve) — the guest-voice layer that feeds the Live Wall lower-thirds and, later, the SDE/Thank-You title cards + the Kwento Magazine weave.
+
+- **Migration `20261113000972_kwento_p0_photo_messages.sql`** (applied to prod + smoke-verified): `photo_messages` (POLYMORPHIC anchor over both capture tables — the corpus `photos(photo_id)` FK was broken-on-arrival; `UNIQUE(photo,guest)`; consent mandatory-at-insert; `print_consent` defaults FALSE fail-closed for the magazine; **DB interlocks** `wall_needs_clean` + `approved_needs_screen`) · `guest_message_blocks` (the per-(event,guest) harassment lever) · `submit_photo_message` (the ONLY guest write path, service-role: anchor-same-event, block lever, 10/event cap — rejected messages COUNT, 3/60s burst via advisory lock, edit-resets-moderation + pulls the wall caption, max 3 edits, locked once baked) · `guest_visible_messages` (the audited zero-account reader) · `wall_approve_caption`/`wall_clear_caption` (the one-tap wall gate; couple/coordinator checked INTERNALLY; flagged can never pass). **Prod ACLs verified:** guest paths service-role-only; wall gates authenticated.
+- **`lib/kwento-moderation.ts`** — Tier-1 synchronous text gate (un-disableable): EN + Tagalog + **Cebuano** profanity lexicon (blocked = slurs/explicit, never stored · flagged = couple-reviews, never wall-eligible) + PH PII (phone/email) detection + normalization (diacritics, leetspeak, repeat-collapse). Measured by design — Taglish banter ("loka", "baliw") stays clean. Tier-2 classifier deliberately OFF per the data-residency recommendation.
+- **Guest author sheet** (`papic-guest-capture.tsx` + `POST /api/papic/kwento`): right after a shot saves — the warmest moment — "Ano'ng nangyari dito?" textarea (280) + the RA 10173 consent tick (blocks Send) → warm states: "Naipadala na! 💛" / "held for the couple to review" / "Let's keep it sweet 💛" inline rejection. The capture API now returns `captureId` (also reused by the wall ingest).
+- **Couple review queue** (moderation page): every message visible immediately (pending/flagged first, flagged badged + held), Approve / Reject / **Show on wall** (one-tap; disabled for flagged) / Take off wall / Block guest.
+- **Wall lower-third**: the projection renders the newest approved caption over a solid scrim with attribution ("— Tita Baby"); updates ride the existing reconcile polls.
+
+**Verification:** new 17-case moderation suite (incl. Scunthorpe-guard, leet/repeat evasion, PII, Bisaya) + live-wall 11/11 + camera-bridge 29/29 all green; `tsc` + scoped lint clean; **prod smoke**: typed RPC errors fire (`kwento:unknown_guest`), ACLs exact, all 3 DB interlocks present.
+
+**SPEC IMPACT:** Implements 0012 § Kwento P0–P2 with the landed corrections (polymorphic anchor · coordinator-as-member_type · service-role guest path). Still open per spec: guest 24h self-delete surface, the 0028 email nudges, Tier-2 residency sign-off. → DECISION_LOG + 0012 status note.
+
 ## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
 
 **Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").

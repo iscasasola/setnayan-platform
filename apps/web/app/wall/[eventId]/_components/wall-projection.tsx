@@ -40,6 +40,7 @@ export function WallProjection({
   const [count, setCount] = useState(initial.count);
   const [mode, setMode] = useState(initial.mode);
   const [conn, setConn] = useState<Conn>('live');
+  const [caption, setCaption] = useState(initial.caption);
   const cursorRef = useRef<string>(latestCursor(initial.tiles, '1970-01-01T00:00:00Z'));
   const failsRef = useRef(0);
   const newestIdRef = useRef<string | null>(null);
@@ -48,6 +49,7 @@ export function WallProjection({
   const applySnapshot = useCallback((snap: WallSnapshot, full: boolean) => {
     setCount(snap.count);
     setMode(snap.mode);
+    setCaption(snap.caption ?? null);
     setTiles((prev) => {
       const next = full
         ? reconcileTiles(prev, snap.tiles).tiles
@@ -190,8 +192,16 @@ export function WallProjection({
         </div>
       )}
 
-      <footer className="fixed inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-ink to-transparent px-6 py-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-cream/50">
+      <footer className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-ink via-ink/85 to-transparent px-6 pb-3 pt-8">
+        {caption ? (
+          <div className="mx-auto mb-2 max-w-3xl rounded-lg bg-ink/90 px-5 py-3 text-center shadow-lg">
+            <p className="font-display text-xl italic leading-snug text-cream">
+              &ldquo;{caption.text}&rdquo;
+            </p>
+            <p className="mt-1 text-sm text-terracotta">— {caption.author}</p>
+          </div>
+        ) : null}
+        <p className="text-center font-mono text-[11px] uppercase tracking-[0.3em] text-cream/50">
           Powered by Setnayan · Papic
         </p>
       </footer>

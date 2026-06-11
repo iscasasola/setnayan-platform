@@ -4,6 +4,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(website): spatial RSVP backdrop — AI-generated world with scroll-through depth
+
+**Context:** Owner directive (full authority, "make sure this works"): the RSVP page can sit inside an **AI-generated world** — as guests scroll, layered scene imagery moves with parallax push-in and crosses a **spatial seam into a second space** (explicitly NOT Keynote-style transitions and NOT the love-story clips — an ambient backdrop for the whole RSVP phase; owner correction 2026-06-11). Spec: corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` §2.1b.
+
+- **`lib/spatial-backdrop.ts` (new, pure TS):** theme registry (2 launch worlds: Gilded Dusk · Capiz Glow, each 2 scenes × far-scene + screen-blend glow layer), `parseRsvpBackdropConfig` (strict on theme, forgiving on intensity, null on junk), and the scroll math — `computeLayerState` (push-in scale + parallax rise + cross-scene crossfade seam), `sceneWindows`, `smoothstep`. React-free so the math is directly unit-tested.
+- **`app/_components/spatial-backdrop.tsx` (new):** fixed full-viewport renderer — rAF-coalesced passive scroll → imperative transform/opacity writes (zero re-renders/frame, compositor-only), SSR-correct p=0 first paint, `prefers-reduced-motion` → static, aria-hidden + pointer-events-none, scene-0 eager / rest lazy.
+- **`app/[slug]/page.tsx`:** tolerant separate read of `events.rsvp_backdrop` (pre-migration DB degrades to "off" instead of 404ing the wedding page); backdrop renders in RSVP era only (`pre`/`inactive` day-of phases — live day stays lean for venue WiFi); `InvitationShell` gains a `backdrop` prop — content floats on a translucent **vellum panel** (≥88% cream = legibility guarantee; backdrop-blur only ≥sm for low-end phones).
+- **`site-editor`:** new RSVP-tab "Living backdrop" card + inline `BackdropEditSheet` (registry-driven theme picker with thumbnails · Subtle/Standard/Lavish motion words · Turn off), server actions `saveRsvpBackdrop`/`clearRsvpBackdrop` (theme re-validated against the registry — DB never stores asset URLs).
+- **Migration `20261110000000_rsvp_spatial_backdrop.sql` (applied to prod):** `events.rsvp_backdrop JSONB NULL`; additive + idempotent; no new RLS (host-scoped UPDATE already covers it). *(Ledger note: remote had `20261109000000` from another session's unmerged branch — pushed via a local-only stub for the ledger comparison, deleted after; only this migration was applied.)*
+- **Assets `public/spatial/` (676KB total):** generated with Recraft v3, recompressed via sharp (q62–68 WebP), human-reviewed — two raw generations contained AI people; one re-generated with upward-camera framing, one top-cropped to the sky band. Provenance README included.
+
+**Verification:** `tsc --noEmit` + `next lint` clean · GitHub CI fully green (production build · playwright e2e · bundle size · lighthouse · migration guard · macOS+Windows) · **10/10 pure-math Playwright invariants** (bounds, monotonic push-in, seam-never-blank, B-hidden-pre-seam, parser fuzz, registry shape) · **end-to-end on the Vercel preview against prod DB** (couple.test → Living backdrop → Gilded Dusk saved → row written → editor shows On) · **live scroll motion verified in a real browser**: layer transforms at p=0.30/0.53/0.85 match the math to 3 decimals, seam keeps ≥0.95 combined visibility, fully reversible, zero console errors, screenshots at all three journey legs. *(Initial Vercel preview build failed on a container OOM — environmental; same-commit redeploy succeeded.)* **Watch-item (pre-existing, tracked separately):** under the 0031 PWA service worker, a cold STREAMED `/[slug]` render can leave an invisible duplicated tree in React's `#S:0` streaming container (server HTML always correct; prod unaffected via warm ISR).
+
+**SPEC IMPACT:** Implements spec §2.1b (spatial backdrop); §2.1a (multi-clip journey) marked SUPERSEDED/PARKED per the owner correction — both edits + DECISION_LOG rows applied in the corpus 2026-06-11.
+
+## 2026-06-11 · feat(website): inline "edit on the page" Hero editing in /site-editor (PR #1)
+
+**Context:** Owner session designing the customer wedding-website rebuild (corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`). Today `/site-editor/[eventId]` is a *launcher* — its cards deep-link OUT to standalone `/website/*` sub-editors, so the couple leaves the live preview to edit anything. This is PR #1 of turning it into a real "edit on the page" editor: the Hero card now edits **inline** (bottom sheet on mobile / right-rail panel on desktop) without navigating away. Establishes the pattern the other sections fold into next.
+
+- **`site-editor/[eventId]/actions.ts` (new):** editor-local `saveHeroPhoto` / `clearHeroPhoto` — same DB write + `requireHostMembership` guard as `website/hero-photo/actions.ts`, but **revalidate the editor in place and return void** (no redirect-out) so the couple stays on the preview.
+- **`site-editor/[eventId]/page.tsx`:** fetch `landing_page_hero_image_url`, resolve via `displayUrlForStoredAsset`, pass `heroPhotoUrl` to the editor.
+- **`_components/site-editor.tsx`:** inline-edit shell — `editing` state + `HeroEditSheet` (reuses the shared `<FileUpload>` → R2 + the editor-local actions); a `CardButton` opens the sheet; the Hero card swaps its deep-link for it; after a save, `router.refresh()` + a `previewNonce`-keyed iframe remount reload the live preview. a11y: labelled dialog, Esc + backdrop close, ≥44px targets.
+
+**Verification:** typecheck + lint green on CI (PR #1233). No schema change (reuses existing `events.landing_page_hero_image_*` columns).
+
+**SPEC IMPACT:** Implements §1 (inline "edit on the page" model) of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` for the Hero section — the proof pattern. Logged in `DECISION_LOG` 2026-06-11.
+
 ## 2026-06-11 · feat(taxonomy): couple-side shared filters — mixed-faith union + civil + event-type gate
 
 **Context:** Phase 3 wiring of the unification design (§3 SET rewrite + §2 event applicability, couple side). Three live gaps closed: (1) the catalog faith filter was **scalar** (primary rite only) — a Mixed Cath+Muslim couple never saw the Muslim rite's specialist services even though `secondary_ceremony_type` was already threaded; (2) **civil couples saw all faith-tagged services** — the code contradicted its own documented intent ("civil couples keep faith-tagged tiles hidden"); (3) the dashboard category search applied **no taxonomy-level faith or event-type filter at all**.

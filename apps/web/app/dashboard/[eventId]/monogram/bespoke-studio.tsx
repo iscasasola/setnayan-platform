@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Check, Sparkles, Undo2, Wand2 } from 'lucide-react';
+import { Check, Flag, Sparkles, Undo2, Wand2 } from 'lucide-react';
 import {
   BESPOKE_STYLES,
   type BespokeStyleKey,
@@ -11,6 +11,7 @@ import {
   generateBespokeAction,
   applyBespokeAction,
   clearBespokeAction,
+  reportBespokeAction,
 } from './bespoke-actions';
 
 /**
@@ -66,6 +67,90 @@ function ApplyButton() {
   );
 }
 
+// Report-an-AI-result path (Google Play GenAI policy — in-app flagging of
+// offensive AI output). Reasons are the user_reports enum subset that applies
+// to a generated mark; labels mirror the /admin/user-reports queue.
+const REPORT_REASONS = [
+  { value: 'nudity_sexual', label: 'Nudity / sexual' },
+  { value: 'violence', label: 'Violence' },
+  { value: 'hate_harassment', label: 'Hate / harassment' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+function ReportSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex w-full items-center justify-center rounded-md bg-ink/80 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? 'Sending…' : 'Send report'}
+    </button>
+  );
+}
+
+/** Tiny per-mark report affordance: link → inline reason picker → server action. */
+function ReportMark({
+  eventId,
+  generationId,
+  open,
+  onToggle,
+}: {
+  eventId: string;
+  generationId: string;
+  open: boolean;
+  onToggle: (generationId: string | null) => void;
+}) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(generationId)}
+        className="inline-flex items-center justify-center gap-1 text-[11px] font-medium text-ink/40 transition-colors hover:text-ink/70"
+      >
+        <Flag aria-hidden className="h-3 w-3" strokeWidth={2} />
+        Report this result
+      </button>
+    );
+  }
+  return (
+    <form action={reportBespokeAction} className="space-y-1.5">
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="generation_id" value={generationId} />
+      <label htmlFor={`report-reason-${generationId}`} className="sr-only">
+        Why are you reporting this design?
+      </label>
+      <select
+        id={`report-reason-${generationId}`}
+        name="reason"
+        defaultValue="other"
+        className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-xs text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
+      >
+        {REPORT_REASONS.map((r) => (
+          <option key={r.value} value={r.value}>
+            {r.label}
+          </option>
+        ))}
+      </select>
+      <input
+        name="details"
+        maxLength={500}
+        placeholder="Anything else? (optional)"
+        className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-xs text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
+      />
+      <ReportSubmitButton />
+      <button
+        type="button"
+        onClick={() => onToggle(null)}
+        className="inline-flex w-full items-center justify-center text-[11px] font-medium text-ink/45 transition-colors hover:text-ink/70"
+      >
+        Cancel
+      </button>
+    </form>
+  );
+}
+
 export function BespokeStudio({
   eventId,
   defaultInitials,
@@ -89,6 +174,8 @@ export function BespokeStudio({
   notice: { tone: 'ok' | 'error'; text: string } | null;
 }) {
   const [styleKey, setStyleKey] = useState<BespokeStyleKey>('crest');
+  // Which mark's report form is open (one at a time keeps the tiles calm).
+  const [reportingId, setReportingId] = useState<string | null>(null);
   const roundsLeft = Math.max(0, maxRounds - roundsUsed);
   const capped = roundsLeft === 0;
   const refining = roundsUsed > 0;
@@ -272,6 +359,12 @@ export function BespokeStudio({
                           <ApplyButton />
                         </form>
                       )}
+                      <ReportMark
+                        eventId={eventId}
+                        generationId={c.generationId}
+                        open={reportingId === c.generationId}
+                        onToggle={setReportingId}
+                      />
                     </div>
                   );
                 })}

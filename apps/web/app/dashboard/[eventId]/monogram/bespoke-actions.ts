@@ -23,6 +23,10 @@ import { generateBespokeCandidates } from '@/lib/bespoke-monogram';
  *   events.monogram_custom_svg (single-read render path for the landing
  *   hero) + records provenance.
  * clearBespokeAction — reverts to the typographic lockup.
+ * reportBespokeAction — files a user_reports row (target_type 'ai_output')
+ *   against a generated mark — Google Play GenAI policy: in-app reporting of
+ *   offensive AI output. Observational only: the report lands in the
+ *   /admin/user-reports queue; nothing about the studio changes.
  *
  * All access control rides RLS: the event select / generation select run on
  * the user's client (membership-scoped), inserts hit the couple-only WITH
@@ -180,4 +184,67 @@ export async function clearBespokeAction(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);
   backToMaker(eventId, { bespoke: 'cleared' });
+}
+
+// user_reports.reason enum (20261108000000) — the studio's picker offers the
+// subset that makes sense for AI output, but any valid enum value is accepted.
+const REPORT_REASONS = new Set([
+  'nudity_sexual',
+  'violence',
+  'hate_harassment',
+  'spam',
+  'not_my_event',
+  'other',
+]);
+
+export async function reportBespokeAction(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  const generationId = String(formData.get('generation_id') ?? '').trim();
+  if (!eventId || !generationId) throw new Error('Missing ids');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const reasonRaw = String(formData.get('reason') ?? '').trim();
+  const reason = REPORT_REASONS.has(reasonRaw) ? reasonRaw : 'other';
+  const userDetails = String(formData.get('details') ?? '').trim().slice(0, 500);
+
+  // RLS-scoped fetch (couple-only SELECT policy) — proves the caller is a
+  // couple member of THIS event AND pins the reported mark to it. Also pulls
+  // the brief so the admin queue gets actionable context without having to
+  // join the generations table.
+  const { data: generation } = await supabase
+    .from('bespoke_monogram_generations')
+    .select('generation_id, round, brief')
+    .eq('generation_id', generationId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!generation) backToMaker(eventId, { bespoke_error: 'not-found' });
+
+  let briefNote = '';
+  try {
+    briefNote = ` · brief: ${JSON.stringify(generation.brief ?? {})}`.slice(0, 400);
+  } catch {
+    // Context only — never block the report on it.
+  }
+  const details =
+    `[Setnayan AI monogram · round ${generation.round}${briefNote}]` +
+    (userDetails ? ` ${userDetails}` : '');
+
+  // INSERT on the user's RLS-scoped client — the user_reports reporter policy
+  // (reporter_user_id = auth.uid()) is the enforcement, not the admin client.
+  const { error } = await supabase.from('user_reports').insert({
+    reporter_user_id: user.id,
+    event_id: eventId,
+    target_type: 'ai_output',
+    target_id: generation.generation_id,
+    reason,
+    details,
+  });
+  if (error) backToMaker(eventId, { bespoke_error: 'report-failed' });
+
+  backToMaker(eventId, { bespoke: 'reported' });
 }

@@ -50,6 +50,7 @@ import {
   Church,
   BookOpen,
   Bell,
+  CircleUser,
 } from 'lucide-react';
 import type { LandingItem } from '../_components/mobile-landing-grid';
 import {
@@ -263,6 +264,17 @@ const PLATFORM_ITEMS: LandingItem[] = [
     icon: Settings,
     description:
       'Pilot demo-mode toggle. Surfaces seeded showcase data and hides retired SKU surfaces.',
+  },
+  {
+    // Mirrors the desktop sidebar's Platform → My account entry (account-
+    // security suite 2026-06-11) so mobile admins also reach the shared
+    // /dashboard/profile surface for password + session controls.
+    key: 'my-account',
+    label: 'My account',
+    href: '/dashboard/profile',
+    icon: CircleUser,
+    description:
+      'Your personal account — display name, change password, and sign out other devices.',
   },
 ];
 

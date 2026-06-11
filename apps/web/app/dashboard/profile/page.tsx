@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  AlertTriangle,
+  Compass,
+  KeyRound,
+  MonitorSmartphone,
+  Sparkles,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { CONCIERGE_ENABLED } from '@/lib/concierge';
@@ -8,11 +16,15 @@ import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { makeT } from '@/lib/i18n';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import {
+  changePassword,
+  signOutOtherDevices,
+} from '@/lib/account-security-actions';
 import { HapticsToggle } from './_components/haptics-toggle';
 import { PushToggle } from './_components/push-toggle';
 import {
   cancelAccountDeletionRequest,
-  changePassword,
   requestAccountDeletion,
   updateLocalePreference,
   updatePersonalInfo,
@@ -28,6 +40,7 @@ type Props = {
     error?: string;
     tour_restarted?: string;
     password_changed?: string;
+    signed_out_others?: string;
     deletion_requested?: string;
     deletion_cancelled?: string;
   }>;
@@ -159,6 +172,14 @@ export default async function ProfilePage({ searchParams }: Props) {
           Password changed. Your session stays active; use the new password next time you sign in.
         </p>
       ) : null}
+      {search.signed_out_others ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Signed out everywhere else. Only this device is still signed in.
+        </p>
+      ) : null}
       {search.deletion_requested ? (
         <p
           role="status"
@@ -246,11 +267,24 @@ export default async function ProfilePage({ searchParams }: Props) {
             Change password
           </h2>
           <p className="text-sm text-ink/60">
-            Minimum 8 characters. Your current session stays active; use the
-            new password next time you sign in.
+            Enter your current password, then a new one (minimum 8 characters).
+            Your current session stays active. Forgot your current password —
+            or signed up with Google/Facebook or a magic link? Sign out and use
+            the reset link on the sign-in page instead.
           </p>
         </div>
         <form action={changePassword} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+          <input type="hidden" name="return_to" value="/dashboard/profile" />
+          <Field label="Current password" htmlFor="current_password">
+            <input
+              id="current_password"
+              name="current_password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="input-field"
+            />
+          </Field>
           <Field label="New password" htmlFor="new_password">
             <input
               id="new_password"
@@ -281,6 +315,43 @@ export default async function ProfilePage({ searchParams }: Props) {
             Change password
           </SubmitButton>
         </form>
+      </section>
+
+      <section className="mb-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Sessions
+          </h2>
+          <p className="text-sm text-ink/60">
+            Left yourself signed in on a borrowed laptop or a shared phone?
+            Sign out everywhere else in one tap — this device stays signed in.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Sign out other devices</p>
+            <p className="text-xs text-ink/55">
+              Ends every session except this one. Other devices will need your
+              password to sign back in.
+            </p>
+          </div>
+          <ConfirmForm
+            action={signOutOtherDevices}
+            title="Sign out other devices?"
+            message="This signs you out on every other phone/laptop where you're logged in. This device stays signed in."
+            confirmLabel="Sign out others"
+            destructive={false}
+          >
+            <input type="hidden" name="return_to" value="/dashboard/profile" />
+            <SubmitButton
+              className="button-secondary inline-flex items-center gap-2"
+              pendingLabel="Signing out…"
+            >
+              <MonitorSmartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Sign out other devices
+            </SubmitButton>
+          </ConfirmForm>
+        </div>
       </section>
 
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">

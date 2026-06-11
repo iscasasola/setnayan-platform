@@ -42,6 +42,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { LiveWallCard } from './_components/live-wall-card';
+import { MagazineCard } from './_components/magazine-card';
 
 // Iteration 0012 — Papic (V1 setup surface)
 //
@@ -439,6 +440,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       />
 
       <LiveWallCard eventId={eventId} />
+
+      <MagazineCard eventId={eventId} />
 
       <GestureReferenceCard />
 

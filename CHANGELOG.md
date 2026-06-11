@@ -6,15 +6,52 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-11 · feat(website): spatial backdrop v4 — the world is now a VIDEO scrubbed by scroll
 
-**Context:** Owner: *"the background need to be a video that moves as we scroll."* The backdrop's still-layer worlds become living film: each theme now ships a pre-rendered **journey video** (camera pushing through scene A → crossfade → deeper into scene B) whose **playhead is the scroll position**.
+**Context:** Owner: *"the background need to be a video that moves as we scroll."* Each backdrop theme now ships a pre-rendered **journey film** (camera pushing through scene A → crossfade → deeper into scene B) whose **playhead is the scroll position**.
 
-- **Assets:** `public/spatial/<theme>/journey.mp4` ×2 (2.4MB + 3.4MB) — rendered offline with FFmpeg (static binary, no system install) from the original hi-res Recraft scenes: 8000×4500 zoompan intermediates (kills subpixel jitter) → 1280×720 @30fps, 14.5s, H.264 CRF 30 with **keyframe-dense encode (`-g 8`)** so `currentTime` seeks are frame-accurate. The baked crossfade sits at ≈0.45 of the timeline — the same scroll fraction as the layer math's seam, so film + bokeh stay in sync. *(FFmpeg gotcha for the next theme: zoompan emits `d` frames PER INPUT FRAME — feed it a single still, never `-loop 1 -t N`.)*
-- **`lib/spatial-backdrop.ts`:** `SpatialJourney` type + registry entries + pure `journeyTimeAt(p, durationS)` (linear, clamped 50ms shy of the end so the final frame holds) — unit-tested (monotonic, clamped, NaN-safe; 12/12 spec green).
-- **`app/_components/spatial-backdrop.tsx`:** hybrid renderer — on qualifying devices (≥1024px viewport, no reduced-motion, no save-data) the journey video mounts client-side, fades in on first `canplay`, and **scroll scrubs it** (lerp-smoothed seeks, never play()ed, ~1-frame deadband). Far still layers hand over to the film; **near bokeh layers keep rendering on top** as live screen-blend parallax. Non-qualifying devices keep the layered stills automatically; until `canplay` the stills ARE the world (no blank, no pop).
+- **Assets:** `public/spatial/<theme>/journey.mp4` ×2 (2.4MB + 3.4MB) — FFmpeg (static binary) from the hi-res Recraft scenes: 8000×4500 zoompan intermediates → 1280×720@30, 14.5s, keyframe-dense `-g 8` for frame-accurate seeks; baked crossfade at ≈0.45 = the layer math's seam. *(Gotcha: zoompan emits `d` frames PER INPUT FRAME — feed a single still, never `-loop 1 -t N`.)*
+- **`lib/spatial-backdrop.ts`:** `SpatialJourney` type + registry + pure `journeyTimeAt` (linear, clamped 50ms shy of the end; 12/12 spec green).
+- **`app/_components/spatial-backdrop.tsx`:** hybrid — qualifying devices (≥1024px, no reduced-motion, no save-data) mount the film client-side, fade in on `canplay`, scroll scrubs `currentTime` (lerp-smoothed, never play()ed); far stills hand over, **near bokeh layers stay on top as live parallax**; everyone else keeps the layered stills automatically.
 
-**Verification:** `tsc` clean · 12/12 math invariants (incl. new journey-time cases) · local harness in-browser: scrub within ~1 frame of target at p=0.3/0.6/1.0/0 and fully reversible, visually distinct frames across the journey (dusk garden → lantern canopy), mobile viewport falls back to stills with **zero video bytes requested**, zero console errors.
+**Verification:** `tsc` clean · 12/12 math invariants · in-browser: scrub within ~1 frame at 4 checkpoints + reversible, visually distinct frames across the journey, mobile = stills with zero video bytes, no console errors.
 
-**SPEC IMPACT:** §2.1b extended with the journey-film mode (scroll-scrubbed theme video + live near-layer parallax; stills = universal fallback) — applied in the corpus with this change's DECISION_LOG row.
+**SPEC IMPACT:** §2.1b journey-film paragraph added in the corpus + DECISION_LOG row (2026-06-11).
+
+## 2026-06-11 · feat(seating): Phase 1b — in-popup "Seat people" picker (Guest · Group · Role) (0008)
+
+**Context:** Owner 2026-06-10/11 — the popup toolbar's centerpiece: pick a group / role / individual guest to seat at the selected table without leaving the canvas. Completes the owner's popup spec (rename + seat-people + rotate + delete); the `seatRoleAtTable` backend shipped in Phase 1a.
+
+- **`seating-editor.tsx`:** new top-level `SeatPeoplePanel` (top-level so the search input keeps focus across re-renders) — segmented **Guest · Group · Role** tabs, type-ahead search (16px input on phone — no iOS focus-zoom), live capacity readout (`seated/cap · N free`), guest rows sorted unseated-first with "here / Table X / unseated" chips, group rows with member counts, role rows showing the 4 tiers (`ROLE_TIER_LABELS`) with live unseated counts; rows disable when the table is full / tier empty. Wired into BOTH popup surfaces: phone bottom sheet ("Seat" toggle, ≥44px) and desktop popover (UserPlus toggle; flip math accounts for the expanded panel height). Handlers: `seatGuestHere` (next open non-removed chair, optimistic), `seatGroupMembers` (extracted from `seatGroupAt` — shared by pick-then-tap + the picker), `seatTierHere` (server seat-what-fits + overflow notice).
+- **`SeatingGuest` type + `page.tsx`:** now carry `role` + `group_category` so the Role tab computes tier membership client-side via `roleTier()`.
+
+**Verification:** `tsc` + `next lint` clean · all 20 seating-logic tests pass (locally + in the CI e2e job) · CI gates green. Panel behavior is visual — eyeball on the Vercel preview (desktop popover + phone sheet). No schema change.
+
+**SPEC IMPACT:** 0008 editor: the popup now seats guests/groups/role-tiers in context — supersedes pick-then-tap as the primary flow (pick-then-tap kept). → corpus `DECISION_LOG` with the Phase 1 landing.
+
+## 2026-06-11 · feat(papic): Salamisim Live Photo Wall P1 — feed RPCs + venue projection + couple controls (0012)
+
+**Context:** Owner: "continue the next build." Phase 1 of the Papic output layer (owner-locked 2026-06-11: full robust build; projection default all-with-consent; FaceBlock ship gate). On the P0 schema (`20261104000959`): the gate-chain RPCs, the anonymous venue projection, and the couple's control card — dark-launched (claim-code + LIVE_WALL activation; only the demo event is activated today).
+
+- **Migration `20261112000545_live_wall_p1_rpcs.sql`** (applied to prod + smoke-verified live): `wall_ingest` (G0 LIVE_WALL → photos-only → **G1 NSFW allowlist** `moderation_state='clean'` — REAL, via the shipped self-hosted nsfwjs screen on both capture paths → **FaceBlock fail-closed**: any `faceblock_enabled` guest ⇒ no wall row, P2's blur pipeline lifts this → G2 photo-consent veto via `photo_tags`; P1 safe key = original, acceptable only behind the FB withhold) · `wall_visible_photos` (the single audited reader; re-checks fail-closed at read) · `wall_retract`/`wall_unhide` (the kill switch — couple/coordinator checked INTERNALLY per call; wall-only vs also-gallery are distinct semantics) · `wall_claim_display` (single-use screen code). **Grant hardening verified on prod:** feed RPCs = service_role ONLY; kill switch = authenticated.
+- **`lib/live-wall.ts` + `lib/live-wall-logic.ts`**: ingest hook (chained AFTER the NSFW screen in both capture paths' `after()` — allowlist ordering), HTTP realtime broadcast (best-effort nudge), display-session JWT (mirrors guest-session), snapshot reader; pure merge/reconcile/mode/code logic split for tests.
+- **`/wall/[eventId]`**: the anonymous venue projection — claim screen (6-char no-ambiguity code) → full-screen masonry collage, hero count, new-tile gold-ring animation (globals.css, reduced-motion aware), 12s reconcile + 60s full sweep (broadcast = nudge, never source of truth), freeze-on-drop + amber/red dot, wake-lock w/ visibility re-request, teaser modes via `live_mode_override` → `getDayOfPhase`.
+- **Papic add-on page**: a Live Photo Wall card (renders only when LIVE_WALL is active) — generate/revoke screen codes, latest tiles strip with one-tap **Hide from wall** (reversible) / **also hide from gallery** / unhide.
+- Ingest wired in `recordSeatCapture` + the guest-capture route (screen → ingest, never blocks a capture).
+
+**Verification:** new 11-case wall-logic suite green; camera-bridge suite still 29/29; `tsc` + scoped lint clean; migration applied + **live prod smoke**: all 3 feed RPCs execute correctly (empty-correct on gates), ACLs exact (service-role-only feed path — the P0 "no anon read" invariant enforced at the grant level). Prod has 0 captures yet — the wall lights when captures flow.
+
+**SPEC IMPACT:** Implements Salamisim P1 (0012). P2 (server-baked FaceBlock blur) remains the public-event ship gate; P3 control tab + Kwento captions, P4 SW resilience + recap freeze later. → DECISION_LOG + the 0012 Salamisim section status note.
+
+## 2026-06-11 · feat(vendors): Shortlist "Add a contact" post-save step — quick price + invite link (DIY add made easy)
+
+**Context:** Owner (2026-06-11, dual-path doctrine session): adding your own vendor from the Shortlist "needs to be easy to manage." Study of the shipped flow: the Add-manually entry points were already everywhere (empty-state row + end-of-rail card, every category), but the modal closed instantly on save — the new card landed UNPRICED (so the owner's "only priced services join the build" gate kept Add-to-build disabled) and pricing meant navigating into the workspace's costing section. The invite link was discoverable only in the workspace (or auto at lock).
+
+- **`new-manual-vendor-modal.tsx` — post-save step:** after the manual two-step save, the form swaps for a quick-options panel (same modal, zero navigation): ✓ "{Vendor} added to {category}" → **(1) Their package price** (one ₱ field → `updateVendorCosts` → "ready for your build" — opens the Add-to-build gate on the spot) → **(2) Invite them to Setnayan** ("Get their invite link" → copy + native-share affordances + the carries-over reassurance) → Done. Marketplace-link mode keeps the instant close (already on Setnayan; price comes from their listing). Every close affordance (X / backdrop / ESC) routes through `onCreated` once the row exists so the page always refreshes.
+- **`vendors/actions.ts` — `createManualVendorInvite` (new):** host-initiated claim link at ADD time — auth + RLS-scoped row check (manual-only; marketplace vendors rejected), then the SAME idempotent `ensureAutoShareInvite` primitive `finalizeVendor` uses at lock; returns `buildClaimUrl` for the client.
+- **`plan-budget-accordion.tsx`:** fixed a stale comment claiming the modal "auto-creates the claim-invite" (it never did — that was drift; the invite was lock-time only).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only). The add form's locked field set (Photo + Name + Contact Person + Number, owner 2026-05-22) is untouched — the step is purely additive after save.
+
+**SPEC IMPACT:** Extends the 2026-06-11 dual-path doctrine row in corpus `DECISION_LOG.md` (DIY add → price → invite, one surface). The two larger gaps from that audit (couple-authored inclusions + "also covers" links) remain open/queued.
 
 ## 2026-06-11 · fix+test(seating): adversarial-review fixes + first seating-logic test suite (0008)
 

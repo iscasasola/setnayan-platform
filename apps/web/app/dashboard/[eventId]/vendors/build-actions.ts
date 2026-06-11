@@ -109,6 +109,9 @@ export type PlanBuildSnapshot = {
   budgetPhp: number | null;
   totalPhp: number;
   picks: PlanBuildPick[];
+  // Which dimension led the solve when this build was saved (Pin solver Phase
+  // 3a). Optional + forward-compat: pre-3a snapshots have no pinMode.
+  pinMode?: 'budget' | 'services' | 'date';
 };
 
 /** Row shape the Compare tab reads back (server-fetched with the snapshot). */

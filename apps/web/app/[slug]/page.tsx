@@ -296,18 +296,53 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // as it does today.
   const phasesEnabled = isWebsitePhasesEnabled();
 
-  // Date-driven phase by default. DEMO/PREVIEW override: `?phase=rsvp|event|
-  // editorial` lets the owner view any phase of a TEST event regardless of its
-  // date (the live "event" phase is otherwise only a T-1h..T+8h window, so it
-  // can't be demoed on a fixed date). Gated to demo events only — slug starting
-  // with `test-` OR a `[TEST]` display name — so a crafted link can NEVER force
-  // a phase on a real couple's wedding. Only honored when phases are enabled.
+  // Date-driven phase by default. PREVIEW override: `?phase=rsvp|event|
+  // editorial` shows any phase regardless of date (the live "event" phase is
+  // otherwise only a T-1h..T+8h window, so it can't be previewed otherwise).
+  // Honored for TWO viewers only:
+  //   (a) demo events (slug `test-*` or `[TEST]` name) — anyone, for demos;
+  //   (b) the event's own signed-in HOSTS (owner ask 2026-06-11 "can you
+  //       always preview that?") — a couple/moderator can preview their
+  //       on-the-day page and editorial ANY time; this also powers the
+  //       site-editor's per-phase preview tabs.
+  // A crafted link still can't force a phase on a real couple's wedding for
+  // guests/anonymous visitors — the host check runs against the VIEWER's own
+  // session. Host lookups fire only when a phase param is present, so the
+  // normal guest path pays zero extra queries.
   const isDemoEvent =
     event.slug?.toLowerCase().startsWith('test-') === true ||
     (event.display_name ?? '').toUpperCase().includes('[TEST]');
   const phaseParam = typeof search.phase === 'string' ? search.phase.toLowerCase() : '';
+  const isValidPhaseParam =
+    phaseParam === 'rsvp' || phaseParam === 'event' || phaseParam === 'editorial';
+  let phasePreviewAllowed = isDemoEvent;
+  if (phasesEnabled && isValidPhaseParam && !phasePreviewAllowed) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([
+        admin
+          .from('event_members')
+          .select('member_type')
+          .eq('event_id', event.event_id)
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        admin
+          .from('event_moderators')
+          .select('moderator_id')
+          .eq('event_id', event.event_id)
+          .eq('user_id', user.id)
+          .not('accepted_at', 'is', null)
+          .is('removed_at', null)
+          .maybeSingle(),
+      ]);
+      phasePreviewAllowed = Boolean(memberRow) || Boolean(moderatorRow);
+    }
+  }
   const phaseOverride: LifecyclePhase | null =
-    phasesEnabled && isDemoEvent && (phaseParam === 'rsvp' || phaseParam === 'event' || phaseParam === 'editorial')
+    phasesEnabled && isValidPhaseParam && phasePreviewAllowed
       ? (phaseParam as LifecyclePhase)
       : null;
 

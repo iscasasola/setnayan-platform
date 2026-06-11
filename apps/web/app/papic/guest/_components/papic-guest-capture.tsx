@@ -42,6 +42,13 @@ export function PapicGuestCapture({
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  // Kwento (0012): after a shot, the guest can tell the couple the story
+  // behind it — the warmest moment to ask. Anchored on the capture just made.
+  const [kwentoCaptureId, setKwentoCaptureId] = useState<string | null>(null);
+  const [kwentoText, setKwentoText] = useState('');
+  const [kwentoConsent, setKwentoConsent] = useState(false);
+  const [kwentoPhase, setKwentoPhase] = useState<'idle' | 'sending' | 'sent' | 'held'>('idle');
+  const [kwentoError, setKwentoError] = useState<string | null>(null);
 
   // UGC terms gate (Apple 1.2 / Google Play UGC). The guest must accept the
   // objectionable-content terms once before their first capture. If they've
@@ -140,6 +147,7 @@ export function PapicGuestCapture({
         status?: string;
         remaining?: number;
         error?: string;
+        captureId?: string | null;
       };
 
       if (res.status === 409 || json.status === 'quota_exhausted') {
@@ -165,12 +173,51 @@ export function PapicGuestCapture({
       setRemaining(typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1));
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 900);
+      if (json.captureId) {
+        setKwentoCaptureId(json.captureId);
+        setKwentoText('');
+        setKwentoPhase('idle');
+        setKwentoError(null);
+      }
     } catch {
       setSaveError("That shot didn't save — check your signal and try again.");
     } finally {
       setBusy(false);
     }
   }, [busy, ready, exhausted, accepted, blocked]);
+
+  const sendKwento = async () => {
+    if (!kwentoCaptureId || kwentoPhase === 'sending') return;
+    const text = kwentoText.trim();
+    if (text.length < 1 || !kwentoConsent) return;
+    setKwentoPhase('sending');
+    setKwentoError(null);
+    try {
+      const res = await fetch('/api/papic/kwento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captureId: kwentoCaptureId, body: text, consent: true }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; state?: string; error?: string };
+      if (res.ok && json.ok) {
+        setKwentoPhase(json.state === 'flagged' ? 'held' : 'sent');
+        return;
+      }
+      setKwentoPhase('idle');
+      setKwentoError(
+        json.error === 'keep_it_sweet'
+          ? "Let's keep it sweet 💛 — try rephrasing that one."
+          : json.error === 'limit_reached'
+            ? "You've shared your 10 kwentos for this celebration — salamat!"
+            : json.error === 'too_fast'
+              ? 'One kwento at a time — give it a few seconds.'
+              : "That didn't send — try again.",
+      );
+    } catch {
+      setKwentoPhase('idle');
+      setKwentoError('No signal — try again in a moment.');
+    }
+  };
 
   if (blocked) {
     return (
@@ -344,6 +391,58 @@ export function PapicGuestCapture({
             ? 'Your camera is all used up — enjoy the celebration.'
             : 'Every photo lands in the couple’s gallery in real time.'}
         </p>
+
+        {kwentoCaptureId && kwentoPhase !== 'sent' && kwentoPhase !== 'held' ? (
+          <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
+            <p className="text-sm font-medium text-cream/90">
+              ✍️ Ano&rsquo;ng nangyari dito? Tell {eventName} the story.
+            </p>
+            <textarea
+              value={kwentoText}
+              onChange={(e) => setKwentoText(e.target.value.slice(0, 280))}
+              rows={2}
+              placeholder="Right after the first dance — hindi mapigil ang tawa…"
+              className="mt-2 w-full resize-none rounded-md border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:border-cream/40 focus:outline-none"
+            />
+            <div className="mt-1 text-right text-[11px] text-cream/40">{kwentoText.length}/280</div>
+            <label className="mt-1 flex items-start gap-2 text-xs text-cream/70">
+              <input
+                type="checkbox"
+                checked={kwentoConsent}
+                onChange={(e) => setKwentoConsent(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-mulberry"
+              />
+              <span>
+                I&rsquo;m okay for the couple &amp; guests to see my name + message, and to
+                use it in their wedding video. 💛
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => void sendKwento()}
+              disabled={kwentoPhase === 'sending' || kwentoText.trim().length === 0 || !kwentoConsent}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
+            >
+              {kwentoPhase === 'sending' ? (
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+              ) : null}
+              Send to the couple 💌
+            </button>
+            {kwentoError ? (
+              <p className="mt-2 text-xs text-terracotta">{kwentoError}</p>
+            ) : null}
+          </div>
+        ) : null}
+        {kwentoPhase === 'sent' ? (
+          <p className="text-center text-xs text-cream/80">
+            Naipadala na! 💛 Salamat — your story is on its way to the couple.
+          </p>
+        ) : null}
+        {kwentoPhase === 'held' ? (
+          <p className="text-center text-xs text-cream/70">
+            Sent — held for the couple to review first. 💛
+          </p>
+        ) : null}
       </div>
 
       <canvas ref={canvasRef} className="hidden" />

@@ -183,6 +183,8 @@ export interface WallSnapshot {
   mode: WallMode;
   displayName: string | null;
   eventDate: string | null;
+  /** The latest one-tap-approved Kwento for the lower-third (P1: newest wins). */
+  caption: { text: string; author: string; atIso: string } | null;
 }
 
 /** The projection read: visible tiles since a cursor + count + mode. */
@@ -218,6 +220,37 @@ export async function getWallSnapshot(
     .eq('event_id', eventId)
     .is('wall_hidden_at', null);
 
+  // The lower-third: the newest approved + wall-eligible Kwento (owner-locked
+  // one-tap gate; flagged can never reach here — DB CHECK).
+  let caption: WallSnapshot['caption'] = null;
+  try {
+    const { data: msg } = await admin
+      .from('photo_messages')
+      .select('body_text, guest_id, updated_at')
+      .eq('event_id', eventId)
+      .eq('status', 'approved')
+      .eq('wall_eligible', true)
+      .eq('hide_from_wall', false)
+      .eq('author_publicly_hidden', false)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (msg) {
+      const { data: author } = await admin
+        .from('guests')
+        .select('first_name, display_name')
+        .eq('guest_id', msg.guest_id as string)
+        .maybeSingle();
+      caption = {
+        text: msg.body_text as string,
+        author: (author?.display_name as string) || (author?.first_name as string) || 'A guest',
+        atIso: msg.updated_at as string,
+      };
+    }
+  } catch {
+    caption = null; // pre-migration env — the wall simply has no captions
+  }
+
   const phase: DayOfPhase = event?.event_date ? getDayOfPhase(event.event_date) : 'inactive';
   const mode = resolveWallMode(
     (event?.live_mode_override as WallMode | null) ?? null,
@@ -226,6 +259,7 @@ export async function getWallSnapshot(
 
   return {
     tiles,
+    caption,
     count: visibleCount ?? tiles.length,
     mode,
     displayName: (event?.display_name as string) ?? null,

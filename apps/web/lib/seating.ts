@@ -120,9 +120,22 @@ export async function fetchAssignments(
 export type FloorPlanRow = {
   stage_x: number;
   stage_y: number;
+  // Stage SIZE (percent of the canvas; x/y = centre) — drag-resizable.
+  stage_w: number;
+  stage_h: number;
   entrance_enabled: boolean;
   entrance_x: number;
   entrance_y: number;
+  // Dance-floor zone (no-table area; the editor blocks drops inside it).
+  dance_enabled: boolean;
+  dance_x: number;
+  dance_y: number;
+  dance_w: number;
+  dance_h: number;
+  // Optional second door — load-in / caterer access.
+  service_entrance_enabled: boolean;
+  service_entrance_x: number;
+  service_entrance_y: number;
   venue_width_m: number | null;
   venue_length_m: number | null;
   // When the couple last published the seating pack (stamped table QR sheets).
@@ -132,9 +145,19 @@ export type FloorPlanRow = {
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   stage_x: 50,
   stage_y: 6,
+  stage_w: 24,
+  stage_h: 7,
   entrance_enabled: false,
   entrance_x: 50,
   entrance_y: 94,
+  dance_enabled: false,
+  dance_x: 50,
+  dance_y: 55,
+  dance_w: 22,
+  dance_h: 18,
+  service_entrance_enabled: false,
+  service_entrance_x: 97,
+  service_entrance_y: 50,
   venue_width_m: null,
   venue_length_m: null,
   published_at: null,
@@ -146,18 +169,32 @@ export async function fetchFloorPlan(
 ): Promise<FloorPlanRow> {
   const { data, error } = await supabase
     .from('event_floor_plan')
-    .select('stage_x,stage_y,entrance_enabled,entrance_x,entrance_y,venue_width_m,venue_length_m,published_at')
+    .select(
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,venue_width_m,venue_length_m,published_at',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   // Graceful-degrade: a missing row (or a not-yet-migrated table) just yields
   // the defaults so the seating page never crashes on the floor-plan read.
   if (error || !data) return { ...DEFAULT_FLOOR_PLAN };
+  const D = DEFAULT_FLOOR_PLAN;
+  const num = (v: unknown, fb: number) => (v === null || v === undefined ? fb : Number(v));
   return {
-    stage_x: Number(data.stage_x),
-    stage_y: Number(data.stage_y),
+    stage_x: num(data.stage_x, D.stage_x),
+    stage_y: num(data.stage_y, D.stage_y),
+    stage_w: num(data.stage_w, D.stage_w),
+    stage_h: num(data.stage_h, D.stage_h),
     entrance_enabled: Boolean(data.entrance_enabled),
-    entrance_x: Number(data.entrance_x),
-    entrance_y: Number(data.entrance_y),
+    entrance_x: num(data.entrance_x, D.entrance_x),
+    entrance_y: num(data.entrance_y, D.entrance_y),
+    dance_enabled: Boolean(data.dance_enabled),
+    dance_x: num(data.dance_x, D.dance_x),
+    dance_y: num(data.dance_y, D.dance_y),
+    dance_w: num(data.dance_w, D.dance_w),
+    dance_h: num(data.dance_h, D.dance_h),
+    service_entrance_enabled: Boolean(data.service_entrance_enabled),
+    service_entrance_x: num(data.service_entrance_x, D.service_entrance_x),
+    service_entrance_y: num(data.service_entrance_y, D.service_entrance_y),
     venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,

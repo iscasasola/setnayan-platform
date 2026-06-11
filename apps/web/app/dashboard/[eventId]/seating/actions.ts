@@ -280,6 +280,24 @@ export async function saveFloorPlan(formData: FormData) {
   const entranceX = clampPct(formData.get('entrance_x'));
   const entranceY = clampPct(formData.get('entrance_y'));
   const entranceEnabled = formData.get('entrance_enabled') === 'true';
+  // Floor-plan kit: stage size + dance-floor zone + optional service door.
+  // Sizes clamp to 2–100% so a degenerate drag can't zero an element out.
+  const clampSize = (v: unknown): number | null => {
+    if (typeof v !== 'string' || v.length === 0) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(2, Math.min(100, n));
+  };
+  const stageW = clampSize(formData.get('stage_w'));
+  const stageH = clampSize(formData.get('stage_h'));
+  const danceEnabled = formData.get('dance_enabled') === 'true';
+  const danceX = clampPct(formData.get('dance_x'));
+  const danceY = clampPct(formData.get('dance_y'));
+  const danceW = clampSize(formData.get('dance_w'));
+  const danceH = clampSize(formData.get('dance_h'));
+  const serviceEnabled = formData.get('service_entrance_enabled') === 'true';
+  const serviceX = clampPct(formData.get('service_entrance_x'));
+  const serviceY = clampPct(formData.get('service_entrance_y'));
 
   // Venue dimensions (metres) — null when the couple hasn't set a room size.
   const parseDim = (v: FormDataEntryValue | null): number | null => {
@@ -302,9 +320,19 @@ export async function saveFloorPlan(formData: FormData) {
       event_id: eventId,
       stage_x: stageX ?? 50,
       stage_y: stageY ?? 6,
+      stage_w: stageW ?? 24,
+      stage_h: stageH ?? 7,
       entrance_enabled: entranceEnabled,
       entrance_x: entranceX ?? 50,
       entrance_y: entranceY ?? 94,
+      dance_enabled: danceEnabled,
+      dance_x: danceX ?? 50,
+      dance_y: danceY ?? 55,
+      dance_w: danceW ?? 22,
+      dance_h: danceH ?? 18,
+      service_entrance_enabled: serviceEnabled,
+      service_entrance_x: serviceX ?? 97,
+      service_entrance_y: serviceY ?? 50,
       venue_width_m: venueWidth,
       venue_length_m: venueLength,
       updated_at: new Date().toISOString(),

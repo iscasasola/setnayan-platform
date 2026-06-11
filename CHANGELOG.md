@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1d — floor-plan kit: resizable walls + resizable stage + dance floor + service entrance (0008)
+
+**Context:** Owner 2026-06-10 — "the floorplan must be resizable · the walls will be a standard box · adding a place for the entrance, service entrance (optional), stage (must be resizable), dance floor." This slice lands the full kit.
+
+- **Migration `20261114000000_iteration_0008_floorplan_kit.sql`** (additive · idempotent · **applied to prod via `db query`**, 10 columns verified): `event_floor_plan` gains `stage_w/stage_h` (the stage is now a SIZED rect, % of canvas), `dance_enabled/x/y/w/h` (dance-floor zone), `service_entrance_enabled/x/y` (optional load-in/caterer door).
+- **Resizable box walls (to-scale mode):** drag the right/bottom edge or SE-corner handle to resize the ROOM in half-metre steps. The px→metre scale is **frozen at grab** (the canvas resizes mid-drag — reading it live would feed back into the math) and the **auto-place pass pauses during the drag** (`wallDragRef` guard) so un-anchored tables don't reshuffle every frame, re-resolving once on release (`wallSettled`). The typed Room-size inputs stay as the precision alternative (augment, not replace).
+- **Resizable stage:** the position-only pill became a sized rect (drag body to move · SE grip to resize, NW-anchored). Auto-seat keeps anchoring its rings on the stage centre.
+- **Dance floor:** a draggable, resizable dashed zone rendered under the tables; **`overlapsAny` now treats it as a no-table obstacle** — drops inside it slide around via the existing `nearestFree`, and auto-place avoids it for un-anchored tables.
+- **Service entrance:** optional second door marker (Truck icon), mirroring the main entrance. "Service door" + "Dance floor" toolbar buttons mirror "Add entrance".
+- `lib/seating.ts` `FloorPlanRow`/defaults/fetch + `saveFloorPlan` (sizes clamp 2–100%) extended; `saveLayout` persists all kit fields.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · migration applied + 10 columns verified on prod. Handle feel is visual — Vercel preview at desktop + touch.
+
+**SPEC IMPACT:** 0008 floor-plan kit lands (the spec's stage/dancefloor/doors section was deferred at MVP) — service entrance is NEW beyond the spec's `doors` JSONB concept (owner-directed). → covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row; 0008 AS-BUILT header already updated this session.
+
 ## 2026-06-11 · feat(papic): Kwento Magazine — Variant A, the free couple-private PDF keepsake (0012)
 
 **Context:** Owner: "continue" (and the original ask: "a PDF of different kwentos in timeline of their wedding, with the couple's storyline"). Variant A of the Kwento Magazine design: the FREE, couple-PRIVATE A4 keepsake — the couple's storyline as the FRAME (prologue "Ang Simula" → "Salamat"), the wedding day's `captured_at` timeline as the SPINE (deterministic gap-clustered chapters with PH bilingual titles), and approved Kwentos rendered beside the exact photo each guest wrote about. With `photo_messages` now live (PR #1257), the Kwento weave ships WITH Variant A rather than after it.

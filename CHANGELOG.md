@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1e — snap-grid + alignment guides (0008)
+
+**Context:** Owner 2026-06-10 — drag/drop "feels pro" polish (the last Phase 1 interaction slice before linked tables). Layered ONTO the existing `nearestFree` collision, not replacing it.
+
+- **Alignment snap + guides:** while dragging a table, when its centre comes within ~1.2% of another table's centre (or the **room centreline at 50%**) on an axis, the drag snaps to it and a terracotta hairline draws across the canvas on that axis (rendered in the world layer via `guidesRef` — no extra state; the drag already re-renders per move). Guides clear on release.
+- **Grid snap:** any axis that didn't alignment-snap rounds to **half-metre steps in a sized room** (`0.5/venue.width·length × 100`) or 2% steps on the free board.
+- **Hold Alt** drags completely free of all snapping (Figma convention).
+- Snapped target feeds `nearestFree` as before — collision-avoid still wins over snap.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Snap feel is visual — Vercel preview.
+
+**SPEC IMPACT:** None beyond the editor-redesign program already logged (alignment-lock/grid-snap were in the original 0008 spec as deferred aids; this builds them in the redesigned interaction model). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row.
+
 ## 2026-06-11 · feat(seating): Phase 1d — floor-plan kit: resizable walls + resizable stage + dance floor + service entrance (0008)
 
 **Context:** Owner 2026-06-10 — "the floorplan must be resizable · the walls will be a standard box · adding a place for the entrance, service entrance (optional), stage (must be resizable), dance floor." This slice lands the full kit.

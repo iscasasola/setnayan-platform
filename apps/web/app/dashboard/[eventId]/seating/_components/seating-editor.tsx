@@ -202,6 +202,11 @@ export function SeatingEditor({
     ppm: number;
   } | null>(null);
   const [wallSettled, setWallSettled] = useState(0);
+  // Live alignment guides while dragging a table: when the dragged centre
+  // lines up with another table's centre (or the room centreline) we snap to
+  // it and draw a hairline. Ref (not state) — the drag already re-renders per
+  // move via setPositions, so the render below just reads the latest value.
+  const guidesRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   // Venue dimensions (metres) → render the room + tables to scale.
   const [venue, setVenue] = useState({
     enabled: floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null,
@@ -921,11 +926,51 @@ export function SeatingEditor({
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
+        // Alignment snap: pull to another table's centre (or the room
+        // centreline) when within tolerance — the matched axis draws a guide
+        // hairline. Hold Alt to drag free of all snapping.
+        let ax = x;
+        let ay = y;
+        let gx: number | null = null;
+        let gy: number | null = null;
+        if (!e.altKey) {
+          const TOL = 1.2; // percent of the canvas
+          for (const o of tables) {
+            if (o.table_id === d.id) continue;
+            const op = positions[o.table_id];
+            if (!op) continue;
+            if (gx === null && Math.abs(op.x - x) < TOL) {
+              ax = op.x;
+              gx = op.x;
+            }
+            if (gy === null && Math.abs(op.y - y) < TOL) {
+              ay = op.y;
+              gy = op.y;
+            }
+            if (gx !== null && gy !== null) break;
+          }
+          // Room centreline detents (symmetric layouts want the middle).
+          if (gx === null && Math.abs(50 - x) < TOL) {
+            ax = 50;
+            gx = 50;
+          }
+          if (gy === null && Math.abs(50 - y) < TOL) {
+            ay = 50;
+            gy = 50;
+          }
+          // Grid snap on any axis that didn't alignment-snap: half-metre steps
+          // in a sized room, 2% steps on the free board.
+          const gridX = venueScaled ? (0.5 / venue.width) * 100 : 2;
+          const gridY = venueScaled ? (0.5 / venue.length) * 100 : 2;
+          if (gx === null) ax = Math.round(ax / gridX) * gridX;
+          if (gy === null) ay = Math.round(ay / gridY) * gridY;
+        }
+        guidesRef.current = { x: gx, y: gy };
         // Slide around neighbours: snap to the nearest spot that doesn't overlap.
         const moving = tables.find((t) => t.table_id === d.id);
         const free = moving
-          ? nearestFree(x, y, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
-          : { x, y };
+          ? nearestFree(ax, ay, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
+          : { x: ax, y: ay };
         setPositions((p) => ({ ...p, [d.id]: free }));
       } else if (d.kind === 'stage') {
         setStage((s) => ({ ...s, x, y }));
@@ -967,6 +1012,7 @@ export function SeatingEditor({
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
+    guidesRef.current = { x: null, y: null };
     if (d?.moved) {
       if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
       else setFloorDirty(true);
@@ -1732,6 +1778,23 @@ export function SeatingEditor({
               </span>
             </>
           ) : null}
+          {/* alignment guide hairlines — drawn while a table drag snaps to
+              another table's centre / the room centreline (guidesRef) */}
+          {dragId && guidesRef.current.x !== null ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute bottom-0 top-0 z-[15] w-px bg-terracotta/60"
+              style={{ left: `${guidesRef.current.x}%` }}
+            />
+          ) : null}
+          {dragId && guidesRef.current.y !== null ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-0 right-0 z-[15] h-px bg-terracotta/60"
+              style={{ top: `${guidesRef.current.y}%` }}
+            />
+          ) : null}
+
           {/* dance-floor zone — a draggable, resizable no-table area. Rendered
               under the tables so it reads as floor, not furniture. */}
           {dance.enabled ? (

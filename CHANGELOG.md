@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(monogram): typeface picker — 4 owner-picked faces join the registry + exact-font landing hero
+
+**Context:** Owner font-specimen session (4 boards · 84 faces shown live): picks = **Libre Caslon Display · Tangerine · Luxurious Script · Vidaloka**. Today the monogram font is derived ONLY from the chosen lockup (5 lockups → 4 baked faces); the new faces need a couple-facing way in.
+
+- **`monogram-maker.tsx` — "Choose a typeface" row (new):** 8 tiles (the original four + the four picks), each previewing the couple's initials in the real face. The typeface follows the lockup's default until the couple explicitly picks one (override persists via `monogram_font_key`). Maker preview now renders the SELECTED face (was: hardcoded generic serif).
+- **`app/layout.tsx`:** the 4 faces self-host via `next/font/google` (weight-minimal) → `--font-libre-caslon` / `--font-tangerine` / `--font-luxurious` / `--font-vidaloka`.
+- **`lib/monogram.ts`:** `MonoFontKey` + `MONO_FONT_STACK` grow to 8; **resolver precedence fix** — a valid stored `monogram_font_key` now wins over lockup-derived font (new keys have no `MONO_DESIGNS` row; without this they'd silently resolve to Cormorant). Legacy rows unchanged (stored key always matched the design). `resolveMonogram` optionally resolves `fontFamily/fontStyle` when callers pass the design columns.
+- **`saveMonogram` (actions.ts):** accepts the `font` field, validated against the 8-key registry; off-registry falls back to the lockup default.
+- **Landing hero exact-font fix (`app/[slug]/page.tsx` + `animated-monogram-hero.tsx`):** the hero monogram now renders in the couple's chosen face — it previously hardcoded a generic serif italic for everyone (even the Script lockup). `AnimatedMonogramHero` gains optional `fontFamily/fontStyle` (default = old behavior); the anonymous select adds the long-shipped `monogram_style/font_key/frame_key` columns (exist in prod since onboarding).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warning only). Onboarding untouched (its 5 lockups keep writing their default faces; the resolver change is behavior-preserving for all existing rows).
+
+**SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
+
 ## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
 
 **Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").

@@ -12,6 +12,7 @@ import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import {
   resolveMonogramMotion,
   type MonogramMotionKey,
@@ -113,7 +114,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_motion_key, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -139,6 +140,17 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const animatedMonogram: MonogramMotionKey | false = ownsAnimatedMonogram
     ? resolveMonogramMotion(event.monogram_motion_key)
     : false;
+
+  // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
+  // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
+  // generation time, lib/bespoke-monogram-engine.ts), it REPLACES the
+  // typographic circle on the hero. ANIMATED_MONOGRAM owners get a gentle
+  // bloom-in entrance (glyph-level Motion Library signatures need letterform
+  // strokes, so the bespoke mark uses the container-level entrance instead).
+  const bespokeSvg =
+    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
+      ? event.monogram_custom_svg
+      : null;
 
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
@@ -268,6 +280,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           event={event}
           monogram={monogram}
           animatedMonogram={animatedMonogram}
+          bespokeSvg={bespokeSvg}
         />
       );
     }
@@ -423,6 +436,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         invitationUrl={invitationUrl}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        bespokeSvg={bespokeSvg}
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -896,6 +910,7 @@ function PrivateLanding({
   event,
   monogram,
   animatedMonogram,
+  bespokeSvg,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
@@ -903,11 +918,23 @@ function PrivateLanding({
   // ANIMATED_MONOGRAM upgrade, or false → static circle. See [slug]/page.tsx
   // resolution + lib/animated-monogram.ts + lib/monogram-motion.ts.
   animatedMonogram: MonogramMotionKey | false;
+  // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
+  // typographic circle when present. See [slug]/page.tsx resolution.
+  bespokeSvg: string | null;
 }) {
   return (
     <InvitationShell>
       <div className="space-y-8 text-center">
-        {animatedMonogram ? (
+        {bespokeSvg ? (
+          <div className="flex justify-center">
+            <BespokeMonogramMark
+              svg={bespokeSvg}
+              color={monogram.color}
+              size="md"
+              entrance={Boolean(animatedMonogram)}
+            />
+          </div>
+        ) : animatedMonogram ? (
           <div className="flex justify-center">
             <AnimatedMonogramHero
               text={monogram.text}
@@ -967,6 +994,7 @@ function InvitationSite({
   invitationUrl,
   monogram,
   animatedMonogram,
+  bespokeSvg,
   scheduleBlocks,
   dayOfPhase,
   phasesEnabled,
@@ -987,6 +1015,9 @@ function InvitationSite({
   // [slug]/page.tsx resolution + lib/animated-monogram.ts +
   // lib/monogram-motion.ts.
   animatedMonogram: MonogramMotionKey | false;
+  // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
+  // typographic circle in both hero branches when present.
+  bespokeSvg: string | null;
   scheduleBlocks: ScheduleBlockRow[];
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1112,7 +1143,17 @@ function InvitationSite({
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                 You are invited
               </p>
-              {animatedMonogram ? (
+              {bespokeSvg ? (
+                <div className="mt-6 flex justify-center">
+                  <BespokeMonogramMark
+                    svg={bespokeSvg}
+                    color={monogram.color}
+                    size="md"
+                    shadow
+                    entrance={Boolean(animatedMonogram)}
+                  />
+                </div>
+              ) : animatedMonogram ? (
                 <div className="mt-6 flex justify-center">
                   <AnimatedMonogramHero
                     text={monogram.text}
@@ -1150,7 +1191,16 @@ function InvitationSite({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
             </p>
-            {animatedMonogram ? (
+            {bespokeSvg ? (
+              <div className="mt-6 flex justify-center">
+                <BespokeMonogramMark
+                  svg={bespokeSvg}
+                  color={monogram.color}
+                  size="md"
+                  entrance={Boolean(animatedMonogram)}
+                />
+              </div>
+            ) : animatedMonogram ? (
               <div className="mt-6 flex justify-center">
                 <AnimatedMonogramHero
                   text={monogram.text}

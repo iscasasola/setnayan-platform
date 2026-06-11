@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · fix+test(seating): adversarial-review fixes + first seating-logic test suite (0008)
+
+**Context:** Owner 2026-06-11 — "full authority to make sure this works: do tests, any proper coding." Ran a 47-agent adversarial review (4 finder lenses → per-finding verification) over all shipped seating code; 43 raw → 14 confirmed findings; triaged with judgment (2 rejected as wrong — the free-count "fix" would over-seat tables; alphabetical place cards are the correct convention; 5 deferred as low-impact/risky). Applied the 3 high-confidence fixes + added the missing test layer.
+
+- **`seating-editor.tsx`:** popup now reposition-settles after **trackpad/wheel zoom** (debounced 140ms bump — still never per-frame) and after the **Fit** button (both previously left the popup anchored at stale screen coords); auto-seat confirm modal bumped `z-50 → z-[60]` so it always sits above the phone bottom sheet.
+- **`actions.ts`:** `updateTableLabel` strips control characters (NULL/newline/tab → space, whitespace collapsed) — they'd otherwise survive into the printed sign-sheet HTML.
+- **`tests/e2e/seating-logic.spec.ts` (NEW — the repo's first seating tests):** 20 pure-logic tests pinning the seat-plan engine in CI — `computeAutoSeat` (attending-only, idempotency, nearest-to-stage tiering, sweetheart skip, removed-chair + effective-capacity respect, plus-one adjacency, group contiguity, pool exhaustion), `removedSeatSet`/`effectiveCapacity`, `roleTier`, `tableGeometry` (all 11 catalog types), `rotatePoint`, `fitFloorTransform`, stats + default placement. Runs inside the existing Playwright job (no browser/server needed) — zero CI config change.
+
+**Verification:** all 20 tests pass locally · `tsc` + `next lint` clean. One test initially over-asserted group clustering (same-table) vs the documented contract (contiguous fill order → same/neighbouring tables) — test corrected to pin the real guarantee; whole-group same-table packing noted as a future enhancement, not silently changed.
+
+**SPEC IMPACT:** None (behavior-preserving fixes + tests). The deferred findings (occupantsFor null-seat UI drift · 0-capacity table edge · 44px chair targets · belt-and-braces IDOR validation · list-view actions reachability) are logged here as the known-backlog for the next editor slice.
+
 ## 2026-06-11 · feat(guests): dashboard redesign — multi-view shell + mind-map editor (PR #1227)
 
 **Context:** Owner 2026-06-10/11 — "redesign the whole customer-dashboard-guests according to our plan" (List default + Map a tap away · rework the list · responsive both · a Build→Invite→Confirm→Seat→Day-of lifecycle). Built in safe increments over the 1286-line `guest-list-multiselect.tsx` + the page, each mapped + adversarially reviewed first; every locked behavior preserved (focus-mode X, "mobile top = just the list", carousel controls, importance sort, couple-pinning, the `guestSelection` bulk-select store).

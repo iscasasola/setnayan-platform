@@ -8,13 +8,52 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Owner: *"the background need to be a video that moves as we scroll."* The backdrop's still-layer worlds become living film: each theme now ships a pre-rendered **journey video** (camera pushing through scene A → crossfade → deeper into scene B) whose **playhead is the scroll position**.
 
-- **Assets:** `public/spatial/<theme>/journey.mp4` ×2 — rendered offline with FFmpeg (static binary, no system install) from the original hi-res Recraft scenes: 8000×4500 zoompan intermediates (kills subpixel jitter) → 1600×900 @30fps, 14.5s, H.264 CRF 26 with **keyframe-dense encode (`-g 6`)** so `currentTime` seeks are frame-accurate. The baked crossfade sits at ≈0.45 of the timeline — the same scroll fraction as the layer math's seam, so everything stays in sync.
-- **`lib/spatial-backdrop.ts`:** `SpatialJourney` type + registry entries + pure `journeyTimeAt(p, durationS)` (linear, clamped 50ms shy of the end so the final frame holds instead of snapping black) — unit-tested (monotonic, clamped, NaN-safe; 12/12 spec green).
-- **`app/_components/spatial-backdrop.tsx`:** hybrid renderer — on qualifying devices (≥1024px viewport, no reduced-motion, no save-data) the journey video mounts client-side, fades in on first `canplay`, and **scroll scrubs it** (lerp-smoothed seeks, never play()ed, ~1-frame deadband). Far still layers hand over to the film; **near bokeh layers keep rendering on top** as live screen-blend parallax — baked camera motion below, real-time depth above. Non-qualifying devices keep the v3 layered stills automatically; until `canplay` the stills ARE the world (no blank, no pop).
+- **Assets:** `public/spatial/<theme>/journey.mp4` ×2 (2.4MB + 3.4MB) — rendered offline with FFmpeg (static binary, no system install) from the original hi-res Recraft scenes: 8000×4500 zoompan intermediates (kills subpixel jitter) → 1280×720 @30fps, 14.5s, H.264 CRF 30 with **keyframe-dense encode (`-g 8`)** so `currentTime` seeks are frame-accurate. The baked crossfade sits at ≈0.45 of the timeline — the same scroll fraction as the layer math's seam, so film + bokeh stay in sync. *(FFmpeg gotcha for the next theme: zoompan emits `d` frames PER INPUT FRAME — feed it a single still, never `-loop 1 -t N`.)*
+- **`lib/spatial-backdrop.ts`:** `SpatialJourney` type + registry entries + pure `journeyTimeAt(p, durationS)` (linear, clamped 50ms shy of the end so the final frame holds) — unit-tested (monotonic, clamped, NaN-safe; 12/12 spec green).
+- **`app/_components/spatial-backdrop.tsx`:** hybrid renderer — on qualifying devices (≥1024px viewport, no reduced-motion, no save-data) the journey video mounts client-side, fades in on first `canplay`, and **scroll scrubs it** (lerp-smoothed seeks, never play()ed, ~1-frame deadband). Far still layers hand over to the film; **near bokeh layers keep rendering on top** as live screen-blend parallax. Non-qualifying devices keep the layered stills automatically; until `canplay` the stills ARE the world (no blank, no pop).
 
-**Verification:** `tsc` clean · 12/12 math invariants (incl. new journey-time cases) · local harness: video mounts on desktop viewport, `currentTime` tracks scroll targets, visually distinct frames at p=0.2/0.5/0.9, stills fallback on narrow viewport, zero console errors.
+**Verification:** `tsc` clean · 12/12 math invariants (incl. new journey-time cases) · local harness in-browser: scrub within ~1 frame of target at p=0.3/0.6/1.0/0 and fully reversible, visually distinct frames across the journey (dusk garden → lantern canopy), mobile viewport falls back to stills with **zero video bytes requested**, zero console errors.
 
-**SPEC IMPACT:** §2.1b extended — "journey film" mode documented (scroll-scrubbed theme video + live near-layer parallax; stills = universal fallback). Applied in the corpus with this change's DECISION_LOG row.
+**SPEC IMPACT:** §2.1b extended with the journey-film mode (scroll-scrubbed theme video + live near-layer parallax; stills = universal fallback) — applied in the corpus with this change's DECISION_LOG row.
+
+## 2026-06-11 · fix+test(seating): adversarial-review fixes + first seating-logic test suite (0008)
+
+**Context:** Owner 2026-06-11 — "full authority to make sure this works: do tests, any proper coding." Ran a 47-agent adversarial review (4 finder lenses → per-finding verification) over all shipped seating code; 43 raw → 14 confirmed findings; triaged with judgment (2 rejected as wrong — the free-count "fix" would over-seat tables; alphabetical place cards are the correct convention; 5 deferred as low-impact/risky). Applied the 3 high-confidence fixes + added the missing test layer.
+
+- **`seating-editor.tsx`:** popup now reposition-settles after **trackpad/wheel zoom** (debounced 140ms bump — still never per-frame) and after the **Fit** button (both previously left the popup anchored at stale screen coords); auto-seat confirm modal bumped `z-50 → z-[60]` so it always sits above the phone bottom sheet.
+- **`actions.ts`:** `updateTableLabel` strips control characters (NULL/newline/tab → space, whitespace collapsed) — they'd otherwise survive into the printed sign-sheet HTML.
+- **`tests/e2e/seating-logic.spec.ts` (NEW — the repo's first seating tests):** 20 pure-logic tests pinning the seat-plan engine in CI — `computeAutoSeat` (attending-only, idempotency, nearest-to-stage tiering, sweetheart skip, removed-chair + effective-capacity respect, plus-one adjacency, group contiguity, pool exhaustion), `removedSeatSet`/`effectiveCapacity`, `roleTier`, `tableGeometry` (all 11 catalog types), `rotatePoint`, `fitFloorTransform`, stats + default placement. Runs inside the existing Playwright job (no browser/server needed) — zero CI config change.
+
+**Verification:** all 20 tests pass locally · `tsc` + `next lint` clean. One test initially over-asserted group clustering (same-table) vs the documented contract (contiguous fill order → same/neighbouring tables) — test corrected to pin the real guarantee; whole-group same-table packing noted as a future enhancement, not silently changed.
+
+**SPEC IMPACT:** None (behavior-preserving fixes + tests). The deferred findings (occupantsFor null-seat UI drift · 0-capacity table edge · 44px chair targets · belt-and-braces IDOR validation · list-view actions reachability) are logged here as the known-backlog for the next editor slice.
+
+## 2026-06-11 · feat(guests): dashboard redesign — multi-view shell + mind-map editor (PR #1227)
+
+**Context:** Owner 2026-06-10/11 — "redesign the whole customer-dashboard-guests according to our plan" (List default + Map a tap away · rework the list · responsive both · a Build→Invite→Confirm→Seat→Day-of lifecycle). Built in safe increments over the 1286-line `guest-list-multiselect.tsx` + the page, each mapped + adversarially reviewed first; every locked behavior preserved (focus-mode X, "mobile top = just the list", carousel controls, importance sort, couple-pinning, the `guestSelection` bulk-select store).
+
+- **Lifecycle ribbon** (`_components/lifecycle-ribbon.tsx`) — desktop chrome; Confirm badges the pending invite-claims count.
+- **View switcher** (`_components/view-switcher.tsx`) — `?gview=list|map` (SSR, shareable). Map is desktop-gated; mobile always renders the list (a phone with a `gview=map` URL still gets the list).
+- **Reworked list** — `buildSections()` gains a `groupMode` ('importance'|'side'|'group'|'flat') driven by the existing sort control, so Side/Group sorts now SECTION the list (couple pinned first in group mode); **collapsible** tier sections.
+- **Mind-map editor** (`_components/guest-mind-map.tsx`, `map-actions.ts`) — `gview=map`: one tree, two lenses (Side+group · Entourage with sponsors as PEERS of the wedding party), desktop node/edge canvas + mobile accordion (DFS-ordered), inline `+` creates REAL records via `quickAddGuest` + new `mapAddGroup`/`mapAddPlusOne` (user-client, RLS-gated). **No new tables.**
+- **Mobile carousel** (`mobile-guest-carousel.tsx`) — 5th "Journey" panel (lifecycle + List/Map switch); Customize gated to a "switch to list" hint in map mode.
+- `guestDisplayName` widened to a `Pick<>` so the page can hand the map a slim `GuestMapRow` projection (no qr_token/email over the wire).
+
+**Verification:** real `next build` (exit 0) · full `tsc` · `next lint` on every increment. **3 adversarial-review workflows** (P1 list · P1 integration · P2 map+journey) — all findings fixed (mobile-tree DFS scramble, desktop inline-editor overlap, commit Enter+blur double-fire, map-mode bulk-select gate, `mapAddPlusOne` silent zero-row, idempotent group create). **Browser-driven on the preview** as `couple.test` (280-guest fixture): both lenses render; `+` DB-confirmed a real guest + its group membership (round-trip), test guest cleaned up after.
+
+**SPEC IMPACT:** UX redesign of iteration 0001/0021 guest dashboard (multi-view + mind-map editor). No schema change. → corpus `DECISION_LOG` 2026-06-11 (Phase 1+2; Phase 3 = deeper lifecycle integration + day-of check-in desk + deferred progress-bar/row-polish, not built).
+
+## 2026-06-11 · feat(vendors): Build tab "What's fixed?" pin modes — Pin solver Phase 3a
+
+**Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §4), owner green-lit 2026-06-11 ("can we jump to build?"). The couple declares which dimension LEADS the solve — Budget (default, unchanged behavior) · Services (the picked set is fixed; budget becomes a derived readout) · Date (the day is fixed) — and the Build tab reframes around it. No engine work, no migration, `/find-date` reused (never forked), exactly as planned.
+
+- **`_components/build-pin-mode.tsx` (new):** the "What's fixed?" segmented control + per-mode panel at the top of the Build tab (above the PR-D anchors). Services mode shows the honest derived readout — "this plan needs ₱X–₱Y" from the model's `rangeLo/HiCentavos` span — plus a find-your-date bridge; Date mode shows the pinned day (or points to the date anchor), the find-date bridge, and an explicit "prices stay typical — they don't flex by date yet" line so we never imply date-aware pricing before Phase 3b ships.
+- **Persistence:** client-local per event (`localStorage`, SSR-safe lazy hydrate, storage-blocked-safe) — cross-device persistence is the open owner decision (plan §9.4). Saved Compare snapshots are stamped with the mode: `PlanBuildSnapshot.pinMode` (optional, forward-compat, JSONB — pre-3a snapshots unaffected).
+- **Wiring:** `build-pins.tsx` renders the control; `page.tsx` passes the model range; `build-compare.tsx` stamps `pinMode` on save via `readPinMode`.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings in untouched files only). Pure client UI over existing data — no new reads/writes beyond the snapshot field.
+
+**SPEC IMPACT:** `Budget_Build_Pin_Solver_Plan_2026-06-09.md` Phase 3a → SHIPPED (corpus DECISION_LOG row appended with this change). Open decisions untouched: §9.1 seasonality (3b), §9.2 hard-date semantics, §9.3 free/paid line, §9.4 persistence (defaulted to local + snapshot stamp pending owner).
 
 ## 2026-06-11 · style(website): spatial backdrop v3 — wash to /12 + cream text-halo (kill the milky veil)
 

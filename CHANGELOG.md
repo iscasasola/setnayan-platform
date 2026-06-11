@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1b — in-popup "Seat people" picker (Guest · Group · Role) (0008)
+
+**Context:** Owner 2026-06-10/11 — the popup toolbar's centerpiece: pick a group / role / individual guest to seat at the selected table without leaving the canvas. Completes the owner's popup spec (rename + seat-people + rotate + delete); the `seatRoleAtTable` backend shipped in Phase 1a.
+
+- **`seating-editor.tsx`:** new top-level `SeatPeoplePanel` (top-level so the search input keeps focus across re-renders) — segmented **Guest · Group · Role** tabs, type-ahead search (16px input on phone — no iOS focus-zoom), live capacity readout (`seated/cap · N free`), guest rows sorted unseated-first with "here / Table X / unseated" chips, group rows with member counts, role rows showing the 4 tiers (`ROLE_TIER_LABELS`) with live unseated counts; rows disable when the table is full / tier empty. Wired into BOTH popup surfaces: phone bottom sheet ("Seat" toggle, ≥44px) and desktop popover (UserPlus toggle; flip math accounts for the expanded panel height). Handlers: `seatGuestHere` (next open non-removed chair, optimistic), `seatGroupMembers` (extracted from `seatGroupAt` — shared by pick-then-tap + the picker), `seatTierHere` (server seat-what-fits + overflow notice).
+- **`SeatingGuest` type + `page.tsx`:** now carry `role` + `group_category` so the Role tab computes tier membership client-side via `roleTier()`.
+
+**Verification:** `tsc` + `next lint` clean · all 20 seating-logic tests pass (locally + in the CI e2e job) · CI gates green. Panel behavior is visual — eyeball on the Vercel preview (desktop popover + phone sheet). No schema change.
+
+**SPEC IMPACT:** 0008 editor: the popup now seats guests/groups/role-tiers in context — supersedes pick-then-tap as the primary flow (pick-then-tap kept). → corpus `DECISION_LOG` with the Phase 1 landing.
+
 ## 2026-06-11 · feat(papic): Salamisim Live Photo Wall P1 — feed RPCs + venue projection + couple controls (0012)
 
 **Context:** Owner: "continue the next build." Phase 1 of the Papic output layer (owner-locked 2026-06-11: full robust build; projection default all-with-consent; FaceBlock ship gate). On the P0 schema (`20261104000959`): the gate-chain RPCs, the anonymous venue projection, and the couple's control card — dark-launched (claim-code + LIVE_WALL activation; only the demo event is activated today).

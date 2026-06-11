@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(website): spatial backdrop v4 — the world is now a VIDEO scrubbed by scroll
+
+**Context:** Owner: *"the background need to be a video that moves as we scroll."* Each backdrop theme now ships a pre-rendered **journey film** (camera pushing through scene A → crossfade → deeper into scene B) whose **playhead is the scroll position**.
+
+- **Assets:** `public/spatial/<theme>/journey.mp4` ×2 (2.4MB + 3.4MB) — FFmpeg (static binary) from the hi-res Recraft scenes: 8000×4500 zoompan intermediates → 1280×720@30, 14.5s, keyframe-dense `-g 8` for frame-accurate seeks; baked crossfade at ≈0.45 = the layer math's seam. *(Gotcha: zoompan emits `d` frames PER INPUT FRAME — feed a single still, never `-loop 1 -t N`.)*
+- **`lib/spatial-backdrop.ts`:** `SpatialJourney` type + registry + pure `journeyTimeAt` (linear, clamped 50ms shy of the end; 12/12 spec green).
+- **`app/_components/spatial-backdrop.tsx`:** hybrid — qualifying devices (≥1024px, no reduced-motion, no save-data) mount the film client-side, fade in on `canplay`, scroll scrubs `currentTime` (lerp-smoothed, never play()ed); far stills hand over, **near bokeh layers stay on top as live parallax**; everyone else keeps the layered stills automatically.
+
+**Verification:** `tsc` clean · 12/12 math invariants · in-browser: scrub within ~1 frame at 4 checkpoints + reversible, visually distinct frames across the journey, mobile = stills with zero video bytes, no console errors.
+
+**SPEC IMPACT:** §2.1b journey-film paragraph added in the corpus + DECISION_LOG row (2026-06-11).
+
 ## 2026-06-11 · feat(seating): Phase 1b — in-popup "Seat people" picker (Guest · Group · Role) (0008)
 
 **Context:** Owner 2026-06-10/11 — the popup toolbar's centerpiece: pick a group / role / individual guest to seat at the selected table without leaving the canvas. Completes the owner's popup spec (rename + seat-people + rotate + delete); the `seatRoleAtTable` backend shipped in Phase 1a.

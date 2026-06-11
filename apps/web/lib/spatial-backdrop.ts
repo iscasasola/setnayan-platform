@@ -56,6 +56,21 @@ export type SpatialScene = {
   layers: SpatialLayer[];
 };
 
+/**
+ * Pre-rendered "journey film" for a theme — the world as VIDEO whose playback
+ * position is driven by scroll (owner 2026-06-11: "the background needs to be
+ * a video that moves as we scroll"). Baked offline with FFmpeg from the theme
+ * stills (camera push-in through scene A → crossfade → deeper into scene B),
+ * keyframe-dense encode (g=6) so currentTime scrubbing is smooth. The video's
+ * baked crossfade sits at the same scroll fraction as the layer math's seam
+ * (≈0.45) so the DOM bokeh layers stay in sync on top of it.
+ */
+export type SpatialJourney = {
+  src: string;
+  /** Seconds — scroll p∈[0,1] maps onto [0, durationS] (see journeyTimeAt). */
+  durationS: number;
+};
+
 export type SpatialTheme = {
   label: string;
   description: string;
@@ -63,6 +78,14 @@ export type SpatialTheme = {
   thumb: string;
   /** 1 or 2 scenes; 2-scene themes travel across the seam as you scroll. */
   scenes: SpatialScene[];
+  /**
+   * Optional scroll-scrubbed video of the same journey. When present (and the
+   * device qualifies: desktop-class viewport, no reduced-motion, no save-data),
+   * the renderer plays this INSTEAD of the far layers; near glow layers keep
+   * rendering on top as live DOM parallax. Devices that don't qualify fall
+   * back to the layered stills automatically.
+   */
+  journey?: SpatialJourney;
 };
 
 /**
@@ -90,6 +113,7 @@ export const SPATIAL_THEMES = {
         ],
       },
     ],
+    journey: { src: '/spatial/gilded-dusk/journey.mp4', durationS: 14.5 },
   },
   'capiz-glow': {
     label: 'Capiz Glow',
@@ -110,6 +134,7 @@ export const SPATIAL_THEMES = {
         ],
       },
     ],
+    journey: { src: '/spatial/capiz-glow/journey.mp4', durationS: 14.5 },
   },
 } as const satisfies Record<string, SpatialTheme>;
 
@@ -170,6 +195,20 @@ export function clamp01(x: number): number {
 export function smoothstep(x: number): number {
   const t = clamp01(x);
   return t * t * (3 - 2 * t);
+}
+
+/**
+ * Scroll progress → journey-video playhead. Linear and clamped just shy of the
+ * end (durationS − 0.05s): seeking exactly to duration can snap some decoders
+ * to a black last frame or fire `ended`; holding 50ms early freezes on the
+ * final composed frame instead. Linear (no easing) keeps the video's baked
+ * crossfade aligned with the layer math's seam window, so the DOM bokeh layers
+ * stay in sync with the film behind them.
+ */
+export function journeyTimeAt(p: number, durationS: number): number {
+  if (!Number.isFinite(durationS) || durationS <= 0) return 0;
+  const end = Math.max(0, durationS - 0.05);
+  return clamp01(p) * end;
 }
 
 export type SceneWindow = { enter: number; exit: number };

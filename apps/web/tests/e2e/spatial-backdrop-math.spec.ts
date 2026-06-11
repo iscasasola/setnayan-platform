@@ -4,6 +4,7 @@ import {
   SPATIAL_THEME_KEYS,
   INTENSITY_FACTOR,
   computeLayerState,
+  journeyTimeAt,
   parseRsvpBackdropConfig,
   sceneWindows,
   smoothstep,
@@ -140,6 +141,34 @@ test.describe('spatial backdrop math', () => {
       theme: 'capiz-glow',
       intensity: 'standard',
     });
+  });
+
+  test('journey scrub time: monotonic, clamped, never reaches the exact end', () => {
+    const D = 14.5;
+    expect(journeyTimeAt(0, D)).toBe(0);
+    expect(journeyTimeAt(-1, D)).toBe(0);
+    expect(journeyTimeAt(1, D)).toBeCloseTo(D - 0.05, 6);
+    expect(journeyTimeAt(2, D)).toBeCloseTo(D - 0.05, 6);
+    let prev = -1;
+    for (const p of GRID) {
+      const t = journeyTimeAt(p, D);
+      expect(t).toBeGreaterThanOrEqual(prev);
+      expect(t).toBeLessThan(D);
+      prev = t;
+    }
+    // Degenerate durations never produce NaN/negative seeks.
+    expect(journeyTimeAt(0.5, 0)).toBe(0);
+    expect(journeyTimeAt(0.5, -3)).toBe(0);
+    expect(journeyTimeAt(0.5, Number.NaN)).toBe(0);
+  });
+
+  test('journey registry entries are well-formed when present', () => {
+    for (const key of SPATIAL_THEME_KEYS) {
+      const j = SPATIAL_THEMES[key].journey;
+      if (!j) continue;
+      expect(j.src).toMatch(/^\/spatial\/.+\.mp4$/);
+      expect(j.durationS).toBeGreaterThan(1);
+    }
   });
 
   test('every registered theme has 1-2 scenes, valid depths, and webp assets', () => {

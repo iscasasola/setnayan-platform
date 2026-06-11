@@ -1,10 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   SPATIAL_THEMES,
   computeLayerState,
+  journeyTimeAt,
   type RsvpBackdropConfig,
   type LayerVisualState,
 } from '@/lib/spatial-backdrop';
@@ -12,27 +13,33 @@ import {
 /**
  * SpatialBackdrop — the AI-generated "world" behind the RSVP page.
  *
- * Renders the configured theme's scene layers FIXED behind the page content
- * and maps scroll progress → per-layer transform via the pure math in
- * lib/spatial-backdrop.ts (push-in scale + parallax rise + the cross-scene
- * seam). The page content floats above on the InvitationShell vellum panel.
+ * TWO RENDER MODES, decided per device at runtime:
  *
- * PERFORMANCE CONTRACT (the reason this looks the way it does):
- *  - Scroll work is rAF-coalesced off a passive listener, and writes styles
- *    IMPERATIVELY to layer refs — zero React re-renders per frame.
- *  - Only `transform` + `opacity` are animated (compositor-only, no layout /
- *    paint), with `willChange` hints. Layer wrappers over-bleed the viewport
- *    (inset -8%) so translate/scale never reveals an edge.
- *  - Scene 0's far image loads eagerly (it IS the first paint of the world);
- *    everything else lazy-loads. Near glow layers composite with
- *    `mix-blend-mode: screen` over the scene — the alpha-free layering trick
- *    (assets are lights-on-black WebP).
- *  - `prefers-reduced-motion: reduce` → no listener at all; the world renders
- *    as a static backdrop at its p=0 state (WCAG 2.3.3, house rule from
- *    animated-monogram-hero.tsx).
+ *  1. JOURNEY VIDEO (owner 2026-06-11: "the background needs to be a video
+ *     that moves as we scroll") — when the theme ships a pre-rendered journey
+ *     film AND the device qualifies (desktop-class viewport ≥1024px, no
+ *     reduced-motion, no save-data), a fixed <video> becomes the world and
+ *     SCROLL IS THE PLAYHEAD: scroll progress maps to currentTime
+ *     (journeyTimeAt), lerp-smoothed so fast flicks glide instead of thrash.
+ *     The video is NEVER play()ed — pure seek scrubbing on a paused element
+ *     (keyframe-dense encode, g=6, makes seeks frame-accurate). The far still
+ *     layers fade out once the video can play; the NEAR bokeh layers keep
+ *     rendering ON TOP as live screen-blend parallax — baked camera motion
+ *     below, real-time depth above. Until `canplay` (and on any device that
+ *     doesn't qualify) the still layers ARE the world, so there is never a
+ *     blank or a pop.
  *
- * ACCESSIBILITY: purely decorative — aria-hidden + pointer-events-none; all
- * meaning stays in the page content above.
+ *  2. LAYERED STILLS (the v1–v3 renderer, unchanged) — per-layer push-in +
+ *     parallax + cross-scene crossfade driven by the same scroll math.
+ *
+ * PERFORMANCE CONTRACT:
+ *  - One passive scroll listener; all work rAF-coalesced; styles written
+ *    IMPERATIVELY to refs — zero React re-renders per frame.
+ *  - Layers animate transform/opacity only (compositor-only); the video seeks
+ *    but never transforms (its camera motion is baked into the film).
+ *  - `prefers-reduced-motion: reduce` → no listeners, no video; static world.
+ *
+ * ACCESSIBILITY: purely decorative — aria-hidden + pointer-events-none.
  */
 
 /** Base under-color so the seam between scenes can never flash the page bg. */
@@ -48,6 +55,23 @@ function layerStyle(s: LayerVisualState): React.CSSProperties {
 export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
   const theme = SPATIAL_THEMES[config.theme];
   const rootRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // Device qualifies for the journey video — decided post-mount so SSR markup
+  // (stills only) never mismatches; the <video> mounts as a client-only add.
+  const [wantVideo, setWantVideo] = useState(false);
+  // First `canplay` fired — video crossfades in, far stills hand over.
+  const [videoReady, setVideoReady] = useState(false);
+  const videoReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (!theme.journey) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!window.matchMedia('(min-width: 1024px)').matches) return;
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean } })
+      .connection;
+    if (conn?.saveData) return;
+    setWantVideo(true);
+  }, [theme]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -58,16 +82,39 @@ export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
       root.querySelectorAll<HTMLElement>('[data-spatial-layer]'),
     );
     const sceneCount = theme.scenes.length;
+    const journey = theme.journey;
     let raf = 0;
+    let scrubRaf = 0;
+    let targetTime = 0;
+
+    // Lerp currentTime toward the scroll target — self-scheduling until
+    // settled, so a fast flick glides through the film instead of one hard
+    // seek per frame. Seeks under ~1 frame (33ms) are skipped.
+    const scrub = () => {
+      scrubRaf = 0;
+      const v = videoRef.current;
+      if (!v || v.readyState < 2) return;
+      const delta = targetTime - v.currentTime;
+      if (Math.abs(delta) < 0.034) return;
+      v.currentTime = v.currentTime + delta * 0.25;
+      scrubRaf = requestAnimationFrame(scrub);
+    };
 
     const apply = () => {
       raf = 0;
       const doc = document.documentElement;
       const max = Math.max(1, doc.scrollHeight - window.innerHeight);
       const p = Math.min(1, Math.max(0, window.scrollY / max));
+      const videoLive = videoReadyRef.current;
       for (const el of layers) {
         const sceneIndex = Number(el.dataset.scene);
         const depth = Number(el.dataset.depth);
+        // Far stills hand over to the journey video once it can play; near
+        // bokeh layers (depth > 0.8) stay live on top of the film.
+        if (videoLive && depth <= 0.8) {
+          el.style.opacity = '0';
+          continue;
+        }
         const s = computeLayerState({
           p,
           sceneIndex,
@@ -77,6 +124,10 @@ export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
         });
         el.style.transform = `translate3d(0, ${s.translateYvh.toFixed(3)}vh, 0) scale(${s.scale.toFixed(4)})`;
         el.style.opacity = s.opacity.toFixed(3);
+      }
+      if (journey && videoLive) {
+        targetTime = journeyTimeAt(p, journey.durationS);
+        if (!scrubRaf) scrubRaf = requestAnimationFrame(scrub);
       }
     };
 
@@ -91,6 +142,7 @@ export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       if (raf) cancelAnimationFrame(raf);
+      if (scrubRaf) cancelAnimationFrame(scrubRaf);
     };
   }, [theme, config.intensity]);
 
@@ -100,9 +152,34 @@ export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
     <div
       ref={rootRef}
       aria-hidden
+      data-journey-state={videoReady ? 'active' : wantVideo ? 'loading' : 'off'}
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
       style={{ backgroundColor: BASE_BG }}
     >
+      {/* Journey film — mounts only on qualifying devices, fades in over the
+          stills on first canplay. Never play()ed: scroll is the playhead. */}
+      {wantVideo && theme.journey ? (
+        // Decorative, muted, scroll-scrubbed — no captions to convey.
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video
+          ref={videoRef}
+          src={theme.journey.src}
+          muted
+          playsInline
+          preload="auto"
+          onCanPlay={() => {
+            if (!videoReadyRef.current) {
+              videoReadyRef.current = true;
+              setVideoReady(true);
+              // Re-run apply() so the far stills hand over immediately.
+              window.dispatchEvent(new Event('scroll'));
+            }
+          }}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+            videoReady ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      ) : null}
       {theme.scenes.map((scene, sceneIndex) =>
         scene.layers.map((layer, layerIndex) => {
           // SSR-correct first paint: inline the p=0 state so there's no

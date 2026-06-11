@@ -13,6 +13,14 @@
 export * from './types';
 export { MockBridge, type MockBridgeOptions } from './mock-bridge';
 export {
+  captureUploadMeta,
+  deliverCapture,
+  makeBrowserSinkDeps,
+  type PapicSinkDeps,
+  type PresignRequest,
+  type SinkDelivery,
+} from './papic-sink';
+export {
   DslrPairingController,
   resetBridgeSlots,
   type CompletedTake,

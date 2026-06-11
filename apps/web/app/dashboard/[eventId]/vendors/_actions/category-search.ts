@@ -33,6 +33,12 @@ import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import {
+  buildCoupleFaithSet,
+  passesEventTypeFilter,
+  passesFaithFilter,
+} from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import {
@@ -147,8 +153,8 @@ export async function searchCategoryVendors(input: {
   const groupId = String(input.groupId ?? '').trim();
   if (!eventId || !groupId) return EMPTY;
 
-  const canonicals = canonicalsForGroup(groupId);
-  if (canonicals.length === 0) return EMPTY;
+  const groupCanonicals = canonicalsForGroup(groupId);
+  if (groupCanonicals.length === 0) return EMPTY;
 
   // Auth + membership gate in one RLS-bounded read: events RLS restricts to
   // members, so a non-member gets `ev === null` and we bail. This also gives
@@ -167,6 +173,31 @@ export async function searchCategoryVendors(input: {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!ev) return EMPTY; // not a member of this event
+
+  // Outer-gate scoping (2026-06-11) — the SAME shared predicates the /vendors
+  // marketplace uses (lib/taxonomy-filters), so the two couple surfaces can
+  // never disagree: drop canonicals whose tile doesn't serve this event's
+  // type (NULL = universal, fail-open) and faith-tagged canonicals that don't
+  // match the couple's rite(s) (union of primary + secondary; untagged always
+  // pass; non-wedding events never faith-narrow). Unmapped canonicals are
+  // admitted (admit-unknown — never empty a result by metadata gap).
+  const tax = await getTaxonomy();
+  const faithSet = buildCoupleFaithSet({
+    eventType: (ev.event_type as string | null) ?? null,
+    ceremonyType: (ev.ceremony_type as string | null) ?? null,
+    secondaryCeremonyType: (ev.secondary_ceremony_type as string | null) ?? null,
+  });
+  const canonicals = groupCanonicals.filter((c) => {
+    const meta = tax.map[c];
+    if (!meta) return true;
+    if (!passesFaithFilter(meta.faith ?? null, faithSet)) return false;
+    const tileId = meta.tile ?? null;
+    return passesEventTypeFilter(
+      tileId ? (tax.tileEventTypes[tileId] ?? null) : null,
+      (ev.event_type as string | null) ?? null,
+    );
+  });
+  if (canonicals.length === 0) return EMPTY;
 
   // Setnayan AI OFF (Manual mode) → GENERIC search: drop the per-candidate
   // "% match" pill AND the reception-proximity sort, so the order falls back to

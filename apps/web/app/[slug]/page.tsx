@@ -12,6 +12,10 @@ import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import {
+  resolveMonogramMotion,
+  type MonogramMotionKey,
+} from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitRsvp, withdrawFaceConsent } from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
@@ -111,7 +115,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_motion_key, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -122,15 +126,21 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const monogram = resolveMonogram(event);
 
   // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
-  // When the event owns it, the monogram hero circle DRAWS ITSELF IN with an
-  // SVG stroke-trace reveal on load instead of rendering static. Resolved once
-  // here via the admin client (this page renders for anonymous visitors with
-  // no RLS session) + threaded into the hero render branches below. Degrades
-  // to `false` (static monogram) on any orders-table shape error — see
-  // lib/animated-monogram.ts. Binds the V2 catalog SKU that v2-catalog.ts
-  // marked 'partial'; the separate 0004 monogram_hero_upgrade widget path is
-  // untouched.
-  const animatedMonogram = await eventOwnsAnimatedMonogram(admin, event.event_id);
+  // When the event owns it, the monogram hero circle ANIMATES on load with
+  // the couple's chosen Motion Library signature (lib/monogram-motion.ts ·
+  // events.monogram_motion_key · NULL → 'draw') instead of rendering static.
+  // Resolved once here via the admin client (this page renders for anonymous
+  // visitors with no RLS session) + threaded into the hero render branches
+  // below as `MonogramMotionKey | false` — false = static circle. Degrades to
+  // `false` on any orders-table shape error — see lib/animated-monogram.ts.
+  // The separate 0004 monogram_hero_upgrade widget path is untouched.
+  const ownsAnimatedMonogram = await eventOwnsAnimatedMonogram(
+    admin,
+    event.event_id,
+  );
+  const animatedMonogram: MonogramMotionKey | false = ownsAnimatedMonogram
+    ? resolveMonogramMotion(event.monogram_motion_key)
+    : false;
 
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
@@ -948,10 +958,10 @@ function PrivateLanding({
 }: {
   event: EventRow;
   monogram: MonogramConfig;
-  // True when the event owns the paid ANIMATED_MONOGRAM upgrade — the monogram
-  // circle draws itself in instead of rendering static. See [slug]/page.tsx
-  // resolution + lib/animated-monogram.ts.
-  animatedMonogram: boolean;
+  // The chosen Motion Library signature when the event owns the paid
+  // ANIMATED_MONOGRAM upgrade, or false → static circle. See [slug]/page.tsx
+  // resolution + lib/animated-monogram.ts + lib/monogram-motion.ts.
+  animatedMonogram: MonogramMotionKey | false;
 }) {
   return (
     <InvitationShell>
@@ -962,6 +972,7 @@ function PrivateLanding({
               text={monogram.text}
               color={monogram.color}
               size="md"
+              motion={animatedMonogram}
             />
           </div>
         ) : (
@@ -1031,10 +1042,11 @@ function InvitationSite({
   qrSvg: string;
   invitationUrl: string;
   monogram: MonogramConfig;
-  // True when the event owns the paid ANIMATED_MONOGRAM upgrade — the hero
-  // monogram circle draws itself in instead of rendering static. See
-  // [slug]/page.tsx resolution + lib/animated-monogram.ts.
-  animatedMonogram: boolean;
+  // The chosen Motion Library signature when the event owns the paid
+  // ANIMATED_MONOGRAM upgrade, or false → static hero circle. See
+  // [slug]/page.tsx resolution + lib/animated-monogram.ts +
+  // lib/monogram-motion.ts.
+  animatedMonogram: MonogramMotionKey | false;
   scheduleBlocks: ScheduleBlockRow[];
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1169,6 +1181,7 @@ function InvitationSite({
                     color={monogram.color}
                     size="md"
                     shadow
+                    motion={animatedMonogram}
                   />
                 </div>
               ) : (
@@ -1205,6 +1218,7 @@ function InvitationSite({
                   text={monogram.text}
                   color={monogram.color}
                   size="md"
+                  motion={animatedMonogram}
                 />
               </div>
             ) : (

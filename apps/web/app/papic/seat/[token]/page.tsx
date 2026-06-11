@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
+import { CameraBridgePanel } from './_components/camera-bridge-panel';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -16,10 +17,18 @@ import { PapicSeatCapture } from './_components/papic-seat-capture';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ token: string }> };
+type Props = {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ bridge?: string }>;
+};
 
-export default async function PapicSeatPage({ params }: Props) {
+export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { token } = await params;
+  const { bridge } = await searchParams;
+  // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
+  // visible only via ?bridge=demo or the env flag, never by default.
+  const bridgeEnabled =
+    bridge === 'demo' || process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED === 'true';
 
   const supabase = await createClient();
   const {
@@ -32,7 +41,7 @@ export default async function PapicSeatPage({ params }: Props) {
   // null and is bounced to the claim page.
   const { data: seat, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, seat_index, revoked_at, claimer_user_id')
+    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id')
     .eq('claim_qr_token', token)
     .maybeSingle();
 
@@ -67,10 +76,19 @@ export default async function PapicSeatPage({ params }: Props) {
     .eq('paparazzi_seat_id', seat.seat_id);
 
   return (
-    <PapicSeatCapture
-      token={token}
-      seatIndex={seat.seat_index as number}
-      initialCount={count ?? 0}
-    />
+    <>
+      <PapicSeatCapture
+        token={token}
+        seatIndex={seat.seat_index as number}
+        initialCount={count ?? 0}
+      />
+      {bridgeEnabled ? (
+        <CameraBridgePanel
+          token={token}
+          seatIndex={seat.seat_index as number}
+          eventId={(seat.event_id as string) ?? ''}
+        />
+      ) : null}
+    </>
   );
 }

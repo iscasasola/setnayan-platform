@@ -15,21 +15,104 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **Migration `20261110000000_rsvp_spatial_backdrop.sql` (applied to prod):** `events.rsvp_backdrop JSONB NULL`; additive + idempotent; no new RLS (host-scoped UPDATE already covers it). *(Ledger note: remote had `20261109000000` from another session's unmerged branch — pushed via a local-only stub for the ledger comparison, deleted after; only this migration was applied.)*
 - **Assets `public/spatial/` (676KB total):** generated with Recraft v3, recompressed via sharp (q62–68 WebP), human-reviewed — two raw generations contained AI people; one re-generated with upward-camera framing, one top-cropped to the sky band. Provenance README included.
 
-**Verification:** `tsc --noEmit` clean · `next lint` clean for these files · **10/10 pure-math Playwright assertions pass locally** (opacity/scale bounds, monotonic push-in, seam-never-blank, scene-B-hidden-before-seam, parser fuzz, registry shape) in `tests/e2e/spatial-backdrop-math.spec.ts` (runs in the existing CI Playwright job) · prod migration applied + ledger synced · browser verification on the Vercel preview follows in-session.
+**Verification:** `tsc --noEmit` + `next lint` clean · GitHub CI fully green (production build · playwright e2e · bundle size · lighthouse · migration guard · macOS+Windows) · **10/10 pure-math Playwright invariants** (bounds, monotonic push-in, seam-never-blank, B-hidden-pre-seam, parser fuzz, registry shape) · **end-to-end on the Vercel preview against prod DB** (couple.test → Living backdrop → Gilded Dusk saved → row written → editor shows On) · **live scroll motion verified in a real browser**: layer transforms at p=0.30/0.53/0.85 match the math to 3 decimals, seam keeps ≥0.95 combined visibility, fully reversible, zero console errors, screenshots at all three journey legs. *(Initial Vercel preview build failed on a container OOM — environmental; same-commit redeploy succeeded.)* **Watch-item (pre-existing, tracked separately):** under the 0031 PWA service worker, a cold STREAMED `/[slug]` render can leave an invisible duplicated tree in React's `#S:0` streaming container (server HTML always correct; prod unaffected via warm ISR).
 
-**SPEC IMPACT:** Implements spec §2.1b (spatial backdrop) — corpus §2.1a (multi-clip journey) is **superseded/parked per the owner's correction** (not Keynote transitions, not love-story clips); corpus edit + DECISION_LOG row land with this PR's session.
+**SPEC IMPACT:** Implements spec §2.1b (spatial backdrop); §2.1a (multi-clip journey) marked SUPERSEDED/PARKED per the owner correction — both edits + DECISION_LOG rows applied in the corpus 2026-06-11.
 
 ## 2026-06-11 · feat(website): inline "edit on the page" Hero editing in /site-editor (PR #1)
 
 **Context:** Owner session designing the customer wedding-website rebuild (corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`). Today `/site-editor/[eventId]` is a *launcher* — its cards deep-link OUT to standalone `/website/*` sub-editors, so the couple leaves the live preview to edit anything. This is PR #1 of turning it into a real "edit on the page" editor: the Hero card now edits **inline** (bottom sheet on mobile / right-rail panel on desktop) without navigating away. Establishes the pattern the other sections fold into next.
 
 - **`site-editor/[eventId]/actions.ts` (new):** editor-local `saveHeroPhoto` / `clearHeroPhoto` — same DB write + `requireHostMembership` guard as `website/hero-photo/actions.ts`, but **revalidate the editor in place and return void** (no redirect-out) so the couple stays on the preview.
-- **`site-editor/[eventId]/page.tsx`:** fetch `landing_page_hero_image_url`, resolve it via `displayUrlForStoredAsset`, pass `heroPhotoUrl` to the editor.
-- **`_components/site-editor.tsx`:** inline-edit shell — `editing` state + `HeroEditSheet` (reuses the shared `<FileUpload>` → R2 + the editor-local actions); a `CardButton` (button-skinned `CardLink`) opens the sheet; the Hero card swaps its deep-link for it + shows a "Photo set" hint; after a save, `router.refresh()` + a `previewNonce`-keyed iframe remount reload the live preview. a11y: labelled dialog, Esc + backdrop close, ≥44px targets.
+- **`site-editor/[eventId]/page.tsx`:** fetch `landing_page_hero_image_url`, resolve via `displayUrlForStoredAsset`, pass `heroPhotoUrl` to the editor.
+- **`_components/site-editor.tsx`:** inline-edit shell — `editing` state + `HeroEditSheet` (reuses the shared `<FileUpload>` → R2 + the editor-local actions); a `CardButton` opens the sheet; the Hero card swaps its deep-link for it; after a save, `router.refresh()` + a `previewNonce`-keyed iframe remount reload the live preview. a11y: labelled dialog, Esc + backdrop close, ≥44px targets.
 
-**Verification:** typecheck + lint green on CI (PR #1233); owner to try the inline Hero edit on the Vercel preview. No schema change (reuses existing `events.landing_page_hero_image_*` columns).
+**Verification:** typecheck + lint green on CI (PR #1233). No schema change (reuses existing `events.landing_page_hero_image_*` columns).
 
-**SPEC IMPACT:** Implements §1 (inline "edit on the page" model) of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` for the Hero section — the proof pattern. Already logged in `DECISION_LOG` 2026-06-11 (the website spec rows).
+**SPEC IMPACT:** Implements §1 (inline "edit on the page" model) of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` for the Hero section — the proof pattern. Logged in `DECISION_LOG` 2026-06-11.
+
+## 2026-06-11 · feat(taxonomy): couple-side shared filters — mixed-faith union + civil + event-type gate
+
+**Context:** Phase 3 wiring of the unification design (§3 SET rewrite + §2 event applicability, couple side). Three live gaps closed: (1) the catalog faith filter was **scalar** (primary rite only) — a Mixed Cath+Muslim couple never saw the Muslim rite's specialist services even though `secondary_ceremony_type` was already threaded; (2) **civil couples saw all faith-tagged services** — the code contradicted its own documented intent ("civil couples keep faith-tagged tiles hidden"); (3) the dashboard category search applied **no taxonomy-level faith or event-type filter at all**.
+
+- **New `lib/taxonomy-filters.ts`** — the ONE shared predicate module for couple-facing scoping: `buildCoupleFaithSet` (union of primary+secondary rites; `civil`→first-class `Civil`; **wedding-guarded** — non-wedding events never faith-narrow, defense-in-depth alongside the `20260521080000` wedding↔ceremony constraint), `passesFaithFilter` (INCLUDE-only; untagged always delivered; empty set = no narrowing), `passesEventTypeFilter` (NULL = universal, fail-open), `resolveEventType` (NULL event_type = wedding; never-empty both sides).
+- **`lib/taxonomy-filters.test.ts`** — 17 new unit tests for the invariants (mixed-union, wedding guard, civil, fail-open, admit-unknown). Suite now 23/23.
+- **`app/vendors/page.tsx`** — `passesReligionFilter` rewritten onto the shared SET predicate; `coupleEventType` + `secondary_ceremony_type` threaded into `CatalogView`; the tile loop gains the **multi-event applicability gate** (`tax.tileEventTypes`, fail-open — zero change for weddings until admins scope tiles).
+- **`category-search.ts`** — outer-gate scoping before the vendor query, using the SAME shared predicates (the two couple surfaces can no longer disagree): canonical dropped if its tile doesn't serve the event type or its faith doesn't match the couple's rites; unmapped canonicals admitted.
+
+**Verified:** `tsc` clean · 23/23 unit tests · a live-data probe of 5 scenarios against the real taxonomy: Catholic 168/179 (Muslim/INC specialists excluded) · Muslim 177/179 · **Mixed Cath+Muslim 177/179 (the fix — scalar showed 168)** · Civil 168/179 (matches documented intent) · corporate-with-stale-catholic 179/179 (wedding guard, zero narrowing).
+
+**SPEC IMPACT:** Realizes design doc §3 (SET faith) + §2 (couple-side event gate). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): Camera Bridge M1 — Papic sink + offline transit + pairing UI (S0+O1+U1, mock-driven · 0012)
+
+**Context:** Owner: "build it." The M1 now-track of the Camera Bridge build plan — the demoable, zero-hardware bridge chain on top of the C1+C2 core (PR #1239). Grounding win: the seat capture path already shipped end-to-end (presign `/api/upload` → R2 PUT → `recordSeatCapture` → `papic_photos` + Drive-copy), so S0 is a reuse-first sink over the SAME pipeline, not a parallel one.
+
+- **S0 — `lib/camera-bridge/papic-sink.ts`**: DI'd `deliverCapture` (presign → PUT → record) shared by the live panel AND the offline drain. Failure policy: infra failures (presign/PUT/network) queue into the `camera_bridge` offline store; server REJECTIONS (`not_your_seat`/`revoked`) surface and never queue (retry can't fix them). `makeBrowserSinkDeps` mirrors the shipped seat-capture chain byte-for-byte.
+- **O1 — `lib/offline/service-handlers/camera-bridge-handler.ts`**: the Phase-G stub replaced with the real drain — queued payload (Blob/ArrayBuffer via IndexedDB structured clone) → the same sink → `{ok:true}` dequeues; failures keep the item visible with `last_error`. DI'd `syncOneWith` for tests; browser `syncOne` lazy-imports the action.
+- **InternalCameraBridge — `lib/camera-bridge/internal-bridge.ts`**: the phone's own camera as the 5th `CameraBridge` impl (getUserMedia, rear-only per the 0012 lock; stills via canvas grab, 5s-capped clips via MediaRecorder) — the REAL fallback target of the pairing FSM on web.
+- **U1 — `camera-bridge-panel.tsx`** on the seat page, **dark-launched** (`?bridge=demo` or `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED=true`; invisible by default, no SKU active): Pair (Demo DSLR mock) → live-view canvas → Still / 5s-clip → deliveries land in the real gallery → **Simulate WiFi drop** → instant fallback banner ("switched to your phone camera"), gap-captures via the REAL phone camera stamped null, 5s auto-retry, Restore → back to the DSLR. The full M1 demo, no hardware.
+- **`recordSeatCapture`** gains an additive `kind: 'photo'|'clip' = 'photo'` param (photo_type + Drive mime); existing callers unchanged. Seat page now selects `event_id` (offline-queue key) + threads the gate.
+
+**Verification:** suite extended to **29 cases — 29/29 green** (12 new: sink orchestration order, queue-vs-reject policy, clip meta, handler payload validation, Blob/ArrayBuffer drain); `pnpm typecheck` clean; scoped `next lint` clean. The panel is auth+token-gated — visual check on the Vercel preview: open a claimed seat at `/papic/seat/<token>?bridge=demo`.
+
+**SPEC IMPACT:** Implements build-plan workstreams S0/O1/U1 + the InternalBridge (5th impl); M1 "demoable, no hardware" milestone reached in code. → corpus build-plan doc shipped-status note + DECISION_LOG row.
+
+## 2026-06-11 · feat(monogram): Motion Library — 6 premium animation signatures replace the single stroke-trace
+
+**Context:** Owner 2026-06-11 — "the monogram we have now is too common… find a better way to execute." Research (market scan: Canva/AI-logo tools all ship template-pick + the stroke-trace reveal is the tutorial-default effect) split the fix into two phases; this is **Phase 1: the motion overhaul**. The single hardcoded draw-on the paid ANIMATED_MONOGRAM SKU shipped with is now one of **six premium motion signatures** the couple picks from: **Drawn** (original stroke-trace, default) · **Foil** (golden light band sweeps the letters, loops) · **Bloom** (ink blooms from center, blur-to-sharp) · **Editorial** (rise + letter-spacing settle, masthead-style) · **Halo** (ring sweeps around first — true circumference dash — then letters fade up) · **Stardust** (7 champagne-gold sparks twinkle in a stagger while letters settle). All pure SVG + scoped CSS — no animation runtime, SSR-safe, all collapse to the static mark under `prefers-reduced-motion` (WCAG 2.2 § 2.3.3).
+
+- **`apps/web/lib/monogram-motion.ts`** (new) — the motion registry: keys, labels, hints, descriptions + `resolveMonogramMotion()` (NULL/unknown → `'draw'` so every pre-library owner renders exactly as before).
+- **`AnimatedMonogramHero`** — rewritten around a `motion` prop (default `'draw'` = zero behavior change at untouched call sites). Halo paints its ring in-SVG (span border goes transparent, layout box intact).
+- **Monogram Maker** (`/dashboard/[eventId]/monogram`) — new "Choose a motion" picker (6 tiles) + Replay button; every motion previews free; saved via `saveMonogram()` (validated server-side against the registry). Supersedes the 23-style picker tracked in `Monogram_Maker_Plan_2026-06-05.md`.
+- **Landing hero** (`/[slug]`) — `animatedMonogram` threading upgraded `boolean` → `MonogramMotionKey | false`; the owned render plays the couple's chosen signature in all 3 hero branches (private, photo-hero, monogram-only).
+- **Add-ons detail page** — previews play the real chosen motion; copy sells the six-signature library; owned view names the active motion and links the Maker.
+- **Migration `20261111000000_event_monogram_motion.sql`** — additive nullable `events.monogram_motion_key` + CHECK (6 keys), `IF NOT EXISTS` idempotent, comment documents the registry mirror. **Applied to prod** (verified in migration history; column live before this code deploys). Re-timestamped from 20261107 (collision with `push_subscriptions`) past the remote head.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only) · production build green · all six signatures rendered through the REAL component (tsx + react-dom/server harness, not a copy) and verified in-browser: settled states + colors correct for mulberry/gold inks, animation choreography introspected via `getAnimations()` (durations/delays/stagger/infinite-foil all as designed), foil sheen caught mid-sweep on screenshot. Gating unchanged — WHICH motion is a free choice; WHETHER the hero animates stays bound to ANIMATED_MONOGRAM order ownership.
+
+**SPEC IMPACT:** Phase 1 of the 2026-06-11 monogram overhaul (Phase 2 = Setnayan-AI bespoke vector generator, separate PR). Corpus: DECISION_LOG rows + 0037 as-built correction to follow with Phase 2's corpus pass.
+## 2026-06-11 · fix(seeds): admin.test gets account_type='admin' — is_admin() RLS finally passes for the test admin
+
+**Context:** the seeded `admin.test@setnayan.com` had `account_type='customer'` + `is_team_member=true`. The `/admin` layout gate (is_internal OR is_team_member OR account_type='admin') admitted it, but the SQL `public.is_admin()` helper checks ONLY `account_type='admin'` — so every is_admin() RLS policy returned empty for the test admin, making admin RLS paths untestable (caught 2026-06-11 while prod-verifying the account-deletion queue policies).
+
+- **`scripts/seed-test-accounts.sql`:** step-3 role tweak now also sets `account_type='admin'` for admin.test. `is_internal` stays FALSE on purpose — that flag carries §10a payment-skip semantics that must not silently attach to a test account.
+- **Prod:** the same one-row UPDATE applied directly (data fix, no migration); verified `is_admin()` → TRUE for admin.test via RLS simulation.
+- ⚠️ Surfaced for owner: the test password is hardcoded in this script and the account now passes is_admin() — consider rotating the test password to an env-supplied value (owner decision; app-level admin access already existed via is_team_member, so the marginal exposure is the direct-RLS read path).
+
+**SPEC IMPACT:** None (test fixture). Memory `project_setnayan_test_accounts` updated.
+
+## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
+
+**Context:** Phase 2 of the unification (`Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §3/§7). The faith vocabulary was a hardcoded 5-value CHECK with **no admin write control** — every admin-minted service was born faith-blind, the faith badge was read-only, and `Chinese`/`Jewish`/`Born Again` (in the app's `FaithKey` union) were untaggable in the DB. Storage stays **TITLE-CASE** (the marketplace compares `===`; lowercasing = the landmine).
+
+- **Migration `20261109000000_faith_vocab.sql`** (applied to prod): `faith_vocab` table (9 title-case keys: the 8 FaithKey values + `Civil` w/ `is_civil`; public read, admin write) · `canonical_service_taxonomy.faith` 5-value CHECK → **FK to faith_vocab** (widens the taggable set; delete-protects in-use keys; the 21 live tagged rows pass as-is — zero data mutation) · fail-loud validation.
+- **Re-seed durability:** edited the applied `20260803001000` seed — de-faithed the 4 food rows in VALUES + **dropped `faith = EXCLUDED.faith`** from `ON CONFLICT` so re-seeds can never clobber admin-set faith (fresh-rebuild correctness; prod unaffected).
+- **`lib/taxonomy.ts`:** exported `WEDDING_FAITH_KEYS`/`WeddingFaithKey` (client mirror of `faith_vocab`); `TaxonomyEntry['faith']` widened to it.
+- **`app/admin/taxonomy/actions.ts`:** `setServiceFaith` (vocab-validated, audit-logged, **dietary-guard** — refuses to faith-gate a dietary canonical, the 2026-06-11 de-faith lock) + optional vocab-validated `faith` in `createCanonicalLeaf`.
+- **`app/admin/taxonomy/page.tsx`:** the read-only faith Badge → an editable `ServiceFaithControl` dropdown on every service row (Universal + 9 faiths); faith select in the Advanced-add form; `FAITH_TONE` covers all 9 keys + fallback.
+- **`app/vendors/page.tsx`:** `FaithKey` now derives from the lib union (`Exclude<WeddingFaithKey,'Civil'>`) — future vocab drift fails typecheck; `passesReligionFilter` accepts the widened union; `crossFolderFaithCounts` covers `Civil`.
+- **Tests:** suite now reads `WEDDING_FAITH_KEYS` + a new title-case guard (6/6 green). `tsc --noEmit` clean.
+
+**Verified on prod:** 9 vocab rows · FK present · old CHECK gone · 21 tagged rows unchanged · RLS (read-all/admin-write) · smoke: `Born Again` now taggable, bogus faith rejected by FK, in-use vocab key delete-blocked, smoke updates rolled back.
+
+**Migration-slot note:** originally numbered `20261107000000` — collided with `push_subscriptions` (applied from another in-flight branch). Renamed to the next free slot `20261109000000` at apply time per the 2026-06-11 collision lesson.
+
+**SPEC IMPACT:** Faith reconciliation per the design doc (§3 fix, §7 Phase 2). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): NSFW screening engine — the Apple 1.2 "filter" leg, always on (0012/0031)
+
+**Context:** Apple guideline 1.2 (UGC) requires filter + report + block. Report + block shipped in PR #1230; the corpus claimed an NSFW filter existed but it was **not in the capture path** — this builds it. Corpus hard constraint honored: on by default, no toggle anywhere.
+
+- **`lib/nsfw-screen.ts`** (new): nsfwjs (quantized MobileNetV2-mid) on pure-JS `@tensorflow/tfjs` (NOT tfjs-node — native bindings break on Vercel) + `sharp` decode (already a dep). Model **self-hosted**: ~4.4 MB committed under `apps/web/models/nsfw/`, read via a custom node:fs `tf.io.IOHandler`, traced into every serverless function via `outputFileTracingIncludes` ('/**' — server actions can execute under any route's lambda). Module-level cache: a warm lambda loads once (~2.8 s cold incl. classify, per the smoke script).
+- **Decision (`decideNsfw`, unit-tested 14/14):** block at Porn ≥ 0.7 OR Hentai ≥ 0.75 OR Porn+Hentai ≥ 0.8. **"Sexy" alone NEVER blocks** — weddings are full of dancing/gowns/beachwear. Thresholds are named exports.
+- **No migration:** verdicts land in the EXISTING `moderation_state` column (Salamisim P0, 20261104000959): 'unscreened' → 'clean' | 'nsfw_blocked'. The UPDATE matches only rows still 'unscreened' — a couple's override is never clobbered by a late background screen. **Fail-open:** any error (model/R2/decode/clip) leaves 'unscreened' + one console.warn; a capture is never lost to a classifier hiccup. `papic_photos.photo_type='clip'` skipped (image-only classifier).
+- **Hooks (both capture funnels, `after()` so the shutter stays instant):** guest camera (`/api/papic/guest-capture` — bytes already in hand, no R2 round-trip) + paparazzi seat (`recordSeatCapture` — fetches back from R2 via `readR2Object` on the stored `r2://` ref).
+- **Display gates (guest/public only):** `[slug]` editorial photo count + hero-photo resolution now exclude `('nsfw_blocked','consent_withheld','faceblock_withheld')` — forward-compatible with the Salamisim P1 consent/faceblock verdicts. 'unscreened' still shows (fail-open). Couple + admin surfaces keep seeing everything.
+- **Couple override UI:** the `#1230` moderation page gains a "Filtered by the content screen" section (both capture tables) with **"Approve — show this photo"** → sets 'clean' (couple-authorized action; same auth pattern as the existing moderation actions). Screening itself stays always-on.
+- **`scripts/nsfw-smoke.mjs`** (new): generates a synthetic neutral JPEG with sharp, loads the committed model, classifies, prints scores + decision — proves the fs-IOHandler + sharp + tfjs pipeline in plain Node. Latest run: Neutral 89.74% → clean, 2771 ms cold.
+
+**Verification:** unit 14/14 · smoke OK · `tsc` clean · lint 0 errors · `migration:check` 305 unique (no migration) · production build OK (model traced). Residual: first live-capture screen lands a real verdict — check `/dashboard/[eventId]/add-ons/papic/moderation` after the next capture.
+
+**SPEC IMPACT:** Builds the filter the corpus already claimed (0012 §NSFW + the privacy hard-constraint line). Salamisim P1's wall gate chain can now consume real `moderation_state` verdicts. → DECISION_LOG 2026-06-11.
 
 ## 2026-06-11 · feat(papic): Camera Bridge core (C1+C2) + WiFi transport correction (0012)
 

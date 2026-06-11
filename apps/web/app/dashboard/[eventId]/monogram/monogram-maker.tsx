@@ -2,19 +2,28 @@
 
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Check } from 'lucide-react';
+import { Check, RotateCcw } from 'lucide-react';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import {
+  MONOGRAM_MOTIONS,
+  type MonogramMotionKey,
+} from '@/lib/monogram-motion';
 import { saveMonogram } from './actions';
 
 /**
  * MonogramMaker — the couple's standalone monogram editor
  * (`/dashboard/[eventId]/monogram`). Pick initials + one of the 5 curated
- * lockups; persists via saveMonogram() which mirrors the onboarding columns
- * (monogram_text/color/style/font_key/frame_key) so the design round-trips
- * everywhere (chrome switcher · QR center · landing hero).
+ * lockups + one of the 6 motion signatures; persists via saveMonogram() which
+ * mirrors the onboarding columns (monogram_text/color/style/font_key/
+ * frame_key) plus monogram_motion_key, so the design round-trips everywhere
+ * (chrome switcher · QR center · landing hero).
  *
  * The 5 designs MUST mirror MONO_DESIGNS in lib/monogram.ts. font is a CSS var
- * loaded globally in app/layout.tsx (next/font/google).
+ * loaded globally in app/layout.tsx (next/font/google). The 6 motions come
+ * from lib/monogram-motion.ts (the Motion Library). Every motion previews
+ * free in here; WHETHER the landing hero animates stays gated by the paid
+ * ANIMATED_MONOGRAM SKU — picking a motion now just means buying later
+ * "just works".
  */
 
 type MonoStyle = 'bar' | 'script' | 'duo' | 'framed' | 'infinity';
@@ -55,15 +64,26 @@ export function MonogramMaker({
   eventId,
   initialInitials,
   initialStyle,
+  initialMotion,
 }: {
   eventId: string;
   initialInitials: string;
   initialStyle: MonoStyle;
+  initialMotion: MonogramMotionKey;
 }) {
   const [initials, setInitials] = useState(initialInitials);
   const [style, setStyle] = useState<MonoStyle>(initialStyle);
+  const [motion, setMotion] = useState<MonogramMotionKey>(initialMotion);
+  // Bumping replay remounts the preview so the chosen motion plays again.
+  const [replay, setReplay] = useState(0);
 
   const design = DESIGNS[style];
+  const activeMotion = MONOGRAM_MOTIONS.find((m) => m.key === motion) ?? {
+    key: 'draw' as const,
+    label: 'Drawn',
+    hint: 'Traced in by an invisible pen',
+    description: '',
+  };
   const a = initials[0] ?? '';
   const b = initials[1] ?? '';
   const markText = b ? `${a} & ${b}` : a || 'S';
@@ -82,18 +102,27 @@ export function MonogramMaker({
             Live preview
           </p>
           <div className="mt-6 flex min-h-[150px] items-center justify-center">
-            {/* key remounts so the draw-on replays on every change */}
+            {/* key remounts so the chosen motion replays on every change */}
             <AnimatedMonogramHero
-              key={`${markText}-${design.ink}`}
+              key={`${markText}-${design.ink}-${motion}-${replay}`}
               text={markText}
               color={design.ink}
               size="lg"
+              motion={motion}
             />
           </div>
-          <p className="mt-5 text-sm font-medium text-ink">{design.label} lockup</p>
-          <p className="mt-1 text-xs text-ink/55">
-            This is how your initials draw themselves in.
+          <p className="mt-5 text-sm font-medium text-ink">
+            {design.label} lockup · {activeMotion.label} motion
           </p>
+          <p className="mt-1 text-xs text-ink/55">{activeMotion.hint}.</p>
+          <button
+            type="button"
+            onClick={() => setReplay((n) => n + 1)}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink"
+          >
+            <RotateCcw aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Replay
+          </button>
         </div>
       </div>
 
@@ -102,6 +131,7 @@ export function MonogramMaker({
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="initials" value={initials} />
         <input type="hidden" name="style" value={style} />
+        <input type="hidden" name="motion" value={motion} />
 
         {/* Initials */}
         <section className="space-y-2">
@@ -187,6 +217,46 @@ export function MonogramMaker({
             })}
           </div>
           <p className="text-xs text-ink/55">{design.hint}.</p>
+        </section>
+
+        {/* Motion picker */}
+        <section className="space-y-3">
+          <p className="text-sm font-semibold text-ink">Choose a motion</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {MONOGRAM_MOTIONS.map((m) => {
+              const selected = m.key === motion;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => {
+                    setMotion(m.key);
+                    setReplay((n) => n + 1);
+                  }}
+                  aria-pressed={selected}
+                  className={`relative flex flex-col items-start gap-1 rounded-xl border bg-white p-3 text-left transition-colors ${
+                    selected
+                      ? 'border-mulberry ring-2 ring-mulberry/15'
+                      : 'border-ink/10 hover:border-ink/25'
+                  }`}
+                >
+                  {selected ? (
+                    <Check
+                      aria-hidden
+                      className="absolute right-2 top-2 h-3.5 w-3.5 text-mulberry"
+                      strokeWidth={2.5}
+                    />
+                  ) : null}
+                  <span className="text-sm font-semibold text-ink">{m.label}</span>
+                  <span className="text-xs leading-snug text-ink/55">{m.hint}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-ink/55">
+            Every motion previews here free — the one you save plays on your
+            wedding website with the Animated Monogram upgrade.
+          </p>
         </section>
 
         <div className="flex flex-col gap-3 border-t border-ink/10 pt-5 sm:flex-row sm:items-center sm:justify-between">

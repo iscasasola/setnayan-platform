@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1b — in-popup "Seat people" picker (Guest · Group · Role) (0008)
+
+**Context:** Owner 2026-06-10/11 — the popup toolbar's centerpiece: pick a group / role / individual guest to seat at the selected table without leaving the canvas. Completes the owner's popup spec (rename + seat-people + rotate + delete); the `seatRoleAtTable` backend shipped in Phase 1a.
+
+- **`seating-editor.tsx`:** new top-level `SeatPeoplePanel` (top-level so the search input keeps focus across re-renders) — segmented **Guest · Group · Role** tabs, type-ahead search (16px input on phone — no iOS focus-zoom), live capacity readout (`seated/cap · N free`), guest rows sorted unseated-first with "here / Table X / unseated" chips, group rows with member counts, role rows showing the 4 tiers (`ROLE_TIER_LABELS`) with live unseated counts; rows disable when the table is full / tier empty. Wired into BOTH popup surfaces: phone bottom sheet ("Seat" toggle, ≥44px) and desktop popover (UserPlus toggle; flip math accounts for the expanded panel height). Handlers: `seatGuestHere` (next open non-removed chair, optimistic), `seatGroupMembers` (extracted from `seatGroupAt` — shared by pick-then-tap + the picker), `seatTierHere` (server seat-what-fits + overflow notice).
+- **`SeatingGuest` type + `page.tsx`:** now carry `role` + `group_category` so the Role tab computes tier membership client-side via `roleTier()`.
+
+**Verification:** `tsc` + `next lint` clean · all 20 seating-logic tests pass · CI gates incl. Playwright e2e. Panel behavior is visual — eyeball on the Vercel preview (desktop popover + phone sheet). No schema change.
+
+**SPEC IMPACT:** 0008 editor: the popup now seats guests/groups/role-tiers in context — supersedes pick-then-tap as the primary flow (pick-then-tap kept). → corpus `DECISION_LOG` with the Phase 1 landing.
+
 ## 2026-06-11 · fix+test(seating): adversarial-review fixes + first seating-logic test suite (0008)
 
 **Context:** Owner 2026-06-11 — "full authority to make sure this works: do tests, any proper coding." Ran a 47-agent adversarial review (4 finder lenses → per-finding verification) over all shipped seating code; 43 raw → 14 confirmed findings; triaged with judgment (2 rejected as wrong — the free-count "fix" would over-seat tables; alphabetical place cards are the correct convention; 5 deferred as low-impact/risky). Applied the 3 high-confidence fixes + added the missing test layer.

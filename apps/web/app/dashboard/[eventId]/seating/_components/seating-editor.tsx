@@ -25,15 +25,18 @@ import {
   Sparkles,
   Trash2,
   UserMinus,
+  UserPlus,
   X,
 } from 'lucide-react';
 import {
   CHAIR_PX,
+  ROLE_TIER_LABELS,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
   defaultTablePosition,
   effectiveCapacity,
   removedSeatSet,
+  roleTier,
   rotatePoint,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
@@ -51,6 +54,7 @@ import {
   deleteTable,
   publishSeating,
   saveFloorPlan,
+  seatRoleAtTable,
   setTableSeat,
   unassignGuest,
   updateTableLabel,
@@ -68,6 +72,9 @@ export type SeatingGuest = {
   rsvp_status: string;
   seated_table_id: string | null;
   seat_number: number | null;
+  // Role taxonomy (0001) — drives the popup's "Role" picker tab via roleTier().
+  role: string;
+  group_category: string;
 };
 
 export type SeatingGroup = {
@@ -209,6 +216,16 @@ export function SeatingEditor({
   // repositions to the selected table without touching the 50-table fast path
   // (worldRef still transforms via refs during continuous pan/zoom).
   const [, bumpOverlay] = useState(0);
+  // In-context "Seat people" picker inside the per-table popup. Tab + query are
+  // component state (not panel-local) so the search input survives re-renders;
+  // the panel closes whenever the selection changes.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTab, setPickerTab] = useState<'guest' | 'group' | 'role'>('guest');
+  const [pickerQ, setPickerQ] = useState('');
+  useEffect(() => {
+    setPickerOpen(false);
+    setPickerQ('');
+  }, [highlightId]);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   // The spatial chair canvas can't hold many tables on a phone, so small
@@ -412,14 +429,12 @@ export function SeatingEditor({
     startTransition(() => updateTableLabel(fd));
   };
 
-  // Bulk-seat the picked group onto a table. The server seats what fits and
-  // returns the counts; if any members overflow we surface a notice so the
-  // couple can drop the rest on another table.
-  const seatGroupAt = (tableId: string) => {
-    if (!pickedGroupId) return;
-    const groupLabel = groups.find((g) => g.group_id === pickedGroupId)?.label ?? 'group';
-    const memberIds = guests.filter((g) => g.group_id === pickedGroupId).map((g) => g.guest_id);
-    setPickedGroupId(null);
+  // Bulk-seat a group onto a table (seat-what-fits; the server returns counts
+  // and we surface a notice on overflow). Used by the pick-then-tap flow AND
+  // the popup's in-context "Seat people" picker.
+  const seatGroupMembers = (groupId: string, tableId: string) => {
+    const groupLabel = groups.find((g) => g.group_id === groupId)?.label ?? 'group';
+    const memberIds = guests.filter((g) => g.group_id === groupId).map((g) => g.guest_id);
     setNotice(null);
     if (memberIds.length === 0) return;
     const fd = new FormData();
@@ -433,6 +448,54 @@ export function SeatingEditor({
         const label = tableLabelById.get(tableId) ?? 'that table';
         setNotice(
           `${groupLabel}: seated ${res.seated} of ${res.requested} at ${label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+        );
+      }
+    });
+  };
+
+  const seatGroupAt = (tableId: string) => {
+    if (!pickedGroupId) return;
+    const groupId = pickedGroupId;
+    setPickedGroupId(null);
+    seatGroupMembers(groupId, tableId);
+  };
+
+  // Seat one guest at a table's next free chair (the picker's Guest tab —
+  // also moves an already-seated guest, since assignGuest upserts per guest).
+  const seatGuestHere = (t: EventTableRow, guestId: string) => {
+    const occ = occupantsFor(t);
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
+    let free: number | null = null;
+    for (let i = 0; i < occ.length; i++) {
+      if (occ[i] === null && !removed.has(i)) {
+        free = i;
+        break;
+      }
+    }
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', t.table_id);
+    fd.set('guest_id', guestId);
+    if (free !== null) fd.set('seat_number', String(free));
+    startTransition(async () => {
+      applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
+      await assignGuest(fd);
+    });
+  };
+
+  // Seat a whole role tier here (the picker's Role tab). Server-side
+  // seat-what-fits; we surface the overflow notice like group seating.
+  const seatTierHere = (t: EventTableRow, tier: 1 | 2 | 3 | 4) => {
+    setNotice(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', t.table_id);
+    fd.set('tier', String(tier));
+    startTransition(async () => {
+      const res = await seatRoleAtTable(fd);
+      if (res && res.overflow > 0) {
+        setNotice(
+          `${ROLE_TIER_LABELS[tier]}: seated ${res.seated} of ${res.requested} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
         );
       }
     });
@@ -1732,6 +1795,19 @@ export function SeatingEditor({
                       />
                       <button
                         type="button"
+                        onClick={() => setPickerOpen((v) => !v)}
+                        aria-pressed={pickerOpen}
+                        aria-label="Seat people at this table"
+                        className={`flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium ${
+                          pickerOpen
+                            ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                            : 'border-ink/15 text-ink/70 hover:bg-ink/5'
+                        }`}
+                      >
+                        <UserPlus className="h-5 w-5" /> Seat
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setHighlightId(null)}
                         aria-label="Done"
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/50 hover:bg-ink/5"
@@ -1739,6 +1815,23 @@ export function SeatingEditor({
                         <X className="h-5 w-5" />
                       </button>
                     </div>
+                    {pickerOpen ? (
+                      <SeatPeoplePanel
+                        table={st}
+                        occ={occupantsFor(st)}
+                        guests={guests}
+                        groups={groups}
+                        tab={pickerTab}
+                        onTab={setPickerTab}
+                        q={pickerQ}
+                        onQ={setPickerQ}
+                        colorFor={colorFor}
+                        tableLabelById={tableLabelById}
+                        onSeatGuest={(gid) => seatGuestHere(st, gid)}
+                        onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
+                        onSeatTier={(tier) => seatTierHere(st, tier)}
+                      />
+                    ) : null}
                     <div className="flex items-center gap-2">
                       <div className="flex flex-1 items-center justify-between rounded-xl border border-ink/15 px-1">
                         <button
@@ -1790,7 +1883,9 @@ export function SeatingEditor({
             const geo = tableGeometry(shapeHintFor(st.table_type), st.capacity);
             const tScale = pxPerMeter ? (TABLE_FOOTPRINT_M[st.table_type] * pxPerMeter) / geo.box.w : 1;
             const halfH = (geo.box.h / 2) * tScale * z;
-            const POP_H = 52;
+            // Flip below when the popup would clip the top — accounting for the
+            // expanded "Seat people" panel when it's open.
+            const POP_H = pickerOpen ? 380 : 52;
             let below = false;
             let top = cy - halfH - 12;
             if (top - POP_H < 4) {
@@ -1801,9 +1896,10 @@ export function SeatingEditor({
             return (
               <div
                 onPointerDown={(e) => e.stopPropagation()}
-                className="absolute z-40 flex items-center gap-1 rounded-xl border border-ink/15 bg-cream/95 px-1.5 py-1 shadow-lg backdrop-blur-sm"
+                className="absolute z-40 flex w-max max-w-[22rem] flex-col gap-1.5 rounded-xl border border-ink/15 bg-cream/95 px-1.5 py-1 shadow-lg backdrop-blur-sm"
                 style={{ left, top, transform: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)' }}
               >
+                <div className="flex items-center gap-1">
                 <input
                   key={st.table_id}
                   defaultValue={st.table_label}
@@ -1819,6 +1915,19 @@ export function SeatingEditor({
                   onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
                   className="w-28 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream"
                 />
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen((v) => !v)}
+                  aria-pressed={pickerOpen}
+                  title="Seat people at this table"
+                  className={`rounded-lg p-1.5 ${
+                    pickerOpen
+                      ? 'bg-terracotta/10 text-terracotta-700'
+                      : 'text-ink/60 hover:bg-ink/5'
+                  }`}
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
                 <div className="flex items-center gap-0.5 rounded-lg border border-ink/15 px-0.5">
                   <button
                     type="button"
@@ -1862,6 +1971,24 @@ export function SeatingEditor({
                 >
                   <X className="h-4 w-4" />
                 </button>
+                </div>
+                {pickerOpen ? (
+                  <SeatPeoplePanel
+                    table={st}
+                    occ={occupantsFor(st)}
+                    guests={guests}
+                    groups={groups}
+                    tab={pickerTab}
+                    onTab={setPickerTab}
+                    q={pickerQ}
+                    onQ={setPickerQ}
+                    colorFor={colorFor}
+                    tableLabelById={tableLabelById}
+                    onSeatGuest={(gid) => seatGuestHere(st, gid)}
+                    onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
+                    onSeatTier={(tier) => seatTierHere(st, tier)}
+                  />
+                ) : null}
               </div>
             );
           })()}
@@ -2113,6 +2240,193 @@ function ChairAvatar({ guest, color, size }: { guest: SeatingGuest; color: strin
     >
       {guest.initials}
     </span>
+  );
+}
+
+// In-context "Seat people" picker — the per-table popup's centerpiece. Three
+// grains (Guest · Group · Role), a type-ahead search, and a live capacity
+// readout. Top-level component (not nested) so the search input keeps focus
+// across parent re-renders.
+function SeatPeoplePanel({
+  table,
+  occ,
+  guests,
+  groups,
+  tab,
+  onTab,
+  q,
+  onQ,
+  colorFor,
+  tableLabelById,
+  onSeatGuest,
+  onSeatGroup,
+  onSeatTier,
+}: {
+  table: EventTableRow;
+  occ: (SeatingGuest | null)[];
+  guests: SeatingGuest[];
+  groups: SeatingGroup[];
+  tab: 'guest' | 'group' | 'role';
+  onTab: (t: 'guest' | 'group' | 'role') => void;
+  q: string;
+  onQ: (v: string) => void;
+  colorFor: (g: SeatingGuest) => string;
+  tableLabelById: Map<string, string>;
+  onSeatGuest: (guestId: string) => void;
+  onSeatGroup: (groupId: string) => void;
+  onSeatTier: (tier: 1 | 2 | 3 | 4) => void;
+}) {
+  const cap = effectiveCapacity(table.capacity, table.removed_seats);
+  const seated = occ.filter(Boolean).length;
+  const free = Math.max(0, cap - seated);
+  const ql = q.trim().toLowerCase();
+
+  const guestRows = guests
+    .filter((g) => !ql || g.name.toLowerCase().includes(ql))
+    .sort((a, b) => {
+      const ua = a.seated_table_id ? 1 : 0;
+      const ub = b.seated_table_id ? 1 : 0;
+      return ua - ub || a.name.localeCompare(b.name);
+    })
+    .slice(0, 60);
+  const groupRows = groups.filter((g) => !ql || g.label.toLowerCase().includes(ql));
+  const tierCount = (tier: 1 | 2 | 3 | 4) =>
+    guests.filter(
+      (g) =>
+        g.rsvp_status === 'attending' &&
+        !g.seated_table_id &&
+        g.role !== 'bride' &&
+        g.role !== 'groom' &&
+        roleTier(g.role, g.group_category) === tier,
+    ).length;
+
+  return (
+    <div className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] p-2">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="inline-flex flex-1 rounded-lg border border-ink/15 bg-cream p-0.5">
+          {(['guest', 'group', 'role'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onTab(t)}
+              aria-pressed={tab === t}
+              className={`flex-1 rounded-md px-2 py-1 text-xs font-medium capitalize transition ${
+                tab === t ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-rose-600' : 'text-ink/55'}`}>
+          {seated}/{cap} · {free} free
+        </span>
+      </div>
+
+      {tab !== 'role' ? (
+        <div className="relative mb-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40" />
+          <input
+            value={q}
+            onChange={(e) => onQ(e.target.value)}
+            placeholder={tab === 'guest' ? 'Search people…' : 'Search groups…'}
+            className="w-full rounded-lg border border-ink/15 bg-cream py-1.5 pl-8 pr-2 text-base outline-none focus:border-terracotta sm:text-sm"
+          />
+        </div>
+      ) : null}
+
+      <ul className="max-h-52 space-y-0.5 overflow-y-auto">
+        {tab === 'guest' ? (
+          guestRows.length === 0 ? (
+            <li className="px-1 py-2 text-xs text-ink/45">No matching guests.</li>
+          ) : (
+            guestRows.map((g) => {
+              const here = g.seated_table_id === table.table_id;
+              const movable = !here && (free > 0 || g.seated_table_id !== null);
+              const canSeat = !here && free > 0;
+              return (
+                <li key={g.guest_id}>
+                  <button
+                    type="button"
+                    disabled={here || !canSeat}
+                    onClick={() => movable && canSeat && onSeatGuest(g.guest_id)}
+                    className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
+                      here ? 'opacity-60' : canSeat ? 'hover:bg-ink/[0.04]' : 'opacity-40'
+                    }`}
+                  >
+                    <ChairAvatar guest={g} color={colorFor(g)} size={24} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">{g.name}</span>
+                    {here ? (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">
+                        here
+                      </span>
+                    ) : g.seated_table_id ? (
+                      <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">
+                        {tableLabelById.get(g.seated_table_id) ?? 'seated'}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[10px] text-ink/30">unseated</span>
+                    )}
+                  </button>
+                </li>
+              );
+            })
+          )
+        ) : tab === 'group' ? (
+          groupRows.length === 0 ? (
+            <li className="px-1 py-2 text-xs text-ink/45">No groups yet — make them in the guest list.</li>
+          ) : (
+            groupRows.map((grp) => (
+              <li key={grp.group_id}>
+                <button
+                  type="button"
+                  disabled={free === 0}
+                  onClick={() => onSeatGroup(grp.group_id)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
+                    free === 0 ? 'opacity-40' : 'hover:bg-ink/[0.04]'
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{grp.label}</span>
+                  <span className="shrink-0 text-[11px] text-ink/50">{grp.member_count}</span>
+                </button>
+              </li>
+            ))
+          )
+        ) : (
+          ([1, 2, 3, 4] as const).map((tier) => {
+            const n = tierCount(tier);
+            return (
+              <li key={tier}>
+                <button
+                  type="button"
+                  disabled={n === 0 || free === 0}
+                  onClick={() => onSeatTier(tier)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left ${
+                    n === 0 || free === 0 ? 'opacity-40' : 'hover:bg-ink/[0.04]'
+                  }`}
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-[10px] font-semibold text-mulberry">
+                    {tier}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{ROLE_TIER_LABELS[tier]}</span>
+                  <span className="shrink-0 text-[11px] text-ink/50">
+                    {n} unseated
+                  </span>
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+      <p className="mt-1.5 px-1 text-[10px] leading-snug text-ink/45">
+        {tab === 'guest'
+          ? 'Tap a person to seat them at the next open chair.'
+          : tab === 'group'
+            ? 'Seats the whole group here — whoever fits; the rest stay put.'
+            : 'Seats every unseated, attending guest of that role tier here.'}
+      </p>
+    </div>
   );
 }
 

@@ -18,6 +18,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
 
+## 2026-06-11 · fix(build): cap build memory so prod deploys stop OOMing on Vercel's standard machine
+
+**Context:** After the guests-dashboard redesign merged (#1227), every production build OOM-failed on Vercel (`OOM event detected` → no `routes-manifest.json` → deploy errored), so www.setnayan.com kept serving the pre-merge deploy. Root cause is infra, not the redesign: this app's route count puts `next build` right at Vercel's standard 8GB build-machine ceiling, and a new page intermittently tips it over (a successful pre-merge build proves it normally fits). Owner chose the free fix over Enhanced Builds (a paid bigger machine).
+
+- **`next.config.ts`:** `experimental.webpackMemoryOptimizations: true` — Next 15's documented flag that lowers peak webpack build memory with **no change to build output** (slightly slower build is the only trade-off).
+- **`apps/web/package.json`:** build script → `NODE_OPTIONS=--max-old-space-size=4096 next build` — caps the V8 heap at 4GB so the ceiling is deterministic (removes the GC-timing variance that made the OOM intermittent) instead of letting Node's default heap scale with machine RAM. POSIX env-prefix is safe: every builder that runs this script is Linux (CI/Lighthouse/e2e) or macOS (Vercel/local) — no Windows job invokes it.
+
+**Verification:** Real `pnpm --filter @setnayan/web build` locally **completes exit 0 under the 4GB cap** (~2m46s, zero `out of memory`/`heap limit`/`SIGKILL` signals). CI `production build`, both desktop builds, Lighthouse, Playwright e2e, bundle-size (199.2/200KB), and the Vercel preview build all passed green — live end-to-end confirmation before prod.
+
+**SPEC IMPACT:** None — build-infrastructure tuning only, no product/schema/pricing change.
+
 ## 2026-06-11 · feat(seating): Phase 1d — floor-plan kit: resizable walls + resizable stage + dance floor + service entrance (0008)
 
 **Context:** Owner 2026-06-10 — "the floorplan must be resizable · the walls will be a standard box · adding a place for the entrance, service entrance (optional), stage (must be resizable), dance floor." This slice lands the full kit.
@@ -44,6 +55,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** new 9-case suite incl. a REAL end-to-end render (12 pages from fixtures; written to /tmp for human eyes) + a **14/14 content assertion** against the decompressed PDF streams (cover kicker · chapters · kwento + attribution · Mga Boses · Salamat · privacy label · stats); 3 suite-driven fixes (cap-layering, emoji double-space, threshold); kwento 17/17 + live-wall 11/11 + camera-bridge 29/29 unchanged; `tsc` + scoped lint clean.
 
 **SPEC IMPACT:** Implements 0012 § Kwento Magazine Variant A/P1 + the P2 weave (its `photo_messages` dependency shipped first). Deferred per design: fontkit/Cormorant polish · async render-at-scale + Drive-copy push (P5) · Variant B shareable · print-on-demand (pricing batched to the holistic review). → DECISION_LOG + 0012 status note.
+## 2026-06-11 · feat(security): account-security suite — password recovery, current-password-verified change, sign-out-other-devices (customers + vendors + admins)
+
+**Context:** Owner directive — apply account security across all three doorways. The /login "Forgot password?" link pointed at a route that DIDN'T EXIST (`/forgot-password` fell through to the `[slug]` event catch-all and rendered garbage with HTTP 200); `resetPasswordForEmail` appeared nowhere in the repo; the existing changePassword accepted a new password without proving the old one; vendors had NO password UI at all (the /dashboard layout bounces them before /dashboard/profile); and no surface could revoke other sessions.
+
+- **`/forgot-password` (new, public):** fixes the live dead link (a static segment outranks the catch-all). Login-register visual (--m-* card, Wordmark, m-serif). `resetPasswordForEmail` with `redirectTo` → the EXISTING `/auth/callback` exchangeCodeForSession route (same mechanics as magic-link) → forwards to `/reset-password`. **Anti-enumeration:** every outcome except a rate-limit (429 / "only request this after Ns") collapses to the same neutral "If an account exists for that email, a reset link is on its way."
+- **`/reset-password` (new):** recovery session required — without one it renders a friendly "This link has expired" + path back to /forgot-password. New password (min 8 + confirm, same rules as changePassword) → `updateUser` → **`signOut({ scope: 'others' })`** (a reset implies possible compromise — every other session is revoked; the recovery session stays) → lands on the role home (customer /dashboard · vendor /vendor-dashboard · admin /admin via `accountHomePath`).
+- **Hardened changePassword (`lib/account-security-actions.ts`, shared):** now requires the CURRENT password, verified via `signInWithPassword` on a **throwaway stateless `@supabase/supabase-js` client** (`persistSession:false`) — the cookie-backed server client would have minted + persisted a NEW session into the sb-* cookies (setAll works in server actions), clobbering the real one. The throwaway verification session is revoked right after (`signOut({ scope:'local' })` — never 'global'). Forms post an allowlisted `return_to` (never a raw user path) so one action serves /dashboard/profile + /vendor-dashboard/profile with each page's query-param notices. OAuth/magic-link-only users are pointed at the reset flow.
+- **"Sign out other devices"** (customers + vendors + admins): shared `signOutOtherDevices` action (`scope:'others'` — local session untouched) behind the brand `<ConfirmForm>` dialog ("This signs you out on every other phone/laptop…"), success via `?signed_out_others=1`.
+- **Vendor + admin parity:** /vendor-dashboard/profile gains a Security section (current+new password form + sessions card, --m-paper card chrome matching the vendor surface). Admins keep using /dashboard/profile (the layout only redirects vendors) — but the admin doorway had NO path to it, so the sidebar Platform group + the mobile More page gain a **"My account"** entry.
+- **Skipped deliberately:** the 0028 `security_alert` email on password change — no such `NotificationType` exists in lib/notifications.ts (DB-constrained enum ⇒ migration), out of scope for this no-migration PR.
+
+**Verification:** `pnpm migration:check` 311 unchanged (no migration) · `tsc` 0 errors · `next lint` clean (only pre-existing warnings in untouched files) · production build green with both new routes emitted · unit 46/46 (6 new: return-path allowlist can't be escaped, password rules, role-home routing, rate-limit detection stays neutral on "user not found").
+
+**SPEC IMPACT:** 0025 Profile Settings — password section now current-password-verified + new Sessions (sign-out-others) control + the previously-missing recovery flow (/forgot-password + /reset-password) now exists, fixing the live dead login link. 0022 vendor dashboard + 0023 admin console profiles gain Security sections. → corpus `DECISION_LOG` row 2026-06-11.
 
 ## 2026-06-11 · feat(papic): Kwento P0–P2 — guest photo messages: schema + author sheet + couple review + wall lower-third (0012)
 

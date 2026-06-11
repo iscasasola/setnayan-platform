@@ -192,6 +192,42 @@ export async function blockUploader(eventId: string, formData: FormData) {
 }
 
 /**
+ * Couple override for the always-on NSFW screen: restore a single capture the
+ * classifier withheld (moderation_state='nsfw_blocked' → 'clean'). The screen
+ * itself can never be disabled (corpus hard constraint) — this only approves
+ * ONE photo, and only from the 'nsfw_blocked' state so it can't race or
+ * clobber consent/faceblock verdicts. Works on both capture tables.
+ */
+export async function approveScreenedCapture(eventId: string, formData: FormData) {
+  await requireCouple(eventId);
+  const table = formData.get('table');
+  const id = formData.get('id');
+
+  if (
+    (table !== 'papic_guest_captures' && table !== 'papic_photos') ||
+    typeof id !== 'string' ||
+    id.length === 0
+  ) {
+    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+  }
+  const idColumn = table === 'papic_photos' ? 'photo_id' : 'capture_id';
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from(table as string)
+    .update({ moderation_state: 'clean' })
+    .eq(idColumn, id)
+    .eq('event_id', eventId)
+    .eq('moderation_state', 'nsfw_blocked');
+  if (error) {
+    redirect(`${MODERATION_PATH(eventId)}?error=approve_failed`);
+  }
+
+  revalidatePath(MODERATION_PATH(eventId));
+  redirect(`${MODERATION_PATH(eventId)}?approved=1`);
+}
+
+/**
  * Lift an event-scoped block so the guest's camera works again on this event.
  */
 export async function unblockUploader(eventId: string, formData: FormData) {

@@ -71,6 +71,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Migration-slot note:** originally numbered `20261107000000` — collided with `push_subscriptions` (applied from another in-flight branch). Renamed to the next free slot `20261109000000` at apply time per the 2026-06-11 collision lesson.
 
 **SPEC IMPACT:** Faith reconciliation per the design doc (§3 fix, §7 Phase 2). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): NSFW screening engine — the Apple 1.2 "filter" leg, always on (0012/0031)
+
+**Context:** Apple guideline 1.2 (UGC) requires filter + report + block. Report + block shipped in PR #1230; the corpus claimed an NSFW filter existed but it was **not in the capture path** — this builds it. Corpus hard constraint honored: on by default, no toggle anywhere.
+
+- **`lib/nsfw-screen.ts`** (new): nsfwjs (quantized MobileNetV2-mid) on pure-JS `@tensorflow/tfjs` (NOT tfjs-node — native bindings break on Vercel) + `sharp` decode (already a dep). Model **self-hosted**: ~4.4 MB committed under `apps/web/models/nsfw/`, read via a custom node:fs `tf.io.IOHandler`, traced into every serverless function via `outputFileTracingIncludes` ('/**' — server actions can execute under any route's lambda). Module-level cache: a warm lambda loads once (~2.8 s cold incl. classify, per the smoke script).
+- **Decision (`decideNsfw`, unit-tested 14/14):** block at Porn ≥ 0.7 OR Hentai ≥ 0.75 OR Porn+Hentai ≥ 0.8. **"Sexy" alone NEVER blocks** — weddings are full of dancing/gowns/beachwear. Thresholds are named exports.
+- **No migration:** verdicts land in the EXISTING `moderation_state` column (Salamisim P0, 20261104000959): 'unscreened' → 'clean' | 'nsfw_blocked'. The UPDATE matches only rows still 'unscreened' — a couple's override is never clobbered by a late background screen. **Fail-open:** any error (model/R2/decode/clip) leaves 'unscreened' + one console.warn; a capture is never lost to a classifier hiccup. `papic_photos.photo_type='clip'` skipped (image-only classifier).
+- **Hooks (both capture funnels, `after()` so the shutter stays instant):** guest camera (`/api/papic/guest-capture` — bytes already in hand, no R2 round-trip) + paparazzi seat (`recordSeatCapture` — fetches back from R2 via `readR2Object` on the stored `r2://` ref).
+- **Display gates (guest/public only):** `[slug]` editorial photo count + hero-photo resolution now exclude `('nsfw_blocked','consent_withheld','faceblock_withheld')` — forward-compatible with the Salamisim P1 consent/faceblock verdicts. 'unscreened' still shows (fail-open). Couple + admin surfaces keep seeing everything.
+- **Couple override UI:** the `#1230` moderation page gains a "Filtered by the content screen" section (both capture tables) with **"Approve — show this photo"** → sets 'clean' (couple-authorized action; same auth pattern as the existing moderation actions). Screening itself stays always-on.
+- **`scripts/nsfw-smoke.mjs`** (new): generates a synthetic neutral JPEG with sharp, loads the committed model, classifies, prints scores + decision — proves the fs-IOHandler + sharp + tfjs pipeline in plain Node. Latest run: Neutral 89.74% → clean, 2771 ms cold.
+
+**Verification:** unit 14/14 · smoke OK · `tsc` clean · lint 0 errors · `migration:check` 305 unique (no migration) · production build OK (model traced). Residual: first live-capture screen lands a real verdict — check `/dashboard/[eventId]/add-ons/papic/moderation` after the next capture.
+
+**SPEC IMPACT:** Builds the filter the corpus already claimed (0012 §NSFW + the privacy hard-constraint line). Salamisim P1's wall gate chain can now consume real `moderation_state` verdicts. → DECISION_LOG 2026-06-11.
+
 ## 2026-06-11 · feat(papic): Camera Bridge core (C1+C2) + WiFi transport correction (0012)
 
 **Context:** Owner 2026-06-11 — Camera Bridge runs on THREE surfaces (Papic + Panood + Patiktok); "plan its build, in parallel if possible." The 18-agent build plan (corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`) found V1 is **Canon-only** (only CCAPI is a real mobile-WiFi capture API; Sony/Nikon have no mobile SDK, Fuji is Android-USB-only + warranty-void) and the real parallel axis is surfaces + now-vs-gated, not brands. This PR ships the first two now-track workstreams — the zero-hardware foundation everything else (brand adapters, surface sinks, pairing UI, native binary) plugs into.

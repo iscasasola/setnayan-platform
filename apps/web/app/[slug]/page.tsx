@@ -607,7 +607,13 @@ function InvitationShell({
       <div
         className={
           backdrop
-            ? 'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
+            ? // text-shadow INHERITS: every text node in the column gets a soft
+              // cream halo — invisible on the widgets' own cream cards, but it
+              // rims the LOOSE dark text (intro copy, eyebrows, greetings) so
+              // it stays readable directly on the world art. This carries the
+              // legibility duty the retired vellum/wash used to (v3, owner
+              // screenshot feedback: even the /35 wash read as a white veil).
+              'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'
             : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
         }
       >

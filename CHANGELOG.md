@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(papic): Salamisim Live Photo Wall P1 — feed RPCs + venue projection + couple controls (0012)
+
+**Context:** Owner: "continue the next build." Phase 1 of the Papic output layer (owner-locked 2026-06-11: full robust build; projection default all-with-consent; FaceBlock ship gate). On the P0 schema (`20261104000959`): the gate-chain RPCs, the anonymous venue projection, and the couple's control card — dark-launched (claim-code + LIVE_WALL activation; only the demo event is activated today).
+
+- **Migration `20261112000545_live_wall_p1_rpcs.sql`** (applied to prod + smoke-verified live): `wall_ingest` (G0 LIVE_WALL → photos-only → **G1 NSFW allowlist** `moderation_state='clean'` — REAL, via the shipped self-hosted nsfwjs screen on both capture paths → **FaceBlock fail-closed**: any `faceblock_enabled` guest ⇒ no wall row, P2's blur pipeline lifts this → G2 photo-consent veto via `photo_tags`; P1 safe key = original, acceptable only behind the FB withhold) · `wall_visible_photos` (the single audited reader; re-checks fail-closed at read) · `wall_retract`/`wall_unhide` (the kill switch — couple/coordinator checked INTERNALLY per call; wall-only vs also-gallery are distinct semantics) · `wall_claim_display` (single-use screen code). **Grant hardening verified on prod:** feed RPCs = service_role ONLY; kill switch = authenticated.
+- **`lib/live-wall.ts` + `lib/live-wall-logic.ts`**: ingest hook (chained AFTER the NSFW screen in both capture paths' `after()` — allowlist ordering), HTTP realtime broadcast (best-effort nudge), display-session JWT (mirrors guest-session), snapshot reader; pure merge/reconcile/mode/code logic split for tests.
+- **`/wall/[eventId]`**: the anonymous venue projection — claim screen (6-char no-ambiguity code) → full-screen masonry collage, hero count, new-tile gold-ring animation (globals.css, reduced-motion aware), 12s reconcile + 60s full sweep (broadcast = nudge, never source of truth), freeze-on-drop + amber/red dot, wake-lock w/ visibility re-request, teaser modes via `live_mode_override` → `getDayOfPhase`.
+- **Papic add-on page**: a Live Photo Wall card (renders only when LIVE_WALL is active) — generate/revoke screen codes, latest tiles strip with one-tap **Hide from wall** (reversible) / **also hide from gallery** / unhide.
+- Ingest wired in `recordSeatCapture` + the guest-capture route (screen → ingest, never blocks a capture).
+
+**Verification:** new 11-case wall-logic suite green; camera-bridge suite still 29/29; `tsc` + scoped lint clean; migration applied + **live prod smoke**: all 3 feed RPCs execute correctly (empty-correct on gates), ACLs exact (service-role-only feed path — the P0 "no anon read" invariant enforced at the grant level). Prod has 0 captures yet — the wall lights when captures flow.
+
+**SPEC IMPACT:** Implements Salamisim P1 (0012). P2 (server-baked FaceBlock blur) remains the public-event ship gate; P3 control tab + Kwento captions, P4 SW resilience + recap freeze later. → DECISION_LOG + the 0012 Salamisim section status note.
+
 ## 2026-06-11 · feat(vendors): Shortlist "Add a contact" post-save step — quick price + invite link (DIY add made easy)
 
 **Context:** Owner (2026-06-11, dual-path doctrine session): adding your own vendor from the Shortlist "needs to be easy to manage." Study of the shipped flow: the Add-manually entry points were already everywhere (empty-state row + end-of-rail card, every category), but the modal closed instantly on save — the new card landed UNPRICED (so the owner's "only priced services join the build" gate kept Add-to-build disabled) and pricing meant navigating into the workspace's costing section. The invite link was discoverable only in the workspace (or auto at lock).

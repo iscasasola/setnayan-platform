@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { ingestToWall } from '@/lib/live-wall';
 import { fetchGuestQuota } from '@/lib/papic-guest';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
@@ -117,13 +118,28 @@ export async function POST(req: Request) {
     // in the BACKGROUND with after() so the shutter stays instant. We already
     // hold the JPEG bytes, so no R2 round-trip. Fail-open: any classifier error
     // leaves the row 'unscreened' and the photo flows normally.
-    after(() =>
-      screenCapture({
+    // Salamisim chain: screen FIRST (the wall is an allowlist — only 'clean'
+    // projects), THEN the wall gate. The capture RPC doesn't return the row
+    // id, so resolve it by the (unique) r2 ref before ingesting.
+    after(async () => {
+      await screenCapture({
         table: 'papic_guest_captures',
         r2ObjectKey: r2Ref,
         bytes,
-      }).catch(() => {}),
-    );
+      }).catch(() => {});
+      try {
+        const { data: row } = await admin
+          .from('papic_guest_captures')
+          .select('capture_id')
+          .eq('r2_object_key', r2Ref)
+          .maybeSingle();
+        if (row?.capture_id) {
+          await ingestToWall('papic_guest_captures', row.capture_id as string);
+        }
+      } catch {
+        // best-effort — the wall reconcile never blocks a capture
+      }
+    });
     // Auto-sync this guest capture into the couple's Google Drive (Phase 2),
     // cron-free: enqueue the artifact, then copy it in the BACKGROUND with
     // after() so the response returns immediately. No-op until Drive is

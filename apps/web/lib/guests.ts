@@ -346,7 +346,9 @@ export function computeGuestStats(guests: GuestRow[]): GuestStats {
   return stats;
 }
 
-export function guestDisplayName(guest: GuestRow): string {
+export function guestDisplayName(
+  guest: Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+): string {
   return guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`.trim();
 }
 

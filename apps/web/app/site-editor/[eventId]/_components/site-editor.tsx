@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   Aperture,
   ArrowUpRight,
@@ -22,6 +23,7 @@ import {
   LayoutGrid,
   Link2,
   List,
+  Loader2,
   Lock,
   MailCheck,
   MonitorPlay,
@@ -35,13 +37,29 @@ import {
   Shirt,
   Sparkles,
   Star,
+  Trash2,
   Tv,
   Users,
   Video,
   Wand2,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
+import { FileUpload } from '@/app/_components/file-upload';
+import {
+  SPATIAL_THEMES,
+  SPATIAL_THEME_KEYS,
+  type RsvpBackdropConfig,
+  type SpatialIntensity,
+  type SpatialThemeKey,
+} from '@/lib/spatial-backdrop';
+import {
+  saveHeroPhoto,
+  clearHeroPhoto,
+  saveRsvpBackdrop,
+  clearRsvpBackdrop,
+} from '../actions';
 
 /**
  * Site Editor — full-screen, Reels-style wedding-website editor.
@@ -107,11 +125,52 @@ export type SiteEditorProps = {
   stats: { attending: number; pending: number; declined: number };
   /** Non-cancelled orders for the two inline Pro SKUs — drives owned-state. */
   ownedOrders: { service_key: string | null; status: string }[];
+  /**
+   * Presigned 24h GET URL for the host's hero photo, or null (monogram-only
+   * fallback). Resolved by the page from events.landing_page_hero_image_url.
+   * Drives the inline Hero editor's current-photo preview + Add/Edit label.
+   * PR #1 of the "edit on the page" rebuild.
+   */
+  heroPhotoUrl: string | null;
+  /**
+   * Spatial backdrop pick (events.rsvp_backdrop, parsed) or null = off.
+   * Drives the RSVP tab's inline Backdrop sheet — the AI-generated world
+   * behind the public RSVP page.
+   */
+  rsvpBackdrop: RsvpBackdropConfig | null;
 };
+
+/** Which inline editor sheet is open (null = none). Each section folds into
+    this same "edit on the page" pattern. */
+type EditTarget = 'hero' | 'backdrop';
 
 export function SiteEditor(props: SiteEditorProps) {
   const { eventId, publicLandingUrl } = props;
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('settings');
+
+  // Inline "edit on the page" state (PR #1). `editing` names the open editor
+  // sheet (null = none). `previewNonce` is bumped after every save so the live
+  // preview iframe remounts + reloads with the fresh content. `pending` tracks
+  // the in-flight server action so the Save button can show progress.
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [previewNonce, setPreviewNonce] = useState(0);
+  const [pending, startTransition] = useTransition();
+
+  // Run an inline server action, then refresh the server component (pulls the
+  // new heroPhotoUrl etc.), reload the preview, and close the sheet. The action
+  // revalidates in place (no redirect) — see ../actions.ts.
+  const runAction = useCallback(
+    (action: (fd: FormData) => Promise<void>, fd: FormData) => {
+      startTransition(async () => {
+        await action(fd);
+        setPreviewNonce((n) => n + 1);
+        router.refresh();
+        setEditing(null);
+      });
+    },
+    [router],
+  );
 
   // ✕ closes the full-screen editor back to the event dashboard home. (It used
   // to return to the /website journey scroll, but that page now redirects to
@@ -138,6 +197,7 @@ export function SiteEditor(props: SiteEditorProps) {
           <PreviewSoon />
         ) : publicLandingUrl ? (
           <iframe
+            key={`preview-${previewNonce}`}
             title="Live preview of your wedding website"
             src={publicLandingUrl}
             className="pointer-events-none h-full w-full border-0 bg-white"
@@ -161,8 +221,12 @@ export function SiteEditor(props: SiteEditorProps) {
             </span>
           </div>
           {tab === 'settings' && <Carousel cards={settingsCards(props)} />}
-          {tab === 'rsvp' && <Carousel cards={rsvpCards(props)} />}
-          {tab === 'event' && <Carousel cards={eventCards(props)} />}
+          {tab === 'rsvp' && (
+            <Carousel cards={rsvpCards(props, { onEditBackdrop: () => setEditing('backdrop') })} />
+          )}
+          {tab === 'event' && (
+            <Carousel cards={eventCards(props, { onEditHero: () => setEditing('hero') })} />
+          )}
           {tab === 'editorial' && <Carousel cards={editorialCards()} />}
         </div>
 
@@ -174,6 +238,31 @@ export function SiteEditor(props: SiteEditorProps) {
           <TabButton active={tab === 'editorial'} onClick={() => setTab('editorial')} label="Editorial" icon={<Newspaper aria-hidden />} />
         </nav>
       </div>
+
+      {/* ── INLINE EDIT SHEET (PR #1) — bottom sheet on mobile, right panel on
+          desktop. Edits happen here over the live preview; nothing navigates
+          away. Folding the other sections into this same pattern is the
+          follow-up. ── */}
+      {editing === 'hero' ? (
+        <HeroEditSheet
+          eventId={eventId}
+          heroPhotoUrl={props.heroPhotoUrl}
+          pending={pending}
+          onSave={(fd) => runAction(saveHeroPhoto, fd)}
+          onClear={(fd) => runAction(clearHeroPhoto, fd)}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
+      {editing === 'backdrop' ? (
+        <BackdropEditSheet
+          eventId={eventId}
+          current={props.rsvpBackdrop}
+          pending={pending}
+          onSave={(fd) => runAction(saveRsvpBackdrop, fd)}
+          onClear={(fd) => runAction(clearRsvpBackdrop, fd)}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -335,6 +424,29 @@ function CardLink({
   );
 }
 
+/* CTA — same skin as CardLink, but opens an INLINE editor sheet instead of
+   navigating away (the "edit on the page" model). */
+function CardButton({
+  onClick,
+  children,
+  ghost = false,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+  ghost?: boolean;
+}) {
+  const base =
+    'inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition [&_svg]:h-4 [&_svg]:w-4';
+  const skin = ghost
+    ? 'border border-ink/20 text-ink hover:bg-ink/5'
+    : 'bg-mulberry text-cream hover:bg-mulberry-600';
+  return (
+    <button type="button" onClick={onClick} className={`${base} ${skin}`}>
+      {children}
+    </button>
+  );
+}
+
 function Desc({ children }: { children: ReactNode }) {
   return <p className="text-xs leading-relaxed text-ink/55">{children}</p>;
 }
@@ -458,12 +570,36 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
 
 /* ─────────────────────────── RSVP cards ─────────────────────────── */
 
-function rsvpCards(p: SiteEditorProps): ReactNode[] {
+function rsvpCards(
+  p: SiteEditorProps,
+  handlers: { onEditBackdrop: () => void },
+): ReactNode[] {
   const pendingNote =
     p.stats.pending > 0
       ? `${p.stats.pending} still to hear from`
       : 'Everyone has responded';
+  const backdropTheme = p.rsvpBackdrop ? SPATIAL_THEMES[p.rsvpBackdrop.theme] : null;
   return [
+    <Card
+      key="backdrop"
+      icon={<Sparkles />}
+      title="Living backdrop"
+      sub={backdropTheme ? `On — ${backdropTheme.label}` : 'A world behind your page'}
+    >
+      <Desc>
+        Set your page inside a generated world — as guests scroll, they move through it. Your
+        invitation floats on top, always readable.
+      </Desc>
+      {backdropTheme ? (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+          <CheckCircle2 aria-hidden className="h-4 w-4" /> {backdropTheme.label} ·{' '}
+          {p.rsvpBackdrop?.intensity}
+        </div>
+      ) : null}
+      <CardButton onClick={handlers.onEditBackdrop} ghost={Boolean(backdropTheme)}>
+        <Sparkles aria-hidden /> {backdropTheme ? 'Change backdrop' : 'Choose a backdrop'}
+      </CardButton>
+    </Card>,
     <Card key="manage" icon={<Users />} title="Manage RSVPs" sub={pendingNote}>
       <StatRow icon={<Check />} label="Attending" value={p.stats.attending} />
       <StatRow icon={<Clock />} label="Pending" value={p.stats.pending} />
@@ -492,7 +628,10 @@ function rsvpCards(p: SiteEditorProps): ReactNode[] {
 
 /* ─────────────────────────── EVENT cards ─────────────────────────── */
 
-function eventCards(p: SiteEditorProps): ReactNode[] {
+function eventCards(
+  p: SiteEditorProps,
+  handlers: { onEditHero: () => void },
+): ReactNode[] {
   const ownsMonogramHero = p.ownedOrders.some((o) => o.service_key === MONOGRAM_HERO_SKU);
   const ownsLiveSchedule = p.ownedOrders.some((o) => o.service_key === LIVE_SCHEDULE_SKU);
   return [
@@ -505,9 +644,14 @@ function eventCards(p: SiteEditorProps): ReactNode[] {
     </Card>,
     <Card key="hero" icon={<ImagePlus />} title="Hero photo" sub="Full-bleed banner">
       <Desc>The first thing guests see — a full-width photo behind your monogram.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/website/hero-photo`} ghost>
-        <ImagePlus aria-hidden /> Edit hero photo
-      </CardLink>
+      {p.heroPhotoUrl ? (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+          <CheckCircle2 aria-hidden className="h-4 w-4" /> Photo set — edit it right here.
+        </div>
+      ) : null}
+      <CardButton onClick={handlers.onEditHero} ghost>
+        <ImagePlus aria-hidden /> {p.heroPhotoUrl ? 'Edit hero photo' : 'Add hero photo'}
+      </CardButton>
     </Card>,
     <Card key="chrome" icon={<Music />} title="Music & video hero" sub="Page soundtrack & motion">
       <Desc>Add a looping background song (guests tap to play — never forced) and a short video behind your monogram instead of a still photo.</Desc>
@@ -650,6 +794,314 @@ function PreviewNoSlug({ eventId }: { eventId: string }) {
       >
         <Pencil aria-hidden className="h-4 w-4" /> Set your URL
       </Link>
+    </div>
+  );
+}
+
+/* ─────────────────────────── inline edit sheet ─────────────────────────── */
+
+/**
+ * Inline Hero-photo editor. Bottom sheet on mobile (rises over the live
+ * preview), right-rail panel on desktop. Reuses the shared <FileUpload> (which
+ * PUTs straight to R2 and mirrors the resulting `r2://` ref into a hidden input)
+ * + the editor-local server actions, which revalidate in place. The parent's
+ * runAction() refreshes the server component + bumps the preview iframe after a
+ * save. PR #1 of the "edit on the page" rebuild — the model the rest of the
+ * sections will follow.
+ */
+function HeroEditSheet({
+  eventId,
+  heroPhotoUrl,
+  pending,
+  onSave,
+  onClear,
+  onClose,
+}: {
+  eventId: string;
+  heroPhotoUrl: string | null;
+  pending: boolean;
+  onSave: (fd: FormData) => void;
+  onClear: (fd: FormData) => void;
+  onClose: () => void;
+}) {
+  // Esc closes the sheet (mirrors the backdrop tap).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <button
+        type="button"
+        aria-label="Close editor"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit hero photo"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="font-serif text-xl italic">Hero photo</h2>
+            <p className="text-xs text-ink/55">The full-bleed banner behind your monogram.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/55 transition hover:bg-ink/5"
+          >
+            <X aria-hidden className="h-5 w-5" />
+          </button>
+        </div>
+
+        {heroPhotoUrl ? (
+          <div className="mb-4 space-y-2">
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-ink/10 bg-ink/5">
+              {/* presigned 24h URL — raw <img> so next/image doesn't cache an
+                  expired URL. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroPhotoUrl}
+                alt="Current hero photo"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <form action={onClear}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <button
+                type="submit"
+                disabled={pending}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-semibold text-ink/75 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-60"
+              >
+                <Trash2 aria-hidden className="h-3.5 w-3.5" /> Remove photo
+              </button>
+            </form>
+          </div>
+        ) : null}
+
+        <form action={onSave} className="space-y-4">
+          <input type="hidden" name="event_id" value={eventId} />
+          <FileUpload
+            bucket="media"
+            pathPrefix={`events/${eventId}/landing-page-hero`}
+            name="hero_image_url"
+            multiple={false}
+            maxSizeMB={10}
+            acceptedTypes={['image/jpeg', 'image/jpg', 'image/png', 'image/webp']}
+            variant="wide"
+            label={heroPhotoUrl ? 'Replace photo' : 'Add a photo'}
+            help="JPG, PNG, or WebP. Up to 10 MB. Looks best at 16:9 or 4:3."
+          />
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-[44px] items-center rounded-lg border border-ink/20 px-4 text-sm font-semibold text-ink transition hover:bg-ink/5"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream transition hover:bg-mulberry-600 disabled:opacity-60"
+            >
+              {pending ? (
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImagePlus aria-hidden className="h-4 w-4" />
+              )}
+              Save photo
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Inline Living-backdrop editor — pick the AI-generated world behind the
+ * public RSVP page + how strongly it moves. Same sheet container as
+ * HeroEditSheet (bottom sheet on mobile / right rail on desktop). The picker
+ * is registry-driven (SPATIAL_THEMES) so new themes appear here with zero UI
+ * changes; the server action re-validates the theme key against the same
+ * registry. Intensity is a word, never a number — the couple themes motion,
+ * they don't tune curves (spec §3.1 lock).
+ */
+function BackdropEditSheet({
+  eventId,
+  current,
+  pending,
+  onSave,
+  onClear,
+  onClose,
+}: {
+  eventId: string;
+  current: RsvpBackdropConfig | null;
+  pending: boolean;
+  onSave: (fd: FormData) => void;
+  onClear: (fd: FormData) => void;
+  onClose: () => void;
+}) {
+  const [theme, setTheme] = useState<SpatialThemeKey>(
+    current?.theme ?? SPATIAL_THEME_KEYS[0] ?? 'gilded-dusk',
+  );
+  const [intensity, setIntensity] = useState<SpatialIntensity>(current?.intensity ?? 'standard');
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const submit = () => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('theme', theme);
+    fd.set('intensity', intensity);
+    onSave(fd);
+  };
+
+  const turnOff = () => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    onClear(fd);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <button
+        type="button"
+        aria-label="Close editor"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Choose a living backdrop"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="font-serif text-xl italic">Living backdrop</h2>
+            <p className="text-xs text-ink/55">
+              A generated world behind your page — guests move through it as they scroll.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/55 transition hover:bg-ink/5"
+          >
+            <X aria-hidden className="h-5 w-5" />
+          </button>
+        </div>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-semibold">World</legend>
+          {SPATIAL_THEME_KEYS.map((key) => {
+            const t = SPATIAL_THEMES[key];
+            const active = theme === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTheme(key)}
+                aria-pressed={active}
+                className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition ${
+                  active
+                    ? 'border-terracotta bg-terracotta/5 ring-1 ring-terracotta'
+                    : 'border-ink/10 hover:border-ink/25'
+                }`}
+              >
+                <span className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-ink/10">
+                  <Image src={t.thumb} alt="" fill sizes="96px" className="object-cover" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{t.label}</span>
+                  <span className="block text-xs leading-snug text-ink/55">{t.description}</span>
+                </span>
+                {active ? (
+                  <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-terracotta" />
+                ) : null}
+              </button>
+            );
+          })}
+        </fieldset>
+
+        <fieldset className="mt-4">
+          <legend className="text-sm font-semibold">Motion</legend>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {(['subtle', 'standard', 'lavish'] as const).map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => setIntensity(level)}
+                aria-pressed={intensity === level}
+                className={`min-h-[44px] rounded-lg border text-sm font-semibold capitalize transition ${
+                  intensity === level
+                    ? 'border-terracotta bg-terracotta/10 text-terracotta'
+                    : 'border-ink/15 text-ink/70 hover:bg-ink/5'
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-ink/55">
+            Guests who prefer reduced motion always see a still version.
+          </p>
+        </fieldset>
+
+        <div className="mt-5 flex items-center justify-between gap-2">
+          {current ? (
+            <button
+              type="button"
+              onClick={turnOff}
+              disabled={pending}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 px-3 text-sm font-semibold text-ink/70 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-60"
+            >
+              <Trash2 aria-hidden className="h-4 w-4" /> Turn off
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-[44px] items-center rounded-lg border border-ink/20 px-4 text-sm font-semibold text-ink transition hover:bg-ink/5"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={pending}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream transition hover:bg-mulberry-600 disabled:opacity-60"
+            >
+              {pending ? (
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles aria-hidden className="h-4 w-4" />
+              )}
+              Save backdrop
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

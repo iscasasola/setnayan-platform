@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { fetchGuestQuota } from '@/lib/papic-guest';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
+import { screenCapture } from '@/lib/nsfw-screen';
 
 // POST /api/papic/guest-capture
 //
@@ -50,6 +51,30 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
+  // UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
+  // keep R2 free of orphan objects we'd only reject. The capture RPC re-checks
+  // both authoritatively (it's the real gate); these just short-circuit the
+  // common rejected cases before the R2 PUT.
+  const [{ data: blockRow }, { data: guestRow }] = await Promise.all([
+    admin
+      .from('event_blocked_users')
+      .select('id')
+      .eq('event_id', session.event_id)
+      .eq('blocked_guest_id', session.guest_id)
+      .maybeSingle(),
+    admin
+      .from('guests')
+      .select('ugc_terms_accepted_at')
+      .eq('guest_id', session.guest_id)
+      .maybeSingle(),
+  ]);
+  if (blockRow) {
+    return NextResponse.json({ status: 'blocked' }, { status: 403 });
+  }
+  if (!guestRow?.ugc_terms_accepted_at) {
+    return NextResponse.json({ status: 'terms_required' }, { status: 403 });
+  }
+
   // Pre-check the quota so we don't PUT an object that the RPC would then
   // reject — keeps R2 free of orphans for the common exhausted case. The RPC's
   // advisory-locked count is still the authoritative gate for the boundary.
@@ -88,6 +113,17 @@ export async function POST(req: Request) {
   };
 
   if (result.status === 'ok') {
+    // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs
+    // in the BACKGROUND with after() so the shutter stays instant. We already
+    // hold the JPEG bytes, so no R2 round-trip. Fail-open: any classifier error
+    // leaves the row 'unscreened' and the photo flows normally.
+    after(() =>
+      screenCapture({
+        table: 'papic_guest_captures',
+        r2ObjectKey: r2Ref,
+        bytes,
+      }).catch(() => {}),
+    );
     // Auto-sync this guest capture into the couple's Google Drive (Phase 2),
     // cron-free: enqueue the artifact, then copy it in the BACKGROUND with
     // after() so the response returns immediately. No-op until Drive is

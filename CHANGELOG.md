@@ -16,6 +16,225 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None (behavior-preserving fixes + tests). The deferred findings (occupantsFor null-seat UI drift · 0-capacity table edge · 44px chair targets · belt-and-braces IDOR validation · list-view actions reachability) are logged here as the known-backlog for the next editor slice.
 
+## 2026-06-11 · feat(vendors): Build tab "What's fixed?" pin modes — Pin solver Phase 3a
+
+**Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §4), owner green-lit 2026-06-11 ("can we jump to build?"). The couple declares which dimension LEADS the solve — Budget (default, unchanged behavior) · Services (the picked set is fixed; budget becomes a derived readout) · Date (the day is fixed) — and the Build tab reframes around it. No engine work, no migration, `/find-date` reused (never forked), exactly as planned.
+
+- **`_components/build-pin-mode.tsx` (new):** the "What's fixed?" segmented control + per-mode panel at the top of the Build tab (above the PR-D anchors). Services mode shows the honest derived readout — "this plan needs ₱X–₱Y" from the model's `rangeLo/HiCentavos` span — plus a find-your-date bridge; Date mode shows the pinned day (or points to the date anchor), the find-date bridge, and an explicit "prices stay typical — they don't flex by date yet" line so we never imply date-aware pricing before Phase 3b ships.
+- **Persistence:** client-local per event (`localStorage`, SSR-safe lazy hydrate, storage-blocked-safe) — cross-device persistence is the open owner decision (plan §9.4). Saved Compare snapshots are stamped with the mode: `PlanBuildSnapshot.pinMode` (optional, forward-compat, JSONB — pre-3a snapshots unaffected).
+- **Wiring:** `build-pins.tsx` renders the control; `page.tsx` passes the model range; `build-compare.tsx` stamps `pinMode` on save via `readPinMode`.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings in untouched files only). Pure client UI over existing data — no new reads/writes beyond the snapshot field.
+
+**SPEC IMPACT:** `Budget_Build_Pin_Solver_Plan_2026-06-09.md` Phase 3a → SHIPPED (corpus DECISION_LOG row appended with this change). Open decisions untouched: §9.1 seasonality (3b), §9.2 hard-date semantics, §9.3 free/paid line, §9.4 persistence (defaulted to local + snapshot stamp pending owner).
+
+## 2026-06-11 · style(website): spatial backdrop v3 — wash to /12 + cream text-halo (kill the milky veil)
+
+**Context:** Owner, from the live v2 screenshot: the `/35` light column still read as a milky white veil over the middle — the world wasn't truly showing through.
+
+- **`app/_components/spatial-backdrop.tsx`:** light column `bg-cream/35` → `bg-cream/[0.12]` — barely-there luminance lift; the art now reads vividly across the whole page.
+- **`app/[slug]/page.tsx` (InvitationShell):** legibility duty moves to a **cream text-halo** on the content column — an *inherited* `text-shadow` (cream bloom + faint dark micro-rim), invisible on the widgets' own cream cards but rimming loose dark text against the art. Both polarities covered (dark text on bright art via the dark rim; dark text on dark art via the cream bloom).
+
+**Verification:** clean-build local harness — world fully visible between/around cards, intro text + eyebrow legible at the top, zero console errors (an apparent hydration mismatch turned out to be Next dev's half-recompiled module cache; gone on a cleared-`.next` fresh build). `tsc` clean.
+
+**SPEC IMPACT:** §2.1b legibility note updated to v3 (light column /12 + inherited text-halo) — applied in the corpus with this change's DECISION_LOG row.
+
+## 2026-06-11 · style(website): spatial backdrop — seamless floating widgets (vellum sheet removed)
+
+**Context:** Owner, from a live prod screenshot of the new spatial backdrop: *"remove the white background. so the widgets feels seamless on the background."* The full-column translucent vellum panel read as one big white card.
+
+- **`app/[slug]/page.tsx` (InvitationShell):** backdrop mode no longer wraps content in the vellum panel (no bg/ring/shadow/rounded) — each widget's own cream card now floats DIRECTLY on the generated world, with art visible between cards. Footer over the backdrop goes transparent (cream text on the backdrop's bottom vignette).
+- **`app/_components/spatial-backdrop.tsx`:** new **light column** — a heavily blurred `bg-cream/35` wash behind the content column, INSIDE the backdrop. This replaces the vellum as the legibility layer for loose ink text (intro copy, eyebrows, greetings) while reading as ambient glow, not paper. Widget cards carry their own surfaces.
+
+**Verification:** `tsc` clean · visual check on the local harness at desktop width — cards float on the Gilded Dusk world with the art flowing between them, loose text readable on the wash, footer legible on the vignette.
+
+**SPEC IMPACT:** `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` §2.1b "vellum panel" wording superseded by "seamless floating widgets + light column" (corpus edit applied with this change's DECISION_LOG row).
+
+## 2026-06-11 · feat(monogram): Setnayan AI Bespoke Monogram studio — native-SVG generator (Phase 2)
+
+**Context:** Phase 2 of the 2026-06-11 monogram overhaul (owner: current monogram is "too common… find a better way"). Revives the long-deferred 0037 bespoke-monogram vision on a **native-vector pipeline** — the original DALL-E-raster + vectorizer.ai plan never shipped because raster marks couldn't recolor or stay crisp at QR/print size. The couple fills a short brief (style direction: Interlocked · Botanical · Heirloom Crest · Modern Geometric · + optional motif), **Setnayan AI** generates 4 native-SVG candidate marks per round, they refine with feedback, and apply one as their event monogram. Live-tested: the marks are designer-tier (interlocked letterforms, fine-line botanical wreaths, engraved crests) — genuinely on-par-with-market, well past the commodity lettered lockup.
+
+- **Engine** (`lib/bespoke-monogram-engine.ts`, pure + unit-tested): per-style prompt engineering + a strict **REJECT-don't-repair SVG sanitizer** (allowlist — kills script/handlers/hrefs/foreignObject/external `url()`/nested data-URIs; permits same-document gradient `url(#…)` only) + full-canvas background-path stripping so marks sit transparent on the cream hero.
+- **IO** (`lib/bespoke-monogram.ts`, server-only): reuses the house Recraft client (`lib/recraft.ts`, extended with palette `controls`) — `recraftv4_1_vector` + b64_json, 4 parallel marks/round, palette-steered to the Clean Editorial colors, vendor never named to the customer ("Setnayan AI").
+- **Render** (`BespokeMonogramMark`): inert data-URI `<img>` (defense-in-depth atop the sanitizer) in the exact hero-circle slot; gentle bloom-in entrance for ANIMATED_MONOGRAM owners. Wins on the LARGE surfaces (landing hero, maker preview); QR center + dashboard chrome stay typographic on purpose (small-size legibility) — surfaced in the studio copy.
+- **Studio UI** + 3 server actions (generate/apply/clear) wired into the Monogram Maker; couple-only authz; round cap (12/event) bounds cost; `?bespoke=…` redirect notices anchored to `#bespoke-studio`.
+- **Migration `20261112000000`** — `bespoke_monogram_generations` (couple-only RLS on all of select/insert/delete via `current_couple_event_ids()`) + `events.monogram_custom_svg` / `monogram_custom_generation_id`. **Applied to prod** (verified live: 3 couple-only policies, RLS on, both columns present).
+
+**Adversarial review + fixes:** a 4-lens review (security/correctness/UX/data) + per-finding refutation surfaced **8 confirmed findings**; all fixed and re-verified (3-agent pass: resolved, no regression). Notably: (CRIT) the new `events.*` columns in the anonymous `/[slug]` select would have 404'd every wedding site on a drifted DB → **migration applied before merge** (repo's apply-first pattern); (SEC) the cost guard was bypassable by a non-couple event member (events-read ≠ couple) → **explicit `member_type='couple'` gate before any API spend + fail-closed cap query**; (SEC) SELECT/DELETE RLS admitted any member (self-join → read briefs/prompts, delete marks) → **tightened to couple-only**; (UX) "How it animates" copy contradicted the bespoke override, QR-stays-typographic undisclosed, post-generate scroll-to-top → all fixed.
+
+**Verification:** `tsc` clean · `next lint` clean · production build green · 8 unit tests (sanitizer XSS-bypass attempts, internal-gradient pass, real-output normalization, prompt caps/vendor-never-named) · full pipeline E2E against the live Recraft key (brief → 4 marks → sanitize → render in hero circle + studio tile, screenshotted) · RLS + columns verified live on prod.
+
+**SPEC IMPACT:** Revives + supersedes iteration 0037 (Bespoke Monogram) — DALL-E-raster+vectorizer plan → native-SVG via Recraft, refinement-pack SKU model dropped (round cap instead, pricing batched to the holistic review). RECRAFT_API_KEY becomes an optional RUNTIME dependency (studio self-hides when unset). Corpus: DECISION_LOG rows + a 0037 as-built correction header to follow.
+
+## 2026-06-11 · feat(website): spatial RSVP backdrop — AI-generated world with scroll-through depth
+
+**Context:** Owner directive (full authority, "make sure this works"): the RSVP page can sit inside an **AI-generated world** — as guests scroll, layered scene imagery moves with parallax push-in and crosses a **spatial seam into a second space** (explicitly NOT Keynote-style transitions and NOT the love-story clips — an ambient backdrop for the whole RSVP phase; owner correction 2026-06-11). Spec: corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` §2.1b.
+
+- **`lib/spatial-backdrop.ts` (new, pure TS):** theme registry (2 launch worlds: Gilded Dusk · Capiz Glow, each 2 scenes × far-scene + screen-blend glow layer), `parseRsvpBackdropConfig` (strict on theme, forgiving on intensity, null on junk), and the scroll math — `computeLayerState` (push-in scale + parallax rise + cross-scene crossfade seam), `sceneWindows`, `smoothstep`. React-free so the math is directly unit-tested.
+- **`app/_components/spatial-backdrop.tsx` (new):** fixed full-viewport renderer — rAF-coalesced passive scroll → imperative transform/opacity writes (zero re-renders/frame, compositor-only), SSR-correct p=0 first paint, `prefers-reduced-motion` → static, aria-hidden + pointer-events-none, scene-0 eager / rest lazy.
+- **`app/[slug]/page.tsx`:** tolerant separate read of `events.rsvp_backdrop` (pre-migration DB degrades to "off" instead of 404ing the wedding page); backdrop renders in RSVP era only (`pre`/`inactive` day-of phases — live day stays lean for venue WiFi); `InvitationShell` gains a `backdrop` prop — content floats on a translucent **vellum panel** (≥88% cream = legibility guarantee; backdrop-blur only ≥sm for low-end phones).
+- **`site-editor`:** new RSVP-tab "Living backdrop" card + inline `BackdropEditSheet` (registry-driven theme picker with thumbnails · Subtle/Standard/Lavish motion words · Turn off), server actions `saveRsvpBackdrop`/`clearRsvpBackdrop` (theme re-validated against the registry — DB never stores asset URLs).
+- **Migration `20261110000000_rsvp_spatial_backdrop.sql` (applied to prod):** `events.rsvp_backdrop JSONB NULL`; additive + idempotent; no new RLS (host-scoped UPDATE already covers it). *(Ledger note: remote had `20261109000000` from another session's unmerged branch — pushed via a local-only stub for the ledger comparison, deleted after; only this migration was applied.)*
+- **Assets `public/spatial/` (676KB total):** generated with Recraft v3, recompressed via sharp (q62–68 WebP), human-reviewed — two raw generations contained AI people; one re-generated with upward-camera framing, one top-cropped to the sky band. Provenance README included.
+
+**Verification:** `tsc --noEmit` + `next lint` clean · GitHub CI fully green (production build · playwright e2e · bundle size · lighthouse · migration guard · macOS+Windows) · **10/10 pure-math Playwright invariants** (bounds, monotonic push-in, seam-never-blank, B-hidden-pre-seam, parser fuzz, registry shape) · **end-to-end on the Vercel preview against prod DB** (couple.test → Living backdrop → Gilded Dusk saved → row written → editor shows On) · **live scroll motion verified in a real browser**: layer transforms at p=0.30/0.53/0.85 match the math to 3 decimals, seam keeps ≥0.95 combined visibility, fully reversible, zero console errors, screenshots at all three journey legs. *(Initial Vercel preview build failed on a container OOM — environmental; same-commit redeploy succeeded.)* **Watch-item (pre-existing, tracked separately):** under the 0031 PWA service worker, a cold STREAMED `/[slug]` render can leave an invisible duplicated tree in React's `#S:0` streaming container (server HTML always correct; prod unaffected via warm ISR).
+
+**SPEC IMPACT:** Implements spec §2.1b (spatial backdrop); §2.1a (multi-clip journey) marked SUPERSEDED/PARKED per the owner correction — both edits + DECISION_LOG rows applied in the corpus 2026-06-11.
+
+## 2026-06-11 · feat(website): inline "edit on the page" Hero editing in /site-editor (PR #1)
+
+**Context:** Owner session designing the customer wedding-website rebuild (corpus `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`). Today `/site-editor/[eventId]` is a *launcher* — its cards deep-link OUT to standalone `/website/*` sub-editors, so the couple leaves the live preview to edit anything. This is PR #1 of turning it into a real "edit on the page" editor: the Hero card now edits **inline** (bottom sheet on mobile / right-rail panel on desktop) without navigating away. Establishes the pattern the other sections fold into next.
+
+- **`site-editor/[eventId]/actions.ts` (new):** editor-local `saveHeroPhoto` / `clearHeroPhoto` — same DB write + `requireHostMembership` guard as `website/hero-photo/actions.ts`, but **revalidate the editor in place and return void** (no redirect-out) so the couple stays on the preview.
+- **`site-editor/[eventId]/page.tsx`:** fetch `landing_page_hero_image_url`, resolve via `displayUrlForStoredAsset`, pass `heroPhotoUrl` to the editor.
+- **`_components/site-editor.tsx`:** inline-edit shell — `editing` state + `HeroEditSheet` (reuses the shared `<FileUpload>` → R2 + the editor-local actions); a `CardButton` opens the sheet; the Hero card swaps its deep-link for it; after a save, `router.refresh()` + a `previewNonce`-keyed iframe remount reload the live preview. a11y: labelled dialog, Esc + backdrop close, ≥44px targets.
+
+**Verification:** typecheck + lint green on CI (PR #1233). No schema change (reuses existing `events.landing_page_hero_image_*` columns).
+
+**SPEC IMPACT:** Implements §1 (inline "edit on the page" model) of `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` for the Hero section — the proof pattern. Logged in `DECISION_LOG` 2026-06-11.
+
+## 2026-06-11 · feat(taxonomy): couple-side shared filters — mixed-faith union + civil + event-type gate
+
+**Context:** Phase 3 wiring of the unification design (§3 SET rewrite + §2 event applicability, couple side). Three live gaps closed: (1) the catalog faith filter was **scalar** (primary rite only) — a Mixed Cath+Muslim couple never saw the Muslim rite's specialist services even though `secondary_ceremony_type` was already threaded; (2) **civil couples saw all faith-tagged services** — the code contradicted its own documented intent ("civil couples keep faith-tagged tiles hidden"); (3) the dashboard category search applied **no taxonomy-level faith or event-type filter at all**.
+
+- **New `lib/taxonomy-filters.ts`** — the ONE shared predicate module for couple-facing scoping: `buildCoupleFaithSet` (union of primary+secondary rites; `civil`→first-class `Civil`; **wedding-guarded** — non-wedding events never faith-narrow, defense-in-depth alongside the `20260521080000` wedding↔ceremony constraint), `passesFaithFilter` (INCLUDE-only; untagged always delivered; empty set = no narrowing), `passesEventTypeFilter` (NULL = universal, fail-open), `resolveEventType` (NULL event_type = wedding; never-empty both sides).
+- **`lib/taxonomy-filters.test.ts`** — 17 new unit tests for the invariants (mixed-union, wedding guard, civil, fail-open, admit-unknown). Suite now 23/23.
+- **`app/vendors/page.tsx`** — `passesReligionFilter` rewritten onto the shared SET predicate; `coupleEventType` + `secondary_ceremony_type` threaded into `CatalogView`; the tile loop gains the **multi-event applicability gate** (`tax.tileEventTypes`, fail-open — zero change for weddings until admins scope tiles).
+- **`category-search.ts`** — outer-gate scoping before the vendor query, using the SAME shared predicates (the two couple surfaces can no longer disagree): canonical dropped if its tile doesn't serve the event type or its faith doesn't match the couple's rites; unmapped canonicals admitted.
+
+**Verified:** `tsc` clean · 23/23 unit tests · a live-data probe of 5 scenarios against the real taxonomy: Catholic 168/179 (Muslim/INC specialists excluded) · Muslim 177/179 · **Mixed Cath+Muslim 177/179 (the fix — scalar showed 168)** · Civil 168/179 (matches documented intent) · corporate-with-stale-catholic 179/179 (wedding guard, zero narrowing).
+
+**SPEC IMPACT:** Realizes design doc §3 (SET faith) + §2 (couple-side event gate). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): Camera Bridge M1 — Papic sink + offline transit + pairing UI (S0+O1+U1, mock-driven · 0012)
+
+**Context:** Owner: "build it." The M1 now-track of the Camera Bridge build plan — the demoable, zero-hardware bridge chain on top of the C1+C2 core (PR #1239). Grounding win: the seat capture path already shipped end-to-end (presign `/api/upload` → R2 PUT → `recordSeatCapture` → `papic_photos` + Drive-copy), so S0 is a reuse-first sink over the SAME pipeline, not a parallel one.
+
+- **S0 — `lib/camera-bridge/papic-sink.ts`**: DI'd `deliverCapture` (presign → PUT → record) shared by the live panel AND the offline drain. Failure policy: infra failures (presign/PUT/network) queue into the `camera_bridge` offline store; server REJECTIONS (`not_your_seat`/`revoked`) surface and never queue (retry can't fix them). `makeBrowserSinkDeps` mirrors the shipped seat-capture chain byte-for-byte.
+- **O1 — `lib/offline/service-handlers/camera-bridge-handler.ts`**: the Phase-G stub replaced with the real drain — queued payload (Blob/ArrayBuffer via IndexedDB structured clone) → the same sink → `{ok:true}` dequeues; failures keep the item visible with `last_error`. DI'd `syncOneWith` for tests; browser `syncOne` lazy-imports the action.
+- **InternalCameraBridge — `lib/camera-bridge/internal-bridge.ts`**: the phone's own camera as the 5th `CameraBridge` impl (getUserMedia, rear-only per the 0012 lock; stills via canvas grab, 5s-capped clips via MediaRecorder) — the REAL fallback target of the pairing FSM on web.
+- **U1 — `camera-bridge-panel.tsx`** on the seat page, **dark-launched** (`?bridge=demo` or `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED=true`; invisible by default, no SKU active): Pair (Demo DSLR mock) → live-view canvas → Still / 5s-clip → deliveries land in the real gallery → **Simulate WiFi drop** → instant fallback banner ("switched to your phone camera"), gap-captures via the REAL phone camera stamped null, 5s auto-retry, Restore → back to the DSLR. The full M1 demo, no hardware.
+- **`recordSeatCapture`** gains an additive `kind: 'photo'|'clip' = 'photo'` param (photo_type + Drive mime); existing callers unchanged. Seat page now selects `event_id` (offline-queue key) + threads the gate.
+
+**Verification:** suite extended to **29 cases — 29/29 green** (12 new: sink orchestration order, queue-vs-reject policy, clip meta, handler payload validation, Blob/ArrayBuffer drain); `pnpm typecheck` clean; scoped `next lint` clean. The panel is auth+token-gated — visual check on the Vercel preview: open a claimed seat at `/papic/seat/<token>?bridge=demo`.
+
+**SPEC IMPACT:** Implements build-plan workstreams S0/O1/U1 + the InternalBridge (5th impl); M1 "demoable, no hardware" milestone reached in code. → corpus build-plan doc shipped-status note + DECISION_LOG row.
+
+## 2026-06-11 · feat(monogram): Motion Library — 6 premium animation signatures replace the single stroke-trace
+
+**Context:** Owner 2026-06-11 — "the monogram we have now is too common… find a better way to execute." Research (market scan: Canva/AI-logo tools all ship template-pick + the stroke-trace reveal is the tutorial-default effect) split the fix into two phases; this is **Phase 1: the motion overhaul**. The single hardcoded draw-on the paid ANIMATED_MONOGRAM SKU shipped with is now one of **six premium motion signatures** the couple picks from: **Drawn** (original stroke-trace, default) · **Foil** (golden light band sweeps the letters, loops) · **Bloom** (ink blooms from center, blur-to-sharp) · **Editorial** (rise + letter-spacing settle, masthead-style) · **Halo** (ring sweeps around first — true circumference dash — then letters fade up) · **Stardust** (7 champagne-gold sparks twinkle in a stagger while letters settle). All pure SVG + scoped CSS — no animation runtime, SSR-safe, all collapse to the static mark under `prefers-reduced-motion` (WCAG 2.2 § 2.3.3).
+
+- **`apps/web/lib/monogram-motion.ts`** (new) — the motion registry: keys, labels, hints, descriptions + `resolveMonogramMotion()` (NULL/unknown → `'draw'` so every pre-library owner renders exactly as before).
+- **`AnimatedMonogramHero`** — rewritten around a `motion` prop (default `'draw'` = zero behavior change at untouched call sites). Halo paints its ring in-SVG (span border goes transparent, layout box intact).
+- **Monogram Maker** (`/dashboard/[eventId]/monogram`) — new "Choose a motion" picker (6 tiles) + Replay button; every motion previews free; saved via `saveMonogram()` (validated server-side against the registry). Supersedes the 23-style picker tracked in `Monogram_Maker_Plan_2026-06-05.md`.
+- **Landing hero** (`/[slug]`) — `animatedMonogram` threading upgraded `boolean` → `MonogramMotionKey | false`; the owned render plays the couple's chosen signature in all 3 hero branches (private, photo-hero, monogram-only).
+- **Add-ons detail page** — previews play the real chosen motion; copy sells the six-signature library; owned view names the active motion and links the Maker.
+- **Migration `20261111000000_event_monogram_motion.sql`** — additive nullable `events.monogram_motion_key` + CHECK (6 keys), `IF NOT EXISTS` idempotent, comment documents the registry mirror. **Applied to prod** (verified in migration history; column live before this code deploys). Re-timestamped from 20261107 (collision with `push_subscriptions`) past the remote head.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only) · production build green · all six signatures rendered through the REAL component (tsx + react-dom/server harness, not a copy) and verified in-browser: settled states + colors correct for mulberry/gold inks, animation choreography introspected via `getAnimations()` (durations/delays/stagger/infinite-foil all as designed), foil sheen caught mid-sweep on screenshot. Gating unchanged — WHICH motion is a free choice; WHETHER the hero animates stays bound to ANIMATED_MONOGRAM order ownership.
+
+**SPEC IMPACT:** Phase 1 of the 2026-06-11 monogram overhaul (Phase 2 = Setnayan-AI bespoke vector generator, separate PR). Corpus: DECISION_LOG rows + 0037 as-built correction to follow with Phase 2's corpus pass.
+## 2026-06-11 · fix(seeds): admin.test gets account_type='admin' — is_admin() RLS finally passes for the test admin
+
+**Context:** the seeded `admin.test@setnayan.com` had `account_type='customer'` + `is_team_member=true`. The `/admin` layout gate (is_internal OR is_team_member OR account_type='admin') admitted it, but the SQL `public.is_admin()` helper checks ONLY `account_type='admin'` — so every is_admin() RLS policy returned empty for the test admin, making admin RLS paths untestable (caught 2026-06-11 while prod-verifying the account-deletion queue policies).
+
+- **`scripts/seed-test-accounts.sql`:** step-3 role tweak now also sets `account_type='admin'` for admin.test. `is_internal` stays FALSE on purpose — that flag carries §10a payment-skip semantics that must not silently attach to a test account.
+- **Prod:** the same one-row UPDATE applied directly (data fix, no migration); verified `is_admin()` → TRUE for admin.test via RLS simulation.
+- ⚠️ Surfaced for owner: the test password is hardcoded in this script and the account now passes is_admin() — consider rotating the test password to an env-supplied value (owner decision; app-level admin access already existed via is_team_member, so the marginal exposure is the direct-RLS read path).
+
+**SPEC IMPACT:** None (test fixture). Memory `project_setnayan_test_accounts` updated.
+
+## 2026-06-11 · feat(taxonomy): Phase 2 — faith_vocab + admin faith write control
+
+**Context:** Phase 2 of the unification (`Taxonomy_Event_Faith_Scoping_Design_2026-06-10.md` §3/§7). The faith vocabulary was a hardcoded 5-value CHECK with **no admin write control** — every admin-minted service was born faith-blind, the faith badge was read-only, and `Chinese`/`Jewish`/`Born Again` (in the app's `FaithKey` union) were untaggable in the DB. Storage stays **TITLE-CASE** (the marketplace compares `===`; lowercasing = the landmine).
+
+- **Migration `20261109000000_faith_vocab.sql`** (applied to prod): `faith_vocab` table (9 title-case keys: the 8 FaithKey values + `Civil` w/ `is_civil`; public read, admin write) · `canonical_service_taxonomy.faith` 5-value CHECK → **FK to faith_vocab** (widens the taggable set; delete-protects in-use keys; the 21 live tagged rows pass as-is — zero data mutation) · fail-loud validation.
+- **Re-seed durability:** edited the applied `20260803001000` seed — de-faithed the 4 food rows in VALUES + **dropped `faith = EXCLUDED.faith`** from `ON CONFLICT` so re-seeds can never clobber admin-set faith (fresh-rebuild correctness; prod unaffected).
+- **`lib/taxonomy.ts`:** exported `WEDDING_FAITH_KEYS`/`WeddingFaithKey` (client mirror of `faith_vocab`); `TaxonomyEntry['faith']` widened to it.
+- **`app/admin/taxonomy/actions.ts`:** `setServiceFaith` (vocab-validated, audit-logged, **dietary-guard** — refuses to faith-gate a dietary canonical, the 2026-06-11 de-faith lock) + optional vocab-validated `faith` in `createCanonicalLeaf`.
+- **`app/admin/taxonomy/page.tsx`:** the read-only faith Badge → an editable `ServiceFaithControl` dropdown on every service row (Universal + 9 faiths); faith select in the Advanced-add form; `FAITH_TONE` covers all 9 keys + fallback.
+- **`app/vendors/page.tsx`:** `FaithKey` now derives from the lib union (`Exclude<WeddingFaithKey,'Civil'>`) — future vocab drift fails typecheck; `passesReligionFilter` accepts the widened union; `crossFolderFaithCounts` covers `Civil`.
+- **Tests:** suite now reads `WEDDING_FAITH_KEYS` + a new title-case guard (6/6 green). `tsc --noEmit` clean.
+
+**Verified on prod:** 9 vocab rows · FK present · old CHECK gone · 21 tagged rows unchanged · RLS (read-all/admin-write) · smoke: `Born Again` now taggable, bogus faith rejected by FK, in-use vocab key delete-blocked, smoke updates rolled back.
+
+**Migration-slot note:** originally numbered `20261107000000` — collided with `push_subscriptions` (applied from another in-flight branch). Renamed to the next free slot `20261109000000` at apply time per the 2026-06-11 collision lesson.
+
+**SPEC IMPACT:** Faith reconciliation per the design doc (§3 fix, §7 Phase 2). → corpus design doc + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): NSFW screening engine — the Apple 1.2 "filter" leg, always on (0012/0031)
+
+**Context:** Apple guideline 1.2 (UGC) requires filter + report + block. Report + block shipped in PR #1230; the corpus claimed an NSFW filter existed but it was **not in the capture path** — this builds it. Corpus hard constraint honored: on by default, no toggle anywhere.
+
+- **`lib/nsfw-screen.ts`** (new): nsfwjs (quantized MobileNetV2-mid) on pure-JS `@tensorflow/tfjs` (NOT tfjs-node — native bindings break on Vercel) + `sharp` decode (already a dep). Model **self-hosted**: ~4.4 MB committed under `apps/web/models/nsfw/`, read via a custom node:fs `tf.io.IOHandler`, traced into every serverless function via `outputFileTracingIncludes` ('/**' — server actions can execute under any route's lambda). Module-level cache: a warm lambda loads once (~2.8 s cold incl. classify, per the smoke script).
+- **Decision (`decideNsfw`, unit-tested 14/14):** block at Porn ≥ 0.7 OR Hentai ≥ 0.75 OR Porn+Hentai ≥ 0.8. **"Sexy" alone NEVER blocks** — weddings are full of dancing/gowns/beachwear. Thresholds are named exports.
+- **No migration:** verdicts land in the EXISTING `moderation_state` column (Salamisim P0, 20261104000959): 'unscreened' → 'clean' | 'nsfw_blocked'. The UPDATE matches only rows still 'unscreened' — a couple's override is never clobbered by a late background screen. **Fail-open:** any error (model/R2/decode/clip) leaves 'unscreened' + one console.warn; a capture is never lost to a classifier hiccup. `papic_photos.photo_type='clip'` skipped (image-only classifier).
+- **Hooks (both capture funnels, `after()` so the shutter stays instant):** guest camera (`/api/papic/guest-capture` — bytes already in hand, no R2 round-trip) + paparazzi seat (`recordSeatCapture` — fetches back from R2 via `readR2Object` on the stored `r2://` ref).
+- **Display gates (guest/public only):** `[slug]` editorial photo count + hero-photo resolution now exclude `('nsfw_blocked','consent_withheld','faceblock_withheld')` — forward-compatible with the Salamisim P1 consent/faceblock verdicts. 'unscreened' still shows (fail-open). Couple + admin surfaces keep seeing everything.
+- **Couple override UI:** the `#1230` moderation page gains a "Filtered by the content screen" section (both capture tables) with **"Approve — show this photo"** → sets 'clean' (couple-authorized action; same auth pattern as the existing moderation actions). Screening itself stays always-on.
+- **`scripts/nsfw-smoke.mjs`** (new): generates a synthetic neutral JPEG with sharp, loads the committed model, classifies, prints scores + decision — proves the fs-IOHandler + sharp + tfjs pipeline in plain Node. Latest run: Neutral 89.74% → clean, 2771 ms cold.
+
+**Verification:** unit 14/14 · smoke OK · `tsc` clean · lint 0 errors · `migration:check` 305 unique (no migration) · production build OK (model traced). Residual: first live-capture screen lands a real verdict — check `/dashboard/[eventId]/add-ons/papic/moderation` after the next capture.
+
+**SPEC IMPACT:** Builds the filter the corpus already claimed (0012 §NSFW + the privacy hard-constraint line). Salamisim P1's wall gate chain can now consume real `moderation_state` verdicts. → DECISION_LOG 2026-06-11.
+
+## 2026-06-11 · feat(papic): Camera Bridge core (C1+C2) + WiFi transport correction (0012)
+
+**Context:** Owner 2026-06-11 — Camera Bridge runs on THREE surfaces (Papic + Panood + Patiktok); "plan its build, in parallel if possible." The 18-agent build plan (corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`) found V1 is **Canon-only** (only CCAPI is a real mobile-WiFi capture API; Sony/Nikon have no mobile SDK, Fuji is Android-USB-only + warranty-void) and the real parallel axis is surfaces + now-vs-gated, not brands. This PR ships the first two now-track workstreams — the zero-hardware foundation everything else (brand adapters, surface sinks, pairing UI, native binary) plugs into.
+
+- **C1 — `lib/camera-bridge/`**: the brand-agnostic `CameraBridge` protocol (1:1 TS mirror of the locked Swift contract in `0012_papic_sdk_notes.md`) + `MockBridge` (deterministic, failure-injectable, fixture-JPEG) with the locked **5s clip cap enforced in-core** (`PAPIC_CLIP_DURATION_MS`). Brands plug the SOURCE side; surfaces plug the SINK side (file→Papic · stream→Patiktok/Panood) — additive 1+3, never multiplicative 4×3.
+- **C2 — `DslrPairingController`**: disconnected→pairing→live→recording→fallback FSM. **Immediate** fallback to the phone-internal bridge on drop (inside the locked 3s bar; the shutter never blocks — the fallback connects at start); gap-captures stamped `pairedCameraBrand=null`; 5s auto-retry; per-surface semantics (papic seamless · patiktok mid-take drop **keeps the take** with one seam + source-accurate segments, mid-take recovery defers the swap-back · panood zero-grace `maintain-stream-continuity` event); the V1 1-phone:1-DSLR slot guard.
+- **Tests:** `scripts/test-camera-bridge.ts` — 17-case deterministic suite (virtual clock, node:assert + tsx house pattern). **17/17 green**; `tsc` clean; scoped `next lint` clean.
+- **Transport correction** (build-plan day-one workstream — the shipped scaffolding encoded the WRONG transport): `apps/mobile` AndroidManifest BLE permission block → **WiFi** perms (`ACCESS/CHANGE_WIFI_STATE`, `CHANGE_NETWORK_STATE`, `NEARBY_WIFI_DEVICES` neverForLocation, `FINE_LOCATION` maxSdk 32); `@capacitor-community/bluetooth-le` removed (package.json + both generated gradle files + npm lock regenerated — no code imported it); `capacitor.config.ts` comment fixed; the offline-stub comment corrected from "USB/WiFi tether" to WiFi-SDK-only (USB is V2).
+
+**Verification:** 17/17 unit tests (deterministic, no hardware); `pnpm typecheck` clean; scoped lint clean; npm lock regenerated with zero bluetooth-le refs. No schema change; no route change; nothing user-visible yet (the core has no consumer until S0/U1).
+
+**SPEC IMPACT:** Canonical build plan landed at corpus `0012_papic/Camera_Bridge_Build_Plan_2026-06-11.md`; superseded-in-part callout added to the 0012 "Pro Camera Bridge" section (4-brand matrix → Canon-only V1 · Patiktok added as 3rd surface · Panood SFU target retired); 2 DECISION_LOG rows (plan + this ship). Owner sign-offs (brand fork, SKU Q1–Q3, Panood ingest, DSLR ownership, iOS-vs-Android, budget) pending — pricing batched to the holistic review.
+
+## 2026-06-11 · test(taxonomy): unit-test foundation + taxonomy invariant guards (node:test via tsx)
+
+**Context:** The repo had only Playwright e2e + node lint scripts — no unit tests. This stands up a **zero-new-dependency** unit-test layer using Node's built-in runner (`node:test`) through the already-present `tsx`, and lands the first suite.
+
+- **`apps/web/lib/taxonomy.test.ts`** — 5 invariants on `TAXONOMY_MAP` + the tile/folder tree: every entry maps to a known folder; every tile is known + sits under its declared folder; faith values ∈ the allowed FaithKey set; `TILE_PARENT` ↔ `WEDDING_TILES_BY_PARENT` consistency; and the **de-faith regression guard** — no `dietary`-tagged canonical may carry `faith` (the exact bug fixed earlier today). The guard **fails on the pre-fix code naming all 4 offenders and passes after** — verified both directions.
+- **`package.json`:** `test:unit` → `tsx --test "lib/**/*.test.ts"`.
+- **`.github/workflows/ci.yml`:** a "Unit tests" step in the `typecheck + lint` job (reuses its install; exits non-zero on failure — verified).
+
+**SPEC IMPACT:** None (test infra). → `DECISION_LOG` note.
+
+## 2026-06-11 · fix(migrations): resolve duplicate-timestamp collision (account-deletion was silently skipped on prod)
+
+**Context:** Two PRs independently picked migration timestamp `20261105000000` — `defaith_food_canonicals` (#1232) and `account_deletion_requests` — and both merged to `main`. Supabase keys applied migrations by the timestamp, so once `defaith` registered version `20261105000000`, the account-deletion migration would be **silently skipped forever** → `account_deletion_requests` never created on prod → the shipped `/admin/account-deletions` page + the in-app deletion-request flow (App Store 5.1.1(v) / Google Play) would error at runtime.
+
+- Re-timestamped `20261105000000_account_deletion_requests.sql` → **`20261106000000_account_deletion_requests.sql`** (content unchanged + idempotent; header notes the re-timestamp + reason).
+- **Applied to prod:** `account_deletion_requests` table + 5 RLS policies now exist; version `20261106000000` registered. The de-faith migration keeps `20261105000000` (already applied). Verified on prod.
+
+**SPEC IMPACT:** None — restores an already-specced 0025 feature. → `DECISION_LOG` note.
+
+## 2026-06-11 · fix(taxonomy): de-faith food canonicals — halal caterers no longer hidden from non-Muslim couples
+
+**Context:** The dietary/halal audit (`Catering_Dietary_Halal_Model_2026-06-11.md`) found a **live bug**: `halal_catering` (faith=Muslim) and the three `mocktail_*` (faith=INC) were being **subtracted** from non-matching couples by `passesReligionFilter` (INCLUDE-only) — exactly the silent subtraction the 2026-06-10 faith lock forbids. A halal caterer / alcohol-free bar must be bookable by anyone.
+
+- **Migration `20261105000000_defaith_food_canonicals.sql`** (applied to prod): `SET faith=NULL` on the 4 food/beverage canonicals (`dietary` kept as a future capability signal). Fails loud if any food row stays faith-tagged. Per owner option **1(c)**: `halal_catering` remains the faith-NEUTRAL "Halal Catering Specialists" discovery canonical — now visible to all.
+- **`lib/taxonomy.ts`:** removed the hardcoded `faith` tags from the same 4 entries (lines 596, 739–741). Required in the **same PR** — `taxonomy.ts` is both the fallback and the re-seed source, so a DB-only change would leave stale TS driving the filter.
+- Verified on prod: all 4 `faith=NULL`, 0 food rows faith-tagged, 0 TS food-faith tags. `passesReligionFilter(meta)` → `!meta.faith` → `true` → visible to every couple.
+
+**SPEC IMPACT:** Fixes a live never-subtract-lock violation; first slice of the dietary-capability model (option 1c). → corpus `Catering_Dietary_Halal_Model_2026-06-11.md` + `DECISION_LOG` 2026-06-11.
+
+## 2026-06-11 · feat(pwa): Web Push notifications + offline shell Phase 1 (Apple guideline 4.2)
+
+**Context:** The PWA / WebView app needs to be more than a repackaged website to clear Apple guideline 4.2 (minimum functionality). Push notifications + a real offline experience are the differentiators. Web Push rides the browser's own Push Service via VAPID keys the owner generates (`npx web-push generate-vapid-keys`) — **no Apple/Google developer account required**. Notifications were email-only via Resend (iteration 0028); there was no push, and `sw.js` did asset caching + an offline shell fallback only.
+
+- **Dependency:** added `web-push` (+ `@types/web-push`) to `apps/web`.
+- **Migration `supabase/migrations/20261107000000_push_subscriptions.sql`** (NOT yet applied to prod): new `push_subscriptions` table (`id`, `user_id` FK → `public.users(user_id)` ON DELETE CASCADE, `endpoint` UNIQUE, `p256dh`, `auth`, `topics text[]`, `created_at`, `last_seen_at`). RLS **enabled at CREATE time**, mirroring the 0028 notifications shape — a user manages (SELECT/INSERT/UPDATE/DELETE) only their own rows (`user_id = auth.uid()`). `pnpm migration:check` green.
+- **`lib/web-push.ts`** (new): server-only `sendWebPush(userId, payload)` — looks up the user's subscriptions via the service-role client and fans an encrypted payload out; prunes stale endpoints on 404/410. Gated on `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — **no-ops when unset** (build + site unaffected). `web-push` is lazy-imported.
+- **`lib/notification-emit.ts`:** fires `sendWebPush` **alongside** the existing in-app notification + Resend email, scoped to the two highest-signal types only (`chat_message`, `vendor_inquiry_received`) — best-effort, never blocks/rolls back the primary action. The rest of 0028 is untouched. *(Deviation: the brief named "wedding-day reminder" as the 2nd point, but no such notification type exists in code — day-of mode (0031) is UI/cron-free and emits no notification — so `vendor_inquiry_received` was wired instead.)*
+- **`lib/push-actions.ts`** (new): `savePushSubscription` / `removePushSubscription` server actions; writes go through the **RLS-scoped user client** (not admin), upsert on the unique endpoint.
+- **`app/dashboard/profile/_components/push-toggle.tsx`** (new) + wired into the profile "Notifications & feedback" section: a **non-intrusive** toggle — the browser permission prompt fires only on opt-in, never on first paint/login. Renders a quiet "not available"/"blocked" note when push is unsupported (e.g. iOS Safari outside an installed PWA) or denied.
+- **`public/sw.js`** (additive, `v2 → v3`): `push` + `notificationclick` handlers (render + route clicks back into the app, focus existing tab); precache `offline.html`; new `DAYOF_CACHE` serving the day-of guest landing page + `find-my-table` **stale-while-revalidate** (schedule/table/floorplan survive weak venue signal); offline navigation now falls back to `offline.html`; a `guestbook-sync` Background Sync **stub** that replays an IndexedDB queue when connectivity returns (no-ops gracefully until the feature owns the queue).
+- **`public/offline.html`** (new): branded static offline fallback.
+- **`.env.example`:** documented `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` with the `npx web-push generate-vapid-keys` note + the unset → no-op behavior.
+
+**Verification:** `pnpm typecheck` green, `pnpm lint` green (only pre-existing warnings in unrelated files), `pnpm --filter @setnayan/web build` succeeds. Migration NOT applied to prod (per task constraints).
+
+**SPEC IMPACT:** Adds Web Push to the email-only notification stack (iteration 0028) + an offline-data layer for the day-of guest experience (iteration 0031). New `push_subscriptions` table + three VAPID env vars. → fold into 0028/0031 corpus + `DECISION_LOG` 2026-06-11.
 ## 2026-06-11 · feat(seating): responsive per-table popup — mobile bottom sheet / desktop popover (0008)
 
 **Context:** Owner 2026-06-11 — "this should work properly for both mobile and desktop." Phase 1a shipped the per-table popup as a desktop-style beside-table popover only; cramped on a phone. This makes it adapt to the surface.
@@ -36,6 +255,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** adversarial review (verdict SAFE-TO-APPLY) against the shipped schema; applied via `supabase db push` from a clean worktree off `origin/main`; confirmed recorded in the remote ledger (local == remote). SQL-only → `tsc`/`lint`/build unaffected (repo has no generated Supabase types). *Ledger note: the concurrently-merged taxonomy migration `20261104000000` wasn't in this worktree at push time (branched off an earlier `main`), which blocked `db push`; resolved by merging `origin/main` in. Its ledger row was briefly reverted during the push dance, then re-recorded `--status applied` (metadata-only, no DDL re-run) so the prod ledger stays accurate.*
 
 **SPEC IMPACT:** Implements 0012 Salamisim P0. **Two shipped-vs-corpus drifts corrected in the corpus:** (1) `coordinator` IS a real `public.member_type` enum value → the Kwento + Salamisim specs' `thread_join_authorizations` table is unnecessary; wall control authority uses `member_type IN ('couple','coordinator')` directly (table NOT created). (2) `events` had no `timezone` column (added here for server-side day-of mode). Also corrects spec naming: shipped capture/guest tables use `id BIGSERIAL` + a UUID business key; the enrollment table is `guest_face_enrollments` with `face_vector` (not the spec's `face_enrollments`/`vector_blob`). → corpus `0012_papic.md` (Salamisim + Kwento RLS) + `DECISION_LOG` 2026-06-11.
+
+## 2026-06-11 · feat(compliance): in-app self-serve account-deletion REQUEST flow (App Store 5.1.1(v) / Google Play)
+
+**Context:** Apple guideline 5.1.1(v) + Google Play's data-deletion requirement both mandate that a user be able to **initiate** account deletion from inside the app — "contact support" is not acceptable. The couple/vendor Privacy & data path previously offered an immediate self soft-delete (`softDeleteAccount`), which both bypassed the active-events / bookings / balance business guard and didn't match the store-required, owner-locked design. This ships the locked **"Request + admin review ≤24h"** flow: the user files a request in-app; an admin approves (running the EXISTING hard-delete / blacklist) or rejects within 24h.
+
+- **Migration `20261105000000_account_deletion_requests.sql`** (NOT yet applied — orchestrator applies on merge): new `public.account_deletion_requests` (`request_id` text PK via `generate_public_id('X')`, `user_id` → `auth.users` ON DELETE CASCADE, `status` pending/approved/rejected/cancelled default pending, `reason`, `created_at`, `reviewed_by`, `reviewed_at`, `admin_note`). Partial unique index = at most one pending request per user. **RLS enabled at CREATE TABLE** (Pattern A self-row + admin override): a user can INSERT/SELECT their own request and cancel it (UPDATE→cancelled) while pending; `is_admin()` can SELECT all + UPDATE status. `pnpm migration:check` green (301 unique prefixes).
+- **`app/dashboard/profile/actions.ts`:** retired `softDeleteAccount` (immediate self soft-delete); added `requestAccountDeletion` (files a pending row under the user's own session/RLS; duplicate-pending = friendly no-op) + `cancelAccountDeletionRequest` (RLS-gated self-cancel). Dropped now-unused `createAdminClient` import.
+- **`app/dashboard/profile/page.tsx`:** Privacy & data now shows the request form (with optional reason + DELETE confirm) when no request is open, or a "pending review" status card + Cancel control when one is. New `deletion_requested` / `deletion_cancelled` status banners.
+- **`app/admin/account-deletions/` (new surface):** review queue listing pending requests (email/type/reason/age + internal-account guard note) with **Approve + delete** / **Approve + blacklist** (delegates to the existing `deleteUser` / `blacklistUser` in `app/admin/users/actions.ts` — deletion is NOT reimplemented) and **Reject** (required note) + a recently-reviewed table. `actions.ts` marks the request approved before the cascade removes the row; `loadPendingRequest` guards against double-action.
+- **Nav wiring:** added "Account deletions" (UserX) to the admin **Work** group sidebar (`admin-sidebar.tsx`) + a live pending-count row to the mobile Work triage feed (`admin/work/page.tsx`); `loading.tsx` skeleton.
+
+**Verification:** `pnpm --filter @setnayan/web typecheck` ✓, `lint` ✓ (only pre-existing unrelated warnings), `build` ✓ (`/admin/account-deletions` compiled). No DB write performed (migration applies on merge); no browser verification (gated pages need a live DB + admin/couple sessions) — preview left for the owner.
+
+**SPEC IMPACT:** Iteration **0025** (Profile Settings · Privacy & Data) — the Delete-my-account control changes from immediate self soft-delete to a store-compliant request+admin-review flow; new `account_deletion_requests` table; new admin surface `/admin/account-deletions` in the 0023 console Work group. Surfaces a load-bearing UX change (self-delete → queued request) for owner sign-off. → corpus iteration 0025 `.md` + `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(papic): UGC moderation tooling — report to admin, event-scoped block, terms gate (0012/0031/0023)
+
+**Context:** Apple App Store guideline 1.2 (Safety · UGC) and Google Play's UGC policy require any app with user-posted media to provide a content filter (exists: NSFW), an in-app report mechanism, the ability to block an abusive user, a terms-of-use acceptance defining objectionable content, and reports that reach a moderator. The only UGC surface in V1 is the Papic guest camera (a wedding guest, identified by a guest-session cookie — not a `users` row — captures photos into `papic_guest_captures`). Live-code audit found: NSFW filter + face-blur exist, but there was NO report mechanism (the day-of "live photo wall" is still a stub), NO block, NO terms gate, and reports had no destination. There is NO gallery-comment feature, so per-comment reporting was intentionally skipped (the `target_type` CHECK still allows `'comment'` for forward-compat).
+
+- **Migration `20261108000000_ugc_moderation.sql`** (NOT applied to prod — local `migration:check` only):
+  - `user_reports` — report queue (`public_id` S89W-, reporter user OR guest, event_id, target_type photo|comment|user, target_id, reason enum, details, status open|actioned|dismissed, action_taken, reviewed_by/at). RLS at create: reporter INSERT/SELECT own · couple SELECT for `current_event_ids()` · admin (`is_admin`) SELECT + UPDATE.
+  - `event_blocked_users` — EVENT-SCOPED block (owner-locked). Keyed on `blocked_guest_id` (the real uploader actor is a guest, not a users row — documented deviation from the spec's `blocked_user_id`). UNIQUE(event_id, blocked_guest_id). RLS: event couple manages own-event rows; admin all.
+  - Terms acceptance stored minimally as `guests.ugc_terms_accepted_at` (the guest row is the natural per-event participant record — no new table, no backfill).
+  - `papic_record_guest_capture` RPC re-created with two new authoritative gates BEFORE the quota check: a blocked guest → `status: 'blocked'`; a guest with NULL terms stamp → `status: 'terms_required'`.
+  - New SECURITY DEFINER fns: `papic_accept_ugc_terms(guest)` (idempotent stamp) + `report_guest_capture(reporter,capture,reason,details)` (guest-filed report, one open report per target).
+- **Guest capture flow** (`app/papic/guest/page.tsx`, `_components/papic-guest-capture.tsx`, `api/papic/guest-capture/route.ts`, new `api/papic/accept-terms/route.ts`): one-time terms-of-use gate (checkbox + objectionable-content rules + /terms link) before the first capture; blocked-guest short-circuit screen; capture API pre-checks block + terms (avoids R2 orphans) and the client handles new `blocked`/`terms_required` statuses.
+- **Couple moderation surface** (new `app/dashboard/[eventId]/add-ons/papic/moderation/`): lists every guest capture with Hide (`hidden_at`) / Report (routes to admin too) / event-scoped Block + a blocked-guests panel. Entry-point card added to the Papic add-on page.
+- **Admin queue** (new `app/admin/user-reports/`): moderator queue matching the disputes-surface pattern — status filters, thumbnails, actions hide content / block uploader / escalate / dismiss; nav entry added in the Work group of `admin-sidebar.tsx`.
+
+**Verification:** `pnpm migration:check` green (301 migrations, unique prefixes); `pnpm --filter web typecheck`, `lint` (no new warnings), and `build` all pass; the 3 new routes appear in the build manifest. Migration deliberately NOT pushed to prod.
+
+**SPEC IMPACT:** New tables `user_reports` + `event_blocked_users` + `guests.ugc_terms_accepted_at`; new admin surface `/admin/user-reports`; new couple surface `/dashboard/[eventId]/add-ons/papic/moderation`; capture-RPC behavior change (block + terms gates). Touches iterations **0012 (Papic)**, **0031 (day-of guest)**, and **0023 (admin console)**. Corpus edit deferred to a Cowork pass (per the relaxed sync mandate — code is canonical); log a `DECISION_LOG.md` row: event-scoped block keyed on `blocked_guest_id` (the abusive uploader is a guest, not a `users` account); terms acceptance stored on `guests`; no comment-report path (no comment feature exists).
 
 ## 2026-06-11 · feat(taxonomy): admin can assign which events a category serves (Phase 1 wiring)
 

@@ -40,6 +40,7 @@ import {
   Flag,
   CheckCheck,
   LifeBuoy,
+  UserX,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -69,6 +70,7 @@ export default async function AdminWorkLanding() {
     forceMajeureRes,
     reviewsRes,
     abuseRes,
+    accountDeletionsRes,
     approvalsRes,
     helpRes,
   ] = await Promise.all([
@@ -107,6 +109,10 @@ export default async function AdminWorkLanding() {
       .from('concierge_abuse_flags')
       .select('*', head)
       .eq('status', 'pending_review'),
+    admin
+      .from('account_deletion_requests')
+      .select('*', head)
+      .eq('status', 'pending'),
     admin
       .from('admin_approval_requests')
       .select('*', head)
@@ -198,6 +204,14 @@ export default async function AdminWorkLanding() {
       icon: Flag,
       description: 'Trial-cycling flags to review.',
       count: take(abuseRes.count),
+    },
+    {
+      key: 'account-deletions',
+      label: 'Account deletions',
+      href: '/admin/account-deletions',
+      icon: UserX,
+      description: 'Self-serve account-deletion requests to review.',
+      count: take(accountDeletionsRes.count),
     },
     {
       key: 'approvals',

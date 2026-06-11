@@ -12,6 +12,11 @@ import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
+import {
+  resolveMonogramMotion,
+  type MonogramMotionKey,
+} from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitRsvp, withdrawFaceConsent } from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
@@ -25,6 +30,8 @@ import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
+import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
+import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -109,7 +116,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -120,15 +127,32 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const monogram = resolveMonogram(event);
 
   // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
-  // When the event owns it, the monogram hero circle DRAWS ITSELF IN with an
-  // SVG stroke-trace reveal on load instead of rendering static. Resolved once
-  // here via the admin client (this page renders for anonymous visitors with
-  // no RLS session) + threaded into the hero render branches below. Degrades
-  // to `false` (static monogram) on any orders-table shape error — see
-  // lib/animated-monogram.ts. Binds the V2 catalog SKU that v2-catalog.ts
-  // marked 'partial'; the separate 0004 monogram_hero_upgrade widget path is
-  // untouched.
-  const animatedMonogram = await eventOwnsAnimatedMonogram(admin, event.event_id);
+  // When the event owns it, the monogram hero circle ANIMATES on load with
+  // the couple's chosen Motion Library signature (lib/monogram-motion.ts ·
+  // events.monogram_motion_key · NULL → 'draw') instead of rendering static.
+  // Resolved once here via the admin client (this page renders for anonymous
+  // visitors with no RLS session) + threaded into the hero render branches
+  // below as `MonogramMotionKey | false` — false = static circle. Degrades to
+  // `false` on any orders-table shape error — see lib/animated-monogram.ts.
+  // The separate 0004 monogram_hero_upgrade widget path is untouched.
+  const ownsAnimatedMonogram = await eventOwnsAnimatedMonogram(
+    admin,
+    event.event_id,
+  );
+  const animatedMonogram: MonogramMotionKey | false = ownsAnimatedMonogram
+    ? resolveMonogramMotion(event.monogram_motion_key)
+    : false;
+
+  // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
+  // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
+  // generation time, lib/bespoke-monogram-engine.ts), it REPLACES the
+  // typographic circle on the hero. ANIMATED_MONOGRAM owners get a gentle
+  // bloom-in entrance (glyph-level Motion Library signatures need letterform
+  // strokes, so the bespoke mark uses the container-level entrance instead).
+  const bespokeSvg =
+    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
+      ? event.monogram_custom_svg
+      : null;
 
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
@@ -258,6 +282,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           event={event}
           monogram={monogram}
           animatedMonogram={animatedMonogram}
+          bespokeSvg={bespokeSvg}
         />
       );
     }
@@ -312,6 +337,29 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // public — safe to show to anonymous visitors.
   const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
 
+  // Spatial backdrop (Wedding_Website_Effects_and_Editing_Spec_2026-06-11
+  // §2.1b) — the AI-generated world behind the RSVP page. SEPARATE tolerant
+  // read instead of a column on the main events select: on a DB where
+  // migration 20261105000000 hasn't applied yet, an unknown column in the
+  // MAIN select would error the whole fetch and 404 every wedding page —
+  // here it just degrades to "no backdrop". RSVP-era only (pre/inactive):
+  // the live day-of page stays lean for weak venue WiFi, and the post-event
+  // page belongs to the editorial treatment.
+  let backdrop: React.ReactNode = null;
+  if (dayOfPhase === 'pre' || dayOfPhase === 'inactive') {
+    const { data: backdropRow, error: backdropError } = await admin
+      .from('events')
+      .select('rsvp_backdrop')
+      .eq('event_id', event.event_id)
+      .maybeSingle();
+    const backdropConfig = backdropError
+      ? null
+      : parseRsvpBackdropConfig(
+          (backdropRow as { rsvp_backdrop?: unknown } | null)?.rsvp_backdrop,
+        );
+    if (backdropConfig) backdrop = <SpatialBackdrop config={backdropConfig} />;
+  }
+
   if (!session) {
     return (
       <PublicLanding
@@ -326,6 +374,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
+        backdrop={backdrop}
       />
     );
   }
@@ -346,6 +395,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
+        backdrop={backdrop}
       />
     );
   }
@@ -373,6 +423,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
+        backdrop={backdrop}
       />
     );
   }
@@ -413,6 +464,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         invitationUrl={invitationUrl}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        bespokeSvg={bespokeSvg}
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
@@ -422,6 +474,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         bgMusicUrl={bgMusicUrl}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
+        backdrop={backdrop}
       />
       {papicGuestActive && (
         <Link
@@ -517,10 +570,28 @@ type GuestRow = {
   photo_source: 'oauth_google' | 'selfie' | 'couple_upload' | null;
 };
 
-function InvitationShell({ children }: { children: React.ReactNode }) {
+/**
+ * Page chrome shared by every landing state. When `backdrop` is provided (the
+ * spatial RSVP backdrop), the world renders FIXED behind everything and the
+ * content column sits DIRECTLY on the world — no panel. (Owner 2026-06-11:
+ * "remove the white background, so the widgets feel seamless" — the original
+ * vellum sheet read as a big white card.) Each widget keeps its own cream
+ * card surface, so the cards float on the art; legibility for the LOOSE text
+ * between cards comes from the soft blurred light-column the SpatialBackdrop
+ * itself renders behind the content area (reads as ambient glow, not paper).
+ * The footer goes transparent over the backdrop's bottom vignette.
+ */
+function InvitationShell({
+  children,
+  backdrop,
+}: {
+  children: React.ReactNode;
+  backdrop?: React.ReactNode;
+}) {
   return (
-    <main className="min-h-dvh bg-cream text-ink">
-      <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
+    <main className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}>
+      {backdrop}
+      <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
@@ -533,15 +604,39 @@ function InvitationShell({ children }: { children: React.ReactNode }) {
           </span>
         </div>
       </header>
-      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
+      <div
+        className={
+          backdrop
+            ? // text-shadow INHERITS: every text node in the column gets a soft
+              // cream halo — invisible on the widgets' own cream cards, but it
+              // rims the LOOSE dark text (intro copy, eyebrows, greetings) so
+              // it stays readable directly on the world art. This carries the
+              // legibility duty the retired vellum/wash used to (v3, owner
+              // screenshot feedback: even the /35 wash read as a white veil).
+              'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'
+            : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14'
+        }
+      >
+        {children}
+      </div>
       {/* Quiet footer signature — structural addition from v2.1 guest-microsite
           template's "See you on the 12th." closing line. Italic serif treatment
           gives the page an editorial sign-off without competing with the
           functional widgets above. Couple palette tokens (terracotta · ink)
           untouched. */}
-      <footer className="border-t border-ink/10 px-4 py-8 text-center">
-        <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
-        <p className="mt-3 text-xs text-ink/50">
+      <footer
+        className={`relative z-10 px-4 py-8 text-center ${
+          backdrop ? 'border-t border-cream/15' : 'border-t border-ink/10'
+        }`}
+      >
+        <p
+          className={`font-serif text-lg italic ${
+            backdrop ? 'text-cream/90' : 'text-terracotta'
+          }`}
+        >
+          See you soon.
+        </p>
+        <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
           Powered by Setnayan · setnayan.com
         </p>
       </footer>
@@ -607,6 +702,7 @@ function PublicLanding({
   ourPhotoUrls,
   widgets,
   scheduleBlocks,
+  backdrop,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -641,6 +737,8 @@ function PublicLanding({
   // already returns host-marked-public rows only — safe for anonymous
   // visitors to see.
   scheduleBlocks: ScheduleBlockRow[];
+  /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
+  backdrop?: React.ReactNode;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -691,7 +789,7 @@ function PublicLanding({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell>
+    <InvitationShell backdrop={backdrop}>
       <GuestPreload eventSlug={event.slug} />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -886,23 +984,37 @@ function PrivateLanding({
   event,
   monogram,
   animatedMonogram,
+  bespokeSvg,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
-  // True when the event owns the paid ANIMATED_MONOGRAM upgrade — the monogram
-  // circle draws itself in instead of rendering static. See [slug]/page.tsx
-  // resolution + lib/animated-monogram.ts.
-  animatedMonogram: boolean;
+  // The chosen Motion Library signature when the event owns the paid
+  // ANIMATED_MONOGRAM upgrade, or false → static circle. See [slug]/page.tsx
+  // resolution + lib/animated-monogram.ts + lib/monogram-motion.ts.
+  animatedMonogram: MonogramMotionKey | false;
+  // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
+  // typographic circle when present. See [slug]/page.tsx resolution.
+  bespokeSvg: string | null;
 }) {
   return (
     <InvitationShell>
       <div className="space-y-8 text-center">
-        {animatedMonogram ? (
+        {bespokeSvg ? (
+          <div className="flex justify-center">
+            <BespokeMonogramMark
+              svg={bespokeSvg}
+              color={monogram.color}
+              size="md"
+              entrance={Boolean(animatedMonogram)}
+            />
+          </div>
+        ) : animatedMonogram ? (
           <div className="flex justify-center">
             <AnimatedMonogramHero
               text={monogram.text}
               color={monogram.color}
               size="md"
+              motion={animatedMonogram}
             />
           </div>
         ) : (
@@ -956,6 +1068,7 @@ function InvitationSite({
   invitationUrl,
   monogram,
   animatedMonogram,
+  bespokeSvg,
   scheduleBlocks,
   dayOfPhase,
   phasesEnabled,
@@ -965,16 +1078,21 @@ function InvitationSite({
   bgMusicUrl,
   ourPhotoUrls,
   widgets,
+  backdrop,
 }: {
   event: EventRow;
   guest: GuestRow;
   qrSvg: string;
   invitationUrl: string;
   monogram: MonogramConfig;
-  // True when the event owns the paid ANIMATED_MONOGRAM upgrade — the hero
-  // monogram circle draws itself in instead of rendering static. See
-  // [slug]/page.tsx resolution + lib/animated-monogram.ts.
-  animatedMonogram: boolean;
+  // The chosen Motion Library signature when the event owns the paid
+  // ANIMATED_MONOGRAM upgrade, or false → static hero circle. See
+  // [slug]/page.tsx resolution + lib/animated-monogram.ts +
+  // lib/monogram-motion.ts.
+  animatedMonogram: MonogramMotionKey | false;
+  // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
+  // typographic circle in both hero branches when present.
+  bespokeSvg: string | null;
   scheduleBlocks: ScheduleBlockRow[];
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1000,6 +1118,8 @@ function InvitationSite({
   // greeting, qr_card, rsvp) render in fixed positions per the editor
   // contract; hideable widgets render in display_order after RSVP.
   widgets: readonly InvitationWidgetRow[];
+  /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
+  backdrop?: React.ReactNode;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1069,7 +1189,7 @@ function InvitationSite({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell>
+    <InvitationShell backdrop={backdrop}>
       <GuestPreload eventSlug={event.slug} />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">
@@ -1100,13 +1220,24 @@ function InvitationSite({
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                 You are invited
               </p>
-              {animatedMonogram ? (
+              {bespokeSvg ? (
+                <div className="mt-6 flex justify-center">
+                  <BespokeMonogramMark
+                    svg={bespokeSvg}
+                    color={monogram.color}
+                    size="md"
+                    shadow
+                    entrance={Boolean(animatedMonogram)}
+                  />
+                </div>
+              ) : animatedMonogram ? (
                 <div className="mt-6 flex justify-center">
                   <AnimatedMonogramHero
                     text={monogram.text}
                     color={monogram.color}
                     size="md"
                     shadow
+                    motion={animatedMonogram}
                   />
                 </div>
               ) : (
@@ -1137,12 +1268,22 @@ function InvitationSite({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
             </p>
-            {animatedMonogram ? (
+            {bespokeSvg ? (
+              <div className="mt-6 flex justify-center">
+                <BespokeMonogramMark
+                  svg={bespokeSvg}
+                  color={monogram.color}
+                  size="md"
+                  entrance={Boolean(animatedMonogram)}
+                />
+              </div>
+            ) : animatedMonogram ? (
               <div className="mt-6 flex justify-center">
                 <AnimatedMonogramHero
                   text={monogram.text}
                   color={monogram.color}
                   size="md"
+                  motion={animatedMonogram}
                 />
               </div>
             ) : (

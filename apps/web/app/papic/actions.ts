@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
+import { screenCapture } from '@/lib/nsfw-screen';
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -91,6 +92,7 @@ export type RecordSeatCaptureResult =
 export async function recordSeatCapture(
   token: string,
   r2ObjectKey: string,
+  kind: 'photo' | 'clip' = 'photo',
 ): Promise<RecordSeatCaptureResult> {
   const cleanToken = token?.trim();
   const cleanKey = r2ObjectKey?.trim();
@@ -125,12 +127,22 @@ export async function recordSeatCapture(
     event_id: seat.event_id,
     paparazzi_seat_id: seat.seat_id,
     r2_object_key: cleanKey,
-    photo_type: 'photo',
+    photo_type: kind === 'clip' ? 'clip' : 'photo',
   });
 
   if (insertError) {
     return { ok: false, error: insertError.message.slice(0, 80) };
   }
+
+  // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in
+  // the BACKGROUND with after() so the camera stays responsive. The bytes are
+  // already in R2 (client PUT via /api/upload), so the screen fetches them back
+  // by the stored r2:// ref. Fail-open: any error leaves the row 'unscreened'.
+  after(() =>
+    screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(
+      () => {},
+    ),
+  );
 
   // Auto-sync this capture into the couple's Google Drive (Phase 2), cron-free:
   // enqueue the artifact, then copy it in the BACKGROUND with after() so the
@@ -145,8 +157,8 @@ export async function recordSeatCapture(
       files: [
         {
           r2ObjectKey: cleanKey,
-          fileName: cleanKey.split('/').pop() || 'papic.jpg',
-          mimeType: 'image/jpeg',
+          fileName: cleanKey.split('/').pop() || (kind === 'clip' ? 'papic.webm' : 'papic.jpg'),
+          mimeType: kind === 'clip' ? 'video/webm' : 'image/jpeg',
           sourceTable: 'papic_photos',
         },
       ],

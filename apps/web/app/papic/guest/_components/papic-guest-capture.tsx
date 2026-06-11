@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, Check, CircleAlert, ImageIcon } from 'lucide-react';
+import { Camera, Loader2, Check, CircleAlert, ImageIcon, ShieldCheck } from 'lucide-react';
 
 // Papic · guest capture (client)
 //
@@ -20,9 +20,17 @@ type Props = {
   eventName: string;
   initialRemaining: number;
   total: number;
+  /** Has this guest already accepted the one-time UGC terms of use? */
+  termsAccepted: boolean;
 };
 
-export function PapicGuestCapture({ guestName, eventName, initialRemaining, total }: Props) {
+export function PapicGuestCapture({
+  guestName,
+  eventName,
+  initialRemaining,
+  total,
+  termsAccepted,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -33,10 +41,38 @@ export function PapicGuestCapture({ guestName, eventName, initialRemaining, tota
   const [remaining, setRemaining] = useState(initialRemaining);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(false);
+
+  // UGC terms gate (Apple 1.2 / Google Play UGC). The guest must accept the
+  // objectionable-content terms once before their first capture. If they've
+  // already accepted (server-resolved), this is true and the camera shows
+  // immediately.
+  const [accepted, setAccepted] = useState(termsAccepted);
+  const [agreeChecked, setAgreeChecked] = useState(false);
+  const [acceptBusy, setAcceptBusy] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const exhausted = remaining <= 0;
 
+  const acceptTerms = useCallback(async () => {
+    if (acceptBusy || !agreeChecked) return;
+    setAcceptBusy(true);
+    setAcceptError(null);
+    try {
+      const res = await fetch('/api/papic/accept-terms', { method: 'POST' });
+      if (!res.ok) throw new Error('accept');
+      setAccepted(true);
+    } catch {
+      setAcceptError('Could not save that — check your signal and try again.');
+    } finally {
+      setAcceptBusy(false);
+    }
+  }, [acceptBusy, agreeChecked]);
+
   useEffect(() => {
+    // Don't request the camera until the guest has accepted the UGC terms and
+    // isn't blocked — no point prompting for camera access behind the gate.
+    if (!accepted || blocked) return;
     let cancelled = false;
     async function start() {
       try {
@@ -63,10 +99,10 @@ export function PapicGuestCapture({ guestName, eventName, initialRemaining, tota
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [accepted, blocked]);
 
   const capture = useCallback(async () => {
-    if (busy || !ready || exhausted) return;
+    if (busy || !ready || exhausted || !accepted || blocked) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
@@ -111,6 +147,17 @@ export function PapicGuestCapture({ guestName, eventName, initialRemaining, tota
         setSaveError(null);
         return;
       }
+      // UGC moderation gates enforced server-side in the capture RPC.
+      if (json.status === 'blocked') {
+        setBlocked(true);
+        setSaveError(null);
+        return;
+      }
+      if (json.status === 'terms_required') {
+        setAccepted(false);
+        setSaveError(null);
+        return;
+      }
       if (!res.ok || json.status !== 'ok') {
         throw new Error(json.error ?? 'record');
       }
@@ -123,7 +170,91 @@ export function PapicGuestCapture({ guestName, eventName, initialRemaining, tota
     } finally {
       setBusy(false);
     }
-  }, [busy, ready, exhausted]);
+  }, [busy, ready, exhausted, accepted, blocked]);
+
+  if (blocked) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
+        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
+          <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
+          <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
+          <p className="mt-2 text-sm text-ink/65">
+            The couple has turned off your guest camera for this wedding. If you
+            think this is a mistake, reach out to the couple directly.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // UGC terms-of-use gate — shown once, before the first capture. Defines what
+  // counts as objectionable content and requires explicit acceptance (Apple
+  // 1.2 / Google Play UGC EULA requirement).
+  if (!accepted) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-10 text-ink">
+        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
+          <ShieldCheck aria-hidden className="h-7 w-7 text-mulberry" strokeWidth={1.75} />
+          <h1 className="mt-3 text-xl font-semibold tracking-tight">
+            Before you start shooting, {guestName}
+          </h1>
+          <p className="mt-2 text-sm text-ink/70">
+            Your photos go straight into {eventName}&rsquo;s gallery and may be
+            seen by other guests and the couple. By using this camera you agree
+            to our{' '}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-mulberry underline underline-offset-2"
+            >
+              Terms of Use
+            </a>{' '}
+            and to keep your shots free of objectionable content.
+          </p>
+          <ul className="mt-4 space-y-1.5 text-sm text-ink/65">
+            <li>· No nudity, sexual, or explicit content.</li>
+            <li>· No violence, hate, or harassment of any guest.</li>
+            <li>· Only candid moments from this celebration.</li>
+          </ul>
+          <p className="mt-3 text-xs text-ink/55">
+            The couple can hide any photo, report it to Setnayan, and block your
+            camera. Reported content is reviewed by our team.
+          </p>
+
+          <label className="mt-5 flex items-start gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/80">
+            <input
+              type="checkbox"
+              checked={agreeChecked}
+              onChange={(e) => setAgreeChecked(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-mulberry"
+            />
+            <span>I agree to the Terms of Use and will only share appropriate photos.</span>
+          </label>
+
+          {acceptError && (
+            <p role="alert" className="mt-3 text-center text-xs text-terracotta">
+              {acceptError}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={acceptTerms}
+            disabled={!agreeChecked || acceptBusy}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-40"
+          >
+            {acceptBusy ? (
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+            ) : (
+              <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
+            )}
+            Agree &amp; open my camera
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (camError) {
     return (

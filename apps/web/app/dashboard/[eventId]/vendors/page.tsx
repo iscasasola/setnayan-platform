@@ -530,6 +530,8 @@ export default async function VendorsPage({ params }: Props) {
         anchors={buildAnchors}
         buildItems={buildItems}
         budgetPhp={buildAnchors.budget.php}
+        rangeLoPhp={Math.round(model.rangeLoCentavos / 100)}
+        rangeHiPhp={Math.round(model.rangeHiCentavos / 100)}
         categoryFill={{
           openCats: buildChildren
             .filter((c) => c.state === 'empty')

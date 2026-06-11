@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(vendors): Build tab "What's fixed?" pin modes — Pin solver Phase 3a
+
+**Context:** Phase 3a of the Pin constraint solver (`Budget_Build_Pin_Solver_Plan_2026-06-09.md` §4), owner green-lit 2026-06-11 ("can we jump to build?"). The couple declares which dimension LEADS the solve — Budget (default, unchanged behavior) · Services (the picked set is fixed; budget becomes a derived readout) · Date (the day is fixed) — and the Build tab reframes around it. No engine work, no migration, `/find-date` reused (never forked), exactly as planned.
+
+- **`_components/build-pin-mode.tsx` (new):** the "What's fixed?" segmented control + per-mode panel at the top of the Build tab (above the PR-D anchors). Services mode shows the honest derived readout — "this plan needs ₱X–₱Y" from the model's `rangeLo/HiCentavos` span — plus a find-your-date bridge; Date mode shows the pinned day (or points to the date anchor), the find-date bridge, and an explicit "prices stay typical — they don't flex by date yet" line so we never imply date-aware pricing before Phase 3b ships.
+- **Persistence:** client-local per event (`localStorage`, SSR-safe lazy hydrate, storage-blocked-safe) — cross-device persistence is the open owner decision (plan §9.4). Saved Compare snapshots are stamped with the mode: `PlanBuildSnapshot.pinMode` (optional, forward-compat, JSONB — pre-3a snapshots unaffected).
+- **Wiring:** `build-pins.tsx` renders the control; `page.tsx` passes the model range; `build-compare.tsx` stamps `pinMode` on save via `readPinMode`.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings in untouched files only). Pure client UI over existing data — no new reads/writes beyond the snapshot field.
+
+**SPEC IMPACT:** `Budget_Build_Pin_Solver_Plan_2026-06-09.md` Phase 3a → SHIPPED (corpus DECISION_LOG row appended with this change). Open decisions untouched: §9.1 seasonality (3b), §9.2 hard-date semantics, §9.3 free/paid line, §9.4 persistence (defaulted to local + snapshot stamp pending owner).
+
 ## 2026-06-11 · style(website): spatial backdrop — seamless floating widgets (vellum sheet removed)
 
 **Context:** Owner, from a live prod screenshot of the new spatial backdrop: *"remove the white background. so the widgets feels seamless on the background."* The full-column translucent vellum panel read as one big white card.

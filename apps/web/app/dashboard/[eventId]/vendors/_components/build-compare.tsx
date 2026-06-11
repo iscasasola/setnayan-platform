@@ -27,6 +27,7 @@ import {
   type BuildSlot,
 } from '../build-actions';
 import { applyBuildToWorking } from '../build-pick-actions';
+import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
 
 const peso = (php: number | null) =>
@@ -114,7 +115,9 @@ export function BuildCompare({
         eventId,
         label: slot,
         title: name.trim() || undefined,
-        snapshot: currentPlan,
+        // Stamp which dimension led the solve (Pin solver Phase 3a) — read from
+        // the Build tab's client-local mode, defaults to 'budget'.
+        snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
       });
       if (!res.ok) setErr(res.error);
       else {

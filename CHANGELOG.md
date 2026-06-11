@@ -16,6 +16,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** `Budget_Build_Pin_Solver_Plan_2026-06-09.md` Phase 3a → SHIPPED (corpus DECISION_LOG row appended with this change). Open decisions untouched: §9.1 seasonality (3b), §9.2 hard-date semantics, §9.3 free/paid line, §9.4 persistence (defaulted to local + snapshot stamp pending owner).
 
+## 2026-06-11 · style(website): spatial backdrop v3 — wash to /12 + cream text-halo (kill the milky veil)
+
+**Context:** Owner, from the live v2 screenshot: the `/35` light column still read as a milky white veil over the middle — the world wasn't truly showing through.
+
+- **`app/_components/spatial-backdrop.tsx`:** light column `bg-cream/35` → `bg-cream/[0.12]` — barely-there luminance lift; the art now reads vividly across the whole page.
+- **`app/[slug]/page.tsx` (InvitationShell):** legibility duty moves to a **cream text-halo** on the content column — an *inherited* `text-shadow` (cream bloom + faint dark micro-rim), invisible on the widgets' own cream cards but rimming loose dark text against the art. Both polarities covered (dark text on bright art via the dark rim; dark text on dark art via the cream bloom).
+
+**Verification:** clean-build local harness — world fully visible between/around cards, intro text + eyebrow legible at the top, zero console errors (an apparent hydration mismatch turned out to be Next dev's half-recompiled module cache; gone on a cleared-`.next` fresh build). `tsc` clean.
+
+**SPEC IMPACT:** §2.1b legibility note updated to v3 (light column /12 + inherited text-halo) — applied in the corpus with this change's DECISION_LOG row.
+
 ## 2026-06-11 · style(website): spatial backdrop — seamless floating widgets (vellum sheet removed)
 
 **Context:** Owner, from a live prod screenshot of the new spatial backdrop: *"remove the white background. so the widgets feels seamless on the background."* The full-column translucent vellum panel read as one big white card.

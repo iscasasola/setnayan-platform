@@ -151,15 +151,15 @@ export function SpatialBackdrop({ config }: { config: RsvpBackdropConfig }) {
             'linear-gradient(to bottom, rgba(10,10,16,0.55), transparent 18%, transparent 82%, rgba(10,10,16,0.6))',
         }}
       />
-      {/* Light column — the legibility layer that replaced the vellum panel
-          (owner 2026-06-11 "remove the white background"). A heavily blurred
-          cream wash sitting behind the content column so LOOSE ink text
-          (intro copy, eyebrows, greetings) stays readable while the world
-          shows through everywhere; widget cards carry their own surfaces.
-          Blur softens the edges so it reads as ambient glow, not paper. */}
+      {/* Light column v3 — barely-there luminance lift behind the content
+          column. The v2 wash at /35 still read as a milky white veil (owner
+          screenshot feedback); at /12 the world shows through the middle and
+          loose-text legibility is carried by the cream text-halo the
+          InvitationShell content column applies instead (inherited
+          text-shadow — invisible on the cards' own cream surfaces). */}
       <div
         aria-hidden
-        className="absolute inset-y-0 left-1/2 w-full max-w-[860px] -translate-x-1/2 bg-cream/35 blur-3xl"
+        className="absolute inset-y-0 left-1/2 w-full max-w-[860px] -translate-x-1/2 bg-cream/[0.12] blur-3xl"
       />
     </div>
   );

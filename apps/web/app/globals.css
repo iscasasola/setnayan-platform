@@ -1080,3 +1080,29 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
     pointer-events: none;
   }
 }
+
+/* Salamisim Live Photo Wall (0012 P1) — new-tile entrance on the venue
+   projection: gold ring + gentle scale, 2s, then settles. */
+@keyframes wall-tile-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.9);
+  }
+  60% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(197, 160, 89, 0);
+    transform: scale(1);
+  }
+}
+.wall-tile-new {
+  animation: wall-tile-enter 2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wall-tile-new {
+    animation: none;
+  }
+}

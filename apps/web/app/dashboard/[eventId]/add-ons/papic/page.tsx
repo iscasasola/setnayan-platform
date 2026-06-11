@@ -41,6 +41,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
+import { LiveWallCard } from './_components/live-wall-card';
 
 // Iteration 0012 — Papic (V1 setup surface)
 //
@@ -436,6 +437,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         bridgeSeats={bridgeSeats}
         totalSeats={totalSeats}
       />
+
+      <LiveWallCard eventId={eventId} />
 
       <GestureReferenceCard />
 

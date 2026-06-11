@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(vendors): Shortlist "Add a contact" post-save step — quick price + invite link (DIY add made easy)
+
+**Context:** Owner (2026-06-11, dual-path doctrine session): adding your own vendor from the Shortlist "needs to be easy to manage." Study of the shipped flow: the Add-manually entry points were already everywhere (empty-state row + end-of-rail card, every category), but the modal closed instantly on save — the new card landed UNPRICED (so the owner's "only priced services join the build" gate kept Add-to-build disabled) and pricing meant navigating into the workspace's costing section. The invite link was discoverable only in the workspace (or auto at lock).
+
+- **`new-manual-vendor-modal.tsx` — post-save step:** after the manual two-step save, the form swaps for a quick-options panel (same modal, zero navigation): ✓ "{Vendor} added to {category}" → **(1) Their package price** (one ₱ field → `updateVendorCosts` → "ready for your build" — opens the Add-to-build gate on the spot) → **(2) Invite them to Setnayan** ("Get their invite link" → copy + native-share affordances + the carries-over reassurance) → Done. Marketplace-link mode keeps the instant close (already on Setnayan; price comes from their listing). Every close affordance (X / backdrop / ESC) routes through `onCreated` once the row exists so the page always refreshes.
+- **`vendors/actions.ts` — `createManualVendorInvite` (new):** host-initiated claim link at ADD time — auth + RLS-scoped row check (manual-only; marketplace vendors rejected), then the SAME idempotent `ensureAutoShareInvite` primitive `finalizeVendor` uses at lock; returns `buildClaimUrl` for the client.
+- **`plan-budget-accordion.tsx`:** fixed a stale comment claiming the modal "auto-creates the claim-invite" (it never did — that was drift; the invite was lock-time only).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warnings only). The add form's locked field set (Photo + Name + Contact Person + Number, owner 2026-05-22) is untouched — the step is purely additive after save.
+
+**SPEC IMPACT:** Extends the 2026-06-11 dual-path doctrine row in corpus `DECISION_LOG.md` (DIY add → price → invite, one surface). The two larger gaps from that audit (couple-authored inclusions + "also covers" links) remain open/queued.
+
 ## 2026-06-11 · fix+test(seating): adversarial-review fixes + first seating-logic test suite (0008)
 
 **Context:** Owner 2026-06-11 — "full authority to make sure this works: do tests, any proper coding." Ran a 47-agent adversarial review (4 finder lenses → per-finding verification) over all shipped seating code; 43 raw → 14 confirmed findings; triaged with judgment (2 rejected as wrong — the free-count "fix" would over-seat tables; alphabetical place cards are the correct convention; 5 deferred as low-impact/risky). Applied the 3 high-confidence fixes + added the missing test layer.

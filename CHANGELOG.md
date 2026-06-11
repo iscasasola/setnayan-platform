@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(papic): Kwento Magazine — Variant A, the free couple-private PDF keepsake (0012)
+
+**Context:** Owner: "continue" (and the original ask: "a PDF of different kwentos in timeline of their wedding, with the couple's storyline"). Variant A of the Kwento Magazine design: the FREE, couple-PRIVATE A4 keepsake — the couple's storyline as the FRAME (prologue "Ang Simula" → "Salamat"), the wedding day's `captured_at` timeline as the SPINE (deterministic gap-clustered chapters with PH bilingual titles), and approved Kwentos rendered beside the exact photo each guest wrote about. With `photo_messages` now live (PR #1257), the Kwento weave ships WITH Variant A rather than after it.
+
+- **`lib/kwento-magazine.ts`** — pure layout/logic lib (concept-pdf pattern: the route owns ALL I/O): deterministic `bucketMoments` (gap > max(20min, 1.5× median); <12 photos collapses to "Ang Araw"; **bucketing never truncates — curation owns the cap** so a Kwento-anchored photo can rescue a slot the raw cap would drop, with the cut count surfaced "+N more in your gallery") · `prioritizeKwentoAnchors` ("a Kwento earns its photo a slot") · `winAnsiSafe` (keeps ñ/é/curly-quotes/em-dash, strips only emoji — no text font renders them; Cormorant/fontkit = flagged polish pass) · the full renderer: cover (monogram ring + names + gold-framed hero) → prologue (lede + milestones rail + pull-quote + the love-story→wedding-day hand-off beat) → chapters (title band + framed photos + italic pull-quote kwentos with mulberry attribution) → **"Mga Boses"** orphan quote-wall (no guest's words are ever lost) → Salamat (stats woven warmly + "Unang Edisyon") · every page footed "PARA SA INYO LANG · FOR YOU ONLY".
+- **Route `…/add-ons/papic/magazine`** (GET → PDF download; couple-gated; `maxDuration` 60): assembles the SAME editorial frame the recap uses (`loadEditorialData` + `composeCopy` — no fork), UNIONs both capture streams (photos only, not hidden), pulls couple-APPROVED kwentos with author names, fetches ONLY curation-surviving images (≤48, chunked ×4, SSRF-guarded, sharp →1200px JPEG q80), streams the PDF named after the couple. **No share affordance by design** — Variant B (shareable) stays gated on the blur pipeline + the consent amendment.
+- **MagazineCard** on the Papic add-on page: shows photo/kwento counts + the download button + the "Para sa inyo lang" privacy note; hidden until photos exist.
+
+**Verification:** new 9-case suite incl. a REAL end-to-end render (12 pages from fixtures; written to /tmp for human eyes) + a **14/14 content assertion** against the decompressed PDF streams (cover kicker · chapters · kwento + attribution · Mga Boses · Salamat · privacy label · stats); 3 suite-driven fixes (cap-layering, emoji double-space, threshold); kwento 17/17 + live-wall 11/11 + camera-bridge 29/29 unchanged; `tsc` + scoped lint clean.
+
+**SPEC IMPACT:** Implements 0012 § Kwento Magazine Variant A/P1 + the P2 weave (its `photo_messages` dependency shipped first). Deferred per design: fontkit/Cormorant polish · async render-at-scale + Drive-copy push (P5) · Variant B shareable · print-on-demand (pricing batched to the holistic review). → DECISION_LOG + 0012 status note.
+
 ## 2026-06-11 · feat(papic): Kwento P0–P2 — guest photo messages: schema + author sheet + couple review + wall lower-third (0012)
 
 **Context:** Owner: "continue." Kwento (owner-locked 2026-06-10: text-only · free for EVERY guest incl. zero-account Receivers · wall captions are ONE-TAP approve) — the guest-voice layer that feeds the Live Wall lower-thirds and, later, the SDE/Thank-You title cards + the Kwento Magazine weave.

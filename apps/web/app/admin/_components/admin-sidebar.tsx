@@ -91,6 +91,7 @@ import {
   Bug,
   WifiOff,
   BarChart3,
+  CircleUser,
   LineChart,
   Settings,
   Wallet,
@@ -473,6 +474,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Demo mode',
         href: '/admin/settings/demo-mode',
         icon: Settings,
+      },
+      {
+        // Personal account security — admins use the shared /dashboard/profile
+        // surface (the /dashboard layout only redirects vendors). Without this
+        // entry the admin doorway had NO path to change-password / sign-out-
+        // other-devices except detouring through the customer role pill.
+        // Account-security suite 2026-06-11.
+        key: 'my-account',
+        label: 'My account',
+        href: '/dashboard/profile',
+        icon: CircleUser,
       },
     ],
   },

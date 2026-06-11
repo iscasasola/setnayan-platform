@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, KeyRound, MonitorSmartphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
@@ -13,7 +13,12 @@ import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
+import {
+  changePassword,
+  signOutOtherDevices,
+} from '@/lib/account-security-actions';
 import { saveVendorProfile } from '../actions';
 import { ServicesPicker } from '../_components/services-picker';
 import { CompletedEventsCard } from '../_components/completed-events-card';
@@ -84,7 +89,12 @@ const EVENT_TYPES_SERVED: ReadonlyArray<{ key: string; label: string; emoji: str
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
 type Props = {
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    password_changed?: string;
+    signed_out_others?: string;
+  }>;
 };
 
 export default async function VendorDashboardHome({ searchParams }: Props) {
@@ -399,6 +409,22 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
         >
           Profile saved.
+        </p>
+      ) : null}
+      {search.password_changed ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Password changed. Your session stays active; use the new password next time you sign in.
+        </p>
+      ) : null}
+      {search.signed_out_others ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Signed out everywhere else. Only this device is still signed in.
         </p>
       ) : null}
 
@@ -726,6 +752,111 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           </SubmitButton>
         </div>
       </form>
+
+      {/*
+        Security — account-security suite 2026-06-11. Same hardened shared
+        actions as the customer/admin profile (lib/account-security-actions.ts):
+        change password requires the CURRENT password (verified on a stateless
+        throwaway client so the real session cookies are never rewritten), and
+        "Sign out other devices" revokes every session except this one.
+        Chrome matches the vendor surface (--m-paper cards · m-label-mono
+        eyebrows · .app-surface Source Sans from the vendor layout).
+      */}
+      <section className="mt-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="m-label-mono" style={{ color: 'var(--m-slate)' }}>
+            Security
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+            Enter your current password, then a new one (minimum 8 characters).
+            Your current session stays active. Forgot your current password —
+            or signed up with Google/Facebook or a magic link? Sign out and use
+            the reset link on the sign-in page instead.
+          </p>
+        </div>
+        <form
+          action={changePassword}
+          className="space-y-3 rounded-2xl p-5"
+          style={{
+            background: 'var(--m-paper)',
+            border: '1px solid var(--m-line)',
+            boxShadow: 'var(--m-shadow-sm)',
+          }}
+        >
+          <input type="hidden" name="return_to" value="/vendor-dashboard/profile" />
+          <Field label="Current password" htmlFor="current_password">
+            <input
+              id="current_password"
+              name="current_password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="input-field"
+            />
+          </Field>
+          <Field label="New password" htmlFor="new_password">
+            <input
+              id="new_password"
+              name="new_password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="input-field"
+            />
+          </Field>
+          <Field label="Confirm new password" htmlFor="confirm_password">
+            <input
+              id="confirm_password"
+              name="confirm_password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="input-field"
+            />
+          </Field>
+          <SubmitButton
+            className="button-primary inline-flex items-center gap-2"
+            pendingLabel="Changing…"
+          >
+            <KeyRound aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Change password
+          </SubmitButton>
+        </form>
+        <div
+          className="flex flex-col gap-3 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between"
+          style={{
+            background: 'var(--m-paper)',
+            border: '1px solid var(--m-line)',
+            boxShadow: 'var(--m-shadow-sm)',
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Sign out other devices</p>
+            <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+              Ends every session except this one — handy if a teammate&rsquo;s
+              laptop or a shared phone is still signed in.
+            </p>
+          </div>
+          <ConfirmForm
+            action={signOutOtherDevices}
+            title="Sign out other devices?"
+            message="This signs you out on every other phone/laptop where you're logged in. This device stays signed in."
+            confirmLabel="Sign out others"
+            destructive={false}
+          >
+            <input type="hidden" name="return_to" value="/vendor-dashboard/profile" />
+            <SubmitButton
+              className="button-secondary inline-flex items-center gap-2"
+              pendingLabel="Signing out…"
+            >
+              <MonitorSmartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Sign out other devices
+            </SubmitButton>
+          </ConfirmForm>
+        </div>
+      </section>
     </div>
   );
   } catch (err) {

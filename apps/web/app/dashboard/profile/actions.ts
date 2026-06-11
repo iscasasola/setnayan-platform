@@ -207,51 +207,10 @@ export async function cancelAccountDeletionRequest(formData: FormData) {
   redirect('/dashboard/profile?deletion_cancelled=1#settings');
 }
 
-export async function changePassword(formData: FormData) {
-  const newPassword = formData.get('new_password');
-  const confirmPassword = formData.get('confirm_password');
-
-  if (typeof newPassword !== 'string' || typeof confirmPassword !== 'string') {
-    return redirect(
-      `/dashboard/profile?error=${encodeURIComponent('Invalid input')}`,
-    );
-  }
-  if (newPassword.length < 8) {
-    return redirect(
-      `/dashboard/profile?error=${encodeURIComponent('Password must be at least 8 characters')}`,
-    );
-  }
-  if (newPassword !== confirmPassword) {
-    return redirect(
-      `/dashboard/profile?error=${encodeURIComponent('Passwords do not match')}`,
-    );
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // supabase.auth.updateUser works for the signed-in user to set their own
-  // password — no admin client needed, the session token authorizes the call.
-  const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) {
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Change password',
-      file_path: 'app/dashboard/profile/actions.ts',
-      error_message: error.message,
-      payload_snapshot: { userId: user.id },
-    });
-    return redirect(
-      `/dashboard/profile?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  revalidatePath('/dashboard/profile');
-  redirect('/dashboard/profile?password_changed=1');
-}
+// changePassword moved to lib/account-security-actions.ts (2026-06-11
+// account-security suite) — now shared by the customer + admin profile at
+// /dashboard/profile AND the vendor profile at /vendor-dashboard/profile,
+// and hardened to verify the CURRENT password before updating.
 
 export async function updateLocalePreference(formData: FormData) {
   const raw = formData.get('locale');

@@ -18,6 +18,70 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
 
+## 2026-06-11 · feat(seating): Phase 1d — floor-plan kit: resizable walls + resizable stage + dance floor + service entrance (0008)
+
+**Context:** Owner 2026-06-10 — "the floorplan must be resizable · the walls will be a standard box · adding a place for the entrance, service entrance (optional), stage (must be resizable), dance floor." This slice lands the full kit.
+
+- **Migration `20261114000000_iteration_0008_floorplan_kit.sql`** (additive · idempotent · **applied to prod via `db query`**, 10 columns verified): `event_floor_plan` gains `stage_w/stage_h` (the stage is now a SIZED rect, % of canvas), `dance_enabled/x/y/w/h` (dance-floor zone), `service_entrance_enabled/x/y` (optional load-in/caterer door).
+- **Resizable box walls (to-scale mode):** drag the right/bottom edge or SE-corner handle to resize the ROOM in half-metre steps. The px→metre scale is **frozen at grab** (the canvas resizes mid-drag — reading it live would feed back into the math) and the **auto-place pass pauses during the drag** (`wallDragRef` guard) so un-anchored tables don't reshuffle every frame, re-resolving once on release (`wallSettled`). The typed Room-size inputs stay as the precision alternative (augment, not replace).
+- **Resizable stage:** the position-only pill became a sized rect (drag body to move · SE grip to resize, NW-anchored). Auto-seat keeps anchoring its rings on the stage centre.
+- **Dance floor:** a draggable, resizable dashed zone rendered under the tables; **`overlapsAny` now treats it as a no-table obstacle** — drops inside it slide around via the existing `nearestFree`, and auto-place avoids it for un-anchored tables.
+- **Service entrance:** optional second door marker (Truck icon), mirroring the main entrance. "Service door" + "Dance floor" toolbar buttons mirror "Add entrance".
+- `lib/seating.ts` `FloorPlanRow`/defaults/fetch + `saveFloorPlan` (sizes clamp 2–100%) extended; `saveLayout` persists all kit fields.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · migration applied + 10 columns verified on prod. Handle feel is visual — Vercel preview at desktop + touch.
+
+**SPEC IMPACT:** 0008 floor-plan kit lands (the spec's stage/dancefloor/doors section was deferred at MVP) — service entrance is NEW beyond the spec's `doors` JSONB concept (owner-directed). → covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row; 0008 AS-BUILT header already updated this session.
+
+## 2026-06-11 · feat(papic): Kwento Magazine — Variant A, the free couple-private PDF keepsake (0012)
+
+**Context:** Owner: "continue" (and the original ask: "a PDF of different kwentos in timeline of their wedding, with the couple's storyline"). Variant A of the Kwento Magazine design: the FREE, couple-PRIVATE A4 keepsake — the couple's storyline as the FRAME (prologue "Ang Simula" → "Salamat"), the wedding day's `captured_at` timeline as the SPINE (deterministic gap-clustered chapters with PH bilingual titles), and approved Kwentos rendered beside the exact photo each guest wrote about. With `photo_messages` now live (PR #1257), the Kwento weave ships WITH Variant A rather than after it.
+
+- **`lib/kwento-magazine.ts`** — pure layout/logic lib (concept-pdf pattern: the route owns ALL I/O): deterministic `bucketMoments` (gap > max(20min, 1.5× median); <12 photos collapses to "Ang Araw"; **bucketing never truncates — curation owns the cap** so a Kwento-anchored photo can rescue a slot the raw cap would drop, with the cut count surfaced "+N more in your gallery") · `prioritizeKwentoAnchors` ("a Kwento earns its photo a slot") · `winAnsiSafe` (keeps ñ/é/curly-quotes/em-dash, strips only emoji — no text font renders them; Cormorant/fontkit = flagged polish pass) · the full renderer: cover (monogram ring + names + gold-framed hero) → prologue (lede + milestones rail + pull-quote + the love-story→wedding-day hand-off beat) → chapters (title band + framed photos + italic pull-quote kwentos with mulberry attribution) → **"Mga Boses"** orphan quote-wall (no guest's words are ever lost) → Salamat (stats woven warmly + "Unang Edisyon") · every page footed "PARA SA INYO LANG · FOR YOU ONLY".
+- **Route `…/add-ons/papic/magazine`** (GET → PDF download; couple-gated; `maxDuration` 60): assembles the SAME editorial frame the recap uses (`loadEditorialData` + `composeCopy` — no fork), UNIONs both capture streams (photos only, not hidden), pulls couple-APPROVED kwentos with author names, fetches ONLY curation-surviving images (≤48, chunked ×4, SSRF-guarded, sharp →1200px JPEG q80), streams the PDF named after the couple. **No share affordance by design** — Variant B (shareable) stays gated on the blur pipeline + the consent amendment.
+- **MagazineCard** on the Papic add-on page: shows photo/kwento counts + the download button + the "Para sa inyo lang" privacy note; hidden until photos exist.
+
+**Verification:** new 9-case suite incl. a REAL end-to-end render (12 pages from fixtures; written to /tmp for human eyes) + a **14/14 content assertion** against the decompressed PDF streams (cover kicker · chapters · kwento + attribution · Mga Boses · Salamat · privacy label · stats); 3 suite-driven fixes (cap-layering, emoji double-space, threshold); kwento 17/17 + live-wall 11/11 + camera-bridge 29/29 unchanged; `tsc` + scoped lint clean.
+
+**SPEC IMPACT:** Implements 0012 § Kwento Magazine Variant A/P1 + the P2 weave (its `photo_messages` dependency shipped first). Deferred per design: fontkit/Cormorant polish · async render-at-scale + Drive-copy push (P5) · Variant B shareable · print-on-demand (pricing batched to the holistic review). → DECISION_LOG + 0012 status note.
+
+## 2026-06-11 · feat(papic): Kwento P0–P2 — guest photo messages: schema + author sheet + couple review + wall lower-third (0012)
+
+**Context:** Owner: "continue." Kwento (owner-locked 2026-06-10: text-only · free for EVERY guest incl. zero-account Receivers · wall captions are ONE-TAP approve) — the guest-voice layer that feeds the Live Wall lower-thirds and, later, the SDE/Thank-You title cards + the Kwento Magazine weave.
+
+- **Migration `20261113000972_kwento_p0_photo_messages.sql`** (applied to prod + smoke-verified): `photo_messages` (POLYMORPHIC anchor over both capture tables — the corpus `photos(photo_id)` FK was broken-on-arrival; `UNIQUE(photo,guest)`; consent mandatory-at-insert; `print_consent` defaults FALSE fail-closed for the magazine; **DB interlocks** `wall_needs_clean` + `approved_needs_screen`) · `guest_message_blocks` (the per-(event,guest) harassment lever) · `submit_photo_message` (the ONLY guest write path, service-role: anchor-same-event, block lever, 10/event cap — rejected messages COUNT, 3/60s burst via advisory lock, edit-resets-moderation + pulls the wall caption, max 3 edits, locked once baked) · `guest_visible_messages` (the audited zero-account reader) · `wall_approve_caption`/`wall_clear_caption` (the one-tap wall gate; couple/coordinator checked INTERNALLY; flagged can never pass). **Prod ACLs verified:** guest paths service-role-only; wall gates authenticated.
+- **`lib/kwento-moderation.ts`** — Tier-1 synchronous text gate (un-disableable): EN + Tagalog + **Cebuano** profanity lexicon (blocked = slurs/explicit, never stored · flagged = couple-reviews, never wall-eligible) + PH PII (phone/email) detection + normalization (diacritics, leetspeak, repeat-collapse). Measured by design — Taglish banter ("loka", "baliw") stays clean. Tier-2 classifier deliberately OFF per the data-residency recommendation.
+- **Guest author sheet** (`papic-guest-capture.tsx` + `POST /api/papic/kwento`): right after a shot saves — the warmest moment — "Ano'ng nangyari dito?" textarea (280) + the RA 10173 consent tick (blocks Send) → warm states: "Naipadala na! 💛" / "held for the couple to review" / "Let's keep it sweet 💛" inline rejection. The capture API now returns `captureId` (also reused by the wall ingest).
+- **Couple review queue** (moderation page): every message visible immediately (pending/flagged first, flagged badged + held), Approve / Reject / **Show on wall** (one-tap; disabled for flagged) / Take off wall / Block guest.
+- **Wall lower-third**: the projection renders the newest approved caption over a solid scrim with attribution ("— Tita Baby"); updates ride the existing reconcile polls.
+
+**Verification:** new 17-case moderation suite (incl. Scunthorpe-guard, leet/repeat evasion, PII, Bisaya) + live-wall 11/11 + camera-bridge 29/29 all green; `tsc` + scoped lint clean; **prod smoke**: typed RPC errors fire (`kwento:unknown_guest`), ACLs exact, all 3 DB interlocks present.
+
+**SPEC IMPACT:** Implements 0012 § Kwento P0–P2 with the landed corrections (polymorphic anchor · coordinator-as-member_type · service-role guest path). Still open per spec: guest 24h self-delete surface, the 0028 email nudges, Tier-2 residency sign-off. → DECISION_LOG + 0012 status note.
+
+## 2026-06-11 · feat(website): hosts can ALWAYS preview any phase + the editor tabs become real phase previews
+
+**Context:** Owner: *"okay can you always preview that?"* — previously `?phase=rsvp|event|editorial` worked only on demo events (`test-*` slug), so a real couple could never see their on-the-day page or editorial before the date, and the editor's Editorial tab showed a "coming soon" placeholder.
+
+- **`app/[slug]/page.tsx`:** the phase override is now honored for **the event's own signed-in hosts** (event_members couple OR accepted event_moderators) on ANY event — checked against the VIEWER's session, so a crafted link still can't force a phase for guests/anonymous visitors. Host lookups only run when a `?phase=` param is present (zero cost on the guest path). Demo events keep the open override.
+- **`site-editor`:** the RSVP / Event / Editorial tabs now load the live preview iframe with the matching `?phase=` (same-origin → couple's session honored) — each tab is a TRUE preview of that phase; the Editorial "coming soon" placeholder is retired. Pill reads "Previewing · {Phase} page".
+
+**Verification:** `tsc` clean; host-gating is by construction (viewer's own session); editor-tab preview verified on prod post-merge.
+
+**SPEC IMPACT:** First step of §1.2's phase-switcher in `Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md` — editor phase tabs now preview for real. DECISION_LOG row added.
+
+## 2026-06-11 · feat(seating): Phase 1c — two-finger rotate + desktop rotate handle (0008)
+
+**Context:** Owner 2026-06-10/11 — "use two fingers to turn the tables" + "maximize multi-finger gestures." Touch gets the full twist gesture; mouse/trackpad get the on-screen handle (trackpad rotation is Safari-only per the cross-platform gesture research, so the handle is the universal fallback).
+
+- **Two-finger rotate (touch):** a second finger landing during a table drag CONVERTS the drag into a rotation — Δangle between the two pointers, shortest-arc wrap, **~6° dead-zone** (a pinch that brushes a table never nudges it), live preview snapped to 15° via the existing optimistic `rotById` path, **one commit on release** (`commitRotation` → `updateTableRotation`). Plumbing: `onHubPointerDown` now registers its pointer in `pointersRef`; `onCanvasPointerDown`'s `if (dragRef) return` became the rotate-init branch; the move handler gained branch 0 (rotate) ahead of drag/pinch/pan; background two-finger pinch-zoom is untouched.
+- **Desktop rotate handle:** a circular handle on the opposite side of the table from the popup — drag in a circle to rotate, **15° snaps, hold Shift for 1°**. Pointer-captured on the handle; commits once on release.
+- Rotation persists at 1° granularity (the server already normalises 0–359); the ±15° popup buttons are unchanged.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · CI gates. Gesture feel is physical — verify on a touch device + desktop on the Vercel preview.
+
+**SPEC IMPACT: REVERSES the 0008 lock "no continuous rotation / keep V1 spatial editing dumb"** (spec § Stack line ~488) — owner-directed 2026-06-10 ("two fingers to turn the tables", "maximize multi-finger gestures"). → corpus `DECISION_LOG` row + 0008 AS-BUILT note this session.
+
 ## 2026-06-11 · feat(admin): /admin/taxonomy ergonomics — search, jump-bar, collapse, bulk event-set, return-to-where-you-were
 
 **Context:** Owner asked "have you made our taxonomy easy to update, use and navigate?" Honest answer was "update yes, navigate no" — 199 service rows rendered expanded in one ~18k-px scroll, no search, no bulk operations, and every save snapped to page top wiping your place. This is the ergonomics package (adversarial workflow spec, GO with 10 amendments; the critique caught that the bulk form's untouched default would have been "wipe every scope in the folder").

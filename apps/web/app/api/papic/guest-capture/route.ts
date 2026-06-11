@@ -113,6 +113,21 @@ export async function POST(req: Request) {
     remaining?: number;
   };
 
+  let captureId: string | null = null;
+  if (result.status === 'ok') {
+    // Resolve the new capture's id (the RPC reports quota only) — the Kwento
+    // author sheet anchors on it, and the wall ingest below reuses it.
+    try {
+      const { data: capRow } = await admin
+        .from('papic_guest_captures')
+        .select('capture_id')
+        .eq('r2_object_key', r2Ref)
+        .maybeSingle();
+      captureId = (capRow?.capture_id as string) ?? null;
+    } catch {
+      captureId = null;
+    }
+  }
   if (result.status === 'ok') {
     // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs
     // in the BACKGROUND with after() so the shutter stays instant. We already
@@ -128,13 +143,8 @@ export async function POST(req: Request) {
         bytes,
       }).catch(() => {});
       try {
-        const { data: row } = await admin
-          .from('papic_guest_captures')
-          .select('capture_id')
-          .eq('r2_object_key', r2Ref)
-          .maybeSingle();
-        if (row?.capture_id) {
-          await ingestToWall('papic_guest_captures', row.capture_id as string);
+        if (captureId) {
+          await ingestToWall('papic_guest_captures', captureId);
         }
       } catch {
         // best-effort — the wall reconcile never blocks a capture
@@ -163,7 +173,7 @@ export async function POST(req: Request) {
     } catch {
       // best-effort
     }
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, captureId });
   }
   return NextResponse.json(result, {
     status: result.status === 'quota_exhausted' ? 409 : 400,

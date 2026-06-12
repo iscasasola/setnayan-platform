@@ -33,6 +33,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` + `next lint` clean. Both formats rendered locally and dimension-confirmed (square 1080×1080, story 1080×1920); 9:16 visually confirmed on-brand. TikTok auto-posting stays inert until the owner completes the audit + OAuth; assisted-manual works immediately once `tiktok_enabled` is on.
 
 **SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5 Phase C → BUILT (assisted-manual; auto-post gated on audit/OAuth) + DECISION_LOG ship row. Video Reels carried forward as Phase D.
+## 2026-06-13 · feat(papic): NSFW screening on all capture ingest paths — clip (poster-frame) coverage closes the last gap
+
+**Context:** the 2026-06-11 app-store-readiness audit flagged the corpus hard constraint "NSFW filter is on by default and CANNOT be disabled" (Apple 1.2 proactive UGC filter). Audit of `apps/web` found the filter mostly SHIPPED already (PR #1244 engine + both photo ingest paths + display gates); the one real gap was **video clips** — `lib/nsfw-screen.ts` skipped `photo_type='clip'` entirely, so clips entering via the camera-bridge path stayed `'unscreened'` forever with no quarantine signal.
+
+**Audit result (already screened before this change):** paparazzi seat photos (`app/papic/actions.ts` → `screenCapture` in `after()`), guest disposable-camera photos (`app/api/papic/guest-capture/route.ts`, image-only by design), camera-bridge deliveries (funnel through `recordSeatCapture`), Live Wall (`wall_ingest` SECURITY DEFINER allowlist — fail-closed, `'unscreened'` never projects, clips excluded), guest live gallery (allowlist `'clean'`, photos only), public editorial page (blocklist on `nsfw_blocked`/`*_withheld`, hero excludes clips), couple moderation page (quarantine review + single-item Approve override). No reels builder exists yet. No NSFW toggle exists anywhere — kept that way.
+
+**What changed (clip coverage via poster frame — nsfwjs is image-only, the lambda has no ffmpeg):**
+- `supabase/migrations/20261208000000_papic_clip_poster_nsfw.sql` — `papic_photos.poster_r2_key TEXT` (the clip's screening proxy). **Applied to prod** statement-by-statement via `supabase db query` + manual ledger row (ledger drift from parallel sessions blocked `db push`, per standing memory).
+- `lib/clip-poster.ts` (new, browser-only) — extracts one ≤640px JPEG poster from recorded clip bytes (off-DOM `<video>` → seek 0.5s → canvas), 5s timeout, never throws, null on any trouble.
+- `lib/camera-bridge/papic-sink.ts` — optional `extractPoster` dep + poster presign/PUT leg in `deliverCapture` + `posterUploadMeta`; `record()` gains optional `posterR2Ref`. Poster leg is STRICTLY fail-open: no poster failure ever loses or blocks a capture.
+- `app/papic/actions.ts` — `recordSeatCapture` accepts `posterR2Key` (clips only), stores it on the row, retries without it on pre-migration `PGRST204`.
+- `lib/nsfw-screen.ts` — `screenCapture` now screens clips by classifying the POSTER bytes and landing the verdict in the clip row's `moderation_state`; clips with no poster stay `'unscreened'` (and clips are structurally excluded from every guest-facing surface, so unscreened clips never reach guests).
+- Browser wiring: `camera-bridge-panel.tsx` + offline drain `camera-bridge-handler.ts` pass the poster ref through (the drain runs in-browser, so queued clips get posters at drain time).
+- Moderation page — flagged clips render their poster thumbnail with a "Filtered clip" badge; copy now says "every photo and clip".
+- Tests: `lib/camera-bridge/papic-sink.test.ts` (9 new; 75 total pass) — poster recorded on success, fail-open on extract-null/extract-throw/poster-presign-fail/poster-PUT-fail, stills never extract, backwards-compatible without the dep, main-leg failure short-circuits the poster leg.
+
+**Known limitation (documented, accepted):** clips are screened by ONE poster frame, not frame-by-frame — explicit content appearing mid-clip but not in the poster passes the automated screen (couple Hide/Report/Block still covers it). Legacy clips (pre-poster) and posters that fail to extract stay `'unscreened'`, which all guest surfaces already exclude for clips.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · 75/75 unit tests pass.
+
+**SPEC IMPACT:** none on the corpus constraint itself (the "NSFW filter on by default, cannot be disabled" lock is now fully true in code, clips included). Spec corpus note for 0012 Papic — clip screening = poster-frame proxy — left to the parent session per its instruction (no corpus edits from this worktree).
 
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 

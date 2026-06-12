@@ -59,7 +59,7 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
   // Sink deps once: the server action + the camera_bridge offline queue.
   if (!sinkDepsRef.current) {
     sinkDepsRef.current = makeBrowserSinkDeps({
-      record: (r2Ref, kind) => recordSeatCapture(token, r2Ref, kind),
+      record: (r2Ref, kind, posterR2Ref) => recordSeatCapture(token, r2Ref, kind, posterR2Ref),
       enqueueOffline: async (file: CapturedFile) => {
         try {
           await enqueueOfflineItem('camera_bridge', {

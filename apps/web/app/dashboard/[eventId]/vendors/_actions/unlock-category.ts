@@ -40,6 +40,7 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
+import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -185,6 +186,32 @@ export async function unlockCategoryWithInquiry(input: {
         // the first message. No return_to → it returns without redirecting.
         await sendChatMessage(msg);
         inquiredAny = true;
+
+        // Structured per-service interest context (owner-locked 2026-06-12
+        // "multi-service inquiry mapping"). The resolved service is the
+        // 'initial' interest; this vendor's price-included vendor_service_links
+        // are recorded as 'linked' (informational ✓-included context, never a
+        // separate unlock). Best-effort — recordThreadInterests never throws,
+        // and the inquiry already landed regardless.
+        const seeds: InterestSeed[] = [
+          { vendorServiceId: serviceId, categoryKey: category, source: 'initial' },
+        ];
+        const { data: links } = await admin
+          .from('vendor_service_links')
+          .select('linked_canonical_service')
+          .eq('vendor_service_id', serviceId);
+        for (const link of links ?? []) {
+          const key = (link as { linked_canonical_service?: string | null })
+            .linked_canonical_service;
+          if (key) {
+            seeds.push({ vendorServiceId: null, categoryKey: key, source: 'linked' });
+          }
+        }
+        await recordThreadInterests(supabase, {
+          threadId: thread.thread_id,
+          addedByRole: 'couple',
+          seeds,
+        });
       }
     } catch {
       /* best-effort — the pick stands even if the message fails */

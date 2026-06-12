@@ -37,6 +37,10 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { SaveVendorButton } from '@/app/vendors/_components/save-vendor-button';
+import {
+  InquiryComposer,
+  type InquiryComposerService,
+} from './_components/inquiry-composer';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   fetchReviewsForVendorWithCouple,
@@ -470,6 +474,53 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
+  // Linked services per anchor service (owner-locked 2026-06-12 "multi-service
+  // inquiry mapping") — the price-included "comes with" set shown as read-only
+  // ✓-included chips in the inquiry composer. Best-effort: a missing table /
+  // unapplied migration leaves the map empty (composer just omits the chips).
+  const linkedByService = new Map<string, string[]>();
+  if (activeServices.length > 0) {
+    const { data: serviceLinks } = await admin
+      .from('vendor_service_links')
+      .select('vendor_service_id, linked_canonical_service, linked_label, display_order')
+      .eq('vendor_profile_id', vendor.vendor_profile_id)
+      .order('display_order', { ascending: true });
+    for (const link of serviceLinks ?? []) {
+      const anchor = (link as { vendor_service_id?: string }).vendor_service_id;
+      const canonical =
+        (link as { linked_canonical_service?: string | null }).linked_canonical_service ?? null;
+      const explicitLabel =
+        (link as { linked_label?: string | null }).linked_label ?? null;
+      if (!anchor || !canonical) continue;
+      const label =
+        explicitLabel?.trim() ||
+        (isCanonicalService(canonical) ? displayServiceLabel(canonical) : canonical);
+      const bucket = linkedByService.get(anchor);
+      if (bucket) bucket.push(label);
+      else linkedByService.set(anchor, [label]);
+    }
+  }
+
+  // Build the inquiry-composer model — the FIRST active service is the
+  // 'initial' pick; the rest are opt-in "also ask about" options
+  // (source='couple_added'). Whether to SHOW it also depends on coupleEventId,
+  // resolved further below (after the viewer's events load).
+  const serviceLabel = (s: VendorServiceRow): string =>
+    (s.title?.trim() ||
+      (isCanonicalService(s.category)
+        ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
+        : s.category)) as string;
+  const servicePriceLabel = (s: VendorServiceRow): string =>
+    s.starting_price_php !== null && s.starting_price_php > 0
+      ? `from ${formatPhp(s.starting_price_php)}`
+      : 'Inquire';
+  const composerInitial = activeServices[0] ?? null;
+  const composerAlso: InquiryComposerService[] = activeServices.slice(1).map((s) => ({
+    vendorServiceId: s.vendor_service_id,
+    label: serviceLabel(s),
+    priceLabel: servicePriceLabel(s),
+  }));
+
   // Per-category attribute details + portfolio gallery (iteration 0044).
   const [attributeDetails, portfolioUrls] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
@@ -528,6 +579,12 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       isAlreadySaved = Boolean(saved?.vendor_id);
     }
   }
+
+  // Inquiry composer (owner-locked 2026-06-12 "multi-service inquiry mapping") —
+  // shown only for a signed-in couple with an active event viewing a bookable
+  // vendor that has ≥1 active service.
+  const showInquiryComposer =
+    bookable && coupleEventId !== null && composerInitial !== null;
 
   // GEO Phase G4 (2026-05-28) — LocalBusiness JSON-LD lets AI answer engines
   // (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
@@ -1048,6 +1105,22 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               </>
             )}
           </p>
+          {showInquiryComposer && composerInitial ? (
+            <InquiryComposer
+              vendorProfileId={vendor.vendor_profile_id}
+              vendorLabel={displayLabel}
+              initial={{
+                vendorServiceId: composerInitial.vendor_service_id,
+                label: serviceLabel(composerInitial),
+                priceLabel: servicePriceLabel(composerInitial),
+                categoryKey: composerInitial.category,
+              }}
+              linked={(linkedByService.get(composerInitial.vendor_service_id) ?? []).map(
+                (label) => ({ label }),
+              )}
+              alsoOptions={composerAlso}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-3">
             <Link href="/signup" className="button-primary">
               Plan with Setnayan

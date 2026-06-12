@@ -8,6 +8,7 @@ import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 
 export const metadata = { title: 'Thread' };
 
@@ -81,6 +82,8 @@ export default async function CoupleThreadPage({ params }: Props) {
       </header>
 
       <ChatPrivacyNotice />
+
+      <ThreadInterestChips supabase={supabase} threadId={threadId} />
 
       <ChatMessageStream
         threadId={threadId}

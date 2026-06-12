@@ -1,8 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
-import { DashboardEventSwitcher } from '@/app/_components/dashboard-event-switcher';
+import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { countUnread } from '@/lib/notifications';
@@ -110,40 +109,36 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
 
-  // Switch View pill — lives in the desktop sidebar footer (added 2026-05-29
-  // per owner directive to standardize role-switch placement across the 3
-  // doorways instead of cramming it into the topBar). Mobile retains the
-  // pill in the topBar's right-side cluster (lg:hidden wrapper) because
-  // SidebarShell's sidebar is hidden at <lg viewports.
-  const switchViewPill = (
-    <RoleSwitchPill
-      currentRole="admin"
-      hasCustomerAccess={roles.hasCustomerAccess}
-      hasVendorAccess={roles.hasVendorAccess}
-      hasAdminAccess={roles.hasAdminAccess}
-      vendorProfiles={roles.vendorProfiles}
-    />
-  );
-
-  // Top bar — admin utilities cluster: brand logo (back to overview),
-  // mobile-only Switch View pill, admin badge, display name, sign-out form.
-  // Desktop topBar no longer carries the Switch View pill — it renders in
-  // the sidebar footer slot (sidebarFooter prop below) where it's always
-  // visible alongside the nav tree.
+  // Top bar — admin utilities cluster: unified switcher, admin badge,
+  // display name, sign-out form. The RoleSwitchPill (mobile topBar + desktop
+  // sidebar footer) is RETIRED 2026-06-12 per owner directive "single
+  // switcher" — the unified EventSwitcher top-left now owns BOTH event
+  // switching and cross-console hopping (Customer view / Shop console) on
+  // every viewport.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Top-left EventSwitcher — replaces the "Setnayan · Admin" brand
-          wordmark that sat here, so the switcher occupies the same top-left
-          corner it holds on the customer doorway (owner directive 2026-06-02).
-          Customer chrome carries no brand wordmark in this corner either
-          (2026-05-15 chrome lock), so all three doorways read consistently.
-          Cross-console hopping stays with the RoleSwitchPill on the right. */}
-      <DashboardEventSwitcher primaryEvent={primaryEvent} switcherEvents={switcherEvents} />
+      {/* Top-left unified switcher — same top-left corner it holds on the
+          customer doorway (owner directive 2026-06-02). Customer chrome
+          carries no brand wordmark in this corner either (2026-05-15 chrome
+          lock), so all three doorways read consistently. Zero couple events →
+          the switcher renders the empty "+" monogram anchor but the menu
+          (incl. the "Switch view" rows) still opens via the caret. */}
+      <EventSwitcher
+        currentRole="admin"
+        currentEventId={primaryEvent?.event_id ?? null}
+        currentEventName={primaryEvent?.display_name ?? null}
+        currentEventDate={primaryEvent?.event_date ?? null}
+        currentMonogramText={primaryEvent?.monogram_text ?? null}
+        currentMonogramColor={primaryEvent?.monogram_color ?? null}
+        currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
+        currentMonogramFontKey={primaryEvent?.monogram_font_key}
+        events={switcherEvents}
+        hasCustomerAccess={roles.hasCustomerAccess}
+        hasVendorAccess={roles.hasVendorAccess}
+        hasAdminAccess={roles.hasAdminAccess}
+        vendorProfiles={roles.vendorProfiles}
+      />
       <div className="flex items-center gap-2">
-        {/* Mobile-only Switch View pill — desktop renders it in the
-            sidebar footer slot below (avoids duplicating the affordance
-            inside the same viewport). */}
-        <div className="lg:hidden">{switchViewPill}</div>
         <UnreadBellBadge
           userId={user.id}
           initialUnread={unreadCount}
@@ -171,7 +166,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<AdminSidebar />} sidebarFooter={switchViewPill} topBar={topBar}>
+      <SidebarShell sidebar={<AdminSidebar />} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

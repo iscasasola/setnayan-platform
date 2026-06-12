@@ -11,7 +11,6 @@ import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
-import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
@@ -220,6 +219,7 @@ export default async function EventLayout({ children, params }: Props) {
   const topBar = (
     <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
       <EventSwitcher
+        currentRole="customer"
         currentEventId={event.event_id}
         currentEventName={event.display_name}
         currentEventDate={event.event_date}
@@ -239,6 +239,7 @@ export default async function EventLayout({ children, params }: Props) {
             monogram_frame_key: e.monogram_frame_key,
             monogram_font_key: e.monogram_font_key,
           }))}
+        hasCustomerAccess={roles.hasCustomerAccess}
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
@@ -252,9 +253,9 @@ export default async function EventLayout({ children, params }: Props) {
               marketplace-tease-strip CTA, the "Browse your matched services"
               button, and every plan-card folder link.
             • Role-switching (Shop / Setnayan HQ consoles) stays reachable via the
-              EventSwitcher dropdown's "Switch view" rows (left monogram caret)
-              on mobile, plus the desktop sidebar-footer pill (sidebarFooterPill
-              below). */}
+              unified EventSwitcher's "Switch view" rows (left monogram caret)
+              on every viewport — the desktop sidebar-footer pill was retired
+              2026-06-12 (single-switcher directive). */}
         {/* Messages icon + unread badge (iteration 0019; badge follow-up to
             the icon-only link from PR #837). Read-state lands via the
             chat_thread_reads marker (migration
@@ -301,25 +302,16 @@ export default async function EventLayout({ children, params }: Props) {
   // the offset. Same pattern as the pre-Phase-1 layout's outer-cancel
   // hack (the cancel still needs to live here because the outer layout
   // is part of an unrelated chrome surface that other routes consume).
-  // Switch View pill for the desktop sidebar footer slot — standardized
-  // 2026-05-29 across all 3 doorways. The mobile-only duplicate inside
-  // the topBar above (lg:hidden wrapper) handles <lg viewports where
-  // SidebarShell's sidebar is hidden.
-  const sidebarFooterPill = (
-    <RoleSwitchPill
-      currentRole="customer"
-      hasCustomerAccess
-      hasVendorAccess={roles.hasVendorAccess}
-      hasAdminAccess={roles.hasAdminAccess}
-      vendorProfiles={roles.vendorProfiles}
-    />
-  );
+  // The "Switch view" RoleSwitchPill that lived in the desktop sidebar
+  // footer (standardized 2026-05-29) is RETIRED 2026-06-12 per owner
+  // directive "single switcher" — the unified EventSwitcher in the topBar
+  // (left monogram caret) now owns BOTH event switching and cross-console
+  // hopping on every viewport, so the second affordance is gone.
 
   return (
     <div className="lg:-ml-60">
       <SidebarShell
         sidebar={<CustomerSidebar eventId={eventId} />}
-        sidebarFooter={sidebarFooterPill}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last

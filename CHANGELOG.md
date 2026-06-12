@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
+
+**Context:** follow-up flagged while verifying the owner's "deleting a table releases guests to unseated" question — the release works (DB `ON DELETE CASCADE` on `event_seat_assignments`), but every delete control fired in one tap, silently unseating everyone at the table. Mis-taps on phones made that a real risk.
+
+- **New guard `requestRemoveTable`** in `seating-editor.tsx`: empty tables keep one-tap delete; a table with 1+ seated guests opens a confirm dialog first — "Delete {name}? N seated guest(s) will go back to Unseated." All four delete entry points route through it (sidebar row, phone bottom-sheet toolbar, desktop popover, list view).
+- **Dialog follows the editor's responsive convention:** bottom sheet on phones (`items-end`, full-width 44px buttons, safe-area padding) and a centered card on `md:`+ — markup mirrors the existing auto-seat confirm (z-[60] overlay, backdrop-tap + Cancel to dismiss). Linked tables show the unit name (`link_group_label`).
+- No schema, no server-action changes — `deleteTable` and the optimistic `applyTableOpt` delete are untouched; the dialog only gates when they fire.
+
+**Verification:** `tsc` + `next lint` clean on the touched file. Auth-gated surface — visual check on the live demo event after merge.
+
+**SPEC IMPACT:** None (0008 spec doesn't specify delete confirmation; pure UX guard, no behavior change for empty tables).
+
 ## 2026-06-12 · fix(seating): resize grips get a recognizable diagonal-arrows icon
 
 **Context:** owner feedback while reviewing the live editor — the bare corner grips (small bordered squares / "vertical rectangle") on the stage, dance floor, and room corner don't read as "resize"; replace them with an explicit resize icon.

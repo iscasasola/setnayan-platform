@@ -141,14 +141,22 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                       .join('  ·  ')}
                   </p>
                 </div>
-                {group.threadId ? (
+                <div className="flex items-center gap-4">
                   <Link
-                    href={`/vendor-dashboard/messages/${group.threadId}`}
+                    href={`/vendor-dashboard/clients/${eventId}`}
                     className="text-sm font-medium text-terracotta underline"
                   >
-                    Open chat
+                    Event brief
                   </Link>
-                ) : null}
+                  {group.threadId ? (
+                    <Link
+                      href={`/vendor-dashboard/messages/${group.threadId}`}
+                      className="text-sm font-medium text-terracotta underline"
+                    >
+                      Open chat
+                    </Link>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>

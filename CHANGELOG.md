@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · fix(taxonomy): Born Again couples get their own officiant (completeness-audit fix #1)
+
+**Context:** The events×religions completeness audit (26-agent workflow + targeted verification) found that `born_again` is a pickable `ceremony_type` but `born_again_pastor` was tagged `faith='Christian'` — so a Born Again couple's INCLUDE-only faith filter excluded their OWN officiant (pickable faith → dead-end journey).
+
+- **Migration `20261115000000_born_again_pastor_retag.sql`** (applied to prod, verified): `born_again_pastor` → `faith='Born Again'`. Christian couples keep `charismatic_pastor` + `mainline_protestant_pastor`.
+- **`lib/taxonomy.ts:577`**: same re-tag in the constant (fallback + direct marketplace read — DB-only would leave stale TS driving the filter, per the de-faith precedent).
+- **Ride-along:** removed the dead `burial: 'Burials'` label from `lib/admin/growth-stats.ts` (burial was owner-retired 2026-05-16; the label was unreachable).
+
+**Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
+
+**SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
 ## 2026-06-12 · feat(seating): caterer meal counts — diet on the seat + the caterer handover report (0008 · leapfrog Phase 2)
 
 **Context:** The meal/dietary leapfrog (closes the RSVPify/WeddingWire gap). The guest columns (`meal_preference`, `dietary_restrictions`) already existed from 0001 RSVP — this surfaces them in the seat plan and produces the caterer handover artifact. No schema change.

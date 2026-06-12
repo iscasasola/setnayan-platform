@@ -96,6 +96,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
+## 2026-06-13 · feat(seating): banquet runs join end-flush + round tables kiss edge-to-edge — chaining for every chainable shape
+
+**Context:** owner follow-up after the serpentine snap shipped — "yes the connected. but the long table should also connect and the round tables." Same magnetic model, shape-appropriate joints:
+
+- **Long banquet / family head — end-to-end runs.** `rectChainSnap`: dragging a rect table near another rect's end snaps the TABLETOPS flush and collinear (position + rotation adopts the anchor's run axis; either end; banquet↔family-head mixes allowed — real head-table runs mix lengths). Chairs adjust by construction: these tables seat only along the long edges with each chair column inset half a gap from its end, so a flush seam puts the facing columns exactly ONE chair-gap apart — the same rhythm as inside a single table (test-pinned).
+- **Round — edge-to-edge kiss.** `roundKissSnap`: a dragged round pulls onto the line of centres at exactly chair-ring + chair-ring + 11px. Direction is preserved (the couple picks which side it lands on), chairs can never overlap, and the +11px keeps the pair just OUTSIDE the collision threshold so the mount-time resolver never separates a kissed cluster.
+- **Editor:** the chain-snap branch is now a shape dispatcher (serpentine → tips · rect → run ends · round → kiss; sweetheart excluded); Alt still drags free; rect snaps commit the adopted rotation on release. `overlapsAny` exemption extended to rect↔rect (flush runs overlap bounding boxes by design — same reload-stability reasoning as serpentine).
+
+**Verification:** 38/38 pure-logic tests (6 new: flush-seam exactness + rotation adoption, seam chair-gap ≥ one chair, both ends offered, kiss distance exact + direction preserved + collision-clear, null cases). `tsc` clean. Live browser check on the demo event: dragged the round "Barkada" at "Sponsors 1" — landed centre distance 228.00 world px vs expected kiss 228.00 (snapped exactly). No demo data persisted (positions client-side only; nothing saved).
+
+**SPEC IMPACT:** None beyond the 0008 as-built drift already logged with the serpentine row.
+
 ## 2026-06-13 · feat(seating): serpentine wedges snap tip-to-tip — chain into an S / circle, chairs flow around the joint
 
 **Context:** owner directive with annotated screenshot — "the ends of the table must be able to snap together. connecting the serpentine … connect the tips of the tables and make sure that the chairs adjust as well." The 2026-05-09 serpentine lock always intended wedges to chain ("chain + rotate several wedges to build an S / circle / oval") but the editor had no end-to-end snapping — wedges could only be eyeballed adjacent, and the collision resolver actively pushed touching wedges apart.

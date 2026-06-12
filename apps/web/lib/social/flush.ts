@@ -17,7 +17,7 @@ import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook'
 /**
  * apps/web/lib/social/flush.ts — THE ENGINE of the social auto-publish
  * pipeline (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8 +
- * § 8.3b · migration 20261201000000_social_autopublish).
+ * § 8.3b · migration 20261204000000_social_autopublish).
  *
  * CRON-FREE by lock ([[project_setnayan_cron_free]]): `runSocialFlush()` is
  * fired via Next 15 `after()` from a few high-traffic server renders (admin

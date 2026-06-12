@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261201000000_social_autopublish.sql
+-- 20261204000000_social_autopublish.sql
 --
 -- SOCIAL AUTO-PUBLISH PIPELINE (Phase A — Facebook) — schema.
 -- Canonical: corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md`

@@ -146,7 +146,7 @@ const SOURCE_CHIP: Record<SocialSourceType, string> = {
 /**
  * Admin Social Queue — mission control for the Social Sharing & Featuring
  * Program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8 +
- * migrations 20261130000000 + 20261201000000). Cron-free
+ * migrations 20261203000000 + 20261204000000). Cron-free
  * ([[project_setnayan_cron_free]]) — viewing the queue fires the flush via
  * `after()`.
  *

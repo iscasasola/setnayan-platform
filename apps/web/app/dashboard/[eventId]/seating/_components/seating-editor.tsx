@@ -1953,8 +1953,11 @@ export function SeatingEditor({
                 onPointerUp={onRectGripUp}
                 onPointerCancel={onRectGripUp}
                 aria-label="Resize dance floor"
-                className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border-2 border-mulberry bg-cream"
-              />
+                title="Drag to resize the dance floor"
+                className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-mulberry bg-cream text-mulberry shadow-sm"
+              >
+                <Maximize2 className="h-3 w-3 rotate-90" />
+              </button>
             </div>
           ) : null}
 
@@ -1987,8 +1990,11 @@ export function SeatingEditor({
               onPointerUp={onRectGripUp}
               onPointerCancel={onRectGripUp}
               aria-label="Resize stage"
-              className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border-2 border-terracotta bg-cream"
-            />
+              title="Drag to resize the stage"
+              className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+            >
+              <Maximize2 className="h-3 w-3 rotate-90" />
+            </button>
           </div>
 
           {/* draggable entrance door marker */}
@@ -2369,8 +2375,10 @@ export function SeatingEditor({
                 onPointerCancel={onWallGripUp}
                 aria-label="Drag to resize the room"
                 title="Drag to resize the room"
-                className="absolute bottom-0 right-0 z-20 h-4 w-4 cursor-nwse-resize rounded-tl bg-ink/30 hover:bg-terracotta"
-              />
+                className="absolute bottom-0 right-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tl-md border border-ink/30 bg-cream text-ink/60 hover:border-terracotta hover:text-terracotta"
+              >
+                <Maximize2 className="h-3 w-3 rotate-90" />
+              </button>
             </>
           ) : null}
 

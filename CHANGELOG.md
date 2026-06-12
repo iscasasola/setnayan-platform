@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · fix(seating): resize grips get a recognizable diagonal-arrows icon
+
+**Context:** owner feedback while reviewing the live editor — the bare corner grips (small bordered squares / "vertical rectangle") on the stage, dance floor, and room corner don't read as "resize"; replace them with an explicit resize icon.
+
+- All three SE corner grips (stage · dance floor · to-scale room corner) now render a `Maximize2` diagonal double-arrow icon (rotated 90° to match the ↘ `nwse-resize` axis) inside a slightly larger 20px cream chip — stage keeps its terracotta accent, dance floor mulberry, room ink-with-terracotta-hover. Stage + dance grips also gain `title` tooltips matching the room handles' existing pattern.
+- Pointer handlers, positioning anchors, and the room's edge pills (width/length) are untouched — purely a visual-affordance change on the grip buttons. `Maximize2` was already imported in `seating-editor.tsx`; no new imports.
+- Verified in the same session: deleting a table already releases its guests to the unseated pool by design (`event_seat_assignments.table_id … ON DELETE CASCADE`, migration `20260513090000`) — no code change needed for that owner question.
+
+**Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
+
+**SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
+
 ## 2026-06-12 · feat(vendors): Compare — available wedding dates per saved build (takeover spec §4)
 
 **Context:** owner sequential-run item; the last designed-not-built piece of the takeover spec's Compare section. The spec reverses the usual order — *build the vendor combination first, then see which dates the whole team can do* — for couples who came in with a flexible date (year/month precision).

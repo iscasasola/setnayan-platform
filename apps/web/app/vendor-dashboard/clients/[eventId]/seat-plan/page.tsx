@@ -30,6 +30,26 @@ type PlanTable = {
   meal_counts: Record<string, number> | null;
 };
 
+type PlanObject = {
+  object_id: string;
+  area_id: string | null;
+  object_type: string;
+  label: string;
+  x: number;
+  y: number;
+  is_mine: boolean;
+  vendor_name: string | null;
+};
+
+type PlanArea = {
+  area_id: string;
+  area_type: string;
+  label: string;
+  sort_order: number;
+  venue: { width_m: number | null; length_m: number | null };
+  window: { label: string; start_at: string | null; end_at: string | null } | null;
+};
+
 type Plan = {
   published_at: string;
   venue: { width_m: number | null; length_m: number | null };
@@ -39,6 +59,8 @@ type Plan = {
   service_entrance: { x: number; y: number } | null;
   dietary_included: boolean;
   tables: PlanTable[];
+  areas: PlanArea[];
+  objects: PlanObject[];
 };
 
 const MEAL_LABELS: Record<string, string> = {
@@ -50,6 +72,34 @@ const MEAL_LABELS: Record<string, string> = {
   kids: 'Kids',
   no_preference: 'No pref.',
 };
+
+function fmtWindowTime(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+}
+
+function PinMarker({ o }: { o: PlanObject }) {
+  return (
+    <div
+      className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center ${o.is_mine ? 'z-10' : ''}`}
+      style={{ left: `${o.x}%`, top: `${o.y}%` }}
+      title={o.vendor_name ? `${o.label} · ${o.vendor_name}` : o.label}
+    >
+      <span
+        className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-semibold shadow-sm ${
+          o.is_mine
+            ? 'border-terracotta bg-terracotta text-cream ring-2 ring-terracotta/30'
+            : 'border-ink/25 bg-white text-ink/70'
+        }`}
+      >
+        {o.is_mine ? 'YOU' : '•'}
+      </span>
+      <span className="mt-0.5 max-w-24 truncate rounded bg-white/85 px-1 text-[9px] font-medium leading-tight text-ink/75">
+        {o.label}
+      </span>
+    </div>
+  );
+}
 
 function isRound(tableType: string): boolean {
   return tableType.startsWith('round') || tableType.startsWith('crescent');
@@ -83,6 +133,14 @@ export default async function VendorSeatPlanPage({ params }: Props) {
     plan.venue.width_m && plan.venue.length_m
       ? plan.venue.width_m / plan.venue.length_m
       : 4 / 3;
+  const objects = plan.objects ?? [];
+  const receptionObjects = objects.filter((o) => o.area_id === null);
+  const myPins = objects.filter((o) => o.is_mine);
+  const areas = plan.areas ?? [];
+  const areaWindow = (a: PlanArea) =>
+    a.window
+      ? `${a.window.label}${fmtWindowTime(a.window.start_at) ? ` · ${fmtWindowTime(a.window.start_at)}${fmtWindowTime(a.window.end_at) ? `–${fmtWindowTime(a.window.end_at)}` : ''}` : ''}`
+      : null;
 
   return (
     <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -103,6 +161,18 @@ export default async function VendorSeatPlanPage({ params }: Props) {
           {totalSeated} guests seated. Counts only; guest names stay private.
         </p>
       </header>
+
+      {myPins.length > 0 ? (
+        <p className="rounded-xl border border-terracotta/25 bg-terracotta/[0.06] px-4 py-3 text-sm">
+          <span className="font-semibold text-terracotta">Your spot:</span>{' '}
+          {myPins
+            .map((p) => {
+              const area = p.area_id ? areas.find((a) => a.area_id === p.area_id) : null;
+              return `${p.label} — ${area ? area.label : 'reception room'}`;
+            })
+            .join(' · ')}
+        </p>
+      ) : null}
 
       {/* Floor map */}
       {placed.length > 0 ? (
@@ -154,6 +224,9 @@ export default async function VendorSeatPlanPage({ params }: Props) {
               Service
             </span>
           ) : null}
+          {receptionObjects.map((o) => (
+            <PinMarker key={o.object_id} o={o} />
+          ))}
           {placed.map((t) => (
             <div
               key={t.table_id}
@@ -177,6 +250,40 @@ export default async function VendorSeatPlanPage({ params }: Props) {
           ))}
         </div>
       ) : null}
+
+      {/* Additional areas (cocktail garden, foyer) */}
+      {areas.map((area) => {
+        const areaObjects = objects.filter((o) => o.area_id === area.area_id);
+        const win = areaWindow(area);
+        return (
+          <div key={area.area_id} className="space-y-2">
+            <div>
+              <h2 className="text-lg font-semibold">{area.label}</h2>
+              {win ? (
+                <p className="text-sm text-ink/55">Live during {win}</p>
+              ) : null}
+            </div>
+            <div
+              className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-cream"
+              style={{
+                aspectRatio: `${
+                  area.venue.width_m && area.venue.length_m
+                    ? area.venue.width_m / area.venue.length_m
+                    : 4 / 3
+                }`,
+              }}
+            >
+              {areaObjects.length === 0 ? (
+                <p className="absolute inset-0 flex items-center justify-center text-xs text-ink/40">
+                  No booths placed here yet.
+                </p>
+              ) : (
+                areaObjects.map((o) => <PinMarker key={o.object_id} o={o} />)
+              )}
+            </div>
+          </div>
+        );
+      })}
 
       {/* Table sheet */}
       <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">

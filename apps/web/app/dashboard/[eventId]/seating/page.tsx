@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -84,6 +85,20 @@ export default async function SeatingPage({ params }: Props) {
           Lay out your reception, then seat each guest in a chair. Group colours flow from your guest
           list, and <span className="font-medium text-ink/80">Auto-seat</span> fills the closest
           tables to the stage by role tier.
+        </p>
+        {/* Multi-area blueprints (owner-approved 2026-06-13): the cocktail
+            garden + booth pins live on their own lightweight surface so this
+            editor stays focused on the seated room. */}
+        <p className="text-sm">
+          <Link
+            href={`/dashboard/${eventId}/seating/areas`}
+            className="font-medium text-terracotta underline"
+          >
+            Areas &amp; booths
+          </Link>
+          <span className="ml-2 text-ink/55">
+            — map the cocktail area and place booth pins beyond this room.
+          </span>
         </p>
       </header>
 

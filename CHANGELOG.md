@@ -16,6 +16,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Snap feel is visual — Vercel preview.
 
 **SPEC IMPACT:** None beyond the editor-redesign program already logged (alignment-lock/grid-snap were in the original 0008 spec as deferred aids; this builds them in the redesigned interaction model). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row.
+## 2026-06-11 · chore(brand): "Setnayan HQ" — the internal console's display name (owner-locked naming)
+
+**Context:** "admin" collided three ways — the vendor team role **Admin** (owner/admin/agent/viewer), the Setnayan staff console, and staff labels. Owner locked the resolution (DECISION_LOG 2026-06-11): internal console = **"Setnayan HQ"**, staff = **"Setnayan Team"**, vendor-side roles unchanged (industry-standard), and **technical identifiers never renamed** (the `/admin` route, `account_type='admin'`, `is_admin()` — zero migration/RLS churn).
+
+- Display labels only, 11 files: sidebar eyebrow + tab titles (`Setnayan HQ` / `Overview · Setnayan HQ`), layout badge + fallback name → `Setnayan Team`, role-switch pill (both spots) + dashboard "open console" links + event-switcher row + help-center article label → `Setnayan HQ`, seed label `[TEST] Admin` → `[TEST] Setnayan Team`, CONNECTION_MATRIX heading.
+- Disambiguation rule for docs going forward: **"HQ" = Setnayan's console + team · "Admin" = a vendor's team role.**
+
+**SPEC IMPACT:** 0023's "Admin Console" naming superseded in UI copy (iteration `.md` retitle rides the next corpus pass per the relaxed sync mandate). No route/schema/RLS change.
 
 ## 2026-06-11 · fix(build): cap build memory so prod deploys stop OOMing on Vercel's standard machine
 

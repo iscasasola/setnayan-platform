@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { CopyLink } from '../_components/copy-link';
+import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
 
 export const metadata = { title: 'Panood setup · Setnayan' };
 
@@ -101,6 +102,8 @@ type Props = {
     youtube_connected?: string;
     youtube_disconnected?: string;
     youtube_error?: string;
+    watch_url_saved?: string;
+    watch_url_error?: string;
   }>;
 };
 
@@ -110,6 +113,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     youtube_connected: youtubeConnected,
     youtube_disconnected: youtubeDisconnected,
     youtube_error: youtubeError,
+    watch_url_saved: watchUrlSaved,
+    watch_url_error: watchUrlError,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -147,6 +152,23 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const oauthReady = oauthConfig.ready;
 
   const setup = mockPanoodSetup();
+
+  // REAL watch-URL read (the first live persistence on this surface —
+  // migration 20261122000000). Tolerant separate select so a pre-migration
+  // environment renders the mock null instead of erroring the page; the
+  // user-session client is RLS-scoped to the host's own events.
+  try {
+    const { data: watchRow, error: watchErr } = await supabase
+      .from('events')
+      .select('panood_watch_url')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!watchErr && watchRow?.panood_watch_url) {
+      setup.youtubeWatchUrl = watchRow.panood_watch_url as string;
+    }
+  } catch {
+    // pre-migration env — keep the mock null
+  }
 
   const totalCameras = 3 + setup.extraCameras;
   const totalHours = 3 + setup.extraHours;
@@ -251,8 +273,11 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       <StyleAndAddOns setup={setup} />
 
       <YouTubeDelivery
+        eventId={eventId}
         youtubeWatchUrl={setup.youtubeWatchUrl}
         connected={!!youtubeGrant}
+        watchUrlSaved={Boolean(watchUrlSaved)}
+        watchUrlError={Boolean(watchUrlError)}
       />
     </section>
   );
@@ -834,11 +859,17 @@ function PackCard({
 // are unchanged.
 
 function YouTubeDelivery({
+  eventId,
   youtubeWatchUrl,
   connected,
+  watchUrlSaved,
+  watchUrlError,
 }: {
+  eventId: string;
   youtubeWatchUrl: string | null;
   connected: boolean;
+  watchUrlSaved: boolean;
+  watchUrlError: boolean;
 }) {
   return (
     <section
@@ -891,8 +922,36 @@ function YouTubeDelivery({
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           YouTube watch URL
         </p>
+        {watchUrlSaved ? (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
+            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Saved — guests see Watch
+            Live on the big day.
+          </p>
+        ) : null}
+        {watchUrlError ? (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/10 px-2.5 py-1 text-xs text-terracotta-700">
+            <AlertCircle aria-hidden className="h-3.5 w-3.5" /> That doesn&rsquo;t look
+            like a YouTube link — paste the watch or share URL.
+          </p>
+        ) : null}
         {youtubeWatchUrl ? (
-          <p className="mt-1 font-mono text-sm text-ink/85">{youtubeWatchUrl}</p>
+          <>
+            <p className="mt-1 font-mono text-sm text-ink/85">{youtubeWatchUrl}</p>
+            <p className="mt-1 text-xs text-ink/55">
+              During the live window, your wedding page shows a Watch Live player with
+              this broadcast — front and center for the loved ones watching from afar.
+            </p>
+            <form action={clearPanoodWatchUrl} className="mt-3">
+              <input type="hidden" name="event_id" value={eventId} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+              >
+                <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Remove link
+              </button>
+            </form>
+          </>
         ) : connected ? (
           <p className="mt-1 text-sm text-ink/60">
             Available once the broadcaster opens the session for the first time.
@@ -908,6 +967,33 @@ function YouTubeDelivery({
             time.
           </p>
         )}
+
+        {!youtubeWatchUrl ? (
+          <form action={savePanoodWatchUrl} className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input
+              type="url"
+              name="watch_url"
+              required
+              placeholder="Paste your YouTube watch link — youtube.com/watch?v=…"
+              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90"
+            >
+              <Radio aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Save watch link
+            </button>
+          </form>
+        ) : null}
+        {!youtubeWatchUrl ? (
+          <p className="mt-2 text-xs text-ink/50">
+            Already created your broadcast on YouTube yourself? Paste its link here and
+            your wedding page shows Watch Live during the celebration — no need to wait
+            for the broadcaster hand-off.
+          </p>
+        ) : null}
       </div>
 
       <p className="text-xs text-ink/55">

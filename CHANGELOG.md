@@ -1812,6 +1812,17 @@ Three owner-directed seat-plan editor additions (2026-06-13):
 **SPEC IMPACT:** 0012 Salamisim section — P2 shipped (blur pipeline + per-row baked gates + couple toggle + re-bake sweep); the "FaceBlock ship gate" advisory updates from "P2 unbuilt — wall withheld on FaceBlock events" to "P2 LIVE — FaceBlock events project blurred derivatives". Residual-risk posture (detector recall is not perfect; fail-closed + kill switch + moderated surface) documented in the spec. Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
 
 ---
+## 2026-06-12 · feat(panood): Watch-Live on the guest day-of page + the first REAL persistence on the Panood setup surface
+
+**Context:** Owner: *"panood … must be on the on-the-day part"* — slice 3 (final) of the §7.5 on-the-day trio. Blocker found honestly: the Panood setup page's `youtubeWatchUrl` was a mock (`null`, no storage). This lands the storage, the couple-side field, and the guest block.
+
+- **Migration `20261122000000_panood_watch_url.sql` (applied to prod, ledger synced):** `events.panood_watch_url TEXT` — the canonical YouTube watch URL; written manually by the couple now, by the broadcaster auto-creation (YouTube Data API) later. *(Ledger note: remote-only `20261115000604` from a parallel session handled via the local-stub pattern; only this migration applied.)*
+- **`lib/panood-watch.ts` (new, pure):** `parseYouTubeVideoId` (watch?v= · youtu.be · /live/ · /embed/ · /shorts/ · scheme-tolerant) + `normalizeYouTubeWatchUrl` (canonical https form) + `youTubeEmbedUrl` (youtube-nocookie). **Normalize-or-reject is the injection barrier** — this value renders in an iframe on the public page. 4/4 unit assertions incl. the reject contract (evil hosts, javascript:, oversized ids).
+- **Panood setup page:** Step-5 box gains a real **"Save watch link"** field (host-guarded actions in `setup/actions.ts`; saved/error flags; Remove link) — the first real persistence on this otherwise-mock surface; the saved URL replaces the mock in the display.
+- **`app/[slug]/page.tsx`:** during the live window, with `PANOOD_SYSTEM` active + a staged URL → **Watch Live leads the page** (above the pinned schedule on the guest path; FIRST block on the anonymous path — the cookie-less remote relatives clicking from Messenger are exactly who this is for). youtube-nocookie embed + "Open on YouTube".
+
+**Verification:** `tsc` clean · 4/4 parser spec green · migration applied + ledger synced. **SPEC IMPACT:** §7.5 Panood row, live half — DECISION_LOG row added.
+
 ## 2026-06-12 · feat(website): per-guest LIVE gallery — "photos of you, so far" on the day-of page
 
 **Context:** Owner: *"the gallery must be on the on-the-day part"* — slice 2 of the spec §7.5 service stage. The wall mirror (prior entry) is the SHARED half; this is the PERSONALIZED half: while the wedding runs, a cookie-session guest sees the photos **they are tagged in** arriving through the day — the live form of the post-event "your photos" delivery, and personalization no competitor ships.

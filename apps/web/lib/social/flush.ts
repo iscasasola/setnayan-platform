@@ -14,6 +14,7 @@ import {
 import { nextAvailableSlot } from '@/lib/social/governor';
 import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
+import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
 import { socialCardUrl } from '@/lib/social/urls';
 
 /**
@@ -71,6 +72,7 @@ type PostRow = {
   post_id: string;
   source_type: 'couple_creation' | 'vendor_feature' | 'milestone' | 'announcement' | 'evergreen';
   source_ref: string;
+  title: string | null;
   body: string;
   media_url: string | null;
   link_url: string | null;
@@ -101,7 +103,7 @@ export async function runSocialFlush(): Promise<void> {
       .update({ last_flush_at: now.toISOString(), updated_at: now.toISOString() })
       .eq('id', true)
       .or(`last_flush_at.is.null,last_flush_at.lt.${cutoffIso}`)
-      .select('autopublish_enabled, facebook_enabled, instagram_enabled');
+      .select('autopublish_enabled, facebook_enabled, instagram_enabled, tiktok_enabled');
     if (claimErr) {
       logQueryError('runSocialFlush (claim)', claimErr);
       return;
@@ -111,6 +113,7 @@ export async function runSocialFlush(): Promise<void> {
       autopublish_enabled: boolean;
       facebook_enabled: boolean;
       instagram_enabled: boolean;
+      tiktok_enabled: boolean;
     };
 
     // ── Phase 1: sweep-compose (always — the queue UI shows upcoming posts
@@ -123,10 +126,19 @@ export async function runSocialFlush(): Promise<void> {
     await assignSchedules(admin, now);
 
     // ── Phase 2: dispatch (master switch + ≥1 enabled+configured platform) ─
+    // TikTok auto-post is GATED behind isTikTokConfigured() (a token present):
+    // until the owner completes OAuth + the Content Posting API audit, ttLive
+    // is false and the TikTok leg is simply skipped — the assisted-manual panel
+    // in /admin/social-queue is what works (Phase C).
     const fbLive = settings.facebook_enabled && isFacebookConfigured();
     const igLive = settings.instagram_enabled && isInstagramConfigured();
-    if (settings.autopublish_enabled && (fbLive || igLive)) {
-      await dispatchDuePosts(admin, now, { facebook: fbLive, instagram: igLive });
+    const ttLive = settings.tiktok_enabled && isTikTokConfigured();
+    if (settings.autopublish_enabled && (fbLive || igLive || ttLive)) {
+      await dispatchDuePosts(admin, now, {
+        facebook: fbLive,
+        instagram: igLive,
+        tiktok: ttLive,
+      });
     }
   } catch (err) {
     logQueryError('runSocialFlush (unexpected)', err);
@@ -563,7 +575,7 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
   }
 }
 
-/** One platform's stamped result for platform_results.{facebook,instagram}. */
+/** One platform's stamped result for platform_results.{facebook,instagram,tiktok}. */
 type PlatformLeg = {
   status: 'published' | 'failed';
   external_id: string | null;
@@ -572,30 +584,46 @@ type PlatformLeg = {
   error: string | null;
 };
 
+/** Short TikTok post title — the internal title, else the first body line; the
+ *  full body carries as the caption. The adapter clamps to ≤90 chars. */
+function tiktokTitle(post: PostRow): string {
+  const fromTitle = post.title?.trim();
+  if (fromTitle) return fromTitle;
+  const firstLine = (post.body ?? '').split('\n').find((l) => l.trim().length > 0)?.trim();
+  return firstLine ?? 'Setnayan';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Dispatch: publish due rows to every enabled+configured platform (Facebook
-// and/or Instagram). Per-row claim (scheduled → publishing, conditional
+// Dispatch: publish due rows to every enabled+configured platform (Facebook,
+// Instagram, and/or TikTok). Per-row claim (scheduled → publishing, conditional
 // UPDATE … RETURNING) means a concurrent flush can never double-post; per-row
 // try/catch means one bad row never kills the batch.
 //
-// Phase B: every post carries a branded 1080×1080 card. `effectiveMedia` is
-// the post's own media_url (evergreen items / announcements may set one — it
+// Phase B: every post carries a branded 1080×1080 SQUARE card. `effectiveMedia`
+// is the post's own media_url (evergreen items / announcements may set one — it
 // WINS) or, failing that, the public on-the-fly card URL. Passing it to
 // Facebook upgrades the post from text/link to a photo; Instagram requires it
-// (no text-only posts). The row is 'published' if ANY platform succeeds, else
-// 'failed'; consent / vendor stamps use the first successful permalink,
-// Facebook preferred.
+// (no text-only posts).
+//
+// Phase C: TikTok posts the 9:16 STORY card (1080×1920) as a Photo Mode post.
+// `tiktokMedia` is the post's own media_url or, failing that, the STORY card
+// URL (?format=story). The TikTok leg only runs when targets.tiktok — i.e.
+// tiktok_enabled AND the account token is present (the audit-gated state).
+//
+// The row is 'published' if ANY platform leg succeeds, else 'failed'; consent /
+// vendor stamps use the first successful permalink, Facebook preferred (TikTok
+// returns none synchronously, so it never wins the stamp).
 // ─────────────────────────────────────────────────────────────────────────────
 async function dispatchDuePosts(
   admin: AdminClient,
   now: Date,
-  targets: { facebook: boolean; instagram: boolean },
+  targets: { facebook: boolean; instagram: boolean; tiktok: boolean },
 ): Promise<void> {
   const nowIso = now.toISOString();
   const { data: dueData, error: dueErr } = await admin
     .from('social_posts')
     .select(
-      'post_id, source_type, source_ref, body, media_url, link_url, publish_after, hold_until, scheduled_for, status, platform_results',
+      'post_id, source_type, source_ref, title, body, media_url, link_url, publish_after, hold_until, scheduled_for, status, platform_results',
     )
     .eq('status', 'scheduled')
     .lte('scheduled_for', nowIso)
@@ -679,6 +707,35 @@ async function dispatchDuePosts(
             external_id: null,
             posted_at: null,
             error: ig.error,
+          };
+        }
+      }
+
+      if (targets.tiktok) {
+        // TikTok Photo Mode posts the 9:16 STORY card. Same media-precedence
+        // rule (the post's own media WINS), but the fallback is the STORY card.
+        // Title is a short derive (post.title or the first body line); the
+        // caption is the full body. No synchronous permalink (async publish).
+        const tiktokMedia = post.media_url || socialCardUrl(post.post_id, 'story');
+        const tt = await postPhotoToTikTok({
+          imageUrl: tiktokMedia,
+          title: tiktokTitle(post),
+          caption: post.body,
+        });
+        if (tt.ok) {
+          legs.tiktok = {
+            status: 'published',
+            external_id: tt.externalId,
+            post_url: tt.postUrl,
+            posted_at: new Date().toISOString(),
+            error: null,
+          };
+        } else {
+          legs.tiktok = {
+            status: 'failed',
+            external_id: null,
+            posted_at: null,
+            error: tt.error,
           };
         }
       }

@@ -1,3 +1,4 @@
+import { type NextRequest } from 'next/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -7,12 +8,16 @@ import {
   renderSocialCardJpeg,
   renderFallbackCardJpeg,
   type CardContext,
+  type CardFormat,
 } from '@/lib/social/card';
 
 /**
- * GET /api/social/card/[postId] — the branded 1080×1080 social card for a
- * social_posts row, rendered on the fly (Phase B · corpus
- * `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8).
+ * GET /api/social/card/[postId] — the branded social card for a social_posts
+ * row, rendered on the fly (Phase B · corpus
+ * `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8). `?format=story`
+ * renders the 1080×1920 9:16 card (TikTok Photo Mode · Phase C); the default
+ * is the 1080×1080 square (FB/IG feed). The cache key differs by URL, so the
+ * immutable cache is safe for both.
  *
  * PUBLIC, no auth — by design. Facebook (/photos) and Instagram (/media) both
  * fetch this URL server-side at publish time, with no Setnayan session, so the
@@ -47,10 +52,13 @@ type PostRow = {
 };
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ postId: string }> },
 ) {
   const { postId } = await params;
+  // ?format=story → 1080×1920 9:16 card; anything else → 1080×1080 square.
+  const format: CardFormat =
+    req.nextUrl.searchParams.get('format') === 'story' ? 'story' : 'square';
 
   try {
     const admin = createAdminClient();
@@ -72,7 +80,7 @@ export async function GET(
     const post = postData as PostRow;
 
     const ctx = await buildCardContext(admin, post);
-    const jpeg = await renderSocialCardJpeg(ctx);
+    const jpeg = await renderSocialCardJpeg(ctx, format);
     return jpegResponse(jpeg);
   } catch (err) {
     logQueryError('socialCardRoute (render)', err, { post_id: postId });

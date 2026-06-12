@@ -20,6 +20,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Why it's not a clone-risk:** everything named is already on the public `/features` + `/pricing` + `/help` surfaces — this only makes machines describe what couples already see. The real moat (render pipeline, face-tagging params, owned music catalogue, marketplace liquidity) stays in private code/infra and is never in public copy.
 
 **SPEC IMPACT:** None on schema. Adds a standing public-surface hygiene principle to DECISION_LOG (benefits in public copy; implementation/architecture never) — the actual clone-risk reducer.
+## 2026-06-13 · feat(social): auto-publish Phase C — TikTok (photo mode) + 9:16 story card format
+
+**Context:** owner directive to sync the app to Facebook/Instagram/TikTok. Phase C (corpus § 8.5) brings TikTok in and adds the portrait card format. Builds on Phase B (#1322). No migration (`tiktok_enabled` already on `social_publish_settings`).
+
+- **9:16 story card format:** `renderSocialCardJpeg(ctx, format)` now takes `'square'` (1080×1080, unchanged/byte-identical default) or `'story'` (1080×1920). The centered-column layouts adapt; the custom-monogram composite top is **derived** (`squareTop + (height − 1080)/2`), not a second magic number — verified the A&M mark stays centered in its ring on the taller canvas. Route gains `?format=story`; `socialCardUrl(postId, 'story')` appends it (default URL unchanged so FB/IG keep their square cards).
+- **TikTok adapter (`lib/social/tiktok.ts`):** `isTikTokConfigured()` + `postPhotoToTikTok()` — Content Posting API **Photo Mode** (`POST /v2/post/publish/content/init/`, `post_mode: DIRECT_POST`, `media_type: PHOTO`, `source: PULL_FROM_URL` with the 9:16 card URL, `auto_add_music`). Never-throws, 15-s timeout, title ≤90 / caption ≤4000. Async publish → returns `publish_id`, no synchronous permalink. **Real MP4/Reels video is explicitly Phase D** (needs a render pipeline) — marked in-code.
+- **Dispatch:** `dispatchDuePosts` gains a TikTok leg (story card) — fires only when `tiktok_enabled && isTikTokConfigured()`. When enabled-but-unconfigured (the realistic pre-audit state) the leg is **skipped, never failed** — FB/IG still publish.
+- **Assisted-manual mode (the default until audit + OAuth land):** when `tiktok_enabled && !isTikTokConfigured()`, the Autopilot chip reads "assisted (audit pending)" and a **"TikTok — ready to post manually"** panel lists recent posts with a 9:16 card preview, a select-all caption block, and a "Download 9:16 card" link — the 30-second manual-post affordance. TikTok is now a real settings checkbox. Env banner points to API checklist #21c.
+- **`.env.example`:** `TIKTOK_ACCESS_TOKEN` added (per-account OAuth token; needs Content Posting API audit + a verified PULL_FROM_URL domain; token-refresh wiring is a follow-on).
+
+**Verification:** `tsc --noEmit` + `next lint` clean. Both formats rendered locally and dimension-confirmed (square 1080×1080, story 1080×1920); 9:16 visually confirmed on-brand. TikTok auto-posting stays inert until the owner completes the audit + OAuth; assisted-manual works immediately once `tiktok_enabled` is on.
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5 Phase C → BUILT (assisted-manual; auto-post gated on audit/OAuth) + DECISION_LOG ship row. Video Reels carried forward as Phase D.
 
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 

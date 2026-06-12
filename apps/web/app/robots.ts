@@ -6,6 +6,8 @@ const ALLOWED_PATHS = [
   '/',
   '/v/',
   '/vendors',
+  '/venues',
+  '/venue/',
   '/for-vendors',
   '/help',
   // Forward-looking — these surfaces are in the SEO playbook

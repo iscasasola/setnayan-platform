@@ -11,12 +11,14 @@ Setnayan is software, not an agency. Couples plan their wedding through a guided
 - [Setnayan Home](https://www.setnayan.com/) — Wedding planning platform overview, transparent PHP pricing, 0% commission claim, Filipino vendor stories.
 - [Wedding Vendor Directory](https://www.setnayan.com/vendors) — Browse verified Filipino wedding vendors. Filterable by category (photography, catering, planning, florals, attire, hair and makeup, music, decor, rings, booths, invitations) and city.
 - [Vendor Public Profiles](https://www.setnayan.com/v/) — Each vendor has a profile at `/v/[slug]` with services, packages, coverage cities, and tier badge where applicable.
+- [Wedding Venues Directory](https://www.setnayan.com/venues) — 100+ real Philippine wedding venues curated by the Setnayan team, browsable by city at `/venues/[city]` (Tagaytay, Cebu, Makati, and more) with per-venue capacity and day-rate details at `/venue/[slug]`. Informational directory in this release — venue booking through Setnayan is on the roadmap.
 - [Pricing](https://www.setnayan.com/pricing) — Customer software SKUs, customer bundles, vendor subscriptions, and vendor token packs.
 - [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Four tiers: Free (₱0 baseline listing), Verified (₱1,499 one-time lifetime badge), Pro (₱2,499 / 28-day prepaid block), Enterprise (₱5,499 / 28-day prepaid block). 0% commission on all bookings, all tiers.
 - [Features](https://www.setnayan.com/features) — Detailed list of planning tools and in-app services.
 - [How It Works](https://www.setnayan.com/how-it-works) — Step-by-step couple and vendor onboarding.
 - [Real Weddings](https://www.setnayan.com/weddings) — Editorial showcase of weddings shipped through Setnayan. Editorials publish 30 days post-event with explicit couple consent per RA 10173.
 - [Help and Support](https://www.setnayan.com/help) — Step-by-step guides for couples and vendors; contact form for human support.
+- [Download](https://www.setnayan.com/download) — Setnayan desktop app for macOS and Windows.
 - [Sign in](https://www.setnayan.com/login) and [Create account](https://www.setnayan.com/signup) — couple or vendor signup paths.
 - [Privacy](https://www.setnayan.com/privacy) and [Terms](https://www.setnayan.com/terms) — RA 10173 (Data Privacy Act of the Philippines) compliant. National Privacy Commission registration in progress.
 

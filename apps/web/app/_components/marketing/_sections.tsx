@@ -985,6 +985,7 @@ export function Footer() {
       title: 'Product',
       links: [
         { label: 'Marketplace', href: '/vendors' },
+        { label: 'Wedding venues', href: '/venues' },
         { label: 'How it works', href: '/features' },
         { label: 'Pricing', href: '/pricing' },
       ],

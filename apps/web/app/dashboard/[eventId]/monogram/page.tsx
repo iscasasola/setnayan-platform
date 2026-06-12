@@ -17,6 +17,7 @@ import { bespokeStudioEnabled } from '@/lib/bespoke-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { sanitizeCipherConfig } from '@/lib/cipher-shared';
+import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 import {
   MonogramMaker,
   MONO_FONT_OPTIONS,
@@ -175,6 +176,29 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       ? event.monogram_custom_svg
       : null;
 
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — the
+  // live (un-revoked) consent row for THIS custom mark, so the Feature-Us
+  // card flips to its "already allowed" state. artifact_ref keys on the
+  // bespoke generation id ('custom' for cipher/hand-applied marks) so a
+  // re-designed mark asks fresh. RLS couple policy scopes the read; degrade
+  // to null on a drifted DB (table may post-date this deploy).
+  const shareArtifactRef = customSvg
+    ? (event.monogram_custom_generation_id ?? 'custom')
+    : null;
+  const { data: shareConsent } = shareArtifactRef
+    ? await supabase
+        .from('marketing_share_consents')
+        .select('consent_id, credit_mode')
+        .eq('event_id', eventId)
+        .eq('artifact_type', 'monogram')
+        .eq('artifact_ref', shareArtifactRef)
+        .is('revoked_at', null)
+        .order('consented_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => (r.error ? { data: null } : r))
+    : { data: null };
+
   return (
     <section className="space-y-6">
       <Link
@@ -227,6 +251,17 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         enabled={bespokeStudioEnabled()}
         notice={bespokeNotice}
       />
+
+      {/* ── Feature-us opt-in (Social Sharing Program) — custom marks only ── */}
+      {customSvg && shareArtifactRef ? (
+        <FeatureUsCard
+          eventId={eventId}
+          artifactType="monogram"
+          artifactRef={shareArtifactRef}
+          alreadyConsented={shareConsent ?? null}
+          revalidatePath={`/dashboard/${eventId}/monogram`}
+        />
+      ) : null}
 
       {/* ── How it animates ── */}
       <section className="rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">

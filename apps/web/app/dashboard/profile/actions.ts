@@ -75,6 +75,8 @@ export async function updatePersonalInfo(formData: FormData) {
   const phoneRaw = formData.get('phone');
   const photoRaw = formData.get('profile_photo_url');
   const marketingRaw = formData.get('marketing_opt_in');
+  const birthDateRaw = formData.get('birth_date');
+  const publicGreetingRaw = formData.get('public_greeting_opt_in');
 
   const display_name =
     typeof displayNameRaw === 'string' ? displayNameRaw.trim().slice(0, 128) || null : null;
@@ -82,6 +84,18 @@ export async function updatePersonalInfo(formData: FormData) {
     typeof phoneRaw === 'string' ? phoneRaw.trim().slice(0, 32) || null : null;
   const profile_photo_url = nullIfBlank(photoRaw);
   const marketing_opt_in = marketingRaw === 'on';
+  // Social Sharing Program (migration 20261203000000): optional birthday +
+  // the SEPARATE public-greeting opt-in (Facebook birthday/anniversary posts;
+  // email greetings never need it). Empty string → NULL; anything that isn't
+  // a clean YYYY-MM-DD is rejected rather than half-saved.
+  const birthDateStr = typeof birthDateRaw === 'string' ? birthDateRaw.trim() : '';
+  if (birthDateStr && !/^\d{4}-\d{2}-\d{2}$/.test(birthDateStr)) {
+    return redirect(
+      `/dashboard/profile?error=${encodeURIComponent('Birthday must be a valid date (YYYY-MM-DD).')}`,
+    );
+  }
+  const birth_date = birthDateStr || null;
+  const public_greeting_opt_in = publicGreetingRaw === 'on';
 
   const { error } = await supabase
     .from('users')
@@ -90,6 +104,8 @@ export async function updatePersonalInfo(formData: FormData) {
       phone,
       profile_photo_url,
       marketing_opt_in,
+      birth_date,
+      public_greeting_opt_in,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', user.id);

@@ -231,6 +231,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         logoDisplayMap: Record<string, string>;
         portfolioMax: number;
         canCustomSlug: boolean;
+        socialFeatureOptOut: boolean;
       }
     | { ok: false; message: string };
   try {
@@ -246,6 +247,21 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       .maybeSingle();
     const caps = tierCaps(
       asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
+    );
+
+    // social_feature_opt_out (Social Sharing Program · 20261203000000) gets
+    // its OWN soft-probe — never combined with the tier read, so a
+    // pre-migration DB (42703 on the new column) degrades this checkbox to
+    // default-off without also nuking the tier-derived portfolio cap.
+    const { data: socialRow } = await supabase
+      .from('vendor_profiles')
+      .select('social_feature_opt_out')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r));
+    const socialFeatureOptOut = Boolean(
+      (socialRow as { social_feature_opt_out?: boolean | null } | null)
+        ?.social_feature_opt_out,
     );
     const portfolioCap = caps.portfolioPhotos;
     const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
@@ -303,6 +319,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       logoDisplayMap,
       portfolioMax,
       canCustomSlug,
+      socialFeatureOptOut,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -352,6 +369,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     logoDisplayMap,
     portfolioMax,
     canCustomSlug,
+    socialFeatureOptOut,
   } = loaderState;
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
@@ -743,6 +761,35 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               When on, your profile appears in the Setnayan vendor marketplace. New profiles show
               with a <em>Coming soon</em> badge until Setnayan verifies your business — the badge
               flips to <em>Verified</em> the moment your application is approved.
+            </span>
+          </span>
+        </label>
+
+        {/*
+          Social Sharing & Featuring Program (migration 20261203000000) — the
+          verification celebration post is opt-OUT: every newly verified
+          vendor gets featured on Setnayan's Facebook page unless this is
+          ticked. Free = unnamed category mention · Pro+ = named feature
+          (tiers sell reach · project_setnayan_vendor_hybrid_anonymity).
+        */}
+        <label
+          className="flex items-start gap-3 rounded-xl p-4"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <input
+            type="checkbox"
+            name="social_feature_opt_out"
+            defaultChecked={socialFeatureOptOut}
+            className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+          />
+          <span>
+            <span className="block text-sm font-medium text-ink">
+              Don&rsquo;t feature my business on Setnayan&rsquo;s social pages
+            </span>
+            <span className="block text-xs text-ink/55">
+              When you pass verification we celebrate it on our Facebook page — Free listings get
+              an unnamed category mention, Pro gets a named feature with your logo. Tick to opt
+              out.
             </span>
           </span>
         </label>

@@ -7,9 +7,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   SCHEDULE_BLOCK_TYPES,
   buildScheduleSeed,
+  fetchScheduleBlocks,
   type ScheduleBlockType,
   type SeedCeremonyType,
 } from '@/lib/schedule';
+import { fetchGuestsByEvent } from '@/lib/guests';
+import { buildEmceeScript } from '@/lib/emcee-script';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 
@@ -385,6 +388,50 @@ export async function seedDefaultScheduleBlocks(
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);
   return topLevelRows.length + childInserts.length;
+}
+
+/**
+ * Compile the Emcee / Host script for the wedding day. Fetches the event header,
+ * the schedule blocks (run-of-show), and the guest list (for the wedding-party
+ * roster), then runs the pure `buildEmceeScript` compiler. RLS-gated via the
+ * authenticated client — a host can only generate their own event's script.
+ *
+ * Returns the formatted plain-text script for the client to copy / download.
+ * `includePrivate` lets the host include private blocks (family-only ritual
+ * parts) in their personal reading copy.
+ */
+export async function generateEmceeScript(
+  eventId: string,
+  includePrivate = false,
+): Promise<string> {
+  if (!eventId) throw new Error('event_id required');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [eventRes, blocks, guests] = await Promise.all([
+    supabase
+      .from('events')
+      .select('display_name, event_date')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    fetchScheduleBlocks(supabase, eventId),
+    fetchGuestsByEvent(supabase, eventId),
+  ]);
+
+  const event = eventRes.data ?? { display_name: null, event_date: null };
+  return buildEmceeScript({
+    event: {
+      displayName: (event as { display_name: string | null }).display_name ?? null,
+      eventDate: (event as { event_date: string | null }).event_date ?? null,
+    },
+    blocks,
+    guests,
+    options: { includePrivateBlocks: includePrivate },
+  });
 }
 
 /**

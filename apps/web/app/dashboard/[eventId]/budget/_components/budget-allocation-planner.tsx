@@ -55,6 +55,7 @@ import {
   type AllocationConfig,
   type LeafAllocation,
 } from '@/lib/budget-allocation';
+import { computeBudgetOverspend } from '@/lib/budget-overspend';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { formatPhp } from '@/lib/budget';
 import {
@@ -137,6 +138,23 @@ export function BudgetAllocationPlanner({
     if (recommended) for (const l of recommended.leaves) m.set(l.canonicalService, l);
     return m;
   }, [recommended]);
+
+  // OVERSPEND — per-leaf, the couple's chosen ₱ (final) vs the suggested
+  // benchmark (recommended). When a category is over, the absorption plan names
+  // which under-benchmark categories have the savings to cover it. Pure math
+  // (lib/budget-overspend); re-runs instantly with each tilt like the engine.
+  const overspend = useMemo(() => {
+    if (!final || !recommended) return null;
+    const recMap = new Map(recommended.leaves.map((l) => [l.canonicalService, l]));
+    return computeBudgetOverspend(
+      final.leaves.map((leaf) => ({
+        key: leaf.canonicalService,
+        label: labelByLeaf.get(leaf.canonicalService) ?? leaf.canonicalService,
+        benchmarkPhp: recMap.get(leaf.canonicalService)?.amountPhp ?? 0,
+        actualPhp: leaf.amountPhp,
+      })),
+    );
+  }, [final, recommended, labelByLeaf]);
 
   // Editing the planner invalidates the last "Saved" confirmation so the couple
   // never sees a stale green chip against numbers they've since changed.
@@ -297,6 +315,13 @@ export function BudgetAllocationPlanner({
             </span>
           </div>
         ) : null}
+
+        {/* Overspend + absorption — when the couple's split puts a category over
+            its suggested benchmark, name the under-budget categories whose
+            savings can absorb it. Soft guidance, never a block. */}
+        {overspend && overspend.hasOverspend ? (
+          <OverspendBanner overspend={overspend} />
+        ) : null}
       </div>
 
       {/* One row per leaf. */}
@@ -371,6 +396,76 @@ export function BudgetAllocationPlanner({
           onReset={() => clearPin(openLeafAlloc.canonicalService)}
         />
       ) : null}
+    </div>
+  );
+}
+
+// ── Overspend + absorption banner ────────────────────────────────────────────
+
+/** Comma-list with an Oxford "and" — "Cake, Flowers, and Lights". */
+function joinLabels(labels: string[]): string {
+  if (labels.length === 0) return '';
+  if (labels.length === 1) return labels[0]!;
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+}
+
+function OverspendBanner({
+  overspend,
+}: {
+  overspend: ReturnType<typeof computeBudgetOverspend>;
+}) {
+  const overLabels = overspend.overspent.map((c) => c.label);
+  // Categories the absorption plan actually draws from (named in the transfers).
+  const absorbLabels = Array.from(new Set(overspend.transfers.map((t) => t.fromLabel)));
+  const emerald = overspend.fullyAbsorbable;
+
+  return (
+    <div
+      role="status"
+      className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${
+        emerald
+          ? 'border-emerald-300/60 bg-emerald-50/60 text-ink/80'
+          : 'border-terracotta/30 bg-terracotta/[0.06] text-ink/80'
+      }`}
+    >
+      {emerald ? (
+        <CheckCircle2
+          aria-hidden
+          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+          strokeWidth={1.75}
+        />
+      ) : (
+        <AlertTriangle
+          aria-hidden
+          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-700"
+          strokeWidth={1.75}
+        />
+      )}
+      <span>
+        {joinLabels(overLabels)} {overLabels.length === 1 ? 'is' : 'are'} about{' '}
+        <strong className="font-medium text-ink">
+          {formatPhp(overspend.totalOverspendPhp)}
+        </strong>{' '}
+        over the suggested split.{' '}
+        {emerald ? (
+          <>
+            Your room on {joinLabels(absorbLabels)} can cover it — you&rsquo;re
+            still within budget.
+          </>
+        ) : (
+          <>
+            {absorbLabels.length > 0 ? (
+              <>Room on {joinLabels(absorbLabels)} covers part of it; </>
+            ) : null}
+            about{' '}
+            <strong className="font-medium text-ink">
+              {formatPhp(overspend.netOverPhp)}
+            </strong>{' '}
+            isn&rsquo;t covered elsewhere — consider trimming or raising your budget.
+          </>
+        )}
+      </span>
     </div>
   );
 }

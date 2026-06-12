@@ -112,6 +112,10 @@ import {
   UpcomingSchedulesSkeleton,
 } from './_components/upcoming-schedules-async';
 import {
+  ChecklistAsync,
+  ChecklistSkeleton,
+} from './_components/checklist/checklist-async';
+import {
   ActivityFeedAsync,
   ActivityFeedSkeleton,
 } from './_components/activity-feed-async';
@@ -1653,6 +1657,21 @@ export default async function EventHomePage({
             eventDate={event.event_date}
             ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
             userId={user.id}
+            now={now}
+          />
+        </Suspense>
+      ) : null}
+
+      {/* Up next — top-3 most time-urgent open planning-checklist items for the
+       *  couple's current runway (lib/checklist rankUrgentChecklistItems). New
+       *  surface owner-authorized 2026-06-13; distinct from the retired Today's
+       *  Focus wizard. Gated off in manual mode alongside the other nudge
+       *  surfaces. Streams in its own Suspense — never blocks the home shell. */}
+      {!planningManual ? (
+        <Suspense fallback={<ChecklistSkeleton />}>
+          <ChecklistAsync
+            eventId={eventId}
+            eventDate={event.event_date}
             now={now}
           />
         </Suspense>

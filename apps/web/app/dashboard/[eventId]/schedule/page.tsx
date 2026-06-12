@@ -27,6 +27,7 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 // aggregation of EXISTING dated data (payments / paperwork / meetings /
 // statutory milestones) — see lib/preparation.ts for the source map.
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
+import { EmceeScriptButton } from './_components/emcee-script-button';
 import { PreparationAgendaView } from './_components/preparation-agenda';
 
 export const metadata = { title: 'Schedule' };
@@ -122,6 +123,17 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             suggestions={openSuggestions}
             blocks={blocks}
           />
+          {/* Emcee script — compiles this timeline + the wedding-party names
+           *  into a clean host script (copy / download). Read-only over the
+           *  saved program; pure compiler in lib/emcee-script. */}
+          {blocks.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+              <p className="text-sm text-ink/65">
+                Turn this timeline into a ready-to-read emcee / host script.
+              </p>
+              <EmceeScriptButton eventId={eventId} />
+            </div>
+          ) : null}
           <EventDayView eventId={eventId} blocks={blocks} />
         </>
       )}

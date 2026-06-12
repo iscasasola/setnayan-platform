@@ -20,7 +20,7 @@
  * Entirely behind `BUDGET_BUILD_ENABLED` — off in production until the owner flips it.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { X, Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
 import { BUDGET_BUILD_TABS, type BudgetBuildTab } from '@/lib/budget-build';
@@ -83,15 +83,29 @@ export function ServicesTakeover({
 }) {
   const [tab, setTab] = useState<BudgetBuildTab>(initialTab);
 
+  // Switch sections AND mirror the choice into ?tab= so refresh + deep links
+  // land on the same section (2026-06-12). replaceState — flipping sections
+  // shouldn't pollute the back stack; the page never re-renders off the URL.
+  const selectTab = useCallback((next: BudgetBuildTab) => {
+    setTab(next);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', next);
+      window.history.replaceState(null, '', url);
+    } catch {
+      // URL/history unavailable — the tab still switches, just client-only.
+    }
+  }, []);
+
   // Let slots request a tab switch via the `bb:tab` CustomEvent (see goToBuildTab).
   useEffect(() => {
     const onTab = (e: Event) => {
       const next = (e as CustomEvent<BudgetBuildTab>).detail;
-      if (next && BUDGET_BUILD_TABS.includes(next)) setTab(next);
+      if (next && BUDGET_BUILD_TABS.includes(next)) selectTab(next);
     };
     window.addEventListener(BB_TAB_EVENT, onTab);
     return () => window.removeEventListener(BB_TAB_EVENT, onTab);
-  }, []);
+  }, [selectTab]);
 
   const slots: Record<BudgetBuildTab, ReactNode> = {
     summary: summarySlot,
@@ -136,7 +150,7 @@ export function ServicesTakeover({
               id={`bbtab-d-${key}`}
               aria-selected={on}
               aria-controls="budget-build-panel"
-              onClick={() => setTab(key)}
+              onClick={() => selectTab(key)}
               className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 on ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink/80'
               }`}
@@ -177,7 +191,7 @@ export function ServicesTakeover({
               id={`bbtab-m-${key}`}
               aria-selected={on}
               aria-controls="budget-build-panel"
-              onClick={() => setTab(key)}
+              onClick={() => selectTab(key)}
               className="flex flex-1 flex-col items-center gap-0.5 py-2"
             >
               <Icon

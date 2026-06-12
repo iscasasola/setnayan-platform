@@ -2,20 +2,29 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ShieldCheck, Store, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatEventDate } from '@/lib/events';
-import { EventMonogram } from '@/app/_components/event-monogram';
+import { EventMonogram, EmptyEventMonogram } from '@/app/_components/event-monogram';
 import { EventTypeCarousel } from '@/app/dashboard/create-event/_components/event-type-carousel';
 
 /**
- * Event switcher — iteration 0000 chrome (locked 2026-05-14 single-strip
- * top-nav + 2026-05-15 event-lifecycle add-event entry-point).
+ * Unified switcher — iteration 0000 chrome (locked 2026-05-14 single-strip
+ * top-nav + 2026-05-15 event-lifecycle add-event entry-point; unified
+ * 2026-06-12 per owner directive "single switcher" — this component is now
+ * the ONE switching affordance across all three doorways, covering both the
+ * account's events AND the consoles it can enter: Customer view / Shop
+ * console / Setnayan HQ. It absorbs and retires the standalone
+ * `RoleSwitchPill` that used to duplicate the role rows in every doorway's
+ * sidebar footer + mobile top bar).
  *
  * The top-strip anchor is a **monogram chip** (per-event circular badge from
  * `events.monogram_text` / derived initials of `display_name`):
- *   - **Tap monogram** → routes to the event dashboard.
+ *   - **Tap monogram** → routes to the event dashboard (or
+ *     `/dashboard/create-event` via the empty "+" monogram when the account
+ *     holds zero events — the switcher still opens via the caret so role
+ *     switching never disappears for event-less vendor/admin accounts).
  *   - **Long-press monogram (mobile)** → opens the switcher.
  *   - **Caret ▾ (desktop)** → opens the switcher popover.
  *
@@ -29,8 +38,9 @@ import { EventTypeCarousel } from '@/app/dashboard/create-event/_components/even
  *
  * Two in-place views inside the popover:
  *   - `events` — the default. `+ Add event` row, then the event list (primary
- *     first, ★-marked), then the role-switch rows ("Switch view": Shop / Admin
- *     consoles, gated on access).
+ *     first, ★-marked), then the role-switch rows ("Switch view": the consoles
+ *     the account can enter OTHER than the one it's on — `currentRole` is
+ *     implied by the surface, so it isn't listed as a target).
  *   - `addtype` — `+ Add event` swaps the popover body to a carousel of event
  *     types (the same roster the full /dashboard/create-event page uses, shared
  *     from `event-types.ts`). Picking **Wedding** continues to
@@ -66,15 +76,23 @@ export type SwitcherVendorTarget = {
   logo_url: string | null;
 };
 
+export type SwitcherRole = 'customer' | 'vendor' | 'admin';
+
 type Props = {
-  currentEventId: string;
-  currentEventName: string;
+  /** Which console this switcher is mounted on — that console is implied
+      by the surface, so it isn't listed as a "Switch view" target. */
+  currentRole: SwitcherRole;
+  /** Null on surfaces with no anchor event (zero couple events) — the
+      anchor renders the empty "+" monogram but the menu still opens. */
+  currentEventId: string | null;
+  currentEventName: string | null;
   currentEventDate: string | null;
   currentMonogramText: string | null;
   currentMonogramColor: string | null;
   currentMonogramFrameKey?: string | null;
   currentMonogramFontKey?: string | null;
   events: SwitcherEvent[];
+  hasCustomerAccess: boolean;
   hasVendorAccess: boolean;
   hasAdminAccess: boolean;
   vendorProfiles: SwitcherVendorTarget[];
@@ -83,6 +101,7 @@ type Props = {
 type View = 'events' | 'addtype';
 
 export function EventSwitcher({
+  currentRole,
   currentEventId,
   currentEventName,
   currentEventDate,
@@ -91,6 +110,7 @@ export function EventSwitcher({
   currentMonogramFrameKey,
   currentMonogramFontKey,
   events,
+  hasCustomerAccess,
   hasVendorAccess,
   hasAdminAccess,
   vendorProfiles,
@@ -166,6 +186,50 @@ export function EventSwitcher({
       isLongPressFiredRef.current = false;
     }
   };
+
+  // "Switch view" targets — every console the account can enter OTHER than
+  // the one it's on (currentRole is implied by the surface). Lifted verbatim
+  // from the retired RoleSwitchPill so the unified switcher is the single
+  // owner of cross-console hopping (owner directive 2026-06-12).
+  const roleTargets: Array<{
+    role: SwitcherRole;
+    label: string;
+    href: string;
+    sub: string | null;
+    Icon: typeof User;
+  }> = [];
+  if (currentRole !== 'customer' && hasCustomerAccess) {
+    roleTargets.push({
+      role: 'customer',
+      label: 'Customer view',
+      href: '/dashboard',
+      sub: 'Your events',
+      Icon: User,
+    });
+  }
+  if (currentRole !== 'vendor' && hasVendorAccess) {
+    roleTargets.push({
+      role: 'vendor',
+      label: 'Shop console',
+      href: '/vendor-dashboard',
+      sub:
+        vendorProfiles.length === 1
+          ? vendorProfiles[0]?.business_name ?? null
+          : vendorProfiles.length > 1
+            ? `${vendorProfiles.length} vendor profiles`
+            : null,
+      Icon: Store,
+    });
+  }
+  if (currentRole !== 'admin' && hasAdminAccess) {
+    roleTargets.push({
+      role: 'admin',
+      label: 'Setnayan HQ',
+      href: '/admin',
+      sub: 'Setnayan admin',
+      Icon: ShieldCheck,
+    });
+  }
 
   // Shared popover body — rendered into BOTH the desktop dropdown and the
   // mobile bottom sheet. Exactly one wrapper is visible per breakpoint.
@@ -273,72 +337,43 @@ export function EventSwitcher({
           </ul>
         ) : null}
 
-        {hasVendorAccess || hasAdminAccess ? (
+        {roleTargets.length > 0 ? (
           <div className="mt-2 border-t border-ink/10 pt-2">
             <p className="px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/40">
               Switch view
             </p>
-            {hasVendorAccess && vendorProfiles.length === 1 ? (
-              <Link
-                role="menuitem"
-                href="/vendor-dashboard"
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
-                onClick={closeMenu}
-              >
-                <span
-                  aria-hidden
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700"
+            {roleTargets.map((t) => {
+              const TargetIcon = t.Icon;
+              const isAdminTone = t.role === 'admin';
+              return (
+                <Link
+                  role="menuitem"
+                  key={t.role}
+                  href={t.href}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 ${
+                    isAdminTone ? 'hover:bg-purple-50' : 'hover:bg-terracotta/10'
+                  }`}
+                  onClick={closeMenu}
                 >
-                  S
-                </span>
-                <span className="flex flex-col">
-                  <span className="font-medium">Shop console</span>
-                  <span className="text-[11px] text-ink/55">
-                    {vendorProfiles[0]?.business_name ?? 'Vendor profile'}
-                  </span>
-                </span>
-              </Link>
-            ) : hasVendorAccess && vendorProfiles.length > 1 ? (
-              <div className="space-y-0.5">
-                <p className="px-3 text-xs text-ink/55">Shop console</p>
-                {vendorProfiles.map((vp) => (
-                  <Link
-                    role="menuitem"
-                    key={vp.vendor_profile_id}
-                    href="/vendor-dashboard"
-                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
-                    onClick={closeMenu}
+                  <span
+                    aria-hidden
+                    className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                      isAdminTone
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-terracotta/15 text-terracotta-700'
+                    }`}
                   >
-                    <span
-                      aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700"
-                    >
-                      {vp.business_name.charAt(0).toUpperCase() || 'V'}
-                    </span>
-                    <span className="truncate">{vp.business_name}</span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-            {hasAdminAccess ? (
-              <Link
-                role="menuitem"
-                href="/admin"
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-purple-50"
-                onClick={closeMenu}
-              >
-                <span
-                  aria-hidden
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-800"
-                >
-                  S
-                </span>
-                <span className="flex flex-col">
-                  <span className="font-medium">Setnayan HQ</span>
-                  <span className="text-[11px] text-ink/55">Setnayan admin</span>
-                </span>
-              </Link>
-            ) : null}
+                    <TargetIcon className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="font-medium">{t.label}</span>
+                    {t.sub ? (
+                      <span className="truncate text-[11px] text-ink/55">{t.sub}</span>
+                    ) : null}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -347,30 +382,42 @@ export function EventSwitcher({
 
   return (
     <div ref={containerRef} className="relative flex min-w-0 items-center gap-1">
+      {/* Anchor — the current event's monogram, or the empty "+" monogram
+          when the account holds zero events. Either way the caret beside it
+          opens the same unified menu, so role switching is never lost on
+          event-less vendor/admin accounts. */}
       <Link
-        href={`/dashboard/${currentEventId}`}
+        href={currentEventId ? `/dashboard/${currentEventId}` : '/dashboard/create-event'}
         className="flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
         onPointerDown={startLongPress}
         onPointerUp={cancelLongPress}
         onPointerLeave={cancelLongPress}
         onPointerCancel={cancelLongPress}
         onClick={onMonogramClick}
-        aria-label={`${currentEventName} dashboard · long-press to switch events`}
+        aria-label={
+          currentEventId
+            ? `${currentEventName} dashboard · long-press to switch events`
+            : 'Create your first event · long-press to switch view'
+        }
       >
-        <EventMonogram
-          event={{
-            display_name: currentEventName,
-            monogram_text: currentMonogramText,
-            monogram_color: currentMonogramColor,
-            monogram_frame_key: currentMonogramFrameKey,
-            monogram_font_key: currentMonogramFontKey,
-          }}
-          size="md"
-        />
+        {currentEventId ? (
+          <EventMonogram
+            event={{
+              display_name: currentEventName ?? '',
+              monogram_text: currentMonogramText,
+              monogram_color: currentMonogramColor,
+              monogram_frame_key: currentMonogramFrameKey,
+              monogram_font_key: currentMonogramFontKey,
+            }}
+            size="md"
+          />
+        ) : (
+          <EmptyEventMonogram size="md" />
+        )}
       </Link>
       <button
         type="button"
-        aria-label="Switch events"
+        aria-label="Switch event or view"
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => {
@@ -391,15 +438,22 @@ export function EventSwitcher({
 
       {/* Desktop-only event-name + date pill. On mobile the chrome is
           monogram-only per 2026-05-14 single-strip lock; the event name +
-          date surface only inside the switcher. */}
-      <span className="ml-1 hidden min-w-0 items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 text-sm text-terracotta-700 sm:inline-flex">
-        <span className="max-w-[14rem] truncate font-medium">{currentEventName}</span>
-        {currentEventDate ? (
-          <span className="text-xs text-terracotta-700/80">
-            · {formatEventDate(currentEventDate)}
-          </span>
-        ) : null}
-      </span>
+          date surface only inside the switcher. Zero-event accounts get the
+          "Add event" eyebrow the old empty-state Link carried. */}
+      {currentEventId ? (
+        <span className="ml-1 hidden min-w-0 items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 text-sm text-terracotta-700 sm:inline-flex">
+          <span className="max-w-[14rem] truncate font-medium">{currentEventName}</span>
+          {currentEventDate ? (
+            <span className="text-xs text-terracotta-700/80">
+              · {formatEventDate(currentEventDate)}
+            </span>
+          ) : null}
+        </span>
+      ) : (
+        <span className="ml-1 hidden font-mono text-xs uppercase tracking-[0.2em] text-ink/60 sm:inline">
+          Add event
+        </span>
+      )}
 
       {/* Desktop (≥ sm): anchored dropdown. */}
       {open ? (

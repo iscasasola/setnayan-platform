@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(nav): unified switcher — one switcher for events + Customer / Shop / Setnayan HQ doorways
+
+**Context:** owner directive — "our mobile and desktop has multiple switcher; we want this to be a single switcher. Switcher to enter as a customer, Setnayan team, Vendor and the events the account holds." The chrome had drifted into TWO switcher systems: the monogram-caret `EventSwitcher` (events + its own vendor/admin rows) and the standalone `RoleSwitchPill` (mobile topBar on vendor/admin + desktop sidebar footer on all three doorways) — on a vendor/admin phone both affordances were visible at once.
+
+- **`EventSwitcher` is now the single unified switcher.** New `currentRole` + `hasCustomerAccess` props; its "Switch view" section now lists every console the account can enter *except* the one it's on (Customer view `/dashboard` · Shop console `/vendor-dashboard` with business-name/count sub · Setnayan HQ `/admin`), using the pill's icons (User / Store / ShieldCheck) and admin purple tone. The old per-vendor-profile row list (N identical links to `/vendor-dashboard`) collapsed into one Shop-console row.
+- **Zero-event accounts keep role switching:** current-event props are now nullable — with no couple events the anchor renders the empty "+" monogram (links to `/dashboard/create-event`, "Add event" eyebrow at sm+) but the caret still opens the menu. Previously an event-less vendor/admin fell back to a plain link, and with the pill retired that would have orphaned cross-console hopping.
+- **`RoleSwitchPill` deleted** (`app/_components/role-switch-pill.tsx`) — removed from the customer event layout sidebar footer, OuterDashboardHeader's desktop sidebar bottom strip, and the vendor + admin topBars (mobile `lg:hidden` instance) + sidebar footers.
+- **`DashboardEventSwitcher` wrapper deleted** (`app/_components/dashboard-event-switcher.tsx`) — its only job was suppressing the role rows so the pill could own them; vendor + admin layouts now mount `EventSwitcher` directly with full role props.
+- Same interaction model everywhere: tap monogram → event dashboard (or create-event), caret / long-press → anchored dropdown on desktop, bottom sheet on mobile.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` all green in a fresh worktree off origin/main. Auth-gated chrome — visual check on prod with the test accounts after merge.
+
+**SPEC IMPACT:** 0000 app-shell chrome (event switcher § + role-switch pill §) — per the relaxed sync mandate, logged as a DECISION_LOG.md row (2026-06-12, unified switcher); corpus iteration re-sync is part of the in-progress AS-BUILT correction program.
+
 ## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
 
 **Context:** follow-up flagged while verifying the owner's "deleting a table releases guests to unseated" question — the release works (DB `ON DELETE CASCADE` on `event_seat_assignments`), but every delete control fired in one tap, silently unseating everyone at the table. Mis-taps on phones made that a real risk.

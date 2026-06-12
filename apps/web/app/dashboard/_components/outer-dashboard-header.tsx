@@ -4,10 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Store } from 'lucide-react';
 import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from '@/app/dashboard/[eventId]/_components/event-switcher';
-import { EmptyEventMonogram } from '@/app/_components/event-monogram';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
-import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 
 /**
  * Outer dashboard chrome — iteration 0000 single-strip top-nav
@@ -87,31 +85,26 @@ export function OuterDashboardHeader({
   // /profile, /create-event, /notifications, /api-keys) still showed the top
   // strip on desktop because OuterDashboardHeader had no `lg:hidden` /
   // sidebar variant. This commit adds both.
-  const monogramAffordance = primaryEvent ? (
+  // Unified switcher (2026-06-12 single-switcher directive) — the
+  // EventSwitcher now handles the zero-event case itself (empty "+"
+  // monogram anchor with the menu still openable), so the old plain-Link
+  // fallback that orphaned role-switching for event-less accounts is gone.
+  const monogramAffordance = (
     <EventSwitcher
-      currentEventId={primaryEvent.event_id}
-      currentEventName={primaryEvent.display_name}
-      currentEventDate={primaryEvent.event_date}
-      currentMonogramText={primaryEvent.monogram_text}
-      currentMonogramColor={primaryEvent.monogram_color}
-      currentMonogramFrameKey={primaryEvent.monogram_frame_key}
-      currentMonogramFontKey={primaryEvent.monogram_font_key}
+      currentRole="customer"
+      currentEventId={primaryEvent?.event_id ?? null}
+      currentEventName={primaryEvent?.display_name ?? null}
+      currentEventDate={primaryEvent?.event_date ?? null}
+      currentMonogramText={primaryEvent?.monogram_text ?? null}
+      currentMonogramColor={primaryEvent?.monogram_color ?? null}
+      currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
+      currentMonogramFontKey={primaryEvent?.monogram_font_key}
       events={switcherEvents}
+      hasCustomerAccess
       hasVendorAccess={hasVendorAccess}
       hasAdminAccess={hasAdminAccess}
       vendorProfiles={vendorProfiles}
     />
-  ) : (
-    <Link
-      href="/dashboard/create-event"
-      aria-label="Create your first event"
-      className="inline-flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
-    >
-      <EmptyEventMonogram size="md" />
-      <span className="hidden font-mono text-xs uppercase tracking-[0.2em] text-ink/60 sm:inline">
-        Add event
-      </span>
-    </Link>
   );
 
   // Upper-right avatar = the primary event's logo (the couple's framed
@@ -193,24 +186,18 @@ export function OuterDashboardHeader({
             <span>Marketplace</span>
           </Link>
 
-          <div className="mt-2 flex items-center justify-between gap-2 border-t border-ink/10 pt-3">
-            <RoleSwitchPill
-              currentRole="customer"
-              hasCustomerAccess
-              hasVendorAccess={hasVendorAccess}
-              hasAdminAccess={hasAdminAccess}
-              vendorProfiles={vendorProfiles}
+          {/* RoleSwitchPill RETIRED 2026-06-12 (single-switcher directive) —
+              cross-console hopping lives in the unified EventSwitcher's
+              "Switch view" rows (top-of-sidebar monogram caret above). */}
+          <div className="mt-2 flex items-center justify-end gap-2 border-t border-ink/10 pt-3">
+            <UnreadBellBadge
+              userId={userId}
+              initialUnread={unreadCount}
+              href="/dashboard/notifications"
+              ariaBaseLabel="Notifications"
+              ariaUnreadSuffix="unread"
             />
-            <div className="flex items-center gap-2">
-              <UnreadBellBadge
-                userId={userId}
-                initialUnread={unreadCount}
-                href="/dashboard/notifications"
-                ariaBaseLabel="Notifications"
-                ariaUnreadSuffix="unread"
-              />
-              <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
-            </div>
+            <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
           </div>
         </div>
       </nav>

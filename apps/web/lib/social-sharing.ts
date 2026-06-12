@@ -3,7 +3,7 @@
  *
  * Social Sharing & Featuring Program helpers (canonical: corpus
  * `03_Strategy/Social_Sharing_Program_2026-06-12.md` + DECISION_LOG
- * 2026-06-12 row · schema substrate 20261130000000_social_sharing_program).
+ * 2026-06-12 row · schema substrate 20261203000000_social_sharing_program).
  *
  * Three program legs share this file:
  *   1. Couple creations — per-artifact `marketing_share_consents` rows; the

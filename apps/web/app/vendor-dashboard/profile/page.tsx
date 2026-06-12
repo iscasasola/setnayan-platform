@@ -249,7 +249,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
     );
 
-    // social_feature_opt_out (Social Sharing Program · 20261130000000) gets
+    // social_feature_opt_out (Social Sharing Program · 20261203000000) gets
     // its OWN soft-probe — never combined with the tier read, so a
     // pre-migration DB (42703 on the new column) degrades this checkbox to
     // default-off without also nuking the tier-derived portfolio cap.
@@ -766,7 +766,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         </label>
 
         {/*
-          Social Sharing & Featuring Program (migration 20261130000000) — the
+          Social Sharing & Featuring Program (migration 20261203000000) — the
           verification celebration post is opt-OUT: every newly verified
           vendor gets featured on Setnayan's Facebook page unless this is
           ticked. Free = unnamed category mention · Pro+ = named feature

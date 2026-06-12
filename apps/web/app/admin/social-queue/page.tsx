@@ -67,7 +67,7 @@ type GreetingUser = {
 /**
  * Admin Social Queue — the manual-posting surface of the Social Sharing &
  * Featuring Program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md`
- * + migration 20261130000000). Five render-time panels, NO crons
+ * + migration 20261203000000). Five render-time panels, NO crons
  * ([[project_setnayan_cron_free]]):
  *
  *   1. Couple creations ready to post — consented + un-posted + past the

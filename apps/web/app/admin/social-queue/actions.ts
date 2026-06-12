@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 /**
  * Server actions backing the admin Social Queue (Social Sharing & Featuring
  * Program — corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` +
- * migration 20261130000000_social_sharing_program).
+ * migration 20261203000000_social_sharing_program).
  *
  * All posting is MANUAL: the team copies a drafted caption to the Setnayan
  * Facebook page, then comes back and stamps the row so it leaves the queue.

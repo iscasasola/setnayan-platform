@@ -84,7 +84,7 @@ export async function updatePersonalInfo(formData: FormData) {
     typeof phoneRaw === 'string' ? phoneRaw.trim().slice(0, 32) || null : null;
   const profile_photo_url = nullIfBlank(photoRaw);
   const marketing_opt_in = marketingRaw === 'on';
-  // Social Sharing Program (migration 20261130000000): optional birthday +
+  // Social Sharing Program (migration 20261203000000): optional birthday +
   // the SEPARATE public-greeting opt-in (Facebook birthday/anniversary posts;
   // email greetings never need it). Empty string → NULL; anything that isn't
   // a clean YYYY-MM-DD is rejected rather than half-saved.

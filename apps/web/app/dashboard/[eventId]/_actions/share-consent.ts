@@ -8,7 +8,7 @@ import type { ShareArtifactType, ShareCreditMode } from '@/lib/social-sharing';
 /**
  * Share-consent server actions — the couple side of the Social Sharing &
  * Featuring Program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md`
- * + migration 20261130000000_social_sharing_program).
+ * + migration 20261203000000_social_sharing_program).
  *
  * A couple grants Setnayan permission, PER ARTIFACT, to feature a creation on
  * the Setnayan Facebook page after their event. Both actions run under the

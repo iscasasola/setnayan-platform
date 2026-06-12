@@ -6,7 +6,7 @@ import type { ShareArtifactType } from '@/lib/social-sharing';
 /**
  * FeatureUsCard — per-artifact opt-in for the Social Sharing & Featuring
  * Program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` +
- * migration 20261130000000_social_sharing_program).
+ * migration 20261203000000_social_sharing_program).
  *
  * A quiet card under a creation surface (monogram maker, save-the-date
  * gallery, …) asking the couple to let Setnayan feature that creation on the

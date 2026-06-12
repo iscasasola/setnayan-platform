@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261130000000_social_sharing_program.sql
+-- 20261203000000_social_sharing_program.sql
 --
 -- SOCIAL SHARING & FEATURING PROGRAM — schema substrate.
 -- Canonical: corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` +

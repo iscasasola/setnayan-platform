@@ -254,7 +254,7 @@ export async function saveVendorProfile(formData: FormData) {
       ALLOWED_VENUE_SETTINGS,
     ),
     event_types: parseEventTypesArray(formData.getAll('event_types')),
-    // Social Sharing Program (20261130000000) — opt OUT of the verification
+    // Social Sharing Program (20261203000000) — opt OUT of the verification
     // celebration post on Setnayan's Facebook page (unticked = featured;
     // Free unnamed · Pro+ named per the hybrid-anonymity doctrine).
     social_feature_opt_out: formData.get('social_feature_opt_out') === 'on',

@@ -130,7 +130,7 @@ export default async function ProfilePage({ searchParams }: Props) {
     profile?.is_team_member ||
     profile?.account_type === 'admin';
 
-  // Social Sharing & Featuring Program (migration 20261130000000) — the
+  // Social Sharing & Featuring Program (migration 20261203000000) — the
   // user's LIVE share consents across their events, for the "Featured on
   // Setnayan's page" block under Privacy & data. The couple RLS policy
   // scopes the read to their own events; the `.then` guard degrades to an
@@ -692,7 +692,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           Social Sharing & Featuring Program — live consents the user can
           revoke. A revoke after a post went live still works (revoked_at
           flips); the admin Social Queue then handles the take-down within
-          the 24-hour SLA. See migration 20261130000000.
+          the 24-hour SLA. See migration 20261203000000.
         */}
         <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
           <div className="min-w-0">

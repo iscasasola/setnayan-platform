@@ -176,7 +176,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       ? event.monogram_custom_svg
       : null;
 
-  // ── Social Sharing & Featuring Program (migration 20261130000000) — the
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — the
   // live (un-revoked) consent row for THIS custom mark, so the Feature-Us
   // card flips to its "already allowed" state. artifact_ref keys on the
   // bespoke generation id ('custom' for cipher/hand-applied marks) so a

@@ -43,7 +43,7 @@ export default async function SaveTheDateGallery({ params }: Props) {
     fetchPlatformSettings(supabase),
   ]);
 
-  // ── Social Sharing & Featuring Program (migration 20261130000000) — show
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — show
   // the Feature-Us card once the event has at least one live save-the-date
   // order (same owned-orders pattern as lib/animated-monogram.ts: any status
   // except cancelled/refunded/lapsed counts). artifact_ref is the flat

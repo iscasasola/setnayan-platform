@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(vendors): category-satisfaction — covered categories stop showing "Not started"
+
+**Context:** owner sequential-run item; the shared follow-up cut from PR #1274. A committed pick whose package "comes with" another category (marketplace `vendor_service_links` OR host-authored covers for manual vendors) previously had NO effect on that category's state — the cake slot still said "Not started" and Build's Flag/Compute still tried to fill it, even when the caterer's package includes the cake.
+
+- **Model (`vendors-plan-budget.ts`):** `linked_services` entries gain an optional `groupId` (the covered plan group); a post-build coverage pass marks EMPTY categories `coveredBy: { vendorName, fromGroupLabel }` when a **committed** pick (in the build, or locked) elsewhere covers them. Shortlist-only candidates never cover (5 shortlisted caterers ≠ cake handled); own candidates win over coverage (non-empty children skip the badge).
+- **Page (`vendors/page.tsx`):** marketplace link rows resolve `linked_canonical_service` → plan group via `canonicalServiceToPlanGroupId`; host covers (already group ids) carry theirs directly. Build's `openCats` excludes covered children → the Flag list and Compute no longer offer/fill categories another package already includes.
+- **Shortlist UI (`plan-budget-accordion.tsx`):** the leaf header shows a green "✓ covered" badge (with the coverer in the tooltip) instead of "Not started"; the opened empty state explains — "Covered by {vendor} — their {group} package already includes this" — while keeping Find/Add available. **Informational, never a gate** (consistent with the takeover spec's never-block doctrine).
+
+**Verification:** `tsc` clean · `next lint` clean. No schema (rides the existing links + covers columns); no behavior change for categories with their own candidates.
+
+**SPEC IMPACT:** Corpus DECISION_LOG row with the sequential-run batch (closes the "covered category still shows open" gap flagged in the #1274 row for BOTH marketplace and DIY paths).
+
 ## 2026-06-12 · feat(0012): Salamisim P3 — /dashboard/[eventId]/live day-of console
 
 **Context:** P1 parked the wall controls in a small card on the Papic add-on page; running the wall at a real reception (coordinator standing at the projector, couple mid-program) needs one dedicated screen. P3 is that screen — composed entirely from shipped pieces, no forked logic.

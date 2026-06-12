@@ -198,10 +198,13 @@ export type AccordionPick = PlanCardPick & {
   /**
    * Linked-services-on-card (locked spec): categories the picked service
    * auto-covers — card shows "comes with X · Y · Z". Populated from
-   * vendor_service_links for the picked event_vendors.service_id. Absent →
-   * no linked row renders.
+   * vendor_service_links for the picked event_vendors.service_id (marketplace)
+   * or host-authored covers_plan_groups (manual vendors, PR #1274). Absent →
+   * no linked row renders. `groupId` (2026-06-12) = the covered plan group,
+   * when resolvable — feeds category-satisfaction; label-only entries still
+   * render as chips but can't mark a category covered.
    */
-  linked_services?: { label: string }[];
+  linked_services?: { label: string; groupId?: string | null }[];
   /**
    * Haversine distance (km) from the couple's reception venue. Renders
    * "Xkm from reception" in the card's distance slot; absent → the card
@@ -234,8 +237,10 @@ export type VendorEnrichment = {
   distance_km?: number | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
-  /** Linked-services-on-card labels for this vendor's picked service. */
-  linked_services?: { label: string }[];
+  /** Linked-services-on-card labels for this vendor's picked service.
+   *  groupId (2026-06-12) = covered plan group when resolvable — feeds
+   *  category-satisfaction. */
+  linked_services?: { label: string; groupId?: string | null }[];
 };
 
 /** One plan-group rail inside a folder (e.g. "Attire" inside Look). */
@@ -276,6 +281,15 @@ export type AccordionChild = {
    * the category is in its action window + Setnayan AI is on.
    */
   dependency: DependencyState;
+  /**
+   * Category-satisfaction (2026-06-12): set when this EMPTY category is
+   * already covered by a COMMITTED pick elsewhere (in the build, or locked)
+   * whose package "comes with" it — marketplace `vendor_service_links` or
+   * host-authored covers (manual vendors, PR #1274), both arriving through
+   * the enrichment's linked_services groupIds. Informational, never a gate:
+   * Find/Add stay available; Build's Flag/Compute exclude covered categories.
+   */
+  coveredBy: { vendorName: string; fromGroupLabel: string } | null;
 };
 
 /** One folder section (the sticky accordion header + its child rails). */
@@ -718,8 +732,44 @@ export function buildPlanBudgetModel(args: {
       buildPickVendorIds,
       personalizationEnabled,
       dependency,
+      coveredBy: null,
     };
     childrenByFolder.get(dbFolderOf(group))?.push(child);
+  }
+
+  // ── Category-satisfaction (2026-06-12) ────────────────────────────────────
+  // A COMMITTED pick (in the build, or locked) whose package "comes with"
+  // another category covers it — marketplace vendor_service_links and
+  // host-authored covers (manual vendors) both arrive as linked_services
+  // entries carrying the target groupId. Only EMPTY categories get the badge
+  // (own candidates win over coverage), and it is informational, never a
+  // gate: the couple can still search/add there. First committed coverer wins
+  // (deterministic: folder/children order).
+  {
+    const coverage = new Map<string, { vendorName: string; fromGroupLabel: string }>();
+    for (const children of childrenByFolder.values()) {
+      for (const c of children) {
+        for (const p of c.picks) {
+          const committed =
+            p.isBuildPick || (p.raw_status != null && LOCKED_STATUSES.has(p.raw_status));
+          if (!committed) continue;
+          for (const ls of p.linked_services ?? []) {
+            if (!ls.groupId || coverage.has(ls.groupId)) continue;
+            coverage.set(ls.groupId, {
+              vendorName: p.marketplace_business_name ?? p.vendor_name ?? 'your vendor',
+              fromGroupLabel: c.label,
+            });
+          }
+        }
+      }
+    }
+    if (coverage.size > 0) {
+      for (const children of childrenByFolder.values()) {
+        for (const c of children) {
+          if (c.state === 'empty') c.coveredBy = coverage.get(c.groupId) ?? null;
+        }
+      }
+    }
   }
 
   // Order each folder's children by their tile's position in the DB parent

@@ -1,0 +1,9 @@
+# CHANGELOG.md is an append-only log (newest entry prepended under the "---"
+# header) and is touched by nearly every PR. With the default merge driver any
+# two concurrent PRs conflict by construction — every parallel session spent
+# today hand-resolving keep-both conflicts. merge=union keeps BOTH sides'
+# added lines instead of conflicting, which is exactly the keep-both
+# resolution we apply manually. Safe ONLY because the file is append-only by
+# contract (entries are never edited in place); do NOT extend this to files
+# that get in-place edits (STATUS.md is refreshed in place — excluded).
+CHANGELOG.md merge=union

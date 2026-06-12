@@ -16,7 +16,11 @@ import {
 import { bespokeStudioEnabled } from '@/lib/bespoke-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
-import { MonogramMaker } from './monogram-maker';
+import {
+  MonogramMaker,
+  MONO_FONT_OPTIONS,
+  DEFAULT_FONT_FOR_STYLE,
+} from './monogram-maker';
 import { BespokeStudio, type BespokeCandidateView } from './bespoke-studio';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
@@ -83,7 +87,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_motion_key, monogram_custom_svg, monogram_custom_generation_id',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_custom_svg, monogram_custom_generation_id',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -101,6 +105,12 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const initialStyle: MonoStyle = VALID_STYLES.includes(event.monogram_style as MonoStyle)
     ? (event.monogram_style as MonoStyle)
     : 'bar';
+  // Typeface (2026-06-11 expansion): the stored key when valid, else the
+  // lockup's default — mirrors the saveMonogram fallback.
+  const storedFont = typeof event.monogram_font_key === 'string' ? event.monogram_font_key : '';
+  const initialFont = MONO_FONT_OPTIONS.some((f) => f.key === storedFont)
+    ? storedFont
+    : DEFAULT_FONT_FOR_STYLE[initialStyle];
 
   // ── Bespoke studio state (Setnayan AI · Phase 2 of the monogram overhaul).
   // Latest round's candidates. The generations table may predate this deploy
@@ -165,6 +175,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         eventId={eventId}
         initialInitials={initialInitials}
         initialStyle={initialStyle}
+        initialFont={initialFont}
         initialMotion={motion}
       />
 

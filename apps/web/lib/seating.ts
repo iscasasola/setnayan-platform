@@ -441,9 +441,12 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
     };
 
     // Seat order: outer left→right, then inner left→right (stable seat_number map).
+    // End insets keep the seam chair-free when wedges chain tip-to-tip: at a
+    // joint the neighbouring wedges' chairs must clear each other (inner radius
+    // is tight — 0.36 rad ≈ a chair-width gap across the seam; 0.32 crowded).
     const seats: SeatSlot[] = [
       ...along(outerN, Rco, 0.18),
-      ...along(innerN, Rci, 0.32),
+      ...along(innerN, Rci, 0.36),
     ];
 
     // Ribbon body: outer arc left→right, then inner arc right→left, closed.
@@ -1185,4 +1188,97 @@ export function computeAutoLayout(input: AutoLayoutInput): Record<string, { x: n
     cursor += rowTables.length;
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Serpentine chaining (owner-directed 2026-06-13: "the ends of the table must
+// be able to snap together"). The 2026-05-09 serpentine lock always intended
+// wedges to chain into an S / circle / oval; this is the magnetic snap that
+// makes the connection real. Pure px-space math — the editor feeds it world-
+// layer pixel centres and applies the returned position + rotation.
+//
+// A wedge has two radial end edges (at ±sweep/2). Another wedge can attach to
+// an end in exactly two tangent-continuous ways, and BOTH are pure rotations
+// of the anchor wedge (no mirroring needed — the wedge is symmetric):
+//   · continue the circle — rotate the anchor by ±sweep about its arc centre
+//   · S-bend — rotate the anchor 180° about the end-edge midpoint
+// Chairs need no special handling: each wedge's chairs are inset from its
+// ends (outer 0.18 rad / inner 0.36 rad), so when the tips meet flush the
+// chairs flow around the joint without colliding, and they already rotate
+// with the wedge.
+// ---------------------------------------------------------------------------
+
+export const SERPENTINE_SWEEP_DEG = 104;
+const SERP_RI = 80;
+const SERP_RO = 120;
+
+// The wedge's local frame (box-centre origin, y-down — identical numbers to
+// tableGeometry's serpentine branch): arc centre + the two end-edge midpoints.
+export function serpentineFrame(): { centre: SeatSlot; endPlus: SeatSlot; endMinus: SeatSlot } {
+  const s = (SERPENTINE_SWEEP_DEG * Math.PI) / 180;
+  // Outline extremes: outer-arc apex at φ=0 (minY) and the inner-arc ends at
+  // φ=±s/2 (maxY) — the recentre offset tableGeometry applies.
+  const minY = -SERP_RO;
+  const maxY = -SERP_RI * Math.cos(s / 2);
+  const oy = (minY + maxY) / 2;
+  const rm = (SERP_RI + SERP_RO) / 2;
+  const end = (sign: 1 | -1): SeatSlot => ({
+    x: sign * rm * Math.sin(s / 2),
+    y: -rm * Math.cos(s / 2) - oy,
+  });
+  return { centre: { x: 0, y: -oy }, endPlus: end(1), endMinus: end(-1) };
+}
+
+// World-space end-edge midpoints of a wedge at centre (x,y) px, rotation deg,
+// render scale — for the editor and for tests to verify tips really touch.
+export function serpentineEndsWorld(w: {
+  x: number;
+  y: number;
+  rot: number;
+  scale: number;
+}): SeatSlot[] {
+  const f = serpentineFrame();
+  return [f.endPlus, f.endMinus].map((e) => {
+    const r = rotatePoint({ x: e.x * w.scale, y: e.y * w.scale }, w.rot);
+    return { x: w.x + r.x, y: w.y + r.y };
+  });
+}
+
+// Magnetic end-to-end snap: given the dragged wedge's candidate centre (px)
+// and every OTHER serpentine on the floor, return the closest legal chained
+// placement (position + rotation) within tolerance, or null to drag free.
+// 4 candidates per neighbour: continue-the-circle past either end, or S-bend
+// off either end. Deterministic: nearest candidate wins; ties keep the first.
+export function serpentineChainSnap(
+  dragPx: { x: number; y: number },
+  neighbours: Array<{ x: number; y: number; rot: number; scale: number }>,
+  tolPx = 36,
+): { x: number; y: number; rot: number } | null {
+  const f = serpentineFrame();
+  const norm = (d: number) => ((d % 360) + 360) % 360;
+  let best: { x: number; y: number; rot: number } | null = null;
+  let bestD = tolPx * tolPx;
+  const consider = (c: { x: number; y: number; rot: number }) => {
+    const d = (c.x - dragPx.x) ** 2 + (c.y - dragPx.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  };
+  for (const b of neighbours) {
+    const cLocal = rotatePoint({ x: f.centre.x * b.scale, y: f.centre.y * b.scale }, b.rot);
+    const cw = { x: b.x + cLocal.x, y: b.y + cLocal.y }; // arc centre, world px
+    // Continue the circle: the anchor rotated ±sweep about its arc centre.
+    for (const sgn of [1, -1] as const) {
+      const r = rotatePoint({ x: b.x - cw.x, y: b.y - cw.y }, sgn * SERPENTINE_SWEEP_DEG);
+      consider({ x: cw.x + r.x, y: cw.y + r.y, rot: norm(b.rot + sgn * SERPENTINE_SWEEP_DEG) });
+    }
+    // S-bend: the anchor rotated 180° about an end-edge midpoint.
+    for (const end of [f.endPlus, f.endMinus]) {
+      const eLocal = rotatePoint({ x: end.x * b.scale, y: end.y * b.scale }, b.rot);
+      const m = { x: b.x + eLocal.x, y: b.y + eLocal.y };
+      consider({ x: 2 * m.x - b.x, y: 2 * m.y - b.y, rot: norm(b.rot + 180) });
+    }
+  }
+  return best;
 }

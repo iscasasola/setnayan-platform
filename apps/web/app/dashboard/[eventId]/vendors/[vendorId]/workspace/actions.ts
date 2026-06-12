@@ -25,6 +25,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ensureAutoShareInvite } from '@/lib/vendor-invites';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 
 /**
  * Idempotently create (or re-read) the auto-share claim link for a locked
@@ -56,5 +57,77 @@ export async function createAutoShareInviteAction(formData: FormData): Promise<v
     serviceCategory: typeof category === 'string' && category.length > 0 ? category : null,
   });
 
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+// ============================================================================
+// updateHostServiceDetails (2026-06-11 · dual-path DIY parity, owner doctrine:
+// "add information about their order… place… what's included on their
+// service. link other services to it as well.")
+//
+// The host describes a MANUAL (off-platform) vendor's package: free-text
+// inclusion lines + "also covers" plan-group links. Marketplace rows keep
+// their vendor-authored sources (vendor_package_items / vendor_service_links)
+// — the update is hard-scoped to manual rows so there are never two sources
+// of truth on a connected vendor. RLS scopes the write to the host's own
+// event; the extra predicates here just make the manual-only rule explicit.
+// ============================================================================
+
+const MAX_INCLUSIONS = 20;
+const MAX_INCLUSION_LEN = 120;
+
+export async function updateHostServiceDetails(formData: FormData): Promise<void> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof vendorId !== 'string' ||
+    vendorId.length === 0
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  // "What's included" — one line per inclusion, trimmed, deduped, capped.
+  const rawInclusions = formData.get('inclusions');
+  const inclusions = [
+    ...new Set(
+      (typeof rawInclusions === 'string' ? rawInclusions : '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((l) => l.slice(0, MAX_INCLUSION_LEN)),
+    ),
+  ].slice(0, MAX_INCLUSIONS);
+
+  // "Also covers" — validated against the canonical plan groups so the column
+  // never stores an off-registry id.
+  const validGroups = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+  const covers = [
+    ...new Set(
+      formData
+        .getAll('covers')
+        .filter((c): c is string => typeof c === 'string' && validGroups.has(c)),
+    ),
+  ];
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_vendors')
+    .update({ host_inclusions: inclusions, covers_plan_groups: covers })
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .not('manual_vendor_id', 'is', null)
+    .is('marketplace_vendor_id', null);
+  if (error) throw new Error(error.message);
+
+  // 'layout' on /vendors so the Shortlist card chips + Compare inclusions
+  // pick up the new covers/inclusions on the next paint.
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }

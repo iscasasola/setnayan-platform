@@ -45,7 +45,7 @@ export function LifecycleRibbon({
     { key: 'invite', label: 'Invite', href: `/dashboard/${eventId}/guests/claims` },
     { key: 'confirm', label: 'Confirm', href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
     { key: 'seat', label: 'Seat', href: `/dashboard/${eventId}/seating` },
-    { key: 'dayof', label: 'Day-of', href: `/dashboard/${eventId}`, soon: true },
+    { key: 'dayof', label: 'Day-of', href: `/dashboard/${eventId}/guests/checkin` },
   ];
 
   return (

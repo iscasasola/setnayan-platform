@@ -48,10 +48,12 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
+import { HostServiceDetails } from './_components/host-service-details';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -205,7 +207,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -230,8 +232,18 @@ export default async function VendorWorkspacePage({ params }: Props) {
     marketplace_vendor_id: string | null;
     manual_vendor_id: string | null;
     event_vendor_package_id: string | null;
+    host_inclusions: string[] | null;
+    covers_plan_groups: string[] | null;
     created_at: string;
   };
+
+  // DIY parity (2026-06-11): "also covers" options for the host-authored
+  // links on a manual vendor — every plan group except this vendor's own.
+  const ownGroupId = planGroupForCategory(ev.category as VendorCategory);
+  const coverOptions = PLAN_GROUPS.filter((g) => g.id !== ownGroupId).map((g) => ({
+    id: g.id as string,
+    label: g.label,
+  }));
 
   // ----------------------------------------------------------------------
   // Auto-share-link invite (2026-05-22 owner directive).
@@ -724,6 +736,18 @@ export default async function VendorWorkspacePage({ params }: Props) {
             ))}
           </ul>
         </section>
+      ) : ev.manual_vendor_id && !ev.marketplace_vendor_id ? (
+        /* DIY parity (owner doctrine 2026-06-11): a manual vendor has no
+           vendor-authored package, so the HOST describes the order — what's
+           included + which other plan categories it covers. The covers links
+           flow to the Shortlist card chips + Compare inclusions. */
+        <HostServiceDetails
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          initialInclusions={ev.host_inclusions ?? []}
+          initialCovers={ev.covers_plan_groups ?? []}
+          options={coverOptions}
+        />
       ) : null}
 
       {/* ============================================================== */}

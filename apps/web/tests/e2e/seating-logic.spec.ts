@@ -538,3 +538,87 @@ test.describe('serpentine chain snap', () => {
     }
   });
 });
+
+// --- rect run + round kiss chaining (2026-06-13 follow-up) ---------------------
+
+import { CHAIR_PX, ROUND_KISS_GAP, rectChainSnap, roundKissSnap } from '../../lib/seating';
+
+test.describe('rect chain snap (banquet / family head runs)', () => {
+  // long_banquet_8: per=4 → hubW = 4·40+16 = 176 → halfLen 88.
+  // family_head_14: per=7 → hubW = 7·44+16 = 324 → halfLen 162.
+  const halfBanquet = tableGeometry('long_banquet', 8).hub.w / 2;
+  const halfHead = tableGeometry('family_head', 14).hub.w / 2;
+
+  test('ends join flush and collinear, adopting the anchor rotation', () => {
+    const B = { x: 600, y: 400, rot: 30, halfLen: halfHead };
+    const dir = rotatePoint({ x: 1, y: 0 }, 30);
+    const want = {
+      x: B.x + dir.x * (halfHead + halfBanquet),
+      y: B.y + dir.y * (halfHead + halfBanquet),
+    };
+    const snap = rectChainSnap({ x: want.x + 10, y: want.y - 8 }, halfBanquet, [B]);
+    expect(snap).not.toBeNull();
+    expect(snap!.rot).toBe(30);
+    expect(Math.hypot(snap!.x - want.x, snap!.y - want.y)).toBeLessThan(1e-9);
+    // Tabletop gap along the run axis is EXACTLY zero (flush seam).
+    const along =
+      (snap!.x - B.x) * dir.x + (snap!.y - B.y) * dir.y - (halfHead + halfBanquet);
+    expect(Math.abs(along)).toBeLessThan(1e-9);
+  });
+
+  test('seam chair columns keep one chair-gap spacing (chairs adjust)', () => {
+    // Two banquet_8s joined flush at rot 0: A's right column and B's left
+    // column must sit ~one chair-gap apart — same rhythm as inside one table.
+    const geo = tableGeometry('long_banquet', 8);
+    const half = geo.hub.w / 2;
+    const A = { x: 0, y: 0 };
+    const B = { x: 2 * half, y: 0 }; // flush at the seam x = half
+    const ax = geo.seats.map((s) => A.x + s.x);
+    const bx = geo.seats.map((s) => B.x + s.x);
+    const seamGap = Math.min(...bx) - Math.max(...ax);
+    expect(seamGap).toBeGreaterThanOrEqual(CHAIR_PX - 2);
+  });
+
+  test('both ends offered; far away → null', () => {
+    const B = { x: 600, y: 400, rot: 0, halfLen: halfBanquet };
+    const left = rectChainSnap({ x: 600 - 2 * halfBanquet, y: 402 }, halfBanquet, [B]);
+    const right = rectChainSnap({ x: 600 + 2 * halfBanquet, y: 398 }, halfBanquet, [B]);
+    expect(left).not.toBeNull();
+    expect(right).not.toBeNull();
+    expect(left!.x).toBeLessThan(B.x);
+    expect(right!.x).toBeGreaterThan(B.x);
+    expect(rectChainSnap({ x: 0, y: 0 }, halfBanquet, [B])).toBeNull();
+  });
+});
+
+test.describe('round kiss snap', () => {
+  const rB = tableGeometry('round', 10).box.w / 2;
+  const rA = tableGeometry('round', 8).box.w / 2;
+  const B = { x: 500, y: 500, radius: rB };
+
+  test('snaps onto the line of centres at kiss distance, direction preserved', () => {
+    const drag = { x: B.x + rA + rB + 20, y: B.y - 14 };
+    const snap = roundKissSnap(drag, rA, [B]);
+    expect(snap).not.toBeNull();
+    const dist = Math.hypot(snap!.x - B.x, snap!.y - B.y);
+    expect(Math.abs(dist - (rA + rB + ROUND_KISS_GAP))).toBeLessThan(1e-9);
+    // Direction from the anchor is the drag direction (the couple picks the side).
+    const want = Math.atan2(drag.y - B.y, drag.x - B.x);
+    const got = Math.atan2(snap!.y - B.y, snap!.x - B.x);
+    expect(Math.abs(want - got)).toBeLessThan(1e-9);
+  });
+
+  test('kissed rounds stay clear of the collision threshold (chairs never overlap)', () => {
+    // Editor collision: AABB halves + 10px gap. Kiss distance must exceed it
+    // so the mount resolver never separates a kissed pair — and the chair
+    // rings (inside the boxes) cannot intersect.
+    const snap = roundKissSnap({ x: B.x + rA + rB + 5, y: B.y }, rA, [B]);
+    const dist = Math.hypot(snap!.x - B.x, snap!.y - B.y);
+    expect(dist).toBeGreaterThan(rA + rB + 10);
+  });
+
+  test('dead-centre drop and far drops do not snap', () => {
+    expect(roundKissSnap({ x: B.x, y: B.y }, rA, [B])).toBeNull();
+    expect(roundKissSnap({ x: B.x + rA + rB + 200, y: B.y }, rA, [B])).toBeNull();
+  });
+});

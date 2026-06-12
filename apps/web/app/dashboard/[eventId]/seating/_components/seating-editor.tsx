@@ -52,7 +52,9 @@ import {
   guestTier,
   removedSeatSet,
   roleTier,
+  rectChainSnap,
   rotatePoint,
+  roundKissSnap,
   serpentineChainSnap,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
@@ -828,14 +830,16 @@ export function SeatingEditor({
     }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
-      // Serpentine↔serpentine never "collides": chained wedges are MEANT to
-      // touch tip-to-tip, and their curved bands overlap each other's bounding
-      // boxes by design. Without this exemption the resolver tears saved
-      // chains apart on every remount.
-      if (
-        shapeHintFor(moving.table_type) === 'serpentine' &&
-        shapeHintFor(o.table_type) === 'serpentine'
-      ) {
+      // Chainable families never "collide" with their own kind: serpentine
+      // wedges chain tip-to-tip and banquet/family-head runs join end-flush,
+      // so their bounding boxes overlap BY DESIGN (the box includes chair
+      // overhang past the tabletop). Without this exemption the mount-time
+      // resolver tears saved chains apart on every reload. Rounds keep
+      // colliding — their kiss snap lands just OUTSIDE the threshold.
+      const ms = shapeHintFor(moving.table_type);
+      const os = shapeHintFor(o.table_type);
+      const rectish = (s: typeof ms) => s === 'long_banquet' || s === 'family_head';
+      if ((ms === 'serpentine' && os === 'serpentine') || (rectish(ms) && rectish(os))) {
         return false;
       }
       const op = posFor(o, i);
@@ -1149,38 +1153,65 @@ export function SeatingEditor({
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
-        // Serpentine chaining: when dragging a wedge near another wedge's end,
-        // magnet the tips together (position + rotation) so the curves connect
-        // into an S / circle — the 2026-05-09 chain model. Wins over the
-        // alignment/grid snap; Alt drags free. The collision pass is skipped
-        // (chained wedges are MEANT to touch) and overlapsAny exempts
-        // serpentine↔serpentine pairs so saved chains survive remounts.
+        // Table chaining: when dragging near a same-family table's connection
+        // point, magnet them together — serpentine tips chain into an
+        // S / circle (position + rotation), banquet/family-head ends join
+        // flush into one continuous run (position + rotation), and rounds
+        // kiss edge-to-edge with the chair rings clearing (position only).
+        // Wins over the alignment/grid snap; Alt drags free. Chained pairs
+        // skip the collision pass (they're MEANT to touch) and overlapsAny
+        // exempts the touching families so saved chains survive remounts.
         const movingEarly = tables.find((t) => t.table_id === d.id);
-        if (movingEarly && !e.altKey && shapeHintFor(movingEarly.table_type) === 'serpentine') {
-          const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
-          const peers = tables
-            .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
-            .map((o) => {
-              const i = tables.indexOf(o);
-              const p = positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
-              return {
-                x: (p.x / 100) * rect.width,
-                y: (p.y / 100) * rect.height,
-                rot: rotationOf(o),
-                scale: footprintPx(o).w / serpBoxW,
-              };
-            });
-          const snap = serpentineChainSnap(
-            { x: (x / 100) * rect.width, y: (y / 100) * rect.height },
-            peers,
-          );
+        const movingShape = movingEarly ? shapeHintFor(movingEarly.table_type) : null;
+        if (movingEarly && movingShape && !e.altKey && movingShape !== 'sweetheart') {
+          const dragPx = { x: (x / 100) * rect.width, y: (y / 100) * rect.height };
+          const isRect = (s: ReturnType<typeof shapeHintFor>) =>
+            s === 'long_banquet' || s === 'family_head';
+          const pxOf = (o: EventTableRow) => {
+            const i = tables.indexOf(o);
+            const p = positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+            return { x: (p.x / 100) * rect.width, y: (p.y / 100) * rect.height };
+          };
+          // Tabletop half-length (rects) — hub only, chairs hang past it.
+          const halfLenOf = (o: EventTableRow) => {
+            const g = tableGeometry(shapeHintFor(o.table_type), o.capacity);
+            return (g.hub.w / 2) * (footprintPx(o).w / g.box.w);
+          };
+          let snap: { x: number; y: number; rot?: number } | null = null;
+          if (movingShape === 'serpentine') {
+            const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
+            snap = serpentineChainSnap(
+              dragPx,
+              tables
+                .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
+                .map((o) => ({ ...pxOf(o), rot: rotationOf(o), scale: footprintPx(o).w / serpBoxW })),
+            );
+          } else if (isRect(movingShape)) {
+            snap = rectChainSnap(
+              dragPx,
+              halfLenOf(movingEarly),
+              tables
+                .filter((o) => o.table_id !== d.id && isRect(shapeHintFor(o.table_type)))
+                .map((o) => ({ ...pxOf(o), rot: rotationOf(o), halfLen: halfLenOf(o) })),
+            );
+          } else if (movingShape === 'round') {
+            snap = roundKissSnap(
+              dragPx,
+              footprintPx(movingEarly).w / 2,
+              tables
+                .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'round')
+                .map((o) => ({ ...pxOf(o), radius: footprintPx(o).w / 2 })),
+            );
+          }
           if (snap) {
             guidesRef.current = { x: null, y: null };
             const nx = Math.max(lo, Math.min(hi, (snap.x / rect.width) * 100));
             const ny = Math.max(lo, Math.min(hi, (snap.y / rect.height) * 100));
-            serpSnapRotRef.current = { id: d.id, rot: snap.rot };
-            if (rotationOf(movingEarly) !== snap.rot) {
-              setRotById((m) => ({ ...m, [d.id]: snap.rot }));
+            if (snap.rot !== undefined) {
+              serpSnapRotRef.current = { id: d.id, rot: snap.rot };
+              if (rotationOf(movingEarly) !== snap.rot) {
+                setRotById((m) => ({ ...m, [d.id]: snap.rot! }));
+              }
             }
             setPositions((p) => ({ ...p, [d.id]: { x: nx, y: ny } }));
             return;

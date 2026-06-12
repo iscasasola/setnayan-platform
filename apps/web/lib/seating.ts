@@ -1282,3 +1282,77 @@ export function serpentineChainSnap(
   }
   return best;
 }
+
+// ---------------------------------------------------------------------------
+// Rect + round chaining (owner follow-up 2026-06-13: "the long table should
+// also connect and the round tables"). Same magnetic model as the serpentine
+// snap, with shape-appropriate joints:
+//   · long banquet / family head — ends snap FLUSH and collinear, forming one
+//     continuous run. Chairs sit only on the long edges (never the ends, each
+//     column inset half a chair-gap from its end), so a flush seam reads as
+//     one uninterrupted chair line — the seam columns sit exactly one
+//     chair-gap apart, the same spacing as within a single table.
+//   · round — snaps to a "kiss": centres pulled to the exact distance where
+//     the two chair rings (plus the collision gap) just clear, so clustered
+//     rounds look connected without any chair overlap, and the resolver
+//     never shoves them apart on reload.
+// ---------------------------------------------------------------------------
+
+// End-to-end snap for the rectangular runs. halfLen = half the TABLETOP
+// length (hub.w/2 × render scale) — the chair overhang is excluded so the
+// tabletops join flush. The joined table adopts the anchor's orientation.
+export function rectChainSnap(
+  dragPx: { x: number; y: number },
+  halfLenA: number,
+  neighbours: Array<{ x: number; y: number; rot: number; halfLen: number }>,
+  tolPx = 36,
+): { x: number; y: number; rot: number } | null {
+  let best: { x: number; y: number; rot: number } | null = null;
+  let bestD = tolPx * tolPx;
+  for (const b of neighbours) {
+    const dir = rotatePoint({ x: 1, y: 0 }, b.rot); // the run axis
+    for (const sgn of [1, -1] as const) {
+      const off = sgn * (b.halfLen + halfLenA);
+      const cand = { x: b.x + dir.x * off, y: b.y + dir.y * off, rot: ((b.rot % 360) + 360) % 360 };
+      const d = (cand.x - dragPx.x) ** 2 + (cand.y - dragPx.y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = cand;
+      }
+    }
+  }
+  return best;
+}
+
+// Breathing room added to a round-table kiss so the snapped distance stays
+// just OUTSIDE the editor's collision threshold (footprints + 10px gap) —
+// a kissed pair must survive the mount-time resolver untouched.
+export const ROUND_KISS_GAP = 11;
+
+// Edge-to-edge snap for round tables: pull the dragged centre onto the line
+// of centres at kiss distance. radius = footprint box half-width (chair ring
+// + pad, scaled), so chairs clear by construction. Direction is preserved —
+// the couple chooses WHERE around the anchor the table sits.
+export function roundKissSnap(
+  dragPx: { x: number; y: number },
+  radiusA: number,
+  neighbours: Array<{ x: number; y: number; radius: number }>,
+  tolPx = 36,
+): { x: number; y: number } | null {
+  let best: { x: number; y: number } | null = null;
+  let bestD = tolPx * tolPx;
+  for (const b of neighbours) {
+    const dx = dragPx.x - b.x;
+    const dy = dragPx.y - b.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) continue; // dropped dead-centre — no direction to kiss along
+    const kiss = radiusA + b.radius + ROUND_KISS_GAP;
+    const cand = { x: b.x + (dx / len) * kiss, y: b.y + (dy / len) * kiss };
+    const d = (cand.x - dragPx.x) ** 2 + (cand.y - dragPx.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = cand;
+    }
+  }
+  return best;
+}

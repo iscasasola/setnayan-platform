@@ -65,6 +65,37 @@ const RESERVED_SUBDOMAINS = new Set([
   'preview', // reserved
 ]);
 
+// Native-app login-first entry (0052 design addition · owner-locked
+// 2026-06-10). The Capacitor shell omits the marketing brochure: someone
+// who installed the app has already converted. App-originated requests to
+// any bucket-① marketing route bounce to /login (or /dashboard when a
+// session exists) so the app boots straight into the product. Bucket-③
+// shareable surfaces (guest invites, day-of, /vendors browse, /v/[slug],
+// /weddings showcase, /help) stay reachable in-app; legal pages (/privacy,
+// /terms) stay reachable because store review requires them.
+const APP_EXCLUDED_MARKETING_PATHS = new Set([
+  '/',
+  '/features',
+  '/for-vendors',
+  '/pricing',
+  '/how-it-works',
+  '/waitlist',
+  '/download',
+]);
+
+// Two detection signals, either suffices:
+//   1. `setnayan-client-type=capacitor` cookie — set by ClientTypeDetector
+//      after the first render inside the shell's WebView.
+//   2. `SetnayanApp` user-agent marker — appended by the shell via
+//      `appendUserAgent` in apps/mobile/capacitor.config.ts. Covers the very
+//      first request of a fresh install, before the cookie exists.
+function isCapacitorClient(request: NextRequest): boolean {
+  return (
+    request.cookies.get('setnayan-client-type')?.value === 'capacitor' ||
+    (request.headers.get('user-agent') ?? '').includes('SetnayanApp')
+  );
+}
+
 function detectVendorSubdomain(hostname: string): string | null {
   const m = hostname.match(VENDOR_SUBDOMAIN_RE);
   if (!m) return null;
@@ -208,6 +239,17 @@ export async function middleware(request: NextRequest) {
       maxAge: 0,
     });
     return redirect;
+  }
+
+  // Native shell skips the brochure: marketing routes redirect to the
+  // product. 307 — the routes themselves stay live on the web, and the
+  // redirect target depends on session state, so nothing should cache it
+  // as permanent.
+  if (isCapacitorClient(request) && APP_EXCLUDED_MARKETING_PATHS.has(pathname)) {
+    return NextResponse.redirect(
+      new URL(user ? '/dashboard' : '/login', request.url),
+      307,
+    );
   }
 
   // Signed-in visitors landing on the marketing homepage get bounced to

@@ -16,6 +16,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` + `next lint` green in a fresh worktree off origin/main (warnings pre-existing).
 
 **SPEC IMPACT:** corpus `DECISION_LOG.md` 2026-06-12 "Link-gated build cascade" row already records the supersession — no further corpus edit needed from this change.
+## 2026-06-13 · feat(shell): native app boots into login — marketing brochure omitted in-app (0052 design addition, now built)
+
+**Context:** owner-locked 2026-06-10 design addition to 0052 ("capture as design only"), owner said "build it" 2026-06-13. The Capacitor shell loads the live site, so a fresh app launch landed on the marketing homepage — but someone who installed the app has already converted and doesn't need the brochure. The app now opens straight into the product.
+
+- **Middleware login-first redirect (`apps/web/middleware.ts`):** requests from the native shell hitting a bucket-① marketing route (`/` · `/features` · `/for-vendors` · `/pricing` · `/how-it-works` · `/waitlist` · `/download`) get a 307 → `/login`, or → `/dashboard` when a session exists. From `/login`, the existing role-routed flow takes over (couple → event auto-jump/picker, vendor → `/vendor-dashboard`, admin → `/admin`). Bucket-③ shareable surfaces stay reachable in-app (`/help` per the owner's "BOTH" call, `/vendors` browse, `/v/[slug]`, `/weddings`, guest/day-of pages) and legal pages (`/privacy`, `/terms`) stay reachable because store review requires them. Web browsers are completely unaffected.
+- **Two detection signals, either suffices:** the existing `setnayan-client-type=capacitor` cookie (set by `ClientTypeDetector` after first render) OR a new `SetnayanApp` user-agent marker — added via `appendUserAgent` in `apps/mobile/capacitor.config.ts` — which covers the very first request of a fresh install, before the cookie exists. Android picks the marker up at the next `cap sync`; the cookie path works for already-installed builds meanwhile.
+- 307 (temporary + method-preserving) because the routes stay live on the web and the target depends on session state — nothing should cache it as permanent.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` green. Local dev-server curl matrix (9 cases): app UA on `/` → 307 `/login` · capacitor cookie on `/pricing` → 307 · app UA on `/for-vendors` → 307 · plain web `/` + `/pricing` → 200 · app client on `/help`, `/vendors`, `/privacy`, `/login` → 200 (no redirect, no loop).
+
+**SPEC IMPACT:** 0052 § "DESIGN ADDITION — 2026-06-10" status flips from DESIGN ONLY to BUILT (web-side redirect + UA marker; deep-link claim rules were already shipped via #1044/#1048). Logged as a DECISION_LOG.md row 2026-06-13 per the relaxed sync mandate; 0052 .md status line updated directly.
 
 ## 2026-06-12 · feat(profile): account avatar = the account's own profile photo, never the event logo
 

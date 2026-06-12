@@ -109,6 +109,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` + lint clean on touched files. **Prod-smoked end-to-end** (7 assertions, impersonated `vendor.test` seeded as accepted "Test Coordinator" on the test event — standing demo): grant resolution edit/OFF/view ✓ · delegate guest UPDATE passes RLS ✓ · budget rows invisible ✓ · publish guard raises `publish_requires_couple` ✓ · audit row lands in event_action_log ✓.
 
 **SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 2 → BUILT; DECISION_LOG row appended.
+## 2026-06-13 · feat(social): Social Sharing & Featuring Program — "feature us" consent, vendor verification features, birthdays, admin Social Queue
+
+**Context:** owner-approved program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md`, DECISION_LOG 2026-06-12) — turn the Setnayan Facebook page into a consented content engine: couple creations, new-verified-vendor celebrations, birthday/anniversary greetings. Marketing use of customer data/content gets its own RA 10173 consent, separate from service-delivery consent.
+
+- **Migration `20261130000000_social_sharing_program.sql`** (APPLIED to prod statement-by-statement via `supabase db query` + manual ledger row — remote ledger carries 4 parallel-session versions, `db push` refuses): `marketing_share_consents` (per-artifact couple consent; partial-unique live row per (event, artifact_type, artifact_ref); revoke = `revoked_at` status-flip, never delete; RLS at create — couple via `current_couple_event_ids()`, admin via `is_admin()`) · `users.birth_date` + `users.public_greeting_opt_in` (public FB greetings need the separate opt-in; email greetings don't) · `vendor_profiles.social_feature_opt_out` / `social_featured_at` / `social_post_url`.
+- **Publish gate is app-side and hard:** a consent is postable only after `event_date + 7 days` (mirrors the gallery review-window doctrine) — never before the event (spoilers + empty-house safety). `lib/social-sharing.ts` owns the gate + drafted-caption helpers.
+- **Feature-Us card** (`_components/feature-us-card.tsx`, zero client JS) asks at the moment of delight with first-names/anonymous credit choice: on the monogram page once a custom mark is applied, and on the save-the-date page once an order exists. Already-consented state renders a quiet ✓ + pointer to Profile → Privacy.
+- **Profile (0025):** optional Birthday field + "Allow public birthday & anniversary greetings" checkbox (default off) in Personal info; new "Featured on Setnayan's page" block in Privacy & data lists live consents with queued/posted state and one-tap Revoke (post-publish revoke feeds the take-down queue).
+- **Vendor opt-out** on `/vendor-dashboard/profile`: "Don't feature my business on Setnayan's social pages" (soft-probe select so pre-migration deploys degrade gracefully).
+- **Admin Social Queue** (`/admin/social-queue`, "Work" nav group): take-downs first (24-hr SLA), ready-to-post couple creations (inline monogram preview via inert data-URI img, drafted caption honoring credit mode), waiting-on-gate list, new verified vendors — **named card for Pro+ (`tier_state` + `tier_expires_at` guard), unnamed "A new {category} in {region}" for Free** per the owner-locked hybrid (tiers sell reach; mirrors hybrid-anonymity) with opt-out respected, and a render-only greetings-this-week panel (birthdays + anniversaries of opted-in users). All posting manual; `markConsentPosted` / `markConsentTakenDown` / `markVendorFeatured` stamp rows out of the queue. No crons — everything computed at render time.
+
+**Verification:** `pnpm exec tsc --noEmit` + `next lint` clean on all touched files. Auth-gated surfaces — visual check on prod with test accounts after merge.
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` status DESIGN → BUILT + DECISION_LOG.md ship row (applied directly per the 2026-06-04 authorization).
 
 ## 2026-06-12 · feat(nav): unified switcher — one switcher for events + Customer / Shop / Setnayan HQ doorways
 

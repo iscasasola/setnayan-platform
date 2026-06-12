@@ -25,6 +25,8 @@ import {
 } from '@/lib/account-security-actions';
 import { HapticsToggle } from './_components/haptics-toggle';
 import { PushToggle } from './_components/push-toggle';
+import { SHARE_ARTIFACT_LABEL, type ShareArtifactType } from '@/lib/social-sharing';
+import { revokeShareConsent } from '@/app/dashboard/[eventId]/_actions/share-consent';
 import {
   cancelAccountDeletionRequest,
   requestAccountDeletion,
@@ -74,7 +76,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, reminders_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -127,6 +129,44 @@ export default async function ProfilePage({ searchParams }: Props) {
     profile?.is_internal ||
     profile?.is_team_member ||
     profile?.account_type === 'admin';
+
+  // Social Sharing & Featuring Program (migration 20261130000000) — the
+  // user's LIVE share consents across their events, for the "Featured on
+  // Setnayan's page" block under Privacy & data. The couple RLS policy
+  // scopes the read to their own events; the `.then` guard degrades to an
+  // empty list on a drifted DB (table may post-date this deploy). Event
+  // display names resolve in a second cheap read (no FK-joined select —
+  // matches the verify-queue two-round-trip convention).
+  const { data: shareConsentRows } = await supabase
+    .from('marketing_share_consents')
+    .select('consent_id, event_id, artifact_type, credit_mode, consented_at, posted_at, post_url')
+    .is('revoked_at', null)
+    .order('consented_at', { ascending: false })
+    .limit(50)
+    .then((r) => (r.error ? { data: [] } : r));
+  const shareConsents = (shareConsentRows ?? []) as Array<{
+    consent_id: string;
+    event_id: string;
+    artifact_type: string;
+    credit_mode: string;
+    consented_at: string;
+    posted_at: string | null;
+    post_url: string | null;
+  }>;
+  let consentEventNames: Record<string, string> = {};
+  if (shareConsents.length > 0) {
+    const eventIds = Array.from(new Set(shareConsents.map((c) => c.event_id)));
+    const { data: consentEvents } = await supabase
+      .from('events')
+      .select('event_id, display_name')
+      .in('event_id', eventIds)
+      .then((r) => (r.error ? { data: [] } : r));
+    consentEventNames = Object.fromEntries(
+      ((consentEvents ?? []) as Array<{ event_id: string; display_name: string | null }>).map(
+        (e) => [e.event_id, e.display_name ?? ''],
+      ),
+    );
+  }
 
   // If the user has exactly one active event, "Back" lands on that event's
   // home rather than the event-picker. Two+ events fall through to /dashboard.
@@ -265,6 +305,36 @@ export default async function ProfilePage({ searchParams }: Props) {
               />
             </Field>
           </div>
+          <Field
+            label="Birthday"
+            htmlFor="birth_date"
+            help="Optional — so we can greet you on your day 🎂"
+          >
+            <input
+              id="birth_date"
+              name="birth_date"
+              type="date"
+              defaultValue={profile?.birth_date ?? ''}
+              className="input-field"
+            />
+          </Field>
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
+            <input
+              type="checkbox"
+              name="public_greeting_opt_in"
+              defaultChecked={profile?.public_greeting_opt_in ?? false}
+              className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+            />
+            <span>
+              <span className="block font-medium text-ink">
+                Allow public birthday &amp; anniversary greetings
+              </span>
+              <span className="block text-xs text-ink/55">
+                Lets Setnayan greet you on our Facebook page (birthdays + wedding
+                anniversaries). Email greetings don&rsquo;t need this. Default off.
+              </span>
+            </span>
+          </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
             <input
               type="checkbox"
@@ -616,6 +686,79 @@ export default async function ProfilePage({ searchParams }: Props) {
             <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Download .json
           </a>
+        </div>
+
+        {/*
+          Social Sharing & Featuring Program — live consents the user can
+          revoke. A revoke after a post went live still works (revoked_at
+          flips); the admin Social Queue then handles the take-down within
+          the 24-hour SLA. See migration 20261130000000.
+        */}
+        <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">
+              Featured on Setnayan&rsquo;s page
+            </p>
+            <p className="text-xs text-ink/55">
+              Creations you&rsquo;ve allowed us to feature on the Setnayan Facebook
+              page — always after your event, never before.
+            </p>
+          </div>
+          {shareConsents.length === 0 ? (
+            <p className="text-xs text-ink/45">
+              Nothing here — when you allow a creation to be featured, it shows up
+              here and can be revoked any time.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {shareConsents.map((c) => (
+                <li
+                  key={c.consent_id}
+                  className="flex flex-col gap-2 rounded-md border border-ink/10 bg-cream/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium text-ink">
+                      {SHARE_ARTIFACT_LABEL[c.artifact_type as ShareArtifactType] ??
+                        c.artifact_type}
+                      {consentEventNames[c.event_id] ? (
+                        <span className="text-ink/55"> · {consentEventNames[c.event_id]}</span>
+                      ) : null}
+                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      {c.credit_mode === 'anonymous' ? 'Anonymous' : 'First names'} · allowed{' '}
+                      {c.consented_at.slice(0, 10)} ·{' '}
+                      {c.posted_at ? (
+                        c.post_url ? (
+                          <a
+                            href={c.post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-terracotta hover:underline"
+                          >
+                            posted ↗
+                          </a>
+                        ) : (
+                          'posted'
+                        )
+                      ) : (
+                        'queued — posts after your event'
+                      )}
+                    </p>
+                  </div>
+                  <form action={revokeShareConsent}>
+                    <input type="hidden" name="consent_id" value={c.consent_id} />
+                    <input type="hidden" name="revalidate_path" value="/dashboard/profile" />
+                    <SubmitButton
+                      className="button-secondary text-xs"
+                      pendingLabel="Revoking…"
+                    >
+                      Revoke
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {pendingDeletion ? (

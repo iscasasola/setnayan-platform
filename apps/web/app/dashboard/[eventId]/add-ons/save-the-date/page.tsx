@@ -20,6 +20,7 @@ import { formatPhp } from '@/lib/orders';
 //   • PR #594 + PR #595 voucher schema substrate
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 
 export const metadata = { title: 'Save the Date · Setnayan' };
 
@@ -41,6 +42,35 @@ export default async function SaveTheDateGallery({ params }: Props) {
       .maybeSingle(),
     fetchPlatformSettings(supabase),
   ]);
+
+  // ── Social Sharing & Featuring Program (migration 20261130000000) — show
+  // the Feature-Us card once the event has at least one live save-the-date
+  // order (same owned-orders pattern as lib/animated-monogram.ts: any status
+  // except cancelled/refunded/lapsed counts). artifact_ref is the flat
+  // 'save_the_date' key — one consent covers the event's renders. Both reads
+  // degrade gracefully on a drifted DB (42P01/42703-tolerant `.then` guard).
+  const [{ data: stdOrders }, { data: shareConsent }] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('order_id')
+      .eq('event_id', eventId)
+      .eq('service_key', 'save_the_date_video')
+      .not('status', 'in', '("cancelled","refunded","lapsed")')
+      .limit(1)
+      .then((r) => (r.error ? { data: null } : r)),
+    supabase
+      .from('marketing_share_consents')
+      .select('consent_id, credit_mode')
+      .eq('event_id', eventId)
+      .eq('artifact_type', 'save_the_date')
+      .eq('artifact_ref', 'save_the_date')
+      .is('revoked_at', null)
+      .order('consented_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r)),
+  ]);
+  const hasStdOrder = (stdOrders ?? []).length > 0;
 
   return (
     <section className="space-y-6">
@@ -97,6 +127,17 @@ export default async function SaveTheDateGallery({ params }: Props) {
           </li>
         ))}
       </ul>
+
+      {/* ── Feature-us opt-in (Social Sharing Program) — only once an order exists ── */}
+      {hasStdOrder ? (
+        <FeatureUsCard
+          eventId={eventId}
+          artifactType="save_the_date"
+          artifactRef="save_the_date"
+          alreadyConsented={shareConsent ?? null}
+          revalidatePath={`/dashboard/${eventId}/add-ons/save-the-date`}
+        />
+      ) : null}
 
       <p className="text-xs text-ink/55">
         Need something off-list? Open a{' '}

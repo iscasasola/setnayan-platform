@@ -94,6 +94,7 @@ import {
   CircleUser,
   LineChart,
   Settings,
+  Share2,
   Wallet,
   ShoppingBag,
   Bell,
@@ -234,6 +235,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Approvals',
         href: '/admin/approvals',
         icon: CheckCheck,
+      },
+      {
+        // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
+        // post couple creations + vendor verification features + take-downs.
+        key: 'social-queue',
+        label: 'Social queue',
+        href: '/admin/social-queue',
+        icon: Share2,
+        matchPrefix: '/admin/social-queue',
       },
       {
         key: 'help',

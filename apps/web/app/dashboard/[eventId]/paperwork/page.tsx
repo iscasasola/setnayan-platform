@@ -893,6 +893,22 @@ function ceremonyLabel(ceremony: ReturnType<typeof resolveCeremonyType>): string
       return 'Muslim';
     case 'cultural':
       return 'cultural';
+    case 'aglipayan':
+      return 'Aglipayan (IFI)';
+    case 'lds':
+      return 'LDS (Latter-day Saints)';
+    case 'sda':
+      return 'Seventh-day Adventist';
+    case 'jw':
+      return "Jehovah's Witnesses";
+    case 'hindu':
+      return 'Hindu';
+    case 'sikh':
+      return 'Sikh';
+    case 'buddhist':
+      return 'Buddhist';
+    case 'orthodox':
+      return 'Orthodox Christian';
     case 'mixed':
       return 'mixed-faith';
     default:

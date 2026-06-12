@@ -44,6 +44,14 @@ const DISPLAY_LABEL: Record<string, string> = {
   christian: 'Christian',
   muslim: 'Muslim',
   cultural: 'Cultural',
+  aglipayan: 'Aglipayan (IFI)',
+  lds: 'LDS (Latter-day Saints)',
+  sda: 'Seventh-day Adventist',
+  jw: "Jehovah's Witnesses",
+  hindu: 'Hindu',
+  sikh: 'Sikh',
+  buddhist: 'Buddhist',
+  orthodox: 'Orthodox Christian',
   mixed: 'Mixed',
 };
 

@@ -29,6 +29,14 @@ export type CeremonyTypeKey =
   | 'chinese'
   | 'jewish'
   | 'born_again'
+  | 'aglipayan'
+  | 'lds'
+  | 'sda'
+  | 'jw'
+  | 'hindu'
+  | 'sikh'
+  | 'buddhist'
+  | 'orthodox'
   | 'mixed';
 
 type CeremonyOption = {
@@ -82,6 +90,46 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
     key: 'civil',
     label: 'Civil',
     description: 'City hall ceremony with witnesses',
+  },
+  {
+    key: 'aglipayan',
+    label: 'Aglipayan (IFI)',
+    description: 'Aglipayan rite at an IFI parish',
+  },
+  {
+    key: 'lds',
+    label: 'LDS (Latter-day Saints)',
+    description: 'Latter-day Saint chapel ceremony',
+  },
+  {
+    key: 'sda',
+    label: 'Seventh-day Adventist',
+    description: 'Adventist ceremony with a pastor',
+  },
+  {
+    key: 'jw',
+    label: "Jehovah's Witnesses",
+    description: 'Kingdom Hall ceremony with an elder',
+  },
+  {
+    key: 'hindu',
+    label: 'Hindu',
+    description: 'Mandap ceremony with pandit and pheras',
+  },
+  {
+    key: 'sikh',
+    label: 'Sikh',
+    description: 'Anand Karaj at the gurdwara',
+  },
+  {
+    key: 'buddhist',
+    label: 'Buddhist',
+    description: 'Blessing ceremony with monks',
+  },
+  {
+    key: 'orthodox',
+    label: 'Orthodox Christian',
+    description: 'Crowning ceremony at an Orthodox church',
   },
   {
     key: 'mixed',

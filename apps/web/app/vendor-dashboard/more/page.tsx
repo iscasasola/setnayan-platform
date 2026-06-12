@@ -21,6 +21,8 @@
  */
 
 import { VENDOR_NAV_GROUPS } from '../_components/vendor-sidebar';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isMusicVendor } from '@/lib/songs';
 import { VendorMobileLanding } from '../_components/vendor-mobile-landing';
 import { DesktopRedirect } from './_components/desktop-redirect';
 import { createClient } from '@/lib/supabase/server';
@@ -101,8 +103,18 @@ export default async function VendorMoreLanding() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const role = user ? await resolveVendorRole(supabase, user.id) : null;
-  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role);
+  const [role, vendorProfile] = user
+    ? await Promise.all([
+        resolveVendorRole(supabase, user.id),
+        fetchOwnVendorProfile(supabase, user.id).catch(() => null),
+      ])
+    : [null, null];
+  // Service-aware: Repertoire tile only for music acts (owner directive
+  // 2026-06-13) — mirrors the sidebar filter.
+  const showRepertoire = isMusicVendor(vendorProfile?.services);
+  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
+    showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
+  );
 
   return (
     <>

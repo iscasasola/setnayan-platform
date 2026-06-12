@@ -11,6 +11,8 @@ import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switc
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { VendorSidebar } from './_components/vendor-sidebar';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
 
@@ -71,7 +73,7 @@ export default async function VendorDashboardLayout({
   if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
   const supabase = await createClient();
 
-  const [profileRes, unreadCount, roles, events, vendorRole] = await Promise.all([
+  const [profileRes, unreadCount, roles, events, vendorRole, vendorProfile] = await Promise.all([
     supabase
       .from('users')
       .select('account_type, email, display_name, deleted_at')
@@ -97,8 +99,15 @@ export default async function VendorDashboardLayout({
     // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
     // render from one source. Independent of the others → safe in Promise.all.
     resolveVendorRole(supabase, user.id),
+    // Vendor profile (own or via team membership) — drives service-aware nav:
+    // Repertoire only exists for music acts (owner directive 2026-06-13;
+    // mirrors the page-level isMusicVendor gate that already shipped).
+    // Defensive .catch(): nav gating must never crash the layout.
+    fetchOwnVendorProfile(supabase, user.id).catch(() => null),
   ]);
   const profile = profileRes.data;
+  // Service-aware nav: Repertoire is a music-act surface only.
+  const showRepertoire = isMusicVendor(vendorProfile?.services);
 
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
@@ -215,7 +224,7 @@ export default async function VendorDashboardLayout({
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<VendorSidebar role={vendorRole} />} topBar={topBar}>
+      <SidebarShell sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} />} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

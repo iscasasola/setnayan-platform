@@ -210,12 +210,23 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
  * separate context from customer + admin doorways. Mirrors the
  * customer-sidebar + admin-sidebar header treatment.
  */
-export function VendorSidebar({ role }: { role: VendorTeamRole | null }) {
+export function VendorSidebar({
+  role,
+  showRepertoire = true,
+}: {
+  role: VendorTeamRole | null;
+  showRepertoire?: boolean;
+}) {
   const pathname = usePathname() ?? '/vendor-dashboard';
   // Role-aware nav shell — owner/admin see the full tree; agent/viewer see
   // the scoped subset (Phase 1: Overview only). Single source of truth in
   // lib/vendor-role.ts so Phase 2 expands agent surfaces in one place.
-  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role);
+  // Service-aware: Repertoire is a music-act surface (band · singer ·
+  // orchestra · choir · DJ) — hidden for every other category (owner
+  // directive 2026-06-13; the page keeps its own isMusicVendor gate).
+  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
+    showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
+  );
 
   return (
     <>

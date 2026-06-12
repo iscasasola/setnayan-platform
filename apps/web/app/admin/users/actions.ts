@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { revokeAllSessions } from '@/lib/force-logout';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -68,6 +69,53 @@ export async function toggleTeamMember(formData: FormData) {
   }
 
   revalidatePath('/admin/users');
+}
+
+/**
+ * Force sign-out — revoke ALL of a user's auth sessions on every device
+ * (compromised-account remedy; see lib/force-logout.ts for the mechanism).
+ * Protective, not destructive: no two-admin gate, but audit-logged like every
+ * Setnayan HQ mutation. Guard: you cannot force sign-out yourself (use the
+ * profile page's own "Sign out other devices" instead — this action would
+ * kill the session you're acting from).
+ */
+export async function forceSignOutUser(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+  const targetUserId = formData.get('user_id');
+  if (typeof targetUserId !== 'string' || targetUserId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  if (targetUserId === adminUserId) {
+    redirect('/admin/users?error=Use+your+profile%27s+%22Sign+out+other+devices%22+for+your+own+account');
+  }
+
+  const admin = createAdminClient();
+  const { data: prior } = await admin
+    .from('users')
+    .select('email')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+
+  const result = await revokeAllSessions(targetUserId);
+  if (!result.ok) {
+    redirect(`/admin/users?error=${encodeURIComponent(result.error)}`);
+  }
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'user_force_sign_out',
+    target_id: targetUserId,
+    actor_user_id: adminUserId,
+    metadata: {
+      target_email: prior?.email ?? null,
+      sessions_revoked: result.ok ? result.sessionsRevoked : null,
+    },
+  });
+  if (auditErr) {
+    console.error('[forceSignOutUser] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/users');
+  redirect('/admin/users?signed_out=1');
 }
 
 /**

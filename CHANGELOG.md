@@ -132,6 +132,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
 
 **SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
+## 2026-06-12 · feat(security): force-logout pair — vendor offboarding ends the session + Setnayan HQ "Force sign-out" (account-security follow-up)
+
+**Context:** removing a vendor team member killed their DATA access instantly (per-request `current_vendor_ids` rank check) but their login session survived; and HQ had no remedy for a compromised account. Closes the force-logout follow-up from the 2026-06-11 account-security suite.
+
+- **`lib/force-logout.ts` + migration `20261125000000_force_logout_revoke_sessions.sql`:** `revokeAllSessions(userId)` via a SECURITY DEFINER `admin_revoke_user_sessions(uuid)` that deletes the user's `auth.sessions` rows (+ legacy NULL-session refresh-token sweep) — kills `getUser()` AND refresh on every device on the very next request. SQL fallback because the GoTrue ADMIN API has **no per-user logout endpoint** (verified against supabase/auth route table + openapi; `auth.admin.signOut(jwt)` needs the TARGET's token). `EXECUTE` revoked from `anon`/`authenticated` — service-role only.
+- **Vendor offboarding (`removeVendorTeamMember`):** after a successful removal, best-effort `after(() => revokeAllSessions(removedUserId))` — clears a possibly-shared shop device; removal never fails on a revoke hiccup. Role *changes* deliberately do NOT revoke.
+- **Setnayan HQ `/admin/users`:** per-user **"Force sign-out"** (ConfirmForm + audit-logged `user_force_sign_out` with sessions-revoked count; protective so no two-admin gate; self-guard routes you to your profile's own "Sign out other devices"). Transient success/error banners added to the page.
+- Migration deliberately re-timestamped 117→119: prod's ledger has `concurrent_ledger_stub` rows squatting 117/118 (a parallel-session reservation hack) — version 117 would have been silently skipped at apply, the same failure mode as the 20261105 collision.
+
+**Verification:** `migration:check` 316 unique ✓ · `tsc` ✓ · lint 0 errors ✓ · production build ✓.
+
+**SPEC IMPACT:** 0022 (team lifecycle — offboarding now ends the login) + 0023/Setnayan HQ (new users-surface action). New SQL function `admin_revoke_user_sessions`. → DECISION_LOG 2026-06-12.
+
 ## 2026-06-12 · feat(seating): caterer meal counts — diet on the seat + the caterer handover report (0008 · leapfrog Phase 2)
 
 **Context:** The meal/dietary leapfrog (closes the RSVPify/WeddingWire gap). The guest columns (`meal_preference`, `dietary_restrictions`) already existed from 0001 RSVP — this surfaces them in the seat plan and produces the caterer handover artifact. No schema change.
@@ -147,7 +160,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Dual-path doctrine (owner 2026-06-11, corpus DECISION_LOG): the planner works "with or without vendors" — a pure-DIY host must be able to "add information about their order… place… **what's included** on their service. **link other services to it** as well." The parity audit found both halves missing: the workspace's What's-included section rendered ONLY from a locked marketplace package, and "comes with" coverage was vendor-authored only (`vendor_service_links`) — a DIY caterer that includes the cake had no way to say so.
 
-- **Migration `20261119000000`** (applied to prod before merge): `event_vendors.host_inclusions text[]` + `covers_plan_groups text[]` — additive, couple-own RLS inherited, vendors never see the row.
+- **Migration `20261125000000`** (applied to prod before merge): `event_vendors.host_inclusions text[]` + `covers_plan_groups text[]` — additive, couple-own RLS inherited, vendors never see the row.
 - **Workspace editor (`host-service-details.tsx`, new):** when a manual (off-platform) vendor has no package, the What's-included slot becomes host-editable — inclusion lines (one per line, capped 20×120) + "Also covers" plan-group chips (own group excluded). Server action `updateHostServiceDetails` validates covers against the canonical plan groups and is hard-scoped to manual rows (`manual_vendor_id` set + no `marketplace_vendor_id`) so a connected vendor never has two sources of truth.
 - **One display pipeline:** host covers merge into the SAME linked-services enrichment the marketplace path uses → Shortlist card "✓ comes with X · Y · Z" chips just work; host inclusions flow through `PlanCardPick.host_inclusions` → Compare's expandable inclusions cell shows vendor-authored links ∪ host-authored lines.
 - **Plumbing:** `fetchEventVendors` select + `EventVendorRow`/`EventVendorRowInput`/`PlanCardPick` carry the two fields; vendors page maps them through and merges covers→enrichment.

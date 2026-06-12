@@ -27,6 +27,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
 
 **SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
+## 2026-06-12 · feat(vendor): universal "All schedules" calendar view — PR 4 of the schedule-pool program
+
+**Context:** owner asked "does the vendor have a universal scheduler also?" — the calendar shipped per-pool tabs only. This adds the whole-business view.
+
+- **"All schedules" tab** (default view for multi-schedule vendors; single-schedule vendors land on their one pool): every pool's day state stacked per day — compact chips `TAG n/cap` (amber partial · terracotta full) and `TAG ✕` closed, with an all-pools-closed day collapsing to one "Closed" badge. Open days stay visually quiet; legend below the grid maps tags to schedules.
+- Block + import forms become pool-aware in the universal view (scope/pool selects across every schedule; block scope defaults to business-wide there); upcoming list spans all pools with per-entry schedule labels.
+- Pure page-level change (`calendar/page.tsx`): day-state computation refactored to per-pool maps (`buildDayStates`) shared by both views. No schema, no action changes.
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean.
+
+**SPEC IMPACT:** folded into the program's architecture-doc §11 row (universal view noted).
+
 ## 2026-06-12 · feat(vendor): Calendar + Clients surfaces — PR 3 of the schedule-pool program
 
 **Context:** the vendor-facing half of the owner-locked 2026-06-12 scheduling model. `/vendor-dashboard` had no calendar or client-book surface at all — blocks existed only as a table. Two new routes + sidebar entries (Work group).

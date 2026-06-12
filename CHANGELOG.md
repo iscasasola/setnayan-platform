@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(seating): caterer meal counts — diet on the seat + the caterer handover report (0008 · leapfrog Phase 2)
+
+**Context:** The meal/dietary leapfrog (closes the RSVPify/WeddingWire gap). The guest columns (`meal_preference`, `dietary_restrictions`) already existed from 0001 RSVP — this surfaces them in the seat plan and produces the caterer handover artifact. No schema change.
+
+- **`/dashboard/[eventId]/seating/caterer` (NEW route):** printable HTML report — **overall totals per meal** (attending only) · **per-table breakdown** (linked tables count as ONE unit, same grouping as the print pack; unseated attendees land in an explicit "Not seated yet" bucket so nobody vanishes from the count) · **every dietary restriction by name + table**. `?format=csv` downloads the raw per-guest rows (Guest · Table · Meal · Dietary) for spreadsheet caterers.
+- **Editor surfacing:** `SeatingGuest` carries `meal_preference` + `dietary_restrictions`; the Seat-people picker shows an amber **diet** chip (tooltip = the restriction) and the list view shows the meal inline + the diet chip on seated guests.
+- **Export menu:** new "Caterer meal counts" entry (print or CSV).
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Report rendering is visual — Vercel preview. RLS-scoped reads (couple only).
+
+**SPEC IMPACT:** New couple-side capability beyond 0008 (the leapfrog plan's "meal→caterer" phase, owner-approved 2026-06-10). The "counts flow to the booked caterer VENDOR" half (vendor-side delivery) is the follow-up — this ships the couple-side artifact. → corpus `DECISION_LOG` note rides the seat-plan program row.
+
 ## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
 
 **Context:** Owner-approved 2026-06-11 modernity decision ("Yes — add it"): live presence on the stack we already pay for (Supabase Realtime; NOT full CRDT — overkill for an async editor). Closes the Prismm vendor-collaboration gap; the cheapest yard of genuine modernity. First arc after the completed Phase 1 editor redesign.

@@ -272,6 +272,11 @@ export default async function VendorsPage({ params }: Props) {
       marketplace_business_name: mk?.name ?? null,
       marketplace_logo_url: mk?.logo ?? null,
       marketplace_city: mk?.city ?? null,
+      // DIY parity (2026-06-11): host-authored package description for manual
+      // vendors — inclusions flow to Compare; covers become "comes with" chips
+      // via the enrichment merge below.
+      host_inclusions: v.host_inclusions ?? null,
+      covers_plan_groups: v.covers_plan_groups ?? null,
       // Hero photo (#8) — vendor's own service photo wins, then a manual
       // contact's uploaded photo; both null for off-platform picks with
       // neither → card falls through to logo → initials. Never fabricated.
@@ -281,6 +286,32 @@ export default async function VendorsPage({ params }: Props) {
         photoMaps.manualPhotoByVendor.get(v.vendor_id) ?? null,
     };
   });
+
+  // DIY parity (owner doctrine 2026-06-11): a manual vendor's host-authored
+  // "also covers" links render through the SAME linked-services chips the
+  // marketplace path uses — one display pipeline, two sources of truth
+  // (vendor-authored vendor_service_links vs host-authored covers). Only
+  // manual rows can carry covers (the workspace editor + action are
+  // manual-only), so no marketplace double-counting is possible.
+  {
+    const groupLabelById = new Map<string, string>(
+      PLAN_GROUPS.map((g) => [g.id as string, g.label]),
+    );
+    for (const v of vendors) {
+      const labels = (v.covers_plan_groups ?? [])
+        .map((id) => groupLabelById.get(id))
+        .filter((l): l is string => Boolean(l));
+      if (labels.length === 0) continue;
+      const existing = enrichmentByVendorId.get(v.vendor_id);
+      enrichmentByVendorId.set(v.vendor_id, {
+        ...(existing ?? {}),
+        linked_services: [
+          ...(existing?.linked_services ?? []),
+          ...labels.map((label) => ({ label })),
+        ],
+      });
+    }
+  }
 
   // 3-line cost (CLAUDE.md 2026-05-31): build the transport + food-allowance
   // maps from the new event_vendors columns so the accordion's rolled_cost_php
@@ -441,7 +472,12 @@ export default async function VendorsPage({ params }: Props) {
           costPhp: pick.rolled_cost_php ?? null,
           locked: !!lockedPick,
           vendorId: pick.vendor_id,
-          inclusions: pick.linked_services?.map((l) => l.label) ?? [],
+          // Vendor-authored linked services + host-authored DIY inclusions —
+          // Compare's expandable cell shows both (DIY parity 2026-06-11).
+          inclusions: [
+            ...(pick.linked_services?.map((l) => l.label) ?? []),
+            ...(pick.host_inclusions ?? []),
+          ],
         };
       });
     const currentPlan: PlanBuildSnapshot = {

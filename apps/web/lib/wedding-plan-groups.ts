@@ -880,6 +880,12 @@ export type PlanCardPick = {
   contact_email: string | null;
   contact_phone: string | null;
   /**
+   * DIY parity (2026-06-11): host-authored "what's included" lines for a
+   * manual vendor's package. Flows to Compare's expandable inclusions. Absent
+   * (undefined/null) on marketplace rows + callers that don't select it.
+   */
+  host_inclusions?: string[] | null;
+  /**
    * Compatibility issue, if any, with the host's current
    * events.ceremony_type / events.venue_setting. Surfaced as an inline
    * chip + Remove action on the planning-card pick row. `null` when the
@@ -1014,6 +1020,14 @@ export type EventVendorRowInput = {
    * freeform rows.
    */
   manual_vendor_id?: string | null;
+  /**
+   * DIY parity (2026-06-11): host-authored package description for manual
+   * vendors — inclusions lines + "also covers" plan-group ids. The covers
+   * render through the same linked-services chips as marketplace links
+   * (merged into the enrichment map by the page fetch).
+   */
+  host_inclusions?: string[] | null;
+  covers_plan_groups?: string[] | null;
   /**
    * Resolved public URL for the linked manual vendor's photo (when
    * the host uploaded one at create-time). Source path is
@@ -1229,6 +1243,7 @@ export function bucketVendorsByGroup(
       notes: v.notes ?? null,
       contact_email: v.contact_email ?? null,
       contact_phone: v.contact_phone ?? null,
+      host_inclusions: v.host_inclusions ?? null,
       compatibility_issue: computeCompatibilityIssue(
         v,
         eventCeremonyType,

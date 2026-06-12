@@ -18,6 +18,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
 
+## 2026-06-11 · feat(seating): Phase 1e — snap-grid + alignment guides (0008)
+
+**Context:** Owner 2026-06-10 — drag/drop "feels pro" polish (the last Phase 1 interaction slice before linked tables). Layered ONTO the existing `nearestFree` collision, not replacing it.
+
+- **Alignment snap + guides:** while dragging a table, when its centre comes within ~1.2% of another table's centre (or the **room centreline at 50%**) on an axis, the drag snaps to it and a terracotta hairline draws across the canvas on that axis (rendered in the world layer via `guidesRef` — no extra state; the drag already re-renders per move). Guides clear on release.
+- **Grid snap:** any axis that didn't alignment-snap rounds to **half-metre steps in a sized room** (`0.5/venue.width·length × 100`) or 2% steps on the free board.
+- **Hold Alt** drags completely free of all snapping (Figma convention).
+- Snapped target feeds `nearestFree` as before — collision-avoid still wins over snap.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Snap feel is visual — Vercel preview.
+
+**SPEC IMPACT:** None beyond the editor-redesign program already logged (alignment-lock/grid-snap were in the original 0008 spec as deferred aids; this builds them in the redesigned interaction model). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row.
+
 ## 2026-06-11 · fix(build): cap build memory so prod deploys stop OOMing on Vercel's standard machine
 
 **Context:** After the guests-dashboard redesign merged (#1227), every production build OOM-failed on Vercel (`OOM event detected` → no `routes-manifest.json` → deploy errored), so www.setnayan.com kept serving the pre-merge deploy. Root cause is infra, not the redesign: this app's route count puts `next build` right at Vercel's standard 8GB build-machine ceiling, and a new page intermittently tips it over (a successful pre-merge build proves it normally fits). Owner chose the free fix over Enhanced Builds (a paid bigger machine).

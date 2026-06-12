@@ -176,6 +176,11 @@ async function fetchLeafMedians(
       .select('canonical_service, starting_price_php, is_active')
       .in('canonical_service', allCanon)
       .eq('is_active', true)
+      // Linked-only rows are auto-covered components with no standalone market
+      // price — including them depresses the leaf's SOLO-price median (and the
+      // count / min / p25 / p75 derived from the same rows). See migration
+      // 20261014000000_vendor_service_links.sql § 2.
+      .eq('is_linked_only', false)
       .not('starting_price_php', 'is', null);
     if (error || !data) return out;
     const byLeaf = new Map<string, number[]>();

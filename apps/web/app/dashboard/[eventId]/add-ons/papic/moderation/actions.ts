@@ -263,6 +263,12 @@ function kwentoPath(eventId: string): string {
   return `/dashboard/${eventId}/add-ons/papic/moderation`;
 }
 
+/** The Kwento queue renders on the moderation page AND the P3 /live console. */
+function revalidateKwentoSurfaces(eventId: string): void {
+  revalidatePath(kwentoPath(eventId));
+  revalidatePath(`/dashboard/${eventId}/live`);
+}
+
 export async function approveKwento(
   eventId: string,
   messageId: string,
@@ -280,7 +286,7 @@ export async function approveKwento(
     .eq('event_id', eventId)
     .eq('status', 'pending');
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(kwentoPath(eventId));
+  revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
 
@@ -301,7 +307,7 @@ export async function rejectKwento(
     .eq('message_id', messageId)
     .eq('event_id', eventId);
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(kwentoPath(eventId));
+  revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
 
@@ -323,7 +329,7 @@ export async function kwentoToWall(
         : error.message.slice(0, 80),
     };
   }
-  revalidatePath(kwentoPath(eventId));
+  revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
 
@@ -337,7 +343,7 @@ export async function kwentoOffWall(
     p_message_id: messageId,
   });
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(kwentoPath(eventId));
+  revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
 
@@ -355,7 +361,7 @@ export async function blockKwentoGuest(
   if (error && !error.message.includes('uq_guest_message_block')) {
     return { ok: false, error: error.message.slice(0, 80) };
   }
-  revalidatePath(kwentoPath(eventId));
+  revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
 

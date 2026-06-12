@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(0012): Salamisim P3 — /dashboard/[eventId]/live day-of console
+
+**Context:** P1 parked the wall controls in a small card on the Papic add-on page; running the wall at a real reception (coordinator standing at the projector, couple mid-program) needs one dedicated screen. P3 is that screen — composed entirely from shipped pieces, no forked logic.
+
+**What changed:**
+- **`/dashboard/[eventId]/live`** (new page, couple OR coordinator — the same authority every wall RPC already checks): status header (tiles on wall / hidden / screens connected) · **lifecycle mode control** (Auto · Teaser · Live · Recap — writes `events.live_mode_override`; Auto = NULL, server derives from the event date; the two real day-of moments are "open the wall early" and "freeze to recap when the program ends") · **FaceBlock posture strip** (when ≥1 guest has FaceBlock on: explains every photo projects blurred + shows blur-ready coverage of recent tiles, so "why is the wall thin?" is answerable at a glance) · the P1 `LiveWallControls` reused at 60 tiles (screen codes + per-tile hide/unhide kill switch) · the Kwento approval queue reused inline · projector URL hint. Events without LIVE_WALL get a quiet add-on doorway (no price copy — catalog reads at purchase surfaces).
+- **`live/actions.ts`** — `setWallMode` (membership check couple/coordinator at app level + admin-client write, since the shipped `couple_can_update_event` RLS policy is couple-keyed; documented).
+- **Nav:** "Live Wall" entry in the Share group (`customer-nav-config.ts`, MonitorPlay icon) — safe for every event because the page degrades to the doorway.
+- **Shared actions now dual-revalidate** (`revalidateWallSurfaces` / `revalidateKwentoSurfaces`): the wall + kwento actions refresh BOTH the add-on card and the /live console.
+
+**Verification:** tsc + lint clean. No migration, no new lib logic (composition only); all 4 existing suites untouched.
+
+**SPEC IMPACT:** 0012 Salamisim section — P3 shipped (the "full /live control tab + Kwento lower-thirds" build-order row: lower-thirds shipped with Kwento P2; the control tab is this). Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
+
+---
+
+
 ## 2026-06-12 · feat(0012): Salamisim P2 — server-baked FaceBlock blur pipeline (the wall's public-event ship gate)
 
 **Context:** The P1 Live Photo Wall shipped with a fail-closed FaceBlock STUB — one `guests.faceblock_enabled` guest withheld EVERY photo from the venue projection. P2 replaces the blanket withhold with real server-side face blurring, so a FaceBlock event's wall runs with faces blurred into the pixels instead of going dark. This was the gate blocking the wall at any real wedding.

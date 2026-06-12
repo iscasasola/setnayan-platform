@@ -50,6 +50,7 @@ import {
   MessageSquare,
   FileText,
   Globe,
+  MonitorPlay,
   Sparkles,
   Palette,
   Type,
@@ -224,6 +225,17 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           href: `${base}/monogram`,
           icon: Type,
           matchPrefix: `${base}/monogram`,
+        },
+        {
+          // Salamisim day-of console (0012 P3) — wall mode override, screen
+          // codes, tile kill switch, FaceBlock posture, Kwento approvals.
+          // Renders an add-on doorway when LIVE_WALL isn't owned, so it's
+          // safe to show for every event.
+          key: 'live',
+          label: 'Live Wall',
+          href: `${base}/live`,
+          icon: MonitorPlay,
+          matchPrefix: `${base}/live`,
         },
       ],
     },

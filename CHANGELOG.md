@@ -15,6 +15,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
 
 **SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
+## 2026-06-12 · feat(scheduling): wire booking transitions to schedule pools — PR 2 (consume/release)
+
+**Context:** PR 2 of the schedule-pool program (PR 1 = `20261126000000` schema, applied to prod). Wires the owner-locked white/BOOKED doctrine into the only writer of booked statuses: white (considering..contracted) stays unlimited and consumes nothing; the pool acquire fires on the BOOKED transition; releases are status-flips, never deletes.
+
+- **`lib/schedule-pools.ts` (new):** `resolvePoolIdsForService` (service's leaf category + every linked "comes with" category → pool ids via `resolve_schedule_pool`; merged categories dedupe to one pool — bundles lock every pool they span) + typed `acquireSchedulePools` / `releaseSchedulePools` RPC relays. All capacity math stays in the SECURITY DEFINER RPCs (conflict-audit doctrine: only the DB serializes).
+- **`updateVendorStatus`:** white→BOOKED transition (deposit_paid/delivered/complete) on a marketplace-linked row with a booked service now acquires the service's pools BEFORE the status write — `full`/`blocked` surfaces a plain-English error naming the pool instead of silently double-booking; `no_date`/`no_pools` degrade open (eventual-consistency doctrine — the atomic gate engages once a day-precise date exists). BOOKED→white downgrade releases with reason `status_downgrade`; a failed status write after a successful acquire releases immediately (no phantom holds).
+- **`deleteVendor`:** booked rows (deposit_paid+) can no longer be hard-deleted from the tracker — routed to the cancel/dispute flow (conflict-audit finding #6). Stray live reservations released with an auditable reason before any delete (a hard delete would CASCADE them silently).
+- **`cancelBookingAsHost`:** defensive `release_schedule_pools('host_cancelled')` before the row delete (pre-payment rows normally hold nothing; belt-and-suspenders for downgrade leftovers).
+
+**Out of scope (queued):** pool-scoped displacement of competing inquiries + the one-broadcast notification (needs thread→service linkage — inquiry-lifecycle phase); the event_vendors hard-delete→archive sweep (101 read sites, needs a default-filter pass); vendor Calendar/Clients UI (PR 3).
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean on both touched files. No migration (rides PR 1).
+
+**SPEC IMPACT:** none beyond PR 1's (same corpus rows cover the wiring); architecture doc §11 phase-3 build-state updated when the program completes.
+
 ## 2026-06-12 · feat(scheduling): per-category schedule pools + multi-pool atomic acquire — PR 1 (schema substrate)
 
 **Context:** owner-locked 2026-06-12 scheduling architecture (corpus `Customer_Vendor_Marketplace_Architecture_2026-06-04.md` §4/§5a + DECISION_LOG row). The schedulable resource becomes the **(org, leaf-category) pool**: every service a vendor files under one category shares ONE schedule; a new category = a new independent schedule; merged categories ("same team serves both") = two mapping rows → one pool. Substrate-first migration (cf. `20260627010000`) — code PRs follow.

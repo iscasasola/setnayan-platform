@@ -646,6 +646,36 @@
     }
   }
 
+  /*
+   * Responsive marketing layout primitives — 2026-06-13 premium redesign.
+   * Marketing sections previously hardcoded desktop values (px-14 + inline
+   * fontSize: 64–96px) that overflowed phones. These clamp() utilities give
+   * every section fluid padding + fluid display headings so the same markup
+   * reads premium on a 360px phone and a 27" monitor.
+   */
+  .m-section {
+    padding-inline: clamp(20px, 5vw, 56px);
+    padding-block: clamp(64px, 11vw, 120px);
+  }
+  .m-h-xl {
+    font-size: clamp(2.5rem, 7.5vw, 84px);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    font-weight: 400;
+  }
+  .m-h-lg {
+    font-size: clamp(2.25rem, 6.5vw, 72px);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    font-weight: 400;
+  }
+  .m-h-md {
+    font-size: clamp(2rem, 5.5vw, 64px);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+
   /* Photo placeholder — diagonal stripes in cool alabaster tone (was warm cream #EFE6D2/#F4ECDB) */
   .m-photo-placeholder {
     background:

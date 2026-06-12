@@ -126,6 +126,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the changed file.
 
 **SPEC IMPACT:** closes the "budget median needs `WHERE is_linked_only=FALSE`" open item tracked in the linked-services/demo-coverage workstream (memory `project_setnayan_linked_services_and_demo_coverage`). Parent session to mark it resolved in the corpus.
+## 2026-06-13 · feat(marketing): premium couple-centric homepage redesign + responsive marketing system
+
+**Context:** owner brief 2026-06-13 — "One App, Less Drama" positioning pass. Homepage becomes **strictly couple-centric** (vendor pitch moves to a high-contrast pre-footer band + /for-vendors); hero leads with the emotional hook "Goodbye, Viber chaos. Hello, Set na 'yan."; the whole marketing surface gets a fluid-responsive type/padding system so it reads premium on phones, not just desktops.
+
+- **`globals.css`:** new marketing layout primitives — `.m-section` (clamp() fluid section padding, replaces hardcoded `px-14` + inline `paddingTop: 120`) and `.m-h-xl/lg/md` (clamp() display headings, replace inline `fontSize: 64–96px` that overflowed phones).
+- **Hero (`_sections.tsx`):** new headline pair — serif italic "Goodbye, Viber chaos." + display "Hello, Set na 'yan." Subhead leads with "Plan your Filipino wedding without the twelve spreadsheets." HeroCollage gains a **chaos layer** (tilted washed-out Viber/Budget_v8.xlsx/GCash-receipt chips peeking from behind the clean dashboard card — the brief's messy-vs-clean split visual). Hero secondary CTA is now "See how it works ↓" (anchors to `#bakit-setnayan`); the "I'm a vendor →" hero button moved to the VendorBand.
+- **Nav:** mobile/tablet hamburger menu (new client island `_nav-mobile.tsx` — links + Sign in + Start planning sheet under the sticky nav; below `lg` there was previously NO way to reach nav links). Desktop links now `lg`+, search pill `xl`+.
+- **ProblemSection:** re-eyebrowed "Bakit Setnayan?", `id="bakit-setnayan"` anchor, chaos→one-place arrow rotates vertical on mobile with reserved space.
+- **TwoSides → ForCouples:** the vendor half of the old side-by-side is gone from the homepage (couple-centric directive). COUPLE_FEATURES now renders as a 3-col lifted-card grid. `VENDOR_FEATURES` fixture retained (unused by homepage).
+- **NEW VendorBand** (pre-footer, mulberry, full-bleed link): "Are you an event vendor? Run your business here →" + mono proof points (0% commission · free verified badge · one calendar, zero double-bookings). ClosingCTA drops its vendor ghost button (single doorway).
+- **All other sections** (Marketplace / OnTheDay / PersonalSite / DashboardPreview / Pricing / FAQ / Closing / Footer / PromoBar): converted to the fluid `.m-section` + `.m-h-*` system; footer goes 2-col on mobile; promo bar drops detail sentence below `sm`.
+- **/for-vendors:** hero section padding fluid; **operational-wins strip** added under the hero (The ultimate calendar · 0% commission · Verified badge — free · Automated bookings — the four switch-from-Viber reasons, per the brief); 5 fixed `fontSize: 36–44` headings in the deep dive → clamp(); VendorNav made responsive (was fixed `padding: 18px 56px`, wordmark wrapped to 3 lines on phones).
+- **Compliance fix while in the file:** vendor-hero pipeline card claimed "BIR ORs auto-stamped · 24h disbursement" — violates the #1316 BIR-claims purge AND the standing vendor-payment-disclosure rule (Setnayan never holds vendor money). Now: "₱228K · 2 bookings paid / Paid straight to you · Setnayan never holds your money".
+
+**Verification:** `tsc --noEmit` + `next lint` clean on all touched files. Visual pass on local dev (desktop 1280 + mobile 375): hero chaos-vs-clean collage, hamburger menu open/close, Bakit-Setnayan arrow, VendorBand, footer 2-col, /for-vendors wins strip + nav. Production build run locally before PR.
+
+**SPEC IMPACT:** corpus `0015_main_website` describes the pre-redesign homepage — superseded-by-live per the 2026-06-07 source-of-truth flip; logged as a DECISION_LOG row (homepage couple-centric + VendorBand + hero copy) rather than a spec rewrite.
 
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 

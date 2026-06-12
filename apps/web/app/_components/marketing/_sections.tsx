@@ -34,13 +34,13 @@
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
+import { MobileMenu } from './_nav-mobile';
 import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
   PILOT_VENDORS,
   PILOT_TIMELINE,
   COUPLE_FEATURES,
-  VENDOR_FEATURES,
   LIVE_TODAY,
   FAQ_ITEMS,
 } from './_fixtures';
@@ -53,9 +53,10 @@ export function PromoBar() {
     <div className="bg-[var(--m-ink)] text-[var(--m-paper)] text-[13px] px-6 py-2.5 flex justify-center items-center gap-[18px] flex-wrap">
       <span className="inline-flex items-center gap-2">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--m-orange)] m-pulse-dot" />
-        <strong className="font-medium">Pilot · December 2026.</strong> First wedding ships Dec 18 — Claire &amp; Ice&apos;s own.
+        <strong className="font-medium">Pilot · December 2026.</strong>
+        <span className="hidden sm:inline">First wedding ships Dec 18 — Claire &amp; Ice&apos;s own.</span>
       </span>
-      <span className="text-[var(--m-slate-3)]">·</span>
+      <span className="hidden sm:inline text-[var(--m-slate-3)]">·</span>
       <Link href="/signup" className="text-[var(--m-orange-3)] underline underline-offset-[3px]">
         Apply to the pilot →
       </Link>
@@ -76,11 +77,11 @@ export function Nav() {
     { label: 'Help', href: '/help' },
   ];
   return (
-    <nav className="flex items-center justify-between px-14 py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)] sticky top-0 z-10">
+    <nav className="relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)] sticky top-0 z-10">
       <Wordmark size={22} />
-      <div className="hidden md:flex gap-7 text-sm text-[var(--m-slate)]">
+      <div className="hidden lg:flex gap-7 text-sm text-[var(--m-slate)]">
         {links.map((l) => (
-          <Link key={l.label} href={l.href} className="hover:text-[var(--m-ink)] transition-colors">
+          <Link key={l.label} href={l.href} className="hover:text-[var(--m-ink)] transition-colors whitespace-nowrap">
             {l.label}
           </Link>
         ))}
@@ -88,7 +89,7 @@ export function Nav() {
       <div className="flex gap-2.5 items-center">
         <Link
           href="/vendors"
-          className="hidden md:inline-flex items-center gap-2.5 px-3 py-2 rounded-full bg-[var(--m-paper-2)] border border-[var(--m-line)] text-[var(--m-slate-2)] text-[13px]"
+          className="hidden xl:inline-flex items-center gap-2.5 px-3 py-2 rounded-full bg-[var(--m-paper-2)] border border-[var(--m-line)] text-[var(--m-slate-2)] text-[13px]"
         >
           <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden>
             <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.7" />
@@ -99,12 +100,16 @@ export function Nav() {
             ⌘K
           </kbd>
         </Link>
-        <Link href="/login" className="text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]">
+        <Link
+          href="/login"
+          className="hidden lg:inline whitespace-nowrap text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]"
+        >
           Sign in
         </Link>
         <Link href="/onboarding/wedding" className="m-btn m-btn-primary px-[18px] py-2.5 text-[13px]">
           Start planning
         </Link>
+        <MobileMenu links={links} />
       </div>
     </nav>
   );
@@ -125,30 +130,28 @@ export function Hero() {
           <h1
             className="font-[var(--font-serif-marketing,var(--font-serif))] italic text-[var(--m-ink)] m-0"
             style={{
-              // Responsive: was a fixed 152px that overflowed mobile and buried
-              // the CTA below the fold (owner 2026-06-08 "large texts ate up the
-              // whole screen, we lost the sale"). clamp scales it down on phones.
-              fontSize: 'clamp(3.1rem, 13vw, 152px)',
-              lineHeight: 0.94,
-              letterSpacing: '-0.035em',
+              // Responsive: clamp keeps the headline above the fold on phones
+              // (owner 2026-06-08 "large texts ate up the whole screen, we
+              // lost the sale").
+              fontSize: 'clamp(2.6rem, 9.5vw, 104px)',
+              lineHeight: 0.98,
+              letterSpacing: '-0.03em',
               fontWeight: 400,
             }}
           >
-            Set na ‘yan.
+            Goodbye, Viber chaos.
           </h1>
           <div className="mt-2 sm:mt-3.5">
             <span
               className="m-display text-[var(--m-ink)]"
               style={{
-                fontSize: 'clamp(1.9rem, 6vw, 76px)',
+                fontSize: 'clamp(2.2rem, 8vw, 88px)',
                 fontWeight: 800,
                 letterSpacing: '-0.005em',
                 lineHeight: 1.02,
               }}
             >
-              Plan your wedding
-              <br />
-              <span className="text-[var(--m-orange)]">the easy way.</span>
+              Hello, <span className="text-[var(--m-orange)]">Set na ‘yan.</span>
             </span>
           </div>
           <div className="mt-4 flex items-center gap-3.5">
@@ -164,11 +167,10 @@ export function Hero() {
             className="m-serif italic text-[var(--m-slate)] mt-5 sm:mt-8 max-w-[560px]"
             style={{ fontSize: 21, lineHeight: 1.65, textWrap: 'pretty' as 'pretty' }}
           >
-            A love letter, a guest list, a thousand tiny decisions, and a Saturday afternoon you&apos;ll remember forever.{' '}
+            Plan your Filipino wedding without the twelve spreadsheets.{' '}
             <span className="not-italic font-[var(--font-sans-marketing,var(--font-sans))] text-[17px] text-[var(--m-ink)]">
-              Setnayan is the Filipino-built platform that holds all of it — guest list, vendors, invitations,
-              livestream, same-day highlight reel — so you can spend less time arguing about chair colors and more
-              time being engaged.
+              Guest list, verified vendors, QR invitations, day-of livestream, same-day highlight reel — all in one
+              place, so you can spend less time chasing receipts and more time being engaged.
             </span>
           </p>
           <div className="mt-4 hidden sm:inline-flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--m-ivory)] border border-[var(--m-line)] max-w-[560px]">
@@ -180,12 +182,15 @@ export function Hero() {
               </span>
             </div>
           </div>
+          {/* Couple-centric hero (owner 2026-06-13): the vendor doorway moved
+              to the high-contrast VendorBand above the footer + nav/footer
+              links, so the hero sells one thing — start planning. */}
           <div className="flex gap-3 mt-6 sm:mt-8 flex-wrap">
             <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
               Start planning <span className="text-[var(--m-orange-3)]">· free</span>
             </Link>
-            <Link href="/for-vendors" className="m-btn m-btn-ghost m-btn-lg">
-              I&apos;m a vendor →
+            <Link href="#bakit-setnayan" className="m-btn m-btn-ghost m-btn-lg">
+              See how it works ↓
             </Link>
           </div>
           <div className="m-mono text-xs text-[var(--m-slate-2)] mt-6 flex gap-3.5 flex-wrap items-center">
@@ -222,10 +227,40 @@ export function Hero() {
 }
 
 function HeroCollage() {
+  // The "chaos" layer — tilted, washed-out artifacts of pre-Setnayan planning
+  // peeking out from behind the clean dashboard card (brief 2026-06-13:
+  // "messy screenshots vs clean dashboard" split visual).
+  const chaos = [
+    { tag: 'Viber · 11:04 pm', body: '“sino mag-pa-print ng QR??”', rot: -7, top: '6%', left: -28 },
+    { tag: 'Budget_FINAL_v8.xlsx', body: '₱2M, mostly guessed', rot: 5, top: '38%', left: -44 },
+    { tag: 'GCash · screenshot', body: 'receipt… somewhere', rot: -4, top: '72%', left: -20 },
+  ];
   return (
-    <div className="relative h-[600px] flex items-stretch">
+    <div className="relative h-[480px] sm:h-[560px] lg:h-[600px] flex items-stretch lg:ml-6">
       <Blob top={-40} right={-40} size={520} color="var(--m-orange)" opacity={0.14} />
       <Blob bottom={-60} left={-40} size={420} color="var(--m-blush)" opacity={0.2} />
+
+      {/* Chaos layer — behind the clean card, hidden on small phones */}
+      <div className="hidden sm:block" aria-hidden>
+        {chaos.map((c, i) => (
+          <Reveal
+            key={c.tag}
+            delay={240 + i * 120}
+            className="absolute z-0"
+            style={{ top: c.top, left: c.left }}
+          >
+            <div
+              className="px-3.5 py-2.5 rounded-lg border border-[var(--m-line)] bg-[var(--m-paper-2)] opacity-80"
+              style={{ transform: `rotate(${c.rot}deg)`, boxShadow: 'var(--m-shadow-sm)' }}
+            >
+              <div className="m-mono text-[9px] text-[var(--m-slate-3)] uppercase tracking-[0.08em] line-through decoration-[var(--m-blush-deep)]/50">
+                {c.tag}
+              </div>
+              <div className="text-[12px] text-[var(--m-slate-2)] mt-0.5">{c.body}</div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
 
       <Reveal delay={120} className="relative z-[1] w-full h-full">
         <div
@@ -305,7 +340,7 @@ function HeroCollage() {
         </div>
       </Reveal>
 
-      <Reveal delay={420} className="absolute -right-4 bottom-8 z-[2]">
+      <Reveal delay={420} className="absolute right-2 lg:-right-4 bottom-8 z-[2]">
         <div
           className="m-card inline-flex items-center gap-2.5 px-3.5 py-2 bg-[var(--m-ink)] text-[var(--m-paper)] border-0"
           style={{ boxShadow: 'var(--m-shadow-lg)' }}
@@ -331,12 +366,9 @@ export function ProblemSection() {
     { tag: 'Pinterest · mood', body: '3 boards, conflicting' },
   ];
   return (
-    <section className="px-14 py-30 bg-[var(--m-paper-2)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
-      <div className="m-eyebrow">Sounds familiar?</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] my-7"
-        style={{ fontSize: 84, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
+    <section id="bakit-setnayan" className="m-section bg-[var(--m-paper-2)] scroll-mt-20">
+      <div className="m-eyebrow">Bakit Setnayan?</div>
+      <h2 className="m-serif m-h-xl text-[var(--m-ink)] my-7" style={{ maxWidth: 1200 }}>
         Six apps. Twelve spreadsheets.{' '}
         <em className="italic text-[var(--m-blush-deep)]">Three Viber groups at 11 pm.</em>
       </h2>
@@ -355,7 +387,7 @@ export function ProblemSection() {
         <div className="flex flex-col gap-2">
           {fragments.map((s, i) => (
             <Reveal key={s.tag} delay={i * 60}>
-              <div className="m-card grid grid-cols-[150px_1fr] gap-3.5 items-center px-4 py-3">
+              <div className="m-card grid grid-cols-[110px_1fr] sm:grid-cols-[150px_1fr] gap-3.5 items-center px-4 py-3">
                 <span className="m-mono text-[10px] text-[var(--m-slate-2)] tracking-[0.08em] uppercase">{s.tag}</span>
                 <span className="text-[13px] text-[var(--m-ink)]">{s.body}</span>
               </div>
@@ -363,8 +395,16 @@ export function ProblemSection() {
           ))}
         </div>
 
-        <div className="flex flex-col items-center gap-2.5">
-          <svg width="120" height="24" viewBox="0 0 120 24" style={{ overflow: 'visible' }}>
+        <div className="flex flex-col items-center gap-2.5 py-2 lg:py-0">
+          {/* rotate-90 keeps the svg's 120×24 layout box, so reserve the
+              rotated height with margins on mobile */}
+          <svg
+            width="120"
+            height="24"
+            viewBox="0 0 120 24"
+            style={{ overflow: 'visible' }}
+            className="rotate-90 lg:rotate-0 my-14 lg:my-0"
+          >
             <path d="M 0 12 L 108 12" stroke="var(--m-orange)" strokeWidth="2" strokeDasharray="4 4" />
             <path d="M 100 4 L 116 12 L 100 20" fill="none" stroke="var(--m-orange)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           </svg>
@@ -409,105 +449,37 @@ export function ProblemSection() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 5. TwoSides — couples / vendors side-by-side
+// 5. ForCouples — couple-centric feature showcase (owner 2026-06-13:
+//    homepage is strictly couple-centric; the vendor pitch moved to the
+//    VendorBand above the footer + /for-vendors)
 // ─────────────────────────────────────────────────────────────────────
-export function TwoSides() {
+export function ForCouples() {
   return (
-    <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
-      <div className="m-eyebrow">Built for both sides</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] mt-5 mb-4"
-        style={{ fontSize: 84, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
-        Most event apps pick a side. <em className="italic text-[var(--m-blush-deep)]">We chose both.</em>
+    <section className="m-section">
+      <div className="m-eyebrow">Everything couples need</div>
+      <h2 className="m-serif m-h-xl text-[var(--m-ink)] mt-5 mb-4" style={{ maxWidth: 1200 }}>
+        Plan it once. <em className="italic text-[var(--m-blush-deep)]">Together.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed">
-        Setnayan is the only Filipino events platform with real operating tools on both sides — so what the couple
-        plans is what the vendor sees, and vice versa.
+        One QR scan seats your guests. One marketplace books your vendors — 0% commission. One gallery collects every
+        photo your guests take. The pieces talk to each other, so nothing falls through the cracks.
       </p>
-      <div className="grid lg:grid-cols-2 gap-6 mt-14">
-        <Reveal>
-          <SideColumn audience="For couples" tone="paper" items={COUPLE_FEATURES} headline="Plan it once. Together." cta="Start planning — free" ctaHref="/onboarding/wedding" />
-        </Reveal>
-        <Reveal delay={150}>
-          <SideColumn
-            audience="For vendors"
-            tone="ink"
-            items={VENDOR_FEATURES}
-            headline="Run your business, not your DMs."
-            cta="Register your business — free"
-            ctaHref="/for-vendors"
-          />
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function SideColumn({
-  audience,
-  tone,
-  items,
-  headline,
-  cta,
-  ctaHref,
-}: {
-  audience: string;
-  tone: 'paper' | 'ink';
-  items: string[];
-  headline: string;
-  cta: string;
-  ctaHref: string;
-}) {
-  const dark = tone === 'ink';
-  return (
-    <div
-      className="relative overflow-hidden px-9 py-10"
-      style={{
-        background: dark ? 'var(--m-ink)' : 'var(--m-paper)',
-        color: dark ? 'var(--m-paper)' : 'var(--m-ink)',
-        borderRadius: 'var(--m-r-xl)',
-        border: dark ? 'none' : '1px solid var(--m-line)',
-      }}
-    >
-      <div className="m-label-mono" style={{ color: dark ? 'var(--m-orange-3)' : 'var(--m-slate-2)' }}>
-        {audience}
-      </div>
-      <div
-        className="m-display mt-2.5"
-        style={{
-          fontSize: 44,
-          color: dark ? 'var(--m-paper)' : 'var(--m-ink)',
-          lineHeight: 1.04,
-        }}
-      >
-        {headline}
-      </div>
-      <ul className="list-none p-0 mt-8 grid gap-4">
-        {items.map((t, i) => (
-          <li
-            key={i}
-            className="grid grid-cols-[auto_1fr] gap-3.5 items-start pb-3.5"
-            style={{ borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'var(--m-line-soft)'}` }}
-          >
-            <span className="m-mono text-[11px] text-[var(--m-orange)] pt-0.5">
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <span
-              className="text-[15px] leading-normal"
-              style={{ color: dark ? 'var(--m-paper)' : 'var(--m-slate)' }}
-            >
-              {t}
-            </span>
-          </li>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-14">
+        {COUPLE_FEATURES.map((t, i) => (
+          <Reveal key={i} delay={i * 60}>
+            <div className="m-card m-card-lift p-6 h-full">
+              <span className="m-mono text-[11px] text-[var(--m-orange)]">{String(i + 1).padStart(2, '0')}</span>
+              <p className="text-[15px] text-[var(--m-slate)] leading-normal mt-3">{t}</p>
+            </div>
+          </Reveal>
         ))}
-      </ul>
-      <div className="mt-7">
-        <Link href={ctaHref} className={dark ? 'm-btn m-btn-orange' : 'm-btn m-btn-primary'}>
-          {cta}
+      </div>
+      <div className="mt-10">
+        <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
+          Start planning — free
         </Link>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -516,12 +488,9 @@ function SideColumn({
 // ─────────────────────────────────────────────────────────────────────
 export function MarketplacePreview() {
   return (
-    <section className="px-14 bg-[var(--m-paper-2)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section bg-[var(--m-paper-2)]">
       <div className="m-eyebrow">The marketplace</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] mt-5 mb-7"
-        style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
+      <h2 className="m-serif m-h-lg text-[var(--m-ink)] mt-5 mb-7" style={{ maxWidth: 1200 }}>
         Verified vendors. <em className="italic text-[var(--m-blush-deep)]">Honest pricing.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
@@ -573,12 +542,9 @@ export function MarketplacePreview() {
 // ─────────────────────────────────────────────────────────────────────
 export function OnTheDay() {
   return (
-    <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section">
       <div className="m-eyebrow">On the day</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] mt-5 mb-7"
-        style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
+      <h2 className="m-serif m-h-lg text-[var(--m-ink)] mt-5 mb-7" style={{ maxWidth: 1200 }}>
         The wedding films <em className="italic text-[var(--m-blush-deep)]">itself.</em>
       </h2>
       <div className="grid lg:grid-cols-2 gap-12 items-start">
@@ -632,14 +598,11 @@ export function OnTheDay() {
 // ─────────────────────────────────────────────────────────────────────
 export function PersonalSite() {
   return (
-    <section className="px-14 bg-[var(--m-ivory)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section bg-[var(--m-ivory)]">
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         <Reveal>
           <div className="m-eyebrow">Your wedding, online</div>
-          <h2
-            className="m-serif text-[var(--m-ink)] mt-5 mb-6"
-            style={{ fontSize: 64, lineHeight: 1.04, letterSpacing: '-0.025em', fontWeight: 400 }}
-          >
+          <h2 className="m-serif m-h-md text-[var(--m-ink)] mt-5 mb-6">
             One personal site.{' '}
             <em className="italic text-[var(--m-blush-deep)]">Every guest, every detail.</em>
           </h2>
@@ -708,12 +671,9 @@ export async function DashboardPreview() {
   // the locked tier price; the DB read wins whenever reachable.
   const plannerPrice = await getCustomerSkuPrice('SETNAYAN_AI');
   return (
-    <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section">
       <div className="m-eyebrow">In the app</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] mt-5 mb-7"
-        style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
+      <h2 className="m-serif m-h-lg text-[var(--m-ink)] mt-5 mb-7" style={{ maxWidth: 1200 }}>
         Setnayan AI. <em className="italic text-[var(--m-blush-deep)]">Today&rsquo;s decisions.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
@@ -821,12 +781,9 @@ export async function PricingSection() {
   const complete = sortedBundles.find((b) => b.package_code === 'MEDIA_PACK');
 
   return (
-    <section className="px-14 bg-[var(--m-paper-2)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section bg-[var(--m-paper-2)]">
       <div className="m-eyebrow">Pricing</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] mt-5 mb-7"
-        style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
+      <h2 className="m-serif m-h-lg text-[var(--m-ink)] mt-5 mb-7" style={{ maxWidth: 1200 }}>
         Start free. <em className="italic text-[var(--m-blush-deep)]">0% on vendor bookings.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
@@ -944,12 +901,9 @@ export async function PricingSection() {
 // ─────────────────────────────────────────────────────────────────────
 export function FAQSection() {
   return (
-    <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section">
       <div className="m-eyebrow">FAQ</div>
-      <h2
-        className="m-serif text-[var(--m-ink)] mt-5 mb-12"
-        style={{ fontSize: 64, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
-      >
+      <h2 className="m-serif m-h-md text-[var(--m-ink)] mt-5 mb-12" style={{ maxWidth: 1200 }}>
         The honest answers.
       </h2>
       <div className="grid gap-3 max-w-[820px]">
@@ -974,12 +928,12 @@ export function FAQSection() {
 // ─────────────────────────────────────────────────────────────────────
 export function ClosingCTA() {
   return (
-    <section className="px-14 bg-[var(--m-ink)] text-[var(--m-paper)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
+    <section className="m-section bg-[var(--m-ink)] text-[var(--m-paper)]">
       <div className="text-center">
         <div className="m-eyebrow text-[var(--m-orange-3)]">Set na &lsquo;yan</div>
         <h2
           className="m-serif mt-5 mb-7 text-[var(--m-paper)]"
-          style={{ fontSize: 96, lineHeight: 1.0, letterSpacing: '-0.025em', fontWeight: 400 }}
+          style={{ fontSize: 'clamp(2.75rem, 8vw, 96px)', lineHeight: 1.0, letterSpacing: '-0.025em', fontWeight: 400 }}
         >
           Let&rsquo;s do this <em className="italic text-[var(--m-orange)]">together.</em>
         </h2>
@@ -990,11 +944,46 @@ export function ClosingCTA() {
           <Link href="/onboarding/wedding" className="m-btn m-btn-orange m-btn-lg">
             Start planning — free
           </Link>
-          <Link href="/for-vendors" className="m-btn m-btn-ghost m-btn-lg" style={{ color: 'var(--m-paper)', borderColor: 'rgba(255,255,255,0.2)' }}>
-            I&apos;m a vendor →
-          </Link>
         </div>
       </div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 12b. VendorBand — the single vendor doorway on the couple-centric
+//     homepage (owner 2026-06-13 brief: bold, high-contrast redirect
+//     above the footer instead of vendor pitches mid-page)
+// ─────────────────────────────────────────────────────────────────────
+export function VendorBand() {
+  return (
+    <section className="bg-[var(--m-mulberry)] text-white">
+      <Link
+        href="/for-vendors"
+        className="m-section !py-14 sm:!py-16 flex flex-col sm:flex-row sm:items-center justify-between gap-6 group"
+      >
+        <div>
+          <div className="m-label-mono text-[var(--m-mulberry-3)]">For event vendors</div>
+          <div
+            className="m-serif text-white mt-2"
+            style={{ fontSize: 'clamp(1.75rem, 4.5vw, 48px)', lineHeight: 1.08, letterSpacing: '-0.02em' }}
+          >
+            Are you an event vendor?{' '}
+            <em className="italic text-[var(--m-orange-3)]">Run your business here</em>
+            <span aria-hidden className="inline-block ml-2 transition-transform group-hover:translate-x-1.5">→</span>
+          </div>
+          <div className="m-mono text-[12px] text-[var(--m-mulberry-3)] mt-4 flex gap-3.5 flex-wrap">
+            <span>0% commission — keep 100%</span>
+            <span>·</span>
+            <span>Free verified badge</span>
+            <span>·</span>
+            <span>One calendar, zero double-bookings</span>
+          </div>
+        </div>
+        <span className="m-btn m-btn-orange m-btn-lg shrink-0 self-start sm:self-center">
+          Register your business — free
+        </span>
+      </Link>
     </section>
   );
 }
@@ -1031,9 +1020,12 @@ export function Footer() {
     },
   ];
   return (
-    <footer className="px-14 bg-[var(--m-paper-2)] border-t border-[var(--m-line-soft)]" style={{ paddingTop: 80, paddingBottom: 56 }}>
-      <div className="grid lg:grid-cols-[1.4fr_1fr_1fr_1fr] gap-12">
-        <div>
+    <footer
+      className="px-5 sm:px-8 lg:px-14 bg-[var(--m-paper-2)] border-t border-[var(--m-line-soft)]"
+      style={{ paddingTop: 'clamp(56px, 8vw, 80px)', paddingBottom: 56 }}
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] gap-10 lg:gap-12">
+        <div className="col-span-2 lg:col-span-1">
           <Wordmark size={24} />
           <p className="text-[13px] text-[var(--m-slate)] mt-4 leading-relaxed max-w-[280px]">
             Built in the Philippines for Filipino weddings, debuts, and every celebration that comes next. Set na

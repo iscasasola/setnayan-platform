@@ -8,19 +8,21 @@
  * narrative ported from /tmp/setnayan-keynote-template/components/
  * homepage-*.jsx.
  *
- * SECTIONS (matches template `Site` composition order):
+ * SECTIONS (premium couple-centric redesign · owner brief 2026-06-13 —
+ * homepage is strictly couple-centric; vendor doorway = VendorBand + footer):
  *   1. PromoBar           — pilot announcement (sticky top, above nav)
- *   2. Nav                — sticky nav with brand + search + CTA
- *   3. Hero               — "Set na ʼyan." + HeroCollage dashboard mock
- *   4. ProblemSection     — "Six apps. Twelve spreadsheets." before/after
- *   5. TwoSides           — For couples / For vendors side-by-side
+ *   2. Nav                — sticky nav with brand + search + CTA + mobile menu
+ *   3. Hero               — "Goodbye, Viber chaos. Hello, Set na 'yan." +
+ *                           chaos-vs-clean HeroCollage
+ *   4. ProblemSection     — "Bakit Setnayan?" Six apps / twelve spreadsheets
+ *   5. ForCouples         — couple feature showcase (replaced TwoSides)
  *   6. MarketplacePreview — verified vendor card grid
  *   7. OnTheDay           — day-of livestream + Same-Day Edit
  *   8. PersonalSite       — phone mock with guest microsite
  *   9. DashboardPreview   — couple dashboard mock
  *   10. PricingSection    — publisher posture (0% commission)
- *   11. FAQSection        — 5 honest Q&A
- *   12. ClosingCTA + Footer
+ *   11. FAQSection        — honest Q&A
+ *   12. ClosingCTA + VendorBand + Footer
  *
  * v2.1 DRIFT SCRUBS applied throughout (per CLAUDE.md 2026-05-28 11th row):
  *   - "5% platform fee" / "we take a cut" → "0% commission"
@@ -47,7 +49,7 @@ import {
   Nav,
   Hero,
   ProblemSection,
-  TwoSides,
+  ForCouples,
   MarketplacePreview,
   OnTheDay,
   PersonalSite,
@@ -55,6 +57,7 @@ import {
   PricingSection,
   FAQSection,
   ClosingCTA,
+  VendorBand,
   Footer,
 } from '@/app/_components/marketing/_sections';
 
@@ -176,7 +179,7 @@ export default function HomePage() {
       <Nav />
       <Hero />
       <ProblemSection />
-      <TwoSides />
+      <ForCouples />
       <MarketplacePreview />
       <OnTheDay />
       <PersonalSite />
@@ -184,6 +187,7 @@ export default function HomePage() {
       <PricingSection />
       <FAQSection />
       <ClosingCTA />
+      <VendorBand />
       <Footer />
       </main>
     </>

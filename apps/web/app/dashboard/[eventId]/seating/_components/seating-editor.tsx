@@ -82,6 +82,10 @@ export type SeatingGuest = {
   // Role taxonomy (0001) — drives the popup's "Role" picker tab via roleTier().
   role: string;
   group_category: string;
+  // Catering data (0001 RSVP) — surfaced on the picker rows + list view; the
+  // caterer report aggregates it per table unit.
+  meal_preference: string | null;
+  dietary_restrictions: string | null;
 };
 
 export type SeatingGroup = {
@@ -1660,6 +1664,16 @@ export function SeatingEditor({
                       <span className="text-sm font-medium text-ink">Blueprint</span>
                       <span className="text-[11px] text-ink/55">Clean technical line drawing</span>
                     </a>
+                    <a
+                      role="menuitem"
+                      href={`/dashboard/${eventId}/seating/caterer`}
+                      target="_blank"
+                      onClick={() => setShowExport(false)}
+                      className="flex flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-ink/[0.04]"
+                    >
+                      <span className="text-sm font-medium text-ink">Caterer meal counts</span>
+                      <span className="text-[11px] text-ink/55">Meals per table + dietary notes · print or CSV</span>
+                    </a>
                     <p className="px-3 py-1.5 text-[10px] text-ink/45">
                       A4 PDF · floor plan + seating arrangements · with your monogram &amp; website QR.
                     </p>
@@ -2800,7 +2814,20 @@ export function SeatingEditor({
                           {seated.map((g) => (
                             <li key={g.guest_id} className="flex items-center gap-2 rounded-lg px-1.5 py-1">
                               <ChairAvatar guest={g} color={colorFor(g)} size={24} />
-                              <span className="min-w-0 flex-1 truncate text-sm text-ink">{g.name}</span>
+                              <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                                {g.name}
+                                {g.meal_preference && g.meal_preference !== 'no_preference' ? (
+                                  <span className="ml-1.5 text-[10px] text-ink/45">· {g.meal_preference}</span>
+                                ) : null}
+                              </span>
+                              {g.dietary_restrictions ? (
+                                <span
+                                  title={`Dietary: ${g.dietary_restrictions}`}
+                                  className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                                >
+                                  diet
+                                </span>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() => unseat(g.guest_id)}
@@ -3055,6 +3082,14 @@ function SeatPeoplePanel({
                   >
                     <ChairAvatar guest={g} color={colorFor(g)} size={24} />
                     <span className="min-w-0 flex-1 truncate text-sm text-ink">{g.name}</span>
+                    {g.dietary_restrictions ? (
+                      <span
+                        title={`Dietary: ${g.dietary_restrictions}`}
+                        className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                      >
+                        diet
+                      </span>
+                    ) : null}
                     {here ? (
                       <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">
                         here

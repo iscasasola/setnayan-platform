@@ -39,6 +39,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Report rendering is visual — Vercel preview. RLS-scoped reads (couple only).
 
 **SPEC IMPACT:** New couple-side capability beyond 0008 (the leapfrog plan's "meal→caterer" phase, owner-approved 2026-06-10). The "counts flow to the booked caterer VENDOR" half (vendor-side delivery) is the follow-up — this ships the couple-side artifact. → corpus `DECISION_LOG` note rides the seat-plan program row.
+## 2026-06-12 · feat(vendors): DIY parity — host-authored "what's included" + "also covers" links for manual vendors
+
+**Context:** Dual-path doctrine (owner 2026-06-11, corpus DECISION_LOG): the planner works "with or without vendors" — a pure-DIY host must be able to "add information about their order… place… **what's included** on their service. **link other services to it** as well." The parity audit found both halves missing: the workspace's What's-included section rendered ONLY from a locked marketplace package, and "comes with" coverage was vendor-authored only (`vendor_service_links`) — a DIY caterer that includes the cake had no way to say so.
+
+- **Migration `20261119000000`** (applied to prod before merge): `event_vendors.host_inclusions text[]` + `covers_plan_groups text[]` — additive, couple-own RLS inherited, vendors never see the row.
+- **Workspace editor (`host-service-details.tsx`, new):** when a manual (off-platform) vendor has no package, the What's-included slot becomes host-editable — inclusion lines (one per line, capped 20×120) + "Also covers" plan-group chips (own group excluded). Server action `updateHostServiceDetails` validates covers against the canonical plan groups and is hard-scoped to manual rows (`manual_vendor_id` set + no `marketplace_vendor_id`) so a connected vendor never has two sources of truth.
+- **One display pipeline:** host covers merge into the SAME linked-services enrichment the marketplace path uses → Shortlist card "✓ comes with X · Y · Z" chips just work; host inclusions flow through `PlanCardPick.host_inclusions` → Compare's expandable inclusions cell shows vendor-authored links ∪ host-authored lines.
+- **Plumbing:** `fetchEventVendors` select + `EventVendorRow`/`EventVendorRowInput`/`PlanCardPick` carry the two fields; vendors page maps them through and merges covers→enrichment.
+
+**Deliberately NOT in this PR:** category-satisfaction semantics (a covered category still shows open in Build/Flag/Compute) — that gap exists for marketplace linked-services too; fixing both together is the follow-up.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · migration applied + verified by the push run. Marketplace vendors unaffected (editor + action are manual-only; enrichment merge keys off covers, which only manual rows can carry).
+
+**SPEC IMPACT:** Dual-path DIY parity gaps (1) + (2) from the 2026-06-11 DECISION_LOG audit row → CLOSED (display parity). Remaining from that audit: the connected-path quote loop (blocked on token burn-on-answer + accept-model owner decisions).
 
 ## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
 

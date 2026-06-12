@@ -54,6 +54,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · 75/75 unit tests pass.
 
 **SPEC IMPACT:** none on the corpus constraint itself (the "NSFW filter on by default, cannot be disabled" lock is now fully true in code, clips included). Spec corpus note for 0012 Papic — clip screening = poster-frame proxy — left to the parent session per its instruction (no corpus edits from this worktree).
+## 2026-06-13 · feat(email): security_alert template wired to password + session events
+
+**Context:** the account-security suite (#1262) shipped change-password / reset-password / sign-out-other-devices, and a 2026-06-12 follow-up had already wired inline `security_alert` emits on the two password events — but the copy was duplicated across two call sites, and "Sign out other devices" deliberately emitted nothing.
+
+- **New `lib/security-alert.ts`:** centralized `emitSecurityAlert()` template — single subject **"Security alert on your Setnayan account"**, body = what happened (per event type) → when (Asia/Manila timestamp) → "If this was you, no action is needed" → "If this wasn't you, reset your password immediately" with the `/forgot-password` link. Delivery rides the standard `emitNotification` funnel (in-app row + plaintext Resend email with the funnel's standard "Manage notifications" footer + Web Push — `security_alert` is already on the high-signal push allowlist). No bespoke email path invented; the module only owns the copy.
+- **Three triggers, all non-blocking via Next 15 `after()`:** `password_changed` (`lib/account-security-actions.ts` · changePassword, refactored from inline copy) · `password_reset` (`app/reset-password/actions.ts` · completePasswordReset, refactored from inline copy) · **`sessions_revoked` (NEW)** on `signOutOtherDevices`.
+- **⚠ Decision reversal surfaced for owner:** the 2026-06-12 comment said sign-out-others "intentionally does NOT emit — it's the remedy, not the threat". Reversed here: if an intruder uses that button to kick the real owner's devices out, the alert is the owner's only signal — same reasoning behind major providers' session-revocation notices. Flagged in the PR for sign-off.
+- No migration — the `security_alert` notification enum value already landed (`20261120000311_notification_type_security_alert.sql`).
+
+**Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the three changed files.
+
+**SPEC IMPACT:** iteration `0028_email_notifications` template #10 (`security_alert`) is now BUILT with three triggers (the spec listed the template; trigger wiring is the as-built delta). Parent session to mark in the corpus + close the "open: security_alert email" item in memory `project_setnayan_account_security`.
 
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 

@@ -19,13 +19,15 @@
  * revoked server-side immediately after (scope:'local' — never 'global',
  * which would sign the user out everywhere).
  *
- * 0028 security email: changePassword() emits a `security_alert`
- * notification (in-app + email via the emitNotification funnel) after the
- * password update succeeds — wired 2026-06-12 alongside migration
- * 20261116000000_notification_type_security_alert.sql (the enum change PR
- * #1262 deliberately skipped). Fire-and-forget via Next's after() so a slow
- * Resend call can never delay the redirect. signOutOtherDevices()
- * intentionally does NOT emit — it's the remedy, not the threat.
+ * 0028 security email: both actions emit a `security_alert` notification
+ * (in-app + email + push via the shared lib/security-alert.ts template —
+ * one copy source for all triggers) after the state change succeeds.
+ * Fire-and-forget via Next's after() so a slow Resend call can never delay
+ * the redirect. signOutOtherDevices() now ALSO emits (2026-06-13,
+ * reversing the 2026-06-12 "it's the remedy, not the threat" stance): if an
+ * intruder revokes the OWNER's sessions, the alert is the owner's only
+ * signal — same reasoning major providers use for session-revocation
+ * notices.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -33,7 +35,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient as createStatelessClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitSecurityAlert } from '@/lib/security-alert';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   safeSecurityReturnPath,
@@ -121,25 +123,16 @@ export async function changePassword(formData: FormData) {
   }
 
   // 0028 template #10 — security_alert. Best-effort + non-blocking: after()
-  // runs once the response is sent, and emitNotification itself never throws
-  // (it logs and continues), so the redirect is never held hostage by a slow
-  // notifications insert or Resend call. relatedUrl = the profile page that
-  // hosts the Security section (allowlisted returnTo), so the email's "Open
-  // Setnayan" link and the in-app notification both land there.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'https://setnayan-platform-web.vercel.app';
+  // runs once the response is sent, and emitSecurityAlert never throws, so
+  // the redirect is never held hostage by a slow notifications insert or
+  // Resend call. relatedUrl = the profile page that hosts the Security
+  // section (allowlisted returnTo), so the email's "Open Setnayan" link and
+  // the in-app notification both land there.
   const alertUserId = user.id;
   after(() =>
-    emitNotification({
+    emitSecurityAlert({
       userId: alertUserId,
-      type: 'security_alert',
-      title: 'Your Setnayan password was changed',
-      body:
-        'Your password was just changed from your profile’s Security section. ' +
-        'If this was you, no action is needed. If this wasn’t you, reset your ' +
-        `password immediately (${appUrl}/forgot-password) and use “Sign out ` +
-        'other devices” in the Security section of your profile.',
+      event: 'password_changed',
       relatedUrl: returnTo,
     }),
   );
@@ -173,6 +166,18 @@ export async function signOutOtherDevices(formData: FormData) {
     });
     return redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   }
+
+  // 0028 template #10 — security_alert on session revocation too: if an
+  // intruder uses this button to kick the real owner out, this alert is the
+  // owner's only signal. Non-blocking via after(), same as changePassword.
+  const alertUserId = user.id;
+  after(() =>
+    emitSecurityAlert({
+      userId: alertUserId,
+      event: 'sessions_revoked',
+      relatedUrl: returnTo,
+    }),
+  );
 
   redirect(`${returnTo}?signed_out_others=1`);
 }

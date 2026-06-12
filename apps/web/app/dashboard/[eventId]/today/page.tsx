@@ -17,12 +17,14 @@ import { redirect } from 'next/navigation';
  * independent of the wizard — retiring this surface does NOT touch them.
  *
  * This route now redirects to event-home so existing links / bookmarks /
- * the V1 "Setnayan AI active" emails don't 404. The wizard components
- * (wizard-hero.tsx, wizard-cards/, lib/wizard.ts) + the dormant Concierge
- * SKU machinery are left on disk as a quick-revert path — nothing renders
- * them now. Full teardown (the concierge_* DB columns, the admin trial-
- * abuse queue, the TODAYS_FOCUS catalog SKU) is a deliberate later
- * schema-cleanup pass, not this change.
+ * the V1 "Setnayan AI active" emails don't 404. The wizard RENDER layer
+ * (wizard-hero.tsx, wizard-carousel.tsx, wizard-card.tsx, wizard-cards/,
+ * in-flight-tray.tsx) was DELETED 2026-06-13 (owner: tear down the retired
+ * wizard). The shared lib modules it used (lib/wizard.ts, lib/planner.ts,
+ * wizard-actions.ts) stay — live features (pakanta, mood board, the 9-step
+ * journey) still import them. The dormant Concierge SKU machinery + DB
+ * teardown (concierge_* columns, admin trial-abuse queue, TODAYS_FOCUS
+ * catalog SKU) remain a deliberate later schema-cleanup pass, not this change.
  */
 export default async function RetiredTodaysFocus({
   params,

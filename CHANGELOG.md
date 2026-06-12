@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(website): Live Photo Wall mirrored onto the guest's on-the-day page
+
+**Context:** Owner: *"panood, photo wall live and the gallery must be on the on the day website part… show our services when they need to be seen."* First slice of the Event-page service stage (spec §7.5): the Salamisim wall — already shipped as the venue projection — now also renders on every guest's phone during the live window.
+
+- **`app/[slug]/_components/live-wall-block.tsx` (new):** "Live from the celebration" block — pulse header + moments count, newest-12 tile grid (3-col), and the newest approved **Kwento** as the lower-third caption. Polls `/[slug]/live-wall` every 25s ONLY while the tab is visible (visibilitychange-gated; a pocketed phone polls zero — request-driven, no cron); merges via the wall's own pure `mergeTiles` (feedId-deduped, tiles never re-animate); tiles arriving while the guest watches enter with a soft rise+fade (Daily-Prophet feel), reduced-motion safe.
+- **`app/[slug]/live-wall/route.ts` (new):** the freshness feed — same LIVE_WALL activation door as `/wall/[eventId]` (quiet 404 otherwise, no existence oracle), serving ONLY screened wall-safe derivatives via `getWallSnapshot` + the Kwento caption.
+- **`lib/live-wall.ts`:** `getWallSnapshot` gains an optional `limit` (newest-N sliced BEFORE presigning — a busy wall doesn't burn hundreds of R2 signatures per phone view). Additive; the projector path is unchanged.
+- **`app/[slug]/page.tsx`:** when `dayOfPhase === 'live'` (host phase-preview can force it) and the event owns LIVE_WALL, fetch the snapshot (limit 12) and render the block — guest path right under the pinned day-of schedule; anonymous path (master-QR scans at the venue) above the public widgets. Wall trouble can never break the page (try → null).
+
+**Verification:** `tsc` clean · harness-verified at phone width (grid + count + Kwento caption render exactly as designed; mock tiles) · same screened-feed security posture as the projector (no anon reads of capture tables; wall-safe derivatives only). Real-data render appears as soon as a LIVE_WALL event has wall_feed rows during its live window (or via host `?phase=event` preview).
+
+**SPEC IMPACT:** Implements the first Event-page row of the §7.5 service-visibility map (`Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`): wall LIVE form on the day page; the editorial "Wall, Frozen" recap is the follow-up. DECISION_LOG row added.
+
 ## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
 
 **Context:** Owner-approved 2026-06-11 modernity decision ("Yes — add it"): live presence on the stack we already pay for (Supabase Realtime; NOT full CRDT — overkill for an async editor). Closes the Prismm vendor-collaboration gap; the cheapest yard of genuine modernity. First arc after the completed Phase 1 editor redesign.

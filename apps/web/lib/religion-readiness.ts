@@ -21,6 +21,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { FAITH_LABELS } from '@/lib/faith-registry';
 
 export type LaunchStatus = 'active' | 'coming_soon' | 'disabled';
 
@@ -36,14 +37,13 @@ export type ReligionReadinessRow = {
   ready: boolean;
 };
 
+// Derived from lib/faith-registry (the single faith source, 2026-06-12) plus
+// the two non-faith ceremony forms this admin surface also rows. The audit
+// (2026-06-11) caught the old hardcode missing jewish + born_again — raw keys
+// rendered in /admin/wedding-types.
 const RELIGION_LABEL: Record<string, string> = {
-  catholic: 'Catholic',
+  ...FAITH_LABELS,
   civil: 'Civil',
-  inc: 'INC',
-  christian: 'Christian',
-  muslim: 'Muslim',
-  cultural: 'Cultural',
-  chinese: 'Chinese',
   mixed: 'Mixed',
 };
 

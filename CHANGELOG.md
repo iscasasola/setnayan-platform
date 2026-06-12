@@ -69,6 +69,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`app/[slug]/page.tsx`:** fetches during the live window on the guest path only; renders a "Photos of you — so far" 4-col grid between the wall mirror and the QR card, with the keep-after note.
 
 **Verification:** `tsc` clean (after a `pnpm install` for main's new `perfect-freehand` dep — unrelated session). Server-rendered, no new client JS. **SPEC IMPACT:** §7.5 Papic-gallery row, live half — DECISION_LOG row added.
+## 2026-06-12 · refactor(faiths): faith registry — ONE source for every faith list + Jewish → coming-soon
+
+**Context:** The events×faiths audit found faith pickers/labels/copy living in ~17 independent hardcoded maps; the same-day worldwide expansion (#a8d67aeb, 8 new faiths) reached the DB, marketplace, and matching layers but NOT the onboarding layer — so a faith flipped 'active' in /admin/wedding-types would never grow a chip, and the conversational intro covered only 5 of 8 faiths' reactions. Owner batch decisions 2026-06-12.
+
+- **`lib/faith-registry.ts` (new):** the single TS source — 16 faith entries (key · Title-Case `faithCol` · label · desc · reaction line · hero photo · coming-soon fallback). Adding a faith = one DB row + ONE entry here; the literal-union spine (`FaithKey`) makes `tsc` fail any exhaustive map that misses a new faith.
+- **Derived (the hardcodes deleted):** onboarding `FAITH_CHIPS` + `FAITH_PHOTO` + congrats `FAITH_LABEL` · welcome-moments `FAITH_REACT`/`FAITH_DESC` (now FULL coverage incl. all 8 new faiths — Aglipayan/LDS/Adventist/JW/Hindu/Sikh/Buddhist/Orthodox each get a chip, a one-liner, and a warm reaction) · both `ALLOWED_CEREMONIES` commit allow-lists (onboarding + create-event — now accept any faith the owner can flip live) · religion-readiness `RELIGION_LABEL` (the audit's raw-key render in /admin/wedding-types is fixed).
+- **Division of labor preserved:** `wedding_type_launch_status` still decides what's LIVE at runtime; `CEREMONY_TYPE_TO_FAITH` (tested, load-bearing) stays the matching authority — a new invariant suite pins the registry to it both directions (matchable ⇒ pickable).
+- **Migration `20261121000000` (APPLIED to prod + ledger):** Jewish → `coming_soon` per the owner's "seed Chinese, pause Jewish" decision — one launch-lever row, reversible in /admin/wedding-types.
+
+**Verification:** unit 66/66 (6 new registry invariants) · `tsc` 0 errors (the union widening proved no other exhaustive map existed) · lint clean (1 pre-existing warning) · production build exit 0 · bundle unchanged 199.2/200KB · prod verified: jewish=coming_soon.
+
+**SPEC IMPACT:** Realizes audit decisions #1(Jewish)/#9(consolidation); DECISION_LOG rows landed 2026-06-12 (batch session).
 
 ## 2026-06-12 · feat(website): Live Photo Wall mirrored onto the guest's on-the-day page
 

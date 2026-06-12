@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import type { OnboardingFaith, OnboardingKind, OnboardingRole } from '../types';
 
 /* Personalized reactions (owner 2026-06-05 — verbatim from the prototype). */
@@ -34,22 +35,18 @@ const KIND_REACT: Record<OnboardingKind, string> = {
   mixed: 'Married not just by faith, but by heart.',
 };
 
-const FAITH_REACT: Partial<Record<OnboardingFaith, string>> = {
-  catholic: 'A Catholic ceremony — we’ll line up your canonical interview, seminar and papers so nothing slips.',
-  christian: 'Beautiful. We’ll match a church and an officiant who fit your congregation.',
-  inc: 'We’ll respect every INC protocol — your reception comes pre-set alcohol-free.',
-  muslim: 'Maligayang bati. We’ll quietly pre-set halal catering and your Nikah customs.',
-  cultural: 'How meaningful. We’ll honor your community’s traditions, step by step.',
-};
+/* Both maps derive from lib/faith-registry (the single faith source,
+   2026-06-12) — EVERY faith now has a reaction + one-liner, so a faith the
+   owner flips active in /admin/wedding-types never lands silently. The audit
+   (2026-06-11) caught the old partial maps covering only 5 of 8 faiths. */
+const FAITH_REACT: Record<OnboardingFaith, string> = Object.fromEntries(
+  FAITH_REGISTRY.map((e) => [e.key, e.react]),
+) as Record<OnboardingFaith, string>;
 
-/* Per-faith one-liners shown under each option (prototype copy where available). */
-const FAITH_DESC: Partial<Record<OnboardingFaith, string>> = {
-  catholic: 'The country’s largest tradition — about 1 in 3 weddings.',
-  christian: 'Evangelical, Protestant & born-again churches.',
-  inc: 'Iglesia ni Cristo.',
-  muslim: 'A Nikah ceremony.',
-  cultural: 'Indigenous & tribal rites.',
-};
+/* Per-faith one-liners shown under each option. */
+const FAITH_DESC: Record<OnboardingFaith, string> = Object.fromEntries(
+  FAITH_REGISTRY.map((e) => [e.key, e.desc]),
+) as Record<OnboardingFaith, string>;
 
 type Ans = { role?: OnboardingRole; kind?: OnboardingKind; faith?: OnboardingFaith };
 type Opt = { value: string; title: string; desc?: string };

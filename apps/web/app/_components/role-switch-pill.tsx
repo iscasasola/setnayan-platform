@@ -96,7 +96,7 @@ export function RoleSwitchPill({
   if (currentRole !== 'admin' && hasAdminAccess) {
     targets.push({
       role: 'admin',
-      label: 'Admin console',
+      label: 'Setnayan HQ',
       href: '/admin',
       sub: 'Setnayan internal',
     });
@@ -180,7 +180,7 @@ function roleIcon(role: RoleSwitchRole) {
 }
 
 function roleLabel(role: RoleSwitchRole) {
-  if (role === 'admin') return 'Admin console';
+  if (role === 'admin') return 'Setnayan HQ';
   if (role === 'vendor') return 'Shop console';
   return 'Customer view';
 }

@@ -72,7 +72,7 @@ BEGIN
   -- account_type='admin') lets the account in. is_internal stays FALSE on
   -- purpose: that flag carries §10a payment-skip semantics that must not
   -- silently attach to a test account.
-  UPDATE public.users SET account_type = 'admin', is_team_member = true, display_name = '[TEST] Admin' WHERE user_id = admin_id;
+  UPDATE public.users SET account_type = 'admin', is_team_member = true, display_name = '[TEST] Setnayan Team' WHERE user_id = admin_id;
   UPDATE public.users SET display_name = '[TEST] Maria & Jose' WHERE user_id = couple_id;
 
   -- 4. Couple wedding event -------------------------------------------------

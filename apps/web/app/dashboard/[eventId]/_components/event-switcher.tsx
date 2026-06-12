@@ -334,7 +334,7 @@ export function EventSwitcher({
                   S
                 </span>
                 <span className="flex flex-col">
-                  <span className="font-medium">Admin console</span>
+                  <span className="font-medium">Setnayan HQ</span>
                   <span className="text-[11px] text-ink/55">Setnayan admin</span>
                 </span>
               </Link>

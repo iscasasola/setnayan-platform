@@ -694,7 +694,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         </form>
         {isAdmin ? (
           <Link href="/admin" className="button-secondary">
-            Admin console ↗
+            Setnayan HQ ↗
           </Link>
         ) : null}
         <form action="/auth/sign-out" method="post">

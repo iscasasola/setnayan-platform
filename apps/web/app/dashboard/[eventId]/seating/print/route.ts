@@ -64,17 +64,39 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const site = event.slug ? `${appUrl}/${event.slug}` : appUrl;
 
+  // Group linked tables into ONE printed unit (identity + QR only — owner-locked
+  // 2026-06-10): the unit prints a single sign under its shared label, carrying
+  // the LEAD table's QR (first member in sort order); sibling tables emit no
+  // sign of their own. Unlinked tables are single-member units.
+  type Unit = { key: string; label: string; lead: (typeof tables)[number]; members: typeof tables };
+  const unitsByKey = new Map<string, Unit>();
+  for (const t of tables) {
+    const key = t.link_group_id ?? t.table_id;
+    const existing = unitsByKey.get(key);
+    if (existing) {
+      existing.members.push(t);
+    } else {
+      unitsByKey.set(key, {
+        key,
+        label: t.link_group_label ?? t.table_label,
+        lead: t,
+        members: [t],
+      });
+    }
+  }
+  const units = [...unitsByKey.values()];
+  const unitGuests = (u: Unit) =>
+    u.members.flatMap((m) => seatedByTable.get(m.table_id) ?? []).sort((x, y) => x.name.localeCompare(y.name));
+
   // Pre-render every QR to a data URL (server-side, no network).
   const tableQr = new Map<string, string>(
     await Promise.all(
-      tables.map(
-        async (t) => [t.table_id, await QRCode.toDataURL(`${site}?t=${t.public_id}`, QR_OPTS)] as const,
+      units.map(
+        async (u) => [u.key, await QRCode.toDataURL(`${site}?t=${u.lead.public_id}`, QR_OPTS)] as const,
       ),
     ),
   );
-  const placeCards = tables.flatMap((t) =>
-    (seatedByTable.get(t.table_id) ?? []).map((g) => ({ ...g, tableLabel: t.table_label })),
-  );
+  const placeCards = units.flatMap((u) => unitGuests(u).map((g) => ({ ...g, tableLabel: u.label })));
   const placeQr = new Map<string, string>(
     await Promise.all(
       placeCards.map(
@@ -93,25 +115,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   })();
   const totalSeated = placeCards.length;
 
-  const directoryRows = tables
-    .map((t) => {
-      const names = (seatedByTable.get(t.table_id) ?? []).map((g) => esc(g.name)).join(', ');
-      return `<tr><td class="dir-t">${esc(t.table_label)}</td><td class="dir-n">${
-        names || '<span class="muted">— no one seated —</span>'
-      }</td></tr>`;
+  const directoryRows = units
+    .map((u) => {
+      const names = unitGuests(u)
+        .map((g) => esc(g.name))
+        .join(', ');
+      return `<tr><td class="dir-t">${esc(u.label)}${
+        u.members.length > 1 ? ` <span class="muted">(${u.members.length} tables joined)</span>` : ''
+      }</td><td class="dir-n">${names || '<span class="muted">— no one seated —</span>'}</td></tr>`;
     })
     .join('');
 
-  const signs = tables
+  const signs = units
     .map(
-      (t) => `
+      (u) => `
       <section class="sheet sign">
         <div class="sign-inner">
           <p class="kicker">${esc(coupleName)}</p>
-          <h1 class="sign-label">${esc(t.table_label)}</h1>
-          <img class="sign-qr" src="${tableQr.get(t.table_id)}" alt="QR for ${esc(t.table_label)}" />
+          <h1 class="sign-label">${esc(u.label)}</h1>
+          <img class="sign-qr" src="${tableQr.get(u.key)}" alt="QR for ${esc(u.label)}" />
           <p class="sign-sub">Scan to visit our wedding</p>
-          <p class="sign-foot">${(seatedByTable.get(t.table_id) ?? []).length} seated${
+          <p class="sign-foot">${unitGuests(u).length} seated${
             dateStr ? ` · ${esc(dateStr)}` : ''
           }</p>
         </div>
@@ -194,7 +218,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     <section class="sheet cover">
       <h1>${esc(coupleName)}</h1>
       <p class="sub">${dateStr ? esc(dateStr) + ' · ' : ''}Seating pack</p>
-      <p class="stat">${tables.length} ${tables.length === 1 ? 'table' : 'tables'} · ${totalSeated} seated ${
+      <p class="stat">${units.length} ${units.length === 1 ? 'table' : 'tables'} · ${totalSeated} seated ${
         totalSeated === 1 ? 'guest' : 'guests'
       }</p>
       <table><tbody>${directoryRows || '<tr><td class="muted">No tables yet.</td></tr>'}</tbody></table>

@@ -127,6 +127,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
 
 **SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
+## 2026-06-13 · feat(timeline): shared day-of timeline + vendor Suggest flow — feature-access program Phase 3
+
+**Context:** Phase 3 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 4). One timeline, three lenses: couple + delegate edit, booked vendors view FULL + suggest (locked D2), guests read the public blocks (0031, unchanged).
+
+- **Migration `20261130000000_shared_timeline_suggestions.sql`** (APPLIED to prod + ledger row): `current_vendor_booked_event_ids()` helper; booked vendors get live SELECT on `event_schedule_blocks` (full timeline per locked D2; vendor surfaces never select couple-private `notes`); new **`event_schedule_suggestions`** — vendors PROPOSE (`kind adjust|new`, proposed label/times/location + required note), couple or schedule-edit delegate RESOLVE (`open→accepted|declined`). No vendor writes to the timeline ever — suggestion rows only, per the conflict-architecture lock. RLS: vendor insert gated on booked + own org + own user; vendor reads own org’s rows; couple + moderators read all; resolution couple or `moderator_area_level(…,'schedule')='edit'`.
+- **Vendor Brief page** (`/vendor-dashboard/clients/[eventId]`): timeline card is now LIVE rows (block ids) with per-block "Request a change" (note + optional proposed window), "Suggest a new timeline entry", a "Your requests" status list (open/accepted/declined), and **"Add to calendar"** → new **`calendar.ics` route** (per-vendor ICS feed of the timeline; RLS booked gate — empty set → 404).
+- **Couple Schedule page**: "Vendor requests" queue on the Event-Day view — Accept applies the proposal (adjust → patches the block; new → creates a **private draft** block, `is_public=false` so guests see nothing until the couple flips it) · Decline just flips status. `resolveScheduleSuggestion` runs under RLS (couple or schedule-edit delegate).
+
+**Deliberately deferred:** vendor own-slot pinning (needs block↔vendor assignment — lands with Phase 4 booth pins) · suggestion withdraw by vendor (V1 state machine is one-directional) · notification fan-out on new suggestions (0028 template follow-up).
+
+**Verification:** `tsc` clean. Prod-smoked: impersonated `vendor.test` reads the full test-event timeline (D2) and inserts a suggestion via RLS ✓; impersonated `couple.test` reads + declines it ✓.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 3 → BUILT; DECISION_LOG row appended.
+
 ## 2026-06-12 · feat(vendor): Vendor Event Brief — Phase 1 of the feature-access-by-category program
 
 **Context:** owner-locked design session 2026-06-12 (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md`, D1–D5 all settled). Today a booked vendor sees nothing of the couple's planning; the Brief closes the biggest gap with zero new write paths — pax, palette, monogram, timeline, seat-plan status in one card.

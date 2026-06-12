@@ -8,6 +8,10 @@ import { createPortal } from 'react-dom';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram, EmptyEventMonogram } from '@/app/_components/event-monogram';
 import { EventTypeCarousel } from '@/app/dashboard/create-event/_components/event-type-carousel';
+import {
+  EVENT_TYPES_FALLBACK,
+  type EventTypeRow,
+} from '@/app/dashboard/create-event/_components/event-types';
 
 /**
  * Unified switcher — iteration 0000 chrome (locked 2026-05-14 single-strip
@@ -96,6 +100,12 @@ type Props = {
   hasVendorAccess: boolean;
   hasAdminAccess: boolean;
   vendorProfiles: SwitcherVendorTarget[];
+  /** DB-driven creatable event types (2026-06-13 cutover) — fetched by the
+      server layout that mounts the switcher (getCreatableEventTypes()) and
+      threaded down for the add-event sheet's carousel. Optional with the
+      pre-cutover constant as fallback so any unmounted surface degrades to
+      yesterday's roster instead of crashing. */
+  eventTypes?: readonly EventTypeRow[];
 };
 
 type View = 'events' | 'addtype';
@@ -114,6 +124,7 @@ export function EventSwitcher({
   hasVendorAccess,
   hasAdminAccess,
   vendorProfiles,
+  eventTypes = EVENT_TYPES_FALLBACK,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -258,11 +269,15 @@ export function EventSwitcher({
           </p>
 
           <EventTypeCarousel
+            types={eventTypes}
             ctaLabel="Continue &rarr;"
             sizes="(max-width: 640px) 78vw, 248px"
             onSelect={(type) => {
-              const href =
-                type.key === 'wedding' ? '/onboarding/wedding' : '/dashboard/create-event';
+              // DB-driven (2026-06-13): a type with a tailored onboarding
+              // jumps straight in (wedding → /onboarding/wedding); everything
+              // else lands on the create-event name form — same behavior the
+              // hardcoded wedding-special-case produced for the live roster.
+              const href = type.onboardingHref ?? '/dashboard/create-event';
               closeMenu();
               router.push(href);
             }}

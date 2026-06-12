@@ -100,6 +100,7 @@ import {
   Bell,
   SlidersHorizontal,
   UserX,
+  PartyPopper,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -423,6 +424,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Taxonomy',
         href: '/admin/taxonomy',
         icon: Tag,
+      },
+      {
+        // Event-type roster CRUD (2026-06-13 cutover) — create/launch/retire
+        // event types; pickers + vendor checkboxes + filters follow live.
+        key: 'event-types',
+        label: 'Event Types',
+        href: '/admin/event-types',
+        icon: PartyPopper,
       },
       {
         key: 'refinements',

@@ -119,6 +119,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/settings',
       '/admin/onboarding',
       '/admin/taxonomy',
+      '/admin/event-types',
       '/admin/website',
       '/admin/ads',
       '/admin/brain',

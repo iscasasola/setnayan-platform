@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createWeddingEvent } from '../actions';
-import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types';
+import { type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
@@ -29,13 +29,13 @@ type ConciergeChoice = 'diy';
  * The old per-surface WeddingTypePicker / wedding_type_launch_status path was
  * already dead (Wedding showed a "Continue →" card, never this form) — removed.
  */
-export function EventTypePicker() {
+export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const conciergeChoice: ConciergeChoice = 'diy';
 
   const selected = selectedKey
-    ? (EVENT_TYPES.find((t) => t.key === selectedKey) ?? null)
+    ? (types.find((t) => t.key === selectedKey) ?? null)
     : null;
 
   function handleSelect(type: EventTypeRow) {
@@ -50,7 +50,7 @@ export function EventTypePicker() {
   return (
     <>
       <section aria-label="Event type">
-        <EventTypePhotoPicker types={EVENT_TYPES} onSelect={handleSelect} />
+        <EventTypePhotoPicker types={types} onSelect={handleSelect} />
       </section>
 
       {selected ? (

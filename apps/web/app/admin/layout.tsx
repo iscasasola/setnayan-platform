@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { countUnread } from '@/lib/notifications';
@@ -94,6 +95,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Hide archived events; active-first + expired-rightmost; primary (or first
   // active) is the anchor monogram. Zero events → the wrapper renders the
   // empty "+" monogram linking to /dashboard/create-event.
+
+  // DB-driven creatable event types for the switcher's add-event sheet
+  // (2026-06-13 cutover) — request-cached, so layouts + pages share one read.
+  const creatableEventTypes = await getCreatableEventTypes();
   const visibleEvents = events.filter((e) => !e.archived);
   const activeEvents = sortEventsForSwitcher(visibleEvents);
   const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
@@ -145,6 +150,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
+        eventTypes={creatableEventTypes}
       />
       <div className="flex items-center gap-2">
         <UnreadBellBadge

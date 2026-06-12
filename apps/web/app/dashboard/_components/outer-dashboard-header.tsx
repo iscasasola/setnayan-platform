@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Store } from 'lucide-react';
 import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from '@/app/dashboard/[eventId]/_components/event-switcher';
+import type { EventTypeRow } from '@/app/dashboard/create-event/_components/event-types';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
 
@@ -65,6 +66,9 @@ type Props = {
   hasVendorAccess: boolean;
   hasAdminAccess: boolean;
   vendorProfiles: SwitcherVendorTarget[];
+  /** DB-driven creatable event types (2026-06-13) for the switcher's
+      add-event sheet — fetched by DashboardLayout, threaded through. */
+  eventTypes?: readonly EventTypeRow[];
 };
 
 export function OuterDashboardHeader({
@@ -77,6 +81,7 @@ export function OuterDashboardHeader({
   hasVendorAccess,
   hasAdminAccess,
   vendorProfiles,
+  eventTypes,
 }: Props) {
   const pathname = usePathname() ?? '';
   if (isEventScopedRoute(pathname)) return null;
@@ -108,6 +113,7 @@ export function OuterDashboardHeader({
       hasVendorAccess={hasVendorAccess}
       hasAdminAccess={hasAdminAccess}
       vendorProfiles={vendorProfiles}
+      eventTypes={eventTypes}
     />
   );
 

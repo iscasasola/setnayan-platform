@@ -3,7 +3,12 @@
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types';
+import {
+  eventTypePhotoSrc,
+  EVENT_TYPE_PHOTO_FALLBACK,
+  type EventTypeKey,
+  type EventTypeRow,
+} from './event-types';
 
 /**
  * Event-type hero carousel — owner ask 2026-06-03: "we want a carousel but
@@ -11,7 +16,8 @@ import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types
  *
  * Replaces the old emoji-tile picker (single centered tile + prev/next arrows)
  * with a horizontally **swipeable scroll-snap filmstrip** of full-bleed hero
- * photos — one card per `EVENT_TYPES` entry. Hero photos live at
+ * photos — one card per roster entry (`types` prop —
+ * DB-driven since the 2026-06-13 event_type_vocab cutover). Hero photos live at
  * `/public/event-types/{key}.webp` (Recraft-generated, 4:5, warm editorial
  * grade). Coming-soon types render grayscale with a "Coming soon" badge; live
  * types get a gold "Available" badge + an optional CTA pill.
@@ -31,6 +37,9 @@ import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types
  */
 
 type Props = {
+  /** The roster — DB-driven rows from getEventTypeVocab()/getCreatableEventTypes(),
+      threaded down from the nearest server component (2026-06-13 cutover). */
+  types: readonly EventTypeRow[];
   /** Tap handler. Only fired for `enabled` types (coming-soon tiles are inert). */
   onSelect: (type: EventTypeRow) => void;
   /** When set, the matching card shows the gold selected ring + "Selected" badge. */
@@ -42,9 +51,8 @@ type Props = {
   className?: string;
 };
 
-const N = EVENT_TYPES.length;
-
 export function EventTypeCarousel({
+  types,
   onSelect,
   selectedKey,
   ctaLabel,
@@ -111,7 +119,7 @@ export function EventTypeCarousel({
         onScroll={onScroll}
         className="relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {EVENT_TYPES.map((type, i) => {
+        {types.map((type, i) => {
           const isActive = i === active;
           const isSelected = selectedKey === type.key;
           return (
@@ -144,7 +152,7 @@ export function EventTypeCarousel({
         </button>
 
         <div role="tablist" aria-label="Event type pages" className="flex items-center gap-2">
-          {EVENT_TYPES.map((t, i) => {
+          {types.map((t, i) => {
             const isActive = i === active;
             return (
               <button
@@ -164,8 +172,8 @@ export function EventTypeCarousel({
 
         <button
           type="button"
-          onClick={() => scrollToIndex(Math.min(N - 1, active + 1))}
-          disabled={active === N - 1}
+          onClick={() => scrollToIndex(Math.min(types.length - 1, active + 1))}
+          disabled={active === types.length - 1}
           aria-label="Next event type"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 disabled:hover:bg-cream disabled:hover:text-ink/70"
         >
@@ -213,13 +221,20 @@ const HeroCard = ({
       }`}
     >
       <Image
-        src={`/event-types/${type.key}.webp`}
+        src={eventTypePhotoSrc(type)}
         alt=""
         fill
         sizes={sizes}
         className={`object-cover transition-transform duration-500 ${
           enabled ? 'group-hover:scale-105' : 'grayscale'
         }`}
+        onError={(e) => {
+          // Admin-created types may have no hero asset yet — generic fallback.
+          const img = e.currentTarget;
+          if (!img.src.endsWith(EVENT_TYPE_PHOTO_FALLBACK)) {
+            img.src = EVENT_TYPE_PHOTO_FALLBACK;
+          }
+        }}
       />
 
       {/* Legibility scrim — dark at the bottom, clear at the top. */}

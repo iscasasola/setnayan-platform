@@ -11,6 +11,7 @@ import { countUnread } from '@/lib/notifications';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OuterDashboardHeader } from './_components/outer-dashboard-header';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -230,6 +231,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
+        eventTypes={await getCreatableEventTypes()}
       />
       <main className="flex-1">{children}</main>
       {!(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (

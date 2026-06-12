@@ -17,6 +17,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · full CI suite green 3× on the identical code (typecheck/lint · production build · e2e · lighthouse · bundle size) across successive CHANGELOG-conflict resolutions against a fast-moving main. Onboarding untouched.
 
 **SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
+## 2026-06-12 · feat(security): `security_alert` notification — "Your password was changed" (in-app + email + push), the follow-up PR #1262 skipped
+
+**Context:** The 2026-06-11 account-security suite (PR #1262) deliberately skipped the 0028 `security_alert` email on password change because `notifications.type` is a DB-constrained enum — adding the value needed a migration, out of scope for that no-migration PR. This closes it: the 10th (and last unwired) 0028 V1 template.
+
+- **Migration `20261116000000_notification_type_security_alert.sql`:** `ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'security_alert'` — idempotent, same pattern as the token-purchase + cross-actor-signals enum migrations.
+- **`lib/notifications.ts`:** `security_alert` added to the `NotificationType` union + label ("Security alert") + tone (rose — the alarm register, matching payment_rejected/dispute_filed).
+- **Emit call sites (both fire-and-forget via Next's `after()` — the redirect is never delayed by the notifications insert or the Resend call; `emitNotification` already fails soft):**
+  - `lib/account-security-actions.ts` → `changePassword()` after a successful `updateUser` — "If this wasn't you, reset your password immediately (/forgot-password) and use Sign out other devices." `relatedUrl` = the allowlisted `return_to` profile page hosting the Security section.
+  - `app/reset-password/actions.ts` → `completePasswordReset()` after a successful reset — body notes all other devices were already signed out and that a hostile reset implies the email inbox may be compromised. `relatedUrl` = the doorway's profile page (vendor → /vendor-dashboard/profile, else /dashboard/profile).
+  - **NOT** on `signOutOtherDevices` — that's the remedy, not the threat.
+- **Email:** no dedicated 0028 template layer exists — `emitNotification` composes the email generically (subject = title, plain-text body + "Open Setnayan" link), so the title/body above IS the template. No RFC 8058 unsubscribe headers, matching every other transactional send through `lib/email.ts` (none add them).
+- **Web push:** `security_alert` added to `PUSH_ENABLED_TYPES` in `lib/notification-emit.ts` (the allowlist is a plain Set; a password-change alert is exactly the high-signal time-sensitive class it exists for).
+
+**Verification:** `pnpm migration:check` 315 unique · `tsc` 0 errors · `next lint` clean (only the pre-existing ManualCheckoutModal warning) · production build green · unit 46/46.
+
+**SPEC IMPACT:** 0028 email notifications — template #10 (`security_alert`) finally wired (the spec always listed it among the 10 V1 templates). 0025 Profile Settings security UX — password change + reset now confirm via dual-channel alert. → corpus `DECISION_LOG` row rides the next pass per the relaxed sync mandate.
 
 ## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
 

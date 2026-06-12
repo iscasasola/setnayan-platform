@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(geo): restore the dropped homepage JSON-LD graph + lead the entity description with the moat
+
+**Context:** An audit of how Google AI Mode describes setnayan.com found it parroting a generic "guest list + QR + seating + marketplace" summary — never naming the differentiated capture/media layer (Papic, Panood, Setnayan AI, Pakanta). Root cause traced to two things AI answer engines ground on:
+
+1. **The homepage JSON-LD graph was silently dropped.** The v2.1 marketing port (`e0a739b8`) replaced the homepage composition but its file header (lines 40-42) still *claims* to emit "Organization + WebSite + BreadcrumbList + SoftwareApplication" — the graph emits nowhere. Only the layout-level basic `Organization` survived, so the homepage named **zero products** to crawlers, and the site-wide `${SITE_URL}/#website` node that `/about` references via `isPartOf` was left **dangling** (defined nowhere on the site).
+2. **The `Organization` description led with the generic framing** ("free tools, 0% commission, verified suppliers") — almost verbatim what AI Mode echoed back.
+
+**Changes:**
+- `app/page.tsx` — restored a clean homepage graph: a `WebSite` node (canonical `#website`, fixes the dangling `/about` ref) + a `SoftwareApplication` whose `featureList` enumerates the moat (Papic auto-tagged galleries + personal reels, Panood livestream, Setnayan AI, Pakanta, Animated Monogram) + a ₱0 baseline `Offer`. **Facts only — no SKU prices** (those drift; `/pricing` stays source of truth). Hero left untouched (v2.1-locked per [[feedback_setnayan_button_preservation]]).
+- `app/layout.tsx` — rewrote the global `Organization` `description` to lead with the capture/media moat before the (kept) 0%-commission + PH-cities SEO keywords.
+- `public/llms.txt` — added one sentence to the summary blockquote (the most-quoted line) naming the signature day-of services. The rest of the file was already comprehensive (refreshed earlier today).
+- `app/about/page.tsx` — owner set the "best in market" goal and chose the positioning anchor (2026-06-13): **PH-first, proof-stacked.** Because AI engines discount self-praise and only repeat *corroborated* superlatives, the play is to own a precisely-scoped category we're genuinely #1 in rather than claim a bare "best." The `/about` hero + meta now assert: *"the Philippines' own all-in-one wedding & life-events platform — and the first built here to plan the event, run a 0%-commission marketplace of verified local vendors, and capture the day so every guest goes home with their own highlight reel,"* plus a *"not a foreign directory with a Philippine filter"* wedge. Only TRUE first/only claims (no unprovable "best" puffery, which AI ignores anyway and which the public-claims-purge lesson warns against). Off-site corroboration (directories, "best of" press, reviews) is the real lever and is owner-actioned — tracked separately.
+
+**Why it's not a clone-risk:** everything named is already on the public `/features` + `/pricing` + `/help` surfaces — this only makes machines describe what couples already see. The real moat (render pipeline, face-tagging params, owned music catalogue, marketplace liquidity) stays in private code/infra and is never in public copy.
+
+**SPEC IMPACT:** None on schema. Adds a standing public-surface hygiene principle to DECISION_LOG (benefits in public copy; implementation/architecture never) — the actual clone-risk reducer.
+
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 
 **Context:** Triggered by an audit of how Google AI Mode describes setnayan.com. While verifying payment-claim exposure, found that PR #1316 (merged earlier today) purged "BIR-compliant OR / 12% VAT" claims from `/features` but **left "BIR receipts" wording on three public surfaces it didn't touch.** Applied the canonical line #1316 established (keep "itemized receipts", drop "BIR").

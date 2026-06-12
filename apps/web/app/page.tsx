@@ -98,9 +98,78 @@ export const metadata = {
 // Trade-off accepted: the homepage loses static CDN caching. (Was force-static.)
 export const dynamic = 'force-dynamic';
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+).replace(/\/$/, '');
+
+// Homepage JSON-LD graph — RESTORED 2026-06-13. The v2.1 marketing port
+// (e0a739b8) dropped the WebSite + SoftwareApplication graph this file's header
+// (lines 40-42) still claims to emit; only the layout-level basic Organization
+// survived. Consequences: the homepage stopped naming any product to AI answer
+// engines (so they describe Setnayan as a generic "guest list + marketplace"
+// tool), and the site-wide `${SITE_URL}/#website` node that /about references via
+// `isPartOf` was left dangling (defined nowhere). This restores both: the
+// canonical WebSite node + a SoftwareApplication whose featureList enumerates the
+// differentiated capture/media layer (Papic, Panood, Setnayan AI, Pakanta,
+// Animated Monogram) so ChatGPT / Perplexity / Claude / Gemini ground on the moat.
+// Facts only — no SKU prices (those drift; /pricing is the source of truth); the
+// free couple baseline is expressed as a single ₱0 Offer.
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': `${SITE_URL}/#website`,
+  url: `${SITE_URL}/`,
+  name: 'Setnayan',
+  inLanguage: 'en-PH',
+  publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
+};
+
+const softwareAppJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  '@id': `${SITE_URL}/#software`,
+  name: 'Setnayan',
+  applicationCategory: 'LifestyleApplication',
+  operatingSystem: 'Web, iOS, Android, macOS, Windows',
+  inLanguage: 'en-PH',
+  publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
+  isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
+  description:
+    "The Philippines-first wedding platform. Couples plan free, then add the moments that set the day apart — Papic guest photo-and-video capture with auto-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram. 0% commission on verified vendor bookings.",
+  featureList: [
+    'Free guest list & RSVP management',
+    'Seating chart editor',
+    'Budget tracker with payment-deadline calendar export',
+    'Pakulay mood board (free)',
+    'Personal event website with branded QR invitations',
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR + face-detection auto-tagged galleries and per-guest personal highlight reels',
+    'Panood — day-of livestream embedded on the event website (up to four cameras)',
+    'Setnayan AI — assisted planner that drafts timelines and matches verified vendors',
+    'Pakanta — a custom Filipino-style wedding song produced for the couple',
+    'Animated Monogram — a bespoke monogram + animation across invites, website, and signage',
+    'Verified Filipino wedding vendor marketplace with 0% commission on every booking',
+  ],
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'PHP',
+    description:
+      'Free baseline planning tools for couples; premium services priced individually in PHP.',
+  },
+};
+
 export default function HomePage() {
   return (
-    <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
+      />
+      <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
       <PromoBar />
       <Nav />
       <Hero />
@@ -114,6 +183,7 @@ export default function HomePage() {
       <FAQSection />
       <ClosingCTA />
       <Footer />
-    </main>
+      </main>
+    </>
   );
 }

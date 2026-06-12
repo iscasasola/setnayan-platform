@@ -1,6 +1,6 @@
 # Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first wedding and life-events software platform. V1 surface is weddings. Architecture extends to birthdays, celebrations, travel, corporate, tournament, and christening events as those iterations ship. Built and operated entirely in the Philippines. Free for couples and guests on baseline planning tools; 0% commission on vendor bookings; transparent PHP pricing on premium software services.
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first wedding and life-events software platform. V1 surface is weddings. Architecture extends to birthdays, celebrations, travel, corporate, tournament, and christening events as those iterations ship. Built and operated entirely in the Philippines. Beyond standard planning tools, Setnayan's signature is its day-of capture and media layer — Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged galleries and per-guest personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, and a custom Pakanta wedding song. Free for couples and guests on baseline planning tools; 0% commission on vendor bookings; transparent PHP pricing on premium software services.
 
 ## What Setnayan does
 

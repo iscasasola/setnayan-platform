@@ -26,7 +26,7 @@ const SITE_URL = (
 
 const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding platform';
 const PAGE_DESCRIPTION =
-  "Setnayan (SET-na-yan, from \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding and life-events software platform. Free for couples, 0% commission on vendor bookings, transparent PHP pricing.";
+  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local vendors, and capture the day so every guest goes home with a personal highlight reel.";
 
 export const metadata = {
   title: PAGE_TITLE,
@@ -159,11 +159,18 @@ export default function AboutPage() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">
             Setnayan (<span className="font-medium">SET-na-yan</span>, from the
             Tagalog <em>&ldquo;Set na &rsquo;yan.&rdquo;</em> — &ldquo;that&rsquo;s
-            all set&rdquo;) is the Philippines-first wedding and life-events
-            software platform. Built and operated entirely in the Philippines,
-            for the way Filipino couples actually plan: free baseline tools,
-            verified local vendors, transparent peso pricing, and zero
-            commission on what you pay your suppliers.
+            all set&rdquo;) is the Philippines&rsquo; own all-in-one wedding and
+            life-events platform — and the first built here to do the whole
+            celebration in one place: plan the event, hire from a
+            0%-commission marketplace of verified local vendors, and capture the
+            day so every guest goes home with their own highlight reel.
+          </p>
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
+            Not a foreign directory with a Philippine filter — software built and
+            operated entirely in the Philippines, for the way Filipino couples
+            actually plan: free baseline tools, verified local vendors,
+            transparent peso pricing, and zero commission on what you pay your
+            suppliers.
           </p>
         </section>
 

@@ -127,6 +127,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
 
 **SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
+## 2026-06-13 · feat(seating): read-only vendor seat-plan viewer — feature-access program Phase 4
+
+**Context:** Phase 4 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6). The published seat plan stops being couple-eyes-only: the caterer counts covers, the venue checks fit, the florist counts centerpieces, the band sees the stage — all without a single guest name crossing.
+
+- **Migration `20261201000000_vendor_seat_plan_viewer.sql`** (APPLIED to prod + ledger row): SECURITY DEFINER RPC `get_vendor_seat_plan(p_event_id)` — same gate pattern as the Brief. Requires: booked org + **floor-touching category** (§ 7 matrix: Feast/Venue/Design/Booths/Program/Documentary + coordinator; Prints/Transport refused with `category_not_floor`) + **`event_floor_plan.published_at` set** (`not_published` otherwise — drafts stay couple+delegate-only). Returns the full published geometry (stage incl. w/h, dance floor, guest + **service entrance**, venue dimensions, every table's x/y/rotation/type/capacity) + per-table **seated counts**, and per-table **meal counts** for food-relevant categories (the caterer's covers sheet — kills the "couple re-types dietary into chat" workflow). No new vendor RLS on seating tables; the gate lives in the function.
+- **New page `/vendor-dashboard/clients/[eventId]/seat-plan`**: positioned floor map (aspect from real venue dimensions when set; round vs rect table shapes, rotation honored, seated/capacity on each table, stage/dance/entrance markers) + a "Covers per table" sheet with meal chips for food categories. Linked from the Brief's seat-plan card once published.
+- **Booth placement pins deferred** (§ 6 last pillar): pinning "Photo Booth — [vendor]" as a first-class floor object needs a new object type in the 0008 editor (150KB client component) — scoped as its own follow-up slice rather than hacked in here; the corpus doc § 9 row carries the note.
+
+**Verification:** `tsc` clean. Prod-smoked: test event's floor plan published (demo data), impersonated `vendor.test` (booked caterer) receives the full plan with 4 tables + `dietary_included=true` ✓; gate errors (`not_a_vendor`/`not_booked`/`category_not_floor`/`not_published`) all route the page back to the Brief.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 4 → BUILT (booth pins deferred); DECISION_LOG row appended.
+
 ## 2026-06-13 · feat(timeline): shared day-of timeline + vendor Suggest flow — feature-access program Phase 3
 
 **Context:** Phase 3 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 4). One timeline, three lenses: couple + delegate edit, booked vendors view FULL + suggest (locked D2), guests read the public blocks (0031, unchanged).

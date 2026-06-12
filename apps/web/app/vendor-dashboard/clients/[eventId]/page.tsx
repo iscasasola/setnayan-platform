@@ -509,11 +509,24 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
               seated
             </span>
           </div>
-          <p className="mt-2 text-xs text-ink/45">
-            {brief.seat_plan.published
-              ? 'The couple has locked their floor plan. A vendor floor-plan view is coming soon.'
-              : 'Once the couple publishes their floor plan, you’ll see its status here.'}
-          </p>
+          {brief.seat_plan.published ? (
+            <p className="mt-2 text-sm">
+              <Link
+                href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
+                className="font-medium text-terracotta underline"
+              >
+                View the floor plan
+              </Link>
+              <span className="ml-2 text-xs text-ink/45">
+                Tables, stage, entrances — counts only, no guest names.
+              </span>
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-ink/45">
+              Once the couple publishes their floor plan, you&rsquo;ll be able to
+              view it here.
+            </p>
+          )}
         </div>
       </div>
     </section>

@@ -25,6 +25,7 @@
 import {
   // Insights
   LineChart,
+  Radar,
   BarChart3,
   TrendingUp,
   Activity,
@@ -68,6 +69,14 @@ const INSIGHTS_ITEMS: LandingItem[] = [
     icon: LineChart,
     description:
       'Population now + growth over time for vendors, services, events, customers, and guests — plus guest→account conversion.',
+  },
+  {
+    key: 'intelligence',
+    label: 'Intelligence',
+    href: '/admin/intelligence',
+    icon: Radar,
+    description:
+      'Churn radar (quiet couples with upcoming events), market pulse (budgets · regions · event types), and engagement-ranked lead scores.',
   },
   {
     key: 'funnels',

@@ -249,11 +249,13 @@ export function WeddingTypePicker({ launchStatus, onCeremonyChange }: Props) {
         </div>
       ) : null}
 
-      {/* Conditional — sub-type for Muslim / Cultural */}
+      {/* Conditional — sub-type for Muslim (required) / Cultural (optional
+          since 2026-06-12 — it drives no matching fork, so the couple may
+          skip it; tapping a picked chip again clears it). */}
       {subTypeOptions ? (
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Tradition
+            Tradition{ceremony === 'cultural' ? ' · optional' : ''}
           </p>
           <div className="flex flex-wrap gap-2">
             {subTypeOptions.map((s) => {
@@ -262,7 +264,9 @@ export function WeddingTypePicker({ launchStatus, onCeremonyChange }: Props) {
                 <button
                   key={s.key}
                   type="button"
-                  onClick={() => setSubType(s.key)}
+                  onClick={() =>
+                    setSubType(selected && ceremony === 'cultural' ? '' : s.key)
+                  }
                   aria-pressed={selected}
                   className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
                     selected

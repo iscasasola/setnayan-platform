@@ -57,6 +57,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`app/[slug]/page.tsx`:** fetches during the live window on the guest path only; renders a "Photos of you — so far" 4-col grid between the wall mirror and the QR card, with the keep-after note.
 
 **Verification:** `tsc` clean (after a `pnpm install` for main's new `perfect-freehand` dep — unrelated session). Server-rendered, no new client JS. **SPEC IMPACT:** §7.5 Papic-gallery row, live half — DECISION_LOG row added.
+## 2026-06-12 · feat(events): cultural sub-type optional · anniversary/graduation/reunion picker cards · wedding-only tile scoping
+
+**Context:** The remaining execution items from the owner's events×faiths batch (2026-06-12) after the worldwide faith expansion + registry consolidation landed.
+
+- **Migration `20261122000000` (APPLIED to prod + ledger):** the 0043 CHECK `events_sub_type_required_when_muslim_or_cultural` now requires a sub-type for **muslim only** — the audit showed the cultural sub-type drives no matching/content fork, so mandating it was pure friction (indigenous couples were forced into 'other'). Muslim stays required (Maranao/Tausug/… is a real matching dimension). Same migration scopes the conservative wedding-only tile set (`brides_attire` · `grooms_attire` · `wedding_singer` · `bridal_car`) to `ARRAY['wedding']` — `applicable_event_types` is fail-open, so universal tiles need nothing and weddings see zero change; this is the honest-browse prep for non-wedding events.
+- **create-event:** server guard relaxed to muslim-only; the cultural Tradition chips are labeled "optional" and tap-again-to-clear. `ALLOWED_TYPES` + the `EVENT_TYPES` tile roster gain **anniversary 💞 · graduation 🎓 · reunion 🤝** (active in `event_type_vocab` + present in the DB enum, but uncreatable — the audit's "dead vocab keys" gap). Same generic-dashboard treatment as the other non-wedding types.
+- **`NOTIFY_FAITHS` → registry-derived** (a hardcoded faith list the consolidation PR missed): notify-me signups are exactly what coming-soon faiths collect, so the 2026-06-12 faith additions MUST be acceptable values here.
+
+**Verification:** unit 66/66 · `tsc` 0 errors · lint clean · production build exit 0 · prod verified via `supabase db query` (CHECK = muslim-only · 4 tiles scoped · ledger row).
+
+**SPEC IMPACT:** Realizes events×faiths batch items #3 (cultural optional), #9 (picker cards), #8 (universal-tile stance) — DECISION_LOG rows landed 2026-06-12.
+
 ## 2026-06-12 · refactor(faiths): faith registry — ONE source for every faith list + Jewish → coming-soon
 
 **Context:** The events×faiths audit found faith pickers/labels/copy living in ~17 independent hardcoded maps; the same-day worldwide expansion (#a8d67aeb, 8 new faiths) reached the DB, marketplace, and matching layers but NOT the onboarding layer — so a faith flipped 'active' in /admin/wedding-types would never grow a chip, and the conversational intro covered only 5 of 8 faiths' reactions. Owner batch decisions 2026-06-12.

@@ -38,6 +38,12 @@ export const EVENT_TYPES = [
   { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: true, onboardingHref: null },
   { key: 'tournament', label: 'Tournament', emoji: '🏆', enabled: true, onboardingHref: null },
   { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: true, onboardingHref: null },
+  // 2026-06-12 owner batch — the last three event_type_vocab keys were active
+  // in the vocab but had no picker card (the audit's "dead vocab keys" gap).
+  // Same generic-dashboard treatment as the other non-wedding types.
+  { key: 'anniversary', label: 'Anniversary', emoji: '💞', enabled: true, onboardingHref: null },
+  { key: 'graduation', label: 'Graduation', emoji: '🎓', enabled: true, onboardingHref: null },
+  { key: 'reunion', label: 'Reunion', emoji: '🤝', enabled: true, onboardingHref: null },
 ] as const;
 
 export type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];

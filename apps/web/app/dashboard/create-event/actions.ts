@@ -35,6 +35,12 @@ const ALLOWED_TYPES = [
   'corporate',
   'tournament',
   'christening',
+  // 2026-06-12 owner batch — the last three event_type_vocab keys gain picker
+  // cards (they were active in the vocab but uncreatable: no tile, not in this
+  // allow-list). Generic-dashboard events like the other non-wedding types.
+  'anniversary',
+  'graduation',
+  'reunion',
 ] as const;
 
 /* Retired 2026-05-28 V2 cutover */
@@ -160,7 +166,10 @@ export async function createWeddingEvent(formData: FormData) {
   // user sees a friendly error rather than a Postgres failure string. Only
   // run for wedding event_types; non-wedding event_types never carry these
   // wedding-specific fields (they're NULL by construction above).
-  if (isWedding && (ceremony_type === 'muslim' || ceremony_type === 'cultural') && !ceremony_sub_type) {
+  // Muslim only — cultural sub-type went OPTIONAL 2026-06-12 (owner batch;
+  // it drives no matching/content fork, so mandating it was pure friction).
+  // Mirrors the relaxed DB CHECK in migration 20261122000000.
+  if (isWedding && ceremony_type === 'muslim' && !ceremony_sub_type) {
     return redirect('/dashboard/create-event?error=missing_sub_type');
   }
   if (is_mixed_ceremony && !secondary_ceremony_type) {
@@ -296,7 +305,11 @@ export async function createWeddingEvent(formData: FormData) {
 // plain { ok } object instead of redirecting because the picker calls this
 // from a client component over fetch and uses the result to flip the inline
 // UI between "submitting → sent → error" states without leaving the form.
-const NOTIFY_FAITHS = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese', 'jewish', 'born_again'] as const;
+// Faiths a notify-me signup may reference — derived from lib/faith-registry
+// (any registry faith or civil; never 'mixed'). This MUST track the registry:
+// the 2026-06-12 worldwide additions ship as coming_soon, and coming-soon
+// faiths are exactly the ones collecting notify-me signups.
+const NOTIFY_FAITHS = ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
 
 export async function notifyWhenWeddingTypeLaunches(
   formData: FormData,

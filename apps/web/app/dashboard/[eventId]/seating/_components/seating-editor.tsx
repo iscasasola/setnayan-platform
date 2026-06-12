@@ -844,6 +844,13 @@ export function SeatingEditor({
       return;
     }
     e.preventDefault();
+    // This drag-start fully owns the gesture — don't let it bubble to the
+    // canvas. onCanvasPointerDown's two-finger-rotate detector can't tell this
+    // first finger from a genuine SECOND finger (both arrive with
+    // pointersRef.size === 1), so without this it cancels the drag the instant
+    // it begins — the table won't move. A real second finger lands on the
+    // canvas (not this hub), so it still reaches the rotate detector.
+    e.stopPropagation();
     dragRef.current = { kind: 'table', id: t.table_id, sx: e.clientX, sy: e.clientY, moved: false };
     setDragId(t.table_id);
     // Tracked in pointersRef too, so a SECOND finger landing on the canvas can
@@ -861,6 +868,10 @@ export function SeatingEditor({
         return;
       }
       e.preventDefault();
+      // Same as the table hub: this drag-start owns the gesture, so keep it off
+      // the canvas pointer handler (no stray pan / gesture-detection on a marker
+      // drag).
+      e.stopPropagation();
       dragRef.current = { kind, id: kind, sx: e.clientX, sy: e.clientY, moved: false };
       setDragId(`__${kind}__`);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);

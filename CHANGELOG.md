@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(seating): tables wouldn't drag — hub drag-start was bubbling into the two-finger-rotate detector
+
+**Context:** owner report — "the seat plan table when clicked moves a lot to the right but makes it misplaced and it does not move." Regression introduced with the two-finger-rotate gesture (commit `bbf969a4`, seating Phase 1c).
+
+- **Root cause:** in `seating-editor.tsx`, `onHubPointerDown` (the table centre-hub drag-start) set `dragRef`, added the finger to `pointersRef`, captured the pointer — but did **not** `stopPropagation()`. So the same `pointerdown` bubbled up to the canvas's `onCanvasPointerDown`, whose two-finger-rotate detector fires when `pointersRef.size === 1`. It cannot distinguish the drag's **own** first finger (size 1, because the hub just added it) from a genuine **second** finger — so it treated every drag-start as a rotate, re-captured the pointer to the canvas, set up a bogus single-finger `rotateGestureRef`, and **nulled `dragRef`**. With `dragRef` cleared the move handler's table-drag branch never ran (table "does not move"), and tap-to-select (which also reads `dragRef` on pointer-up) was collaterally broken too.
+- **Fix:** `e.stopPropagation()` in the hub drag-start branch so the gesture it starts fully owns the pointer and never reaches the canvas rotate detector. A real second finger lands on the canvas (not on this hub), so it still reaches the detector — **two-finger rotate is preserved**. Restores single-finger table drag AND tap-to-select-popup (both gated on `dragRef` surviving to pointer-up). Applied the same guard to `onMarkerPointerDown` (stage / entrance / service door / dance floor drag-starts) for the same invariant — a marker/hub drag-start should never feed the canvas pan/gesture handler.
+- **Scope:** 2-line change (one `stopPropagation()` each), no behavioural change to zoom/pan, pinch, rotate, snap-grid, alignment guides, linked tables, or presence.
+
+**Verification:** root cause traced statically through the full pointer-event flow (down → move → up, single- and two-finger). Local `next build`/typecheck not run in-worktree (deps not installed); the PR's required CI gate (typecheck + lint + production build + Lighthouse + Vercel preview) covers it before auto-merge. Preview link on the PR for the owner to drag-test on the seating editor.
+
+**SPEC IMPACT:** None — restores the intended drag behaviour already documented for iteration 0008; no spec/price/SKU change.
+
 ## 2026-06-13 · feat(seo): per-article /help/[slug] URLs — 61 help Q&As become individually indexable
 
 **Context:** SEO/GEO audit follow-up (second batch after the /venues PR #1307). The help center is 61 high-intent informational Q&A articles, but all of them lived on a single `/help` URL with one 61-question FAQPage block — so the entire help center could rank for at most one URL. Each Q is now its own page. (No content rewrite — the existing bodies render verbatim, same as the hub's FAQPage already shipped; pricing staleness is a separate batched concern, see SPEC IMPACT.)

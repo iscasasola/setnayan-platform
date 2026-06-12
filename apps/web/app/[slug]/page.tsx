@@ -35,6 +35,7 @@ import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
+import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
 
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 type LiveWallData = {
@@ -534,6 +535,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
   const papicGuestActive = await eventOwnsPapicGuest(admin, event.event_id);
 
+  // Per-guest LIVE gallery (owner 2026-06-12: "the gallery must be on the
+  // on-the-day part") — the photos THIS guest is tagged in, arriving through
+  // the day. Live window only; guest-session-scoped; clean-screened captures
+  // only (see lib/guest-live-gallery.ts).
+  const guestLiveGallery =
+    dayOfPhase === 'live'
+      ? await getGuestLiveGallery(event.event_id, guest.guest_id)
+      : null;
+
   return (
     <>
       <InvitationSite
@@ -555,6 +565,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         backdrop={backdrop}
         liveWall={liveWall}
+        guestLiveGallery={guestLiveGallery}
       />
       {papicGuestActive && (
         <Link
@@ -1179,6 +1190,7 @@ function InvitationSite({
   widgets,
   backdrop,
   liveWall,
+  guestLiveGallery,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1222,6 +1234,8 @@ function InvitationSite({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
+  /** This guest's tagged photos so far — live window only, clean-screened. */
+  guestLiveGallery?: GuestLiveGallery | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1466,6 +1480,43 @@ function InvitationSite({
             initialCount={liveWall.count}
             initialCaption={liveWall.caption}
           />
+        ) : null}
+
+        {/* Per-guest LIVE gallery — "photos of you, so far". The personalized
+            half of the on-the-day gallery pair (the wall mirror above is the
+            shared half): this guest's clean-screened tagged photos, arriving
+            through the day. Personalization no competitor has. */}
+        {isLive && guestLiveGallery ? (
+          <section
+            aria-label="Photos of you so far"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Photos of you — so far
+              </p>
+              <p className="text-xs text-ink/55">
+                {guestLiveGallery.total.toLocaleString()} tagged
+              </p>
+            </div>
+            <div className="mt-4 grid grid-cols-4 gap-1.5 sm:gap-2">
+              {guestLiveGallery.photos.map((p) => (
+                <figure
+                  key={p.id}
+                  className="relative aspect-square overflow-hidden rounded-lg bg-ink/5"
+                >
+                  {/* Presigned 1h URL — raw <img> (optimizer would cache expiry). */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </figure>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-ink/55">
+              More arrive as the day unfolds — and everything tagged to you is yours to
+              keep after the celebration.
+            </p>
+          </section>
         ) : null}
 
         {/* QR card — always-on per the editor contract. Gated so V1.1 can

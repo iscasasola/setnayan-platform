@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(website): per-guest LIVE gallery — "photos of you, so far" on the day-of page
+
+**Context:** Owner: *"the gallery must be on the on-the-day part"* — slice 2 of the spec §7.5 service stage. The wall mirror (prior entry) is the SHARED half; this is the PERSONALIZED half: while the wedding runs, a cookie-session guest sees the photos **they are tagged in** arriving through the day — the live form of the post-event "your photos" delivery, and personalization no competitor ships.
+
+- **`lib/guest-live-gallery.ts` (new):** `getGuestLiveGallery(eventId, guestId)` — newest tags from `photo_tags` (polymorphic over `papic_photos` + `papic_guest_captures`), **allowlist posture matching the wall**: `moderation_state='clean'` only, `photo_type='photo'` only (clips belong to the editorial's Living Moments strip), unhidden, presigned 1h, capped at 8 thumbs + a true total. Guest-session-scoped via the page's verified cookie; returns null on any trouble (never breaks the wedding page).
+- **`app/[slug]/page.tsx`:** fetches during the live window on the guest path only; renders a "Photos of you — so far" 4-col grid between the wall mirror and the QR card, with the keep-after note.
+
+**Verification:** `tsc` clean (after a `pnpm install` for main's new `perfect-freehand` dep — unrelated session). Server-rendered, no new client JS. **SPEC IMPACT:** §7.5 Papic-gallery row, live half — DECISION_LOG row added.
+
 ## 2026-06-12 · feat(website): Live Photo Wall mirrored onto the guest's on-the-day page
 
 **Context:** Owner: *"panood, photo wall live and the gallery must be on the on the day website part… show our services when they need to be seen."* First slice of the Event-page service stage (spec §7.5): the Salamisim wall — already shipped as the venue projection — now also renders on every guest's phone during the live window.

@@ -144,6 +144,16 @@ export async function POST(req: Request) {
       }).catch(() => {});
       try {
         if (captureId) {
+          // P2 FaceBlock bake sits between the screen and the wall gate: on
+          // a FaceBlock event the ingest withholds un-baked rows, so the blur
+          // derivative must exist first. Cheap no-op on non-FaceBlock /
+          // non-LIVE_WALL events; FAILS CLOSED (no markers, photo stays off
+          // the wall) on any error.
+          const { bakeFaceBlurForCapture } = await import('@/lib/face-blur');
+          await bakeFaceBlurForCapture({
+            table: 'papic_guest_captures',
+            sourceId: captureId,
+          });
           await ingestToWall('papic_guest_captures', captureId);
         }
       } catch {

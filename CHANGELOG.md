@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(0012): Salamisim P2 — server-baked FaceBlock blur pipeline (the wall's public-event ship gate)
+
+**Context:** The P1 Live Photo Wall shipped with a fail-closed FaceBlock STUB — one `guests.faceblock_enabled` guest withheld EVERY photo from the venue projection. P2 replaces the blanket withhold with real server-side face blurring, so a FaceBlock event's wall runs with faces blurred into the pixels instead of going dark. This was the gate blocking the wall at any real wedding.
+
+**What changed:**
+- **`lib/face-blur.ts`** (new) — self-hosted MediaPipe full-range face detector (tfjs graph model, CPU backend, committed weights under `models/face-detection/` ~1.2 MB, node:fs IOHandler — the exact `nsfw-screen.ts` pattern). Recall comes from a TILED sweep (full frame + 4 overlapping quadrants, IoU-deduped): the spike measured 2/6 faces single-pass → 5/5 frontal tiled on a wedding-reception fixture. `bakeWallSafeJpeg` blurs every detected box (expanded 1.6×, sigma ∝ face size) via sharp composite and re-encodes; `bakeFaceBlurForCapture` orchestrates (cheap gates → R2 fetch → bake → R2 upload → `wall_record_bake` RPC). **FAIL-CLOSED** — the inversion of the NSFW screen's fail-open rule: any error writes NO markers, the wall keeps withholding. Accepted-by-design flip side: the recall-tuned sweep occasionally blurs a face-like object (test fixture: a brass candlestick) — aesthetics vs a broken privacy promise.
+- **Migration `20261115000604_wall_p2_faceblock_bake.sql`** (applied to prod + smoked) — `faceblock_baked_at` + `faceblock_faces_found` on both capture tables (bake provenance); new service-role-only `wall_record_bake` (stamps the capture row + syncs `wall_feed.wall_safe_r2_key`); `wall_ingest` v2 (FaceBlock event ⇒ REQUIRE a baked derivative, else withhold exactly as P1); `wall_visible_photos` v2 (per-row baked check at read time — a guest flipping FaceBlock ON instantly hides every un-baked tile on the next read, no cascade needed).
+- **Both capture `after()` chains** (`app/papic/actions.ts` seat path + `app/api/papic/guest-capture/route.ts` disposable path) now run screen → **bake** → ingest.
+- **Couple guest-detail FaceBlock toggle** (`guests/[guestId]` "Face privacy · Blur faces on the Live Wall") beside Photo consent — a day-of "please don't put me on the big screen" is one checkbox. Toggle ON fires a bounded background re-bake sweep (`rebakeWallForEvent`, newest 25 tiles) so the wall recovers blurred instead of staying dark.
+- `next.config.ts`: face-detection model traced into the serverless bundle; `@tensorflow-models/face-detection` added to `serverExternalPackages`.
+- **Tests:** `scripts/test-face-blur.ts` — 11/11 (pure geometry · REAL detection on 2 committed Recraft-generated fixtures · bake output measurably blurred, texture stdev 68.5→20.9 on the face crop · fail-closed throw on garbage). Typecheck + lint clean.
+
+**Migration-ledger note (honest record):** `db push` was blocked by 3 remote-applied versions living on unmerged parallel branches (20261116/117/118 — linked-tables re-stamp, check-in desk, security-alert/Cipher). Same handling as PR #1228: temporarily repaired `reverted` → pushed `20261115000604` → re-repaired `applied` via throwaway local stubs (never committed). `supabase migration list` confirms the ledger is whole.
+
+**SPEC IMPACT:** 0012 Salamisim section — P2 shipped (blur pipeline + per-row baked gates + couple toggle + re-bake sweep); the "FaceBlock ship gate" advisory updates from "P2 unbuilt — wall withheld on FaceBlock events" to "P2 LIVE — FaceBlock events project blurred derivatives". Residual-risk posture (detector recall is not perfect; fail-closed + kill switch + moderated surface) documented in the spec. Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
+
+---
 ## 2026-06-12 · feat(website): per-guest LIVE gallery — "photos of you, so far" on the day-of page
 
 **Context:** Owner: *"the gallery must be on the on-the-day part"* — slice 2 of the spec §7.5 service stage. The wall mirror (prior entry) is the SHARED half; this is the PERSONALIZED half: while the wedding runs, a cookie-session guest sees the photos **they are tagged in** arriving through the day — the live form of the post-event "your photos" delivery, and personalization no competitor ships.

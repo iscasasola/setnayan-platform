@@ -15,6 +15,47 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
 
 **SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
+## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
+
+**Context:** Owner-approved 2026-06-11 modernity decision ("Yes — add it"): live presence on the stack we already pay for (Supabase Realtime; NOT full CRDT — overkill for an async editor). Closes the Prismm vendor-collaboration gap; the cheapest yard of genuine modernity. First arc after the completed Phase 1 editor redesign.
+
+- **`use-seating-presence.ts` (NEW hook):** one channel per event (`seating-presence:{eventId}` — same convention as `wall:{eventId}`). Presence API carries `{name, selected table}` (re-tracked on selection change); **cursors ride broadcast, throttled to ~12 msgs/s**, in canvas-percent coords. Payloads = first name + cursor % only (no guest/event data). Private-channel `realtime.messages` RLS hardening = planned follow-up alongside the wall channel.
+- **Editor:** `me` prop (id + display name from the server page) · my cursor broadcasts from the canvas move handler (world coords) · **peer cursors** render in the world layer (colored dot + name chip, fade after 5s of stillness) · **"editing Table N" dashed ring + name tag** on a table another person has selected (deterministic per-user color, same earthy ramp as guest groups) · **who's-here pills** in the stats row with a tooltip naming their selected table.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Live behavior needs two sessions — verify with two browsers on the Vercel preview (couple + the test account). No schema change, no new vendor, no new bill.
+
+**SPEC IMPACT:** 0008 editor gains real-time presence (couple + planner/vendor co-presence). New capability beyond the spec (owner-approved modernity move) → corpus `DECISION_LOG` note rides the seat-plan program row.
+
+## 2026-06-11 · feat(monogram): typeface picker — 4 owner-picked faces join the registry + exact-font landing hero
+
+**Context:** Owner font-specimen session (4 boards · 84 faces shown live): picks = **Libre Caslon Display · Tangerine · Luxurious Script · Vidaloka**. Today the monogram font is derived ONLY from the chosen lockup (5 lockups → 4 baked faces); the new faces need a couple-facing way in.
+
+- **`monogram-maker.tsx` — "Choose a typeface" row (new):** 8 tiles (the original four + the four picks), each previewing the couple's initials in the real face. The typeface follows the lockup's default until the couple explicitly picks one (override persists via `monogram_font_key`). Maker preview now renders the SELECTED face (was: hardcoded generic serif).
+- **`app/layout.tsx`:** the 4 faces self-host via `next/font/google` (weight-minimal) → `--font-libre-caslon` / `--font-tangerine` / `--font-luxurious` / `--font-vidaloka`.
+- **`lib/monogram.ts`:** `MonoFontKey` + `MONO_FONT_STACK` grow to 8; **resolver precedence fix** — a valid stored `monogram_font_key` now wins over lockup-derived font (new keys have no `MONO_DESIGNS` row; without this they'd silently resolve to Cormorant). Legacy rows unchanged (stored key always matched the design). `resolveMonogram` optionally resolves `fontFamily/fontStyle` when callers pass the design columns.
+- **`saveMonogram` (actions.ts):** accepts the `font` field, validated against the 8-key registry; off-registry falls back to the lockup default.
+- **Landing hero exact-font fix (`app/[slug]/page.tsx` + `animated-monogram-hero.tsx`):** the hero monogram now renders in the couple's chosen face — it previously hardcoded a generic serif italic for everyone (even the Script lockup). `AnimatedMonogramHero` gains optional `fontFamily/fontStyle` (default = old behavior); the anonymous select adds the long-shipped `monogram_style/font_key/frame_key` columns (exist in prod since onboarding).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · full CI suite green 3× on the identical code (typecheck/lint · production build · e2e · lighthouse · bundle size) across successive CHANGELOG-conflict resolutions against a fast-moving main. Onboarding untouched.
+
+**SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
+## 2026-06-12 · feat(security): `security_alert` notification — "Your password was changed" (in-app + email + push), the follow-up PR #1262 skipped
+
+**Context:** The 2026-06-11 account-security suite (PR #1262) deliberately skipped the 0028 `security_alert` email on password change because `notifications.type` is a DB-constrained enum — adding the value needed a migration, out of scope for that no-migration PR. This closes it: the 10th (and last unwired) 0028 V1 template.
+
+- **Migration `20261116000000_notification_type_security_alert.sql`:** `ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'security_alert'` — idempotent, same pattern as the token-purchase + cross-actor-signals enum migrations.
+- **`lib/notifications.ts`:** `security_alert` added to the `NotificationType` union + label ("Security alert") + tone (rose — the alarm register, matching payment_rejected/dispute_filed).
+- **Emit call sites (both fire-and-forget via Next's `after()` — the redirect is never delayed by the notifications insert or the Resend call; `emitNotification` already fails soft):**
+  - `lib/account-security-actions.ts` → `changePassword()` after a successful `updateUser` — "If this wasn't you, reset your password immediately (/forgot-password) and use Sign out other devices." `relatedUrl` = the allowlisted `return_to` profile page hosting the Security section.
+  - `app/reset-password/actions.ts` → `completePasswordReset()` after a successful reset — body notes all other devices were already signed out and that a hostile reset implies the email inbox may be compromised. `relatedUrl` = the doorway's profile page (vendor → /vendor-dashboard/profile, else /dashboard/profile).
+  - **NOT** on `signOutOtherDevices` — that's the remedy, not the threat.
+- **Email:** no dedicated 0028 template layer exists — `emitNotification` composes the email generically (subject = title, plain-text body + "Open Setnayan" link), so the title/body above IS the template. No RFC 8058 unsubscribe headers, matching every other transactional send through `lib/email.ts` (none add them).
+- **Web push:** `security_alert` added to `PUSH_ENABLED_TYPES` in `lib/notification-emit.ts` (the allowlist is a plain Set; a password-change alert is exactly the high-signal time-sensitive class it exists for).
+
+**Verification:** `pnpm migration:check` 315 unique · `tsc` 0 errors · `next lint` clean (only the pre-existing ManualCheckoutModal warning) · production build green · unit 46/46.
+
+**SPEC IMPACT:** 0028 email notifications — template #10 (`security_alert`) finally wired (the spec always listed it among the 10 V1 templates). 0025 Profile Settings security UX — password change + reset now confirm via dual-channel alert. → corpus `DECISION_LOG` row rides the next pass per the relaxed sync mandate.
+
 ## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
 
 **Context:** Owner 2026-06-10 — "tables can link together to be named as 1 table"; depth owner-locked = **identity + QR only** (shared name/number, one printed QR sign, one find-my-seat entry; seating math stays per-table — a shared capacity pool is a future enhancement). The LAST Phase 1 slice.

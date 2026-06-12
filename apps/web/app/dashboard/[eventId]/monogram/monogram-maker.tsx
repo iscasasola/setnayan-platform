@@ -47,6 +47,41 @@ const DESIGNS: Record<MonoStyle, Design> = {
   infinity: { label: 'Infinity', hint: 'Linked by a gold infinity', font: 'var(--font-display)', fontStyle: 'italic', ink: '#5C2542', frame: null },
 };
 
+/**
+ * The typeface picker (2026-06-11 expansion — owner picks from the font
+ * specimen session: Libre Caslon Display · Tangerine · Luxurious Script ·
+ * Vidaloka join the original four). Keys MUST mirror MonoFontKey /
+ * MONO_FONT_STACK in lib/monogram.ts and FONT_KEYS in ./actions.ts; the CSS
+ * vars are loaded globally in app/layout.tsx (next/font/google).
+ */
+export type MonoFontOption = {
+  key: string;
+  label: string;
+  css: string; // CSS var stack
+  fontStyle: 'italic' | 'normal';
+};
+
+export const MONO_FONT_OPTIONS: MonoFontOption[] = [
+  { key: 'cormorant', label: 'Cormorant', css: 'var(--font-display)', fontStyle: 'italic' },
+  { key: 'playfair', label: 'Playfair', css: 'var(--font-playfair)', fontStyle: 'italic' },
+  { key: 'cinzel', label: 'Cinzel', css: 'var(--font-cinzel)', fontStyle: 'normal' },
+  { key: 'script', label: 'Great Vibes', css: 'var(--font-script)', fontStyle: 'normal' },
+  { key: 'libre_caslon', label: 'Libre Caslon', css: 'var(--font-libre-caslon)', fontStyle: 'normal' },
+  { key: 'tangerine', label: 'Tangerine', css: 'var(--font-tangerine)', fontStyle: 'normal' },
+  { key: 'luxurious', label: 'Luxurious Script', css: 'var(--font-luxurious)', fontStyle: 'normal' },
+  { key: 'vidaloka', label: 'Vidaloka', css: 'var(--font-vidaloka)', fontStyle: 'normal' },
+];
+
+/** Each lockup's default face — what saveMonogram stores when the couple never
+ *  touches the typeface row (mirrors DESIGNS in ./actions.ts). */
+export const DEFAULT_FONT_FOR_STYLE: Record<MonoStyle, string> = {
+  bar: 'cormorant',
+  script: 'script',
+  duo: 'playfair',
+  framed: 'cinzel',
+  infinity: 'cormorant',
+};
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -64,20 +99,41 @@ export function MonogramMaker({
   eventId,
   initialInitials,
   initialStyle,
+  initialFont,
   initialMotion,
 }: {
   eventId: string;
   initialInitials: string;
   initialStyle: MonoStyle;
+  initialFont: string;
   initialMotion: MonogramMotionKey;
 }) {
   const [initials, setInitials] = useState(initialInitials);
   const [style, setStyle] = useState<MonoStyle>(initialStyle);
+  const [font, setFont] = useState(initialFont);
+  // Until the couple explicitly picks a typeface, the font follows the chosen
+  // lockup's default (so the 5 lockups still feel like complete designs). A
+  // stored override (initialFont ≠ the lockup default) counts as touched.
+  const [fontTouched, setFontTouched] = useState(
+    initialFont !== DEFAULT_FONT_FOR_STYLE[initialStyle],
+  );
   const [motion, setMotion] = useState<MonogramMotionKey>(initialMotion);
   // Bumping replay remounts the preview so the chosen motion plays again.
   const [replay, setReplay] = useState(0);
 
   const design = DESIGNS[style];
+  const activeFace =
+    MONO_FONT_OPTIONS.find((f) => f.key === font) ?? MONO_FONT_OPTIONS[0]!;
+
+  function pickStyle(s: MonoStyle) {
+    setStyle(s);
+    if (!fontTouched) setFont(DEFAULT_FONT_FOR_STYLE[s]);
+  }
+
+  function pickFont(key: string) {
+    setFont(key);
+    setFontTouched(true);
+  }
   const activeMotion = MONOGRAM_MOTIONS.find((m) => m.key === motion) ?? {
     key: 'draw' as const,
     label: 'Drawn',
@@ -104,15 +160,17 @@ export function MonogramMaker({
           <div className="mt-6 flex min-h-[150px] items-center justify-center">
             {/* key remounts so the chosen motion replays on every change */}
             <AnimatedMonogramHero
-              key={`${markText}-${design.ink}-${motion}-${replay}`}
+              key={`${markText}-${design.ink}-${font}-${motion}-${replay}`}
               text={markText}
               color={design.ink}
+              fontFamily={activeFace.css}
+              fontStyle={activeFace.fontStyle}
               size="lg"
               motion={motion}
             />
           </div>
           <p className="mt-5 text-sm font-medium text-ink">
-            {design.label} lockup · {activeMotion.label} motion
+            {design.label} lockup · {activeFace.label} · {activeMotion.label} motion
           </p>
           <p className="mt-1 text-xs text-ink/55">{activeMotion.hint}.</p>
           <button
@@ -131,6 +189,7 @@ export function MonogramMaker({
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="initials" value={initials} />
         <input type="hidden" name="style" value={style} />
+        <input type="hidden" name="font" value={font} />
         <input type="hidden" name="motion" value={motion} />
 
         {/* Initials */}
@@ -165,7 +224,7 @@ export function MonogramMaker({
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setStyle(s)}
+                  onClick={() => pickStyle(s)}
                   aria-pressed={selected}
                   className={`relative flex flex-col items-center gap-2 rounded-xl border bg-white p-3 text-center transition-colors ${
                     selected
@@ -217,6 +276,64 @@ export function MonogramMaker({
             })}
           </div>
           <p className="text-xs text-ink/55">{design.hint}.</p>
+        </section>
+
+        {/* Typeface picker (2026-06-11 expansion) — overrides the lockup's
+            default face; until touched it follows the lockup. */}
+        <section className="space-y-3">
+          <p className="text-sm font-semibold text-ink">Choose a typeface</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {MONO_FONT_OPTIONS.map((f) => {
+              const selected = f.key === font;
+              const pa = a || 'A';
+              const pb = b || 'K';
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => pickFont(f.key)}
+                  aria-pressed={selected}
+                  className={`relative flex flex-col items-center gap-2 rounded-xl border bg-white p-3 text-center transition-colors ${
+                    selected
+                      ? 'border-mulberry ring-2 ring-mulberry/15'
+                      : 'border-ink/10 hover:border-ink/25'
+                  }`}
+                >
+                  {selected ? (
+                    <Check
+                      aria-hidden
+                      className="absolute right-2 top-2 h-3.5 w-3.5 text-mulberry"
+                      strokeWidth={2.5}
+                    />
+                  ) : null}
+                  <span
+                    aria-hidden
+                    className="flex h-12 w-full items-center justify-center"
+                  >
+                    <span
+                      style={{
+                        fontFamily: f.css,
+                        fontStyle: f.fontStyle,
+                        color: design.ink,
+                        fontSize: '24px',
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.02em',
+                      }}
+                    >
+                      {pa} &amp; {pb}
+                    </span>
+                  </span>
+                  <span className="text-xs font-medium text-ink">{f.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-ink/55">
+            Your monogram&rsquo;s lettering — it follows the lockup until you pick
+            one yourself.
+          </p>
         </section>
 
         {/* Motion picker */}

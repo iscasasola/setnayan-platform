@@ -116,7 +116,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -1048,6 +1048,8 @@ function PrivateLanding({
             <AnimatedMonogramHero
               text={monogram.text}
               color={monogram.color}
+              fontFamily={monogram.fontFamily}
+              fontStyle={monogram.fontStyle}
               size="md"
               motion={animatedMonogram}
             />
@@ -1270,6 +1272,8 @@ function InvitationSite({
                   <AnimatedMonogramHero
                     text={monogram.text}
                     color={monogram.color}
+                    fontFamily={monogram.fontFamily}
+                    fontStyle={monogram.fontStyle}
                     size="md"
                     shadow
                     motion={animatedMonogram}

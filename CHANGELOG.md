@@ -17,6 +17,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` all green in a fresh worktree off origin/main. Auth-gated chrome — visual check on prod with the test accounts after merge.
 
 **SPEC IMPACT:** 0000 app-shell chrome (event switcher § + role-switch pill §) — per the relaxed sync mandate, logged as a DECISION_LOG.md row (2026-06-12, unified switcher); corpus iteration re-sync is part of the in-progress AS-BUILT correction program.
+## 2026-06-12 · feat(taxonomy): Booths refinement catalog — complete local + international coverage (7 new leaves, 91 options, 97 photos)
+
+**Context:** owner-approved `Booths_Refinement_Catalog_2026-06-12.md` (spec corpus root). The Booths parent had the marketplace's biggest refinement gap — 7 of 15 tiles with zero refinements — and weak PH-local coverage on the rest.
+
+**What changed:**
+- **Migration `20261130000000_booths_refinement_catalog.sql`** (idempotent ON CONFLICT seeds):
+  - 7 new `onboarding_refinements` leaves keyed by the onboarding PICK_GROUPS keys (`massage_chair` "Wellness Station" · `nail_bar` · `perfume_bar` · `arcade` · `tarot` · `caricature` "Live Art & Calligraphy" · `engraving`), each mapped to its marketplace tile_id.
+  - 42 options under the new leaves + 49 additions to the 8 existing booth leaves (photo_booth +7 incl. **Pabati** · mobile_bar +6 incl. gin bar + lambanog/tuba · coffee +5 incl. kapeng barako · mocktail +4 incl. fresh buko + sago't gulaman · food_truck +4 incl. silog · dessert +6 incl. bibingka & puto bumbong + turon · food_cart +12 incl. taho, kwek-kwek, isaw, mais con yelo, buko shake · henna +5 incl. Indian bridal mehndi). "Other specialty cart" ships photo-less (emoji card) by design.
+  - Retired mobile_bar "Mocktail only" + "Coffee-focused" (capabilities that ARE their own tiles; stored JSONB snapshots unaffected). Coffee "Both" relabeled "Coffee + tea".
+  - "56-pax coaster" → "30-pax coaster" (a Toyota Coaster seats ~29; photo already corrected in PR #1293; new `guest_shuttle/30-pax-coaster.webp` path).
+  - Canonical taxonomy: `donut_wall_display` re-homed food_cart → dessert; **`pabati` canonical inserted** (booths › photo_booth, is_setnayan, per the 2026-06-03 amendment — closes its absence from code AND DB).
+- **`lib/taxonomy.ts`:** pabati canonical + donut_wall_display tile move (mirrors the DB).
+- **`_data/refinements.ts`:** coaster label fixed in the TS fallback. (New leaves intentionally NOT added to the fallback — DB is the live source; fallback covers total-DB-failure only.)
+- **97 new photos** under `public/onboarding/refinements/` (7 leaf headers 900×675 + 90 option cards 480×360): Recraft v3 → LANCZOS → WEBP q82, every one visually verified by reviewer agents (2 retry rounds; PH items held to authenticity — real taho cup, painted sorbetes-style styling, perya banderitas, Tausug-pattern henna, parol-decorated karaoke).
+
+**Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
+
+**SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
 
 ## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
 

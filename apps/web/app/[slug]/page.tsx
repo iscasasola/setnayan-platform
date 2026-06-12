@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Camera, CircleSlash, Lock, MapPin, Sparkles } from 'lucide-react';
@@ -98,6 +99,8 @@ const RESERVED_TOP_LEVEL = new Set([
   'contact',
   'vendor',
   'v',
+  'venue',
+  'venues',
   '_next',
 ]);
 
@@ -105,6 +108,69 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ invite?: string; invite_error?: string; phase?: string }>;
 };
+
+// Soft-404 fix (SEO) — this route has a loading.tsx, so the streaming shell
+// commits an HTTP 200 BEFORE the page body runs; a notFound() thrown in the
+// body renders the 404 UI but the status stays 200 (Google soft-404, and any
+// junk top-level URL was an indexable 200). generateMetadata resolves before
+// the stream starts on Next 15.1, so the slug lookup happens HERE: a miss
+// throws notFound() pre-stream and the response is a real 404. React cache()
+// dedupes the read — the page body reuses the same single DB roundtrip.
+const fetchEventBySlug = cache(async (slug: string) => {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('events')
+    .select(
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+    )
+    .ilike('slug', slug)
+    .maybeSingle();
+  return data;
+});
+
+export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+  const { slug } = await params;
+  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+
+  const event = await fetchEventBySlug(slug);
+  if (!event) notFound();
+  if (event.event_type !== 'wedding') notFound();
+
+  const visibility = (event.landing_page_visibility ?? 'public') as
+    | 'public'
+    | 'unlisted'
+    | 'private';
+
+  // Unlisted = reachable by link but not discoverable; private = lock screen
+  // for strangers. Neither should be in a search index, and neither should
+  // leak the couple's names into SERP snippets via metadata.
+  if (visibility !== 'public') {
+    return {
+      title: 'Wedding invitation',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const description = `You're invited — ${event.display_name}${
+    event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
+  }. RSVP on Setnayan.`;
+  return {
+    title: event.display_name,
+    description,
+    alternates: { canonical: `${siteUrl}/${event.slug}` },
+    openGraph: {
+      type: 'website',
+      url: `${siteUrl}/${event.slug}`,
+      title: `${event.display_name} · Setnayan`,
+      description,
+      siteName: 'Setnayan',
+      locale: 'en_PH',
+    },
+  };
+}
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
   const { slug } = await params;
@@ -124,13 +190,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const admin = createAdminClient();
 
-  const { data: event } = await admin
-    .from('events')
-    .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  const event = await fetchEventBySlug(slug);
 
   if (!event) notFound();
   if (event.event_type !== 'wedding') notFound();

@@ -94,6 +94,10 @@ export function AnimatedMonogramHero({
   shadow = false,
   /** Which motion-library signature plays. Defaults to the original draw-on. */
   motion = 'draw',
+  /** The couple's exact monogram face (lib/monogram.ts stack). Defaults keep
+   *  the original generic-serif rendering for callers that don't resolve it. */
+  fontFamily,
+  fontStyle,
 }: {
   text: string;
   color: string;
@@ -101,6 +105,8 @@ export function AnimatedMonogramHero({
   className?: string;
   shadow?: boolean;
   motion?: MonogramMotionKey;
+  fontFamily?: string;
+  fontStyle?: 'italic' | 'normal';
 }) {
   const px = SIZE_PX[size];
   // Unique per-instance ids so multiple monograms on one page (defensive)
@@ -119,8 +125,8 @@ export function AnimatedMonogramHero({
     y: '50%',
     textAnchor: 'middle',
     dominantBaseline: 'central',
-    fontFamily: SERIF_STACK,
-    fontStyle: 'italic',
+    fontFamily: fontFamily ?? SERIF_STACK,
+    fontStyle: fontStyle ?? 'italic',
     fontWeight: 600,
     fontSize,
   } as const;

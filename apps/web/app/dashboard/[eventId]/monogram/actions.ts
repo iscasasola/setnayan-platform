@@ -37,6 +37,20 @@ const DESIGNS: Record<
   infinity: { font: 'cormorant', frame: null, ink: '#5C2542' },
 };
 
+// The typeface picker's valid keys — MUST mirror MonoFontKey/MONO_FONT_STACK in
+// lib/monogram.ts (each is a loaded next/font face). Unknown/missing values
+// fall back to the chosen lockup's default font.
+const FONT_KEYS = [
+  'cormorant',
+  'playfair',
+  'cinzel',
+  'script',
+  'libre_caslon',
+  'tangerine',
+  'luxurious',
+  'vidaloka',
+] as const;
+
 export async function saveMonogram(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
@@ -59,6 +73,14 @@ export async function saveMonogram(formData: FormData): Promise<void> {
     : 'bar';
   const design = DESIGNS[style];
 
+  // Typeface override (2026-06-11 expansion) — the couple may pick any registry
+  // face independent of the lockup; off-registry values fall back to the
+  // lockup's default so the column never stores an unknown key.
+  const fontRaw = String(formData.get('font') ?? '');
+  const fontKey = (FONT_KEYS as readonly string[]).includes(fontRaw)
+    ? fontRaw
+    : design.font;
+
   // Motion-library signature (lib/monogram-motion.ts). Unknown/missing values
   // resolve to 'draw' so the column never stores an off-registry key.
   const motion = resolveMonogramMotion(String(formData.get('motion') ?? ''));
@@ -69,7 +91,7 @@ export async function saveMonogram(formData: FormData): Promise<void> {
       monogram_text: monogramText,
       monogram_color: design.ink,
       monogram_style: style,
-      monogram_font_key: design.font,
+      monogram_font_key: fontKey,
       monogram_frame_key: design.frame,
       monogram_motion_key: motion,
     })

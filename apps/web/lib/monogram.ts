@@ -2,6 +2,11 @@ export type MonogramConfig = {
   text: string;       // e.g., "M & J"
   color: string;      // terracotta or whatever the couple picked
   bg?: string;        // monogram badge background; defaults to cream
+  // Present only when the caller passes the design columns (font/style/frame)
+  // into resolveMonogram — lets type-rendered surfaces (e.g. the landing hero)
+  // draw the mark in the couple's EXACT chosen face instead of a generic serif.
+  fontFamily?: string;
+  fontStyle?: 'italic' | 'normal';
 };
 
 const DEFAULT_BG = '#FAF7F2'; // cream
@@ -38,11 +43,23 @@ export function resolveMonogram(event: {
   display_name: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
+  // Optional design columns — callers that select them get fontFamily/fontStyle
+  // resolved into the config (callers that don't are unchanged).
+  monogram_font_key?: string | null;
+  monogram_style?: string | null;
+  monogram_frame_key?: string | null;
 }): MonogramConfig {
+  const design =
+    event.monogram_font_key != null ||
+    event.monogram_style != null ||
+    event.monogram_frame_key != null
+      ? resolveMonogramDesign(event)
+      : null;
   return {
     text: (event.monogram_text?.trim() || deriveMonogram(event.display_name)).slice(0, 12),
     color: event.monogram_color ?? '#C97B4B',
     bg: DEFAULT_BG,
+    ...(design ? { fontFamily: design.fontFamily, fontStyle: design.fontStyle } : {}),
   };
 }
 
@@ -64,7 +81,18 @@ export function resolveMonogram(event: {
  * ──────────────────────────────────────────────────────────────────────── */
 
 export type MonoStyle = 'bar' | 'script' | 'duo' | 'framed' | 'infinity';
-type MonoFontKey = 'cormorant' | 'playfair' | 'cinzel' | 'script';
+// 2026-06-11 expansion (owner font-specimen picks): libre_caslon · tangerine ·
+// luxurious · vidaloka join the original four. Each key needs (1) a stack entry
+// below and (2) its face loaded in app/layout.tsx (next/font → CSS var).
+type MonoFontKey =
+  | 'cormorant'
+  | 'playfair'
+  | 'cinzel'
+  | 'script'
+  | 'libre_caslon'
+  | 'tangerine'
+  | 'luxurious'
+  | 'vidaloka';
 type MonoInkKey = 'mulberry' | 'gold' | 'ink';
 
 // The 5 live-typography lockups (owner 2026-06-04) — MUST mirror MONO_DESIGNS in
@@ -117,7 +145,34 @@ const MONO_FONT_STACK: Record<
     fontStyle: 'normal',
     letterSpacing: '0.02em',
   },
+  // 2026-06-11 expansion — owner picks from the font-specimen session.
+  libre_caslon: {
+    fontFamily: "var(--font-libre-caslon), 'Libre Caslon Display', Georgia, serif",
+    fontStyle: 'normal',
+    letterSpacing: '0.02em',
+  },
+  tangerine: {
+    fontFamily: "var(--font-tangerine), 'Tangerine', 'Snell Roundhand', cursive",
+    fontStyle: 'normal',
+    letterSpacing: '0.02em',
+  },
+  luxurious: {
+    fontFamily: "var(--font-luxurious), 'Luxurious Script', 'Snell Roundhand', cursive",
+    fontStyle: 'normal',
+    letterSpacing: '0.02em',
+  },
+  vidaloka: {
+    fontFamily: "var(--font-vidaloka), 'Vidaloka', Georgia, serif",
+    fontStyle: 'normal',
+    letterSpacing: '0.02em',
+  },
 };
+
+/** Is this stored key a face in the registry? New faces (2026-06-11) have no
+ *  MONO_DESIGNS row, so the stored font key must win over design derivation. */
+function isMonoFontKey(k: string | null): k is MonoFontKey {
+  return k != null && Object.prototype.hasOwnProperty.call(MONO_FONT_STACK, k);
+}
 
 // Frame assets shipped under public/onboarding/mono/. Kept EXHAUSTIVE (legacy
 // 10-preset frames + the 2026-06-04 filigree frame) so already-onboarded couples
@@ -183,11 +238,12 @@ export function resolveMonogramDesign(input: {
     null;
 
   const ink: MonoInkKey = design?.ink ?? 'mulberry';
-  const font: MonoFontKey =
-    design?.font ??
-    (fontKey === 'playfair' || fontKey === 'cinzel' || fontKey === 'script'
-      ? fontKey
-      : 'cormorant');
+  // The stored font key is authoritative when valid (the Maker's typeface
+  // picker can override the lockup's default since 2026-06-11) — the design
+  // only supplies the font for legacy rows with no/unknown font key.
+  const font: MonoFontKey = isMonoFontKey(fontKey)
+    ? fontKey
+    : design?.font ?? 'cormorant';
   const stack = MONO_FONT_STACK[font];
 
   const resolvedFrame =

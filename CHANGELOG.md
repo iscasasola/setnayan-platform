@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(monogram): typeface picker — 4 owner-picked faces join the registry + exact-font landing hero
+
+**Context:** Owner font-specimen session (4 boards · 84 faces shown live): picks = **Libre Caslon Display · Tangerine · Luxurious Script · Vidaloka**. Today the monogram font is derived ONLY from the chosen lockup (5 lockups → 4 baked faces); the new faces need a couple-facing way in.
+
+- **`monogram-maker.tsx` — "Choose a typeface" row (new):** 8 tiles (the original four + the four picks), each previewing the couple's initials in the real face. The typeface follows the lockup's default until the couple explicitly picks one (override persists via `monogram_font_key`). Maker preview now renders the SELECTED face (was: hardcoded generic serif).
+- **`app/layout.tsx`:** the 4 faces self-host via `next/font/google` (weight-minimal) → `--font-libre-caslon` / `--font-tangerine` / `--font-luxurious` / `--font-vidaloka`.
+- **`lib/monogram.ts`:** `MonoFontKey` + `MONO_FONT_STACK` grow to 8; **resolver precedence fix** — a valid stored `monogram_font_key` now wins over lockup-derived font (new keys have no `MONO_DESIGNS` row; without this they'd silently resolve to Cormorant). Legacy rows unchanged (stored key always matched the design). `resolveMonogram` optionally resolves `fontFamily/fontStyle` when callers pass the design columns.
+- **`saveMonogram` (actions.ts):** accepts the `font` field, validated against the 8-key registry; off-registry falls back to the lockup default.
+- **Landing hero exact-font fix (`app/[slug]/page.tsx` + `animated-monogram-hero.tsx`):** the hero monogram now renders in the couple's chosen face — it previously hardcoded a generic serif italic for everyone (even the Script lockup). `AnimatedMonogramHero` gains optional `fontFamily/fontStyle` (default = old behavior); the anonymous select adds the long-shipped `monogram_style/font_key/frame_key` columns (exist in prod since onboarding).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · full CI suite green 3× on the identical code (typecheck/lint · production build · e2e · lighthouse · bundle size) across successive CHANGELOG-conflict resolutions against a fast-moving main. Onboarding untouched.
+
+**SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
+
 ## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
 
 **Context:** Owner 2026-06-10 — "tables can link together to be named as 1 table"; depth owner-locked = **identity + QR only** (shared name/number, one printed QR sign, one find-my-seat entry; seating math stays per-table — a shared capacity pool is a future enhancement). The LAST Phase 1 slice.

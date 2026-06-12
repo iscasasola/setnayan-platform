@@ -11,6 +11,10 @@ import {
   Cinzel,
   Playfair_Display,
   Great_Vibes,
+  Libre_Caslon_Display,
+  Tangerine,
+  Luxurious_Script,
+  Vidaloka,
 } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
@@ -131,6 +135,38 @@ const greatVibes = Great_Vibes({
   display: 'swap',
   weight: '400',
   variable: '--font-script',
+});
+
+// Monogram typeface expansion — owner picks 2026-06-11 (font specimen session):
+// Libre Caslon Display · Tangerine · Luxurious Script · Vidaloka join the four
+// faces above in the Monogram Maker's typeface picker. Weight-minimal: the
+// monogram renders a 1–5 character mark, nothing else uses these families.
+const libreCaslon = Libre_Caslon_Display({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: '400',
+  variable: '--font-libre-caslon',
+});
+
+const tangerine = Tangerine({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '700'],
+  variable: '--font-tangerine',
+});
+
+const luxuriousScript = Luxurious_Script({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: '400',
+  variable: '--font-luxurious',
+});
+
+const vidaloka = Vidaloka({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: '400',
+  variable: '--font-vidaloka',
 });
 
 // v2.1 marketing typography (Setnayan Vendor Keynote template package · CLAUDE.md
@@ -393,7 +429,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en-PH"
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sourceSans.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable}`}
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sourceSans.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
         {/*

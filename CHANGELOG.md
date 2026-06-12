@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(seo): per-article /help/[slug] URLs — 61 help Q&As become individually indexable
+
+**Context:** SEO/GEO audit follow-up (second batch after the /venues PR #1307). The help center is 61 high-intent informational Q&A articles, but all of them lived on a single `/help` URL with one 61-question FAQPage block — so the entire help center could rank for at most one URL. Each Q is now its own page. (No content rewrite — the existing bodies render verbatim, same as the hub's FAQPage already shipped; pricing staleness is a separate batched concern, see SPEC IMPACT.)
+
+- **New `/help/[slug]` route** (SSG, `dynamicParams = false`): pre-renders all 61 articles from `HELP_TOPICS`; any slug not in the set 404s at the routing layer. No DB, no loading boundary. Each page ships **Article + single-question FAQPage + 4-level BreadcrumbList JSON-LD** (Home → Help → Topic → Article), `generateMetadata` (title, ~155-char word-boundary description, canonical, OG `type=article`), a "More in {topic}" related-links block, and back-to-hub / contact links.
+- **`lib/help.ts` helpers** (additive): `ALL_HELP_ARTICLES` flat list, `findHelpArticle(slug)`, `relatedHelpArticles(slug)`, `helpMetaDescription()`, and a single honest `HELP_LASTMOD` constant. Article slugs are globally unique across topics (verified), so the public URL is flat `/help/[slug]` with no topic segment.
+- **Hub permalinks:** each article title on `/help` is now a `<Link>` to its `/help/[slug]` page so crawlers discover the per-article URLs; the answer still renders inline (the hub's multi-question FAQPage is untouched).
+- **New `sitemap-help.xml`** child: `/help` hub + 61 article URLs, all stamped with `HELP_LASTMOD` (honest single edit date, not a build-time `Date()`). Registered in the sitemap index; `/help` removed from `sitemap-static.xml` so it isn't duplicated across two children.
+- **Soft-404 fix (same class as PR #1307):** deleted `app/help/loading.tsx`. Its route-level Suspense boundary cascaded onto `/help/[slug]` and committed an HTTP 200 shell before `notFound()` could run — so junk `/help/anything` URLs returned 200 (verified: Googlebot UA got 200 too; no `htmlLimitedBots` set). The hub is ISR/content-light, so losing its skeleton is a non-issue; unknown article URLs now return a real 404.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` (196/196 pages, `/help/[slug]` prerendered as SSG) green in a fresh worktree off origin/main. Local prod-server smoke test: `/help` + real articles → 200; `/help/not-a-real-article` → **404**; canonical + BreadcrumbList + Article + FAQPage JSON-LD present (8 ld+json blocks); sitemap-help.xml emits 62 URLs; index lists the new child; hub renders article permalinks.
+
+**SPEC IMPACT:** `02_Specifications/17_SEO_and_AI_Discoverability_Playbook.md` §5.1 row 11 + §7 Month-1 item 34 ("ship the help center as discrete `/help/[article-slug]` URLs, each with FAQPage + Article schema") — now SHIPPED. Logged as a DECISION_LOG.md row (2026-06-13). **Flagged, NOT fixed here:** one help body (`how-much-does-setnayan-cost`) still says vendor "Pro (₱1,999/month)" — stale vs the live site's ₱2,499/28-day; this and any other stale pricing across the 61 articles belong in the batched 4-tier pricing site-sync (owner-locked single pass), not piecemeal in this structural PR.
+
 ## 2026-06-13 · fix(vendor-nav): Repertoire nav entry only for music acts
 
 **Context:** owner directive — "repertoire… this is for the band, wedding singer, orchestra? should only show if that is their service." The repertoire PAGE already gated via `isMusicVendor` (live_band · choir · orchestra · wedding_singer · dj) with an explainer for everyone else, and its own comment marked nav-level hiding as a follow-up. This closes it.

@@ -61,9 +61,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   // /how-it-works — iteration 0015 marketing site.
   { path: '/how-it-works', lastmod: '2026-05-12', changefreq: 'monthly', priority: '0.75' },
 
-  // /help — iteration 0029 help center + FAQPage JSON-LD shipped 2026-05-28
-  // via PR #571 (CLAUDE.md 13th 2026-05-28 row).
-  { path: '/help', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.75' },
+  // /help moved to its own sitemap-help.xml (2026-06-13) — it now owns the
+  // /help hub + 61 per-article /help/[slug] URLs, so listing /help here too
+  // would duplicate it across two children.
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.
   { path: '/waitlist', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.7' },

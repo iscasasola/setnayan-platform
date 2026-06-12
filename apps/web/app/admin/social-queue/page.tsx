@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { runSocialFlush } from '@/lib/social/flush';
 import { isFacebookConfigured } from '@/lib/social/facebook';
+import { isInstagramConfigured } from '@/lib/social/instagram';
+import { socialCardUrl } from '@/lib/social/urls';
 import { getChangelogSuggestions } from '@/lib/social/changelog-suggestions';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
@@ -181,6 +183,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
   after(() => runSocialFlush().catch(() => {}));
 
   const fbConfigured = isFacebookConfigured();
+  const igConfigured = isInstagramConfigured();
 
   // ── Autopilot switchboard (single row) ──────────────────────────────────
   const { data: settingsData, error: settingsErr } = await admin
@@ -422,6 +425,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
       <AutopilotStrip
         settings={settings}
         fbConfigured={fbConfigured}
+        igConfigured={igConfigured}
         loadFailed={Boolean(settingsErr)}
       />
 
@@ -508,12 +512,12 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
       >
         <ul className="grid gap-3 sm:grid-cols-2">
           {failedPosts.map((p) => {
-            const fb = facebookResult(p.platform_results);
             return (
               <li key={p.post_id}>
                 <article className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-                  <header className="flex items-start justify-between gap-3">
-                    <p className="min-w-0 truncate text-sm font-semibold text-ink">
+                  <header className="flex items-start gap-3">
+                    <CardPreview postId={p.post_id} />
+                    <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                       {p.title || firstLine(p.body) || 'Untitled post'}
                     </p>
                     <SourceChip sourceType={p.source_type} />
@@ -522,8 +526,8 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                     {p.body}
                   </pre>
                   <p className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700">
-                    <span className="font-medium">Facebook error:</span>{' '}
-                    {fb.error || 'No error detail recorded.'}
+                    <span className="font-medium">Dispatch error:</span>{' '}
+                    {dispatchError(p.platform_results) || 'No error detail recorded.'}
                   </p>
                   <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
                     <form action={retrySocialPost}>
@@ -559,14 +563,16 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
       >
         <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
           {publishedPosts.map((p) => {
-            const fb = facebookResult(p.platform_results);
-            const postedAt = fb.posted_at ?? p.updated_at;
+            const fb = platformResult(p.platform_results, 'facebook');
+            const ig = platformResult(p.platform_results, 'instagram');
+            const postedAt = fb.posted_at ?? ig.posted_at ?? p.updated_at;
             return (
               <li
                 key={p.post_id}
                 className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-xs"
               >
                 <span className="flex min-w-0 items-center gap-2">
+                  <CardPreview postId={p.post_id} size={40} />
                   <SourceChip sourceType={p.source_type} />
                   <span className="min-w-0 truncate text-ink/80">{firstLine(p.body)}</span>
                 </span>
@@ -579,7 +585,17 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
                       rel="noopener noreferrer"
                       className="text-terracotta hover:underline"
                     >
-                      View ↗
+                      FB ↗
+                    </a>
+                  ) : null}
+                  {ig.post_url ? (
+                    <a
+                      href={ig.post_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-terracotta hover:underline"
+                    >
+                      IG ↗
                     </a>
                   ) : null}
                 </span>
@@ -997,10 +1013,12 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
 function AutopilotStrip({
   settings,
   fbConfigured,
+  igConfigured,
   loadFailed,
 }: {
   settings: PublishSettings;
   fbConfigured: boolean;
+  igConfigured: boolean;
   loadFailed: boolean;
 }) {
   const fbChip = !settings.facebook_enabled
@@ -1008,6 +1026,12 @@ function AutopilotStrip({
     : fbConfigured
       ? { label: 'Facebook · live', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Facebook · awaiting env', tone: 'bg-amber-100 text-amber-900' };
+  // Instagram is live now (Phase B) — same chip logic as Facebook.
+  const igChip = !settings.instagram_enabled
+    ? { label: 'Instagram · off', tone: 'bg-ink/8 text-ink/55' }
+    : igConfigured
+      ? { label: 'Instagram · live', tone: 'bg-emerald-100 text-emerald-800' }
+      : { label: 'Instagram · awaiting env', tone: 'bg-amber-100 text-amber-900' };
 
   return (
     <section id="autopilot" className="mb-8 space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
@@ -1037,10 +1061,9 @@ function AutopilotStrip({
             {fbChip.label}
           </span>
           <span
-            className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
-            title="Instagram publishing ships in Phase B."
+            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${igChip.tone}`}
           >
-            Instagram · Phase B
+            {igChip.label}
           </span>
           <span
             className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
@@ -1060,8 +1083,19 @@ function AutopilotStrip({
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
           Paste <span className="font-mono">META_PAGE_ID</span> +{' '}
           <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> into Vercel
-          env to activate — see API_Integration_Checklist #21a. The switches
-          below still save; nothing dispatches until the env lands.
+          env to activate Facebook — see API_Integration_Checklist #21a. The
+          switches below still save; nothing dispatches until the env lands.
+        </p>
+      ) : null}
+
+      {!igConfigured ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          For Instagram, also paste <span className="font-mono">IG_USER_ID</span>{' '}
+          (the IG Business account linked to the Page) — the same{' '}
+          <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> authorizes
+          it with the <span className="font-mono">instagram_basic</span> +{' '}
+          <span className="font-mono">instagram_content_publish</span> scopes.
+          Every post now carries a branded card image, which IG requires.
         </p>
       ) : null}
 
@@ -1076,8 +1110,9 @@ function AutopilotStrip({
       ) : null}
 
       {/* All four checkboxes live in the ONE form — updatePublishSettings
-          treats absent/unchecked as off. IG + TikTok stay disabled (Phase
-          B/C); disabled checkboxes don't submit → saved off, as intended. */}
+          treats absent/unchecked as off. IG is LIVE now (Phase B); only
+          TikTok stays disabled (Phase C) — disabled checkboxes don't submit
+          → saved off, as intended. */}
       <form
         action={updatePublishSettings}
         className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ink/10 pt-4"
@@ -1100,16 +1135,12 @@ function AutopilotStrip({
           />
           Facebook
         </label>
-        <label
-          className="flex cursor-not-allowed items-center gap-2 text-xs text-ink/40"
-          title="Instagram publishing ships in Phase B."
-        >
+        <label className="flex items-center gap-2 text-xs text-ink/75">
           <input
             type="checkbox"
             name="instagram_enabled"
-            disabled
             defaultChecked={settings.instagram_enabled}
-            className="h-4 w-4 rounded border-ink/20 accent-ink opacity-50"
+            className="h-4 w-4 rounded border-ink/30 accent-ink"
           />
           Instagram
         </label>
@@ -1148,8 +1179,9 @@ function ScheduledPostCard({ post, now }: { post: SocialPostRow; now: number }) 
 
   return (
     <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
-      <header className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate text-sm font-semibold text-ink">
+      <header className="flex items-start gap-3">
+        <CardPreview postId={post.post_id} />
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
           {post.title || firstLine(post.body) || 'Untitled post'}
         </p>
         <SourceChip sourceType={post.source_type} />
@@ -1322,29 +1354,58 @@ function SourceChip({ sourceType }: { sourceType: SocialSourceType }) {
   );
 }
 
-/** Facebook leg of platform_results — tolerant of any JSONB shape. */
-function facebookResult(platformResults: unknown): {
+type PlatformLeg = {
   status?: string;
   post_url?: string | null;
   posted_at?: string | null;
   error?: string | null;
-} {
+};
+
+/** One platform's leg of platform_results — tolerant of any JSONB shape. */
+function platformResult(platformResults: unknown, platform: string): PlatformLeg {
   if (
     platformResults &&
     typeof platformResults === 'object' &&
-    'facebook' in platformResults
+    platform in platformResults
   ) {
-    const fb = (platformResults as Record<string, unknown>).facebook;
-    if (fb && typeof fb === 'object') {
-      return fb as {
-        status?: string;
-        post_url?: string | null;
-        posted_at?: string | null;
-        error?: string | null;
-      };
+    const leg = (platformResults as Record<string, unknown>)[platform];
+    if (leg && typeof leg === 'object') {
+      return leg as PlatformLeg;
     }
   }
   return {};
+}
+
+/** Best dispatch error to surface on a failed card — FB, then IG, then the
+ *  generic dispatch leg the catch-all stamps. */
+function dispatchError(platformResults: unknown): string | null {
+  return (
+    platformResult(platformResults, 'facebook').error ||
+    platformResult(platformResults, 'instagram').error ||
+    platformResult(platformResults, 'dispatch').error ||
+    null
+  );
+}
+
+/**
+ * Branded social-card preview thumbnail — pulls the live on-the-fly card from
+ * /api/social/card/[postId]. Plain <img> (next/image's loader would 404-cache
+ * a non-allowlisted same-origin dynamic route); the route caches hard.
+ */
+function CardPreview({ postId, size = 56 }: { postId: string; size?: number }) {
+  // Plain <img>: live render of an internal dynamic route — next/image adds
+  // nothing and its loader rejects a non-allowlisted same-origin route.
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={socialCardUrl(postId)}
+      alt=""
+      width={size}
+      height={size}
+      className="shrink-0 rounded-md border border-ink/10 bg-cream object-cover"
+      style={{ width: size, height: size }}
+    />
+  );
 }
 
 /** First non-empty line of a post body — compact-row display. */

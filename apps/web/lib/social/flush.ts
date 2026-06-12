@@ -13,6 +13,8 @@ import {
 } from '@/lib/social-sharing';
 import { nextAvailableSlot } from '@/lib/social/governor';
 import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
+import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
+import { socialCardUrl } from '@/lib/social/urls';
 
 /**
  * apps/web/lib/social/flush.ts — THE ENGINE of the social auto-publish
@@ -33,11 +35,14 @@ import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook'
  *      (real COUNT(*) snapshots · aggregate numbers only), an evergreen
  *      content floor when the page goes quiet, take-down awareness for
  *      revoked consents, then governor slot assignment (§ 8.3b cadence).
- *   2. DISPATCH — only when autopublish_enabled AND facebook_enabled AND the
- *      Meta env is present: publish up to 3 due rows to the Facebook Page,
- *      with per-row claim (scheduled → publishing) so a concurrent flush
- *      can never double-post, and per-row try/catch so one bad row never
- *      kills the batch.
+ *   2. DISPATCH — only when autopublish_enabled AND at least one platform is
+ *      enabled + configured (Facebook and/or Instagram): publish up to 3 due
+ *      rows to every enabled+configured platform, with per-row claim
+ *      (scheduled → publishing) so a concurrent flush can never double-post,
+ *      and per-row try/catch so one bad row never kills the batch. Every post
+ *      now carries a branded 1080×1080 card (Phase B · lib/social/card.tsx) —
+ *      its public on-the-fly URL is the media for both platforms, which also
+ *      upgrades Facebook from a text/link post to a photo post.
  *
  * Everything runs on the service-role client — these tables are admin-only
  * under RLS and the flush has no user session.
@@ -96,13 +101,17 @@ export async function runSocialFlush(): Promise<void> {
       .update({ last_flush_at: now.toISOString(), updated_at: now.toISOString() })
       .eq('id', true)
       .or(`last_flush_at.is.null,last_flush_at.lt.${cutoffIso}`)
-      .select('autopublish_enabled, facebook_enabled');
+      .select('autopublish_enabled, facebook_enabled, instagram_enabled');
     if (claimErr) {
       logQueryError('runSocialFlush (claim)', claimErr);
       return;
     }
     if (!claim || claim.length === 0) return; // throttled or lost the claim
-    const settings = claim[0] as { autopublish_enabled: boolean; facebook_enabled: boolean };
+    const settings = claim[0] as {
+      autopublish_enabled: boolean;
+      facebook_enabled: boolean;
+      instagram_enabled: boolean;
+    };
 
     // ── Phase 1: sweep-compose (always — the queue UI shows upcoming posts
     // even while the master switch is off) ────────────────────────────────
@@ -113,9 +122,11 @@ export async function runSocialFlush(): Promise<void> {
     await sweepTakedowns(admin, now);
     await assignSchedules(admin, now);
 
-    // ── Phase 2: dispatch (master switch + platform toggle + env) ────────
-    if (settings.autopublish_enabled && settings.facebook_enabled && isFacebookConfigured()) {
-      await dispatchFacebook(admin, now);
+    // ── Phase 2: dispatch (master switch + ≥1 enabled+configured platform) ─
+    const fbLive = settings.facebook_enabled && isFacebookConfigured();
+    const igLive = settings.instagram_enabled && isInstagramConfigured();
+    if (settings.autopublish_enabled && (fbLive || igLive)) {
+      await dispatchDuePosts(admin, now, { facebook: fbLive, instagram: igLive });
     }
   } catch (err) {
     logQueryError('runSocialFlush (unexpected)', err);
@@ -552,13 +563,34 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
   }
 }
 
+/** One platform's stamped result for platform_results.{facebook,instagram}. */
+type PlatformLeg = {
+  status: 'published' | 'failed';
+  external_id: string | null;
+  post_url?: string | null;
+  posted_at: string | null;
+  error: string | null;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Dispatch: publish due rows to the Facebook Page. Per-row claim
-// (scheduled → publishing, conditional UPDATE … RETURNING) means a
-// concurrent flush can never double-post; per-row try/catch means one bad
-// row never kills the batch.
+// Dispatch: publish due rows to every enabled+configured platform (Facebook
+// and/or Instagram). Per-row claim (scheduled → publishing, conditional
+// UPDATE … RETURNING) means a concurrent flush can never double-post; per-row
+// try/catch means one bad row never kills the batch.
+//
+// Phase B: every post carries a branded 1080×1080 card. `effectiveMedia` is
+// the post's own media_url (evergreen items / announcements may set one — it
+// WINS) or, failing that, the public on-the-fly card URL. Passing it to
+// Facebook upgrades the post from text/link to a photo; Instagram requires it
+// (no text-only posts). The row is 'published' if ANY platform succeeds, else
+// 'failed'; consent / vendor stamps use the first successful permalink,
+// Facebook preferred.
 // ─────────────────────────────────────────────────────────────────────────────
-async function dispatchFacebook(admin: AdminClient, now: Date): Promise<void> {
+async function dispatchDuePosts(
+  admin: AdminClient,
+  now: Date,
+  targets: { facebook: boolean; instagram: boolean },
+): Promise<void> {
   const nowIso = now.toISOString();
   const { data: dueData, error: dueErr } = await admin
     .from('social_posts')
@@ -592,38 +624,87 @@ async function dispatchFacebook(admin: AdminClient, now: Date): Promise<void> {
       }
       if (!claimed || claimed.length === 0) continue; // another flush owns it
 
-      const result = await postToFacebookPage({
-        message: post.body,
-        linkUrl: post.link_url,
-        mediaUrl: post.media_url,
-      });
-      const stampedAt = new Date().toISOString();
+      // The post's own media (evergreen/announcement) WINS; otherwise the
+      // branded on-the-fly card. Both platforms get the same image.
+      const effectiveMedia = post.media_url || socialCardUrl(post.post_id);
 
-      if (result.ok) {
-        await admin
-          .from('social_posts')
-          .update({
+      const legs: Record<string, PlatformLeg> = {};
+      // Facebook permalink is preferred for the consent/vendor stamps; track
+      // both so we can fall back to Instagram's.
+      let fbUrl: string | null = null;
+      let igUrl: string | null = null;
+
+      if (targets.facebook) {
+        const fb = await postToFacebookPage({
+          message: post.body,
+          linkUrl: post.link_url,
+          mediaUrl: effectiveMedia,
+        });
+        if (fb.ok) {
+          fbUrl = fb.postUrl;
+          legs.facebook = {
             status: 'published',
-            platform_results: {
-              ...post.platform_results,
-              facebook: {
-                status: 'published',
-                external_id: result.externalId,
-                post_url: result.postUrl,
-                posted_at: stampedAt,
-                error: null,
-              },
-            },
-            updated_at: stampedAt,
-          })
-          .eq('post_id', post.post_id);
+            external_id: fb.externalId,
+            post_url: fb.postUrl,
+            posted_at: new Date().toISOString(),
+            error: null,
+          };
+        } else {
+          legs.facebook = {
+            status: 'failed',
+            external_id: null,
+            posted_at: null,
+            error: fb.error,
+          };
+        }
+      }
 
-        // Side-effects back onto the consent substrate — same stamps the
-        // manual Social Queue actions write, guarded so a manual stamp wins.
+      if (targets.instagram) {
+        const ig = await postToInstagramFeed({
+          imageUrl: effectiveMedia,
+          caption: post.body,
+        });
+        if (ig.ok) {
+          igUrl = ig.postUrl;
+          legs.instagram = {
+            status: 'published',
+            external_id: ig.externalId,
+            post_url: ig.postUrl,
+            posted_at: new Date().toISOString(),
+            error: null,
+          };
+        } else {
+          legs.instagram = {
+            status: 'failed',
+            external_id: null,
+            posted_at: null,
+            error: ig.error,
+          };
+        }
+      }
+
+      const stampedAt = new Date().toISOString();
+      const anyOk = Object.values(legs).some((l) => l.status === 'published');
+      // Prefer Facebook's permalink for the source stamps, else Instagram's.
+      const primaryUrl = fbUrl ?? igUrl;
+
+      await admin
+        .from('social_posts')
+        .update({
+          status: anyOk ? 'published' : 'failed',
+          platform_results: { ...post.platform_results, ...legs },
+          updated_at: stampedAt,
+        })
+        .eq('post_id', post.post_id);
+
+      // Side-effects back onto the source substrate — same stamps the manual
+      // Social Queue actions write, guarded (IS NULL) so a manual stamp wins.
+      // Only on a successful publish, and only with a real permalink.
+      if (anyOk && primaryUrl) {
         if (post.source_type === 'couple_creation') {
           await admin
             .from('marketing_share_consents')
-            .update({ posted_at: stampedAt, post_url: result.postUrl, updated_at: stampedAt })
+            .update({ posted_at: stampedAt, post_url: primaryUrl, updated_at: stampedAt })
             .eq('consent_id', post.source_ref)
             .is('posted_at', null);
         } else if (post.source_type === 'vendor_feature') {
@@ -631,45 +712,25 @@ async function dispatchFacebook(admin: AdminClient, now: Date): Promise<void> {
             .from('vendor_profiles')
             .update({
               social_featured_at: stampedAt,
-              social_post_url: result.postUrl,
+              social_post_url: primaryUrl,
               updated_at: stampedAt,
             })
             .eq('vendor_profile_id', post.source_ref)
             .is('social_featured_at', null);
         }
-      } else {
-        await admin
-          .from('social_posts')
-          .update({
-            status: 'failed',
-            platform_results: {
-              ...post.platform_results,
-              facebook: {
-                status: 'failed',
-                external_id: null,
-                posted_at: null,
-                error: result.error,
-              },
-            },
-            updated_at: stampedAt,
-          })
-          .eq('post_id', post.post_id);
       }
     } catch (err) {
       // One bad row must never kill the flush — stamp it failed and move on.
       logQueryError('runSocialFlush (dispatch row)', err, { post_id: post.post_id });
+      const message =
+        err instanceof Error ? err.message.slice(0, 500) : 'Unknown dispatch error';
       await admin
         .from('social_posts')
         .update({
           status: 'failed',
           platform_results: {
             ...post.platform_results,
-            facebook: {
-              status: 'failed',
-              external_id: null,
-              posted_at: null,
-              error: err instanceof Error ? err.message.slice(0, 500) : 'Unknown dispatch error',
-            },
+            dispatch: { status: 'failed', external_id: null, posted_at: null, error: message },
           },
           updated_at: new Date().toISOString(),
         })

@@ -15,6 +15,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Surfaced, NOT changed (needs owner sign-off):** `app/terms/page.tsx`, the supplies `cart-drawer.tsx`, and the `admin/payments` engine still compute + display a **12% VAT** line. #1316 deliberately left these alone because they are the *actual checkout tax treatment*, not a marketing claim — and the 0026 spec says V1 launches **non-VAT** (percentage tax). Removing them changes the price math customers see, so it's a tax-registration decision, not a copy edit.
 
 **SPEC IMPACT:** None on schema. Reinforces the public-claims-purge decision (DECISION_LOG #1316). The VAT-vs-non-VAT checkout question is logged for owner resolution.
+## 2026-06-13 · feat(social): auto-publish Phase B — branded card renderer + Instagram feed posting
+
+**Context:** owner directive to sync the app to Facebook/Instagram/TikTok. Phase B (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5) gives every auto-post a branded 1080×1080 image and turns on Instagram. Builds on Phase A (#1311). No migration — pure code on the existing `social_posts` substrate.
+
+- **Renderer (`lib/social/card.tsx`): satori (JSX→SVG with explicit font buffers) + sharp (SVG→JPEG).** satori added as a dep — its explicit-font-buffer model is deterministic on Vercel serverless (avoids librsvg/fontconfig flakiness). Five Clean-Editorial layouts (couple_creation · vendor_feature · milestone · announcement · evergreen) on cream with a champagne-gold frame, Cardo display serif + Poppins body + Great Vibes script (static TTFs bundled under `lib/social/fonts/` — satori rejects variable fonts; Cardo substitutes for variable-only Cormorant). Custom monograms (`events.monogram_custom_svg`) are rasterized via sharp and composited into a reserved slot; text monograms render in-layout.
+- **On-the-fly card route (`/api/social/card/[postId]`):** public GET, renders from the `social_posts` row (+ consent→event / vendor joins), `Cache-Control: immutable`, 404 on missing row, cream-wordmark fallback card on any error so a Graph fetch never gets a broken image. Zero storage cost (no R2 write); also powers the live `<img>` previews now shown in the admin queue.
+- **Instagram adapter (`lib/social/instagram.ts`):** `isInstagramConfigured()` + `postToInstagramFeed()` — Graph v21.0 two-step (`/media` container → `/media_publish`) + permalink fetch, never-throws, 15-s timeouts, caption clamped to 2200. Needs `IG_USER_ID` (IG Business account linked to the Page; same `META_PAGE_ACCESS_TOKEN` with `instagram_content_publish`).
+- **Multi-platform dispatch (`flush.ts`):** `dispatchFacebook` → `dispatchDuePosts`, now selecting `instagram_enabled`; fires when autopublish AND (FB live OR IG live). Per row `effectiveMedia = media_url || socialCardUrl(post_id)`, posts to each enabled+configured platform, merges `platform_results.{facebook,instagram}`, status `published` if any leg succeeds, source stamps prefer the FB permalink then IG. **FB-only behavior preserved exactly when IG is off** — and FB posts now ride the branded card as photo posts (better reach) for free.
+- **Admin queue:** Instagram is a live chip (off / live / awaiting-env) with an enabled checkbox + env banner; card previews on Scheduled/Published/Failed; FB+IG permalinks on published rows. `.env.example` gains the Meta block (`META_PAGE_ID`/`META_PAGE_ACCESS_TOKEN` were never added) + `IG_USER_ID`.
+- **Out of scope (next):** Reels/TikTok video (1080×1920) — feed cards only.
+
+**Verification:** `pnpm exec tsc --noEmit` + `next lint` clean. All 5 card types rendered locally to valid 1080×1080 JPEGs and visually confirmed on-brand (gold frame, serif headline, SETNAYAN + "Set na 'yan." wordmark). Activation still gated on the master switch + Meta env (+ `IG_USER_ID` for Instagram).
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5 Phase B → BUILT + DECISION_LOG ship row.
 
 ## 2026-06-13 · fix(migrations): resolve duplicate timestamp 20261206000000 blocking all PR merges
 

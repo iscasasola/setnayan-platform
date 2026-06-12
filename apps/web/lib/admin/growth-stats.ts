@@ -287,7 +287,6 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   celebration: 'Celebrations',
   travel: 'Travel',
   corporate: 'Corporate',
-  burial: 'Burials',
 };
 
 /** Display label for an events.region slug (lowercase key, e.g. 'ncr'). */

@@ -440,3 +440,101 @@ test.describe('booth perimeter rules', () => {
     expect(dist).toBeGreaterThanOrEqual(10);
   });
 });
+
+// --- serpentine chaining (2026-06-13: tips snap together) ----------------------
+
+import {
+  SERPENTINE_SWEEP_DEG,
+  serpentineChainSnap,
+  serpentineEndsWorld,
+} from '../../lib/seating';
+
+const endGap = (
+  a: { x: number; y: number; rot: number; scale: number },
+  b: { x: number; y: number; rot: number; scale: number },
+) => {
+  const ea = serpentineEndsWorld(a);
+  const eb = serpentineEndsWorld(b);
+  let min = Infinity;
+  for (const p of ea) for (const q of eb) min = Math.min(min, Math.hypot(p.x - q.x, p.y - q.y));
+  return min;
+};
+
+test.describe('serpentine chain snap', () => {
+  const B = { x: 500, y: 500, rot: 0, scale: 1 };
+
+  test('snapping near a candidate glues the tips together exactly', () => {
+    // Probe a ring of drag points around the anchor: every snap that fires
+    // must land the dragged wedge with one end midpoint EXACTLY on one of the
+    // anchor's end midpoints (tangent-continuous chain), never stacked on top.
+    let fired = 0;
+    for (let deg = 0; deg < 360; deg += 30) {
+      const probe = {
+        x: B.x + 170 * Math.cos((deg * Math.PI) / 180),
+        y: B.y + 170 * Math.sin((deg * Math.PI) / 180),
+      };
+      const snap = serpentineChainSnap(probe, [B], 120);
+      if (!snap) continue;
+      fired += 1;
+      const A = { ...snap, scale: 1 };
+      expect(endGap(A, B)).toBeLessThan(1e-6);
+      expect(Math.hypot(A.x - B.x, A.y - B.y)).toBeGreaterThan(60); // beside, not on top
+      // Junction angles are the only legal ones: ±sweep (circle) or 180 (S).
+      const r = ((snap.rot % 360) + 360) % 360;
+      expect(
+        [SERPENTINE_SWEEP_DEG, 360 - SERPENTINE_SWEEP_DEG, 180].some((v) => Math.abs(r - v) < 1e-6),
+      ).toBe(true);
+    }
+    expect(fired).toBeGreaterThan(0);
+  });
+
+  test('S-bend and circle-continue are both offered, deterministically', () => {
+    const all = new Set<number>();
+    for (let deg = 0; deg < 360; deg += 10) {
+      const probe = {
+        x: B.x + 190 * Math.cos((deg * Math.PI) / 180),
+        y: B.y + 190 * Math.sin((deg * Math.PI) / 180),
+      };
+      const snap = serpentineChainSnap(probe, [B], 160);
+      if (snap) all.add(Math.round(((snap.rot % 360) + 360) % 360));
+    }
+    expect(all.has(180)).toBe(true); // S-bend
+    expect(all.has(SERPENTINE_SWEEP_DEG) || all.has(360 - SERPENTINE_SWEEP_DEG)).toBe(true); // circle
+    // Determinism: same probe → same answer.
+    const p = { x: B.x + 150, y: B.y + 40 };
+    expect(serpentineChainSnap(p, [B], 160)).toEqual(serpentineChainSnap(p, [B], 160));
+  });
+
+  test('far away → no snap (free drag)', () => {
+    expect(serpentineChainSnap({ x: B.x + 900, y: B.y + 900 }, [B], 36)).toBeNull();
+    expect(serpentineChainSnap({ x: 0, y: 0 }, [], 36)).toBeNull();
+  });
+
+  test('chairs clear each other across every junction type', () => {
+    // World chair centres of a wedge = geometry seats, scaled + rotated + offset.
+    const chairsWorld = (w: { x: number; y: number; rot: number }) => {
+      const geo = tableGeometry('serpentine', 5);
+      return geo.seats.map((s) => {
+        const r = rotatePoint(s, w.rot);
+        return { x: w.x + r.x, y: w.y + r.y };
+      });
+    };
+    // Build each junction by snapping right at the candidates around B.
+    for (let deg = 0; deg < 360; deg += 15) {
+      const probe = {
+        x: B.x + 180 * Math.cos((deg * Math.PI) / 180),
+        y: B.y + 180 * Math.sin((deg * Math.PI) / 180),
+      };
+      const snap = serpentineChainSnap(probe, [B], 140);
+      if (!snap) continue;
+      const ca = chairsWorld(snap);
+      const cb = chairsWorld(B);
+      for (const p of ca)
+        for (const q of cb) {
+          // CHAIR_PX is 40 — centres must keep at least a chair-width apart
+          // (minus a small visual tolerance) so seam chairs never stack.
+          expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeGreaterThan(38);
+        }
+    }
+  });
+});

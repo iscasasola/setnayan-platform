@@ -28,6 +28,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
+## 2026-06-13 · feat(seating): serpentine wedges snap tip-to-tip — chain into an S / circle, chairs flow around the joint
+
+**Context:** owner directive with annotated screenshot — "the ends of the table must be able to snap together. connecting the serpentine … connect the tips of the tables and make sure that the chairs adjust as well." The 2026-05-09 serpentine lock always intended wedges to chain ("chain + rotate several wedges to build an S / circle / oval") but the editor had no end-to-end snapping — wedges could only be eyeballed adjacent, and the collision resolver actively pushed touching wedges apart.
+
+- **`lib/seating.ts`:** `serpentineChainSnap` — pure px-space magnetic snap. A wedge end can accept a neighbour in exactly two tangent-continuous ways, both pure rotations of the anchor (the wedge is symmetric, no mirroring): *continue the circle* (rotate ±sweep about the arc centre) or *S-bend* (rotate 180° about the end-edge midpoint). 4 candidates per neighbouring wedge; nearest within 36 px wins, deterministic. Plus `serpentineFrame` / `serpentineEndsWorld` / `SERPENTINE_SWEEP_DEG` exports.
+- **Chairs adjust by construction:** chairs are positioned per-wedge with end insets and already rotate with the wedge, so when tips meet flush the chairs flow continuously around the joint. The inner-edge inset widens 0.32 → 0.36 rad — at 0.32 the seam's facing inner chairs crowded ~4 px; at 0.36 every junction type keeps ≥ ~40 px chair-centre clearance (pinned by test).
+- **Editor:** dragging a serpentine near another wedge's end magnets position AND rotation to the joint (live, every frame); Alt drags free; the snapped rotation commits once on release via the existing `commitRotation`. `overlapsAny` exempts serpentine↔serpentine pairs — chained wedges are MEANT to touch, and without the exemption the mount-time resolver tears saved chains apart on every reload.
+- **Scope note:** physical chaining is orthogonal to the named-unit "link" feature (identity + QR) — chain tips for the shape, link for one name/sign; both compose.
+
+**Verification:** 32/32 pure-logic tests green (4 new: tips glue to <1e-6 px with only legal junction angles (±104° / 180°); both junction families offered + deterministic; no snap when out of tolerance; chair-clearance ≥38 px across every junction the probe ring finds). `tsc` clean. Browser run on the demo event confirmed the in-editor lock-on signature (multiple approach angles → identical landed position). Test-driven rotation writes on the demo table were reset afterwards.
+
+**SPEC IMPACT:** none beyond 0008 as-built drift already noted (chaining was the locked intent; this implements it). DECISION_LOG row appended.
+
 ## 2026-06-13 · fix(seating): linking tables now SAYS it worked — success/failure notice on link + unlink
 
 **Context:** owner report — "i cannot link the tables." Reproduced the full flow end-to-end in a local build against prod data: tap table → popup → chain icon → "Linking …" banner → tap second table → `linkTables` server action → DB rows linked. **The mechanic works** (the demo event even carries an owner-made 3-table linked unit). The failure is FEEDBACK: a successful link is visually silent — the joined table just adopts the unit's name (the second table's name disappears from the rail, replaced by a duplicate of the first), nothing moves, nothing confirms. A working link reads as "nothing happened" — or as a table gone missing.

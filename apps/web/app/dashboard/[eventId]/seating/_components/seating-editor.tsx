@@ -53,6 +53,7 @@ import {
   removedSeatSet,
   roleTier,
   rotatePoint,
+  serpentineChainSnap,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
@@ -751,6 +752,9 @@ export function SeatingEditor({
     startRot: number;
     latest: number;
   } | null>(null);
+  // Serpentine chain snap may rotate the dragged wedge mid-drag (the joint
+  // dictates the angle); the final angle commits once on release.
+  const serpSnapRotRef = useRef<{ id: string; rot: number } | null>(null);
 
   const angleDeg = (cx: number, cy: number, px: number, py: number) =>
     (Math.atan2(py - cy, px - cx) * 180) / Math.PI;
@@ -824,6 +828,16 @@ export function SeatingEditor({
     }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
+      // Serpentine↔serpentine never "collides": chained wedges are MEANT to
+      // touch tip-to-tip, and their curved bands overlap each other's bounding
+      // boxes by design. Without this exemption the resolver tears saved
+      // chains apart on every remount.
+      if (
+        shapeHintFor(moving.table_type) === 'serpentine' &&
+        shapeHintFor(o.table_type) === 'serpentine'
+      ) {
+        return false;
+      }
       const op = posFor(o, i);
       if (!op) return false;
       const of = footprintPx(o);
@@ -1135,6 +1149,43 @@ export function SeatingEditor({
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
+        // Serpentine chaining: when dragging a wedge near another wedge's end,
+        // magnet the tips together (position + rotation) so the curves connect
+        // into an S / circle — the 2026-05-09 chain model. Wins over the
+        // alignment/grid snap; Alt drags free. The collision pass is skipped
+        // (chained wedges are MEANT to touch) and overlapsAny exempts
+        // serpentine↔serpentine pairs so saved chains survive remounts.
+        const movingEarly = tables.find((t) => t.table_id === d.id);
+        if (movingEarly && !e.altKey && shapeHintFor(movingEarly.table_type) === 'serpentine') {
+          const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
+          const peers = tables
+            .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
+            .map((o) => {
+              const i = tables.indexOf(o);
+              const p = positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+              return {
+                x: (p.x / 100) * rect.width,
+                y: (p.y / 100) * rect.height,
+                rot: rotationOf(o),
+                scale: footprintPx(o).w / serpBoxW,
+              };
+            });
+          const snap = serpentineChainSnap(
+            { x: (x / 100) * rect.width, y: (y / 100) * rect.height },
+            peers,
+          );
+          if (snap) {
+            guidesRef.current = { x: null, y: null };
+            const nx = Math.max(lo, Math.min(hi, (snap.x / rect.width) * 100));
+            const ny = Math.max(lo, Math.min(hi, (snap.y / rect.height) * 100));
+            serpSnapRotRef.current = { id: d.id, rot: snap.rot };
+            if (rotationOf(movingEarly) !== snap.rot) {
+              setRotById((m) => ({ ...m, [d.id]: snap.rot }));
+            }
+            setPositions((p) => ({ ...p, [d.id]: { x: nx, y: ny } }));
+            return;
+          }
+        }
         // Alignment snap: pull to another table's centre (or the room
         // centreline) when within tolerance — the matched axis draws a guide
         // hairline. Hold Alt to drag free of all snapping.
@@ -1230,9 +1281,17 @@ export function SeatingEditor({
     dragRef.current = null;
     setDragId(null);
     guidesRef.current = { x: null, y: null };
+    const serpRot = serpSnapRotRef.current;
+    serpSnapRotRef.current = null;
     if (d?.moved) {
-      if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
-      else if (d.kind === 'booth') setBoothsDirty(true);
+      if (d.kind === 'table') {
+        setDirty((s) => new Set(s).add(d.id));
+        // The chain snap rotated the wedge to fit the joint — persist it once.
+        if (serpRot && serpRot.id === d.id) {
+          const t = tables.find((x) => x.table_id === d.id);
+          if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
+        }
+      } else if (d.kind === 'booth') setBoothsDirty(true);
       else setFloorDirty(true);
     } else if (d && d.kind === 'table' && !pickedId && !pickedGroupId) {
       if (linkingFrom && d.id !== linkingFrom) {

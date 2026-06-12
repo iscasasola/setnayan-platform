@@ -285,3 +285,158 @@ test.describe('stats + placement', () => {
     }
   });
 });
+
+// --- Auto Arrange (2026-06-13 expansion) --------------------------------------
+// rankTablesByStage · guestTier override · computeAutoLayout · booth perimeter.
+
+import {
+  DEFAULT_FLOOR_PLAN,
+  boothPerimeterSlots,
+  clampBoothToPerimeter,
+  computeAutoLayout,
+  guestTier,
+  rankTablesByStage,
+  stageWallOf,
+} from '../../lib/seating';
+
+const RECT = { width: 1000, height: 750 };
+// Constant-footprint stub: layout math is exercised in percent space without
+// dragging the real chair geometry into these tests.
+const STUB_FOOT = () => ({ w: 120, h: 120 });
+
+test.describe('rankTablesByStage', () => {
+  test('closer to the stage = higher priority score, deterministic ties', () => {
+    const near = mkTable({ table_id: 'near', x_pos: 50, y_pos: 20 });
+    const far = mkTable({ table_id: 'far', x_pos: 50, y_pos: 80 });
+    const mid = mkTable({ table_id: 'mid', x_pos: 20, y_pos: 40 });
+    const ranked = rankTablesByStage([far, mid, near], { x: 50, y: 6 });
+    expect(ranked.map((r) => r.table.table_id)).toEqual(['near', 'mid', 'far']);
+    expect(ranked[0]!.priorityScore).toBeGreaterThan(ranked[1]!.priorityScore);
+    expect(ranked[1]!.priorityScore).toBeGreaterThan(ranked[2]!.priorityScore);
+    // Re-running on the same input gives the identical order + scores.
+    expect(rankTablesByStage([far, mid, near], { x: 50, y: 6 })).toEqual(ranked);
+  });
+});
+
+test.describe('guestTier override', () => {
+  test('explicit seating_priority beats the role-derived tier', () => {
+    expect(guestTier('guest', 'friends', null)).toBe(4);
+    expect(guestTier('guest', 'friends', 1)).toBe(1);
+    expect(guestTier('principal_sponsor', 'friends', 4)).toBe(4);
+    // Out-of-range / absent overrides fall back to derivation.
+    expect(guestTier('guest', 'family', 0)).toBe(3);
+    expect(guestTier('guest', 'family', undefined)).toBe(3);
+  });
+
+  test('computeAutoSeat seats an overridden P1 guest before tier-2 entourage', () => {
+    const front = mkTable({ table_id: 'front', x_pos: 50, y_pos: 20, capacity: 1 });
+    const back = mkTable({ table_id: 'back', x_pos: 50, y_pos: 80, capacity: 8 });
+    const bestMan = mkGuest({ guest_id: 'bestman', role: 'best_man' }); // tier 2
+    const vip = mkGuest({ guest_id: 'vip', role: 'guest', seating_priority: 1 }); // 4 → 1
+    const rows = computeAutoSeat([front, back], [bestMan, vip], [], STAGE);
+    expect(rows.find((r) => r.guest_id === 'vip')!.table_id).toBe('front');
+    expect(rows.find((r) => r.guest_id === 'bestman')!.table_id).toBe('back');
+  });
+});
+
+test.describe('computeAutoLayout', () => {
+  const fp = { ...DEFAULT_FLOOR_PLAN };
+
+  test('places every table inside the playable band, off the dance floor, deterministically', () => {
+    const tables = [
+      mkTable({ table_id: 'sw', table_type: 'sweetheart_2', capacity: 2 }),
+      ...Array.from({ length: 9 }, (_, i) => mkTable({ table_id: `r${i}` })),
+    ];
+    const danceFp = { ...fp, dance_enabled: true, dance_x: 50, dance_y: 55, dance_w: 22, dance_h: 18 };
+    const layout = computeAutoLayout({ tables, floorPlan: danceFp, rect: RECT, footprintOf: STUB_FOOT });
+    expect(Object.keys(layout)).toHaveLength(tables.length);
+    for (const p of Object.values(layout)) {
+      expect(p.x).toBeGreaterThanOrEqual(10);
+      expect(p.x).toBeLessThanOrEqual(90);
+      expect(p.y).toBeGreaterThanOrEqual(10);
+      expect(p.y).toBeLessThanOrEqual(90);
+    }
+    // Sweetheart is pinned nearest the stage (row 0, on the stage axis).
+    const swPos = layout['sw']!;
+    for (const [id, p] of Object.entries(layout)) {
+      if (id !== 'sw') expect(p.y).toBeGreaterThanOrEqual(swPos.y - 0.01);
+    }
+    expect(swPos.x).toBeCloseTo(50, 0);
+    // Deterministic: identical input → identical output.
+    expect(computeAutoLayout({ tables, floorPlan: danceFp, rect: RECT, footprintOf: STUB_FOOT })).toEqual(
+      layout,
+    );
+  });
+
+  test('stage-distance order follows the priority table types (head tables nearest)', () => {
+    const tables = [
+      mkTable({ table_id: 'banquet', table_type: 'long_banquet_8' }),
+      mkTable({ table_id: 'head', table_type: 'family_head_12', capacity: 12 }),
+      mkTable({ table_id: 'round', table_type: 'round_10', capacity: 10 }),
+    ];
+    const layout = computeAutoLayout({ tables, floorPlan: fp, rect: RECT, footprintOf: STUB_FOOT });
+    const d = (id: string) =>
+      (layout[id]!.x - fp.stage_x) ** 2 + (layout[id]!.y - fp.stage_y) ** 2;
+    expect(d('head')).toBeLessThanOrEqual(d('round'));
+    expect(d('round')).toBeLessThanOrEqual(d('banquet'));
+  });
+});
+
+test.describe('booth perimeter rules', () => {
+  const fp = {
+    ...DEFAULT_FLOOR_PLAN,
+    entrance_enabled: true,
+    entrance_x: 50,
+    entrance_y: 94,
+    service_entrance_enabled: true,
+    service_entrance_x: 97,
+    service_entrance_y: 50,
+  };
+  const onPerimeterBand = (p: { x: number; y: number }) => {
+    const nearV = p.x <= 6 || p.x >= 94;
+    const nearH = p.y <= 6 || p.y >= 94;
+    return nearV || nearH;
+  };
+
+  test('anchor slots hug the walls, never the stage wall, clear of doors', () => {
+    const slots = boothPerimeterSlots(fp, 5);
+    expect(slots).toHaveLength(5);
+    expect(stageWallOf(fp)).toBe('top');
+    for (const s of slots) {
+      expect(onPerimeterBand(s)).toBe(true);
+      expect(s.y).toBeGreaterThan(10); // stage wall (top) carries no booths
+      // Entrance corridor (bottom-centre door at x=50): booths on the bottom
+      // wall keep ≥ the door-clear distance away.
+      if (s.y >= 94) expect(Math.abs(s.x - 50)).toBeGreaterThanOrEqual(12);
+      // Service door (right wall at y=50) keeps its corridor too.
+      if (s.x >= 94) expect(Math.abs(s.y - 50)).toBeGreaterThanOrEqual(12);
+    }
+    // Deterministic.
+    expect(boothPerimeterSlots(fp, 5)).toEqual(slots);
+    // Spaced apart (no two slots stacked).
+    for (let i = 0; i < slots.length; i++) {
+      for (let j = i + 1; j < slots.length; j++) {
+        const dist = Math.hypot(slots[i]!.x - slots[j]!.x, slots[i]!.y - slots[j]!.y);
+        expect(dist).toBeGreaterThanOrEqual(10);
+      }
+    }
+  });
+
+  test('a mid-room drop snaps to the perimeter; a stage-wall drop lands elsewhere', () => {
+    const mid = clampBoothToPerimeter(50, 50, fp, []);
+    expect(onPerimeterBand(mid)).toBe(true);
+    // Dropped right onto the stage (top-centre): forbidden wall, so it must
+    // resolve to one of the other three.
+    const nearStage = clampBoothToPerimeter(50, 4, fp, []);
+    expect(nearStage.y).toBeGreaterThan(10);
+    expect(onPerimeterBand(nearStage)).toBe(true);
+  });
+
+  test('booths slide along the wall instead of stacking on a neighbour', () => {
+    const first = clampBoothToPerimeter(30, 96, fp, []);
+    const second = clampBoothToPerimeter(30, 96, fp, [first]);
+    expect(onPerimeterBand(second)).toBe(true);
+    const dist = Math.hypot(first.x - second.x, first.y - second.y);
+    expect(dist).toBeGreaterThanOrEqual(10);
+  });
+});

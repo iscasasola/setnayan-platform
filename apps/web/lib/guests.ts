@@ -98,6 +98,9 @@ export type GuestRow = {
   notes: string | null;
   qr_token: string;
   custom_tags: string[];
+  // Explicit seating-priority tier override (1–4); null = derive from role +
+  // group via lib/seating guestTier(). Written by the seat-plan editor.
+  seating_priority: number | null;
   created_at: string;
 };
 
@@ -230,7 +233,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,created_at';
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,created_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import {
+  BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
   computeAutoSeat,
   effectiveCapacity,
@@ -14,6 +15,7 @@ import {
   removedSeatSet,
   roleTier,
   type AutoSeatGuest,
+  type BoothType,
   type TableType,
 } from '@/lib/seating';
 
@@ -246,6 +248,7 @@ export async function autoSeatGuests(formData: FormData) {
     // Primary group = first membership, mirroring how the editor colours a
     // guest, so auto-seat clusters the same groups the couple sees.
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
+    seating_priority: g.seating_priority ?? null,
   }));
 
   // Anchor the role-tier rings on where the couple actually placed the stage.
@@ -733,4 +736,215 @@ export async function seatRoleAtTable(
   }
 
   return { seated: rows.length, requested: eligible.length, overflow: eligible.length - rows.length };
+}
+
+// ---------------------------------------------------------------------------
+// Auto Arrange (owner-directed 2026-06-13) — booths + one-click arrangement.
+// All placement math is deterministic lib/seating.ts logic computed on the
+// client; these actions validate + persist, then run the (equally pure)
+// auto-seat pass server-side. No AI calls anywhere on this path.
+// ---------------------------------------------------------------------------
+
+const VALID_BOOTH_TYPES = new Set(BOOTH_CATALOG.map((b) => b.type));
+const MAX_BOOTHS = 12;
+
+type BoothPayload = {
+  booth_id: string | null;
+  booth_type: BoothType;
+  label: string;
+  x_pos: number;
+  y_pos: number;
+  sort_order: number;
+};
+
+// Parse + clamp the booths JSON. Throws on anything malformed — the editor
+// always sends well-formed data, so a failure here is a tampered request.
+function parseBoothsPayload(raw: unknown): BoothPayload[] {
+  if (typeof raw !== 'string') throw new Error('Invalid input');
+  let arr: unknown;
+  try {
+    arr = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid input');
+  }
+  if (!Array.isArray(arr) || arr.length > MAX_BOOTHS) throw new Error('Invalid input');
+  return arr.map((b, i) => {
+    const o = b as Record<string, unknown>;
+    const type = o.booth_type;
+    if (typeof type !== 'string' || !VALID_BOOTH_TYPES.has(type as BoothType)) {
+      throw new Error('Invalid booth type');
+    }
+    const label = typeof o.label === 'string' ? o.label.trim().slice(0, 60) : '';
+    const x = Number(o.x_pos);
+    const y = Number(o.y_pos);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Invalid input');
+    return {
+      booth_id: typeof o.booth_id === 'string' && o.booth_id.length > 0 ? o.booth_id : null,
+      booth_type: type as BoothType,
+      label: label || (BOOTH_CATALOG.find((c) => c.type === type)?.label ?? 'Booth'),
+      x_pos: Math.max(0, Math.min(100, x)),
+      y_pos: Math.max(0, Math.min(100, y)),
+      sort_order: i,
+    };
+  });
+}
+
+// Replace-all save of the event's booth markers (RLS scopes writes to the
+// couple's own events). Booths NOT in the payload are deleted.
+async function persistBooths(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  booths: BoothPayload[],
+) {
+  const keepIds = booths.map((b) => b.booth_id).filter((id): id is string => id !== null);
+  const del = supabase.from('event_floor_booths').delete().eq('event_id', eventId);
+  const { error: delError } = await (keepIds.length > 0
+    ? del.not('booth_id', 'in', `(${keepIds.join(',')})`)
+    : del);
+  if (delError) throw new Error(delError.message);
+  for (const b of booths) {
+    const row = {
+      event_id: eventId,
+      booth_type: b.booth_type,
+      label: b.label,
+      x_pos: b.x_pos,
+      y_pos: b.y_pos,
+      sort_order: b.sort_order,
+    };
+    const { error } = b.booth_id
+      ? await supabase.from('event_floor_booths').update(row).eq('booth_id', b.booth_id).eq('event_id', eventId)
+      : await supabase.from('event_floor_booths').insert(row);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function saveBooths(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
+  const booths = parseBoothsPayload(formData.get('booths'));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await persistBooths(supabase, eventId, booths);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Explicit per-guest priority-tier override (guests.seating_priority). An
+// empty value clears the override back to the role-derived tier.
+export async function setGuestSeatingPriority(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const guestId = formData.get('guest_id');
+  const raw = formData.get('priority');
+  if (typeof eventId !== 'string' || typeof guestId !== 'string' || guestId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const priority =
+    typeof raw === 'string' && ['1', '2', '3', '4'].includes(raw) ? Number(raw) : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('guests')
+    .update({ seating_priority: priority })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// One-click Auto Arrange: persist the client-computed table layout + booth
+// anchors, then run the deterministic role-tier auto-seat against the NEW
+// positions so "nearest the stage" means the layout that was just made.
+// Seating stays idempotent (already-seated guests never move).
+export async function autoArrange(formData: FormData): Promise<{ seated: number }> {
+  const eventId = formData.get('event_id');
+  const positionsRaw = formData.get('positions');
+  if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  let positions: Record<string, { x: number; y: number }>;
+  try {
+    positions = JSON.parse(positionsRaw);
+  } catch {
+    throw new Error('Invalid input');
+  }
+  const booths = parseBoothsPayload(formData.get('booths') ?? '[]');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+    fetchGuestsByEvent(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
+  ]);
+
+  // Persist positions — only for tables that really belong to this event, with
+  // clamped finite coordinates. Unknown ids in the payload are ignored.
+  const tableIds = new Set(tables.map((t) => t.table_id));
+  const cleanPos: Record<string, { x: number; y: number }> = {};
+  for (const [id, p] of Object.entries(positions)) {
+    if (!tableIds.has(id)) continue;
+    const x = Number((p as { x: unknown }).x);
+    const y = Number((p as { y: unknown }).y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    cleanPos[id] = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+  }
+  for (const [id, p] of Object.entries(cleanPos)) {
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: p.x, y_pos: p.y })
+      .eq('table_id', id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  await persistBooths(supabase, eventId, booths);
+
+  // Auto-seat against the freshly arranged positions.
+  const arrangedTables = tables.map((t) =>
+    cleanPos[t.table_id] ? { ...t, x_pos: cleanPos[t.table_id]!.x, y_pos: cleanPos[t.table_id]!.y } : t,
+  );
+  const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
+    guest_id: g.guest_id,
+    role: g.role,
+    group_category: g.group_category,
+    rsvp_status: g.rsvp_status,
+    plus_one_of_guest_id: g.plus_one_of_guest_id,
+    last_name: g.last_name,
+    first_name: g.first_name,
+    group_id: memberships.get(g.guest_id)?.[0] ?? null,
+    seating_priority: g.seating_priority ?? null,
+  }));
+  const rows = computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, {
+    x: floorPlan.stage_x,
+    y: floorPlan.stage_y,
+  });
+  if (rows.length > 0) {
+    const { error } = await supabase.from('event_seat_assignments').insert(
+      rows.map((r) => ({
+        event_id: eventId,
+        table_id: r.table_id,
+        guest_id: r.guest_id,
+        seat_number: r.seat_number,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return { seated: rows.length };
 }

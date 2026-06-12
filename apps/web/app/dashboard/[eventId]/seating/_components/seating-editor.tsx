@@ -6,17 +6,22 @@ import { useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, u
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import {
   Armchair,
+  CakeSlice,
+  Camera,
   ChevronDown,
   DoorOpen,
   Eye,
   EyeOff,
   FileDown,
   Footprints,
+  Gift,
   Link2,
   List,
   Map as MapIcon,
+  Martini,
   Maximize2,
   Minus,
+  Package,
   Plus,
   Printer,
   RotateCcw,
@@ -25,6 +30,7 @@ import {
   Save,
   Search,
   Sparkles,
+  Store,
   Trash2,
   Truck,
   Unlink,
@@ -33,12 +39,17 @@ import {
   X,
 } from 'lucide-react';
 import {
+  BOOTH_CATALOG,
   CHAIR_PX,
   ROLE_TIER_LABELS,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
+  boothPerimeterSlots,
+  clampBoothToPerimeter,
+  computeAutoLayout,
   defaultTablePosition,
   effectiveCapacity,
+  guestTier,
   removedSeatSet,
   roleTier,
   rotatePoint,
@@ -46,20 +57,24 @@ import {
   TABLE_TYPE_LABEL,
   shapeHintFor,
   tableGeometry,
+  type BoothType,
   type EventTableRow,
+  type FloorBoothRow,
   type FloorPlanRow,
   type TableType,
 } from '@/lib/seating';
 import {
   assignGroup,
   assignGuest,
-  autoSeatGuests,
+  autoArrange,
   createTable,
   deleteTable,
   linkTables,
   publishSeating,
+  saveBooths,
   saveFloorPlan,
   seatRoleAtTable,
+  setGuestSeatingPriority,
   setTableSeat,
   unassignGuest,
   unlinkTable,
@@ -86,6 +101,8 @@ export type SeatingGuest = {
   // caterer report aggregates it per table unit.
   meal_preference: string | null;
   dietary_restrictions: string | null;
+  // Explicit priority-tier override (1–4); null = derived from role/group.
+  seating_priority: number | null;
 };
 
 export type SeatingGroup = {
@@ -101,6 +118,7 @@ type Props = {
   guests: SeatingGuest[];
   groups: SeatingGroup[];
   floorPlan: FloorPlanRow;
+  booths: FloorBoothRow[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
   me: { id: string; name: string };
 };
@@ -114,7 +132,8 @@ type LocalPos = { x: number; y: number };
 type GuestSeatOp =
   | { type: 'seat'; guestId: string; tableId: string; seat: number | null }
   | { type: 'unseat'; guestId: string }
-  | { type: 'seatGroup'; ids: string[]; tableId: string };
+  | { type: 'seatGroup'; ids: string[]; tableId: string }
+  | { type: 'priority'; guestId: string; value: number | null };
 
 // Default placement for an un-positioned table — shared with the PDF + day-of
 // map (lib/seating) so the layout matches everywhere.
@@ -126,6 +145,7 @@ export function SeatingEditor({
   guests: guestsProp,
   groups,
   floorPlan,
+  booths: boothsProp,
   me,
 }: Props) {
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
@@ -139,6 +159,10 @@ export function SeatingEditor({
       case 'unseat':
         return state.map((g) =>
           g.guest_id === op.guestId ? { ...g, seated_table_id: null, seat_number: null } : g,
+        );
+      case 'priority':
+        return state.map((g) =>
+          g.guest_id === op.guestId ? { ...g, seating_priority: op.value } : g,
         );
       case 'seatGroup': {
         const set = new Set(op.ids);
@@ -158,7 +182,7 @@ export function SeatingEditor({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
-    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance';
+    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance' | 'booth';
     id: string;
     sx: number;
     sy: number;
@@ -191,6 +215,31 @@ export function SeatingEditor({
     y: floorPlan.dance_y,
     w: floorPlan.dance_w,
     h: floorPlan.dance_h,
+  });
+  // Vendor booths (Photo Booth, Mobile Bar, …) — perimeter-anchored markers.
+  // New booths get a tmp- id until the next save returns real rows; the prop
+  // re-syncs local state whenever there's nothing unsaved (boothsDirty=false),
+  // so a server revalidation can't clobber an in-flight drag.
+  const [booths, setBooths] = useState<FloorBoothRow[]>(boothsProp);
+  const [boothsDirty, setBoothsDirty] = useState(false);
+  const boothsDirtyRef = useRef(false);
+  boothsDirtyRef.current = boothsDirty;
+  const tmpBoothSeq = useRef(0);
+  useEffect(() => {
+    if (!boothsDirtyRef.current) setBooths(boothsProp);
+  }, [boothsProp]);
+  // Live floor-plan geometry for the booth perimeter rules (lib/seating).
+  const boothFp = () => ({
+    stage_x: stage.x,
+    stage_y: stage.y,
+    stage_w: stage.w,
+    stage_h: stage.h,
+    entrance_enabled: entrance.enabled,
+    entrance_x: entrance.x,
+    entrance_y: entrance.y,
+    service_entrance_enabled: serviceDoor.enabled,
+    service_entrance_x: serviceDoor.x,
+    service_entrance_y: serviceDoor.y,
   });
   // Drag-resize of the stage / dance-floor (SE grip, NW corner anchored) and
   // of the venue walls. Self-contained pointer handlers on the grips; the
@@ -227,6 +276,7 @@ export function SeatingEditor({
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showAddBooth, setShowAddBooth] = useState(false);
   const [canvasW, setCanvasW] = useState(0);
   const [floorDirty, setFloorDirty] = useState(false);
 
@@ -471,11 +521,69 @@ export function SeatingEditor({
     else setConfirmDelete(t);
   };
 
-  const runAutoSeat = () => {
+  // One-click Auto Arrange — three deterministic steps, all free sorting
+  // logic (no AI): (1) computeAutoLayout rebuilds the table grid stage-out,
+  // (2) boothPerimeterSlots re-anchors every booth to the legal wall band,
+  // (3) the server's role-tier auto-seat fills guests into the new layout.
+  // Optimistic: the new geometry paints immediately; the server action then
+  // persists positions + booths and seats guests in one round-trip.
+  const runAutoArrange = () => {
     setConfirmAuto(false);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+    const fp = boothFp();
+    const layout = computeAutoLayout({
+      tables,
+      floorPlan: {
+        ...fp,
+        dance_enabled: dance.enabled,
+        dance_x: dance.x,
+        dance_y: dance.y,
+        dance_w: dance.w,
+        dance_h: dance.h,
+      },
+      rect: { width: rect.width, height: rect.height },
+      footprintOf: footprintPx,
+    });
+    const slots = boothPerimeterSlots(fp, booths.length);
+    const nextBooths = booths.map((b, i) => ({
+      ...b,
+      x_pos: slots[i]?.x ?? b.x_pos,
+      y_pos: slots[i]?.y ?? b.y_pos,
+    }));
+    setPositions((p) => ({ ...p, ...layout }));
+    setBooths(nextBooths);
     const fd = new FormData();
     fd.set('event_id', eventId);
-    startTransition(() => autoSeatGuests(fd));
+    fd.set('positions', JSON.stringify(layout));
+    fd.set('booths', boothsPayload(nextBooths));
+    startTransition(async () => {
+      const res = await autoArrange(fd);
+      // The action persisted everything it was sent — nothing is "unsaved".
+      setDirty(new Set());
+      setBoothsDirty(false);
+      setNotice(
+        res.seated > 0
+          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} on the perimeter, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
+          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} on the perimeter` : ''}. Everyone attending is already seated.`,
+      );
+    });
+  };
+
+  // Tap the P-chip to cycle a guest's explicit priority override: from the
+  // derived tier it starts an override at 1, then 2→3→4, then back to derived
+  // (null). Optimistic — the chip flips instantly, the server persists.
+  const cyclePriority = (g: SeatingGuest) => {
+    const next =
+      g.seating_priority === null ? 1 : g.seating_priority >= 4 ? null : g.seating_priority + 1;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('guest_id', g.guest_id);
+    fd.set('priority', next === null ? '' : String(next));
+    startTransition(async () => {
+      applyGuestOpt({ type: 'priority', guestId: g.guest_id, value: next });
+      await setGuestSeatingPriority(fd);
+    });
   };
 
   // Publish the seating pack + open the printable sign sheets. The print route
@@ -877,6 +985,21 @@ export function SeatingEditor({
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     };
 
+  // Drag a vendor booth — same pointer model, but the move handler runs the
+  // hardcoded perimeter snap (clampBoothToPerimeter) on every frame, so a
+  // booth can only travel along the legal wall band.
+  const onBoothPointerDown = (boothId: string) => (e: React.PointerEvent) => {
+    if (pickedId || pickedGroupId) {
+      e.stopPropagation();
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { kind: 'booth', id: boothId, sx: e.clientX, sy: e.clientY, moved: false };
+    setDragId(`__booth_${boothId}__`);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
   const ZOOM_MIN = 0.1; // low enough that Fit frames even a large free auto-grow board
   const ZOOM_MAX = 2.6;
   const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
@@ -1043,6 +1166,14 @@ export function SeatingEditor({
         setDance((dz) => ({ ...dz, x, y }));
       } else if (d.kind === 'service') {
         setServiceDoor((sd) => ({ ...sd, x, y }));
+      } else if (d.kind === 'booth') {
+        // Perimeter rules run live: snap to the nearest legal wall position,
+        // sliding clear of the stage wall, door corridors and other booths.
+        const peers = booths
+          .filter((b) => b.booth_id !== d.id)
+          .map((b) => ({ x: b.x_pos, y: b.y_pos }));
+        const p = clampBoothToPerimeter(x, y, boothFp(), peers);
+        setBooths((bs) => bs.map((b) => (b.booth_id === d.id ? { ...b, x_pos: p.x, y_pos: p.y } : b)));
       } else {
         setEntrance((en) => ({ ...en, x, y }));
       }
@@ -1080,6 +1211,7 @@ export function SeatingEditor({
     guidesRef.current = { x: null, y: null };
     if (d?.moved) {
       if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
+      else if (d.kind === 'booth') setBoothsDirty(true);
       else setFloorDirty(true);
     } else if (d && d.kind === 'table' && !pickedId && !pickedGroupId) {
       if (linkingFrom && d.id !== linkingFrom) {
@@ -1121,6 +1253,47 @@ export function SeatingEditor({
     setDance((dz) => ({ ...dz, enabled: false }));
     setFloorDirty(true);
   };
+  // Add a vendor booth: it spawns straight onto the nearest legal perimeter
+  // spot (bottom-centre bias), never mid-room.
+  const addBooth = (type: BoothType) => {
+    const label = BOOTH_CATALOG.find((b) => b.type === type)?.label ?? 'Booth';
+    const p = clampBoothToPerimeter(
+      50,
+      96,
+      boothFp(),
+      booths.map((b) => ({ x: b.x_pos, y: b.y_pos })),
+    );
+    tmpBoothSeq.current += 1;
+    setBooths((bs) => [
+      ...bs,
+      {
+        booth_id: `tmp-${tmpBoothSeq.current}`,
+        event_id: eventId,
+        booth_type: type,
+        label,
+        x_pos: p.x,
+        y_pos: p.y,
+        sort_order: bs.length,
+      },
+    ]);
+    setBoothsDirty(true);
+  };
+  const removeBooth = (boothId: string) => {
+    setBooths((bs) => bs.filter((b) => b.booth_id !== boothId));
+    setBoothsDirty(true);
+  };
+  // Serialize local booth state for the server (tmp ids become inserts).
+  const boothsPayload = (bs: FloorBoothRow[]) =>
+    JSON.stringify(
+      bs.map((b, i) => ({
+        booth_id: b.booth_id.startsWith('tmp-') ? null : b.booth_id,
+        booth_type: b.booth_type,
+        label: b.label,
+        x_pos: b.x_pos,
+        y_pos: b.y_pos,
+        sort_order: i,
+      })),
+    );
 
   // SE resize grip for the stage / dance-floor rects. NW-corner anchored: the
   // grip drags the bottom-right corner; the centre shifts by half the delta so
@@ -1276,11 +1449,19 @@ export function SeatingEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables.length, venueScaled, view]);
 
-  const layoutDirty = dirty.size > 0 || floorDirty;
+  const layoutDirty = dirty.size > 0 || floorDirty || boothsDirty;
   const saveLayout = () => {
     const ids = Array.from(dirty);
     const fdDirty = floorDirty;
+    const bDirty = boothsDirty;
     startTransition(async () => {
+      if (bDirty) {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('booths', boothsPayload(booths));
+        await saveBooths(fd);
+        setBoothsDirty(false);
+      }
       for (const id of ids) {
         const pos = positions[id];
         if (!pos) continue;
@@ -1449,6 +1630,7 @@ export function SeatingEditor({
                   picked={pickedId === g.guest_id}
                   tableLabel={g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null}
                   onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
+                  onCyclePriority={() => cyclePriority(g)}
                 />
               ))}
             </ul>
@@ -1533,6 +1715,7 @@ export function SeatingEditor({
                                 g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null
                               }
                               onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
+                              onCyclePriority={() => cyclePriority(g)}
                             />
                           ))
                         )}
@@ -1632,6 +1815,55 @@ export function SeatingEditor({
                 <Footprints className="h-3.5 w-3.5" /> Dance floor
               </button>
             ) : null}
+            {view === 'plan' ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAddBooth((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={showAddBooth}
+                  title="Vendor booths anchor to the walls — never blocking the stage or doors"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+                >
+                  <Store className="h-3.5 w-3.5" /> Add booth
+                  <ChevronDown className="h-3 w-3 text-ink/40" />
+                </button>
+                {showAddBooth ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-hidden
+                      tabIndex={-1}
+                      onClick={() => setShowAddBooth(false)}
+                      className="fixed inset-0 z-30 cursor-default"
+                    />
+                    <div
+                      role="menu"
+                      className="absolute left-0 z-40 mt-1 w-48 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+                    >
+                      {BOOTH_CATALOG.map((b) => (
+                        <button
+                          key={b.type}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            setShowAddBooth(false);
+                            addBooth(b.type);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]"
+                        >
+                          <BoothIcon type={b.type} className="h-4 w-4 text-terracotta-700" />
+                          {b.label}
+                        </button>
+                      ))}
+                      <p className="px-3 py-1.5 text-[10px] text-ink/45">
+                        Booths snap to the perimeter — clear of the stage wall &amp; door paths.
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             {view === 'plan' && layoutDirty ? (
               <button
                 type="button"
@@ -1714,10 +1946,10 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => setConfirmAuto(true)}
-              disabled={isPending || unseatedCount === 0 || tables.length === 0}
+              disabled={isPending || tables.length === 0}
               className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Sparkles className="h-3.5 w-3.5" /> Auto-seat guests
+              <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
             </button>
           </div>
         </div>
@@ -2073,6 +2305,39 @@ export function SeatingEditor({
               </button>
             </div>
           ) : null}
+
+          {/* vendor booths — perimeter-anchored markers; the drag handler runs
+              the wall-snap rules live so they can't leave the legal band */}
+          {booths.map((b) => (
+            <div
+              key={b.booth_id}
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}
+            >
+              <button
+                type="button"
+                onPointerDown={onBoothPointerDown(b.booth_id)}
+                aria-label={`${b.label} — drag along the walls`}
+                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                  dragId === `__booth_${b.booth_id}__`
+                    ? 'border-terracotta cursor-grabbing'
+                    : 'border-ink/25 cursor-grab'
+                }`}
+              >
+                <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
+                {b.label}
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => removeBooth(b.booth_id)}
+                aria-label={`Remove ${b.label}`}
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
 
           {tables.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40">
@@ -2888,19 +3153,42 @@ export function SeatingEditor({
         )}
       </div>
 
-      {/* auto-seat confirm */}
+      {/* auto-arrange confirm */}
       {confirmAuto ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
           <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />
-              <h3 className="text-lg font-semibold text-ink">Auto-seat guests</h3>
+              <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
             </div>
-            <p className="text-sm text-ink/70">
-              Seat the <span className="font-semibold">{unseatedCount}</span> unseated, attending{' '}
-              {unseatedCount === 1 ? 'guest' : 'guests'} across {tables.length}{' '}
-              {tables.length === 1 ? 'table' : 'tables'} by role tier — closest to the stage first. This won&rsquo;t
-              move anyone you&rsquo;ve already placed, and it skips sweetheart tables.
+            <p className="text-sm text-ink/70">One click, three steps:</p>
+            <ol className="mt-2 space-y-1.5 text-sm text-ink/70">
+              <li>
+                <span className="font-semibold text-ink/85">1 · Tables</span> — laid out in a grid
+                fanning from the stage; head &amp; family tables land nearest it. The dance floor
+                stays clear.
+              </li>
+              <li>
+                <span className="font-semibold text-ink/85">2 · Booths</span> —{' '}
+                {booths.length > 0 ? `your ${booths.length} booth${booths.length === 1 ? '' : 's'} anchor` : 'any booths anchor'}{' '}
+                to the back wall &amp; sides, never blocking the stage or door paths.
+              </li>
+              <li>
+                <span className="font-semibold text-ink/85">3 · Guests</span> —{' '}
+                {unseatedCount > 0 ? (
+                  <>
+                    the <span className="font-semibold">{unseatedCount}</span> unseated, attending{' '}
+                    {unseatedCount === 1 ? 'guest is' : 'guests are'} seated by priority tier, highest
+                    priority nearest the stage.
+                  </>
+                ) : (
+                  'everyone attending is already seated, so seats stay as they are.'
+                )}{' '}
+                No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
+              </li>
+            </ol>
+            <p className="mt-2 text-xs text-ink/50">
+              Table positions change and are saved. You can drag anything afterwards.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -2912,10 +3200,10 @@ export function SeatingEditor({
               </button>
               <button
                 type="button"
-                onClick={runAutoSeat}
+                onClick={runAutoArrange}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
-                <Sparkles className="h-4 w-4" /> Auto-seat
+                <Sparkles className="h-4 w-4" /> Auto Arrange
               </button>
             </div>
           </div>
@@ -2990,25 +3278,45 @@ function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?
   return <li className={`rounded-full px-2.5 py-1 font-medium ${cls}`}>{children}</li>;
 }
 
+function BoothIcon({ type, className }: { type: BoothType; className?: string }) {
+  const Icon =
+    type === 'photo_booth'
+      ? Camera
+      : type === 'mobile_bar'
+        ? Martini
+        : type === 'dessert_station'
+          ? CakeSlice
+          : type === 'gift_table'
+            ? Gift
+            : type === 'souvenir_table'
+              ? Package
+              : Store;
+  return <Icon className={className} />;
+}
+
 function MemberRow({
   guest,
   color,
   picked,
   tableLabel,
   onPick,
+  onCyclePriority,
 }: {
   guest: SeatingGuest;
   color: string;
   picked: boolean;
   tableLabel: string | null;
   onPick: () => void;
+  onCyclePriority: () => void;
 }) {
+  const tier = guestTier(guest.role, guest.group_category, guest.seating_priority);
+  const overridden = guest.seating_priority !== null;
   return (
-    <li>
+    <li className="flex items-center gap-1">
       <button
         type="button"
         onClick={onPick}
-        className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left transition ${
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition ${
           picked ? 'bg-terracotta/10 ring-1 ring-terracotta/40' : 'hover:bg-ink/[0.03]'
         }`}
       >
@@ -3019,6 +3327,21 @@ function MemberRow({
         ) : (
           <span className="shrink-0 text-[10px] text-ink/30">unseated</span>
         )}
+      </button>
+      {/* Priority tier chip — P1 seats nearest the stage. Tap cycles an explicit
+          override 1→2→3→4→back to the role-derived tier (hollow = derived). */}
+      <button
+        type="button"
+        onClick={onCyclePriority}
+        title={`Seating priority: ${ROLE_TIER_LABELS[tier]}${overridden ? ' (set by you — tap to cycle, back to auto after P4)' : ' (from their role — tap to override)'}`}
+        aria-label={`Seating priority P${tier}${overridden ? ', overridden' : ', from role'} — change`}
+        className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums transition ${
+          overridden
+            ? 'bg-mulberry text-cream hover:bg-mulberry-600'
+            : 'bg-ink/5 text-ink/45 hover:bg-ink/10 hover:text-ink/70'
+        }`}
+      >
+        P{tier}
       </button>
     </li>
   );

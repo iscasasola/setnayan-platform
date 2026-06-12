@@ -689,19 +689,40 @@ export function SeatingEditor({
 
   // Link two tables into one named unit / dissolve a unit (identity + QR only —
   // seating math stays per-table; the print pack emits ONE sign per unit).
+  // A successful link is visually quiet (the joined table just adopts the
+  // unit's name — it doesn't move), so say what happened in the notice bar;
+  // without it a working link reads as "nothing happened".
   const doLinkTables = (fromId: string, toId: string) => {
     setLinkingFrom(null);
+    const fromLabel = tableLabelById.get(fromId) ?? 'the first table';
+    const toLabel = tableLabelById.get(toId) ?? 'the second table';
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('table_id_a', fromId);
     fd.set('table_id_b', toId);
-    startTransition(() => linkTables(fd));
+    startTransition(async () => {
+      try {
+        await linkTables(fd);
+        setNotice(
+          `Linked — “${toLabel}” is now part of “${fromLabel}”: one name, one printed QR sign. They stay separate tables on the floor, so drag them side-by-side if you want them touching. Use the unlink button to undo.`,
+        );
+      } catch {
+        setNotice(`Couldn't link “${fromLabel}” and “${toLabel}” — please try again.`);
+      }
+    });
   };
   const doUnlink = (tableId: string) => {
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('table_id', tableId);
-    startTransition(() => unlinkTable(fd));
+    startTransition(async () => {
+      try {
+        await unlinkTable(fd);
+        setNotice('Unlinked — every table in that unit is back to its own name and QR sign.');
+      } catch {
+        setNotice(`Couldn't unlink the table — please try again.`);
+      }
+    });
   };
 
   // The table's current orientation (optimistic override → row default).

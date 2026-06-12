@@ -28,6 +28,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
+## 2026-06-13 · fix(seating): linking tables now SAYS it worked — success/failure notice on link + unlink
+
+**Context:** owner report — "i cannot link the tables." Reproduced the full flow end-to-end in a local build against prod data: tap table → popup → chain icon → "Linking …" banner → tap second table → `linkTables` server action → DB rows linked. **The mechanic works** (the demo event even carries an owner-made 3-table linked unit). The failure is FEEDBACK: a successful link is visually silent — the joined table just adopts the unit's name (the second table's name disappears from the rail, replaced by a duplicate of the first), nothing moves, nothing confirms. A working link reads as "nothing happened" — or as a table gone missing.
+
+- `doLinkTables` now awaits the action and posts the amber notice: "Linked — “B” is now part of “A”: one name, one printed QR sign. They stay separate tables on the floor, so drag them side-by-side if you want them touching. Use the unlink button to undo." A thrown action posts a try-again notice instead of vanishing into the transition.
+- `doUnlink` gets the same treatment ("Unlinked — every table in that unit is back to its own name and QR sign.").
+- No behavioural change to the locked identity+QR-only linking model — tables still never auto-move on link.
+
+**Verification:** reproduced + verified in a local dev build against the prod DB on the `test-maria-and-jose` demo event: linked "Sponsors 1" + "Barkada", notice rendered (screenshot in PR), DB rows confirmed linked, then test links reverted to leave the demo data as found. `tsc --noEmit` clean.
+
+**SPEC IMPACT:** None (feedback copy only).
+
 ## 2026-06-13 · feat(seating): Auto Arrange — one-click table layout + perimeter vendor booths + priority-tier seating (all deterministic, zero AI)
 
 **Context:** owner directive — expand "Auto Arrange" so one automation click simultaneously builds a coordinate-based grid layout for tables AND vendor booths, on free deterministic sorting logic only (no AI API calls in production). Three of the four requested pieces already existed in shipped code (the 0001 role taxonomy IS the priority-tag vocabulary via `roleTier()`; `computeAutoSeat` already ranked tables by stage distance and filled tier-by-tier); this lands the genuinely new parts and fuses everything into the single button.

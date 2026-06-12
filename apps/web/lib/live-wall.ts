@@ -191,6 +191,15 @@ export interface WallSnapshot {
 export async function getWallSnapshot(
   eventId: string,
   sinceIso?: string | null,
+  opts?: {
+    /**
+     * Keep only the NEWEST N tiles (rows arrive ascending by sort_at). Used by
+     * the guest-page live-wall block (a phone shows ~a dozen tiles, the venue
+     * projector wants everything) — sliced BEFORE presigning so a wall with
+     * hundreds of tiles doesn't burn hundreds of R2 signatures per page view.
+     */
+    limit?: number;
+  },
 ): Promise<WallSnapshot> {
   const admin = createAdminClient();
 
@@ -206,7 +215,8 @@ export async function getWallSnapshot(
       .maybeSingle(),
   ]);
 
-  const rows = (Array.isArray(feedData) ? feedData : []) as WallFeedRow[];
+  let rows = (Array.isArray(feedData) ? feedData : []) as WallFeedRow[];
+  if (opts?.limit && rows.length > opts.limit) rows = rows.slice(-opts.limit);
   const tiles = (await Promise.all(rows.map(rowToTile))).filter(
     (t): t is WallTile => Boolean(t),
   );

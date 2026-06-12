@@ -32,6 +32,16 @@ import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
+import { LiveWallBlock } from './_components/live-wall-block';
+import { getWallSnapshot } from '@/lib/live-wall';
+import type { WallTile } from '@/lib/live-wall-logic';
+
+/** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
+type LiveWallData = {
+  tiles: WallTile[];
+  count: number;
+  caption: { text: string; author: string } | null;
+};
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -395,6 +405,37 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     if (backdropConfig) backdrop = <SpatialBackdrop config={backdropConfig} />;
   }
 
+  // Live Photo Wall mirror (owner 2026-06-12: "photo wall live and the
+  // gallery must be on the on-the-day part"). Only during the live window
+  // (which the host phase-preview can force), only when the event owns
+  // LIVE_WALL — the same activation door as /wall/[eventId]. Reads the SAME
+  // screened feed the venue projector renders (wall-safe derivatives only),
+  // capped to the newest dozen so a busy wall doesn't presign hundreds per
+  // page view. Wall trouble must never break the wedding page → try/null.
+  let liveWall: LiveWallData | null = null;
+  if (dayOfPhase === 'live') {
+    try {
+      const { data: wallActivation } = await admin
+        .from('event_software_activations_v2')
+        .select('service_code')
+        .eq('event_id', event.event_id)
+        .eq('service_code', 'LIVE_WALL')
+        .maybeSingle();
+      if (wallActivation) {
+        const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
+        liveWall = {
+          tiles: snap.tiles,
+          count: snap.count,
+          caption: snap.caption
+            ? { text: snap.caption.text, author: snap.caption.author }
+            : null,
+        };
+      }
+    } catch {
+      liveWall = null;
+    }
+  }
+
   if (!session) {
     return (
       <PublicLanding
@@ -410,6 +451,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
     );
   }
@@ -431,6 +473,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
     );
   }
@@ -459,6 +502,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
     );
   }
@@ -510,6 +554,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
       {papicGuestActive && (
         <Link
@@ -738,6 +783,7 @@ function PublicLanding({
   widgets,
   scheduleBlocks,
   backdrop,
+  liveWall,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -774,6 +820,8 @@ function PublicLanding({
   scheduleBlocks: ScheduleBlockRow[];
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
+  /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
+  liveWall?: LiveWallData | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -899,6 +947,20 @@ function PublicLanding({
           </p>
         )}
       </div>
+
+      {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
+          scans without a guest cookie) get the live wall too during the
+          celebration window. Same screened feed as the projector. */}
+      {dayOfPhase === 'live' && liveWall ? (
+        <section className="mt-10">
+          <LiveWallBlock
+            slug={event.slug}
+            initialTiles={liveWall.tiles}
+            initialCount={liveWall.count}
+            initialCaption={liveWall.caption}
+          />
+        </section>
+      ) : null}
 
       {/* Public widgets — owner directive 2026-05-23. Renders the
        *  host-configured hideable widgets that carry event-level data
@@ -1116,6 +1178,7 @@ function InvitationSite({
   ourPhotoUrls,
   widgets,
   backdrop,
+  liveWall,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1157,6 +1220,8 @@ function InvitationSite({
   widgets: readonly InvitationWidgetRow[];
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
+  /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
+  liveWall?: LiveWallData | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1387,6 +1452,20 @@ function InvitationSite({
           >
             <ScheduleWidget blocks={scheduleBlocks} />
           </section>
+        ) : null}
+
+        {/* Live Photo Wall mirror — the venue wall on the guest's own phone
+            while the celebration runs (owner 2026-06-12: the wall + live
+            gallery belong ON the on-the-day page). Renders only when the
+            event owns LIVE_WALL and the live window is on; polls for fresh
+            tiles while the tab is visible. */}
+        {isLive && liveWall ? (
+          <LiveWallBlock
+            slug={event.slug}
+            initialTiles={liveWall.tiles}
+            initialCount={liveWall.count}
+            initialCaption={liveWall.caption}
+          />
         ) : null}
 
         {/* QR card — always-on per the editor contract. Gated so V1.1 can

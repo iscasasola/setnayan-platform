@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(website): Live Photo Wall mirrored onto the guest's on-the-day page
+
+**Context:** Owner: *"panood, photo wall live and the gallery must be on the on the day website part… show our services when they need to be seen."* First slice of the Event-page service stage (spec §7.5): the Salamisim wall — already shipped as the venue projection — now also renders on every guest's phone during the live window.
+
+- **`app/[slug]/_components/live-wall-block.tsx` (new):** "Live from the celebration" block — pulse header + moments count, newest-12 tile grid (3-col), and the newest approved **Kwento** as the lower-third caption. Polls `/[slug]/live-wall` every 25s ONLY while the tab is visible (visibilitychange-gated; a pocketed phone polls zero — request-driven, no cron); merges via the wall's own pure `mergeTiles` (feedId-deduped, tiles never re-animate); tiles arriving while the guest watches enter with a soft rise+fade (Daily-Prophet feel), reduced-motion safe.
+- **`app/[slug]/live-wall/route.ts` (new):** the freshness feed — same LIVE_WALL activation door as `/wall/[eventId]` (quiet 404 otherwise, no existence oracle), serving ONLY screened wall-safe derivatives via `getWallSnapshot` + the Kwento caption.
+- **`lib/live-wall.ts`:** `getWallSnapshot` gains an optional `limit` (newest-N sliced BEFORE presigning — a busy wall doesn't burn hundreds of R2 signatures per phone view). Additive; the projector path is unchanged.
+- **`app/[slug]/page.tsx`:** when `dayOfPhase === 'live'` (host phase-preview can force it) and the event owns LIVE_WALL, fetch the snapshot (limit 12) and render the block — guest path right under the pinned day-of schedule; anonymous path (master-QR scans at the venue) above the public widgets. Wall trouble can never break the page (try → null).
+
+**Verification:** `tsc` clean · harness-verified at phone width (grid + count + Kwento caption render exactly as designed; mock tiles) · same screened-feed security posture as the projector (no anon reads of capture tables; wall-safe derivatives only). Real-data render appears as soon as a LIVE_WALL event has wall_feed rows during its live window (or via host `?phase=event` preview).
+
+**SPEC IMPACT:** Implements the first Event-page row of the §7.5 service-visibility map (`Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`): wall LIVE form on the day page; the editorial "Wall, Frozen" recap is the follow-up. DECISION_LOG row added.
 ## 2026-06-12 · feat(monogram): Cipher Studio — deterministic interlocking-monogram editor (Phase 3)
 
 **Context:** Owner-designed (2026-06-11/12) after rejecting both the curated-lockup elevation ("still generic") and AI-bespoke-as-default ("that cost is too high"). The couple POSITIONS two initials — drag · size · rotate · mirror H/V — and combines them three ways: **Flow as one** (single-line scripts restroked into ONE continuous variable-width pen ribbon — tips blend smoothly through a G1 connector), **Over/under weave** (the front letter knocks an adjustable-gap clearance out of the back letter where they cross), or plain **overlap**. **Fully deterministic SVG · ₱0/use · no AI · offline.** Owner-locked 15-font set, all SIL OFL (zero embed-license exposure): 5 single-line scripts (Allura default · Society · Swiss · Decorous · Invite — EMS centerline fonts) + 10 filled faces (Mr De Haviland · Pinyon Script · Herr Von Muellerhoff · Luxurious Script · Tangerine · Cinzel · Cormorant · Bodoni Moda · Libre Caslon Display · Vidaloka).

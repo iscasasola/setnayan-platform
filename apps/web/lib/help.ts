@@ -458,3 +458,59 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     ],
   },
 ];
+
+// ───────────────────────────────────────────────────────────────────────────
+// Per-article lookup helpers (SEO/GEO — /help/[slug] indexable article pages,
+// 2026-06-13). Article slugs are GLOBALLY UNIQUE across all topics (verified),
+// so a flat slug → article resolution is unambiguous and the public URL can be
+// /help/[slug] with no topic segment.
+//
+// `HELP_LASTMOD` is the single honest last-substantive-edit date for the help
+// corpus — every article was authored/last-revised together (GEO Phase G3,
+// 2026-05-28). The sitemap-help route stamps every help URL with this one date
+// rather than a build-time Date() (which Google reads as freshness fraud). Bump
+// it in the same edit when an article body materially changes.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const HELP_LASTMOD = '2026-05-28';
+
+export type HelpArticleWithTopic = {
+  article: HelpArticle;
+  topic: HelpTopic;
+};
+
+/** Flat list of every article paired with its parent topic. */
+export const ALL_HELP_ARTICLES: ReadonlyArray<HelpArticleWithTopic> =
+  HELP_TOPICS.flatMap((topic) =>
+    topic.articles.map((article) => ({ article, topic })),
+  );
+
+/** Resolve an article (and its topic) by its globally-unique slug. */
+export function findHelpArticle(
+  slug: string,
+): HelpArticleWithTopic | undefined {
+  return ALL_HELP_ARTICLES.find((entry) => entry.article.slug === slug);
+}
+
+/** Other articles in the same topic — used for "related" cross-links. */
+export function relatedHelpArticles(
+  slug: string,
+  limit = 6,
+): HelpArticle[] {
+  const found = findHelpArticle(slug);
+  if (!found) return [];
+  return found.topic.articles
+    .filter((a) => a.slug !== slug)
+    .slice(0, limit);
+}
+
+/**
+ * Trim an article body to a meta-description-friendly length (~155 chars) at a
+ * word boundary, never mid-word, with an ellipsis when truncated.
+ */
+export function helpMetaDescription(body: string, max = 155): string {
+  if (body.length <= max) return body;
+  const slice = body.slice(0, max);
+  const lastSpace = slice.lastIndexOf(' ');
+  return `${slice.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+}

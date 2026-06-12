@@ -217,7 +217,17 @@ export default async function HelpPage({ searchParams }: Props) {
                         id={a.slug}
                         className="scroll-mt-6 rounded-xl border border-ink/10 bg-cream p-4"
                       >
-                        <h3 className="text-base font-semibold text-ink">{a.title}</h3>
+                        {/* Title links to the article's own indexable page
+                            (/help/[slug]) so crawlers discover the per-article
+                            URLs from the hub; the answer stays inline here. */}
+                        <h3 className="text-base font-semibold text-ink">
+                          <Link
+                            href={`/help/${a.slug}`}
+                            className="underline-offset-4 hover:text-terracotta hover:underline"
+                          >
+                            {a.title}
+                          </Link>
+                        </h3>
                         <p className="mt-1 text-sm text-ink/70">{a.body}</p>
                       </li>
                     ))}

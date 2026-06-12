@@ -129,6 +129,9 @@ export function MobileGuestCarousel({
   declined,
   teamFilter,
   pendingClaims,
+  unsent = 0,
+  unseated = 0,
+  arrived = 0,
 }: {
   eventId: string;
   q: string;
@@ -149,6 +152,11 @@ export function MobileGuestCarousel({
   // Pending invite-claims (review queue) — badges the Journey panel's Confirm
   // step, mirroring the desktop ribbon (redesign Phase 1).
   pendingClaims: number;
+  // Phase 3 live-progress badges, mirroring the desktop ribbon: invitations
+  // not yet sent · attending guests without a seat · day-of arrivals.
+  unsent?: number;
+  unseated?: number;
+  arrived?: number;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -476,10 +484,10 @@ export function MobileGuestCarousel({
               {(
                 [
                   { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims` },
+                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent },
                   { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
-                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating` },
-                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin` },
+                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated },
+                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true },
                 ] as const
               ).map((s, i) => (
                 <span key={s.key} className="flex shrink-0 items-center gap-0.5">
@@ -493,17 +501,20 @@ export function MobileGuestCarousel({
                       'active' in s && s.active
                         ? 'bg-terracotta/10 font-medium text-terracotta-700'
                         : 'text-ink/60'
-                    } ${'soon' in s && s.soon ? 'opacity-60' : ''}`}
+                    }`}
                   >
                     <s.Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                     {s.label}
                     {'badge' in s && s.badge ? (
-                      <span className="rounded-full bg-terracotta/15 px-1.5 text-[10px] font-semibold text-terracotta-700">
+                      <span
+                        className={`rounded-full px-1.5 text-[10px] font-semibold ${
+                          'done' in s && s.done
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-terracotta/15 text-terracotta-700'
+                        }`}
+                      >
                         {s.badge}
                       </span>
-                    ) : null}
-                    {'soon' in s && s.soon ? (
-                      <span className="rounded-full bg-ink/10 px-1 text-[9px] font-medium text-ink/55">soon</span>
                     ) : null}
                   </Link>
                 </span>

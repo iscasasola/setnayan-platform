@@ -35,17 +35,60 @@ export function LifecycleRibbon({
   eventId,
   active = 'build',
   pendingClaims = 0,
+  unsent = 0,
+  unseated = 0,
+  arrived = 0,
 }: {
   eventId: string;
   active?: LifecycleStep;
   pendingClaims?: number;
+  /** Guests (not declined) whose QR invitation hasn't been sent yet. */
+  unsent?: number;
+  /** Attending guests without a seat assignment. */
+  unseated?: number;
+  /** Guests checked in at the day-of desk. */
+  arrived?: number;
 }) {
-  const steps: { key: LifecycleStep; label: string; href: string; badge?: number; soon?: boolean }[] = [
+  // Phase 3: each step badges its live "work remaining" (or, for Day-of, the
+  // live arrivals). A zero count = no badge — a quiet ribbon means on-track.
+  const steps: {
+    key: LifecycleStep;
+    label: string;
+    href: string;
+    badge?: number;
+    badgeTitle?: string;
+    badgeTone?: 'accent' | 'done';
+  }[] = [
     { key: 'build', label: 'Build', href: `/dashboard/${eventId}/guests` },
-    { key: 'invite', label: 'Invite', href: `/dashboard/${eventId}/guests/claims` },
-    { key: 'confirm', label: 'Confirm', href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
-    { key: 'seat', label: 'Seat', href: `/dashboard/${eventId}/seating` },
-    { key: 'dayof', label: 'Day-of', href: `/dashboard/${eventId}/guests/checkin` },
+    {
+      key: 'invite',
+      label: 'Invite',
+      href: `/dashboard/${eventId}/guests/claims`,
+      badge: unsent,
+      badgeTitle: `${unsent} ${unsent === 1 ? 'invitation' : 'invitations'} not yet sent`,
+    },
+    {
+      key: 'confirm',
+      label: 'Confirm',
+      href: `/dashboard/${eventId}/guests/claims`,
+      badge: pendingClaims,
+      badgeTitle: `${pendingClaims} guest ${pendingClaims === 1 ? 'request' : 'requests'} to review`,
+    },
+    {
+      key: 'seat',
+      label: 'Seat',
+      href: `/dashboard/${eventId}/seating`,
+      badge: unseated,
+      badgeTitle: `${unseated} attending ${unseated === 1 ? 'guest' : 'guests'} without a seat`,
+    },
+    {
+      key: 'dayof',
+      label: 'Day-of',
+      href: `/dashboard/${eventId}/guests/checkin`,
+      badge: arrived,
+      badgeTitle: `${arrived} ${arrived === 1 ? 'guest has' : 'guests have'} arrived`,
+      badgeTone: 'done',
+    },
   ];
 
   return (
@@ -68,17 +111,21 @@ export function LifecycleRibbon({
                 isActive
                   ? 'bg-terracotta/10 font-medium text-terracotta-700'
                   : 'text-ink/60 hover:bg-ink/5 hover:text-ink'
-              } ${s.soon ? 'opacity-60' : ''}`}
+              }`}
             >
               <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               {s.label}
               {s.badge ? (
-                <span className="rounded-full bg-terracotta/15 px-1.5 text-[11px] font-semibold text-terracotta-700">
+                <span
+                  title={s.badgeTitle}
+                  className={`rounded-full px-1.5 text-[11px] font-semibold ${
+                    s.badgeTone === 'done'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-terracotta/15 text-terracotta-700'
+                  }`}
+                >
                   {s.badge}
                 </span>
-              ) : null}
-              {s.soon ? (
-                <span className="rounded-full bg-ink/10 px-1.5 text-[10px] font-medium text-ink/55">soon</span>
               ) : null}
             </Link>
           </Fragment>

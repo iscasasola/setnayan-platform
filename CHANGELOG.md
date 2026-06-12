@@ -16,6 +16,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · harness-verified at phone width (grid + count + Kwento caption render exactly as designed; mock tiles) · same screened-feed security posture as the projector (no anon reads of capture tables; wall-safe derivatives only). Real-data render appears as soon as a LIVE_WALL event has wall_feed rows during its live window (or via host `?phase=event` preview).
 
 **SPEC IMPACT:** Implements the first Event-page row of the §7.5 service-visibility map (`Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`): wall LIVE form on the day page; the editorial "Wall, Frozen" recap is the follow-up. DECISION_LOG row added.
+## 2026-06-12 · feat(guests): Phase 3 polish — the lifecycle ribbon shows LIVE progress + the deferred confirm-progress bar lands
+
+**Context:** The final deferred slice of the guests-dashboard redesign (#1227 → #1271). The ribbon was navigation-only; now every step answers "how far along am I?" at a glance, and the RSVP confirm-progress bar (deferred in Phase 1 as "redundant with StatsStrip — pending a StatsStrip rework") ships as part of that strip.
+
+- **Ribbon live badges** (desktop `lifecycle-ribbon.tsx` + mobile Journey panel): Invite = invitations not yet sent (excl. declined) · Confirm = pending guest requests (as before) · Seat = attending guests without a seat · Day-of = guests checked in at the desk (emerald — it counts arrivals, not work owed). Zero = no badge; a quiet ribbon means on-track. Hover titles spell each count out.
+- **Confirm-progress bar** (inside `StatsStrip`): slim segmented bar — emerald attending / amber maybe / rose declined over an ink track — captioned "X of Y responded · Z%", using the same tints as the stat cards below it so it reads as their summary. `aria-label` carries the full breakdown.
+- **Data:** 3 head+count reads (unsent invitations · seat assignments · check-ins) folded into the page's existing single parallel fetch batch — no extra round-trip latency. `invitation_sent_at` counted via query rather than widening the shared `GUEST_FIELDS`/`GuestRow` contract.
+- **Row restyle:** reviewed and intentionally NOT churned — Phase 1's sectioned rows (avatar · side/role/group pills · RSVP) already cover the "tidier rows" intent; cosmetic churn on the locked 1300-line multiselect wasn't worth the regression risk.
+
+**Verification:** unit 60/60 · `tsc` 0 errors · lint clean · production build exit 0 · bundle unchanged 199.2/200KB. No schema change.
+
+**SPEC IMPACT:** None beyond the redesign already logged — UI polish on shipped surfaces.
+
 ## 2026-06-12 · feat(monogram): Cipher Studio — deterministic interlocking-monogram editor (Phase 3)
 
 **Context:** Owner-designed (2026-06-11/12) after rejecting both the curated-lockup elevation ("still generic") and AI-bespoke-as-default ("that cost is too high"). The couple POSITIONS two initials — drag · size · rotate · mirror H/V — and combines them three ways: **Flow as one** (single-line scripts restroked into ONE continuous variable-width pen ribbon — tips blend smoothly through a G1 connector), **Over/under weave** (the front letter knocks an adjustable-gap clearance out of the back letter where they cross), or plain **overlap**. **Fully deterministic SVG · ₱0/use · no AI · offline.** Owner-locked 15-font set, all SIL OFL (zero embed-license exposure): 5 single-line scripts (Allura default · Society · Swiss · Decorous · Invite — EMS centerline fonts) + 10 filled faces (Mr De Haviland · Pinyon Script · Herr Von Muellerhoff · Luxurious Script · Tangerine · Cinzel · Cormorant · Bodoni Moda · Libre Caslon Display · Vidaloka).

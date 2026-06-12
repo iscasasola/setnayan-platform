@@ -63,6 +63,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Live behavior needs two sessions — verify with two browsers on the Vercel preview (couple + the test account). No schema change, no new vendor, no new bill.
 
 **SPEC IMPACT:** 0008 editor gains real-time presence (couple + planner/vendor co-presence). New capability beyond the spec (owner-approved modernity move) → corpus `DECISION_LOG` note rides the seat-plan program row.
+## 2026-06-12 · feat(guests): day-of check-in desk — scan/search arrivals, table + party at a glance, live headcount (lifecycle "Day-of" goes live)
+
+**Context:** The 6th and final piece of the owner's original guest-system delta (#1220 follow-up) and the "Day-of" stop in the guests lifecycle ribbon (until now a "soon" badge). A coordinator or the couple runs the venue door from their phone: scan the guest's printed QR (or search their name), see their photo, table, +1 and RSVP state on one card, tap Check in — the headcount keeps itself.
+
+- **Migration `20261118000000_guest_checkin_desk.sql` (APPLIED to prod + ledger):** `guest_checkins` (one row per checked-in guest; undo = DELETE; `checked_in_by_user_id` + `method` audit) with a couple+coordinator RLS policy (same actor pair as the live-wall's `wall_display_sessions`) — a dedicated table because `guests` writes are couple-only and the desk must work for coordinators. Composite FK `(event_id, guest_id) → guests` (backed by new unique index) so a check-in can never pair guest A with event B. Also ADDITIVE coordinator SELECT policies on `event_tables` + `event_seat_assignments` (the desk shows the arriving guest's table; seating WRITE stays couple-only).
+- **`/dashboard/[eventId]/guests/checkin`** (couple OR coordinator; others redirect): headcount bar (arrived / attending + progress), live camera QR scanner (getUserMedia → canvas → `jsqr`, dynamically imported, ~5 decodes/s, viewfinder overlay, vibration on hit), name-search fallback (also matches +1 names), arriving-guest card (photo/initials · side · role · table — linked-tables' `link_group_label` honored · +1 · amber badge when RSVP ≠ attending — the door still admits them), idempotent Check in (double-scan = no-op reporting the original time), Undo, and a recent-arrivals list with per-row undo.
+- **`lib/checkin.ts`:** QR-payload parser accepting all three live guest-QR formats — invitation `?invite=` URLs, seating print-pack `?g=` URLs, bare 32-hex tokens — rejecting table QRs (`?t=`) and malformed tokens. 6 new unit tests (52/52 suite green).
+- **Ribbon + mobile Journey panel:** "Day-of" now links to the desk; `soon` badge removed (desktop `lifecycle-ribbon.tsx` + `mobile-guest-carousel.tsx`).
+
+**Verification:** unit 52/52 · `tsc` 0 errors · lint clean (2 pre-existing warnings in unrelated files) · production build exit 0 (new route 6.21kB; shared bundle unchanged 199.2/200KB) · migration verified on prod via `supabase db query` (table + RLS + 3 policies + 2 FKs + ledger row). Note: prod's migration ledger has parallel-session versions (`20261116`/`20261117`) not yet in main, so `db push` refused — applied statement-by-statement via `db query` + manual ledger row (identical end state).
+
+**SPEC IMPACT:** Realizes the day-of check-in scope flagged in the 0001/0008 guest-lifecycle work; coordinator seating read-access is a deliberate widening (SELECT-only) — noted for owner sign-off. → DECISION_LOG row.
 
 ## 2026-06-11 · feat(monogram): typeface picker — 4 owner-picked faces join the registry + exact-font landing hero
 

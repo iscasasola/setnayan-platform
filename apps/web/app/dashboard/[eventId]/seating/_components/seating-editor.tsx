@@ -12,6 +12,7 @@ import {
   EyeOff,
   FileDown,
   Footprints,
+  Link2,
   List,
   Map as MapIcon,
   Maximize2,
@@ -26,6 +27,7 @@ import {
   Sparkles,
   Trash2,
   Truck,
+  Unlink,
   UserMinus,
   UserPlus,
   X,
@@ -54,11 +56,13 @@ import {
   autoSeatGuests,
   createTable,
   deleteTable,
+  linkTables,
   publishSeating,
   saveFloorPlan,
   seatRoleAtTable,
   setTableSeat,
   unassignGuest,
+  unlinkTable,
   updateTableLabel,
   updateTablePosition,
   updateTableRotation,
@@ -202,6 +206,11 @@ export function SeatingEditor({
     ppm: number;
   } | null>(null);
   const [wallSettled, setWallSettled] = useState(0);
+  // Live alignment guides while dragging a table: when the dragged centre
+  // lines up with another table's centre (or the room centreline) we snap to
+  // it and draw a hairline. Ref (not state) — the drag already re-renders per
+  // move via setPositions, so the render below just reads the latest value.
+  const guidesRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   // Venue dimensions (metres) → render the room + tables to scale.
   const [venue, setVenue] = useState({
     enabled: floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null,
@@ -269,6 +278,9 @@ export function SeatingEditor({
     setPickerOpen(false);
     setPickerQ('');
   }, [highlightId]);
+  // Link-mode: started from a table's popup; the NEXT table tapped on the
+  // canvas joins it into one named unit (identity + QR only).
+  const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   // The spatial chair canvas can't hold many tables on a phone, so small
@@ -542,6 +554,23 @@ export function SeatingEditor({
         );
       }
     });
+  };
+
+  // Link two tables into one named unit / dissolve a unit (identity + QR only —
+  // seating math stays per-table; the print pack emits ONE sign per unit).
+  const doLinkTables = (fromId: string, toId: string) => {
+    setLinkingFrom(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id_a', fromId);
+    fd.set('table_id_b', toId);
+    startTransition(() => linkTables(fd));
+  };
+  const doUnlink = (tableId: string) => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', tableId);
+    startTransition(() => unlinkTable(fd));
   };
 
   // The table's current orientation (optimistic override → row default).
@@ -921,11 +950,51 @@ export function SeatingEditor({
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
+        // Alignment snap: pull to another table's centre (or the room
+        // centreline) when within tolerance — the matched axis draws a guide
+        // hairline. Hold Alt to drag free of all snapping.
+        let ax = x;
+        let ay = y;
+        let gx: number | null = null;
+        let gy: number | null = null;
+        if (!e.altKey) {
+          const TOL = 1.2; // percent of the canvas
+          for (const o of tables) {
+            if (o.table_id === d.id) continue;
+            const op = positions[o.table_id];
+            if (!op) continue;
+            if (gx === null && Math.abs(op.x - x) < TOL) {
+              ax = op.x;
+              gx = op.x;
+            }
+            if (gy === null && Math.abs(op.y - y) < TOL) {
+              ay = op.y;
+              gy = op.y;
+            }
+            if (gx !== null && gy !== null) break;
+          }
+          // Room centreline detents (symmetric layouts want the middle).
+          if (gx === null && Math.abs(50 - x) < TOL) {
+            ax = 50;
+            gx = 50;
+          }
+          if (gy === null && Math.abs(50 - y) < TOL) {
+            ay = 50;
+            gy = 50;
+          }
+          // Grid snap on any axis that didn't alignment-snap: half-metre steps
+          // in a sized room, 2% steps on the free board.
+          const gridX = venueScaled ? (0.5 / venue.width) * 100 : 2;
+          const gridY = venueScaled ? (0.5 / venue.length) * 100 : 2;
+          if (gx === null) ax = Math.round(ax / gridX) * gridX;
+          if (gy === null) ay = Math.round(ay / gridY) * gridY;
+        }
+        guidesRef.current = { x: gx, y: gy };
         // Slide around neighbours: snap to the nearest spot that doesn't overlap.
         const moving = tables.find((t) => t.table_id === d.id);
         const free = moving
-          ? nearestFree(x, y, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
-          : { x, y };
+          ? nearestFree(ax, ay, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
+          : { x: ax, y: ay };
         setPositions((p) => ({ ...p, [d.id]: free }));
       } else if (d.kind === 'stage') {
         setStage((s) => ({ ...s, x, y }));
@@ -967,12 +1036,18 @@ export function SeatingEditor({
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
+    guidesRef.current = { x: null, y: null };
     if (d?.moved) {
       if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
       else setFloorDirty(true);
     } else if (d && d.kind === 'table' && !pickedId && !pickedGroupId) {
-      // A tap (no drag) on a table selects it → opens the rotate / delete bar.
-      setHighlightId((id) => (id === d.id ? null : d.id));
+      if (linkingFrom && d.id !== linkingFrom) {
+        // Link-mode: this tap joins the two tables into one named unit.
+        doLinkTables(linkingFrom, d.id);
+      } else {
+        // A tap (no drag) on a table selects it → opens the popup toolbar.
+        setHighlightId((id) => (id === d.id ? null : d.id));
+      }
     }
     if (e) pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
@@ -1286,7 +1361,12 @@ export function SeatingEditor({
                         style={{ backgroundColor: dominantColor(occ, colorFor) ?? NEUTRAL }}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-ink">{t.table_label}</span>
+                        <span className="block truncate text-sm font-medium text-ink">
+                          {t.link_group_id ? (
+                            <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
+                          ) : null}
+                          {t.link_group_label ?? t.table_label}
+                        </span>
                         <span className="block text-[11px] text-ink/50">
                           {filled}/{cap} · {TABLE_TYPE_LABEL[t.table_type]}
                         </span>
@@ -1676,6 +1756,27 @@ export function SeatingEditor({
           </div>
         ) : null}
 
+        {linkingFrom ? (
+          <div className="flex items-center gap-3 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-sm">
+            <Link2 className="h-4 w-4 shrink-0 text-terracotta-700" />
+            <span className="min-w-0 flex-1 truncate">
+              Linking{' '}
+              <span className="font-semibold text-ink">
+                {tableLabelById.get(linkingFrom) ?? 'table'}
+              </span>{' '}
+              — tap another table to combine them into one named table.
+            </span>
+            <button
+              type="button"
+              onClick={() => setLinkingFrom(null)}
+              className="rounded-md p-1 text-ink/40 hover:bg-ink/5"
+              aria-label="Cancel linking"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
         {notice ? (
           <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <span className="min-w-0 flex-1">{notice}</span>
@@ -1732,6 +1833,23 @@ export function SeatingEditor({
               </span>
             </>
           ) : null}
+          {/* alignment guide hairlines — drawn while a table drag snaps to
+              another table's centre / the room centreline (guidesRef) */}
+          {dragId && guidesRef.current.x !== null ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute bottom-0 top-0 z-[15] w-px bg-terracotta/60"
+              style={{ left: `${guidesRef.current.x}%` }}
+            />
+          ) : null}
+          {dragId && guidesRef.current.y !== null ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-0 right-0 z-[15] h-px bg-terracotta/60"
+              style={{ top: `${guidesRef.current.y}%` }}
+            />
+          ) : null}
+
           {/* dance-floor zone — a draggable, resizable no-table area. Rendered
               under the tables so it reads as floor, not furniture. */}
           {dance.enabled ? (
@@ -1881,7 +1999,9 @@ export function SeatingEditor({
             const halo = dominantColor(occ, colorFor);
             const highlighted = highlightId === t.table_id;
             const dragging = dragId === t.table_id;
-            const num = t.table_label.match(/\d+/)?.[0] ?? '';
+            // Linked tables render under the UNIT's name (number when it has one).
+            const displayLabel = t.link_group_label ?? t.table_label;
+            const num = displayLabel.match(/\d+/)?.[0] ?? '';
             const rot = rotationOf(t); // table orientation (deg)
             const removed = removedSeatSet(t.removed_seats, t.capacity);
             const effCap = effectiveCapacity(t.capacity, t.removed_seats);
@@ -2213,6 +2333,28 @@ export function SeatingEditor({
                       >
                         <UserPlus className="h-5 w-5" /> Seat
                       </button>
+                      {st.link_group_id ? (
+                        <button
+                          type="button"
+                          onClick={() => doUnlink(st.table_id)}
+                          aria-label="Unlink this combined table"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-mulberry hover:bg-mulberry/10"
+                        >
+                          <Unlink className="h-5 w-5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLinkingFrom(st.table_id);
+                            setHighlightId(null);
+                          }}
+                          aria-label="Link with another table"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/60 hover:bg-ink/5"
+                        >
+                          <Link2 className="h-5 w-5" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setHighlightId(null)}
@@ -2383,6 +2525,28 @@ export function SeatingEditor({
                 >
                   <UserPlus className="h-4 w-4" />
                 </button>
+                {st.link_group_id ? (
+                  <button
+                    type="button"
+                    onClick={() => doUnlink(st.table_id)}
+                    title="Unlink this combined table"
+                    className="rounded-lg p-1.5 text-mulberry hover:bg-mulberry/10"
+                  >
+                    <Unlink className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLinkingFrom(st.table_id);
+                      setHighlightId(null);
+                    }}
+                    title="Link with another table — tap the other table next"
+                    className="rounded-lg p-1.5 text-ink/60 hover:bg-ink/5"
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </button>
+                )}
                 <div className="flex items-center gap-0.5 rounded-lg border border-ink/15 px-0.5">
                   <button
                     type="button"
@@ -2494,7 +2658,12 @@ export function SeatingEditor({
                           className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         >
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-ink">{t.table_label}</span>
+                            <span className="block truncate text-sm font-semibold text-ink">
+                              {t.link_group_id ? (
+                                <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
+                              ) : null}
+                              {t.link_group_label ?? t.table_label}
+                            </span>
                             <span className="block text-[11px] text-ink/55">{TABLE_TYPE_LABEL[t.table_type]}</span>
                           </span>
                           <span

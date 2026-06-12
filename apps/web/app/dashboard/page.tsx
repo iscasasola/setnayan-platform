@@ -236,7 +236,7 @@ function EventList({
  * Role-switch rows inside the event list — iteration 0000 § event switcher
  * (locked 2026-05-15). Renders below the event list with a thin separator;
  * Shop console row appears when the user is a vendor owner OR sits on any
- * vendor team; Admin console row appears when the user has any admin grant.
+ * vendor team; Setnayan HQ row appears when the user has any admin grant.
  *
  * When a user sits across multiple vendors, the Shop console expands into
  * a sub-list — each vendor row routes into that specific shop console.
@@ -318,7 +318,7 @@ function RoleSwitchRows({ roles }: { roles: UserRoleSummary }) {
                   S
                 </span>
                 <span>
-                  <span className="block text-sm font-medium text-ink">Admin console</span>
+                  <span className="block text-sm font-medium text-ink">Setnayan HQ</span>
                   <span className="block text-xs text-ink/55">Setnayan admin</span>
                 </span>
               </span>

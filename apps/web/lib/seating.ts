@@ -69,6 +69,10 @@ export type EventTableRow = {
   // the type so render-only literals need not set it; fetchTables always returns it.
   qr_token?: string;
   qr_published_at?: string | null;
+  // Linked unit (identity + QR only): tables sharing link_group_id render and
+  // print as ONE named table under link_group_label. Seating math stays per-table.
+  link_group_id?: string | null;
+  link_group_label?: string | null;
 };
 
 export type SeatAssignmentRow = {
@@ -85,7 +89,7 @@ export async function fetchTables(
   const { data, error } = await supabase
     .from('event_tables')
     .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at',
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -99,6 +103,8 @@ export async function fetchTables(
     removed_seats: (t as EventTableRow).removed_seats ?? [],
     qr_token: (t as EventTableRow).qr_token ?? '',
     qr_published_at: (t as EventTableRow).qr_published_at ?? null,
+    link_group_id: (t as EventTableRow).link_group_id ?? null,
+    link_group_label: (t as EventTableRow).link_group_label ?? null,
   }));
 }
 

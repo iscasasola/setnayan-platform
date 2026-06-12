@@ -251,7 +251,7 @@ export default async function EventLayout({ children, params }: Props) {
             • Marketplace `/vendors` stays reachable via the home
               marketplace-tease-strip CTA, the "Browse your matched services"
               button, and every plan-card folder link.
-            • Role-switching (Shop / Admin consoles) stays reachable via the
+            • Role-switching (Shop / Setnayan HQ consoles) stays reachable via the
               EventSwitcher dropdown's "Switch view" rows (left monogram caret)
               on mobile, plus the desktop sidebar-footer pill (sidebarFooterPill
               below). */}

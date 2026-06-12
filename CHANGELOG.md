@@ -15,6 +15,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
 
 **SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
+## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
+
+**Context:** Owner 2026-06-10 — "tables can link together to be named as 1 table"; depth owner-locked = **identity + QR only** (shared name/number, one printed QR sign, one find-my-seat entry; seating math stays per-table — a shared capacity pool is a future enhancement). The LAST Phase 1 slice.
+
+- **Migration `20261115000000_iteration_0008_linked_tables.sql`** (additive · idempotent · **applied to prod via `db query`**, 2 columns + partial index verified): `event_tables.link_group_id UUID` + `link_group_label TEXT`.
+- **Actions:** `linkTables` (links two tables — merging existing groups; the unit keeps the FIRST table's identity) · `unlinkTable` (dissolves the whole unit from any member) · `updateTableLabel` now **syncs `link_group_label` across the group on rename** (renaming a linked table renames the unit).
+- **Editor:** popup gains **Link** (tap → guidance bar "tap another table to combine" → next table tap links) / **Unlink** on linked tables — both popup surfaces (popover + phone sheet). Linked tables render under the **unit's name** (hub number from `link_group_label`) with a `Link2` glyph in the sidebar + list view.
+- **Print pack:** linked tables emit **ONE sign per unit** (shared label · the LEAD table's QR · combined seated count); the directory shows "(N tables joined)" and place cards carry the unit label. Unlinked tables = single-member units (unchanged output).
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · migration applied + verified on prod.
+
+**SPEC IMPACT:** Completes the owner's 2026-06-10 editor-redesign spec (popup · rename · seat Guest/Group/Role · two-finger rotate + handle · resizable walls/stage · dance floor · service entrance · snap/guides · linked tables). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row ("linked-tables = identity+QR only V1" was pre-logged there); find-my-seat consumes the one-entry-per-unit contract when it ships.
+
+## 2026-06-11 · feat(seating): Phase 1e — snap-grid + alignment guides (0008)
+
+**Context:** Owner 2026-06-10 — drag/drop "feels pro" polish (the last Phase 1 interaction slice before linked tables). Layered ONTO the existing `nearestFree` collision, not replacing it.
+
+- **Alignment snap + guides:** while dragging a table, when its centre comes within ~1.2% of another table's centre (or the **room centreline at 50%**) on an axis, the drag snaps to it and a terracotta hairline draws across the canvas on that axis (rendered in the world layer via `guidesRef` — no extra state; the drag already re-renders per move). Guides clear on release.
+- **Grid snap:** any axis that didn't alignment-snap rounds to **half-metre steps in a sized room** (`0.5/venue.width·length × 100`) or 2% steps on the free board.
+- **Hold Alt** drags completely free of all snapping (Figma convention).
+- Snapped target feeds `nearestFree` as before — collision-avoid still wins over snap.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Snap feel is visual — Vercel preview.
+
+**SPEC IMPACT:** None beyond the editor-redesign program already logged (alignment-lock/grid-snap were in the original 0008 spec as deferred aids; this builds them in the redesigned interaction model). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row.
+## 2026-06-11 · chore(brand): "Setnayan HQ" — the internal console's display name (owner-locked naming)
+
+**Context:** "admin" collided three ways — the vendor team role **Admin** (owner/admin/agent/viewer), the Setnayan staff console, and staff labels. Owner locked the resolution (DECISION_LOG 2026-06-11): internal console = **"Setnayan HQ"**, staff = **"Setnayan Team"**, vendor-side roles unchanged (industry-standard), and **technical identifiers never renamed** (the `/admin` route, `account_type='admin'`, `is_admin()` — zero migration/RLS churn).
+
+- Display labels only, 11 files: sidebar eyebrow + tab titles (`Setnayan HQ` / `Overview · Setnayan HQ`), layout badge + fallback name → `Setnayan Team`, role-switch pill (both spots) + dashboard "open console" links + event-switcher row + help-center article label → `Setnayan HQ`, seed label `[TEST] Admin` → `[TEST] Setnayan Team`, CONNECTION_MATRIX heading.
+- Disambiguation rule for docs going forward: **"HQ" = Setnayan's console + team · "Admin" = a vendor's team role.**
+
+**SPEC IMPACT:** 0023's "Admin Console" naming superseded in UI copy (iteration `.md` retitle rides the next corpus pass per the relaxed sync mandate). No route/schema/RLS change.
 
 ## 2026-06-11 · fix(build): cap build memory so prod deploys stop OOMing on Vercel's standard machine
 

@@ -14,7 +14,7 @@ import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 
-export const metadata = { title: 'Admin · Setnayan' };
+export const metadata = { title: 'Setnayan HQ' };
 
 /**
  * Admin layout — v2.1 Navigation Phase 3 (admin doorway).
@@ -81,7 +81,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // bouncing to /dashboard, which could leak the existence of /admin.
   if (!isAdmin) notFound();
 
-  const displayName = profile?.display_name ?? profile?.email ?? 'Admin';
+  const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
   // EventSwitcher data — same shape DashboardLayout feeds OuterDashboardHeader.
   // Hide archived events; active-first + expired-rightmost; primary (or first
@@ -108,7 +108,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
     : profile?.is_team_member
       ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
-      : { label: 'Admin', tone: 'bg-ink/10 text-ink/70' };
+      : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
 
   // Switch View pill — lives in the desktop sidebar footer (added 2026-05-29
   // per owner directive to standardize role-switch placement across the 3

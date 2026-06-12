@@ -3,7 +3,7 @@ import { ArrowRight, AlertTriangle } from 'lucide-react';
 import { Tile } from './_overview-tile';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export const metadata = { title: 'Overview · Admin' };
+export const metadata = { title: 'Overview · Setnayan HQ' };
 
 function take(c: number | null | undefined): number | null {
   return typeof c === 'number' ? c : null;

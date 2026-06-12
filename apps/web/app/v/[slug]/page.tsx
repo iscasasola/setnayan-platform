@@ -7,17 +7,17 @@ import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
-  SERVICE_GROUPS,
-  VENDOR_CATEGORY_LABEL,
   displayServiceLabel,
   formatPhp,
   isCanonicalService,
   resolveVendorDisplayName,
-  serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
-  type ServiceGroupKey,
-  type VendorCategory,
 } from '@/lib/vendors';
+import { WEDDING_FOLDER_ORDER, WEDDING_FOLDER_LABEL } from '@/lib/taxonomy';
+import {
+  foldersForServiceKey,
+  serviceCategoryKeyLabel,
+} from '@/lib/service-category-keys';
 import {
   isBookable,
   isPubliclyVisible,
@@ -1229,15 +1229,21 @@ function ServicesPricingSection({
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
 }) {
-  const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
+  // Group by the taxonomy's 10 parent folders — vendor_services.category may
+  // hold canonical / tile / legacy keys; all three resolve through the
+  // cross-vocabulary bridge. Keys with no tile (legacy exempt + custom text)
+  // collect under "Other".
+  const byGroup = new Map<string, VendorServiceRow[]>();
   for (const s of services) {
-    const key: ServiceGroupKey = isCanonicalService(s.category)
-      ? serviceGroupOf(s.category as VendorCategory)
-      : 'other';
+    const key = foldersForServiceKey(s.category)[0] ?? 'other';
     const bucket = byGroup.get(key);
     if (bucket) bucket.push(s);
     else byGroup.set(key, [s]);
   }
+  const folderSections: Array<{ key: string; label: string }> = [
+    ...WEDDING_FOLDER_ORDER.map((f) => ({ key: f as string, label: WEDDING_FOLDER_LABEL[f] })),
+    { key: 'other', label: 'Other' },
+  ];
 
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -1250,7 +1256,7 @@ function ServicesPricingSection({
         </p>
       </header>
       <div className="space-y-5">
-        {SERVICE_GROUPS.map((group) => {
+        {folderSections.map((group) => {
           const rows = byGroup.get(group.key);
           if (!rows || rows.length === 0) return null;
           return (
@@ -1274,9 +1280,8 @@ function ServicesPricingSection({
 }
 
 function ServiceRow({ row }: { row: VendorServiceRow }) {
-  const label = isCanonicalService(row.category)
-    ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
-    : row.category;
+  // Cross-vocabulary label — never the raw underscore key.
+  const label = serviceCategoryKeyLabel(row.category);
   const priceLabel =
     row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`

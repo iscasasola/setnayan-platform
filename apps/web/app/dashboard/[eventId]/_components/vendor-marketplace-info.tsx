@@ -43,12 +43,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  VENDOR_CATEGORY_LABEL,
-  formatPhp,
-  isCanonicalService,
-  type VendorCategory,
-} from '@/lib/vendors';
+import { formatPhp } from '@/lib/vendors';
+import { serviceCategoryKeyLabel } from '@/lib/service-category-keys';
 import {
   type VendorServiceRow,
 } from '@/lib/vendor-services';
@@ -380,9 +376,10 @@ function ServicesCard({
 }
 
 function ServiceRow({ row }: { row: VendorServiceRow }) {
-  const label = isCanonicalService(row.category)
-    ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
-    : row.category;
+  // Cross-vocabulary label: tile / legacy keys resolve via the constants,
+  // canonical keys humanize ('lechon_belly' → 'Lechon belly') — never the
+  // raw underscore key the legacy-only resolver leaked.
+  const label = serviceCategoryKeyLabel(row.category);
   const priceLabel =
     row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`

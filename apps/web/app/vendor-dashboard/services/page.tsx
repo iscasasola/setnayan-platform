@@ -13,14 +13,15 @@ import {
   SLOT_LABEL_MAX,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
+import { formatPhp } from '@/lib/vendors';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { getCanonicalBuckets } from '@/lib/vendor-counts';
+import type { WeddingTile } from '@/lib/taxonomy';
 import {
-  VENDOR_CATEGORIES,
-  VENDOR_CATEGORY_LABEL,
-  SERVICE_GROUPS,
-  type VendorCategory,
-  displayServiceLabel,
-  formatPhp,
-} from '@/lib/vendors';
+  fetchCanonicalServiceLabels,
+  serviceCategoryKeyLabel,
+  tilesForServiceKey,
+} from '@/lib/service-category-keys';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createVendorService,
@@ -82,14 +83,28 @@ export default async function VendorServicesPage({ searchParams }: Props) {
   }
   const distinctCategories = Array.from(new Set(services.map((s) => s.category)));
 
-  // #1 multi-service-per-leaf: a category can now hold several listings, so we
-  // track a COUNT per category (not just presence) to show on the picker.
-  const serviceCountByCategory = services.reduce<Record<string, number>>(
-    (m, s) => {
-      m[s.category] = (m[s.category] ?? 0) + 1;
-      return m;
-    },
-    {},
+  // The picker renders the LIVE admin-managed taxonomy (service_categories +
+  // canonical_service_taxonomy via getTaxonomy) — 10 folders → ~53 tiles →
+  // canonical leaves. Admin edits surface here without a deploy. Labels for
+  // canonical keys come from canonical_service_schemas.display_name_en; tile /
+  // legacy keys resolve through the snapshot / bridge.
+  const tax = await getTaxonomy();
+  const buckets = await getCanonicalBuckets();
+  const canonicalLabels = await fetchCanonicalServiceLabels(supabase);
+  const labelOf = (key: string) =>
+    serviceCategoryKeyLabel(key, { canonicalLabels, tax });
+
+  // #1 multi-service-per-leaf: a tile can hold several listings, so we track a
+  // COUNT per tile (not just presence) for the picker badge. Rows keyed in any
+  // vocabulary (canonical / tile / legacy) bucket into their tile(s).
+  const serviceCountByTile = services.reduce<Record<string, number>>((m, s) => {
+    for (const tile of tilesForServiceKey(s.category, tax)) {
+      m[tile] = (m[tile] ?? 0) + 1;
+    }
+    return m;
+  }, {});
+  const tilesCovered = new Set(
+    services.flatMap((s) => tilesForServiceKey(s.category, tax)),
   );
 
   // Branch-scoped grouping (Branches V1.x) — only an Enterprise vendor that has
@@ -138,14 +153,17 @@ export default async function VendorServicesPage({ searchParams }: Props) {
     .order('created_at', { ascending: false });
   const myRequests = (requestRows ?? []) as CategoryRequestRow[];
 
-  // If ?add=<category> is in the URL, the "Add service" form for that category
-  // is the expanded one. #1: a category can hold multiple listings, so the form
-  // opens even for already-used categories (the create action enforces the cap).
-  const addCategory =
+  // If ?add=<tile> is in the URL, the "Add service" form for that tile is the
+  // expanded one. #1: a tile can hold multiple listings, so the form opens even
+  // for already-used tiles (the create action enforces the cap). The leaf
+  // select inside the form narrows to the tile's canonical services.
+  const addTile =
     typeof search.add === 'string' &&
-    (VENDOR_CATEGORIES as readonly string[]).includes(search.add)
-      ? (search.add as VendorCategory)
+    (tax.tileOrder as readonly string[]).includes(search.add)
+      ? (search.add as WeddingTile)
       : null;
+  const addLeaves = addTile ? (buckets.byTile.get(addTile) ?? []) : [];
+  const addTileLabel = addTile ? (tax.tileLabel[addTile] ?? addTile) : '';
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -155,12 +173,12 @@ export default async function VendorServicesPage({ searchParams }: Props) {
             <Briefcase aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {services.length} of {VENDOR_CATEGORIES.length} selected
+            {tilesCovered.size} of {tax.tileOrder.length} categories covered
           </span>
         </div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your services</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Pick from the {VENDOR_CATEGORIES.length} categories, set a starting price, and configure crew details.
+          Pick from the {tax.tileOrder.length} marketplace categories, set a starting price, and configure crew details.
           Toggle a service to hide it from the marketplace without losing pricing history.
         </p>
       </header>
@@ -197,30 +215,30 @@ export default async function VendorServicesPage({ searchParams }: Props) {
             All categories
           </h2>
           <div className="space-y-4">
-            {SERVICE_GROUPS.map((group) => (
-              <div key={group.key} className="space-y-1.5">
+            {tax.folderOrder.map((folder) => (
+              <div key={folder} className="space-y-1.5">
                 <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                  {group.label}
+                  {tax.folderLabel[folder] ?? folder}
                 </p>
                 <ul className="space-y-1">
-                  {group.members.map((cat) => {
-                    // #1: a category can hold multiple listings now, so it stays
+                  {(tax.tilesByParent[folder] ?? []).map((tile) => {
+                    // #1: a tile can hold multiple listings now, so it stays
                     // clickable even once used — the count shows how many are
                     // added; the create action enforces the per-tier cap.
-                    const count = serviceCountByCategory[cat] ?? 0;
+                    const count = serviceCountByTile[tile] ?? 0;
                     return (
-                      <li key={cat}>
+                      <li key={tile}>
                         <Link
-                          href={`/vendor-dashboard/services?add=${cat}#add-${cat}`}
+                          href={`/vendor-dashboard/services?add=${tile}#add-${tile}`}
                           className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                            addCategory === cat
+                            addTile === tile
                               ? 'bg-ink/10 text-ink'
                               : count > 0
                                 ? 'text-terracotta-700 hover:bg-terracotta/[0.06]'
                                 : 'text-ink/75 hover:bg-ink/[0.04]'
                           }`}
                         >
-                          <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
+                          <span>{tax.tileLabel[tile] ?? tile}</span>
                           {count > 0 ? (
                             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
                               {count} added
@@ -244,38 +262,66 @@ export default async function VendorServicesPage({ searchParams }: Props) {
 
         {/* Right column — selected services with editor controls. */}
         <div className="space-y-4">
-          {addCategory ? (
+          {addTile ? (
             <section
-              id={`add-${addCategory}`}
+              id={`add-${addTile}`}
               className="space-y-3 rounded-2xl border border-terracotta/30 bg-cream p-5"
             >
               <h2 className="text-base font-semibold text-ink">
-                Add: {VENDOR_CATEGORY_LABEL[addCategory]}
+                Add: {addTileLabel}
               </h2>
               <form action={createVendorService} className="space-y-4">
-                <input type="hidden" name="category" value={addCategory} />
+                {/* Canonical-leaf pick: ≥2 leaves → required select; exactly 1
+                    → that leaf, hidden; 0 (admin tile with no mapped canonical
+                    yet) → store the tile key itself. */}
+                {addLeaves.length > 1 ? (
+                  <Field
+                    label="What exactly is this listing?"
+                    htmlFor={`new-category-${addTile}`}
+                    help="Couples search at this level — the closer the match, the more you surface."
+                  >
+                    <select
+                      id={`new-category-${addTile}`}
+                      name="category"
+                      defaultValue={addLeaves[0]}
+                      className="input-field"
+                    >
+                      {addLeaves.map((leaf) => (
+                        <option key={leaf} value={leaf}>
+                          {labelOf(leaf)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : (
+                  <input
+                    type="hidden"
+                    name="category"
+                    value={addLeaves[0] ?? addTile}
+                  />
+                )}
                 <Field
                   label="Service name (optional)"
-                  htmlFor={`new-title-${addCategory}`}
+                  htmlFor={`new-title-${addTile}`}
                   help="Name this listing so couples can tell your offerings apart — e.g. 'Classic Booth' vs '360 Booth'."
                 >
                   <input
-                    id={`new-title-${addCategory}`}
+                    id={`new-title-${addTile}`}
                     name="title"
                     type="text"
                     maxLength={80}
-                    placeholder={VENDOR_CATEGORY_LABEL[addCategory]}
+                    placeholder={addTileLabel}
                     className="input-field"
                   />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field
                     label="Starting price (PHP)"
-                    htmlFor={`new-price-${addCategory}`}
+                    htmlFor={`new-price-${addTile}`}
                     help="Whole pesos. Leave blank for 'quote on request'."
                   >
                     <input
-                      id={`new-price-${addCategory}`}
+                      id={`new-price-${addTile}`}
                       name="starting_price_php"
                       type="number"
                       min={0}
@@ -286,11 +332,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                   </Field>
                   <Field
                     label="Crew size"
-                    htmlFor={`new-crew-${addCategory}`}
+                    htmlFor={`new-crew-${addTile}`}
                     help="How many people you bring on the day."
                   >
                     <input
-                      id={`new-crew-${addCategory}`}
+                      id={`new-crew-${addTile}`}
                       name="crew_size"
                       type="number"
                       min={0}
@@ -318,11 +364,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                 {slotsCap > 0 ? (
                   <Field
                     label="Bookings per day (optional)"
-                    htmlFor={`new-cap-${addCategory}`}
+                    htmlFor={`new-cap-${addTile}`}
                     help={`How many of this you can serve in a day — e.g. 2 photobooths → 2. Your plan allows up to ${slotsCapForUi}.`}
                   >
                     <input
-                      id={`new-cap-${addCategory}`}
+                      id={`new-cap-${addTile}`}
                       name="daily_capacity"
                       type="number"
                       min={1}
@@ -348,10 +394,10 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     </span>
                   </span>
                 </label>
-                <LastMinuteFields idPrefix={`new-${addCategory}`} />
+                <LastMinuteFields idPrefix={`new-${addTile}`} />
                 {showBranchPicker ? (
                   <BranchSelect
-                    id={`new-branch-${addCategory}`}
+                    id={`new-branch-${addTile}`}
                     branches={branches}
                     defaultValue=""
                   />
@@ -395,11 +441,11 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       <p className="truncate text-base font-semibold text-ink">
-                        {svc.title?.trim() || displayServiceLabel(svc.category)}
+                        {svc.title?.trim() || labelOf(svc.category)}
                       </p>
                       {svc.title?.trim() ? (
                         <p className="truncate text-xs text-ink/50">
-                          {displayServiceLabel(svc.category)}
+                          {labelOf(svc.category)}
                         </p>
                       ) : null}
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -606,7 +652,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                                   ?.has(cat)}
                                 className="h-3.5 w-3.5 cursor-pointer accent-terracotta"
                               />
-                              <span>{displayServiceLabel(cat)}</span>
+                              <span>{labelOf(cat)}</span>
                             </label>
                           ))}
                       </div>

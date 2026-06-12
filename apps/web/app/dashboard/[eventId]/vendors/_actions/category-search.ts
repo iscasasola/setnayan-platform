@@ -34,6 +34,7 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { expandCategoryKeysForQuery } from '@/lib/service-category-keys';
 import {
   buildCoupleFaithSet,
   passesEventTypeFilter,
@@ -400,7 +401,9 @@ export async function searchCategoryVendors(input: {
         'vendor_profile_id, category, last_minute_end_months, last_minute_surcharge_pct',
       )
       .in('vendor_profile_id', ids)
-      .in('category', canonicals);
+      // Cross-vocabulary widen: vendor_services.category may hold canonical,
+      // tile, or legacy VendorCategory keys — match all three for this scope.
+      .in('category', expandCategoryKeysForQuery(canonicals));
     const svcByVendor = new Map<
       string,
       Array<{ category: string; end: number | null; pct: number | null }>

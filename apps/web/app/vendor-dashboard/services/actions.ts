@@ -3,14 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import {
-  VENDOR_CATEGORIES,
-  displayServiceLabel,
-  type VendorCategory,
-} from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
-import { TILE_PARENT } from '@/lib/taxonomy';
+import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
+import {
+  fetchCanonicalServiceLabels,
+  foldersForServiceKey,
+  isAcceptedServiceCategoryKey,
+  serviceCategoryKeyLabel,
+} from '@/lib/service-category-keys';
 import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
 import {
   SLOT_LABEL_MAX,
@@ -19,25 +19,24 @@ import {
   SLOT_TIME_RE,
 } from '@/lib/vendor-time-slots';
 
-const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
-
 /**
- * The distinct PARENT folder(s) (of the 10) a vendor category surfaces under.
- * Routes through the vendor→canonical bridge (NOT TAXONOMY_MAP, which is keyed
- * by v11 canonicals the legacy VendorCategory enum doesn't match). Exempt
- * categories (officiant/fees/etc.) return [] and don't count toward the cap.
+ * The distinct PARENT folder(s) (of the 10) a service-category key surfaces
+ * under — taxonomy-aware: canonical keys resolve through the live snapshot,
+ * tile keys through their parent, legacy keys through the bridge. Exempt /
+ * unknown keys return [] and don't count toward the cap.
  */
-function parentsOfCategory(category: VendorCategory): string[] {
-  return tilesForVendorCategory(category)
-    .map((tile) => TILE_PARENT[tile] as string)
-    .filter(Boolean);
+function parentsOfCategory(category: string, tax?: TaxonomySnapshot): string[] {
+  return foldersForServiceKey(category, tax);
 }
 
-function parseCategory(raw: FormDataEntryValue | null): VendorCategory {
-  if (typeof raw !== 'string' || !CATEGORY_SET.has(raw)) {
+function parseCategory(
+  raw: FormDataEntryValue | null,
+  tax: TaxonomySnapshot,
+): string {
+  if (typeof raw !== 'string' || !isAcceptedServiceCategoryKey(raw, tax)) {
     throw new Error('Unknown service category.');
   }
-  return raw as VendorCategory;
+  return raw;
 }
 
 function parseInt0OrNull(raw: FormDataEntryValue | null): number | null {
@@ -119,15 +118,18 @@ function parseDailyCapacityOrThrow(
 
 export async function createVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
+  // Live taxonomy snapshot — the picker renders from it, so validation must
+  // accept exactly what it offered (admin edits land without a deploy).
+  const tax = await getTaxonomy();
 
-  let category: VendorCategory;
+  let category: string;
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
   let crew_size: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
   try {
-    category = parseCategory(formData.get('category'));
+    category = parseCategory(formData.get('category'), tax);
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     // Optional per-added-guest surcharge (Adaptive Pax Pricing); blank = none.
     added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
@@ -188,7 +190,7 @@ export async function createVendorService(formData: FormData) {
     .from('vendor_services')
     .select('category')
     .eq('vendor_profile_id', profile.vendor_profile_id);
-  const existing = (existingRows ?? []) as { category: VendorCategory }[];
+  const existing = (existingRows ?? []) as { category: string }[];
 
   // (1) Services-per-leaf cap (#1, owner 2026-06-07): FREE 2 · VERIFIED 2 ·
   // PRO 5 · ENTERPRISE ∞ distinct listings within one leaf category.
@@ -203,10 +205,10 @@ export async function createVendorService(formData: FormData) {
   // (2) Parent-category cap (Phase B): distinct parents of the 10 — FREE 1 ·
   // VERIFIED 3 · PRO 3 · ENTERPRISE ∞. Only blocks when this service introduces
   // a NEW parent beyond the allowance (adding within covered parents is free).
-  const newParents = parentsOfCategory(category);
+  const newParents = parentsOfCategory(category, tax);
   if (caps.parentCategories !== Infinity && newParents.length > 0) {
     const existingParents = new Set(
-      existing.flatMap((r) => parentsOfCategory(r.category)),
+      existing.flatMap((r) => parentsOfCategory(r.category, tax)),
     );
     const introducesNew = newParents.some((p) => !existingParents.has(p));
     const wouldBe = new Set(existingParents);
@@ -413,11 +415,14 @@ export async function setServiceLinks(formData: FormData) {
   }
 
   if (chosen.length > 0) {
+    // Taxonomy-aware labels: canonical keys get display_name_en from the DB,
+    // tile keys their tile label, legacy keys their old label.
+    const canonicalLabels = await fetchCanonicalServiceLabels(supabase, chosen);
     const rows = chosen.map((category, i) => ({
       vendor_service_id: anchorId,
       vendor_profile_id: profile.vendor_profile_id,
       linked_canonical_service: category,
-      linked_label: displayServiceLabel(category),
+      linked_label: serviceCategoryKeyLabel(category, { canonicalLabels }),
       display_order: i,
     }));
     const ins = await supabase.from('vendor_service_links').insert(rows);

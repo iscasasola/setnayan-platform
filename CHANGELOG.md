@@ -1494,6 +1494,20 @@ Three owner-directed seat-plan editor additions (2026-06-13):
 **Verification:** `tsc` + `next lint` clean. Prod-smoked end-to-end: impersonated `vendor.test` (linked as the test event's booked caterer "Grazia Catering" — demo now live for the test account) → full brief JSON returned (pax 234/280, palettes, monogram M&J, 6 timeline blocks); `couple.test` impersonation correctly refused `not_a_vendor`.
 
 **SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 1 → BUILT (edited directly per standing authorization); DECISION_LOG row appended.
+## 2026-06-12 · feat(vendor): Services picker follows the live admin taxonomy — legacy 30-category list retired
+
+**Context:** owner spotted the vendor `/vendor-dashboard/services` picker ("Pick from the 30 categories") rendering raw keys like `photo_video` and asked whether it follows the admin taxonomy. It didn't — it ran on the hardcoded legacy `VENDOR_CATEGORIES` enum (`lib/vendors.ts`) while the admin console manages the DB-backed tree (`service_categories` + `canonical_service_taxonomy`, ~10 folders → ~53 tiles → ~200 canonicals). Owner directive: "fix this and follow the taxonomy."
+
+- **Picker now renders the LIVE taxonomy** via `getTaxonomy()` + `getCanonicalBuckets()`: 10 folder headings → ~53 tile rows; admin taxonomy edits surface to vendors **without a deploy**. The Add form gains a "What exactly is this listing?" canonical-leaf select (display_name_en labels); single-leaf tiles auto-fill; leafless tiles store the tile key.
+- **New rows store canonical leaf keys** — the vocabulary couple-side scoping queries (`canonicalsForGroup` → `.in('category', …)`) and the `event_vendors.category_key` dual-write already expected. Legacy rows are never re-tagged; they keep working through the bridge.
+- **New `lib/service-category-keys.ts`** cross-vocabulary resolver (canonical / tile / legacy → tiles, folders, labels) + `expandCategoryKeysForQuery()`. Wired into: create/cap validation + linked-label writes (`services/actions.ts`), category-search + unlock-category `vendor_services` scope queries (fixes a latent miss where legacy-keyed rows never matched canonical-keyed scopes), `canonicalServiceToPlanGroupId` (cross-category recs now bucket taxonomy-keyed rows), and the couple workspace Services card label (raw `photo_video` → "Photo & Video").
+- Tier caps unchanged in spirit: parent-category cap resolves parents through the taxonomy for ALL vocabularies; per-leaf cap counts exact keys. `parseCategory` validates against the live snapshot (canonical-not-hidden / tile / legacy), so admin-added categories are immediately listable.
+- No schema change (`vendor_services.category` was already free TEXT). The stray tile-keyed row on the test vendor (`photo_video`) becomes legitimate and now labels + counts correctly.
+- **Public microsite (`/v/[slug]`) follows too:** the "Services & pricing" section now groups by the taxonomy's 10 parent folders (was: legacy SERVICE_GROUPS, which dumped taxonomy-keyed rows into "Other") and resolves labels through the cross-vocabulary bridge.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (only pre-existing warnings in untouched files) · production build green.
+
+**SPEC IMPACT:** 0022 vendor-dashboard spec's "30 categories" Services picker is superseded by the taxonomy-driven picker — logged as a DECISION_LOG.md row in the corpus (per the 2026-06-07 relaxed sync mandate; code is canonical).
 
 ## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
 

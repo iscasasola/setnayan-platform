@@ -38,6 +38,7 @@
  */
 
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { tilesForServiceKey } from '@/lib/service-category-keys';
 import {
   TAXONOMY_MAP,
   WEDDING_TILE_SLUG,
@@ -822,12 +823,24 @@ export function planGroupForCategory(
 export function canonicalServiceToPlanGroupId(
   canonicalService: string,
 ): PlanGroupId | null {
-  // VendorCategory is the enum that backs event_vendors.category AND
-  // vendor_services.category. Validate by membership in PLAN_GROUPS'
-  // declared category sets (which collectively cover the full enum).
+  // Three vocabularies can appear in vendor_services.category: legacy
+  // VendorCategory keys (PLAN_GROUPS' declared category sets), canonical
+  // service keys, and tile keys (the taxonomy-backed vendor picker writes
+  // canonicals from 2026-06-12). Resolve in tightest-first order.
   for (const g of PLAN_GROUPS) {
     if ((g.categories as readonly string[]).includes(canonicalService)) {
       return g.id;
+    }
+  }
+  // Exact leaf-scoped group (e.g. a subcategoryHint card) wins over its tile.
+  for (const g of PLAN_GROUPS) {
+    if (g.subcategoryHint === canonicalService) return g.id;
+  }
+  // Canonical / tile keys → their tile(s) → the group anchored to that tile.
+  const tiles = tilesForServiceKey(canonicalService);
+  if (tiles.length > 0) {
+    for (const g of PLAN_GROUPS) {
+      if (g.catalogTile && tiles.includes(g.catalogTile)) return g.id;
     }
   }
   return null;
@@ -1309,8 +1322,9 @@ export type CrossCategoryRecommendation = {
   vendor_name: string;
   /** Vendor's resolved logo URL (priority 1 service photo OR vendor_profiles.logo_url). */
   vendor_logo_url: string | null;
-  /** vendor_services.category — what the vendor offers in the target group. */
-  target_category: VendorCategory;
+  /** vendor_services.category — what the vendor offers in the target group.
+   *  Canonical / tile / legacy key (the column is cross-vocabulary TEXT). */
+  target_category: string;
   /** Source group label — "also doing your catering," "also doing your photography," etc. */
   source_group_label: string;
   /** Source group ID for cross-reference in UI logic. */
@@ -1438,9 +1452,8 @@ export function buildCrossCategoryRecommendations(
     if (!svc.is_active) continue;
     const meta = vendorMeta.get(svc.vendor_profile_id);
     if (!meta) continue;
-    const targetCategory = svc.category as VendorCategory;
-    if (!isVendorCategory(targetCategory)) continue;
-    const targetGroupId = planGroupForCategory(targetCategory);
+    const targetCategory = svc.category;
+    const targetGroupId = canonicalServiceToPlanGroupId(targetCategory);
     if (!targetGroupId) continue;
     // Don't recommend self — vendor is already a pick in this group.
     const membership = vendorGroupMembership.get(svc.vendor_profile_id);
@@ -1470,17 +1483,6 @@ export function buildCrossCategoryRecommendations(
   }
 
   return out;
-}
-
-/**
- * Defensive runtime check that a raw TEXT from vendor_services.category
- * matches the canonical VendorCategory enum. Mirrors the structural
- * check from vendor-services.ts but enforces against the exact enum
- * list — vendor_services.category is free-form on the DB side but
- * downstream consumers expect a known enum value.
- */
-function isVendorCategory(value: string): value is VendorCategory {
-  return (VENDOR_CATEGORIES as readonly string[]).includes(value);
 }
 
 // ============================================================================

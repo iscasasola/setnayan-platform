@@ -37,6 +37,10 @@ import {
   canonicalServicesForTile,
 } from '@/lib/vendor-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import {
+  expandCategoryKeysForQuery,
+  tilesForServiceKey,
+} from '@/lib/service-category-keys';
 import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
@@ -138,7 +142,9 @@ export async function unlockCategoryWithInquiry(input: {
       .from('vendor_services')
       .select('vendor_service_id, category')
       .eq('vendor_profile_id', vendorProfileId)
-      .in('category', canonicals)
+      // Cross-vocabulary widen: vendor_services.category may hold canonical,
+      // tile, or legacy VendorCategory keys — match all three for this scope.
+      .in('category', expandCategoryKeysForQuery(canonicals))
       .eq('is_active', true)
       .limit(1)
       .maybeSingle();
@@ -157,7 +163,7 @@ export async function unlockCategoryWithInquiry(input: {
     const { error: insertErr } = await supabase.from('event_vendors').insert({
       event_id: eventId,
       category,
-      category_key: tax.map[category]?.tile ?? null,
+      category_key: tilesForServiceKey(category, tax)[0] ?? null,
       vendor_name: vendorName,
       status: 'considering',
       marketplace_vendor_id: vendorProfileId,

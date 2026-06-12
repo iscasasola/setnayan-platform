@@ -4,7 +4,7 @@ import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-dete
 
 /**
  * thread_service_interests — structured per-service inquiry context on the ONE
- * couple↔vendor chat thread (migration 20261205000000). Owner-locked
+ * couple↔vendor chat thread (migration 20261206000000). Owner-locked
  * 2026-06-12 "Link-gated build cascade + multi-service inquiry mapping": an
  * inquiry can name the service the couple clicked Inquire on (source='initial'),
  * the vendor's price-included linked services (source='linked'), extra

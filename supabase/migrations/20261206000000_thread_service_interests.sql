@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261205000000_thread_service_interests.sql
+-- 20261206000000_thread_service_interests.sql
 -- Multi-service inquiry mapping — structured per-service interest context on a
 -- single couple↔vendor chat thread.
 --

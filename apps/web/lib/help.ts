@@ -388,7 +388,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   // ─── Admin-role topics ──────────────────────────────────────────────
   {
     key: 'admin-console-basics',
-    label: 'Admin console basics',
+    label: 'Setnayan HQ basics',
     roles: ['admin'],
     articles: [
       {

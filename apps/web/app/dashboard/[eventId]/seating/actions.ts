@@ -553,6 +553,105 @@ export async function updateTableLabel(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  // Renaming a linked table renames the UNIT: keep link_group_label in sync
+  // across the whole group so the shared sign + badges follow the new name.
+  const { data: row } = await supabase
+    .from('event_tables')
+    .select('link_group_id')
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (row?.link_group_id) {
+    const { error: syncErr } = await supabase
+      .from('event_tables')
+      .update({ link_group_label: label, updated_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .eq('link_group_id', row.link_group_id);
+    if (syncErr) throw new Error(syncErr.message);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Link two tables into ONE named unit (identity + QR only — owner-locked
+// 2026-06-10): members share link_group_id + link_group_label, render with the
+// shared name, and the print pack emits ONE QR sign for the unit. Seating math
+// stays per-table. Linking into an existing unit merges the groups.
+export async function linkTables(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableA = formData.get('table_id_a');
+  const tableB = formData.get('table_id_b');
+  if (
+    typeof eventId !== 'string' ||
+    typeof tableA !== 'string' ||
+    typeof tableB !== 'string' ||
+    tableA === tableB
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const tables = await fetchTables(supabase, eventId);
+  const a = tables.find((t) => t.table_id === tableA);
+  const b = tables.find((t) => t.table_id === tableB);
+  if (!a || !b) throw new Error('Table not found');
+
+  const groupId = a.link_group_id ?? b.link_group_id ?? crypto.randomUUID();
+  // The unit keeps the FIRST table's identity (its existing unit label, else
+  // its own label) — tap the head table first, then the extension.
+  const label = a.link_group_label ?? a.table_label;
+  const memberIds = new Set<string>([tableA, tableB]);
+  for (const t of tables) {
+    if (t.link_group_id && (t.link_group_id === a.link_group_id || t.link_group_id === b.link_group_id)) {
+      memberIds.add(t.table_id);
+    }
+  }
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({ link_group_id: groupId, link_group_label: label, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .in('table_id', [...memberIds]);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Dissolve a linked unit (from any member): every member returns to its own
+// name + its own QR sign.
+export async function unlinkTable(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: row } = await supabase
+    .from('event_tables')
+    .select('link_group_id')
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!row?.link_group_id) return;
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({ link_group_id: null, link_group_label: null, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('link_group_id', row.link_group_id);
+  if (error) throw new Error(error.message);
+
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 

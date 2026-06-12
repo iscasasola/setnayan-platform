@@ -503,14 +503,14 @@ export function AdminSidebar() {
     <>
       {/* Brand header — sits inside the sidebar's scrollable section so it
           scrolls with the nav rather than being pinned. Matches the v2.1
-          editorial register: Wordmark + 'Admin' eyebrow in m-label-mono. */}
+          editorial register: Wordmark + 'Setnayan HQ' eyebrow in m-label-mono. */}
       <header className="px-4 pb-4 pt-2 [[data-sidebar-collapsed='1']_&]:hidden">
         <Wordmark className="text-ink" />
         <p
           className="m-label-mono mt-2"
           style={{ color: 'var(--m-slate-2)' }}
         >
-          Admin
+          Setnayan HQ
         </p>
       </header>
 

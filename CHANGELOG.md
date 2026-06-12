@@ -18,6 +18,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Phase 3 of the monogram overhaul — the couple-driven deterministic cipher supersedes AI-bespoke as the intended DEFAULT path to a custom mark (the Phase 2 studio remains as an optional alternative; both write the same monogram_custom_svg slot). Corpus DECISION_LOG row + memory updated. New deps: perfect-freehand (runtime, ~5KB) + opentype.js (build-time only).
 
+## 2026-06-11 · feat(monogram): typeface picker — 4 owner-picked faces join the registry + exact-font landing hero
+
+**Context:** Owner font-specimen session (4 boards · 84 faces shown live): picks = **Libre Caslon Display · Tangerine · Luxurious Script · Vidaloka**. Today the monogram font is derived ONLY from the chosen lockup (5 lockups → 4 baked faces); the new faces need a couple-facing way in.
+
+- **`monogram-maker.tsx` — "Choose a typeface" row (new):** 8 tiles (the original four + the four picks), each previewing the couple's initials in the real face. The typeface follows the lockup's default until the couple explicitly picks one (override persists via `monogram_font_key`). Maker preview now renders the SELECTED face (was: hardcoded generic serif).
+- **`app/layout.tsx`:** the 4 faces self-host via `next/font/google` (weight-minimal) → `--font-libre-caslon` / `--font-tangerine` / `--font-luxurious` / `--font-vidaloka`.
+- **`lib/monogram.ts`:** `MonoFontKey` + `MONO_FONT_STACK` grow to 8; **resolver precedence fix** — a valid stored `monogram_font_key` now wins over lockup-derived font (new keys have no `MONO_DESIGNS` row; without this they'd silently resolve to Cormorant). Legacy rows unchanged (stored key always matched the design). `resolveMonogram` optionally resolves `fontFamily/fontStyle` when callers pass the design columns.
+- **`saveMonogram` (actions.ts):** accepts the `font` field, validated against the 8-key registry; off-registry falls back to the lockup default.
+- **Landing hero exact-font fix (`app/[slug]/page.tsx` + `animated-monogram-hero.tsx`):** the hero monogram now renders in the couple's chosen face — it previously hardcoded a generic serif italic for everyone (even the Script lockup). `AnimatedMonogramHero` gains optional `fontFamily/fontStyle` (default = old behavior); the anonymous select adds the long-shipped `monogram_style/font_key/frame_key` columns (exist in prod since onboarding).
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · full CI suite green 3× on the identical code (typecheck/lint · production build · e2e · lighthouse · bundle size) across successive CHANGELOG-conflict resolutions against a fast-moving main. Onboarding untouched.
+
+**SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
+
+## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
+
+**Context:** Owner 2026-06-10 — "tables can link together to be named as 1 table"; depth owner-locked = **identity + QR only** (shared name/number, one printed QR sign, one find-my-seat entry; seating math stays per-table — a shared capacity pool is a future enhancement). The LAST Phase 1 slice.
+
+- **Migration `20261115000000_iteration_0008_linked_tables.sql`** (additive · idempotent · **applied to prod via `db query`**, 2 columns + partial index verified): `event_tables.link_group_id UUID` + `link_group_label TEXT`.
+- **Actions:** `linkTables` (links two tables — merging existing groups; the unit keeps the FIRST table's identity) · `unlinkTable` (dissolves the whole unit from any member) · `updateTableLabel` now **syncs `link_group_label` across the group on rename** (renaming a linked table renames the unit).
+- **Editor:** popup gains **Link** (tap → guidance bar "tap another table to combine" → next table tap links) / **Unlink** on linked tables — both popup surfaces (popover + phone sheet). Linked tables render under the **unit's name** (hub number from `link_group_label`) with a `Link2` glyph in the sidebar + list view.
+- **Print pack:** linked tables emit **ONE sign per unit** (shared label · the LEAD table's QR · combined seated count); the directory shows "(N tables joined)" and place cards carry the unit label. Unlinked tables = single-member units (unchanged output).
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · migration applied + verified on prod.
+
+**SPEC IMPACT:** Completes the owner's 2026-06-10 editor-redesign spec (popup · rename · seat Guest/Group/Role · two-finger rotate + handle · resizable walls/stage · dance floor · service entrance · snap/guides · linked tables). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row ("linked-tables = identity+QR only V1" was pre-logged there); find-my-seat consumes the one-entry-per-unit contract when it ships.
+
 ## 2026-06-11 · feat(seating): Phase 1e — snap-grid + alignment guides (0008)
 
 **Context:** Owner 2026-06-10 — drag/drop "feels pro" polish (the last Phase 1 interaction slice before linked tables). Layered ONTO the existing `nearestFree` collision, not replacing it.
@@ -30,6 +57,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Snap feel is visual — Vercel preview.
 
 **SPEC IMPACT:** None beyond the editor-redesign program already logged (alignment-lock/grid-snap were in the original 0008 spec as deferred aids; this builds them in the redesigned interaction model). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row.
+## 2026-06-11 · chore(brand): "Setnayan HQ" — the internal console's display name (owner-locked naming)
+
+**Context:** "admin" collided three ways — the vendor team role **Admin** (owner/admin/agent/viewer), the Setnayan staff console, and staff labels. Owner locked the resolution (DECISION_LOG 2026-06-11): internal console = **"Setnayan HQ"**, staff = **"Setnayan Team"**, vendor-side roles unchanged (industry-standard), and **technical identifiers never renamed** (the `/admin` route, `account_type='admin'`, `is_admin()` — zero migration/RLS churn).
+
+- Display labels only, 11 files: sidebar eyebrow + tab titles (`Setnayan HQ` / `Overview · Setnayan HQ`), layout badge + fallback name → `Setnayan Team`, role-switch pill (both spots) + dashboard "open console" links + event-switcher row + help-center article label → `Setnayan HQ`, seed label `[TEST] Admin` → `[TEST] Setnayan Team`, CONNECTION_MATRIX heading.
+- Disambiguation rule for docs going forward: **"HQ" = Setnayan's console + team · "Admin" = a vendor's team role.**
+
+**SPEC IMPACT:** 0023's "Admin Console" naming superseded in UI copy (iteration `.md` retitle rides the next corpus pass per the relaxed sync mandate). No route/schema/RLS change.
 
 ## 2026-06-11 · fix(build): cap build memory so prod deploys stop OOMing on Vercel's standard machine
 

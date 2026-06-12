@@ -17,6 +17,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean (incl. noUncheckedIndexedAccess hardening of the geometry engine) · `next lint` clean · production build green · **8 unit tests** against the REAL prebuilt geometry (A–Z coverage all 15 fonts · sanitizer clamps + mode/kind coherence · render determinism · restroke purity (no text/refs/NaN) · weave mask + gap scaling · mirror transforms · connectNearest orientation/no-teleport · null-not-throw) · 6 save-path renders screenshotted (Allura restroke A·G = the owner's gold-reference look · Society mulberry · De Haviland + Cinzel + Luxurious weaves · Vidaloka mirrored overlap).
 
 **SPEC IMPACT:** Phase 3 of the monogram overhaul — the couple-driven deterministic cipher supersedes AI-bespoke as the intended DEFAULT path to a custom mark (the Phase 2 studio remains as an optional alternative; both write the same monogram_custom_svg slot). Corpus DECISION_LOG row + memory updated. New deps: perfect-freehand (runtime, ~5KB) + opentype.js (build-time only).
+## 2026-06-11 · fix(taxonomy): Born Again couples get their own officiant (completeness-audit fix #1)
+
+**Context:** The events×religions completeness audit (26-agent workflow + targeted verification) found that `born_again` is a pickable `ceremony_type` but `born_again_pastor` was tagged `faith='Christian'` — so a Born Again couple's INCLUDE-only faith filter excluded their OWN officiant (pickable faith → dead-end journey).
+
+- **Migration `20261115000000_born_again_pastor_retag.sql`** (applied to prod, verified): `born_again_pastor` → `faith='Born Again'`. Christian couples keep `charismatic_pastor` + `mainline_protestant_pastor`.
+- **`lib/taxonomy.ts:577`**: same re-tag in the constant (fallback + direct marketplace read — DB-only would leave stale TS driving the filter, per the de-faith precedent).
+- **Ride-along:** removed the dead `burial: 'Burials'` label from `lib/admin/growth-stats.ts` (burial was owner-retired 2026-05-16; the label was unreachable).
+
+**Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
+
+**SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
+## 2026-06-12 · feat(seating): caterer meal counts — diet on the seat + the caterer handover report (0008 · leapfrog Phase 2)
+
+**Context:** The meal/dietary leapfrog (closes the RSVPify/WeddingWire gap). The guest columns (`meal_preference`, `dietary_restrictions`) already existed from 0001 RSVP — this surfaces them in the seat plan and produces the caterer handover artifact. No schema change.
+
+- **`/dashboard/[eventId]/seating/caterer` (NEW route):** printable HTML report — **overall totals per meal** (attending only) · **per-table breakdown** (linked tables count as ONE unit, same grouping as the print pack; unseated attendees land in an explicit "Not seated yet" bucket so nobody vanishes from the count) · **every dietary restriction by name + table**. `?format=csv` downloads the raw per-guest rows (Guest · Table · Meal · Dietary) for spreadsheet caterers.
+- **Editor surfacing:** `SeatingGuest` carries `meal_preference` + `dietary_restrictions`; the Seat-people picker shows an amber **diet** chip (tooltip = the restriction) and the list view shows the meal inline + the diet chip on seated guests.
+- **Export menu:** new "Caterer meal counts" entry (print or CSV).
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Report rendering is visual — Vercel preview. RLS-scoped reads (couple only).
+
+**SPEC IMPACT:** New couple-side capability beyond 0008 (the leapfrog plan's "meal→caterer" phase, owner-approved 2026-06-10). The "counts flow to the booked caterer VENDOR" half (vendor-side delivery) is the follow-up — this ships the couple-side artifact. → corpus `DECISION_LOG` note rides the seat-plan program row.
+
 ## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
 
 **Context:** Owner-approved 2026-06-11 modernity decision ("Yes — add it"): live presence on the stack we already pay for (Supabase Realtime; NOT full CRDT — overkill for an async editor). Closes the Prismm vendor-collaboration gap; the cheapest yard of genuine modernity. First arc after the completed Phase 1 editor redesign.

@@ -21,6 +21,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** 0012 Salamisim section — P2 shipped (blur pipeline + per-row baked gates + couple toggle + re-bake sweep); the "FaceBlock ship gate" advisory updates from "P2 unbuilt — wall withheld on FaceBlock events" to "P2 LIVE — FaceBlock events project blurred derivatives". Residual-risk posture (detector recall is not perfect; fail-closed + kill switch + moderated surface) documented in the spec. Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
 
 ---
+## 2026-06-12 · feat(faiths): worldwide religion expansion — 8 new faiths + every journey fixed
+
+**Context:** Owner directive ("fix all religions and add the rest for the worldwide market") on the completeness audit. Adds **Aglipayan (IFI), LDS, Seventh-day Adventist, Jehovah's Witnesses, Hindu, Sikh, Buddhist, Orthodox** (9 → 17 faiths) and closes every broken journey the audit found.
+
+- **Migration `20261120000000_faith_worldwide_expansion.sql`** (applied): faith_vocab +8 · all 5 ceremony_type CHECKs widened (events ×2, launch_status, notify_signups, tradition_items) · launch_status seeds the 8 as **coming_soon** (notify-me cards; owner activates per faith in /admin/wedding-types).
+- **Migration `20261120000100_faith_journey_content_seeds.sql`** (applied): **24 new canonicals** (catalog 199 → 223) — 9 officiants (rabbi finally exists; one per new faith) · christian_premarital_counseling (the missing trio member) · Chinese journey (tea-ceremony master, qipao/cheongsam, double-happiness decor) · chuppah rental · Hindu set (sari/lehenga, sherwani, mehndi artist, mandap decor) · **Muslim groom attire ×2** (the bride/groom asymmetry) · **debut seeds** (debutante gown + 18-roses attire, event-scoped `{debut}`) · **new `trophies_awards` tile** under Prints scoped `{tournament,corporate,graduation}` + 2 canonicals. Fail-loud: every non-Civil faith key must have ≥1 tagged service; dietary rows must stay faith-NULL.
+- **TS layer (20 files):** WEDDING_FAITH_KEYS +8 · CEREMONY_TYPE_TO_FAITH +8 · TAXONOMY_MAP +24 parity entries + trophies tile constants · vendors/page faith maps (URL/label/order/counts/mapCeremonyTypeToFaith) +8 · admin FAITH_TONE +8 · admin venues CEREMONY_TYPES +8 · 7 ceremony label maps +8 · pickers (radio-group descriptions, wedding-type-picker SECONDARY_LABELS, four-question-flow hints) +8 — launch-status-gated, so nothing goes live until activated.
+- **Migration-ledger reconciliation (4th collision today):** faith migrations re-slotted 20261117→20261120 (slot burned by a concurrent-session ledger stub); linked_tables re-timestamped a 2nd time →20261121 (its ledger row was replaced by security_alert) and idempotently re-registered.
+
+**Verification:** tsc 0 errors · 46/46 unit tests · lint clean · prod-verified (17 vocab rows · all 8 new faiths content-backed · Jewish 0→2 · Chinese 0→3 · 8 coming_soon rows · aglipayan storable, rolled back).
+
+**SPEC IMPACT:** Closes audit gaps ②③⑤ + owner seeds. Wave 2 remaining: venue types per new faith, onboarding faith-grid layout, planning-group/wizard-card copy per faith. → corpus audit doc + `DECISION_LOG`.
+
 ## 2026-06-11 · fix(taxonomy): Born Again couples get their own officiant (completeness-audit fix #1)
 
 **Context:** The events×religions completeness audit (26-agent workflow + targeted verification) found that `born_again` is a pickable `ceremony_type` but `born_again_pastor` was tagged `faith='Christian'` — so a Born Again couple's INCLUDE-only faith filter excluded their OWN officiant (pickable faith → dead-end journey).

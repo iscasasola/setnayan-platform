@@ -174,6 +174,7 @@ export type WeddingTile =
   // PRINTS
   | 'printing'
   | 'souvenir_giveaways'
+  | 'trophies_awards'
   // TRANSPORT
   | 'bridal_car'
   | 'guest_shuttle'
@@ -232,6 +233,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   engraving_embroidery: 'booths',
   printing: 'prints',
   souvenir_giveaways: 'prints',
+  trophies_awards: 'prints',
   bridal_car: 'transport',
   guest_shuttle: 'transport',
   escort: 'transport',
@@ -299,6 +301,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   // PRINTS
   'printing',
   'souvenir_giveaways',
+  'trophies_awards',
   // TRANSPORT
   'bridal_car',
   'guest_shuttle',
@@ -358,6 +361,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   engraving_embroidery: 'Engraving / Embroidery',
   printing: 'Printing',
   souvenir_giveaways: 'Souvenir / Giveaways',
+  trophies_awards: 'Trophies & Awards',
   bridal_car: 'Bridal Car',
   guest_shuttle: 'Guest Shuttle',
   escort: 'Escort',
@@ -416,6 +420,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   engraving_embroidery: 'engraving-embroidery',
   printing: 'printing',
   souvenir_giveaways: 'souvenir-giveaways',
+  trophies_awards: 'trophies-awards',
   bridal_car: 'bridal-car',
   guest_shuttle: 'guest-shuttle',
   escort: 'escort',
@@ -507,6 +512,14 @@ export const WEDDING_FAITH_KEYS = [
   'Jewish',
   'Chinese',
   'Cultural',
+  'Aglipayan',
+  'LDS',
+  'SDA',
+  'JW',
+  'Hindu',
+  'Sikh',
+  'Buddhist',
+  'Orthodox',
   'Civil',
 ] as const;
 
@@ -579,6 +592,16 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   mainline_protestant_pastor:        { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
   muslim_imam:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', faith: 'Muslim' },
   cultural_tribal_elder:             { folder: 'venue', marketplaceHidden: true, phase: 'V1.5+', faith: 'Cultural' },
+  jewish_rabbi:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Jewish' },
+  aglipayan_priest:                  { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Aglipayan', ph: true },
+  lds_officiant:                     { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'LDS' },
+  sda_pastor:                        { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'SDA' },
+  jw_elder:                          { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'JW' },
+  hindu_pandit:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Hindu' },
+  sikh_granthi:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Sikh' },
+  buddhist_monk:                     { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Buddhist' },
+  orthodox_priest:                   { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Orthodox' },
+  christian_premarital_counseling:   { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
   officiant_priest_minister:         { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
   pre_cana_seminar:                  { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true, faith: 'Catholic' },
   cfo_seminar:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true },
@@ -629,6 +652,9 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   capiz_native_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
   hacienda_heritage_decor:           { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
   maranao_okir_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  double_happiness_decor:            { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
+  chuppah_rental:                    { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Jewish', rental: true, tradition: true },
+  mandap_decor:                      { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   setnayan_custom_monogram:          { folder: 'design', tile: 'digital_services', phase: 'V1.1 base', setnayan: true },
   florals:                           { folder: 'design', tile: 'florist', phase: 'V1.1 base' },
   garden_wedding_florist:            { folder: 'design', tile: 'florist', phase: 'V1.2' },
@@ -669,6 +695,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   rondalla_ensemble:                 { folder: 'program', tile: 'performers', phase: 'V1.5+', ph: true },
   folk_performer:                    { folder: 'program', tile: 'performers', phase: 'V1.5+', ph: true },
   host_emcee:                        { folder: 'program', tile: 'host_mc', phase: 'V1.1 base' },
+  tea_ceremony_master:               { folder: 'program', tile: 'host_mc', phase: 'V1.1.1', faith: 'Chinese', ph: true, tradition: true },
 
   // ════════════════════════════════════════════════════════════════════
   // DOCUMENTARY — Photo & Video · Editorial · Livestream.
@@ -708,22 +735,29 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   maranao_wedding_attire:            { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
   tausug_wedding_attire:             { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
   yakan_wedding_attire:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  qipao_cheongsam_attire:            { folder: 'look', tile: 'brides_attire', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
+  sari_lehenga_bridal:               { folder: 'look', tile: 'brides_attire', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   // Groom's Attire
   groom_suit_custom:                 { folder: 'look', tile: 'grooms_attire', phase: 'V1.1 base' },
   groom_suit_rental:                 { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', rental: true },
   barong_tagalog_custom:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, tradition: true },
   barong_tagalog_rental:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, rental: true, tradition: true },
+  sherwani_groom:                    { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
+  muslim_groom_attire:               { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', tradition: true },
+  maranao_groom_attire:              { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', ph: true, tradition: true },
   // Women's Attire (entourage + family)
   bridesmaid_dress:                  { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
   junior_bridesmaid_dress:           { folder: 'look', tile: 'womens_attire', phase: 'V1.1.4' },
   mother_of_bride_gown:              { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
   flower_girl_dress:                 { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
   ninang_attire:                     { folder: 'look', tile: 'womens_attire', phase: 'V1.1.4', ph: true },
+  debutante_gown:                    { folder: 'look', tile: 'womens_attire', phase: 'V1.1.1', ph: true, rental: true },
   // Men's Attire (entourage + family)
   groomsman_set:                     { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4' },
   junior_groomsman:                  { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4' },
   ninong_attire:                     { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4', ph: true },
   ring_bearer_suit:                  { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4' },
+  eighteen_roses_attire:             { folder: 'look', tile: 'mens_attire', phase: 'V1.1.1', ph: true, rental: true },
   // HMUA
   bridal_hmua:                       { folder: 'look', tile: 'hmua', phase: 'V1.1 base' },
   family_mua:                        { folder: 'look', tile: 'hmua', phase: 'V1.1 base' },
@@ -788,6 +822,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   perfume_bar:                       { folder: 'booths', tile: 'perfume_bar', phase: 'V1.1.6' },
   henna_tattoo_booth:                { folder: 'booths', tile: 'henna_tattoo', phase: 'V1.1.6' },
   muslim_henna_artist:               { folder: 'booths', tile: 'henna_tattoo', phase: 'V1.4', faith: 'Muslim' },
+  mehndi_artist:                     { folder: 'booths', tile: 'henna_tattoo', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   massage_chair_station:             { folder: 'booths', tile: 'massage_chair', phase: 'V1.1.6' },
   hair_touchup_station:              { folder: 'booths', tile: 'massage_chair', phase: 'V1.1.6' },
   aromatherapy_station:              { folder: 'booths', tile: 'massage_chair', phase: 'V1.1.6' },
@@ -819,6 +854,8 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   pasalubong_box:                    { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
   sponsor_token:                     { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
   godchild_token:                    { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
+  trophy_supplier:                   { folder: 'prints', tile: 'trophies_awards', phase: 'V1.1.1' },
+  medals_plaques:                    { folder: 'prints', tile: 'trophies_awards', phase: 'V1.1.1' },
 
   // ════════════════════════════════════════════════════════════════════
   // TRANSPORT — Bridal Car (vehicle-type facet) · Guest Shuttle · Escort.

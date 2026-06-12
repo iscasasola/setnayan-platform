@@ -70,6 +70,14 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'aglipayan'
+  | 'lds'
+  | 'sda'
+  | 'jw'
+  | 'hindu'
+  | 'sikh'
+  | 'buddhist'
+  | 'orthodox'
   | 'mixed';
 
 export type PaperworkRow = {
@@ -330,6 +338,66 @@ export const DOCUMENTS_BY_CEREMONY_TYPE: Record<
     'cenomar_partner_2',
     'marriage_license',
   ],
+  // The 8 worldwide-expansion faiths (migration 20261117000000) start on
+  // the universal base — PSA + CENOMAR + Marriage License apply to every
+  // PH marriage regardless of rite. Faith-specific counseling/certificate
+  // rows land with each faith's content pass when the owner activates it.
+  aglipayan: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  lds: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  sda: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  jw: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  hindu: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  sikh: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  buddhist: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  orthodox: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
   mixed: [
     // Mixed-faith couples get the Catholic bundle + Marriage License + a
     // counseling row for the partnered tradition. The seed function picks
@@ -505,6 +573,14 @@ export function resolveCeremonyType(
     raw === 'christian' ||
     raw === 'muslim' ||
     raw === 'cultural' ||
+    raw === 'aglipayan' ||
+    raw === 'lds' ||
+    raw === 'sda' ||
+    raw === 'jw' ||
+    raw === 'hindu' ||
+    raw === 'sikh' ||
+    raw === 'buddhist' ||
+    raw === 'orthodox' ||
     raw === 'mixed'
   ) {
     return raw;

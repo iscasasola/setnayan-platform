@@ -52,6 +52,14 @@ const CEREMONY_TYPES: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'chinese', label: 'Chinese' },
   { key: 'jewish', label: 'Jewish' },
   { key: 'born_again', label: 'Born Again' },
+  { key: 'aglipayan', label: 'Aglipayan (IFI)' },
+  { key: 'lds', label: 'LDS (Latter-day Saints)' },
+  { key: 'sda', label: 'Seventh-day Adventist' },
+  { key: 'jw', label: "Jehovah's Witnesses" },
+  { key: 'hindu', label: 'Hindu' },
+  { key: 'sikh', label: 'Sikh' },
+  { key: 'buddhist', label: 'Buddhist' },
+  { key: 'orthodox', label: 'Orthodox Christian' },
   { key: 'mixed', label: 'Mixed / interfaith' },
 ];
 

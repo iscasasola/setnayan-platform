@@ -27,6 +27,38 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
 
 **SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
+## 2026-06-12 · feat(scheduling): wire booking transitions to schedule pools — PR 2 (consume/release)
+
+**Context:** PR 2 of the schedule-pool program (PR 1 = `20261126000000` schema, applied to prod). Wires the owner-locked white/BOOKED doctrine into the only writer of booked statuses: white (considering..contracted) stays unlimited and consumes nothing; the pool acquire fires on the BOOKED transition; releases are status-flips, never deletes.
+
+- **`lib/schedule-pools.ts` (new):** `resolvePoolIdsForService` (service's leaf category + every linked "comes with" category → pool ids via `resolve_schedule_pool`; merged categories dedupe to one pool — bundles lock every pool they span) + typed `acquireSchedulePools` / `releaseSchedulePools` RPC relays. All capacity math stays in the SECURITY DEFINER RPCs (conflict-audit doctrine: only the DB serializes).
+- **`updateVendorStatus`:** white→BOOKED transition (deposit_paid/delivered/complete) on a marketplace-linked row with a booked service now acquires the service's pools BEFORE the status write — `full`/`blocked` surfaces a plain-English error naming the pool instead of silently double-booking; `no_date`/`no_pools` degrade open (eventual-consistency doctrine — the atomic gate engages once a day-precise date exists). BOOKED→white downgrade releases with reason `status_downgrade`; a failed status write after a successful acquire releases immediately (no phantom holds).
+- **`deleteVendor`:** booked rows (deposit_paid+) can no longer be hard-deleted from the tracker — routed to the cancel/dispute flow (conflict-audit finding #6). Stray live reservations released with an auditable reason before any delete (a hard delete would CASCADE them silently).
+- **`cancelBookingAsHost`:** defensive `release_schedule_pools('host_cancelled')` before the row delete (pre-payment rows normally hold nothing; belt-and-suspenders for downgrade leftovers).
+
+**Out of scope (queued):** pool-scoped displacement of competing inquiries + the one-broadcast notification (needs thread→service linkage — inquiry-lifecycle phase); the event_vendors hard-delete→archive sweep (101 read sites, needs a default-filter pass); vendor Calendar/Clients UI (PR 3).
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean on both touched files. No migration (rides PR 1).
+
+**SPEC IMPACT:** none beyond PR 1's (same corpus rows cover the wiring); architecture doc §11 phase-3 build-state updated when the program completes.
+
+## 2026-06-12 · feat(scheduling): per-category schedule pools + multi-pool atomic acquire — PR 1 (schema substrate)
+
+**Context:** owner-locked 2026-06-12 scheduling architecture (corpus `Customer_Vendor_Marketplace_Architecture_2026-06-04.md` §4/§5a + DECISION_LOG row). The schedulable resource becomes the **(org, leaf-category) pool**: every service a vendor files under one category shares ONE schedule; a new category = a new independent schedule; merged categories ("same team serves both") = two mapping rows → one pool. Substrate-first migration (cf. `20260627010000`) — code PRs follow.
+
+- **Migration `20261126000000_schedule_pools.sql`** (applied to prod statement-by-statement via `db query` + manual ledger row — remote ledger has 3 parallel-session versions not on main, so `db push` refuses; same fallback as `20261115000604`):
+  - `vendor_schedule_pools` — pool-grain capacity (`daily_booking_capacity` default 1, CHECK 1–50), RLS owner-ALL + published-public-read (mirrors `vendor_services`).
+  - `vendor_schedule_pool_categories` — category→pool resolution, PK (vendor, category_key); merge = N categories → 1 pool. Canonical leaf TEXT vocabulary (same as `vendor_services.category`, never an enum).
+  - `vendor_schedule_pool_bookings` — the ONLY capacity-consuming rows; partial-unique live row per (pool, event_vendor); **released via `released_at` + reason, never DELETE** (revive + audit substrate). No write policies — writes go exclusively through the DEFINER RPCs (conflict-audit doctrine: only the DB can serialize).
+  - `vendor_calendar_blocks` + `pool_id` (NULL = org-wide closure) + `client_name/contact/note` + `block_source='external_client'` (vendor's off-app booking: pool-scoped by CHECK, consumes 1 capacity unit; NOT an app client — no thread/stats/reviews; couples still see only "unavailable").
+  - **`acquire_schedule_pools(event, event_vendor, pool_ids[])`** — the multi-pool ALL-OR-NOTHING atomic acquire (owner verbatim: "bundles mean they lock both schedules for both category"): deterministic-order `FOR UPDATE` on every pool row (no deadlock between concurrent bundles) → closure-block check → occupancy (live reservations + external-client jobs) → consume all or none. Degrades open without a day-precise date (eventual-consistency doctrine; the atomic gate is the booking).
+  - `release_schedule_pools(event_vendor, reason)` — status-flip release; couple-or-vendor authorized.
+  - `resolve_schedule_pool(vendor, category)` — lazy pool bootstrap (advisory-lock serialized), creation bounded to the vendor's own catalog.
+  - `chat_inquiry_status` enum + `displaced` / `withdrawn` / `expired` (inquiry lifecycle = status-flip never hard-delete; `expired` replaces the "auto-deleted" 30-day wording).
+
+**Verification:** all 45 statements applied clean to prod; RPC presence + 6 enum labels + constraint set verified via `db query`. Schema-only PR — no app behavior change until PR 2 wires `finalizeVendor`/cancel paths and PR 3 ships the vendor Calendar/Clients surfaces.
+
+**SPEC IMPACT:** corpus architecture doc §4/§5a/§10/§11 + DECISION_LOG 2026-06-12 row (landed in the same owner session that locked the rules); memory `project_setnayan_booking_ruleset` updated.
 
 ## 2026-06-12 · feat(vendors): Compare — available wedding dates per saved build (takeover spec §4)
 

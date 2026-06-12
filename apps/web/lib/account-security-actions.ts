@@ -19,17 +19,21 @@
  * revoked server-side immediately after (scope:'local' — never 'global',
  * which would sign the user out everywhere).
  *
- * NOTE (0028 security email): the brief calls for a `security_alert`
- * notification on password change, but no such NotificationType exists in
- * lib/notifications.ts (the notifications.type column is migration-
- * constrained), so emitting one here would require an enum/migration change
- * — out of scope for this PR. Skipped deliberately; see CHANGELOG.
+ * 0028 security email: changePassword() emits a `security_alert`
+ * notification (in-app + email via the emitNotification funnel) after the
+ * password update succeeds — wired 2026-06-12 alongside migration
+ * 20261116000000_notification_type_security_alert.sql (the enum change PR
+ * #1262 deliberately skipped). Fire-and-forget via Next's after() so a slow
+ * Resend call can never delay the redirect. signOutOtherDevices()
+ * intentionally does NOT emit — it's the remedy, not the threat.
  */
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient as createStatelessClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { emitNotification } from '@/lib/notification-emit';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   safeSecurityReturnPath,
@@ -115,6 +119,30 @@ export async function changePassword(formData: FormData) {
     });
     return redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   }
+
+  // 0028 template #10 — security_alert. Best-effort + non-blocking: after()
+  // runs once the response is sent, and emitNotification itself never throws
+  // (it logs and continues), so the redirect is never held hostage by a slow
+  // notifications insert or Resend call. relatedUrl = the profile page that
+  // hosts the Security section (allowlisted returnTo), so the email's "Open
+  // Setnayan" link and the in-app notification both land there.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    'https://setnayan-platform-web.vercel.app';
+  const alertUserId = user.id;
+  after(() =>
+    emitNotification({
+      userId: alertUserId,
+      type: 'security_alert',
+      title: 'Your Setnayan password was changed',
+      body:
+        'Your password was just changed from your profile’s Security section. ' +
+        'If this was you, no action is needed. If this wasn’t you, reset your ' +
+        `password immediately (${appUrl}/forgot-password) and use “Sign out ` +
+        'other devices” in the Security section of your profile.',
+      relatedUrl: returnTo,
+    }),
+  );
 
   revalidatePath(returnTo);
   redirect(`${returnTo}?password_changed=1`);

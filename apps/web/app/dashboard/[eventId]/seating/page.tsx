@@ -91,6 +91,14 @@ export default async function SeatingPage({ params }: Props) {
         guests={seatingGuests}
         groups={groups}
         floorPlan={floorPlan}
+        me={{
+          id: user.id,
+          name:
+            (user.user_metadata?.display_name as string | undefined) ||
+            (user.user_metadata?.full_name as string | undefined) ||
+            user.email?.split('@')[0] ||
+            'Someone',
+        }}
       />
 
       <MiniTour tourKey="customer_seat_plan_v1" />

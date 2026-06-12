@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { suggestScheduleChange } from './actions';
 
 export const metadata = { title: 'Event Brief · Vendor' };
@@ -156,7 +157,7 @@ type SuggestionRow = {
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ suggest?: string }>;
+  searchParams: Promise<{ suggest?: string; lens?: string }>;
 };
 
 export default async function VendorEventBriefPage({ params, searchParams }: Props) {
@@ -196,9 +197,25 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
       .order('created_at', { ascending: false })
       .limit(10),
   ]);
-  const blocks = (liveBlocks ?? []) as LiveBlock[];
+  const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
-  const blockLabel = new Map(blocks.map((b) => [b.block_id, b.label]));
+  const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
+
+  // ① Category-aware lens: deterministic relevance per block (rule map in
+  // lib/vendor-timeline.ts). A lens, never a gate — "My slots" filters the
+  // CLIENT VIEW of rows the vendor is already authorized to read (locked D2).
+  const relevance = new Map(
+    allBlocks.map((b) => [b.block_id, blockRelevance(b, brief.booked_categories)]),
+  );
+  const mineOnly = search.lens === 'mine';
+  const mineCount = allBlocks.filter((b) => relevance.get(b.block_id) !== 'context').length;
+  const blocks = mineOnly
+    ? allBlocks.filter((b) => relevance.get(b.block_id) !== 'context')
+    : allBlocks;
+  const callTime = deriveCallTime(allBlocks, brief.booked_categories);
+  const callTimeAlreadyRequested = suggestions.some(
+    (s) => s.kind === 'new' && s.note.startsWith('Suggested call time'),
+  );
 
   const paletteEntries = Object.entries(PALETTE_LABELS)
     .map(([key, label]) => ({ key, label, colors: brief.palette?.[key] ?? [] }))
@@ -307,6 +324,17 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
                 restriction notes — ask the couple for the details that matter to your menu.
               </p>
             ) : null}
+            <p className="mt-3 text-sm">
+              <Link
+                href={`/vendor-dashboard/clients/${eventId}/production-sheet`}
+                className="font-medium text-terracotta underline"
+              >
+                Open the production sheet
+              </Link>
+              <span className="ml-2 text-xs text-ink/45">
+                Headcount scenarios, per-part pax, and your portion math.
+              </span>
+            </p>
           </div>
         ) : null}
 
@@ -368,15 +396,73 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <CalendarDays aria-hidden className="h-5 w-5 text-terracotta" /> Day-of timeline
             </h2>
-            {blocks.length > 0 ? (
-              <a
-                href={`/vendor-dashboard/clients/${eventId}/calendar.ics`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline"
-              >
-                <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
-              </a>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-3">
+              {allBlocks.length > 0 && mineCount > 0 && mineCount < allBlocks.length ? (
+                <span className="inline-flex overflow-hidden rounded-full border border-ink/15 text-xs font-medium">
+                  <Link
+                    href={`/vendor-dashboard/clients/${eventId}`}
+                    className={`px-3 py-1 ${!mineOnly ? 'bg-ink text-cream' : 'bg-white text-ink/60 hover:text-ink'}`}
+                  >
+                    Full timeline
+                  </Link>
+                  <Link
+                    href={`/vendor-dashboard/clients/${eventId}?lens=mine`}
+                    className={`px-3 py-1 ${mineOnly ? 'bg-ink text-cream' : 'bg-white text-ink/60 hover:text-ink'}`}
+                  >
+                    My slots only
+                  </Link>
+                </span>
+              ) : null}
+              {allBlocks.length > 0 ? (
+                <a
+                  href={`/vendor-dashboard/clients/${eventId}/calendar.ics${mineOnly ? '?mine=1' : ''}`}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline"
+                >
+                  <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
+                </a>
+              ) : null}
+            </div>
           </div>
+
+          {/* Suggested call time — earliest key slot minus the trade's setup
+              lead. Always a suggestion routed through the Suggest flow. */}
+          {callTime && !callTimeAlreadyRequested ? (
+            <div className="mt-3 rounded-xl border border-terracotta/30 bg-terracotta/5 px-3 py-2.5">
+              <p className="text-sm">
+                <span className="font-semibold">
+                  Suggested call time · {fmtTime(callTime.call_time)}
+                </span>{' '}
+                <span className="text-ink/65">
+                  — {callTime.lead_minutes / 60} hr setup before {callTime.anchor_label} (
+                  {fmtTime(callTime.anchor_start_at)}). A rule-of-thumb, not a booking — confirm
+                  with your couple.
+                </span>
+              </p>
+              <form action={suggestScheduleChange} className="mt-2">
+                <input type="hidden" name="event_id" value={eventId} />
+                <input
+                  type="hidden"
+                  name="proposed_label"
+                  value={`${CATEGORY_LABELS[callTime.category] ?? callTime.category} setup / call time`}
+                />
+                <input type="hidden" name="proposed_start_at" value={callTime.call_time} />
+                <input type="hidden" name="proposed_end_at" value={callTime.anchor_start_at} />
+                <input
+                  type="hidden"
+                  name="note"
+                  value={`Suggested call time ${fmtTime(callTime.call_time)} — ${
+                    callTime.lead_minutes / 60
+                  } hr setup ahead of ${callTime.anchor_label}.`}
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream"
+                >
+                  Request this call time
+                </button>
+              </form>
+            </div>
+          ) : null}
 
           {search.suggest === 'sent' ? (
             <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
@@ -389,20 +475,42 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
             </p>
           ) : null}
 
-          {blocks.length === 0 ? (
+          {allBlocks.length === 0 ? (
             <p className="mt-2 text-sm text-ink/55">
               The couple hasn&rsquo;t built their event-day timeline yet.
+            </p>
+          ) : blocks.length === 0 ? (
+            <p className="mt-2 text-sm text-ink/55">
+              No blocks match your booked categories yet —{' '}
+              <Link href={`/vendor-dashboard/clients/${eventId}`} className="text-terracotta underline">
+                see the full timeline
+              </Link>
+              .
             </p>
           ) : (
             <ol className="mt-3 divide-y divide-ink/10">
               {blocks.map((b) => (
-                <li key={b.block_id} className="py-2.5">
+                <li
+                  key={b.block_id}
+                  className={`py-2.5 pl-3 ${
+                    relevance.get(b.block_id) === 'primary'
+                      ? 'border-l-2 border-terracotta'
+                      : relevance.get(b.block_id) === 'supporting'
+                        ? 'border-l-2 border-ink/20'
+                        : 'border-l-2 border-transparent opacity-60'
+                  }`}
+                >
                   <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                     <span className="w-36 shrink-0 text-sm font-medium tabular-nums text-ink/70">
                       {fmtTime(b.start_at) ?? 'Time TBD'}
                       {fmtTime(b.end_at) ? ` – ${fmtTime(b.end_at)}` : ''}
                     </span>
                     <span className="text-sm font-medium">{b.label}</span>
+                    {relevance.get(b.block_id) === 'primary' ? (
+                      <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta">
+                        Your slot
+                      </span>
+                    ) : null}
                     {b.location ? <span className="text-xs text-ink/55">{b.location}</span> : null}
                   </div>
                   <details className="mt-1 pl-0 sm:pl-40">

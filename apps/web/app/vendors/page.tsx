@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
+import { runSocialFlush } from '@/lib/social/flush';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -849,6 +851,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const raw = await searchParams;
   let filters = parseFilters(raw);
   const admin = createAdminClient();
+
+  // Social auto-publish flush — the traffic-piggyback doctrine: the platform
+  // is cron-free by lock ([[project_setnayan_cron_free]]), so the dispatch
+  // engine rides on organic traffic via Next 15 after() instead of a
+  // scheduler. The public marketplace is the highest-traffic server-rendered
+  // route, so posts go out on time even when nobody on the team is in
+  // /admin. Fire-and-forget after the response; the 10-minute throttle
+  // inside runSocialFlush makes this effectively free, and it never throws.
+  after(() => runSocialFlush().catch(() => {}));
 
   // 0043 compatibility hooks — resolve the viewer's couple-side primary event
   // BEFORE the marketplace query is built so the compatibility filter can

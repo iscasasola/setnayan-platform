@@ -787,9 +787,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               Don&rsquo;t feature my business on Setnayan&rsquo;s social pages
             </span>
             <span className="block text-xs text-ink/55">
-              When you pass verification we celebrate it on our Facebook page — Free listings get
-              an unnamed category mention, Pro gets a named feature with your logo. Tick to opt
-              out.
+              When you pass verification we celebrate it on our social pages — Facebook,
+              Instagram &amp; TikTok. Free listings get an unnamed category mention, Pro gets a
+              named feature with your logo. Tick to opt out.
             </span>
           </span>
         </label>

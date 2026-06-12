@@ -1,5 +1,9 @@
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { runSocialFlush } from '@/lib/social/flush';
+import { isFacebookConfigured } from '@/lib/social/facebook';
+import { getChangelogSuggestions } from '@/lib/social/changelog-suggestions';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
   SHARE_ARTIFACT_LABEL,
@@ -11,9 +15,16 @@ import {
   type ShareCreditMode,
 } from '@/lib/social-sharing';
 import {
+  createAnnouncement,
   markConsentPosted,
   markConsentTakenDown,
   markVendorFeatured,
+  postSocialPostNow,
+  pullSocialPost,
+  retrySocialPost,
+  saveEvergreenItem,
+  updatePublishSettings,
+  updateSocialPostBody,
 } from './actions';
 
 export const metadata = { title: 'Social queue · Admin' };
@@ -23,6 +34,13 @@ type Props = {
     posted?: string;
     vendor_posted?: string;
     taken_down?: string;
+    settings_saved?: string;
+    pulled?: string;
+    posted_now?: string;
+    retried?: string;
+    body_saved?: string;
+    announcement_created?: string;
+    evergreen_saved?: string;
     error?: string;
   }>;
 };
@@ -64,30 +82,181 @@ type GreetingUser = {
   birth_date: string | null;
 };
 
+// ── Auto-publish pipeline rows (migration 20261204000000_social_autopublish) ─
+
+type SocialSourceType =
+  | 'couple_creation'
+  | 'vendor_feature'
+  | 'milestone'
+  | 'announcement'
+  | 'evergreen';
+
+type SocialPostRow = {
+  post_id: string;
+  source_type: SocialSourceType;
+  source_ref: string;
+  title: string;
+  body: string;
+  media_url: string | null;
+  link_url: string | null;
+  publish_after: string | null;
+  hold_until: string | null;
+  scheduled_for: string | null;
+  status: 'scheduled' | 'publishing' | 'published' | 'pulled' | 'failed';
+  platform_results: unknown;
+  created_at: string;
+  updated_at: string;
+};
+
+type PublishSettings = {
+  autopublish_enabled: boolean;
+  facebook_enabled: boolean;
+  instagram_enabled: boolean;
+  tiktok_enabled: boolean;
+  last_flush_at: string | null;
+};
+
+type EvergreenItemRow = {
+  item_id: string;
+  title: string;
+  body: string;
+  media_url: string | null;
+  link_url: string | null;
+  is_active: boolean;
+  last_used_at: string | null;
+  times_used: number;
+};
+
+const SOURCE_LABEL: Record<SocialSourceType, string> = {
+  couple_creation: 'Couple creation',
+  vendor_feature: 'Vendor feature',
+  milestone: 'Milestone',
+  announcement: 'Announcement',
+  evergreen: 'Evergreen',
+};
+
+const SOURCE_CHIP: Record<SocialSourceType, string> = {
+  couple_creation: 'bg-emerald-100 text-emerald-800',
+  vendor_feature: 'bg-amber-100 text-amber-900',
+  milestone: 'bg-terracotta/10 text-terracotta-700',
+  announcement: 'bg-sky-100 text-sky-800',
+  evergreen: 'bg-ink/8 text-ink/65',
+};
+
 /**
- * Admin Social Queue — the manual-posting surface of the Social Sharing &
- * Featuring Program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md`
- * + migration 20261203000000). Five render-time panels, NO crons
- * ([[project_setnayan_cron_free]]):
+ * Admin Social Queue — mission control for the Social Sharing & Featuring
+ * Program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8 +
+ * migrations 20261203000000 + 20261204000000). Cron-free
+ * ([[project_setnayan_cron_free]]) — viewing the queue fires the flush via
+ * `after()`.
  *
- *   1. Couple creations ready to post — consented + un-posted + past the
- *      app-side publish gate (event_date + 7 days; never before the event).
- *   2. Waiting on publish gate — same query, gate not yet passed.
- *   3. Take-downs needed — couple revoked AFTER a post went live; 24-hour
- *      removal SLA.
- *   4. New verified vendors — verification celebration features. Unnamed
- *      (category + region) for Free, named for Pro+ — the owner-locked hybrid
- *      (tiers sell REACH; mirrors project_setnayan_vendor_hybrid_anonymity).
- *   5. Greetings this week — opted-in birthdays + wedding anniversaries.
- *      Render-only (they recur annually; no posted-stamp in V1).
+ * Layout, top to bottom:
+ *   • Autopilot strip — master switch + per-platform toggles + Meta env
+ *     status + last flush time (social_publish_settings, single row).
+ *   • Take-downs — couple revoked AFTER a post went live; 24-hour SLA.
+ *     Urgent regardless of mode, so it sits right under the switchboard.
+ *   • Scheduled — the auto-publish queue (status scheduled/publishing) with
+ *     inline copy editing, Pull, and Post-now (content gate not overridable).
+ *   • Failed — dispatch errors with the Graph error text + Retry.
+ *   • Published — compact audit trail with permalinks.
+ *   • Announce composer — hand-written posts at the next governor slot,
+ *     seeded by the 5 newest CHANGELOG headlines.
+ *   • Evergreen library — the content floor the flush reposts when the page
+ *     goes quiet (3-day quiet trigger · 60-day no-repeat).
+ *   • Manual workflow & sources — the original copy-paste panels (ready to
+ *     post · waiting on gate · vendor features) kept as the fallback
+ *     workflow, plus the render-only greetings panel.
  *
- * The team copies a drafted caption to the Facebook page by hand, then
- * stamps the row via the actions file so it leaves the queue. Reads use the
- * service-role admin client — same mechanism as /admin/verify.
+ * Reads use the service-role admin client — same mechanism as /admin/verify.
+ * Every query soft-degrades (logQueryError + empty fallback) so the page
+ * renders even before the migration lands.
  */
 export default async function AdminSocialQueuePage({ searchParams }: Props) {
   const search = await searchParams;
   const admin = createAdminClient();
+
+  // Auto-publish flush — cron-free ([[project_setnayan_cron_free]]): viewing
+  // the queue is the most natural moment to sweep-compose + dispatch.
+  // Fire-and-forget AFTER the response; 10-min throttled; never throws.
+  after(() => runSocialFlush().catch(() => {}));
+
+  const fbConfigured = isFacebookConfigured();
+
+  // ── Autopilot switchboard (single row) ──────────────────────────────────
+  const { data: settingsData, error: settingsErr } = await admin
+    .from('social_publish_settings')
+    .select(
+      'autopublish_enabled,facebook_enabled,instagram_enabled,tiktok_enabled,last_flush_at',
+    )
+    .eq('id', true)
+    .maybeSingle();
+  if (settingsErr) {
+    logQueryError('AdminSocialQueuePage (social_publish_settings)', settingsErr);
+  }
+  const settings: PublishSettings = (settingsData as PublishSettings | null) ?? {
+    autopublish_enabled: false,
+    facebook_enabled: true,
+    instagram_enabled: false,
+    tiktok_enabled: false,
+    last_flush_at: null,
+  };
+
+  // ── Auto-publish queue: scheduled / publishing ──────────────────────────
+  const { data: scheduledData, error: scheduledErr } = await admin
+    .from('social_posts')
+    .select(
+      'post_id,source_type,source_ref,title,body,media_url,link_url,publish_after,hold_until,scheduled_for,status,platform_results,created_at,updated_at',
+    )
+    .in('status', ['scheduled', 'publishing'])
+    .order('scheduled_for', { ascending: true, nullsFirst: false })
+    .limit(30);
+  if (scheduledErr) {
+    logQueryError('AdminSocialQueuePage (social_posts scheduled)', scheduledErr);
+  }
+  const scheduledPosts = (scheduledData ?? []) as SocialPostRow[];
+
+  // ── Auto-publish queue: failed ──────────────────────────────────────────
+  const { data: failedData, error: failedErr } = await admin
+    .from('social_posts')
+    .select(
+      'post_id,source_type,source_ref,title,body,media_url,link_url,publish_after,hold_until,scheduled_for,status,platform_results,created_at,updated_at',
+    )
+    .eq('status', 'failed')
+    .order('updated_at', { ascending: false })
+    .limit(10);
+  if (failedErr) {
+    logQueryError('AdminSocialQueuePage (social_posts failed)', failedErr);
+  }
+  const failedPosts = (failedData ?? []) as SocialPostRow[];
+
+  // ── Auto-publish queue: published (audit trail) ─────────────────────────
+  const { data: publishedData, error: publishedErr } = await admin
+    .from('social_posts')
+    .select(
+      'post_id,source_type,source_ref,title,body,media_url,link_url,publish_after,hold_until,scheduled_for,status,platform_results,created_at,updated_at',
+    )
+    .eq('status', 'published')
+    .order('updated_at', { ascending: false })
+    .limit(12);
+  if (publishedErr) {
+    logQueryError('AdminSocialQueuePage (social_posts published)', publishedErr);
+  }
+  const publishedPosts = (publishedData ?? []) as SocialPostRow[];
+
+  // ── Evergreen library ───────────────────────────────────────────────────
+  const { data: evergreenData, error: evergreenErr } = await admin
+    .from('social_evergreen_items')
+    .select('item_id,title,body,media_url,link_url,is_active,last_used_at,times_used')
+    .order('is_active', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(50);
+  if (evergreenErr) {
+    logQueryError('AdminSocialQueuePage (social_evergreen_items)', evergreenErr);
+  }
+  const evergreenItems = (evergreenData ?? []) as EvergreenItemRow[];
+
+  // Announcement-draft seeds — newest CHANGELOG headlines (best-effort: []).
+  const changelogSuggestions = getChangelogSuggestions();
 
   // ── Couple-creation consents (live, un-posted) ──────────────────────────
   const { data: pendingData, error: pendingErr } = await admin
@@ -212,27 +381,51 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
     }
   }
 
+  const now = Date.now();
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">
-          Social Sharing &amp; Featuring Program · 2026-06-12
+          Social Sharing &amp; Featuring Program · § 8 auto-publish · 2026-06-12
         </p>
         <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
           Social queue
         </h1>
         <p className="max-w-2xl text-sm text-ink/65">
-          Ready-to-post cards for the Setnayan Facebook page. Posting is{' '}
-          <span className="font-medium">manual</span> — copy the drafted caption,
-          post it, then mark the card so it leaves the queue. Couple creations
-          only become postable <span className="font-medium">7 days after the
-          event</span>; revoked consents must come down within 24 hours.
+          Mission control for the Setnayan Facebook page. The pipeline
+          composes, schedules, and (when the master switch is on)
+          auto-publishes — couple creations only after{' '}
+          <span className="font-medium">event date + 7 days</span>, never more
+          than 3 posts/day, always inside PH prime windows. The manual
+          copy-paste panels below remain the fallback workflow; revoked
+          consents must come down within 24 hours.
         </p>
       </header>
 
       <FlashBanner search={search} />
 
-      {/* ── 3. Take-downs first — SLA-bound, most urgent ── */}
+      {/* In-page anchor nav — the page is long; jump straight to a section. */}
+      <nav
+        aria-label="Page sections"
+        className="mb-6 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55"
+      >
+        <a href="#scheduled" className="hover:text-ink">Scheduled</a>
+        <a href="#failed" className="hover:text-ink">Failed</a>
+        <a href="#published" className="hover:text-ink">Published</a>
+        <a href="#announce" className="hover:text-ink">Announce</a>
+        <a href="#evergreen" className="hover:text-ink">Evergreen</a>
+        <a href="#manual" className="hover:text-ink">Manual</a>
+      </nav>
+
+      {/* ── Autopilot strip — switchboard + env status + last flush ── */}
+      <AutopilotStrip
+        settings={settings}
+        fbConfigured={fbConfigured}
+        loadFailed={Boolean(settingsErr)}
+      />
+
+      {/* ── Take-downs — SLA-bound, most urgent regardless of mode ── */}
       <QueueSection
         title="Take-downs needed"
         hint="Couple revoked consent — remove the post within 24 hours."
@@ -288,7 +481,285 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
         </ul>
       </QueueSection>
 
-      {/* ── 1. Couple creations ready to post ── */}
+      {/* ── Scheduled — the auto-publish queue ── */}
+      <QueueSection
+        id="scheduled"
+        title="Scheduled"
+        hint="Composed by the sweep + slotted by the cadence governor (≤3/day · ≥3h apart · PH prime windows). Pull stops a post; Post now skips the hold but never the content gate."
+        count={scheduledPosts.length}
+        empty="Nothing queued — the sweep composes posts from new consents, vendor verifications, milestones, and the evergreen floor."
+      >
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {scheduledPosts.map((p) => (
+            <li key={p.post_id}>
+              <ScheduledPostCard post={p} now={now} />
+            </li>
+          ))}
+        </ul>
+      </QueueSection>
+
+      {/* ── Failed — dispatch errors ── */}
+      <QueueSection
+        id="failed"
+        title="Failed"
+        hint="The Graph API rejected the dispatch — read the error, fix the cause (token, media URL), then retry or pull."
+        count={failedPosts.length}
+        empty="No failed dispatches. Graph API errors land here with the error text."
+      >
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {failedPosts.map((p) => {
+            const fb = facebookResult(p.platform_results);
+            return (
+              <li key={p.post_id}>
+                <article className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+                  <header className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 truncate text-sm font-semibold text-ink">
+                      {p.title || firstLine(p.body) || 'Untitled post'}
+                    </p>
+                    <SourceChip sourceType={p.source_type} />
+                  </header>
+                  <pre className="whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
+                    {p.body}
+                  </pre>
+                  <p className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700">
+                    <span className="font-medium">Facebook error:</span>{' '}
+                    {fb.error || 'No error detail recorded.'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
+                    <form action={retrySocialPost}>
+                      <input type="hidden" name="post_id" value={p.post_id} />
+                      <button type="submit" className="button-primary h-9 px-3 text-xs">
+                        Retry
+                      </button>
+                    </form>
+                    <form action={pullSocialPost}>
+                      <input type="hidden" name="post_id" value={p.post_id} />
+                      <button
+                        type="submit"
+                        className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs text-terracotta-700 hover:bg-terracotta/15"
+                      >
+                        Pull
+                      </button>
+                    </form>
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+      </QueueSection>
+
+      {/* ── Published — compact audit trail ── */}
+      <QueueSection
+        id="published"
+        title="Published"
+        hint="The 12 most recent auto-published posts, with permalinks."
+        count={publishedPosts.length}
+        empty="Nothing auto-published yet — successful dispatches land here."
+      >
+        <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+          {publishedPosts.map((p) => {
+            const fb = facebookResult(p.platform_results);
+            const postedAt = fb.posted_at ?? p.updated_at;
+            return (
+              <li
+                key={p.post_id}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-xs"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <SourceChip sourceType={p.source_type} />
+                  <span className="min-w-0 truncate text-ink/80">{firstLine(p.body)}</span>
+                </span>
+                <span className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <span>{formatPhInstant(postedAt)}</span>
+                  {fb.post_url ? (
+                    <a
+                      href={fb.post_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-terracotta hover:underline"
+                    >
+                      View ↗
+                    </a>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </QueueSection>
+
+      {/* ── Announce something — hand-written posts ── */}
+      <section id="announce" className="mb-8 space-y-3">
+        <div className="space-y-0.5">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Announce something
+          </h2>
+          <p className="text-xs text-ink/55">
+            Hand-written post — queues at the next governor slot, no hold window.
+          </p>
+        </div>
+        <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+          {changelogSuggestions.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-ink/70">
+                Recent ships you could announce:
+              </p>
+              <ul className="flex flex-wrap gap-1.5">
+                {changelogSuggestions.map((s) => (
+                  <li
+                    key={`${s.date}-${s.title}`}
+                    className="rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-xs text-ink/70"
+                  >
+                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                      {s.date}
+                    </span>{' '}
+                    {s.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <form action={createAnnouncement} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1 text-xs text-ink/65">
+                <span>Title (internal)</span>
+                <input
+                  name="title"
+                  type="text"
+                  placeholder="e.g. Seat plan editor launch"
+                  className="input-field h-9 w-full text-xs"
+                />
+              </label>
+              <label className="block space-y-1 text-xs text-ink/65">
+                <span>Link URL (optional)</span>
+                <input
+                  name="link_url"
+                  type="url"
+                  placeholder="https://www.setnayan.com/…"
+                  className="input-field h-9 w-full text-xs"
+                />
+              </label>
+            </div>
+            <label className="block space-y-1 text-xs text-ink/65">
+              <span>Post body (this is what the page publishes)</span>
+              <textarea
+                name="body"
+                required
+                rows={4}
+                placeholder={'Big news from Setnayan… ✨\n\n#Setnayan #SetNaYan'}
+                className="block w-full rounded-md border border-ink/20 bg-cream px-3 py-2 text-xs text-ink"
+              />
+            </label>
+            <label className="block space-y-1 text-xs text-ink/65">
+              <span>Image URL (optional — photo posts reach further)</span>
+              <input
+                name="media_url"
+                type="url"
+                placeholder="https://… .jpg / .png"
+                className="input-field h-9 w-full text-xs"
+              />
+            </label>
+            <button type="submit" className="button-primary h-9 px-3 text-xs">
+              Queue announcement
+            </button>
+          </form>
+        </article>
+      </section>
+
+      {/* ── Evergreen library — the content floor ── */}
+      <section id="evergreen" className="mb-8 space-y-3">
+        <div className="space-y-0.5">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Evergreen library · {evergreenItems.length}
+          </h2>
+          <p className="text-xs text-ink/55">
+            The scheduler uses these to keep the page alive — if nothing posts
+            for 3 days, the least-recently-used active item goes out (60-day
+            no-repeat).
+          </p>
+        </div>
+
+        {evergreenItems.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
+            No evergreen items yet — add a few planning tips or feature
+            spotlights below so the page never looks abandoned.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {evergreenItems.map((item) => (
+              <li key={item.item_id}>
+                <EvergreenItemCard item={item} />
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Add a new item — same action, no item_id → insert. */}
+        <article className="space-y-3 rounded-xl border border-dashed border-ink/20 bg-cream p-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Add evergreen item
+          </p>
+          <form action={saveEvergreenItem} className="space-y-3">
+            <input
+              name="title"
+              type="text"
+              required
+              placeholder="Title (internal, e.g. Planning tip · guest list first)"
+              className="input-field h-9 w-full text-xs"
+            />
+            <textarea
+              name="body"
+              required
+              rows={3}
+              placeholder="The post body the page publishes…"
+              className="block w-full rounded-md border border-ink/20 bg-cream px-3 py-2 text-xs text-ink"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                name="media_url"
+                type="url"
+                placeholder="Image URL (optional)"
+                className="input-field h-9 w-full text-xs"
+              />
+              <input
+                name="link_url"
+                type="url"
+                placeholder="Link URL (optional)"
+                className="input-field h-9 w-full text-xs"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-ink/75">
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  defaultChecked
+                  className="h-4 w-4 rounded border-ink/30 accent-ink"
+                />
+                Active (in the rotation)
+              </label>
+              <button type="submit" className="button-primary h-9 px-3 text-xs">
+                Add item
+              </button>
+            </div>
+          </form>
+        </article>
+      </section>
+
+      {/* ── Manual workflow & sources — the original copy-paste lane ── */}
+      <div id="manual" className="mb-8 mt-12 space-y-1 border-t border-ink/15 pt-6">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Manual workflow &amp; sources
+        </h2>
+        <p className="text-xs text-ink/55">
+          The fallback lane — copy a drafted caption, post it by hand, then
+          stamp the card so it leaves the queue (and so the sweep never
+          composes a duplicate).
+        </p>
+      </div>
+
+      {/* ── Couple creations ready to post ── */}
       <QueueSection
         title="Couple creations — ready to post"
         hint="Consented + past the publish gate (event date + 7 days)."
@@ -362,7 +833,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
         </ul>
       </QueueSection>
 
-      {/* ── 2. Waiting on the publish gate — compact ── */}
+      {/* ── Waiting on the publish gate — compact ── */}
       <QueueSection
         title="Waiting on publish gate"
         hint="Consented, but the event isn't 7+ days past yet."
@@ -393,7 +864,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
         </ul>
       </QueueSection>
 
-      {/* ── 4. New verified vendors ── */}
+      {/* ── New verified vendors ── */}
       <QueueSection
         title="New verified vendors"
         hint="Verification celebration features — unnamed for Free, named for Pro+."
@@ -475,7 +946,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
         </ul>
       </QueueSection>
 
-      {/* ── 5. Greetings this week (render-only · recur annually) ── */}
+      {/* ── Greetings this week (render-only · recur annually) ── */}
       <QueueSection
         title="Greetings this week"
         hint="Opted-in public greetings — birthdays + wedding anniversaries in the next 7 days. No mark-posted; these recur every year."
@@ -519,6 +990,395 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Autopilot strip
+// ---------------------------------------------------------------------------
+
+function AutopilotStrip({
+  settings,
+  fbConfigured,
+  loadFailed,
+}: {
+  settings: PublishSettings;
+  fbConfigured: boolean;
+  loadFailed: boolean;
+}) {
+  const fbChip = !settings.facebook_enabled
+    ? { label: 'Facebook · off', tone: 'bg-ink/8 text-ink/55' }
+    : fbConfigured
+      ? { label: 'Facebook · live', tone: 'bg-emerald-100 text-emerald-800' }
+      : { label: 'Facebook · awaiting env', tone: 'bg-amber-100 text-amber-900' };
+
+  return (
+    <section id="autopilot" className="mb-8 space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-0.5">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Autopilot
+          </h2>
+          <p className="text-xs text-ink/55">
+            The sweep always composes + schedules; dispatch only runs while the
+            master switch is on. Flushes piggyback on page views, ~10 min apart.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+              settings.autopublish_enabled
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-ink/8 text-ink/55'
+            }`}
+          >
+            Autopublish {settings.autopublish_enabled ? 'ON' : 'OFF'}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${fbChip.tone}`}
+          >
+            {fbChip.label}
+          </span>
+          <span
+            className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
+            title="Instagram publishing ships in Phase B."
+          >
+            Instagram · Phase B
+          </span>
+          <span
+            className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
+            title="TikTok publishing ships in Phase C — content-API audit pending."
+          >
+            TikTok · Phase C — audit pending
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            {settings.last_flush_at
+              ? `last flush ${formatPhInstant(settings.last_flush_at)}`
+              : 'no flush yet'}
+          </span>
+        </div>
+      </div>
+
+      {!fbConfigured ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          Paste <span className="font-mono">META_PAGE_ID</span> +{' '}
+          <span className="font-mono">META_PAGE_ACCESS_TOKEN</span> into Vercel
+          env to activate — see API_Integration_Checklist #21a. The switches
+          below still save; nothing dispatches until the env lands.
+        </p>
+      ) : null}
+
+      {loadFailed ? (
+        <p
+          role="alert"
+          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-xs text-terracotta-700"
+        >
+          Publish settings couldn&apos;t load right now (defaults shown). We&apos;ve
+          logged the issue — saving may also fail until it clears.
+        </p>
+      ) : null}
+
+      {/* All four checkboxes live in the ONE form — updatePublishSettings
+          treats absent/unchecked as off. IG + TikTok stay disabled (Phase
+          B/C); disabled checkboxes don't submit → saved off, as intended. */}
+      <form
+        action={updatePublishSettings}
+        className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ink/10 pt-4"
+      >
+        <label className="flex items-center gap-2 text-xs font-medium text-ink/80">
+          <input
+            type="checkbox"
+            name="autopublish_enabled"
+            defaultChecked={settings.autopublish_enabled}
+            className="h-4 w-4 rounded border-ink/30 accent-ink"
+          />
+          Autopublish (master)
+        </label>
+        <label className="flex items-center gap-2 text-xs text-ink/75">
+          <input
+            type="checkbox"
+            name="facebook_enabled"
+            defaultChecked={settings.facebook_enabled}
+            className="h-4 w-4 rounded border-ink/30 accent-ink"
+          />
+          Facebook
+        </label>
+        <label
+          className="flex cursor-not-allowed items-center gap-2 text-xs text-ink/40"
+          title="Instagram publishing ships in Phase B."
+        >
+          <input
+            type="checkbox"
+            name="instagram_enabled"
+            disabled
+            defaultChecked={settings.instagram_enabled}
+            className="h-4 w-4 rounded border-ink/20 accent-ink opacity-50"
+          />
+          Instagram
+        </label>
+        <label
+          className="flex cursor-not-allowed items-center gap-2 text-xs text-ink/40"
+          title="TikTok publishing ships in Phase C — content-API audit pending."
+        >
+          <input
+            type="checkbox"
+            name="tiktok_enabled"
+            disabled
+            defaultChecked={settings.tiktok_enabled}
+            className="h-4 w-4 rounded border-ink/20 accent-ink opacity-50"
+          />
+          TikTok
+        </label>
+        <button type="submit" className="button-primary h-9 px-3 text-xs">
+          Save
+        </button>
+      </form>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled post card
+// ---------------------------------------------------------------------------
+
+function ScheduledPostCard({ post, now }: { post: SocialPostRow; now: number }) {
+  const publishing = post.status === 'publishing';
+  const gateAt = post.publish_after ? new Date(post.publish_after).getTime() : null;
+  const gateFuture = gateAt !== null && gateAt > now;
+  const holdAt = post.hold_until ? new Date(post.hold_until).getTime() : null;
+  const holdFuture = holdAt !== null && holdAt > now;
+  const holdHours = holdFuture ? Math.max(1, Math.ceil((holdAt - now) / 3_600_000)) : 0;
+
+  return (
+    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <header className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-ink">
+          {post.title || firstLine(post.body) || 'Untitled post'}
+        </p>
+        <SourceChip sourceType={post.source_type} />
+      </header>
+
+      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        {post.scheduled_for
+          ? `slot ${formatPhInstant(post.scheduled_for)}`
+          : 'awaiting a governor slot'}
+        {holdFuture ? ` · auto-posts in ~${holdHours}h — pull to stop` : ''}
+        {gateFuture ? ` · gated until ${formatPhDate(post.publish_after)}` : ''}
+      </p>
+
+      <pre className="whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
+        {post.body}
+      </pre>
+
+      {publishing ? (
+        <p className="animate-pulse font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          publishing…
+        </p>
+      ) : (
+        <>
+          <details className="rounded-md border border-ink/10 bg-cream/60">
+            <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
+              Edit copy…
+            </summary>
+            <form action={updateSocialPostBody} className="space-y-2 px-3 pb-3">
+              <input type="hidden" name="post_id" value={post.post_id} />
+              <input
+                name="title"
+                type="text"
+                defaultValue={post.title}
+                placeholder="Internal title"
+                className="input-field h-9 w-full text-xs"
+              />
+              <textarea
+                name="body"
+                required
+                rows={4}
+                defaultValue={post.body}
+                className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
+              />
+              <button type="submit" className="button-primary h-9 px-3 text-xs">
+                Save copy
+              </button>
+            </form>
+          </details>
+
+          <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
+            <form action={pullSocialPost}>
+              <input type="hidden" name="post_id" value={post.post_id} />
+              <button
+                type="submit"
+                className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs text-terracotta-700 hover:bg-terracotta/15"
+              >
+                Pull
+              </button>
+            </form>
+            {/* Post-now skips the hold window but NEVER the content gate —
+                a couple's event-date + 7d is not overridable. */}
+            {!gateFuture ? (
+              <form action={postSocialPostNow}>
+                <input type="hidden" name="post_id" value={post.post_id} />
+                <button type="submit" className="button-primary h-9 px-3 text-xs">
+                  Post now
+                </button>
+              </form>
+            ) : null}
+          </div>
+        </>
+      )}
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Evergreen item card (edit-in-place form)
+// ---------------------------------------------------------------------------
+
+function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
+  return (
+    <article
+      className={`space-y-3 rounded-xl border p-4 ${
+        item.is_active ? 'border-ink/10 bg-cream' : 'border-ink/10 bg-cream opacity-60'
+      }`}
+    >
+      <header className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-ink">{item.title}</p>
+        <span
+          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+            item.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-ink/8 text-ink/55'
+          }`}
+        >
+          {item.is_active ? 'Active' : 'Inactive'}
+        </span>
+      </header>
+      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        used {item.times_used}×
+        {item.last_used_at ? ` · last ${formatPhDate(item.last_used_at)}` : ' · never used'}
+      </p>
+      <pre className="line-clamp-3 whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
+        {item.body}
+      </pre>
+      <details className="rounded-md border border-ink/10 bg-cream/60">
+        <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">Edit…</summary>
+        <form action={saveEvergreenItem} className="space-y-2 px-3 pb-3">
+          <input type="hidden" name="item_id" value={item.item_id} />
+          <input
+            name="title"
+            type="text"
+            required
+            defaultValue={item.title}
+            className="input-field h-9 w-full text-xs"
+          />
+          <textarea
+            name="body"
+            required
+            rows={4}
+            defaultValue={item.body}
+            className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
+          />
+          <input
+            name="media_url"
+            type="url"
+            defaultValue={item.media_url ?? ''}
+            placeholder="Image URL (optional)"
+            className="input-field h-9 w-full text-xs"
+          />
+          <input
+            name="link_url"
+            type="url"
+            defaultValue={item.link_url ?? ''}
+            placeholder="Link URL (optional)"
+            className="input-field h-9 w-full text-xs"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-ink/75">
+              <input
+                type="checkbox"
+                name="is_active"
+                defaultChecked={item.is_active}
+                className="h-4 w-4 rounded border-ink/30 accent-ink"
+              />
+              Active (in the rotation)
+            </label>
+            <button type="submit" className="button-primary h-9 px-3 text-xs">
+              Save
+            </button>
+          </div>
+        </form>
+      </details>
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Small shared bits
+// ---------------------------------------------------------------------------
+
+function SourceChip({ sourceType }: { sourceType: SocialSourceType }) {
+  const tone = SOURCE_CHIP[sourceType] ?? 'bg-ink/8 text-ink/65';
+  const label = SOURCE_LABEL[sourceType] ?? sourceType;
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Facebook leg of platform_results — tolerant of any JSONB shape. */
+function facebookResult(platformResults: unknown): {
+  status?: string;
+  post_url?: string | null;
+  posted_at?: string | null;
+  error?: string | null;
+} {
+  if (
+    platformResults &&
+    typeof platformResults === 'object' &&
+    'facebook' in platformResults
+  ) {
+    const fb = (platformResults as Record<string, unknown>).facebook;
+    if (fb && typeof fb === 'object') {
+      return fb as {
+        status?: string;
+        post_url?: string | null;
+        posted_at?: string | null;
+        error?: string | null;
+      };
+    }
+  }
+  return {};
+}
+
+/** First non-empty line of a post body — compact-row display. */
+function firstLine(body: string): string {
+  return body.split('\n').find((l) => l.trim().length > 0)?.trim() ?? '';
+}
+
+/** Instant in PH wall-clock time, e.g. "Jun 13, 6:05 PM PHT". */
+function formatPhInstant(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })} PHT`;
+}
+
+/** Date-only in PH time, e.g. "Jun 20, 2026". */
+function formatPhDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 /**
  * True when the month/day of `isoDate` (YYYY-MM-DD) falls on one of the next
  * 7 calendar days (today inclusive). Year-wrap safe (Dec → Jan). Feb 29
@@ -539,12 +1399,14 @@ function monthDayWithinNext7Days(isoDate: string): boolean {
 }
 
 function QueueSection({
+  id,
   title,
   hint,
   count,
   empty,
   children,
 }: {
+  id?: string;
   title: string;
   hint: string;
   count: number;
@@ -552,7 +1414,7 @@ function QueueSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-8 space-y-3">
+    <section id={id} className="mb-8 space-y-3">
       <div className="space-y-0.5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           {title} · {count}
@@ -581,26 +1443,26 @@ function FlashBanner({ search }: { search: Awaited<Props['searchParams']> }) {
       </p>
     );
   }
-  if (search.posted === '1') {
-    return (
-      <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        Marked posted — the card left the queue.
-      </p>
-    );
-  }
-  if (search.vendor_posted === '1') {
-    return (
-      <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        Vendor feature marked posted — they won&rsquo;t be queued again.
-      </p>
-    );
-  }
-  if (search.taken_down === '1') {
-    return (
-      <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        Take-down recorded. Thank you for keeping the 24-hour promise.
-      </p>
-    );
+  const success: Array<[keyof Awaited<Props['searchParams']>, string]> = [
+    ['posted', 'Marked posted — the card left the queue.'],
+    ['vendor_posted', 'Vendor feature marked posted — they won’t be queued again.'],
+    ['taken_down', 'Take-down recorded. Thank you for keeping the 24-hour promise.'],
+    ['settings_saved', 'Autopilot settings saved.'],
+    ['pulled', 'Post pulled — it will not publish (and the sweep won’t recompose it).'],
+    ['posted_now', 'Dispatched — check the Published section in a moment.'],
+    ['retried', 'Post re-queued — the next flush re-dispatches it.'],
+    ['body_saved', 'Post copy saved.'],
+    ['announcement_created', 'Announcement queued at the next available slot.'],
+    ['evergreen_saved', 'Evergreen item saved.'],
+  ];
+  for (const [flag, message] of success) {
+    if (search[flag] === '1') {
+      return (
+        <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {message}
+        </p>
+      );
+    }
   }
   return null;
 }

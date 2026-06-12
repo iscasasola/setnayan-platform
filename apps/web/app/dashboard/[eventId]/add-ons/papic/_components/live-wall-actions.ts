@@ -20,6 +20,12 @@ function papicPath(eventId: string): string {
   return `/dashboard/${eventId}/add-ons/papic`;
 }
 
+/** Both surfaces that render these controls (the add-on card + the P3 console). */
+function revalidateWallSurfaces(eventId: string): void {
+  revalidatePath(papicPath(eventId));
+  revalidatePath(`/dashboard/${eventId}/live`);
+}
+
 /** Mint a single-use venue screen code (15-minute claim window per P0). */
 export async function createWallScreenCode(eventId: string): Promise<ActionResult> {
   const clean = eventId?.trim();
@@ -30,7 +36,7 @@ export async function createWallScreenCode(eventId: string): Promise<ActionResul
     display_code: generateDisplayCode(),
   });
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(papicPath(clean));
+  revalidateWallSurfaces(clean);
   return { ok: true };
 }
 
@@ -47,7 +53,7 @@ export async function revokeWallScreen(
     .eq('session_id', sessionId)
     .eq('event_id', eventId);
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(papicPath(eventId));
+  revalidateWallSurfaces(eventId);
   return { ok: true };
 }
 
@@ -70,7 +76,7 @@ export async function hideWallTile(
     p_also_gallery: alsoGallery,
   });
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(papicPath(eventId));
+  revalidateWallSurfaces(eventId);
   return { ok: true };
 }
 
@@ -87,6 +93,6 @@ export async function unhideWallTile(
     p_source_id: sourceId,
   });
   if (error) return { ok: false, error: error.message.slice(0, 80) };
-  revalidatePath(papicPath(eventId));
+  revalidateWallSurfaces(eventId);
   return { ok: true };
 }

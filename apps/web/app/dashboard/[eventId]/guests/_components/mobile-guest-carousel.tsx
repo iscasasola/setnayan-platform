@@ -479,7 +479,7 @@ export function MobileGuestCarousel({
                   { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims` },
                   { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
                   { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating` },
-                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}`, soon: true },
+                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin` },
                 ] as const
               ).map((s, i) => (
                 <span key={s.key} className="flex shrink-0 items-center gap-0.5">

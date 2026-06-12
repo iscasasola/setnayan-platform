@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(vendor-nav): Repertoire nav entry only for music acts
+
+**Context:** owner directive — "repertoire… this is for the band, wedding singer, orchestra? should only show if that is their service." The repertoire PAGE already gated via `isMusicVendor` (live_band · choir · orchestra · wedding_singer · dj) with an explainer for everyone else, and its own comment marked nav-level hiding as a follow-up. This closes it.
+
+- **Vendor layout** resolves the vendor profile in the existing parallel batch (defensive `.catch(null)`) and passes `showRepertoire={isMusicVendor(profile.services)}` to the sidebar.
+- **VendorSidebar** accepts the flag (default `true`) and filters the `repertoire` item out of the Work group for non-music vendors.
+- **/vendor-dashboard/more** applies the same filter to its overflow tiles (own profile fetch — it's a separate route).
+- Bottom-nav untouched (repertoire appears there only as an `activeMatch` highlight path under More). The page keeps its server-side gate — nav hiding is UX, the gate is authority.
+
+**Verification:** `tsc` clean; lint clean on touched files.
+
+**SPEC IMPACT:** None (nav-visibility polish; the Song Bank model + page gate are unchanged).
+
 ## 2026-06-13 · fix(vendors): remove the everything-cascade on finalize — link-gated rule
 
 **Context:** owner directive 2026-06-12 (corpus `DECISION_LOG.md` "Link-gated build cascade" row) supersedes the 2026-05-22 "auto-add cascade on finalize" directive. New rule: if a vendor did not explicitly link a service via `vendor_service_links`, it must NOT be auto-added to the couple's build.

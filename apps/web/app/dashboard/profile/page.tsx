@@ -330,8 +330,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                 Allow public birthday &amp; anniversary greetings
               </span>
               <span className="block text-xs text-ink/55">
-                Lets Setnayan greet you on our Facebook page (birthdays + wedding
-                anniversaries). Email greetings don&rsquo;t need this. Default off.
+                Lets Setnayan greet you on our social pages — Facebook, Instagram
+                &amp; TikTok — for birthdays and wedding anniversaries. Email
+                greetings don&rsquo;t need this. Default off.
               </span>
             </span>
           </label>
@@ -697,11 +698,12 @@ export default async function ProfilePage({ searchParams }: Props) {
         <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">
-              Featured on Setnayan&rsquo;s page
+              Featured on Setnayan&rsquo;s pages
             </p>
             <p className="text-xs text-ink/55">
-              Creations you&rsquo;ve allowed us to feature on the Setnayan Facebook
-              page — always after your event, never before.
+              Creations you&rsquo;ve allowed us to feature on our social pages
+              (Facebook, Instagram &amp; TikTok) — always after your event, never
+              before.
             </p>
           </div>
           {shareConsents.length === 0 ? (

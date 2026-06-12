@@ -1,5 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { runSocialFlush } from '@/lib/social/flush';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -79,6 +81,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Non-admins shouldn't even see the route exists — render a 404 instead of
   // bouncing to /dashboard, which could leak the existence of /admin.
   if (!isAdmin) notFound();
+
+  // Social auto-publish flush — cron-free ([[project_setnayan_cron_free]]):
+  // dispatch piggybacks on admin traffic via after(). Fire-and-forget; the
+  // 10-minute throttle inside runSocialFlush makes this effectively free,
+  // and runSocialFlush never throws.
+  after(() => runSocialFlush().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

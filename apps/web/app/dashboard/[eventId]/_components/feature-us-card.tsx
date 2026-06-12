@@ -10,7 +10,9 @@ import type { ShareArtifactType } from '@/lib/social-sharing';
  *
  * A quiet card under a creation surface (monogram maker, save-the-date
  * gallery, …) asking the couple to let Setnayan feature that creation on the
- * Setnayan Facebook page — only AFTER their event (the publish gate lives
+ * Setnayan social pages (Facebook now; Instagram + TikTok in later phases —
+ * the consent copy names all three so the RA 10173 scope covers the
+ * multi-channel fan-out) — only AFTER their event (the publish gate lives
  * app-side: lib/social-sharing.ts). Server-component friendly: a plain form
  * posting to grantShareConsent, no client JS. Already-consented renders a
  * one-line confirmation pointing at Profile → Privacy for revocation.
@@ -57,9 +59,9 @@ export function FeatureUsCard({
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-ink">Proud of this one?</h2>
           <p className="text-xs text-ink/65">
-            Allow Setnayan to feature this creation on our Facebook page — only
-            after your big day, never before. Revoke any time from Profile
-            &rarr; Privacy &amp; data.
+            Allow Setnayan to feature this creation on our social pages
+            (Facebook, Instagram &amp; TikTok) — only after your big day, never
+            before. Revoke any time from Profile &rarr; Privacy &amp; data.
           </p>
         </div>
       </div>

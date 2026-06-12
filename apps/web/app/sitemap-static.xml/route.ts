@@ -88,11 +88,11 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/login', lastmod: '2026-05-23', changefreq: 'yearly', priority: '0.5' },
   { path: '/signup', lastmod: '2026-05-23', changefreq: 'yearly', priority: '0.6' },
 
-  // Keynote scroll decks (CLAUDE.md 2026-05-28 11th row · v2.1 static
-  // React+Babel pages). Stable until next deck refresh cycle.
-  { path: '/keynote', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.6' },
-  { path: '/keynote/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.6' },
-  { path: '/keynote/engineering', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.5' },
+  // Keynote scroll decks de-listed 2026-06-13 — the 2026-05-28 deck snapshot
+  // drifted from the live product (carried retired ₱1,499 verification fee,
+  // "BIR-compliant receipts", and "Today's Focus" naming). Also disallowed in
+  // robots.ts so AI answer engines stop citing stale copy. Re-list after a
+  // deck refresh if /keynote should rank again.
 ];
 
 export async function GET(): Promise<Response> {

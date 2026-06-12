@@ -379,7 +379,7 @@ export default async function HowItWorksPage() {
                 List your wedding business — free.
               </h3>
               <p className="mt-2 text-sm text-ink/70">
-                A free verified profile, in-app chat with couples, BIR-compliant receipts. Pro at
+                A free verified profile and in-app chat with couples. Pro at
                 {p.proMonthly} / 28 days unlocks unlimited services, custom slug + bid CTA on your
                 profile, advanced proposal builder, and editorial credits on the weddings you shoot.
               </p>

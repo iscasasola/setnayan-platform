@@ -212,7 +212,7 @@ export default async function VendorClaimPage({ params }: Props) {
               <Perk>Free vendor profile + marketplace listing</Perk>
               <Perk>Chat with couples in-app</Perk>
               <Perk>Calendar + bookings dashboard</Perk>
-              <Perk>BIR-compliant payouts</Perk>
+              <Perk>0% commission on bookings</Perk>
               <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
             </ul>
           </section>

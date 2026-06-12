@@ -14,7 +14,7 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Couple waitlist — Setnayan',
   description:
-    'Setnayan launches for couples on December 1, 2026. Join the waitlist and we’ll email you the moment we go live — free planning tools, BIR-compliant receipts, vendors already in the marketplace.',
+    'Setnayan launches for couples on December 1, 2026. Join the waitlist and we’ll email you the moment we go live — free planning tools, a verified vendor marketplace, and 0% commission on vendor bookings.',
   alternates: { canonical: '/waitlist' },
   openGraph: {
     title: 'Couple waitlist — Setnayan',
@@ -225,7 +225,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
             <li>· Setnayan AI — Filipino-wedding AI guide that surfaces the next step</li>
             <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
             <li>· Zero commission on vendor bookings — Setnayan only sells software</li>
-            <li>· BIR-compliant receipts on every software purchase</li>
+            <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
             Vendor? <Link href="/for-vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.

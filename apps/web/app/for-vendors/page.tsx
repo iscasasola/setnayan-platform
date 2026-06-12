@@ -24,7 +24,7 @@
  *   - "Setnayan Concierge matching/matchmaking" → "Setnayan AI matching/matchmaking"
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
- *   - ₱1,499 one-time verification + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
+ *   - Verification FREE during launch (₱1,499 one-time fee removed 2026-06-13) + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
  *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
  *
  * Per [[feedback_setnayan_button_preservation]] — every CTA placement +

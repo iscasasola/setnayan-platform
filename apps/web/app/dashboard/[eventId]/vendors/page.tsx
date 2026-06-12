@@ -31,6 +31,7 @@ import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
 import {
   bucketVendorsByGroup,
+  canonicalServiceToPlanGroupId,
   PLAN_GROUPS,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
@@ -298,17 +299,16 @@ export default async function VendorsPage({ params }: Props) {
       PLAN_GROUPS.map((g) => [g.id as string, g.label]),
     );
     for (const v of vendors) {
-      const labels = (v.covers_plan_groups ?? [])
-        .map((id) => groupLabelById.get(id))
-        .filter((l): l is string => Boolean(l));
-      if (labels.length === 0) continue;
+      // Carry the group id alongside the label (2026-06-12): host covers ARE
+      // plan-group ids, so they feed category-satisfaction directly.
+      const covers = (v.covers_plan_groups ?? [])
+        .map((id) => ({ label: groupLabelById.get(id), groupId: id }))
+        .filter((c): c is { label: string; groupId: string } => Boolean(c.label));
+      if (covers.length === 0) continue;
       const existing = enrichmentByVendorId.get(v.vendor_id);
       enrichmentByVendorId.set(v.vendor_id, {
         ...(existing ?? {}),
-        linked_services: [
-          ...(existing?.linked_services ?? []),
-          ...labels.map((label) => ({ label })),
-        ],
+        linked_services: [...(existing?.linked_services ?? []), ...covers],
       });
     }
   }
@@ -569,8 +569,10 @@ export default async function VendorsPage({ params }: Props) {
         rangeLoPhp={Math.round(model.rangeLoCentavos / 100)}
         rangeHiPhp={Math.round(model.rangeHiCentavos / 100)}
         categoryFill={{
+          // Covered categories (2026-06-12) are excluded from Flag/Compute —
+          // another committed pick's package already includes them.
           openCats: buildChildren
-            .filter((c) => c.state === 'empty')
+            .filter((c) => c.state === 'empty' && !c.coveredBy)
             .map((c) => ({ groupId: c.groupId, label: c.label })),
           lockedCount: buildChildren.filter((c) => c.state === 'finalized').length,
           flaggedGroups,
@@ -693,11 +695,11 @@ async function fetchVendorPhotoMaps(
   servicePhotoByVendor: Map<string, string>;
   manualPhotoByVendor: Map<string, string>;
   /** vendor_id → linked-services-on-card labels for its picked service. */
-  linkedByVendorId: Map<string, { label: string }[]>;
+  linkedByVendorId: Map<string, { label: string; groupId: string | null }[]>;
 }> {
   const servicePhotoByVendor = new Map<string, string>();
   const manualPhotoByVendor = new Map<string, string>();
-  const linkedByVendorId = new Map<string, { label: string }[]>();
+  const linkedByVendorId = new Map<string, { label: string; groupId: string | null }[]>();
 
   // 1. vendor_id → service_id / manual_vendor_id. Falls back to a service_id-
   //    only select when manual_vendor_id isn't migrated yet.
@@ -765,11 +767,14 @@ async function fetchVendorPhotoMaps(
   ]);
 
   // service_id → ordered linked labels → resolve to vendor_id.
-  const linksByServiceId = new Map<string, { label: string }[]>();
+  const linksByServiceId = new Map<string, { label: string; groupId: string | null }[]>();
   for (const row of (linkRes.data ?? []) as LinkRow[]) {
     const label = row.linked_label ?? row.linked_canonical_service;
     const arr = linksByServiceId.get(row.vendor_service_id) ?? [];
-    arr.push({ label });
+    // groupId (2026-06-12 category-satisfaction): which plan group this link
+    // covers. Null when the canonical service maps to no group — the chip
+    // still renders, it just can't mark a category covered.
+    arr.push({ label, groupId: canonicalServiceToPlanGroupId(row.linked_canonical_service) });
     linksByServiceId.set(row.vendor_service_id, arr);
   }
   for (const [vendorId, serviceId] of serviceIdByVendor) {

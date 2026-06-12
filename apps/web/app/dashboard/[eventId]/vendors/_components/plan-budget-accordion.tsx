@@ -301,6 +301,10 @@ const PBA_CSS = `
 .pbacc .lh-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
 .pbacc .lh-svc{color:var(--gold-deep);font-size:13px;line-height:1}
 .pbacc .lh-zero{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
+/* Category-satisfaction badge (2026-06-12) — an empty category another
+   committed pick "comes with". */
+.pbacc .lh-cov{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#2f6f4e}
+.pbacc .cov-note{display:flex;align-items:flex-start;gap:8px;margin:0 20px 8px;padding:10px 14px;border:1px solid rgba(47,111,78,.25);border-radius:12px;background:rgba(47,111,78,.06);font-size:12.5px;line-height:1.5;color:#2f6f4e}
 .pbacc .lh-chev{font-size:19px;color:var(--ink-soft);line-height:1;transition:transform .2s var(--ease);display:inline-block}
 .pbacc .leaf.open > .leaf-head .lh-chev{transform:rotate(90deg);color:var(--gold-deep)}
 .pbacc .leaf-body{padding-bottom:6px;animation:pba-leafrise .26s var(--ease) both}
@@ -1124,6 +1128,16 @@ function ChildRail({
           ) : null}
           {child.picks.length > 0 ? (
             <span className="lh-count">{child.picks.length}</span>
+          ) : child.coveredBy ? (
+            /* Category-satisfaction (2026-06-12): a committed pick elsewhere
+               "comes with" this — show covered instead of "Not started". */
+            <span
+              className="lh-cov"
+              aria-label={`Covered by ${child.coveredBy.vendorName}`}
+              title={`Covered by ${child.coveredBy.vendorName} (${child.coveredBy.fromGroupLabel})`}
+            >
+              ✓ covered
+            </span>
           ) : inApp.length > 0 ? (
             <span className="lh-svc" aria-label="Setnayan service available">✦</span>
           ) : (
@@ -1146,6 +1160,16 @@ function ChildRail({
       {child.dependency ? <DependencyNudge dep={child.dependency} label={child.label} /> : null}
 
       {empty ? (
+        <>
+        {child.coveredBy ? (
+          /* Coverage is informational, never a gate — the Find/Add affordances
+             below stay available for couples who want a dedicated vendor. */
+          <p className="cov-note">
+            ✓ Covered by {child.coveredBy.vendorName} — their{' '}
+            {child.coveredBy.fromGroupLabel} package already includes this. Add
+            someone here only if you want a dedicated vendor.
+          </p>
+        ) : null}
         <div className="empty-row">
           <button
             type="button"
@@ -1173,6 +1197,7 @@ function ChildRail({
             </button>
           ) : null}
         </div>
+        </>
       ) : (
         <div className="rail">
           {/* Setnayan first-party services float to the TOP of the rail. */}

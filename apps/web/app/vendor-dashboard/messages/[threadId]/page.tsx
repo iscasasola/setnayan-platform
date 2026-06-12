@@ -7,6 +7,14 @@ import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
+import { fetchThreadInterests } from '@/lib/thread-interests';
+import { fetchVendorServices } from '@/lib/vendor-services';
+import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import {
+  VendorOfferService,
+  type VendorOfferOption,
+} from './_components/vendor-offer-service';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -42,6 +50,30 @@ export default async function VendorThreadPage({ params }: Props) {
   const initialMessages = await fetchMessages(supabase, threadId);
   const coupleLabel = event?.display_name ?? 'Couple';
 
+  // Inverse cross-sell (owner-locked 2026-06-12) — the vendor can offer one of
+  // their OWN active services that isn't already on the thread's interest list.
+  // Resolve the gap = (active services) − (services already recorded as
+  // interests). Best-effort + graceful-degrade (pre-migration → empty options).
+  const [existingInterests, ownServices] = await Promise.all([
+    fetchThreadInterests(supabase, threadId),
+    fetchVendorServices(supabase, profile.vendor_profile_id),
+  ]);
+  const alreadyOnThread = new Set(
+    existingInterests
+      .map((r) => r.vendor_service_id)
+      .filter((v): v is string => v !== null),
+  );
+  const offerOptions: VendorOfferOption[] = ownServices
+    .filter((s) => s.is_active && !alreadyOnThread.has(s.vendor_service_id))
+    .map((s) => ({
+      vendorServiceId: s.vendor_service_id,
+      label:
+        s.title?.trim() ||
+        (isCanonicalService(s.category)
+          ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
+          : s.category),
+    }));
+
   // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
   // inquiry is pending (the accept decision). Graceful-degrades pre-migration.
   const returning =
@@ -73,6 +105,12 @@ export default async function VendorThreadPage({ params }: Props) {
       </header>
 
       <ChatPrivacyNotice />
+
+      <ThreadInterestChips supabase={supabase} threadId={threadId} />
+
+      {thread.inquiry_status === 'accepted' ? (
+        <VendorOfferService threadId={threadId} options={offerOptions} />
+      ) : null}
 
       <ChatMessageStream
         threadId={threadId}

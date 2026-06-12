@@ -32,6 +32,17 @@ import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
+import { LiveWallBlock } from './_components/live-wall-block';
+import { getWallSnapshot } from '@/lib/live-wall';
+import type { WallTile } from '@/lib/live-wall-logic';
+import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
+
+/** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
+type LiveWallData = {
+  tiles: WallTile[];
+  count: number;
+  caption: { text: string; author: string } | null;
+};
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -395,6 +406,37 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     if (backdropConfig) backdrop = <SpatialBackdrop config={backdropConfig} />;
   }
 
+  // Live Photo Wall mirror (owner 2026-06-12: "photo wall live and the
+  // gallery must be on the on-the-day part"). Only during the live window
+  // (which the host phase-preview can force), only when the event owns
+  // LIVE_WALL — the same activation door as /wall/[eventId]. Reads the SAME
+  // screened feed the venue projector renders (wall-safe derivatives only),
+  // capped to the newest dozen so a busy wall doesn't presign hundreds per
+  // page view. Wall trouble must never break the wedding page → try/null.
+  let liveWall: LiveWallData | null = null;
+  if (dayOfPhase === 'live') {
+    try {
+      const { data: wallActivation } = await admin
+        .from('event_software_activations_v2')
+        .select('service_code')
+        .eq('event_id', event.event_id)
+        .eq('service_code', 'LIVE_WALL')
+        .maybeSingle();
+      if (wallActivation) {
+        const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
+        liveWall = {
+          tiles: snap.tiles,
+          count: snap.count,
+          caption: snap.caption
+            ? { text: snap.caption.text, author: snap.caption.author }
+            : null,
+        };
+      }
+    } catch {
+      liveWall = null;
+    }
+  }
+
   if (!session) {
     return (
       <PublicLanding
@@ -410,6 +452,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
     );
   }
@@ -431,6 +474,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
     );
   }
@@ -459,6 +503,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
+        liveWall={liveWall}
       />
     );
   }
@@ -490,6 +535,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
   const papicGuestActive = await eventOwnsPapicGuest(admin, event.event_id);
 
+  // Per-guest LIVE gallery (owner 2026-06-12: "the gallery must be on the
+  // on-the-day part") — the photos THIS guest is tagged in, arriving through
+  // the day. Live window only; guest-session-scoped; clean-screened captures
+  // only (see lib/guest-live-gallery.ts).
+  const guestLiveGallery =
+    dayOfPhase === 'live'
+      ? await getGuestLiveGallery(event.event_id, guest.guest_id)
+      : null;
+
   return (
     <>
       <InvitationSite
@@ -510,6 +564,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         backdrop={backdrop}
+        liveWall={liveWall}
+        guestLiveGallery={guestLiveGallery}
       />
       {papicGuestActive && (
         <Link
@@ -738,6 +794,7 @@ function PublicLanding({
   widgets,
   scheduleBlocks,
   backdrop,
+  liveWall,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -774,6 +831,8 @@ function PublicLanding({
   scheduleBlocks: ScheduleBlockRow[];
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
+  /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
+  liveWall?: LiveWallData | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -899,6 +958,20 @@ function PublicLanding({
           </p>
         )}
       </div>
+
+      {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
+          scans without a guest cookie) get the live wall too during the
+          celebration window. Same screened feed as the projector. */}
+      {dayOfPhase === 'live' && liveWall ? (
+        <section className="mt-10">
+          <LiveWallBlock
+            slug={event.slug}
+            initialTiles={liveWall.tiles}
+            initialCount={liveWall.count}
+            initialCaption={liveWall.caption}
+          />
+        </section>
+      ) : null}
 
       {/* Public widgets — owner directive 2026-05-23. Renders the
        *  host-configured hideable widgets that carry event-level data
@@ -1116,6 +1189,8 @@ function InvitationSite({
   ourPhotoUrls,
   widgets,
   backdrop,
+  liveWall,
+  guestLiveGallery,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1157,6 +1232,10 @@ function InvitationSite({
   widgets: readonly InvitationWidgetRow[];
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
+  /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
+  liveWall?: LiveWallData | null;
+  /** This guest's tagged photos so far — live window only, clean-screened. */
+  guestLiveGallery?: GuestLiveGallery | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1386,6 +1465,57 @@ function InvitationSite({
             className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-2"
           >
             <ScheduleWidget blocks={scheduleBlocks} />
+          </section>
+        ) : null}
+
+        {/* Live Photo Wall mirror — the venue wall on the guest's own phone
+            while the celebration runs (owner 2026-06-12: the wall + live
+            gallery belong ON the on-the-day page). Renders only when the
+            event owns LIVE_WALL and the live window is on; polls for fresh
+            tiles while the tab is visible. */}
+        {isLive && liveWall ? (
+          <LiveWallBlock
+            slug={event.slug}
+            initialTiles={liveWall.tiles}
+            initialCount={liveWall.count}
+            initialCaption={liveWall.caption}
+          />
+        ) : null}
+
+        {/* Per-guest LIVE gallery — "photos of you, so far". The personalized
+            half of the on-the-day gallery pair (the wall mirror above is the
+            shared half): this guest's clean-screened tagged photos, arriving
+            through the day. Personalization no competitor has. */}
+        {isLive && guestLiveGallery ? (
+          <section
+            aria-label="Photos of you so far"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Photos of you — so far
+              </p>
+              <p className="text-xs text-ink/55">
+                {guestLiveGallery.total.toLocaleString()} tagged
+              </p>
+            </div>
+            <div className="mt-4 grid grid-cols-4 gap-1.5 sm:gap-2">
+              {guestLiveGallery.photos.map((p) => (
+                <figure
+                  key={p.id}
+                  className="relative aspect-square overflow-hidden rounded-lg bg-ink/5"
+                >
+                  {/* Presigned 1h URL — raw <img> (optimizer would cache expiry). */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </figure>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-ink/55">
+              More arrive as the day unfolds — and everything tagged to you is yours to
+              keep after the celebration.
+            </p>
           </section>
         ) : null}
 

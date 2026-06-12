@@ -150,6 +150,14 @@ export type EventVendorRow = {
   food_allowance_php: number | null;
   deposit_paid_php: number | null;
   notes: string | null;
+  /**
+   * DIY parity (owner doctrine 2026-06-11): host-authored "what's included"
+   * lines + "also covers" plan-group ids for MANUAL (off-platform) vendors —
+   * the host-side mirror of vendor-authored package items / service links.
+   * Always [] on marketplace rows (the workspace editor is manual-only).
+   */
+  host_inclusions: string[] | null;
+  covers_plan_groups: string[] | null;
   created_at: string;
   /**
    * FK to vendor_profiles. NULL = off-platform (couple-encoded only).
@@ -174,7 +182,7 @@ export async function fetchEventVendors(
   const { data, error } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,created_at,marketplace_vendor_id',
+      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });

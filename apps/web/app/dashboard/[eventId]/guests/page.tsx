@@ -132,25 +132,48 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims] = await Promise.all([
-    fetchGuestsByEvent(supabase, eventId),
-    supabase
-      .from('events')
-      .select('role_palette')
-      .eq('event_id', eventId)
-      .maybeSingle(),
-    fetchGuestGroupsByEvent(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
-    fetchJoinUrl(supabase, eventId),
-    // Guest invite-claims awaiting the couple (migration 20261021). RLS scopes
-    // this to couples; a head+count read keeps it cheap.
-    supabase
-      .from('guest_claims')
-      .select('claim_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .in('status', ['pending_review', 'otp_sent']),
-  ]);
+  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, seated, arrived] =
+    await Promise.all([
+      fetchGuestsByEvent(supabase, eventId),
+      supabase
+        .from('events')
+        .select('role_palette')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      fetchGuestGroupsByEvent(supabase, eventId),
+      fetchGroupMembershipsByEvent(supabase, eventId),
+      fetchJoinUrl(supabase, eventId),
+      // Guest invite-claims awaiting the couple (migration 20261021). RLS scopes
+      // this to couples; a head+count read keeps it cheap.
+      supabase
+        .from('guest_claims')
+        .select('claim_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .in('status', ['pending_review', 'otp_sent']),
+      // Lifecycle-ribbon live progress (Phase 3) — three more head+count reads
+      // in the same batch (no extra RTT cost beyond the parallel fan-out).
+      // invitation_sent_at isn't part of GUEST_FIELDS, so unsent is counted
+      // here rather than widening the shared GuestRow contract.
+      supabase
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .is('invitation_sent_at', null)
+        .neq('rsvp_status', 'declined'),
+      supabase
+        .from('event_seat_assignments')
+        .select('assignment_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+      supabase
+        .from('guest_checkins')
+        .select('checkin_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+    ]);
   const pendingClaimsCount = pendingClaims.count ?? 0;
+  const unsentCount = unsentInvites.count ?? 0;
+  const seatedCount = seated.count ?? 0;
+  const arrivedCount = arrived.count ?? 0;
   // Log silent palette-read errors so a future ADD COLUMN regression
   // would surface in Sentry instead of falling through to an empty
   // palette. sanitizeRolePalette already handles null input cleanly, so
@@ -417,7 +440,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           Customize); seating + share stay reachable from the planning nav /
           QR surfaces. */}
       <div className="hidden space-y-6 lg:block">
-        <LifecycleRibbon eventId={eventId} active="build" pendingClaims={pendingClaimsCount} />
+        <LifecycleRibbon
+          eventId={eventId}
+          active="build"
+          pendingClaims={pendingClaimsCount}
+          unsent={unsentCount}
+          unseated={Math.max(0, stats.attending - seatedCount)}
+          arrived={arrivedCount}
+        />
 
         <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
 
@@ -554,6 +584,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           declined={stats.declined}
           teamFilter={teamFilter}
           pendingClaims={pendingClaimsCount}
+          unsent={unsentCount}
+          unseated={Math.max(0, stats.attending - seatedCount)}
+          arrived={arrivedCount}
         />
       </Suspense>
     </section>
@@ -763,37 +796,63 @@ function StatsStrip({
     { key: 'plus_ones', label: 'Plus-ones', count: stats.plus_ones, tint: 'bg-terracotta/10 text-terracotta-700' },
   ];
 
+  // Confirm-progress (redesign Phase 3, the deferred "confirm-progress bar"):
+  // responded = everyone no longer Pending. Segments use the same tints as the
+  // stat cards below so the bar reads as a summary of them, not a new concept.
+  const responded = stats.total - stats.pending;
+  const pct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
+  const seg = (n: number) => (stats.total > 0 ? (n / stats.total) * 100 : 0);
+
   return (
-    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {cards.map((card) => {
-        const href =
-          card.key === 'total' || card.key === 'plus_ones'
-            ? `/dashboard/${eventId}/guests`
-            : `/dashboard/${eventId}/guests?rsvp=${card.key}`;
-        const isActive = (card.key === 'total' && !active) || card.key === active;
-        return (
-          <li key={card.key}>
-            <Link
-              href={href}
-              className={`flex flex-col rounded-lg border px-3 py-2.5 transition-colors ${
-                isActive
-                  ? 'border-terracotta bg-terracotta/5'
-                  : 'border-ink/10 hover:border-ink/25'
-              }`}
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                {card.label}
-              </span>
-              <span
-                className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-base font-semibold ${card.tint}`}
+    <div className="space-y-2">
+      <div>
+        <div className="flex items-baseline justify-between text-xs text-ink/55">
+          <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
+          <span className="tabular-nums">
+            {responded} of {stats.total} responded · {pct}%
+          </span>
+        </div>
+        <div
+          role="img"
+          aria-label={`${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`}
+          className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-ink/10"
+        >
+          <div className="h-full bg-emerald-400" style={{ width: `${seg(stats.attending)}%` }} />
+          <div className="h-full bg-amber-300" style={{ width: `${seg(stats.maybe)}%` }} />
+          <div className="h-full bg-rose-300" style={{ width: `${seg(stats.declined)}%` }} />
+        </div>
+      </div>
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {cards.map((card) => {
+          const href =
+            card.key === 'total' || card.key === 'plus_ones'
+              ? `/dashboard/${eventId}/guests`
+              : `/dashboard/${eventId}/guests?rsvp=${card.key}`;
+          const isActive = (card.key === 'total' && !active) || card.key === active;
+          return (
+            <li key={card.key}>
+              <Link
+                href={href}
+                className={`flex flex-col rounded-lg border px-3 py-2.5 transition-colors ${
+                  isActive
+                    ? 'border-terracotta bg-terracotta/5'
+                    : 'border-ink/10 hover:border-ink/25'
+                }`}
               >
-                {card.count}
-              </span>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+                  {card.label}
+                </span>
+                <span
+                  className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-base font-semibold ${card.tint}`}
+                >
+                  {card.count}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

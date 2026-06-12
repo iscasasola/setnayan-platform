@@ -21,6 +21,40 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** 0012 Salamisim section — P2 shipped (blur pipeline + per-row baked gates + couple toggle + re-bake sweep); the "FaceBlock ship gate" advisory updates from "P2 unbuilt — wall withheld on FaceBlock events" to "P2 LIVE — FaceBlock events project blurred derivatives". Residual-risk posture (detector recall is not perfect; fail-closed + kill switch + moderated surface) documented in the spec. Landing direct in corpus (DECISION_LOG + 0012 .md + .docx).
 
 ---
+## 2026-06-12 · feat(website): per-guest LIVE gallery — "photos of you, so far" on the day-of page
+
+**Context:** Owner: *"the gallery must be on the on-the-day part"* — slice 2 of the spec §7.5 service stage. The wall mirror (prior entry) is the SHARED half; this is the PERSONALIZED half: while the wedding runs, a cookie-session guest sees the photos **they are tagged in** arriving through the day — the live form of the post-event "your photos" delivery, and personalization no competitor ships.
+
+- **`lib/guest-live-gallery.ts` (new):** `getGuestLiveGallery(eventId, guestId)` — newest tags from `photo_tags` (polymorphic over `papic_photos` + `papic_guest_captures`), **allowlist posture matching the wall**: `moderation_state='clean'` only, `photo_type='photo'` only (clips belong to the editorial's Living Moments strip), unhidden, presigned 1h, capped at 8 thumbs + a true total. Guest-session-scoped via the page's verified cookie; returns null on any trouble (never breaks the wedding page).
+- **`app/[slug]/page.tsx`:** fetches during the live window on the guest path only; renders a "Photos of you — so far" 4-col grid between the wall mirror and the QR card, with the keep-after note.
+
+**Verification:** `tsc` clean (after a `pnpm install` for main's new `perfect-freehand` dep — unrelated session). Server-rendered, no new client JS. **SPEC IMPACT:** §7.5 Papic-gallery row, live half — DECISION_LOG row added.
+
+## 2026-06-12 · feat(website): Live Photo Wall mirrored onto the guest's on-the-day page
+
+**Context:** Owner: *"panood, photo wall live and the gallery must be on the on the day website part… show our services when they need to be seen."* First slice of the Event-page service stage (spec §7.5): the Salamisim wall — already shipped as the venue projection — now also renders on every guest's phone during the live window.
+
+- **`app/[slug]/_components/live-wall-block.tsx` (new):** "Live from the celebration" block — pulse header + moments count, newest-12 tile grid (3-col), and the newest approved **Kwento** as the lower-third caption. Polls `/[slug]/live-wall` every 25s ONLY while the tab is visible (visibilitychange-gated; a pocketed phone polls zero — request-driven, no cron); merges via the wall's own pure `mergeTiles` (feedId-deduped, tiles never re-animate); tiles arriving while the guest watches enter with a soft rise+fade (Daily-Prophet feel), reduced-motion safe.
+- **`app/[slug]/live-wall/route.ts` (new):** the freshness feed — same LIVE_WALL activation door as `/wall/[eventId]` (quiet 404 otherwise, no existence oracle), serving ONLY screened wall-safe derivatives via `getWallSnapshot` + the Kwento caption.
+- **`lib/live-wall.ts`:** `getWallSnapshot` gains an optional `limit` (newest-N sliced BEFORE presigning — a busy wall doesn't burn hundreds of R2 signatures per phone view). Additive; the projector path is unchanged.
+- **`app/[slug]/page.tsx`:** when `dayOfPhase === 'live'` (host phase-preview can force it) and the event owns LIVE_WALL, fetch the snapshot (limit 12) and render the block — guest path right under the pinned day-of schedule; anonymous path (master-QR scans at the venue) above the public widgets. Wall trouble can never break the page (try → null).
+
+**Verification:** `tsc` clean · harness-verified at phone width (grid + count + Kwento caption render exactly as designed; mock tiles) · same screened-feed security posture as the projector (no anon reads of capture tables; wall-safe derivatives only). Real-data render appears as soon as a LIVE_WALL event has wall_feed rows during its live window (or via host `?phase=event` preview).
+
+**SPEC IMPACT:** Implements the first Event-page row of the §7.5 service-visibility map (`Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`): wall LIVE form on the day page; the editorial "Wall, Frozen" recap is the follow-up. DECISION_LOG row added.
+## 2026-06-12 · feat(guests): Phase 3 polish — the lifecycle ribbon shows LIVE progress + the deferred confirm-progress bar lands
+
+**Context:** The final deferred slice of the guests-dashboard redesign (#1227 → #1271). The ribbon was navigation-only; now every step answers "how far along am I?" at a glance, and the RSVP confirm-progress bar (deferred in Phase 1 as "redundant with StatsStrip — pending a StatsStrip rework") ships as part of that strip.
+
+- **Ribbon live badges** (desktop `lifecycle-ribbon.tsx` + mobile Journey panel): Invite = invitations not yet sent (excl. declined) · Confirm = pending guest requests (as before) · Seat = attending guests without a seat · Day-of = guests checked in at the desk (emerald — it counts arrivals, not work owed). Zero = no badge; a quiet ribbon means on-track. Hover titles spell each count out.
+- **Confirm-progress bar** (inside `StatsStrip`): slim segmented bar — emerald attending / amber maybe / rose declined over an ink track — captioned "X of Y responded · Z%", using the same tints as the stat cards below it so it reads as their summary. `aria-label` carries the full breakdown.
+- **Data:** 3 head+count reads (unsent invitations · seat assignments · check-ins) folded into the page's existing single parallel fetch batch — no extra round-trip latency. `invitation_sent_at` counted via query rather than widening the shared `GUEST_FIELDS`/`GuestRow` contract.
+- **Row restyle:** reviewed and intentionally NOT churned — Phase 1's sectioned rows (avatar · side/role/group pills · RSVP) already cover the "tidier rows" intent; cosmetic churn on the locked 1300-line multiselect wasn't worth the regression risk.
+
+**Verification:** unit 60/60 · `tsc` 0 errors · lint clean · production build exit 0 · bundle unchanged 199.2/200KB. No schema change.
+
+**SPEC IMPACT:** None beyond the redesign already logged — UI polish on shipped surfaces.
+
 ## 2026-06-12 · feat(monogram): Cipher Studio — deterministic interlocking-monogram editor (Phase 3)
 
 **Context:** Owner-designed (2026-06-11/12) after rejecting both the curated-lockup elevation ("still generic") and AI-bespoke-as-default ("that cost is too high"). The couple POSITIONS two initials — drag · size · rotate · mirror H/V — and combines them three ways: **Flow as one** (single-line scripts restroked into ONE continuous variable-width pen ribbon — tips blend smoothly through a G1 connector), **Over/under weave** (the front letter knocks an adjustable-gap clearance out of the back letter where they cross), or plain **overlap**. **Fully deterministic SVG · ₱0/use · no AI · offline.** Owner-locked 15-font set, all SIL OFL (zero embed-license exposure): 5 single-line scripts (Allura default · Society · Swiss · Decorous · Invite — EMS centerline fonts) + 10 filled faces (Mr De Haviland · Pinyon Script · Herr Von Muellerhoff · Luxurious Script · Tangerine · Cinzel · Cormorant · Bodoni Moda · Libre Caslon Display · Vidaloka).
@@ -69,6 +103,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Report rendering is visual — Vercel preview. RLS-scoped reads (couple only).
 
 **SPEC IMPACT:** New couple-side capability beyond 0008 (the leapfrog plan's "meal→caterer" phase, owner-approved 2026-06-10). The "counts flow to the booked caterer VENDOR" half (vendor-side delivery) is the follow-up — this ships the couple-side artifact. → corpus `DECISION_LOG` note rides the seat-plan program row.
+## 2026-06-12 · feat(vendors): DIY parity — host-authored "what's included" + "also covers" links for manual vendors
+
+**Context:** Dual-path doctrine (owner 2026-06-11, corpus DECISION_LOG): the planner works "with or without vendors" — a pure-DIY host must be able to "add information about their order… place… **what's included** on their service. **link other services to it** as well." The parity audit found both halves missing: the workspace's What's-included section rendered ONLY from a locked marketplace package, and "comes with" coverage was vendor-authored only (`vendor_service_links`) — a DIY caterer that includes the cake had no way to say so.
+
+- **Migration `20261119000000`** (applied to prod before merge): `event_vendors.host_inclusions text[]` + `covers_plan_groups text[]` — additive, couple-own RLS inherited, vendors never see the row.
+- **Workspace editor (`host-service-details.tsx`, new):** when a manual (off-platform) vendor has no package, the What's-included slot becomes host-editable — inclusion lines (one per line, capped 20×120) + "Also covers" plan-group chips (own group excluded). Server action `updateHostServiceDetails` validates covers against the canonical plan groups and is hard-scoped to manual rows (`manual_vendor_id` set + no `marketplace_vendor_id`) so a connected vendor never has two sources of truth.
+- **One display pipeline:** host covers merge into the SAME linked-services enrichment the marketplace path uses → Shortlist card "✓ comes with X · Y · Z" chips just work; host inclusions flow through `PlanCardPick.host_inclusions` → Compare's expandable inclusions cell shows vendor-authored links ∪ host-authored lines.
+- **Plumbing:** `fetchEventVendors` select + `EventVendorRow`/`EventVendorRowInput`/`PlanCardPick` carry the two fields; vendors page maps them through and merges covers→enrichment.
+
+**Deliberately NOT in this PR:** category-satisfaction semantics (a covered category still shows open in Build/Flag/Compute) — that gap exists for marketplace linked-services too; fixing both together is the follow-up.
+
+**Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · migration applied + verified by the push run. Marketplace vendors unaffected (editor + action are manual-only; enrichment merge keys off covers, which only manual rows can carry).
+
+**SPEC IMPACT:** Dual-path DIY parity gaps (1) + (2) from the 2026-06-11 DECISION_LOG audit row → CLOSED (display parity). Remaining from that audit: the connected-path quote loop (blocked on token burn-on-answer + accept-model owner decisions).
 
 ## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
 

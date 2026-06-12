@@ -168,6 +168,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
 
 **SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
+## 2026-06-13 · feat(seating): multi-area blueprints + booth placement — cocktail areas land
+
+**Context:** owner-approved same day ("booth placement means we can extend a blueprint for the cocktail place while waiting for the reception venue? … yes build it"). The classic PH flow — ceremony → cocktail hour while the reception flips → reception — now has a blueprint. Closes the booth-pins deferral from the Phase 4 entry below.
+
+- **Migration `20261202000000_floor_areas_booths.sql`** (APPLIED to prod + ledger row): **`event_floor_areas`** — additional spaces beyond the reception room (cocktail/garden/foyer/ceremony/custom), each optionally tied to a **schedule block** so the area carries its live window ("active during Cocktails 5–7 PM"); **`event_floor_objects`** — free-placed booth/station/bar/dessert/photo-wall pins on an area or on the reception canvas (`area_id NULL`), each optionally linked to the **booked vendor** running it. RLS = the seat-plan family pair (couple Pattern B + Phase 2 delegate `seat_plan` edit). **`get_vendor_seat_plan` v2** adds `areas` (+ window) and `objects` with an **`is_mine` flag** resolved against the caller's booked event_vendor ids.
+- **New couple surface `/dashboard/[eventId]/seating/areas`** ("Areas & booths"): create areas, tie them to a timeline block, and **drag booth pins** on a touch-friendly canvas (pointer-capture drag, optimistic position, one write on drag-end). Pins on the reception room get their own card (tables stay in the main editor — this surface deliberately avoids surgery on the 150KB seating editor). Linked from the Seating header.
+- **Vendor seat-plan viewer**: reception pins render on the floor map; each additional area renders as its own canvas with its live window; the vendor's own pins show as a highlighted **"YOU"** marker plus a "Your spot: Photo Booth — Cocktail garden" banner. The vendor's whole setup question — *where am I, in which space, at what time, through which entrance* — is now one page.
+
+**Verification:** `tsc` clean. Prod-smoked: demo seed on the test event (Cocktail garden + "Grazing & dessert station" pinned to the booked caterer) → impersonated `vendor.test` receives areas + objects with `is_mine=true` ✓.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6/§ 9 — booth-pins deferral closed, superseded by the multi-area model; DECISION_LOG row appended.
+
 ## 2026-06-13 · feat(seating): read-only vendor seat-plan viewer — feature-access program Phase 4
 
 **Context:** Phase 4 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6). The published seat plan stops being couple-eyes-only: the caterer counts covers, the venue checks fit, the florist counts centerpieces, the band sees the stage — all without a single guest name crossing.

@@ -123,8 +123,10 @@ const nextConfig: NextConfig = {
   // ('/**' route glob): screening fires from the guest-capture API route AND
   // the papic seat server action, and server actions can execute under any
   // route's lambda.
+  // models/face-detection/ (lib/face-blur.ts — Salamisim P2 FaceBlock baker)
+  // follows the identical committed-weights + node:fs pattern.
   outputFileTracingIncludes: {
-    '/**': ['./models/nsfw/**/*'],
+    '/**': ['./models/nsfw/**/*', './models/face-detection/**/*'],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required
@@ -134,7 +136,12 @@ const nextConfig: NextConfig = {
   // server-bundle minifier when inlined; as externals they're required at
   // runtime and traced like any node_modules dep. (Pure-JS tfjs, NOT
   // @tensorflow/tfjs-node — native bindings break on Vercel.)
-  serverExternalPackages: ['sharp', '@tensorflow/tfjs', 'nsfwjs'],
+  serverExternalPackages: [
+    'sharp',
+    '@tensorflow/tfjs',
+    'nsfwjs',
+    '@tensorflow-models/face-detection',
+  ],
   images: {
     // AVIF first — ~50% smaller than WebP for the photographic content
     // marketing surfaces use (hero, coverage, vendor portfolios). Next.js

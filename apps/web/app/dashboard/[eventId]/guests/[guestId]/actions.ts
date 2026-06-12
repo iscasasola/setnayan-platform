@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
   INVITED_TO_BLOCKS,
@@ -102,6 +103,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const effectiveRsvp: RsvpStatus =
     role === 'bride' || role === 'groom' ? 'attending' : rsvp_status;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
+  // FaceBlock (Salamisim P2) — "blur my face on the Live Photo Wall". The
+  // wall's read path reacts to this flag instantly (un-baked tiles hide,
+  // fail-closed); the re-bake sweep below restores the newest tiles blurred.
+  const faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
   // public RSVP widget (PR B follow-up). Toggling OFF is non-
@@ -157,6 +162,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       dietary_restrictions,
       rsvp_status: effectiveRsvp,
       photo_consent,
+      faceblock_enabled,
       plus_one_allowed,
       notes,
       invited_to_blocks,
@@ -203,6 +209,18 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .eq('photo_source', 'selfie');
+  }
+
+  // FaceBlock ON ⇒ existing wall tiles without a baked blur derivative are
+  // hidden from the projection at the next read (fail-closed, instant). The
+  // bounded sweep re-bakes the NEWEST tiles in the background so the wall
+  // doesn't go dark; already-baked rows short-circuit, so re-saving with the
+  // box still checked is cheap.
+  if (faceblock_enabled) {
+    after(async () => {
+      const { rebakeWallForEvent } = await import('@/lib/face-blur');
+      await rebakeWallForEvent(eventId);
+    });
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);

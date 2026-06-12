@@ -150,6 +150,14 @@ export async function recordSeatCapture(
   after(async () => {
     await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});
     if (insertedPhotoId) {
+      // P2 FaceBlock bake between the screen and the wall gate: a FaceBlock
+      // event requires the baked blur derivative before ingest admits the
+      // row. Cheap no-op on non-FaceBlock events; FAILS CLOSED on any error.
+      const { bakeFaceBlurForCapture } = await import('@/lib/face-blur');
+      await bakeFaceBlurForCapture({
+        table: 'papic_photos',
+        sourceId: insertedPhotoId,
+      });
       await ingestToWall('papic_photos', insertedPhotoId);
     }
   });

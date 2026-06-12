@@ -5,6 +5,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  EyeOff,
   Tag,
   UserPlus,
   Users,
@@ -452,6 +453,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               options={MEAL_OPTIONS.map((v) => ({ value: v, label: MEAL_LABELS[v] }))}
             />
             <PhotoConsent defaultChecked={guest.photo_consent} />
+            <FaceBlock defaultChecked={guest.faceblock_enabled} />
           </div>
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink">Invited to</label>
@@ -692,6 +694,35 @@ function SegmentedRsvp({ current }: { current: RsvpStatus }) {
  * per-guest-frequently-edited field) means hosts don't have to hunt
  * for it.
  */
+/**
+ * FaceBlock toggle — Salamisim P2 (iteration 0012). A guest who asks not to
+ * have their face shown on public surfaces gets this flag; the Live Photo
+ * Wall then requires a server-baked blur derivative on EVERY projected photo
+ * (fail-closed: un-baked photos are withheld). Couple-managed here so a
+ * day-of request ("please don't put me on the big screen") is one checkbox;
+ * guest self-serve lands with the guest-portal privacy surface.
+ */
+function FaceBlock({ defaultChecked }: { defaultChecked: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-ink">Face privacy</label>
+      <label className="flex h-11 items-center gap-3 rounded-md border border-ink/20 bg-cream px-3 text-sm text-ink transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/40">
+        <input
+          type="checkbox"
+          name="faceblock_enabled"
+          defaultChecked={defaultChecked}
+          className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        <EyeOff aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+        <span className="text-sm">
+          Blur faces on the Live Wall
+          <span className="ml-1 text-xs text-ink/55">(FaceBlock)</span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function PhotoConsent({ defaultChecked }: { defaultChecked: boolean }) {
   return (
     <div className="space-y-1.5">

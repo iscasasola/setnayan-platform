@@ -59,6 +59,7 @@ import {
   type OnboardingRole,
   type OnboardingState,
 } from '../types';
+import { FAITH_REGISTRY, FAITH_LABELS } from '@/lib/faith-registry';
 import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
 import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing';
@@ -203,17 +204,14 @@ const KIND_PHOTO: Record<OnboardingKind, { img: string; cap: string }> = {
   mixed: { img: 'wed_mixed', cap: 'A blended celebration' },
 };
 
-/* Faith → hero photo + caption (prototype setFaithPhoto, religious mode). */
-const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> = {
-  catholic: { img: 'wed_catholic', cap: 'A Catholic wedding' },
-  christian: { img: 'wed_christian', cap: 'A garden Christian wedding' },
-  inc: { img: 'wed_inc', cap: 'An INC wedding' },
-  muslim: { img: 'wed_muslim', cap: 'A Muslim wedding' },
-  cultural: { img: 'wed_cultural', cap: 'A traditional Filipino wedding' },
-  chinese: { img: 'wed_chinese', cap: 'A Chinese wedding' },
-  jewish: { img: 'wed_jewish', cap: 'A Jewish wedding' },
-  born_again: { img: 'wed_bornagain', cap: 'A Born Again wedding' },
-};
+/* Faith → hero photo + caption (prototype setFaithPhoto, religious mode).
+   Derived from lib/faith-registry — the single faith source (2026-06-12);
+   new faiths reuse the closest existing scene asset until per-faith imagery
+   is produced. */
+const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> =
+  Object.fromEntries(
+    FAITH_REGISTRY.map((e) => [e.key, { img: e.photoImg, cap: e.photoCap }]),
+  ) as Record<OnboardingFaith, { img: string; cap: string }>;
 
 const ROLE_OPTIONS: { value: OnboardingRole; title: string; desc: string }[] = [
   { value: 'bride', title: 'Bride', desc: 'Walking down the aisle.' },
@@ -239,24 +237,13 @@ const RECEPTION_SETTING_LABEL: Record<string, string> = {
   setting_resort: 'Resort',
 };
 
-// All faiths unlocked (owner-directed 2026-06-03 "unlock all religions").
-// Previously catholic-only with the other four behind `soon: true`. The DB
-// `wedding_type_launch_status` rows are flipped to 'active' in the same change
-// (migration 20260803000000) so create-event mirrors this.
-// Chinese (added 2026-06-03, activated same day per owner) is now fully
-// selectable like the others — its launch_status row is flipped to 'active'
-// in migration 20260806000000 and 'chinese' is added to the ALLOWED_CEREMONIES
-// commit allow-list below.
-const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = [
-  { value: 'catholic', label: 'Catholic', soon: false },
-  { value: 'muslim', label: 'Muslim', soon: false },
-  { value: 'inc', label: 'INC', soon: false },
-  { value: 'chinese', label: 'Chinese', soon: false },
-  { value: 'born_again', label: 'Born Again', soon: false },
-  { value: 'christian', label: 'Christian', soon: false },
-  { value: 'cultural', label: 'Cultural', soon: false },
-  { value: 'jewish', label: 'Jewish', soon: false },
-];
+// Derived from lib/faith-registry (the single faith source, 2026-06-12) —
+// registry order = chip order. `defaultSoon` is only the offline/error
+// fallback: the live answer comes from `wedding_type_launch_status` (read at
+// mount, filtered at render), so the owner flips faiths live in
+// /admin/wedding-types without a code change.
+const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] =
+  FAITH_REGISTRY.map((e) => ({ value: e.key, label: e.label, soon: e.defaultSoon }));
 
 /* ── monogram designs (owner 2026-06-05 — kept 3 live-typography lockups: bar · duo ·
    infinity. Dropped #2 (script) + #4 (framed) for now; more designs to come. MonoLockup
@@ -1281,10 +1268,8 @@ function recommendedInappFor(picks: string[]): string[] {
   return REC_PRIORITY.filter((k) => set.has(k));
 }
 
-/* Faith key → display label for the congrats recap (all 8 traditions). */
-const FAITH_LABEL: Record<string, string> = {
-  catholic: 'Catholic', christian: 'Christian', inc: 'INC', muslim: 'Muslim', cultural: 'Cultural', chinese: 'Chinese', jewish: 'Jewish', born_again: 'Born Again',
-};
+/* Faith key → display label for the congrats recap — lib/faith-registry. */
+const FAITH_LABEL: Record<string, string> = FAITH_LABELS;
 /* Picker cat key → its chip label, for the congrats recap "Services" row. */
 const PICK_LABEL: Record<string, string> = Object.fromEntries(
   PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => [c.cat, c.label] as const)),

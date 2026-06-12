@@ -20,6 +20,7 @@ import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vend
 import { PICK_TO_GROUP } from '@/lib/onboarding-availability';
 import { regionForCity } from '@/lib/regions';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
+import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -58,23 +59,15 @@ import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
  * already persist as columns.
  */
 
-// All faiths unlocked (owner-directed 2026-06-03 "unlock all religions").
-// Previously ['catholic','civil','mixed'] — any other primary pick was silently
-// coerced to 'catholic' on commit. muslim/cultural also require a non-null
-// ceremony_sub_type (DB CHECK events_sub_type_required_when_muslim_or_cultural);
-// the onboarding flow has no sub-type step, so it defaults below.
-const ALLOWED_CEREMONIES = [
-  'catholic',
-  'civil',
-  'mixed',
-  'christian',
-  'inc',
-  'muslim',
-  'cultural',
-  'chinese',
-  'jewish',
-  'born_again',
-] as const;
+// Derived from lib/faith-registry (the single faith source, 2026-06-12 —
+// every registry faith + civil + mixed). The picker only EMITS keys that are
+// 'active' in wedding_type_launch_status, so this is the server-side belt:
+// it accepts any faith the owner COULD flip live, and the DB CHECK (widened
+// by migration 20261120000000) accepts the same set. muslim/cultural also
+// require a non-null ceremony_sub_type (DB CHECK
+// events_sub_type_required_when_muslim_or_cultural); the onboarding flow has
+// no sub-type step, so it defaults below.
+const ALLOWED_CEREMONIES = ALLOWED_CEREMONY_VALUES;
 // Default tradition for the two sub-type-requiring faiths, since onboarding
 // doesn't collect a specific tradition (create-event does). The couple can
 // refine the exact tradition later from the dashboard.
@@ -82,17 +75,8 @@ const DEFAULT_SUB_TYPE: Record<string, string> = {
   muslim: 'general_muslim',
   cultural: 'other',
 };
-const ALLOWED_SECONDARY = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'jewish',
-  'born_again',
-] as const;
+// Secondary (mixed-wedding) pick: any registry faith or civil — never 'mixed'.
+const ALLOWED_SECONDARY = ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
 // Fallback when the couple skipped the reception "setting" pick. The CHECK
 // constraint requires a value for wedding events; the couple refines it later.
 const DEFAULT_VENUE = 'banquet_hall';

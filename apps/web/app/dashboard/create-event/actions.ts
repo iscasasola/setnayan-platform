@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
+import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -46,30 +47,17 @@ const ALLOWED_TYPES = [
 const ALLOWED_CONCIERGE_CHOICES = ['diy', 'trial', 'paid'] as const;
 type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 
-// Iteration 0043 — wedding-type picker. Active ceremonies + venue settings
-// the create-event form may submit. CHECK constraints on `events` mirror
-// these lists; we validate here so a bad submission is caught before the
-// round-trip to the DB. The four "coming soon" faiths (christian / inc /
-// muslim / cultural) are intentionally NOT in ALLOWED_CEREMONIES — the
-// picker blocks them client-side and routes interest to
-// couple_wedding_type_notify_signups via notifyWhenWeddingTypeLaunches below.
-// All faiths unlocked (owner-directed 2026-06-03 "unlock all religions").
-// Previously ['catholic','civil','mixed'] with christian/inc/muslim/cultural
-// blocked client-side. The picker is data-driven by wedding_type_launch_status
-// (now all 'active') and already collects + validates the muslim/cultural
-// tradition sub-type, so widening this list completes the create-event unlock.
-const ALLOWED_CEREMONIES = [
-  'catholic',
-  'civil',
-  'mixed',
-  'christian',
-  'inc',
-  'muslim',
-  'cultural',
-  'chinese',
-  'jewish',
-  'born_again',
-] as const;
+// Iteration 0043 — wedding-type picker. Ceremonies the create-event form may
+// submit — derived from lib/faith-registry (the single faith source,
+// 2026-06-12: every registry faith + civil + mixed). The picker is
+// data-driven by wedding_type_launch_status (it only shows 'active' faiths
+// as selectable and routes coming-soon interest to
+// couple_wedding_type_notify_signups via notifyWhenWeddingTypeLaunches), so
+// this server list is the belt to that suspender: it accepts any faith the
+// owner COULD flip live, and the events CHECK (widened by migration
+// 20261120000000) accepts the same set. muslim/cultural tradition sub-type
+// is collected + validated by this form already.
+const ALLOWED_CEREMONIES = ALLOWED_CEREMONY_VALUES;
 const ALLOWED_VENUES = [
   'banquet_hall',
   'garden',
@@ -79,7 +67,11 @@ const ALLOWED_VENUES = [
   'outdoor_tent',
   'civil_registrar',
 ] as const;
-const ALLOWED_SECONDARY = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese', 'jewish', 'born_again'] as const;
+// Secondary (mixed-wedding) pick — derived from lib/faith-registry like the
+// primary list above: any registry faith or civil, never 'mixed'. Without this
+// a newly-flipped faith (e.g. Hindu) would commit fine as the PRIMARY ceremony
+// but be rejected as the SECONDARY half of a mixed wedding.
+const ALLOWED_SECONDARY = ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
 const ALLOWED_MUSLIM_SUB = [
   'maranao',
   'tausug',

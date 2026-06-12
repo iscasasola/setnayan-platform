@@ -12,7 +12,7 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Privacy policy · Setnayan',
   description:
-    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, BIR receipts, and DPO contact.',
+    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, receipts, and DPO contact.',
   alternates: { canonical: '/privacy' },
   openGraph: {
     title: 'Privacy policy · Setnayan',

@@ -673,7 +673,7 @@ export default async function PricingPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Logo />
             <p className="text-xs text-ink/55">
-              PHP only · BIR receipts on every software purchase · © Setnayan
+              PHP only · itemized receipts on every software purchase · © Setnayan
             </p>
           </div>
         </div>

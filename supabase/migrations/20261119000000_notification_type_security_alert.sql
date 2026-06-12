@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261116000000_notification_type_security_alert.sql
+-- 20261119000000_notification_type_security_alert.sql
 -- One new notification_type enum value — the 10th (and last unwired) 0028 V1
 -- template:
 --   security_alert — account-holder-facing: "Your password was changed".

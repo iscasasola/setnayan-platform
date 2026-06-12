@@ -157,6 +157,72 @@ export async function fetchVendorThreads(
   return (data ?? []) as unknown as VendorThreadWithEvent[];
 }
 
+/**
+ * Returning-client flags for the vendor inbox (owner-locked 2026-06-12:
+ * "when an inquiry from an old locked client, we want to notify that this is
+ * coming from a client they previously locked").
+ *
+ * One row per inquiry event whose couple previously CONFIRMED-booked this
+ * vendor on a DIFFERENT event (the badge predicate), with that prior event's
+ * display name/date and `resync_flat` — the looser prior-UNLOCK predicate
+ * under which accepting burns a FLAT 1 token (migration
+ * 20261201000000_returning_customer_resync_burn.sql).
+ *
+ * Batched (one RPC for all pending threads — no N+1) and SECURITY DEFINER on
+ * the SQL side: vendor RLS can't read the couple's other-event event_members
+ * rows, so a direct query would silently return nothing.
+ *
+ * GRACEFUL DEGRADE (mirrors countUnreadMessages): the migration may not be
+ * applied yet — on ANY error we log + return an empty map so the inbox never
+ * crashes; the badge simply doesn't render until the migration lands.
+ */
+export type ReturningClientFlag = {
+  event_id: string;
+  prior_event_display_name: string | null;
+  prior_event_date: string | null;
+  resync_flat: boolean;
+};
+
+export async function fetchReturningClientFlags(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  eventIds: string[],
+): Promise<Map<string, ReturningClientFlag>> {
+  const unique = Array.from(new Set(eventIds.filter(Boolean)));
+  if (unique.length === 0) return new Map();
+  try {
+    const { data, error } = await supabase.rpc('get_returning_client_flags', {
+      p_vendor_profile_id: vendorProfileId,
+      p_event_ids: unique,
+    });
+    if (error) {
+      logQueryError(
+        'fetchReturningClientFlags',
+        error,
+        {
+          vendor_profile_id: vendorProfileId,
+          missing_relation: isMissingRelationError(error),
+        },
+        'graceful_degrade',
+      );
+      return new Map();
+    }
+    const map = new Map<string, ReturningClientFlag>();
+    for (const row of (data ?? []) as ReturningClientFlag[]) {
+      if (row?.event_id) map.set(row.event_id, row);
+    }
+    return map;
+  } catch (caught) {
+    logQueryError(
+      'fetchReturningClientFlags (threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { vendor_profile_id: vendorProfileId },
+      'graceful_degrade',
+    );
+    return new Map();
+  }
+}
+
 export async function fetchThreadById(
   supabase: SupabaseClient,
   threadId: string,

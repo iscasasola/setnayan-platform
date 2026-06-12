@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchMessages, fetchThreadById } from '@/lib/chat';
+import { fetchMessages, fetchReturningClientFlags, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
@@ -42,6 +42,17 @@ export default async function VendorThreadPage({ params }: Props) {
   const initialMessages = await fetchMessages(supabase, threadId);
   const coupleLabel = event?.display_name ?? 'Couple';
 
+  // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
+  // inquiry is pending (the accept decision). Graceful-degrades pre-migration.
+  const returning =
+    thread.inquiry_status === 'pending'
+      ? (
+          await fetchReturningClientFlags(supabase, profile.vendor_profile_id, [
+            thread.event_id,
+          ])
+        ).get(thread.event_id)
+      : undefined;
+
   return (
     <section className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
@@ -79,6 +90,16 @@ export default async function VendorThreadPage({ params }: Props) {
             <span className="font-semibold">New inquiry.</span> Accept to open the
             chat and reply, or decline if you&rsquo;re not available for this date.
           </p>
+          {returning ? (
+            <p className="text-sm text-ink">
+              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                Returning client
+              </span>
+              Booked you for{' '}
+              {returning.prior_event_display_name ?? 'a previous event'}
+              {returning.resync_flat ? ' — accepting costs just 1 token.' : '.'}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <form action={acceptInquiry}>
               <input type="hidden" name="thread_id" value={threadId} />

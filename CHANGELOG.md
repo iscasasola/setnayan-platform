@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(vendors): remove the everything-cascade on finalize — link-gated rule
+
+**Context:** owner directive 2026-06-12 (corpus `DECISION_LOG.md` "Link-gated build cascade" row) supersedes the 2026-05-22 "auto-add cascade on finalize" directive. New rule: if a vendor did not explicitly link a service via `vendor_service_links`, it must NOT be auto-added to the couple's build.
+
+- **Deleted the auto-add cascade block** in `apps/web/app/dashboard/[eventId]/vendors/actions.ts` (`finalizeVendor`): the pass that read ALL of the locked vendor's active `vendor_services` rows and batch-inserted `event_vendors` picks (`status='considering'`, `source='auto_cascade_from_finalize'`) into every other plan group. Replaced with a supersession comment. Dropped the now-unused `canonicalServiceToPlanGroupId` import.
+- **Why removal, not a linked-only rewrite:** linked services already reach the build through the shipped category-satisfaction system (`lib/vendors-plan-budget.ts` — a committed pick's `vendor_service_links` mark covered categories "✓ included with {vendor}"). Links are price-included coverage, not separate picks; inserting rows for them would double-represent the link.
+- **Untouched:** the intra-category finalize archive sweep (Task #26) stays; `buildCrossCategoryRecommendations` (`lib/wedding-plan-groups.ts`) RECOMMENDED badge stays — that plus inquiry cross-sell are now the only (opt-in) channels for a locked vendor's unlinked services.
+- **Historical rows preserved:** existing `source='auto_cascade_from_finalize'` rows stay in the DB; the `AutoCascadedChip` rendering in `planning-groups.tsx` and the `source`/`source_category` model fields are kept so those rows still display + remain removable. No new rows are produced.
+
+**Verification:** `tsc --noEmit` + `next lint` green in a fresh worktree off origin/main (warnings pre-existing).
+
+**SPEC IMPACT:** corpus `DECISION_LOG.md` 2026-06-12 "Link-gated build cascade" row already records the supersession — no further corpus edit needed from this change.
+
 ## 2026-06-12 · feat(profile): account avatar = the account's own profile photo, never the event logo
 
 **Context:** owner directive (follow-up to the unified switcher) — "each account should have their account profile photo and not the event logo. event logo is for the event only. and their profile should be for their account." This REVERSES the 2026-06-03 owner lock "the avatar IS the event's logo": the (I) avatar in the dashboard chrome had been rendering the primary event's framed onboarding monogram.

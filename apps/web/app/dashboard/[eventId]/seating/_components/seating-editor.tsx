@@ -2658,7 +2658,12 @@ export function SeatingEditor({
                           className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         >
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-ink">{t.table_label}</span>
+                            <span className="block truncate text-sm font-semibold text-ink">
+                              {t.link_group_id ? (
+                                <Link2 className="mr-1 inline h-3 w-3 text-mulberry/70" />
+                              ) : null}
+                              {t.link_group_label ?? t.table_label}
+                            </span>
                             <span className="block text-[11px] text-ink/55">{TABLE_TYPE_LABEL[t.table_type]}</span>
                           </span>
                           <span

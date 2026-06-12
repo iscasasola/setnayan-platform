@@ -16,8 +16,10 @@ import {
 import { bespokeStudioEnabled } from '@/lib/bespoke-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
+import { sanitizeCipherConfig } from '@/lib/cipher-shared';
 import { MonogramMaker } from './monogram-maker';
 import { BespokeStudio, type BespokeCandidateView } from './bespoke-studio';
+import { CipherStudio } from './cipher-studio';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
@@ -47,7 +49,22 @@ type MonoStyle = (typeof VALID_STYLES)[number];
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ bespoke?: string; bespoke_error?: string }>;
+  searchParams: Promise<{
+    bespoke?: string;
+    bespoke_error?: string;
+    cipher?: string;
+    cipher_error?: string;
+  }>;
+};
+
+// Customer-safe status lines for the cipher studio's redirect flags.
+const CIPHER_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
+  saved: { tone: 'ok', text: 'Your cipher monogram is now on your wedding website.' },
+  cleared: { tone: 'ok', text: 'Back to your lettered monogram.' },
+  invalid: { tone: 'error', text: 'That design could not be read — please try again.' },
+  render: { tone: 'error', text: 'That design could not be rendered — please adjust and retry.' },
+  save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
+  'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
 };
 
 // Customer-safe status lines for the bespoke studio's redirect flags.
@@ -83,7 +100,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_motion_key, monogram_custom_svg, monogram_custom_generation_id',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_motion_key, monogram_custom_svg, monogram_custom_generation_id, monogram_cipher_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -128,6 +145,16 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const bespokeNotice =
     BESPOKE_NOTICES[sp.bespoke_error ?? ''] ?? BESPOKE_NOTICES[sp.bespoke ?? ''] ?? null;
 
+  // ── Cipher studio state (Phase 3 · the couple-positioned interlocking
+  // monogram). The stored config re-validates through the same sanitizer the
+  // save action uses, so a drifted/hand-edited row can never feed the editor
+  // garbage. hasCipher = the saved custom svg came from THIS editor (a
+  // bespoke-studio mark sets generation_id instead).
+  const cipherConfig = sanitizeCipherConfig(event.monogram_cipher_config);
+  const hasCipher = Boolean(cipherConfig && event.monogram_custom_svg);
+  const cipherNotice =
+    CIPHER_NOTICES[sp.cipher_error ?? ''] ?? CIPHER_NOTICES[sp.cipher ?? ''] ?? null;
+
   // When a bespoke mark is applied it REPLACES the typographic mark on the
   // hero (and animates with a container bloom, not the glyph-level Motion
   // Library signatures), so the "How it animates" section must branch on it
@@ -160,6 +187,15 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           shows on your wedding website, your QR codes, and across your dashboard.
         </p>
       </header>
+
+      {/* ── Cipher studio — design the interlocking mark ── */}
+      <CipherStudio
+        eventId={eventId}
+        defaultInitials={initialInitials}
+        initialConfig={cipherConfig}
+        hasCipher={hasCipher}
+        notice={cipherNotice}
+      />
 
       <MonogramMaker
         eventId={eventId}

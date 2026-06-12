@@ -9,6 +9,7 @@ import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OuterDashboardHeader } from './_components/outer-dashboard-header';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -40,12 +41,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     account_type?: string | null;
     deleted_at?: string | null;
     tour_seen_keys?: string[] | null;
+    profile_photo_url?: string | null;
   };
   let profile: ProfileShape | null = null;
   try {
     const fullRes = await supabase
       .from('users')
-      .select('account_type, deleted_at, tour_seen_keys')
+      .select('account_type, deleted_at, tour_seen_keys, profile_photo_url')
       .eq('user_id', user.id)
       .maybeSingle();
     if (
@@ -171,6 +173,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const activeEvents = sortEventsForSwitcher(visibleEvents);
   const primary = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
 
+  // Account profile photo for the (I) avatar (owner directive 2026-06-12:
+  // avatar = ACCOUNT photo, never the event logo). Presign the stored
+  // r2:// ref; degrade to null (initial fallback) on any signing error.
+  const profilePhotoUrl = await displayUrlForStoredAsset(
+    profile?.profile_photo_url,
+  ).catch(() => null);
+
   // Login-driven ghosting check (no cron) — runs after the response, and only
   // does work once per login (gated on last_login_at vs last_ghost_check_at
   // inside the helper). Couple side: nudge if their inquiries sit unanswered.
@@ -193,6 +202,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <OuterDashboardHeader
         userId={user.id}
         email={user.email ?? ''}
+        photoUrl={profilePhotoUrl}
         unreadCount={unreadCount}
         primaryEvent={
           primary

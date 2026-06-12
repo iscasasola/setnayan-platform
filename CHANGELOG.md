@@ -16,6 +16,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · harness-verified at phone width (grid + count + Kwento caption render exactly as designed; mock tiles) · same screened-feed security posture as the projector (no anon reads of capture tables; wall-safe derivatives only). Real-data render appears as soon as a LIVE_WALL event has wall_feed rows during its live window (or via host `?phase=event` preview).
 
 **SPEC IMPACT:** Implements the first Event-page row of the §7.5 service-visibility map (`Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md`): wall LIVE form on the day page; the editorial "Wall, Frozen" recap is the follow-up. DECISION_LOG row added.
+## 2026-06-11 · fix(taxonomy): Born Again couples get their own officiant (completeness-audit fix #1)
+
+**Context:** The events×religions completeness audit (26-agent workflow + targeted verification) found that `born_again` is a pickable `ceremony_type` but `born_again_pastor` was tagged `faith='Christian'` — so a Born Again couple's INCLUDE-only faith filter excluded their OWN officiant (pickable faith → dead-end journey).
+
+- **Migration `20261115000000_born_again_pastor_retag.sql`** (applied to prod, verified): `born_again_pastor` → `faith='Born Again'`. Christian couples keep `charismatic_pastor` + `mainline_protestant_pastor`.
+- **`lib/taxonomy.ts:577`**: same re-tag in the constant (fallback + direct marketplace read — DB-only would leave stale TS driving the filter, per the de-faith precedent).
+- **Ride-along:** removed the dead `burial: 'Burials'` label from `lib/admin/growth-stats.ts` (burial was owner-retired 2026-05-16; the label was unreachable).
+
+**Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
+
+**SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
+## 2026-06-12 · feat(seating): caterer meal counts — diet on the seat + the caterer handover report (0008 · leapfrog Phase 2)
+
+**Context:** The meal/dietary leapfrog (closes the RSVPify/WeddingWire gap). The guest columns (`meal_preference`, `dietary_restrictions`) already existed from 0001 RSVP — this surfaces them in the seat plan and produces the caterer handover artifact. No schema change.
+
+- **`/dashboard/[eventId]/seating/caterer` (NEW route):** printable HTML report — **overall totals per meal** (attending only) · **per-table breakdown** (linked tables count as ONE unit, same grouping as the print pack; unseated attendees land in an explicit "Not seated yet" bucket so nobody vanishes from the count) · **every dietary restriction by name + table**. `?format=csv` downloads the raw per-guest rows (Guest · Table · Meal · Dietary) for spreadsheet caterers.
+- **Editor surfacing:** `SeatingGuest` carries `meal_preference` + `dietary_restrictions`; the Seat-people picker shows an amber **diet** chip (tooltip = the restriction) and the list view shows the meal inline + the diet chip on seated guests.
+- **Export menu:** new "Caterer meal counts" entry (print or CSV).
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Report rendering is visual — Vercel preview. RLS-scoped reads (couple only).
+
+**SPEC IMPACT:** New couple-side capability beyond 0008 (the leapfrog plan's "meal→caterer" phase, owner-approved 2026-06-10). The "counts flow to the booked caterer VENDOR" half (vendor-side delivery) is the follow-up — this ships the couple-side artifact. → corpus `DECISION_LOG` note rides the seat-plan program row.
 
 ## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
 
@@ -41,6 +63,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · `next lint` clean (pre-existing warning only) · full CI suite green 3× on the identical code (typecheck/lint · production build · e2e · lighthouse · bundle size) across successive CHANGELOG-conflict resolutions against a fast-moving main. Onboarding untouched.
 
 **SPEC IMPACT:** Monogram registry no longer 4-face/lockup-derived — corpus DECISION_LOG row appended (font picks + typeface-picker model + hero fidelity fix).
+## 2026-06-12 · feat(security): `security_alert` notification — "Your password was changed" (in-app + email + push), the follow-up PR #1262 skipped
+
+**Context:** The 2026-06-11 account-security suite (PR #1262) deliberately skipped the 0028 `security_alert` email on password change because `notifications.type` is a DB-constrained enum — adding the value needed a migration, out of scope for that no-migration PR. This closes it: the 10th (and last unwired) 0028 V1 template.
+
+- **Migration `20261116000000_notification_type_security_alert.sql`:** `ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'security_alert'` — idempotent, same pattern as the token-purchase + cross-actor-signals enum migrations.
+- **`lib/notifications.ts`:** `security_alert` added to the `NotificationType` union + label ("Security alert") + tone (rose — the alarm register, matching payment_rejected/dispute_filed).
+- **Emit call sites (both fire-and-forget via Next's `after()` — the redirect is never delayed by the notifications insert or the Resend call; `emitNotification` already fails soft):**
+  - `lib/account-security-actions.ts` → `changePassword()` after a successful `updateUser` — "If this wasn't you, reset your password immediately (/forgot-password) and use Sign out other devices." `relatedUrl` = the allowlisted `return_to` profile page hosting the Security section.
+  - `app/reset-password/actions.ts` → `completePasswordReset()` after a successful reset — body notes all other devices were already signed out and that a hostile reset implies the email inbox may be compromised. `relatedUrl` = the doorway's profile page (vendor → /vendor-dashboard/profile, else /dashboard/profile).
+  - **NOT** on `signOutOtherDevices` — that's the remedy, not the threat.
+- **Email:** no dedicated 0028 template layer exists — `emitNotification` composes the email generically (subject = title, plain-text body + "Open Setnayan" link), so the title/body above IS the template. No RFC 8058 unsubscribe headers, matching every other transactional send through `lib/email.ts` (none add them).
+- **Web push:** `security_alert` added to `PUSH_ENABLED_TYPES` in `lib/notification-emit.ts` (the allowlist is a plain Set; a password-change alert is exactly the high-signal time-sensitive class it exists for).
+
+**Verification:** `pnpm migration:check` 315 unique · `tsc` 0 errors · `next lint` clean (only the pre-existing ManualCheckoutModal warning) · production build green · unit 46/46.
+
+**SPEC IMPACT:** 0028 email notifications — template #10 (`security_alert`) finally wired (the spec always listed it among the 10 V1 templates). 0025 Profile Settings security UX — password change + reset now confirm via dual-channel alert. → corpus `DECISION_LOG` row rides the next pass per the relaxed sync mandate.
 
 ## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
 

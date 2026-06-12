@@ -574,7 +574,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   civil_mayor:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
   civil_justice_of_peace:            { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
   inc_minister:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', faith: 'INC' },
-  born_again_pastor:                 { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  born_again_pastor:                 { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Born Again' },
   charismatic_pastor:                { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
   mainline_protestant_pastor:        { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
   muslim_imam:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', faith: 'Muslim' },

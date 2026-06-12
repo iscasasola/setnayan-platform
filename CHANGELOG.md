@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(migrations): resolve duplicate timestamp 20261206000000 blocking all PR merges
+
+**Context:** two parallel sessions merged migrations with the **same** 14-digit timestamp — `20261206000000_iteration_0008_auto_arrange.sql` (PR #1318) and `20261206000000_thread_service_interests.sql`. Each PR's CI was green because neither branch contained the other's file; once both landed on `main`, the `migration timestamp guard` job started failing on **every** open PR, blocking all merges across the repo.
+
+- **Renamed `20261206000000_thread_service_interests.sql` → `20261207000000_thread_service_interests.sql`** (the ledger-safe choice — verified against the prod migration ledger: `supabase_migrations.schema_migrations` shows version `20261206000000` is already applied as `iteration_0008_auto_arrange`, while `thread_service_interests` is **not applied** and never could be under that version, since `version` is the ledger PK). Renaming the unapplied migration carries **zero ledger drift**; auto_arrange (live on prod) is untouched.
+- Updated the migration's internal header comment to the new filename with a one-line note on why it moved.
+- `node scripts/check-migration-timestamps.mjs` now passes: 339 migrations, all unique prefixes.
+- `20261207000000` is past the last existing migration (`20261205000000_event_type_vocab_dynamic.sql` + the 20261206 pair), so ordering is preserved — this migration still applies after auto_arrange.
+
+**Verification:** migration-timestamp guard script green locally (339 unique). The renamed migration will apply fresh on the next `supabase db push --db-url` (it was never applied under the old name).
+
+**SPEC IMPACT:** None — pure migration-file rename to clear a CI/ledger collision. No schema, no DDL change, no spec surface affected.
+
 ## 2026-06-13 · feat(seating): Auto Arrange — one-click table layout + perimeter vendor booths + priority-tier seating (all deterministic, zero AI)
 
 **Context:** owner directive — expand "Auto Arrange" so one automation click simultaneously builds a coordinate-based grid layout for tables AND vendor booths, on free deterministic sorting logic only (no AI API calls in production). Three of the four requested pieces already existed in shipped code (the 0001 role taxonomy IS the priority-tag vocabulary via `roleTier()`; `computeAutoSeat` already ranked tables by stage distance and filled tier-by-tier); this lands the genuinely new parts and fuses everything into the single button.

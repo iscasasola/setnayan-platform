@@ -15,6 +15,7 @@ import {
   createScheduleBlock,
   deleteScheduleBlock,
   toggleBlockVisibility,
+  resolveScheduleSuggestion,
 } from './actions';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
@@ -51,14 +52,26 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, ceremony_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
+    // Vendor suggestions queue (feature-access program Phase 3): open
+    // proposals from booked vendors, resolved here by the couple or a
+    // delegate with schedule edit (RLS-gated).
+    supabase
+      .from('event_schedule_suggestions')
+      .select(
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, created_at',
+      )
+      .eq('event_id', eventId)
+      .eq('status', 'open')
+      .order('created_at', { ascending: true }),
   ]);
+  const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
     | { event_id: string; event_date: string | null; ceremony_type: string | null }
     | null;
@@ -103,8 +116,132 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           hasEventDate={eventDate !== null}
         />
       ) : (
-        <EventDayView eventId={eventId} blocks={blocks} />
+        <>
+          <VendorSuggestionsQueue
+            eventId={eventId}
+            suggestions={openSuggestions}
+            blocks={blocks}
+          />
+          <EventDayView eventId={eventId} blocks={blocks} />
+        </>
       )}
+    </section>
+  );
+}
+
+type VendorSuggestion = {
+  suggestion_id: string;
+  block_id: string | null;
+  kind: 'adjust' | 'new';
+  suggested_by_name: string | null;
+  proposed_label: string | null;
+  proposed_start_at: string | null;
+  proposed_end_at: string | null;
+  proposed_location: string | null;
+  note: string;
+  created_at: string;
+};
+
+function fmtSuggestionTime(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * Open vendor proposals on the day-of timeline (feature-access program
+ * Phase 3 § 4). Vendors can't write the timeline — they propose; you (or a
+ * delegate with schedule edit) accept or decline. Accepting an 'adjust'
+ * applies the proposed fields to the block; accepting a 'new' creates the
+ * block as a draft (is_public stays your call).
+ */
+function VendorSuggestionsQueue({
+  eventId,
+  suggestions,
+  blocks,
+}: {
+  eventId: string;
+  suggestions: VendorSuggestion[];
+  blocks: { block_id: string; label: string }[];
+}) {
+  if (suggestions.length === 0) return null;
+  const blockLabel = new Map(blocks.map((b) => [b.block_id, b.label]));
+  return (
+    <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
+      <header className="space-y-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+          Vendor requests · {suggestions.length}
+        </p>
+        <p className="max-w-prose text-sm text-ink/65">
+          Your booked vendors asked for timeline changes. Accepting applies the
+          change; vendors never edit your timeline directly.
+        </p>
+      </header>
+      <ul className="divide-y divide-ink/10">
+        {suggestions.map((s) => {
+          const proposedWindow = [
+            fmtSuggestionTime(s.proposed_start_at),
+            fmtSuggestionTime(s.proposed_end_at),
+          ]
+            .filter(Boolean)
+            .join(' – ');
+          return (
+            <li key={s.suggestion_id} className="space-y-1.5 py-3">
+              <p className="text-sm">
+                <span className="font-medium">{s.suggested_by_name ?? 'A booked vendor'}</span>{' '}
+                {s.kind === 'adjust' ? (
+                  <>
+                    asks to change{' '}
+                    <span className="font-medium">
+                      {blockLabel.get(s.block_id ?? '') ?? 'a timeline block'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    suggests adding{' '}
+                    <span className="font-medium">{s.proposed_label ?? 'a new entry'}</span>
+                  </>
+                )}
+              </p>
+              <p className="text-sm text-ink/70">&ldquo;{s.note}&rdquo;</p>
+              {proposedWindow ? (
+                <p className="text-xs text-ink/55">Proposed time: {proposedWindow}</p>
+              ) : null}
+              {s.proposed_location ? (
+                <p className="text-xs text-ink/55">Location: {s.proposed_location}</p>
+              ) : null}
+              <div className="flex items-center gap-2 pt-0.5">
+                <form action={resolveScheduleSuggestion}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
+                  <input type="hidden" name="decision" value="accept" />
+                  <button
+                    type="submit"
+                    className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85"
+                  >
+                    Accept
+                  </button>
+                </form>
+                <form action={resolveScheduleSuggestion}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
+                  <input type="hidden" name="decision" value="decline" />
+                  <button
+                    type="submit"
+                    className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5"
+                  >
+                    Decline
+                  </button>
+                </form>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

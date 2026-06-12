@@ -3,14 +3,17 @@ import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
   CalendarDays,
+  CalendarPlus,
   Church,
   LayoutGrid,
+  MessageSquarePlus,
   Palette,
   Users,
   UtensilsCrossed,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { suggestScheduleChange } from './actions';
 
 export const metadata = { title: 'Event Brief · Vendor' };
 
@@ -133,10 +136,32 @@ function fmtTime(iso: string | null): string | null {
   return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
 }
 
-type Props = { params: Promise<{ eventId: string }> };
+type LiveBlock = {
+  block_id: string;
+  label: string;
+  block_type: string;
+  start_at: string | null;
+  end_at: string | null;
+  location: string | null;
+};
 
-export default async function VendorEventBriefPage({ params }: Props) {
+type SuggestionRow = {
+  suggestion_id: string;
+  block_id: string | null;
+  kind: 'adjust' | 'new';
+  note: string;
+  status: 'open' | 'accepted' | 'declined';
+  created_at: string;
+};
+
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ suggest?: string }>;
+};
+
+export default async function VendorEventBriefPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -152,6 +177,28 @@ export default async function VendorEventBriefPage({ params }: Props) {
   });
   if (error || !data) redirect('/vendor-dashboard/clients');
   const brief = data as Brief;
+
+  // Phase 3: live timeline rows (RLS booked-vendor read, locked D2 full
+  // visibility) — block ids drive the Suggest forms — plus this org's own
+  // suggestion history.
+  const [{ data: liveBlocks }, { data: mySuggestions }] = await Promise.all([
+    supabase
+      .from('event_schedule_blocks')
+      .select('block_id, label, block_type, start_at, end_at, location')
+      .eq('event_id', eventId)
+      .order('start_at', { ascending: true })
+      .order('sort_order', { ascending: true }),
+    supabase
+      .from('event_schedule_suggestions')
+      .select('suggestion_id, block_id, kind, note, status, created_at')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ]);
+  const blocks = (liveBlocks ?? []) as LiveBlock[];
+  const suggestions = (mySuggestions ?? []) as SuggestionRow[];
+  const blockLabel = new Map(blocks.map((b) => [b.block_id, b.label]));
 
   const paletteEntries = Object.entries(PALETTE_LABELS)
     .map(([key, label]) => ({ key, label, colors: brief.palette?.[key] ?? [] }))
@@ -314,31 +361,132 @@ export default async function VendorEventBriefPage({ params }: Props) {
           )}
         </div>
 
-        {/* Timeline — full day-of visibility for booked vendors (locked D2) */}
+        {/* Timeline — full day-of visibility for booked vendors (locked D2),
+            with the Suggest flow: propose, never write (Phase 3). */}
         <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6 lg:col-span-2">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <CalendarDays aria-hidden className="h-5 w-5 text-terracotta" /> Day-of timeline
-          </h2>
-          {brief.timeline.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <CalendarDays aria-hidden className="h-5 w-5 text-terracotta" /> Day-of timeline
+            </h2>
+            {blocks.length > 0 ? (
+              <a
+                href={`/vendor-dashboard/clients/${eventId}/calendar.ics`}
+                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline"
+              >
+                <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
+              </a>
+            ) : null}
+          </div>
+
+          {search.suggest === 'sent' ? (
+            <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+              Request sent — the couple (or their coordinator) will review it.
+            </p>
+          ) : null}
+          {search.suggest === 'error' ? (
+            <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              That didn&rsquo;t send — try again.
+            </p>
+          ) : null}
+
+          {blocks.length === 0 ? (
             <p className="mt-2 text-sm text-ink/55">
               The couple hasn&rsquo;t built their event-day timeline yet.
             </p>
           ) : (
             <ol className="mt-3 divide-y divide-ink/10">
-              {brief.timeline.map((b, i) => (
-                <li key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2.5">
-                  <span className="w-36 shrink-0 text-sm font-medium tabular-nums text-ink/70">
-                    {fmtTime(b.start_at) ?? 'Time TBD'}
-                    {fmtTime(b.end_at) ? ` – ${fmtTime(b.end_at)}` : ''}
-                  </span>
-                  <span className="text-sm font-medium">{b.label}</span>
-                  {b.location ? (
-                    <span className="text-xs text-ink/55">{b.location}</span>
-                  ) : null}
+              {blocks.map((b) => (
+                <li key={b.block_id} className="py-2.5">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <span className="w-36 shrink-0 text-sm font-medium tabular-nums text-ink/70">
+                      {fmtTime(b.start_at) ?? 'Time TBD'}
+                      {fmtTime(b.end_at) ? ` – ${fmtTime(b.end_at)}` : ''}
+                    </span>
+                    <span className="text-sm font-medium">{b.label}</span>
+                    {b.location ? <span className="text-xs text-ink/55">{b.location}</span> : null}
+                  </div>
+                  <details className="mt-1 pl-0 sm:pl-40">
+                    <summary className="inline-flex cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
+                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Request a change
+                    </summary>
+                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="block_id" value={b.block_id} />
+                      <textarea
+                        name="note"
+                        required
+                        maxLength={1000}
+                        rows={2}
+                        placeholder={`e.g. "We need ingress 2 hours before ${b.label}."`}
+                        className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
+                        <span className="text-xs text-ink/45">to</span>
+                        <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
+                        <span className="text-xs text-ink/45">(optional new time)</span>
+                      </div>
+                      <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                        Send request
+                      </button>
+                    </form>
+                  </details>
                 </li>
               ))}
             </ol>
           )}
+
+          <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-3">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Suggest a new timeline entry
+            </summary>
+            <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2">
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="text" name="proposed_label" required maxLength={120} placeholder="e.g. Booth setup / ingress" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+              <textarea name="note" required maxLength={1000} rows={2} placeholder="Why this slot matters" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+              <div className="flex flex-wrap items-center gap-2">
+                <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
+                <span className="text-xs text-ink/45">to</span>
+                <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
+              </div>
+              <input type="text" name="proposed_location" maxLength={200} placeholder="Location (optional)" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm" />
+              <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                Send suggestion
+              </button>
+            </form>
+          </details>
+
+          {suggestions.length > 0 ? (
+            <div className="mt-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                Your requests
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {suggestions.map((s) => (
+                  <li key={s.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-medium ${
+                        s.status === 'accepted'
+                          ? 'bg-emerald-100 text-emerald-900'
+                          : s.status === 'declined'
+                            ? 'bg-ink/5 text-ink/50'
+                            : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      {s.status}
+                    </span>
+                    <span className="text-ink/70">
+                      {s.kind === 'adjust'
+                        ? `${blockLabel.get(s.block_id ?? '') ?? 'a block'} — `
+                        : 'New entry — '}
+                      {s.note.slice(0, 80)}
+                      {s.note.length > 80 ? '…' : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
         {/* Seat plan status */}
@@ -361,11 +509,24 @@ export default async function VendorEventBriefPage({ params }: Props) {
               seated
             </span>
           </div>
-          <p className="mt-2 text-xs text-ink/45">
-            {brief.seat_plan.published
-              ? 'The couple has locked their floor plan. A vendor floor-plan view is coming soon.'
-              : 'Once the couple publishes their floor plan, you’ll see its status here.'}
-          </p>
+          {brief.seat_plan.published ? (
+            <p className="mt-2 text-sm">
+              <Link
+                href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
+                className="font-medium text-terracotta underline"
+              >
+                View the floor plan
+              </Link>
+              <span className="ml-2 text-xs text-ink/45">
+                Tables, stage, entrances — counts only, no guest names.
+              </span>
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-ink/45">
+              Once the couple publishes their floor plan, you&rsquo;ll be able to
+              view it here.
+            </p>
+          )}
         </div>
       </div>
     </section>

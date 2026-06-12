@@ -386,3 +386,88 @@ export async function seedDefaultScheduleBlocks(
   revalidatePath(`/dashboard/${eventId}`);
   return topLevelRows.length + childInserts.length;
 }
+
+/**
+ * Resolve a vendor timeline suggestion — feature-access program Phase 3
+ * (corpus 03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md § 4).
+ * Accept applies the proposal (adjust → update the block's proposed fields;
+ * new → create a draft block); decline just flips the status. RLS gates both
+ * sides: the suggestion UPDATE policy + the block write policies admit the
+ * couple and delegates holding schedule edit, nobody else.
+ */
+export async function resolveScheduleSuggestion(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const suggestionId = formData.get('suggestion_id');
+  const decision = formData.get('decision');
+  if (
+    typeof eventId !== 'string' ||
+    typeof suggestionId !== 'string' ||
+    (decision !== 'accept' && decision !== 'decline')
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: suggestion } = await supabase
+    .from('event_schedule_suggestions')
+    .select(
+      'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, status',
+    )
+    .eq('suggestion_id', suggestionId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!suggestion || suggestion.status !== 'open') {
+    redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+  }
+
+  if (decision === 'accept') {
+    if (suggestion.kind === 'adjust' && suggestion.block_id) {
+      const patch: Record<string, string> = {};
+      if (suggestion.proposed_start_at) patch.start_at = suggestion.proposed_start_at;
+      if (suggestion.proposed_end_at) patch.end_at = suggestion.proposed_end_at;
+      if (suggestion.proposed_location) patch.location = suggestion.proposed_location;
+      if (suggestion.proposed_label) patch.label = suggestion.proposed_label;
+      if (Object.keys(patch).length > 0) {
+        const { error } = await supabase
+          .from('event_schedule_blocks')
+          .update(patch)
+          .eq('block_id', suggestion.block_id)
+          .eq('event_id', eventId);
+        if (error) throw new Error(error.message);
+      }
+    } else if (suggestion.kind === 'new') {
+      // Lands as a PRIVATE draft — the couple decides when guests see it.
+      const { error } = await supabase.from('event_schedule_blocks').insert({
+        event_id: eventId,
+        label: (suggestion.proposed_label ?? 'Vendor-requested slot').slice(0, 120),
+        block_type: 'custom',
+        start_at: suggestion.proposed_start_at,
+        end_at: suggestion.proposed_end_at,
+        location: suggestion.proposed_location,
+        notes: suggestion.note,
+        is_public: false,
+      });
+      if (error) throw new Error(error.message);
+    }
+  }
+
+  const { error: resolveError } = await supabase
+    .from('event_schedule_suggestions')
+    .update({
+      status: decision === 'accept' ? 'accepted' : 'declined',
+      resolved_by_user_id: user.id,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq('suggestion_id', suggestionId)
+    .eq('event_id', eventId)
+    .eq('status', 'open');
+  if (resolveError) throw new Error(resolveError.message);
+
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+}

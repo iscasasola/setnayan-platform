@@ -8,14 +8,10 @@ import {
 export type EventRow = {
   event_id: string;
   public_id: string;
-  event_type:
-    | 'wedding'
-    | 'birthday'
-    | 'celebration'
-    | 'travel'
-    | 'corporate'
-    | 'tournament'
-    | 'christening';
+  /** event_type_vocab key — DB-driven open vocabulary since the 2026-06-13
+      cutover (admin-created at /admin/event-types), not a closed union. The
+      old 7-value union here had already drifted (no debut / gender_reveal). */
+  event_type: string;
   display_name: string;
   event_date: string | null;
   is_primary: boolean;

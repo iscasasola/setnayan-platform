@@ -62,6 +62,7 @@ import {
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
@@ -420,35 +421,13 @@ function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
   );
 }
 
-// Iteration 0041 — multi-event support. Filter chip on `vendor_profiles.event_types[]`
-// (migration 20260521090000). Mirrors the live `public.event_type` enum; keep in
-// sync when new event_type values are added.
-const ALLOWED_EVENT_TYPE_FILTERS = [
-  'wedding',
-  'gender_reveal',
-  'debut',
-  'birthday',
-  'celebration',
-  'travel',
-  'corporate',
-  'tournament',
-  'christening',
-] as const;
-type EventTypeFilter = (typeof ALLOWED_EVENT_TYPE_FILTERS)[number];
-
-// Couple-facing labels for the empty-state framing. Stays in sync with the
-// `EVENT_TYPES` list in apps/web/app/dashboard/create-event/_components/event-type-picker.tsx.
-const EVENT_TYPE_LABEL: Record<EventTypeFilter, string> = {
-  wedding: 'Wedding',
-  gender_reveal: 'Gender Reveal',
-  debut: 'Debut',
-  birthday: 'Birthday',
-  celebration: 'Celebration',
-  travel: 'Travel',
-  corporate: 'Corporate',
-  tournament: 'Tournament',
-  christening: 'Christening',
-};
+// Iteration 0041 — multi-event support. Filter chip on `vendor_profiles.event_types[]`.
+// DB-driven since the 2026-06-13 cutover: the allowlist is every ACTIVE
+// `event_type_vocab` key (admin-managed at /admin/event-types), validated in
+// the page body after the vocab fetch — parseFilters only shape-checks the
+// raw param. EventTypeFilter is therefore an open string, not a closed union.
+type EventTypeFilter = string;
+const EVENT_TYPE_PARAM_RE = /^[a-z][a-z0-9_]{0,40}$/;
 
 type VendorCardRow = {
   vendor_profile_id: string;
@@ -651,8 +630,8 @@ function parseFilters(
   // constraint on vendor_profiles.event_types guarantees every vendor
   // serves at least one type; existing wedding vendors were backfilled
   // to ['wedding'] in migration 20260521090000.
-  const eventType = (ALLOWED_EVENT_TYPE_FILTERS as readonly string[]).includes(raw.event_type ?? '')
-    ? (raw.event_type as EventTypeFilter)
+  const eventType = EVENT_TYPE_PARAM_RE.test(raw.event_type ?? '')
+    ? ((raw.event_type as string) as EventTypeFilter)
     : null;
   // Task #47 — catalog-mode folder scope. Validate against the canonical
   // 12-folder enum. Invalid / typo / null all fall back to unscoped.
@@ -861,6 +840,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // inside runSocialFlush makes this effectively free, and it never throws.
   after(() => runSocialFlush().catch(() => {}));
 
+  // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
+  // parseFilters only shape-checked ?event_type=; here it's validated against
+  // the live roster (unknown / retired keys fall back to null = no filter).
+  const eventTypeVocab = await getEventTypeVocab();
+  const eventTypeKeys = new Set(eventTypeVocab.map((t) => t.key));
+  const eventTypeLabel = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
+  if (filters.eventType && !eventTypeKeys.has(filters.eventType)) {
+    filters = { ...filters, eventType: null };
+  }
+
   // 0043 compatibility hooks — resolve the viewer's couple-side primary event
   // BEFORE the marketplace query is built so the compatibility filter can
   // attach onto the query when ?match=1 is set. The same `user` + supabase
@@ -984,7 +973,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // to browse all vendors can clear the filter via the empty-state CTA
   // (PR #184's "Browse all vendors" link drops the event_type from the URL).
   if (!filters.eventType && coupleEventType && coupleEventType !== 'wedding') {
-    const knownEventType = (ALLOWED_EVENT_TYPE_FILTERS as readonly string[]).includes(coupleEventType)
+    const knownEventType = eventTypeKeys.has(coupleEventType)
       ? (coupleEventType as EventTypeFilter)
       : null;
     if (knownEventType) {
@@ -1931,7 +1920,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         ) : null}
 
         {visible.length === 0 ? (
-          <EmptyState filters={filters} broadenedCount={broadenedCount} />
+          <EmptyState
+            filters={filters}
+            broadenedCount={broadenedCount}
+            eventTypeLabel={
+              filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
+            }
+          />
         ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
@@ -2159,6 +2154,7 @@ function FocusedModeSearchForm({
 function EmptyState({
   filters,
   broadenedCount,
+  eventTypeLabel,
 }: {
   filters: {
     q: string;
@@ -2174,6 +2170,8 @@ function EmptyState({
     focusedMode: boolean;
   };
   broadenedCount: number | null;
+  /** Couple-facing label for filters.eventType (DB vocab; null when unset). */
+  eventTypeLabel: string | null;
 }) {
   const hasFilter = !!(
     filters.q ||
@@ -2206,7 +2204,7 @@ function EmptyState({
   // iteration 0043 faith-activation pattern (Coming Soon + future email
   // capture).
   if (filters.eventType && filters.eventType !== 'wedding') {
-    const label = EVENT_TYPE_LABEL[filters.eventType];
+    const label = eventTypeLabel ?? filters.eventType;
     return (
       <div className="mt-8 rounded-2xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] p-10 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">

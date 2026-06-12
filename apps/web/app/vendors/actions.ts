@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePrimaryHostEvent, recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
 // Mirrors the 0043 `notifyWhenWeddingTypeLaunches` pattern but indexed by
@@ -19,17 +20,6 @@ import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 // but admin client keeps the signature identical to other "submit and
 // confirm" forms in the app.
 
-const ALLOWED_EVENT_TYPES: ReadonlySet<string> = new Set([
-  'wedding',
-  'gender_reveal',
-  'debut',
-  'birthday',
-  'celebration',
-  'travel',
-  'corporate',
-  'tournament',
-  'christening',
-]);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -46,7 +36,10 @@ export async function notifyWhenEventTypeLaunches(formData: FormData): Promise<N
   if (!EMAIL_REGEX.test(rawEmail)) {
     return { status: 'invalid_email' };
   }
-  if (!ALLOWED_EVENT_TYPES.has(rawEventType)) {
+  // DB-driven roster (2026-06-13): any ACTIVE event_type_vocab key is a
+  // valid notify-me target. The vocab trigger on the table is the backstop.
+  const vocab = await getEventTypeVocab();
+  if (!vocab.some((t) => t.key === rawEventType)) {
     return { status: 'invalid_event_type' };
   }
 

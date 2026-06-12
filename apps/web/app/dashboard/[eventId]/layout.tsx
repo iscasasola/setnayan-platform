@@ -16,6 +16,7 @@ import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 type Props = {
   children: React.ReactNode;
@@ -260,6 +261,10 @@ export default async function EventLayout({ children, params }: Props) {
   // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
   // owned by the layout; now SidebarShell owns the sticky chrome and we
   // just inject the inner row.
+  // DB-driven creatable event types for the switcher's add-event sheet
+  // (2026-06-13 cutover) — request-cached via React cache().
+  const creatableEventTypes = await getCreatableEventTypes();
+
   const topBar = (
     <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
       <EventSwitcher
@@ -287,6 +292,7 @@ export default async function EventLayout({ children, params }: Props) {
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
+        eventTypes={creatableEventTypes}
       />
       <div className="flex items-center gap-2">
         {/* Marketplace (Store) link + mobile Switch View pill REMOVED from

@@ -2,7 +2,11 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { EventTypeRow } from './event-types';
+import {
+  eventTypePhotoSrc,
+  EVENT_TYPE_PHOTO_FALLBACK,
+  type EventTypeRow,
+} from './event-types';
 
 /**
  * Event-type "feel photo" picker — owner directive 2026-06-04: "we do not want
@@ -20,6 +24,9 @@ import type { EventTypeRow } from './event-types';
  * event-type-carousel.tsx.
  */
 
+// Fallback taglines for the original 9 types — the DB roster carries its own
+// per-type `description` (admin-set at /admin/event-types) which wins when
+// present; these keep the constant-fallback path byte-identical.
 const TAGLINES: Record<string, string> = {
   wedding: 'The day you say “I do.”',
   debut: 'Her grand eighteenth.',
@@ -143,13 +150,21 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
               }`}
             >
               <Image
-                src={`/event-types/${t.key}.webp`}
+                src={eventTypePhotoSrc(t)}
                 alt=""
                 fill
                 draggable={false}
                 sizes="(max-width: 640px) 74vw, 320px"
                 priority={i < 2}
                 className="object-cover"
+                onError={(e) => {
+                  // Brand-new admin-created types have no repo asset yet —
+                  // swap in the generic fallback instead of a broken image.
+                  const img = e.currentTarget;
+                  if (!img.src.endsWith(EVENT_TYPE_PHOTO_FALLBACK)) {
+                    img.src = EVENT_TYPE_PHOTO_FALLBACK;
+                  }
+                }}
               />
               {/* legibility scrim */}
               <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
@@ -158,7 +173,7 @@ export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, classN
                   {t.label}
                 </p>
                 <p className="mt-1.5 text-sm text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-                  {TAGLINES[t.key] ?? ''}
+                  {t.description ?? TAGLINES[t.key] ?? ''}
                 </p>
                 {/* "Begin →" appears only on the centered photo — the tap target */}
                 <span

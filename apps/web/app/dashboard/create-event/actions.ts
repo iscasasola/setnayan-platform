@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -14,28 +15,13 @@ import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 // prices Setnayan AI separately from /pricing — every new event
 // lands in DIY by default. Imports removed.
 
-// V1.1 multi-event roster (iteration 0041). Wedding is the original V1
-// type; debut (2026-05-20) is the first creatable expansion. Other 0041
-// types (baptism, anniversary, etc.) land as separate per-type entries
-// as the product surfaces support them — vendor matching + Concierge are
-// still wedding-themed, so non-wedding events render the dashboard tools
-// (guest list / budget / etc.) as generic event-planning utilities.
-//
-// All event types unlocked (owner-directed 2026-06-03 "unlock all events") —
-// mirrors the EVENT_TYPES `enabled` flip in event-types.ts. Every value here is
-// a member of the public.event_type enum (verified against prod). Non-wedding
-// types skip the wedding-only ceremony fields via the isWedding branch below.
-const ALLOWED_TYPES = [
-  'wedding',
-  'debut',
-  'gender_reveal',
-  'birthday',
-  'celebration',
-  'travel',
-  'corporate',
-  'tournament',
-  'christening',
-] as const;
+// DB-driven roster (2026-06-13 cutover) — the hardcoded ALLOWED_TYPES array
+// is gone. A submitted event_type is accepted iff the `event_type_vocab` row
+// is status='active' AND enabled=TRUE (the same set getCreatableEventTypes()
+// renders in the picker). Retired or not-yet-launched types are rejected at
+// creation time; the DB-side FK on events.event_type is the backstop.
+// Non-wedding types still skip the wedding-only ceremony fields via the
+// isWedding branch below (events_wedding_fields_consistency CHECK).
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 had a DIY / Trial / Paid choice card at the bottom of create-event.
@@ -103,7 +89,8 @@ export async function createWeddingEvent(formData: FormData) {
   if (!display_name) {
     return redirect('/dashboard/create-event?error=missing_name');
   }
-  if (!ALLOWED_TYPES.includes(event_type as (typeof ALLOWED_TYPES)[number])) {
+  const creatable = await getCreatableEventTypes();
+  if (!creatable.some((t) => t.key === event_type)) {
     return redirect('/dashboard/create-event?error=invalid_type');
   }
   const isWedding = event_type === 'wedding';

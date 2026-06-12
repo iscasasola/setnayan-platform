@@ -51,6 +51,7 @@ import {
   BookOpen,
   Bell,
   CircleUser,
+  PartyPopper,
 } from 'lucide-react';
 import type { LandingItem } from '../_components/mobile-landing-grid';
 import {
@@ -192,6 +193,14 @@ const PLATFORM_ITEMS: LandingItem[] = [
     icon: Tag,
     description:
       'Canonical vendor service categories and the sub-category card tree.',
+  },
+  {
+    key: 'event-types',
+    label: 'Event Types',
+    href: '/admin/event-types',
+    icon: PartyPopper,
+    description:
+      'Create, launch, and retire the event types Setnayan plans — pickers and vendor checkboxes follow automatically.',
   },
   {
     key: 'website',

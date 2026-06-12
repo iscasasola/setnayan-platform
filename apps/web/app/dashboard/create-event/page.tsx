@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -20,6 +21,9 @@ type SearchParams = Promise<{ error?: string }>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  // DB-driven roster (2026-06-13): status='active' AND enabled=TRUE vocab
+  // rows, ordered. Falls back to the pre-cutover constant on DB hiccups.
+  const eventTypes = await getCreatableEventTypes();
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
 
@@ -49,7 +53,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      <EventTypePicker />
+      <EventTypePicker types={eventTypes} />
     </div>
   );
 }

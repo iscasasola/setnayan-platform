@@ -19,6 +19,7 @@ import {
   changePassword,
   signOutOtherDevices,
 } from '@/lib/account-security-actions';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 import { saveVendorProfile } from '../actions';
 import { ServicesPicker } from '../_components/services-picker';
 import { CompletedEventsCard } from '../_components/completed-events-card';
@@ -73,26 +74,11 @@ const VENUE_SETTINGS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'civil_registrar', label: 'Civil registrar' },
 ];
 
-// Iteration 0041 — event_types vendor opt-in roster. Mirrors the live
-// `public.event_type` enum + the `vendor_profiles_event_types_check`
-// constraint in migration 20260521090000. Vendors check which event types
-// they actually serve; the marketplace `?event_type=` filter at /vendors
-// reads vendor_profiles.event_types[] to match.
-//
-// All 9 enum values are checkable here even though only wedding + debut
-// are creatable in the picker today — vendors can pre-tag for Coming-Soon
-// event_types so they're ready when those tiles enable.
-const EVENT_TYPES_SERVED: ReadonlyArray<{ key: string; label: string; emoji: string }> = [
-  { key: 'wedding', label: 'Wedding', emoji: '💍' },
-  { key: 'debut', label: 'Debut', emoji: '👑' },
-  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈' },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂' },
-  { key: 'celebration', label: 'Celebration', emoji: '🥂' },
-  { key: 'christening', label: 'Christening', emoji: '🕯️' },
-  { key: 'corporate', label: 'Corporate', emoji: '🏢' },
-  { key: 'travel', label: 'Travel', emoji: '✈️' },
-  { key: 'tournament', label: 'Tournament', emoji: '🏆' },
-];
+// Event-types-you-serve roster — DB-driven since the 2026-06-13 cutover.
+// Every ACTIVE `event_type_vocab` row is checkable here, regardless of its
+// couple-side `enabled` flag: vendors can pre-tag coverage for types the
+// owner hasn't publicly launched yet, so they're ready when the tile flips.
+// Fetched inside the page body via getEventTypeVocab().
 
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
@@ -144,6 +130,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   try {
   const search = await searchParams;
   const supabase = await createClient();
+  // DB-driven event-type roster (2026-06-13) — every ACTIVE vocab row is
+  // checkable; falls back to the pre-cutover constant on DB hiccups.
+  const eventTypesServed = await getEventTypeVocab();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -603,7 +592,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           help="Tick every event type you take bookings for. Couples browsing each marketplace see only vendors who serve their event. Wedding is checked by default for every vendor; tick others to expand your reach as those marketplaces open."
         >
           <div className="flex flex-wrap gap-2">
-            {EVENT_TYPES_SERVED.map((et) => {
+            {eventTypesServed.map((et) => {
               const checked = profile?.event_types?.includes(et.key) ?? et.key === 'wedding';
               return (
                 <label

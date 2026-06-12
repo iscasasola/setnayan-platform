@@ -8,6 +8,7 @@ import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { VendorSidebar } from './_components/vendor-sidebar';
@@ -150,6 +151,10 @@ export default async function VendorDashboardLayout({
   // Hide archived events; active-first + expired-rightmost; primary (or first
   // active) is the anchor monogram. Zero events → the wrapper renders the
   // empty "+" monogram linking to /dashboard/create-event.
+
+  // DB-driven creatable event types for the switcher's add-event sheet
+  // (2026-06-13 cutover) — request-cached, so layouts + pages share one read.
+  const creatableEventTypes = await getCreatableEventTypes();
   const visibleEvents = events.filter((e) => !e.archived);
   const activeEvents = sortEventsForSwitcher(visibleEvents);
   const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
@@ -195,6 +200,7 @@ export default async function VendorDashboardLayout({
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
+        eventTypes={creatableEventTypes}
       />
       <div className="flex items-center gap-2">
         {/* Live unread bell — replaces the SubnavTab liveNotificationsUserId

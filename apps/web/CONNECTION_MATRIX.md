@@ -117,7 +117,7 @@
 
 ---
 
-## 5 · Admin Console
+## 5 · Setnayan HQ (internal console)
 
 | Feature / UI Element | File Path:line | Destination (Supabase / State) | Fallback if Blank | Status | Detailed Issue / Gap Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |

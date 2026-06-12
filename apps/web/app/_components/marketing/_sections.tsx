@@ -25,7 +25,7 @@
  *   - "5% platform fee" / "we take a cut" → "0% commission"
  *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
  *   - "Setnayan Concierge" → "Setnayan AI"
- *   - "₱1,499 one-time" + "₱499 refresh" preserved (v2.1-correct)
+ *   - Vendor verification FREE during launch ("₱1,499 one-time" + "₱499 refresh" fee removed 2026-06-13 — stale)
  *
  * Per [[feedback_setnayan_button_preservation]] all CTAs match template
  * placement + concept verbatim.

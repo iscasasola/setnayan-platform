@@ -17,7 +17,11 @@ const ALLOWED_PATHS = [
   '/suppliers',
   '/blog',
 ];
-const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '/receipts'];
+// /keynote + /proto are dated internal pitch/prototype decks (snapshot
+// 2026-05-28) that drifted from the live product — they carried retired
+// claims (₱1,499 verification fee, "BIR-compliant receipts", "Today's Focus").
+// Disallowed 2026-06-13 so crawlers + AI answer engines stop indexing stale copy.
+const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '/receipts', '/keynote', '/proto'];
 const QUERY_DISALLOWS = ['/*?sort=', '/*?filter=', '/*?session=', '/*?ref='];
 
 const AI_ANSWER_ENGINES = ['ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'ClaudeBot'];

@@ -1,14 +1,18 @@
 import { Receipt, Shield, FileCheck2, Scale, type LucideIcon } from 'lucide-react';
 
-// Compliance & receipts — BIR-compliant ORs on Setnayan software purchases,
-// RA 10173 data protection, and tax-document hand-off for couples and vendors.
+// Privacy & receipts — itemized receipts on Setnayan software purchases,
+// RA 10173 data protection, and 0% commission on vendor bookings.
 //
 // Rewritten 2026-05-28 (V2 cutover) — Setnayan no longer routes vendor
 // payments through its books per owner directive ("we will no longer
 // transact their packages · vendors earn the whole money · Setnayan will
-// not take money from purchases of the Customers"). EWT + Form 2307
-// language tied to vendor payment routing has been retired here. Vendors
-// handle their own tax treatment on the bookings they receive directly.
+// not take money from purchases of the Customers"). Vendors handle their
+// own tax treatment on the bookings they receive directly.
+//
+// Stale-claim purge 2026-06-13 — all "BIR-compliant OR / 12% VAT /
+// sequential OR number / 2307" claims removed; Setnayan does not issue
+// BIR-compliant Official Receipts. Software purchases get a plain itemized
+// receipt only.
 
 type Item = {
   Icon: LucideIcon;
@@ -19,8 +23,8 @@ type Item = {
 const ITEMS: Item[] = [
   {
     Icon: Receipt,
-    title: 'BIR-compliant ORs on every software purchase',
-    body: 'Every software SKU you buy from Setnayan (Animated Monogram, Setnayan AI, Panood, Patiktok, etc.) generates an Official Receipt with the 12% VAT split and a sequential OR number that survives audit. Auto-emailed to you, archived in your dashboard.',
+    title: 'A receipt for every software purchase',
+    body: 'Every software service you buy from Setnayan (Animated Monogram, Setnayan AI, Panood, Patiktok, etc.) gets an itemized receipt — emailed to you and archived in your dashboard, so you always have a record of what you paid.',
   },
   {
     Icon: Shield,
@@ -30,12 +34,12 @@ const ITEMS: Item[] = [
   {
     Icon: FileCheck2,
     title: 'Zero commission on vendor bookings',
-    body: 'When you pay your photographer, caterer, or florist, that money goes straight from your account to theirs. Setnayan never sits between you at checkout — so there&rsquo;s no platform deduction, no withholding mismatch, and no surprise EWT to reconcile in April. Your vendor handles their own OR.',
+    body: 'When you pay your photographer, caterer, or florist, that money goes straight from your account to theirs. Setnayan never sits between you at checkout — so there&rsquo;s no platform deduction and no markup. Your vendor handles their own receipts and tax treatment.',
   },
   {
     Icon: Scale,
-    title: 'Tax documents in one place',
-    body: 'Your Setnayan software receipts download as a single quarterly summary your bookkeeper can attach to your books. Vendor-side: monthly subscription receipts + token-pack receipts download the same way. The boring parts &mdash; handled, not handed back to you.',
+    title: 'Receipts in one place',
+    body: 'Your Setnayan software receipts download together so you always have a record. Vendor-side: monthly subscription receipts + token-pack receipts download the same way. The boring parts &mdash; handled, not handed back to you.',
   },
 ];
 
@@ -49,20 +53,20 @@ export function Compliance() {
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <header className="mb-10 max-w-2xl space-y-3">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Section 6 &middot; Compliance & receipts
+            Section 6 &middot; Privacy & receipts
           </p>
           <h2
             id="compliance-heading"
             className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl"
           >
-            Real receipts. Real compliance. No tax-day surprises.
+            Your data. Your money. Your records.
           </h2>
           <p className="text-base text-ink/65">
-            If your parents ask for the OR, you have one. If your accountant
-            asks for the 2307s, they&rsquo;re downloadable. If your vendor
-            asks for proof of payment, it&rsquo;s in their dashboard. The
-            boring parts of running an event &mdash; handled, not handed
-            back to you.
+            Every software purchase comes with a receipt you can pull up
+            anytime. Your guest data stays yours. And when you pay a vendor,
+            the money goes straight to them &mdash; Setnayan never sits in
+            the middle. The boring parts of running an event &mdash; handled,
+            not handed back to you.
           </p>
         </header>
 

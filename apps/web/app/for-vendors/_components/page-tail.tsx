@@ -458,11 +458,11 @@ export function Pricing() {
 const FAQ_ITEMS = [
   {
     q: 'How do payments work during the pilot?',
-    a: 'Temporarily, every in-app service payment uses a QR-code method — GCash QR or Maya QR. At checkout you scan the QR, pay from your wallet, and the Setnayan team confirms the booking within minutes. This keeps payments fully traceable, BIR-compliant, and zero-Apple-fee while we finalize the Xendit / InstaPay integrations. Card payments and direct bank transfers ship later this year.',
+    a: 'Temporarily, every in-app service payment uses a QR-code method — GCash QR or Maya QR. At checkout you scan the QR, pay from your wallet, and the Setnayan team confirms the booking within minutes. This keeps payments fully traceable and zero-Apple-fee while we finalize the Xendit / InstaPay integrations. Card payments and direct bank transfers ship later this year.',
   },
   {
     q: 'Where do I pay — in the app or on the web?',
-    a: 'On the web. The Setnayan iOS, Android, Mac, and Windows apps are great for planning, RSVPs, messaging, and uploading photos — but every purchase (vendor booking, milestone payment, in-app service like Panood) opens a secure Safari/Chrome window to setnayan.com to complete. This keeps your BIR receipts, dispute protection, and milestone payment trails all in one place — and avoids the 15–30% surcharge mobile app stores add to in-app purchases. One transaction layer, one source of truth.',
+    a: 'On the web. The Setnayan iOS, Android, Mac, and Windows apps are great for planning, RSVPs, messaging, and uploading photos — but every purchase (vendor booking, milestone payment, in-app service like Panood) opens a secure Safari/Chrome window to setnayan.com to complete. This keeps your receipts, dispute protection, and milestone payment trails all in one place — and avoids the 15–30% surcharge mobile app stores add to in-app purchases. One transaction layer, one source of truth.',
   },
   {
     q: 'Is the planning really free?',

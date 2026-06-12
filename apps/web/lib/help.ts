@@ -65,17 +65,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually from ₱999 (Pabati) to ₱16,999 (Media Pack bundle). Vendor side: Free (₱0/month) baseline listing, Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.',
+        body: 'Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually from ₱999 (Pabati) to ₱16,999 (Media Pack bundle). Vendor side: Free (₱0/month) baseline listing, Verified (free during launch), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Yes for the baseline planning tools — guest list, RSVP, Pakulay (mood board), vendor browse, and in-app chat are all free with every account. Premium tools like Today\'s Focus AI wizard (₱1,499 one-time) and Pro Website (₱5,499) are optional. You only pay for what you choose to add.',
+        body: 'Yes for the baseline planning tools — guest list, RSVP, Pakulay (mood board), vendor browse, and in-app chat are all free with every account. Premium tools like Setnayan AI (₱1,499 one-time) and Pro Website (₱5,499) are optional. You only pay for what you choose to add.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on vendor bookings?',
-        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software service purchases (Today\'s Focus, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Verified one-time, Pro monthly, Enterprise monthly).',
+        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software service purchases (Setnayan AI, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Pro monthly, Enterprise monthly).',
       },
       {
         slug: 'what-is-todays-focus',
@@ -105,7 +105,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-are-vendors-verified',
         title: 'How are vendors verified on Setnayan?',
-        body: 'Vendors complete an identity check (DTI registration, mayor\'s permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. ₱1,499 one-time for a lifetime Verified badge — no annual renewal fee. Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.',
+        body: 'Vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee. Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.',
       },
       {
         slug: 'what-is-pakanta',
@@ -126,11 +126,6 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-pakulay',
         title: 'What is Pakulay?',
         body: 'The visual mood board for your wedding — included free with every couple account. Three pillars: palette (colors), location feel (venue look + atmosphere), and dress codes (attire direction by role tier). Pakulay finalizes once and downstream services (catering, florals, attire, stationery) pull from the same locked vision.',
-      },
-      {
-        slug: 'is-setnayan-bir-compliant',
-        title: 'Is Setnayan BIR-compliant?',
-        body: 'Yes. BIR-compliant receipts on every Setnayan software purchase. Vendor-to-couple payments settle off-platform per Filipino direct-booking norms; vendors handle their own BIR receipts on those direct bookings.',
       },
       {
         slug: 'how-does-setnayan-handle-privacy',

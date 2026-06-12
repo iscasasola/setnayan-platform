@@ -28,7 +28,7 @@ import { SiteFooter } from './_sections/_SiteFooter';
 // 5. Vendors & ledger (vendor mgmt, payment milestones, .ics, contracts)
 // 6. Day-of apparatus (Panood, Papic, Pakulay, Pailaw, Photo Delivery, Supplies)
 // 7. Outsourcing / pacing / scheduling (the dropped Section 7)
-// 8. Compliance & receipts (BIR ORs, RA 10173, EWT, Form 2307)
+// 8. Privacy & receipts (itemized receipts, RA 10173, 0% commission)
 // 9. Final CTA + soft secondary to /for-vendors
 // 10. Footer
 //
@@ -54,7 +54,7 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',
   description:
-    'Guest list, seating, budget, mood board, schedule, vendor ledger, BIR-compliant receipts, plus day-of apparatus (Panood, Papic, Pakulay). The full feature catalog of the Filipino-first events platform.',
+    'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Panood, Papic, Pakulay). The full feature catalog of the Filipino-first events platform.',
   alternates: { canonical: '/features' },
   keywords: [
     'Filipino wedding features',
@@ -68,7 +68,7 @@ export const metadata = {
   openGraph: {
     title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',
     description:
-      'Guest list, seating, budget, mood board, schedule, vendor ledger, BIR-compliant receipts, plus day-of apparatus (Panood, Papic, Pakulay).',
+      'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Panood, Papic, Pakulay).',
     url: '/features',
   },
 };

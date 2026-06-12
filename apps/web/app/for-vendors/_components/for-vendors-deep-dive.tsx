@@ -20,7 +20,7 @@
  *   - Boosters surface mention added (CLAUDE.md 2026-05-30 row § 1(d) reinstated)
  *   - 0% commission claim preserved (V2 publisher posture per CLAUDE.md 2026-05-28 3rd row)
  *   - Founder bonus 100 tokens preserved (matches v2.1 brief § 1)
- *   - ₱1,499 one-time verification preserved (matches v2.1 § 1)
+ *   - Verification FREE during launch (₱1,499 one-time fee removed 2026-06-13; card shows "₱0 to start")
  *   - Pro 28-day ₱1,999 → ₱2,499 (2026-05-30 § 1(a))
  *   - Pro Annual ₱19,999 → ₱24,999 (2026-05-30 § 4)
  *

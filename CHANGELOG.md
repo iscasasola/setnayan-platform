@@ -96,6 +96,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` + `next lint` green in a fresh worktree off `origin/main` (only pre-existing warnings in unrelated files; none in new files). Migration NOT applied — pending the orchestrating session / `supabase db push`.
 
 **SPEC IMPACT:** corpus `DECISION_LOG.md` 2026-06-12 "🔗 Link-gated build cascade + multi-service inquiry mapping" row already records build items ②③ — no further corpus edit needed; this lands the code for that locked design.
+## 2026-06-13 · feat(seo): /about brand-entity page — canonical "what is Setnayan" surface for GEO
+
+**Context:** SEO/GEO audit follow-up (third batch, after /venues #1307 + /help/[slug] #1310). The marketing footer linked to `/about`, which didn't exist — a dead link that PR #1307's soft-404 fix turned from a soft-200 into a hard 404. An authoritative About page is also the canonical entity surface AI answer engines cite when grounding "what is Setnayan" (playbook §8.4), and llms.txt already anticipated it ("planned but not yet shipped … updated when those surfaces go live").
+
+- **New `/about` route** (`force-static`, no DB, no session): hero with the "Set na 'yan" brand origin, a 4-fact grid (built-in-PH · free-for-couples · 0%-commission · EN/TL/CEB), a "software, not an agency" explainer, a brand/entity FAQ, and start-planning CTAs. Uses the shared `SiteHeader` + marketing `Footer` so it matches every other marketing page.
+- **Schema:** `AboutPage` (referencing the Organization `@id` from the layout graph) + `BreadcrumbList` + `FAQPage` JSON-LD — three structured-data blocks that double as GEO grounding.
+- **FAQ reuses approved copy, not new claims:** the brand/entity Q&As come straight from the existing `about-setnayan` help topic in `lib/help.ts` (single source of truth). The one Q&A with a detailed price breakdown (`how-much-does-setnayan-cost`, which still carries a stale vendor "Pro ₱1,999/month" vs the live ₱2,499/28-day) is **deliberately excluded** — pricing lives on `/pricing`, so the new high-visibility entity page never surfaces a self-contradicting price. Each FAQ links to its `/help#slug` anchor (forward-compatible with the per-article `/help/[slug]` pages from #1310).
+- **Sitemap + llms.txt:** `/about` added to `sitemap-static.xml`; llms.txt now lists About as a shipped surface and drops it from the "planned but not yet shipped" exclusion line.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` (135/135, `/about` prerendered static `○`) green in a fresh worktree off origin/main. Local prod-server smoke test: `/about` → 200; title/canonical correct; AboutPage + BreadcrumbList + FAQPage JSON-LD all present; zero references to the excluded stale-pricing slug; `/about` in the static sitemap; FAQ links resolve to `/help#…` anchors.
+
+**SPEC IMPACT:** `02_Specifications/17_SEO_and_AI_Discoverability_Playbook.md` §8.3 lists `/about` as an optional/extended surface in the recommended `/llms.txt`; it's now shipped + listed. Logged as a DECISION_LOG.md row (2026-06-13). No pricing or brand-positioning decisions introduced — all copy is assembled from already-approved brand strings (llms.txt blockquote + about-setnayan help topic).
 
 ## 2026-06-13 · fix(vendor-nav): Repertoire nav entry only for music acts
 

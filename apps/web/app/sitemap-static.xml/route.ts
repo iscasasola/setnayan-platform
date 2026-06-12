@@ -65,6 +65,10 @@ const STATIC_ROUTES: ReadonlyArray<{
   // /help hub + 61 per-article /help/[slug] URLs, so listing /help here too
   // would duplicate it across two children.
 
+  // /about — brand/entity page (SEO/GEO, 2026-06-13). Canonical "what is
+  // Setnayan" surface for AI grounding; fixes the previously-dead footer link.
+  { path: '/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
+
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.
   { path: '/waitlist', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.7' },
 

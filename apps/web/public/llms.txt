@@ -16,6 +16,7 @@ Setnayan is software, not an agency. Couples plan their wedding through a guided
 - [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Four tiers: Free (₱0 baseline listing), Verified (₱1,499 one-time lifetime badge), Pro (₱2,499 / 28-day prepaid block), Enterprise (₱5,499 / 28-day prepaid block). 0% commission on all bookings, all tiers.
 - [Features](https://www.setnayan.com/features) — Detailed list of planning tools and in-app services.
 - [How It Works](https://www.setnayan.com/how-it-works) — Step-by-step couple and vendor onboarding.
+- [About Setnayan](https://www.setnayan.com/about) — Brand story, what the platform is (software, not an agency), who it's for, geography, languages, 0% commission, and a brand/entity FAQ.
 - [Real Weddings](https://www.setnayan.com/weddings) — Editorial showcase of weddings shipped through Setnayan. Editorials publish 30 days post-event with explicit couple consent per RA 10173.
 - [Help and Support](https://www.setnayan.com/help) — Step-by-step guides for couples and vendors; contact form for human support.
 - [Download](https://www.setnayan.com/download) — Setnayan desktop app for macOS and Windows.
@@ -153,6 +154,6 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 ## Out of scope to advertise here
 
-Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/about`, `/for-event-creators`) are planned but not yet shipped. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file is updated when those surfaces go live.
+Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/for-event-creators`) are planned but not yet shipped. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file is updated when those surfaces go live.
 
 This file was last refreshed on 2026-05-30 as part of the v2.1 brief amendment #2 sprint (v4 → v5 · Pro 28-day price flip ₱1,999 → ₱2,499 · Pro Annual ₱19,999 → ₱24,999 · Boosters surface · Add Branch SKU · hybrid-anonymity reveal mechanic · CLAUDE.md decision log).

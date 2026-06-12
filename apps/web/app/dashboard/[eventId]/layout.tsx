@@ -96,7 +96,30 @@ export default async function EventLayout({ children, params }: Props) {
   }
 
   if (!membership || membership.member_type !== 'couple') {
-    notFound();
+    // Delegate path (feature-access program Phase 2, 2026-06-12): an
+    // accepted, non-removed event_moderators row admits the user — this is
+    // the 0048 invite system finally going live. Data access is enforced
+    // per-area by the moderator RLS policies (migration 20261129000000);
+    // the layout only answers "may they see this event's shell at all".
+    const { data: moderator, error: moderatorError } = await supabase
+      .from('event_moderators')
+      .select('moderator_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .not('accepted_at', 'is', null)
+      .is('removed_at', null)
+      .maybeSingle();
+    if (moderatorError) {
+      logQueryError(
+        'EventLayout (event_moderators)',
+        moderatorError,
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+    }
+    if (!moderator) {
+      notFound();
+    }
   }
 
   // 5th hotfix pass extension (2026-05-23 PM) — same defensive pattern

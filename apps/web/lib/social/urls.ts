@@ -15,11 +15,18 @@ export function siteUrl(): string {
   );
 }
 
+/** Card output format — see lib/social/card.ts `CardFormat`. */
+export type SocialCardFormat = 'square' | 'story';
+
 /**
- * Public, fetchable URL of the branded 1080×1080 card for a post. Deterministic
- * per post id (the route sets `Cache-Control: immutable`), so passing it as the
- * Graph `media_url` lets FB/IG download the same image every time.
+ * Public, fetchable URL of the branded card for a post. Deterministic per
+ * (post id, format) — the route sets `Cache-Control: immutable` — so passing
+ * it as the Graph / TikTok `image_url` lets the platform download the same
+ * image every time. `format` defaults to 'square' (1080×1080, FB/IG feed); the
+ * default emits NO query string so FB/IG keep their exact square URLs. Pass
+ * 'story' for the 1080×1920 9:16 card (TikTok Photo Mode + assisted-manual).
  */
-export function socialCardUrl(postId: string): string {
-  return `${siteUrl().replace(/\/$/, '')}/api/social/card/${encodeURIComponent(postId)}`;
+export function socialCardUrl(postId: string, format: SocialCardFormat = 'square'): string {
+  const base = `${siteUrl().replace(/\/$/, '')}/api/social/card/${encodeURIComponent(postId)}`;
+  return format === 'story' ? `${base}?format=story` : base;
 }

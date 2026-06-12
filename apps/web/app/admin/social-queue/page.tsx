@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { runSocialFlush } from '@/lib/social/flush';
 import { isFacebookConfigured } from '@/lib/social/facebook';
 import { isInstagramConfigured } from '@/lib/social/instagram';
+import { isTikTokConfigured } from '@/lib/social/tiktok';
 import { socialCardUrl } from '@/lib/social/urls';
 import { getChangelogSuggestions } from '@/lib/social/changelog-suggestions';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -184,6 +185,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
 
   const fbConfigured = isFacebookConfigured();
   const igConfigured = isInstagramConfigured();
+  const ttConfigured = isTikTokConfigured();
 
   // ── Autopilot switchboard (single row) ──────────────────────────────────
   const { data: settingsData, error: settingsErr } = await admin
@@ -426,6 +428,7 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
         settings={settings}
         fbConfigured={fbConfigured}
         igConfigured={igConfigured}
+        ttConfigured={ttConfigured}
         loadFailed={Boolean(settingsErr)}
       />
 
@@ -604,6 +607,11 @@ export default async function AdminSocialQueuePage({ searchParams }: Props) {
           })}
         </ul>
       </QueueSection>
+
+      {/* ── TikTok — assisted-manual posting (pre-audit working surface) ── */}
+      {settings.tiktok_enabled && !ttConfigured ? (
+        <TikTokManualPanel posts={[...scheduledPosts, ...publishedPosts]} />
+      ) : null}
 
       {/* ── Announce something — hand-written posts ── */}
       <section id="announce" className="mb-8 space-y-3">
@@ -1014,11 +1022,13 @@ function AutopilotStrip({
   settings,
   fbConfigured,
   igConfigured,
+  ttConfigured,
   loadFailed,
 }: {
   settings: PublishSettings;
   fbConfigured: boolean;
   igConfigured: boolean;
+  ttConfigured: boolean;
   loadFailed: boolean;
 }) {
   const fbChip = !settings.facebook_enabled
@@ -1032,6 +1042,13 @@ function AutopilotStrip({
     : igConfigured
       ? { label: 'Instagram · live', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Instagram · awaiting env', tone: 'bg-amber-100 text-amber-900' };
+  // TikTok (Phase C): live when a token is present (audited app), else the
+  // assisted-manual lane — the realistic pre-audit state.
+  const ttChip = !settings.tiktok_enabled
+    ? { label: 'TikTok · off', tone: 'bg-ink/8 text-ink/55' }
+    : ttConfigured
+      ? { label: 'TikTok · live', tone: 'bg-emerald-100 text-emerald-800' }
+      : { label: 'TikTok · assisted (audit pending)', tone: 'bg-amber-100 text-amber-900' };
 
   return (
     <section id="autopilot" className="mb-8 space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
@@ -1066,10 +1083,10 @@ function AutopilotStrip({
             {igChip.label}
           </span>
           <span
-            className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
-            title="TikTok publishing ships in Phase C — content-API audit pending."
+            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ttChip.tone}`}
+            title="TikTok posts the 9:16 card as a Photo Mode post. Auto-posting needs an audited app + a per-account token; until then, post manually from the TikTok panel."
           >
-            TikTok · Phase C — audit pending
+            {ttChip.label}
           </span>
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
             {settings.last_flush_at
@@ -1099,6 +1116,16 @@ function AutopilotStrip({
         </p>
       ) : null}
 
+      {settings.tiktok_enabled && !ttConfigured ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          TikTok auto-posting needs an audited app + OAuth token (
+          <span className="font-mono">TIKTOK_ACCESS_TOKEN</span>) + a verified{' '}
+          <span className="font-mono">PULL_FROM_URL</span> domain — see
+          API_Integration_Checklist #21c. Until then, post manually from the
+          cards below.
+        </p>
+      ) : null}
+
       {loadFailed ? (
         <p
           role="alert"
@@ -1110,9 +1137,11 @@ function AutopilotStrip({
       ) : null}
 
       {/* All four checkboxes live in the ONE form — updatePublishSettings
-          treats absent/unchecked as off. IG is LIVE now (Phase B); only
-          TikTok stays disabled (Phase C) — disabled checkboxes don't submit
-          → saved off, as intended. */}
+          treats absent/unchecked as off. FB + IG (Phase A/B) and TikTok
+          (Phase C) are all real toggles now. Enabling TikTok WITHOUT a token
+          doesn't auto-post — it turns on the assisted-manual lane below
+          (the audit-gated state); auto-post starts once TIKTOK_ACCESS_TOKEN
+          lands on an audited app. */}
       <form
         action={updatePublishSettings}
         className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ink/10 pt-4"
@@ -1145,15 +1174,14 @@ function AutopilotStrip({
           Instagram
         </label>
         <label
-          className="flex cursor-not-allowed items-center gap-2 text-xs text-ink/40"
-          title="TikTok publishing ships in Phase C — content-API audit pending."
+          className="flex items-center gap-2 text-xs text-ink/75"
+          title="On with a token (audited app) → auto-posts the 9:16 card. On without one → the assisted-manual lane."
         >
           <input
             type="checkbox"
             name="tiktok_enabled"
-            disabled
             defaultChecked={settings.tiktok_enabled}
-            className="h-4 w-4 rounded border-ink/20 accent-ink opacity-50"
+            className="h-4 w-4 rounded border-ink/30 accent-ink"
           />
           TikTok
         </label>
@@ -1161,6 +1189,98 @@ function AutopilotStrip({
           Save
         </button>
       </form>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TikTok assisted-manual panel (the pre-audit working surface)
+// ---------------------------------------------------------------------------
+
+/**
+ * TikTok — ready to post manually. Shown when tiktok_enabled is on but no
+ * account token is present yet (an unaudited client can only post privately,
+ * so we keep auto-posting inert). Each card is the 30-second manual-post
+ * affordance: the 9:16 STORY card preview, the caption in a selectable block
+ * (copy by selecting), and a "Download 9:16 card" link. The owner opens the
+ * TikTok app, attaches the downloaded card as a Photo post, pastes the caption.
+ */
+function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
+  // De-dupe (a post can be in both scheduled + published lists) and show the
+  // most recent handful — these are the posts that went (or will go) to FB/IG
+  // and the tiktok_enabled ones that need a manual TikTok push.
+  const seen = new Set<string>();
+  const items = posts
+    .filter((p) => (seen.has(p.post_id) ? false : (seen.add(p.post_id), true)))
+    .slice(0, 8);
+
+  return (
+    <section id="tiktok-manual" className="mb-8 space-y-3">
+      <div className="space-y-0.5">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          TikTok — ready to post manually · {items.length}
+        </h2>
+        <p className="text-xs text-ink/55">
+          Auto-posting is gated until the app is audited. Until then: download
+          the 9:16 card, open TikTok, attach it as a Photo post, paste the
+          caption. ~30 seconds each.
+        </p>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
+          Nothing to post yet — composed posts appear here with their 9:16 card
+          once the sweep has run.
+        </p>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {items.map((p) => (
+            <li key={p.post_id}>
+              <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+                <header className="flex items-start gap-3">
+                  {/* 9:16 STORY card preview — the exact image to attach. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={socialCardUrl(p.post_id, 'story')}
+                    alt=""
+                    width={45}
+                    height={80}
+                    className="shrink-0 rounded-md border border-ink/10 bg-cream object-cover"
+                    style={{ width: 45, height: 80 }}
+                  />
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="truncate text-sm font-semibold text-ink">
+                      {p.title || firstLine(p.body) || 'Untitled post'}
+                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      {SOURCE_LABEL[p.source_type] ?? p.source_type} · 9:16
+                    </p>
+                  </div>
+                  <SourceChip sourceType={p.source_type} />
+                </header>
+
+                {/* Caption in a selectable block — click selects all (CSS
+                    select-all), copy by hand. A readOnly <textarea> in a
+                    server component can't carry an onFocus handler, so the
+                    select-all utility does the one-click selection instead. */}
+                <pre className="max-h-40 select-all overflow-auto whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
+                  {p.body}
+                </pre>
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
+                  <a
+                    href={socialCardUrl(p.post_id, 'story')}
+                    download={`setnayan-tiktok-${p.post_id}.jpg`}
+                    className="button-primary inline-flex h-9 items-center px-3 text-xs"
+                  >
+                    Download 9:16 card
+                  </a>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

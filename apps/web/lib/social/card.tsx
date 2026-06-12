@@ -31,8 +31,12 @@ import sharp from 'sharp';
  * React-element-SHAPED objects but not real React, so the object form sidesteps
  * any pragma/transform friction while staying fully type-checked.
  *
- * SCOPE: static feed cards only (1080×1080). VIDEO / Reels cards (1080×1920)
- * are an explicit Phase B follow-on — not built here.
+ * SCOPE: static image cards in two formats — 1080×1080 SQUARE (Facebook /
+ * Instagram feed) and 1080×1920 STORY (the 9:16 card TikTok Photo Mode posts
+ * and the assisted-manual download surface uses · Phase C). Both share the same
+ * centered-column layouts; only the canvas height changes. Real VIDEO / Reels
+ * rendering (an actual MP4) stays OUT OF SCOPE — that needs a video render
+ * pipeline that isn't wired (// PHASE D in lib/social/tiktok.ts).
  */
 
 // ── Brand palette (literal hexes — mirror apps/web/app/globals.css) ──────────
@@ -77,7 +81,21 @@ const SATORI_FONTS = [
   { name: 'GreatVibes', data: FONT_SCRIPT, weight: 400 as const, style: 'normal' as const },
 ];
 
-const CARD_SIZE = 1080;
+/** The card canvas is always 1080 wide; only the height changes per format. */
+const CARD_WIDTH = 1080;
+const SQUARE_HEIGHT = 1080;
+const STORY_HEIGHT = 1920;
+
+/** Backwards-compatible alias — the square edge length used wherever the old
+ *  fixed 1080×1080 geometry referenced CARD_SIZE (composite math, fallback). */
+const CARD_SIZE = SQUARE_HEIGHT;
+
+/** Output format: square = 1080×1080 (FB/IG feed), story = 1080×1920 (9:16). */
+export type CardFormat = 'square' | 'story';
+
+function cardHeight(format: CardFormat): number {
+  return format === 'story' ? STORY_HEIGHT : SQUARE_HEIGHT;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Per-source-type card inputs.
@@ -527,15 +545,18 @@ function cardBody(ctx: CardContext): VNode {
   }
 }
 
-/** The full card tree: cream canvas + thin gold frame + body + wordmark. */
-function cardTree(ctx: CardContext): VNode {
+/** The full card tree: cream canvas + thin gold frame + body + wordmark. The
+ *  layout is identical across formats — only the canvas height changes; the
+ *  flexGrow:1 body region absorbs the extra height (story centres the body
+ *  lower), and the wordmark stays pinned to the bottom via space-between. */
+function cardTree(ctx: CardContext, format: CardFormat): VNode {
   return el(
     'div',
     {
       display: 'flex',
       flexDirection: 'column',
-      width: `${CARD_SIZE}px`,
-      height: `${CARD_SIZE}px`,
+      width: `${CARD_WIDTH}px`,
+      height: `${cardHeight(format)}px`,
       backgroundColor: CREAM,
       padding: '56px',
     },
@@ -580,21 +601,31 @@ function cardTree(ctx: CardContext): VNode {
 // Public renderer.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Width of the reserved monogram-composite slot (mirrors coupleCreationBody). */
+const MONOGRAM_SLOT = 420;
+
 /**
- * Render a 1080×1080 branded JPEG for a social post. satori builds the SVG
- * (explicit font buffers), sharp rasterizes it to JPEG. For couple_creation
- * cards that carry a custom monogram SVG, the path-based mark is rasterized
- * separately and composited over the satori card with a second sharp pass —
- * librsvg renders path-based monogram SVGs cleanly, and compositing keeps the
- * mark crisp without trying to inline arbitrary SVG into satori.
+ * Render a branded JPEG for a social post — `format` picks the canvas:
+ * 'square' = 1080×1080 (FB/IG feed · the default, byte-identical to before),
+ * 'story' = 1080×1920 (the 9:16 card TikTok Photo Mode posts). satori builds
+ * the SVG (explicit font buffers), sharp rasterizes it to JPEG. For
+ * couple_creation cards that carry a custom monogram SVG, the path-based mark
+ * is rasterized separately and composited over the satori card with a second
+ * sharp pass — librsvg renders path-based monogram SVGs cleanly, and
+ * compositing keeps the mark crisp without trying to inline arbitrary SVG into
+ * satori.
  *
  * Guards every field with a sensible default; the calling route still wraps
  * this in try/catch and serves a plain fallback card if anything throws.
  */
-export async function renderSocialCardJpeg(ctx: CardContext): Promise<Buffer> {
-  const svg = await satori(cardTree(ctx) as unknown as React.ReactNode, {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
+export async function renderSocialCardJpeg(
+  ctx: CardContext,
+  format: CardFormat = 'square',
+): Promise<Buffer> {
+  const height = cardHeight(format);
+  const svg = await satori(cardTree(ctx, format) as unknown as React.ReactNode, {
+    width: CARD_WIDTH,
+    height,
     fonts: SATORI_FONTS,
   });
 
@@ -604,13 +635,19 @@ export async function renderSocialCardJpeg(ctx: CardContext): Promise<Buffer> {
   if (ctx.sourceType === 'couple_creation' && ctx.monogramCustomSvg) {
     try {
       const markPng = await sharp(Buffer.from(ctx.monogramCustomSvg))
-        .resize(420, 420, { fit: 'contain', background: '#FAF7F2' })
+        .resize(MONOGRAM_SLOT, MONOGRAM_SLOT, { fit: 'contain', background: '#FAF7F2' })
         .png()
         .toBuffer();
-      // Slot geometry mirrors coupleCreationBody: 56 outer pad + 64 frame pad +
-      // ~80 (eyebrow + gap) above the 420 slot, horizontally centred.
-      const left = Math.round((CARD_SIZE - 420) / 2);
-      const top = 56 + 72 + 8 + 96; // outer pad + frame pad + spacer + eyebrow block
+      // Slot geometry mirrors coupleCreationBody. Horizontally the slot is
+      // always centred on the fixed 1080 width. Vertically, on the SQUARE card
+      // it sits at 56 outer pad + 72 frame pad + 8 spacer + ~96 (eyebrow + gap)
+      // above the 420 slot. The body column is justify-centered inside the
+      // flexGrow:1 region, so a TALLER canvas pushes that whole centred block
+      // DOWN by exactly half the added height — derive the story top from the
+      // square top + (height − square)/2 rather than hardcoding a 2nd magic px.
+      const left = Math.round((CARD_WIDTH - MONOGRAM_SLOT) / 2);
+      const squareTop = 56 + 72 + 8 + 96; // outer pad + frame pad + spacer + eyebrow block
+      const top = squareTop + Math.round((height - SQUARE_HEIGHT) / 2);
       pipeline = sharp(
         await pipeline.png().toBuffer(),
       ).composite([{ input: markPng, top, left }]);

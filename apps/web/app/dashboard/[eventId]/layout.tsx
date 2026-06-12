@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { getLocale, makeT } from '@/lib/i18n';
@@ -106,7 +107,7 @@ export default async function EventLayout({ children, params }: Props) {
   // layout — not the parent /dashboard/layout.tsx that #452 hardened.
   // Each fetcher wrapped in .catch() with safe defaults so one throw
   // can't crash the whole layout tree.
-  const [eventRes, unreadCount, unreadMessages, locale, switcherEvents, roles] = await Promise.all([
+  const [eventRes, unreadCount, unreadMessages, locale, switcherEvents, roles, profilePhotoUrl] = await Promise.all([
     (async () => {
       try {
         const fullSelect =
@@ -187,6 +188,26 @@ export default async function EventLayout({ children, params }: Props) {
         hasAdminAccess: false,
         vendorProfiles: [],
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
+    }),
+    // Account profile photo for the (I) avatar (owner directive 2026-06-12:
+    // the avatar is the ACCOUNT's photo, never the event logo — reverses the
+    // 2026-06-03 avatar-IS-event-logo lock). Presigned display URL resolved
+    // server-side; degrades to null (initial fallback) on any error.
+    (async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('profile_photo_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return displayUrlForStoredAsset(data?.profile_photo_url);
+    })().catch((err: unknown) => {
+      logQueryError(
+        'EventLayout (profile photo threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return null;
     }),
   ]);
   // Log silent SELECT errors before falling through to notFound().
@@ -275,15 +296,12 @@ export default async function EventLayout({ children, params }: Props) {
           ariaBaseLabel={tr('nav.notifications')}
           ariaUnreadSuffix="unread"
         />
+        {/* (I) avatar = the ACCOUNT's profile photo (or initial fallback) —
+            owner directive 2026-06-12. The event's monogram/logo belongs to
+            the event only and lives on the EventSwitcher chip at left. */}
         <ProfileMenu
           email={user.email ?? ''}
-          monogram={{
-            display_name: event.display_name,
-            monogram_text: event.monogram_text,
-            monogram_color: event.monogram_color,
-            monogram_frame_key: event.monogram_frame_key,
-            monogram_font_key: event.monogram_font_key,
-          }}
+          photoUrl={profilePhotoUrl}
           ariaLabel={tr('common.profile')}
         />
       </div>

@@ -15,6 +15,8 @@ import { CONCIERGE_ENABLED } from '@/lib/concierge';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
@@ -102,6 +104,17 @@ export default async function ProfilePage({ searchParams }: Props) {
       { user_id: user.id },
       'graceful_degrade',
     );
+  }
+
+  // Presigned display URL for the existing profile photo so the <FileUpload>
+  // thumbnail renders on first paint (legacy http(s) values pass through and
+  // need no map entry — the component falls back to the raw value for those).
+  const photoDisplayMap: Record<string, string> = {};
+  if (profile?.profile_photo_url?.startsWith('r2://')) {
+    const url = await displayUrlForStoredAsset(profile.profile_photo_url).catch(
+      () => null,
+    );
+    if (url) photoDisplayMap[profile.profile_photo_url] = url;
   }
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
@@ -227,14 +240,28 @@ export default async function ProfilePage({ searchParams }: Props) {
                 className="input-field"
               />
             </Field>
-            <Field label="Profile photo URL" htmlFor="profile_photo_url">
-              <input
-                id="profile_photo_url"
+            {/* Profile photo upload (owner directive 2026-06-12: the account
+                avatar is the account's OWN photo, never the event logo —
+                this replaces the "file upload ships later" URL input). Same
+                R2 presigned-PUT pipeline as the vendor logo. No watermark:
+                the 2026-05-21 watermark directive covers marketplace photos,
+                not account identity. Clearing the photo emits no hidden
+                input → updatePersonalInfo nulls the column → avatar falls
+                back to the account initial. */}
+            <Field
+              label="Profile photo"
+              htmlFor="profile_photo_url"
+              help="Shown as your account avatar across the app. PNG / JPG / WebP, up to 2 MB."
+            >
+              <FileUpload
+                bucket="media"
+                pathPrefix={`profile-photo/${user.id}`}
                 name="profile_photo_url"
-                type="url"
-                defaultValue={profile?.profile_photo_url ?? ''}
-                placeholder="https://… (file upload ships later)"
-                className="input-field"
+                currentValue={profile?.profile_photo_url ?? null}
+                initialDisplayUrls={photoDisplayMap}
+                maxSizeMB={2}
+                acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                variant="square"
               />
             </Field>
           </div>

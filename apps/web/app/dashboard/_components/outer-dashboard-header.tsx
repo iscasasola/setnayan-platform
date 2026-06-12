@@ -56,6 +56,9 @@ type PrimaryEventData = {
 type Props = {
   userId: string;
   email: string;
+  /** Presigned display URL of the ACCOUNT's profile photo (owner directive
+      2026-06-12: avatar = account photo, never the event logo). */
+  photoUrl: string | null;
   unreadCount: number;
   primaryEvent: PrimaryEventData | null;
   switcherEvents: SwitcherEvent[];
@@ -67,6 +70,7 @@ type Props = {
 export function OuterDashboardHeader({
   userId,
   email,
+  photoUrl,
   unreadCount,
   primaryEvent,
   switcherEvents,
@@ -107,21 +111,12 @@ export function OuterDashboardHeader({
     />
   );
 
-  // Upper-right avatar = the primary event's logo (the couple's framed
-  // onboarding monogram), owner-locked 2026-06-03 "the avatar IS the event's
-  // logo". A customer can host many events but has only one account photo, so
-  // the per-event logo — anchored to the same primary event the switcher uses —
-  // is the right identity here. ProfileMenu falls back to the account initial
-  // when there's no event or the event has no designed monogram.
-  const profileMonogram = primaryEvent
-    ? {
-        display_name: primaryEvent.display_name,
-        monogram_text: primaryEvent.monogram_text,
-        monogram_color: primaryEvent.monogram_color,
-        monogram_frame_key: primaryEvent.monogram_frame_key,
-        monogram_font_key: primaryEvent.monogram_font_key,
-      }
-    : null;
+  // Upper-right avatar = the ACCOUNT's profile photo (owner directive
+  // 2026-06-12, REVERSING the 2026-06-03 "the avatar IS the event's logo"
+  // lock: "each account should have their account profile photo and not the
+  // event logo. event logo is for the event only."). The event's monogram
+  // identity lives ONLY on the EventSwitcher chip; ProfileMenu falls back
+  // to the account initial when no photo is uploaded.
 
   return (
     <>
@@ -148,7 +143,7 @@ export function OuterDashboardHeader({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
+            <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
           </div>
         </div>
       </header>
@@ -197,7 +192,7 @@ export function OuterDashboardHeader({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
+            <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
           </div>
         </div>
       </nav>

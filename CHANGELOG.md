@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(profile): account avatar = the account's own profile photo, never the event logo
+
+**Context:** owner directive (follow-up to the unified switcher) — "each account should have their account profile photo and not the event logo. event logo is for the event only. and their profile should be for their account." This REVERSES the 2026-06-03 owner lock "the avatar IS the event's logo": the (I) avatar in the dashboard chrome had been rendering the primary event's framed onboarding monogram.
+
+- **`ProfileMenu` is account-identity only:** the `monogram` override prop is removed; the avatar renders the account's uploaded photo (`users.profile_photo_url`, presigned) or falls back to the email initial. The event's monogram/logo now lives ONLY on the EventSwitcher chip.
+- **Real photo upload on /dashboard/profile:** the "Profile photo URL (file upload ships later)" text input is replaced with the shared `<FileUpload>` (R2 presigned-PUT pipeline, `media` bucket under `profile-photo/{userId}`, PNG/JPG/WebP ≤2 MB, square variant, NO watermark — the 2026-05-21 watermark directive covers marketplace photos, not account identity). `updatePersonalInfo` already persisted `profile_photo_url`; clearing the upload nulls the column → initial fallback.
+- **Chrome wiring:** `/dashboard/[eventId]/layout.tsx` fetches + presigns the account photo in its defensive `Promise.all`; `/dashboard/layout.tsx` adds `profile_photo_url` to its users select and passes the presigned URL through `OuterDashboardHeader` (new `photoUrl` prop) to both ProfileMenu mounts. No schema change — `users.profile_photo_url` existed since the 0000 shell schema.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` green. Auth-gated — visual check on prod (upload a photo on /dashboard/profile, confirm avatar) after merge.
+
+**SPEC IMPACT:** Reverses the 2026-06-03 "avatar IS the event's logo" decision-log lock (owner-directed) — logged as a DECISION_LOG.md row 2026-06-12. 0025 profile-settings spec's Profile tab gains the photo-upload reality; re-sync rides the AS-BUILT correction program.
+
 ## 2026-06-12 · feat(nav): unified switcher — one switcher for events + Customer / Shop / Setnayan HQ doorways
 
 **Context:** owner directive — "our mobile and desktop has multiple switcher; we want this to be a single switcher. Switcher to enter as a customer, Setnayan team, Vendor and the events the account holds." The chrome had drifted into TWO switcher systems: the monogram-caret `EventSwitcher` (events + its own vendor/admin rows) and the standalone `RoleSwitchPill` (mobile topBar on vendor/admin + desktop sidebar footer on all three doorways) — on a vendor/admin phone both affordances were visible at once.

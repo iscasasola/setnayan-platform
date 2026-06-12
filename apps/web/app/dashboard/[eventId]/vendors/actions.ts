@@ -33,6 +33,11 @@ import {
   fetchSlotsForCoupleBooking,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
+import {
+  acquireSchedulePools,
+  releaseSchedulePools,
+  resolvePoolIdsForService,
+} from '@/lib/schedule-pools';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -217,20 +222,84 @@ export async function updateVendorStatus(formData: FormData) {
   if (!user) redirect('/login');
 
   // Snapshot the prior state so we can detect the "first-time delivered"
-  // transition that triggers the review-request notification below.
+  // transition that triggers the review-request notification below, and
+  // the white→BOOKED capacity transition for the schedule-pool gate.
   const { data: prev } = await supabase
     .from('event_vendors')
-    .select('status, vendor_name')
+    .select('status, vendor_name, marketplace_vendor_id, service_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // ── Schedule-pool gate (owner lock 2026-06-12) ─────────────────────────
+  // White (considering..contracted) is unlimited and consumes nothing; only
+  // BOOKED (deposit_paid/delivered/complete) consumes pool capacity. The
+  // acquire fires BEFORE the status write so a full/closed date blocks the
+  // flip atomically (the RPC holds the pool row locks); the reverse
+  // transition releases via released_at status-flip — never a DELETE.
+  // Off-platform vendors (no marketplace_vendor_id) and rows without a
+  // booked service degrade open — no shared scheduling primitive.
+  const prevRow = prev as {
+    status?: VendorStatus;
+    vendor_name?: string;
+    marketplace_vendor_id?: string | null;
+    service_id?: string | null;
+  } | null;
+  const wasConsuming = prevRow?.status
+    ? DOWNPAID_STATUSES.has(prevRow.status)
+    : false;
+  const willConsume = DOWNPAID_STATUSES.has(status);
+  if (
+    !wasConsuming
+    && willConsume
+    && prevRow?.marketplace_vendor_id
+    && prevRow.service_id
+  ) {
+    const poolIds = await resolvePoolIdsForService(
+      supabase,
+      prevRow.marketplace_vendor_id,
+      prevRow.service_id,
+    );
+    if (poolIds.length > 0) {
+      const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
+      if (acq.status === 'full') {
+        throw new Error(
+          `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before marking the deposit paid.`,
+        );
+      }
+      if (acq.status === 'blocked') {
+        throw new Error(
+          "The vendor has closed this date on their calendar — message them before marking the deposit paid.",
+        );
+      }
+      if (acq.status === 'error') {
+        throw new Error(acq.message);
+      }
+      // 'ok' | 'no_date' | 'no_pools' | 'not_authorized' fall through:
+      // no_date/no_pools = degrade open (eventual-consistency doctrine);
+      // not_authorized can't happen past the RLS-gated reads above.
+    }
+  }
 
   const { error } = await supabase
     .from('event_vendors')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // The acquire above may have consumed pools for a status flip that
+    // never landed — free them so the date isn't phantom-held.
+    if (!wasConsuming && willConsume) {
+      await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+    }
+    throw new Error(error.message);
+  }
+
+  // BOOKED → white downgrade frees the date (status-flip, never DELETE).
+  // Best-effort: the visible status change already succeeded.
+  if (wasConsuming && !willConsume) {
+    await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+  }
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
@@ -269,13 +338,30 @@ export async function deleteVendor(formData: FormData) {
   if (!user) redirect('/login');
 
   // Read the category before deleting so we know whether removing this pick
-  // frees the reception "ground 0" anchor (CLAUDE.md 2026-06-02 directive 3).
+  // frees the reception "ground 0" anchor (CLAUDE.md 2026-06-02 directive 3),
+  // and the status for the booked-row guard below.
   const { data: removing } = await supabase
     .from('event_vendors')
-    .select('category')
+    .select('category, status')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // Booked rows (deposit_paid+) can't be hard-deleted from the tracker —
+  // money has moved and the row holds live schedule-pool reservations.
+  // Route through the cancel/dispute flow instead (2026-06-04 conflict
+  // audit finding #6; owner status-flip lock 2026-06-12).
+  const removingStatus = (removing as { status?: VendorStatus } | null)?.status;
+  if (removingStatus && DOWNPAID_STATUSES.has(removingStatus)) {
+    throw new Error(
+      'This vendor is already booked (downpayment recorded). Use the cancel flow on their workspace page instead of deleting.',
+    );
+  }
+
+  // Defensive release of any stray live pool reservations before the row
+  // goes away (a hard delete would CASCADE them silently — release first
+  // so the date frees with an auditable reason).
+  await releaseSchedulePools(supabase, vendorId, 'host_cancelled');
 
   const { error } = await supabase
     .from('event_vendors')
@@ -2484,6 +2570,12 @@ export async function cancelBookingAsHost(
         (profileRow as { user_id: string | null }).user_id ?? null;
     }
   }
+
+  // Free any stray live schedule-pool reservations with an auditable
+  // reason BEFORE the row delete cascades them away. Pre-payment rows
+  // normally hold none (white never consumes — owner lock 2026-06-12),
+  // so this is belt-and-suspenders for downgrade leftovers. Best-effort.
+  await releaseSchedulePools(supabase, vendorIdRaw, 'host_cancelled');
 
   // PRIMARY ACTION — hard-delete the event_vendors row. RLS enforces
   // host-on-event membership. If the row vanished between our read and

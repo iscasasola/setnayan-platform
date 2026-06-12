@@ -71,6 +71,8 @@ export default async function SeatingPage({ params }: Props) {
       seat_number: seat?.seat_number ?? null,
       role: g.role,
       group_category: g.group_category,
+      meal_preference: g.meal_preference,
+      dietary_restrictions: g.dietary_restrictions,
     };
   });
 

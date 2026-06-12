@@ -67,6 +67,7 @@ import {
   updateTablePosition,
   updateTableRotation,
 } from '../actions';
+import { useSeatingPresence } from './use-seating-presence';
 
 export type SeatingGuest = {
   guest_id: string;
@@ -96,6 +97,8 @@ type Props = {
   guests: SeatingGuest[];
   groups: SeatingGroup[];
   floorPlan: FloorPlanRow;
+  // Who I am, for live presence (cursors + "editing Table N" rings).
+  me: { id: string; name: string };
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -119,6 +122,7 @@ export function SeatingEditor({
   guests: guestsProp,
   groups,
   floorPlan,
+  me,
 }: Props) {
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
   // server action revalidates and these reconcile to the authoritative data.
@@ -281,6 +285,11 @@ export function SeatingEditor({
   // Link-mode: started from a table's popup; the NEXT table tapped on the
   // canvas joins it into one named unit (identity + QR only).
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
+  // Live presence: who else is in this seat plan, which table they have
+  // selected, and their cursor on the canvas (Supabase Realtime).
+  const { peers, sendCursor } = useSeatingPresence(eventId, me, highlightId);
+  const peerList = [...peers.values()];
+  const peerOnTable = (tableId: string) => peerList.find((p) => p.table === tableId) ?? null;
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   // The spatial chair canvas can't hold many tables on a phone, so small
@@ -916,6 +925,13 @@ export function SeatingEditor({
     if (pointersRef.current.has(e.pointerId)) {
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
+    // Live presence: share my cursor in world coords (throttled in the hook).
+    if (rect && rect.width > 0) {
+      sendCursor(
+        (((e.clientX - rect.left - panRef.current.x) / zoomRef.current) / rect.width) * 100,
+        (((e.clientY - rect.top - panRef.current.y) / zoomRef.current) / rect.height) * 100,
+      );
+    }
     // 0) two-finger rotate of a table — Δangle between the two pointers, with
     // a ~6° dead-zone so a pinch that brushes a table doesn't nudge it. Live
     // preview through rotById (snapped to 15°); committed once on release.
@@ -1509,6 +1525,17 @@ export function SeatingEditor({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <ul className="flex flex-wrap gap-2 text-[11px]">
+            {peerList.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-cream"
+                style={{ backgroundColor: p.color }}
+                title={p.table ? `${p.name} is editing ${tableLabelById.get(p.table) ?? 'a table'}` : `${p.name} is here`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-cream/90" />
+                {p.name}
+              </li>
+            ))}
             <Pill>{tables.length} tables</Pill>
             <Pill>
               {seatedCount}/{totalCapacity} seated
@@ -1850,6 +1877,29 @@ export function SeatingEditor({
             />
           ) : null}
 
+          {/* live peer cursors (presence) — fade out after 5s of stillness */}
+          {peerList.map((p) =>
+            p.cursor && Date.now() - p.cursor.ts < 5000 ? (
+              <div
+                key={p.id}
+                aria-hidden
+                className="pointer-events-none absolute z-[35] -translate-x-1/2 -translate-y-1/2"
+                style={{ left: `${p.cursor.x}%`, top: `${p.cursor.y}%` }}
+              >
+                <span
+                  className="block h-2.5 w-2.5 rounded-full border-2 border-cream shadow-sm"
+                  style={{ backgroundColor: p.color }}
+                />
+                <span
+                  className="absolute left-3 top-2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-cream shadow-sm"
+                  style={{ backgroundColor: p.color }}
+                >
+                  {p.name}
+                </span>
+              </div>
+            ) : null,
+          )}
+
           {/* dance-floor zone — a draggable, resizable no-table area. Rendered
               under the tables so it reads as floor, not furniture. */}
           {dance.enabled ? (
@@ -2049,6 +2099,30 @@ export function SeatingEditor({
                     }}
                   />
                 ) : null}
+
+                {/* presence ring — someone else has this table selected */}
+                {(() => {
+                  const peer = peerOnTable(t.table_id);
+                  if (!peer) return null;
+                  return (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed"
+                      style={{
+                        width: geo.hub.w + 18,
+                        height: geo.hub.h + 18,
+                        borderColor: peer.color,
+                      }}
+                    >
+                      <span
+                        className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-cream"
+                        style={{ backgroundColor: peer.color }}
+                      >
+                        {peer.name}
+                      </span>
+                    </span>
+                  );
+                })()}
 
                 {/* serpentine ribbon body (curved table) — drawn behind the
                     chairs, and itself the drag handle */}

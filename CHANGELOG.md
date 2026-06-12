@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(seating): live presence — who's here, "editing Table N" rings, live cursors (0008)
+
+**Context:** Owner-approved 2026-06-11 modernity decision ("Yes — add it"): live presence on the stack we already pay for (Supabase Realtime; NOT full CRDT — overkill for an async editor). Closes the Prismm vendor-collaboration gap; the cheapest yard of genuine modernity. First arc after the completed Phase 1 editor redesign.
+
+- **`use-seating-presence.ts` (NEW hook):** one channel per event (`seating-presence:{eventId}` — same convention as `wall:{eventId}`). Presence API carries `{name, selected table}` (re-tracked on selection change); **cursors ride broadcast, throttled to ~12 msgs/s**, in canvas-percent coords. Payloads = first name + cursor % only (no guest/event data). Private-channel `realtime.messages` RLS hardening = planned follow-up alongside the wall channel.
+- **Editor:** `me` prop (id + display name from the server page) · my cursor broadcasts from the canvas move handler (world coords) · **peer cursors** render in the world layer (colored dot + name chip, fade after 5s of stillness) · **"editing Table N" dashed ring + name tag** on a table another person has selected (deterministic per-user color, same earthy ramp as guest groups) · **who's-here pills** in the stats row with a tooltip naming their selected table.
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass. Live behavior needs two sessions — verify with two browsers on the Vercel preview (couple + the test account). No schema change, no new vendor, no new bill.
+
+**SPEC IMPACT:** 0008 editor gains real-time presence (couple + planner/vendor co-presence). New capability beyond the spec (owner-approved modernity move) → corpus `DECISION_LOG` note rides the seat-plan program row.
+
 ## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
 
 **Context:** Owner 2026-06-10 — "tables can link together to be named as 1 table"; depth owner-locked = **identity + QR only** (shared name/number, one printed QR sign, one find-my-seat entry; seating math stays per-table — a shared capacity pool is a future enhancement). The LAST Phase 1 slice.

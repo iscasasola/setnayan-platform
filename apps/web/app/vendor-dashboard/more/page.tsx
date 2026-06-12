@@ -52,6 +52,8 @@ const DESCRIPTIONS: Record<string, string> = {
     'Active and pending bookings. Soft-hold, downpaid, delivered, and cancelled — all in one stream.',
   contracts:
     'Contracts you upload for your booked hosts. Setnayan hosts the PDFs; signatures stay between you and the couple.',
+  proposals:
+    'Auto-filled proposals for booked clients — saved templates merge the couple\u2019s live event details into a printable quote.',
   services:
     'The services + packages you offer. Pricing, inclusions, and what hosts see on your public profile.',
   repertoire:

@@ -806,7 +806,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   cotton_candy_cart:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
   charcuterie_board:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
   mini_lechon_station:               { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6', ph: true },
-  donut_wall_display:                { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  donut_wall_display:                { folder: 'booths', tile: 'dessert', phase: 'V1.1.6' },
   sorbetes_cart:                     { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6', ph: true },
   food_cart_generic:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
   // Photo / tech booths (booth-type facet)
@@ -816,6 +816,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   booth_360:                         { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   selfie_magic_mirror:               { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   setnayan_patiktok:                 { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true },
+  pabati:                            { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true },
   arcade_retro_games:                { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
   vr_ar_station:                     { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
   // Wellness / beauty booths

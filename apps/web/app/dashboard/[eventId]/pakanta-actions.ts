@@ -1,32 +1,24 @@
 /**
- * Pakanta wizard card · server actions.
+ * Pakanta · server action for the music-preference intake.
  *
- * Iteration 0036 Pakanta · Wizard Card 17 (order 9.7 · style_identity phase).
+ * Iteration 0036 Pakanta. REWORKED 2026-06-13: the retired wizard card that
+ * re-asked the couple's love story was deleted (#1320); the song is now
+ * composed from the ONBOARDING love story (events.love_story → lib/pakanta-
+ * brief.ts). So this intake only collects the MUSIC top-up the love story
+ * doesn't have — what they call each other, each side's favourite singer, the
+ * music type (+ optional extra wishes). Consumed by the dedicated couple page
+ * at /dashboard/[eventId]/add-ons/pakanta (PakantaMusicForm).
  *
- * Owner directive 2026-05-25 (CLAUDE.md decision-log) · the wizard card
- * collects an 8-question intake BEFORE the host commits to a Pakanta
- * tier. Both CTAs persist the same draft row in `pakanta_intake_drafts`
- * keyed by event_id:
+ * Both CTAs persist the same draft row in `pakanta_intake_drafts` keyed by
+ * event_id (admin reads it on the /admin/pakanta queue):
  *
- *   [Skip for now]   → saves draft · marks wizard task in_flight · host
- *                       stays on event home · the row surfaces in the
- *                       IN-FLIGHT TRAY for later return.
- *   [Lock in Pakanta — ₱1,999]
- *                    → saves draft with status='purchase_pending' · marks
- *                       wizard task in_flight (commit lands when the
- *                       order is paid) · returns redirect URL to
- *                       /dashboard/[eventId]/orders/new?service=pakanta_basic
+ *   [Save for later] → status='draft' · stays on the page.
+ *   [Continue to payment] → status='purchase_pending' · returns the redirect
+ *                       URL to /dashboard/[eventId]/orders/new?service=pakanta_basic
  *
- * Sibling file to wizard-actions.ts to keep that file from growing past
- * 1500 lines · the existing markTaskInFlight/markTaskDone primitives are
- * reused by composition.
- *
- * Per [[feedback_setnayan_orphan_prevention]] · both actions are consumed
- * by the inline PakantaIntakeForm client component.
- *
- * Per [[feedback_setnayan_document_changes_with_why]] · the table this
- * writes to lives in supabase/migrations/20260625000000_iteration_0036_
- * pakanta_intake_drafts.sql · status enum + RLS + WHY all there.
+ * Table: supabase/migrations/20260626000000_iteration_0036_pakanta_intake_
+ * drafts.sql (status enum + host/admin RLS). No new migration — the responses
+ * JSONB shape is unchanged; only which fields are required changed.
  */
 
 'use server';
@@ -34,33 +26,6 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import {
-  parseWizardState,
-  type WizardState,
-  type WizardTaskId,
-} from '@/lib/wizard';
-
-/**
- * Local copy of the wizard_state merge helper that lives privately in
- * wizard-actions.ts. Inlined here (vs imported) because wizard-actions.ts
- * exports `'use server'` actions only · its module-internal helpers
- * cannot be re-exported. Same shape · same semantics.
- */
-function setTaskInFlight(
-  prior: WizardState,
-  taskId: WizardTaskId,
-  extra: Record<string, unknown> = {},
-): WizardState {
-  const priorEntry = prior[taskId] ?? {};
-  return {
-    ...prior,
-    [taskId]: {
-      ...priorEntry,
-      ...extra,
-      in_flight_since: new Date().toISOString(),
-    },
-  };
-}
 
 export type PakantaIntakeResponses = {
   how_you_met: string;
@@ -77,22 +42,21 @@ export type SavePakantaIntakeResult =
   | { ok: true; redirectTo: string | null }
   | { ok: false; error: string; fieldErrors?: Partial<Record<keyof PakantaIntakeResponses, string>> };
 
-// Story fields require ≥10 chars per owner spec quality bar — short enough
-// to land "we met last year" without forcing essays, long enough to filter
-// blank/space-only submissions. Singer + music-type are single-line so we
-// only require non-empty trimmed strings.
-const STORY_MIN_LEN = 10;
-const STORY_FIELDS: ReadonlyArray<keyof PakantaIntakeResponses> = [
-  'how_you_met',
-  'engagement_story',
-  'memorable_story',
+// The love story (how they met, the proposal, milestones, tone) now comes
+// from the onboarding `events.love_story` — the song is composed from that one
+// interview (see lib/pakanta-brief.ts). So this intake only collects the
+// MUSIC top-up: what they call each other + each side's favourite singer +
+// the music type. All four are required on purchase; the two free-text "extra
+// story" fields are optional sugar the composer folds in when present.
+const REQUIRED_FIELDS: ReadonlyArray<keyof PakantaIntakeResponses> = [
   'pet_names',
-  'story_to_add',
-];
-const SINGLE_LINE_FIELDS: ReadonlyArray<keyof PakantaIntakeResponses> = [
   'groom_favorite_singer',
   'bride_favorite_singer',
   'music_type',
+];
+const OPTIONAL_FIELDS: ReadonlyArray<keyof PakantaIntakeResponses> = [
+  'memorable_story',
+  'story_to_add',
 ];
 
 function readResponses(
@@ -118,12 +82,7 @@ function readResponses(
   };
 
   const fieldErrors: Partial<Record<keyof PakantaIntakeResponses, string>> = {};
-  for (const field of STORY_FIELDS) {
-    if (responses[field].length < STORY_MIN_LEN) {
-      fieldErrors[field] = `Please share at least ${STORY_MIN_LEN} characters.`;
-    }
-  }
-  for (const field of SINGLE_LINE_FIELDS) {
+  for (const field of REQUIRED_FIELDS) {
     if (responses[field].length === 0) {
       fieldErrors[field] = 'Please fill this in.';
     }
@@ -157,9 +116,9 @@ export async function savePakantaIntake(
   // is meaningful (no all-blank rows); the owner spec doesn't make Skip
   // a zero-validation path — it's "Save & continue later", not "Cancel".
   if (intent === 'skip') {
-    const anyContent =
-      STORY_FIELDS.some((f) => responses[f].length > 0) ||
-      SINGLE_LINE_FIELDS.some((f) => responses[f].length > 0);
+    const anyContent = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS].some(
+      (f) => responses[f].length > 0,
+    );
     if (!anyContent) {
       return {
         ok: false,
@@ -167,7 +126,8 @@ export async function savePakantaIntake(
       };
     }
   } else {
-    // Purchase intent · all 8 fields must validate.
+    // Purchase intent · the four music fields must validate (the story comes
+    // from the onboarding love_story, so it isn't re-collected here).
     if (Object.keys(fieldErrors).length > 0) {
       return { ok: false, error: 'Some answers need a little more.', fieldErrors };
     }
@@ -198,37 +158,7 @@ export async function savePakantaIntake(
     return { ok: false, error: upsertErr.message };
   }
 
-  // Mark the wizard task in_flight either way · purchase advances when
-  // the order is paid (handled by the existing orders flow's downstream
-  // markTaskDone hook), skip advances on the host's next return when
-  // they mark done from the IN-FLIGHT TRAY.
-  const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
-    .select('wizard_state')
-    .eq('event_id', eventIdRaw)
-    .maybeSingle();
-  if (priorErr) {
-    return { ok: false, error: priorErr.message };
-  }
-  if (!priorRow) {
-    return { ok: false, error: 'Event not found' };
-  }
-
-  const priorWizardState = parseWizardState(priorRow.wizard_state);
-  const newWizardState = setTaskInFlight(priorWizardState, 'pakanta', {
-    last_saved_at: new Date().toISOString(),
-    intent,
-  });
-
-  const { error: updateErr } = await supabase
-    .from('events')
-    .update({ wizard_state: newWizardState })
-    .eq('event_id', eventIdRaw);
-  if (updateErr) {
-    return { ok: false, error: updateErr.message };
-  }
-
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  revalidatePath(`/dashboard/${eventIdRaw}/add-ons/pakanta`);
 
   const redirectTo =
     intent === 'purchase'

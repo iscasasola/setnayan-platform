@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-11 · feat(seating): Phase 1f — linked tables: combine into ONE named table (0008) · editor redesign COMPLETE
+
+**Context:** Owner 2026-06-10 — "tables can link together to be named as 1 table"; depth owner-locked = **identity + QR only** (shared name/number, one printed QR sign, one find-my-seat entry; seating math stays per-table — a shared capacity pool is a future enhancement). The LAST Phase 1 slice.
+
+- **Migration `20261115000000_iteration_0008_linked_tables.sql`** (additive · idempotent · **applied to prod via `db query`**, 2 columns + partial index verified): `event_tables.link_group_id UUID` + `link_group_label TEXT`.
+- **Actions:** `linkTables` (links two tables — merging existing groups; the unit keeps the FIRST table's identity) · `unlinkTable` (dissolves the whole unit from any member) · `updateTableLabel` now **syncs `link_group_label` across the group on rename** (renaming a linked table renames the unit).
+- **Editor:** popup gains **Link** (tap → guidance bar "tap another table to combine" → next table tap links) / **Unlink** on linked tables — both popup surfaces (popover + phone sheet). Linked tables render under the **unit's name** (hub number from `link_group_label`) with a `Link2` glyph in the sidebar + list view.
+- **Print pack:** linked tables emit **ONE sign per unit** (shared label · the LEAD table's QR · combined seated count); the directory shows "(N tables joined)" and place cards carry the unit label. Unlinked tables = single-member units (unchanged output).
+
+**Verification:** `tsc` + `next lint` clean · 20/20 seating-logic tests pass · migration applied + verified on prod.
+
+**SPEC IMPACT:** Completes the owner's 2026-06-10 editor-redesign spec (popup · rename · seat Guest/Group/Role · two-finger rotate + handle · resizable walls/stage · dance floor · service entrance · snap/guides · linked tables). Covered by the corpus `DECISION_LOG` 2026-06-11 seat-plan row ("linked-tables = identity+QR only V1" was pre-logged there); find-my-seat consumes the one-entry-per-unit contract when it ships.
+
 ## 2026-06-11 · feat(seating): Phase 1e — snap-grid + alignment guides (0008)
 
 **Context:** Owner 2026-06-10 — drag/drop "feels pro" polish (the last Phase 1 interaction slice before linked tables). Layered ONTO the existing `nearestFree` collision, not replacing it.

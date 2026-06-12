@@ -99,6 +99,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** all 45 statements applied clean to prod; RPC presence + 6 enum labels + constraint set verified via `db query`. Schema-only PR — no app behavior change until PR 2 wires `finalizeVendor`/cancel paths and PR 3 ships the vendor Calendar/Clients surfaces.
 
 **SPEC IMPACT:** corpus architecture doc §4/§5a/§10/§11 + DECISION_LOG 2026-06-12 row (landed in the same owner session that locked the rules); memory `project_setnayan_booking_ruleset` updated.
+## 2026-06-12 · fix(onboarding): refinement photo accuracy pass — 42 images regenerated + Reception leaf gets its own header
+
+**Context:** owner asked to verify every taxonomy refinement photo depicts the labeled offering. Full audit of all 251 DB-referenced onboarding refinement images (38 tiles: leaf `_main` headers + option cards) against `onboarding_refinements` / `onboarding_refinement_options` labels.
+
+**What changed (42 .webp files under `apps/web/public/onboarding/`, same paths so no DB changes for 41 of them):**
+- **6 outright-wrong images replaced:** `hmua/traditional` (showed heirloom accessories, zero makeup) · `food_cart/halo-halo` (western parfait, not halo-halo) · `performers/folk-dancers` (terno exhibit, nobody dancing → now tinikling mid-performance) · `photo_booth/360-booth` (no rotating arm → now platform + boom arm) · `printing/save-the-date` (keepsake calendar with garbled text → clean "Save the date" card) · `guest_shuttle/56-pax-coaster` (full-size coach indistinguishable from 48-pax sibling → now a true Coaster-style minibus).
+- **8 garbled-AI-text images replaced** (gibberish lettering at focal point): `printing/signage` (now legible "WELCOME") · `photo_video/_main` · `photo_booth/_main` · `choreographer/_main` · `coordinator/destination` · `coordinator/full-service` · `coordinator/month-of` · `catering/halal`.
+- **28 unclear/confusable images replaced** — PH-authenticity upgrades (`food_cart/sorbetes` now the iconic painted pushcart · `food_truck/filipino-street-food` now fishballs/kwek-kwek/banana cue · `souvenirs/native-filipino` now abaca fans + bayong + capiz · `henna/philippine-muslim` now Tausug/Maranao-style with dyed fingertips and okir motifs · `cuisine_filipino` now lechon-centered · `wedding_singer/opm` + `dj/opm` now parol-decorated) · sibling-confusion fixes (`groom_attire/classic-suit` + `slim-fit-suit` no longer read as three-piece · `dessert/pastries` no longer cupcake-like · `bride_attire/a-line` full silhouette · `choir/string-quartet` now exactly four players · `dj/k-pop` lightstick staging · `mobile_bar/beer-wine` shows both · `mocktail/dessert` + `mobile_bar/mocktail-only` purged of alcohol bottles) · clarity fixes (`filipiniana/jusi`, `coffee/both`, `stylist/themed`, `performers/rondalla`, `setting_events_place`, `cuisine_fusion`, `cuisine_spanish`, `wedding_singer/ballads`, `bridal_car/motorcycle-escort`, `photo_booth/gif`, `coordinator/partial`).
+- **New `refinements/reception/_main.webp`** + migration `20261126000000_reception_refinement_main_photo.sql`: the Reception leaf's `main_photo` previously reused `/onboarding/prefs/setting_ballroom.webp` — the exact file on its own "Hotel ballroom" option card.
+
+**Pipeline:** Recraft v3 `realistic_image` @1365×1024 → LANCZOS downscale to the existing 480×360 (options) / 900×675 (leaf mains) → WEBP q82. Every replacement visually verified (2 retry rounds for vest/bottle/text/mirror failure modes).
+
+**Verification:** static assets only + one idempotent data UPDATE; all 42 replacements eyeballed against labels; 209 of 251 audited images judged accurate and left untouched.
+
+**SPEC IMPACT:** Corpus DECISION_LOG row (photo-accuracy audit, 2026-06-12). Owner flag: the `guest_shuttle` option label "56-pax coaster" is implausible — a Toyota Coaster seats ~29; label fix needs an owner call (photo now shows a real Coaster).
 
 ## 2026-06-12 · feat(vendors): Compare — available wedding dates per saved build (takeover spec §4)
 

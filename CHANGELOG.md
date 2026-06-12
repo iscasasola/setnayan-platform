@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · feat(vendors): Compare — available wedding dates per saved build (takeover spec §4)
+
+**Context:** owner sequential-run item; the last designed-not-built piece of the takeover spec's Compare section. The spec reverses the usual order — *build the vendor combination first, then see which dates the whole team can do* — for couples who came in with a flexible date (year/month precision).
+
+- **New footer row in Compare's table:** per column (each saved build + Current), the day-intersection of that build's CONNECTED vendors' calendars inside the couple's window — "12 days free · Nov 14 · Nov 21 · Nov 28 +9". Empty intersection → the spec's never-blank copy naming the first vendor pair with no overlapping date: *"No single date works — X and Y don't overlap. Swap one."* Columns with no connected vendors show a dash (manual/off-platform picks have no calendars and never constrain).
+- **`getAvailableDaysForVendorSet` (new, `lib/vendor-availability.ts`):** the per-vendor-set sibling of `getCommonAvailableDays` (which is hardwired to the event's CONFIRMED vendors). Takes an explicit `{profileId, name}[]`, computes per-vendor blocked-day sets, the intersection, and the conflict pair. Reads blocks via the caller-supplied client — the page passes the ADMIN client because 0022 § 2.3 RLS only opens calendars after a booking and a build is pre-booking by definition (the spec's whole point). **Aggregate-only surfacing** mirrors the §6a eyeing-count posture: day counts + the spec-required conflict pair, never a vendor's raw calendar.
+- Gated exactly like the Lock tab's availability panel: fires only at year/month date precision; day-precise or missing dates hide the row entirely.
+
+**Verification:** `tsc` clean · `next lint` clean. Read-only feature (no writes); ≤4 columns × one batched blocks query each per page load.
+
+**SPEC IMPACT:** Takeover spec §4 "Compare shows the available wedding dates per build" → BUILT. Corpus DECISION_LOG row with the sequential-run batch.
+
 ## 2026-06-12 · feat(vendors): category-satisfaction — covered categories stop showing "Not started"
 
 **Context:** owner sequential-run item; the shared follow-up cut from PR #1274. A committed pick whose package "comes with" another category (marketplace `vendor_service_links` OR host-authored covers for manual vendors) previously had NO effect on that category's state — the cake slot still said "Not started" and Build's Flag/Compute still tried to fill it, even when the caterer's package includes the cake.

@@ -1,5 +1,8 @@
 -- ============================================================================
--- 20261206000000_thread_service_interests.sql
+-- 20261207000000_thread_service_interests.sql
+-- (Renamed from 20261206000000_ on 2026-06-13 — that timestamp collided with
+--  20261206000000_iteration_0008_auto_arrange.sql, which was already applied to
+--  prod; this migration was unapplied, so the rename carries zero ledger drift.)
 -- Multi-service inquiry mapping — structured per-service interest context on a
 -- single couple↔vendor chat thread.
 --

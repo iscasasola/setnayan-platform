@@ -86,6 +86,7 @@
 import {
   Home,
   Briefcase,
+  CalendarDays,
   ClipboardList,
   FileSignature,
   HardHat,
@@ -154,6 +155,11 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     label: 'Work',
     items: [
       { key: 'bookings', label: 'Bookings', href: '/vendor-dashboard/bookings', icon: Briefcase, matchPrefix: '/vendor-dashboard/bookings' },
+      // Schedule-pool surfaces (owner lock 2026-06-12) — one schedule per
+      // service category; Clients = booked + in-conversation + imported
+      // outside clients.
+      { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
+      { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
       { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
       { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
       { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },

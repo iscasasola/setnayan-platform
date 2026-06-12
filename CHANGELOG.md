@@ -27,6 +27,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
 
 **SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
+## 2026-06-12 · feat(vendor): Calendar + Clients surfaces — PR 3 of the schedule-pool program
+
+**Context:** the vendor-facing half of the owner-locked 2026-06-12 scheduling model. `/vendor-dashboard` had no calendar or client-book surface at all — blocks existed only as a table. Two new routes + sidebar entries (Work group).
+
+- **`/vendor-dashboard/calendar`:** one calendar, one tab per schedule pool (the "new category shows a new schedule" rule made visible; merged pools read as "Photo Video · Same Day Edit"). Month grid with day states — `n/capacity` consumed (booked + imported clients) · Closed (own block, pool-scoped or business-wide) — plus: daily-capacity editor (clamped to the tier's `slotsPerDay` ceiling), Block-dates form (pool-scoped or org-wide; couples only ever see "unavailable"), Import-outside-client form, upcoming list with Remove, and the **merge UI** ("Which categories share this team?" — point a category at another pool / its own new one; orphaned pools deactivate, never delete — history kept).
+- **`/vendor-dashboard/clients`:** the book of business in three buckets — **Booked via Setnayan** (live pool reservations grouped by event, chat deep-links), **In conversation** (accepted threads not yet booked), **Outside clients** (imported externals with remove + import form). Copy states the boundary: outside clients hold dates but are NOT app clients — no thread, no stats, no reviews.
+- **`lib/vendor-schedule.ts` (new):** pool fetch with lazy bootstrap (every active service category + linked category materializes its pool on first visit), live-booking fetch enriched with event names + thread ids via the admin client (vendor is party to the booking but holds no events RLS), block fetch normalized to PH civil-day ranges.
+- **Migration `20261127000000_external_client_import.sql`** (applied to prod + ledger row, same statement-by-statement fallback): `import_external_client()` DEFINER RPC — ownership-checked, pool-validated, inserts the `external_client` block AND burns the tier-matrix **1-token import fee** (`importCustomerTokenCost`, all tiers) via `consume_vendor_assets_per_voucher` **atomically** (insufficient balance RAISES → block rolls back; app maps it to a top-up nudge linking /vendor-dashboard/tokens).
+- Server-rendered forms throughout (zero new client JS); feedback via `?notice=` codes.
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean on all five touched files. RPC applied + verified on prod.
+
+**SPEC IMPACT:** corpus architecture doc §11 phase-3 build-state + DECISION_LOG completion row (applied with this program's docs pass).
+
 ## 2026-06-12 · feat(scheduling): wire booking transitions to schedule pools — PR 2 (consume/release)
 
 **Context:** PR 2 of the schedule-pool program (PR 1 = `20261126000000` schema, applied to prod). Wires the owner-locked white/BOOKED doctrine into the only writer of booked statuses: white (considering..contracted) stays unlimited and consumes nothing; the pool acquire fires on the BOOKED transition; releases are status-flips, never deletes.

@@ -1,0 +1,373 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import {
+  ArrowLeft,
+  CalendarDays,
+  Church,
+  LayoutGrid,
+  Palette,
+  Users,
+  UtensilsCrossed,
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+
+export const metadata = { title: 'Event Brief · Vendor' };
+
+/**
+ * Vendor Event Brief — Phase 1 of the feature-access-by-category program
+ * (corpus 03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md § 2,
+ * owner-locked 2026-06-12).
+ *
+ * Everything a booked vendor needs at a glance — pax + RSVP trend, palette,
+ * monogram, the full day-of timeline (locked D2), seat-plan status — composed
+ * entirely from data the couple already maintains. Aggregates only: the
+ * backing RPC (get_vendor_event_brief) never returns guest rows, and dietary
+ * counts only surface to food-relevant categories + the coordinator.
+ *
+ * Free for ALL booked vendors — tiers sell reach, not features.
+ */
+
+type Brief = {
+  event: {
+    display_name: string | null;
+    event_date: string | null;
+    venue_name: string | null;
+    venue_address: string | null;
+    ceremony_type: string | null;
+  };
+  booked_categories: string[];
+  pax: { invited: number; attending: number; maybe: number; pending: number; declined: number };
+  dietary: { meal_counts: Record<string, number>; restriction_notes: number } | null;
+  palette: Record<string, string[]>;
+  attire_guide: Record<string, unknown>;
+  monogram: {
+    text: string | null;
+    color: string | null;
+    font_key: string | null;
+    frame_key: string | null;
+    custom_svg: string | null;
+  };
+  timeline: {
+    label: string;
+    block_type: string;
+    start_at: string | null;
+    end_at: string | null;
+    location: string | null;
+  }[];
+  seat_plan: {
+    published: boolean;
+    published_at: string | null;
+    table_count: number;
+    assigned_guests: number;
+  };
+};
+
+const PALETTE_LABELS: Record<string, string> = {
+  ceremony: 'Ceremony',
+  reception: 'Reception',
+  bride: 'Bride',
+  groom: 'Groom',
+  guest: 'Guest dress code',
+  wedding_party: 'Wedding party',
+  vip_family: 'VIP family',
+  principal_sponsors: 'Principal sponsors',
+  secondary_sponsors: 'Secondary sponsors',
+  bearers_flower_girl: 'Bearers & flower girl',
+  officiants: 'Officiants',
+};
+
+const MEAL_LABELS: Record<string, string> = {
+  beef: 'Beef',
+  chicken: 'Chicken',
+  fish: 'Fish',
+  vegetarian: 'Vegetarian',
+  vegan: 'Vegan',
+  kids: 'Kids meal',
+  no_preference: 'No preference',
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  venue: 'Venue',
+  catering: 'Catering',
+  photographer: 'Photographer',
+  videographer: 'Videographer',
+  florist: 'Florist',
+  cake_maker: 'Cake',
+  host_emcee: 'Host / Emcee',
+  band_dj: 'Band / DJ',
+  string_quartet: 'String quartet',
+  choir: 'Choir',
+  officiant: 'Officiant',
+  planner_coordinator: 'Planner / Coordinator',
+  makeup_artist: 'Makeup',
+  hair_stylist: 'Hair',
+  gown_designer: 'Gown',
+  suit_designer: 'Suit',
+  rings: 'Rings',
+  invitations_stationery: 'Stationery',
+  transportation: 'Transportation',
+  lights_and_sound: 'Lights & sound',
+  led_screens: 'LED screens',
+  photobooth: 'Photo booth',
+  mobile_bar: 'Mobile bar',
+  church_fees: 'Church',
+  reception_decor: 'Reception décor',
+  security: 'Security',
+  gifts_and_giveaways: 'Gifts & giveaways',
+  misc: 'Other',
+};
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return 'Date not set yet';
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function fmtTime(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+}
+
+type Props = { params: Promise<{ eventId: string }> };
+
+export default async function VendorEventBriefPage({ params }: Props) {
+  const { eventId } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Booked gate + aggregation live inside the SECURITY DEFINER RPC — an error
+  // means not booked on this event (or it doesn't exist); bounce to Clients.
+  const { data, error } = await supabase.rpc('get_vendor_event_brief', {
+    p_event_id: eventId,
+  });
+  if (error || !data) redirect('/vendor-dashboard/clients');
+  const brief = data as Brief;
+
+  const paletteEntries = Object.entries(PALETTE_LABELS)
+    .map(([key, label]) => ({ key, label, colors: brief.palette?.[key] ?? [] }))
+    .filter((p) => p.colors.length > 0);
+  const mealEntries = Object.entries(brief.dietary?.meal_counts ?? {}).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const monogramSvg =
+    brief.monogram.custom_svg && brief.monogram.custom_svg.trimStart().startsWith('<svg')
+      ? brief.monogram.custom_svg
+      : null;
+
+  return (
+    <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <Link
+        href="/vendor-dashboard/clients"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
+      </Link>
+
+      <header className="space-y-3">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+          <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        </span>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          {brief.event.display_name ?? 'Event brief'}
+        </h1>
+        <p className="text-base text-ink/65">
+          {fmtDate(brief.event.event_date)}
+          {brief.event.venue_name ? ` · ${brief.event.venue_name}` : ''}
+        </p>
+        {brief.event.venue_address ? (
+          <p className="text-sm text-ink/55">{brief.event.venue_address}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {brief.event.ceremony_type ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-medium text-ink/70">
+              <Church aria-hidden className="h-3.5 w-3.5" />
+              {brief.event.ceremony_type.replace(/_/g, ' ')}
+            </span>
+          ) : null}
+          {brief.booked_categories.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center rounded-full bg-terracotta/10 px-3 py-1 text-xs font-medium text-terracotta"
+            >
+              Booked · {CATEGORY_LABELS[c] ?? c}
+            </span>
+          ))}
+        </div>
+        <p className="max-w-prose text-sm text-ink/55">
+          A live brief composed from the couple&rsquo;s own planning — headcounts and
+          colors update as they plan. Counts only: guest names and contacts stay
+          private.
+        </p>
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Pax */}
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Users aria-hidden className="h-5 w-5 text-terracotta" /> Headcount
+          </h2>
+          <p className="mt-3 text-4xl font-semibold tracking-tight">
+            {brief.pax.attending}
+            <span className="ml-2 text-base font-normal text-ink/55">
+              attending of {brief.pax.invited} invited
+            </span>
+          </p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/65">
+            <span>{brief.pax.pending} pending</span>
+            <span>{brief.pax.maybe} maybe</span>
+            <span>{brief.pax.declined} declined</span>
+          </div>
+          <p className="mt-2 text-xs text-ink/45">
+            RSVPs are still moving — check back as the date nears.
+          </p>
+        </div>
+
+        {/* Dietary (food-relevant categories + coordinator only) */}
+        {brief.dietary ? (
+          <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <UtensilsCrossed aria-hidden className="h-5 w-5 text-terracotta" /> Meals
+              <span className="text-sm font-normal text-ink/55">(attending guests)</span>
+            </h2>
+            {mealEntries.length === 0 ? (
+              <p className="mt-2 text-sm text-ink/55">
+                No meal preferences recorded yet.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-1.5">
+                {mealEntries.map(([pref, n]) => (
+                  <li key={pref} className="flex items-center justify-between text-sm">
+                    <span>{MEAL_LABELS[pref] ?? pref}</span>
+                    <span className="font-semibold">{n}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {brief.dietary.restriction_notes > 0 ? (
+              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                {brief.dietary.restriction_notes}{' '}
+                {brief.dietary.restriction_notes === 1 ? 'guest has' : 'guests have'} dietary
+                restriction notes — ask the couple for the details that matter to your menu.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Palette */}
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Palette aria-hidden className="h-5 w-5 text-terracotta" /> Palette
+          </h2>
+          {paletteEntries.length === 0 ? (
+            <p className="mt-2 text-sm text-ink/55">
+              The couple hasn&rsquo;t set their palettes yet.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2.5">
+              {paletteEntries.map((p) => (
+                <li key={p.key} className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-ink/70">{p.label}</span>
+                  <span className="flex gap-1.5">
+                    {p.colors.map((hex, i) => (
+                      <span
+                        key={`${hex}-${i}`}
+                        title={hex}
+                        className="h-6 w-6 rounded-full border border-ink/15"
+                        style={{ backgroundColor: hex }}
+                      />
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Monogram */}
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+          <h2 className="text-lg font-semibold">Monogram</h2>
+          {monogramSvg ? (
+            <div
+              className="mx-auto mt-3 h-32 w-32 [&_svg]:h-full [&_svg]:w-full"
+              // First-party asset from the couple's own monogram studio.
+              dangerouslySetInnerHTML={{ __html: monogramSvg }}
+            />
+          ) : brief.monogram.text ? (
+            <p
+              className="mt-3 text-center text-5xl font-semibold tracking-wide"
+              style={{ color: brief.monogram.color ?? undefined }}
+            >
+              {brief.monogram.text}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-ink/55">No monogram set yet.</p>
+          )}
+        </div>
+
+        {/* Timeline — full day-of visibility for booked vendors (locked D2) */}
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6 lg:col-span-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <CalendarDays aria-hidden className="h-5 w-5 text-terracotta" /> Day-of timeline
+          </h2>
+          {brief.timeline.length === 0 ? (
+            <p className="mt-2 text-sm text-ink/55">
+              The couple hasn&rsquo;t built their event-day timeline yet.
+            </p>
+          ) : (
+            <ol className="mt-3 divide-y divide-ink/10">
+              {brief.timeline.map((b, i) => (
+                <li key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2.5">
+                  <span className="w-36 shrink-0 text-sm font-medium tabular-nums text-ink/70">
+                    {fmtTime(b.start_at) ?? 'Time TBD'}
+                    {fmtTime(b.end_at) ? ` – ${fmtTime(b.end_at)}` : ''}
+                  </span>
+                  <span className="text-sm font-medium">{b.label}</span>
+                  {b.location ? (
+                    <span className="text-xs text-ink/55">{b.location}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        {/* Seat plan status */}
+        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6 lg:col-span-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <LayoutGrid aria-hidden className="h-5 w-5 text-terracotta" /> Seat plan
+          </h2>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                brief.seat_plan.published
+                  ? 'bg-emerald-100 text-emerald-900'
+                  : 'bg-ink/5 text-ink/60'
+              }`}
+            >
+              {brief.seat_plan.published ? 'Published' : 'Not published yet'}
+            </span>
+            <span className="text-sm text-ink/65">
+              {brief.seat_plan.table_count} tables · {brief.seat_plan.assigned_guests} guests
+              seated
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-ink/45">
+            {brief.seat_plan.published
+              ? 'The couple has locked their floor plan. A vendor floor-plan view is coming soon.'
+              : 'Once the couple publishes their floor plan, you’ll see its status here.'}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}

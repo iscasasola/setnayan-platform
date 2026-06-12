@@ -47,6 +47,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
 
 **SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
+## 2026-06-12 · feat(vendor): Vendor Event Brief — Phase 1 of the feature-access-by-category program
+
+**Context:** owner-locked design session 2026-06-12 (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md`, D1–D5 all settled). Today a booked vendor sees nothing of the couple's planning; the Brief closes the biggest gap with zero new write paths — pax, palette, monogram, timeline, seat-plan status in one card.
+
+- **Migration `20261128000000_vendor_event_brief.sql`** (APPLIED to prod statement-by-statement + manual ledger row — standing parallel-session ledger drift): SECURITY DEFINER RPC `get_vendor_event_brief(p_event_id)`. Caller resolves to vendor org(s) via `vendor_profiles.user_id` ∪ `vendor_team_members`; **booked gate** = live `event_vendors` row in `contracted/deposit_paid/delivered/complete` linked via `marketplace_vendor_id`. Returns aggregates only — **guest PII never crosses** (counts, never rows; RA 10173 § 8 of the locked doc). Dietary/meal counts only for food-relevant categories + coordinator (`catering`, `cake_maker`, `mobile_bar`, `venue`, `planner_coordinator`). Full day-of timeline per **locked D2** (couple-private block `notes` excluded). `REVOKE` from PUBLIC/anon, grant to `authenticated`.
+- **New page `/vendor-dashboard/clients/[eventId]`**: the Brief card — headcount (attending/invited + RSVP breakdown), meals card (caterer-only) with restriction-notes nudge, palette swatch strips (ceremony/reception/bride/groom/guest dress code/role families from `role_palette`), monogram (custom SVG falls back to styled text), full day-of timeline, seat-plan status chip (published/tables/seated). "Event brief" link added per booked event group on `/vendor-dashboard/clients`.
+- **Deliberately deferred:** crew-meal total (bookings carry no service linkage yet — needs the booking→`vendor_services` link), per-category Brief field raise/lower (rides the Phase 2 grants substrate), seat-plan floor-plan viewer (Phase 4).
+
+**Verification:** `tsc` + `next lint` clean. Prod-smoked end-to-end: impersonated `vendor.test` (linked as the test event's booked caterer "Grazia Catering" — demo now live for the test account) → full brief JSON returned (pax 234/280, palettes, monogram M&J, 6 timeline blocks); `couple.test` impersonation correctly refused `not_a_vendor`.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 1 → BUILT (edited directly per standing authorization); DECISION_LOG row appended.
 
 ## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
 

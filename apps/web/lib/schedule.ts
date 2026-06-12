@@ -148,6 +148,14 @@ export type SeedCeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'aglipayan'
+  | 'lds'
+  | 'sda'
+  | 'jw'
+  | 'hindu'
+  | 'sikh'
+  | 'buddhist'
+  | 'orthodox'
   | 'mixed';
 
 /** Default sub-blocks under the Ceremony parent · ceremony-type-aware so
@@ -206,6 +214,76 @@ const CEREMONY_PARTS: Record<SeedCeremonyType, string[]> = {
     'Vows + ring exchange',
     'Signing of marriage contract',
     'Closing',
+    'Recessional',
+  ],
+  aglipayan: [
+    'Procession',
+    'Opening prayer',
+    'Liturgy of the Word',
+    'Homily',
+    'Vows + ring exchange',
+    'Veil ceremony',
+    'Cord ceremony',
+    'Arrhae (coin ceremony)',
+    'Signing of marriage contract',
+    'Recessional',
+  ],
+  lds: [
+    'Prelude + welcome',
+    "Officiant's message",
+    'Vows + ring exchange',
+    'Signing of marriage contract',
+    'Closing prayer',
+    'Recessional',
+  ],
+  sda: [
+    'Opening hymn',
+    "Pastor's message",
+    'Vows + ring exchange',
+    'Signing of marriage contract',
+    'Closing prayer',
+    'Recessional',
+  ],
+  jw: [
+    'Opening song + prayer',
+    'Marriage talk',
+    'Vows + ring exchange',
+    'Signing of marriage contract',
+    'Closing prayer',
+  ],
+  hindu: [
+    "Baraat (groom's procession)",
+    'Ganesh puja',
+    'Kanyadaan',
+    'Mangal pheras (circling the fire)',
+    'Saptapadi (seven steps)',
+    'Sindoor + mangalsutra',
+    'Ashirvad (blessings)',
+    'Signing of marriage contract',
+  ],
+  sikh: [
+    'Procession to the gurdwara',
+    'Ardas (opening prayer)',
+    'Palla ceremony',
+    'Anand Karaj (four laavan)',
+    'Karah prasad',
+    'Signing of marriage contract',
+  ],
+  buddhist: [
+    'Procession',
+    'Offering to the monks',
+    'Chanting + blessing',
+    'Vows + ring exchange',
+    'Water blessing',
+    'Signing of marriage contract',
+  ],
+  orthodox: [
+    'Betrothal (ring exchange)',
+    'Candle lighting',
+    'Crowning ceremony',
+    'Common cup',
+    'Dance of Isaiah',
+    'Signing of marriage contract',
     'Recessional',
   ],
   mixed: [

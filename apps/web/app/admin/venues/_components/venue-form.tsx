@@ -43,6 +43,14 @@ const CEREMONY_TYPE_LABEL: Record<(typeof CEREMONY_TYPES)[number], string> = {
   chinese: 'Chinese',
   jewish: 'Jewish',
   born_again: 'Born Again',
+  aglipayan: 'Aglipayan (IFI)',
+  lds: 'LDS (Latter-day Saints)',
+  sda: 'Seventh-day Adventist',
+  jw: "Jehovah's Witnesses",
+  hindu: 'Hindu',
+  sikh: 'Sikh',
+  buddhist: 'Buddhist',
+  orthodox: 'Orthodox Christian',
   civil: 'Civil',
 };
 

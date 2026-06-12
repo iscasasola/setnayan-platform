@@ -20,6 +20,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · polish(vendors): Services takeover tab in the URL + Lean/Fits/Stretch dead-code removal
+
+**Context:** owner "do all in sequence" sweep over the Services-plan leftovers (sequential run, item 1).
+
+- **`?tab=` deep links + refresh survival:** the takeover's active section (Summary · Shortlist · Build · Compare · Lock) now mirrors into the URL on every switch (`history.replaceState` — no back-stack pollution, no re-render), and `vendors/page.tsx` reads a validated `?tab=` into `initialTab` (off-registry → Summary). Refresh keeps your tab; `/dashboard/[eventId]/vendors?tab=compare` is now a shareable link. All three switch paths route through one `selectTab` (desktop strip · mobile section nav · the `bb:tab` CustomEvent used by Compare's Modify/Lock jumps).
+- **Dead code removed (`build-actions.ts`):** the retired Lean/Fits/Stretch estimate shapes — `BuildBasket` · `BuildSnapshotLeaf` · `BuildSnapshot` · `SavedBuild` · the `saveBudgetBuild` action — had zero callers since PR F (#1185) replaced the basket estimator with named vendor-pick builds. `BuildSlot` + `BuildActionResult` + `deleteBudgetBuild` + the PlanBuild* model stay; `budget_builds.basket` NOT NULL stays satisfied by `savePlanBuild`'s hardcoded `'fits'`.
+- Verified along the way (no change needed): the Lock tab's vanished-slot race is already graceful — `slot_not_found` → `slot_required` → the picker re-fetches windows and reopens.
+
+**Verification:** `tsc` clean · `next lint` clean. No schema, no behavior change beyond the URL mirror.
+
+**SPEC IMPACT:** None (UX affordance + cruft removal; the 0016/takeover spec's tab model is unchanged).
 
 ## 2026-06-12 · feat(0012): Salamisim P2 — server-baked FaceBlock blur pipeline (the wall's public-event ship gate)
 

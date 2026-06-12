@@ -25,7 +25,11 @@ import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { isBudgetBuildEnabled } from '@/lib/budget-build';
+import {
+  BUDGET_BUILD_TABS,
+  isBudgetBuildEnabled,
+  type BudgetBuildTab,
+} from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
@@ -55,7 +59,10 @@ type Props = {
   params: Promise<{ eventId: string }>;
   // status query param kept for backward-compat with old links; the accordion
   // ignores it (folder-scoped browsing happens in the marketplace, not here).
-  searchParams: Promise<{ status?: string }>;
+  // tab (2026-06-12) = the takeover section to open (summary · shortlist ·
+  // build · compare · lock) — written by the takeover on every switch so
+  // refresh + deep links land on the same section.
+  searchParams: Promise<{ status?: string; tab?: string }>;
 };
 
 type EventBudgetRow = {
@@ -86,8 +93,16 @@ type EventBudgetRow = {
   setnayan_ai_active?: boolean | null;
 };
 
-export default async function VendorsPage({ params }: Props) {
+export default async function VendorsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  // Takeover deep-link (2026-06-12): ?tab= opens that section; anything
+  // off-registry falls back to the Summary cover page.
+  const sp = await searchParams;
+  const initialTab: BudgetBuildTab = (BUDGET_BUILD_TABS as readonly string[]).includes(
+    sp.tab ?? '',
+  )
+    ? (sp.tab as BudgetBuildTab)
+    : 'summary';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -581,7 +596,7 @@ export default async function VendorsPage({ params }: Props) {
     return (
       <ServicesTakeover
         eventId={eventId}
-        initialTab="summary"
+        initialTab={initialTab}
         summarySlot={<BuildSummary model={model} eventId={eventId} buildsCount={savedBuilds.length} />}
         shortlistSlot={services}
         buildSlot={buildSlot}

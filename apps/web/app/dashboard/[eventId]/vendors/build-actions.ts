@@ -10,66 +10,15 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
-export type BuildBasket = 'lean' | 'fits' | 'stretch';
+// (2026-06-12 cleanup) The original Lean/Fits/Stretch estimate model —
+// BuildBasket · BuildSnapshotLeaf · BuildSnapshot · SavedBuild · the
+// saveBudgetBuild action — is DELETED. PR F (#1185) retired the basket
+// estimator for the named vendor-pick builds below; the old shapes had no
+// remaining callers. `budget_builds.basket` (NOT NULL CHECK) is still
+// satisfied by savePlanBuild's hardcoded 'fits'.
 export type BuildSlot = 'A' | 'B' | 'C';
 
-export type BuildSnapshotLeaf = {
-  canonicalService: string;
-  label: string;
-  amountPhp: number;
-  rangeLowPhp: number;
-  rangeHighPhp: number;
-};
-
-export type BuildSnapshot = {
-  budgetPhp: number | null;
-  basket: BuildBasket;
-  totalPhp: number;
-  leaves: BuildSnapshotLeaf[];
-};
-
-/** Row shape the Compare tab reads back (server-fetched, passed as a prop). */
-export type SavedBuild = {
-  build_id: string;
-  label: BuildSlot;
-  title: string | null;
-  budget_php: number | null;
-  basket: BuildBasket;
-  total_php: number | null;
-};
-
 export type BuildActionResult = { ok: true } | { ok: false; error: string };
-
-export async function saveBudgetBuild(input: {
-  eventId: string;
-  label: BuildSlot;
-  title?: string | null;
-  snapshot: BuildSnapshot;
-}): Promise<BuildActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Please sign in to save a build.' };
-
-  const { error } = await supabase.from('budget_builds').upsert(
-    {
-      event_id: input.eventId,
-      created_by: user.id,
-      label: input.label,
-      title: input.title ?? `Build ${input.label}`,
-      budget_php: input.snapshot.budgetPhp,
-      basket: input.snapshot.basket,
-      total_php: input.snapshot.totalPhp,
-      snapshot: input.snapshot,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id,label' },
-  );
-  if (error) return { ok: false, error: error.message };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
-  return { ok: true };
-}
 
 export async function deleteBudgetBuild(input: {
   eventId: string;

@@ -35,6 +35,14 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'aglipayan'
+  | 'lds'
+  | 'sda'
+  | 'jw'
+  | 'hindu'
+  | 'sikh'
+  | 'buddhist'
+  | 'orthodox'
   | 'mixed';
 
 export type MeaningfulDateKind =

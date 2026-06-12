@@ -81,6 +81,14 @@ const SECONDARY_LABELS: Record<Exclude<CeremonyType, 'mixed'>, string> = {
   christian: 'Christian',
   cultural: 'Cultural',
   jewish: 'Jewish',
+  aglipayan: 'Aglipayan (IFI)',
+  lds: 'LDS (Latter-day Saints)',
+  sda: 'Seventh-day Adventist',
+  jw: "Jehovah's Witnesses",
+  hindu: 'Hindu',
+  sikh: 'Sikh',
+  buddhist: 'Buddhist',
+  orthodox: 'Orthodox Christian',
   civil: 'Civil',
 };
 

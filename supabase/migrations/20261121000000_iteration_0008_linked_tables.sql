@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20261116000000_iteration_0008_linked_tables.sql (re-timestamped from 20261115000000 — collided with born_again_pastor_retag already applied at that version; ledger matches VERSION so this file would be silently skipped)
+-- 20261121000000_iteration_0008_linked_tables.sql (3rd re-timestamp: ledger row at 20261116000000 was replaced by security_alert in a concurrent session; SQL is idempotent so re-applying re-registers it) (re-timestamped from 20261115000000 — collided with born_again_pastor_retag already applied at that version; ledger matches VERSION so this file would be silently skipped)
 -- Iteration 0008 — linked tables: combine tables into ONE named unit
 -- (owner-directed 2026-06-10 "tables can link together to be named as 1
 -- table"; depth owner-locked 2026-06-10 = IDENTITY + QR only — shared

@@ -100,6 +100,14 @@ type CoupleFaith =
   | 'Chinese'
   | 'Jewish'
   | 'Born Again'
+  | 'Aglipayan'
+  | 'LDS'
+  | 'SDA'
+  | 'JW'
+  | 'Hindu'
+  | 'Sikh'
+  | 'Buddhist'
+  | 'Orthodox'
   | null;
 
 function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
@@ -120,6 +128,22 @@ function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
       return 'Jewish';
     case 'born_again':
       return 'Born Again';
+    case 'aglipayan':
+      return 'Aglipayan';
+    case 'lds':
+      return 'LDS';
+    case 'sda':
+      return 'SDA';
+    case 'jw':
+      return 'JW';
+    case 'hindu':
+      return 'Hindu';
+    case 'sikh':
+      return 'Sikh';
+    case 'buddhist':
+      return 'Buddhist';
+    case 'orthodox':
+      return 'Orthodox';
     default:
       return null;
   }
@@ -715,6 +739,14 @@ const FAITH_URL_TO_KEY: Record<string, FaithKey> = {
   chinese: 'Chinese',
   jewish: 'Jewish',
   born_again: 'Born Again',
+  aglipayan: 'Aglipayan',
+  lds: 'LDS',
+  sda: 'SDA',
+  jw: 'JW',
+  hindu: 'Hindu',
+  sikh: 'Sikh',
+  buddhist: 'Buddhist',
+  orthodox: 'Orthodox',
 };
 const FAITH_KEY_TO_URL: Record<FaithKey, string> = {
   Catholic: 'catholic',
@@ -725,6 +757,14 @@ const FAITH_KEY_TO_URL: Record<FaithKey, string> = {
   Chinese: 'chinese',
   Jewish: 'jewish',
   'Born Again': 'born_again',
+  Aglipayan: 'aglipayan',
+  LDS: 'lds',
+  SDA: 'sda',
+  JW: 'jw',
+  Hindu: 'hindu',
+  Sikh: 'sikh',
+  Buddhist: 'buddhist',
+  Orthodox: 'orthodox',
 };
 const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
   Catholic: 'Catholic',
@@ -735,6 +775,14 @@ const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
   Chinese: 'Chinese',
   Jewish: 'Jewish',
   'Born Again': 'Born Again',
+  Aglipayan: 'Aglipayan (IFI)',
+  LDS: 'LDS (Latter-day Saints)',
+  SDA: 'Seventh-day Adventist',
+  JW: "Jehovah's Witnesses",
+  Hindu: 'Hindu',
+  Sikh: 'Sikh',
+  Buddhist: 'Buddhist',
+  Orthodox: 'Orthodox Christian',
 };
 const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'Catholic',
@@ -745,6 +793,14 @@ const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'Christian',
   'Cultural',
   'Jewish',
+  'Aglipayan',
+  'LDS',
+  'SDA',
+  'JW',
+  'Hindu',
+  'Sikh',
+  'Buddhist',
+  'Orthodox',
 ];
 
 /**
@@ -2734,6 +2790,14 @@ async function CatalogView({
     Chinese: 0,
     Jewish: 0,
     'Born Again': 0,
+    Aglipayan: 0,
+    LDS: 0,
+    SDA: 0,
+    JW: 0,
+    Hindu: 0,
+    Sikh: 0,
+    Buddhist: 0,
+    Orthodox: 0,
     // Civil-tagged canonicals (civil officiants) are marketplace_hidden, so
     // this stays 0 — present only to satisfy the widened faith union.
     Civil: 0,

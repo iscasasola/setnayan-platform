@@ -153,6 +153,110 @@ export const WEDDING_TRADITIONS_GUIDE: Record<TraditionGuideKey, WeddingTraditio
     ],
     confirmWith: 'your family elders (and the officiant for your paired ceremony)',
   },
+  aglipayan: {
+    label: 'Aglipayan (IFI)',
+    overview:
+      'A liturgical wedding at an Iglesia Filipina Independiente (Aglipayan) parish, led by an IFI priest — the rite closely mirrors the Catholic Mass, including the cord, veil, and arrhae traditions.',
+    items: [
+      { dimension: 'officiant', label: 'IFI priest', note: 'Booked through your Aglipayan parish; arrange the date with the parish office early.' },
+      { dimension: 'ceremonial', label: 'Nuptial liturgy', note: 'Vows, ring exchange, and the familiar Filipino veil, cord, and arrhae traditions with principal sponsors.' },
+      { dimension: 'custom', label: 'Marriage preparation', note: 'Most parishes ask for a marriage-preparation session with the priest — confirm the parish’s specific requirements.' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below); the parish may also ask for baptismal records.' },
+      { dimension: 'food', label: 'Reception', note: 'No religious restriction on the menu.' },
+    ],
+    confirmWith: 'your IFI parish priest',
+  },
+  lds: {
+    label: 'LDS (Latter-day Saints)',
+    overview:
+      'A Latter-day Saint chapel ceremony officiated by a bishop or authorized officiant — simple, reverent, and family-centered. (Temple sealings follow separate Church requirements.)',
+    items: [
+      { dimension: 'officiant', label: 'Bishop or LDS officiant', note: 'Arranged through your ward bishop; he must be a registered solemnizing officer for the marriage to be legally recognized.' },
+      { dimension: 'ceremonial', label: 'Chapel ceremony', note: 'A short, reverent service with vows and ring exchange; modest dress is expected.' },
+      { dimension: 'custom', label: 'Bishop interviews', note: 'The couple meets with the bishop beforehand; members in good standing may later pursue a temple sealing.' },
+      { dimension: 'food', label: 'Reception', note: 'Receptions are alcohol-free, and coffee and tea are not served (Word of Wisdom).' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below).' },
+    ],
+    confirmWith: 'your ward bishop',
+  },
+  sda: {
+    label: 'Seventh-day Adventist',
+    overview:
+      'A pastor-led Adventist ceremony centered on Scripture, vows, and prayer — typically not held on the Sabbath (Friday sundown to Saturday sundown).',
+    items: [
+      { dimension: 'officiant', label: 'Adventist pastor', note: 'From your local congregation; the pastor must be a registered solemnizing officer.' },
+      { dimension: 'ceremonial', label: 'Church ceremony', note: 'Worship, message, vows, and ring exchange; schedule outside Sabbath hours — Sunday weddings are common.' },
+      { dimension: 'custom', label: 'Premarital counseling', note: 'Most congregations ask the couple to complete pastoral counseling first.' },
+      { dimension: 'food', label: 'Reception', note: 'Alcohol-free, and many Adventist families keep a vegetarian or at minimum pork-free and shellfish-free table — confirm with both families.' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below).' },
+    ],
+    confirmWith: 'your pastor',
+  },
+  jw: {
+    label: 'Jehovah’s Witnesses',
+    overview:
+      'A modest Kingdom Hall ceremony built around a Bible-based marriage talk by an elder, followed by the vows and ring exchange.',
+    items: [
+      { dimension: 'officiant', label: 'Congregation elder', note: 'An approved elder gives the marriage talk and solemnizes; arrange through your congregation and confirm he is a registered solemnizing officer.' },
+      { dimension: 'ceremonial', label: 'Kingdom Hall ceremony', note: 'A short, dignified program — song, prayer, the marriage talk, vows, and ring exchange.' },
+      { dimension: 'custom', label: 'Modest celebration', note: 'Receptions are kept modest and well-supervised; toasts and certain customs are typically omitted — plan the program with your elders.' },
+      { dimension: 'food', label: 'Reception', note: 'No fixed restriction; celebrations emphasize moderation.' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below).' },
+    ],
+    confirmWith: 'the elders at your congregation',
+  },
+  hindu: {
+    label: 'Hindu',
+    overview:
+      'A mandap ceremony led by a pandit — with the kanyadaan, the sacred fire, the pheras (circumambulations), and the saptapadi (seven steps) at its heart.',
+    items: [
+      { dimension: 'officiant', label: 'Pandit (priest)', note: 'Conducts the rites in Sanskrit with explanations; for legal recognition in the PH, pair with a registered solemnizing officer or a civil rite.' },
+      { dimension: 'ceremonial', label: 'Mandap + pheras', note: 'The couple circles the sacred fire and takes the saptapadi (seven steps); sindoor and mangalsutra mark the union.' },
+      { dimension: 'custom', label: 'Mehndi + sangeet', note: 'Pre-wedding mehndi (bridal henna) and sangeet (music night) celebrations are customary; an auspicious date (muhurat) is chosen with the pandit.' },
+      { dimension: 'food', label: 'Vegetarian fare', note: 'Many Hindu wedding feasts are vegetarian, and beef is avoided — confirm the menu with both families.' },
+      { dimension: 'paperwork', label: 'Civil registration', note: 'Register the marriage civilly (license tracked below) so it is legally recognized.' },
+    ],
+    confirmWith: 'your pandit',
+  },
+  sikh: {
+    label: 'Sikh',
+    overview:
+      'The Anand Karaj (“blissful union”) at the gurdwara — the couple circles the Guru Granth Sahib during the four laavan hymns.',
+    items: [
+      { dimension: 'officiant', label: 'Granthi', note: 'The granthi (reader) conducts the Anand Karaj at the gurdwara; for PH legal recognition, pair with a registered solemnizing officer or a civil rite.' },
+      { dimension: 'ceremonial', label: 'Anand Karaj + laavan', note: 'Four laavan rounds around the Guru Granth Sahib; heads are covered and shoes removed in the darbar hall.' },
+      { dimension: 'custom', label: 'Palla + karah prasad', note: 'The palla (scarf) joins the couple for the laavan; karah prasad is shared with the congregation after the ardas.' },
+      { dimension: 'food', label: 'Langar', note: 'Food served at the gurdwara is vegetarian and alcohol-free; the outside reception menu is the families’ choice.' },
+      { dimension: 'paperwork', label: 'Civil registration', note: 'Register the marriage civilly (license tracked below) so it is legally recognized.' },
+    ],
+    confirmWith: 'the granthi at your gurdwara',
+  },
+  buddhist: {
+    label: 'Buddhist',
+    overview:
+      'A blessing ceremony with monks — chanting, offerings, and a water blessing — usually paired with a civil rite for the legal marriage.',
+    items: [
+      { dimension: 'officiant', label: 'Monks (blessing)', note: 'Monks chant and bless the union but typically do not solemnize; pair with a civil rite or registered solemnizing officer for legal effect.' },
+      { dimension: 'ceremonial', label: 'Chanting + water blessing', note: 'Offerings to the monks, paritta chanting, and the blessing — often with a sacred thread or water poured over the couple’s hands.' },
+      { dimension: 'custom', label: 'Merit-making', note: 'Couples often make merit (dana — offering a meal or alms to the monks) on or before the wedding day; an auspicious date may be chosen.' },
+      { dimension: 'food', label: 'Reception', note: 'No fixed restriction; vegetarian options are appreciated and monks are served before noon.' },
+      { dimension: 'paperwork', label: 'Civil registration', note: 'Register the marriage civilly (license tracked below) so it is legally recognized.' },
+    ],
+    confirmWith: 'your temple’s monks',
+  },
+  orthodox: {
+    label: 'Orthodox Christian',
+    overview:
+      'The crowning ceremony (the Mystery of Crowning) at an Orthodox church — betrothal with rings, crowns held over the couple, the common cup, and the Dance of Isaiah.',
+    items: [
+      { dimension: 'officiant', label: 'Orthodox priest', note: 'Arrange with the Orthodox parish; at least one partner is typically an Orthodox Christian in good standing — the priest advises on mixed marriages.' },
+      { dimension: 'ceremonial', label: 'Betrothal + crowning', note: 'Ring exchange at the betrothal, crowns (stefana) over the couple, the shared common cup, and the procession around the table (Dance of Isaiah).' },
+      { dimension: 'custom', label: 'Fasting seasons', note: 'Weddings are not celebrated during major fasting seasons (e.g., Great Lent) — set the date with the priest before booking anything.' },
+      { dimension: 'food', label: 'Reception', note: 'No religious restriction on the menu, though fasting-season dates affect scheduling more than food.' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below); the parish may ask for baptismal records.' },
+    ],
+    confirmWith: 'your Orthodox parish priest',
+  },
   mixed: {
     label: 'Mixed-faith',
     overview:

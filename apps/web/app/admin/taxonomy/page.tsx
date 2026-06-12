@@ -74,6 +74,14 @@ const FAITH_TONE: Record<FaithKey, string> = {
   Jewish: 'bg-indigo-100 text-indigo-800',
   Chinese: 'bg-red-100 text-red-800',
   Cultural: 'bg-rose-100 text-rose-800',
+  Aglipayan: 'bg-cyan-100 text-cyan-800',
+  LDS: 'bg-slate-200 text-slate-800',
+  SDA: 'bg-teal-100 text-teal-800',
+  JW: 'bg-lime-100 text-lime-800',
+  Hindu: 'bg-orange-100 text-orange-800',
+  Sikh: 'bg-yellow-100 text-yellow-900',
+  Buddhist: 'bg-amber-50 text-amber-800',
+  Orthodox: 'bg-purple-100 text-purple-800',
   Civil: 'bg-stone-100 text-stone-700',
 };
 

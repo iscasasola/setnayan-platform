@@ -38,6 +38,14 @@ export const CEREMONY_TYPE_TO_FAITH: Readonly<Record<string, WeddingFaithKey>> =
   jewish: 'Jewish',
   chinese: 'Chinese',
   cultural: 'Cultural',
+  aglipayan: 'Aglipayan',
+  lds: 'LDS',
+  sda: 'SDA',
+  jw: 'JW',
+  hindu: 'Hindu',
+  sikh: 'Sikh',
+  buddhist: 'Buddhist',
+  orthodox: 'Orthodox',
   civil: 'Civil',
 };
 

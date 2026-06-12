@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
+
+**Context:** Triggered by an audit of how Google AI Mode describes setnayan.com. While verifying payment-claim exposure, found that PR #1316 (merged earlier today) purged "BIR-compliant OR / 12% VAT" claims from `/features` but **left "BIR receipts" wording on three public surfaces it didn't touch.** Applied the canonical line #1316 established (keep "itemized receipts", drop "BIR").
+
+- `app/for-vendors/page.tsx` — Free-listing `Offer` JSON-LD description: "calendar + BIR receipts" → "calendar + itemized receipts" (this string is machine-read by AI engines, so it mattered most).
+- `app/pricing/page.tsx` — footer line: "BIR receipts on every software purchase" → "itemized receipts on every software purchase".
+- `app/privacy/page.tsx` — page metadata description: "vendor data, BIR receipts, and DPO contact" → "vendor data, receipts, and DPO contact".
+
+**Surfaced, NOT changed (needs owner sign-off):** `app/terms/page.tsx`, the supplies `cart-drawer.tsx`, and the `admin/payments` engine still compute + display a **12% VAT** line. #1316 deliberately left these alone because they are the *actual checkout tax treatment*, not a marketing claim — and the 0026 spec says V1 launches **non-VAT** (percentage tax). Removing them changes the price math customers see, so it's a tax-registration decision, not a copy edit.
+
+**SPEC IMPACT:** None on schema. Reinforces the public-claims-purge decision (DECISION_LOG #1316). The VAT-vs-non-VAT checkout question is logged for owner resolution.
+
 ## 2026-06-13 · fix(migrations): resolve duplicate timestamp 20261206000000 blocking all PR merges
 
 **Context:** two parallel sessions merged migrations with the **same** 14-digit timestamp — `20261206000000_iteration_0008_auto_arrange.sql` (PR #1318) and `20261206000000_thread_service_interests.sql`. Each PR's CI was green because neither branch contained the other's file; once both landed on `main`, the `migration timestamp guard` job started failing on **every** open PR, blocking all merges across the repo.

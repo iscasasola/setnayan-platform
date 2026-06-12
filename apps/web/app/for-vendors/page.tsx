@@ -107,7 +107,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#free-listing`,
       name: 'Free vendor listing on Setnayan',
       description:
-        'Free verified business profile + in-app chat + pipeline + calendar + BIR receipts. 0% commission on every booking — Setnayan never touches the money between you and your couples.',
+        'Free verified business profile + in-app chat + pipeline + calendar + itemized receipts. 0% commission on every booking — Setnayan never touches the money between you and your couples.',
       price: '0',
       priceCurrency: 'PHP',
       availability: 'https://schema.org/InStock',

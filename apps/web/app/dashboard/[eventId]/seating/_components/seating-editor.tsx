@@ -296,6 +296,7 @@ export function SeatingEditor({
   const peerOnTable = (tableId: string) => peerList.find((p) => p.table === tableId) ?? null;
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<EventTableRow | null>(null);
   // The spatial chair canvas can't hold many tables on a phone, so small
   // screens default to a scrollable table-card list (0008 spec's mobile
   // surface). Both views are available on both platforms via the toggle.
@@ -459,6 +460,15 @@ export function SeatingEditor({
       applyTableOpt({ type: 'delete', id: tableId });
       await deleteTable(fd);
     });
+  };
+
+  // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
+  // silently returning everyone at it to the unseated pool — so a table with
+  // seated guests asks first. Empty tables keep one-tap delete.
+  const seatedAt = (tableId: string) => guests.filter((g) => g.seated_table_id === tableId).length;
+  const requestRemoveTable = (t: EventTableRow) => {
+    if (seatedAt(t.table_id) === 0) removeTable(t.table_id);
+    else setConfirmDelete(t);
   };
 
   const runAutoSeat = () => {
@@ -1401,7 +1411,7 @@ export function SeatingEditor({
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeTable(t.table_id)}
+                      onClick={() => requestRemoveTable(t)}
                       aria-label={`Delete ${t.table_label}`}
                       className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
                     >
@@ -2506,7 +2516,7 @@ export function SeatingEditor({
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeTable(st.table_id)}
+                        onClick={() => requestRemoveTable(st)}
                         aria-label="Delete table"
                         className="flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:border-rose-400 hover:text-rose-600"
                       >
@@ -2672,7 +2682,7 @@ export function SeatingEditor({
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeTable(st.table_id)}
+                  onClick={() => requestRemoveTable(st)}
                   aria-label="Delete table"
                   className="rounded-lg p-1.5 text-ink/50 hover:bg-rose-50 hover:text-rose-600"
                 >
@@ -2773,7 +2783,7 @@ export function SeatingEditor({
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeTable(t.table_id)}
+                          onClick={() => requestRemoveTable(t)}
                           aria-label={`Delete ${t.table_label}`}
                           className="rounded p-1 text-ink/30 hover:bg-rose-50 hover:text-rose-600"
                         >
@@ -2895,6 +2905,52 @@ export function SeatingEditor({
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
                 <Sparkles className="h-4 w-4" /> Auto-seat
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* delete-table confirm — shown only when seated guests would be released.
+          Bottom sheet on phones (thumb zone, safe area), centered card otherwise. */}
+      {confirmDelete ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 md:items-center md:p-4"
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            className="w-full rounded-t-2xl border border-ink/10 bg-cream p-5 shadow-xl md:max-w-sm md:rounded-2xl"
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-rose-600" />
+              <h3 className="text-lg font-semibold text-ink">
+                Delete {confirmDelete.link_group_label ?? confirmDelete.table_label}?
+              </h3>
+            </div>
+            <p className="text-sm text-ink/70">
+              <span className="font-semibold">{seatedAt(confirmDelete.table_id)}</span> seated{' '}
+              {seatedAt(confirmDelete.table_id) === 1 ? 'guest' : 'guests'} will go back to{' '}
+              <span className="font-semibold">Unseated</span>, and the table is removed from the plan.
+            </p>
+            <div className="mt-4 flex gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                className="h-11 flex-1 rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink hover:bg-ink/5 md:h-auto md:flex-none md:py-1.5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  removeTable(confirmDelete.table_id);
+                  setConfirmDelete(null);
+                }}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-cream hover:bg-rose-700 md:h-auto md:flex-none md:py-1.5"
+              >
+                <Trash2 className="h-4 w-4" /> Delete table
               </button>
             </div>
           </div>

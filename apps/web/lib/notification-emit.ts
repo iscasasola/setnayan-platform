@@ -19,6 +19,10 @@ import type { NotificationType } from '@/lib/notifications';
 const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'chat_message',
   'vendor_inquiry_received',
+  // security_alert (2026-06-12): "your password was changed" is exactly the
+  // high-signal, time-sensitive class this allowlist exists for — if it
+  // WASN'T the user, every second until they see it matters.
+  'security_alert',
 ]);
 
 export type EmitNotificationArgs = {

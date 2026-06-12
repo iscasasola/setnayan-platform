@@ -73,7 +73,17 @@ export type NotificationType =
   // fired (couple-recipient) from lib/guest-claim-flow.ts when an invite-claim
   // lands in the couple's review queue (no/ambiguous fuzzy match, or OTP
   // undeliverable). Replaces the signal the old auto-admit placeholder gave.
-  | 'guest_claim_pending';
+  | 'guest_claim_pending'
+  // Added 2026-06-12 alongside migration
+  // 20261116000000_notification_type_security_alert.sql — the 10th 0028 V1
+  // template, deliberately skipped in PR #1262 because this column is
+  // enum-constrained. Fired (account-holder-recipient) from
+  // lib/account-security-actions.ts → changePassword() and
+  // app/reset-password/actions.ts → completePasswordReset() after the
+  // password update succeeds: "Your password was changed — if this wasn't
+  // you, reset it immediately and sign out other devices." NOT fired from
+  // signOutOtherDevices (that's the remedy, not the threat).
+  | 'security_alert';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -101,6 +111,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_token_purchase_pending: 'Token purchase awaiting payment',
   vendor_tokens_credited: 'Tokens credited',
   guest_claim_pending: 'Guest request to confirm',
+  security_alert: 'Security alert',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -140,6 +151,10 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   vendor_tokens_credited: 'bg-emerald-200 text-emerald-900',
   // Guest request awaiting the couple's confirmation = action needed → amber.
   guest_claim_pending: 'bg-amber-100 text-amber-900',
+  // Security alert = the alarm register — rose, matching payment_rejected /
+  // dispute_filed. Benign for the user who made the change, urgent for the
+  // one who didn't; the tray must read as "look at this now" either way.
+  security_alert: 'bg-rose-100 text-rose-800',
 };
 
 export type NotificationRow = {

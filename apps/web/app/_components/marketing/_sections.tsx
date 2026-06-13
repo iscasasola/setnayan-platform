@@ -70,13 +70,16 @@ export function PromoBar() {
 // 2. Nav — sticky top with search button + Sign in + Start planning
 // ─────────────────────────────────────────────────────────────────────
 export function Nav() {
+  // Simple 6-page site (owner 2026-06-13): Home (the video scrub, = the logo) ·
+  // What you get · Explore (search anything across all services) · For vendors ·
+  // Our story · Real Stories. Pricing folds into "What you get"; Help + legal
+  // live in the footer. Keeps the top nav clean + strategic.
   const links: Array<{ label: string; href: string }> = [
-    { label: 'Marketplace', href: '/vendors' },
-    { label: 'How it works', href: '/features' },
-    { label: 'Features', href: '/features' },
+    { label: 'What you get', href: '/features' },
+    { label: 'Explore', href: '/vendors' },
     { label: 'For vendors', href: '/for-vendors' },
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Help', href: '/help' },
+    { label: 'Our story', href: '/about' },
+    { label: 'Real Stories', href: '/blog' },
   ];
   return (
     <nav className="relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)] sticky top-0 z-10">
@@ -97,7 +100,7 @@ export function Nav() {
             <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.7" />
             <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
           </svg>
-          <span className="mr-12">Search vendors, dates, help…</span>
+          <span className="mr-12">Search anything…</span>
           <kbd className="m-mono text-[10px] px-1.5 py-px rounded bg-[var(--m-paper)] border border-[var(--m-line)] text-[var(--m-slate-3)]">
             ⌘K
           </kbd>
@@ -1009,9 +1012,10 @@ export function Footer() {
     {
       title: 'Product',
       links: [
-        { label: 'Marketplace', href: '/vendors' },
+        { label: 'Explore services', href: '/vendors' },
+        { label: 'What you get', href: '/features' },
+        { label: 'Real Stories', href: '/blog' },
         { label: 'Wedding venues', href: '/venues' },
-        { label: 'How it works', href: '/features' },
         { label: 'Pricing', href: '/pricing' },
       ],
     },

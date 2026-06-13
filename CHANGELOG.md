@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(i18n): Taglish /how-it-works — localization rolls to the role-map page
+
+Second page in the English + Taglish localization (after `/tl/about`). The "how it works" role-map — the highest-intent explainer for couples deciding whether Setnayan fits — now has a Taglish twin.
+
+- New `/tl/how-it-works` — Taglish edition of the six-role map + flow + CTAs. The live vendor Pro price comes from the SAME `getVendorPrices()` source as the EN page → no price drift; only the prose is translated.
+- Reciprocal **hreflang** on both pages (en-PH/tl-PH/x-default via `alternates.languages`) + an EN ↔ Taglish switcher in each hero. (EN page: `SITE_URL` hoisted above `metadata` + canonical made absolute, matching the `/about` pattern.)
+- `/tl/how-it-works` added to `sitemap-static.xml`; `/how-it-works` lastmod bumped (hreflang + switcher); `/tl` already in the robots allow-list. Fixed a stale "Tagalog" → "Taglish" comment on the `/tl/about` sitemap row.
+
+Content is inline per-page (same as `/tl/about`) — a shared per-locale dictionary (or `[locale]` route group) remains the scale-up step once more pages localize. **`/pricing` intentionally NOT twinned:** it renders live SKU prices from `platform_retail_catalog_v2`, so an inline copy would drift — it needs the dictionary/shared-data approach, not a hand-translated clone.
+
+Verified: tsc + production build (`/how-it-works` + `/tl/how-it-works` both register as `ƒ` dynamic).
+
+**SPEC IMPACT:** localization extended to a 2nd page; `DECISION_LOG.md` updated. Scale-up architecture (dictionary vs route group · CEB-dropped · which pages next) still flagged for owner.
+
+---
+
 ## 2026-06-13 · refactor(i18n): the two locales are English + Taglish (rewrite /tl/about in Taglish; drop Cebuano)
 
 Per owner ("english and taglish"): the public locales are **English (root) + Taglish** — the real conversational register Filipino couples use — not formal Tagalog + Cebuano. Follow-up to #1360.

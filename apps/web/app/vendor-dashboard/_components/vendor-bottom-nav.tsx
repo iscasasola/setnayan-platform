@@ -19,14 +19,17 @@
  *   1. Home (key 'profile') — /vendor-dashboard (exact-match · Overview)
  *   2. Bookings    — Booking pipeline (per-booking workspace · soft-hold
  *                    + downpaid status · cancel + release CTAs)
- *   3. Messages    — Chat inbox (per-thread workspace)
- *   4. Earnings    — Payout + earnings surface (2026-05-29 nav-tune ·
- *                    promoted over Marketing, which moved to /more)
- *   5. More        — Everything else (Profile · Contracts · Services ·
- *                    Attributes · Repertoire · Branches · Marketing ·
- *                    Verify · Reviews · Moodboard library · Payment
- *                    options · Tokens · Manpower · Redeem code · Team)
- *                    routed through the /vendor-dashboard/more landing.
+ *   3. Calendar    — Schedule-pool surface (2026-06-14 nav-tune · promoted
+ *                    over Earnings; the calendar that stops double-bookings
+ *                    is the vendor pitch and shouldn't be buried in /more)
+ *   4. Messages    — Chat inbox (per-thread workspace)
+ *   5. More        — Everything else (Profile · Clients · Services ·
+ *                    Contracts · Proposals · Attributes · Repertoire ·
+ *                    Subscription · Tokens · Redeem code · Marketing ·
+ *                    Verify · Reviews · Moodboard library · Earnings ·
+ *                    Payment options · Manpower · Branches · Team ·
+ *                    Notifications) routed through the
+ *                    /vendor-dashboard/more landing.
  *
  * The 5-tab set retires the legacy 14-tab horizontal pill from the
  * pre-Phase 2 layout. Notifications doesn't get a tab — it stays
@@ -40,10 +43,11 @@
  *                 because every other vendor route shares this prefix —
  *                 startsWith would keep Home perpetually active.
  *   - Bookings  — /vendor-dashboard/bookings + per-booking workspace
+ *   - Calendar  — /vendor-dashboard/calendar
  *   - Messages  — /vendor-dashboard/messages + per-thread workspace
- *   - Earnings  — /vendor-dashboard/earnings
  *   - More      — /vendor-dashboard/more landing OR any surface that
- *                 isn't surfaced as a dedicated tab.
+ *                 isn't surfaced as a dedicated tab (enumerated
+ *                 exhaustively below so no vendor route goes unlit).
  *
  * BottomNav primitive (PR #603 + Phase 3 activeMatchExact extension)
  * auto-hides at lg breakpoint via lg:hidden, so this only renders on
@@ -57,7 +61,7 @@
  * trips Next.js serialization. Symmetric pattern.
  */
 
-import { Home, Briefcase, MessageSquare, Wallet, Menu } from 'lucide-react';
+import { Home, Briefcase, CalendarDays, MessageSquare, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
@@ -92,6 +96,18 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: '/vendor-dashboard/bookings',
   },
   {
+    // 2026-06-14 nav-tune — Calendar promoted to bottom nav slot 3 in
+    // place of Earnings. The vendor pitch is the calendar that stops
+    // double-bookings (schedule-pool lock 2026-06-12); it shouldn't be
+    // buried in /more. Earnings moves OUT to the sidebar Business group +
+    // the More umbrella (still one tap away).
+    key: 'calendar',
+    label: 'Calendar',
+    href: '/vendor-dashboard/calendar',
+    icon: CalendarDays,
+    activeMatch: '/vendor-dashboard/calendar',
+  },
+  {
     key: 'messages',
     label: 'Messages',
     href: '/vendor-dashboard/messages',
@@ -99,56 +115,53 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: '/vendor-dashboard/messages',
   },
   {
-    // 2026-05-29 nav-tune — Earnings promoted to bottom nav slot 4 in
-    // place of Marketing. Pilot vendors check earnings weekly (anxiety
-    // about whether payments landed); Marketing campaigns are set
-    // monthly. Marketing moves to /more under the Marketing group.
-    key: 'earnings',
-    label: 'Earnings',
-    href: '/vendor-dashboard/earnings',
-    icon: Wallet,
-    activeMatch: '/vendor-dashboard/earnings',
-  },
-  {
     key: 'more',
     label: 'More',
     href: '/vendor-dashboard/more',
     icon: Menu,
-    // Catch-all for everything not in the first 4 tabs. Enumerated
-    // explicitly per [[feedback_setnayan_orphan_prevention]] — every
-    // route must be reachable AND have its active tab light up
-    // correctly. New routes need an entry here OR in one of the
-    // dedicated tabs above.
-    // 2026-05-29 nav-tune — Marketing + Verify moved IN (relocated from
-    // the prior Marketing tab slot which Earnings took). Earnings moved
-    // OUT (now a dedicated bottom-nav tab). Profile editor moved IN
-    // (since Home tab is now the Overview; Profile sits at /profile).
+    // Catch-all for everything not on one of the first 4 tabs (Home ·
+    // Bookings · Calendar · Messages). Enumerated EXHAUSTIVELY per
+    // [[feedback_setnayan_orphan_prevention]] — every vendor route must be
+    // reachable AND light its active tab. Any route here that is NOT a
+    // dedicated tab MUST appear below, or it goes "unlit" on mobile.
+    //
+    // 2026-06-14 nav-tune — Calendar promoted to a dedicated tab (slot 3,
+    // replacing Earnings); Earnings moved IN here. Audit-flagged gaps
+    // closed: Clients · Proposals · Subscription were never enumerated and
+    // so never lit More — added. Tax docs included for bookmark continuity
+    // (page redirects to /vendor-dashboard but the route can still be hit).
+    // List kept alphabetical-by-group so future routes are easy to slot in.
     activeMatch: [
       '/vendor-dashboard/more',
       // Home group (Profile now lives at /profile after PR #636)
       '/vendor-dashboard/profile',
-      // Pipeline group (excluding bookings which has its own tab)
-      '/vendor-dashboard/contracts',
+      // Work group (excluding bookings + calendar + messages, which each
+      // have their own dedicated tab)
+      '/vendor-dashboard/clients',
       '/vendor-dashboard/services',
-      '/vendor-dashboard/attributes',
+      '/vendor-dashboard/contracts',
+      '/vendor-dashboard/proposals',
       '/vendor-dashboard/repertoire',
-      '/vendor-dashboard/branches',
-      // Marketing group — Marketing + Verify moved here from bottom nav
+      '/vendor-dashboard/attributes',
+      // Grow group (Subscription · Tokens · Redeem code folded in here
+      // 2026-06-14 — kept under More on mobile)
+      '/vendor-dashboard/subscription',
+      '/vendor-dashboard/tokens',
+      '/vendor-dashboard/redeem-code',
       '/vendor-dashboard/marketing',
       '/vendor-dashboard/verify',
       '/vendor-dashboard/reviews',
       '/vendor-dashboard/moodboard-library',
-      // Money group (Earnings is now a dedicated bottom-nav tab)
+      // Business group (Earnings moved here from the tab bar 2026-06-14)
+      '/vendor-dashboard/earnings',
       '/vendor-dashboard/payment-options',
-      '/vendor-dashboard/tokens',
       '/vendor-dashboard/manpower',
-      // '/vendor-dashboard/tax-documents' RETIRED 2026-05-29 (BIR 2307
-      // retired under V2 publisher posture · page now redirects to
-      // /vendor-dashboard for bookmark continuity · no active route to
-      // bucket under More)
-      '/vendor-dashboard/redeem-code',
-      // Team group
+      '/vendor-dashboard/branches',
       '/vendor-dashboard/team',
+      // Tax docs RETIRED 2026-05-29 (BIR 2307 retired under V2 publisher
+      // posture · page redirects to /vendor-dashboard) — kept here so a
+      // bookmarked hit still lights More instead of going unlit.
+      '/vendor-dashboard/tax-documents',
       // Notifications surfaces here too — topbar bell is the primary
       // entry point but the per-route notifications page lights up More
       // on the mobile chrome so navigation feels predictable.

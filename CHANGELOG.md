@@ -25,6 +25,19 @@ SPEC IMPACT: None (nav highlight + icons; no routes/labels/gates changed).
 ---
 
 ## 2026-06-14 · fix(pwa): auto-stamp the service-worker cache version per deploy (kills stale-shell-after-deploy)
+## 2026-06-14 · refactor(nav): vendor Grow-group merge + Calendar into bottom nav + More activeMatch fix
+
+Vendor dashboard navigation consolidation per the owner-locked REDESIGN_PLAN. Routes, hrefs, icons and all role/tier gating are unchanged — only nav grouping + which routes light which mobile tab.
+
+- `apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx` — **Grow** is now the single home for paid reach + reputation. Moved **Subscription**, **Tokens**, **Redeem code** from the Business (`money`) group into the Grow (`marketing`) group (keys/hrefs/icons/`matchPrefix`/gating untouched — only the group object they live in changed). After: **Grow** = Subscription · Tokens · Redeem code · Marketing · Verify · Reviews · Moodboard library; **Business** = Earnings · How clients pay you · Manpower · Branches · Team & Setnayan. Group order + every role-scope/enterprise-tier gate preserved (gating keys on item `key`, which is unchanged, so the move is gating-neutral).
+- `apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx` — mobile tabs are now **Home · Bookings · Calendar · Messages · More** (Calendar `CalendarDays` → `/vendor-dashboard/calendar` replaces Earnings as primary tab 3; Earnings stays reachable via the sidebar Business group + the More umbrella). The vendor pitch is the calendar that stops double-bookings, so it earns a primary tab.
+- Same file — fixed the **More** `activeMatch` umbrella so no vendor route goes unlit on mobile. Added the audit-flagged gaps (`/clients`, `/proposals`, `/subscription`), moved `/earnings` IN (left the tab bar), and added `/tax-documents` for bookmark continuity. More now enumerates every non-primary-tab vendor route.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `node scripts/lint-bottom-nav.mjs` passes (delegation + template integrity intact).
+
+SPEC IMPACT: None (nav grouping/labels; routes + gates unchanged)
+
+
 
 Durable follow-up to the 2026-06-14 chrome retirement (which only one-time-bumped `sw.js` v3→v4). `public/sw.js` namespaces all five caches (SHELL/STATIC/IMAGE/FONT/DAYOF) by a hand-maintained `const VERSION`; `STATIC_CACHE` serves Next chunks stale-while-revalidate, so when VERSION isn't bumped on a deploy, returning PWA users get the PRIOR build's shell/JS for one load. Now it auto-bumps per deploy:
 

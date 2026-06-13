@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(nav): "Real Stories" → /weddings (the showcase already existed) + finish the #1377 nav-simplify drift on the shared SiteHeader
+
+Closes follow-up (2) of the 2026-06-13 nav simplify. Owner decided "Real Stories" = real-event editorials, and confirmed *"we have our sample editorial — that can be our first."* **Discovery: the showcase surface was already built** — `/weddings` (iteration 0046: index + `[slug]` detail + `lib/real-weddings.ts` + `lib/showcase-db.ts` + dedicated sitemap), seeded with the honestly-labelled **Maria & Juan** sample editorial (`SAMPLE_EDITORIAL_EVENT_ID`), with the real consent-gated `event_editorial` pipeline (loadPublishedShowcases) ready to take over Dec 2026. It was just **linked from nowhere in the nav** — the nav pointed "Real Stories" → `/blog`, which is the planning-guides *"Setnayan Journal"*. So this is wiring, not a rebuild. **No new showcase CMS, no fabricated weddings, no schema/migration.**
+
+- `app/_components/marketing/_sections.tsx` — homepage `Nav()` "Real Stories" `/blog` → **`/weddings`**; `Footer()` Product column "Real Stories" → `/weddings` + added **"Planning guides" → `/blog`** so the 9 ranking Journal articles stay linked (URLs untouched → zero SEO risk).
+- `app/_components/site-header.tsx` — **`PRIMARY_NAV` aligned to the locked 6-page IA** (What you get · Explore · For vendors · Our story · Real Stories→/weddings). #1377 simplified the nav but only touched the homepage `Nav()`; this *shared* SiteHeader (used by `/weddings`, `/features`, and every other public page) still carried the old `Marketplace · How it works · Features · Pricing · Help` set — so the site rendered two different navs. Now consistent site-wide, and "Real Stories" finally appears in the header on the showcase page itself.
+- `app/features/_sections/_SiteFooter.tsx` — added "Real Stories" → `/weddings` (kept "Journal" → `/blog`).
+
+`/blog` (Setnayan Journal guides) is **untouched** — same content, same `/blog/[slug]` URLs, still SEO-indexed; only its nav label changes (footer "Planning guides"/"Journal"). Verified `/weddings` is live on prod (renders the Maria & Juan featured sample).
+
+SPEC IMPACT: connects the iteration 0046 `/weddings` showcase to the public nav as "Real Stories"; `/blog` (0038) reframed from the Real-Stories slot to "Planning guides". Logged in corpus `DECISION_LOG.md` (2026-06-14). Follow-up (not in this PR): a homepage Real-Stories teaser section; renaming the `/weddings` H1/SEO from "Real weddings" if the owner wants the surface itself to read "Real Stories".
+
+---
+
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 
 **Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.

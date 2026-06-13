@@ -74,12 +74,17 @@ export function Nav() {
   // What you get · Explore (search anything across all services) · For vendors ·
   // Our story · Real Stories. Pricing folds into "What you get"; Help + legal
   // live in the footer. Keeps the top nav clean + strategic.
+  //
+  // 2026-06-14 — "Real Stories" repointed /blog → /weddings: the real-wedding
+  // showcase surface (iteration 0046, seeded with the Maria & Juan sample
+  // editorial) IS the Real Stories destination. /blog is the planning-guides
+  // "Setnayan Journal" — it stays reachable as "Planning guides" in the footer.
   const links: Array<{ label: string; href: string }> = [
     { label: 'What you get', href: '/features' },
     { label: 'Explore', href: '/vendors' },
     { label: 'For vendors', href: '/for-vendors' },
     { label: 'Our story', href: '/about' },
-    { label: 'Real Stories', href: '/blog' },
+    { label: 'Real Stories', href: '/weddings' },
   ];
   return (
     <nav className="relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)] sticky top-0 z-10">
@@ -1014,7 +1019,8 @@ export function Footer() {
       links: [
         { label: 'Explore services', href: '/vendors' },
         { label: 'What you get', href: '/features' },
-        { label: 'Real Stories', href: '/blog' },
+        { label: 'Real Stories', href: '/weddings' },
+        { label: 'Planning guides', href: '/blog' },
         { label: 'Wedding venues', href: '/venues' },
         { label: 'Pricing', href: '/pricing' },
       ],

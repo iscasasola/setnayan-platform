@@ -666,3 +666,22 @@ test.describe('freeBoothSlots', () => {
     expect(freeBoothSlots(stage, [], 0)).toEqual([]);
   });
 });
+
+// --- rect connect catch radius (2026-06-13: easier to join long tables) -------
+
+test.describe('rect chain snap catch radius', () => {
+  const half = tableGeometry('family_head', 14).hub.w / 2; // wide → far flush point
+  test('a generous tolerance catches a drag that the tight default misses', () => {
+    const B = { x: 600, y: 400, rot: 0, halfLen: half };
+    const flushX = B.x + 2 * half; // where the moving table's centre sits when flush
+    // Drop the moving centre a half-table SHORT of the flush point.
+    const probe = { x: flushX - half * 0.6, y: 402 };
+    // Tight default (36px) can't reach across most of a tabletop…
+    expect(rectChainSnap(probe, half, [B], 36)).toBeNull();
+    // …the size-scaled tolerance does, and still lands it exactly flush.
+    const snapped = rectChainSnap(probe, half, [B], Math.max(40, half * 0.9));
+    expect(snapped).not.toBeNull();
+    expect(Math.abs(snapped!.x - flushX)).toBeLessThan(1e-9);
+    expect(snapped!.rot).toBe(0);
+  });
+});

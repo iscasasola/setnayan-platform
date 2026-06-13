@@ -234,6 +234,18 @@ Verified: `tsc` + production build clean (no new deps).
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
+## 2026-06-13 · feat(seating): change a table's style after the fact · stage/dance dimensions in metres · easier banquet connect
+
+Three owner-directed seat-plan editor additions (2026-06-13):
+
+- **Change table style** ("they picked long table, then decided to make them round tables — give them the right to do so"). The per-table popup gains a **Style** dropdown (full catalog grouped by shape: round / long banquet / family head / sweetheart / serpentine). New `updateTableType` action resets capacity to the new shape, clears deleted-chair state, and returns any guest sitting in a chair the new (smaller) shape lacks to the unseated pool — the notice reports how many. Position + label are kept.
+- **Stage & dance-floor dimensions in metres.** When a room size is set, the Room panel shows Stage W/L and Dance W/L numeric inputs (metres), converting against the venue dimensions (a 24%-wide stage in a 20 m room reads 4.8 m; typing 8 m sets it to 40%). Free-size venues have no metre scale, so there the drag grips remain the way to size them.
+- **Easier banquet/family-head connect.** The rect end-to-end snap catch radius was a flat 36 px — almost impossible to hit by hand, since a family-head's flush join sits a whole tabletop-length (~250 px) from the neighbour's centre. It now scales with the moving table's half-length (`max(40, halfLen·0.9)`), so dragging two long tables roughly end-to-end snaps them flush. (This compounds with the same-day catapult fix, which previously flung a table away before it reached the join.)
+
+**Verification:** 42/42 pure-logic tests (1 new: the scaled tolerance catches a half-table-short drag the 36 px default misses, still landing flush). `tsc` clean. Live on the demo event: changed round "Barkada" → long banquet (capacity 8) and reverted; Stage W = 8 m in a 20 m room set the stage to 40%; Style dropdown lists all 11 catalog types. No demo data left changed.
+
+**SPEC IMPACT:** iteration 0008 — tables are now re-styleable post-creation and the stage/dance floor carry metre dimensions; logged in DECISION_LOG.
+
 ## 2026-06-13 · fix(seating): tables no longer catapult across the room on the first pixel of a drag (worst on round + sweetheart)
 
 **Context:** owner — "round tables and sweetheart table still move to the right when clicked. we want the same as the long table and serpentine tables." Reproduced on the demo event: a 6–8px nudge flung round "Sponsors 1" 63% of the canvas, "Barkada" 56%, Sweethearts 39%, while the rectangular Family Head barely moved (14%).

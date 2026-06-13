@@ -439,6 +439,72 @@ export async function updateTableRotation(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Change a table's STYLE/type (owner-directed 2026-06-13: "they picked long
+// table, then decided to make them round tables — give them the right to do
+// so"). Capacity resets to the new type's seat count and the geometry changes,
+// so deleted-chair state (removed_seats) is cleared and any guest sitting in a
+// chair that no longer exists is returned to the unseated pool. Position +
+// label are kept. Returns how many guests were unseated so the editor can say.
+export async function updateTableType(
+  formData: FormData,
+): Promise<{ unseated: number }> {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const newType = formData.get('table_type');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || !isValidTableType(newType)) {
+    throw new Error('Invalid input');
+  }
+  const newCapacity = TABLE_TYPE_CATALOG.find((t) => t.type === newType)?.defaultCapacity ?? 8;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Guests sitting in a chair index that the new (smaller) shape no longer has
+  // are unseated. Chairs 0..newCapacity-1 keep their occupant; null-seat rows
+  // (dropped on the table without a specific chair) beyond capacity also clear.
+  const assignments = await fetchAssignments(supabase, eventId);
+  const here = assignments.filter((a) => a.table_id === tableId);
+  const toUnseat = here.filter(
+    (a) => a.seat_number === null || a.seat_number < 0 || a.seat_number >= newCapacity,
+  );
+  // If everyone has a low seat number but there are simply MORE of them than
+  // the new capacity, drop the surplus (highest seat numbers first).
+  const keep = here.filter((a) => !toUnseat.includes(a));
+  const surplus = keep
+    .slice()
+    .sort((a, b) => (b.seat_number ?? 0) - (a.seat_number ?? 0))
+    .slice(0, Math.max(0, keep.length - newCapacity));
+  const unseatIds = [...toUnseat, ...surplus].map((a) => a.guest_id);
+
+  if (unseatIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('table_id', tableId)
+      .in('guest_id', unseatIds);
+    if (delErr) throw new Error(delErr.message);
+  }
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({
+      table_type: newType,
+      capacity: newCapacity,
+      removed_seats: [],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return { unseated: unseatIds.length };
+}
+
 // Delete or restore a single chair at a table (toggles membership of
 // removed_seats). Clears the edge where two tables connect. Refuses to delete a
 // seat that's currently occupied — unseat the guest first.

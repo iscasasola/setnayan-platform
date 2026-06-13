@@ -61,6 +61,19 @@ Net: today the scrub shows via presigned frames (works with existing R2 creds, R
 SPEC IMPACT: None (read-path + storage refinement; no SKU/pricing/schema-contract change). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
+## 2026-06-14 · feat(seating): live day-of seat-plan propagation (seat-finding PR 5 of 6)
+
+The "win over frozen paper" — a reseat done DURING the event reaches the guest-facing surfaces on its own, with **no push/email** (the owner's silent-only lock). The data path was already live (all finder surfaces are `force-dynamic` reading `event_seat_assignments`); this PR adds the **day-of UX** that was missing. **No migration.**
+
+- **`lib/day-of-mode.ts`** — new `isEventDayActive()` = `live || post` phase (T-1h .. T+24h). The existing `live` window is midnight-anchored (T-1h..T+8h ≈ 11pm-prev..8am), so an EVENING reception falls in `post` — `isEventDayActive` spans the whole wedding day so the feature actually covers evening weddings.
+- **`lib/use-day-of-live-refresh.ts`** (new) — `useDayOfLiveTick(eventDate, onTick)`: fires on a 45s cadence + tab-focus + visibility-regain, only while the wedding day is active AND the tab is visible. A PULL, never a push — no notification/email/realtime channel; inert during normal planning.
+- **`app/_components/live-refresher.tsx`** (new) — render-nothing companion that calls `router.refresh()` on each tick (re-runs the server component → fresh props). Mounted on **`/[slug]/find-my-table`** (paid wayfinding map re-lights) and the **`/dashboard/[eventId]/guests/checkin`** desk (each guest's table re-labels on the board; the desk's local check-in/scanner state survives the refresh — verified `selected`/results read the live memoized `guests` prop).
+- **`/[slug]/find-seat` free finder** — `NameSearch` now takes `eventDate` and silently re-fires the *last* lookup on each day-of tick (its result lives in client state, so `router.refresh()` can't reach it). Quiet refresh never flips an existing result to an error.
+- **`day-of-editing-banner.tsx`** (new) — a clock-driven banner on the seating editor (a sibling of `<SeatingEditor>`, so the 4.4k-line editor is untouched): during the wedding day it tells the editor that changes reach guests instantly AND that **printed cards/signs are frozen snapshots — the live digital plan is today's source of truth** (encodes the day-of digital-only-responsibility lock). `seating/page.tsx` + `checkin/page.tsx` + the two `[slug]` pages now select `events.event_date`.
+
+Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests clean. PR pending (branch `claude/seat-live-propagation`, auto-merge to arm).
+
+SPEC IMPACT: implements the 2026-06-13 "live day-of reprogramming" 3-lock decision (digital-only responsibility · exclusive lock [shipped PR 2] · silent-only updates) for iter 0008 seat plan + 0031 day-of guest. **Open (owner):** PR 4 (paid seat pass) is still unbuilt — it will inherit this live-data + tick pattern when it lands. Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
 

@@ -39,7 +39,7 @@ export default async function FindSeatPage({ params }: Props) {
 
   const { data: event } = await admin
     .from('events')
-    .select('event_id, display_name, slug, venue_name, event_type')
+    .select('event_id, display_name, slug, venue_name, event_type, event_date')
     .ilike('slug', slug)
     .maybeSingle();
 
@@ -79,7 +79,7 @@ export default async function FindSeatPage({ params }: Props) {
               Start typing your name to see which table you&rsquo;re at.
             </p>
           </header>
-          <NameSearch slug={slug} />
+          <NameSearch slug={slug} eventDate={event.event_date as string | null} />
         </div>
       ) : (
         <PromptCard

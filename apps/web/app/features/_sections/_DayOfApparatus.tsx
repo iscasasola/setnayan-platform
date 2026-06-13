@@ -10,86 +10,130 @@ import {
   ShoppingBag,
   type LucideIcon,
 } from 'lucide-react';
+import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 // Day-of apparatus (in-app services) — Panood, Papic, Patiktok, Pakulay,
 // Pailaw, Pakanta, Photo Delivery, Supplies Marketplace. One card per
 // service. NO PHP figures (prices live on /pricing and the in-app cart).
-// Two cards removed 2026-05-22 — Pro Camera Bridge never shipped to V1;
-// monogram-pack copy superseded by Bespoke Monogram (iteration 0037).
-// Two cards added 2026-05-22 — Patiktok (iteration 0017) + Pakanta
-// (iteration 0036) per Task #14, Sweep 5 audit rows 21 + 22.
-// Quote-per-event framing removed 2026-05-22 — pricing is fixed-SKU
-// charm-pricing per CLAUDE.md decision-log row "2026-05-12 charm-pricing
-// convention". Section header + per-card footer now point at /pricing.
-// Panood body copy: dropped "Custom monogram + Broadcast Style Pack"
-// reference (both SKUs retired alongside the 2026-05-16 BYO YouTube pivot).
+//
+// Bilingual (EN + Taglish). META (icon + SKU brand name) is language-neutral
+// — SKU names are NOT translated — and zips with COPY[locale].services by
+// index. Keep both arrays in lockstep.
 
-type Service = {
-  Icon: LucideIcon;
-  sku: string;
-  tagline: string;
-  body: string;
-  // Optional override for the per-card pricing footer.
-  // Default (omitted) → "Pricing on /pricing". Pakulay overrides with the
-  // free baseline because Mood Board V1 ships free (Composite Scene render
-  // packs are paid V1.1+; see CLAUDE.md 2026-05-22 invitation-pricing-boundary
-  // memory rule).
-  pricingLabel?: string;
-};
-
-const SERVICES: Service[] = [
-  {
-    Icon: Tv,
-    sku: 'Panood',
-    tagline: 'Multi-cam live broadcast',
-    body: 'Up to six cameras, one broadcaster, broadcast on your own YouTube channel via BYO OAuth. AI Highlight reels post-event. Family who can&rsquo;t make it sees every moment in 1080p, on whatever device they&rsquo;re on.',
-  },
-  {
-    Icon: Camera,
-    sku: 'Papic',
-    tagline: 'Designated paparazzi',
-    body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple&rsquo;s gallery. Real-time delivery — guests can flip through tagged photos before the reception is over.',
-  },
-  {
-    Icon: Video,
-    sku: 'Patiktok',
-    tagline: 'TikTok-format booth at the venue',
-    body: 'A booth station capturing 30-second TikTok-format videos from your guests during cocktail or reception. Two tiers: post to your own TikTok handle, or to Setnayan&rsquo;s curated showcase. Compilation arrives in your gallery the next morning.',
-  },
-  {
-    Icon: Palette,
-    sku: 'Pakulay',
-    tagline: 'Mood-board engine',
-    body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer. Vendors get a live link, not a screenshot — they always reference the latest palette.',
-    pricingLabel: 'Free baseline · Pro renders V1.1+',
-  },
-  {
-    Icon: Lightbulb,
-    sku: 'Pailaw',
-    tagline: 'LED background maker',
-    body: '8K loop generators for venue LED walls. USB-deliverable for offline playback at venues with no reliable internet. Match the loop to your palette and the visual language of your day reads consistently from the entrance to the dance floor.',
-  },
-  {
-    Icon: Music,
-    sku: 'Pakanta',
-    tagline: 'A wedding song written for the two of you',
-    body: 'Custom song composition + recording for your wedding day. Three tiers: Basic for a 60-second pure-vocal piece, Premium for full production with your love story woven through, Wedding Suite for ceremony processional + reception entrance + first-dance song bundle. All Setnayan-AI-generated, royalty-free, yours forever.',
-  },
-  {
-    Icon: CloudUpload,
-    sku: 'Photo Delivery',
-    tagline: 'Full-res handoff after the day',
-    body: 'Connect your photographer&rsquo;s Google Drive — Setnayan pipes full-resolution albums into the couple&rsquo;s gallery post-event, with a 30-day grace window before automated storage tiering compresses the originals. Keep your raws as long as you need.',
-  },
-  {
-    Icon: ShoppingBag,
-    sku: 'Supplies Marketplace',
-    tagline: 'Wedding-day supplies, one bill',
-    body: 'Vetted Filipino vendors for prints, equipment rentals, NFC keepsakes, and reception decor &mdash; direct-to-venue, on one Setnayan invoice. Everything the software needs to land in the physical world, sourced from one place.',
-  },
+const META: { Icon: LucideIcon; sku: string }[] = [
+  { Icon: Tv, sku: 'Panood' },
+  { Icon: Camera, sku: 'Papic' },
+  { Icon: Video, sku: 'Patiktok' },
+  { Icon: Palette, sku: 'Pakulay' },
+  { Icon: Lightbulb, sku: 'Pailaw' },
+  { Icon: Music, sku: 'Pakanta' },
+  { Icon: CloudUpload, sku: 'Photo Delivery' },
+  { Icon: ShoppingBag, sku: 'Supplies Marketplace' },
 ];
 
-export function DayOfApparatus() {
+type ServiceCopy = { tagline: string; body: string; pricingLabel?: string };
+
+const COPY: Record<
+  MarketingLocale,
+  {
+    eyebrow: string;
+    heading: string;
+    introA: string;
+    introB: string;
+    pricingPrefix: string;
+    services: ServiceCopy[];
+  }
+> = {
+  en: {
+    eyebrow: 'Section 4 · The day-of apparatus',
+    heading: 'When the day comes, we bring the gear.',
+    introA:
+      'Live broadcast. Same-day edit. Paparazzi capture. Personal monogram. The on-the-day apparatus that turns a wedding into a story your guests can replay forever — built into the same app you used to plan it. Fixed PHP prices live on ',
+    introB: '; this page is the feature catalog.',
+    pricingPrefix: 'Pricing on',
+    services: [
+      {
+        tagline: 'Multi-cam live broadcast',
+        body: 'Up to six cameras, one broadcaster, broadcast on your own YouTube channel via BYO OAuth. AI Highlight reels post-event. Family who can’t make it sees every moment in 1080p, on whatever device they’re on.',
+      },
+      {
+        tagline: 'Designated paparazzi',
+        body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery — guests can flip through tagged photos before the reception is over.',
+      },
+      {
+        tagline: 'TikTok-format booth at the venue',
+        body: 'A booth station capturing 30-second TikTok-format videos from your guests during cocktail or reception. Two tiers: post to your own TikTok handle, or to Setnayan’s curated showcase. Compilation arrives in your gallery the next morning.',
+      },
+      {
+        tagline: 'Mood-board engine',
+        body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer. Vendors get a live link, not a screenshot — they always reference the latest palette.',
+        pricingLabel: 'Free baseline · Pro renders V1.1+',
+      },
+      {
+        tagline: 'LED background maker',
+        body: '8K loop generators for venue LED walls. USB-deliverable for offline playback at venues with no reliable internet. Match the loop to your palette and the visual language of your day reads consistently from the entrance to the dance floor.',
+      },
+      {
+        tagline: 'A wedding song written for the two of you',
+        body: 'Custom song composition + recording for your wedding day. Three tiers: Basic for a 60-second pure-vocal piece, Premium for full production with your love story woven through, Wedding Suite for ceremony processional + reception entrance + first-dance song bundle. All Setnayan-AI-generated, royalty-free, yours forever.',
+      },
+      {
+        tagline: 'Full-res handoff after the day',
+        body: 'Connect your photographer’s Google Drive — Setnayan pipes full-resolution albums into the couple’s gallery post-event, with a 30-day grace window before automated storage tiering compresses the originals. Keep your raws as long as you need.',
+      },
+      {
+        tagline: 'Wedding-day supplies, one bill',
+        body: 'Vetted Filipino vendors for prints, equipment rentals, NFC keepsakes, and reception decor — direct-to-venue, on one Setnayan invoice. Everything the software needs to land in the physical world, sourced from one place.',
+      },
+    ],
+  },
+  tl: {
+    eyebrow: 'Section 4 · The day-of apparatus',
+    heading: 'Pagdating ng araw, kami ang magdadala ng gear.',
+    introA:
+      'Live broadcast. Same-day edit. Paparazzi capture. Personal monogram. Ang on-the-day apparatus na gumagawa sa kasal na maging kwentong pwedeng i-replay ng mga guest mo habambuhay — naka-build sa parehong app na ginamit mo sa pagpaplano. Fixed PHP prices, nasa ',
+    introB: '; ang page na ito ang feature catalog.',
+    pricingPrefix: 'Pricing nasa',
+    services: [
+      {
+        tagline: 'Multi-cam live broadcast',
+        body: 'Hanggang anim na camera, isang broadcaster, i-broadcast sa sarili mong YouTube channel via BYO OAuth. AI Highlight reels pagkatapos ng event. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila.',
+      },
+      {
+        tagline: 'Designated paparazzi',
+        body: 'Native iOS/Android app para sa mga kaibigan at pamilya. Gesture shutter, QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery — pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
+      },
+      {
+        tagline: 'TikTok-format booth sa venue',
+        body: 'Isang booth station na kumukuha ng 30-second TikTok-format videos mula sa guests mo tuwing cocktail o reception. Dalawang tier: i-post sa sarili mong TikTok handle, o sa curated showcase ng Setnayan. Dumarating ang compilation sa gallery mo kinabukasan ng umaga.',
+      },
+      {
+        tagline: 'Mood-board engine',
+        body: 'Per-role + per-venue palettes kasama ang Setnayan Guide rule engine na nakakahuli ng contrast / temperature / cultural-default na mga mali bago pa mapunta sa printer. May live link ang vendors, hindi screenshot — laging ang pinakabagong palette ang reference nila.',
+        pricingLabel: 'Free baseline · Pro renders V1.1+',
+      },
+      {
+        tagline: 'LED background maker',
+        body: '8K loop generators para sa venue LED walls. USB-deliverable para sa offline playback sa mga venue na walang maaasahang internet. I-match ang loop sa palette mo at magiging consistent ang visual language ng araw mo mula entrance hanggang dance floor.',
+      },
+      {
+        tagline: 'Isang kasal na kanta, ginawa para sa inyong dalawa',
+        body: 'Custom song composition + recording para sa wedding day mo. Tatlong tier: Basic para sa 60-second pure-vocal piece, Premium para sa full production kasama ang love story niyo, Wedding Suite para sa ceremony processional + reception entrance + first-dance song bundle. Lahat Setnayan-AI-generated, royalty-free, sa inyo habambuhay.',
+      },
+      {
+        tagline: 'Full-res handoff pagkatapos ng araw',
+        body: 'I-connect ang Google Drive ng photographer mo — ipa-pipe ng Setnayan ang full-resolution albums papunta sa gallery ng couple pagkatapos ng event, may 30-day grace window bago i-compress ng automated storage tiering ang originals. Itago ang raws mo hangga’t kailangan mo.',
+      },
+      {
+        tagline: 'Wedding-day supplies, isang bill',
+        body: 'Vetted na Filipino vendors para sa prints, equipment rentals, NFC keepsakes, at reception decor — direct-to-venue, sa isang Setnayan invoice. Lahat ng kailangan ng software para mapunta sa physical world, galing sa isang lugar.',
+      },
+    ],
+  },
+};
+
+export function DayOfApparatus({ locale }: { locale: MarketingLocale }) {
+  const c = COPY[locale];
   return (
     <section
       id="day-of-apparatus"
@@ -99,35 +143,32 @@ export function DayOfApparatus() {
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <header className="mb-10 max-w-2xl space-y-3">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Section 4 &middot; The day-of apparatus
+            {c.eyebrow}
           </p>
           <h2
             id="day-of-apparatus-heading"
             className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl"
           >
-            When the day comes, we bring the gear.
+            {c.heading}
           </h2>
           <p className="text-base text-ink/65">
-            Live broadcast. Same-day edit. Paparazzi capture. Personal
-            monogram. The on-the-day apparatus that turns a wedding into a
-            story your guests can replay forever &mdash; built into the same
-            app you used to plan it. Fixed PHP prices live on{' '}
+            {c.introA}
             <Link
               href="/pricing"
               className="underline decoration-ink/30 underline-offset-2 hover:text-terracotta hover:decoration-terracotta"
             >
               /pricing
             </Link>
-            ; this page is the feature catalog.
+            {c.introB}
           </p>
         </header>
 
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICES.map((s) => {
-            const { Icon } = s;
+          {c.services.map((s, i) => {
+            const { Icon, sku } = META[i]!;
             return (
               <li
-                key={s.sku}
+                key={sku}
                 className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5"
               >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
@@ -135,7 +176,7 @@ export function DayOfApparatus() {
                 </span>
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold tracking-tight text-ink">
-                    {s.sku}
+                    {sku}
                   </h3>
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
                     {s.tagline}
@@ -148,7 +189,7 @@ export function DayOfApparatus() {
                 <p className="mt-auto pt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
                   {s.pricingLabel ?? (
                     <>
-                      Pricing on{' '}
+                      {c.pricingPrefix}{' '}
                       <Link
                         href="/pricing"
                         className="underline decoration-ink/30 underline-offset-2 hover:text-terracotta hover:decoration-terracotta"

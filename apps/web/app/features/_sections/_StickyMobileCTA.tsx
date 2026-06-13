@@ -3,13 +3,19 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 // Sticky thumb-zone primary CTA on mobile per the marketing-page
 // cross-cutting standards (per Heyflow / Apple HIG; PH is 80%+ mobile per
 // DataReportal Digital 2024 Philippines). Hides until the visitor scrolls
 // past the hero, so it doesn't double-up on the in-hero CTA above the fold.
 
-export function StickyMobileCTA() {
+const LABEL: Record<MarketingLocale, string> = {
+  en: 'Start planning · free',
+  tl: 'Magsimula · free',
+};
+
+export function StickyMobileCTA({ locale }: { locale: MarketingLocale }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -39,7 +45,7 @@ export function StickyMobileCTA() {
         tabIndex={visible ? 0 : -1}
         className="button-primary flex h-12 w-full items-center justify-center gap-2 text-sm"
       >
-        Start planning &middot; free
+        {LABEL[locale]}
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </Link>
     </div>

@@ -18,6 +18,21 @@ The couple-control half of decisions #5 + #6: a "Guest list & pricing" card on `
 Verified: `tsc` + `lint` + `next build` clean.
 
 **SPEC IMPACT:** None to locked scope. 14-day default provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decisions #5/#6); memory updated.
+## 2026-06-13 · feat(i18n): Taglish /features + the shared marketing-i18n foundation (dictionary + thin routes)
+
+Owner picked the **dictionary + thin-routes** architecture for scaling Taglish ("english and taglish" → "dictionary + thin routes"). This lands that foundation and proves it on the hardest page — `/features`, whose copy was spread across **11 section components** (the exact case an inline twin can't handle without duplicating 11 files).
+
+- New shared foundation `lib/marketing-i18n.tsx`: `MarketingLocale` type, `localeAlternates()` (reciprocal en-PH/tl-PH/x-default hreflang + canonical), `localeUrl`/`inLanguageTag`, and a `<LocaleSwitch>` hero switcher — so future localized pages stop hand-rolling their own `LANGUAGES` map.
+- `/features` refactored to **dictionary-driven**: each of the 11 sections now reads its copy from a co-located `COPY[locale]` dict (icons / iteration tags / SKU brand names stay language-neutral). The page splits into a shared `_PageBody` (threads `locale` + per-locale JSON-LD) + two **thin routes**: `/features` (en) and the new **`/tl/features`** (tl). The two can never structurally drift — only the prose differs.
+- The micro-mock visuals + footer stay shared (illustrative product-screenshot chrome — normal to leave in the default language).
+- **Stale-claim fix:** the guest-microsite "Multilingual EN / TL / CEB toggle" → "EN / TL" (Cebuano was dropped from the public locale set 2026-06-13, #1362).
+- `/tl/features` added to `sitemap-static.xml`; `/features` lastmod bumped.
+
+Correctness: dict strings use real Unicode punctuation (— ’ “ ” ·), which renders identically whether a section uses plain `{text}` or `dangerouslySetInnerHTML`, so the EN output is unchanged. Still skipping `/pricing` + home (both read live data → an inline copy drifts; they need this dictionary applied to their data layer, not a hand-translated clone).
+
+Verified: tsc + eslint (no new issues) + production build (`/features` + `/tl/features` register identically — same body, both `ƒ`).
+
+**SPEC IMPACT:** localization foundation established + extended to `/features`; `DECISION_LOG.md` updated. Next pages reuse `lib/marketing-i18n.tsx`; the live-data pages (`/pricing`, home) are the remaining architecture step.
 
 ---
 

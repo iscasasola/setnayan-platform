@@ -51,8 +51,12 @@ const STATIC_ROUTES: ReadonlyArray<{
   // sitemaps (same hub-in-its-own-child pattern as /help + /blog).
 
   // /features — v2.1 template adoption shipped (CLAUDE.md eleventh
-  // 2026-05-28 row PR #581). Monthly cadence is honest now.
-  { path: '/features', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.85' },
+  // 2026-05-28 row PR #581); localized to EN + Taglish 2026-06-13.
+  { path: '/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.85' },
+
+  // /tl/features — Taglish edition of /features (localization, 2026-06-13).
+  // hreflang reciprocal lives in both pages' metadata.
+  { path: '/tl/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
 
   // /for-vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).

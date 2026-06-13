@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(weddings): DB-driven Real Weddings browse — real editorials replace the sample (consent-gated)
+
+Builds the deferred 0046 cross-wedding browse so `/weddings` surfaces REAL published editorials and the sample yields automatically — end-to-end, per owner ("our sample until a real wedding is uploaded").
+
+- `lib/showcase-db.ts` (new) — `loadPublishedShowcases()`: server-only, admin-client, **consent-gated** query. A wedding qualifies only when it's a wedding with a public slug, past the **T+30d grace window**, AND a couple member's account opted in to public showcase inclusion (`users.public_summary_consent_at` — the RA 10173 gate shipped in `20260519000000_phase_a_event_editorial_consent.sql`). Best-effort → `[]` on any issue. **Verified against prod:** the 3-step join runs clean and returns 0 today (no consented past weddings), so the sample still shows.
+- `/weddings` index — now async + DB-backed: shows real showcases (each linking to the couple's **canonical `/[slug]` editorial**, never a duplicate copy under `/weddings`) when any exist; otherwise the curated sample. Conditional intro copy. Renders per-request (dynamic) → real weddings appear the instant they qualify, no cache to bust.
+- `sitemap-weddings.xml` — same priority: emits real `/[slug]` editorial URLs (honest `event_date` lastmod) when they exist, else the sample.
+
+The per-wedding editorial itself is unchanged (0002 Phase 4 at `/[slug]`); this adds the cross-wedding browse + discovery. First real wedding = the founder's Dec 2026 (→ ~Jan 2027), at which point the sample drops automatically.
+
+Verified: tsc + production build (`/weddings` dynamic, `/weddings/[slug]` sample SSG ●, `/sitemap-weddings.xml` ISR).
+
+**SPEC IMPACT:** implements the 0046 cross-wedding DB browse (consent-gated); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+
+---
+
 ## 2026-06-13 · feat(weddings): the sample is a fallback — real weddings auto-replace it
 
 Per owner ("this is our sample until a real wedding is uploaded"), the `/weddings` index + `sitemap-weddings.xml` now treat samples as PLACEHOLDERS: they render only while there are no real (non-sample) weddings. The moment a real wedding enters the source — a non-sample entry now, or the DB-driven Phase-4 published-editorials browse later (0046 deferred) — the sample drops out automatically (both the index listing and the sitemap filter `!isSample`, falling back to the sample only when the real set is empty). The index intro copy is conditional (sample framing vs real-weddings framing). No behaviour change today — only the sample exists, so it still shows.

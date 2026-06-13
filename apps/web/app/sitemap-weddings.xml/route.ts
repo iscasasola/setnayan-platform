@@ -1,47 +1,56 @@
 /**
  * Real Weddings sitemap at /sitemap-weddings.xml.
  *
- * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29) + iteration 0046 first slice
- * (2026-06-13). Emits the `/weddings` hub + the curated SAMPLE showcase URLs
- * that ship in-code (`lib/real-weddings.ts`) so the surface is indexable now.
- * Each row carries an honest per-entry `<lastmod>` (`updatedAt ?? publishedAt`),
- * never a build-time `Date()`. (The `/weddings` hub now lives here rather than
- * in sitemap-static — same hub-in-its-own-child pattern as /help + /blog — so
- * it is NOT duplicated across sitemaps.)
+ * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29) + iteration 0046 (2026-06-13).
+ * DB-driven + consent-gated: emits the `/weddings` hub plus each REAL published
+ * editorial's canonical URL — the couple's own `/[slug]` page — from
+ * `loadPublishedShowcases()`. Until any real wedding qualifies (the consent +
+ * T+30d gate), it falls back to the curated SAMPLE URL (`/weddings/[slug]`),
+ * the same priority order as the /weddings index. Honest per-row `<lastmod>`,
+ * never a build-time `Date()`. The `/weddings` hub lives here (not in
+ * sitemap-static) so it isn't duplicated across sitemaps — same
+ * hub-in-its-own-child pattern as /help + /blog.
  *
- * FUTURE — DB-driven real editorials. The canonical 0046/0002 model is that a
- * real wedding's editorial publishes from the couple's own `events` row at
- * T+30d post-wedding WITH explicit RA 10173 consent (first real one = the
- * founder's Dec 2026 wedding → editorials ~Jan 2027). When that ships, UNION
- * those rows in here (filter `events` by the published/consent columns) and
- * wire `revalidateTag('sitemap-weddings')` from the publish action so new
- * editorials surface within seconds. The in-code samples stay until real ones
- * exist.
+ * Best-effort: the loader degrades to [] (→ sample) on any DB issue, so this
+ * route always returns valid XML.
  */
 
 import { ALL_REAL_WEDDINGS, REAL_WEDDINGS_LASTMOD } from '@/lib/real-weddings';
+import { loadPublishedShowcases } from '@/lib/showcase-db';
 
 export const revalidate = 3600;
 
-export function GET(): Response {
+export async function GET(): Promise<Response> {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
-  // Samples are placeholders — emit them only until a real wedding exists
-  // (mirrors the /weddings index fallback). Once a real (non-sample) wedding
-  // enters the source, the sample drops out of the sitemap too.
-  const realWeddings = ALL_REAL_WEDDINGS.filter((w) => !w.isSample);
-  const shown = realWeddings.length > 0 ? realWeddings : ALL_REAL_WEDDINGS;
+  const showcases = await loadPublishedShowcases();
 
   const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
     { loc: `${baseUrl}/weddings`, lastmod: REAL_WEDDINGS_LASTMOD, changefreq: 'weekly', priority: '0.8' },
-    ...shown.map((w) => ({
-      loc: `${baseUrl}/weddings/${w.slug}`,
-      lastmod: w.updatedAt ?? w.publishedAt,
-      changefreq: 'monthly',
-      priority: '0.6',
-    })),
   ];
+
+  if (showcases.length > 0) {
+    // Real consent-gated editorials → the couple's canonical /[slug] page.
+    for (const s of showcases) {
+      rows.push({
+        loc: `${baseUrl}${s.href}`,
+        lastmod: s.eventDate ?? REAL_WEDDINGS_LASTMOD,
+        changefreq: 'monthly',
+        priority: '0.6',
+      });
+    }
+  } else {
+    // Fallback: the curated sample(s) at /weddings/[slug] until a real wedding exists.
+    for (const w of ALL_REAL_WEDDINGS.filter((w) => w.isSample)) {
+      rows.push({
+        loc: `${baseUrl}/weddings/${w.slug}`,
+        lastmod: w.updatedAt ?? w.publishedAt,
+        changefreq: 'monthly',
+        priority: '0.6',
+      });
+    }
+  }
 
   const urls = rows
     .map(

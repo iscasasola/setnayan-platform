@@ -1,11 +1,14 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { redirect } from 'next/navigation';
-import { MessageSquare, Plus, ArrowRight } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
+import {
+  ThreadListCard,
+  ThreadListAvatar,
+} from '@/app/_components/chat/thread-list-card';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { isFollowingVendor } from '@/lib/follow';
 import { resolveVendorDisplayName } from '@/lib/vendors';
@@ -224,68 +227,33 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
               : 'Vendor';
             return (
               <li key={t.thread_id}>
-                <Link
+                <ThreadListCard
                   href={`/dashboard/${eventId}/messages/${t.thread_id}`}
-                  className="group flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar logoUrl={t.vendor?.logo_url ?? null} name={vendorDisplayName} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink">
-                        {vendorDisplayName}
-                      </p>
-                      {t.inquiry_status === 'pending' ? (
-                        <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                          Waiting for reply
-                        </span>
-                      ) : t.inquiry_status === 'declined' ? (
-                        <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                          Not available
-                        </span>
-                      ) : null}
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                        Last activity {formatChatTimestamp(t.updated_at)}
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight
-                    aria-hidden
-                    className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
-                    strokeWidth={1.75}
-                  />
-                </Link>
+                  title={vendorDisplayName}
+                  avatar={
+                    <ThreadListAvatar
+                      logoUrl={t.vendor?.logo_url ?? null}
+                      name={vendorDisplayName}
+                    />
+                  }
+                  badge={
+                    t.inquiry_status === 'pending' ? (
+                      <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                        Waiting for reply
+                      </span>
+                    ) : t.inquiry_status === 'declined' ? (
+                      <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                        Not available
+                      </span>
+                    ) : null
+                  }
+                  timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
+                />
               </li>
             );
           })}
         </ul>
       )}
     </section>
-  );
-}
-
-function Avatar({ logoUrl, name }: { logoUrl: string | null; name: string }) {
-  const initials = name
-    .split(/\s+/)
-    .map((p) => p.charAt(0).toUpperCase())
-    .slice(0, 2)
-    .join('');
-  if (logoUrl) {
-    return (
-      <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
-        <Image
-          src={logoUrl}
-          alt=""
-          width={40}
-          height={40}
-          loading="lazy"
-          className="h-full w-full object-cover"
-        />
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-mono text-xs font-semibold text-terracotta-700">
-      {initials || '?'}
-    </span>
   );
 }

@@ -24,6 +24,16 @@ The couple contract list (`app/dashboard/[eventId]/contracts/page.tsx`) and the 
 - Verified: tsc --noEmit ✅ (exit 0) · next lint ✅ (No ESLint warnings or errors). No schema/migration.
 
 SPEC IMPACT: None — code-internal refactor; no SKU/schema/pricing/copy/UX change. Dashboard dedup Track A3.
+## 2026-06-14 · refactor(dashboard): shared <ThreadListCard> — dedup Track A5
+
+The couple (`/dashboard/[eventId]/messages`) and vendor (`/vendor-dashboard/messages`) messages-LIST pages forked identical thread-row markup — the `<li>`/`<Link>` shell, the avatar slot, title + inquiry-status badge + last-activity line, and the trailing chevron (the thread DETAIL view was already shared via `<ChatMessageStream>`). Extracted that row into a shared `<ThreadListCard>` (plus a `<ThreadListAvatar>` helper) under `app/_components/chat/`, parameterized on the per-role differences (href, title, optional avatar/badge/extra, timestamp line). Each page keeps its OWN role-scoped fetch + scoping validation (couple validates the event via `fetchCoupleThreads`; vendor validates the vendor profile via `fetchVendorThreads`) — the pages are not merged and the fetch is not shared. The couple-only follow-gate UI stays couple-only in the couple page. Pure dedup: rendered output (classes/copy/order/unread-status logic) is unchanged.
+
+- apps/web/app/_components/chat/thread-list-card.tsx — NEW
+- apps/web/app/dashboard/[eventId]/messages/page.tsx — render shared row (keeps follow-gate; dropped local `Avatar`)
+- apps/web/app/vendor-dashboard/messages/page.tsx — render shared row
+- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A5.
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 

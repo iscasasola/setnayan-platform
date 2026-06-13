@@ -2605,7 +2605,10 @@ export function SeatingEditor({
             return (
               <div
                 key={t.table_id}
-                className="absolute"
+                // Bounce when this table becomes the selected one (tap → popup).
+                // `.sn-bounce` animates the standalone `scale` property, which
+                // composes with the inline translate/scale transform below.
+                className={`absolute${highlighted ? ' sn-bounce' : ''}`}
                 style={{
                   left: `${pos.x}%`,
                   top: `${pos.y}%`,
@@ -2716,7 +2719,10 @@ export function SeatingEditor({
                             else setPickedId(occupant.guest_id);
                           }}
                           title={occupant.name}
-                          className="relative block h-full w-full"
+                          // Bounce this chair when its guest becomes the picked one.
+                          className={`relative block h-full w-full${
+                            pickedId === occupant.guest_id ? ' sn-bounce' : ''
+                          }`}
                         >
                           {/* the chair, tinted in the guest's group/side colour */}
                           <Armchair

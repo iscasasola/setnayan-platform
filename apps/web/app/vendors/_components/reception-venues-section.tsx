@@ -247,10 +247,11 @@ function FacetFilterBar({
     <div className="mt-3 flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:overflow-visible sm:pb-0">
       {/* "All" chip — clears the venue filter */}
       <Link
+        key={allActive ? 'all-active' : 'all-idle'}
         href={buildHref(null)}
         className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
           allActive
-            ? 'border-terracotta bg-terracotta text-cream'
+            ? 'border-terracotta bg-terracotta text-cream sn-bounce'
             : 'border-ink/15 bg-cream text-ink/75 hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta'
         }`}
         aria-pressed={allActive}
@@ -263,11 +264,11 @@ function FacetFilterBar({
         const isHostPick = hostVenueSetting === facet.key;
         return (
           <Link
-            key={facet.key}
+            key={isActive ? `${facet.key}-active` : facet.key}
             href={buildHref(facet.key)}
             className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
               isActive
-                ? 'border-terracotta bg-terracotta text-cream'
+                ? 'border-terracotta bg-terracotta text-cream sn-bounce'
                 : isHostPick
                   ? 'border-terracotta/50 bg-terracotta/10 text-terracotta hover:border-terracotta hover:bg-terracotta/15'
                   : 'border-ink/15 bg-cream text-ink/75 hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta'

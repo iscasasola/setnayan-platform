@@ -150,8 +150,9 @@ function FilterChip({
   return (
     <a
       href={`/admin/payments?filter=${target}`}
+      aria-pressed={isActive}
       className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+        isActive ? 'bg-terracotta text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
       }`}
     >
       {label}

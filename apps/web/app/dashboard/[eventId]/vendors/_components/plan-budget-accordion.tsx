@@ -1476,8 +1476,14 @@ function VendorCardAtom({
   return (
     <div className={`card${locked ? ' chosen' : ''}${opening ? ' opening' : ''}`}>
       <Link
+        // Keyed on the chosen vendor so the .sn-bounce "I just picked this"
+        // animation REPLAYS on each new pick: `locked` is React state (no
+        // remount), so without a key-flip the bounce would only fire once. The
+        // key swaps 'unchosen' → vendor_id at the moment of picking, remounting
+        // this <Link> (which holds no form/input focus state — safe to remount).
+        key={locked ? `chosen-${pick.vendor_id}` : 'unchosen'}
         href={workspaceHref}
-        className="v"
+        className={`v${locked ? ' sn-bounce' : ''}`}
         onClick={handleOpen}
         aria-busy={opening || undefined}
       >

@@ -144,7 +144,7 @@ export function ServicesTakeover({
           const on = key === tab;
           return (
             <button
-              key={key}
+              key={`${key}-${tab}`}
               type="button"
               role="tab"
               id={`bbtab-d-${key}`}
@@ -152,7 +152,7 @@ export function ServicesTakeover({
               aria-controls="budget-build-panel"
               onClick={() => selectTab(key)}
               className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                on ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink/80'
+                on ? 'border-terracotta text-ink sn-bounce' : 'border-transparent text-ink/50 hover:text-ink/80'
               }`}
             >
               <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -185,14 +185,14 @@ export function ServicesTakeover({
           const on = key === tab;
           return (
             <button
-              key={key}
+              key={`${key}-${tab}`}
               type="button"
               role="tab"
               id={`bbtab-m-${key}`}
               aria-selected={on}
               aria-controls="budget-build-panel"
               onClick={() => selectTab(key)}
-              className="flex flex-1 flex-col items-center gap-0.5 py-2"
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2${on ? ' sn-bounce' : ''}`}
             >
               <Icon
                 className={`h-5 w-5 ${on ? 'text-terracotta' : 'text-ink/50'}`}

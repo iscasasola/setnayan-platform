@@ -28,6 +28,7 @@ import {
   roleImportanceRank,
 } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { ensureFinalized } from '@/lib/pax';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
@@ -314,6 +315,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     stats,
     eventRow.data?.estimated_pax ?? null,
   );
+  // Auto-finalize check (Adaptive Pax Pricing Phase 7) — lazily locks the count
+  // once the guest-list edit deadline passes (default 14d before the event), so
+  // the meter + vendor costs freeze. Surfaces the finalized banner below.
+  const finalize = await ensureFinalized(supabase, eventId);
   const allTags = uniqueTags(guests);
   const flash = pickFlash(search);
   // Any filter active across ANY dimension — gates the mobile sticky
@@ -459,6 +464,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             strokeWidth={1.75}
           />
         </Link>
+      ) : null}
+
+      {/* Guest list finalized (Adaptive Pax Pricing Phase 7) — the edit deadline
+          passed; the binding count is frozen so late changes no longer move
+          vendor costs. Shown on desktop + mobile. */}
+      {finalize.locked ? (
+        <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
+          <span className="font-semibold text-ink">Guest list finalized</span>
+          {finalize.finalPax ? ` · ${finalize.finalPax} guests locked in` : ''}. Changes
+          after your guest‑list deadline no longer change vendor costs.
+        </p>
       ) : null}
 
       {/* Desktop-only chrome — owner directive 2026-06-02 (mobile top = just

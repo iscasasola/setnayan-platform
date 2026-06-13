@@ -17,6 +17,26 @@ Content is inline per-page (same as `/tl/about`) — a shared per-locale diction
 Verified: tsc + production build (`/how-it-works` + `/tl/how-it-works` both register as `ƒ` dynamic).
 
 **SPEC IMPACT:** localization extended to a 2nd page; `DECISION_LOG.md` updated. Scale-up architecture (dictionary vs route group · CEB-dropped · which pages next) still flagged for owner.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 7 (auto-finalize at the edit deadline)
+
+Owner decision #6: the guest count auto-finalizes at the edit deadline; after that the binding pax is frozen and vendor costs are final. Works out-of-box — no settings UI required.
+
+- **Migration `20261213000000_pax_final_count.sql`** — `events.final_pax INT` (the frozen binding count). **Applied to prod 2026-06-13.**
+- **`lib/pax.ts`** — `ensureFinalized()` (lazy, cron-free): if the edit deadline has passed and the event isn't locked, stamp `guest_count_locked_at` + freeze `final_pax = max(estimated_pax, headcount)`. The effective deadline is the couple's explicit `guest_list_edit_deadline`, else **14 days before the event** (default, provisional). Race-safe (UPDATE gated on `guest_count_locked_at IS NULL`). `resolveLivePax()` now returns `final_pax` once locked → late RSVPs / accepted claims can't move a booked cost (the binding-price guarantee). Extracted `liveHeadcount()` so the floor math + finalize snapshot never diverge.
+- **Guest page** — calls `ensureFinalized()` on view (lazy lock) and shows a "Guest list finalized · N guests locked in" banner (desktop + mobile) when locked.
+
+**Why the freeze is the core:** check-in only writes `guest_checkins` (never `guests`), so day-of check-in is unaffected; and because pricing reads go through `resolveLivePax` → `final_pax`, even a post-deadline guest add (e.g. an accepted claim) can't change a vendor's cost. So pricing correctness comes from the freeze, not from hard-blocking edits.
+
+**Deferred (documented fast-follows), not in this PR:** (a) decision #5's realtime-vs-final **display toggle** UI + the budget cost-projection it gates (the `adaptive_pricing_mode` column defaults to `realtime` = today's behavior); (b) a settings surface to **override** the 14-day deadline default; (c) a hard **edit-guard** that blocks planning edits post-deadline (UX only — the freeze already protects money). Flagged so "complete" stays honest.
+
+**Adversarial review (3 lenses) caught + fixed three real issues before merge:**
+- **Timezone** — `${date}T23:59:59` parsed as server-local time; now parsed as UTC (`…Z`) so the lock fires at the same instant on any server.
+- **Race / authority** — the finalize loser's UPDATE matches 0 rows but it returned its own (stale) computed `final_pax`. Now the write goes through the **service-role admin client** and re-reads the **DB-authoritative** `guest_count_locked_at` + `final_pax`, so the loser returns the winner's frozen value.
+- **Money integrity (blocker)** — `guest_count_locked_at` / `final_pax` were couple-writable under the broad events UPDATE RLS (a couple could forge `final_pax=1` to dodge a surcharge). New migration **`20261214000000_guard_pax_finalize_columns.sql`** (applied to prod): a BEFORE UPDATE trigger silently reverts any non-`service_role` change to those two columns; the finalize path writes them via the admin client. (Over-engineering findings — move finalize to a cron, full SQL transaction — dismissed: the cron-free lazy-on-read lock is the locked pattern, and the re-fetch covers the practical race.)
+
+Verified: `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
+
+**SPEC IMPACT:** None to locked scope. 14-day finalize lead is provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decision #6); memory updated.
 
 ---
 

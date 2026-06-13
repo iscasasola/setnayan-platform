@@ -191,6 +191,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/disputes',
       },
       {
+        key: 'pax-changes',
+        label: 'Pax changes',
+        href: '/admin/pax-changes',
+        icon: TrendingUp,
+        matchPrefix: '/admin/pax-changes',
+      },
+      {
         key: 'force-majeure',
         label: 'Force majeure',
         href: '/admin/force-majeure',

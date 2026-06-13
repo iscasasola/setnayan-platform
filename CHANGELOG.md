@@ -17,6 +17,19 @@ Natural Filipino copy (brand/product terms kept in English, as couples actually 
 Verified: tsc + production build (`/about` + `/tl/about` both static ○).
 
 **SPEC IMPACT:** new localization surface; `DECISION_LOG.md` + SEO playbook §0.14 note the first slice. The scale-up architecture (dictionary vs `[locale]` route group · CEB · which pages next) is flagged for owner direction.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 6 (HQ audit of cost changes) — program COMPLETE
+
+The final phase: an append-only HQ trail of every pax-driven vendor cost change, so a mediator can answer "why did this vendor's cost jump?" during a dispute (the architect-mandate admin surface). Completes the 6-phase Adaptive Pax Pricing program.
+
+- **Migration `20261212000000_pax_change_audit.sql`** — new `pax_change_audit` table (internal bigserial PK; no FKs so history outlives bookings) capturing action (accept/decline), live_pax, quote_base_pax, prev_pax, rate, prev/new surcharge, prev/new total, created_at. RLS enabled at create time: **admin-read only** (`is_admin()`); writes come from the service-role confirm actions (bypass RLS) so there's intentionally no insert policy. **Applied to prod 2026-06-13** (`db push`; only pending migration on remote was this one).
+- **`pax-actions.ts`** — `acceptPaxSurcharge`/`declinePaxSurcharge` now write one audit row each (best-effort `try/catch` — a failed insert never blocks the vendor's decision). On decline the new surcharge/total equal the previous (price held).
+- **`/admin/pax-changes`** (new) — read-only HQ list of the audit (vendor · event · action · guest delta · surcharge before→after · total before→after), batched name resolution, graceful empty state. Added to the admin sidebar after Disputes (`TrendingUp` icon). Auth via the admin layout gate.
+
+No couple/vendor-facing change. `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
+
+**Program summary (Phases 1-6, all shipped 2026-06-13):** schema → couple guest-list meter → inquiry pax snapshot → vendor per-guest rate → surcharge with in-thread vendor confirm → HQ audit. Both migrations (`20261211000000`, `20261212000000`) applied to prod.
+
+**SPEC IMPACT:** None to locked scope. Closes the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13 admin_surface). Memory `project_setnayan_adaptive_pax_pricing` → program complete. Corpus `0023_admin_console` AS-BUILT note (new pax-changes surface) + `0007`/`0021`/`0022` notes to follow.
 
 ---
 

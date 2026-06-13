@@ -27,7 +27,7 @@ import { appendLedger } from '@/lib/ledger';
 // concierge_activated_at + compute wedding-anchored concierge_expires_at.
 // Other SKUs in pilot just transition to 'paid'/'fulfilled' via the existing
 // promoteOrder branch — per-SKU activation hooks are V1.x scope.
-import { activateConcierge } from '@/app/dashboard/profile/concierge/actions';
+import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 // Vendor "Additional Branch" activation — maps a paid branch order
 // (service_key vendor_additional_branch__{branch_id}) back to its branch.
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';

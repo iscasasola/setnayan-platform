@@ -13,6 +13,23 @@ Owner: "rename it as /realstories." First of a sequenced program to turn the sho
 - Visible **"Real weddings" copy + the SEO title/keywords are intentionally unchanged** (strong "real Filipino weddings" keyword); only the route path changed. The nav label "Real Stories" → `/realstories` is the friendly label over the keyword-rich page — aligning the page H1 to "Real Stories" is an optional owner follow-up.
 
 SPEC IMPACT: iteration 0046 showcase route renamed `/weddings` → `/realstories` (301-preserved). Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR B — per-editorial OG share cards (satori, reusing `lib/social/card.tsx`) + Facebook/Pinterest/Copy share buttons on the editorial, so a shared link shows a beautiful preview and deep-links to the exact story.
+## 2026-06-14 · fix(dashboard): retire the legacy cream chrome — kill the "old design flashes then reroutes to the new design"
+
+Owner: *"the dashboard tries to load the original first design then reroutes to the new design — we want the latest design to be the first design, delete the old design."* Audit (multi-agent) found this is **not** a content reroute — it's a **dual-chrome layering** bug. The shared parent `app/dashboard/layout.tsx` rendered the legacy cream `OuterDashboardHeader` + a `bg-cream lg:pl-60` gutter **unconditionally** (server-side) for every `/dashboard` route, including event routes — where it was suppressed only by a **client** `usePathname()` guard and its gutter cancelled by a `lg:-ml-60` hack in `[eventId]/layout.tsx`. So the old chrome painted first, then hydration removed it and the paper `SidebarShell` overlaid it. (A docstring in `[eventId]/layout.tsx` claimed this cleanup had already shipped "Phase 0" — it never did.)
+
+Owner chose **retire the old chrome entirely** (one paper system everywhere). Fix = a Next.js **route-group split**:
+
+- **Moved** the non-event routes — picker `page.tsx`, `profile/`, `notifications/`, `create-event/`, `api-keys/`, `loading.tsx` — into a new URL-transparent group `app/dashboard/(account)/` (git tracked as renames; URLs unchanged).
+- **NEW** `app/dashboard/(account)/layout.tsx` — owns the account chrome: the events/roles/unread/avatar fetch + switcher mapping (lifted verbatim from the old parent) + `<OuterDashboardHeader>` + the `lg:pl-60` gutter, on a `--m-paper` base. Renders ONLY on account routes (structurally, server-side) — no client guard, no flash.
+- **Slimmed** `app/dashboard/layout.tsx` — now renders NO chrome: only the auth gate, the defensive users-profile probe (column-drift `SELECT *` fallback + try/catch), deleted-account sign-out, vendor→`/vendor-dashboard` redirect, ghosting `after()`, and the welcome `GuidedTour`, in an `app-surface min-h-dvh` + `--m-paper` wrapper (keeps the Source Sans readability lock for every dashboard route).
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — removed the `usePathname()`/`isEventScopedRoute` "return null on event routes" guard (no longer mounted there) → drops `'use client'` (now a server component); swapped the cream classes to the v2.1 `--m-paper`/`--m-paper-2`/`--m-line` paper tokens.
+- **`app/dashboard/[eventId]/layout.tsx`** — removed the `lg:-ml-60` outer-cancel wrapper (parent adds no gutter now → nothing to cancel; SidebarShell owns its own `--shell-main-offset`).
+- **Import fixes** for the folder move: `@/app/dashboard/create-event/…` → `@/app/dashboard/(account)/create-event/…` (+ `profile/concierge`) in `[eventId]/_components/event-switcher.tsx`, `lib/event-types-db.ts`, `admin/payments/actions.ts`, and the header itself.
+- **`public/sw.js`** VERSION `v3`→`v4` — evicts the stale `STATIC_CACHE` so returning PWA users don't get the prior build's old-chrome shell for one load. (A per-deploy auto-stamp `NEXT_PUBLIC_CACHE_BUSTER ← VERCEL_GIT_COMMIT_SHA` is the durable fix — flagged in-code as an owner follow-up.)
+
+Adversarial review (separate agent): **PASS — no functional regressions**; every old-parent responsibility still runs on the right subtree, the server-component conversion is clean, no broken imports, account chrome + post-login redirect intact. Verified: `tsc --noEmit` ✅ (0 errors) · `next lint` ✅ (clean) on all changed files. No schema/migration.
+
+SPEC IMPACT: None — chrome/routing refactor; no SKU/schema/pricing/copy change. The `(account)` route group is an internal structure only (URLs unchanged). Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner follow-up flagged: per-deploy SW cache-buster auto-stamp.
 
 ---
 

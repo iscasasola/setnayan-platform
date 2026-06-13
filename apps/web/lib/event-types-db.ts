@@ -32,7 +32,7 @@ import { createClient } from './supabase/server';
 import {
   EVENT_TYPES_FALLBACK,
   type EventTypeRow,
-} from '@/app/dashboard/create-event/_components/event-types';
+} from '@/app/dashboard/(account)/create-event/_components/event-types';
 
 export type { EventTypeRow };
 

@@ -28,8 +28,17 @@
 //             the shell precache, and a day-of guest stale-while-revalidate
 //             cache (the personal landing page + find-my-table). Bumping
 //             renames every cache so the new precache + cache land cleanly.
+//   v3 -> v4: 2026-06-14 dashboard chrome retirement — the legacy cream
+//             OuterDashboardHeader shell is gone. STATIC_CACHE serves Next
+//             chunks stale-while-revalidate, so returning users could be
+//             served the PRIOR build's shell/JS (with the old chrome) for one
+//             load after deploy. Bumping evicts the v3 caches on activate so
+//             the new (paper-only, no-flash) chrome lands on first paint.
+//             NOTE: this is a one-time manual bump — a per-deploy auto-stamp
+//             (NEXT_PUBLIC_CACHE_BUSTER ← VERCEL_GIT_COMMIT_SHA) is the proper
+//             durable fix and is flagged as an owner follow-up.
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL_CACHE = `setnayan-${VERSION}`;
 const IMAGE_CACHE = `setnayan-images-${VERSION}`;
 const STATIC_CACHE = `setnayan-static-${VERSION}`;

@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(vendor): stacked-cost worked example used the retired ₱1,999/28d Pro price
+
+`app/vendor-dashboard/marketing/page.tsx` `StackedExample` — the only hardcoded peso figures on the page (everything else renders from `vendor_billing_catalog`). Pro Vendor corrected to the DB-canonical ₱6,000/28d (≈ ₱1,500/wk) and the example's weekly total recomputed ₱23,844 → ~₱24,883. Closes the "signed-in vendor-dashboard/marketing still shows ₱1,999/28d" leftover flagged in PR #1335. Boosted Ads ₱7,999/wk + Sponsored Boost ₱799,999/yr figures left as-is (not contradicted by any canonical source at hand).
+
+**SPEC IMPACT:** None (display copy aligned to the already-canonical DB price).
+
+---
+
 ## 2026-06-13 · feat(pricing): 4-tier site-sync — locked 2026-06-07 pricing across all public surfaces
 
 **Context:** the owner-locked 2026-06-07 reprice (corpus `Pricing.md § 00` — Free–Explore ₱0 · Setnayan AI ₱3,999 · Essentials ₱12,999 · Complete ₱27,999; 19 paid SKUs, SRP ₱53,981) had landed in the DB catalogs (`platform_retail_catalog_v2` / `platform_package_catalog` / `vendor_billing_catalog`) but NOT in the public marketing copy, which still sold the three reversed pillars (§ 00.D): free-to-plan / free wedding website / free RSVP, plus the retired ₱1,499 Setnayan AI price. This PR is the pending "site-sync" flagged in `Pricing.md § 00.E` and memory `project_setnayan_pricing_tiers`.

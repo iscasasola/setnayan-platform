@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(weddings): Real Weddings showcase live with a sample (iteration 0046 first slice)
+
+Lights up the `/weddings` surface (previously a polite "coming December 2026" empty state) with a populated, indexable showcase — and seeds one clearly-labelled SAMPLE wedding so the page demonstrates the format before real editorials exist.
+
+- **`/weddings` + `/weddings/[slug]`** — the index now renders a featured showcase + grid; the new per-showcase page carries the couple, an at-a-glance facts strip (ceremony · setting · city · theme · guests), the story, a "team behind the day" section (role chips → /vendors + /venues), a "How Setnayan helped" block, and `Article` + `BreadcrumbList` JSON-LD. Same in-code-constant SSG pattern as `/blog` (no DB, no markdown dep, `dynamicParams=false` → real 404s).
+- **Sample, not a real client.** The one seed (`Maria & Juan`, a Catholic garden wedding in Tagaytay) is `isSample: true` — fictional, with a visible "Sample showcase" label + a line that real couple editorials begin December 2026. No real person's data (so no RA 10173 consent gate) and no fabricated vendor business names (the team section links to vendor *categories*). The canonical DB-driven, consent-gated real-editorial model (0046/0002 Phase 4) is unchanged and merges in alongside these later.
+- **Discovery**: `sitemap-weddings.xml` now emits the hub + sample (honest per-entry lastmod) instead of an empty urlset; `/weddings` removed from `sitemap-static` to avoid a duplicate URL (hub-in-its-own-child pattern, like /help + /blog); `/weddings` added to the `robots.ts` allow-list; the `llms.txt` Real Weddings entry notes a sample is viewable now.
+
+Verified: `tsc` + production build (`/weddings`, `/weddings/[slug]`, `/sitemap-weddings.xml` all generate; sample prerendered ●).
+
+**SPEC IMPACT:** Implements the 0046 first slice (cross-wedding browse + per-showcase page) with a sample seed; the `0046_wedding_showcase` AS-BUILT header + `DECISION_LOG.md` note the sample-now / real-editorials-December-2026 split.
+
+---
+
 ## 2026-06-13 · feat(blog): +5 Setnayan Journal articles (Journal now 9 posts)
 
 Follow-up to the 0038 first slice (PR #1344). Adds 5 more PH-anchored long-tail articles to `lib/blog.ts` (4 → 9): a wedding-budget breakdown, a marriage-licence step-by-step, how to choose a venue, Catholic-wedding requirements (Pre-Cana / banns / documents), and Filipino wedding traditions explained. Same in-code-constant engine — no schema, no new deps, no route changes; each article auto-picks-up the existing `sitemap-blog.xml` (honest per-article lastmod), `BlogPosting`/`BreadcrumbList` JSON-LD, and the category filters. Benefits-only copy, no quoted SKU prices (drift-proof), internal-link CTAs to /vendors · /venues · /how-it-works · /signup.

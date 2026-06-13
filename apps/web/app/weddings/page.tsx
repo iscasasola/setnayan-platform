@@ -7,12 +7,16 @@ import {
   weddingTitle,
   type RealWedding,
 } from '@/lib/real-weddings';
+import { loadPublishedShowcases, type ShowcaseEntry } from '@/lib/showcase-db';
 
-// /weddings — public Real Weddings showcase index (iteration 0046, first
-// slice). Until consent-gated real editorials begin (Dec 2026 → couples' own
-// Phase 4 event pages), the page is seeded with explicitly-labelled SAMPLE
-// showcases so the surface is live, demonstrates the format, and gives SEO a
-// real page to index. Fully static (in-code constants, no data source).
+// /weddings — public Real Weddings showcase index (iteration 0046).
+//
+// Real, consent-gated editorials (loadPublishedShowcases — couples who opted in,
+// past the T+30d grace window) take priority and link to each couple's own
+// canonical editorial at /[slug] (0002 Phase 4 — never duplicated here). Until
+// any real wedding qualifies (first = the founder's Dec 2026 wedding), the page
+// falls back to the curated, clearly-labelled SAMPLE (lib/real-weddings.ts) so
+// the surface is live and gives SEO a real page. DB-backed → ISR, not static.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -39,10 +43,12 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = 'force-static';
-export const revalidate = false;
+// DB-backed (consent-gated showcases) → ISR. Best-effort loader degrades to the
+// sample, so the page always renders even without DB access.
+export const revalidate = 3600;
 
-function ShowcaseCard({ wedding }: { wedding: RealWedding }) {
+// Sample card (RealWedding) — links to its editorial preview at /weddings/[slug].
+function SampleCard({ wedding }: { wedding: RealWedding }) {
   return (
     <Link
       href={`/weddings/${wedding.slug}`}
@@ -67,7 +73,6 @@ function ShowcaseCard({ wedding }: { wedding: RealWedding }) {
       <p className="mt-2 flex-1 text-sm leading-relaxed text-ink/65">
         {wedding.excerpt}
       </p>
-      {/* palette strip */}
       <div className="mt-4 flex gap-1.5" aria-hidden>
         {wedding.palette.map((hex) => (
           <span
@@ -81,33 +86,65 @@ function ShowcaseCard({ wedding }: { wedding: RealWedding }) {
   );
 }
 
-export default function WeddingsIndexPage() {
-  // Samples are PLACEHOLDERS — shown only until a real wedding is uploaded.
-  // (Owner: "this is our sample until a real wedding is uploaded.") The moment a
-  // real (non-sample) wedding enters the source — a non-sample in-code entry
-  // now, or the DB-driven Phase-4 published-editorials browse later (0046
-  // deferred) — the samples drop out automatically.
-  const realWeddings = ALL_REAL_WEDDINGS.filter((w) => !w.isSample);
-  const showingSamples = realWeddings.length === 0;
-  const weddings = showingSamples ? ALL_REAL_WEDDINGS : realWeddings;
-  const featured = weddings.find((w) => w.featured) ?? weddings[0];
+// Real wedding card (ShowcaseEntry) — links to the couple's canonical /[slug].
+function RealCard({ entry }: { entry: ShowcaseEntry }) {
+  const meta = [entry.city, entry.dateLabel].filter(Boolean).join(' · ');
+  return (
+    <Link
+      href={entry.href}
+      className="group flex flex-col rounded-2xl border border-ink/10 bg-white/50 p-5 transition hover:border-terracotta/40 hover:bg-white sm:p-6"
+    >
+      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+        Real wedding
+      </span>
+      <h3 className="mt-3 text-lg font-semibold leading-snug tracking-tight text-ink group-hover:underline">
+        {entry.coupleNames}
+      </h3>
+      {meta ? <p className="mt-0.5 text-sm text-ink/55">{meta}</p> : null}
+      {entry.monogramColor ? (
+        <div
+          className="mt-4 h-4 w-12 rounded-full ring-1 ring-ink/10"
+          style={{ backgroundColor: entry.monogramColor }}
+          aria-hidden
+        />
+      ) : null}
+      <span className="mt-4 inline-flex flex-1 items-end text-sm font-semibold text-terracotta">
+        Read the story →
+      </span>
+    </Link>
+  );
+}
 
-  const itemListJsonLd = {
+export default async function WeddingsIndexPage() {
+  // Real consent-gated showcases take priority; the sample is the fallback shown
+  // ONLY until a real wedding is uploaded (owner-locked behaviour).
+  const showcases = await loadPublishedShowcases();
+  const showingSamples = showcases.length === 0;
+  const samples = ALL_REAL_WEDDINGS;
+  const featured = samples.find((w) => w.featured) ?? samples[0];
+
+  const itemListElements = showingSamples
+    ? samples.map((w, i) => ({
+        '@type': 'ListItem' as const,
+        position: i + 1,
+        url: `${SITE_URL}/weddings/${w.slug}`,
+        name: weddingTitle(w),
+      }))
+    : showcases.map((s, i) => ({
+        '@type': 'ListItem' as const,
+        position: i + 1,
+        url: `${SITE_URL}${s.href}`,
+        name: s.city ? `${s.coupleNames} · ${s.city}` : s.coupleNames,
+      }));
+
+  const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'Real weddings · Setnayan',
     url: `${SITE_URL}/weddings`,
     inLanguage: 'en-PH',
     isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
-    mainEntity: {
-      '@type': 'ItemList',
-      itemListElement: weddings.map((w, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        url: `${SITE_URL}/weddings/${w.slug}`,
-        name: weddingTitle(w),
-      })),
-    },
+    mainEntity: { '@type': 'ItemList', itemListElement: itemListElements },
   };
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -128,7 +165,7 @@ export default function WeddingsIndexPage() {
       <SiteHeader />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
       <script
         type="application/ld+json"
@@ -159,50 +196,59 @@ export default function WeddingsIndexPage() {
           </p>
         </div>
 
-        {featured ? (
-          <Link
-            href={`/weddings/${featured.slug}`}
-            className="group mt-10 block overflow-hidden rounded-3xl border border-ink/10 bg-white/60 transition hover:border-terracotta/40 hover:bg-white"
-          >
-            {/* palette banner stands in for a hero image on the sample */}
-            <div className="flex h-24 w-full sm:h-32" aria-hidden>
-              {featured.palette.map((hex) => (
-                <span key={hex} className="flex-1" style={{ backgroundColor: hex }} />
-              ))}
-            </div>
-            <div className="p-6 sm:p-9">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                  Featured &middot; {featured.ceremonyType} &middot; {featured.venueSetting}
-                </span>
-                {featured.isSample ? (
-                  <span className="rounded-full border border-ink/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/50">
-                    Sample showcase
+        {showingSamples ? (
+          <>
+            {featured ? (
+              <Link
+                href={`/weddings/${featured.slug}`}
+                className="group mt-10 block overflow-hidden rounded-3xl border border-ink/10 bg-white/60 transition hover:border-terracotta/40 hover:bg-white"
+              >
+                <div className="flex h-24 w-full sm:h-32" aria-hidden>
+                  {featured.palette.map((hex) => (
+                    <span key={hex} className="flex-1" style={{ backgroundColor: hex }} />
+                  ))}
+                </div>
+                <div className="p-6 sm:p-9">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                      Featured &middot; {featured.ceremonyType} &middot; {featured.venueSetting}
+                    </span>
+                    {featured.isSample ? (
+                      <span className="rounded-full border border-ink/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/50">
+                        Sample showcase
+                      </span>
+                    ) : null}
+                  </div>
+                  <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink group-hover:underline sm:text-3xl">
+                    {featured.coupleNames} &middot; {featured.city}
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink/70">
+                    {featured.excerpt}
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta">
+                    Read the showcase →
                   </span>
-                ) : null}
-              </div>
-              <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink group-hover:underline sm:text-3xl">
-                {featured.coupleNames} &middot; {featured.city}
-              </h2>
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink/70">
-                {featured.excerpt}
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta">
-                Read the showcase →
-              </span>
-            </div>
-          </Link>
-        ) : null}
+                </div>
+              </Link>
+            ) : null}
 
-        {weddings.length > 1 ? (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {weddings
-              .filter((w) => w.slug !== featured?.slug)
-              .map((w) => (
-                <ShowcaseCard key={w.slug} wedding={w} />
-              ))}
+            {samples.length > 1 ? (
+              <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {samples
+                  .filter((w) => w.slug !== featured?.slug)
+                  .map((w) => (
+                    <SampleCard key={w.slug} wedding={w} />
+                  ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {showcases.map((s) => (
+              <RealCard key={s.href} entry={s} />
+            ))}
           </div>
-        ) : null}
+        )}
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

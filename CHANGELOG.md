@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 8 (couple settings: edit deadline + pricing view)
+
+The couple-control half of decisions #5 + #6: a "Guest list & pricing" card on `/details` lets the couple set their **guest-list edit deadline** (overrides the default 14-days-before-the-event) and pick their **pricing view** (realtime vs final-only). No migration — the columns landed in Phase 1; only their UI was missing.
+
+- **`updatePaxSettings`** (`dashboard/[eventId]/actions.ts`) — host-gated, admin-write, audited (same pattern as `updateGuestCount`). Writes `events.guest_list_edit_deadline` (validated ISO date or null = use the default) + `adaptive_pricing_mode` (`realtime`|`final_only`). The finalize LOCK columns (`guest_count_locked_at`/`final_pax`) are NOT touched here — they stay guarded to the service-role finalize path (Phase 7 trigger).
+- **`PaxSettingsCard`** (new client component) + wired into `/details`: a date input + a two-option radio, with a Save/transition + saved/error feedback.
+
+**Effect today:** the deadline override is honored by `ensureFinalized()` (Phase 7) the moment it ships — the couple controls when their count finalizes. The `adaptive_pricing_mode` value is now **stored + selectable**; its display behavior (final-only hiding the realtime cost projection on the budget) is the one remaining follow-up.
+
+**Still deferred (documented):** decision #5's final-only **display effect** + the budget cost-projection it gates; a hard post-deadline **edit-guard** (UX only — the freeze protects the money).
+
+Verified: `tsc` + `lint` + `next build` clean.
+
+**SPEC IMPACT:** None to locked scope. 14-day default provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decisions #5/#6); memory updated.
+
+---
+
 ## 2026-06-13 · feat(i18n): Taglish /how-it-works — localization rolls to the role-map page
 
 Second page in the English + Taglish localization (after `/tl/about`). The "how it works" role-map — the highest-intent explainer for couples deciding whether Setnayan fits — now has a Taglish twin.

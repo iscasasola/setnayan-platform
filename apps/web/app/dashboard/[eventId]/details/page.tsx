@@ -7,6 +7,7 @@ import { getConfirmedVendorCount } from '@/lib/events';
 import { titleCase } from '@/lib/personalized-menu';
 import { DetailsForm } from './_components/details-form';
 import { GovernedFields } from './_components/governed-fields';
+import { PaxSettingsCard } from './_components/pax-settings-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,7 @@ export default async function PersonalizationPage({
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
         'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
         'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
+        'guest_list_edit_deadline, adaptive_pricing_mode, ' +
         'monogram_text, monogram_frame_key, monogram_font_key, music_playlist_seed',
     )
     .eq('event_id', eventId)
@@ -92,6 +94,10 @@ export default async function PersonalizationPage({
   const secondaryCeremony = str('secondary_ceremony_type');
   const venueSetting = str('venue_setting');
   const pax = num('estimated_pax');
+  // Adaptive Pax Pricing couple settings (Phase 8).
+  const editDeadline = str('guest_list_edit_deadline');
+  const paxMode: 'realtime' | 'final_only' =
+    str('adaptive_pricing_mode') === 'final_only' ? 'final_only' : 'realtime';
   const moodFeel = str('mood_feel_key');
   const budgetBand = str('budget_band');
   const monogramText = str('monogram_text');
@@ -181,6 +187,9 @@ export default async function PersonalizationPage({
           dateValue={dateValue}
         />
       </div>
+
+      {/* Adaptive Pax Pricing settings (Phase 8) — edit deadline + pricing view. */}
+      <PaxSettingsCard eventId={eventId} deadline={editDeadline} mode={paxMode} />
 
       {/* Band 3 — from your onboarding (documented, read-only). Guest count +
           venue moved up to band 2's governed editors; region + style/feel live

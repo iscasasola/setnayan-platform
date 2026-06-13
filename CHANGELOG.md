@@ -205,6 +205,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
+## 2026-06-13 · fix(seating): tables no longer catapult across the room on the first pixel of a drag (worst on round + sweetheart)
+
+**Context:** owner — "round tables and sweetheart table still move to the right when clicked. we want the same as the long table and serpentine tables." Reproduced on the demo event: a 6–8px nudge flung round "Sponsors 1" 63% of the canvas, "Barkada" 56%, Sweethearts 39%, while the rectangular Family Head barely moved (14%).
+
+- **Root cause:** the interactive drag ran the overlap resolver (`nearestFree`) on every pointer-move. If the grabbed table already touched a neighbour, the very first move spiralled it outward to the nearest clear spot — a big sideways jump. It hit round/sweetheart hardest (they collide with everything) and was invisible on banquet/serpentine (same-kind collision is exempt and they snap to joints, both of which bypass the resolver).
+- **Fix:** during a drag the table now follows the cursor directly (alignment + grid snap still applied; chain/kiss snap still applies for connecting). The resolver is no longer run per-move, so nothing teleports. The mount-time auto-place still gives un-positioned tables a non-overlapping home, so nothing lands stacked on load; couples may now place tables touching on purpose.
+
+**Verification:** live on the demo event — a realistic drag of round "Sponsors 1", "Barkada" and "Sweethearts" tracks the cursor (~3% move for a ~24px drag) instead of catapulting 40–65%; instrumented the move handler to confirm the smooth `align` path runs (never the spiral). `tsc` clean.
+
+**SPEC IMPACT:** None (drag-interaction fix). Also unblocks connecting banquet/round tables — the catapult could fling a table away before it reached its neighbour to snap.
+
 ## 2026-06-13 · fix(seating): free-size venues have no walls — booths & doors place freely (gardens / open fields)
 
 **Context:** owner directive — "if the place is free size, the entrance/doors doesn't need to connect to a wall. sometimes gardens, or open fields doesn't have walls." The booth feature anchored booths to the canvas EDGES as if they were walls, unconditionally — but in free-size mode (no room dimensions set) the canvas edge is just the viewport, not a wall, so a garden/field booth was being force-snapped to a non-existent wall.

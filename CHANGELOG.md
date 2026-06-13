@@ -21,6 +21,26 @@ Two correctness/clarity fixes to the admin doorway nav (`apps/web/app/admin/_com
 Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `scripts/lint-bottom-nav.mjs` passed.
 
 SPEC IMPACT: None (nav highlight + icons; no routes/labels/gates changed).
+## 2026-06-14 · refactor(nav): couple sidebar journey groups + Studio/Explore + 6-tab bottom nav
+
+Reorganizes the COUPLE dashboard navigation per the owner-locked REDESIGN_PLAN journey-group IA. **Pure nav/labels — every route is unchanged**; item `key` values are preserved so per-section `setnayan.nav.section.<key>.open` localStorage state survives.
+
+- **`customer-nav-config.ts` (`buildCustomerNavGroups`)** rebuilt from 6 verb buckets (Plan/Spend/Communicate/Share/After/Settings) into 7 journey groups, with everything past the top + Plan collapsed by default:
+  - **Top group** (key `main`, "Setnayan", open): **Home · Studio · Explore**. `add-ons` relabeled **"Studio"** (in-app services hub, route `/add-ons` unchanged); `vendors` relabeled **"Explore"** with icon swapped Briefcase→**Compass** (route `/dashboard/[eventId]/vendors` unchanged — this is the couple in-app surface, distinct from the public `/explore` marketplace).
+  - **Plan** (open): Guests · Seating · Schedule · **Budget** (folded in from the retired Spend group).
+  - **Book** (collapsed): Messages · Contracts.
+  - **Design** (collapsed): Website · Mood Board · Monogram.
+  - **Day-of** (collapsed): Live Wall · **Event QR** (moved from After).
+  - **After** (collapsed): Activity · Disputes. **Activity gained an explicit `matchPrefix`** (`…/activity`) so sub-routes like `/activity/[id]` light it.
+  - **Settings** (collapsed): Personalization · Hosts · Profile · **Find your date** (demoted from Plan, kept reachable — not deleted).
+  - Removed the now-unused `ShoppingCart`/`Receipt`/`Briefcase` lucide imports; added `Compass`.
+- **`customer-bottom-nav.tsx`** rebuilt from 5 tabs to the owner-locked **6 tabs: Home · Guests · Studio · Budget · Wedding · More** (icons Home/Users/Sparkles/Wallet/Globe/Menu). The shared `<BottomNav>` already supports 6 columns — no primitive change. **Wedding** tab → `/site-editor/[eventId]` (+ legacy `/website` + `/invitation` in activeMatch). **More umbrella** re-enumerated per orphan-prevention to cover every non-tab route: **Explore/vendors** (no longer a primary tab), Seating, Schedule, Messages, Contracts, Mood Board, Monogram, Live Wall, Event QR, Activity, Disputes, Personalization, Find-your-date, Profile, plus legacy/app-root surfaces (receipts, orders, paperwork, documents, date-selection).
+- **`more/page.tsx`** — `BOTTOM_NAV_KEYS` updated to the new primary-tab set (`home, guests, add-ons, budget, website`) so the /more grid drops those and shows true overflow; **Explore (vendors)** now appears in the grid (added a description). Description map refreshed: added `vendors`/`monogram`/`live`, dropped `add-ons`/`budget` (now bottom tabs); header de-dupe copy updated for the 6-tab set.
+- **`customer-sidebar.tsx`** — JSDoc group-list comment refreshed to the 7 journey groups.
+
+Verified: `tsc --noEmit` clean; `next lint` clean on all 4 changed files; `scripts/lint-bottom-nav.mjs` (canonical bottom-nav guard) passes (delegation + template integrity).
+
+SPEC IMPACT: None (nav/labels; routes unchanged).
 
 ---
 

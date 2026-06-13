@@ -15,9 +15,11 @@ import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
-// edge cache so static marketing routes serve Google's crawl rate-limit
-// budget without origin pressure. Each page rebuilds at most once per hour.
+// /tl/how-it-works — Taglish edition of /how-it-works (localization). English +
+// Taglish are the two public locales (owner: "english and taglish"). Live vendor
+// price comes from the SAME getVendorPrices() source as the EN page — no price
+// drift; only the prose is translated. Reciprocal hreflang (en-PH ↔ tl-PH,
+// x-default → en). "Taglish" has no ISO code → tl is the closest standard.
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
@@ -25,9 +27,6 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
   '',
 );
 
-// English + Taglish are the two public locales (owner: "english and taglish").
-// Reciprocal hreflang with /tl/how-it-works; x-default → en. "Taglish" has no
-// ISO code → tl-PH is the closest standard.
 const LANGUAGES = {
   'en-PH': `${SITE_URL}/how-it-works`,
   'tl-PH': `${SITE_URL}/tl/how-it-works`,
@@ -35,11 +34,11 @@ const LANGUAGES = {
 };
 
 export const metadata = {
-  title: 'How Setnayan works — couples, vendors, guests, admins',
+  title: 'Paano gumagana ang Setnayan — couples, vendors, guests, admins',
   description:
-    "The complete map of who's who on Setnayan and where each person spends their time. One paragraph per role, plus how the flow connects.",
+    'Ang buong mapa kung sino-sino sa Setnayan at saan gumugugol ng oras ang bawat isa. Isang talata bawat role, plus kung paano nagkokonekta ang flow.',
   alternates: {
-    canonical: `${SITE_URL}/how-it-works`,
+    canonical: `${SITE_URL}/tl/how-it-works`,
     languages: LANGUAGES,
   },
 };
@@ -56,12 +55,12 @@ const HOW_IT_WORKS_JSONLD = {
     },
     {
       '@type': 'WebPage',
-      '@id': `${SITE_URL}/how-it-works#webpage`,
-      url: `${SITE_URL}/how-it-works`,
-      name: 'How Setnayan works',
+      '@id': `${SITE_URL}/tl/how-it-works#webpage`,
+      url: `${SITE_URL}/tl/how-it-works`,
+      name: 'Paano gumagana ang Setnayan',
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
-      inLanguage: 'en-PH',
+      inLanguage: 'tl-PH',
     },
   ],
 };
@@ -74,7 +73,6 @@ type RoleCard = {
   who: string;
   where: string[];
   helpHref: string;
-  shipped: boolean;
 };
 
 const ROLE_CARDS: ReadonlyArray<RoleCard> = [
@@ -83,84 +81,78 @@ const ROLE_CARDS: ReadonlyArray<RoleCard> = [
     label: 'Couple',
     entryPath: '/dashboard',
     icon: Heart,
-    who: "You're planning a wedding. One event, one owner today.",
+    who: 'Nagpaplano ka ng kasal. Isang event, isang owner ngayon.',
     where: [
       'Guest list, invitation site, vendors, budget, seating, mood board',
-      'Day-of mode from T-1h to T+8h with table + schedule + photo wall',
-      'Add-ons (LED, photo delivery, Panood, Papic, supplies marketplace, more)',
+      'Day-of mode from T-1h to T+8h — table + schedule + photo wall',
+      'Add-ons (LED, photo delivery, Panood, Papic, supplies marketplace, at iba pa)',
     ],
     helpHref: '/help?role=couple',
-    shipped: true,
   },
   {
     key: 'vendor',
     label: 'Vendor',
     entryPath: '/vendor-dashboard',
     icon: Briefcase,
-    who: 'You sell to couples. Free profile, optional Pro subscription for more reach.',
+    who: 'Nagbebenta ka sa couples. Free profile, optional Pro subscription para sa mas maraming reach.',
     where: [
       'Services, bookings inbox, team roles, earnings rollup',
-      'Reply-only chat — couples reach out, you reply with quotes + files',
+      'Reply-only chat — couples ang lalapit, ikaw ang sasagot with quotes + files',
       'Verification badge, reviews from completed events',
     ],
     helpHref: '/help?role=vendor',
-    shipped: true,
   },
   {
     key: 'guest',
     label: 'Guest',
     entryPath: '/e/[event-slug]',
     icon: Mailbox,
-    who: 'You got invited. No sign-up needed — just open your link.',
+    who: 'Na-invite ka. No sign-up needed — buksan mo lang ang link mo.',
     where: [
       'Save-the-Date → Invitation → Logistics → Post-event (4 phases)',
       'RSVP, meal preference, plus-one naming',
-      'Day-of: find your table, see the live schedule, upload photos',
+      'Day-of: hanapin ang table mo, tingnan ang live schedule, mag-upload ng photos',
     ],
     helpHref: '/help?role=guest',
-    shipped: true,
   },
   {
     key: 'admin',
     label: 'Admin',
     entryPath: '/admin',
     icon: Shield,
-    who: 'Setnayan operations team. Gated behind is_internal.',
+    who: 'Setnayan operations team. Naka-gate sa likod ng is_internal.',
     where: [
-      'Users, vendors, orders, reviews — the day-to-day moderation',
+      'Users, vendors, orders, reviews — ang araw-araw na moderation',
       'Funnels, force-majeure escalations, verification queue',
-      'Website editor (8th surface) for marketing-site widgets',
+      'Website editor (8th surface) para sa marketing-site widgets',
     ],
     helpHref: '/help?role=admin',
-    shipped: true,
   },
   {
     key: 'public-landing',
     label: 'Public landing',
     entryPath: '/',
     icon: Globe,
-    who: "The marketing site at setnayan.com. Where you're standing now.",
+    who: 'Ang marketing site sa setnayan.com. Kung nasaan ka ngayon.',
     where: [
       'Couple-side waitlist + vendor-side pre-registration',
-      'Browse vendors, read features, see pricing, get help',
-      'No login needed — bookmark and share',
+      'Browse vendors, basahin ang features, tingnan ang pricing, humingi ng help',
+      'No login needed — i-bookmark at i-share',
     ],
     helpHref: '/help',
-    shipped: true,
   },
   {
     key: 'event-landing',
     label: 'Event landing',
     entryPath: '/e/[slug]',
     icon: QrCode,
-    who: 'Per-couple public page. The link you share with everyone.',
+    who: 'Per-couple public page. Ang link na i-share mo sa lahat.',
     where: [
-      'Auto-shifts through 4 phases as the date approaches',
-      'Each guest gets their own slug for personalised RSVP',
-      'Activates day-of mode from T-1h on the wedding day',
+      'Auto-shift sa 4 phases habang papalapit ang date',
+      'May sariling slug ang bawat guest para sa personalised RSVP',
+      'Nag-a-activate ng day-of mode from T-1h sa wedding day',
     ],
     helpHref: '/help?role=guest',
-    shipped: true,
   },
 ];
 
@@ -168,36 +160,36 @@ const FLOW_STEPS: ReadonlyArray<{ from: string; to: string; what: string }> = [
   {
     from: 'Couple',
     to: 'Vendors',
-    what: 'Couple browses /vendors, opens a chat thread with one (vendors cannot DM cold).',
+    what: 'Nagba-browse ang couple sa /vendors, nagbubukas ng chat thread sa isa (hindi pwedeng mag-cold-DM ang vendors).',
   },
   {
     from: 'Vendor',
     to: 'Couple',
-    what: 'Vendor replies with a quote + files. Both sides see the same thread.',
+    what: 'Sumasagot ang vendor with a quote + files. Iisang thread ang nakikita ng dalawa.',
   },
   {
     from: 'Couple',
     to: 'Guests',
-    what: 'Couple builds the guest list and prints / shares QR-coded invites.',
+    what: 'Ginagawa ng couple ang guest list at nagpi-print / nag-share ng QR-coded invites.',
   },
   {
     from: 'Guests',
     to: 'Couple',
-    what: 'Each guest scans their QR, lands on their personal page, RSVPs.',
+    what: 'Ini-scan ng bawat guest ang QR nila, lalapag sa personal page nila, at mag-RSVP.',
   },
   {
     from: 'Day-of',
     to: 'Everyone',
-    what: 'T-1h flips the event into live mode — tables, schedule, photo wall, broadcast.',
+    what: 'Sa T-1h nagiging live mode ang event — tables, schedule, photo wall, broadcast.',
   },
   {
     from: 'Post-event',
     to: 'Couple ↔ Vendor',
-    what: 'Reviews land 24h after the event; force-majeure flags route to admin if filed.',
+    what: 'Lalabas ang reviews 24h after the event; ang force-majeure flags ay pupunta sa admin kung may na-file.',
   },
 ];
 
-export default async function HowItWorksPage() {
+export default async function HowItWorksPageTaglish() {
   const p = await getVendorPrices();
   return (
     <>
@@ -215,37 +207,38 @@ export default async function HowItWorksPage() {
               How it works
             </p>
             <Link
-              href="/tl/how-it-works"
-              hrefLang="tl-PH"
+              href="/how-it-works"
+              hrefLang="en-PH"
               className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
             >
-              Taglish
+              English
             </Link>
           </div>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-            One platform, six kinds of people. Here&rsquo;s the map.
+            Isang platform, anim na klaseng tao. Eto ang mapa.
           </h1>
           <p className="mt-4 max-w-2xl text-base text-ink/70 sm:text-lg">
-            Setnayan brings couples, their vendors, and their guests onto one platform —
-            with an admin team behind the scenes. This page is the cheat-sheet for who
-            does what and where they go.
+            Pinagsasama ng Setnayan ang couples, ang vendors nila, at ang guests
+            nila sa isang platform — with an admin team behind the scenes. Itong
+            page ang cheat-sheet kung sino ang gumagawa ng ano, at saan sila
+            pumupunta.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link href="/signup" className="button-primary inline-flex h-11 items-center px-5 text-sm">
-              Start planning — free
+              Magsimula — free
             </Link>
             <Link
               href="/for-vendors"
               className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
             >
-              I&rsquo;m a vendor
+              Vendor ako
             </Link>
           </div>
         </section>
 
         {/* Role cards */}
         <section
-          aria-label="The six kinds of people on Setnayan"
+          aria-label="Ang anim na klaseng tao sa Setnayan"
           className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -286,7 +279,7 @@ export default async function HowItWorksPage() {
                     href={card.helpHref}
                     className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:text-terracotta-700"
                   >
-                    Help for this role
+                    Help para sa role na ito
                     <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   </Link>
                 </article>
@@ -297,19 +290,20 @@ export default async function HowItWorksPage() {
 
         {/* How they connect */}
         <section
-          aria-label="How everyone connects"
+          aria-label="Paano nagkokonekta ang lahat"
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="max-w-2xl space-y-3">
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              The flow
+              Ang flow
             </p>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              How everyone connects, in order
+              Paano nagkokonekta ang lahat, in order
             </h2>
             <p className="text-base text-ink/70">
-              A typical Setnayan wedding moves through these six handoffs. Each row shows who
-              talks to whom and what happens.
+              Dumadaan ang tipikal na Setnayan wedding sa anim na handoff na ito.
+              Ipinapakita ng bawat row kung sino ang nag-uusap at ano ang
+              nangyayari.
             </p>
           </div>
           <ol className="mt-8 space-y-3">
@@ -334,31 +328,33 @@ export default async function HowItWorksPage() {
           </ol>
         </section>
 
-        {/* Coming next — multi-moderator V1.2 */}
+        {/* Coming next */}
         <section
-          aria-label="What's coming next"
+          aria-label="Ang susunod"
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-8">
             <div className="flex items-center gap-2 text-terracotta">
               <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Coming next</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Susunod na</p>
             </div>
             <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
-              Adding another planner to your event
+              Pagdagdag ng isa pang planner sa event mo
             </h2>
             <p className="mt-2 max-w-3xl text-sm text-ink/70 sm:text-base">
-              Today every event has exactly one owner. Sharing access with a partner, parent, or
-              coordinator is on the V1.2 roadmap as multi-moderator event access — invite by
-              email, role-scoped permissions, role-aware notifications. Until that ships, the
-              workaround is to share login credentials within a trusted household.
+              Ngayon, isang owner lang ang bawat event. Ang pag-share ng access sa
+              partner, magulang, o coordinator ay nasa V1.2 roadmap bilang
+              multi-moderator event access — invite by email, role-scoped
+              permissions, role-aware notifications. Hanggang hindi pa ito lumalabas,
+              ang workaround ay i-share ang login credentials sa loob ng isang
+              trusted household.
             </p>
             <div className="mt-4 flex flex-wrap gap-3 text-xs">
               <span className="rounded-full bg-terracotta/10 px-3 py-1 font-medium text-terracotta-700">
                 V1.2
               </span>
               <span className="rounded-full border border-ink/15 px-3 py-1 text-ink/65">
-                Multi-payer cart also queued for V1.2
+                Multi-payer cart, queued din for V1.2
               </span>
             </div>
           </div>
@@ -366,50 +362,48 @@ export default async function HowItWorksPage() {
 
         {/* Final CTA */}
         <section
-          aria-label="Get started"
+          aria-label="Magsimula"
           className="mx-auto mt-16 w-full max-w-6xl px-4 pb-16 sm:px-6 lg:px-8"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <article className="rounded-2xl border border-ink/10 bg-white p-6">
               <div className="flex items-center gap-2 text-terracotta">
                 <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For couples</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa couples</p>
               </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                Start planning, free.
+                Magsimulang magplano, free.
               </h3>
-              {/* 2026-06-13 reprice scrub (Pricing.md § 00.D): invitations +
-                  day-of experience are paid SKUs — the free claim lists only
-                  the free workspace. */}
               <p className="mt-2 text-sm text-ink/70">
-                Guest list, seating, budget, schedule, mood board — plus the full vendor
-                marketplace. No card needed to start.
+                Guest list, seating, budget, schedule, mood board — plus ang buong
+                vendor marketplace. No card needed to start.
               </p>
               <Link
                 href="/signup"
                 className="button-primary mt-4 inline-flex h-10 items-center px-5 text-sm"
               >
-                Start planning — free
+                Magsimula — free
               </Link>
             </article>
             <article className="rounded-2xl border border-ink/10 bg-white p-6">
               <div className="flex items-center gap-2 text-terracotta">
                 <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For vendors</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa vendors</p>
               </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                List your wedding business — free.
+                I-list ang wedding business mo — free.
               </h3>
               <p className="mt-2 text-sm text-ink/70">
-                A free verified profile and in-app chat with couples. Pro at
-                {p.proMonthly} / 28 days unlocks unlimited services, custom slug + bid CTA on your
-                profile, advanced proposal builder, and editorial credits on the weddings you shoot.
+                Free verified profile at in-app chat with couples. Ang Pro sa
+                {p.proMonthly} / 28 days ay nag-a-unlock ng unlimited services,
+                custom slug + bid CTA sa profile mo, advanced proposal builder, at
+                editorial credits sa weddings na kuha mo.
               </p>
               <Link
                 href="/signup?as=vendor"
                 className="button-primary mt-4 inline-flex h-10 items-center px-5 text-sm"
               >
-                List your business — free
+                I-list ang business mo — free
               </Link>
             </article>
           </div>

@@ -58,12 +58,16 @@ const STATIC_ROUTES: ReadonlyArray<{
   // 2026-05-28 row PR #574).
   { path: '/for-vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
 
-  // /tl/about — Tagalog edition of /about (localization first slice,
+  // /tl/about — Taglish edition of /about (localization first slice,
   // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
   { path: '/tl/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
 
   // /how-it-works — iteration 0015 marketing site.
-  { path: '/how-it-works', lastmod: '2026-05-12', changefreq: 'monthly', priority: '0.75' },
+  { path: '/how-it-works', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
+
+  // /tl/how-it-works — Taglish edition of /how-it-works (localization,
+  // 2026-06-13). hreflang reciprocal lives in both pages' metadata.
+  { path: '/tl/how-it-works', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
 
   // /help moved to its own sitemap-help.xml (2026-06-13) — it now owns the
   // /help hub + 61 per-article /help/[slug] URLs, so listing /help here too

@@ -1,33 +1,40 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { sanitizeSeatLookupQuery, type SeatMatch } from '@/lib/seat-lookup';
+import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
 
 // Client search box for the FREE seat finder (seat-finding PR 1). Debounced
 // calls to /api/seat-lookup/[slug]; the same sanitize (min length 2) runs
 // client-side so we never fire a request the RPC would just reject. Pure-CSS
 // chrome (no icon deps) so it can't break the public build on an icon name.
+//
+// Day-of live propagation (PR 5): when `eventDate` is the wedding day, the last
+// successful lookup re-fires silently on a quiet cadence + tab-focus, so a guest
+// who looked up their seat once sees a live reseat without re-typing. Pull-only,
+// no notification — see useDayOfLiveTick.
 
-export function NameSearch({ slug }: { slug: string }) {
+export function NameSearch({
+  slug,
+  eventDate,
+}: {
+  slug: string;
+  eventDate?: string | null;
+}) {
   const [q, setQ] = useState('');
   const [matches, setMatches] = useState<SeatMatch[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // Last query we actually sent — what the day-of tick re-fires.
+  const lastQueryRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    const clean = sanitizeSeatLookupQuery(q);
-    if (!clean) {
-      abortRef.current?.abort();
-      setMatches(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const handle = setTimeout(async () => {
+  const runSearch = useCallback(
+    async (clean: string, { quiet = false }: { quiet?: boolean } = {}) => {
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+      if (!quiet) setLoading(true);
       try {
         const res = await fetch(
           `/api/seat-lookup/${encodeURIComponent(slug)}?q=${encodeURIComponent(clean)}`,
@@ -36,13 +43,37 @@ export function NameSearch({ slug }: { slug: string }) {
         const json = (await res.json()) as { matches?: SeatMatch[] };
         setMatches(json.matches ?? []);
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') setMatches([]);
+        // A quiet day-of refresh that fails leaves the existing result alone.
+        if ((err as Error).name !== 'AbortError' && !quiet) setMatches([]);
       } finally {
-        setLoading(false);
+        if (!quiet) setLoading(false);
       }
+    },
+    [slug],
+  );
+
+  useEffect(() => {
+    const clean = sanitizeSeatLookupQuery(q);
+    if (!clean) {
+      abortRef.current?.abort();
+      lastQueryRef.current = null;
+      setMatches(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const handle = setTimeout(() => {
+      lastQueryRef.current = clean;
+      void runSearch(clean);
     }, 250);
     return () => clearTimeout(handle);
-  }, [q, slug]);
+  }, [q, runSearch]);
+
+  // Day-of: silently re-run the last lookup so the shown table stays current.
+  useDayOfLiveTick(eventDate, () => {
+    const clean = lastQueryRef.current;
+    if (clean) void runSearch(clean, { quiet: true });
+  });
 
   return (
     <div className="space-y-4">

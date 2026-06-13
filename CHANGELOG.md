@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(homepage): admin-uploaded hero video — full-screen scroll-scrub homepage hero
+
+Owner directive 2026-06-13: a place in the admin console to upload a hero video that becomes the homepage's full-screen scroll-scrub, ending on a "Start your wedding planning here — free" CTA. V1 scope addition (flagged). Vercel can't run ffmpeg, so frames are extracted **in the admin's browser** (the only render pipeline in-repo is a stub) — same one-upload UX, no new infra.
+
+- `supabase/migrations/20261217000000_homepage_hero_video.sql` — new single-row `homepage_hero_config` (video + extracted `frame_urls` JSONB + cta + `is_published`), read-all RLS, writes via service-role (mirrors `platform_settings`). **Needs applying to prod** (`supabase db push --db-url`).
+- `lib/hero-video.ts` — `fetchPublishedHeroVideo()` (homepage read, degrades to default hero on any failure / pre-migration) + `fetchHeroVideoConfigForAdmin()`.
+- `app/_components/marketing/HeroVideoScrub.tsx` — client island; preloads the frame sequence and swaps frames on scroll (image-sequence scrub — browser `<video>` seeking is unreliable; this is the Apple technique). Zero-dep (passive scroll + rAF, no GSAP/Lenis). `object-fit:cover` so a 1:1 source fits desktop + mobile; CTA fades in at the end; reduced-motion shows final frame + CTA.
+- `app/_components/marketing/_sections.tsx` — `Hero()` now async; renders `<HeroVideoScrub>` when a video is published, else the existing headline + `HeroCollage` (graceful fallback).
+- `app/admin/hero-video/` — `page.tsx` + `hero-uploader.tsx` (pick video → presigned R2 upload → in-browser frame extraction via `<video>`+canvas → upload frames → save → Publish/Unpublish) + `actions.ts` (admin-gated, service-role writes, `revalidatePath('/')` on publish). Sidebar entry "Hero video" under Content.
+- Reuses the existing `/api/upload` presigned-PUT flow (already allows `video/mp4` 60 MB + image frames on the `media` bucket) + `publicUrlFor` for permanent frame URLs.
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · production build via CI (required check).
+
+SPEC IMPACT: new V1 feature — admin homepage-hero-video upload + public scroll-scrub hero. New table `homepage_hero_config`. Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; one new admin surface (`/admin/hero-video`) + one new homepage behavior (publish-gated, fallback-safe).
+
+---
+
 ## 2026-06-13 · feat(nav): global bottom nav everywhere — Guests/Services relocate their bars up, Website gets a hub
 
 Owner directive 2026-06-13 ("global nav everywhere"): the customer bottom nav must stay visible on every surface. This retires the Guests + Services "focus-mode" suppressions (2026-06-03) and gives the Website tab a real hub so the full-screen editor isn't a chrome-less dead-end.

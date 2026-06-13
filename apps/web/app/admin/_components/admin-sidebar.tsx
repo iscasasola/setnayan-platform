@@ -85,6 +85,7 @@ import {
   Tag,
   Globe,
   Megaphone,
+  Video,
   Music,
   TrendingUp,
   Activity,
@@ -451,6 +452,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Website',
         href: '/admin/website',
         icon: Globe,
+      },
+      {
+        key: 'hero-video',
+        label: 'Hero video',
+        href: '/admin/hero-video',
+        icon: Video,
       },
       {
         key: 'ads',

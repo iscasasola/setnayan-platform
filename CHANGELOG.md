@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(pwa): auto-stamp the service-worker cache version per deploy (kills stale-shell-after-deploy)
+
+Durable follow-up to the 2026-06-14 chrome retirement (which only one-time-bumped `sw.js` v3→v4). `public/sw.js` namespaces all five caches (SHELL/STATIC/IMAGE/FONT/DAYOF) by a hand-maintained `const VERSION`; `STATIC_CACHE` serves Next chunks stale-while-revalidate, so when VERSION isn't bumped on a deploy, returning PWA users get the PRIOR build's shell/JS for one load. Now it auto-bumps per deploy:
+
+- `apps/web/scripts/stamp-sw.mjs` (NEW) — at build, rewrites the `const VERSION = '…';` line to the deploy's `VERCEL_GIT_COMMIT_SHA` (12-char prefix). Line-anchored regex (`/^const VERSION = '…';/m`) targets ONLY the code line, never the commented examples of that shape in the header; FAILS the build (exit 1) if the line ever goes missing; no-op (keeps the `'v4'` fallback) when the SHA is unset (dev/local builds never dirty the file).
+- `apps/web/package.json` "build" → `node scripts/stamp-sw.mjs && … next build`.
+- `turbo.json` — added `VERCEL_GIT_COMMIT_SHA` to the `build` task `env` so turbo forces a cache MISS per commit → the stamp always runs. **Without this**, a revert / redeploy / root-or-other-package-only commit could turbo-cache-HIT, skip the build script, and ship an un-bumped `sw.js` — re-introducing the stale shell (caught in adversarial review). Next's own `.next/cache` keeps the forced rebuild incremental, so the cost is small.
+- `public/sw.js` — comment now documents the stamp; `const VERSION = 'v4'` kept as the stamp target + dev fallback.
+
+Why it works: every deploy changes `sw.js` bytes → the browser's SW-update check re-fetches `/sw.js` (already served `no-cache` per next.config.ts), byte-compares, installs the new worker; the existing `install`→`skipWaiting()` + `activate`→(delete non-`KNOWN_CACHES` + `clients.claim()`) evict the prior deploy's caches. Worst case = one extra cold load per deploy (as intended). Registration stays `/sw.js` (a `?v=<sha>` URL would be defeated by the stale shell re-registering the old URL — the file-byte-change on a fixed URL is the reliable trigger).
+
+Adversarial review: SHIP after its two wiring fixes (commit the script + the turbo `env` entry) — both applied here. Stamp unit-tested: stamps the real line, ignores the commented examples, no-ops without the var, fails loud on a missing line. No TS changed (tsc/lint unaffected); CI's production-build check exercises the stamp end-to-end.
+
+OWNER QA (native): the Capacitor WebView (`apps/mobile` remote-URL shell) uses the same SW + `no-cache` update path, so it propagates by design — worth one Android + one iOS deploy-then-reopen confirmation pass.
+
+SPEC IMPACT: None (build/PWA infra; no schema/SKU/pricing/UX). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+---
+
 ## 2026-06-14 · refactor(explore): rename the public marketplace route `/vendors` → `/explore` (308 redirects, SEO preserved)
 
 Owner directive 2026-06-14 (*"also fix the address to https://www.setnayan.com/explore"*). The "Explore" nav already pointed at the marketplace; this makes the **URL** match — the public discovery surface now lives at `/explore`. Companion to the search-first reframe in the same PR.

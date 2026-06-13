@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
+
+Owner directive 2026-06-13 ("here are the pages we will have… we want it to be simple"): collapse the busy top nav to the locked 6-page IA + Log in. Home = the video scrub (= the logo). Every target page already exists — this is nav + labels, no new pages.
+
+- `app/_components/marketing/_sections.tsx` `Nav()` — `links` array → **What you get** (`/features`) · **Explore** (`/vendors`) · **For vendors** (`/for-vendors`) · **Our story** (`/about`) · **Real Stories** (`/blog`). Dropped from the top nav: Marketplace (→ Explore), How it works (→ What you get), Pricing (→ folded into What you get + footer), Help (→ footer). The same array feeds the mobile menu, so both update together.
+- Nav search button label "Search vendors, dates, help…" → **"Search anything…"** — signals the universal-search direction for Explore (one box across vendors + our own services, which already surface as listings).
+- `Footer()` Product column aligned: Marketplace → **Explore services**, How it works → **What you get**, added **Real Stories** (`/blog`); Pricing/Help/Privacy/Terms stay reachable in the footer.
+- `/blog` page itself unchanged (still "Setnayan Journal" SEO) — the nav says "Real Stories" but the guides-vs-editorials content direction is an owner decision, not silently flipped.
+
+SPEC IMPACT: public-site IA simplified to 6 pages + login (no new routes; nav/labels only). Open follow-ups (owner): (1) Explore = make `/vendors` open search-first; (2) Real Stories = decide if `/blog` becomes real-event editorials or stays planning guides under the new name. Logged in corpus `DECISION_LOG.md` (2026-06-13).
+
+---
+
 ## 2026-06-13 · refactor(seating): cocktail/waiting area in the SAME blueprint — booths-only second room (replaces same-day multi-area overlay) [PR A of 3]
 
 Owner adjustment 2026-06-13: "instead of areas & booths, use our seatplan maker for another smaller room — the cocktail / waiting area just outside the reception; booths only, NO tables/chairs; just 1 place; make the room in the SAME blueprint as the seat plan; the cocktail area can be accessed by the booth vendors + the stylist, who can also customize the size." This is the schema + consolidation slice; the couple editor (PR B) and the vendor editor + write RPCs (PR C) follow.

@@ -39,6 +39,25 @@ First slice of iteration 0038 (Editorial & Affiliates), which was a V1.1 paper s
 Verified: `tsc` + production build clean (no new deps).
 
 **SPEC IMPACT:** Implements iteration **0038 first slice** — `/blog` + `/blog/[slug]` flip from "NOT BUILT" to shipped in the corpus `0038_editorial_and_affiliates` AS-BUILT header + `App_Build_Status.md` (0038 → ⚠ partial: editorial shipped, affiliates/recommendations/sponsored deferred). Logged at the bottom of `DECISION_LOG.md`.
+## 2026-06-13 · feat(guests): desktop guest-list redesign — consolidated chrome, unified filters, combinable views+groups
+
+**Context:** the Guests tab desktop layout had grown by accretion to **8 stacked chrome blocks** (header · lifecycle ribbon · view switcher · team segment · stats strip · seating card · share link · search toolbar) before the guest list began — pushing the list past the laptop fold. The owner flagged two duplications: the guest total rendered **3×** (H1 "280 guests" + an "Invited 280" stat card + "270 of 280 responded"), and seating was reachable **3 ways** on one screen (left nav + the ribbon's Seat step + a standalone "Seating chart" card). Both were desktop-only — the mobile bottom-sheet carousel never had them. Approved direction this session: consolidate desktop + unify the six scattered filter controls into one system + make role-views and custom groups combinable.
+
+**Layout (desktop, `app/dashboard/[eventId]/guests/page.tsx`):** 8 blocks → 4 rows.
+- New `SummaryStrip` replaces the old `StatsStrip` (progress bar + 5 cards): a slim strip with the confirmations bar + **four RSVP toggle pills (Attending/Pending/Declined/Maybe) that ARE the filter** — tap an active pill to clear it. Plus-ones kept as a caption. The duplicate **"Invited" card is gone** (the total headlines the H1 + the "of N" caption).
+- The standalone **"Seating chart" card is removed** (the ribbon's Seat step + the left nav already reach `/seating`).
+- **Share** folded from a full-width collapsible row into a compact header `<details>` dropdown (`ShareDropdown`).
+- The List/Mind-map switch folded into the search/sort toolbar; **Side** (Everyone/Bride/Groom) moved from a full-width segment row into the rail (rail is now Side → Views → Groups → Tags).
+
+**Unified filters + always-visible state:** new `ActiveFilters` server component — a removable-chip row that is the single home for *every* active dimension (search · side · RSVP · role-view · group · tag) with one "Clear all". Rendered inline on desktop and as a **sticky strip above the list on mobile** (`lg:hidden`, gated on `hasAnyFilter`) — closes the mobile gap where active filters were only a dot on the filter icon. The desktop rail's `buildHref` now carries *every* active param so any one facet toggles without dropping the rest.
+
+**Combinable views + groups (the behavior change):** custom groups moved off the overloaded `view="group:<id>"` scheme onto their own **`group` param**, so a host can stack "Wedding Party" (role view) AND "Cousins" (custom group) — previously mutually exclusive. The role-group filter now always runs (was skipped when a group was active). Touch points: `page.tsx` (derive `currentGroupId` from `group`; always `filterByRoleGroup`; `activeView=view`), `groups-actions.ts` ×3 redirects, `groups-sidebar.tsx` fallback href, `view-switcher.tsx` preserved-keys, mobile carousel role/group selects + Clear-all. A back-compat shim maps any stale `view=group:<id>` link onto the new param so old bookmarks/redirects still resolve.
+
+**Ribbon clarity:** the lifecycle badges read backwards ("Seat 192" looked like 192 *are* seated; it means 192 are *not*). Added an inline `badgeWord` so badges now read **"258 to send" / "to review" / "192 to seat" / "arrived"** on both the desktop ribbon and the mobile Journey panel.
+
+`tsc --noEmit` + `next lint` clean (no new warnings); `next build` compiles (exit 0). The URL param contract is otherwise unchanged, so server filtering logic and the rest of the mobile carousel are untouched.
+
+**SPEC IMPACT:** None to locked scope/SKUs. UX/architecture note → `DECISION_LOG.md` (guest-list desktop consolidation + `view`/`group` param split for combinable role-view × custom-group filtering). No schema/migration change.
 
 ---
 

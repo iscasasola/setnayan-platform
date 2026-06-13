@@ -56,6 +56,12 @@ export function LifecycleRibbon({
     label: string;
     href: string;
     badge?: number;
+    // The badge counts WORK REMAINING (or, for Day-of, arrivals). A bare
+    // number read backwards — "Seat 192" looked like 192 *are* seated when
+    // it means 192 are NOT. `badgeWord` spells out the direction inline
+    // (owner clarity fix 2026-06-13) so the count is unambiguous without
+    // relying on the (touch-invisible) title tooltip.
+    badgeWord?: string;
     badgeTitle?: string;
     badgeTone?: 'accent' | 'done';
   }[] = [
@@ -65,6 +71,7 @@ export function LifecycleRibbon({
       label: 'Invite',
       href: `/dashboard/${eventId}/guests/claims`,
       badge: unsent,
+      badgeWord: 'to send',
       badgeTitle: `${unsent} ${unsent === 1 ? 'invitation' : 'invitations'} not yet sent`,
     },
     {
@@ -72,6 +79,7 @@ export function LifecycleRibbon({
       label: 'Confirm',
       href: `/dashboard/${eventId}/guests/claims`,
       badge: pendingClaims,
+      badgeWord: 'to review',
       badgeTitle: `${pendingClaims} guest ${pendingClaims === 1 ? 'request' : 'requests'} to review`,
     },
     {
@@ -79,6 +87,7 @@ export function LifecycleRibbon({
       label: 'Seat',
       href: `/dashboard/${eventId}/seating`,
       badge: unseated,
+      badgeWord: 'to seat',
       badgeTitle: `${unseated} attending ${unseated === 1 ? 'guest' : 'guests'} without a seat`,
     },
     {
@@ -86,6 +95,7 @@ export function LifecycleRibbon({
       label: 'Day-of',
       href: `/dashboard/${eventId}/guests/checkin`,
       badge: arrived,
+      badgeWord: 'arrived',
       badgeTitle: `${arrived} ${arrived === 1 ? 'guest has' : 'guests have'} arrived`,
       badgeTone: 'done',
     },
@@ -125,6 +135,9 @@ export function LifecycleRibbon({
                   }`}
                 >
                   {s.badge}
+                  {s.badgeWord ? (
+                    <span className="ml-1 font-normal opacity-80">{s.badgeWord}</span>
+                  ) : null}
                 </span>
               ) : null}
             </Link>

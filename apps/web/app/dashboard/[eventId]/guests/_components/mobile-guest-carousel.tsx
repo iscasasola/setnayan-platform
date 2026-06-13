@@ -484,10 +484,10 @@ export function MobileGuestCarousel({
               {(
                 [
                   { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent },
-                  { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
-                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated },
-                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true },
+                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent, word: 'to send' },
+                  { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
+                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
+                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },
                 ] as const
               ).map((s, i) => (
                 <span key={s.key} className="flex shrink-0 items-center gap-0.5">
@@ -514,6 +514,9 @@ export function MobileGuestCarousel({
                         }`}
                       >
                         {s.badge}
+                        {'word' in s && s.word ? (
+                          <span className="ml-1 font-normal opacity-80">{s.word}</span>
+                        ) : null}
                       </span>
                     ) : null}
                   </Link>
@@ -622,7 +625,7 @@ export function MobileGuestCarousel({
               <h2 className="text-sm font-semibold text-ink">Filter</h2>
               {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
                 <Link
-                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
+                  href={buildHref({ team: null, rsvp: null, view: null, group: null, tag: null })}
                   onClick={() => setFilterSheet(false)}
                   className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-ink/55 hover:text-ink"
                 >
@@ -669,10 +672,13 @@ export function MobileGuestCarousel({
             </SegRow>
 
             <div className="grid grid-cols-2 gap-2">
+              {/* Role + Group are independent filters now (2026-06-13) — each
+                  writes its OWN param (`view` / `group`) so a host can pick a
+                  role view AND a custom group at once. */}
               <SelectFilter
                 label="Role"
                 allLabel="All roles"
-                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
+                value={activeView !== 'all' ? activeView : ''}
                 options={views
                   .filter((v) => v.key !== 'all')
                   .map((v) => ({ value: v.key, label: v.label }))}
@@ -684,7 +690,7 @@ export function MobileGuestCarousel({
                 value={currentGroupId ?? ''}
                 disabled={groups.length === 0}
                 options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
-                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
+                onChange={(v) => router.push(buildHref({ group: v || null }))}
               />
             </div>
 

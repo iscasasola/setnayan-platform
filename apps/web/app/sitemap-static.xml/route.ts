@@ -58,6 +58,10 @@ const STATIC_ROUTES: ReadonlyArray<{
   // 2026-05-28 row PR #574).
   { path: '/for-vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
 
+  // /tl/about — Tagalog edition of /about (localization first slice,
+  // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
+  { path: '/tl/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
+
   // /how-it-works — iteration 0015 marketing site.
   { path: '/how-it-works', lastmod: '2026-05-12', changefreq: 'monthly', priority: '0.75' },
 

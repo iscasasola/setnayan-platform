@@ -369,10 +369,18 @@ export async function saveFloorPlan(formData: FormData) {
   const serviceX = clampPct(formData.get('service_entrance_x'));
   const serviceY = clampPct(formData.get('service_entrance_y'));
 
-  // Cocktail / waiting-area room — a second room on the same canvas.
+  // Cocktail / waiting-area room — a second room on the same canvas. Its centre
+  // clamps to a WIDER band than 0–100 so the room can dock just OUTSIDE a
+  // reception wall (at the entrance door) without being snapped back on-canvas.
+  const clampCocktailCoord = (v: unknown): number | null => {
+    if (typeof v !== 'string' || v.length === 0) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(-80, Math.min(180, n));
+  };
   const cocktailEnabled = formData.get('cocktail_enabled') === 'true';
-  const cocktailX = clampPct(formData.get('cocktail_x'));
-  const cocktailY = clampPct(formData.get('cocktail_y'));
+  const cocktailX = clampCocktailCoord(formData.get('cocktail_x'));
+  const cocktailY = clampCocktailCoord(formData.get('cocktail_y'));
   const cocktailW = clampSize(formData.get('cocktail_w'));
   const cocktailH = clampSize(formData.get('cocktail_h'));
   const cocktailLabelRaw = formData.get('cocktail_label');
@@ -382,6 +390,8 @@ export async function saveFloorPlan(formData: FormData) {
       : 'Cocktail Area';
   // Couple revoke switch — absent or anything but 'false' keeps vendor edit on.
   const cocktailVendorEdit = formData.get('cocktail_vendor_edit') !== 'false';
+  // Dock mode — absent or anything but 'false' keeps it linked (DB default TRUE).
+  const cocktailLinked = formData.get('cocktail_linked') !== 'false';
 
   // Venue dimensions (metres) — null when the couple hasn't set a room size.
   const parseDim = (v: FormDataEntryValue | null): number | null => {
@@ -426,6 +436,7 @@ export async function saveFloorPlan(formData: FormData) {
       cocktail_h: cocktailH ?? 22,
       cocktail_label: cocktailLabel,
       cocktail_vendor_edit: cocktailVendorEdit,
+      cocktail_linked: cocktailLinked,
       venue_width_m: venueWidth,
       venue_length_m: venueLength,
       updated_at: new Date().toISOString(),
@@ -969,12 +980,17 @@ function parseBoothsPayload(raw: unknown): BoothPayload[] {
       typeof o.event_vendor_id === 'string' && o.event_vendor_id.length > 0
         ? o.event_vendor_id
         : null;
+    // Cocktail booths can sit in a room docked OUTSIDE the reception walls
+    // (off the 0–100 canvas), so they clamp to the same widened band as the
+    // cocktail room; reception booths stay on-canvas.
+    const lo = zone === 'cocktail' ? -80 : 0;
+    const hi = zone === 'cocktail' ? 180 : 100;
     return {
       booth_id: typeof o.booth_id === 'string' && o.booth_id.length > 0 ? o.booth_id : null,
       booth_type: type as BoothType,
       label: label || (BOOTH_CATALOG.find((c) => c.type === type)?.label ?? 'Booth'),
-      x_pos: Math.max(0, Math.min(100, x)),
-      y_pos: Math.max(0, Math.min(100, y)),
+      x_pos: Math.max(lo, Math.min(hi, x)),
+      y_pos: Math.max(lo, Math.min(hi, y)),
       sort_order: i,
       zone: zone as 'reception' | 'cocktail',
       event_vendor_id: vendorId,
@@ -1026,6 +1042,89 @@ export async function saveBooths(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
   await persistBooths(supabase, eventId, booths);
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// --- wayfinding signs (replace-all, same shape as saveBooths) ----------------
+const MAX_SIGNS = 24;
+
+type SignPayload = {
+  sign_id: string | null;
+  label: string;
+  x_pos: number;
+  y_pos: number;
+  rotation_deg: number;
+  sort_order: number;
+};
+
+function parseSignsPayload(raw: unknown): SignPayload[] {
+  if (typeof raw !== 'string') throw new Error('Invalid input');
+  let arr: unknown;
+  try {
+    arr = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid input');
+  }
+  if (!Array.isArray(arr) || arr.length > MAX_SIGNS) throw new Error('Invalid input');
+  return arr.map((s, i) => {
+    const o = s as Record<string, unknown>;
+    const label = typeof o.label === 'string' ? o.label.trim().slice(0, 40) : '';
+    const x = Number(o.x_pos);
+    const y = Number(o.y_pos);
+    const rot = Number(o.rotation_deg);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Invalid input');
+    return {
+      sign_id: typeof o.sign_id === 'string' && o.sign_id.length > 0 ? o.sign_id : null,
+      label: label || 'Sign',
+      x_pos: Math.max(0, Math.min(100, x)),
+      y_pos: Math.max(0, Math.min(100, y)),
+      rotation_deg: Number.isFinite(rot) ? ((rot % 360) + 360) % 360 : 0,
+      sort_order: i,
+    };
+  });
+}
+
+async function persistSigns(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  signs: SignPayload[],
+) {
+  const keepIds = signs.map((s) => s.sign_id).filter((id): id is string => id !== null);
+  const del = supabase.from('event_floor_signs').delete().eq('event_id', eventId);
+  const { error: delError } = await (keepIds.length > 0
+    ? del.not('sign_id', 'in', `(${keepIds.join(',')})`)
+    : del);
+  if (delError) throw new Error(delError.message);
+  for (const s of signs) {
+    const row = {
+      event_id: eventId,
+      label: s.label,
+      x_pos: s.x_pos,
+      y_pos: s.y_pos,
+      rotation_deg: s.rotation_deg,
+      sort_order: s.sort_order,
+    };
+    const { error } = s.sign_id
+      ? await supabase.from('event_floor_signs').update(row).eq('sign_id', s.sign_id).eq('event_id', eventId)
+      : await supabase.from('event_floor_signs').insert(row);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function saveSigns(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
+  const signs = parseSignsPayload(formData.get('signs'));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+  await persistSigns(supabase, eventId, signs);
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }

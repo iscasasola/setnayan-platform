@@ -155,6 +155,9 @@ export type FloorPlanRow = {
   cocktail_schedule_block_id: string | null;
   // Couple revoke switch — when false, booked stylist/booth vendors can't edit.
   cocktail_vendor_edit: boolean;
+  // Dock mode: TRUE = the room docks at the reception entrance with a drawn
+  // doorway connector (arrive→register→enter); FALSE = free-floats.
+  cocktail_linked: boolean;
   venue_width_m: number | null;
   venue_length_m: number | null;
   // When the couple last published the seating pack (stamped table QR sheets).
@@ -187,6 +190,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   cocktail_length_m: null,
   cocktail_schedule_block_id: null,
   cocktail_vendor_edit: true,
+  cocktail_linked: true,
   venue_width_m: null,
   venue_length_m: null,
   published_at: null,
@@ -199,7 +203,7 @@ export async function fetchFloorPlan(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,venue_width_m,venue_length_m,published_at',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -241,6 +245,10 @@ export async function fetchFloorPlan(
       data.cocktail_vendor_edit === undefined || data.cocktail_vendor_edit === null
         ? true
         : Boolean(data.cocktail_vendor_edit),
+    cocktail_linked:
+      data.cocktail_linked === undefined || data.cocktail_linked === null
+        ? true
+        : Boolean(data.cocktail_linked),
     venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,
@@ -831,6 +839,7 @@ export type BoothType =
   | 'dessert_station'
   | 'gift_table'
   | 'souvenir_table'
+  | 'registration_desk'
   | 'custom';
 
 export const BOOTH_CATALOG: ReadonlyArray<{ type: BoothType; label: string }> = [
@@ -839,6 +848,7 @@ export const BOOTH_CATALOG: ReadonlyArray<{ type: BoothType; label: string }> = 
   { type: 'dessert_station', label: 'Dessert Station' },
   { type: 'gift_table', label: 'Gift Table' },
   { type: 'souvenir_table', label: 'Souvenir Table' },
+  { type: 'registration_desk', label: 'Front Desk' },
   { type: 'custom', label: 'Custom booth' },
 ];
 
@@ -881,6 +891,41 @@ export async function fetchBooths(
     // Pre-migration rows lack these columns; default sensibly.
     zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
     event_vendor_id: b.event_vendor_id ?? null,
+  }));
+}
+
+// --- wayfinding signs -------------------------------------------------------
+// Directional markers (rotatable arrow + label, e.g. "Restrooms") placed on the
+// shared blueprint. Couple/coordinator manage them; ARRANGE-tier cocktail
+// vendors may CRUD via the vendor_*_sign RPCs. rotation_deg: 0 = pointing up.
+export type FloorSignRow = {
+  sign_id: string;
+  event_id: string;
+  label: string;
+  x_pos: number;
+  y_pos: number;
+  rotation_deg: number;
+  sort_order: number;
+};
+
+export async function fetchSigns(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<FloorSignRow[]> {
+  const { data, error } = await supabase
+    .from('event_floor_signs')
+    .select('sign_id,event_id,label,x_pos,y_pos,rotation_deg,sort_order')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  // Graceful-degrade (same contract as fetchBooths): a not-yet-migrated table
+  // or RLS hiccup renders a sign-less plan, never a crashed page.
+  if (error || !data) return [];
+  return (data as FloorSignRow[]).map((s) => ({
+    ...s,
+    x_pos: Number(s.x_pos),
+    y_pos: Number(s.y_pos),
+    rotation_deg: Number(s.rotation_deg),
   }));
 }
 

@@ -86,6 +86,41 @@ function SampleCard({ wedding }: { wedding: RealWedding }) {
   );
 }
 
+// Featured real showcase — the admin-pinned hero slot (PR D · Real Stories
+// featuring). Mirrors the sample featured-hero treatment, but links to the
+// couple's own canonical /[slug] editorial and carries no "Sample" label
+// (it's a real, consented wedding).
+function RealHero({ entry }: { entry: ShowcaseEntry }) {
+  const meta = [entry.city, entry.dateLabel].filter(Boolean).join(' · ');
+  return (
+    <Link
+      href={entry.href}
+      className="group mt-10 block overflow-hidden rounded-3xl border border-ink/10 bg-white/60 transition hover:border-terracotta/40 hover:bg-white"
+    >
+      {entry.monogramColor ? (
+        <div
+          className="h-24 w-full sm:h-32"
+          style={{ backgroundColor: entry.monogramColor }}
+          aria-hidden
+        />
+      ) : null}
+      <div className="p-6 sm:p-9">
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+          Featured · Real wedding
+        </span>
+        <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink group-hover:underline sm:text-3xl">
+          {entry.coupleNames}
+          {entry.city ? <> &middot; {entry.city}</> : null}
+        </h2>
+        {meta ? <p className="mt-2 text-base text-ink/65">{meta}</p> : null}
+        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta">
+          Read the story →
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 // Real wedding card (ShowcaseEntry) — links to the couple's canonical /[slug].
 function RealCard({ entry }: { entry: ShowcaseEntry }) {
   const meta = [entry.city, entry.dateLabel].filter(Boolean).join(' · ');
@@ -122,6 +157,12 @@ export default async function WeddingsIndexPage() {
   const showingSamples = showcases.length === 0;
   const samples = ALL_REAL_WEDDINGS;
   const featured = samples.find((w) => w.featured) ?? samples[0];
+
+  // Admin-featured hero (PR D · Real Stories featuring). loadPublishedShowcases
+  // returns featured-first, so the leading entry — only when it's actually
+  // pinned — fills the hero slot; otherwise every showcase renders in the grid.
+  const realHero = showcases[0]?.featured ? showcases[0] : null;
+  const realRest = realHero ? showcases.slice(1) : showcases;
 
   const itemListElements = showingSamples
     ? samples.map((w, i) => ({
@@ -243,11 +284,21 @@ export default async function WeddingsIndexPage() {
             ) : null}
           </>
         ) : (
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {showcases.map((s) => (
-              <RealCard key={s.href} entry={s} />
-            ))}
-          </div>
+          <>
+            {/* Admin-featured hero (PR D · Real Stories featuring): showcases
+                are returned featured-first, so the leading entry — when it's
+                pinned — fills the hero slot, mirroring the sample treatment.
+                The remaining entries fall to the grid below. With no featured
+                pick, every showcase renders as an even grid. */}
+            {realHero ? <RealHero entry={realHero} /> : null}
+            {realRest.length > 0 ? (
+              <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {realRest.map((s) => (
+                  <RealCard key={s.href} entry={s} />
+                ))}
+              </div>
+            ) : null}
+          </>
         )}
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">

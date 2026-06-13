@@ -305,6 +305,12 @@ function computeArchetype(guests: number, perGuestSpend: number | null): Archety
 // ── Main loader ──────────────────────────────────────────────────────────────
 
 export async function loadEditorialData(eventId: string): Promise<EditorialData | null> {
+  // Sample editorial (iteration 0046 Real Weddings) — the curated Maria & Juan
+  // fixture renders through THIS exact component (via the /weddings sample page),
+  // so the sample always tracks the live editorial format. Returns without
+  // touching the DB; real event ids fall straight through to the loader below.
+  if (eventId === SAMPLE_EDITORIAL_EVENT_ID) return sampleEditorialData();
+
   let admin: ReturnType<typeof createAdminClient>;
   try {
     admin = createAdminClient();
@@ -715,4 +721,89 @@ function deriveMonogramFallback(displayName: string): string {
     return `${a} & ${b}`;
   }
   return (parts[0]?.charAt(0) ?? 'S').toUpperCase();
+}
+
+// ============================================================================
+// Real Weddings SAMPLE editorial (iteration 0046)
+// ============================================================================
+// The curated Maria & Juan SAMPLE shown on the /weddings showcase detail page.
+// It flows through the SAME EditorialContent component as real weddings (via the
+// loadEditorialData sentinel above), so the sample AUTOMATICALLY follows any
+// future change to the editorial format — there is no parallel layout to drift.
+// Fictional + clearly labelled "Sample showcase" on the page; carries no real
+// PII. When real consent-gated editorials ship (0002/0046 Phase 4, Dec 2026),
+// they render through the identical path from live `events` data.
+export const SAMPLE_EDITORIAL_EVENT_ID = 'sample-maria-and-juan';
+
+export function sampleEditorialData(): EditorialData {
+  const guests = 120;
+  return {
+    displayName: 'Maria & Juan',
+    firstNames: 'Maria & Juan',
+    eventDate: '2026-02-14',
+    eventDateFormatted: formatPhDate('2026-02-14'),
+    venueName: 'a garden estate overlooking Taal',
+    venueCity: 'Tagaytay',
+    venueAddress: 'Tagaytay, Cavite',
+    monogramText: 'M & J',
+    monogramColor: '#6B4E3D',
+    loveStory: {
+      how_we_met:
+        'they ended up seatmates at a friend’s despedida in Quezon City and spent the whole night arguing about the best lugaw in the metro',
+      met_year: '2019',
+      together_since: '2019',
+      proposal:
+        'Juan asked the question over halo-halo, at the same little turo-turo where they had their first real talk',
+      proposal_setting: 'a quiet Tagaytay overlook',
+      proposal_year: '2024',
+      spark: 'the way they could turn any ordinary errand into an adventure',
+      spark_why: 'neither of them ever quite wanted the day to end',
+      milestones: [
+        { year: '2019', title: 'First met', note: 'A despedida in Quezon City' },
+        { year: '2021', title: 'Moved in together', note: 'A tiny apartment in Makati' },
+        { year: '2024', title: 'The proposal', note: 'Tagaytay, over halo-halo' },
+        { year: '2026', title: 'The wedding', note: 'A garden overlooking Taal' },
+      ],
+      anchors: {
+        song: 'their kundiman',
+        place: 'Tagaytay',
+        injoke: 'set na ’yan',
+        food: 'halo-halo',
+      },
+    },
+    specialMessage:
+      'Thank you for being here with us today. Set na ’yan — and we could never have set it without every one of you.',
+    togetherSince: '2019-08-01',
+    tone: 'warm',
+    draft: {},
+    published: true,
+    heroPhotoUrl: null,
+    metrics: {
+      servicesSetnayan: 5,
+      servicesTotalDenominator: null,
+      firstPickNum: 4,
+      firstPickDen: 6,
+      hoursSaved: TIME_SAVED_PER_VENDOR_HOURS * 6 + TIME_SAVED_BASE_HOURS,
+      guests,
+      attending: 108,
+      replied: 116,
+      rsvpPct: 97,
+      photos: null,
+    },
+    archetype: computeArchetype(guests, null),
+    vendors: [
+      { name: 'Goldenhour Photo + Film', category: 'Photography & Video', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'The Long Table', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Bloom & Vine', category: 'Florals & Styling', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Day-of by Dana', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+    ],
+    reviews: [
+      { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
+      { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
+    ],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream', 'Pakanta'],
+    galleryPhotos: [],
+    photoWallPhotos: [],
+    photoWallActive: false,
+  };
 }

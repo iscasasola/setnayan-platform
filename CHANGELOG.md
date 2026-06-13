@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · refactor(weddings): the Real Weddings sample now renders the real editorial (follows it)
+
+Per owner direction ("when we update the editorial, this sample needs to follow the editorial as well"), the `/weddings/[slug]` showcase no longer uses a bespoke layout — it renders through the **same `EditorialContent` component** as a real wedding's post-event editorial (the `/[slug]` Phase-4 "newspaper"). A curated Maria & Juan sample fixture feeds it via a `loadEditorialData` sentinel, so any future change to the editorial format updates the sample automatically — no parallel layout to drift.
+
+- `editorial/data.ts`: new `SAMPLE_EDITORIAL_EVENT_ID` + `sampleEditorialData()` (a complete `EditorialData` for Maria & Juan — Catholic garden wedding in Tagaytay: love story, by-the-numbers, archetype, illustrative team credits, couple/guest reviews, Setnayan-services strip; no real PII) + a sentinel branch at the top of `loadEditorialData` that returns the fixture **without touching the DB**.
+- `app/weddings/[slug]/page.tsx`: rewritten to render `<EditorialContent eventId={sample} />` behind a slim "Sample showcase" bar (back-nav + an honest "real editorials begin December 2026" line); the bespoke facts-strip/story/team layout is removed. A `slug → fixture id` map keeps the sentinel single-sourced.
+- Real, consent-gated editorials (0002/0046 Phase 4) are unchanged — real event ids fall straight through the sentinel to the live DB loader.
+
+Verified: `tsc` + production build (`/weddings/[slug]` sample prerendered ● through the editorial; no DB at build).
+
+**SPEC IMPACT:** Supersedes the bespoke showcase-detail layout from PR #1349 (same day). `DECISION_LOG.md` + the `0046_wedding_showcase` AS-BUILT header note that the sample now renders via the editorial.
+
+---
+
 ## 2026-06-13 · feat(weddings): Real Weddings showcase live with a sample (iteration 0046 first slice)
 
 Lights up the `/weddings` surface (previously a polite "coming December 2026" empty state) with a populated, indexable showcase — and seeds one clearly-labelled SAMPLE wedding so the page demonstrates the format before real editorials exist.

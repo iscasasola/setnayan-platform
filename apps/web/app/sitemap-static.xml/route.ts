@@ -46,9 +46,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.
   { path: '/pricing', lastmod: '2026-05-29', changefreq: 'weekly', priority: '0.9' },
 
-  // /weddings editorial showcase index — empty pre-pilot but route exists
-  // and the iframe + meta surface is finalized. Weekly placeholder.
-  { path: '/weddings', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.85' },
+  // /weddings hub moved to sitemap-weddings.xml (iteration 0046 first slice,
+  // 2026-06-13) — kept out of sitemap-static to avoid a duplicate URL across
+  // sitemaps (same hub-in-its-own-child pattern as /help + /blog).
 
   // /features — v2.1 template adoption shipped (CLAUDE.md eleventh
   // 2026-05-28 row PR #581). Monthly cadence is honest now.

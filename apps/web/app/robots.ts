@@ -10,6 +10,7 @@ const ALLOWED_PATHS = [
   '/venue/',
   '/for-vendors',
   '/help',
+  '/weddings',
   // Forward-looking — these surfaces are in the SEO playbook
   // (17_SEO_and_AI_Discoverability_Playbook.md §5.1) but not yet
   // shipped. Pre-allowing them avoids a robots.txt edit when they go live.

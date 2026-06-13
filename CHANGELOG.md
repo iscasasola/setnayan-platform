@@ -15,6 +15,22 @@ Owner-locked the bottom-nav tap interaction as THE unbreakable app-wide template
 - Verified: `typecheck` clean · `lint` clean (no new warnings in changed files) · `lint:botnav` passes.
 
 SPEC IMPACT: Owner-locked the bottom nav as an unbreakable app-wide template + lint guard. Recorded in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical` (indexed in `MEMORY.md`). No SKU / schema / pricing / route impact.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 3 (snapshot pax on new inquiries)
+
+Inquiries now carry the couple's live pax. When a couple opens a vendor inquiry — via `unlockCategoryWithInquiry()` (add-a-category) or `startServiceInquiry()` (`/v/[slug]`) — the thread snapshots the count, and both thread headers show it. First runtime use of the Phase 1 columns (now applied to prod).
+
+- New server helper `lib/pax.ts` → `resolveLivePax(supabase, eventId)` = `max(events.estimated_pax floor, headcount on events.headcount_basis)`; counts only SURE attending guests by default (the locked basis); returns `null` when there's nothing to anchor on. (`HeadcountBasis` defined locally here to keep the server module import-independent; mirrors the union in `lib/guests.ts`.)
+- Both inquiry upserts now set `chat_threads.pax_current` (insert + on-conflict) and set the immutable `chat_threads.pax_at_inquiry` exactly once (when still null) — the count the vendor first quoted against. `null` live-pax → no pax written (graceful).
+- `lib/chat.ts`: `THREAD_SELECT` + `ChatThreadRow` carry `pax_at_inquiry` / `pax_current`, so both thread pages get them with no extra query.
+- Vendor thread header (`vendor-dashboard/messages/[threadId]`) and couple thread header (`dashboard/[eventId]/messages/[threadId]`) render "Planning for ~N guests · was M at inquiry" (the "was M" only once the count has grown).
+
+Read/snapshot only — no cost recompute or surcharge yet (phases 4-5). Inquiry status-flip / one-thread-per-pairing rules untouched.
+
+**Migration note:** the Phase 1 migration `20261211000000` was **applied to prod 2026-06-13** (`supabase db push`; it was the only pending migration — clean apply), so these columns exist at runtime. Independent of the Phase 2 PR (defines its own `HeadcountBasis`).
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓.
+
+**SPEC IMPACT:** None to locked scope. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0019_communications` (thread context) + `0006`/`0007` AS-BUILT notes to follow once the program lands.
 
 ---
 

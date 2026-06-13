@@ -101,6 +101,16 @@ export default async function VendorThreadPage({ params }: Props) {
               {event.event_date}
             </p>
           ) : null}
+          {/* Live pax on the inquiry (Adaptive Pax Pricing Phase 3) — what the
+              couple is planning for, and the count at first inquiry once it grows. */}
+          {thread.pax_current ? (
+            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta">
+              Planning for ~{thread.pax_current} guests
+              {thread.pax_at_inquiry && thread.pax_at_inquiry < thread.pax_current
+                ? ` · was ${thread.pax_at_inquiry} at inquiry`
+                : ''}
+            </p>
+          ) : null}
         </div>
       </header>
 

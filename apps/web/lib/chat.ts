@@ -23,6 +23,11 @@ export type ChatThreadRow = {
   accepted_at: string | null;
   declined_at: string | null;
   decline_reason: string | null;
+  // Adaptive Pax Pricing (2026-06-13): the immutable count this inquiry was
+  // first quoted against, and the live count pushed to the thread. null on
+  // pre-feature threads.
+  pax_at_inquiry: number | null;
+  pax_current: number | null;
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
@@ -78,7 +83,7 @@ export type ChatMessageRow = {
 };
 
 const THREAD_SELECT =
-  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason';
+  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current';
 
 /**
  * Count of message threads with at least one unread message for the current

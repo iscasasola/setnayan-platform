@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(blog): +5 Setnayan Journal articles (Journal now 9 posts)
+
+Follow-up to the 0038 first slice (PR #1344). Adds 5 more PH-anchored long-tail articles to `lib/blog.ts` (4 → 9): a wedding-budget breakdown, a marriage-licence step-by-step, how to choose a venue, Catholic-wedding requirements (Pre-Cana / banns / documents), and Filipino wedding traditions explained. Same in-code-constant engine — no schema, no new deps, no route changes; each article auto-picks-up the existing `sitemap-blog.xml` (honest per-article lastmod), `BlogPosting`/`BreadcrumbList` JSON-LD, and the category filters. Benefits-only copy, no quoted SKU prices (drift-proof), internal-link CTAs to /vendors · /venues · /how-it-works · /signup.
+
+Verified: `tsc` + production build clean (all 9 articles prerendered ●).
+
+**SPEC IMPACT:** Extends the 0038 first-slice content set (4 → 9 articles); the `DECISION_LOG.md` #1344 row + the `0038_editorial_and_affiliates` AS-BUILT header note the 9-article count.
+
+---
+
 ## 2026-06-13 · fix(concurrency): DB guard for the hard-single double-lock (last open conflict-audit item)
 
 **Context:** the final un-serialized cross-actor write from the 2026-06-04 conflict audit (PR #1339 closed the other two). `finalizeVendor` enforced "exactly one CONFIRMED vendor per hard-single plan group per event" (ceremony_venue · reception_venue · officiant · coordinator · host_mc · led_background) with an app-level read-then-write — two hosts of the SAME event (e.g. a couple member + a moderator) could both pass the sibling check and both lock a different vendor in one group. Blast radius was low (white soft-holds, no money, self-correcting) so it was deferred; this closes it. **Owner picked Approach A** (generated column + partial-unique index) over the advisory-lock RPC alternative, because it's path-independent and self-backfilling.

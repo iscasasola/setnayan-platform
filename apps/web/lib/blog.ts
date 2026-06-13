@@ -373,6 +373,269 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
     ],
   },
+  {
+    slug: 'wedding-budget-breakdown-philippines',
+    title: 'Wedding budget breakdown: where the money actually goes',
+    excerpt:
+      'A realistic percentage breakdown of a Filipino wedding budget — so you know what to spend where before you commit.',
+    category: 'planning',
+    author: 'Setnayan Editorial',
+    publishedAt: '2026-06-04',
+    blocks: [
+      {
+        type: 'p',
+        text: 'Whatever your total budget, the proportions tend to hold. Knowing roughly how a Filipino wedding budget splits up before you start booking keeps you from overspending early and scrambling later. Here is a realistic breakdown to plan against — adjust the totals to your number, but keep the shape.',
+      },
+      {
+        type: 'h2',
+        text: 'The big three (about 60–70%)',
+      },
+      {
+        type: 'p',
+        text: 'Venue, catering, and your photo-and-video team almost always take the largest share. Decide these first; everything else fits around what is left.',
+      },
+      {
+        type: 'ul',
+        items: [
+          'Reception venue: roughly 20–25% (often bundled with catering).',
+          'Catering and beverage: roughly 25–35% — it scales straight with your headcount, so the guest list is really a budget lever.',
+          'Photo and video: roughly 10–15% — the one spend that outlives the day.',
+        ],
+      },
+      {
+        type: 'h2',
+        text: 'The middle tier (about 20–25%)',
+      },
+      {
+        type: 'ul',
+        items: [
+          'Attire (gown, suit, entourage): 5–10%.',
+          'Florals, styling, and decor: 8–12%.',
+          'Hair and makeup: 3–5%.',
+          'Music and entertainment: 3–6%.',
+        ],
+      },
+      {
+        type: 'h2',
+        text: 'The smaller line items — and the buffer',
+      },
+      {
+        type: 'p',
+        text: 'Stationery, the cake, the host, transportation, the marriage licence and church fees, and gifts for sponsors round out the rest. Whatever your total, set aside a 10–15% contingency. Overtime, corkage, extra hours, and last-minute additions are not "if" — they are "when".',
+      },
+      {
+        type: 'cta',
+        text: 'Plan every line item and log every payment against it — the budget tool is free with your Setnayan workspace.',
+        href: '/signup',
+        label: 'Start your budget free',
+      },
+    ],
+  },
+  {
+    slug: 'marriage-license-requirements-philippines',
+    title: 'Marriage licence in the Philippines: a step-by-step guide',
+    excerpt:
+      'Where to apply, what to bring, the 10-day wait, and the 120-day validity — the licence process, demystified.',
+    category: 'planning',
+    author: 'Setnayan Editorial',
+    publishedAt: '2026-06-06',
+    blocks: [
+      {
+        type: 'p',
+        text: 'Every legal wedding in the Philippines — civil or church — needs a marriage licence. The process is straightforward once you know the steps, but it has built-in waiting periods that catch couples off guard. Start it about two to three months before the wedding so it is valid on the day, not expired and not issued too late.',
+      },
+      {
+        type: 'h2',
+        text: 'Where to apply',
+      },
+      {
+        type: 'p',
+        text: 'Apply at the Office of the Civil Registrar in the city or municipality where either you or your partner resides. Both of you apply together in person.',
+      },
+      {
+        type: 'h2',
+        text: 'What to bring',
+      },
+      {
+        type: 'ul',
+        items: [
+          'PSA-issued birth certificate for each of you.',
+          'CENOMAR (Certificate of No Marriage Record) from the PSA.',
+          'Valid government-issued IDs.',
+          'Parental consent if either of you is 18–20, or parental advice if 21–25.',
+          'Certificate of attendance at the required pre-marriage counseling / family planning seminar (given at the registrar or local health office).',
+          'For previously married applicants: the death certificate or annulment/nullity decree, as applicable.',
+        ],
+      },
+      {
+        type: 'h2',
+        text: 'The 10-day posting and 120-day validity',
+      },
+      {
+        type: 'p',
+        text: 'After you file, the registrar posts your application for 10 consecutive days before releasing the licence. Once issued, the licence is valid for 120 days anywhere in the Philippines — if you do not marry within that window, it expires and you start over. Plan the timing so the licence is live on your wedding date with room to spare.',
+      },
+      {
+        type: 'cta',
+        text: 'Setnayan tracks the statutory deadlines for your date — licence window included — so nothing lapses.',
+        href: '/how-it-works',
+        label: 'See how planning adapts',
+      },
+    ],
+  },
+  {
+    slug: 'how-to-choose-a-wedding-venue-philippines',
+    title: 'How to choose your wedding venue in the Philippines',
+    excerpt:
+      'Guest count, weather, and the questions to ask before you sign — a practical guide to picking the right venue.',
+    category: 'vendors',
+    author: 'Setnayan Editorial',
+    publishedAt: '2026-06-10',
+    blocks: [
+      {
+        type: 'p',
+        text: 'The venue sets the tone, the guest count, and a big slice of the budget for your whole wedding — so it is worth choosing deliberately. Here is how to narrow the field and what to confirm before you put down a deposit.',
+      },
+      {
+        type: 'h2',
+        text: 'Start with two numbers',
+      },
+      {
+        type: 'p',
+        text: 'Your guest count and your venue budget filter out most options immediately. A space that comfortably seats your headcount with room for the program, buffet, and dance floor matters more than raw square metres — ask for the seated-dinner capacity, not the standing capacity.',
+      },
+      {
+        type: 'h2',
+        text: 'Indoor, outdoor, or both',
+      },
+      {
+        type: 'p',
+        text: 'Outdoor venues — garden, beach, tented — are gorgeous, but the Philippines has a real rainy season (roughly June to November). If your date falls in it, insist on a solid wet-weather plan: a covered alternative on-site, not just "we will figure it out".',
+      },
+      {
+        type: 'h2',
+        text: 'Questions to ask every venue',
+      },
+      {
+        type: 'ul',
+        items: [
+          'What exactly is included — tables, chairs, sound, lighting, air-conditioning, generator backup?',
+          'Is catering in-house, or can we bring our own (and is there corkage)?',
+          'How many hours does the rate cover, and what is the overtime charge?',
+          'Is there a clear wet-weather backup for outdoor setups?',
+          'What are the parking, access, and call-time rules for suppliers?',
+        ],
+      },
+      {
+        type: 'cta',
+        text: 'Browse 100+ real Philippine wedding venues by city, with capacity and day-rate details.',
+        href: '/venues',
+        label: 'Explore venues',
+      },
+    ],
+  },
+  {
+    slug: 'catholic-wedding-requirements-philippines',
+    title: 'Catholic wedding requirements in the Philippines',
+    excerpt:
+      'Pre-Cana, marriage banns, and the documents your parish will ask for — and how early to start.',
+    category: 'culture',
+    author: 'Setnayan Editorial',
+    publishedAt: '2026-06-11',
+    blocks: [
+      {
+        type: 'p',
+        text: 'A Catholic church wedding is the heart of the day for many Filipino families — and it comes with its own checklist on top of the civil marriage licence. Requirements vary slightly by parish and diocese, so confirm with your specific church early, but this is what most will ask for.',
+      },
+      {
+        type: 'h2',
+        text: 'The core documents',
+      },
+      {
+        type: 'ul',
+        items: [
+          'Recently issued baptismal and confirmation certificates for both — annotated "for marriage purposes".',
+          'PSA birth certificates and your civil marriage licence.',
+          'CENOMAR (Certificate of No Marriage Record).',
+          'Canonical interview with the parish priest.',
+          'Marriage banns posted in the home parishes of both partners.',
+          'Certificate of permission or transfer if you are marrying outside your home parish.',
+        ],
+      },
+      {
+        type: 'h2',
+        text: 'Pre-Cana and the pre-marriage seminars',
+      },
+      {
+        type: 'p',
+        text: 'Most parishes require a Pre-Cana seminar — a short marriage-preparation program — plus the civil pre-marriage counseling. Slots fill up, especially in peak months, so book yours as soon as you have a date.',
+      },
+      {
+        type: 'h2',
+        text: 'How early to start',
+      },
+      {
+        type: 'p',
+        text: 'Begin 6–12 months out. Popular churches book their calendars far ahead, certificates take time to gather and annotate, and the seminars run on their own schedule. Starting early turns a stressful checklist into a calm one.',
+      },
+      {
+        type: 'cta',
+        text: 'Setnayan adapts your plan to your ceremony — Catholic, civil, INC, Christian, Muslim, cultural, or mixed — with the right deadlines for each.',
+        href: '/how-it-works',
+        label: 'See how planning adapts',
+      },
+    ],
+  },
+  {
+    slug: 'filipino-wedding-traditions-explained',
+    title: 'Filipino wedding traditions, explained',
+    excerpt:
+      'The candle, veil, and cord; the arrhae; the money dance; and the reception customs that make a Filipino wedding ours.',
+    category: 'culture',
+    author: 'Setnayan Editorial',
+    publishedAt: '2026-06-12',
+    blocks: [
+      {
+        type: 'p',
+        text: 'A Filipino wedding is layered with symbolism — some Spanish-Catholic in origin, some uniquely ours, many simply joyful. Whether you are planning your own or attending as a guest, here is what the moments mean.',
+      },
+      {
+        type: 'h2',
+        text: 'The ceremony rites',
+      },
+      {
+        type: 'p',
+        text: 'During the ceremony, secondary sponsors perform three symbolic acts: candle sponsors light two candles for God\'s presence in the union; veil sponsors drape a veil over the couple to symbolize being clothed as one; and cord sponsors place a figure-eight cord, the yugal, to represent everlasting union. The groom also gives the arrhae — 13 blessed coins — as a pledge to provide for the family.',
+      },
+      {
+        type: 'h2',
+        text: 'Reception customs',
+      },
+      {
+        type: 'ul',
+        items: [
+          'The money dance (or "prosperity dance") — guests pin bills onto the couple as they dance, a shared wish for prosperity.',
+          'The release of doves or butterflies — a symbol of harmony and a long life together.',
+          'The cake cutting and wine toast — sharing the first sweet and the first drink as a married couple.',
+          'Tossing the bouquet and garter — the lighthearted send-off for the next to marry.',
+        ],
+      },
+      {
+        type: 'h2',
+        text: 'Regional and modern touches',
+      },
+      {
+        type: 'p',
+        text: 'Customs vary across regions and faiths, and many couples now blend tradition with their own ideas — a same-day-edit video, a live band for the first dance, a Pakanta song written just for them. The traditions ground the day; the personal touches make it yours.',
+      },
+      {
+        type: 'cta',
+        text: 'Planning your own? Setnayan\'s guest list carries the full Filipino entourage — sponsors, bearers, ninong, and ninang.',
+        href: '/signup',
+        label: 'Start planning free',
+      },
+    ],
+  },
 ];
 
 // ───────────────────────────────────────────────────────────────────────────

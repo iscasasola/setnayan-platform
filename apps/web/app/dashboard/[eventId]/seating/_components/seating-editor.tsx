@@ -1272,12 +1272,16 @@ export function SeatingEditor({
           if (gy === null) ay = Math.round(ay / gridY) * gridY;
         }
         guidesRef.current = { x: gx, y: gy };
-        // Slide around neighbours: snap to the nearest spot that doesn't overlap.
-        const moving = tables.find((t) => t.table_id === d.id);
-        const free = moving
-          ? nearestFree(ax, ay, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
-          : { x: ax, y: ay };
-        setPositions((p) => ({ ...p, [d.id]: free }));
+        // Follow the cursor directly (with the alignment + grid snap above).
+        // We deliberately DON'T run the overlap resolver here: it used to
+        // spiral an already-touching table far across the room on the first
+        // pixel of a drag — the "table jumps a lot to the right when clicked"
+        // bug, worst on round/sweetheart (collision-prone) and invisible on
+        // banquet/serpentine (same-kind collision is exempt + they chain).
+        // The couple can place tables wherever they like, touching included;
+        // the mount-time auto-place still gives un-positioned tables a
+        // non-overlapping home, so nothing lands stacked on load.
+        setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
       } else if (d.kind === 'stage') {
         setStage((s) => ({ ...s, x, y }));
       } else if (d.kind === 'dance') {

@@ -644,8 +644,9 @@ export function PersonalSite() {
             <em className="italic text-[var(--m-blush-deep)]">Every guest, every detail.</em>
           </h2>
           <p className="text-[17px] text-[var(--m-slate)] leading-relaxed mb-7 max-w-[520px]">
-            Couples get a personal microsite at <span className="m-mono text-[14px]">setnayan.com/your-names</span> —
-            free forever. Guests scan their QR, see their seat, RSVP, drop a guestbook note. No login, no friction.
+            Couples get a personal microsite at <span className="m-mono text-[14px]">setnayan.com/your-names</span>.
+            Guests scan their QR, see their seat, RSVP, drop a guestbook note. No login, no friction — and always
+            free for your guests.
           </p>
           <ul className="grid gap-3.5 list-none p-0">
             {[
@@ -701,7 +702,11 @@ export function PersonalSite() {
 // 9. DashboardPreview — full dashboard mock
 // ─────────────────────────────────────────────────────────────────────
 export async function DashboardPreview() {
-  const plannerPrice = await getCustomerSkuPrice('TODAYS_FOCUS');
+  // SETNAYAN_AI is the live ₱3,999 planner SKU (owner-locked 2026-06-07
+  // 4-tier reprice). TODAYS_FOCUS — the retired ₱1,499 planner row — was
+  // wrongly referenced here and leaked the stale price. Fallback matches
+  // the locked tier price; the DB read wins whenever reachable.
+  const plannerPrice = await getCustomerSkuPrice('SETNAYAN_AI');
   return (
     <section className="px-14" style={{ paddingTop: 120, paddingBottom: 120 }}>
       <div className="m-eyebrow">In the app</div>
@@ -713,7 +718,7 @@ export async function DashboardPreview() {
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
         Setnayan AI is the AI-assisted wedding planner that pulls the right vendors, drafts your timeline, and
-        answers your questions in your own language. One purchase at {plannerPrice ?? '₱1,499'}, full access through your wedding day.
+        answers your questions in your own language. One purchase at {plannerPrice ? `₱${plannerPrice}` : '₱3,999'}, full access through your wedding day.
       </p>
 
       <div
@@ -798,29 +803,22 @@ export async function PricingSection() {
   // from the DB created by admin"). Prices come from the admin-managed catalog
   // tables — the same source /pricing reads — so /admin/pricing edits propagate
   // here automatically. The homepage is force-dynamic for this reason.
+  //
+  // 2026-06-13: re-cut to the owner-locked 2026-06-07 4-tier model
+  // (Pricing.md § 00.A): Free–Explore ₱0 · Setnayan AI · Essentials ·
+  // Complete. The old "Free to plan / 18 free tools / free personal site"
+  // card promised paid SKUs as free (owner reversals § 00.D). Essentials +
+  // Complete are purchasable only during onboarding (owner 2026-06-08), so
+  // their CTAs point at the plan-start flow.
   const [bundles, catalog] = await Promise.all([
     fetchV2BundleCatalog(),
     fetchV2CustomerCatalog(),
   ]);
   const svc = (code: string) => catalog.find((s) => s.service_code === code);
-  const panood = svc('PANOOD_SYSTEM');
-  const sde = svc('SDE');
-  const monogram = svc('ANIMATED_MONOGRAM');
+  const setnayanAi = svc('SETNAYAN_AI');
   const sortedBundles = [...bundles].sort((a, b) => a.retail_price_php - b.retail_price_php);
-
-  // Labels are display-only; every PRICE is read from the DB.
-  const productionItems = [
-    panood && `Panood livestream · ${formatPeso(panood.retail_price_php)}/day`,
-    sde && `Same-Day Edit · ${formatPeso(sde.retail_price_php)}`,
-    monogram && `Animated Monogram · ${formatPeso(monogram.retail_price_php)}`,
-  ].filter(Boolean) as string[];
-
-  const bundleItems = [
-    ...sortedBundles.map(
-      (b) => `${b.title.replace(/^Setnayan /, '')} · ${formatPeso(b.retail_price_php)}`,
-    ),
-    'Save up to ~42% off à la carte',
-  ];
+  const essentials = sortedBundles.find((b) => b.package_code === 'GUIDED_PACK');
+  const complete = sortedBundles.find((b) => b.package_code === 'MEDIA_PACK');
 
   return (
     <section className="px-14 bg-[var(--m-paper-2)]" style={{ paddingTop: 120, paddingBottom: 120 }}>
@@ -829,44 +827,66 @@ export async function PricingSection() {
         className="m-serif text-[var(--m-ink)] mt-5 mb-7"
         style={{ fontSize: 72, lineHeight: 1.04, maxWidth: 1200, letterSpacing: '-0.025em', fontWeight: 400 }}
       >
-        Free to plan. <em className="italic text-[var(--m-blush-deep)]">0% on vendor bookings.</em>
+        Start free. <em className="italic text-[var(--m-blush-deep)]">0% on vendor bookings.</em>
       </h2>
       <p className="text-[17px] text-[var(--m-slate)] max-w-[720px] leading-relaxed mb-12">
         Setnayan never touches the money between you and your vendor. They quote, you pay them directly. The platform
-        earns only from the Setnayan Productions services you choose à la carte — never from what you pay your vendor.
+        earns only from the Setnayan software you choose — never from what you pay your vendor. Every service is also
+        sold à la carte on the pricing page.
       </p>
-      <div className="grid lg:grid-cols-3 gap-5">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {[
           {
-            title: 'Couples',
-            price: 'Free',
-            sub: 'Forever',
+            title: 'Free — Explore',
+            price: '₱0',
+            sub: 'No card required',
             items: [
-              '18 planning tools',
-              'Personal site + QR invitations',
-              'Vendor messaging + bookings',
-              '0% commission · always',
+              'Schedule · budget · guest list',
+              'Seat plan + mood board',
+              'Browse the vendor marketplace',
+              'Your match, previewed',
             ],
             cta: 'Start planning',
             ctaHref: '/signup',
             tone: 'paper' as const,
           },
           {
-            title: 'Productions',
-            price: 'À la carte',
-            sub: 'Per service',
-            items: productionItems,
-            cta: 'See services',
+            title: 'Setnayan AI',
+            price: setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : 'See pricing',
+            sub: 'One purchase per event',
+            items: [
+              'Full vendor matchmaking',
+              'Date · budget · venue · pax · faith cross-referenced',
+              'Guided planning workspace',
+            ],
+            cta: 'See pricing',
             ctaHref: '/pricing',
             tone: 'orange' as const,
           },
           {
-            title: 'Bundles',
-            price: 'Save big',
-            sub: 'Per event',
-            items: bundleItems,
-            cta: 'See bundles',
-            ctaHref: '/pricing',
+            title: 'Essentials',
+            price: essentials ? `₱${formatPeso(essentials.retail_price_php)}` : 'See pricing',
+            sub: 'Offered when you start your plan',
+            items: [
+              'Setnayan AI + Animated Monogram',
+              'Custom QR + Pro RSVP + Papic Guest',
+              'Event + Editorial Website',
+            ],
+            cta: 'Start your plan',
+            ctaHref: '/onboarding/wedding',
+            tone: 'paper' as const,
+          },
+          {
+            title: 'Complete',
+            price: complete ? `₱${formatPeso(complete.retail_price_php)}` : 'See pricing',
+            sub: 'Offered when you start your plan',
+            items: [
+              'Every paid Setnayan service',
+              'Papic · Panood · SDE · Pakanta',
+              'One package, one price',
+            ],
+            cta: 'Start your plan',
+            ctaHref: '/onboarding/wedding',
             tone: 'ink' as const,
           },
         ].map((p, i) => (
@@ -964,7 +984,7 @@ export function ClosingCTA() {
           Let&rsquo;s do this <em className="italic text-[var(--m-orange)]">together.</em>
         </h2>
         <p className="text-[18px] text-[var(--m-slate-4)] max-w-[640px] mx-auto leading-relaxed mb-10">
-          Start your wedding plan in 90 seconds. Free forever for couples. No commission on vendor bookings, ever.
+          Start your wedding plan in 90 seconds — free, no card required. No commission on vendor bookings, ever.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Link href="/onboarding/wedding" className="m-btn m-btn-orange m-btn-lg">

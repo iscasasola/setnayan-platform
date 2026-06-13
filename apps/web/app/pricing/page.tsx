@@ -4,6 +4,7 @@ import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 import {
   fetchV2CustomerCatalog,
+  fetchV2BundleCatalog,
   fetchV2VendorCatalog,
   formatPeso,
   formatSkuPriceLabel,
@@ -59,15 +60,19 @@ export const dynamic = 'force-dynamic';
  *     soon) so we render what actually works, not what we wish worked
  */
 
+// Pricing copy realigned 2026-06-13 to the owner-locked 2026-06-07 4-tier
+// model (Pricing.md § 00): start free on the planning workspace, pay for
+// Setnayan AI + the software you add. No "free website / free RSVP" claims —
+// those SKUs are paid (owner reversals § 00.D).
 export const metadata = {
   title: 'Pricing — Setnayan',
   description:
-    'Software you actually use at your event. Free wedding website. No commission on vendor bookings — vendors keep 100%.',
+    'Start planning free. Software you actually use at your event, at transparent PHP prices. No commission on vendor bookings — vendors keep 100%.',
   alternates: { canonical: '/pricing' },
   openGraph: {
     title: 'Pricing — Setnayan',
     description:
-      'Free website at setnayan.com/your-slug. Software you opt into. Vendors transact directly — Setnayan takes 0%.',
+      'Start free, add the software you want. Transparent PHP prices. Vendors transact directly — Setnayan takes 0%.',
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -75,7 +80,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pricing — Setnayan',
-    description: 'Software at retail · vendors keep 100% · free wedding website.',
+    description: 'Software at retail · vendors keep 100% · 0% commission on bookings.',
   },
 };
 
@@ -124,16 +129,28 @@ function groupByStatus(skus: Array<V2CustomerSku>): Record<BuildStatus, Array<V2
 }
 
 export default async function PricingPage() {
-  // Three reads in parallel · helpers return [] on error, so the page still
+  // Reads in parallel · helpers return [] on error, so the page still
   // renders a polite empty state rather than 500'ing.
-  // Bundles (Essentials/Complete) are ONBOARDING-ONLY (owner 2026-06-08 — "never
-  // sold outside") → no longer fetched or shown here.
-  const [customerSkus, vendorSkus] = await Promise.all([
+  // Bundles (Essentials/Complete) stay PURCHASABLE ONLY during onboarding
+  // (owner 2026-06-08 — "never sold outside"): the tier overview below
+  // PRESENTS the locked 4-tier model (Pricing.md § 00 · 2026-06-07) for price
+  // transparency + GEO coherence, but carries no buy path — the only place a
+  // bundle can be bought remains the onboarding flow.
+  const [customerSkus, bundles, vendorSkus] = await Promise.all([
     fetchV2CustomerCatalog(),
+    fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
   ]);
 
   const grouped = groupByStatus(customerSkus);
+
+  // 4-tier model (owner-locked 2026-06-07 · Pricing.md § 00.A). Tier prices
+  // read live: Setnayan AI from platform_retail_catalog_v2 · Essentials
+  // (GUIDED_PACK) + Complete (MEDIA_PACK) from platform_package_catalog.
+  const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
+  const essentialsBundle = bundles.find((b) => b.package_code === 'GUIDED_PACK');
+  const completeBundle = bundles.find((b) => b.package_code === 'MEDIA_PACK');
+
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
   const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
   const tokenPacks = vendorSkus.filter((s) => s.offering_type === 'token_pack');
@@ -234,7 +251,27 @@ export default async function PricingPage() {
           seller: ORGANIZATION_REF,
         },
       })),
-      // (Customer bundles removed from /pricing — onboarding-only, owner 2026-06-08.)
+      // Customer tiers (Essentials/Complete) · @type Product. Re-listed
+      // 2026-06-13 for GEO coherence with the visible tier overview below —
+      // AI engines were citing stale tier pricing. The offer URL points at
+      // the onboarding flow because that is the ONLY purchase point
+      // (owner 2026-06-08 "never sold outside" is unchanged).
+      ...bundles.map((b) => ({
+        '@type': 'Product',
+        '@id': `${SITE_URL}/pricing#tier-${b.package_code}`,
+        name: b.title,
+        description: `${b.title} — Setnayan planning tier, offered when you start your wedding plan.`,
+        brand: ORGANIZATION_REF,
+        category: 'Wedding planning software',
+        offers: {
+          '@type': 'Offer',
+          url: `${SITE_URL}/onboarding/wedding`,
+          price: String(Math.round(b.retail_price_php)),
+          priceCurrency: 'PHP',
+          availability: 'https://schema.org/InStock',
+          seller: ORGANIZATION_REF,
+        },
+      })),
       // Vendor subscriptions · @type Service with PriceSpecification ·
       // both 28-day prepaid + annual cadence per CLAUDE.md 2026-05-30 row
       // "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(a) cadence correction +
@@ -320,7 +357,11 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* Two free websites — customer + vendor */}
+      {/* Start free — what ₱0 actually includes (couple + vendor sides).
+          Realigned 2026-06-13: the old "Free website. Free QR. Free forever."
+          card promised paid SKUs (Event Website ₱1,999 · Custom QR ₱999 ·
+          RSVP) as free — reversed by the owner-locked 2026-06-07 reprice
+          (Pricing.md § 00.D). */}
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mb-10 max-w-2xl space-y-3">
@@ -328,7 +369,7 @@ export default async function PricingPage() {
               Included with every account
             </p>
             <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Free website. Free QR. Free forever.
+              Start free. Stay free as long as you like.
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -338,11 +379,12 @@ export default async function PricingPage() {
                 For couples
               </p>
               <p className="mt-2 font-display text-2xl font-medium tracking-tight">
-                setnayan.com/your-slug
+                The planning workspace
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/65">
-                Your wedding landing page · RSVP · branded guest QR · monogram
-                · event details. Live the moment you create an event.
+                Schedule · budget · guest list · seat plan · mood board — plus
+                the full vendor marketplace and a personalized match preview.
+                Free with every account, no card required.
               </p>
             </article>
             <article className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
@@ -355,8 +397,82 @@ export default async function PricingPage() {
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/65">
                 Your business landing page · portfolio · packages · inquiry
-                form · direct messaging. Visible to every couple browsing
-                Setnayan.
+                form · direct messaging. Verification is free — visible to
+                every couple browsing Setnayan.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {/* The 4-tier ladder — owner-locked 2026-06-07 (Pricing.md § 00.A).
+          Display-only price transparency: Setnayan AI is bought in-app like
+          any SKU; Essentials + Complete are offered ONLY while you set up
+          your plan (onboarding · owner 2026-06-08), so no buy CTA here. */}
+      <section className="border-b border-ink/5">
+        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-12 max-w-2xl space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+              How couples pay
+            </p>
+            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+              One free tier. Three ways to go further.
+            </h2>
+            <p className="text-base leading-relaxed text-ink/65">
+              Everything is à la carte below — or pick a tier when you start
+              your plan. Setnayan Essentials and Setnayan Complete are offered
+              while you set up your wedding, at a packaged price below their
+              à-la-carte total.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Free — Explore
+              </p>
+              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">₱0</p>
+              <p className="text-sm leading-relaxed text-ink/65">
+                Browse the marketplace, see your match preview, and plan with
+                the free workspace: schedule, budget, guest list, seat plan,
+                mood board.
+              </p>
+            </article>
+            <article className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Setnayan AI
+              </p>
+              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
+                {setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : 'See catalog'}
+              </p>
+              <p className="text-sm leading-relaxed text-ink/65">
+                The full matchmaking engine — date, availability, budget,
+                venue, guest count, religion, and reviews cross-referenced —
+                plus the guided planning workspace. One purchase per event.
+              </p>
+            </article>
+            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Setnayan Essentials
+              </p>
+              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
+                {essentialsBundle ? `₱${formatPeso(essentialsBundle.retail_price_php)}` : '—'}
+              </p>
+              <p className="text-sm leading-relaxed text-ink/65">
+                Setnayan AI + Animated Monogram + Custom QR + Pro RSVP + Papic
+                Guest + Event Website + Editorial Website. Offered when you
+                start your plan.
+              </p>
+            </article>
+            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                Setnayan Complete
+              </p>
+              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
+                {completeBundle ? `₱${formatPeso(completeBundle.retail_price_php)}` : '—'}
+              </p>
+              <p className="text-sm leading-relaxed text-ink/65">
+                Every paid Setnayan service for your event, in one package.
+                Offered when you start your plan.
               </p>
             </article>
           </div>
@@ -457,9 +573,6 @@ export default async function PricingPage() {
           </p>
         </div>
       </section>
-
-      {/* Bundles (Essentials/Complete) intentionally NOT shown here — they are an
-          onboarding-only offer (owner 2026-06-08, "never sold outside"). */}
 
       {/* Vendor pricing */}
       <section className="border-b border-ink/5">
@@ -621,9 +734,9 @@ export default async function PricingPage() {
                 You → Setnayan
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">
-                Software SKUs above (Animated Monogram, Pro Website, Panood,
-                Patiktok, etc.) — paid at 100% retail. PHP only · BIR
-                receipts on every transaction.
+                Software SKUs above (Animated Monogram, Editorial Website,
+                Panood, Patiktok, etc.) — paid at 100% retail. PHP only ·
+                itemized receipts on every transaction.
               </p>
             </div>
             <div className="rounded-xl border border-ink/10 bg-cream p-5">

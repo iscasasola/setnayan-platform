@@ -63,7 +63,7 @@ import {
 // keep extracting the same brand + price + 0% commission signals. Pricing
 const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
 const HOME_DESCRIPTION =
-  'Filipino-first wedding planning. Free for couples. Verified vendor marketplace. 0% commission. Plan your whole wedding in one place.';
+  'Filipino-first wedding planning. Free to start. Verified vendor marketplace. 0% commission. Plan your whole wedding in one place.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -137,13 +137,15 @@ const softwareAppJsonLd = {
   description:
     "The Philippines-first wedding platform. Couples plan free, then add the moments that set the day apart — Papic guest photo-and-video capture with auto-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram. 0% commission on verified vendor bookings.",
   featureList: [
-    'Free guest list & RSVP management',
-    'Seating chart editor',
-    'Budget tracker with payment-deadline calendar export',
+    // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU —
+    // the "Free" prefix stays only on tools the ₱0 tier actually includes.
+    'Guest list & RSVP management (guest list free with every account)',
+    'Seating chart editor (free)',
+    'Budget tracker with payment-deadline calendar export (free)',
     'Pakulay mood board (free)',
     'Personal event website with branded QR invitations',
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR + face-detection auto-tagged galleries and per-guest personal highlight reels',
-    'Panood — day-of livestream embedded on the event website (up to four cameras)',
+    'Panood — day-of livestream embedded on the event website',
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors',
     'Pakanta — a custom Filipino-style wedding song produced for the couple',
     'Animated Monogram — a bespoke monogram + animation across invites, website, and signage',

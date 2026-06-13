@@ -357,11 +357,14 @@ export default async function HowItWorksPage() {
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For couples</p>
               </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                Plan one wedding, free.
+                Start planning, free.
               </h3>
+              {/* 2026-06-13 reprice scrub (Pricing.md § 00.D): invitations +
+                  day-of experience are paid SKUs — the free claim lists only
+                  the free workspace. */}
               <p className="mt-2 text-sm text-ink/70">
-                Guest list, invitations, vendors, budget, seating, mood board — and the day-of
-                experience. No card needed to start.
+                Guest list, seating, budget, schedule, mood board — plus the full vendor
+                marketplace. No card needed to start.
               </p>
               <Link
                 href="/signup"

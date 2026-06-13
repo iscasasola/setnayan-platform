@@ -219,8 +219,11 @@ export default async function WaitlistPage({ searchParams }: Props) {
             What&rsquo;s already ready
           </p>
           <ul className="mt-4 space-y-2 text-sm text-ink/70">
-            <li>· Free wedding website at setnayan.com/your-slug — branded QR, RSVP, event details</li>
-            <li>· Free planning tools — guest list, RSVP, seating, budget, mood board, schedule</li>
+            {/* 2026-06-13 reprice scrub (Pricing.md § 00.D): the wedding
+                website, RSVP, and QR invitations are paid SKUs — listed as
+                ready, not as free. */}
+            <li>· Free planning workspace — guest list, seating, budget, mood board, schedule</li>
+            <li>· Wedding website at setnayan.com/your-slug — branded QR, RSVP, event details</li>
             <li>· Marketplace browsing — real vendor portfolios + free vendor subdomain at slug.setnayan.com</li>
             <li>· Setnayan AI — Filipino-wedding AI guide that surfaces the next step</li>
             <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>

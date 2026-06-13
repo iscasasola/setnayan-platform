@@ -84,7 +84,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   // Same in-build state as the Editorial phase — baseline live, upgrades not built.
   RSVP_WEBSITE:        'partial',  // RSVP phase ₱2,499
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
-  EVENT_WEBSITE:       'partial',  // during-event website ₱1,500
+  EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 
@@ -251,9 +251,13 @@ export const getVendorPrices = cache(async () => {
 });
 
 /**
- * One customer-SKU price from the DB by service_code — including SKUs the public
- * catalog reader filters out (e.g. TODAYS_FOCUS). cache()d per code. Returns the
- * formatted string, or null if unavailable.
+ * One ACTIVE customer-SKU price from the DB by service_code. cache()d per
+ * code. Returns the formatted string, or null if unavailable.
+ *
+ * 2026-06-13: now honors is_active — the sole consumer is marketing copy
+ * (homepage Setnayan AI price), and a retired SKU (e.g. TODAYS_FOCUS ₱1,499)
+ * must never leak a stale price onto a public surface. Same lesson as the
+ * 2026-06-08 fetchV2CustomerCatalog is_active fix.
  */
 export const getCustomerSkuPrice = cache(
   async (serviceCode: string): Promise<string | null> => {
@@ -267,6 +271,7 @@ export const getCustomerSkuPrice = cache(
       .from('platform_retail_catalog_v2')
       .select('retail_price_php')
       .eq('service_code', serviceCode)
+      .eq('is_active', true)
       .maybeSingle();
     if (error || !data) return null;
     return formatPeso(Number((data as { retail_price_php: number }).retail_price_php));

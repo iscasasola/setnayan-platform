@@ -14,6 +14,19 @@ Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited 
 Structural follow-up (NOT in this PR): the proper near-zero fix is the Cloudflare Images cutover already specced in `Image_Optimization_Plan.md` (free R2 egress + on-demand variants) — needs owner Cloudflare decision. Owner action surfaced separately: set a Vercel **Spend Management** hard cap so an overage can never recur silently.
 
 SPEC IMPACT: None — infra/cost config tuning, no SKU/schema/pricing/UX/product-copy change. Minor reversal of the documented "AVIF first" image posture, on cost grounds only; flagged here for lineage.
+## 2026-06-14 · feat(home): hero-only homepage — strip the marketing narrative to nav + hero
+
+Owner directive 2026-06-14 ("remove everything. just keep the hero part as the whole page"; clarified scope = **Hero + top nav**). The homepage `/` now renders ONLY the sticky `Nav` + the `Hero` (the admin-uploaded scroll-scrub video, falling back to the default keynote hero when none is published).
+
+- `apps/web/app/page.tsx` — render reduced to `<Nav /><Hero />`. **Removed from the homepage:** `PromoBar`, `ProblemSection`, `ForCouples`, `MarketplacePreview`, `OnTheDay`, `PersonalSite`, `DashboardPreview`, `PricingSection`, `FAQSection`, `ClosingCTA`, `VendorBand`, `Footer`. Imports trimmed to `{ Nav, Hero }`. The section components are **not deleted** — they still live in `_sections.tsx` and are reused by `app/v/[slug]/page.tsx` + the dedicated marketing pages (`/features`, `/pricing`, `/vendors`, `/about`, `/help`), so that content (and its SEO) is unchanged on those routes.
+- Kept (no visual footprint): the GEO/SERP `metadata` + the `WebSite` + `SoftwareApplication` JSON-LD graph (AI-answer-engine / search-card surface), and `export const dynamic = 'force-dynamic'` — Hero() reads the published hero-video row + resolves presigned frame URLs per request. Updated the force-dynamic rationale comment (was attributed to the now-removed PricingSection).
+- Homepage e2e (`tests/e2e/homepage.spec.ts`) unaffected: it asserts the hero h1, "Start planning", and "Sign in" — all in the retained Nav + Hero.
+
+**Trade-offs (flagged for owner):** (1) the homepage loses its crawlable marketing copy + the footer's Privacy/Terms links — those legal links now reach users only via other pages; (2) traditional-SEO text on `/` drops to near-zero (mitigated: JSON-LD retained + the marketing content still lives on `/features`, `/pricing`, etc.). Easily reverted (git) if the owner wants sections back.
+
+SPEC IMPACT: Homepage composition diverges from iteration `0015_main_website` (full marketing narrative). Logged in corpus `DECISION_LOG.md` (2026-06-14); 0015 AS-BUILT note deferred to the next corpus pass.
+
+---
 
 ## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
 

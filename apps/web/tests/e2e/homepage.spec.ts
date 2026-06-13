@@ -16,27 +16,26 @@ import { test, expect } from '@playwright/test';
  * convention, every assertion here references a real route + real copy
  * shipping on `origin/main`.
  *
- * Apostrophe note: the h1 ships with a curly Unicode LEFT single quote
- * (U+2018 `'` · bytes `0xE2 0x80 0x98`) honoring the v2.1 template's
- * brand typography for the elision in "Set na 'yan." (informal Filipino
- * "that's all set"). Earlier revisions of this test used U+2019 RIGHT
- * single quote which is visually similar but a distinct codepoint and
- * silently failed the regex match. To avoid future surprise from any
- * apostrophe-form revision (straight ASCII / U+2018 left / U+2019 right
- * / Modifier Letter U+02BC / etc.), the regex below matches just the
- * unambiguous "Set na" prefix — the heading-role filter + apparent
- * uniqueness of "Set na" as an h1 across the page already disambiguate
- * which element this targets.
+ * Hero structure note (2026-06-13 premium redesign): the h1 is now the
+ * emotional hook "Goodbye, Viber chaos." and the brand punchline
+ * "Hello, Set na 'yan." renders as a styled display span (not a heading).
+ * So the heading assertion targets the h1 copy, and the brand phrase
+ * "Set na 'yan" is verified as text. The brand line uses a curly Unicode
+ * apostrophe, so the text match keys on the unambiguous "Set na" prefix to
+ * tolerate any apostrophe codepoint.
  */
 test.describe('Homepage', () => {
   test('renders with primary CTAs', async ({ page }) => {
     await page.goto('/');
 
-    // Hero headline — `_sections.tsx` line 133 ships "Set na 'yan." (U+2018).
-    // Match prefix only · tolerates any apostrophe codepoint forever.
+    // Hero headline — `_sections.tsx` ships the h1 "Goodbye, Viber chaos."
+    // (the emotional hook) with the brand line "Hello, Set na 'yan." rendered
+    // as a styled span beneath it.
     await expect(
-      page.getByRole('heading', { name: /Set na/i }),
+      page.getByRole('heading', { name: /Goodbye, Viber chaos/i }),
     ).toBeVisible();
+    // Brand phrase still present (prefix match tolerates any apostrophe form).
+    await expect(page.getByText(/Set na/i).first()).toBeVisible();
 
     // Hero primary CTA — `_sections.tsx` ships "Start planning" → /signup.
     // Multiple instances render across the page; `.first()` picks the hero

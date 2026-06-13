@@ -590,7 +590,7 @@ export async function ForVendorsDeepDive() {
         <h3
           className="m-serif"
           style={{
-            fontSize: 40,
+            fontSize: 'clamp(1.75rem, 4vw, 40px)',
             lineHeight: 1.06,
             margin: '12px 0 24px',
             color: 'var(--m-ink)',
@@ -685,7 +685,7 @@ export async function ForVendorsDeepDive() {
       >
         <div
           className="m-display"
-          style={{ fontSize: 36, color: 'var(--m-orange-3)' }}
+          style={{ fontSize: 'clamp(1.6rem, 3.5vw, 36px)', color: 'var(--m-orange-3)' }}
         >
           100×
         </div>
@@ -736,7 +736,7 @@ export async function ForVendorsDeepDive() {
       >
         <div
           className="m-display"
-          style={{ fontSize: 36, color: 'var(--m-orange-2)' }}
+          style={{ fontSize: 'clamp(1.6rem, 3.5vw, 36px)', color: 'var(--m-orange-2)' }}
         >
           0%
         </div>
@@ -781,7 +781,7 @@ export async function ForVendorsDeepDive() {
       >
         <div
           className="m-display"
-          style={{ fontSize: 36, color: 'var(--m-orange-2)' }}
+          style={{ fontSize: 'clamp(1.6rem, 3.5vw, 36px)', color: 'var(--m-orange-2)' }}
         >
           {p.enterpriseMonthly}
         </div>
@@ -881,7 +881,7 @@ export async function ForVendorsDeepDive() {
           </div>
           <div
             className="m-display"
-            style={{ fontSize: 44, color: 'var(--m-paper)', marginTop: 8, lineHeight: 1.02 }}
+            style={{ fontSize: 'clamp(1.85rem, 4.5vw, 44px)', color: 'var(--m-paper)', marginTop: 8, lineHeight: 1.02 }}
           >
             Register your business in three minutes.
           </div>

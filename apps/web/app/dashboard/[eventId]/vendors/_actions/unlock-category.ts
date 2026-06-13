@@ -41,6 +41,7 @@ import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
+import { resolveLivePax } from '@/lib/pax';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -123,6 +124,9 @@ export async function unlockCategoryWithInquiry(input: {
   // request; the inserted `category` is a vendor_services canonical key, so its
   // tile comes from the live taxonomy map (null when unknown — safe expand-phase).
   const tax = await getTaxonomy();
+  // Live pax to snapshot onto each new inquiry (Adaptive Pax Pricing Phase 3).
+  // Same for every vendor in this event → resolve once. null = nothing to send.
+  const livePax = await resolveLivePax(supabase, eventId);
 
   for (const cand of candidates) {
     const vendorProfileId = cand.vendorProfileId;
@@ -173,12 +177,22 @@ export async function unlockCategoryWithInquiry(input: {
             event_id: eventId,
             vendor_profile_id: vendorProfileId,
             created_by_user_id: user.id,
+            // Push the live pax onto the thread (Adaptive Pax Pricing Phase 3);
+            // the immutable at-inquiry snapshot is set once just below.
+            ...(livePax != null ? { pax_current: livePax } : {}),
           },
           { onConflict: 'event_id,vendor_profile_id' },
         )
-        .select('thread_id')
+        .select('thread_id, pax_at_inquiry')
         .single();
       if (thread?.thread_id) {
+        // Snapshot the count the vendor first quoted against, exactly once.
+        if (livePax != null && thread.pax_at_inquiry == null) {
+          await supabase
+            .from('chat_threads')
+            .update({ pax_at_inquiry: livePax })
+            .eq('thread_id', thread.thread_id);
+        }
         const msg = new FormData();
         msg.set('thread_id', thread.thread_id);
         msg.set('body', INQUIRY_BODY);

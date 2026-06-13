@@ -30,6 +30,7 @@ import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
+import { resolveLivePax } from '@/lib/pax';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -102,6 +103,9 @@ export async function startServiceInquiry(input: {
     /* follow is the gate; the upsert below also passes for an existing thread */
   }
 
+  // Live pax to snapshot onto this inquiry (Adaptive Pax Pricing Phase 3).
+  const livePax = await resolveLivePax(supabase, eventId);
+
   const { data: thread, error: threadErr } = await supabase
     .from('chat_threads')
     .upsert(
@@ -109,10 +113,11 @@ export async function startServiceInquiry(input: {
         event_id: eventId,
         vendor_profile_id: vendorProfileId,
         created_by_user_id: user.id,
+        ...(livePax != null ? { pax_current: livePax } : {}),
       },
       { onConflict: 'event_id,vendor_profile_id' },
     )
-    .select('thread_id')
+    .select('thread_id, pax_at_inquiry')
     .single();
   if (threadErr || !thread?.thread_id) {
     return {
@@ -121,6 +126,13 @@ export async function startServiceInquiry(input: {
     };
   }
   const threadId = thread.thread_id as string;
+  // Snapshot the count the vendor first quoted against, exactly once.
+  if (livePax != null && thread.pax_at_inquiry == null) {
+    await supabase
+      .from('chat_threads')
+      .update({ pax_at_inquiry: livePax })
+      .eq('thread_id', threadId);
+  }
 
   // Only post the inquiry note when the thread has no messages yet — a resumed
   // thread (couple re-inquiring about more services) just gets the new

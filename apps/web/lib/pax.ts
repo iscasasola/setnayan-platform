@@ -133,6 +133,18 @@ export async function ensureFinalized(
 }
 
 /**
+ * True when the guest list is finalized — planning edits (add / RSVP / remove)
+ * should be blocked. Thin wrapper over ensureFinalized for the guest-mutation
+ * pre-checks; the DB trigger guard_guest_edits_when_locked is the backstop.
+ */
+export async function guestEditsLocked(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return (await ensureFinalized(supabase, eventId)).locked;
+}
+
+/**
  * Live pax = the frozen final_pax once the list is finalized, else
  * max(events.estimated_pax floor, live headcount on the event's basis). Only
  * SURE attending guests count by default (the owner-locked basis). Auto-finalizes
@@ -211,6 +223,20 @@ export async function fetchVendorPaxProposals(
 ): Promise<PaxSurchargeProposal[]> {
   const { eventId, vendorProfileId, livePax, paxAtInquiry } = opts;
   if (livePax == null) return [];
+
+  // Pricing-view mode (decision #5, Phase 9): in 'final_only' the couple opted
+  // to settle the adjustment ONCE at finalization — so suppress surcharge
+  // proposals while the count is still moving (not yet locked). Realtime (the
+  // default) proposes continuously. Once finalized, the binding adjustment
+  // proposal appears in both modes.
+  const { data: ev } = await supabase
+    .from('events')
+    .select('adaptive_pricing_mode, guest_count_locked_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (ev?.adaptive_pricing_mode === 'final_only' && !ev?.guest_count_locked_at) {
+    return [];
+  }
 
   const { data: rows } = await supabase
     .from('event_vendors')

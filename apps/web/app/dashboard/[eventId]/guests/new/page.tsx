@@ -28,6 +28,7 @@ const ERROR_COPY: Record<string, string> = {
   invalid_role: 'Invalid role selection.',
   invalid_rsvp: 'Invalid RSVP status.',
   invalid_meal: 'Invalid meal preference.',
+  finalized: 'Your guest list is finalized — the guest count is locked and can no longer be changed.',
 };
 
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];

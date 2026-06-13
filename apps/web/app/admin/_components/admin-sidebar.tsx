@@ -102,6 +102,7 @@ import {
   SlidersHorizontal,
   UserX,
   PartyPopper,
+  Newspaper,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -458,6 +459,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Hero video',
         href: '/admin/hero-video',
         icon: Video,
+      },
+      {
+        // Real Stories featuring (PR D) — pin + order which consented wedding
+        // editorials surface (and which is the hero) on the public /realstories
+        // index. Curation on top of the RA 10173 consent gate.
+        key: 'real-stories',
+        label: 'Real Stories',
+        href: '/admin/real-stories',
+        icon: Newspaper,
+        matchPrefix: '/admin/real-stories',
       },
       {
         key: 'ads',

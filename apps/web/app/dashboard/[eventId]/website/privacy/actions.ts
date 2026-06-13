@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -118,5 +119,46 @@ export async function updateLandingPageVisibility(formData: FormData) {
     revalidatePath(`/${event.slug}`);
   }
 
+  redirect(`/dashboard/${eventId}/website/privacy?saved=1`);
+}
+
+/**
+ * Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out
+ * (iteration 0046 "Phase B" surface referenced by
+ * 20260519000000_phase_a_event_editorial_consent.sql).
+ *
+ * Sets/clears the couple's `users.public_summary_consent_at`. When set, the
+ * couple's wedding becomes eligible for the public /weddings showcase 30 days
+ * after the event (the loadPublishedShowcases gate); clearing it (NULL) removes
+ * them. Consent is per-user (the migration: only customers/couples write it);
+ * the host gate guarantees the caller owns this event, then we write the
+ * caller's OWN row via the admin client (the `users` self-update path isn't
+ * exposed to the anon/auth client).
+ */
+export async function setShowcaseConsent(formData: FormData) {
+  const eventIdRaw = formData.get('event_id');
+  const optIn = formData.get('opt_in') === '1';
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  const eventId = eventIdRaw as string;
+
+  // Gate: caller must be a host (couple / accepted moderator) of this event.
+  const userId = await requireHostMembership(eventId);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('users')
+    .update({
+      public_summary_consent_at: optIn ? new Date().toISOString() : null,
+    })
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to update showcase consent: ${error.message}`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/website/privacy`);
   redirect(`/dashboard/${eventId}/website/privacy?saved=1`);
 }

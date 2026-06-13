@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Globe, Lock, EyeOff } from 'lucide-react';
+import { ArrowLeft, Check, Globe, Lock, EyeOff, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { updateLandingPageVisibility } from './actions';
+import { updateLandingPageVisibility, setShowcaseConsent } from './actions';
 
 export const metadata = { title: 'Who can view your wedding page' };
 
@@ -59,6 +60,22 @@ export default async function PrivacyEditorPage({
     | 'unlisted'
     | 'private';
   const saved = search.saved === '1';
+
+  // Real Weddings showcase consent (user-level). Read via the admin client so
+  // the toggle reflects the true state regardless of users-table RLS; defaults
+  // to off on any error.
+  let showcaseOptedIn = false;
+  try {
+    const admin = createAdminClient();
+    const { data: me } = await admin
+      .from('users')
+      .select('public_summary_consent_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    showcaseOptedIn = Boolean(me?.public_summary_consent_at);
+  } catch {
+    showcaseOptedIn = false;
+  }
 
   return (
     <section className="space-y-8">
@@ -152,6 +169,55 @@ export default async function PrivacyEditorPage({
         Changes apply right away. Anyone with your URL who already opened the page
         may see the previous view for up to a minute while their browser refreshes.
       </footer>
+
+      {/* Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
+      <div className="space-y-4 rounded-xl border border-ink/10 bg-cream/60 p-5 sm:p-6">
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+            <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Real Weddings
+          </p>
+          <h2 className="font-serif text-2xl italic tracking-tight">
+            Feature your wedding on Setnayan
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            With your okay, Setnayan can feature your wedding on our public{' '}
+            <Link href="/weddings" className="text-terracotta hover:underline">
+              Real Weddings
+            </Link>{' '}
+            page — your story, your photos, and the team behind your day — starting
+            30&nbsp;days after your wedding. It&rsquo;s completely optional, and you can
+            turn it off anytime.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              showcaseOptedIn
+                ? 'bg-emerald-50 text-emerald-800'
+                : 'bg-ink/5 text-ink/60'
+            }`}
+          >
+            {showcaseOptedIn
+              ? 'On — eligible to be featured'
+              : 'Off — your wedding stays private'}
+          </span>
+          <form action={setShowcaseConsent}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="opt_in" value={showcaseOptedIn ? '0' : '1'} />
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
+              {showcaseOptedIn ? 'Turn off featuring' : 'Feature our wedding'}
+            </SubmitButton>
+          </form>
+        </div>
+
+        <p className="text-xs text-ink/50">
+          Your wedding only ever appears after the day itself (a 30-day grace
+          window), and only while this is turned on. Details follow Setnayan&rsquo;s
+          privacy rules (RA&nbsp;10173).
+        </p>
+      </div>
     </section>
   );
 }

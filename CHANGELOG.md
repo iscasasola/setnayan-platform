@@ -17,6 +17,16 @@ The per-wedding editorial itself is unchanged (0002 Phase 4 at `/[slug]`); this 
 Verified: tsc + production build (`/weddings` dynamic, `/weddings/[slug]` sample SSG ●, `/sitemap-weddings.xml` ISR).
 
 **SPEC IMPACT:** implements the 0046 cross-wedding DB browse (consent-gated); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+## 2026-06-13 · feat(weddings): in-dashboard Real Weddings consent toggle (RA 10173 opt-in / one-click opt-out)
+
+Adds the "Phase B" consent surface the 0046 migration pointed at: couples can now opt in/out of public `/weddings` showcase listing **anytime** from `/dashboard/[eventId]/website/privacy`. Previously `users.public_summary_consent_at` was set only at signup, with no way to change it later — this completes the RA 10173 one-click opt-out guardrail for the consent-gated browse (PR #1353).
+
+- New `setShowcaseConsent` server action — host-gated (reuses `requireHostMembership`), writes the caller's OWN `users.public_summary_consent_at` (NOW() to opt in, NULL to opt out) via the admin client (the `users` self-update path isn't exposed to the auth client).
+- The privacy page reads the current state (via admin, defaults off on error) and renders a clear opt-in/out card — links to `/weddings`, with an explicit "only after the day, 30-day grace, only while on" note.
+
+Verified: tsc + production build (`/dashboard/[eventId]/website/privacy` compiles).
+
+**SPEC IMPACT:** implements the 0046 in-dashboard consent toggle (flips from unbuilt → shipped); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
 
 ---
 

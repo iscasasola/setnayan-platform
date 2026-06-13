@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Shared marketing top chrome — PromoBar + Nav.
  *
@@ -8,18 +10,22 @@
  * a bespoke inline header. Clicking a nav item swapped the whole menu out.
  * Extracting the canonical Nav into one file makes every page render the
  * SAME top nav — single source of truth, per the owner anti-fork chrome
- * doctrine. Vendor surfaces (/vendors marketplace, /for-vendors) keep their
- * purpose-built headers for now ("we'll change vendors later").
+ * doctrine. The shared <Nav> now renders on every public marketing page
+ * (vendor surfaces included).
  *
  * LEAN BY DESIGN: imports only Link + Wordmark + MobileMenu. Importing <Nav>
  * into a subpage must NOT drag the whole homepage module (_sections.tsx —
  * framer-motion motion primitives, HeroVideoScrub, catalog fetchers) into
  * that page's bundle, so the nav lives here, away from those imports.
  *
- * Server component by default; MobileMenu is the only client island.
+ * Client component: the sticky <Nav> auto-hides on scroll-down and reveals on
+ * scroll-up (owner 2026-06-14 — so the homepage hero scrub goes full-screen /
+ * "pure scrubbing" as you scroll into it). PromoBar stays a trivial static
+ * island; MobileMenu is the existing client island.
  */
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { MobileMenu } from './_nav-mobile';
 
@@ -65,8 +71,44 @@ export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
     { label: 'Our story', href: '/about' },
     { label: 'Real Stories', href: '/weddings' },
   ];
+
+  // Auto-hide on scroll-down, reveal on scroll-up — only when sticky. Lets the
+  // homepage hero scrub fill the screen ("pure scrubbing") the moment you
+  // scroll into it, and gives every other page more room while scrolling down;
+  // the nav slides back the instant you scroll up (to reach for it) or return
+  // to the top. Non-sticky pages (e.g. /vendors) scroll the nav away naturally,
+  // so the effect no-ops there.
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (!sticky) return;
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y < 64) setHidden(false); // always visible near the very top
+        else if (y > lastY + 4) setHidden(true); // scrolling down → hide
+        else if (y < lastY - 4) setHidden(false); // scrolling up → reveal
+        lastY = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [sticky]);
+
   return (
-    <nav className={`relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)]${sticky ? ' sticky top-0 z-10' : ''}`}>
+    <nav
+      className={`relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)]${
+        sticky
+          ? ` sticky top-0 z-10 transition-transform duration-300 ease-out motion-reduce:transition-none${
+              hidden ? ' -translate-y-full' : ' translate-y-0'
+            }`
+          : ''
+      }`}
+    >
       {/* Brand mark links home — "Home (the video scrub) = the logo" (owner
           2026-06-13). On the homepage this is a same-page link back to the
           hero; on every other page it routes to /. */}

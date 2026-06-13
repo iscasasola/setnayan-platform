@@ -36,7 +36,7 @@ import type {
   VendorPackageRow,
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
-import { SaveVendorButton } from '@/app/vendors/_components/save-vendor-button';
+import { SaveVendorButton } from '@/app/explore/_components/save-vendor-button';
 import {
   InquiryComposer,
   type InquiryComposerService,
@@ -719,7 +719,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
         '@type': 'ListItem',
         position: 2,
         name: 'Wedding vendors',
-        item: `${SITE_URL}/vendors`,
+        item: `${SITE_URL}/explore`,
       },
       {
         '@type': 'ListItem',

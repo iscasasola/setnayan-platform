@@ -2,7 +2,7 @@
  * Shared demo-vendor id lookup.
  *
  * Extracted from `app/vendors/page.tsx` (was a local `fetchDemoVendorIds`)
- * so BOTH the public `/vendors` marketplace browse AND the in-dashboard
+ * so BOTH the public `/explore` marketplace browse AND the in-dashboard
  * couple vendor search exclude `is_demo = TRUE` vendors for real (non
  * demo-mode) viewers. Demo-mode admins still surface them.
  *

@@ -55,7 +55,7 @@ import { Sheet } from './sheet';
 
 const PRIMARY_NAV = [
   { href: '/features', label: 'What you get' },
-  { href: '/vendors', label: 'Explore' },
+  { href: '/explore', label: 'Explore' },
   { href: '/for-vendors', label: 'For vendors' },
   { href: '/about', label: 'Our story' },
   { href: '/weddings', label: 'Real Stories' },
@@ -131,7 +131,7 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
               homepage SearchAction JSON-LD and the existing /vendors
               page already reads `?q=` server-side. */}
           <form
-            action="/vendors"
+            action="/explore"
             method="get"
             role="search"
             className="relative hidden xl:block"
@@ -208,7 +208,7 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
           {/* Mobile search — submits the same GET form as desktop. Closing
               the sheet on submit isn't necessary because the form navigation
               triggers a full page change. */}
-          <form action="/vendors" method="get" role="search" className="px-2 pb-3">
+          <form action="/explore" method="get" role="search" className="px-2 pb-3">
             <label htmlFor="site-search-mobile" className="sr-only">
               Search vendors
             </label>

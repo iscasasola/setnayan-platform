@@ -183,6 +183,65 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
 
+// Multi-field marketplace text search (owner directive 2026-06-13 — "we just
+// want a search bar … they can search for a category + vendor + service +
+// place or details they can combine and we want to show all that works with
+// their search").
+//
+// Each whitespace token must match SOMETHING: the vendor's business name, its
+// tagline, its city, OR a service it lists (resolved against the 192-item
+// taxonomy by label/key substring). One PostgREST `.or()` group per token (OR
+// across those fields); chaining one `.or()` per token ANDs the groups, so
+// multiple tokens INTERSECT — "photographer tagaytay" returns photography
+// vendors in Tagaytay only, not the union. Tokens are stripped to [a-z0-9],
+// which removes PostgREST-reserved characters ( , ( ) { } % ) so the predicate
+// string stays well-formed and injection-safe, and drops noise punctuation.
+// Tokens under 2 chars are ignored.
+function resolveServiceKeysForToken(token: string): string[] {
+  const keys: string[] = [];
+  for (const opt of TAXONOMY_OPTIONS) {
+    if (opt.label.toLowerCase().includes(token) || opt.key.includes(token)) {
+      keys.push(opt.key);
+    }
+  }
+  return keys;
+}
+
+// Loose structural type so the deeply-chained PostgREST builder type doesn't
+// instantiate through this helper and trip the TS2589 "excessively deep"
+// ceiling — same widening trick the demo-exclusion `.not()` call uses below.
+// Call sites cast in via `as unknown as OrFilterable` and back out via
+// `as unknown as typeof <builder>`.
+type OrFilterable = { or: (filters: string) => OrFilterable };
+
+function applyMarketplaceTextSearch(
+  builder: OrFilterable,
+  rawQuery: string,
+): OrFilterable {
+  const tokens = rawQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ''))
+    .filter((t) => t.length >= 2);
+  let q = builder;
+  for (const token of tokens) {
+    const orParts = [
+      `business_name.ilike.%${token}%`,
+      `tagline.ilike.%${token}%`,
+      `location_city.ilike.%${token}%`,
+    ];
+    const serviceKeys = resolveServiceKeysForToken(token);
+    if (serviceKeys.length > 0) {
+      // PostgREST array-overlap predicate inside an `.or()` group — mirrors the
+      // existing `compatible_ceremony_types.cs.{…}` usage further below. The
+      // {…} literal lists the candidate canonical_service keys for this token.
+      orParts.push(`services.ov.{${serviceKeys.join(',')}}`);
+    }
+    q = q.or(orParts.join(','));
+  }
+  return q;
+}
+
 // Search-first hero (2026-06-13) — a few high-intent quick-search chips under
 // the universal search box. Each is a real V1.1-base canonical_service so the
 // chip lands the visitor in the vendor-grid (`?category=`) results path; sparse
@@ -193,12 +252,12 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
 // `?category=setnayan_papic` grid is currently empty on prod (no publicly-
 // visible first-party listing yet — flagged for owner provisioning).
 const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
-  { label: 'Photographers', href: '/vendors?category=photography' },
-  { label: 'Videographers', href: '/vendors?category=videography' },
-  { label: 'Caterers', href: '/vendors?category=catering' },
-  { label: 'Coordinators', href: '/vendors?category=wedding_coordination' },
-  { label: 'Hair & Makeup', href: '/vendors?category=bridal_hmua' },
-  { label: 'Cake', href: '/vendors?category=wedding_cake' },
+  { label: 'Photographers', href: '/explore?category=photography' },
+  { label: 'Videographers', href: '/explore?category=videography' },
+  { label: 'Caterers', href: '/explore?category=catering' },
+  { label: 'Coordinators', href: '/explore?category=wedding_coordination' },
+  { label: 'Hair & Makeup', href: '/explore?category=bridal_hmua' },
+  { label: 'Cake', href: '/explore?category=wedding_cake' },
 ];
 
 // GEO Phase G4 (2026-05-28) — enriched marketplace metadata. Adds canonical
@@ -211,7 +270,7 @@ export const metadata = {
   title: 'Filipino wedding vendors · Setnayan marketplace',
   description:
     'Browse verified Filipino wedding vendors on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
-  alternates: { canonical: '/vendors' },
+  alternates: { canonical: '/explore' },
   keywords: [
     'Filipino wedding vendors',
     'Philippines wedding photographers',
@@ -225,7 +284,7 @@ export const metadata = {
     title: 'Filipino wedding vendors · Setnayan marketplace',
     description:
       'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
-    url: '/vendors',
+    url: '/explore',
     siteName: 'Setnayan',
     locale: 'en_PH',
     type: 'website',
@@ -243,7 +302,7 @@ export const metadata = {
 
 // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
 // enumerating the 12 wedding folders. Each ListItem points at the
-// folder-scoped marketplace URL (`/vendors?folder=<slug>` per CLAUDE.md
+// folder-scoped marketplace URL (`/explore?folder=<slug>` per CLAUDE.md
 // 2026-05-22 row 4 PR #310 folder scope). Lets AI engines extract the
 // taxonomy hierarchy when asked "what kinds of wedding vendors does
 // Setnayan list" + powers SERP sitelink-style category breakouts.
@@ -264,7 +323,7 @@ function buildVendorsItemListJsonLd(siteUrl: string): Record<string, unknown> {
       '@type': 'ListItem',
       position: idx + 1,
       name: WEDDING_FOLDER_LABEL[folder],
-      url: `${siteUrl}/vendors?folder=${WEDDING_FOLDER_SLUG[folder]}`,
+      url: `${siteUrl}/explore?folder=${WEDDING_FOLDER_SLUG[folder]}`,
     })),
   };
 }
@@ -406,6 +465,13 @@ type Props = {
      *  unexpectedly narrow Photography or Catering. Absent / typo /
      *  unknown → no narrow applied. */
     faith?: string;
+    /** 2026-06-14 search-first — `?browse=1` opts back into the curated browse
+     *  catalog (icon-tile strip + Ceremony/Reception venue pickers + per-folder
+     *  sections) below the search hero. A bare /vendors visit now shows the
+     *  search hero + popular chips ONLY; the catalog renders only with this
+     *  flag or the ?folder=/?tile=/?from=plan deep-links dashboard planning
+     *  cards set. */
+    browse?: string;
   }>;
 };
 
@@ -1028,6 +1094,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     !filters.matchEvent &&
     !filters.eventType;
 
+  // Owner directive 2026-06-14 — "we just want a search bar". CatalogView always
+  // leads with the search hero, but the curated browse catalog BELOW it (icon
+  // strip + venue pickers + folder grids) renders only when the visit is an
+  // explicit browse/context request: ?browse=1, a folder/tile deep-link, or a
+  // dashboard planning-card entry (?from=plan). A bare /vendors visit gets the
+  // search hero + popular chips only. Nothing is destroyed — the catalog is one
+  // tap away via the hero's "Browse all categories" link.
+  const browseMode =
+    raw.browse === '1' ||
+    raw.from === 'plan' ||
+    filters.folder !== null ||
+    filters.tile !== null;
+
   // Allow-list the notice key — anything else (typo, manual URL fiddling,
   // future deferred-feature key without copy) renders no banner instead of
   // a broken/empty card. Keeps the surface honest.
@@ -1080,6 +1159,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
+          browseMode={browseMode}
         />
       </>
     );
@@ -1156,7 +1236,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   }
 
   if (filters.q.length > 0) {
-    query = query.ilike('business_name', `%${filters.q}%`);
+    // Unified multi-field search — see applyMarketplaceTextSearch. Replaces the
+    // old business_name-only ilike so a free-text query matches across vendor
+    // name, tagline, city, and listed services, combinable across tokens.
+    query = applyMarketplaceTextSearch(
+      query as unknown as OrFilterable,
+      filters.q,
+    ) as unknown as typeof query;
   }
   // 10-parent model (2026-05-31) — tile-scoped grid. `?tile=<slug>` overlaps
   // the tile's canonical set, which ALREADY includes any cross-listed
@@ -1360,7 +1446,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       );
     }
     if (filters.q.length > 0) {
-      broadened = broadened.ilike('business_name', `%${filters.q}%`);
+      // Same multi-field search as the main query so the broadened-count
+      // empty-state framing stays consistent with what the search matched.
+      broadened = applyMarketplaceTextSearch(
+        broadened as unknown as OrFilterable,
+        filters.q,
+      ) as unknown as typeof broadened;
     }
     if (filters.category) {
       broadened = broadened.contains('services', [filters.category]);
@@ -1860,7 +1951,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 the sticky chrome but stays reachable on every grid page. */}
             <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
               <Link
-                href="/vendors?match=0"
+                href="/explore?match=0"
                 className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -2055,7 +2146,7 @@ function buildHref(
     params.set('faith', FAITH_KEY_TO_URL[merged.faithFilter]);
   }
   const qs = params.toString();
-  return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
+  return qs.length > 0 ? `/explore?${qs}` : '/explore';
 }
 
 /**
@@ -2093,7 +2184,7 @@ function FocusedModeSearchForm({
   };
 }) {
   return (
-    <form method="get" action="/vendors" className="space-y-2">
+    <form method="get" action="/explore" className="space-y-2">
       <label className="block">
         <span className="sr-only">Search vendors</span>
         {/* Reuses the same TaxonomySearch client component as FilterBar.
@@ -2217,7 +2308,7 @@ function EmptyState({
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
-          href={filters.focusedMode ? '/vendors?from=plan' : '/vendors'}
+          href={filters.focusedMode ? '/explore?from=plan' : '/explore'}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
           Or browse all vendors instead →
@@ -2251,7 +2342,7 @@ function EmptyState({
               chrome-stripped layout. Direct visits never set focusedMode
               so this is a no-op for them. */}
           <Link
-            href={filters.focusedMode ? '/vendors?from=plan' : '/vendors'}
+            href={filters.focusedMode ? '/explore?from=plan' : '/explore'}
             className="button-secondary inline-flex h-10 px-4"
           >
             Clear all filters
@@ -2393,7 +2484,7 @@ const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
  * tiles will surface as "Recruiting" without further code changes.
  *
  * LIVE_PHASES kept in sync with the same constant in
- * apps/web/app/vendors/_components/category-tile.tsx (where it governs
+ * apps/web/app/explore/_components/category-tile.tsx (where it governs
  * the Recruiting vs Coming Soon state pill). If you change one, change
  * both — the tile would render "Coming soon" while the grid showed it,
  * which would be confusing.
@@ -2408,7 +2499,7 @@ const CATALOG_LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
   'V1.1.6',
 ]);
 
-// Reception facet definitions moved into apps/web/app/vendors/_components/
+// Reception facet definitions moved into apps/web/app/explore/_components/
 // reception-venues-section.tsx as part of the 2026-05-22 evening "Pull V1.2
 // venue directory forward" PR. The new <ReceptionVenuesSection> owns BOTH
 // the chip filter bar AND the venue card grid; this file no longer needs
@@ -2433,6 +2524,7 @@ async function CatalogView({
   inDemoMode,
   focusedMode,
   faithFilter,
+  browseMode,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: {
@@ -2498,6 +2590,11 @@ async function CatalogView({
    *  pre-existing religion-default-on (matchEvent + coupleFaith) takes
    *  precedence. */
   faithFilter: FaithKey | null;
+  /** 2026-06-14 search-first — when false (a bare Explore landing) the curated
+   *  browse catalog below the hero is suppressed; only the search hero + a
+   *  "Browse all categories" link render. True for explicit browse/context
+   *  visits (?browse=1 / folder / tile / from=plan). */
+  browseMode: boolean;
 }) {
   // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
   // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
@@ -2536,6 +2633,22 @@ async function CatalogView({
   const catalogExcludeVendorIds: ReadonlyArray<string> = inDemoMode
     ? []
     : demoVendorIdsRaw;
+
+  // Popular-search chips for the hero = top categories by live vendor count
+  // (owner directive 2026-06-14 — "Popular searches" under the bare search
+  // bar). Falls back to the curated EXPLORE_HERO_CHIPS when no vendor has
+  // stocked a category yet (pre-launch) so the chip row is never empty.
+  const popularChips: ReadonlyArray<ExploreChip> = Array.from(
+    vendorCounts.entries(),
+  )
+    .filter(([, c]) => c.total > 0)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 6)
+    .map(([key]) => ({
+      label: taxonomyLabel(key),
+      href: `/explore?category=${encodeURIComponent(key)}`,
+    }));
+  const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
   // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
@@ -2848,7 +2961,7 @@ async function CatalogView({
                 eventType: null,
                 folder: scopedFolder,
               }}
-              chips={EXPLORE_HERO_CHIPS}
+              chips={heroChips}
             />
 
             {religionFilteringActive ? (
@@ -2880,6 +2993,14 @@ async function CatalogView({
           />
         )}
 
+        {/* 2026-06-14 search-first — owner "we just want a search bar". The
+            curated browse catalog below the hero (icon strip + venue pickers +
+            folder grids) renders only on an explicit browse/context visit
+            (?browse=1 / folder / tile / from=plan); a bare Explore landing
+            shows the hero + popular chips, with the catalog one tap away via
+            the "Browse all categories" link in the else branch. */}
+        {browseMode ? (
+          <>
         {/* 2026-05-30 Airbnb-vibe redesign — IconTileFolderStrip replaces the
             chip-style FolderTabs. The 12 folders render as Lucide icon tiles
             (uniform 96-104px × 78px) with horizontal scroll snap on mobile.
@@ -3028,6 +3149,17 @@ async function CatalogView({
             </section>
           );
         })}
+          </>
+        ) : (
+          <div className="mt-12 text-center">
+            <Link
+              href="/explore?browse=1"
+              className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+            >
+              Browse all categories →
+            </Link>
+          </div>
+        )}
       </section>
     </main>
   );
@@ -3109,7 +3241,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         only — the other 11 folders are hidden so you can focus.
       </p>
       <Link
-        href="/vendors"
+        href="/explore"
         className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
       >
         Browse all folders
@@ -3138,7 +3270,7 @@ function ReligionBanner({
         (photo, catering, attire) stay visible.
       </p>
       <Link
-        href="/vendors?match=0"
+        href="/explore?match=0"
         className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700 hover:border-terracotta hover:bg-terracotta/10"
       >
         Show all faiths

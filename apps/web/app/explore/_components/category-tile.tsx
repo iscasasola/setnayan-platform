@@ -14,8 +14,8 @@ export type CategoryTileData = {
   /**
    * 10-parent model (2026-05-31). When set, this card represents a TILE
    * (a group of canonicals) rather than a single canonical_service, and the
-   * drill-in links to `/vendors?tile=<slug>` (the tile-scoped vendor grid).
-   * When omitted, the card links to `/vendors?category=<canonicalService>`
+   * drill-in links to `/explore?tile=<slug>` (the tile-scoped vendor grid).
+   * When omitted, the card links to `/explore?category=<canonicalService>`
    * as before (used by the /vendors/categories canonical browser).
    */
   tileSlug?: string;
@@ -108,8 +108,8 @@ export async function CategoryTile({
     ? `tile=${encodeURIComponent(data.tileSlug)}`
     : `category=${encodeURIComponent(data.canonicalService)}`;
   const href = focusedMode
-    ? `/vendors?${drillParam}&from=plan`
-    : `/vendors?${drillParam}`;
+    ? `/explore?${drillParam}&from=plan`
+    : `/explore?${drillParam}`;
 
   const containerClass =
     state.kind === 'setnayan'

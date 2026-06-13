@@ -368,7 +368,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
           <p className="font-medium">
             Created {create.vendors.toLocaleString()} demo vendors covering every
             taxonomy node (some carry linked &ldquo;comes with&rdquo; services).
-            Preview at <code className="rounded bg-emerald-100 px-1">/vendors?demo=1</code>.
+            Preview at <code className="rounded bg-emerald-100 px-1">/explore?demo=1</code>.
           </p>
         </div>
       )}

@@ -320,7 +320,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
       <span className="min-w-0 flex-1">
         {featured ? (
           <a
-            href={`/vendors/${v.slug}`}
+            href={`/v/${v.slug}`}
             className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
           >
             {v.name}

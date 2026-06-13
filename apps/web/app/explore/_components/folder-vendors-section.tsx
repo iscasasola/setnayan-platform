@@ -83,8 +83,8 @@ export async function FolderVendorsSection({
   const folderLabel = tax.folderLabel[folder] ?? folder;
   const folderSlug = tax.folderSlug[folder] ?? folder;
   const seeAllHref = focusedMode
-    ? `/vendors?folder=${folderSlug}&from=plan#${folderSlug}`
-    : `/vendors?folder=${folderSlug}#${folderSlug}`;
+    ? `/explore?folder=${folderSlug}&from=plan#${folderSlug}`
+    : `/explore?folder=${folderSlug}#${folderSlug}`;
 
   return (
     <section

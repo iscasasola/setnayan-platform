@@ -234,7 +234,7 @@ export default async function VenuesCityPage({ params }: Props) {
               Start planning · free
             </Link>
             <Link
-              href="/vendors"
+              href="/explore"
               className="inline-flex items-center justify-center rounded-sm border border-ink/20 px-6 py-3 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
             >
               Browse wedding vendors

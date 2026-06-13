@@ -480,7 +480,7 @@ export function MarketplacePreview() {
       </div>
 
       <div className="mt-10 flex justify-center">
-        <Link href="/vendors" className="m-btn m-btn-primary m-btn-lg">
+        <Link href="/explore" className="m-btn m-btn-primary m-btn-lg">
           Browse all vendors →
         </Link>
       </div>
@@ -944,7 +944,7 @@ export function Footer() {
     {
       title: 'Product',
       links: [
-        { label: 'Explore services', href: '/vendors' },
+        { label: 'Explore services', href: '/explore' },
         { label: 'What you get', href: '/features' },
         { label: 'Real Stories', href: '/weddings' },
         { label: 'Planning guides', href: '/blog' },

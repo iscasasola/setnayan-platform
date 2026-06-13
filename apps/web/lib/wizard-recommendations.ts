@@ -410,7 +410,7 @@ export async function fetchWizardVendorRecommendations(
   // 2026-05-24: enrich with per-vendor service photo + verification state
   // + V1.1 presentation_pattern + services_preview (up to 5 photos per
   // Pattern A vendor for the multi-photo 2×2 tile collage). Pattern
-  // mirrors apps/web/app/vendors/page.tsx's enrichment Promise.all · two
+  // mirrors apps/web/app/explore/page.tsx's enrichment Promise.all · two
   // batched IN-lookups so a 100-vendor result set hits the DB twice
   // instead of N+1. Fail-soft on either side · the card keeps rendering
   // the vendor row even if photos / verification can't be resolved.

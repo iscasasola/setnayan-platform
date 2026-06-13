@@ -23,11 +23,11 @@ type Props = {
    * #310 / Task #47 2026-05-22), the other 11 sections are NOT rendered
    * in the DOM. Hash-only navigation breaks because `#photo-video` etc.
    * point at elements that don't exist. When `scopedFolder` is set:
-   *   1. tab clicks navigate via full URL (`/vendors?folder=<slug>#<slug>`)
+   *   1. tab clicks navigate via full URL (`/explore?folder=<slug>#<slug>`)
    *      preserving sibling URL params (?match=1, ?venue=0, ?demo=1, ?city=…)
    *   2. the active chip is fixed to the scoped folder (IntersectionObserver
    *      is skipped — only one section exists, the observer is moot)
-   *   3. clicking "All" navigates to `/vendors` (clears the scope) while
+   *   3. clicking "All" navigates to `/explore` (clears the scope) while
    *      preserving sibling params
    *
    * When `scopedFolder` is null (unscoped /vendors browse), behavior is
@@ -127,10 +127,10 @@ export function FolderTabs({ tabs, totalCount, scopedFolder = null }: Props) {
     if (slug === 'all') {
       // Clear the scope. Keep sibling params (drop only ?folder).
       return siblingParams
-        ? `/vendors?${siblingParams}#all`
-        : '/vendors#all';
+        ? `/explore?${siblingParams}#all`
+        : '/explore#all';
     }
-    return `/vendors?folder=${slug}${suffix}#${slug}`;
+    return `/explore?folder=${slug}${suffix}#${slug}`;
   };
 
   return (

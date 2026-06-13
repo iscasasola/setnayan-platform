@@ -65,7 +65,7 @@ async function requireAdmin() {
 function revalidateRosterSurfaces() {
   revalidatePath(BASE);
   revalidatePath('/dashboard/create-event');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   revalidatePath('/vendor-dashboard/profile');
   revalidatePath('/admin/taxonomy');
 }

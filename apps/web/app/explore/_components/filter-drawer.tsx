@@ -14,7 +14,7 @@
  * vendor content immediately.
  *
  * PRESERVED CONTRACT: this drawer is a controlled wrapper around the SAME
- * underlying GET form that pointed at `/vendors`. All hidden inputs that
+ * underlying GET form that pointed at `/explore`. All hidden inputs that
  * preserved folder / category / focusedMode survive verbatim. Submitting the
  * form has identical semantics to the retired FilterBar — server-side
  * parseFilters reads the same querystring keys (q, city, sort, verified,
@@ -205,7 +205,7 @@ export function FilterDrawer({
 
         <form
           method="get"
-          action="/vendors"
+          action="/explore"
           className="flex min-h-0 flex-1 flex-col"
         >
           {/* Scrollable inner area — Apply / Clear footer stays pinned even
@@ -421,8 +421,8 @@ export function FilterDrawer({
                 <Link
                   href={
                     filters.folder
-                      ? `/vendors?folder=${filters.folder}`
-                      : '/vendors'
+                      ? `/explore?folder=${filters.folder}`
+                      : '/explore'
                   }
                   className="button-secondary"
                 >

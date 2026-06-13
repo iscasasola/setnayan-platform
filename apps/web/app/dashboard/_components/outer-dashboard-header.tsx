@@ -148,7 +148,7 @@ export function OuterDashboardHeader({
         {/* Bottom strip: Marketplace + bell + profile. */}
         <div className="border-t border-[var(--m-line)] px-3 py-3">
           <Link
-            href="/vendors"
+            href="/explore"
             aria-label="Vendor marketplace"
             className="mb-1 flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
           >

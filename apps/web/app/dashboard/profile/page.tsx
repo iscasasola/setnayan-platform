@@ -15,6 +15,8 @@ import { CONCIERGE_ENABLED } from '@/lib/concierge';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
@@ -194,44 +196,23 @@ export default async function ProfilePage({ searchParams }: Props) {
       </header>
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {decodeURIComponent(search.error)}
-        </p>
+        <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>
       ) : null}
-      {search.saved ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
-          Saved.
-        </p>
-      ) : null}
+      {search.saved ? <FormFlash tone="success">Saved.</FormFlash> : null}
       {search.tour_restarted ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Welcome tour restarted — head back to your dashboard to see it again.
-        </p>
+        </FormFlash>
       ) : null}
       {search.password_changed ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Password changed. Your session stays active; use the new password next time you sign in.
-        </p>
+        </FormFlash>
       ) : null}
       {search.signed_out_others ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Signed out everywhere else. Only this device is still signed in.
-        </p>
+        </FormFlash>
       ) : null}
       {search.deletion_requested ? (
         <p
@@ -243,12 +224,9 @@ export default async function ProfilePage({ searchParams }: Props) {
         </p>
       ) : null}
       {search.deletion_cancelled ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Account-deletion request cancelled. Your account stays active.
-        </p>
+        </FormFlash>
       ) : null}
 
       {/* Personal info */}
@@ -885,25 +863,5 @@ function Row({ label, value, mono = false }: { label: string; value: string; mon
       <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
       <dd className={`text-base text-ink ${mono ? 'font-mono' : ''}`}>{value}</dd>
     </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">{label}</span>
-      {children}
-      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
-    </label>
   );
 }

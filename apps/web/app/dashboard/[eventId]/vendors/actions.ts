@@ -851,11 +851,16 @@ export async function finalizeVendor(
   // flipped status→'contracted' + stamped service_time_slot_id inside the
   // acquire RPC's lock, so it skips this write (slotPathLocked).
   if (!slotPathLocked) {
+    // Status precondition (conflict-guard re-audit 2026-06-13, item 4): never
+    // let this soft-hold lock-write clobber a row that concurrently advanced
+    // to a money status. Without it, a finalize racing a downpayment could
+    // downgrade deposit_paid/delivered/complete back to 'contracted'.
     const { error: lockErr } = await supabase
       .from('event_vendors')
       .update({ status: LOCKED_STATUS, updated_at: new Date().toISOString() })
       .eq('vendor_id', vendorId)
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .not('status', 'in', '("deposit_paid","delivered","complete")');
     if (lockErr) {
       await insertFaultLog({
         event_type: 'SUPABASE_SAVE_ERROR',

@@ -300,7 +300,7 @@ export default async function EventLayout({ children, params }: Props) {
             the event-scoped top nav per owner directive 2026-06-03 (circled
             both icons on the mobile top strip; "remove these 2 on top nav").
             Neither function is orphaned:
-            • Marketplace `/vendors` stays reachable via the home
+            • Marketplace `/explore` stays reachable via the home
               marketplace-tease-strip CTA, the "Browse your matched services"
               button, and every plan-card folder link.
             • Role-switching (Shop / Setnayan HQ consoles) stays reachable via the

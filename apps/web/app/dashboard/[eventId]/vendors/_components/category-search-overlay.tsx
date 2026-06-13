@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { saveVendorToPicks } from '@/app/vendors/actions';
+import { saveVendorToPicks } from '@/app/explore/actions';
 import { haptic } from '@/lib/haptics';
 import { VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import {

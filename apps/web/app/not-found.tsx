@@ -34,7 +34,7 @@ export default function NotFound() {
             Take me home
           </Link>
           <Link
-            href="/vendors"
+            href="/explore"
             className="inline-flex items-center justify-center px-6 py-3 border border-ink/20 text-ink font-sans text-sm font-medium tracking-wide hover:bg-ink/5 transition-colors rounded-sm"
           >
             Browse vendors

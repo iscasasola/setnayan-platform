@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · refactor(explore): rename the public marketplace route `/vendors` → `/explore` (308 redirects, SEO preserved)
+
+Owner directive 2026-06-14 (*"also fix the address to https://www.setnayan.com/explore"*). The "Explore" nav already pointed at the marketplace; this makes the **URL** match — the public discovery surface now lives at `/explore`. Companion to the search-first reframe in the same PR.
+
+- **Route moved:** `git mv apps/web/app/vendors → apps/web/app/explore` (25 files: page + `categories/` + `compare/` + 18 `_components/` + `actions.ts`; no layout/route-handlers/dynamic-segments, so no route-shape changes). All intra-folder relative imports survive the move; the 3 external `@/app/vendors/...` imports (`v/[slug]`, `venue/[slug]`, the dashboard category-search overlay) were repointed to `@/app/explore/...`.
+- **115+ internal references rewritten** `/vendors` → `/explore` — every `Link`/`href`/`router.push`/`<form action>`/`redirect`/`revalidatePath`/canonical/OpenGraph/JSON-LD/sitemap/robots value that targets the marketplace. Driven by an exhaustive bucketed audit (a discovery + an adversarial-verification multi-agent pass) so the **landmines stayed put**: `/dashboard/[eventId]/vendors` (couple in-app), `/admin/vendors` (console), `/api/v1/vendors` (public API), `/keynote/vendors` (static deck), `@/lib/vendors*` imports, `/vendors-*` identifiers, and `/v/[slug]` vendor profiles are all unchanged.
+- **308 permanent redirects** in `middleware.ts` (repo convention — there's no `next.config` `redirects()`): `/vendors` → `/explore`, `/vendors/categories` → `/explore/categories`, query strings preserved via `${rest}${search}`; the old `/vendors/compare` orphan-guard (307 → `/vendors?notice=…`) was folded into the new block as `/vendors/compare` → `/explore?notice=compare_v1_2` (308) and the dead `COMPARE_ORPHAN_PATH` const removed. Runs after the vendor-subdomain rewrite so `slug.setnayan.com` still resolves to `/v/{slug}`.
+- **SEO:** `/explore` page canonical + OpenGraph url + the 12 JSON-LD ItemList folder URLs, `robots.ts` allow-list, and `sitemap-static.xml` all repointed to `/explore`. `sitemap-vendors.xml` (vendor-profile `/v/` URLs) and the sitemap-index child filename correctly left untouched.
+- **Drive-by bug fix (flagged):** `editorial-content.tsx` linked featured vendors to `/vendors/${slug}` — a route that never existed under `/vendors` (profiles are `/v/[slug]`), so it 404'd. Corrected to `/v/${slug}`.
+
+Verified: `tsc --noEmit` clean; `next lint` clean; production build green (214/214 pages — `/explore`, `/explore/categories`, `/explore/compare` present, no `/vendors` route, all keep-routes intact); retired-strings + email-links + bottom-nav guards pass; adversarial 3-agent verification (stray-links / keep-integrity / redirect-SEO).
+
+SPEC IMPACT: the public marketplace URL is now `/explore` (was `/vendors`); old URLs 308-redirect. Logged in corpus `DECISION_LOG.md` (2026-06-14). The locked 6-page IA's "Explore" tile now matches its address.
+
+---
+
 ## 2026-06-14 · feat(explore): bare `/vendors` = search bar only (catalog demoted) + unified multi-field search
 
 Owner directive 2026-06-13 (*"why do i see services here? we just want a search bar … they can search for a category + vendor + service + place or details they can combine and we want to show all that works with their search"*). Direct follow-up to the same-day `explore-search-hero` PR (#1382), which added the search hero but kept the full category catalog rendering **below** it — so a bare `/vendors` still showed services. This finishes the reframe: the hero stands alone on the landing, and the search itself becomes genuinely multi-field.

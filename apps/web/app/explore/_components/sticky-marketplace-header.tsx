@@ -220,7 +220,7 @@ export function StickyMarketplaceHeader({
               free-text query reads as "search across everything," and the
               header prop contract doesn't carry category anyway. The Filters
               button stays a sibling (type=button) so it never submits. */}
-          <form method="get" action="/vendors" className="min-w-0 flex-1">
+          <form method="get" action="/explore" className="min-w-0 flex-1">
             <TaxonomySearch
               initialQuery={filters.q}
               options={taxonomyOptions}

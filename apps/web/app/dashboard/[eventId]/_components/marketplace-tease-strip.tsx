@@ -21,7 +21,7 @@ import type {
  * of the 12 PlanningGroups cards (one [Search vendors] CTA per card)
  * + the new Vendors bottom-nav tab (PR #639) which actually points at
  * the event-scoped picks list `/dashboard/[eventId]/vendors`, NOT the
- * root discovery marketplace at `/vendors`. This strip is the
+ * root discovery marketplace at `/explore`. This strip is the
  * canonical discovery entry point on Home.
  *
  * RENDER ORDER: Sits ABOVE the PlanningGroups section. The visual
@@ -32,12 +32,12 @@ import type {
  *
  * THREE SURFACES IN ONE CARD:
  *   1. Hero · "Browse the Setnayan marketplace" editorial title +
- *      primary CTA to `/vendors` (no folder scope = full 12-folder
+ *      primary CTA to `/explore` (no folder scope = full 12-folder
  *      catalog mode per CLAUDE.md 2026-05-20 row "Marketplace taxonomy
  *      remap").
  *   2. Quick-browse · 6 highest-discovery folder chips (Photo & Video ·
  *      Catering · Decor & Sound · Music · Booths · Attire) each deep-
- *      linked to `/vendors?folder=<slug>#<slug>` per the canonical
+ *      linked to `/explore?folder=<slug>#<slug>` per the canonical
  *      pattern from CLAUDE.md 2026-05-22 PR #310 folder scope.
  *   3. Also worth a look · top 3 cross-category recommendations
  *      flattened from the host's existing picks (only renders when
@@ -154,7 +154,7 @@ export function MarketplaceTeaseStrip({
          *  44px in some text-rendering contexts). Matches Search vendors
          *  CTA in PlanCardCTAs which already uses h-11 exact. */}
         <Link
-          href="/vendors"
+          href="/explore"
           className="inline-flex h-11 items-center gap-1.5 rounded-full bg-mulberry px-4 text-sm font-medium text-cream shadow-sm transition-colors hover:bg-mulberry-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-mulberry/40"
         >
           Browse all vendors
@@ -178,7 +178,7 @@ export function MarketplaceTeaseStrip({
                  *  height drift between marketplace-tease pills and the
                  *  Search vendors CTA below. */}
                 <Link
-                  href={`/vendors?folder=${slug}#${slug}`}
+                  href={`/explore?folder=${slug}#${slug}`}
                   className="inline-flex h-11 items-center rounded-full border border-ink/15 bg-cream/80 px-3 text-sm text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
                 >
                   {WEDDING_FOLDER_SHORT_LABEL[folder]}

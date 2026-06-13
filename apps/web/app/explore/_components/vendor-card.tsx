@@ -4,13 +4,13 @@
  * quick-view redesign + 4-badge system").
  *
  * Replaces the inline `VendorMarketCard` previously hosted in
- * `apps/web/app/vendors/page.tsx`. Extracting it into its own component
+ * `apps/web/app/explore/page.tsx`. Extracting it into its own component
  * (a) keeps page.tsx scrollable (was 2,580 lines), (b) gives the badge
  * system + review carousel + service-photo lookup their own surface
  * for future iteration without bloating the page module, (c) matches
  * the orphan-prevention rule from CLAUDE.md (every shipped UI surface
  * is reachable + has a parent entry point — this card is reached via
- * `/vendors` page render, which itself is reachable from top-nav
+ * `/explore` page render, which itself is reachable from top-nav
  * Browse + dashboard planning-group Search buttons + sitemap).
  *
  * Quick-view contract (verbatim from owner):
@@ -398,7 +398,7 @@ export function VendorCard({
             isAuthenticated={isAuthenticated}
             initialFollowing={isFollowing}
             eventId={eventId}
-            revalidatePath="/vendors"
+            revalidatePath="/explore"
             variant="card"
           />
         ) : (

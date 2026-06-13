@@ -251,12 +251,12 @@ function applyMarketplaceTextSearch(
 // `?category=setnayan_papic` grid is currently empty on prod (no publicly-
 // visible first-party listing yet — flagged for owner provisioning).
 const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
-  { label: 'Photographers', href: '/vendors?category=photography' },
-  { label: 'Videographers', href: '/vendors?category=videography' },
-  { label: 'Caterers', href: '/vendors?category=catering' },
-  { label: 'Coordinators', href: '/vendors?category=wedding_coordination' },
-  { label: 'Hair & Makeup', href: '/vendors?category=bridal_hmua' },
-  { label: 'Cake', href: '/vendors?category=wedding_cake' },
+  { label: 'Photographers', href: '/explore?category=photography' },
+  { label: 'Videographers', href: '/explore?category=videography' },
+  { label: 'Caterers', href: '/explore?category=catering' },
+  { label: 'Coordinators', href: '/explore?category=wedding_coordination' },
+  { label: 'Hair & Makeup', href: '/explore?category=bridal_hmua' },
+  { label: 'Cake', href: '/explore?category=wedding_cake' },
 ];
 
 // GEO Phase G4 (2026-05-28) — enriched marketplace metadata. Adds canonical
@@ -269,7 +269,7 @@ export const metadata = {
   title: 'Filipino wedding vendors · Setnayan marketplace',
   description:
     'Browse verified Filipino wedding vendors on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
-  alternates: { canonical: '/vendors' },
+  alternates: { canonical: '/explore' },
   keywords: [
     'Filipino wedding vendors',
     'Philippines wedding photographers',
@@ -283,7 +283,7 @@ export const metadata = {
     title: 'Filipino wedding vendors · Setnayan marketplace',
     description:
       'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
-    url: '/vendors',
+    url: '/explore',
     siteName: 'Setnayan',
     locale: 'en_PH',
     type: 'website',
@@ -301,7 +301,7 @@ export const metadata = {
 
 // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
 // enumerating the 12 wedding folders. Each ListItem points at the
-// folder-scoped marketplace URL (`/vendors?folder=<slug>` per CLAUDE.md
+// folder-scoped marketplace URL (`/explore?folder=<slug>` per CLAUDE.md
 // 2026-05-22 row 4 PR #310 folder scope). Lets AI engines extract the
 // taxonomy hierarchy when asked "what kinds of wedding vendors does
 // Setnayan list" + powers SERP sitelink-style category breakouts.
@@ -322,7 +322,7 @@ function buildVendorsItemListJsonLd(siteUrl: string): Record<string, unknown> {
       '@type': 'ListItem',
       position: idx + 1,
       name: WEDDING_FOLDER_LABEL[folder],
-      url: `${siteUrl}/vendors?folder=${WEDDING_FOLDER_SLUG[folder]}`,
+      url: `${siteUrl}/explore?folder=${WEDDING_FOLDER_SLUG[folder]}`,
     })),
   };
 }
@@ -1973,7 +1973,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 the sticky chrome but stays reachable on every grid page. */}
             <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
               <Link
-                href="/vendors?match=0"
+                href="/explore?match=0"
                 className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -2168,7 +2168,7 @@ function buildHref(
     params.set('faith', FAITH_KEY_TO_URL[merged.faithFilter]);
   }
   const qs = params.toString();
-  return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
+  return qs.length > 0 ? `/explore?${qs}` : '/explore';
 }
 
 /**
@@ -2206,7 +2206,7 @@ function FocusedModeSearchForm({
   };
 }) {
   return (
-    <form method="get" action="/vendors" className="space-y-2">
+    <form method="get" action="/explore" className="space-y-2">
       <label className="block">
         <span className="sr-only">Search vendors</span>
         {/* Reuses the same TaxonomySearch client component as FilterBar.
@@ -2330,7 +2330,7 @@ function EmptyState({
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
-          href={filters.focusedMode ? '/vendors?from=plan' : '/vendors'}
+          href={filters.focusedMode ? '/explore?from=plan' : '/explore'}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
           Or browse all vendors instead →
@@ -2364,7 +2364,7 @@ function EmptyState({
               chrome-stripped layout. Direct visits never set focusedMode
               so this is a no-op for them. */}
           <Link
-            href={filters.focusedMode ? '/vendors?from=plan' : '/vendors'}
+            href={filters.focusedMode ? '/explore?from=plan' : '/explore'}
             className="button-secondary inline-flex h-10 px-4"
           >
             Clear all filters
@@ -2506,7 +2506,7 @@ const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
  * tiles will surface as "Recruiting" without further code changes.
  *
  * LIVE_PHASES kept in sync with the same constant in
- * apps/web/app/vendors/_components/category-tile.tsx (where it governs
+ * apps/web/app/explore/_components/category-tile.tsx (where it governs
  * the Recruiting vs Coming Soon state pill). If you change one, change
  * both — the tile would render "Coming soon" while the grid showed it,
  * which would be confusing.
@@ -2521,7 +2521,7 @@ const CATALOG_LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
   'V1.1.6',
 ]);
 
-// Reception facet definitions moved into apps/web/app/vendors/_components/
+// Reception facet definitions moved into apps/web/app/explore/_components/
 // reception-venues-section.tsx as part of the 2026-05-22 evening "Pull V1.2
 // venue directory forward" PR. The new <ReceptionVenuesSection> owns BOTH
 // the chip filter bar AND the venue card grid; this file no longer needs
@@ -2668,7 +2668,7 @@ async function CatalogView({
     .slice(0, 6)
     .map(([key]) => ({
       label: taxonomyLabel(key),
-      href: `/vendors?category=${encodeURIComponent(key)}`,
+      href: `/explore?category=${encodeURIComponent(key)}`,
     }));
   const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
@@ -3175,7 +3175,7 @@ async function CatalogView({
         ) : (
           <div className="mt-12 text-center">
             <Link
-              href="/vendors?browse=1"
+              href="/explore?browse=1"
               className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
             >
               Browse all categories →
@@ -3263,7 +3263,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         only — the other 11 folders are hidden so you can focus.
       </p>
       <Link
-        href="/vendors"
+        href="/explore"
         className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
       >
         Browse all folders
@@ -3292,7 +3292,7 @@ function ReligionBanner({
         (photo, catering, attire) stay visible.
       </p>
       <Link
-        href="/vendors?match=0"
+        href="/explore?match=0"
         className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700 hover:border-terracotta hover:bg-terracotta/10"
       >
         Show all faiths

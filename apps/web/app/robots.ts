@@ -5,7 +5,7 @@ import type { MetadataRoute } from 'next';
 const ALLOWED_PATHS = [
   '/',
   '/v/',
-  '/vendors',
+  '/explore',
   '/venues',
   '/venue/',
   '/for-vendors',

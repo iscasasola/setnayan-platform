@@ -40,7 +40,7 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /vendors browse — DB-backed catalog. Page itself updates on every
   // verification + new tile lands. Daily.
-  { path: '/vendors', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
+  { path: '/explore', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
 
   // /pricing — locked at v2.1 brief (CLAUDE.md tenth + eleventh 2026-05-28
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.

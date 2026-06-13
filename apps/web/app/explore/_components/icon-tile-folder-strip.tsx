@@ -3,7 +3,7 @@
 /**
  * IconTileFolderStrip — Airbnb-style horizontal icon-tile strip for the 12
  * wedding folders. Replaces the chip-only `FolderTabs` (mega-column-tabs.tsx)
- * at the top of `/vendors` per owner directive 2026-05-30 (CLAUDE.md decision
+ * at the top of `/explore` per owner directive 2026-05-30 (CLAUDE.md decision
  * log row "Marketplace · Airbnb vibe with uniform sizing").
  *
  * WHY: Owner directive verbatim — *"marketplace is doesnt feel user friendly.
@@ -183,9 +183,9 @@ export function IconTileFolderStrip({
     }
     const suffix = siblingParams ? `&${siblingParams}` : '';
     if (slug === 'all') {
-      return siblingParams ? `/vendors?${siblingParams}#all` : '/vendors#all';
+      return siblingParams ? `/explore?${siblingParams}#all` : '/explore#all';
     }
-    return `/vendors?folder=${slug}${suffix}#${slug}`;
+    return `/explore?folder=${slug}${suffix}#${slug}`;
   };
 
   return (

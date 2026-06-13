@@ -64,7 +64,7 @@ export async function notifyWhenEventTypeLaunches(formData: FormData): Promise<N
 
   // Marketplace page may want to repaint with a "thanks" banner — the
   // submitter's URL stays put so we revalidate the same path.
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   return { status: 'ok' };
 }
 
@@ -202,7 +202,7 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   // Repaint both the marketplace (button → "Saved" · distance chips
   // update if venue just got anchored) and the couple home (12-group
   // planner now shows the new pick).
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   revalidatePath(`/v/`);
   revalidatePath(`/dashboard/${primaryEvent.event_id}`);
 
@@ -353,7 +353,7 @@ export async function addVenueDirectoryEntryToPlan(
       .is('venue_latitude', null);
   }
 
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   revalidatePath('/v/');
   revalidatePath(`/dashboard/${primaryEvent.event_id}`);
 

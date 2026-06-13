@@ -24,7 +24,7 @@ import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
  *
  * Two interaction paths (both inherited from TaxonomySearch verbatim):
  *   1. Pick a suggestion → router-push to /vendors?category=<canonical>.
- *   2. Type free text + Enter → the wrapping <form method="get" action="/vendors">
+ *   2. Type free text + Enter → the wrapping <form method="get" action="/explore">
  *      submits `q=<text>` (ilike business_name). Mirrors FocusedModeSearchForm.
  *
  * THEME: Clean Editorial `--m-*` marketing tokens (paper / ink / slate /
@@ -36,7 +36,7 @@ import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
 export type ExploreChip = {
   /** Visible chip label. */
   label: string;
-  /** Destination — typically `/vendors?category=<canonical>`. */
+  /** Destination — typically `/explore?category=<canonical>`. */
   href: string;
 };
 
@@ -85,7 +85,7 @@ export function ExploreSearchHero({
           from one place.
         </p>
 
-        <form method="get" action="/vendors" className="mt-7 w-full max-w-2xl">
+        <form method="get" action="/explore" className="mt-7 w-full max-w-2xl">
           <label className="block text-left">
             <span className="sr-only">Search vendors and services</span>
             <TaxonomySearch

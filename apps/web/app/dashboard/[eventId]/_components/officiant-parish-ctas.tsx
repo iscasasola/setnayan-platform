@@ -51,7 +51,7 @@ type Props = {
    *  this is always 'officiant' but we accept it from the parent for
    *  consistency with PlanCardCTAs's signature. */
   defaultCategory: string;
-  /** Marketplace URL — `/vendors?folder=ceremony#officiant`. */
+  /** Marketplace URL — `/explore?folder=ceremony#officiant`. */
   searchHref: string;
   /**
    * Display name of the host's LOCKED ceremony venue. When set, the

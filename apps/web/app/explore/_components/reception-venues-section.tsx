@@ -49,9 +49,9 @@ import { AddVenueToPlanButton } from './add-venue-to-plan-button';
  *
  * Entry points (per [[orphan_prevention]]):
  *   • Dashboard event-home Reception planning-group [Search] button →
- *     `/vendors?folder=reception#reception` → host's venue_setting auto-
+ *     `/explore?folder=reception#reception` → host's venue_setting auto-
  *     applies → cards render
- *   • Direct `/vendors?folder=reception&venue=garden` → cards narrow to
+ *   • Direct `/explore?folder=reception&venue=garden` → cards narrow to
  *     garden venues
  *   • FolderTabs click from another folder onto Reception → preserves
  *     URL params including the venue facet
@@ -238,7 +238,7 @@ function FacetFilterBar({
     } else {
       params.set('venue', facetKey);
     }
-    return `/vendors?${params.toString()}#reception`;
+    return `/explore?${params.toString()}#reception`;
   };
 
   const allActive = effectiveFilter === null;
@@ -494,7 +494,7 @@ function EmptyState({ activeFilter }: { activeFilter: string | null }) {
       <p className="mt-1 text-xs text-ink/55">
         Try a different venue setting, or{' '}
         <Link
-          href="/vendors?folder=reception&venue=0#reception"
+          href="/explore?folder=reception&venue=0#reception"
           className="text-terracotta underline-offset-2 hover:underline"
         >
           browse all reception venues

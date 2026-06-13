@@ -76,7 +76,7 @@ export function Nav() {
   // live in the footer. Keeps the top nav clean + strategic.
   const links: Array<{ label: string; href: string }> = [
     { label: 'What you get', href: '/features' },
-    { label: 'Explore', href: '/vendors' },
+    { label: 'Explore', href: '/explore' },
     { label: 'For vendors', href: '/for-vendors' },
     { label: 'Our story', href: '/about' },
     { label: 'Real Stories', href: '/blog' },
@@ -93,7 +93,7 @@ export function Nav() {
       </div>
       <div className="flex gap-2.5 items-center">
         <Link
-          href="/vendors"
+          href="/explore"
           className="hidden xl:inline-flex items-center gap-2.5 px-3 py-2 rounded-full bg-[var(--m-paper-2)] border border-[var(--m-line)] text-[var(--m-slate-2)] text-[13px]"
         >
           <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden>
@@ -548,7 +548,7 @@ export function MarketplacePreview() {
       </div>
 
       <div className="mt-10 flex justify-center">
-        <Link href="/vendors" className="m-btn m-btn-primary m-btn-lg">
+        <Link href="/explore" className="m-btn m-btn-primary m-btn-lg">
           Browse all vendors →
         </Link>
       </div>
@@ -1012,7 +1012,7 @@ export function Footer() {
     {
       title: 'Product',
       links: [
-        { label: 'Explore services', href: '/vendors' },
+        { label: 'Explore services', href: '/explore' },
         { label: 'What you get', href: '/features' },
         { label: 'Real Stories', href: '/blog' },
         { label: 'Wedding venues', href: '/venues' },

@@ -105,7 +105,7 @@ export default async function DemoInquiriesPage() {
         <p className="rounded-md border border-dashed border-ink/15 px-4 py-8 text-center text-sm text-ink/60">
           No demo inquiries yet. Re-seed demo vendors (they now get unique contact
           emails), then — as a couple with an event — open a demo vendor at{' '}
-          <code className="rounded bg-ink/5 px-1 text-[12px]">/vendors?demo=1</code>,
+          <code className="rounded bg-ink/5 px-1 text-[12px]">/explore?demo=1</code>,
           Follow, and Message. The inquiry will appear here.
         </p>
       ) : (

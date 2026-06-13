@@ -54,7 +54,7 @@ const MIN_QUERY_LEN = 2;
  * Two interaction paths sharing the same field:
  *
  *   1. Pick a suggestion (click / Enter on highlighted row) → router-push to
- *      `/vendors?category=<canonical_service>` so the marketplace filters
+ *      `/explore?category=<canonical_service>` so the marketplace filters
  *      to vendors who list that service. Bypasses form submission.
  *
  *   2. Type free text + click "Apply filters" (or hit Enter outside the
@@ -134,7 +134,7 @@ export function TaxonomySearch({
     // chrome on the landed page.
     if (preserve.from === 'plan') params.set('from', 'plan');
     setOpen(false);
-    router.push('/vendors?' + params.toString());
+    router.push('/explore?' + params.toString());
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

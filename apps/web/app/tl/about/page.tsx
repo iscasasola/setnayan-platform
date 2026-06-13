@@ -282,7 +282,7 @@ export default function AboutPageTaglish() {
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
-                href="/vendors"
+                href="/explore"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
                 Browse vendors

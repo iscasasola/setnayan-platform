@@ -18,7 +18,7 @@ import { Sheet } from './sheet';
 //     /vendors marketplace. (Relabelled from "Browse" on 2026-05-20 — same
 //     destination; clearer purpose vs. the adjacent "For vendors" sign-up
 //     landing page.)
-//   - Inline search bar at lg+ submits a GET form to /vendors?q=<query>
+//   - Inline search bar at lg+ submits a GET form to /explore?q=<query>
 //     (matches the SearchAction JSON-LD already declared in apps/web/app/page.tsx).
 //   - Mobile hamburger sheet includes both the search input and the
 //     Marketplace link near the top of the sheet so the discovery path is
@@ -44,7 +44,7 @@ import { Sheet } from './sheet';
 // fix for the full reproduction trace.
 
 const PRIMARY_NAV = [
-  { href: '/vendors', label: 'Marketplace' },
+  { href: '/explore', label: 'Marketplace' },
   { href: '/how-it-works', label: 'How it works' },
   { href: '/features', label: 'Features' },
   { href: '/for-vendors', label: 'For vendors' },
@@ -122,7 +122,7 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
               homepage SearchAction JSON-LD and the existing /vendors
               page already reads `?q=` server-side. */}
           <form
-            action="/vendors"
+            action="/explore"
             method="get"
             role="search"
             className="relative hidden xl:block"
@@ -199,7 +199,7 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
           {/* Mobile search — submits the same GET form as desktop. Closing
               the sheet on submit isn't necessary because the form navigation
               triggers a full page change. */}
-          <form action="/vendors" method="get" role="search" className="px-2 pb-3">
+          <form action="/explore" method="get" role="search" className="px-2 pb-3">
             <label htmlFor="site-search-mobile" className="sr-only">
               Search vendors
             </label>

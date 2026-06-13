@@ -460,6 +460,50 @@ export type FinalizeVendorResult =
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
 
+// True when a lock write lost the hard-single race to a concurrent host: the
+// event_vendors_hard_single_lock_uniq partial index (migration 20261210000000)
+// rejects the second CONFIRMED row in a hard-single group with 23505.
+function isHardSingleUniqueViolation(
+  err: { code?: string; message?: string; details?: string } | null | undefined,
+): boolean {
+  if (!err || err.code !== '23505') return false;
+  return `${err.message ?? ''} ${err.details ?? ''}`.includes(
+    'event_vendors_hard_single_lock_uniq',
+  );
+}
+
+// Re-read the now-locked sibling so a lost-the-race write surfaces the SAME
+// Switch/Cancel modal as the early fast-path check. Returns null if the
+// sibling can't be resolved (caller then falls back to a generic error).
+async function buildHardSingleConflict(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  vendorId: string,
+  groupId: string | null,
+  groupCategories: VendorCategory[],
+): Promise<Extract<FinalizeVendorResult, { status: 'hard_single_conflict' }> | null> {
+  const { data: siblings } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, status')
+    .eq('event_id', eventId)
+    .in('category', groupCategories as unknown as string[])
+    .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+    .is('archived_at', null)
+    .neq('vendor_id', vendorId)
+    .limit(1);
+  const sib = siblings?.[0];
+  if (!sib) return null;
+  const { PLAN_GROUPS: planGroups } = await import('@/lib/wedding-plan-groups');
+  const groupRow = planGroups.find((g) => g.id === groupId);
+  return {
+    status: 'hard_single_conflict',
+    groupId: groupId ?? '',
+    groupLabel: groupRow?.label ?? groupId ?? 'this category',
+    existingVendorId: sib.vendor_id as string,
+    existingVendorName: sib.vendor_name as string,
+  };
+}
+
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
@@ -520,27 +564,29 @@ export async function finalizeVendor(
     return { status: 'already_locked', vendorId };
   }
 
-  // Hard-single conflict check.
+  // Hard-single conflict check. The DB enforces the invariant via the
+  // event_vendors_hard_single_lock_uniq partial index (migration
+  // 20261210000000) no matter which write path runs; this early read is the
+  // FAST-PATH UX that surfaces the Switch/Cancel modal before we attempt the
+  // write. The two write paths below convert a lost-the-race 23505 into the
+  // same modal.
   const groupId = planGroupForCategory(targetCategory);
+  const isHardSingle = !!(groupId && HARD_SINGLE_PICK_GROUPS.has(groupId));
+  const groupCategories: VendorCategory[] = isHardSingle
+    ? VENDOR_CATEGORIES.filter((c) => planGroupForCategory(c) === groupId)
+    : [];
   let existingLocked:
     | { vendor_id: string; vendor_name: string; category: VendorCategory }
     | null = null;
 
-  if (groupId && HARD_SINGLE_PICK_GROUPS.has(groupId)) {
-    const groupCategories = (() => {
-      const list: VendorCategory[] = [];
-      for (const c of VENDOR_CATEGORIES) {
-        if (planGroupForCategory(c) === groupId) list.push(c);
-      }
-      return list;
-    })();
-
+  if (isHardSingle) {
     const { data: lockedSiblings, error: lockedErr } = await supabase
       .from('event_vendors')
       .select('vendor_id, vendor_name, category, status')
       .eq('event_id', eventId)
       .in('category', groupCategories as unknown as string[])
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+      .is('archived_at', null)
       .neq('vendor_id', vendorId)
       .limit(1);
     if (lockedErr) {
@@ -672,6 +718,15 @@ export async function finalizeVendor(
         },
       );
       if (acqErr) {
+        // The slot RPC flips status→'contracted' inside its lock; if that loses
+        // the hard-single race it raises 23505 on the partial index. Surface
+        // the Switch/Cancel modal instead of a red error.
+        if (isHardSingle && isHardSingleUniqueViolation(acqErr)) {
+          const conflict = await buildHardSingleConflict(
+            supabase, eventId, vendorId, groupId, groupCategories,
+          );
+          if (conflict) return conflict;
+        }
         return { status: 'error', message: acqErr.message };
       }
       const acqStatus =
@@ -862,6 +917,16 @@ export async function finalizeVendor(
       .eq('event_id', eventId)
       .not('status', 'in', '("deposit_paid","delivered","complete")');
     if (lockErr) {
+      // Lost the hard-single race to a concurrent host: the partial-unique
+      // index rejected this second CONFIRMED row with 23505. Re-read the
+      // winning sibling and surface the same Switch/Cancel modal as the early
+      // fast-path check — this is the authoritative, DB-serialized gate.
+      if (isHardSingle && isHardSingleUniqueViolation(lockErr)) {
+        const conflict = await buildHardSingleConflict(
+          supabase, eventId, vendorId, groupId, groupCategories,
+        );
+        if (conflict) return conflict;
+      }
       await insertFaultLog({
         event_type: 'SUPABASE_SAVE_ERROR',
         element_name: 'Lock (finalize) vendor booking',

@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(concurrency): DB guard for the hard-single double-lock (last open conflict-audit item)
+
+**Context:** the final un-serialized cross-actor write from the 2026-06-04 conflict audit (PR #1339 closed the other two). `finalizeVendor` enforced "exactly one CONFIRMED vendor per hard-single plan group per event" (ceremony_venue · reception_venue · officiant · coordinator · host_mc · led_background) with an app-level read-then-write — two hosts of the SAME event (e.g. a couple member + a moderator) could both pass the sibling check and both lock a different vendor in one group. Blast radius was low (white soft-holds, no money, self-correcting) so it was deferred; this closes it. **Owner picked Approach A** (generated column + partial-unique index) over the advisory-lock RPC alternative, because it's path-independent and self-backfilling.
+
+**Migration `20261210000000_hard_single_lock_guard.sql` (applied to prod + behaviorally verified):**
+- New `event_vendors.hard_single_group` — a `GENERATED ALWAYS … STORED` column mapping the 7 hard-single categories (`religious_venue`/`church_fees`→ceremony_venue · `venue`→reception_venue · `officiant` · `planner_coordinator`→coordinator · `host_emcee`→host_mc · `led_screens`→led_background) to their 6 groups; `NULL` for every other category. The full category→group map stays canonical in TS (`lib/wedding-plan-groups.ts`); only these 7 hard-single rows are mirrored in SQL, and an unmapped future category yields `NULL` and is simply un-guarded — never worse than today.
+- Partial-unique index `event_vendors_hard_single_lock_uniq (event_id, hard_single_group) WHERE hard_single_group IS NOT NULL AND archived_at IS NULL AND status IN (CONFIRMED)`. **Path-independent** — it rejects the second confirmed write no matter which path makes it (the generic finalize lock write, the `acquire_service_time_slot` slot path, a `deposit_paid` flip, or an admin approval). Auto-backfills existing rows; no changes at the many `event_vendors` INSERT sites. A defensive pre-dedupe demotes any pre-existing duplicates to `considering` (verified 0 on prod — no-op).
+
+**App change (`app/dashboard/[eventId]/vendors/actions.ts`):** the lost-the-race `23505` is converted back into the existing `hard_single_conflict` modal so the UX is unchanged — added `isHardSingleUniqueViolation()` + `buildHardSingleConflict()` helpers, wired into both confirmed-write paths (the slot-acquire RPC error and the generic lock write). The early fast-path sibling check now also filters `archived_at IS NULL` to match the index predicate.
+
+**Behaviorally verified on prod** (rolled-back transaction): inserting a second `contracted` venue for one event is rejected with `23505`; the generated column resolved `venue → reception_venue`; 0 test rows persisted. `tsc --noEmit` clean.
+
+**SPEC IMPACT:** None to product behavior (UX identical; the guard only makes the rare concurrent case correct). Architecture note → `DECISION_LOG.md`; the conflict-architecture "build DB guards before two-way features" lock is now satisfied for ALL shipped two-way surfaces. Memory `project_setnayan_conflict_architecture` updated (hard-single item flipped from OPEN to CLOSED).
+
+---
+
 ## 2026-06-13 · fix(concurrency): DB guards for the two un-serialized two-way writes (re-audit of the 2026-06-04 conflict findings)
 
 **Context:** the standing conflict-architecture lock ("build DB-level guards before two-way features") was re-verified against current `origin/main` after the schedule-pool (#1288/#1290/#1292), linked-inquiry (#1312), and vendor-portal (#1323) two-way features shipped. A full re-audit found the 2026-06-04 list of 7 races is now **closed at the DB level** by the pool layer (`acquire_schedule_pools()` deterministic-order `FOR UPDATE` + the partial-unique live-booking index serialize every BOOKED transition; `updateVendorStatus` is the single writer; `unlock_vendor_event()`'s `UNIQUE(vendor_profile_id,event_id)` + `ON CONFLICT` guards the unlock burn; `chat_threads UNIQUE(event_id,vendor_profile_id)` guards thread/unlock duplication; `deleteVendor` refuses booked rows + releases pools, and chat/orders are independently keyed so no orphans). **Two writers were still un-serialized**, both fixed here (migration `20261209000000_concurrency_guards.sql`, applied to prod via `db push` + verified):

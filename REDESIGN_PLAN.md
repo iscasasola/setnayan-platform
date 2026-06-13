@@ -30,6 +30,15 @@ chrome reads "premium" without losing operational scannability.
    Budget/Wedding demoted to More — but **default to the owner's 6**.
 3. **Phase order is locked** (see Roadmap). Phase 1 (shared chrome) first
    because it's the high-leverage layer.
+4. **Services hub + "Services"/"Vendors" rename** (owner-confirmed 2026-06-13).
+   A new in-app feature **discovery hub** owns the label **"Services"**; the
+   vendor marketplace renames **"Services" → "Vendors"**. Couple model:
+   *Vendors = real-world suppliers you hire; Services = what Setnayan does for
+   you.* Reverses the 2026-06-02 "Vendors→Services" rename. Bottom-nav
+   "Services" tab → the hub. ⚠ Consequence: the Vendors marketplace + Messages
+   fall to "More" on mobile; mitigate with a "Your vendors" quick card pinned
+   to mobile Home (build requirement). Full design in the Services-hub surface
+   section below.
 
 ## Current state (as shipped on origin/main — grounded in code, not specs)
 
@@ -64,8 +73,9 @@ single chrome change propagates to all three doorways:
 so the at-rest view is ~9 calm items (Home + Plan + Book):
 
 - **Home**
+- **Services** — the in-app feature discovery hub (see surface section below)
 - **Plan** — Guests · Seating · Schedule · Budget
-- **Book** — Services · Messages · Contracts
+- **Book** — Vendors *(renamed from "Services")* · Messages · Contracts
 - **Design** *(collapsed)* — Wedding (website) · Mood board · Monogram
 - **Day-of** *(collapsed)* — Live wall · Event QR
 - **After** *(collapsed)* — Activity · Disputes
@@ -80,8 +90,62 @@ Notes:
 
 **Bottom nav — 6 tabs (owner-locked):**
 `Home · Guests · Services · Budget · Wedding · More`
+- `Services` → the in-app feature hub (NOT the vendor marketplace — that's now
+  "Vendors", reached via side-tab Book + a mobile Home quick card + More).
 - `Wedding` → `/site-editor/[eventId]`. `Budget` → `/dashboard/[eventId]/budget`.
 - Validate at 360–375px (see locked decision #2).
+
+## Surface: Services hub (in-app feature discovery) — NEW, Phase 2
+
+**Why.** Today the in-app services (Papic, Panood, Wedding website, Thank-you
+video, Monogram, Save-the-Date, Mood board, Pakanta…) are scattered across a
+store-style `/add-ons` poster grid, standalone routes (`/monogram`, `/live`,
+`/site-editor`), and free tools in the sidebar. Couples can't see everything
+Setnayan offers in one place, and discovery drives both free-tool usage and
+paid-SKU revenue. This hub is the single "here's everything Setnayan can do for
+your event" surface — benefit-first, with a deep link into each feature.
+
+**Reuses what exists.** `/add-ons` (hub) + `/add-ons/[feature]` (detail routes)
+already exist. We elevate them: store-grid → benefit-led discovery hub;
+store-detail → benefit-led intro pages. Broaden to include the free tools +
+standalone features, not just paid add-ons.
+
+**Hub layout.** Grouped by job-to-be-done, NOT by price:
+- *Capture the day* — Papic · Panood · Live wall · Camera bridge
+- *Your website & story* — Wedding website · Save-the-Date · Monogram · Thank-you video
+- *Plan & organize* (free) — Guest list · Seating · Budget · Mood board · Schedule
+- *Music & extras* — Pakanta · Playlist · Patiktok · Pabati
+
+**Card model.** icon + name + one-line problem-it-solves + status chip
+(Free / Paid / Soon) + adaptive CTA:
+- free, or paid-and-owned → **Open** (deep link straight to the live surface)
+- paid, not owned → **Learn more** (→ intro page)
+- coming soon → **Notify me**
+
+**Intro page (per feature).** The `/add-ons/[feature]` route, rewritten
+store-detail → benefit-led: the problem it solves · what it does · how it works
+· a sample · price · primary Open / Add-to-your-event CTA.
+
+**Feature → live-route map** (the deep links): Wedding website → `/site-editor`,
+Monogram → `/monogram`, Live wall → `/live`, Mood board → `/add-ons/mood-board`,
+Papic → its console, Budget → `/budget`, Seating → `/seating`, etc. Some paid
+SKUs also exist as 1st-party marketplace listings (`is_setnayan_service`) per
+the in-app-services-as-vendor-listings model — the hub is the discovery front
+door over those, not a parallel catalog.
+
+**Naming + nav (owner-locked, decision #4).** Hub = "Services" (bottom-nav tab +
+side-tab slot); marketplace = "Vendors". ⚠ Build requirement: pin a "Your
+vendors" quick card on mobile Home so the active booking/chat workflow isn't
+buried under More.
+
+**Build sub-steps (lands in Phase 2):**
+1. Rename "Services" → "Vendors" across `customer-nav-config.ts` +
+   `customer-bottom-nav.tsx` + `customer-sidebar.tsx` (label only; route
+   `/vendors` unchanged). Add the new "Services" hub nav item/tab.
+2. Rebuild `/add-ons` into the grouped benefit-led hub (card + state model).
+3. Rewrite `/add-ons/[feature]` intro pages (benefit-first).
+4. Feature→route deep-link map + CTA-state logic (free / owned / buyable / soon).
+5. Mobile Home "Your vendors" quick card.
 
 ## Proposed IA — vendor dashboard
 
@@ -114,7 +178,7 @@ Tighten the shared primitives once; all three doorways lift together:
 |---|---|---|
 | 0 ✅ | Marketing — homepage + `/for-vendors` premium redesign | PR #1334 |
 | 1 | Shared chrome system (nav primitives) | 1 PR — lifts all 3 dashboards |
-| 2 | Couple dashboard IA — journey side tab + collapse-by-default + 6-tab bottom nav | 1 PR |
+| 2 | Couple dashboard IA — journey side tab + collapse-by-default + 6-tab bottom nav **+ Services hub + Services→Vendors rename** | 1–2 PRs (the hub may warrant its own PR) |
 | 3 | Vendor dashboard — Calendar into bottom nav + chrome | 1 PR |
 | 4 | Auth + onboarding doorways (login / signup / create-event) | 1 PR |
 | 5 | Admin polish (lightest) | 1 PR |
@@ -122,9 +186,11 @@ Tighten the shared primitives once; all three doorways lift together:
 
 ## Open decisions deferred to build time
 
-- `Add-ons` placement (Home surface vs Design group vs own group).
+- ~~`Add-ons` placement~~ → RESOLVED: `/add-ons` becomes the Services hub.
 - Whether `Find your date` becomes a Home card.
 - Outcome of the 6-tab bottom-nav 360px validation.
+- Final job-to-be-done grouping + per-feature benefit copy for the Services hub
+  (draft in the surface section; refine with owner during Phase 2).
 
 ## Verification plan (per phase)
 

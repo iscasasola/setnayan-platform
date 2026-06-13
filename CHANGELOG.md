@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · docs(workflow): review-then-merge replaces auto-merge default (owner directive)
+
+Owner reversed the 2026-05-15 "auto-merge is the default" lock. New standing rule: **do NOT `gh pr merge --auto`** — every PR waits on its Vercel preview URL for the owner to review on a real logged-in deployment, then the owner merges (or says "merge it" → plain `gh pr merge <#> --merge`). Goal: nothing reaches production (`main` → setnayan.com) unseen, and merges are kept to a minimum (batch related work into one PR). Rewrote the "PR workflow" section of `CLAUDE.md`, including the two preview gotchas (password-only login on previews since the auth redirect is pinned to `NEXT_PUBLIC_APP_URL`; previews share the single prod Supabase DB + R2).
+
+- CLAUDE.md — "PR workflow — auto-merge is the default" → "review-then-merge (owner reviews the preview, then merges)".
+
+SPEC IMPACT: None — repo process/governance doc; no product, schema, SKU, pricing, or UX change.
+
 ## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
 
 Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited `apps/web/next.config.ts` against `origin/main`: the `images` block ran every photo (R2 hero/vendor/moodboard + Supabase + the seeded Pexels/Picsum/Wikimedia stock hotlinks) through Vercel's per-transformation image optimizer, emitting **both** AVIF **and** WebP across Next's full default 8-size `deviceSizes` spread — a high billable-transformation count for a gallery-heavy, mostly view-once image workload. Confirmed NOT the cause: no `vercel.json` / no Vercel `crons` schedule, so the dormant `/api/cron/*` routes are not billing. Zero-infra interim cut (no component/render changes, fully reversible):

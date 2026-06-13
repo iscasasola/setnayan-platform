@@ -80,15 +80,17 @@ For each `NNNN` iteration in the spec corpus:
 6. Pass every checkbox in `tests.md` before opening a PR
 7. Append a `CHANGELOG.md` entry + update `STATUS.md` before committing
 
-## PR workflow — auto-merge is the default
+## PR workflow — review-then-merge (owner reviews the preview, then merges)
 
-Immediately after `gh pr create` on this repo, enable auto-merge:
+> **Owner directive 2026-06-14 — SUPERSEDES the 2026-05-15 "auto-merge is the default" lock.** STOP auto-merging. Every change waits on its Vercel **preview URL** for the owner to review on a real, logged-in deployment **before** it reaches production (`main` → setnayan.com). Goal: nothing ships to the live site unseen, and the number of merges is kept to a minimum.
 
-```bash
-gh pr merge <PR#> --auto --merge
-```
+After `gh pr create`, **do NOT run `gh pr merge --auto`.** Instead:
 
-- Use `--merge` (merge commit) to match the existing history pattern. Don't switch to `--squash` or `--rebase` unless the owner explicitly asks.
-- Auto-merge waits for required CI checks (typecheck + lint, secret scan, production build, Lighthouse, Vercel preview). If any required check fails, the merge is paused — investigate the failure rather than overriding.
-- The `build (windows-latest)` job from `build-desktop.yml` is NOT a required check; auto-merge can (and will) fire while it's still in progress. That's expected.
-- This is the standing default — never ask "should I auto-merge?" Owner locked 2026-05-15.
+1. **Post the Vercel preview URL** in your response. Find it in the PR's Vercel bot comment (shape: `…-git-<branch>-icasa-offroad.vercel.app`). That preview is the *full* site — the owner can log in and exercise the change there.
+   - ⚠ **Login on a preview:** use **email + password** (test accounts `couple|vendor|admin.test@setnayan.com` / `SetnayanTest!2026`). "Sign in with Google" / magic-link bounce to prod, because the auth redirect is hardwired to `NEXT_PUBLIC_APP_URL` (`app/login/actions.ts`, `app/auth/oauth-actions.ts`).
+   - ⚠ **Previews share the ONE production Supabase DB + R2** — you see real data and data writes are real. Safe for visual/layout review; not a data sandbox. Migrations always hit the single prod DB regardless.
+2. **Leave the PR open.** The owner merges it themselves once satisfied — or explicitly says "merge it," at which point run `gh pr merge <PR#> --merge` (plain `--merge`, NOT `--auto`).
+3. **Batch to minimize merges.** Prefer folding related changes into a single PR over opening several small ones. Fewer, well-reviewed merges is the goal.
+4. **Mechanics unchanged:** `--merge` (merge commit, never `--squash`/`--rebase` unless asked); required CI still gates the merge; `delete_branch_on_merge=true` auto-cleans the branch; the `build (windows-latest)` desktop job is not a required check.
+
+**Only exception:** auto-merge a specific PR if the owner explicitly asks ("just merge this one"). Otherwise the default is hands-off until the owner has seen the preview.

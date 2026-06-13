@@ -16,27 +16,29 @@
 // Listens for `{ type: 'CACHE_BUST' }` postMessages to drop every cache —
 // used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps.
 //
-// CACHE VERSION — bump this whenever a same-named static asset changes in
-// place (logo, favicon, app icon, shell). Images are served CacheFirst from a
-// long-lived cache, so without a version bump returning visitors keep serving
-// the OLD asset off-device until the 30-day max-age lapses. Bumping VERSION
-// renames every cache; the `activate` handler then deletes the prior-version
-// caches (they fall out of KNOWN_CACHES) and the SW re-fetches fresh.
+// CACHE VERSION — STAMPED PER DEPLOY (no more manual bumps). The build step
+// `scripts/stamp-sw.mjs` rewrites the `const VERSION = '…'` line below to the
+// deploy's VERCEL_GIT_COMMIT_SHA (wired into apps/web `package.json` "build").
+// Because every deploy changes the sw.js bytes, the browser's own SW-update
+// check — which re-fetches `/sw.js` (served `no-cache`, see next.config.ts) and
+// byte-compares the script — installs the new worker. `install` calls
+// skipWaiting() and `activate` deletes every cache NOT in KNOWN_CACHES +
+// clients.claim(), so the prior deploy's shell/static/image caches are evicted
+// and fresh assets land within one navigation. This kills the
+// "returning users see the previous build's shell/JS for one load after a
+// deploy" class of bug (the 2026-06-14 stale old-chrome shell was its last
+// instance, then patched by a one-time v3→v4 bump).
+//
+// The literal below is the DEV / local fallback (a build with no
+// VERCEL_GIT_COMMIT_SHA leaves it untouched) AND the human-readable
+// version-history anchor. Keep the exact `const VERSION = '…';` shape — the
+// stamp script's regex targets it and fails the build if it can't find it.
 //   v1 -> v2: 2026-05-31 brand-logo + app-icon swap (gold S/Y monogram).
-//   v2 -> v3: 2026-06-11 compliance/push-offline — Web Push handlers
-//             (push + notificationclick), a static offline.html fallback in
-//             the shell precache, and a day-of guest stale-while-revalidate
-//             cache (the personal landing page + find-my-table). Bumping
-//             renames every cache so the new precache + cache land cleanly.
-//   v3 -> v4: 2026-06-14 dashboard chrome retirement — the legacy cream
-//             OuterDashboardHeader shell is gone. STATIC_CACHE serves Next
-//             chunks stale-while-revalidate, so returning users could be
-//             served the PRIOR build's shell/JS (with the old chrome) for one
-//             load after deploy. Bumping evicts the v3 caches on activate so
-//             the new (paper-only, no-flash) chrome lands on first paint.
-//             NOTE: this is a one-time manual bump — a per-deploy auto-stamp
-//             (NEXT_PUBLIC_CACHE_BUSTER ← VERCEL_GIT_COMMIT_SHA) is the proper
-//             durable fix and is flagged as an owner follow-up.
+//   v2 -> v3: 2026-06-11 compliance/push-offline — Web Push handlers, a static
+//             offline.html shell fallback, + a day-of guest SWR cache.
+//   v3 -> v4: 2026-06-14 dashboard chrome retirement (legacy cream shell gone).
+//   v4 -> per-deploy SHA: 2026-06-14 bytes now auto-stamp every build, so this
+//             stale-after-deploy class of bug can't recur.
 
 const VERSION = 'v4';
 const SHELL_CACHE = `setnayan-${VERSION}`;

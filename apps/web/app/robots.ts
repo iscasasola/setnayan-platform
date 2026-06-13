@@ -11,14 +11,13 @@ const ALLOWED_PATHS = [
   '/for-vendors',
   '/help',
   '/weddings',
-  '/tl', // Tagalog locale subpath (localization first slice — /tl/about live)
+  '/tl', // Taglish locale subpath (Taglish ≈ tl; localization first slice — /tl/about live)
   // Forward-looking — these surfaces are in the SEO playbook
   // (17_SEO_and_AI_Discoverability_Playbook.md §5.1) but not yet
   // shipped. Pre-allowing them avoids a robots.txt edit when they go live.
   '/supplies',
   '/suppliers',
   '/blog',
-  '/ceb', // Cebuano locale subpath (next localization slice)
 ];
 // /keynote + /proto are dated internal pitch/prototype decks (snapshot
 // 2026-05-28) that drifted from the live product — they carried retired

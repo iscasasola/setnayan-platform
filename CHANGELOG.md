@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · refactor(i18n): the two locales are English + Taglish (rewrite /tl/about in Taglish; drop Cebuano)
+
+Per owner ("english and taglish"): the public locales are **English (root) + Taglish** — the real conversational register Filipino couples use — not formal Tagalog + Cebuano. Follow-up to #1360.
+
+- `/tl/about` rewritten in genuine **Taglish** (natural English-Tagalog code-switching — "i-plan ang event, mag-hire from a 0%-commission marketplace…") instead of formal Tagalog.
+- Locale switcher relabeled **Tagalog → Taglish** on both `/about` and `/tl/about`; the `/about` "in your language" fact now reads "English-primary, with Taglish."
+- **Cebuano dropped** — `/ceb` removed from the robots allow-list. (The `/tl` route + `tl-PH` hreflang stay: "Taglish" has no ISO code, so `tl` is the closest standard; the register + label are Taglish.)
+
+Verified: tsc + build (`/about` + `/tl/about` static) + retired-strings clean.
+
+**SPEC IMPACT:** locale set corrected to English + Taglish (no Cebuano); `DECISION_LOG.md` updated.
+
+---
+
 ## 2026-06-13 · feat(i18n): Tagalog /about — first slice of marketing-site localization (hreflang)
 
 First slice of the SEO localization ("Cebuano moat", SEO playbook §0.14): the public marketing site was EN-only (the existing `lib/i18n` is dashboard-only). Ships a Tagalog edition of the brand/entity page at `/tl/about` with the **locale-subpath** URL strategy + reciprocal **hreflang**, establishing the pattern CEB + more pages follow.

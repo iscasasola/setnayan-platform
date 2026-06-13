@@ -89,7 +89,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: Languages,
     label: 'In your language',
     value:
-      'English-primary, with Tagalog and Cebuano rolling out — wedding planning that speaks the way Filipino couples actually talk about their day.',
+      'English-primary, with Taglish — wedding planning the way Filipino couples actually talk about their day.',
   },
 ];
 
@@ -158,13 +158,13 @@ export default function AboutPage() {
               <span className="mx-2">/</span>
               <span className="text-ink/80">About</span>
             </span>
-            {/* Locale switch — Tagalog edition (hreflang reciprocal) */}
+            {/* Locale switch — Taglish edition (hreflang reciprocal) */}
             <Link
               href="/tl/about"
               hrefLang="tl-PH"
               className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
             >
-              Tagalog
+              Taglish
             </Link>
           </nav>
 

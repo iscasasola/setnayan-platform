@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
+
+Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited `apps/web/next.config.ts` against `origin/main`: the `images` block ran every photo (R2 hero/vendor/moodboard + Supabase + the seeded Pexels/Picsum/Wikimedia stock hotlinks) through Vercel's per-transformation image optimizer, emitting **both** AVIF **and** WebP across Next's full default 8-size `deviceSizes` spread — a high billable-transformation count for a gallery-heavy, mostly view-once image workload. Confirmed NOT the cause: no `vercel.json` / no Vercel `crons` schedule, so the dormant `/api/cron/*` routes are not billing. Zero-infra interim cut (no component/render changes, fully reversible):
+
+- apps/web/next.config.ts `images` — `formats` AVIF+WebP → **WebP only** (~halves transforms; WebP visually indistinguishable here, reverses the prior "AVIF first" posture on cost grounds); `deviceSizes` trimmed to `[640,750,828,1080,1200,1920]` (drops the two most-expensive variants 2048/3840 — 1920 is already sharp on 4K full-bleed); `minimumCacheTTL` 7d → **31d** (fewer re-optimizations of immutable source images).
+- Verified: `tsc --noEmit` ✅ · `next lint` ✅. No schema/migration.
+
+Structural follow-up (NOT in this PR): the proper near-zero fix is the Cloudflare Images cutover already specced in `Image_Optimization_Plan.md` (free R2 egress + on-demand variants) — needs owner Cloudflare decision. Owner action surfaced separately: set a Vercel **Spend Management** hard cap so an overage can never recur silently.
+
+SPEC IMPACT: None — infra/cost config tuning, no SKU/schema/pricing/UX/product-copy change. Minor reversal of the documented "AVIF first" image posture, on cost grounds only; flagged here for lineage.
+
 ## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
 
 The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notifications`) notification pages both called the same user-scoped `fetchOwnNotifications` from `lib/notifications.ts` yet forked a byte-identical `<ul>` of items + a near-identical empty state, differing only in a back-link, header subtitle, mark-all placement, and empty-state copy. Extracted the shared list/item/empty-state markup to `app/_components/notifications/notifications-list.tsx`; both pages become thin containers that keep their own auth gate + header + mark-all-read control and pass the already-fetched rows down with per-role `returnTo` + `emptyState` props. No behavior or visual change — rendered output matches byte-for-byte.

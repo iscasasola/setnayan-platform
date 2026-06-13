@@ -8,6 +8,7 @@
     "start": "next start --port 3000",
     "lint": "next lint",
     "lint:retired": "node scripts/lint-retired-strings.mjs",
+    "lint:botnav": "node scripts/lint-bottom-nav.mjs",
     "lint:email-links": "node scripts/lint-email-links.mjs",
     "bundle-size-check": "node scripts/check-bundle-size.mjs",
     "check:no-demo-in-prod": "node scripts/check-no-demo-in-prod.mjs",

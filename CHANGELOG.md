@@ -904,6 +904,23 @@ The visible half of the feature: a pax-target meter on the guest list showing pr
 Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 8/8 unit tests ✓ · `next build` ✓.
 
 **SPEC IMPACT:** None to locked scope. Part of the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory `project_setnayan_adaptive_pax_pricing` (Phase 2 done). Corpus iteration `0001_creating_guest_list` AS-BUILT note to follow once the program lands.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 1 schema (columns only, no behavior change)
+
+**Context:** owner feature — thread one guest-count number from the guest list → vendor inquiries → per-vendor pricing → budget, designed + locked 2026-06-13 (see `DECISION_LOG.md` "Adaptive Pax Pricing"). A mapping+design workflow over 7 subsystems found the vendor per-pax model (`0022 §2.2`) and the cost-delta-on-guest-change flow (`0021 §12.3`) are **spec'd but never coded** — shipped vendor pricing is flat `vendor_services.starting_price_php`, `event_vendors.total_cost_php` is couple-entered, and the `price_model='per_pax'` enum is defined-but-unread. So this builds the spec. Customer-side PAPIC_GUEST floor+increment (`platform_retail_catalog_v2`, `computePaxPriceCentavos`) is the working template.
+
+**The model (owner-locked, 6 decisions):** `events.estimated_pax` (unchanged) = the "minimum pax" = pricing floor; stays couple-editable, never auto-mutates. `live_pax = max(estimated_pax, sure-attending headcount)` — only `rsvp_status='attending'` guests push past the floor (maybes/no-replies never move price). Past the floor → vendors get the new count + couple told "prices may change". Vendor sets an OPTIONAL per-added-guest rate (blank = no surcharge). Vendor-facing count is fully live up+down, but any *confirmed* cost change goes through the §12.3 vendor confirm in both directions. Couple view = realtime adaptive preview (default) or final-only. Auto-finalizes at the guest-list edit deadline, then binding.
+
+**This PR — schema only, zero behavior change.** Migration `20261211000000_adaptive_pax_pricing_columns.sql` adds the columns later phases read; all NULL-safe / sane-defaulted so every existing row means "flat price, no surcharge, no snapshot, realtime view, attending-basis" (today's behavior). No reads wired. Columns sit on tables that already have RLS → row access unchanged.
+- `events`: `headcount_basis` (default `attending`), `adaptive_pricing_mode` (default `realtime`), `guest_list_edit_deadline`, `guest_count_locked_at`
+- `vendor_services`: `added_pax_price_php` (NULL = no surcharge), `added_pax_block` (default 1)
+- `chat_threads`: `pax_at_inquiry` (immutable snapshot), `pax_current` (live, up+down)
+- `event_vendors`: `pax_quote_base`, `pax_surcharge_php` (NULL = no rate set), `cost_basis_pax`
+
+**⚠ NOT yet applied to prod.** Additive + NULL-safe + idempotent (`ADD COLUMN IF NOT EXISTS`); apply via `supabase db push --db-url "$SUPABASE_DB_URL"` (or surgically) when Phase 2 first reads a column. Timestamp guard ✓ (346 unique). No TS touched → typecheck/lint/build unaffected.
+
+**Phases queued:** 2 couple guest-list %-meter · 3 snapshot pax on new inquiries · 4 vendor rate field + `computeAddedPaxSurcharge` · 5 push to open threads + recompute (§12.3 confirm) + budget line · 6 HQ audit + dispute view.
+
+**SPEC IMPACT:** Design + 6 decisions recorded in `DECISION_LOG.md` 2026-06-13 ("Adaptive Pax Pricing"); memory `project_setnayan_adaptive_pax_pricing`. Per-phase AS-BUILT notes to follow on corpus iterations 0001/0006/0007/0022 as each phase ships. Peso amounts remain provisional (no default rate seeded).
 
 ---
 

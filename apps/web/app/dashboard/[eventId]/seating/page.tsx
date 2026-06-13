@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
@@ -92,6 +94,14 @@ export default async function SeatingPage({ params }: Props) {
           floor in one click — tables fan out from the stage by priority, vendor booths anchor to the
           walls, and guests fill in tier by tier.
         </p>
+        <Link
+          href={`/dashboard/${eventId}/seating/walkthrough`}
+          className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-ink/12 bg-white px-3 py-1.5 text-sm font-medium text-ink/75 shadow-sm transition-colors hover:border-terracotta/40 hover:text-ink"
+        >
+          <Video className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          Walkthrough videos
+          <span aria-hidden className="text-ink/40">→</span>
+        </Link>
       </header>
 
       <DayOfEditingBanner eventDate={eventDate} />

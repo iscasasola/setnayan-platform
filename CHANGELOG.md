@@ -66,6 +66,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the three changed files.
 
 **SPEC IMPACT:** iteration `0028_email_notifications` template #10 (`security_alert`) is now BUILT with three triggers (the spec listed the template; trigger wiring is the as-built delta). Parent session to mark in the corpus + close the "open: security_alert email" item in memory `project_setnayan_account_security`.
+## 2026-06-13 · fix(budget): exclude linked-only services from budget median
+
+**Context:** open item from the linked-services program (#1187): migration `20261014000000_vendor_service_links.sql` § 2 added `vendor_services.is_linked_only` (TRUE = listing exists only as an auto-covered linked component, no standalone market price) and explicitly deferred "wiring the median consumer to read it". That follow-up was never done, so linked-only placeholder rows were depressing the couple-facing budget planner's per-leaf market stats.
+
+- **`lib/budget-allocation-data.ts` · `fetchLeafMedians()`:** added `.eq('is_linked_only', false)` to the `vendor_services` solo-price query. This single query feeds **all five** per-leaf market stats (`median` · `count` · `min` · `p25` · `p75`), so the one filter cleans the median AND the sibling aggregates shown to couples (band ranges, thin-data sample counts that drive the benchmark-vs-median blend).
+- Audited the other aggregates for the same contamination: `lib/admin/growth-stats.ts` medians are conversion-day medians (not prices) and its `vendor_services` head-count is an admin inventory metric; `lib/budget.ts` service-fallback lines are per-(couple's own vendor) price surfacing, not market aggregation. No other consumer needed the filter.
+- No migration needed — the column already exists on prod with `DEFAULT FALSE`; this is purely the deferred consumer-side wiring.
+
+**Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the changed file.
+
+**SPEC IMPACT:** closes the "budget median needs `WHERE is_linked_only=FALSE`" open item tracked in the linked-services/demo-coverage workstream (memory `project_setnayan_linked_services_and_demo_coverage`). Parent session to mark it resolved in the corpus.
 
 ## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
 

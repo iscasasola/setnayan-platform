@@ -34,11 +34,14 @@
  *   2. Work (key 'pipeline')     — Bookings · Messages · Services ·
  *                      Contracts · Repertoire · Attributes (merged the old
  *                      Pipeline + Communicate groups)
- *   3. Grow (key 'marketing')    — Marketing · Verify · Reviews ·
- *                      Moodboard library
+ *   3. Grow (key 'marketing')    — Subscription · Tokens · Redeem code ·
+ *                      Marketing · Verify · Reviews · Moodboard library
+ *                      (single home for paid reach + reputation · the three
+ *                      paid SKUs folded in from Business 2026-06-14 per the
+ *                      owner-locked REDESIGN_PLAN)
  *   4. Business (key 'money')    — Earnings · How clients pay you
- *                      (payment-options) · Tokens · Manpower · Redeem code ·
- *                      Branches · Team & Setnayan (merged the old Money +
+ *                      (payment-options) · Manpower · Branches · Team &
+ *                      Setnayan (pure money/ops · merged the old Money +
  *                      Team groups · Tax docs retired 2026-05-29 under the
  *                      V2 publisher posture · Setnayan no longer withholds
  *                      vendor income tax · no Form 2307 obligation)
@@ -171,11 +174,23 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // "Grow" = visibility + reputation. Group KEY stays 'marketing' for
-    // open-state continuity; item keys unchanged.
+    // "Grow" = the single home for paid reach + reputation. Group KEY stays
+    // 'marketing' for open-state continuity; item keys unchanged.
+    //
+    // CONSOLIDATION 2026-06-14 (owner-locked REDESIGN_PLAN) — the paid
+    // "grow your business with Setnayan" SKUs (Subscription · Tokens ·
+    // Redeem code) moved here from the Business group so Grow is the one
+    // place for everything that buys a vendor more reach + trust. Routes,
+    // hrefs, icons and per-item gating are unchanged — only the group
+    // object the items live in changed. Business keeps the pure money/ops
+    // surfaces.
     key: 'marketing',
     label: 'Grow',
     items: [
+      // Subscription — self-serve Pro/Enterprise upgrade (Phase D · Tier #5).
+      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
+      { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
+      { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
       { key: 'marketing', label: 'Marketing', href: '/vendor-dashboard/marketing', icon: Megaphone, matchPrefix: '/vendor-dashboard/marketing' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
@@ -183,19 +198,16 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // "Business" = money + org. Merges the old Money + Team. Group KEY
-    // stays 'money' for open-state continuity; item keys unchanged. (Tax
-    // docs retired 2026-05-29 under V2 publisher posture.)
+    // "Business" = pure money + org/ops. Merges the old Money + Team. Group
+    // KEY stays 'money' for open-state continuity; item keys unchanged. (Tax
+    // docs retired 2026-05-29 under V2 publisher posture · Subscription ·
+    // Tokens · Redeem code moved to the Grow group 2026-06-14.)
     key: 'money',
     label: 'Business',
     items: [
       { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
       { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
-      // Subscription — self-serve Pro/Enterprise upgrade (Phase D · Tier #5).
-      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-      { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
-      { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
       // Branches — Enterprise sub-location accounts (owner-locked 2026-06-05).
       // Owner/admin only: 'branches' is absent from VENDOR_SCOPED_NAV_ITEM_KEYS
       // so filterVendorNavGroups hides it from agents/viewers. The page + the

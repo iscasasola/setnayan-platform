@@ -75,6 +75,18 @@ Owner: *"the editorials should be shareable so vendors and customers can share o
 Verified: tsc + lint clean on changed files (the `satori`/`sharp` module-resolution errors are the known local-install gap — present in CI). The satori render can't run in the local install (those deps live only in CI), so the **card visual is verified on the Vercel preview** post-build, not locally.
 
 SPEC IMPACT: iteration 0046 editorials are now FB/Pinterest-shareable with a per-story OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR C — couple "Publish to Real Stories" consent + "Share our story" + vendor "Featured / Share to your Page" (reuses `<ShareButtons>` + the card, adds the photo-background variant); PR D (parallel) — admin curate/feature.
+## 2026-06-14 · feat(chrome): the chosen monogram lockup now renders on the public hero + QR centers (consistency follow-up)
+
+Follow-up to the monogram-as-event-logo work (PRs #1374/#1376). An audit of every monogram render site found the dashboard switcher showed the couple's real lockup, but the two highest-impact couple-facing surfaces still drew plain initials. Owner: bring the public hero + QR centers in line.
+
+**Public landing hero (`app/[slug]`).** The three near-identical hero cascades (PrivateLanding + the 2 InvitationSite variants) drew initials in a serif circle when the couple hadn't bought the paid animation. Centralized into one new `app/_components/hero-monogram.tsx` (`HeroMonogram`) with the full precedence: bespoke/Cipher SVG → paid AnimatedMonogram (text) → **chosen lockup via MonogramMark (bar/duo/script/infinity, frameless, 80px)** → **framed (gold frame + initials)** → legacy/single-name circle. The page already selected the design columns; added the three to the local `EventRow` type so the sub-components' `event` prop carries them. Removed the now-inlined AnimatedMonogramHero/BespokeMonogramMark imports from the page.
+  - SCOPE NOTE (flagged): the paid ANIMATED_MONOGRAM layer still animates the typographic text, not the lockup — animated lockup variants are a deliberate follow-up. Non-animated couples (the common case) now get their real static lockup.
+
+**QR-code centers (`lib/monogram.ts` → `monogramOverlaySvg`).** It drew hardcoded serif-italic initials, ignoring the chosen font/style. Now: `MonogramConfig` carries the full design (via `resolveMonogram`), and `monogramOverlaySvg` draws the chosen lockup inside the cream clearance circle via a new string-SVG twin of `MonogramMark` (`lockupMarkSvg`) — same footprint, so the level-H QR stays scannable. Framed/legacy fall back to initials, now in the couple's chosen face. Threaded the three design columns into the 5 QR-caller selects (site-editor, custom-qr-guest + its print, invitation + its print). `splitInitials` promoted to `lib/monogram.ts` (shared by chip + hero + QR).
+
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · generated real composited QRs through the actual `compositeMonogram` for all 5 styles + legacy — each center shows the correct mark, QR structure intact.
+
+SPEC IMPACT: extends the chosen-lockup-as-logo behavior (reversed the 2026-06-03 letters-forward lock, PR #1374) to the public hero + QR centers. Still out of line (deliberately deferred): animated-hero-as-lockup, PDF/print exports, monogram-maker preview, social/OG card. Logged in corpus `DECISION_LOG.md`. No SKU/pricing impact; no migration (columns already exist).
 
 ---
 

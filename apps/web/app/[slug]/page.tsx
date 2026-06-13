@@ -12,8 +12,7 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
-import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
-import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   resolveMonogramMotion,
   type MonogramMotionKey,
@@ -654,6 +653,12 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Chosen-lockup design columns — selected at the top of this route (line ~124)
+  // and threaded into HeroMonogram so the public hero draws the couple's real
+  // mark (bar/duo/script/infinity/framed), not just initials.
+  monogram_style?: string | null;
+  monogram_font_key?: string | null;
+  monogram_frame_key?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1184,35 +1189,14 @@ function PrivateLanding({
   return (
     <InvitationShell>
       <div className="space-y-8 text-center">
-        {bespokeSvg ? (
-          <div className="flex justify-center">
-            <BespokeMonogramMark
-              svg={bespokeSvg}
-              color={monogram.color}
-              size="md"
-              entrance={Boolean(animatedMonogram)}
-            />
-          </div>
-        ) : animatedMonogram ? (
-          <div className="flex justify-center">
-            <AnimatedMonogramHero
-              text={monogram.text}
-              color={monogram.color}
-              fontFamily={monogram.fontFamily}
-              fontStyle={monogram.fontStyle}
-              size="md"
-              motion={animatedMonogram}
-            />
-          </div>
-        ) : (
-          <div
-            aria-hidden
-            className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-            style={{ borderColor: monogram.color, color: monogram.color }}
-          >
-            {monogram.text}
-          </div>
-        )}
+        <div className="flex justify-center">
+          <HeroMonogram
+            event={event}
+            monogram={monogram}
+            animatedMonogram={animatedMonogram}
+            bespokeSvg={bespokeSvg}
+          />
+        </div>
         <div className="space-y-3">
           <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             {event.display_name}
@@ -1413,37 +1397,15 @@ function InvitationSite({
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                 You are invited
               </p>
-              {bespokeSvg ? (
-                <div className="mt-6 flex justify-center">
-                  <BespokeMonogramMark
-                    svg={bespokeSvg}
-                    color={monogram.color}
-                    size="md"
-                    shadow
-                    entrance={Boolean(animatedMonogram)}
-                  />
-                </div>
-              ) : animatedMonogram ? (
-                <div className="mt-6 flex justify-center">
-                  <AnimatedMonogramHero
-                    text={monogram.text}
-                    color={monogram.color}
-                    fontFamily={monogram.fontFamily}
-                    fontStyle={monogram.fontStyle}
-                    size="md"
-                    shadow
-                    motion={animatedMonogram}
-                  />
-                </div>
-              ) : (
-                <div
-                  aria-hidden
-                  className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic shadow-sm"
-                  style={{ borderColor: monogram.color, color: monogram.color }}
-                >
-                  {monogram.text}
-                </div>
-              )}
+              <div className="mt-6 flex justify-center">
+                <HeroMonogram
+                  event={event}
+                  monogram={monogram}
+                  animatedMonogram={animatedMonogram}
+                  bespokeSvg={bespokeSvg}
+                  shadow
+                />
+              </div>
               {/* Italic serif display name — structural typography from v2.1
                   guest-microsite template (CLAUDE.md 2026-05-28 row 11).
                   Couple palette tokens (monogram.color · cream · ink ·
@@ -1463,33 +1425,14 @@ function InvitationSite({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
             </p>
-            {bespokeSvg ? (
-              <div className="mt-6 flex justify-center">
-                <BespokeMonogramMark
-                  svg={bespokeSvg}
-                  color={monogram.color}
-                  size="md"
-                  entrance={Boolean(animatedMonogram)}
-                />
-              </div>
-            ) : animatedMonogram ? (
-              <div className="mt-6 flex justify-center">
-                <AnimatedMonogramHero
-                  text={monogram.text}
-                  color={monogram.color}
-                  size="md"
-                  motion={animatedMonogram}
-                />
-              </div>
-            ) : (
-              <div
-                aria-hidden
-                className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-                style={{ borderColor: monogram.color, color: monogram.color }}
-              >
-                {monogram.text}
-              </div>
-            )}
+            <div className="mt-6 flex justify-center">
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+              />
+            </div>
             {/* Italic serif treatment — see comment on the heroPhotoUrl
                 branch above. Same structural enhancement from v2.1
                 template; couple palette untouched. */}

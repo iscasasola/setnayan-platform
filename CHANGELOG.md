@@ -59,6 +59,16 @@ Makes the published scroll-scrub hero actually **show** without waiting on the o
 Net: today the scrub shows via presigned frames (works with existing R2 creds, R2 egress stays free); once `media.setnayan.com` + `R2_PUBLIC_URL` are wired (PR #1380), it auto-switches to cacheable public URLs with no further change. Verified with a 13-case key-derivation/URL-resolution suite.
 
 SPEC IMPACT: None (read-path + storage refinement; no SKU/pricing/schema-contract change). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · refactor(dashboard): shared `<Field>` + `<FormFlash>` form primitives — dedup Track A1 (settings centerpiece)
+
+Dashboard-consolidation Track A, step 1 (owner-approved plan 2026-06-13: "consolidate the dashboard design, remove all duplicates, make sure they all fall properly to their respective roles" → dedup-first, then the locked IA redesign). A grounded audit of `origin/main` found the chrome (shared `app/_components/nav/*` primitives) and role-gating already consolidated — the real duplication is at the surface/primitive level: `function Field()` defined locally in **15 files** and the saved/error flash banner copy-pasted across **~39**. This extracts the two byte-identical primitives and proves them on the three settings/profile pages (couple · vendor · admin).
+
+- `app/_components/forms/field.tsx` — NEW shared `<Field label htmlFor help? required? children>`. The vendor variant's optional `required` asterisk is folded in as the superset, so couple/admin call sites (which omit it) reproduce byte-for-byte.
+- `app/_components/forms/form-flash.tsx` — NEW shared `<FormFlash tone="error"|"success">`: the terracotta `role="alert"` + emerald `role="status"` banner chrome. Message text and which search param triggers each banner stay in the page (no copy change). One-off tones (couple amber deletion-pending, admin neutral icon-reset) intentionally left inline — they aren't the duplicated pattern.
+- `app/dashboard/profile/page.tsx` · `app/vendor-dashboard/profile/page.tsx` · `app/admin/settings/page.tsx` — deleted each page's local `Field` def + the duplicated banner `<p>` blocks; now import the shared primitives. **No behavior/visual change**: sections, fields, copy, role-scoped data, and the vendor page's deliberate v2.1-token styling are untouched (visual unification of section labels/cards is Track B, owner-locked — not done here). Couple's `Row` facts-grid helper kept in place (FactsRow extraction deferred).
+- Verified locally: `tsc --noEmit` ✅ (exit 0, 0 errors) · `next lint` on the 5 changed files ✅ (no warnings/errors). No schema, migration, or env change.
+
+SPEC IMPACT: None — code-internal refactor; no SKU, schema, pricing, copy, or UX change. First landing of the dashboard dedup program (plan at `~/.claude/plans/binary-cuddling-popcorn.md`); Track A continues with the app-wide `Field`/flash sweep (A2), then shared surface cards (contracts · notifications · messages-list · verify). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
 ## 2026-06-14 · feat(seating): live day-of seat-plan propagation (seat-finding PR 5 of 6)

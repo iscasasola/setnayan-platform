@@ -12,6 +12,8 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { FileUpload } from '@/app/_components/file-upload';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
@@ -411,36 +413,18 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       ) : null}
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {search.error}
-        </p>
+        <FormFlash tone="error">{search.error}</FormFlash>
       ) : null}
-      {search.saved ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
-          Profile saved.
-        </p>
-      ) : null}
+      {search.saved ? <FormFlash tone="success">Profile saved.</FormFlash> : null}
       {search.password_changed ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Password changed. Your session stays active; use the new password next time you sign in.
-        </p>
+        </FormFlash>
       ) : null}
       {search.signed_out_others ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Signed out everywhere else. Only this device is still signed in.
-        </p>
+        </FormFlash>
       ) : null}
 
       {profile ? (
@@ -944,29 +928,4 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       </div>
     );
   }
-}
-
-function Field({
-  label,
-  htmlFor,
-  required = false,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  required?: boolean;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">
-        {label}
-        {required ? <span className="ml-1 text-terracotta">*</span> : null}
-      </span>
-      {children}
-      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
-    </label>
-  );
 }

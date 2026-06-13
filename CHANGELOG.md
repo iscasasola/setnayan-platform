@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 4 (vendor per-added-guest rate input)
+
+Vendors can now set an optional per-added-guest surcharge rate on each service. Input + storage only — the rate has **no effect yet**; applying it to live costs is Phase 5 (where the surcharge math + the symmetric vendor-confirm flow land). Honors the owner's fallback: blank = no extra charge.
+
+- `vendor-dashboard/services/page.tsx`: new "Additional cost per added guest (PHP)" field in BOTH the new-service form and the edit-service form (pre-filled from the saved value), beside the existing starting price. Helper copy: "Optional. Charged per guest above the count you quote. Leave blank for no extra charge."
+- `services/actions.ts`: `createVendorService` + `updateVendorService` parse `added_pax_price_php` via the existing `parseInt0OrNull` and write it (insert + update).
+- `lib/vendor-services.ts`: `VendorServiceRow` + `BASE_COLS` carry `added_pax_price_php` so the editor pre-fills and any reader sees it.
+
+Deliberately self-contained — does NOT touch `lib/pax.ts` (Phase 3's file): the surcharge *math* (`computeAddedPaxSurcharge`) belongs in Phase 5 where it's first applied, so Phase 4 has no cross-phase file dependency. Column exists in prod (migration `20261211000000` applied 2026-06-13).
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓ (exit 0).
+
+**SPEC IMPACT:** None to locked scope. Peso amount is vendor-entered (no default seeded). Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0022_vendor_dashboard` AS-BUILT note (the per-pax pricing it specced now exists in its single-rate form) to follow.
+
+---
+
 ## 2026-06-13 · feat(nav): canonical bottom-nav template — traveling pill + press-light, app-wide + lint-guarded
 
 Owner-locked the bottom-nav tap interaction as THE unbreakable app-wide template ("set it as an unbreakable rule, like the real template of the app"), after a long session dialling the feel against an Instagram Liquid-Glass reference video.

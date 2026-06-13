@@ -300,6 +300,21 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     />
                   </Field>
                 </div>
+                <Field
+                  label="Additional cost per added guest (PHP)"
+                  htmlFor={`new-addpax-${addCategory}`}
+                  help="Optional. Charged per guest above the count you quote. Leave blank for no extra charge for added guests."
+                >
+                  <input
+                    id={`new-addpax-${addCategory}`}
+                    name="added_pax_price_php"
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="e.g. 350"
+                    className="input-field"
+                  />
+                </Field>
                 {slotsCap > 0 ? (
                   <Field
                     label="Bookings per day (optional)"
@@ -475,6 +490,21 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                         />
                       </Field>
                     </div>
+                    <Field
+                      label="Additional cost per added guest (PHP)"
+                      htmlFor={`addpax-${svc.vendor_service_id}`}
+                    >
+                      <input
+                        id={`addpax-${svc.vendor_service_id}`}
+                        name="added_pax_price_php"
+                        type="number"
+                        min={0}
+                        step={1}
+                        defaultValue={svc.added_pax_price_php ?? ''}
+                        placeholder="Optional — blank = no extra charge"
+                        className="input-field"
+                      />
+                    </Field>
                     {slotsCap > 0
                       ? (() => {
                           // #3 precedence (verifier C9): a service with >=1

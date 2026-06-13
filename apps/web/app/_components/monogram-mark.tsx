@@ -63,20 +63,24 @@ export function MonogramMark(props: Props) {
   const { style, a, b, color, px, className, title } = props;
   const gradId = useId();
   const g = glyphProps(props);
+  // Presence (owner 2026-06-13): fill the chip HEIGHT and let the width follow
+  // the mark's natural aspect (no square box → no vertical letterboxing, which
+  // had shrunk the wide marks to ~half height). Each viewBox below is cropped
+  // tight to its glyphs so they read large at chrome size. `height` is the chip
+  // edge; width auto-computes from the viewBox aspect.
   const common = {
-    width: px,
     height: px,
     className: className?.replace(/\s+/g, ' ').trim(),
     role: 'img' as const,
     'aria-label': title ?? `${a} & ${b}`,
-    preserveAspectRatio: 'xMidYMid meet',
+    style: { display: 'block' as const },
   };
 
   // bar — two serif capitals flanking a vertical divider that carries "&".
   // The divider splits around the ampersand so it reads crisp at icon size.
   if (style === 'bar') {
     return (
-      <svg viewBox="0 0 132 96" {...common}>
+      <svg viewBox="6 14 120 70" {...common}>
         <text x={28} y={72} fontSize={64} {...g}>{a}</text>
         <line x1={66} y1={16} x2={66} y2={42} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
         <line x1={66} y1={66} x2={66} y2={82} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
@@ -89,7 +93,7 @@ export function MonogramMark(props: Props) {
   // duo — two serif capitals pulled close / lightly overlapping, no divider.
   if (style === 'duo') {
     return (
-      <svg viewBox="0 0 100 96" {...common}>
+      <svg viewBox="18 18 66 62" {...common}>
         <text x={42} y={72} fontSize={66} {...g}>{a}</text>
         <text x={58} y={72} fontSize={66} {...g}>{b}</text>
       </svg>
@@ -99,7 +103,7 @@ export function MonogramMark(props: Props) {
   // script — three calligraphy glyphs: initial · & · initial.
   if (style === 'script') {
     return (
-      <svg viewBox="0 0 184 100" {...common}>
+      <svg viewBox="8 6 168 90" {...common}>
         <text x={42} y={78} fontSize={74} {...g}>{a}</text>
         <text x={92} y={76} fontSize={46} {...g}>&amp;</text>
         <text x={142} y={78} fontSize={74} {...g}>{b}</text>
@@ -111,7 +115,7 @@ export function MonogramMark(props: Props) {
   // The ∞ path is lifted verbatim from mono-lockup.tsx so the chrome mark is
   // the same curve the couple saw in onboarding.
   return (
-    <svg viewBox="0 0 200 92" {...common}>
+    <svg viewBox="18 8 164 76" {...common}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#A88340" />

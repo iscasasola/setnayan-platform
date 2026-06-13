@@ -622,3 +622,47 @@ test.describe('round kiss snap', () => {
     expect(roundKissSnap({ x: B.x + rA + rB + 200, y: B.y }, rA, [B])).toBeNull();
   });
 });
+
+// --- free-venue booth placement (no walls — gardens / open fields) ------------
+
+import { freeBoothSlots, BOOTH_W } from '../../lib/seating';
+
+test.describe('freeBoothSlots', () => {
+  const stage = { x: 50, y: 8 };
+
+  test('lays a row beyond the furthest table, centred on the stage line', () => {
+    const tables = [
+      { x: 30, y: 30 },
+      { x: 70, y: 30 },
+      { x: 50, y: 60 }, // furthest from the stage (top)
+    ];
+    const slots = freeBoothSlots(stage, tables, 3);
+    expect(slots).toHaveLength(3);
+    // The whole row sits below (further from the stage than) every table.
+    const maxTableY = Math.max(...tables.map((t) => t.y));
+    for (const s of slots) expect(s.y).toBeGreaterThan(maxTableY);
+    // Centred on the stage's x; evenly spaced; deterministic.
+    const mid = slots[1]!;
+    expect(Math.abs(mid.x - stage.x)).toBeLessThan(1e-9);
+    expect(Math.abs(Math.abs(slots[2]!.x - slots[1]!.x) - (BOOTH_W + 3))).toBeLessThan(1e-9);
+    expect(freeBoothSlots(stage, tables, 3)).toEqual(slots);
+  });
+
+  test('never forces a wall — coordinates are free, not pinned to 0/100', () => {
+    const tables = [{ x: 48, y: 40 }, { x: 52, y: 40 }];
+    const slots = freeBoothSlots(stage, tables, 2);
+    // A perimeter anchor would land on a 0–100 edge band; a free row does not.
+    for (const s of slots) {
+      expect(s.x).toBeGreaterThan(5);
+      expect(s.x).toBeLessThan(95);
+      expect(s.y).toBeLessThan(96); // just past y=40 tables, nowhere near a "wall"
+    }
+  });
+
+  test('no tables yet → a horizontal row opposite the stage; n=0 → empty', () => {
+    const slots = freeBoothSlots(stage, [], 2);
+    expect(slots).toHaveLength(2);
+    expect(slots.every((s) => s.y === 90)).toBe(true); // stage near top → row near bottom
+    expect(freeBoothSlots(stage, [], 0)).toEqual([]);
+  });
+});

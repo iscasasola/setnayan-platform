@@ -46,7 +46,7 @@ const STATIC_ROUTES: ReadonlyArray<{
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.
   { path: '/pricing', lastmod: '2026-05-29', changefreq: 'weekly', priority: '0.9' },
 
-  // /weddings hub moved to sitemap-weddings.xml (iteration 0046 first slice,
+  // /realstories hub moved to sitemap-weddings.xml (iteration 0046 first slice,
   // 2026-06-13) — kept out of sitemap-static to avoid a duplicate URL across
   // sitemaps (same hub-in-its-own-child pattern as /help + /blog).
 

@@ -10,7 +10,7 @@ import {
   weddingTitle,
 } from '@/lib/real-weddings';
 
-// /weddings/[slug] — Real Weddings showcase detail (iteration 0046).
+// /realstories/[slug] — Real Weddings showcase detail (iteration 0046).
 //
 // The showcase IS the editorial: each entry renders through the SAME
 // `EditorialContent` component as a real wedding's post-event editorial page,
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props) {
   const wedding = findRealWedding(slug);
   if (!wedding) notFound();
   const description = weddingMetaDescription(wedding);
-  const canonicalUrl = `${SITE_URL}/weddings/${wedding.slug}`;
+  const canonicalUrl = `${SITE_URL}/realstories/${wedding.slug}`;
   const title = weddingTitle(wedding);
   return {
     title,
@@ -79,13 +79,13 @@ export default async function WeddingShowcasePage({ params }: Props) {
         '@type': 'ListItem',
         position: 2,
         name: 'Real weddings',
-        item: `${SITE_URL}/weddings`,
+        item: `${SITE_URL}/realstories`,
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: wedding.coupleNames,
-        item: `${SITE_URL}/weddings/${wedding.slug}`,
+        item: `${SITE_URL}/realstories/${wedding.slug}`,
       },
     ],
   };
@@ -97,8 +97,8 @@ export default async function WeddingShowcasePage({ params }: Props) {
     datePublished: wedding.publishedAt,
     dateModified: wedding.updatedAt ?? wedding.publishedAt,
     inLanguage: 'en-PH',
-    url: `${SITE_URL}/weddings/${wedding.slug}`,
-    mainEntityOfPage: `${SITE_URL}/weddings/${wedding.slug}`,
+    url: `${SITE_URL}/realstories/${wedding.slug}`,
+    mainEntityOfPage: `${SITE_URL}/realstories/${wedding.slug}`,
     author: { '@type': 'Organization', name: 'Setnayan Editorial', url: SITE_URL },
     publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
     locationCreated: { '@type': 'Place', name: `${wedding.city}, Philippines` },
@@ -119,7 +119,7 @@ export default async function WeddingShowcasePage({ params }: Props) {
       <div className="border-b border-ink/10 bg-cream">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link
-            href="/weddings"
+            href="/realstories"
             className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
@@ -152,7 +152,7 @@ export default async function WeddingShowcasePage({ params }: Props) {
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-base text-ink/65">{wedding.excerpt}</p>
           <Link
-            href="/weddings"
+            href="/realstories"
             className="mt-6 inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />

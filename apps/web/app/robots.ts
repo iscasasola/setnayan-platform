@@ -10,7 +10,7 @@ const ALLOWED_PATHS = [
   '/venue/',
   '/for-vendors',
   '/help',
-  '/weddings',
+  '/realstories',
   '/tl', // Taglish locale subpath (Taglish ≈ tl; localization first slice — /tl/about live)
   // Forward-looking — these surfaces are in the SEO playbook
   // (17_SEO_and_AI_Discoverability_Playbook.md §5.1) but not yet

@@ -2,12 +2,12 @@
  * Real Weddings sitemap at /sitemap-weddings.xml.
  *
  * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29) + iteration 0046 (2026-06-13).
- * DB-driven + consent-gated: emits the `/weddings` hub plus each REAL published
+ * DB-driven + consent-gated: emits the `/realstories` hub plus each REAL published
  * editorial's canonical URL — the couple's own `/[slug]` page — from
  * `loadPublishedShowcases()`. Until any real wedding qualifies (the consent +
- * T+30d gate), it falls back to the curated SAMPLE URL (`/weddings/[slug]`),
- * the same priority order as the /weddings index. Honest per-row `<lastmod>`,
- * never a build-time `Date()`. The `/weddings` hub lives here (not in
+ * T+30d gate), it falls back to the curated SAMPLE URL (`/realstories/[slug]`),
+ * the same priority order as the /realstories index. Honest per-row `<lastmod>`,
+ * never a build-time `Date()`. The `/realstories` hub lives here (not in
  * sitemap-static) so it isn't duplicated across sitemaps — same
  * hub-in-its-own-child pattern as /help + /blog.
  *
@@ -27,7 +27,7 @@ export async function GET(): Promise<Response> {
   const showcases = await loadPublishedShowcases();
 
   const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
-    { loc: `${baseUrl}/weddings`, lastmod: REAL_WEDDINGS_LASTMOD, changefreq: 'weekly', priority: '0.8' },
+    { loc: `${baseUrl}/realstories`, lastmod: REAL_WEDDINGS_LASTMOD, changefreq: 'weekly', priority: '0.8' },
   ];
 
   if (showcases.length > 0) {
@@ -41,10 +41,10 @@ export async function GET(): Promise<Response> {
       });
     }
   } else {
-    // Fallback: the curated sample(s) at /weddings/[slug] until a real wedding exists.
+    // Fallback: the curated sample(s) at /realstories/[slug] until a real wedding exists.
     for (const w of ALL_REAL_WEDDINGS.filter((w) => w.isSample)) {
       rows.push({
-        loc: `${baseUrl}/weddings/${w.slug}`,
+        loc: `${baseUrl}/realstories/${w.slug}`,
         lastmod: w.updatedAt ?? w.publishedAt,
         changefreq: 'monthly',
         priority: '0.6',

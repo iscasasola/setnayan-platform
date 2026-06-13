@@ -824,6 +824,69 @@ export async function updateGuestCount(formData: FormData): Promise<GovernedFiel
   return { ok: true };
 }
 
+/**
+ * Adaptive Pax Pricing — couple settings (decisions #5 + #6). Sets the
+ * guest-list edit deadline (overrides the default 14-days-before-the-event) and
+ * the realtime/final-only pricing-view preference. Both are couple-settable
+ * (the finalize LOCK columns guest_count_locked_at/final_pax are NOT — those are
+ * guarded to the service-role finalize path). Same host-gate + admin-write +
+ * audit pattern as updateGuestCount.
+ */
+export async function updatePaxSettings(formData: FormData): Promise<GovernedFieldResult> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, code: 'invalid_input', message: 'event_id required' };
+  }
+  // Deadline: empty clears it (back to the auto default); else a valid ISO date.
+  const deadlineRaw =
+    typeof formData.get('guest_list_edit_deadline') === 'string'
+      ? (formData.get('guest_list_edit_deadline') as string).trim()
+      : '';
+  let deadline: string | null = null;
+  if (deadlineRaw !== '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadlineRaw) || Number.isNaN(Date.parse(`${deadlineRaw}T00:00:00Z`))) {
+      return { ok: false, code: 'invalid_input', message: 'Enter a valid date.' };
+    }
+    deadline = deadlineRaw;
+  }
+  const modeRaw = formData.get('adaptive_pricing_mode');
+  const mode = modeRaw === 'final_only' ? 'final_only' : 'realtime';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, code: 'unauthorized', message: 'Sign in required' };
+  if (!(await isEventHost(supabase, eventId, user.id))) {
+    return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('events')
+    .select('guest_list_edit_deadline, adaptive_pricing_mode')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const { error } = await admin
+    .from('events')
+    .update({ guest_list_edit_deadline: deadline, adaptive_pricing_mode: mode })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, code: 'db_error', message: error.message };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'pax_settings_updated',
+    target_table: 'events',
+    target_id: eventId,
+    before_json: before ?? null,
+    after_json: { guest_list_edit_deadline: deadline, adaptive_pricing_mode: mode },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(`/dashboard/${eventId}/details`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/guests`, 'layout');
+  return { ok: true };
+}
+
 type PreviewConflictsResult =
   | { ok: true; conflicts: ConflictService[] }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };

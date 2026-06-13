@@ -11,6 +11,8 @@
 
 V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13 (19 iterations). 2026-05-14 then landed **28 PRs** across two waves.
 
+**2026-06-13 — feat(weddings): in-dashboard Real Weddings consent toggle (RA 10173).** Couples can opt in/out of public `/weddings` showcase listing anytime from `/dashboard/[eventId]/website/privacy` (was signup-only). New host-gated `setShowcaseConsent` action writes `users.public_summary_consent_at` (NOW/NULL) via admin; the page reads + renders the opt-in/out card. Completes the one-click opt-out guardrail for the #1353 consent-gated browse. Verified tsc + build.
+
 **2026-06-13 — feat(weddings): DB-driven Real Weddings browse (consent-gated) — real editorials auto-replace the sample.** New `lib/showcase-db.ts` `loadPublishedShowcases()` (admin-client, consent-gated: `event_type='wedding'` + public slug + T+30d grace + a couple member's `users.public_summary_consent_at` — the RA 10173 gate). `/weddings` index + `sitemap-weddings.xml` now show real published editorials (each linking to the couple's canonical `/[slug]`) when any exist, else the sample. Verified against prod (join clean, 0 rows today → sample shows). The end-to-end auto-yield is now built; first real wedding = the founder's Dec 2026. Verified tsc + build.
 
 **2026-06-13 — feat(weddings): sample is now a fallback (real weddings auto-replace it).** Per owner ("our sample until a real wedding is uploaded"), the `/weddings` index + `sitemap-weddings.xml` filter `!isSample` and fall back to the sample only when no real weddings exist — so a real wedding (a non-sample in-code entry, or the deferred DB-driven Phase-4 browse) auto-drops the sample. Conditional intro copy. No change today (only the sample exists). Verified tsc + build.

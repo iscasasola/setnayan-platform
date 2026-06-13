@@ -71,6 +71,19 @@ The "first-person walk to your table" the market ships **nowhere** — a coordin
 Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests + migration-timestamp guard clean.
 
 SPEC IMPACT: implements the 2026-06-13 "zone-clip routing" half of the seat-finding design (iter 0008 + 0031 + the retired Indoor-Blueprint walkthrough half). **Built ungated/free** — the walkthrough is COORDINATOR LABOR (not a Setnayan SKU) and must stay delegatable so a no-coordinator couple does it free (dual-path parity + free-wayfinding). **Open (owner):** whether the *hosting/tool* is monetized at all is deferred to the holistic pricing pass (do not gate before that). Migration applied to prod (statement-by-statement). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · fix(nav): one shared marketing top nav on every page + clickable logo → home
+
+Owner report: the top nav menu *changed* when clicking through to a nav destination — and the "SET NA 'YAN" logo wasn't clickable. Root cause: the canonical 6-page `Nav` (What you get · Explore · For vendors · Our story · Real Stories) only rendered on the homepage; the linked pages had **forked into 4 other headers** — the legacy `SiteHeader` (Marketplace / How it works / Features / Pricing / Help) on `/about`, `/how-it-works`, `/pricing`, `/features`, and a bespoke inline header on `/blog`. So every click swapped the whole menu. The logo was a bare `<Wordmark>` (no link), despite the owner's own note "Home (the video scrub) = the logo".
+
+- **NEW `app/_components/marketing/site-nav.tsx`** — the canonical `PromoBar` + `Nav` extracted out of the heavy homepage module (`_sections.tsx`) into one lean file (imports only `Link` + `Wordmark` + `MobileMenu`, so importing `<Nav>` into a subpage doesn't drag framer-motion / `HeroVideoScrub` / catalog fetchers into that page's bundle). Single source of truth for the marketing top nav — per the owner anti-fork chrome doctrine.
+- **Logo → home:** the `<Wordmark>` is now wrapped in `<Link href="/" aria-label="Setnayan — home">`. Clicking the mark/wordmark routes to the hero on every page (same-page link on `/`).
+- `_sections.tsx` — `PromoBar`/`Nav` definitions removed (now re-homed in `site-nav`); dropped the now-unused `MobileMenu` import. `page.tsx` imports `PromoBar, Nav` from `site-nav`; homepage render unchanged.
+- **Swapped to the shared `<Nav>`** (replacing the legacy `SiteHeader` / inline header): `app/features/_PageBody.tsx` (covers `/features` **and** `/tl/features`), `app/about/page.tsx`, `app/blog/page.tsx`, `app/how-it-works/page.tsx`, `app/pricing/page.tsx`, plus `app/tl/about/page.tsx` + `app/tl/how-it-works/page.tsx` so the `/tl` locale stays internally consistent (nav labels are English in both old and new — no localization regression).
+- **Left untouched per owner ("we'll change vendors later"):** `/vendors` (`StickyMarketplaceHeader` — search/filter chrome) and `/for-vendors` (`VendorNav` — vendor-context chrome). Net −86 lines (deduplication).
+
+SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav itself was already owner-locked 2026-06-13). Logged in corpus `DECISION_LOG.md` (2026-06-14). Known remaining surface (not in this change): the legacy `SiteHeader` still ships on non-marketing/auth pages and any other `/tl/*` page that isn't `about`/`how-it-works`/`features`.
+
+---
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 

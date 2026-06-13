@@ -25,7 +25,8 @@
  * per request.
  */
 
-import { Nav, Hero } from '@/app/_components/marketing/_sections';
+import { Nav } from '@/app/_components/marketing/site-nav';
+import { Hero } from '@/app/_components/marketing/_sections';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards

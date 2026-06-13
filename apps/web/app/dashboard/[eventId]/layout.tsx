@@ -134,7 +134,7 @@ export default async function EventLayout({ children, params }: Props) {
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key';
+          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -275,6 +275,7 @@ export default async function EventLayout({ children, params }: Props) {
         currentMonogramColor={event.monogram_color}
         currentMonogramFrameKey={event.monogram_frame_key}
         currentMonogramFontKey={event.monogram_font_key}
+        currentMonogramStyle={event.monogram_style}
         events={switcherEvents
           .filter((e) => !e.archived)
           .map((e) => ({
@@ -286,6 +287,7 @@ export default async function EventLayout({ children, params }: Props) {
             monogram_color: e.monogram_color,
             monogram_frame_key: e.monogram_frame_key,
             monogram_font_key: e.monogram_font_key,
+            monogram_style: e.monogram_style,
           }))}
         hasCustomerAccess={roles.hasCustomerAccess}
         hasVendorAccess={roles.hasVendorAccess}

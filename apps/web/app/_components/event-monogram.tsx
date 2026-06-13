@@ -4,6 +4,7 @@ import {
   resolveMonogramDesign,
   monogramFrameAssetUrl,
 } from '@/lib/monogram';
+import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -39,6 +40,19 @@ const SIZE_TOKENS: Record<Size, { box: string; text: string; px: number }> = {
   lg: { box: 'h-11 w-11', text: 'text-sm', px: 44 },
 };
 
+/**
+ * Pull the two lockup initials out of a resolved monogram label. The label is
+ * "A & B" for couples (deriveMonogram / monogram_text), or a single "S" for
+ * one-name events. Returns ['', ''] when there isn't a clean pair so the caller
+ * can fall back to the letters-forward badge.
+ */
+function splitInitials(text: string): [string, string] {
+  const parts = text.split('&').map((s) => s.trim()).filter(Boolean);
+  const a = (parts[0]?.charAt(0) ?? '').toUpperCase();
+  const b = (parts[1]?.charAt(0) ?? '').toUpperCase();
+  return [a, b];
+}
+
 export function EventMonogram({
   event,
   size = 'md',
@@ -65,6 +79,39 @@ export function EventMonogram({
   });
   const ink = design?.color ?? color;
   const { box, text: textSize, px } = SIZE_TOKENS[size];
+
+  // Type-only lockup (bar · duo · script · infinity) → draw the couple's REAL
+  // chosen mark, not just their initials in a font (owner 2026-06-13, reversing
+  // the 2026-06-03 letters-forward lock). Needs BOTH initials — a single-name
+  // event ("S") has no second glyph for the lockup, so it falls through to the
+  // letters-forward badge below. `framed` is deliberately NOT a mark style: its
+  // ornate gold ring is illegible at chrome size, so it keeps the framed branch.
+  const markStyle: MonogramMarkStyle | null =
+    design?.style === 'bar' ||
+    design?.style === 'duo' ||
+    design?.style === 'script' ||
+    design?.style === 'infinity'
+      ? design.style
+      : null;
+  if (markStyle && design) {
+    const [ia, ib] = splitInitials(text);
+    if (ia && ib) {
+      return (
+        <MonogramMark
+          style={markStyle}
+          a={ia}
+          b={ib}
+          fontFamily={design.fontFamily}
+          fontStyle={design.fontStyle}
+          letterSpacing={design.letterSpacing}
+          color={ink}
+          px={px}
+          className={`shrink-0 ${box} ${className ?? ''}`}
+          title={text}
+        />
+      );
+    }
+  }
 
   // Framed — the couple's REAL onboarding monogram: the gold frame webp + their
   // initials in the chosen font + ink, exactly like the onboarding medallion,

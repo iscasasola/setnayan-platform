@@ -72,6 +72,11 @@ export type SwitcherEvent = {
   // older / non-onboarding events and the admin chrome stay backward-compatible.
   monogram_frame_key?: string | null;
   monogram_font_key?: string | null;
+  // Lockup style (bar · script · duo · framed · infinity) — REQUIRED to draw the
+  // couple's real mark (owner 2026-06-13). Without it the four type-only lockups
+  // (all frame=null) collapse to whichever shares the font, so the chrome would
+  // pick the wrong shape. Optional for backward-compat with pre-style events.
+  monogram_style?: string | null;
 };
 
 export type SwitcherVendorTarget = {
@@ -95,6 +100,7 @@ type Props = {
   currentMonogramColor: string | null;
   currentMonogramFrameKey?: string | null;
   currentMonogramFontKey?: string | null;
+  currentMonogramStyle?: string | null;
   events: SwitcherEvent[];
   hasCustomerAccess: boolean;
   hasVendorAccess: boolean;
@@ -119,6 +125,7 @@ export function EventSwitcher({
   currentMonogramColor,
   currentMonogramFrameKey,
   currentMonogramFontKey,
+  currentMonogramStyle,
   events,
   hasCustomerAccess,
   hasVendorAccess,
@@ -326,6 +333,7 @@ export function EventSwitcher({
                           monogram_color: ev.monogram_color,
                           monogram_frame_key: ev.monogram_frame_key,
                           monogram_font_key: ev.monogram_font_key,
+                          monogram_style: ev.monogram_style,
                         }}
                         size="sm"
                       />
@@ -423,6 +431,7 @@ export function EventSwitcher({
               monogram_color: currentMonogramColor,
               monogram_frame_key: currentMonogramFrameKey,
               monogram_font_key: currentMonogramFontKey,
+              monogram_style: currentMonogramStyle,
             }}
             size="md"
           />

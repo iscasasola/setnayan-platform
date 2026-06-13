@@ -215,6 +215,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 monogram_color: primary.monogram_color,
                 monogram_frame_key: primary.monogram_frame_key,
                 monogram_font_key: primary.monogram_font_key,
+                monogram_style: primary.monogram_style,
               }
             : null
         }
@@ -227,6 +228,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           monogram_color: e.monogram_color,
           monogram_frame_key: e.monogram_frame_key,
           monogram_font_key: e.monogram_font_key,
+          monogram_style: e.monogram_style,
         }))}
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}

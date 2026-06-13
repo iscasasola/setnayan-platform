@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
+
+**Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.
+
+- `apps/web/lib/r2.ts` `publicUrlFor()` — `media` is the only publicly-served bucket; a Cloudflare public bucket URL (custom domain or `r2.dev`) binds to ONE bucket and serves objects at `/{key}` with NO bucket segment. So media URLs are now `${R2_PUBLIC_URL}/${key}` (bucket segment dropped). Non-media buckets (private; read via presigned GETs) keep the legacy `${base}/${bucket}/${key}` shape purely for delete round-trip. Added a one-shot runtime `console.warn` when `R2_PUBLIC_URL` is mistakenly set to `*.r2.cloudflarestorage.com` — the exact footgun that caused this.
+- `apps/web/lib/storage.ts` `parseR2Url()` — now round-trips all three shapes: bucket-less media (new live shape, matched by public-host comparison), `${base}/${bucket}/${key}`, and the raw `…cloudflarestorage.com/{bucket}/{key}` (legacy URLs already stored in the DB → deletes stay safe through the transition). Verified with a 13-case round-trip suite (custom domain, r2.dev, non-media, legacy, transition, no-base, encoded keys, foreign URLs).
+- `.env.example` — documented `R2_PUBLIC_URL` (was a bare `=`): must be a public host bound to `setnayan-media`, never the S3 API endpoint.
+
+**OWNER ACTIONS (required for the fix to take effect — code alone is inert):** (1) In Cloudflare R2, make `setnayan-media` publicly readable — recommend a custom domain `media.setnayan.com` for prod (r2.dev works for a quick test). (2) Set `R2_PUBLIC_URL` in Vercel (Production) to that host. (3) After (1)+(2)+merge, the dashboard/vendor/profile images self-heal (URLs recomputed from keys at render); the hero row's stored `frame_urls`+`video_url` need a one-shot DB rewrite (prepared, run post-env) + `revalidatePath('/')`.
+
+SPEC IMPACT: None (config + URL-construction fix; no schema, no SKU, no pricing). The R2 public-URL convention (`R2_PUBLIC_URL` = media-bucket public host, no bucket segment) logged in corpus `DECISION_LOG.md` (2026-06-13).
+
+---
+
 ## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
 
 Owner directive 2026-06-13 ("here are the pages we will have… we want it to be simple"): collapse the busy top nav to the locked 6-page IA + Log in. Home = the video scrub (= the logo). Every target page already exists — this is nav + labels, no new pages.

@@ -16,6 +16,14 @@
  *
  * A 1:1 (square) source is recommended so one render crops cleanly to both
  * desktop (16:9) and mobile (9:16) via object-fit:cover, but any aspect works.
+ *
+ * RESOLUTION: frames are drawn at up to FRAME_MAX_EDGE px on the long edge and
+ * encoded at FRAME_JPEG_QUALITY. The hero is CONTAINED (centered on a dark
+ * canvas, capped at min(native, 86vmin) — never displayed larger than the
+ * source), so it never upscales/pixelates the way the old full-bleed cover did.
+ * A 1080p+ source (1440–2160px square ideal) still reads best on large/retina
+ * displays. Higher resolution + more frames = a bigger preload, so FPS is kept
+ * modest (12) and clips should be short (~4–6s) — also the ideal hero length.
  */
 
 import { useState, type ChangeEvent } from 'react';
@@ -23,14 +31,23 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
-// Dense capture so the scroll-scrub glides instead of stepping: sample at ~native
-// frame rate with a high ceiling, but downscale each frame (DOWNSCALE_MAX) so even
-// ~1000 frames stay light to preload on the homepage.
-const FPS = 30; // was 8 — capture effectively every frame, not a sparse sample
-const MAX_FRAMES = 1200; // was 180 — safe ceiling (~40s @ 30fps); below this every frame is kept
-const MIN_FRAMES = 48; // was 24
-const DOWNSCALE_MAX = 720; // px longest edge — a scrub is full-screen motion, 720 reads crisp and ~halves payload vs 1080
-const FRAME_UPLOAD_CONCURRENCY = 6; // was 4 — more frames, so upload a few more in parallel
+// HYBRID extraction (owner 2026-06-14): the middle ground between the two
+// earlier approaches — dense-but-soft (30fps @ 720px) vs sparse-but-sharp
+// (6fps @ 1920px). 12fps glides smoothly enough for a scroll-scrub without the
+// 30fps frame explosion; 1280px stays crisp on the CONTAINED hero (capped at
+// min(native, 86vmin), so it's never displayed full-bleed) on normal and most
+// retina displays. A ~5s clip → ~60 frames × ~1280px → a bounded preload.
+const FPS = 12;
+const MAX_FRAMES = 150; // ceiling (~12.5s @ 12fps); real hero clips are ~4–6s
+const MIN_FRAMES = 36;
+// Long-edge cap for extracted frames. 1280 keeps the contained hero crisp
+// without the 1920px payload; sources smaller than this pass through unchanged
+// (never upscaled).
+const FRAME_MAX_EDGE = 1280;
+// JPEG quality — 0.90 stays clean on the contained hero while trimming size to
+// offset the larger frames vs the old 720px capture.
+const FRAME_JPEG_QUALITY = 0.9;
+const FRAME_UPLOAD_CONCURRENCY = 5;
 
 async function presignAndPut(body: Blob, pathPrefix: string, filename: string, contentType: string): Promise<string> {
   const res = await fetch('/api/upload', {
@@ -83,7 +100,7 @@ async function extractFrames(
     });
     const dur = video.duration;
     if (!Number.isFinite(dur) || dur <= 0) throw new Error('Video has no readable duration.');
-    const scale = Math.min(1, DOWNSCALE_MAX / Math.max(video.videoWidth, video.videoHeight));
+    const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
     const w = Math.max(2, Math.round(video.videoWidth * scale));
     const h = Math.max(2, Math.round(video.videoHeight * scale));
     const canvas = document.createElement('canvas');
@@ -91,6 +108,9 @@ async function extractFrames(
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas not available.');
+    // High-quality resampling when a source larger than FRAME_MAX_EDGE is scaled down.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     const N = Math.max(MIN_FRAMES, Math.min(MAX_FRAMES, Math.round(dur * FPS)));
     const blobs: Blob[] = [];
     for (let i = 0; i < N; i++) {
@@ -98,7 +118,7 @@ async function extractFrames(
       await seek(video, t);
       ctx.drawImage(video, 0, 0, w, h);
       const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Frame encode failed.'))), 'image/jpeg', 0.82),
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Frame encode failed.'))), 'image/jpeg', FRAME_JPEG_QUALITY),
       );
       blobs.push(blob);
       onProgress(i + 1, N);
@@ -224,7 +244,7 @@ export function HeroUploader({ initialPublished, initialFrameCount }: { initialP
         <input type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={onPick} disabled={working} />
         <div className="text-[var(--m-ink,#1e2229)] font-medium">{working ? 'Working…' : 'Upload a video'}</div>
         <div className="text-[13px] text-[var(--m-slate,#4f535b)] mt-1">
-          MP4 / WebM / MOV · up to 60 MB · a 1:1 square clip fits both desktop &amp; mobile best
+          MP4 / WebM / MOV · up to 60 MB · use a high-res source (1080p+, 1:1 square ideal) and keep it short (~4–6s) — it plays full-screen, so a low-res clip will look pixelated
         </div>
       </label>
 

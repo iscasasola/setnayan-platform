@@ -67,6 +67,8 @@ export async function Hero() {
         frameUrls={heroVideo.frameUrls}
         ctaText={heroVideo.ctaText}
         ctaHref={heroVideo.ctaHref}
+        frameWidth={heroVideo.frameWidth ?? undefined}
+        frameHeight={heroVideo.frameHeight ?? undefined}
       />
     );
   }

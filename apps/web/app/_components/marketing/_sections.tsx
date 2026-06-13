@@ -946,7 +946,8 @@ export function Footer() {
       links: [
         { label: 'Explore services', href: '/vendors' },
         { label: 'What you get', href: '/features' },
-        { label: 'Real Stories', href: '/blog' },
+        { label: 'Real Stories', href: '/weddings' },
+        { label: 'Planning guides', href: '/blog' },
         { label: 'Wedding venues', href: '/venues' },
         { label: 'Pricing', href: '/pricing' },
       ],

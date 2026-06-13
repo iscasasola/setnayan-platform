@@ -14,15 +14,25 @@ import { Sheet } from './sheet';
 //
 // Browse + search entry points added per CLAUDE.md decision-log rows 426 +
 // 428 (2026-05-19, Phase A scaffolding for the public-view-and-search lock):
-//   - "Marketplace" leads the primary nav and points at the already-shipped
-//     /vendors marketplace. (Relabelled from "Browse" on 2026-05-20 — same
-//     destination; clearer purpose vs. the adjacent "For vendors" sign-up
-//     landing page.)
+//   - "Explore" leads the discovery nav and points at the already-shipped
+//     /vendors marketplace. (Was "Browse" → "Marketplace" → "Explore" as the
+//     6-page IA settled — same destination; the search-first /vendors reframe
+//     2026-06-14 makes "Explore" the right verb.)
 //   - Inline search bar at lg+ submits a GET form to /vendors?q=<query>
 //     (matches the SearchAction JSON-LD already declared in apps/web/app/page.tsx).
 //   - Mobile hamburger sheet includes both the search input and the
-//     Marketplace link near the top of the sheet so the discovery path is
+//     Explore link near the top of the sheet so the discovery path is
 //     reachable without a desktop viewport.
+//
+// 2026-06-14 — PRIMARY_NAV aligned to the locked 6-page IA (the shared
+// marketing Nav in _components/marketing/site-nav.tsx). #1377 simplified the
+// nav but only touched that homepage Nav; this SiteHeader still carried the
+// old Marketplace/How-it-works/Features/Pricing/Help set. The main marketing
+// pages now render the shared <Nav> directly, but SiteHeader still ships on
+// /weddings, /download and /waitlist — so its labels are aligned here too,
+// and "Real Stories" points at the real-wedding showcase (/weddings,
+// iteration 0046) — NOT /blog, the planning-guides "Setnayan Journal"
+// (reachable via the footer).
 //
 // Responsive contract:
 //   - mobile (< 768): logo + hamburger. The hamburger opens a Sheet with
@@ -44,12 +54,11 @@ import { Sheet } from './sheet';
 // fix for the full reproduction trace.
 
 const PRIMARY_NAV = [
-  { href: '/vendors', label: 'Marketplace' },
-  { href: '/how-it-works', label: 'How it works' },
-  { href: '/features', label: 'Features' },
+  { href: '/features', label: 'What you get' },
+  { href: '/vendors', label: 'Explore' },
   { href: '/for-vendors', label: 'For vendors' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/help', label: 'Help' },
+  { href: '/about', label: 'Our story' },
+  { href: '/weddings', label: 'Real Stories' },
 ];
 
 function isVendorContext(pathname: string): boolean {

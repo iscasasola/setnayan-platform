@@ -167,7 +167,20 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
       description,
       siteName: 'Setnayan',
       locale: 'en_PH',
+      // Share card: the editorial card (couple's hero photo + scrim) once their
+      // story is published, else the brand card — the route decides per the
+      // `published` gate, so a shared link previews richly in every phase.
+      // See app/api/og/realstory-slug/[slug]/route.ts.
+      images: [
+        {
+          url: `${siteUrl}/api/og/realstory-slug/${event.slug}`,
+          width: 1200,
+          height: 630,
+          alt: `${event.display_name} · Setnayan`,
+        },
+      ],
     },
+    twitter: { card: 'summary_large_image' as const },
   };
 }
 

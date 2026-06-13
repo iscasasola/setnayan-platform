@@ -239,14 +239,111 @@ function cardTree(input: RealStoryCardInput): VNode {
   );
 }
 
+// Photo variant — a TRANSPARENT satori layer (bottom gradient scrim + white
+// editorial type) composited over the couple's real hero photo. Used when a
+// published editorial has a `hero_photo_id`; the branded `cardTree` is the
+// fallback for photoless editorials (the sample, early real ones).
+function photoOverlayTree(input: RealStoryCardInput): VNode {
+  const eyebrow = input.isSample
+    ? 'A SETNAYAN REAL STORY · SAMPLE'
+    : 'A SETNAYAN REAL STORY';
+  return el(
+    'div',
+    {
+      width: `${OG_WIDTH}px`,
+      height: `${OG_HEIGHT}px`,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'flex-end',
+      fontFamily: 'Poppins',
+    },
+    [
+      el(
+        'div',
+        {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          width: '100%',
+          padding: '120px 64px 52px',
+          // Bottom scrim so white type stays legible over any photo; fades to
+          // fully transparent at the top so the image reads clean above it.
+          backgroundImage:
+            'linear-gradient(to top, rgba(16,18,22,0.86) 0%, rgba(16,18,22,0.55) 42%, rgba(16,18,22,0) 100%)',
+        },
+        [
+          el(
+            'div',
+            {
+              fontFamily: 'Poppins',
+              fontWeight: 500,
+              fontSize: '17px',
+              letterSpacing: '4px',
+              color: '#E8D9B5',
+            },
+            eyebrow,
+          ),
+          el(
+            'div',
+            {
+              fontFamily: 'Cardo',
+              fontWeight: 600,
+              fontSize: '74px',
+              lineHeight: '1',
+              color: '#FFFFFF',
+            },
+            clamp(input.coupleNames, 42),
+          ),
+          el(
+            'div',
+            {
+              fontFamily: 'Poppins',
+              fontWeight: 400,
+              fontSize: '23px',
+              color: 'rgba(255,255,255,0.88)',
+            },
+            clamp(`${input.descriptor} · ${input.dateLabel}`, 96),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 /**
  * Render the Real Story OG card → JPEG buffer (1200×630). Never throws on a
  * font/layout edge — the caller (the /api/og route) can fall back to a static
  * brand image so the Graph crawler never gets a broken response.
+ *
+ * With a `heroPhotoUrl`, renders the PHOTO variant (the couple's real photo,
+ * smart-cropped to 1.91:1, with the white-type scrim overlaid); a fetch/decode
+ * failure degrades to the branded card rather than failing the share.
  */
 export async function renderRealStoryOgJpeg(
   input: RealStoryCardInput,
 ): Promise<Buffer> {
+  if (input.heroPhotoUrl) {
+    try {
+      const res = await fetch(input.heroPhotoUrl);
+      if (res.ok) {
+        const photo = Buffer.from(await res.arrayBuffer());
+        const base = await sharp(photo)
+          .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'attention' })
+          .toBuffer();
+        const overlaySvg = await satori(
+          photoOverlayTree(input) as unknown as React.ReactNode,
+          { width: OG_WIDTH, height: OG_HEIGHT, fonts: SATORI_FONTS },
+        );
+        const overlayPng = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
+        return sharp(base)
+          .composite([{ input: overlayPng, top: 0, left: 0 }])
+          .jpeg({ quality: 86 })
+          .toBuffer();
+      }
+    } catch {
+      // Photo unreachable / undecodable → fall through to the branded card.
+    }
+  }
   const svg = await satori(cardTree(input) as unknown as React.ReactNode, {
     width: OG_WIDTH,
     height: OG_HEIGHT,

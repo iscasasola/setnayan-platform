@@ -17,6 +17,17 @@ The multi-area pin overlay that shipped the same morning (`event_floor_areas` + 
 - Migration timestamps unique (351 ✓). Typecheck/lint/build run in CI (no `node_modules` in the worktree).
 
 SPEC IMPACT: refines iteration 0008. Retires the same-day multi-area model (`event_floor_areas`/`event_floor_objects` + `/seating/areas`) in favour of a single in-blueprint cocktail room. Opens (in PR C) the first vendor WRITE access to a couple planning surface — flagged for owner. Logged in corpus `DECISION_LOG.md` (2026-06-13) + the `0008_seating_chart_editor.md` AS-BUILT header.
+## 2026-06-13 · fix(chrome): bigger monogram marks — fill the chip height (presence follow-up)
+
+Follow-up to the monogram-as-event-logo change (PR #1374). The four type-only marks rendered inside a square box with `preserveAspectRatio=meet`, so the wide lockups (∞ / bar / script) letterboxed vertically and drew at ~half the chip height — they read small.
+
+- `monogram-mark.tsx` — the SVG now sets `height={px}` and lets width auto-compute from the viewBox aspect (no forced square → no vertical letterbox), and each viewBox is cropped tight to its glyphs (`bar` 6 14 120 70 · `duo` 18 18 66 62 · `script` 8 6 168 90 · `infinity` 18 8 164 76). Marks now fill the full chip height at every size (28/36/44).
+- `event-monogram.tsx` — drops the square `box` (h-9 w-9) class from the mark's className so the auto width isn't clamped; `box` still governs the framed + letters-forward + empty branches (unchanged).
+- Verified: typecheck ✅ · lint ✅ · a faithful before/after SVG preview confirmed the marks roughly double in drawn height and read clearly.
+
+SPEC IMPACT: None — pure visual tuning of the already-logged monogram-as-logo feature (corpus DECISION_LOG 2026-06-13). No SKU / schema / pricing / route impact.
+
+---
 
 ## 2026-06-13 · feat(homepage): admin-uploaded hero video — full-screen scroll-scrub homepage hero
 

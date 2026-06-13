@@ -106,7 +106,10 @@ export function EventMonogram({
           letterSpacing={design.letterSpacing}
           color={ink}
           px={px}
-          className={`shrink-0 ${box} ${className ?? ''}`}
+          /* No square `box` here — the mark fills the chip HEIGHT (px) and its
+             width follows its natural aspect, so wide lockups (∞ / bar / script)
+             read at full size instead of letterboxing inside a square. */
+          className={`shrink-0 ${className ?? ''}`}
           title={text}
         />
       );

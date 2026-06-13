@@ -34,6 +34,19 @@ The couple (`/dashboard/[eventId]/messages`) and vendor (`/vendor-dashboard/mess
 - Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
 
 SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A5.
+## 2026-06-14 · feat(seating): zone walkthrough video (seat-finding PR 6 of 6)
+
+The "first-person walk to your table" the market ships **nowhere** — a coordinator (or a no-coordinator couple's DIY helper) records a short vertical clip walking from the entrance to a cluster of tables, tags those tables, and a guest who finds their seat watches the exact walk to their table. Migration `20261219000000_walkthrough_zones.sql`.
+
+- **Schema** — new `event_walkthrough_zones` (one row per named zone, holds the R2 clip ref + `published_at`) + nullable `event_tables.walkthrough_zone_id` (`ON DELETE SET NULL` — dropping a zone never touches seating). RLS mirrors `event_tables`: couple (`current_couple_event_ids`) + coordinator delegate (`moderator_area_level(...,'seat_plan')='edit'`). The guest read is the SECURITY DEFINER RPC only — the table is never anon-readable.
+- **`public_seat_lookup` RPC** — DROP+CREATE (return-type change) adds `{walk_zone_label, walk_video_key}` via a LEFT JOIN to the matched table's PUBLISHED zone clip. Every existing guard preserved (min-len 2, LIKE-escape, published-gate, minimal columns, LIMIT 25); guests with no zone clip get exactly today's result.
+- **`/api/seat-lookup` route** — presigns each distinct clip ref (deduped; a zone's clip is shared by its tables) to a short-lived GET URL, so the table stays private. A presign failure degrades to "no clip", never a 500.
+- **`/[slug]/find-seat` finder** — each result is now a `MatchCard` with a lazy "▶ Watch the walk to your table" disclosure (the `<video>` + its bytes mount only on tap; inline-SVG glyph, no icon dep on the public build).
+- **Coordinator/couple manager** — new `/dashboard/[eventId]/seating/walkthrough` (linked from the seating header). Create/rename/delete zones, tag tables (parameterized `.in()` set-update, UUID-validated), upload a clip via the shared `<FileUpload>` (bucket `media`, video MIME, 60 MB), preview, and a "show to guests" publish toggle (guarded — can't publish an empty zone). Every server action authorizes couple OR seat_plan-edit delegate; RLS is the backstop.
+
+Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests + migration-timestamp guard clean.
+
+SPEC IMPACT: implements the 2026-06-13 "zone-clip routing" half of the seat-finding design (iter 0008 + 0031 + the retired Indoor-Blueprint walkthrough half). **Built ungated/free** — the walkthrough is COORDINATOR LABOR (not a Setnayan SKU) and must stay delegatable so a no-coordinator couple does it free (dual-path parity + free-wayfinding). **Open (owner):** whether the *hosting/tool* is monetized at all is deferred to the holistic pricing pass (do not gate before that). Migration applied to prod (statement-by-statement). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 

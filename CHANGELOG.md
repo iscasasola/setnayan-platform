@@ -173,6 +173,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
 
+## 2026-06-13 · fix(seating): free-size venues have no walls — booths & doors place freely (gardens / open fields)
+
+**Context:** owner directive — "if the place is free size, the entrance/doors doesn't need to connect to a wall. sometimes gardens, or open fields doesn't have walls." The booth feature anchored booths to the canvas EDGES as if they were walls, unconditionally — but in free-size mode (no room dimensions set) the canvas edge is just the viewport, not a wall, so a garden/field booth was being force-snapped to a non-existent wall.
+
+- **Gated the entire wall/perimeter paradigm on `venueScaled`.** Sized room (width × length set) → walls exist → booths keep the perimeter rules (snap to walls, clear of stage wall + door corridors). Free venue → no walls → booths place + drag FREELY, board-clamped like a table.
+- **`freeBoothSlots` (lib/seating.ts):** Auto Arrange + Add-booth in a free venue tuck booths into a tidy row JUST BEYOND the furthest table from the stage (behind the guests, out of the sightline), perpendicular to the stage→tables axis, centred on the stage line — free-floating, draggable anywhere after. Pure + deterministic.
+- **Booth drag** (`onCanvasPointerMove`): free venue drops the booth wherever dragged (no `clampBoothToPerimeter`); sized room unchanged.
+- **Doors were already free** (entrance / service-door markers drag with no wall-snap) — confirmed, no change needed; the directive is satisfied for doors.
+- **Copy** now branches on `venueScaled`: Add-booth tooltip + menu hint, the Auto Arrange dialog's booth step, the result notice ("behind the tables" vs "on the perimeter"), and the booth marker aria-label ("drag to move" vs "drag along the walls").
+
+**Verification:** 41/41 pure-logic tests (3 new: free row sits beyond the furthest table + centred + evenly spaced + deterministic; coordinates are free, never pinned to a 0/100 wall band; no-tables + n=0 fallbacks). `tsc` clean (pre-existing unrelated `satori` types error only). Live browser on the free-size demo event: Add-booth landed the booth behind the tables (not at a wall inset); dragging it to mid-canvas LEFT it at interior coords (64.7, 43.7) instead of snapping to a wall. Nothing persisted to the demo DB.
+
+**SPEC IMPACT:** None beyond the 0008 booth surface already logged; refines its wall model.
+
 ## 2026-06-13 · feat(seating): banquet runs join end-flush + round tables kiss edge-to-edge — chaining for every chainable shape
 
 **Context:** owner follow-up after the serpentine snap shipped — "yes the connected. but the long table should also connect and the round tables." Same magnetic model, shape-appropriate joints:

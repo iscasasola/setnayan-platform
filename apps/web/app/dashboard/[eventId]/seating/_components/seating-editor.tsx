@@ -47,6 +47,7 @@ import {
   boothPerimeterSlots,
   clampBoothToPerimeter,
   computeAutoLayout,
+  freeBoothSlots,
   defaultTablePosition,
   effectiveCapacity,
   guestTier,
@@ -524,10 +525,16 @@ export function SeatingEditor({
     else setConfirmDelete(t);
   };
 
+  // Every table's current %-position (saved spot, else its default-grid home) —
+  // shared by free-venue booth placement so booths tuck behind the real tables.
+  const tablePointsNow = () =>
+    tables.map((t, i) => positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled));
+
   // One-click Auto Arrange — three deterministic steps, all free sorting
   // logic (no AI): (1) computeAutoLayout rebuilds the table grid stage-out,
-  // (2) boothPerimeterSlots re-anchors every booth to the legal wall band,
-  // (3) the server's role-tier auto-seat fills guests into the new layout.
+  // (2) booths re-anchor — to the legal wall band in a sized room, or into a
+  // tidy row behind the tables in a free venue (gardens / open fields have no
+  // walls), (3) the server's role-tier auto-seat fills guests into the layout.
   // Optimistic: the new geometry paints immediately; the server action then
   // persists positions + booths and seats guests in one round-trip.
   const runAutoArrange = () => {
@@ -548,7 +555,14 @@ export function SeatingEditor({
       rect: { width: rect.width, height: rect.height },
       footprintOf: footprintPx,
     });
-    const slots = boothPerimeterSlots(fp, booths.length);
+    // Sized room → hug the walls; free venue → a row behind the tables.
+    const slots = venueScaled
+      ? boothPerimeterSlots(fp, booths.length)
+      : freeBoothSlots(
+          { x: stage.x, y: stage.y },
+          tables.map((t, i) => layout[t.table_id] ?? positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled)),
+          booths.length,
+        );
     const nextBooths = booths.map((b, i) => ({
       ...b,
       x_pos: slots[i]?.x ?? b.x_pos,
@@ -565,10 +579,11 @@ export function SeatingEditor({
       // The action persisted everything it was sent — nothing is "unsaved".
       setDirty(new Set());
       setBoothsDirty(false);
+      const boothWhere = venueScaled ? 'on the perimeter' : 'behind the tables';
       setNotice(
         res.seated > 0
-          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} on the perimeter, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
-          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} on the perimeter` : ''}. Everyone attending is already seated.`,
+          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
+          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone attending is already seated.`,
       );
     });
   };
@@ -1270,12 +1285,19 @@ export function SeatingEditor({
       } else if (d.kind === 'service') {
         setServiceDoor((sd) => ({ ...sd, x, y }));
       } else if (d.kind === 'booth') {
-        // Perimeter rules run live: snap to the nearest legal wall position,
-        // sliding clear of the stage wall, door corridors and other booths.
-        const peers = booths
-          .filter((b) => b.booth_id !== d.id)
-          .map((b) => ({ x: b.x_pos, y: b.y_pos }));
-        const p = clampBoothToPerimeter(x, y, boothFp(), peers);
+        // In a SIZED room the perimeter rules run live: snap to the nearest
+        // legal wall position, clear of the stage wall, door corridors and
+        // other booths. In a FREE venue (garden / open field) there are no
+        // walls to hug — the booth drops wherever it's dragged (board-clamped,
+        // like a table). Owner-directed 2026-06-13.
+        const p = venueScaled
+          ? clampBoothToPerimeter(
+              x,
+              y,
+              boothFp(),
+              booths.filter((b) => b.booth_id !== d.id).map((b) => ({ x: b.x_pos, y: b.y_pos })),
+            )
+          : { x, y };
         setBooths((bs) => bs.map((b) => (b.booth_id === d.id ? { ...b, x_pos: p.x, y_pos: p.y } : b)));
       } else {
         setEntrance((en) => ({ ...en, x, y }));
@@ -1364,16 +1386,22 @@ export function SeatingEditor({
     setDance((dz) => ({ ...dz, enabled: false }));
     setFloorDirty(true);
   };
-  // Add a vendor booth: it spawns straight onto the nearest legal perimeter
-  // spot (bottom-centre bias), never mid-room.
+  // Add a vendor booth. Sized room → it spawns onto the nearest legal
+  // perimeter spot (bottom-centre bias), never mid-room. Free venue → into the
+  // tidy row behind the tables (no walls to hug); the couple drags from there.
   const addBooth = (type: BoothType) => {
     const label = BOOTH_CATALOG.find((b) => b.type === type)?.label ?? 'Booth';
-    const p = clampBoothToPerimeter(
-      50,
-      96,
-      boothFp(),
-      booths.map((b) => ({ x: b.x_pos, y: b.y_pos })),
-    );
+    const p = venueScaled
+      ? clampBoothToPerimeter(
+          50,
+          96,
+          boothFp(),
+          booths.map((b) => ({ x: b.x_pos, y: b.y_pos })),
+        )
+      : freeBoothSlots({ x: stage.x, y: stage.y }, tablePointsNow(), booths.length + 1)[booths.length] ?? {
+          x: stage.x,
+          y: 90,
+        };
     tmpBoothSeq.current += 1;
     setBooths((bs) => [
       ...bs,
@@ -1933,7 +1961,11 @@ export function SeatingEditor({
                   onClick={() => setShowAddBooth((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={showAddBooth}
-                  title="Vendor booths anchor to the walls — never blocking the stage or doors"
+                  title={
+                    venueScaled
+                      ? 'Vendor booths anchor to the walls — never blocking the stage or doors'
+                      : 'Vendor booths — drop them anywhere; an open venue has no walls'
+                  }
                   className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
                 >
                   <Store className="h-3.5 w-3.5" /> Add booth
@@ -1968,7 +2000,9 @@ export function SeatingEditor({
                         </button>
                       ))}
                       <p className="px-3 py-1.5 text-[10px] text-ink/45">
-                        Booths snap to the perimeter — clear of the stage wall &amp; door paths.
+                        {venueScaled
+                          ? 'Booths snap to the perimeter — clear of the stage wall & door paths.'
+                          : 'Open venue — place booths anywhere; no walls to hug.'}
                       </p>
                     </div>
                   </>
@@ -2428,7 +2462,7 @@ export function SeatingEditor({
               <button
                 type="button"
                 onPointerDown={onBoothPointerDown(b.booth_id)}
-                aria-label={`${b.label} — drag along the walls`}
+                aria-label={`${b.label} — ${venueScaled ? 'drag along the walls' : 'drag to move'}`}
                 className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
                   dragId === `__booth_${b.booth_id}__`
                     ? 'border-terracotta cursor-grabbing'
@@ -3281,8 +3315,10 @@ export function SeatingEditor({
               </li>
               <li>
                 <span className="font-semibold text-ink/85">2 · Booths</span> —{' '}
-                {booths.length > 0 ? `your ${booths.length} booth${booths.length === 1 ? '' : 's'} anchor` : 'any booths anchor'}{' '}
-                to the back wall &amp; sides, never blocking the stage or door paths.
+                {booths.length > 0 ? `your ${booths.length} booth${booths.length === 1 ? '' : 's'}` : 'any booths'}{' '}
+                {venueScaled
+                  ? 'anchor to the back wall & sides, never blocking the stage or door paths.'
+                  : 'tuck into a row behind the tables, out of the guests’ sightline (an open venue has no walls).'}
               </li>
               <li>
                 <span className="font-semibold text-ink/85">3 · Guests</span> —{' '}

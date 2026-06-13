@@ -980,6 +980,45 @@ export function boothPerimeterSlots(fp: FloorPlanLike, n: number): Array<{ x: nu
   return out;
 }
 
+// Free-venue booth placement (gardens / open fields — no walls). There's no
+// perimeter to hug, so Auto Arrange tucks booths into a row JUST BEYOND the
+// furthest table from the stage: behind the guests, out of the sightline, but
+// free-floating (the couple can drag them anywhere afterwards). The row runs
+// perpendicular to the stage→tables axis and is centred on the stage's lateral
+// line. Pure + deterministic. Coords are percent of the canvas like everything
+// else; the free board may legitimately exceed 0–100, and the editor clamps.
+export function freeBoothSlots(
+  stage: { x: number; y: number },
+  tablePoints: ReadonlyArray<{ x: number; y: number }>,
+  n: number,
+): Array<{ x: number; y: number }> {
+  if (n <= 0) return [];
+  const gap = BOOTH_W + 3;
+  const row = (cx: number, cy: number, px: number, py: number) =>
+    Array.from({ length: n }, (_, i) => {
+      const off = (i - (n - 1) / 2) * gap;
+      return { x: cx + px * off, y: cy + py * off };
+    });
+  // No tables yet → a horizontal row on the far side of the stage from centre.
+  if (tablePoints.length === 0) return row(stage.x, stage.y <= 50 ? 90 : 10, 1, 0);
+
+  const cx = tablePoints.reduce((a, p) => a + p.x, 0) / tablePoints.length;
+  const cy = tablePoints.reduce((a, p) => a + p.y, 0) / tablePoints.length;
+  let dx = cx - stage.x;
+  let dy = cy - stage.y;
+  let len = Math.hypot(dx, dy);
+  if (len < 1e-6) {
+    dx = 0;
+    dy = 1;
+    len = 1;
+  } // stage sits on the cluster → push the row downward
+  const ux = dx / len;
+  const uy = dy / len; // stage → tables (depth axis)
+  const maxProj = Math.max(...tablePoints.map((p) => (p.x - stage.x) * ux + (p.y - stage.y) * uy));
+  const depth = maxProj + BOOTH_H + 8; // a touch past the furthest table
+  return row(stage.x + ux * depth, stage.y + uy * depth, -uy, ux);
+}
+
 // Live drag-snap: pull a booth centre to the nearest legal perimeter spot —
 // nearest allowed wall interval, then slid along the wall until it clears
 // every other booth. The hardcoded boundary rules are enforced HERE, so a

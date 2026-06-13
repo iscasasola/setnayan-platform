@@ -14,6 +14,16 @@ The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notificat
 - Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
 
 SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A4.
+## 2026-06-14 · refactor(dashboard): shared <ContractCard> — dedup Track A3
+
+The couple contract list (`app/dashboard/[eventId]/contracts/page.tsx`) and the vendor contract list (`app/vendor-dashboard/contracts/page.tsx`) forked byte-identical presentation: the contract row card, the status badge, the `STATUS_TONE` tone map, and the empty-state shell. Extracted them into a single shared module at `app/_components/contracts/`. Both pages keep their own role-scoped, RLS-bound fetch (`fetchEventContracts` for couples · `fetchVendorContracts` for vendors) — only the presentational card/badge/empty-state is shared; per-role differences (detail-route `href`, "From {vendor}" vs "For {event}" subtitle) are passed via props, mirroring the `viewerRole`-parameterized `chat-message-stream.tsx` pattern. No behavior or visual change — pure dedup.
+
+- apps/web/app/_components/contracts/contract-card.tsx — NEW <ContractCard> (+ <ContractStatusBadge>, <ContractsEmptyState>, and the now-single-source STATUS_TONE map)
+- apps/web/app/dashboard/[eventId]/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
+- apps/web/app/vendor-dashboard/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
+- Verified: tsc --noEmit ✅ (exit 0) · next lint ✅ (No ESLint warnings or errors). No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor; no SKU/schema/pricing/copy/UX change. Dashboard dedup Track A3.
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 

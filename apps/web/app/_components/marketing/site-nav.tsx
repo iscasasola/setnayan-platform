@@ -43,9 +43,12 @@ export function PromoBar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 2. Nav — sticky top with search button + Sign in + Start planning
+// 2. Nav — sticky top with Sign in + Start planning
+//    `sticky` (default true) can be turned off on pages that already have
+//    their own sticky-top bar (e.g. the /vendors marketplace search header)
+//    so two sticky bars don't stack/overlap on scroll.
 // ─────────────────────────────────────────────────────────────────────
-export function Nav() {
+export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
   // Simple 6-page site (owner 2026-06-13): Home (the video scrub, = the logo) ·
   // What you get · Explore (search anything across all services) · For vendors ·
   // Our story · Real Stories. Pricing folds into "What you get"; Help + legal
@@ -63,7 +66,7 @@ export function Nav() {
     { label: 'Real Stories', href: '/weddings' },
   ];
   return (
-    <nav className="relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)] sticky top-0 z-10">
+    <nav className={`relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)]${sticky ? ' sticky top-0 z-10' : ''}`}>
       {/* Brand mark links home — "Home (the video scrub) = the logo" (owner
           2026-06-13). On the homepage this is a same-page link back to the
           hero; on every other page it routes to /. */}
@@ -78,19 +81,6 @@ export function Nav() {
         ))}
       </div>
       <div className="flex gap-2.5 items-center">
-        <Link
-          href="/vendors"
-          className="hidden xl:inline-flex items-center gap-2.5 px-3 py-2 rounded-full bg-[var(--m-paper-2)] border border-[var(--m-line)] text-[var(--m-slate-2)] text-[13px]"
-        >
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden>
-            <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.7" />
-            <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-          </svg>
-          <span className="mr-12">Search anything…</span>
-          <kbd className="m-mono text-[10px] px-1.5 py-px rounded bg-[var(--m-paper)] border border-[var(--m-line)] text-[var(--m-slate-3)]">
-            ⌘K
-          </kbd>
-        </Link>
         <Link
           href="/login"
           className="hidden lg:inline whitespace-nowrap text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]"

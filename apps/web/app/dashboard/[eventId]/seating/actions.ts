@@ -369,6 +369,20 @@ export async function saveFloorPlan(formData: FormData) {
   const serviceX = clampPct(formData.get('service_entrance_x'));
   const serviceY = clampPct(formData.get('service_entrance_y'));
 
+  // Cocktail / waiting-area room — a second room on the same canvas.
+  const cocktailEnabled = formData.get('cocktail_enabled') === 'true';
+  const cocktailX = clampPct(formData.get('cocktail_x'));
+  const cocktailY = clampPct(formData.get('cocktail_y'));
+  const cocktailW = clampSize(formData.get('cocktail_w'));
+  const cocktailH = clampSize(formData.get('cocktail_h'));
+  const cocktailLabelRaw = formData.get('cocktail_label');
+  const cocktailLabel =
+    typeof cocktailLabelRaw === 'string' && cocktailLabelRaw.trim().length > 0
+      ? cocktailLabelRaw.trim().slice(0, 80)
+      : 'Cocktail Area';
+  // Couple revoke switch — absent or anything but 'false' keeps vendor edit on.
+  const cocktailVendorEdit = formData.get('cocktail_vendor_edit') !== 'false';
+
   // Venue dimensions (metres) — null when the couple hasn't set a room size.
   const parseDim = (v: FormDataEntryValue | null): number | null => {
     if (typeof v !== 'string' || v.length === 0) return null;
@@ -405,6 +419,13 @@ export async function saveFloorPlan(formData: FormData) {
       service_entrance_enabled: serviceEnabled,
       service_entrance_x: serviceX ?? 97,
       service_entrance_y: serviceY ?? 50,
+      cocktail_enabled: cocktailEnabled,
+      cocktail_x: cocktailX ?? 50,
+      cocktail_y: cocktailY ?? 40,
+      cocktail_w: cocktailW ?? 30,
+      cocktail_h: cocktailH ?? 22,
+      cocktail_label: cocktailLabel,
+      cocktail_vendor_edit: cocktailVendorEdit,
       venue_width_m: venueWidth,
       venue_length_m: venueLength,
       updated_at: new Date().toISOString(),
@@ -918,6 +939,8 @@ type BoothPayload = {
   x_pos: number;
   y_pos: number;
   sort_order: number;
+  zone: 'reception' | 'cocktail';
+  event_vendor_id: string | null;
 };
 
 // Parse + clamp the booths JSON. Throws on anything malformed — the editor
@@ -941,6 +964,11 @@ function parseBoothsPayload(raw: unknown): BoothPayload[] {
     const x = Number(o.x_pos);
     const y = Number(o.y_pos);
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Invalid input');
+    const zone = o.zone === 'cocktail' ? 'cocktail' : 'reception';
+    const vendorId =
+      typeof o.event_vendor_id === 'string' && o.event_vendor_id.length > 0
+        ? o.event_vendor_id
+        : null;
     return {
       booth_id: typeof o.booth_id === 'string' && o.booth_id.length > 0 ? o.booth_id : null,
       booth_type: type as BoothType,
@@ -948,6 +976,8 @@ function parseBoothsPayload(raw: unknown): BoothPayload[] {
       x_pos: Math.max(0, Math.min(100, x)),
       y_pos: Math.max(0, Math.min(100, y)),
       sort_order: i,
+      zone: zone as 'reception' | 'cocktail',
+      event_vendor_id: vendorId,
     };
   });
 }
@@ -973,6 +1003,8 @@ async function persistBooths(
       x_pos: b.x_pos,
       y_pos: b.y_pos,
       sort_order: b.sort_order,
+      zone: b.zone,
+      event_vendor_id: b.event_vendor_id,
     };
     const { error } = b.booth_id
       ? await supabase.from('event_floor_booths').update(row).eq('booth_id', b.booth_id).eq('event_id', eventId)

@@ -1120,7 +1120,9 @@ export function clampBoothToPerimeter(
 
 export type AutoLayoutInput = {
   tables: EventTableRow[];
-  floorPlan: FloorPlanLike & Pick<FloorPlanRow, 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'>;
+  floorPlan: FloorPlanLike &
+    Pick<FloorPlanRow, 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'> &
+    Pick<FloorPlanRow, 'cocktail_enabled' | 'cocktail_x' | 'cocktail_y' | 'cocktail_w' | 'cocktail_h'>;
   // Canvas pixel rect — converts table pixel footprints into percent.
   rect: { width: number; height: number };
   // Real rendered footprint (px, chairs included) — the editor passes its

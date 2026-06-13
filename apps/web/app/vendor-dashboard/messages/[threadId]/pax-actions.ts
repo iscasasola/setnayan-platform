@@ -23,11 +23,14 @@ type Resolved = {
   threadId: string;
   eventVendorId: string;
   eventId: string;
+  vendorProfileId: string;
   livePax: number;
   base: number;
   applied: number;
   target: number;
   currentTotal: number;
+  rate: number | null;
+  prevPax: number | null;
 };
 
 // Shared guard + authoritative recompute for both actions. Returns null (caller
@@ -49,7 +52,7 @@ async function resolve(formData: FormData): Promise<Resolved | null> {
   const { data: ev } = await admin
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, marketplace_vendor_id, service_id, total_cost_php, pax_surcharge_php, pax_quote_base',
+      'vendor_id, event_id, marketplace_vendor_id, service_id, total_cost_php, pax_surcharge_php, pax_quote_base, cost_basis_pax',
     )
     .eq('vendor_id', eventVendorId)
     .maybeSingle();
@@ -91,17 +94,49 @@ async function resolve(formData: FormData): Promise<Resolved | null> {
     threadId,
     eventVendorId,
     eventId: ev.event_id,
+    vendorProfileId: profile.vendor_profile_id,
     livePax,
     base,
     applied: ev.pax_surcharge_php ?? 0,
     target,
     currentTotal: ev.total_cost_php ?? 0,
+    rate,
+    prevPax: ev.cost_basis_pax ?? null,
   };
 }
 
 function revalidate(threadId: string) {
   if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   revalidatePath('/vendor-dashboard/messages');
+}
+
+// Append-only HQ audit (Phase 6). Best-effort: a failed insert (e.g. the table
+// not yet migrated) must never block the vendor's decision. The newSurcharge /
+// newTotal equal the previous values on a 'decline' (price held).
+async function writeAudit(
+  r: Resolved,
+  action: 'accept' | 'decline',
+  newSurcharge: number,
+  newTotal: number,
+): Promise<void> {
+  try {
+    await r.admin.from('pax_change_audit').insert({
+      event_id: r.eventId,
+      event_vendor_id: r.eventVendorId,
+      vendor_profile_id: r.vendorProfileId,
+      action,
+      live_pax: r.livePax,
+      quote_base_pax: r.base,
+      prev_pax: r.prevPax,
+      rate_php: r.rate,
+      prev_surcharge_php: r.applied,
+      new_surcharge_php: newSurcharge,
+      prev_total_php: r.currentTotal,
+      new_total_php: newTotal,
+    });
+  } catch {
+    /* audit is best-effort — never block the decision */
+  }
 }
 
 /** Apply the live-pax surcharge to the booking total (the vendor confirmed). */
@@ -118,6 +153,7 @@ export async function acceptPaxSurcharge(formData: FormData): Promise<void> {
       pax_quote_base: r.base, // lock the base on first decision
     })
     .eq('vendor_id', r.eventVendorId);
+  await writeAudit(r, 'accept', r.target, newTotal);
   revalidate(r.threadId);
 }
 
@@ -129,5 +165,6 @@ export async function declinePaxSurcharge(formData: FormData): Promise<void> {
     .from('event_vendors')
     .update({ cost_basis_pax: r.livePax, pax_quote_base: r.base })
     .eq('vendor_id', r.eventVendorId);
+  await writeAudit(r, 'decline', r.applied, r.currentTotal);
   revalidate(r.threadId);
 }

@@ -44,6 +44,18 @@ Fourth of the sequenced Real Stories program (PR A = rename · PR B = OG share c
 - **Did NOT touch PR B's files** (`app/realstories/[slug]/page.tsx`, `app/realstories/_components/*`, `lib/social/*`, `app/api/og/*`). Verified `tsc --noEmit` (zero errors in these files; only the unrelated pre-existing missing-optional-native-dep errors remain) + `next lint` clean.
 
 SPEC IMPACT: iteration 0046 Real Stories gains an admin featuring/curation layer (events.showcase_featured_at + showcase_feature_rank). Logged in corpus `DECISION_LOG.md` (2026-06-14). Honesty lock preserved: only REAL consented editorials are ever featurable; the sample stays labelled "Sample showcase" and cannot be admin-featured.
+## 2026-06-14 · feat(realstories): Facebook-shareable editorials — OG share card + share buttons (PR B of the Real-Stories featuring program)
+
+Owner: *"the editorials should be shareable so vendors and customers can share on their facebook … will it have a preview on facebook … so the exact editorial can be viewable than just a link."* The editorial pages set `og:title`/`og:description` but had **no `og:image`**, so a Facebook/Pinterest share rendered as a bare link. This adds the per-editorial share card + share buttons.
+
+- **NEW `lib/social/realstory-card.tsx`** — renders a **1200×630 (1.91:1 Open Graph ratio)** branded share card via the same satori + sharp + bundled-static-font pipeline as `lib/social/card.tsx` (kept self-contained so the two render paths evolve independently): gold-ruled editorial mat · "A SETNAYAN REAL STORY" eyebrow · couple names in Cardo serif · venue/ceremony descriptor · date · the wedding's palette swatch row · SETNAYAN wordmark. `heroPhotoUrl` accepted now so the real-editorial photo-background variant is a one-line wire-up later (today's live sample has no photo → branded card).
+- **NEW `app/api/og/realstory/[slug]/route.ts`** — public, Node-runtime, immutable-cached. Renders the card for a slug from the fixed public `REAL_WEDDINGS` set (404 on unknown); on any render error it 302s to the static `/brand/og-card.webp` so a crawler never gets a 500.
+- **NEW `app/realstories/_components/share-buttons.tsx`** — client `<ShareButtons>`: **Facebook** (sharer), **Pinterest** (pins the og:image — wedding inspo is Pinterest-native), **Copy link** (Messenger/Viber/IG-DM). Reusable — drops onto the couple's own `/[slug]` editorial + the vendor "share to your Page" surface in PR C. (Brand glyphs inlined; newer lucide dropped Facebook/Pinterest icons.)
+- **`app/realstories/[slug]/page.tsx`** — `generateMetadata` now sets `openGraph.images` (the card, 1200×630) + `twitter.card: 'summary_large_image'`; the showcase bar renders `<ShareButtons>`. So a shared Real Story shows the couple + palette + venue and **deep-links to that exact editorial** — a beautiful clickable card, not a link.
+
+Verified: tsc + lint clean on changed files (the `satori`/`sharp` module-resolution errors are the known local-install gap — present in CI). The satori render can't run in the local install (those deps live only in CI), so the **card visual is verified on the Vercel preview** post-build, not locally.
+
+SPEC IMPACT: iteration 0046 editorials are now FB/Pinterest-shareable with a per-story OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR C — couple "Publish to Real Stories" consent + "Share our story" + vendor "Featured / Share to your Page" (reuses `<ShareButtons>` + the card, adds the photo-background variant); PR D (parallel) — admin curate/feature.
 
 ---
 

@@ -9,6 +9,7 @@ import {
   weddingMetaDescription,
   weddingTitle,
 } from '@/lib/real-weddings';
+import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 
 // /realstories/[slug] — Real Weddings showcase detail (iteration 0046).
 //
@@ -47,6 +48,11 @@ export async function generateMetadata({ params }: Props) {
   const description = weddingMetaDescription(wedding);
   const canonicalUrl = `${SITE_URL}/realstories/${wedding.slug}`;
   const title = weddingTitle(wedding);
+  // Per-editorial OG share card (1200×630) — the couple + palette + venue,
+  // rendered on the fly so a Facebook/Pinterest share shows the actual story
+  // and deep-links here, instead of a bare link. See
+  // app/api/og/realstory/[slug]/route.ts + lib/social/realstory-card.tsx.
+  const ogImage = `${SITE_URL}/api/og/realstory/${wedding.slug}`;
   return {
     title,
     description,
@@ -58,8 +64,14 @@ export async function generateMetadata({ params }: Props) {
       description,
       siteName: 'Setnayan',
       locale: 'en_PH',
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
-    twitter: { card: 'summary', title, description },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
   };
 }
 
@@ -69,6 +81,9 @@ export default async function WeddingShowcasePage({ params }: Props) {
   if (!wedding) notFound();
   const title = weddingTitle(wedding);
   const editorialEventId = SAMPLE_EDITORIALS[wedding.slug] ?? null;
+  const canonicalUrl = `${SITE_URL}/realstories/${wedding.slug}`;
+  const ogImage = `${SITE_URL}/api/og/realstory/${wedding.slug}`;
+  const shareTitle = `${wedding.coupleNames} — a Setnayan Real Story`;
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -115,9 +130,9 @@ export default async function WeddingShowcasePage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
       />
 
-      {/* Slim showcase bar — back nav + honest sample label, above the editorial. */}
+      {/* Slim showcase bar — back nav + share + honest sample label. */}
       <div className="border-b border-ink/10 bg-cream">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
           <Link
             href="/realstories"
             className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
@@ -125,11 +140,14 @@ export default async function WeddingShowcasePage({ params }: Props) {
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
             Real weddings
           </Link>
-          {wedding.isSample ? (
-            <span className="rounded-full border border-ink/15 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/55">
-              Sample showcase
-            </span>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <ShareButtons url={canonicalUrl} title={shareTitle} image={ogImage} />
+            {wedding.isSample ? (
+              <span className="rounded-full border border-ink/15 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/55">
+                Sample showcase
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 

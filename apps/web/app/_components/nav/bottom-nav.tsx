@@ -30,8 +30,11 @@
  * Owner-locked baseline 2026-06-13: 500ms · grow 1.15 · glow 1.2 ·
  * stretch 1.1 · white light.
  *
- * SCOPE: mobile-only (`lg:hidden`). Fixed bottom strip. Evenly
- * distributed columns, one per item up to 6 (the customer 6-tab row).
+ * SCOPE: mobile-only (`lg:hidden`). A FLOATING PILL bar — inset 14px from
+ * each edge, floating 12px above the safe-area, fully rounded (NOT an
+ * edge-to-edge strip). Evenly distributed columns, one per item up to 6
+ * (the customer 6-tab row); the active pill is a consistent centered
+ * capsule so 3/4/5/6-tab bars all read the same.
  *
  * ACTIVE DETECTION: each item's `activeMatch` accepts a single prefix
  * string OR an array of prefixes (any-of). Match is exact-equal OR
@@ -39,8 +42,9 @@
  * so `/budgets` never mis-matches `/budget`. `activeMatchExact` suppresses
  * the startsWith branch for Home-style tabs that prefix every sibling.
  *
- * SAFE-AREA: pb-[env(safe-area-inset-bottom)] keeps the bar above the iOS
- * home indicator. Z-INDEX: z-30 (same layer as <SidebarShell>).
+ * SAFE-AREA: the bar's bottom offset is `calc(env(safe-area-inset-bottom)
+ * + 12px)`, floating it clear of the iOS home indicator. Z-INDEX: z-30
+ * (same layer as <SidebarShell>).
  */
 
 import Link from 'next/link';
@@ -117,14 +121,19 @@ export function BottomNav({ items }: Props) {
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed left-[14px] right-[14px] bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 overflow-hidden rounded-full border backdrop-blur lg:hidden"
       style={
         {
-          // Frosted-glass bar. Slightly desaturated paper so the WHITE press
-          // light reads against it (a white glow on pure white is invisible —
-          // same reason Instagram's bar is a touch grey).
+          // FLOATING PILL bar (owner-locked 2026-06-13 "long floating pill,
+          // use as the template"). Inset 14px from each edge, floating 12px
+          // above the safe-area, fully rounded (rounded-full) — NOT an
+          // edge-to-edge bottom strip. Frosted-glass: slightly desaturated
+          // paper so the WHITE press light reads against it (a white glow on
+          // pure white is invisible — same reason Instagram's bar is grey).
           background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha
           borderColor: 'var(--m-line)',
+          // Soft drop shadow gives the "floating above the page" read.
+          boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',
           // 🔒 The four central tuning knobs (owner-locked baseline 2026-06-13).
           // Retune the whole app's nav feel by editing ONLY these four.
           '--bn-dur': '500ms',
@@ -156,8 +165,16 @@ export function BottomNav({ items }: Props) {
               key={activeIndex}
               className="nav-pill-stretch absolute inset-y-0"
               style={{
-                left: 6,
-                right: 6,
+                // CONSISTENT capsule, centered in the cell — NOT cell-filling.
+                // A fixed ~52px width (capped to the cell on a tight 6-tab bar)
+                // keeps the pill identical across 3/4/5/6-tab consoles, instead
+                // of ballooning in admin's wide 4-tab cells. marginInline:auto
+                // centers it without a transform so the stretch keyframe stays
+                // clean. (owner 2026-06-13 "template must adjust for 3/4/5/6")
+                left: 0,
+                right: 0,
+                marginInline: 'auto',
+                width: 'min(52px, calc(100% - 8px))',
                 borderRadius: 999,
                 background: 'rgba(30, 34, 41, 0.15)', // --m-ink @ 15% — bolder so the active tab reads at a glance
               }}
@@ -185,7 +202,10 @@ export function BottomNav({ items }: Props) {
               key={flash.id}
               className="nav-press-flash absolute left-1/2 top-1/2"
               style={{
-                width: `calc(100% - 4px)`,
+                // Consistent width (slightly wider than the pill for the feather),
+                // capped to the cell — matches the pill so the press-light reads
+                // identically across 3/4/5/6-tab bars. Centered via translate.
+                width: 'min(64px, calc(100% - 2px))',
                 height: 90,
                 borderRadius: 999,
                 background: 'rgba(255, 255, 255, 0.95)',

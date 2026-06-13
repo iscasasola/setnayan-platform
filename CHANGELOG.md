@@ -460,6 +460,21 @@ Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit test
 
 SPEC IMPACT: implements the 2026-06-13 "live day-of reprogramming" 3-lock decision (digital-only responsibility · exclusive lock [shipped PR 2] · silent-only updates) for iter 0008 seat plan + 0031 day-of guest. **Open (owner):** PR 4 (paid seat pass) is still unbuilt — it will inherit this live-data + tick pattern when it lands. Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
+## 2026-06-13 · feat(nav): floating-pill bar + consistent pill — finalize the ONE bottom-nav template
+
+Two owner directives, one PR, both in the single shared `app/_components/nav/bottom-nav.tsx` (every console already mounts it; nothing hardcoded left to remove — the legacy dashboard bottom-nav.tsx is already gone, and the lint guard enforces delegation):
+
+1. **Floating pill bar** (owner: "we want it in a long floating pill … use this as the template"). The bar was an edge-to-edge bottom strip (`fixed inset-x-0 bottom-0 border-t`) — that's what never matched the demos. It's now a **floating pill**: `fixed left-[14px] right-[14px] bottom-[calc(safe-area+12px)] rounded-full border` + a soft drop shadow + `overflow-hidden`, frosted-glass background unchanged. Applies to customer / vendor / admin at once.
+2. **Consistent active pill across 3/4/5/6 tabs** (owner: "still not the same … must adjust for 3,4,5,6 icons"). The pill (and press-light) used to FILL its cell, so admin's 4 wide cells made a wider pill than the 5-tab consoles. Now it's a CONSISTENT centered capsule — `width: min(52px, calc(100% - 8px))`, `margin-inline:auto` (press-light `min(64px, calc(100% - 2px))`). Tabs still distribute evenly (1fr) for tap targets, but the visible pill is the same ~52px on 3/4/5-tab bars (caps only on a tight 6-tab phone).
+
+Net: the bottom nav is now a single floating-pill template — same shape, same pill, same colours, same motion — on every console; only each role's tabs differ. No change to the `--bn-*` knobs or guard markers.
+
+Verified: typecheck ✅ · lint ✅ · `lint:botnav` ✅.
+
+SPEC IMPACT: finalizes the owner-locked bottom-nav template (floating pill + consistent capsule). Supersedes the earlier edge-to-edge bar + "pill fills the cell" measurements. Memory `project_setnayan_bottom_nav_canonical` + corpus `DECISION_LOG.md` updated. No SKU / schema / pricing / route impact.
+
+---
+
 ## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
 
 Owner directive 2026-06-13 ("here are the pages we will have… we want it to be simple"): collapse the busy top nav to the locked 6-page IA + Log in. Home = the video scrub (= the logo). Every target page already exists — this is nav + labels, no new pages.

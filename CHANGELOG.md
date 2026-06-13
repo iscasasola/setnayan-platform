@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(explore): bare `/vendors` = search bar only (catalog demoted) + unified multi-field search
+
+Owner directive 2026-06-13 (*"why do i see services here? we just want a search bar … they can search for a category + vendor + service + place or details they can combine and we want to show all that works with their search"*). Direct follow-up to the same-day `explore-search-hero` PR (#1382), which added the search hero but kept the full category catalog rendering **below** it — so a bare `/vendors` still showed services. This finishes the reframe: the hero stands alone on the landing, and the search itself becomes genuinely multi-field.
+
+- **Catalog demoted off the bare landing.** `apps/web/app/vendors/page.tsx` — new `browseMode` flag (`?browse=1` / `?folder=` / `?tile=` / `?from=plan`) threaded into `CatalogView`; the curated browse catalog below the hero (`IconTileFolderStrip` + `PairedVenuePanel` + the per-folder grids) now renders **only** when `browseMode` is true. A bare Explore visit shows the `ExploreSearchHero` + popular chips and a single "Browse all categories →" link. **Demoted, not deleted** — every catalog deep-link (dashboard planning cards, scoped folders, `?browse=1`) still renders the full catalog; nothing was removed.
+- **Hero chips are now live "Popular searches."** `CatalogView` derives the hero's chips from the top categories by live vendor count (`fetchVendorCountsByService`, already fetched there) instead of the static `EXPLORE_HERO_CHIPS` list (kept as the pre-launch fallback when no category has vendors yet).
+- **Unified multi-field search.** New `applyMarketplaceTextSearch()` replaces the `business_name`-only `ilike` on `q` (main query + broadened-count query). Each whitespace token must match the vendor name, tagline, city, OR a listed service (resolved against the 192-taxonomy) — one PostgREST `.or()` group per token, chained so tokens INTERSECT ("photographer tagaytay" → photography vendors in Tagaytay only). Tokens stripped to `[a-z0-9]` (well-formed + injection-safe inside the `.or()` predicate). **No migration** — `services.ov` uses the existing GIN index; name/tagline/city already live on `vendor_market_stats`. (Scale note: leading-wildcard `ilike` won't hit a btree — add `pg_trgm` GIN later if the pool grows.)
+- **The results-page search bar now actually searches.** `sticky-marketplace-header.tsx` — the vendor-grid search input had no surrounding form, so free-text Enter was a silent no-op (only autocomplete category-jumps worked). Wrapped it in a GET form with hidden inputs carrying the host's filters (city/sort/match/event_type/folder/venue/faith) so free-text refinement works once a visitor is in results. `category` is intentionally not preserved (a fresh free-text query reads as "search everything").
+- `taxonomy-search.tsx` `'bar'`-variant placeholder → "Search vendors, services, or places…".
+
+Verified: `tsc --noEmit` clean, `next lint` clean (no findings in changed files), production build green (214/214 pages), retired-strings + email-links + bottom-nav guards pass.
+
+SPEC IMPACT: completes the `/vendors` (Explore) search-first reframe started in #1382 — the curated catalog is now demoted behind `?browse=`; search is multi-field. Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner heads-up: venue browsing (Reception 6-setting facet picker + ceremony-venue cards) now reaches couples via search or "Browse all categories" rather than auto-rendering on landing.
+
+---
+
 ## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
 
 The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notifications`) notification pages both called the same user-scoped `fetchOwnNotifications` from `lib/notifications.ts` yet forked a byte-identical `<ul>` of items + a near-identical empty state, differing only in a back-link, header subtitle, mark-all placement, and empty-state copy. Extracted the shared list/item/empty-state markup to `app/_components/notifications/notifications-list.tsx`; both pages become thin containers that keep their own auth gate + header + mark-all-read control and pass the already-fetched rows down with per-role `returnTo` + `emptyState` props. No behavior or visual change — rendered output matches byte-for-byte.

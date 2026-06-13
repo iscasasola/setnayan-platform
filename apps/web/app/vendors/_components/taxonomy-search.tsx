@@ -185,7 +185,7 @@ export function TaxonomySearch({
         placeholder={
           isHero
             ? 'Search photographers, caterers, livestream…'
-            : 'Try drone, lechon, photobooth…'
+            : 'Search vendors, services, or places…'
         }
         className={
           isHero

@@ -210,7 +210,17 @@ export function StickyMarketplaceHeader({
             read as a single search affordance — Airbnb pattern. gap-2 keeps
             them visually paired. */}
         <div className="flex items-stretch gap-2">
-          <div className="min-w-0 flex-1">
+          {/* 2026-06-14 search-first reframe — the search input now lives in a
+              plain GET form so typing free text + Enter actually submits a
+              multi-field `q` search (previously the bar had no surrounding form,
+              so free-text Enter was a no-op and only autocomplete category-jumps
+              worked). Hidden inputs carry the filters the header knows so a
+              free-text search keeps the host's city/sort/match/etc. context.
+              The active `category` is intentionally NOT preserved — a fresh
+              free-text query reads as "search across everything," and the
+              header prop contract doesn't carry category anyway. The Filters
+              button stays a sibling (type=button) so it never submits. */}
+          <form method="get" action="/vendors" className="min-w-0 flex-1">
             <TaxonomySearch
               initialQuery={filters.q}
               options={taxonomyOptions}
@@ -224,7 +234,31 @@ export function StickyMarketplaceHeader({
                 from: null,
               }}
             />
-          </div>
+            {filters.city ? (
+              <input type="hidden" name="city" value={filters.city} />
+            ) : null}
+            {filters.sort && filters.sort !== 'most_reviews' ? (
+              <input type="hidden" name="sort" value={filters.sort} />
+            ) : null}
+            {filters.verifiedOnly ? (
+              <input type="hidden" name="verified" value="1" />
+            ) : null}
+            {filters.matchEvent ? (
+              <input type="hidden" name="match" value="1" />
+            ) : null}
+            {filters.eventType ? (
+              <input type="hidden" name="event_type" value={filters.eventType} />
+            ) : null}
+            {filters.folder ? (
+              <input type="hidden" name="folder" value={filters.folder} />
+            ) : null}
+            {filters.venueDefault === 'off' ? (
+              <input type="hidden" name="venue" value="0" />
+            ) : null}
+            {filters.faith ? (
+              <input type="hidden" name="faith" value={filters.faith} />
+            ) : null}
+          </form>
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}

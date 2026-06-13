@@ -182,6 +182,65 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
 
+// Multi-field marketplace text search (owner directive 2026-06-13 — "we just
+// want a search bar … they can search for a category + vendor + service +
+// place or details they can combine and we want to show all that works with
+// their search").
+//
+// Each whitespace token must match SOMETHING: the vendor's business name, its
+// tagline, its city, OR a service it lists (resolved against the 192-item
+// taxonomy by label/key substring). One PostgREST `.or()` group per token (OR
+// across those fields); chaining one `.or()` per token ANDs the groups, so
+// multiple tokens INTERSECT — "photographer tagaytay" returns photography
+// vendors in Tagaytay only, not the union. Tokens are stripped to [a-z0-9],
+// which removes PostgREST-reserved characters ( , ( ) { } % ) so the predicate
+// string stays well-formed and injection-safe, and drops noise punctuation.
+// Tokens under 2 chars are ignored.
+function resolveServiceKeysForToken(token: string): string[] {
+  const keys: string[] = [];
+  for (const opt of TAXONOMY_OPTIONS) {
+    if (opt.label.toLowerCase().includes(token) || opt.key.includes(token)) {
+      keys.push(opt.key);
+    }
+  }
+  return keys;
+}
+
+// Loose structural type so the deeply-chained PostgREST builder type doesn't
+// instantiate through this helper and trip the TS2589 "excessively deep"
+// ceiling — same widening trick the demo-exclusion `.not()` call uses below.
+// Call sites cast in via `as unknown as OrFilterable` and back out via
+// `as unknown as typeof <builder>`.
+type OrFilterable = { or: (filters: string) => OrFilterable };
+
+function applyMarketplaceTextSearch(
+  builder: OrFilterable,
+  rawQuery: string,
+): OrFilterable {
+  const tokens = rawQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ''))
+    .filter((t) => t.length >= 2);
+  let q = builder;
+  for (const token of tokens) {
+    const orParts = [
+      `business_name.ilike.%${token}%`,
+      `tagline.ilike.%${token}%`,
+      `location_city.ilike.%${token}%`,
+    ];
+    const serviceKeys = resolveServiceKeysForToken(token);
+    if (serviceKeys.length > 0) {
+      // PostgREST array-overlap predicate inside an `.or()` group — mirrors the
+      // existing `compatible_ceremony_types.cs.{…}` usage further below. The
+      // {…} literal lists the candidate canonical_service keys for this token.
+      orParts.push(`services.ov.{${serviceKeys.join(',')}}`);
+    }
+    q = q.or(orParts.join(','));
+  }
+  return q;
+}
+
 // Search-first hero (2026-06-13) — a few high-intent quick-search chips under
 // the universal search box. Each is a real V1.1-base canonical_service so the
 // chip lands the visitor in the vendor-grid (`?category=`) results path; sparse
@@ -405,6 +464,13 @@ type Props = {
      *  unexpectedly narrow Photography or Catering. Absent / typo /
      *  unknown → no narrow applied. */
     faith?: string;
+    /** 2026-06-14 search-first — `?browse=1` opts back into the curated browse
+     *  catalog (icon-tile strip + Ceremony/Reception venue pickers + per-folder
+     *  sections) below the search hero. A bare /vendors visit now shows the
+     *  search hero + popular chips ONLY; the catalog renders only with this
+     *  flag or the ?folder=/?tile=/?from=plan deep-links dashboard planning
+     *  cards set. */
+    browse?: string;
   }>;
 };
 
@@ -1027,6 +1093,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     !filters.matchEvent &&
     !filters.eventType;
 
+  // Owner directive 2026-06-14 — "we just want a search bar". CatalogView always
+  // leads with the search hero, but the curated browse catalog BELOW it (icon
+  // strip + venue pickers + folder grids) renders only when the visit is an
+  // explicit browse/context request: ?browse=1, a folder/tile deep-link, or a
+  // dashboard planning-card entry (?from=plan). A bare /vendors visit gets the
+  // search hero + popular chips only. Nothing is destroyed — the catalog is one
+  // tap away via the hero's "Browse all categories" link.
+  const browseMode =
+    raw.browse === '1' ||
+    raw.from === 'plan' ||
+    filters.folder !== null ||
+    filters.tile !== null;
+
   // Allow-list the notice key — anything else (typo, manual URL fiddling,
   // future deferred-feature key without copy) renders no banner instead of
   // a broken/empty card. Keeps the surface honest.
@@ -1079,6 +1158,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
+          browseMode={browseMode}
         />
       </>
     );
@@ -1155,7 +1235,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   }
 
   if (filters.q.length > 0) {
-    query = query.ilike('business_name', `%${filters.q}%`);
+    // Unified multi-field search — see applyMarketplaceTextSearch. Replaces the
+    // old business_name-only ilike so a free-text query matches across vendor
+    // name, tagline, city, and listed services, combinable across tokens.
+    query = applyMarketplaceTextSearch(
+      query as unknown as OrFilterable,
+      filters.q,
+    ) as unknown as typeof query;
   }
   // 10-parent model (2026-05-31) — tile-scoped grid. `?tile=<slug>` overlaps
   // the tile's canonical set, which ALREADY includes any cross-listed
@@ -1359,7 +1445,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       );
     }
     if (filters.q.length > 0) {
-      broadened = broadened.ilike('business_name', `%${filters.q}%`);
+      // Same multi-field search as the main query so the broadened-count
+      // empty-state framing stays consistent with what the search matched.
+      broadened = applyMarketplaceTextSearch(
+        broadened as unknown as OrFilterable,
+        filters.q,
+      ) as unknown as typeof broadened;
     }
     if (filters.category) {
       broadened = broadened.contains('services', [filters.category]);
@@ -2455,6 +2546,7 @@ async function CatalogView({
   inDemoMode,
   focusedMode,
   faithFilter,
+  browseMode,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: {
@@ -2520,6 +2612,11 @@ async function CatalogView({
    *  pre-existing religion-default-on (matchEvent + coupleFaith) takes
    *  precedence. */
   faithFilter: FaithKey | null;
+  /** 2026-06-14 search-first — when false (a bare Explore landing) the curated
+   *  browse catalog below the hero is suppressed; only the search hero + a
+   *  "Browse all categories" link render. True for explicit browse/context
+   *  visits (?browse=1 / folder / tile / from=plan). */
+  browseMode: boolean;
 }) {
   // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
   // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
@@ -2558,6 +2655,22 @@ async function CatalogView({
   const catalogExcludeVendorIds: ReadonlyArray<string> = inDemoMode
     ? []
     : demoVendorIdsRaw;
+
+  // Popular-search chips for the hero = top categories by live vendor count
+  // (owner directive 2026-06-14 — "Popular searches" under the bare search
+  // bar). Falls back to the curated EXPLORE_HERO_CHIPS when no vendor has
+  // stocked a category yet (pre-launch) so the chip row is never empty.
+  const popularChips: ReadonlyArray<ExploreChip> = Array.from(
+    vendorCounts.entries(),
+  )
+    .filter(([, c]) => c.total > 0)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 6)
+    .map(([key]) => ({
+      label: taxonomyLabel(key),
+      href: `/vendors?category=${encodeURIComponent(key)}`,
+    }));
+  const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
   // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
@@ -2870,7 +2983,7 @@ async function CatalogView({
                 eventType: null,
                 folder: scopedFolder,
               }}
-              chips={EXPLORE_HERO_CHIPS}
+              chips={heroChips}
             />
 
             {religionFilteringActive ? (
@@ -2902,6 +3015,14 @@ async function CatalogView({
           />
         )}
 
+        {/* 2026-06-14 search-first — owner "we just want a search bar". The
+            curated browse catalog below the hero (icon strip + venue pickers +
+            folder grids) renders only on an explicit browse/context visit
+            (?browse=1 / folder / tile / from=plan); a bare Explore landing
+            shows the hero + popular chips, with the catalog one tap away via
+            the "Browse all categories" link in the else branch. */}
+        {browseMode ? (
+          <>
         {/* 2026-05-30 Airbnb-vibe redesign — IconTileFolderStrip replaces the
             chip-style FolderTabs. The 12 folders render as Lucide icon tiles
             (uniform 96-104px × 78px) with horizontal scroll snap on mobile.
@@ -3050,6 +3171,17 @@ async function CatalogView({
             </section>
           );
         })}
+          </>
+        ) : (
+          <div className="mt-12 text-center">
+            <Link
+              href="/vendors?browse=1"
+              className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+            >
+              Browse all categories →
+            </Link>
+          </div>
+        )}
       </section>
     </main>
   );

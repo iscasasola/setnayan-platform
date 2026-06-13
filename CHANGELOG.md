@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(nav): global bottom nav everywhere — Guests/Services relocate their bars up, Website gets a hub
+
+Owner directive 2026-06-13 ("global nav everywhere"): the customer bottom nav must stay visible on every surface. This retires the Guests + Services "focus-mode" suppressions (2026-06-03) and gives the Website tab a real hub so the full-screen editor isn't a chrome-less dead-end.
+
+- `customer-bottom-nav.tsx` — removed BOTH focus-mode early-returns (the `/guests` always-hide and the `/vendors` budgetBuild-hide); the component is now a thin `<BottomNav items=…>` wrapper (dropped the now-unused `usePathname` + `budgetBuild` prop). Website tab repointed from `/site-editor` to the new `${base}/website` hub; activeMatch now covers `/website` + `/site-editor` + `/invitation`. `layout.tsx` stops passing `budgetBuild` (and drops the now-unused `isBudgetBuildEnabled` import).
+- **Services** (`services-takeover.tsx`) — the mobile section nav (Summary·Shortlist·Build·Compare·Lock) flips from a `fixed bottom-0` bar to a **sticky-top header** (border-b, z-10), so the global nav owns the bottom. CustomEvent (`BB_TAB_EVENT`) + `?tab=` URL mirroring + floating ✕ all preserved; desktop strip unchanged.
+- **Guests** (`mobile-guest-carousel.tsx`) — the carousel's 5-pill menu (Summary·Search·Add·Customize·Journey) moved from a `fixed bottom-0` bar to the **top row of the sheet**; the sheet now docks at `bottom-[calc(80px+safe-area)]` (the app-wide `pb-20` nav clearance) so it rests above the global nav with no double bar. Panel state stays inside the carousel (no risky page-level state lift); ResizeObserver no-feedback-loop logic, keyboard docking, grabber, snap track, and all 5 panels preserved. Collapsed floor keeps the pills reachable.
+- **Website** — `/dashboard/[eventId]/website` was a redirect; now a real **hub page** inside EventLayout (so it has the global nav): couple-membership gate, reuses the editor's exact event fetch (display_name + slug + `buildEventLandingUrl`), shows the live URL + a "Launch editor" CTA → `/site-editor` + quick-links (Invitation & URL, Who-can-view). The editor's ✕ `backHref` now returns to the hub instead of event home. The full-screen editor itself is unchanged.
+- Built via a mapping workflow + a parallel implement-then-adversarially-verify workflow; the review caught an undersized nav-clearance (56→80px) in Guests, fixed here.
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · `lint:botnav` ✅ · production build ✅.
+
+SPEC IMPACT: reverses the 2026-06-03 Guests/Services focus-mode lock + adds a Website hub. Logged in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical`. No SKU / schema / pricing impact; one new in-dashboard route (`/website` hub, replacing a redirect).
+
+---
+
 ## 2026-06-13 · fix(nav): bolder bottom-nav active pill + tap-fired press-light (visibility follow-up)
 
 Follow-up to the canonical bottom-nav template — the first cut was too subtle to read as "changed" on a real device (8% grey pill, press-light only on hold). Owner asked to make it unmistakable.

@@ -15,7 +15,6 @@ import { ProfileMenu } from '@/app/_components/profile-menu';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
-import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 type Props = {
@@ -373,7 +372,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} budgetBuild={isBudgetBuildEnabled()} />
+      <CustomerBottomNav eventId={eventId} />
     </div>
   );
 }

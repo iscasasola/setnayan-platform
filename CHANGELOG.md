@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(nav): canonical bottom-nav template — traveling pill + press-light, app-wide + lint-guarded
+
+Owner-locked the bottom-nav tap interaction as THE unbreakable app-wide template ("set it as an unbreakable rule, like the real template of the app"), after a long session dialling the feel against an Instagram Liquid-Glass reference video.
+
+- `app/_components/nav/bottom-nav.tsx` — upgraded the ONE shared primitive that all three doorways already mount (customer/vendor/admin wrappers just pass `items`). New locked interaction: a **full stadium pill** that fills its tab cell and **travels on RELEASE** (selection commits on finger-up → route changes → active index flips → pill glides over) with a spring + subtle horizontal "liquid" stretch; a diffused **white press-light** that blooms under the finger **on press-down** (pointerdown), fills the pill top-to-bottom solid and feathers only at the left/right ends (tall element clipped by the row's `overflow-hidden`), fading on release; the pressed **icon grows** while held. Four motion knobs live as `--bn-*` CSS custom props on the nav root (**owner-locked baseline: 500ms · grow 1.15 · glow 1.2 · stretch 1.1 · white**) — retune the whole app's nav feel from ONE place. Removed the generic `.sn-bounce` on active tabs (this nav treatment supersedes it). Props/types unchanged → zero churn for the three wrappers.
+- `app/globals.css` — `@keyframes nav-pill-travel` + `.nav-pill-stretch` (peak/duration read `--bn-stretch`/`--bn-dur`).
+- `scripts/lint-bottom-nav.mjs` (new) + `lint:botnav` script + CI job `lint-bottom-nav` — the "unbreakable" enforcement: fails the build if a `*-bottom-nav.tsx` wrapper is added that doesn't delegate to the canonical primitive, OR if the canonical loses its locked-interaction markers (the `--bn-*` knobs + the travel-stretch hook).
+- Lights up customer + vendor + admin bottom navs automatically (all consume the shared component). Guest landing (0031 day-of) has no bottom nav — nothing to change there.
+- Verified: `typecheck` clean · `lint` clean (no new warnings in changed files) · `lint:botnav` passes.
+
+SPEC IMPACT: Owner-locked the bottom nav as an unbreakable app-wide template + lint guard. Recorded in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical` (indexed in `MEMORY.md`). No SKU / schema / pricing / route impact.
+
+---
+
 ## 2026-06-13 · feat(weddings): DB-driven Real Weddings browse — real editorials replace the sample (consent-gated)
 
 Builds the deferred 0046 cross-wedding browse so `/weddings` surfaces REAL published editorials and the sample yields automatically — end-to-end, per owner ("our sample until a real wedding is uploaded").

@@ -222,6 +222,24 @@
   will-change: scale;
 }
 
+/*
+ * Canonical bottom-nav pill travel-stretch — owner-locked 2026-06-13
+ * (project_setnayan_bottom_nav_canonical). The active pill in <BottomNav>
+ * gives a subtle horizontal "liquid" stretch as it glides between tabs.
+ * Re-triggered by keying the inner pill on the active index (remount →
+ * replay). Peak + duration read the --bn-stretch / --bn-dur custom props
+ * set on the nav root, so the whole interaction retunes from ONE place.
+ * This nav treatment supersedes the generic .sn-bounce for bottom navs.
+ */
+@keyframes nav-pill-travel {
+  0% { transform: scaleX(1); }
+  45% { transform: scaleX(var(--bn-stretch, 1.1)); }
+  100% { transform: scaleX(1); }
+}
+.nav-pill-stretch {
+  animation: nav-pill-travel var(--bn-dur, 500ms) cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
 @layer components {
   /*
    * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.

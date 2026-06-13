@@ -35,6 +35,8 @@ import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { Reveal, Blob } from './_motion';
 import { MobileMenu } from './_nav-mobile';
+import { HeroVideoScrub } from './HeroVideoScrub';
+import { fetchPublishedHeroVideo } from '@/lib/hero-video';
 import { fetchV2BundleCatalog, fetchV2CustomerCatalog, formatPeso, getCustomerSkuPrice } from '@/lib/v2-catalog';
 import {
   PILOT_EVENT,
@@ -118,7 +120,21 @@ export function Nav() {
 // ─────────────────────────────────────────────────────────────────────
 // 3. Hero — "Set na 'yan." + HeroCollage dashboard mock
 // ─────────────────────────────────────────────────────────────────────
-export function Hero() {
+export async function Hero() {
+  // Owner-uploaded scroll-scrub video (admin /admin/hero-video). When a video
+  // is published, it REPLACES the default hero; otherwise we fall back to the
+  // headline + dashboard mock below. Homepage is force-static — publishing
+  // calls revalidatePath('/') to rebuild with the new frames.
+  const heroVideo = await fetchPublishedHeroVideo();
+  if (heroVideo) {
+    return (
+      <HeroVideoScrub
+        frameUrls={heroVideo.frameUrls}
+        ctaText={heroVideo.ctaText}
+        ctaHref={heroVideo.ctaHref}
+      />
+    );
+  }
   return (
     <section className="relative overflow-hidden px-5 pt-10 pb-12 sm:px-8 sm:pt-14 lg:px-14 lg:pt-20 lg:pb-14">
       <Blob top={-80} left={-80} size={620} color="var(--m-orange)" opacity={0.06} />

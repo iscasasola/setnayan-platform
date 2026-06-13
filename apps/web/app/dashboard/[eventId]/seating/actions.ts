@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
+import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
@@ -24,6 +25,55 @@ function clampPct(v: unknown): number | null {
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, n));
+}
+
+// ---------------------------------------------------------------------------
+// Exclusive seating-editor lock (PR 2 · owner lock 2026-06-13) — one editor at
+// a time per event, co-owners included. Enforcement lives HERE in the
+// server-action layer (not RLS): assertSeatingLockHeld() calls the DB guard
+// (server-clock 90s cutoff) BEFORE every mutation, so a peer who took over (or
+// whose own lock went stale) gets a typed, recoverable error instead of an
+// opaque RLS denial. The editor reads this error code to drop to view-only.
+// (SeatingLockError lives in its own module — a 'use server' file may only
+// export async functions, so the class can't be declared/exported here.)
+// ---------------------------------------------------------------------------
+
+// Assert the caller currently holds a LIVE seating lock for the event before a
+// mutation runs. lockId is best-effort threaded from the client (the active
+// lock the editor acquired); when present it pins the assert so a silent peer
+// takeover is also caught. A missing/empty lockId still asserts the caller
+// holds *some* live lock on the event. Throws SeatingLockError on failure.
+async function assertSeatingLockHeld(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  lockId: string | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('assert_seating_lock_held', {
+    p_event_id: eventId,
+    p_lock_id: lockId && lockId.length > 0 ? lockId : null,
+  });
+  if (error) throw new SeatingLockError();
+}
+
+// Pull the optional lock_id the editor stamps onto every gated FormData.
+function lockIdFrom(formData: FormData): string | null {
+  const v = formData.get('lock_id');
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+// Best-effort heartbeat after a successful mutation — keeps the holder's lock
+// warm without a separate round-trip. NEVER throws: a 'lost' result (peer took
+// over) is handled by the next assert / the client heartbeat, not here.
+async function refreshSeatingLock(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  lockId: string | null,
+): Promise<void> {
+  if (!lockId) return;
+  try {
+    await supabase.rpc('refresh_seating_editor_lock', { p_lock_id: lockId });
+  } catch {
+    // swallow — refresh is opportunistic; correctness rides on assert-before.
+  }
 }
 
 const VALID_TYPES = new Set<TableType>(TABLE_TYPE_CATALOG.map((t) => t.type));
@@ -59,6 +109,8 @@ export async function createTable(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase.from('event_tables').insert({
     event_id: eventId,
     table_label: trimmed,
@@ -67,6 +119,7 @@ export async function createTable(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -83,6 +136,8 @@ export async function deleteTable(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .delete()
@@ -90,6 +145,7 @@ export async function deleteTable(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -121,6 +177,8 @@ export async function assignGuest(formData: FormData) {
     if (Number.isInteger(n) && n >= 0 && n < 64) seatNumber = n;
   }
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase.from('event_seat_assignments').upsert(
     {
       event_id: eventId,
@@ -132,6 +190,7 @@ export async function assignGuest(formData: FormData) {
   );
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -167,6 +226,8 @@ export async function assignGroup(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const [tables, assignments] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -204,6 +265,7 @@ export async function assignGroup(
       .from('event_seat_assignments')
       .upsert(rows, { onConflict: 'event_id,guest_id' });
     if (error) throw new Error(error.message);
+    await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
   }
 
@@ -228,6 +290,10 @@ export async function autoSeatGuests(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Bulk action: assert the lock ONCE up front (not per row).
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
 
   const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -268,6 +334,7 @@ export async function autoSeatGuests(formData: FormData) {
     if (error) throw new Error(error.message);
   }
 
+  await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -318,6 +385,8 @@ export async function saveFloorPlan(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase.from('event_floor_plan').upsert(
     {
       event_id: eventId,
@@ -344,6 +413,7 @@ export async function saveFloorPlan(formData: FormData) {
   );
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -377,6 +447,8 @@ export async function updateTablePosition(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .update({ x_pos: clampedX, y_pos: clampedY, updated_at: new Date().toISOString() })
@@ -384,6 +456,7 @@ export async function updateTablePosition(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -400,6 +473,8 @@ export async function unassignGuest(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_seat_assignments')
     .delete()
@@ -407,6 +482,7 @@ export async function unassignGuest(formData: FormData) {
     .eq('guest_id', guestId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -429,6 +505,8 @@ export async function updateTableRotation(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .update({ rotation_deg: rotation, updated_at: new Date().toISOString() })
@@ -436,6 +514,7 @@ export async function updateTableRotation(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -461,6 +540,8 @@ export async function updateTableType(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   // Guests sitting in a chair index that the new (smaller) shape no longer has
   // are unseated. Chairs 0..newCapacity-1 keep their occupant; null-seat rows
@@ -501,6 +582,7 @@ export async function updateTableType(
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
   return { unseated: unseatIds.length };
 }
@@ -524,6 +606,8 @@ export async function setTableSeat(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const [tables, assignments] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -549,6 +633,7 @@ export async function setTableSeat(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -615,6 +700,8 @@ export async function updateTableLabel(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .update({ table_label: label, updated_at: new Date().toISOString() })
@@ -639,6 +726,7 @@ export async function updateTableLabel(formData: FormData) {
     if (syncErr) throw new Error(syncErr.message);
   }
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -665,6 +753,8 @@ export async function linkTables(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const tables = await fetchTables(supabase, eventId);
   const a = tables.find((t) => t.table_id === tableA);
   const b = tables.find((t) => t.table_id === tableB);
@@ -688,6 +778,7 @@ export async function linkTables(formData: FormData) {
     .in('table_id', [...memberIds]);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -706,6 +797,8 @@ export async function unlinkTable(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { data: row } = await supabase
     .from('event_tables')
     .select('link_group_id')
@@ -721,6 +814,7 @@ export async function unlinkTable(formData: FormData) {
     .eq('link_group_id', row.link_group_id);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -747,6 +841,8 @@ export async function seatRoleAtTable(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const [tables, assignments, guests] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -798,6 +894,7 @@ export async function seatRoleAtTable(
       .from('event_seat_assignments')
       .upsert(rows, { onConflict: 'event_id,guest_id' });
     if (error) throw new Error(error.message);
+    await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
   }
 
@@ -895,7 +992,9 @@ export async function saveBooths(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
   await persistBooths(supabase, eventId, booths);
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -917,12 +1016,15 @@ export async function setGuestSeatingPriority(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('guests')
     .update({ seating_priority: priority })
     .eq('guest_id', guestId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -949,6 +1051,10 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Bulk action: assert the lock ONCE up front (not per persisted table).
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
 
   const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -1011,6 +1117,7 @@ export async function autoArrange(formData: FormData): Promise<{ seated: number 
     if (error) throw new Error(error.message);
   }
 
+  await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
   return { seated: rows.length };
 }

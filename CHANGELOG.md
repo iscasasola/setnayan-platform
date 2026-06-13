@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 5 (per-vendor surcharge + in-thread confirm)
+
+The money-moving core. When the couple's guest count moves a booked vendor's cost (vendor set a per-added-guest rate), the change surfaces as an Accept/Decline card in the chat thread and only moves `total_cost_php` when the **vendor confirms** — symmetric (a drop shows a credit), per the owner lock. No migration (uses the Phase 1 columns).
+
+- **`lib/pax.ts`**: `computeAddedPaxSurcharge({livePax, quoteBasePax, ratePhp, block})` = `ceil((livePax-base)/block)*rate` (0 when no rate / at-or-below base — the owner fallback; mirrors the customer floor+block model). `fetchVendorPaxProposals()` returns the booked services (total_cost_php set) carrying a rate whose live pax has moved away from the last-decided count (`cost_basis_pax`), each with the `delta` to confirm.
+- **Vendor thread** (`vendor-dashboard/messages/[threadId]`): recomputes live pax **fresh on view** via the admin client (the vendor's RLS can't read the couple's guests; gated by the existing thread-ownership check) → always-current "Planning for ~N" + an Accept/Decline card per pending service: "Now planning for N (you quoted ~M). At ₱X/guest your total would increase/decrease by ±₱Y."
+- **`pax-actions.ts`** (new): `acceptPaxSurcharge` re-derives the target server-side (authoritative — client value never trusted), writes `total_cost_php = total − applied + target`, `pax_surcharge_php`, `cost_basis_pax`, locks `pax_quote_base`; `declinePaxSurcharge` just sets `cost_basis_pax` (holds the price). event_vendors is the couple's table → admin-client write after the ownership gate.
+- **Couple thread**: header now shows the same fresh live pax (the couple's own client can read their guests).
+- **Budget** auto-reflects — `total_cost_php` updates on Accept, so the couple's vendor cost updates with no extra wiring.
+- `lib/pax.test.ts`: 6 tests (no-rate fallback, at/below base, per-guest, per-block round-up, null guards, symmetric drop).
+
+**Design note (deviation from the originally-floated after()-push):** rather than hooking every guest mutation to push `pax_current`, the thread/budget **recompute fresh on view** (admin client) — correct whenever viewed, no mutation-hook sprawl, and it sidesteps the vendor-RLS-can't-read-guests problem. The stored `pax_current`/`pax_at_inquiry` remain (inbox previews + the immutable base). An after()-push to pre-warm the cache is a trivial future add.
+
+**Scope:** surcharge applies to **booked** services (a committed `total_cost_php`) with a rate; inquiry-stage just shows the count (Phase 3). Phase 6 (HQ audit of every cost change) still to come.
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 6/6 unit tests ✓ · `next build` ✓.
+
+**SPEC IMPACT:** None to locked scope. Builds the spec'd-but-unbuilt `0021 §12.3` confirm flow (single-rate form). Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0007_budget_expenses` + `0021 §12.3` AS-BUILT notes to follow.
+
+---
+
 ## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 4 (vendor per-added-guest rate input)
 
 Vendors can now set an optional per-added-guest surcharge rate on each service. Input + storage only — the rate has **no effect yet**; applying it to live costs is Phase 5 (where the surcharge math + the symmetric vendor-confirm flow land). Honors the owner's fallback: blank = no extra charge.

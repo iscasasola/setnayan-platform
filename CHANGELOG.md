@@ -17,6 +17,22 @@ Owner directive 2026-06-13: a place in the admin console to upload a hero video 
 - Verified: typecheck ✅ · lint ✅ (no new warnings) · production build via CI (required check).
 
 SPEC IMPACT: new V1 feature — admin homepage-hero-video upload + public scroll-scrub hero. New table `homepage_hero_config`. Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; one new admin surface (`/admin/hero-video`) + one new homepage behavior (publish-gated, fallback-safe).
+## 2026-06-13 · feat(onboarding+chrome): desktop editorial canvas + the saved monogram IS the event logo
+
+Two owner asks (2026-06-13): (1) give the wedding onboarding a real desktop version, and (2) make the monogram the couple designs in onboarding their actual event logo, dependent on their chosen lockup.
+
+**Desktop canvas — enrich the surround, keep the locked frame.** On desktop the onboarding (`/onboarding/wedding`) rendered as a 430×880 phone card stranded on a stone background. Owner picked "enrich the canvas, keep the frame": the locked `.onbw>.phone` prototype (port-as-is lock 2026-06-02) is untouched; a new desktop-only editorial aside fills the space beside it.
+- New `app/onboarding/wedding/_components/desktop-aside.tsx` (`OnboardingDesktopAside`) — brand mark + SETNAYAN wordmark, eyebrow, serif headline, value line, 3 reassurance ticks, "Set na 'yan." signature. `aria-hidden` (purely decorative; the phone carries every control + the brand lockup, so SRs don't hear it twice).
+- New `app/onboarding/wedding/_styles/onboarding-desktop.css` — desktop-only (`@media min-width:1024px`), all scoped under `.onbw`, layered ON TOP of the prototype mirror (whose header forbids hand-tweaking it). Centers the [aside · phone] pair; **pins the phone to its locked 430px** in the flex row so `width:100%` can't shrink it below the lock; under 940px viewport height it falls back to top-aligned + scroll so the 880px card never clips. Below 1024px the aside is `display:none` → mobile + tablet are byte-for-byte unchanged.
+- `onboarding-shell.tsx` — import both + render `<OnboardingDesktopAside/>` as the first child of `.onbw`.
+
+**Saved monogram → event logo (reverses the 2026-06-03 letters-forward lock for the four type-only lockups).** The switcher logo already used the couple's chosen font + ink, but only drew their initials in that font — not the lockup they designed. Now it draws their real mark, varying with their choice.
+- New `app/_components/monogram-mark.tsx` (`MonogramMark`) — self-contained inline-SVG twin of the four TYPE-ONLY lockups (bar · duo · script · infinity) from `mono-lockup.tsx`: same geometry, mark-only (names stripped), no trace animation, no `.onbw` CSS dependency. `framed` deliberately stays letters-forward (its 237-path gold ring is illegible at ~28–44px — the exact reason the original lock existed); single-initial events stay letters-forward too.
+- `event-monogram.tsx` — renders `MonogramMark` for type-only styles when both initials exist; framed + legacy + single-name paths unchanged.
+- Threaded `monogram_style` end-to-end — it was selected nowhere in the chrome, so the four `frame=null` type lockups collapsed to whichever shared the font. Touched: `EventSwitcher` (`SwitcherEvent` type + props + both `EventMonogram` call sites), `dashboard/[eventId]/layout.tsx` (event select + anchor + menu map), `outer-dashboard-header.tsx` (`PrimaryEventData` + anchor), `dashboard/layout.tsx` (primary + list maps), `admin/layout.tsx` + `vendor-dashboard/layout.tsx` (maps + anchors). `lib/events.ts` already selected it; `resolveMonogramDesign` already prefers the style key.
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · a faithful standalone SVG preview confirmed all four marks render distinct + legible at 28/36/44px and the desktop canvas composes cleanly. Production build runs in CI.
+
+SPEC IMPACT: reverses the 2026-06-03 "chrome monogram renders letters-forward" lock for the four type-only lockups (framed unchanged); adds a desktop-only onboarding canvas (the port-as-is frame itself is untouched). Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; no new routes; no migration (`monogram_style` column already exists).
 
 ---
 

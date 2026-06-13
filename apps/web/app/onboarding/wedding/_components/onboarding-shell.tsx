@@ -39,6 +39,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import '../_styles/onboarding.css';
+// Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
+// Layered ON TOP of the prototype CSS — see onboarding-desktop.css header.
+import '../_styles/onboarding-desktop.css';
+import { OnboardingDesktopAside } from './desktop-aside';
 // Phase-5 cutover: the lazy DB commit + the existing auth server actions reused
 // at the account gate (no new auth code — same OAuth/signup the marketing site uses).
 import {
@@ -2860,6 +2864,9 @@ export function OnboardingShell({
 
   return (
     <div className="onbw">
+      {/* Desktop-only editorial canvas (≥1024px) beside the phone frame. Hidden
+          on mobile + tablet; the phone frame below is byte-for-byte unchanged. */}
+      <OnboardingDesktopAside />
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}

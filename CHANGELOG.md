@@ -30,6 +30,19 @@ Follow-up to the canonical bottom-nav template — the first cut was too subtle 
 - Verified: typecheck + lint (no new warnings) + guard pass.
 
 SPEC IMPACT: tuning of the owner-locked bottom-nav template (memory `project_setnayan_bottom_nav_canonical` baseline updated: glow 1.2→1.5, pill 8%→15%, press-light fires on tap). No SKU / schema / pricing / route impact.
+## 2026-06-13 · feat(seating): exclusive seating-editor lock (seat-finding PR 2 of 6 · the live-edit gate)
+
+The build-order gate before any live two-way seating editing: ONE editor at a time per event. Owner-locked — applies to couple co-owners too (the second partner drops to view-only), and it's the FIRST enablement of coordinator seating writes (gated behind the lock AND the existing `can_edit_seating` delegation). Event-scoped lock, 30s heartbeat / 90s server-clock stale-takeover. Built in a fresh-context agent then double adversarially reviewed (build → verify → fix → re-verify).
+
+- New migration `20261216000000_seating_editor_locks.sql`: `seating_editor_locks` table (`UNIQUE(event_id)`) + RLS read policy (couple / seat_plan-edit delegate / admin; RPC-only writes) + 4 `SECURITY DEFINER` RPCs — acquire (`INSERT ON CONFLICT` fast-path → `SELECT FOR UPDATE` serialize → mine / took_over(>90s) / held_by_other), refresh (`ROW_COUNT`→ok/lost), release (idempotent DELETE), `assert_seating_lock_held`. ⚠ NOT yet applied to prod.
+- `actions.ts`: `assertSeatingLockHeld()` before all 18 mutations (bulk actions assert/refresh once); best-effort refresh after; `SeatingLockError` in its own module (a `'use server'` file can only export async fns). `publishSeating` EXEMPT (couple-only via the `enforce_couple_publish` trigger).
+- `use-seating-lock.ts` (new): acquire-on-mount · 30s heartbeat · release on unmount/pagehide (best-effort — the 90s server stale-takeover is the real backstop) · stale-takeover · one-shot auto-retry on transient acquire failure.
+- `use-seating-presence.ts`: broadcasts the holder's live heartbeat on the existing channel so view-only peers compute staleness from the LIVE beat (no false "Take over" against a live editor).
+- `seating-editor.tsx`: view-only gating on every edit affordance; lock banner + takeover when a peer is present AND a solo-recovery banner when none (a solo editor can never get stuck); gated action callers catch a lost lock and drop to view-only.
+
+Verified: `tsc` + `next lint` + `build` + 89/89 unit tests, across both the build and an independent re-verify. Adversarial review confirmed the concurrency core sound (no double-win; server-clock staleness only) and all four UX findings fixed.
+
+**SPEC IMPACT:** Builds documented seat-finding PR 2 (corpus `DECISION_LOG.md` 2026-06-13 + memory `project_setnayan_seatfinding_pr2_lock`); extends iter 0008. ⚠ **MIGRATION-FIRST:** `20261216000000` MUST be applied to prod BEFORE this merges/deploys, or the editor view-only-locks (missing RPC). Open for owner: ① action-layer enforcement (not RLS — `assert_seating_lock_held` shipped + used live); ② co-owner exclusivity is a behavior change for two-partner couples. Fast-follows: distinguish transient-infra errors from genuine lock-loss on the assert path; first-mount banner flicker.
 
 ---
 

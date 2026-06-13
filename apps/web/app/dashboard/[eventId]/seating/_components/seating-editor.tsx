@@ -89,6 +89,22 @@ import {
   updateTableType,
 } from '../actions';
 import { useSeatingPresence } from './use-seating-presence';
+import { useSeatingLock } from './use-seating-lock';
+import { SeatingLockError } from '../seating-lock-error';
+
+// True when a thrown error is the server lock-guard's "you no longer hold the
+// editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
+// actions don't preserve the class instance across the RSC boundary, so we
+// match defensively: instanceof first (client-thrown / preserved), then the
+// error's code, then its message text (dev) — covering prod digests too, where
+// the message is replaced but the original copy is unique enough to match.
+function isSeatingLockLost(err: unknown): boolean {
+  if (err instanceof SeatingLockError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { code?: unknown; message?: unknown };
+  if (e.code === 'seating_lock_not_held') return true;
+  return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
+}
 
 export type SeatingGuest = {
   guest_id: string;
@@ -345,11 +361,48 @@ export function SeatingEditor({
   // Link-mode: started from a table's popup; the NEXT table tapped on the
   // canvas joins it into one named unit (identity + QR only).
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
+  // Exclusive editor lock (PR 2 · owner lock 2026-06-13): ONE editor per event,
+  // co-owners included. We attempt to acquire on mount; if a live peer already
+  // holds it we drop to view-only and surface a "Take over editing" button. A
+  // SOLO editor simply holds the lock (just a 30s heartbeat — no banner, no
+  // regression). `canEdit` is the single gate every edit affordance checks.
+  //
+  // The holder re-broadcasts a fresh heartbeat on presence every 30s; we feed
+  // that live value back into the hook (liveHolderHeartbeatAt below) so the
+  // hook judges stale-takeover off the FRESHEST beat, not the one-shot value
+  // frozen in the acquire envelope (which would falsely "go stale" ~90s after
+  // we landed in view-only even while the holder is alive). The state is
+  // declared here, fed into the hook, then refreshed by the effect after the
+  // presence peer list resolves below — breaking the lock↔presence data cycle.
+  const [liveHolderHeartbeatAt, setLiveHolderHeartbeatAt] = useState<string | null>(null);
+  const lock = useSeatingLock(eventId, me.name, liveHolderHeartbeatAt);
+  const canEdit = lock.status === 'editing';
+  useEffect(() => {
+    // Try to take the lock as soon as the editor opens (the surface itself is
+    // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.
+    lock.acquire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Live presence: who else is in this seat plan, which table they have
-  // selected, and their cursor on the canvas (Supabase Realtime).
-  const { peers, sendCursor } = useSeatingPresence(eventId, me, highlightId);
+  // selected, their cursor — and who holds the editor lock (so every peer can
+  // render the banner + compute stale-takeover from the server heartbeat).
+  const { peers, sendCursor } = useSeatingPresence(eventId, me, highlightId, {
+    lockHolderId: canEdit ? me.id : null,
+    lockHolderLabel: canEdit ? me.name : null,
+    lockHeartbeatAt: lock.holderHeartbeatAt,
+  });
   const peerList = [...peers.values()];
   const peerOnTable = (tableId: string) => peerList.find((p) => p.table === tableId) ?? null;
+  // The peer who claims the lock (if any) — used for the view-only banner copy.
+  const lockHolderPeer = peerList.find((p) => p.lockHolderId) ?? null;
+  // Feed the holder's LIVE presence heartbeat back into the lock hook so its
+  // stale-takeover clock tracks the freshest beat (see liveHolderHeartbeatAt
+  // above). When no peer is broadcasting a lock, clear it so the hook falls
+  // back to its own frozen envelope value.
+  const lockHolderPeerHeartbeat = lockHolderPeer?.lockHeartbeatAt ?? null;
+  useEffect(() => {
+    setLiveHolderHeartbeatAt(lockHolderPeerHeartbeat);
+  }, [lockHolderPeerHeartbeat]);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<EventTableRow | null>(null);
@@ -480,41 +533,72 @@ export function SeatingEditor({
   const totalCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
   const unseatedCount = guests.length - seatedCount;
 
+  // Run a lock-gated server action and react to a lost-lock signal. After a
+  // takeover, the client still believes canEdit===true until the <=30s heartbeat
+  // returns 'lost'; in that window a gated action throws SeatingLockError. Rather
+  // than a generic "try again", we proactively drop to view-only (clear editing)
+  // and post a brief notice so the user understands their changes are paused.
+  // Re-throws any OTHER error so existing per-caller handling (e.g. link/unlink's
+  // own catch) still runs. Returns null on a lock loss so callers can short out.
+  // Returns true (and drops to view-only + notices) when `err` is the lock-lost
+  // signal; false otherwise so callers can rethrow. Shared by runGated and the
+  // try/catch callers (link/unlink/saveLayout/AddTablePanel).
+  const handleLockLost = (err: unknown): boolean => {
+    if (!isSeatingLockLost(err)) return false;
+    lock.notifyLost();
+    setNotice('Editing was taken over by another co-host — you’re viewing only now. Your last change wasn’t saved.');
+    return true;
+  };
+  const runGated = async <T,>(fn: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await fn();
+    } catch (err) {
+      if (handleLockLost(err)) return null;
+      throw err;
+    }
+  };
+
   // --- seat / move / unseat -------------------------------------------------
   const place = (tableId: string, seatNumber: number | null) => {
+    if (!canEdit) return;
     if (!pickedId) return;
     const guestId = pickedId;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('guest_id', guestId);
     if (seatNumber !== null) fd.set('seat_number', String(seatNumber));
     setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId, seat: seatNumber });
-      await assignGuest(fd);
+      await runGated(() => assignGuest(fd));
     });
   };
 
   const unseat = (guestId: string) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_id', guestId);
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      await unassignGuest(fd);
+      await runGated(() => unassignGuest(fd));
     });
   };
 
   const removeTable = (tableId: string) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     if (highlightId === tableId) setHighlightId(null);
     startTransition(async () => {
       applyTableOpt({ type: 'delete', id: tableId });
-      await deleteTable(fd);
+      await runGated(() => deleteTable(fd));
     });
   };
 
@@ -541,6 +625,7 @@ export function SeatingEditor({
   // persists positions + booths and seats guests in one round-trip.
   const runAutoArrange = () => {
     setConfirmAuto(false);
+    if (!canEdit) return; // view-only: someone else holds the editor lock.
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
     const fp = boothFp();
@@ -574,10 +659,12 @@ export function SeatingEditor({
     setBooths(nextBooths);
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', boothsPayload(nextBooths));
     startTransition(async () => {
-      const res = await autoArrange(fd);
+      const res = await runGated(() => autoArrange(fd));
+      if (!res) return; // lock lost — runGated already dropped us to view-only.
       // The action persisted everything it was sent — nothing is "unsaved".
       setDirty(new Set());
       setBoothsDirty(false);
@@ -594,15 +681,17 @@ export function SeatingEditor({
   // derived tier it starts an override at 1, then 2→3→4, then back to derived
   // (null). Optimistic — the chip flips instantly, the server persists.
   const cyclePriority = (g: SeatingGuest) => {
+    if (!canEdit) return;
     const next =
       g.seating_priority === null ? 1 : g.seating_priority >= 4 ? null : g.seating_priority + 1;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_id', g.guest_id);
     fd.set('priority', next === null ? '' : String(next));
     startTransition(async () => {
       applyGuestOpt({ type: 'priority', guestId: g.guest_id, value: next });
-      await setGuestSeatingPriority(fd);
+      await runGated(() => setGuestSeatingPriority(fd));
     });
   };
 
@@ -625,31 +714,37 @@ export function SeatingEditor({
   // Rename a table from the popup's inline field. No-op on an empty/unchanged
   // label; revalidation reflects the new name across the sidebar, list + print.
   const renameTable = (tableId: string, label: string) => {
+    if (!canEdit) return;
     const trimmed = label.trim();
     const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
     if (!trimmed || trimmed === current) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('table_label', trimmed.slice(0, 64));
-    startTransition(() => updateTableLabel(fd));
+    startTransition(async () => {
+      await runGated(() => updateTableLabel(fd));
+    });
   };
 
   // Bulk-seat a group onto a table (seat-what-fits; the server returns counts
   // and we surface a notice on overflow). Used by the pick-then-tap flow AND
   // the popup's in-context "Seat people" picker.
   const seatGroupMembers = (groupId: string, tableId: string) => {
+    if (!canEdit) return;
     const groupLabel = groups.find((g) => g.group_id === groupId)?.label ?? 'group';
     const memberIds = guests.filter((g) => g.group_id === groupId).map((g) => g.guest_id);
     setNotice(null);
     if (memberIds.length === 0) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('guest_ids', JSON.stringify(memberIds));
     startTransition(async () => {
       applyGuestOpt({ type: 'seatGroup', ids: memberIds, tableId });
-      const res = await assignGroup(fd);
+      const res = await runGated(() => assignGroup(fd));
       if (res && res.overflow > 0) {
         const label = tableLabelById.get(tableId) ?? 'that table';
         setNotice(
@@ -669,6 +764,7 @@ export function SeatingEditor({
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
   const seatGuestHere = (t: EventTableRow, guestId: string) => {
+    if (!canEdit) return;
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
@@ -680,25 +776,28 @@ export function SeatingEditor({
     }
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('guest_id', guestId);
     if (free !== null) fd.set('seat_number', String(free));
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
-      await assignGuest(fd);
+      await runGated(() => assignGuest(fd));
     });
   };
 
   // Seat a whole role tier here (the picker's Role tab). Server-side
   // seat-what-fits; we surface the overflow notice like group seating.
   const seatTierHere = (t: EventTableRow, tier: 1 | 2 | 3 | 4) => {
+    if (!canEdit) return;
     setNotice(null);
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('tier', String(tier));
     startTransition(async () => {
-      const res = await seatRoleAtTable(fd);
+      const res = await runGated(() => seatRoleAtTable(fd));
       if (res && res.overflow > 0) {
         setNotice(
           `${ROLE_TIER_LABELS[tier]}: seated ${res.seated} of ${res.requested} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
@@ -714,10 +813,12 @@ export function SeatingEditor({
   // without it a working link reads as "nothing happened".
   const doLinkTables = (fromId: string, toId: string) => {
     setLinkingFrom(null);
+    if (!canEdit) return;
     const fromLabel = tableLabelById.get(fromId) ?? 'the first table';
     const toLabel = tableLabelById.get(toId) ?? 'the second table';
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id_a', fromId);
     fd.set('table_id_b', toId);
     startTransition(async () => {
@@ -726,21 +827,27 @@ export function SeatingEditor({
         setNotice(
           `Linked — “${toLabel}” is now part of “${fromLabel}”: one name, one printed QR sign. They stay separate tables on the floor, so drag them side-by-side if you want them touching. Use the unlink button to undo.`,
         );
-      } catch {
-        setNotice(`Couldn't link “${fromLabel}” and “${toLabel}” — please try again.`);
+      } catch (err) {
+        if (!handleLockLost(err)) {
+          setNotice(`Couldn't link “${fromLabel}” and “${toLabel}” — please try again.`);
+        }
       }
     });
   };
   const doUnlink = (tableId: string) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     startTransition(async () => {
       try {
         await unlinkTable(fd);
         setNotice('Unlinked — every table in that unit is back to its own name and QR sign.');
-      } catch {
-        setNotice(`Couldn't unlink the table — please try again.`);
+      } catch (err) {
+        if (!handleLockLost(err)) {
+          setNotice(`Couldn't unlink the table — please try again.`);
+        }
       }
     });
   };
@@ -783,40 +890,51 @@ export function SeatingEditor({
   // Persist a final orientation exactly (1° granularity — unlike the ±15°
   // buttons, a continuous gesture may land on a fine angle via Shift).
   const commitRotation = (tableId: string, deg: number) => {
+    if (!canEdit) return;
     const next = normDeg(deg);
     setRotById((m) => ({ ...m, [tableId]: next }));
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('rotation_deg', String(next));
-    startTransition(() => updateTableRotation(fd));
+    startTransition(async () => {
+      await runGated(() => updateTableRotation(fd));
+    });
   };
 
   // Rotate a table by `delta` degrees (or to an absolute angle). Snaps to 15°,
   // updates instantly, persists. Rotation is what lets wedges/banquets connect.
   const rotateTable = (t: EventTableRow, delta: number, absolute = false) => {
+    if (!canEdit) return;
     const base = absolute ? 0 : rotationOf(t);
     const next = ((Math.round((base + delta) / 15) * 15) % 360 + 360) % 360;
     setRotById((m) => ({ ...m, [t.table_id]: next }));
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('rotation_deg', String(next));
-    startTransition(() => updateTableRotation(fd));
+    startTransition(async () => {
+      await runGated(() => updateTableRotation(fd));
+    });
   };
 
   // Change a table's STYLE (long → round, etc.). Capacity resets to the new
   // shape and guests in chairs the new shape lacks are returned to the pool;
   // the notice reports how many. Optimistic so the shape flips instantly.
   const changeStyle = (t: EventTableRow, newType: TableType) => {
+    if (!canEdit) return;
     if (newType === t.table_type) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('table_type', newType);
     const newLabel = TABLE_TYPE_LABEL[newType];
     startTransition(async () => {
-      const res = await updateTableType(fd);
+      const res = await runGated(() => updateTableType(fd));
+      if (!res) return; // lock lost — runGated already dropped us to view-only.
       setNotice(
         res.unseated > 0
           ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${res.unseated} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
@@ -827,12 +945,16 @@ export function SeatingEditor({
 
   // Delete / restore a single chair (clears the edge where two tables connect).
   const toggleSeat = (tableId: string, seatNumber: number, removed: boolean) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('seat_number', String(seatNumber));
     fd.set('removed', removed ? 'true' : 'false');
-    startTransition(() => setTableSeat(fd));
+    startTransition(async () => {
+      await runGated(() => setTableSeat(fd));
+    });
   };
 
   // --- collision avoidance: tables never overlap ----------------------------
@@ -1013,6 +1135,9 @@ export function SeatingEditor({
 
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {
+    // View-only (a peer holds the editor lock): no drag, no seating. Let the
+    // event bubble so the canvas can still pan/zoom for inspection.
+    if (!canEdit) return;
     if (pickedGroupId) {
       // A group is picked → pressing the hub seats the whole group here.
       e.stopPropagation();
@@ -1046,6 +1171,7 @@ export function SeatingEditor({
   // Drag the floor-plan elements (same pointer model as a table hub).
   const onMarkerPointerDown =
     (kind: 'stage' | 'entrance' | 'service' | 'dance') => (e: React.PointerEvent) => {
+      if (!canEdit) return; // view-only: floor-plan markers aren't draggable.
       if (pickedId) {
         // Don't seat onto a marker, and don't start a pan.
         e.stopPropagation();
@@ -1065,6 +1191,7 @@ export function SeatingEditor({
   // hardcoded perimeter snap (clampBoothToPerimeter) on every frame, so a
   // booth can only travel along the legal wall band.
   const onBoothPointerDown = (boothId: string) => (e: React.PointerEvent) => {
+    if (!canEdit) return; // view-only: booths aren't draggable.
     if (pickedId || pickedGroupId) {
       e.stopPropagation();
       return;
@@ -1621,53 +1748,69 @@ export function SeatingEditor({
 
   const layoutDirty = dirty.size > 0 || floorDirty || boothsDirty;
   const saveLayout = () => {
+    if (!canEdit) return;
     const ids = Array.from(dirty);
     const fdDirty = floorDirty;
     const bDirty = boothsDirty;
+    const lockId = lock.lockId ?? '';
     startTransition(async () => {
-      if (bDirty) {
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('booths', boothsPayload(booths));
-        await saveBooths(fd);
-        setBoothsDirty(false);
-      }
-      for (const id of ids) {
-        const pos = positions[id];
-        if (!pos) continue;
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('table_id', id);
-        fd.set('x_pos', String(pos.x));
-        fd.set('y_pos', String(pos.y));
-        await updateTablePosition(fd);
-      }
-      if (fdDirty) {
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('stage_x', String(stage.x));
-        fd.set('stage_y', String(stage.y));
-        fd.set('stage_w', String(stage.w));
-        fd.set('stage_h', String(stage.h));
-        fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
-        fd.set('entrance_x', String(entrance.x));
-        fd.set('entrance_y', String(entrance.y));
-        fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
-        fd.set('dance_x', String(dance.x));
-        fd.set('dance_y', String(dance.y));
-        fd.set('dance_w', String(dance.w));
-        fd.set('dance_h', String(dance.h));
-        fd.set('service_entrance_enabled', serviceDoor.enabled ? 'true' : 'false');
-        fd.set('service_entrance_x', String(serviceDoor.x));
-        fd.set('service_entrance_y', String(serviceDoor.y));
-        if (venue.enabled && venue.width > 0 && venue.length > 0) {
-          fd.set('venue_width_m', String(venue.width));
-          fd.set('venue_length_m', String(venue.length));
+      // Multi-step save — if any step reports the lock was lost (a peer took
+      // over mid-save), drop to view-only and stop instead of erroring out the
+      // remaining writes. Other errors propagate as before.
+      try {
+        if (bDirty) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('booths', boothsPayload(booths));
+          await saveBooths(fd);
+          setBoothsDirty(false);
         }
-        await saveFloorPlan(fd);
+        for (const id of ids) {
+          const pos = positions[id];
+          if (!pos) continue;
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('table_id', id);
+          fd.set('x_pos', String(pos.x));
+          fd.set('y_pos', String(pos.y));
+          await updateTablePosition(fd);
+        }
+        if (fdDirty) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('stage_x', String(stage.x));
+          fd.set('stage_y', String(stage.y));
+          fd.set('stage_w', String(stage.w));
+          fd.set('stage_h', String(stage.h));
+          fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
+          fd.set('entrance_x', String(entrance.x));
+          fd.set('entrance_y', String(entrance.y));
+          fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
+          fd.set('dance_x', String(dance.x));
+          fd.set('dance_y', String(dance.y));
+          fd.set('dance_w', String(dance.w));
+          fd.set('dance_h', String(dance.h));
+          fd.set('service_entrance_enabled', serviceDoor.enabled ? 'true' : 'false');
+          fd.set('service_entrance_x', String(serviceDoor.x));
+          fd.set('service_entrance_y', String(serviceDoor.y));
+          if (venue.enabled && venue.width > 0 && venue.length > 0) {
+            fd.set('venue_width_m', String(venue.width));
+            fd.set('venue_length_m', String(venue.length));
+          }
+          await saveFloorPlan(fd);
+        }
+        setDirty(new Set());
+        setFloorDirty(false);
+      } catch (err) {
+        if (handleLockLost(err)) {
+          setNotice('Editing was taken over by another co-host — you’re viewing only now. Your unsaved layout changes weren’t saved.');
+          return;
+        }
+        throw err;
       }
-      setDirty(new Set());
-      setFloorDirty(false);
     });
   };
 
@@ -1699,7 +1842,9 @@ export function SeatingEditor({
           <button
             type="button"
             onClick={() => setShowAddTable((v) => !v)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600"
+            disabled={!canEdit}
+            title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
           </button>
@@ -1715,7 +1860,14 @@ export function SeatingEditor({
           Only show unseated
         </label>
 
-        {showAddTable ? <AddTablePanel eventId={eventId} onDone={() => setShowAddTable(false)} /> : null}
+        {showAddTable && canEdit ? (
+          <AddTablePanel
+            eventId={eventId}
+            lockId={lock.lockId}
+            onDone={() => setShowAddTable(false)}
+            onLockLost={handleLockLost}
+          />
+        ) : null}
 
         {/* Tables */}
         <Section label={`Tables · ${tables.length}`}>
@@ -1901,6 +2053,67 @@ export function SeatingEditor({
 
       {/* ---------------- Canvas ---------------- */}
       <div className="space-y-3">
+        {/* Exclusive-editor lock banner (PR 2). Renders whenever we are NOT the
+            active editor (canEdit === false) — a SOLO editor who holds the lock
+            (status==='editing') still sees NOTHING (no regression). Two shapes:
+            (a) a live peer is present → "X is editing" + takeover once stale;
+            (b) NO peer present but we still can't edit → a solo-recovery banner
+            so the user is never stranded in view-only (orphaned lock, or a
+            transient acquire failure on mount). Recovery is always one click:
+            acquire() re-asserts and the DB grants it (took_over for a stale/
+            orphaned lock, acquired once it frees). */}
+        {peers.size > 0 && !canEdit ? (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-3 py-2 text-xs text-ink/80"
+          >
+            <Eye className="h-3.5 w-3.5 shrink-0 text-mulberry" />
+            <span className="min-w-0 flex-1">
+              <strong className="font-semibold text-ink">
+                {lockHolderPeer?.lockHolderLabel ?? lock.holderLabel ?? 'Someone'}
+              </strong>{' '}
+              is editing this seat plan — you&rsquo;re viewing only. Your changes are paused until
+              they finish.
+            </span>
+            {lock.status === 'stale_takeover_available' ? (
+              <button
+                type="button"
+                onClick={lock.acquire}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 font-semibold text-cream hover:bg-mulberry-600"
+              >
+                Take over editing
+              </button>
+            ) : (
+              <span className="shrink-0 text-ink/45">Checking for handover…</span>
+            )}
+          </div>
+        ) : !canEdit ? (
+          // No peer present, yet we can't edit — never strand a solo user.
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-3 py-2 text-xs text-ink/80"
+          >
+            <Eye className="h-3.5 w-3.5 shrink-0 text-mulberry" />
+            <span className="min-w-0 flex-1">
+              {lock.status === 'acquiring' ? (
+                <>Opening the seat plan for editing…</>
+              ) : (
+                <>
+                  You&rsquo;re viewing only — the editor lock isn&rsquo;t held by you yet. Tap to
+                  start editing.
+                </>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={lock.acquire}
+              disabled={lock.status === 'acquiring'}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Retry editing'}
+            </button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <ul className="flex flex-wrap gap-2 text-[11px]">
             {peerList.map((p) => (
@@ -2044,7 +2257,7 @@ export function SeatingEditor({
               <button
                 type="button"
                 onClick={saveLayout}
-                disabled={isPending}
+                disabled={isPending || !canEdit}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
               >
                 <Save className="h-3.5 w-3.5" /> Save layout ({dirty.size + (floorDirty ? 1 : 0)})
@@ -2122,7 +2335,8 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => setConfirmAuto(true)}
-              disabled={isPending || tables.length === 0}
+              disabled={isPending || tables.length === 0 || !canEdit}
+              title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
               className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
@@ -3937,7 +4151,19 @@ function SeatBadge({ guest, color }: { guest: SeatingGuest; color: string }) {
   );
 }
 
-function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => void }) {
+function AddTablePanel({
+  eventId,
+  lockId,
+  onDone,
+  onLockLost,
+}: {
+  eventId: string;
+  lockId: string | null;
+  onDone: () => void;
+  // Called when createTable reports the editor lock was lost (peer takeover) so
+  // the parent drops to view-only + notices, instead of an unhandled throw.
+  onLockLost: (err: unknown) => boolean;
+}) {
   const [isPending, startTransition] = useTransition();
   // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
   // Capacity is capped at the selected type's seat count and resets to it when
@@ -3951,8 +4177,14 @@ function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => voi
     <form
       action={(fd) => {
         fd.set('event_id', eventId);
+        fd.set('lock_id', lockId ?? '');
         startTransition(async () => {
-          await createTable(fd);
+          try {
+            await createTable(fd);
+          } catch (err) {
+            if (onLockLost(err)) return; // handled — dropped to view-only
+            throw err;
+          }
           onDone();
         });
       }}

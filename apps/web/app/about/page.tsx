@@ -25,6 +25,8 @@ const SITE_URL = (
 ).replace(/\/$/, '');
 
 const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding platform';
+// (Description carries no free-claims — clean under the 2026-06-13 reprice
+// scrub of Pricing.md § 00.D, which retired "free RSVP / free website" copy.)
 const PAGE_DESCRIPTION =
   "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local vendors, and capture the day so every guest goes home with a personal highlight reel.";
 
@@ -66,9 +68,9 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: Heart,
-    label: 'Free for couples',
+    label: 'Free to start',
     value:
-      'Guest list, RSVP, the Pakulay mood board, vendor browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
+      'Guest list, seating, budget, schedule, the mood board, vendor browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
   },
   {
     icon: ShieldCheck,
@@ -168,7 +170,7 @@ export default function AboutPage() {
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
             Not a foreign directory with a Philippine filter — software built and
             operated entirely in the Philippines, for the way Filipino couples
-            actually plan: free baseline tools, verified local vendors,
+            actually plan: a free planning workspace, verified local vendors,
             transparent peso pricing, and zero commission on what you pay your
             suppliers.
           </p>
@@ -200,8 +202,9 @@ export default function AboutPage() {
             </h2>
             <p className="text-base leading-relaxed text-ink/75">
               Setnayan isn&rsquo;t a wedding coordinator and doesn&rsquo;t take a
-              cut of your supplier bills. It&rsquo;s the toolkit: a guest list
-              and RSVP system, a free mood board (Pakulay), a marketplace of
+              cut of your supplier bills. It&rsquo;s the toolkit: a guest list,
+              seating, budget, and schedule workspace, a free mood board, a
+              marketplace of
               verified Filipino wedding vendors you message directly, and
               optional in-app services — live streaming (Panood), candid photo
               capture (Papic), a custom wedding song (Pakanta), and bespoke
@@ -277,9 +280,9 @@ export default function AboutPage() {
               Start planning — free.
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
-              Build your guest list, set up RSVP, and browse verified Filipino
-              wedding vendors with 0% booking commission. No card required to
-              begin.
+              Build your guest list, sketch your seating and budget, and browse
+              verified Filipino wedding vendors with 0% booking commission. No
+              card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <Link href="/signup" className="button-primary h-11 px-6 text-sm">

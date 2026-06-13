@@ -60,27 +60,27 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Free for couples on the baseline planning tools; verified Filipino wedding vendors list with 0% commission on bookings.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually from ₱999 (Pabati) to ₱16,999 (Media Pack bundle). Vendor side: Free (₱0/month) baseline listing, Verified (free during launch), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). Paid planning tiers: Setnayan AI ₱3,999, Essentials ₱12,999, Complete ₱27,999 — one-time per event. Individual services retail ₱999–₱7,999. Vendor side: Verified is free during launch; Pro ₱6,000 and Enterprise ₱10,000 per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Yes for the baseline planning tools — guest list, RSVP, Pakulay (mood board), vendor browse, and in-app chat are all free with every account. Premium tools like Setnayan AI (₱1,499 one-time) and Pro Website (₱5,499) are optional. You only pay for what you choose to add.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (₱3,999 one-time), the Event Website (₱1,999), and premium RSVP are optional paid software. You only pay for what you choose to add.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on vendor bookings?',
-        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software service purchases (Setnayan AI, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Pro monthly, Enterprise monthly).',
+        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software purchases by couples (planning tiers plus services like Papic, Panood, and the Editorial Website) and vendor subscriptions (Pro and Enterprise, 28-day or annual).',
       },
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock through thank-you cards, with religion-adaptive copy and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier, ₱3,999 one-time per event. Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
@@ -115,12 +115,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (₱2,999, disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, auto-tagged via face detection) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (from ₱2,999, scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, auto-tagged via face detection) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
       },
       {
         slug: 'what-is-panood',
         title: 'What is Panood?',
-        body: 'Live streaming for your wedding, embedded directly on your event website. ₱3,499 per day with up to four cameras. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your wedding, embedded directly on your event website. ₱2,499 per day. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',

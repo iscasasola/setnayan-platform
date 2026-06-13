@@ -173,10 +173,14 @@ export default function PrivacyPage() {
 
         <Section title="TikTok integration (Patiktok)">
           <p>
-            Couples on the Patiktok Personal tier (₱1,999/day) connect their own
+            {/* 2026-06-13 reprice scrub: per-day tier prices removed — the
+                figures predated the locked catalog (Patiktok is a flat-price
+                SKU; current price on /pricing). Privacy copy describes data
+                flows, not prices. */}
+            Couples on the Patiktok Personal tier connect their own
             TikTok account to Setnayan so Patiktok booth compilations can
             auto-post to the couple&rsquo;s handle. Setnayan uses TikTok&rsquo;s
-            Login Kit and Content Posting API. The Setnayan tier (₱999/day)
+            Login Kit and Content Posting API. The Setnayan tier
             does not require a couple-side TikTok connection — those
             compilations post to <strong>@SetnayanWeddings</strong>, our
             company-owned handle, using credentials Setnayan manages directly.

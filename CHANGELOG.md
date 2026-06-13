@@ -4,6 +4,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(pricing): 4-tier site-sync — locked 2026-06-07 pricing across all public surfaces
+
+**Context:** the owner-locked 2026-06-07 reprice (corpus `Pricing.md § 00` — Free–Explore ₱0 · Setnayan AI ₱3,999 · Essentials ₱12,999 · Complete ₱27,999; 19 paid SKUs, SRP ₱53,981) had landed in the DB catalogs (`platform_retail_catalog_v2` / `platform_package_catalog` / `vendor_billing_catalog`) but NOT in the public marketing copy, which still sold the three reversed pillars (§ 00.D): free-to-plan / free wedding website / free RSVP, plus the retired ₱1,499 Setnayan AI price. This PR is the pending "site-sync" flagged in `Pricing.md § 00.E` and memory `project_setnayan_pricing_tiers`.
+
+**Changes (all prices render live from the DB catalogs — zero hardcoded peso figures added to TSX):**
+- **Homepage** (`app/page.tsx`, `_components/marketing/_sections.tsx`, `_fixtures.ts`) — PricingSection re-cut from 3 cards (Couples-free / Productions / Bundles) to the 4-tier ladder (DB-priced; Essentials/Complete CTAs → onboarding, their only purchase point per owner 2026-06-08). DashboardPreview planner price now reads `SETNAYAN_AI` (was leaking the retired `TODAYS_FOCUS` ₱1,499). "Free to plan" → "Start free"; FAQ + couple-features re-scoped to the free workspace (guest list · seating · budget · schedule · mood board); vendor bullets/FAQ carry no static peso figures (DB renders them on /for-vendors). Restored-JSON-LD featureList: "Free guest list & RSVP management" → free-claims only on actually-free tools.
+- **/pricing** (`app/pricing/page.tsx`) — new 4-tier overview section (display-only; bundles stay onboarding-only) + tier `Product`/`Offer` JSON-LD re-listed for GEO coherence (offer URL = `/onboarding/wedding`). "Free website. Free QR. Free forever." → "Start free." workspace card. Metadata/OG scrubbed of free-website claims. Stale "BIR receipts" → "itemized receipts"; "Pro Website" → "Editorial Website".
+- **/for-vendors** (`page-tail.tsx`) — "Is the planning really free?" FAQ no longer promises RSVP/QR-invitations free; fallback money-FAQ renamed Pro Website → Editorial Website. (Offer JSON-LD already DB-driven — untouched.)
+- **/about** — metadata + FACTS + body: "Free for couples" → "Free to start" with the workspace enumerated (RSVP dropped from free lists). FAQPage JSON-LD inherits the lib/help.ts fixes.
+- **/waitlist** — "Free wedding website…" bullet de-freed; free bullet now lists only the workspace.
+- **/how-it-works** — "Plan one wedding, free" card body re-scoped (invitations + day-of experience removed from the free claim).
+- **/signup** — "Guest list + RSVP · free" and "BIR-stamped receipts" bullets replaced (the latter per the #1316 claims purge); "Free planning forever" → "The planning workspace is free"; metadata softened.
+- **/privacy** — uncanonical Patiktok "₱1,999/day Personal / ₱999/day Setnayan" tier prices stripped (tier names kept; prices live on /pricing).
+- **`lib/help.ts`** — cost / is-it-free / Setnayan-AI / Papic / Panood articles realigned to § 00 (cascades into /help pages + /about FAQPage JSON-LD). Setnayan AI described as the assisted-planning tier at ₱3,999.
+- **`lib/v2-catalog.ts`** — `getCustomerSkuPrice` now honors `is_active` so a retired SKU can never leak a stale price onto a marketing surface.
+- **`public/llms.txt`** — full reprice: 4 planning tiers added; à-la-carte re-cut to the 19 live SKUs (Indoor Blueprint · Call-Time Escalator · Pro Website · High Res Archive retired); vendor subs corrected to the DB-canonical Pro ₱6,000/28d (₱60,000/yr) · Enterprise ₱10,000/28d (₱100,000/yr); token packs corrected to the flat ₱100/token ladder (₱400–₱10,000); Free vendor tier dropped from the public table (not marketplace-searchable per the 2026-06-07 capability matrix).
+
+**DB:** NO migration needed — prod catalogs already carry § 00 in full (verified live: 19 active customer SKUs, 3 removed SKUs `is_active=false`, GUIDED_PACK ₱12,999 / MEDIA_PACK ₱27,999, vendor subs + flat-₱100 packs). The brief's vendor figures (Pro ₱2,499 / Ent ₱5,499, ₱250-token packs) are pre-reprice corpus values — DB + live site win per the source-of-truth order (DECISION_LOG 2026-06-09 "already canonical at HEAD so NO reprice").
+
+**Known leftover (flagged, untouched):** the DB carries BOTH `RSVP_PRO_WEBSITE` "RSVP Pro" ₱4,499 AND `PRO_RSVP` "Pro RSVP" ₱1,999 active while base `RSVP_WEBSITE` ₱2,499 is inactive — § 00.B says RSVP ₱2,499 + RSVP Pro ₱4,499. llms.txt mirrors the DB; the naming collision needs an owner call. Signed-in `vendor-dashboard/marketing` still shows "₱1,999/28d" Pro copy (non-public, out of scope here).
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · `next build` passes.
+
+**SPEC IMPACT:** `Pricing.md § 00.E` site-sync → SHIPPED (corpus edit left to the parent session per worktree instruction — log a DECISION_LOG ship row + flip the § 00.E "site-sync PR pending" note). Memory `project_setnayan_pricing_tiers` "site-sync pending" flag clearable once merged.
+
 ## 2026-06-13 · fix(geo): restore the dropped homepage JSON-LD graph + lead the entity description with the moat
 
 **Context:** An audit of how Google AI Mode describes setnayan.com found it parroting a generic "guest list + QR + seating + marketplace" summary — never naming the differentiated capture/media layer (Papic, Panood, Setnayan AI, Pakanta). Root cause traced to two things AI answer engines ground on:

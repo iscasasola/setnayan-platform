@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
+
+Two correctness/clarity fixes to the admin doorway nav (`apps/web/app/admin/_components/`). Surgical — no labels, hrefs, routes, order, or `is_admin` gating changed.
+
+- **Bottom-nav activeMatch gaps (`admin-bottom-nav.tsx`)** — several live admin routes lit no mobile tab (the 4-tab strip Home · Work · Directory · More) because they were absent from the per-tab `activeMatch` arrays, so navigating to them left every tab dark. Cross-checked the full sidebar route list against the four arrays and added every orphan:
+  - **Work** tab: `+/admin/pax-changes`, `+/admin/user-reports`, `+/admin/social-queue`, `+/admin/account-deletions` (the last surfaced by the orphan cross-check).
+  - **More** tab: `+/admin/refinements`, `+/admin/hero-video`, `+/admin/real-stories` (the last two surfaced by the cross-check — all three are Platform-group surfaces).
+  - `/admin/settings/payment-methods` + `/admin/settings/demo-mode` already light More via the existing `/admin/settings` prefix; `/dashboard/profile` (My account) is an intentional cross-doorway link to the shared profile and correctly lights no admin tab.
+- **Duplicate sidebar icons (`admin-sidebar.tsx`)** — four pairs of semantically-different items rendered the same glyph; gave the lower-frequency member a distinct, true-to-meaning lucide icon (imports added: `MessageSquareWarning`, `Landmark`, `RefreshCw`, `UsersRound`):
+  - **Disputes** (vendor-txn) keeps `Shield`; **User reports** (UGC moderation) `Shield`→`MessageSquareWarning`.
+  - **Payment options** (act-now queue) keeps `CreditCard`; **Payment methods** (bank-rails config) `CreditCard`→`Landmark`.
+  - **Verify** keeps `BadgeCheck`; **Subscriptions** (recurring billing) `BadgeCheck`→`RefreshCw`.
+  - **Operations & Hiring** keeps `TrendingUp`; **Pax changes** (headcount-change queue) `TrendingUp`→`UsersRound`.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `scripts/lint-bottom-nav.mjs` passed.
+
+SPEC IMPACT: None (nav highlight + icons; no routes/labels/gates changed).
+
+---
+
 ## 2026-06-14 · fix(pwa): auto-stamp the service-worker cache version per deploy (kills stale-shell-after-deploy)
 
 Durable follow-up to the 2026-06-14 chrome retirement (which only one-time-bumped `sw.js` v3→v4). `public/sw.js` namespaces all five caches (SHELL/STATIC/IMAGE/FONT/DAYOF) by a hand-maintained `const VERSION`; `STATIC_CACHE` serves Next chunks stale-while-revalidate, so when VERSION isn't bumped on a deploy, returning PWA users get the PRIOR build's shell/JS for one load. Now it auto-bumps per deploy:

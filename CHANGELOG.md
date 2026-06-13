@@ -27,6 +27,17 @@ Owner directive 2026-06-13 ("opens with ONE clean universal search box … simpl
 Deliberate simplifications flagged to owner: (a) the public Explore **landing** drops its Filters drawer (city/sort/verified/match/faith) — filters reappear the moment a search/category drops the visitor into vendor-grid mode; (b) the `setnayan_*` services are intentionally NOT chipped — `?category=setnayan_papic` returns an **empty grid on prod today** (no publicly-visible first-party listing yet), so they surface via the search autocomplete + the catalog tiles below until provisioned as real visible vendor listings.
 
 SPEC IMPACT: None (UX reframe of an existing surface; no schema/pricing/SKU change). Logged in corpus `DECISION_LOG.md` (2026-06-14). Open owner decisions surfaced in the PR: provision `setnayan_*` services as visible vendor listings so they appear in search RESULTS (not just catalog tiles); and the separate "Real Stories" (`/blog`) editorials-vs-guides direction (follow-up (2), still unstarted).
+## 2026-06-14 · fix(hero): scrub frames resolve from R2 keys (presigned now, public later) — homepage scrub displays
+
+Makes the published scroll-scrub hero actually **show** without waiting on the owner's Cloudflare/Vercel work. The scrub was blank because the stored frame URLs were the R2 S3 API endpoint (`…r2.cloudflarestorage.com`), which 400s a plain browser `<img>` (see the 2026-06-13 R2 entry + PR #1380). `R2_PUBLIC_URL` in prod is still the S3 endpoint, so rather than block on the public-bucket setup, the read path now builds loadable URLs from the frame **keys** at render time.
+
+- `supabase/migrations/20261220000000_homepage_hero_frame_keys.sql` — adds `frame_keys JSONB` to `homepage_hero_config` (the R2 object keys = source of truth, decoupled from URL shape) + backfills the existing published row from `frame_urls` (`split_part` on `/setnayan-media/`). **APPLIED TO PROD** (120 keys backfilled, ledger row `20261220000000` recorded; bumped from `…19` which `iteration_0008_cocktail_vendor_rpcs` already claimed).
+- `apps/web/lib/hero-video.ts` — `fetchPublishedHeroVideo()` resolves keys → **public URLs** when `R2_PUBLIC_URL` is a real public host (custom domain / r2.dev), else **presigned GETs** (`r2SignedGet`, 24h). The homepage is `force-dynamic`, so the presigned batch is wrapped in `unstable_cache` keyed on the row's `updated_at` (6h TTL ≪ 24h presign life) — the **same** signed URLs are reused across renders so browsers actually cache the frames (without this, a per-render-unique query string would force every repeat visitor to re-download the whole ~120-frame sequence); an admin republish bumps `updated_at` → fresh URLs. Prefers stored `frame_keys`, derives from `frame_urls` for old rows (`keyFromUrl` handles all shapes). Still **never throws** — any read/resolve failure returns null → default hero. `videoUrl` no longer surfaced to the scrub (it renders frames, not the source video); admin video preview presigns from `video_r2_key`.
+- `apps/web/app/admin/hero-video/actions.ts` — `saveHeroVideo()` now persists `frame_keys` (already in hand from the uploader).
+
+Net: today the scrub shows via presigned frames (works with existing R2 creds, R2 egress stays free); once `media.setnayan.com` + `R2_PUBLIC_URL` are wired (PR #1380), it auto-switches to cacheable public URLs with no further change. Verified with a 13-case key-derivation/URL-resolution suite.
+
+SPEC IMPACT: None (read-path + storage refinement; no SKU/pricing/schema-contract change). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
 

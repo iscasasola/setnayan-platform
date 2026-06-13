@@ -17,6 +17,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Behaviorally verified on prod** (rolled-back transaction): inserting a second `contracted` venue for one event is rejected with `23505`; the generated column resolved `venue → reception_venue`; 0 test rows persisted. `tsc --noEmit` clean.
 
 **SPEC IMPACT:** None to product behavior (UX identical; the guard only makes the rare concurrent case correct). Architecture note → `DECISION_LOG.md`; the conflict-architecture "build DB guards before two-way features" lock is now satisfied for ALL shipped two-way surfaces. Memory `project_setnayan_conflict_architecture` updated (hard-single item flipped from OPEN to CLOSED).
+## 2026-06-13 · feat(blog): Setnayan Journal — public editorial surface (`/blog`), iteration 0038 first slice
+
+First slice of iteration 0038 (Editorial & Affiliates), which was a V1.1 paper spec / NOT-BUILT until now. Ships the **editorial content surface only** — the affiliate/recommendations/sponsored-content parts (which need DB tables + monetization decisions) are deliberately deferred to later slices.
+
+- **`/blog` + `/blog/[slug]`** — new public SSG routes that **mirror the shipped `/help/[slug]` pattern exactly**: content is an in-code typed constant (`lib/blog.ts`) — no DB, no CMS vendor, no markdown-renderer dependency — so every slug is pre-rendered via `generateStaticParams` with `dynamicParams=false`, and anything else 404s at the routing layer (no `loading.tsx` → no soft-404, same fix class as the help per-article rollout).
+- **4 PH-anchored long-tail seed articles** (the SEO playbook §0/§5 + 0038 § 4.0 targets): a 12-month planning timeline, a supplier-cost guide, civil-vs-church, and the ninong/ninang entourage explainer. Bodies sell **benefits only** (public-surface hygiene) and quote **no Setnayan SKU prices** (drift-proof) — only durable facts (free planning workspace, 0% commission). Each article carries internal-link CTAs to `/vendors`, `/how-it-works`, and `/signup` (hub-and-spoke, no orphan pages).
+- **Structured JSON-LD**: `BlogPosting` + `BreadcrumbList` per article; `Blog` + `ItemList` + `BreadcrumbList` on the index. `en-PH`, publisher pointed at the existing `#organization` node.
+- **Discovery**: new `sitemap-blog.xml` route with **honest per-article `lastmod`** (`updatedAt ?? publishedAt`, not a build-time `Date()`), registered in the `sitemap.xml` index; a **"Journal" link** added to the marketing footer; and a `/blog` entry added to `public/llms.txt` (GEO). `/blog` was already pre-allowed in `robots.ts`, so no robots change.
+
+Verified: `tsc` + production build clean (no new deps).
+
+**SPEC IMPACT:** Implements iteration **0038 first slice** — `/blog` + `/blog/[slug]` flip from "NOT BUILT" to shipped in the corpus `0038_editorial_and_affiliates` AS-BUILT header + `App_Build_Status.md` (0038 → ⚠ partial: editorial shipped, affiliates/recommendations/sponsored deferred). Logged at the bottom of `DECISION_LOG.md`.
 
 ---
 

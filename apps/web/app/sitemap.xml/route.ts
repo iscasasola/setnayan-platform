@@ -47,6 +47,7 @@ export async function GET(): Promise<Response> {
   const children: ReadonlyArray<{ slug: string; lastmod: string }> = [
     { slug: 'sitemap-static.xml', lastmod: now },
     { slug: 'sitemap-help.xml', lastmod: now },
+    { slug: 'sitemap-blog.xml', lastmod: now },
     { slug: 'sitemap-venues.xml', lastmod: now },
     { slug: 'sitemap-vendors.xml', lastmod: now },
     { slug: 'sitemap-weddings.xml', lastmod: now },

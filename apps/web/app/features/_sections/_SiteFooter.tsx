@@ -31,6 +31,9 @@ export function SiteFooter() {
           <Link href="/help" className="hover:text-ink">
             Help
           </Link>
+          <Link href="/blog" className="hover:text-ink">
+            Journal
+          </Link>
           <Link href="/for-vendors" className="hover:text-ink">
             For vendors
           </Link>

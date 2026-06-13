@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(hero): raise scrub frame resolution + quality (fix pixelated full-screen hero)
+
+The hero scrub looked pixelated because the live frames are **960×960** (the current source is a low-res 960px test clip) shown full-bleed (`object-fit:cover` over 100vh) → ~3× upscale on a 1440px+/retina display. The extractor also capped frames at **1080px** + JPEG **0.82**, too soft for a full-screen hero even with a good source.
+
+- `apps/web/app/admin/hero-video/hero-uploader.tsx` — browser frame extraction: long-edge cap `1080 → 1920` (`FRAME_MAX_EDGE`; sources below it pass through with no upscaling), JPEG quality `0.82 → 0.92` (`FRAME_JPEG_QUALITY`), and `imageSmoothingQuality='high'` for clean downscaling of larger sources. To offset the bigger per-frame payload, frame density drops (`FPS 8 → 6`, `MAX_FRAMES 180 → 120`) — still smooth over the 300vh scrub. Upload label now guides a high-res, short source ("1080p+, 1:1 ideal, ~4–6s — plays full-screen, low-res looks pixelated").
+
+**Two-part fix — code alone is not enough:** this only affects NEW extractions, and a 960px source can't be made crisp (no detail to recover). **The owner must re-upload a high-res source** (the final render, 1080p–4K) for the hero to look premium; then these settings keep it crisp full-screen instead of downscaling to 1080.
+
+**Trade-off:** higher-res frames = a heavier preload (all frames preload up front in `HeroVideoScrub`). Kept in check via the lower FPS + frame cap + short-clip guidance; if a longer/high-res clip ever feels heavy on load, the standing follow-up is progressive/lazy frame loading.
+
+SPEC IMPACT: None (asset-quality tuning in the admin uploader; no schema/SKU/pricing). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+---
+
 ## 2026-06-14 · feat(realstories): rename the Real Weddings showcase /weddings → /realstories (PR A of the Real-Stories featuring program)
 
 Owner: "rename it as /realstories." First of a sequenced program to turn the showcase into a Facebook-shareable featuring loop (PR A = rename · PR B = OG share cards + share buttons · PR C = couple "Publish to Real Stories" consent + vendor "share to your Page" · PR D = admin curate/feature).

@@ -14,6 +14,14 @@
  *
  * A 1:1 (square) source is recommended so one render crops cleanly to both
  * desktop (16:9) and mobile (9:16) via object-fit:cover, but any aspect works.
+ *
+ * RESOLUTION: frames are drawn at up to FRAME_MAX_EDGE px on the long edge and
+ * encoded at FRAME_JPEG_QUALITY. The hero is full-bleed (object-fit:cover over
+ * 100vh), so a low-res source upscales and looks pixelated — the source video
+ * must itself be high-res (1080p+; 1440–2160px square is ideal for a crisp
+ * full-screen result on large + retina displays). Higher resolution + more
+ * frames = a bigger preload, so FPS is kept modest and clips should be short
+ * (~4–6s) — that's also the ideal length for a hero scrub.
  */
 
 import { useState, type ChangeEvent } from 'react';
@@ -21,9 +29,18 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
-const FPS = 8;
-const MAX_FRAMES = 180;
+// 6 fps keeps the scroll-scrub smooth without exploding the frame count (and
+// thus the preload payload) now that each frame is larger.
+const FPS = 6;
+const MAX_FRAMES = 120;
 const MIN_FRAMES = 24;
+// Long-edge cap for extracted frames. 1920 keeps a high-res source crisp
+// full-screen (the old 1080 cap softened the hero on 1440px+/retina displays);
+// sources smaller than this are passed through unchanged (no upscaling).
+const FRAME_MAX_EDGE = 1920;
+// JPEG quality — 0.92 removes the visible blocking the old 0.82 left on a
+// full-bleed hero, at a modest size cost.
+const FRAME_JPEG_QUALITY = 0.92;
 const FRAME_UPLOAD_CONCURRENCY = 4;
 
 async function presignAndPut(body: Blob, pathPrefix: string, filename: string, contentType: string): Promise<string> {
@@ -77,7 +94,7 @@ async function extractFrames(
     });
     const dur = video.duration;
     if (!Number.isFinite(dur) || dur <= 0) throw new Error('Video has no readable duration.');
-    const scale = Math.min(1, 1080 / Math.max(video.videoWidth, video.videoHeight));
+    const scale = Math.min(1, FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
     const w = Math.max(2, Math.round(video.videoWidth * scale));
     const h = Math.max(2, Math.round(video.videoHeight * scale));
     const canvas = document.createElement('canvas');
@@ -85,6 +102,9 @@ async function extractFrames(
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas not available.');
+    // High-quality resampling when a source larger than FRAME_MAX_EDGE is scaled down.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     const N = Math.max(MIN_FRAMES, Math.min(MAX_FRAMES, Math.round(dur * FPS)));
     const blobs: Blob[] = [];
     for (let i = 0; i < N; i++) {
@@ -92,7 +112,7 @@ async function extractFrames(
       await seek(video, t);
       ctx.drawImage(video, 0, 0, w, h);
       const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Frame encode failed.'))), 'image/jpeg', 0.82),
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Frame encode failed.'))), 'image/jpeg', FRAME_JPEG_QUALITY),
       );
       blobs.push(blob);
       onProgress(i + 1, N);
@@ -218,7 +238,7 @@ export function HeroUploader({ initialPublished, initialFrameCount }: { initialP
         <input type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={onPick} disabled={working} />
         <div className="text-[var(--m-ink,#1e2229)] font-medium">{working ? 'Working…' : 'Upload a video'}</div>
         <div className="text-[13px] text-[var(--m-slate,#4f535b)] mt-1">
-          MP4 / WebM / MOV · up to 60 MB · a 1:1 square clip fits both desktop &amp; mobile best
+          MP4 / WebM / MOV · up to 60 MB · use a high-res source (1080p+, 1:1 square ideal) and keep it short (~4–6s) — it plays full-screen, so a low-res clip will look pixelated
         </div>
       </label>
 

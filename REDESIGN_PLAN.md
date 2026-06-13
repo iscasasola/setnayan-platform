@@ -21,8 +21,9 @@ chrome reads "premium" without losing operational scannability.
    champagne-gold active states, mulberry primary CTAs, a consistent card
    system, calmer IA. Do **not** push Cormorant/serif marketing type into the
    dashboard — it overrides the readability lock and hurts scanning.
-2. **Couple mobile bottom nav = 6 tabs**: Home · Guests · Services · Budget ·
-   Wedding · More. Owner override of the conventional 5-tab cap (iOS caps at 5;
+2. **Couple mobile bottom nav = 6 tabs**: Home · Guests · Studio · Budget ·
+   Wedding · More (`Studio` = the in-app services hub, see decision #4). Owner
+   override of the conventional 5-tab cap (iOS caps at 5;
    Android 3–5). `Wedding` is the warmer label for the public wedding site
    (routes to `/site-editor/[eventId]`). **Validation requirement:** confirm the
    6-tab bar renders cleanly at 360–375px (icon-forward, 10px labels, even
@@ -30,26 +31,30 @@ chrome reads "premium" without losing operational scannability.
    Budget/Wedding demoted to More — but **default to the owner's 6**.
 3. **Phase order is locked** (see Roadmap). Phase 1 (shared chrome) first
    because it's the high-leverage layer.
-4. **"In-app services" umbrella + "Services"/"Vendors" rename** (owner-refined
-   2026-06-13). Two different things were both called "Services": (a) the
-   third-party **Vendors marketplace**, (b) **Setnayan's own in-app services**.
-   Resolution:
-   - **Vendors** = the marketplace of real-world suppliers you hire (renamed
-     from today's "Services").
-   - **In-app services** = Setnayan's own offerings — the umbrella concept,
-     present on BOTH doorways:
-     - **Customers** → media/experience services (Papic · Wedding website ·
-       Panood · Thank-you video · Monogram · Save-the-Date · Mood board ·
-       Pakanta…) — the discovery hub.
-     - **Vendors** → **tokens + subscription** (today scattered under the vendor
-       sidebar's Business/Grow groups; gets one clear home).
-   - **Label nuance:** "In-app services" is the concept + the hub page header +
-     the desktop side-tab section label. The mobile bottom-nav tab uses a SHORT
-     label (16 chars can't fit 6 tabs); no collision now that the marketplace is
-     "Vendors". Reverses the 2026-06-02 "Vendors→Services" rename.
-   - ⚠ Consequence: the Vendors marketplace + Messages fall to "More" on mobile;
+4. **Naming LOCKED — Studio / Explore / Grow** (owner-final 2026-06-13). Two
+   different things were both called "Services": (a) the third-party
+   marketplace, (b) Setnayan's own in-app services. "In-app services" stays our
+   **internal/code** term; the **customer-facing** names are:
+   - **Studio** *(Setnayan Studio)* = the customer in-app services hub — the
+     things you *make* with Setnayan (Papic · Wedding website · Panood ·
+     Thank-you video · Monogram · Save-the-Date · Mood board · Pakanta…). This
+     is the verb "make". Bottom-nav tab + page header = "Studio".
+   - **Explore** = the **marketplace** — where you *find* vendors (caterer,
+     photographer, venue). Renamed from today's "Services". Verb "find".
+     ⚠ UX note: "Explore" is warmer but less literal than "Vendors" — anchor it
+     with the page header ("Explore vendors") + a clear icon so couples know
+     it's suppliers.
+   - **Grow** = the vendor in-app services — **tokens + subscription**. MERGE
+     into the existing vendor "Grow" sidebar group (which already holds
+     Marketing · Verify · Reviews · Moodboard): fold Subscription + Tokens +
+     Redeem-code in, so Grow = the one "grow your business with Setnayan" home
+     (paid reach + reputation). Pure money/ops (Earnings · Payouts · Branches ·
+     Team) stay in "Business". No collision — it absorbs.
+   - Pair logic: **Studio = make · Explore = find · Grow = grow (vendor)**.
+   - ⚠ Consequence: the Explore marketplace + Messages fall to "More" on mobile;
      mitigate with a "Your vendors" quick card pinned to mobile Home (build
-     requirement). Full design in the In-app-services surface section below.
+     requirement). Full design in the Studio surface section below.
+   - Supersedes the same-day "hub=Services / marketplace=Vendors" lineage.
 
 ## Current state (as shipped on origin/main — grounded in code, not specs)
 
@@ -84,9 +89,10 @@ single chrome change propagates to all three doorways:
 so the at-rest view is ~9 calm items (Home + Plan + Book):
 
 - **Home**
-- **In-app services** — Setnayan's own offerings, the discovery hub (see surface section below)
+- **Studio** — Setnayan's own in-app services, the make-it hub (see surface section below)
+- **Explore** — the marketplace, find vendors *(renamed from "Services")*
 - **Plan** — Guests · Seating · Schedule · Budget
-- **Book** — Vendors *(renamed from "Services")* · Messages · Contracts
+- **Book** *(collapsed)* — Messages · Contracts (your booked vendors)
 - **Design** *(collapsed)* — Wedding (website) · Mood board · Monogram
 - **Day-of** *(collapsed)* — Live wall · Event QR
 - **After** *(collapsed)* — Activity · Disputes
@@ -95,27 +101,26 @@ so the at-rest view is ~9 calm items (Home + Plan + Book):
 Notes:
 - `Find your date` demoted from a permanent sidebar slot to a Home card /
   contextual entry (it's a pre-booking utility).
-- `Add-ons` (the SKU store) placement is a build-time decision: a Home surface,
-  a "Design/Enhance" entry, or its own group. Not a primary slot.
+- `Add-ons` (the SKU store) is absorbed by the **Studio** hub — no separate slot.
 - Group labels in sentence case ("Plan", "Book"…), champagne-gold active pill.
 
 **Bottom nav — 6 tabs (owner-locked):**
-`Home · Guests · Services · Budget · Wedding · More`
-- `Services` (short tab label) → the in-app services hub (NOT the vendor
-  marketplace — that's now "Vendors", reached via side-tab Book + a mobile Home
-  quick card + More).
+`Home · Guests · Studio · Budget · Wedding · More`
+- `Studio` → the customer in-app services hub (NOT the marketplace — that's
+  "Explore", reached via the side-tab Explore item + a mobile Home "Your
+  vendors" quick card + More).
 - `Wedding` → `/site-editor/[eventId]`. `Budget` → `/dashboard/[eventId]/budget`.
 - Validate at 360–375px (see locked decision #2).
 
-## Surface: In-app services — NEW, Phase 2 (customer hub + vendor menu)
+## Surface: Studio — NEW, Phase 2 (customer in-app services hub)
 
-> "In-app services" = Setnayan's own offerings, on both doorways. The CUSTOMER
-> side is the discovery hub below. The VENDOR side is a single menu grouping
-> **tokens + subscription** (see "Vendor in-app services" at the end of this
-> section). Both are distinct from the **Vendors** marketplace (third-party
-> suppliers).
+> **Studio** = the customer-facing name for Setnayan's own in-app services
+> (internal term: "in-app services"). It's the make-it hub. The marketplace is
+> a separate surface, **Explore** (find vendors). The vendor equivalent of
+> in-app services (tokens + subscription) lives in the vendor **Grow** group —
+> see the vendor IA section.
 
-### Customer in-app services (the discovery hub)
+### Studio — the customer make-it hub
 
 **Why.** Today the in-app services (Papic, Panood, Wedding website, Thank-you
 video, Monogram, Save-the-Date, Mood board, Pakanta…) are scattered across a
@@ -153,40 +158,42 @@ SKUs also exist as 1st-party marketplace listings (`is_setnayan_service`) per
 the in-app-services-as-vendor-listings model — the hub is the discovery front
 door over those, not a parallel catalog.
 
-**Naming + nav (owner-locked, decision #4).** Hub page/section = "In-app
-services"; bottom-nav tab uses a SHORT label; marketplace = "Vendors". ⚠ Build
-requirement: pin a "Your vendors" quick card on mobile Home so the active
-booking/chat workflow isn't buried under More.
+**Naming + nav (owner-locked, decision #4).** Customer hub = **"Studio"** (tab +
+page header); marketplace = **"Explore"**. ⚠ Build requirement: pin a "Your
+vendors" quick card on mobile Home so the active booking/chat workflow isn't
+buried under More.
 
 **Build sub-steps (lands in Phase 2):**
-1. Rename the marketplace label "Services" → "Vendors" across
+1. Rename the marketplace label "Services" → **"Explore"** across
    `customer-nav-config.ts` + `customer-bottom-nav.tsx` + `customer-sidebar.tsx`
-   (label only; route `/vendors` unchanged). Add the new in-app-services hub nav
+   (label only; route `/vendors` unchanged). Add the new **Studio** hub nav
    item/tab.
-2. Rebuild `/add-ons` into the grouped benefit-led hub (card + state model).
+2. Rebuild `/add-ons` into the grouped benefit-led **Studio** hub (card + state
+   model).
 3. Rewrite `/add-ons/[feature]` intro pages (benefit-first).
 4. Feature→route deep-link map + CTA-state logic (free / owned / buyable / soon).
 5. Mobile Home "Your vendors" quick card.
 
-### Vendor in-app services (tokens + subscription)
+### Vendor in-app services → the "Grow" group (tokens + subscription)
 
-The same "In-app services" concept on the vendor doorway = **what the vendor buys
-from Setnayan**. Today these are scattered across the vendor sidebar's
-Business/Grow groups (`subscription`, `tokens`, `redeem-code`, plus `branches`,
-`manpower`, `marketing`, `verify`). Consolidate into one **In-app services**
-section/menu:
-- **Core (owner-named):** Subscription (Pro / Enterprise) · Tokens (packs +
-  redeem code).
-- **Candidates to fold in (confirm during build):** Boosted ads / Marketing,
-  Verification, Additional branches — they're also "things you buy from
-  Setnayan." Manpower (team seats) is borderline — may stay in a Team group.
-- Same card treatment as the customer hub (what it is · what it unlocks · price ·
-  Open/Buy), so both doorways share one "In-app services" pattern.
+The same in-app-services concept on the vendor doorway = **what the vendor buys
+from Setnayan**. Owner-named **"Grow"** (decision #4) — and it MERGES into the
+existing vendor "Grow" sidebar group rather than colliding with it. Today the
+paid items are scattered across the vendor sidebar's Business/Grow groups
+(`subscription`, `tokens`, `redeem-code`, plus `branches`, `manpower`,
+`marketing`, `verify`). Reconciliation:
+- **Grow group (after merge)** = Subscription (Pro / Enterprise) · Tokens (packs
+  + redeem code) · Boosted ads / Marketing · Verify · Reviews · Moodboard library
+  — the unified "grow your business with Setnayan" home (paid reach + reputation).
+- **Business group keeps** the pure money/ops items: Earnings · Payouts ·
+  Payment options · Branches · Manpower / Team.
+- Same card treatment as the customer Studio (what it is · what it unlocks ·
+  price · Open/Buy), so both doorways share one in-app-services pattern.
 
 ## Proposed IA — vendor dashboard
 
 - **Side tab:** keep the 4 groups; chrome polish only — EXCEPT consolidate the
-  scattered paid items into one **In-app services** section (see above).
+  scattered paid items into the **Grow** group (see above).
 - **Bottom nav:** `Home · Bookings · Calendar · Messages · More`
   — swap **Calendar in for Earnings** (Earnings → More). Rationale: the vendor
   pitch is "the ultimate calendar that stops double-bookings"; burying Calendar
@@ -215,19 +222,20 @@ Tighten the shared primitives once; all three doorways lift together:
 |---|---|---|
 | 0 ✅ | Marketing — homepage + `/for-vendors` premium redesign | PR #1334 |
 | 1 | Shared chrome system (nav primitives) | 1 PR — lifts all 3 dashboards |
-| 2 | Couple dashboard IA — journey side tab + collapse-by-default + 6-tab bottom nav **+ Services hub + Services→Vendors rename** | 1–2 PRs (the hub may warrant its own PR) |
-| 3 | Vendor dashboard — Calendar into bottom nav + chrome | 1 PR |
+| 2 | Couple dashboard IA — journey side tab + collapse-by-default + 6-tab bottom nav **+ Studio hub + "Services"→"Explore" rename** | 1–2 PRs (the Studio hub may warrant its own PR) |
+| 3 | Vendor dashboard — Calendar into bottom nav + **Grow merge** + chrome | 1 PR |
 | 4 | Auth + onboarding doorways (login / signup / create-event) | 1 PR |
 | 5 | Admin polish (lightest) | 1 PR |
 | ⟂ | `/weddings` editorial **harvest** surface — separate track, Dec-onward (see DECISION_LOG 2026-06-13 editorials row) | future |
 
 ## Open decisions deferred to build time
 
-- ~~`Add-ons` placement~~ → RESOLVED: `/add-ons` becomes the Services hub.
+- ~~`Add-ons` placement~~ → RESOLVED: `/add-ons` becomes the **Studio** hub.
 - Whether `Find your date` becomes a Home card.
 - Outcome of the 6-tab bottom-nav 360px validation.
-- Final job-to-be-done grouping + per-feature benefit copy for the Services hub
+- Final job-to-be-done grouping + per-feature benefit copy for the **Studio** hub
   (draft in the surface section; refine with owner during Phase 2).
+- Exact `Grow`-group composition after the merge (which paid items move in).
 
 ## Verification plan (per phase)
 

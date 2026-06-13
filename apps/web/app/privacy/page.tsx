@@ -104,7 +104,7 @@ export default function PrivacyPage() {
             <code className="font-mono text-[12px]">setnayan.com/{'{event-slug}'}</code>{' '}
             transitions from invitation and day-of mode into a public editorial
             article 30 days after the event date. The page becomes publicly
-            indexable on <code className="font-mono text-[12px]">setnayan.com/weddings</code>{' '}
+            indexable on <code className="font-mono text-[12px]">setnayan.com/realstories</code>{' '}
             and discoverable by search engines.
           </p>
           <p className="pt-2">

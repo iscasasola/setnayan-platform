@@ -257,6 +257,17 @@ const nextConfig: NextConfig = {
   // files in public/ are served directly by Next.js; the rewrite is a
   // URL-only remap so a deep-link in marketing email or social card lands
   // on the right slide deck without a 404 + redirect dance.
+  // 2026-06-14 — Real Weddings showcase renamed `/weddings` → `/realstories`
+  // (owner "rename it as /realstories"). 301-redirect the old paths so the
+  // already-indexed `/weddings` URLs consolidate their ranking to the new path
+  // and any in-flight nav links still pointing at `/weddings` (the nav PR #1391
+  // was open at rename time) keep working instead of 404-ing.
+  async redirects() {
+    return [
+      { source: '/weddings', destination: '/realstories', permanent: true },
+      { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       { source: '/keynote', destination: '/keynote/index.html' },

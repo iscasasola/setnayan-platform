@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(realstories): rename the Real Weddings showcase /weddings → /realstories (PR A of the Real-Stories featuring program)
+
+Owner: "rename it as /realstories." First of a sequenced program to turn the showcase into a Facebook-shareable featuring loop (PR A = rename · PR B = OG share cards + share buttons · PR C = couple "Publish to Real Stories" consent + vendor "share to your Page" · PR D = admin curate/feature).
+
+- **`git mv app/weddings → app/realstories`** (index + `[slug]` detail). Swapped every `/weddings` route reference → `/realstories` across 14 files: the two route pages (canonical · breadcrumb · Article JSON-LD · back-links), `sitemap-weddings.xml` (now emits `/realstories` URLs — route filename kept so the sitemap URL itself doesn't 404), `sitemap-static`, `robots.ts` (allow-list), `lib/real-weddings.ts`, `lib/showcase-db.ts`, `app/[slug]/_components/editorial/data.ts`, plus the inbound links on `/privacy`, `/signup`, `/vendors`, and the couple `dashboard/.../website/privacy` consent surface.
+- **301 redirects** added in `next.config.ts`: `/weddings` → `/realstories` and `/weddings/:slug` → `/realstories/:slug` (`permanent: true`). Consolidates the already-indexed `/weddings` ranking to the new path AND keeps the in-flight nav PR #1391's `/weddings` links working (it was open at rename time) instead of 404-ing.
+- Visible **"Real weddings" copy + the SEO title/keywords are intentionally unchanged** (strong "real Filipino weddings" keyword); only the route path changed. The nav label "Real Stories" → `/realstories` is the friendly label over the keyword-rich page — aligning the page H1 to "Real Stories" is an optional owner follow-up.
+
+SPEC IMPACT: iteration 0046 showcase route renamed `/weddings` → `/realstories` (301-preserved). Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR B — per-editorial OG share cards (satori, reusing `lib/social/card.tsx`) + Facebook/Pinterest/Copy share buttons on the editorial, so a shared link shows a beautiful preview and deep-links to the exact story.
+
+---
+
 ## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
 
 Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited `apps/web/next.config.ts` against `origin/main`: the `images` block ran every photo (R2 hero/vendor/moodboard + Supabase + the seeded Pexels/Picsum/Wikimedia stock hotlinks) through Vercel's per-transformation image optimizer, emitting **both** AVIF **and** WebP across Next's full default 8-size `deviceSizes` spread — a high billable-transformation count for a gallery-heavy, mostly view-once image workload. Confirmed NOT the cause: no `vercel.json` / no Vercel `crons` schedule, so the dormant `/api/cron/*` routes are not billing. Zero-infra interim cut (no component/render changes, fully reversible):

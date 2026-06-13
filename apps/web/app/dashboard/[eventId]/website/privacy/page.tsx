@@ -182,7 +182,7 @@ export default async function PrivacyEditorPage({
           </h2>
           <p className="max-w-prose text-sm text-ink/70">
             With your okay, Setnayan can feature your wedding on our public{' '}
-            <Link href="/weddings" className="text-terracotta hover:underline">
+            <Link href="/realstories" className="text-terracotta hover:underline">
               Real Weddings
             </Link>{' '}
             page — your story, your photos, and the team behind your day — starting

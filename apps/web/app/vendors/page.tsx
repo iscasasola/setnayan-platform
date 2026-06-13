@@ -394,7 +394,7 @@ type Props = {
      *  todays-one-thing CTA + event-home-detail-pane Browse vendors
      *  button — the next-steps CTA was removed 2026-05-24). Direct
      *  visits to /vendors (top-nav
-     *  Browse, sitemap, /weddings, /venue, /waitlist, /not-found, etc.)
+     *  Browse, sitemap, /realstories, /venue, /waitlist, /not-found, etc.)
      *  never set this param so the full chrome renders unchanged. */
     from?: string;
     /** 2026-05-30 — Ceremony Faith pill (StickyMarketplaceHeader contextual

@@ -2,7 +2,7 @@
 // Real Weddings — published-showcase DB browse (iteration 0046)
 // ============================================================================
 // Server-only. Returns the consent-gated set of REAL weddings to surface on
-// /weddings, newest first. A wedding qualifies ONLY when ALL hold:
+// /realstories, newest first. A wedding qualifies ONLY when ALL hold:
 //   • it's a wedding (events.event_type = 'wedding') with a public slug,
 //   • it's past the T+30d grace window (event_date <= today − 30 days),
 //   • a couple member's account opted in to public showcase inclusion
@@ -11,16 +11,16 @@
 // That is the RA 10173 consent gate (CLAUDE.md decision-log rows 426 + 428; the
 // `users.public_summary_consent_at` column shipped in
 // 20260519000000_phase_a_event_editorial_consent.sql). Read via the admin
-// client because /weddings is anonymous and these rows sit behind RLS — exactly
+// client because /realstories is anonymous and these rows sit behind RLS — exactly
 // how the editorial data layer reads.
 //
-// Best-effort: ANY failure or missing data returns [] so the /weddings page
+// Best-effort: ANY failure or missing data returns [] so the /realstories page
 // falls back to the curated sample (lib/real-weddings.ts) and never crashes.
 // Today this returns [] — no consented past weddings exist yet (the first real
 // one is the founder's Dec 2026 wedding → editorial ~Jan 2027), so the page
 // shows the sample until then, at which point real weddings take over
 // automatically. Each entry links to the couple's OWN canonical editorial at
-// /[slug] (0002 Phase 4) — never a duplicate copy under /weddings.
+// /[slug] (0002 Phase 4) — never a duplicate copy under /realstories.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 

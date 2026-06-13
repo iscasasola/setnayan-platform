@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
+
+The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notifications`) notification pages both called the same user-scoped `fetchOwnNotifications` from `lib/notifications.ts` yet forked a byte-identical `<ul>` of items + a near-identical empty state, differing only in a back-link, header subtitle, mark-all placement, and empty-state copy. Extracted the shared list/item/empty-state markup to `app/_components/notifications/notifications-list.tsx`; both pages become thin containers that keep their own auth gate + header + mark-all-read control and pass the already-fetched rows down with per-role `returnTo` + `emptyState` props. No behavior or visual change — rendered output matches byte-for-byte.
+
+- apps/web/app/_components/notifications/notifications-list.tsx — NEW
+- apps/web/app/dashboard/notifications/page.tsx — thin container
+- apps/web/app/vendor-dashboard/notifications/page.tsx — thin container
+- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A4.
+
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 
 **Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.

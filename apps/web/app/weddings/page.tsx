@@ -82,7 +82,14 @@ function ShowcaseCard({ wedding }: { wedding: RealWedding }) {
 }
 
 export default function WeddingsIndexPage() {
-  const weddings = ALL_REAL_WEDDINGS;
+  // Samples are PLACEHOLDERS — shown only until a real wedding is uploaded.
+  // (Owner: "this is our sample until a real wedding is uploaded.") The moment a
+  // real (non-sample) wedding enters the source — a non-sample in-code entry
+  // now, or the DB-driven Phase-4 published-editorials browse later (0046
+  // deferred) — the samples drop out automatically.
+  const realWeddings = ALL_REAL_WEDDINGS.filter((w) => !w.isSample);
+  const showingSamples = realWeddings.length === 0;
+  const weddings = showingSamples ? ALL_REAL_WEDDINGS : realWeddings;
   const featured = weddings.find((w) => w.featured) ?? weddings[0];
 
   const itemListJsonLd = {
@@ -136,9 +143,19 @@ export default function WeddingsIndexPage() {
             Real Filipino weddings, told by the couples who lived them.
           </h1>
           <p className="text-base text-ink/65">
-            Real couple editorials begin December 2026 — published from each
-            couple&rsquo;s own wedding page, with their consent. Here&rsquo;s a
-            sample to show how a wedding looks once it&rsquo;s told on Setnayan.
+            {showingSamples ? (
+              <>
+                Real couple editorials begin December 2026 — published from each
+                couple&rsquo;s own wedding page, with their consent. Here&rsquo;s a
+                sample to show how a wedding looks once it&rsquo;s told on Setnayan.
+              </>
+            ) : (
+              <>
+                Real Filipino weddings, published from each couple&rsquo;s own
+                wedding page with their consent — their story, their photos, their
+                vendor team, and the day as it actually unfolded.
+              </>
+            )}
           </p>
         </div>
 

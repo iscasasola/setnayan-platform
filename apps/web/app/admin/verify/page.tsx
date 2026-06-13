@@ -170,7 +170,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
             aria-pressed={active}
             className={
               active
-                ? 'inline-flex items-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream'
+                ? 'inline-flex items-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream sn-bounce'
                 : 'inline-flex items-center rounded-md px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/5'
             }
           >

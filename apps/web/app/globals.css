@@ -113,10 +113,20 @@
 
   /*
    * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
-   * buttons; no animation when pressed"). We kill the default mobile
-   * tap-highlight above, so every button-like control needs its own press
-   * response or taps feel dead. Give a quick scale-down + slight darken on
-   * :active and pointer cursor. Excludes :disabled / [aria-disabled].
+   * buttons; no animation when pressed"; made universal 2026-06-13). We kill
+   * the default mobile tap-highlight above, so every button-like control needs
+   * its own press response or taps feel dead. Give a quick scale-down + slight
+   * darken on :active and pointer cursor. Excludes :disabled / [aria-disabled].
+   *
+   * Uses the standalone `scale` PROPERTY, NOT `transform: scale()`. This is the
+   * key to it being truly universal: `scale` is its own property, so it
+   * COMPOSES with whatever `transform` an element already carries (a seat-plan
+   * table is `translate(-50%,-50%) scale(N)`, nav pills/cards may be
+   * translated, etc.). The old `transform: scale(0.96)` silently CLOBBERED
+   * those transforms on press — the element jumped instead of pressing. With
+   * the `scale` property the press composes everywhere. (Modern browsers only;
+   * very old engines just skip the press scale — graceful, no breakage.)
+   *
    * `.m-btn` (template utility) carries its own more-specific hover/active —
    * left intact. prefers-reduced-motion (block below) snaps it instantly,
    * which is still felt as feedback.
@@ -127,7 +137,7 @@
   input[type='submit'],
   input[type='button'],
   summary {
-    transition: transform 0.13s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transition: scale 0.13s cubic-bezier(0.2, 0.7, 0.2, 1),
       filter 0.13s ease;
   }
   button:not(:disabled),
@@ -144,7 +154,7 @@
   input[type='submit']:not(:disabled):active,
   input[type='button']:not(:disabled):active,
   summary:active {
-    transform: scale(0.96);
+    scale: 0.96;
     filter: brightness(0.97);
   }
   button:disabled,
@@ -175,6 +185,41 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+/*
+ * Universal "bounce on pick" — the companion to the press feedback above, for
+ * SELECTION states (a table / seat / card / tab just became picked). A 15%
+ * scale pop that overshoots and settles. Like the press rule it uses the
+ * standalone `scale` PROPERTY, so it composes with any element's existing
+ * `transform` instead of clobbering it — drop `.sn-bounce` on anything,
+ * however it's already positioned, and it bounces in place.
+ *
+ * Re-trigger: a CSS animation only plays when the element starts matching /
+ * mounts, so to replay on EACH new selection give the bouncing element a React
+ * `key` that changes per selection (it remounts and the animation runs from 0),
+ * or toggle the class. The global prefers-reduced-motion block above freezes it
+ * to instant. `transform-origin` is centre by default → it pops about its own
+ * middle.
+ */
+@keyframes sn-pick-bounce {
+  0% {
+    scale: 1;
+  }
+  38% {
+    scale: 1.15;
+  }
+  68% {
+    scale: 0.98;
+  }
+  100% {
+    scale: 1;
+  }
+}
+.sn-bounce {
+  animation: sn-pick-bounce 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* Promote to its own layer so the pop never reflows neighbours. */
+  will-change: scale;
 }
 
 @layer components {

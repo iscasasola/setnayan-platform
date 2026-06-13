@@ -119,7 +119,7 @@ function BottomNavTab({
       <Link
         href={item.href}
         aria-current={isActive ? 'page' : undefined}
-        className="flex min-h-[56px] min-h-[44pt] flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        className={`flex min-h-[56px] min-h-[44pt] flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2${isActive ? ' sn-bounce' : ''}`}
         style={{
           color: isActive ? 'var(--m-ink)' : 'var(--m-slate)',
           outlineColor: 'var(--m-orange)',

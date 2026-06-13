@@ -13,6 +13,25 @@ Verified: `tsc` + production build clean (all 9 articles prerendered ●).
 **SPEC IMPACT:** Extends the 0038 first-slice content set (4 → 9 articles); the `DECISION_LOG.md` #1344 row + the `0038_editorial_and_affiliates` AS-BUILT header note the 9-article count.
 
 ---
+## 2026-06-13 · feat(ui): universal press + select-bounce interaction — pressing anything feels alive, picking anything pops
+
+Owner directive — "set this as a universal function … across the whole app, so we can see an interaction when something is pressed" + the seat-plan ask "when a table/seat is selected … bounce 15%."
+
+**The primitive (globals.css):**
+- **Press feedback made truly universal.** The global :active press rule (button / [role=button] / a.button / input[submit|button] / summary, added 2026-05-31) switched from `transform: scale(0.96)` to the standalone **`scale: 0.96` PROPERTY** (transition `transform`→`scale`). The standalone `scale` property is independent of `transform`, so it now COMPOSES with any element's existing transform instead of clobbering it. The old rule silently broke press feedback on every interactive element that carried its own transform (seat-plan tables `translate(-50%,-50%) scale()`, translated/rotated cards) — they dropped their transform and jumped on press. Verified app-wide via grep: nothing sets the standalone `scale` property anywhere, so nothing collides; the lone flagged `.m-btn:active{transform:translateY(0)}` is a false alarm (different property, composes). Near-pure improvement; frozen by the existing prefers-reduced-motion block.
+- **`.sn-bounce` + `@keyframes sn-pick-bounce`** — a reusable 15% select-bounce (scale 1 → 1.15 → settle), also using the `scale` property so it composes anywhere. Re-triggers via a React `key` (in-page toggles) or a route re-mount (nav).
+
+**Rolled out across the app (parallel, one agent per file):**
+- Seat plan: the selected table + the picked guest's chair bounce.
+- Active nav everywhere: `sidebar-item` + `bottom-nav` active item (all three doorways).
+- Onboarding pickers (the #1 funnel surface): service cards + role/kind `.opt` cards + faith chips + love-story cue chips (all className-only `.sel` on plain elements a global aria rule could never reach).
+- Tab strips + toggles: vendors `services-takeover` (desktop + mobile), schedule mode toggle, `build-pin-mode`, attire-guide persona picker, vendor cycle toggle + payment-method tiles, marketplace reception facet chips, admin verify tabs + payments filter chips.
+
+**Why no single global select rule:** keying a bounce on aria-selected/aria-pressed/role=tab/aria-current would bounce-storm on every page load (everything already-selected re-mounts on route change) AND miss the onboarding pickers (className-only, no aria). So the press feedback is global; the louder select-bounce is applied per-surface at genuine "I just picked this" moments.
+
+**Verification:** designed + rolled out + adversarially verified via three background workflows (map/design, app-wide safety audit + survey, parallel apply + verify). `tsc` clean, `next lint` clean on all touched files. Live: seat-plan table bounce animation confirmed running (getAnimations); the press now keeps an element's transform (hub stays put); bottom-nav active tab + selected onboarding `.opt` carry `.sn-bounce`. 15 files.
+
+**SPEC IMPACT:** None (app-wide interaction polish). Two minor a11y notes parked (cycle-toggle rationale wording; attire-guide drops keyboard focus on deselect-remount — acceptable).
 
 ## 2026-06-13 · fix(concurrency): DB guard for the hard-single double-lock (last open conflict-audit item)
 

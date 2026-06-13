@@ -604,8 +604,10 @@ export function WeddingAttireGuide({
         {/* Back row · Principal Sponsors */}
         <div className="flex flex-wrap items-end justify-center gap-1 sm:gap-2">
           {back.map((role) => (
+            // key flips when this role becomes the picked one so the cluster
+            // remounts and the `.sn-bounce` selection animation replays.
             <RoleCluster
-              key={role.key}
+              key={`${role.key}:${activeRole === role.key ? 'on' : 'off'}`}
               role={role}
               tint={resolveTint(role, localAttire, rolePalette)}
               isActive={activeRole === role.key}
@@ -627,8 +629,10 @@ export function WeddingAttireGuide({
         {/* Front row · couple + wedding party + parents + guests */}
         <div className="mt-2 flex flex-wrap items-end justify-center gap-1 sm:gap-1.5">
           {front.map((role) => (
+            // key flips when this role becomes the picked one so the cluster
+            // remounts and the `.sn-bounce` selection animation replays.
             <RoleCluster
-              key={role.key}
+              key={`${role.key}:${activeRole === role.key ? 'on' : 'off'}`}
               role={role}
               tint={resolveTint(role, localAttire, rolePalette)}
               isActive={activeRole === role.key}
@@ -774,7 +778,9 @@ function RoleCluster({
       aria-label={`${role.label} — ${role.descriptor}`}
       aria-pressed={isActive}
       className={`group relative flex flex-col items-center gap-0.5 rounded-md px-1.5 py-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 ${
-        isActive ? 'bg-cream/85 ring-1 ring-terracotta/40' : 'hover:bg-cream/40'
+        isActive
+          ? 'bg-cream/85 ring-1 ring-terracotta/40 sn-bounce'
+          : 'hover:bg-cream/40'
       }`}
     >
       <div className="flex items-end gap-0.5">

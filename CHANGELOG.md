@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(i18n): Tagalog /about — first slice of marketing-site localization (hreflang)
+
+First slice of the SEO localization ("Cebuano moat", SEO playbook §0.14): the public marketing site was EN-only (the existing `lib/i18n` is dashboard-only). Ships a Tagalog edition of the brand/entity page at `/tl/about` with the **locale-subpath** URL strategy + reciprocal **hreflang**, establishing the pattern CEB + more pages follow.
+
+- New `/tl/about` — fully static Tagalog `/about` (hero · fact grid · "software, hindi ahensiya" · Tagalog FAQ · CTAs); JSON-LD `inLanguage: tl-PH`, `AboutPage`/`BreadcrumbList`/`FAQPage`.
+- Reciprocal **hreflang** on both `/about` (en-PH, x-default) and `/tl/about` (tl-PH) via `alternates.languages`; an EN ↔ Tagalog locale switcher on each.
+- `/tl` + `/ceb` added to the `robots.ts` allow-list; `/tl/about` added to `sitemap-static.xml`.
+
+Natural Filipino copy (brand/product terms kept in English, as couples actually speak). Content is inline for this first slice; a shared per-locale dictionary (or `[locale]` route group) is the scale-up step when localizing more pages.
+
+Verified: tsc + production build (`/about` + `/tl/about` both static ○).
+
+**SPEC IMPACT:** new localization surface; `DECISION_LOG.md` + SEO playbook §0.14 note the first slice. The scale-up architecture (dictionary vs `[locale]` route group · CEB · which pages next) is flagged for owner direction.
+
+---
+
 ## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 5 (per-vendor surcharge + in-thread confirm)
 
 The money-moving core. When the couple's guest count moves a booked vendor's cost (vendor set a per-added-guest rate), the change surfaces as an Accept/Decline card in the chat thread and only moves `total_cost_php` when the **vendor confirms** — symmetric (a drop shows a credit), per the owner lock. No migration (uses the Phase 1 columns).

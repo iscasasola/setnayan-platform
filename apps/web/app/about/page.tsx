@@ -33,7 +33,14 @@ const PAGE_DESCRIPTION =
 export const metadata = {
   title: PAGE_TITLE,
   description: PAGE_DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/about` },
+  alternates: {
+    canonical: `${SITE_URL}/about`,
+    languages: {
+      'en-PH': `${SITE_URL}/about`,
+      'tl-PH': `${SITE_URL}/tl/about`,
+      'x-default': `${SITE_URL}/about`,
+    },
+  },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/about`,
@@ -143,12 +150,22 @@ export default function AboutPage() {
       <main className="min-h-dvh bg-cream">
         {/* Hero */}
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 pt-16 sm:px-6 sm:pt-20 lg:px-8">
-          <nav aria-label="Breadcrumb" className="mb-8 text-sm text-ink/50">
-            <Link href="/" className="hover:text-ink hover:underline">
-              Home
+          <nav aria-label="Breadcrumb" className="mb-8 flex items-center justify-between gap-4 text-sm text-ink/50">
+            <span>
+              <Link href="/" className="hover:text-ink hover:underline">
+                Home
+              </Link>
+              <span className="mx-2">/</span>
+              <span className="text-ink/80">About</span>
+            </span>
+            {/* Locale switch — Tagalog edition (hreflang reciprocal) */}
+            <Link
+              href="/tl/about"
+              hrefLang="tl-PH"
+              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+            >
+              Tagalog
             </Link>
-            <span className="mx-2">/</span>
-            <span className="text-ink/80">About</span>
           </nav>
 
           <p className="mb-4 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">

@@ -16,6 +16,15 @@ export type TaxonomyOption = {
 type Props = {
   initialQuery: string;
   options: ReadonlyArray<TaxonomyOption>;
+  /**
+   * Visual variant. `'bar'` (default) is the compact 44pt pill used inside the
+   * StickyMarketplaceHeader + FocusedModeSearchForm — unchanged. `'hero'` is
+   * the big centered field used by the Explore search-first hero (2026-06-13):
+   * taller, rounded-full, Clean-Editorial `--m-*` marketing tokens, soft
+   * shadow. The autocomplete behaviour (suggestion-pick → ?category= push,
+   * free-text Enter → surrounding form GET) is identical across both.
+   */
+  variant?: 'bar' | 'hero';
   /** Other filter values, preserved verbatim when a suggestion is selected. */
   preserve: {
     city: string;
@@ -57,8 +66,14 @@ const MIN_QUERY_LEN = 2;
  * scored: prefix match > substring > snake_case-key contains. Cap is 8
  * rows so the dropdown doesn't dwarf the form.
  */
-export function TaxonomySearch({ initialQuery, options, preserve }: Props) {
+export function TaxonomySearch({
+  initialQuery,
+  options,
+  preserve,
+  variant = 'bar',
+}: Props) {
   const router = useRouter();
+  const isHero = variant === 'hero';
   const containerRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState(initialQuery);
   const [open, setOpen] = useState(false);
@@ -149,7 +164,11 @@ export function TaxonomySearch({ initialQuery, options, preserve }: Props) {
     <div ref={containerRef} className="relative">
       <Search
         aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+        className={
+          isHero
+            ? 'pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--m-slate-3)]'
+            : 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40'
+        }
         strokeWidth={1.75}
       />
       <input
@@ -163,8 +182,16 @@ export function TaxonomySearch({ initialQuery, options, preserve }: Props) {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder="Try drone, lechon, photobooth…"
-        className="input-field w-full pl-9"
+        placeholder={
+          isHero
+            ? 'Search photographers, caterers, livestream…'
+            : 'Try drone, lechon, photobooth…'
+        }
+        className={
+          isHero
+            ? 'h-14 w-full rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] pl-12 pr-4 text-base text-[color:var(--m-ink)] placeholder:text-[color:var(--m-slate-3)] shadow-[var(--m-shadow-md)] transition-colors focus:border-[color:var(--m-orange)] focus:outline-none focus:ring-2 focus:ring-[color:var(--m-orange)]/25'
+            : 'input-field w-full pl-9'
+        }
         autoComplete="off"
         role="combobox"
         aria-autocomplete="list"
@@ -193,7 +220,18 @@ export function TaxonomySearch({ initialQuery, options, preserve }: Props) {
           // of a normal dropdown. `rounded-t-2xl` on mobile gives the
           // panel a bottom-sheet-like cap; `sm:rounded-xl` returns it to
           // a regular dropdown radius on desktop.
-          className="absolute left-0 right-0 z-30 max-h-72 overflow-y-auto border border-ink/15 bg-cream shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 bottom-full mb-2 rounded-t-2xl sm:bottom-auto sm:top-full sm:mt-1 sm:mb-0 sm:rounded-xl sm:slide-in-from-top-2"
+          //
+          // 2026-06-13 — the `'hero'` variant always drops DOWN (the Explore
+          // search-first hero sits near the top of the viewport, so there's
+          // room below + no bottom-pinned bar to dodge). It also picks up the
+          // `--m-*` marketing surface (paper panel + soft shadow + rounded-2xl)
+          // so the dropdown reads as part of the premium hero, not the
+          // compact marketplace chrome.
+          className={
+            isHero
+              ? 'absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] shadow-[var(--m-shadow-lg)] animate-in fade-in slide-in-from-top-2 duration-200'
+              : 'absolute left-0 right-0 z-30 max-h-72 overflow-y-auto border border-ink/15 bg-cream shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 bottom-full mb-2 rounded-t-2xl sm:bottom-auto sm:top-full sm:mt-1 sm:mb-0 sm:rounded-xl sm:slide-in-from-top-2'
+          }
         >
           <p className="px-3 pt-2 pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
             Categories ({suggestions.length})

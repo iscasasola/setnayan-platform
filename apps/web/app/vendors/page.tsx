@@ -39,6 +39,7 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
+import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
 import type { FilterDrawerProps } from './_components/filter-drawer';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
 import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
@@ -180,6 +181,24 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
     column: WEDDING_FOLDER_SHORT_LABEL[meta.folder],
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
+
+// Search-first hero (2026-06-13) — a few high-intent quick-search chips under
+// the universal search box. Each is a real V1.1-base canonical_service so the
+// chip lands the visitor in the vendor-grid (`?category=`) results path; sparse
+// pre-launch pools fall through to the existing graceful empty state. Kept
+// short + weddings-first per the owner's "dead simple" directive. NOTE: the
+// `setnayan_*` first-party services are intentionally NOT chipped here — they
+// surface in the search autocomplete + the catalog tiles below, but a
+// `?category=setnayan_papic` grid is currently empty on prod (no publicly-
+// visible first-party listing yet — flagged for owner provisioning).
+const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
+  { label: 'Photographers', href: '/vendors?category=photography' },
+  { label: 'Videographers', href: '/vendors?category=videography' },
+  { label: 'Caterers', href: '/vendors?category=catering' },
+  { label: 'Coordinators', href: '/vendors?category=wedding_coordination' },
+  { label: 'Hair & Makeup', href: '/vendors?category=bridal_hmua' },
+  { label: 'Cake', href: '/vendors?category=wedding_cake' },
+];
 
 // GEO Phase G4 (2026-05-28) — enriched marketplace metadata. Adds canonical
 // URL, keywords (AI-engine match hint), and a richer description that
@@ -2769,67 +2788,14 @@ async function CatalogView({
         : buckets.get(folder)?.length ?? 0,
   }));
 
-  // 2026-05-30 PM — Faith narrow option list for the FilterDrawer. Owner
-  // directive verbatim: *"why are these still showing. they should be
-  // embedded inside the filter"*. Retires the inline FaithPillRow that
-  // PRs #657 + #659 rendered above every faith-bearing folder's category
-  // grid and the per-folder buildFaithPillOptionsForFolder builder that
-  // backed it. Faith filtering now lives in FilterDrawer alongside City +
-  // Sort + Verified-only + Match-my-wedding + Show-all-venues — one
-  // global filter primitive, one canonical edit surface.
-  //
-  // Cross-folder visible-faith computation: count how many faith-tagged
-  // canonical_services with ≥1 visible tile (post-hide-empty) exist
-  // across the entire catalog per faith key. Faith keys with zero
-  // visible tiles OR currently-active faithFilter survive into the
-  // drawer option list. Preserves PR #652 "just show what is visible"
-  // rule at the catalog scope (rather than per-folder).
-  //
-  // DELIBERATELY skips `passesReligionFilter` because the chip is the
-  // user's explicit override of religion-default-on — a Catholic-matched
-  // couple still needs to see the Muslim chip if Muslim has underlying
-  // tiles, so they can override into Muslim for context (interfaith
-  // family events, sibling weddings, etc.).
-  const crossFolderFaithCounts: Record<WeddingFaithKey, number> = {
-    Catholic: 0,
-    Christian: 0,
-    INC: 0,
-    Muslim: 0,
-    Cultural: 0,
-    Chinese: 0,
-    Jewish: 0,
-    'Born Again': 0,
-    Aglipayan: 0,
-    LDS: 0,
-    SDA: 0,
-    JW: 0,
-    Hindu: 0,
-    Sikh: 0,
-    Buddhist: 0,
-    Orthodox: 0,
-    // Civil-tagged canonicals (civil officiants) are marketplace_hidden, so
-    // this stays 0 — present only to satisfy the widened faith union.
-    Civil: 0,
-  };
-  for (const row of schemas) {
-    const meta = TAXONOMY_MAP[row.canonical_service];
-    if (!meta || !meta.faith) continue;
-    const count = vendorCounts.get(row.canonical_service) ?? null;
-    if (!passesHideEmpty(meta, count)) continue;
-    crossFolderFaithCounts[meta.faith] += 1;
-  }
-  const crossFolderFaithOptions = FAITH_KEYS_ORDER.filter(
-    (key) => crossFolderFaithCounts[key] > 0 || faithFilter === key,
-  ).map((key) => ({
-    value: FAITH_KEY_TO_URL[key],
-    label: FAITH_KEY_TO_LABEL[key],
-  }));
-
-  // Drawer-shape faith value (lowercase URL string OR empty for "All").
-  // The drawer renders a `<select name="faith">` and the form submits
-  // back to /vendors with `?faith=catholic` etc.; the page-level
-  // parseFilters normalizes lowercase → FaithKey via FAITH_URL_TO_KEY.
-  const drawerFaithValue = faithFilter ? FAITH_KEY_TO_URL[faithFilter] : '';
+  // 2026-06-13 search-first reframe — the catalog landing's StickyMarketplaceHeader
+  // (pinned search pill + FilterDrawer) is replaced by ExploreSearchHero (one
+  // big universal search box + quick chips). The drawer's cross-folder Faith
+  // option list + drawer-shape faith value that USED to be computed here are
+  // gone with it. Faith filtering still lives in the FilterDrawer in vendor-grid
+  // mode (the StickyMarketplaceHeader render path at the top of the file is
+  // untouched); the public Explore LANDING simplifies to search-first per the
+  // owner directive "ONE clean universal search box … keep it dead simple."
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -2860,107 +2826,51 @@ async function CatalogView({
 
       <section
         id="all"
-        // 2026-05-30 mobile pattern lock — pb-36 mobile clearance for the
-        // fixed bottom-pinned StickyMarketplaceHeader (see catalog-mode
-        // section above for full rationale). sm:py-14 overrides on desktop.
-        // Page-level max-w-6xl cap retired in PR #655 same day.
-        className="mx-auto w-full px-4 pt-10 pb-36 sm:px-6 sm:py-14 lg:px-8"
+        // 2026-06-13 — pb reduced from pb-36 to pb-16: the catalog landing's
+        // fixed bottom-pinned StickyMarketplaceHeader was retired in favour of
+        // the top ExploreSearchHero, so the mobile bottom-bar clearance is no
+        // longer needed. sm:py-14 overrides on desktop. Page-level max-w-6xl
+        // cap retired in PR #655.
+        className="mx-auto w-full px-4 pt-6 pb-16 sm:px-6 sm:py-14 lg:px-8"
       >
         {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
             set, the host arrived from a dashboard planning card. Strip
-            the MARKETPLACE eyebrow + "Browse Filipino wedding vendors"
-            headline + paragraph + ReligionBanner + CatalogFilterBar
-            (City / Match-my-wedding / Apply). The FolderTabs and per-
-            folder grid below STILL render so the host can browse within
-            their planning context. Direct visits to /vendors render the
-            full chrome unchanged. */}
+            the search hero; render the slim FocusedModeSearchForm instead.
+            The FolderTabs and per-folder grid below STILL render so the
+            host can browse within their planning context. Direct visits to
+            /vendors render the full search-first hero. */}
         {!focusedMode ? (
           <>
-            {/* 2026-05-30 Airbnb-vibe redesign — owner directive verbatim:
-                "marketplace is doesnt feel user friendly. we want it to be
-                easy to navigate and direct. the buttons being different
-                sizes is also not appealing... vibe of shopee/zalora/airbnb"
-                + "make sure it still follow the theme and understand how
-                the overall look of the app works and keep it that way".
+            {/* 2026-06-13 search-first reframe — owner directive verbatim:
+                "opens with ONE clean universal search box … simple, modern,
+                clean, strategic … lead with search, simplify."
 
-                Retired: italic-serif "Browse Filipino wedding vendors." H1
-                + descriptive paragraph + CatalogFilterBar (3-col formal
-                labeled form with separate Apply button). The headline +
-                paragraph pushed the catalog below the fold; the
-                CatalogFilterBar's variable-width controls broke uniformity.
-
-                New: sticky search header (single 44pt pill row) + filter
-                drawer (slide-up sheet on mobile / right-side panel on
-                desktop). Theme preserved — Facebook palette via legacy
-                bg-cream / text-ink / text-terracotta classes per the
-                2026-05-22 brand pivot. The ReligionBanner stays below the
-                sticky header so the per-event compatibility note still
-                surfaces when the host has an in-progress event with a
-                ceremony_type. */}
-            <StickyMarketplaceHeader
+                Retired: the catalog landing's StickyMarketplaceHeader (pinned
+                44pt search pill + FilterDrawer trigger, bottom-pinned on
+                mobile). It now leads with ExploreSearchHero — one big centered
+                universal search box (Clean-Editorial --m-* tokens) + a few
+                quick-search chips. The same TaxonomySearch autocomplete backs
+                it (its option list already spans the setnayan_* first-party
+                services), and results land in the existing vendor-grid path.
+                The rich category browse (IconTileFolderStrip + folder grids)
+                still renders below as the breadth/"browse everything" surface.
+                The vendor-grid StickyMarketplaceHeader (top of file) — with the
+                full FilterDrawer — is untouched; landing-mode filters simplify
+                to search-first. ReligionBanner stays below the hero so the
+                per-event compatibility note still surfaces for couples with an
+                in-progress event. */}
+            <ExploreSearchHero
               taxonomyOptions={TAXONOMY_OPTIONS}
-              filters={{
-                q: '',
+              scopedFolder={scopedFolder}
+              preserve={{
                 city: '',
                 sort: 'most_reviews',
                 verifiedOnly: false,
                 matchEvent,
                 eventType: null,
                 folder: scopedFolder,
-                venueDefault: 'on',
-                // 2026-05-30 PM — drives the applied-filter count badge.
-                // Non-empty when a faith narrow is active (?faith=…).
-                faith: drawerFaithValue,
               }}
-              drawer={{
-                filters: {
-                  q: '',
-                  category: null,
-                  city: '',
-                  sort: 'most_reviews',
-                  verifiedOnly: false,
-                  matchEvent,
-                  eventType: null,
-                  folder: scopedFolder,
-                  venueDefault: 'on',
-                  focusedMode: false,
-                  // 2026-05-30 PM — drives the drawer's `<select name="faith">`
-                  // defaultValue. Empty string = "All faiths" option selected.
-                  faith: drawerFaithValue,
-                },
-                sortOptions: SORT_KEYS.map((k) => ({
-                  value: k,
-                  label: SORT_LABEL[k],
-                })),
-                // 2026-05-30 PM — cross-folder visible-faith options (Catholic
-                // / Christian / INC / Muslim / Cultural with ≥1 visible tile
-                // anywhere in the catalog, OR currently active). Drawer
-                // renders the Faith section ONLY when the array is non-empty
-                // — empty catalogs OR catalogs with zero faith-tagged tiles
-                // skip the section entirely per the "just show what is
-                // visible" rule.
-                faithOptions: crossFolderFaithOptions,
-                matchableEvent,
-                hostVenueSetting,
-                hostVenueLabel: hostVenueSetting
-                  ? venueSettingLongLabel(hostVenueSetting)
-                  : null,
-                showVenueToggle: false, // catalog mode shows all folders; venue toggle is grid-mode + Reception folder only
-                // 2026-05-30 PM — Clear button surfaces when an active faith
-                // narrow needs a "back to baseline" affordance. Other filters
-                // start at their catalog-mode defaults (q='', city='',
-                // sort='most_reviews', etc.) so they're never "active" here.
-                hasActiveFilters: faithFilter !== null,
-              } as FilterDrawerProps}
-              // 2026-05-30 — contextualPill API kept as future-compat
-              // infrastructure for per-folder narrow axes that genuinely
-              // belong in the sticky header (Style / Editing aesthetic /
-              // etc.). Ceremony's Faith pill went sticky (PR #657) →
-              // inline (PR #659) → drawer (this PR) per owner directive
-              // *"why are these still showing. they should be embedded
-              // inside the filter"*. The contextualPill prop is unused
-              // at this callsite; left in the StickyMarketplaceHeader
-              // component for future folder axes.
+              chips={EXPLORE_HERO_CHIPS}
             />
 
             {religionFilteringActive ? (

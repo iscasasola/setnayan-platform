@@ -9,10 +9,12 @@
  *     the EventSwitcher + notifications; the takeover is full-screen on mobile).
  *   - a fixed floating X (top-left, `lg:hidden`) is the single exit → event Home;
  *     desktop keeps the sidebar.
- *   - the global 5-tab bottom nav is suppressed on `/vendors` (see
- *     `customer-bottom-nav.tsx`, gated on the `budgetBuild` prop) and REPLACED by
- *     this surface's own 5-tab section nav: Summary · Shortlist · Build ·
- *     Compare · Lock. On desktop the tabs render as a top strip instead.
+ *   - the global 5-tab bottom nav stays VISIBLE at the screen bottom
+ *     (nav-everywhere 2026-06-13). This surface's own 5-tab section nav
+ *     (Summary · Shortlist · Build · Compare · Lock) is a STICKY HEADER at the
+ *     top of the page body — above the panel, below the floating X — so it
+ *     never double-stacks the global nav. On desktop the tabs render as a top
+ *     strip instead.
  *
  * Phase 1 (this PR): the SHELL only. Shortlist renders today's Services
  * experience (the `PlanBudgetAccordion`, passed as `shortlistSlot`); the other
@@ -137,7 +139,7 @@ export function ServicesTakeover({
         <X className="h-5 w-5" strokeWidth={2} aria-hidden />
       </Link>
 
-      {/* Desktop tab strip — mobile uses the fixed bottom section nav below. */}
+      {/* Desktop tab strip — mobile uses the sticky-top section nav below. */}
       <div role="tablist" aria-label="Services sections" className="mb-4 hidden items-center gap-1 border-b border-ink/10 lg:flex">
         {BUDGET_BUILD_TABS.map((key) => {
           const { label, icon: Icon } = TAB_META[key];
@@ -162,23 +164,14 @@ export function ServicesTakeover({
         })}
       </div>
 
-      {/* Active tab content */}
-      <div
-        id="budget-build-panel"
-        role="tabpanel"
-        tabIndex={0}
-        aria-label={TAB_META[tab].label}
-        className="min-w-0"
-      >
-        {active ?? <TabStub tab={tab} />}
-      </div>
-
-      {/* Mobile section bottom nav — replaces the suppressed global bottom nav. */}
+      {/* Mobile section nav — sticky header (desktop uses the top strip above).
+          The global bottom nav now owns the very bottom of the screen, so this
+          surface's own section nav rides at the top of the page body instead of
+          stacking a second bottom bar. */}
       <nav
         role="tablist"
         aria-label="Services sections"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-ink/10 bg-cream/95 backdrop-blur lg:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="sticky top-0 z-10 flex border-b border-ink/10 bg-cream/95 backdrop-blur lg:hidden"
       >
         {BUDGET_BUILD_TABS.map((key) => {
           const { label, icon: Icon } = TAB_META[key];
@@ -208,6 +201,17 @@ export function ServicesTakeover({
           );
         })}
       </nav>
+
+      {/* Active tab content */}
+      <div
+        id="budget-build-panel"
+        role="tabpanel"
+        tabIndex={0}
+        aria-label={TAB_META[tab].label}
+        className="min-w-0"
+      >
+        {active ?? <TabStub tab={tab} />}
+      </div>
     </section>
   );
 }

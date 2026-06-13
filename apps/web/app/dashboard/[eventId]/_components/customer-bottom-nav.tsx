@@ -42,7 +42,6 @@
  * Server Component to the Client BottomNav trips Next.js serialization.
  */
 
-import { usePathname } from 'next/navigation';
 import { Home, Users, Store, Globe, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -87,14 +86,20 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatch: `${base}/vendors`,
     },
     {
-      // Slot 4 · Website — opens the full-screen Reels site editor
-      // (/site-editor). Flipped 2026-06-03 from the retired journey scroll;
-      // the invitation editor stays under this tab's active-state.
+      // Slot 4 · Website — opens the Website HUB (a dashboard page that keeps
+      // the global nav). The hub launches the full-screen Reels site editor
+      // (/site-editor); the editor + the invitation editor all light up this
+      // tab via activeMatch. (Owner 2026-06-13 "global nav everywhere" — the
+      // tab no longer deep-links straight into the chrome-less editor.)
       key: 'website',
       label: 'Website',
-      href: `/site-editor/${eventId}`,
+      href: `${base}/website`,
       icon: Globe,
-      activeMatch: [`/site-editor/${eventId}`, `${base}/invitation`],
+      activeMatch: [
+        `${base}/website`,
+        `/site-editor/${eventId}`,
+        `${base}/invitation`,
+      ],
     },
     {
       // Slot 5 · More — catch-all for every surface that isn't a dedicated
@@ -146,35 +151,14 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
  * customer-doorway 5-tab config. Renders nothing on lg+ (sidebar takes
  * over). Per [[feedback_setnayan_orphan_prevention]] each tab's
  * destination route exists.
+ *
+ * The global nav now shows on EVERY customer surface (owner directive
+ * 2026-06-13 "global nav everywhere"). The former Guests + Services
+ * "focus mode" suppressions are retired — those surfaces moved their own
+ * bottom controls UP into a sticky in-page bar so there is no double bar,
+ * and the Website tab points at the /website hub (the full-screen
+ * /site-editor keeps its own chrome and is launched from the hub).
  */
-export function CustomerBottomNav({
-  eventId,
-  budgetBuild = false,
-}: {
-  eventId: string;
-  budgetBuild?: boolean;
-}) {
-  const pathname = usePathname();
-
-  // FOCUS MODE — Guests page (owner directive 2026-06-03). The Guests list
-  // runs as a "takeover": its lower-third carousel's own tab menu (Summary ·
-  // Search & sort · Add · Customize) REPLACES the global 5-tab bottom nav,
-  // and a floating X (top-left) is the single exit back to event home. So we
-  // suppress this nav on the exact list route. Scoped to `/guests` only —
-  // sub-pages (/guests/import, /guests/quick) and the sibling people routes
-  // (/sponsors, /hosts) keep the standard nav, so no surface is orphaned
-  // (the X returns to Home, where the full nav is available again).
-  // usePathname() is populated during SSR for client components, so the nav
-  // is absent from first paint on /guests — no hide-flash.
-  if (pathname === `/dashboard/${eventId}/guests`) return null;
-
-  // FOCUS MODE — Services "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED,
-  // passed down as `budgetBuild`). /vendors runs its own 5-tab section nav
-  // (Summary · Shortlist · Build · Compare · Lock), so suppress the global
-  // bottom nav there too — same treatment as Guests. Exact-match only:
-  // sub-routes (/vendors/[id], /vendors/categories, /vendors/packages) keep the
-  // global nav, so nothing is orphaned (the floating X returns to Home).
-  if (budgetBuild && pathname === `/dashboard/${eventId}/vendors`) return null;
-
+export function CustomerBottomNav({ eventId }: { eventId: string }) {
   return <BottomNav items={buildCustomerBottomNav(eventId)} />;
 }

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -88,20 +87,6 @@ export default async function SeatingPage({ params }: Props) {
           list, and <span className="font-medium text-ink/80">Auto Arrange</span> builds the whole
           floor in one click — tables fan out from the stage by priority, vendor booths anchor to the
           walls, and guests fill in tier by tier.
-        </p>
-        {/* Multi-area blueprints (owner-approved 2026-06-13): the cocktail
-            garden + booth pins live on their own lightweight surface so this
-            editor stays focused on the seated room. */}
-        <p className="text-sm">
-          <Link
-            href={`/dashboard/${eventId}/seating/areas`}
-            className="font-medium text-terracotta underline"
-          >
-            Areas &amp; booths
-          </Link>
-          <span className="ml-2 text-ink/55">
-            — map the cocktail area and place booth pins beyond this room.
-          </span>
         </p>
       </header>
 

@@ -32,7 +32,7 @@ type PlanTable = {
 
 type PlanObject = {
   object_id: string;
-  area_id: string | null;
+  zone: 'reception' | 'cocktail';
   object_type: string;
   label: string;
   x: number;
@@ -41,11 +41,12 @@ type PlanObject = {
   vendor_name: string | null;
 };
 
-type PlanArea = {
-  area_id: string;
-  area_type: string;
+type PlanCocktail = {
   label: string;
-  sort_order: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
   venue: { width_m: number | null; length_m: number | null };
   window: { label: string; start_at: string | null; end_at: string | null } | null;
 };
@@ -57,9 +58,9 @@ type Plan = {
   dance: { x: number; y: number; w: number; h: number } | null;
   entrance: { x: number; y: number } | null;
   service_entrance: { x: number; y: number } | null;
+  cocktail: PlanCocktail | null;
   dietary_included: boolean;
   tables: PlanTable[];
-  areas: PlanArea[];
   objects: PlanObject[];
 };
 
@@ -134,13 +135,12 @@ export default async function VendorSeatPlanPage({ params }: Props) {
       ? plan.venue.width_m / plan.venue.length_m
       : 4 / 3;
   const objects = plan.objects ?? [];
-  const receptionObjects = objects.filter((o) => o.area_id === null);
   const myPins = objects.filter((o) => o.is_mine);
-  const areas = plan.areas ?? [];
-  const areaWindow = (a: PlanArea) =>
-    a.window
-      ? `${a.window.label}${fmtWindowTime(a.window.start_at) ? ` · ${fmtWindowTime(a.window.start_at)}${fmtWindowTime(a.window.end_at) ? `–${fmtWindowTime(a.window.end_at)}` : ''}` : ''}`
-      : null;
+  const cocktail = plan.cocktail;
+  const cocktailWindow = cocktail?.window
+    ? `${cocktail.window.label}${fmtWindowTime(cocktail.window.start_at) ? ` · ${fmtWindowTime(cocktail.window.start_at)}${fmtWindowTime(cocktail.window.end_at) ? `–${fmtWindowTime(cocktail.window.end_at)}` : ''}` : ''}`
+    : null;
+  const showMap = placed.length > 0 || cocktail !== null || objects.length > 0;
 
   return (
     <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -166,16 +166,16 @@ export default async function VendorSeatPlanPage({ params }: Props) {
         <p className="rounded-xl border border-terracotta/25 bg-terracotta/[0.06] px-4 py-3 text-sm">
           <span className="font-semibold text-terracotta">Your spot:</span>{' '}
           {myPins
-            .map((p) => {
-              const area = p.area_id ? areas.find((a) => a.area_id === p.area_id) : null;
-              return `${p.label} — ${area ? area.label : 'reception room'}`;
-            })
+            .map(
+              (p) =>
+                `${p.label} — ${p.zone === 'cocktail' ? (cocktail?.label ?? 'cocktail area') : 'reception room'}`,
+            )
             .join(' · ')}
         </p>
       ) : null}
 
-      {/* Floor map */}
-      {placed.length > 0 ? (
+      {/* Floor map — one blueprint: reception room + the cocktail/waiting area */}
+      {showMap ? (
         <div
           className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-cream"
           style={{ aspectRatio: `${aspect}` }}
@@ -224,7 +224,20 @@ export default async function VendorSeatPlanPage({ params }: Props) {
               Service
             </span>
           ) : null}
-          {receptionObjects.map((o) => (
+          {cocktail ? (
+            <div
+              className="absolute flex items-start justify-start rounded-lg border border-dashed border-terracotta/40 bg-terracotta/[0.04] p-1.5 text-[10px] font-semibold uppercase tracking-wider text-terracotta/80"
+              style={{
+                left: `${cocktail.x - cocktail.w / 2}%`,
+                top: `${cocktail.y - cocktail.h / 2}%`,
+                width: `${cocktail.w}%`,
+                height: `${cocktail.h}%`,
+              }}
+            >
+              {cocktail.label}
+            </div>
+          ) : null}
+          {objects.map((o) => (
             <PinMarker key={o.object_id} o={o} />
           ))}
           {placed.map((t) => (
@@ -251,39 +264,12 @@ export default async function VendorSeatPlanPage({ params }: Props) {
         </div>
       ) : null}
 
-      {/* Additional areas (cocktail garden, foyer) */}
-      {areas.map((area) => {
-        const areaObjects = objects.filter((o) => o.area_id === area.area_id);
-        const win = areaWindow(area);
-        return (
-          <div key={area.area_id} className="space-y-2">
-            <div>
-              <h2 className="text-lg font-semibold">{area.label}</h2>
-              {win ? (
-                <p className="text-sm text-ink/55">Live during {win}</p>
-              ) : null}
-            </div>
-            <div
-              className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-cream"
-              style={{
-                aspectRatio: `${
-                  area.venue.width_m && area.venue.length_m
-                    ? area.venue.width_m / area.venue.length_m
-                    : 4 / 3
-                }`,
-              }}
-            >
-              {areaObjects.length === 0 ? (
-                <p className="absolute inset-0 flex items-center justify-center text-xs text-ink/40">
-                  No booths placed here yet.
-                </p>
-              ) : (
-                areaObjects.map((o) => <PinMarker key={o.object_id} o={o} />)
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {cocktailWindow ? (
+        <p className="text-sm text-ink/55">
+          <span className="font-medium text-ink/75">{cocktail?.label}</span> · live during{' '}
+          {cocktailWindow}
+        </p>
+      ) : null}
 
       {/* Table sheet */}
       <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">

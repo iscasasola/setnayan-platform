@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · refactor(seating): cocktail/waiting area in the SAME blueprint — booths-only second room (replaces same-day multi-area overlay) [PR A of 3]
+
+Owner adjustment 2026-06-13: "instead of areas & booths, use our seatplan maker for another smaller room — the cocktail / waiting area just outside the reception; booths only, NO tables/chairs; just 1 place; make the room in the SAME blueprint as the seat plan; the cocktail area can be accessed by the booth vendors + the stylist, who can also customize the size." This is the schema + consolidation slice; the couple editor (PR B) and the vendor editor + write RPCs (PR C) follow.
+
+The multi-area pin overlay that shipped the same morning (`event_floor_areas` + `event_floor_objects`, the `/seating/areas` route) is **superseded** — collapsed into ONE cocktail room drawn on the existing `event_floor_plan` canvas, with booths stored on the existing `event_floor_booths` table (one blueprint, one booth table).
+
+- `supabase/migrations/20261218000000_iteration_0008_cocktail_area.sql` — (a) `event_floor_plan` cocktail_* room columns (resizable labelled rectangle on the same canvas + optional schedule-block tie + optional metric size + `cocktail_vendor_edit` couple revoke switch); (b) `event_floor_booths` gains `zone` (`reception`|`cocktail`) + `event_vendor_id` (booth-owner link for vendor scoping) + coordinator-delegate RLS (matching the rest of the seat-plan family); (c) folds any `event_floor_objects` rows into `event_floor_booths`, then DROPs `event_floor_objects` + `event_floor_areas` (safe — both shipped same-day, no prod data, marketplace founder-only); (d) `get_vendor_seat_plan` v3 — drops `areas`, sources booths from `event_floor_booths` (zone + `is_mine` + `vendor_name`), adds the cocktail room to the payload. **Needs applying to prod** (`supabase db push --db-url`).
+- `app/dashboard/[eventId]/seating/areas/` — **deleted** (route page + actions + `area-canvas` component); the "Areas & booths" link removed from `seating/page.tsx` (the cocktail control returns inside the editor in PR B).
+- `app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx` — vendor viewer reworked to the v3 payload: booths zone-tagged (no `area_id`); the cocktail room renders as a dashed second room on the SAME canvas; a single cocktail-window note replaces the N-areas loop.
+- Vendor WRITE access (stylist + booth vendors arranging the cocktail area) is intentionally **not** in this PR — it lands in PR C via SECURITY DEFINER RPCs (column- + ownership-scoped, never reception seating). This PR only adds the couple-controlled `cocktail_vendor_edit` gate those RPCs will read.
+- Migration timestamps unique (351 ✓). Typecheck/lint/build run in CI (no `node_modules` in the worktree).
+
+SPEC IMPACT: refines iteration 0008. Retires the same-day multi-area model (`event_floor_areas`/`event_floor_objects` + `/seating/areas`) in favour of a single in-blueprint cocktail room. Opens (in PR C) the first vendor WRITE access to a couple planning surface — flagged for owner. Logged in corpus `DECISION_LOG.md` (2026-06-13) + the `0008_seating_chart_editor.md` AS-BUILT header.
+
 ## 2026-06-13 · feat(homepage): admin-uploaded hero video — full-screen scroll-scrub homepage hero
 
 Owner directive 2026-06-13: a place in the admin console to upload a hero video that becomes the homepage's full-screen scroll-scrub, ending on a "Start your wedding planning here — free" CTA. V1 scope addition (flagged). Vercel can't run ffmpeg, so frames are extracted **in the admin's browser** (the only render pipeline in-repo is a stub) — same one-upload UX, no new infra.

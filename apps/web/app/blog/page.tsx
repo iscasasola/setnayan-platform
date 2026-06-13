@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Newspaper, ArrowRight } from 'lucide-react';
-import { Logo } from '@/app/_components/logo';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
   ALL_BLOG_ARTICLES,
@@ -147,24 +147,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center text-ink">
-            <Logo height={32} withWordmark title="Setnayan · Journal" />
-          </Link>
-          <nav className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Sign in
-            </Link>
-            <Link href="/signup" className="button-primary h-10 px-5 text-sm">
-              Create account
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <Nav />
 
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <div className="max-w-2xl space-y-3">

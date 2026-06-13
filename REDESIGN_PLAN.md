@@ -30,15 +30,26 @@ chrome reads "premium" without losing operational scannability.
    Budget/Wedding demoted to More — but **default to the owner's 6**.
 3. **Phase order is locked** (see Roadmap). Phase 1 (shared chrome) first
    because it's the high-leverage layer.
-4. **Services hub + "Services"/"Vendors" rename** (owner-confirmed 2026-06-13).
-   A new in-app feature **discovery hub** owns the label **"Services"**; the
-   vendor marketplace renames **"Services" → "Vendors"**. Couple model:
-   *Vendors = real-world suppliers you hire; Services = what Setnayan does for
-   you.* Reverses the 2026-06-02 "Vendors→Services" rename. Bottom-nav
-   "Services" tab → the hub. ⚠ Consequence: the Vendors marketplace + Messages
-   fall to "More" on mobile; mitigate with a "Your vendors" quick card pinned
-   to mobile Home (build requirement). Full design in the Services-hub surface
-   section below.
+4. **"In-app services" umbrella + "Services"/"Vendors" rename** (owner-refined
+   2026-06-13). Two different things were both called "Services": (a) the
+   third-party **Vendors marketplace**, (b) **Setnayan's own in-app services**.
+   Resolution:
+   - **Vendors** = the marketplace of real-world suppliers you hire (renamed
+     from today's "Services").
+   - **In-app services** = Setnayan's own offerings — the umbrella concept,
+     present on BOTH doorways:
+     - **Customers** → media/experience services (Papic · Wedding website ·
+       Panood · Thank-you video · Monogram · Save-the-Date · Mood board ·
+       Pakanta…) — the discovery hub.
+     - **Vendors** → **tokens + subscription** (today scattered under the vendor
+       sidebar's Business/Grow groups; gets one clear home).
+   - **Label nuance:** "In-app services" is the concept + the hub page header +
+     the desktop side-tab section label. The mobile bottom-nav tab uses a SHORT
+     label (16 chars can't fit 6 tabs); no collision now that the marketplace is
+     "Vendors". Reverses the 2026-06-02 "Vendors→Services" rename.
+   - ⚠ Consequence: the Vendors marketplace + Messages fall to "More" on mobile;
+     mitigate with a "Your vendors" quick card pinned to mobile Home (build
+     requirement). Full design in the In-app-services surface section below.
 
 ## Current state (as shipped on origin/main — grounded in code, not specs)
 
@@ -73,7 +84,7 @@ single chrome change propagates to all three doorways:
 so the at-rest view is ~9 calm items (Home + Plan + Book):
 
 - **Home**
-- **Services** — the in-app feature discovery hub (see surface section below)
+- **In-app services** — Setnayan's own offerings, the discovery hub (see surface section below)
 - **Plan** — Guests · Seating · Schedule · Budget
 - **Book** — Vendors *(renamed from "Services")* · Messages · Contracts
 - **Design** *(collapsed)* — Wedding (website) · Mood board · Monogram
@@ -90,12 +101,21 @@ Notes:
 
 **Bottom nav — 6 tabs (owner-locked):**
 `Home · Guests · Services · Budget · Wedding · More`
-- `Services` → the in-app feature hub (NOT the vendor marketplace — that's now
-  "Vendors", reached via side-tab Book + a mobile Home quick card + More).
+- `Services` (short tab label) → the in-app services hub (NOT the vendor
+  marketplace — that's now "Vendors", reached via side-tab Book + a mobile Home
+  quick card + More).
 - `Wedding` → `/site-editor/[eventId]`. `Budget` → `/dashboard/[eventId]/budget`.
 - Validate at 360–375px (see locked decision #2).
 
-## Surface: Services hub (in-app feature discovery) — NEW, Phase 2
+## Surface: In-app services — NEW, Phase 2 (customer hub + vendor menu)
+
+> "In-app services" = Setnayan's own offerings, on both doorways. The CUSTOMER
+> side is the discovery hub below. The VENDOR side is a single menu grouping
+> **tokens + subscription** (see "Vendor in-app services" at the end of this
+> section). Both are distinct from the **Vendors** marketplace (third-party
+> suppliers).
+
+### Customer in-app services (the discovery hub)
 
 **Why.** Today the in-app services (Papic, Panood, Wedding website, Thank-you
 video, Monogram, Save-the-Date, Mood board, Pakanta…) are scattered across a
@@ -133,23 +153,40 @@ SKUs also exist as 1st-party marketplace listings (`is_setnayan_service`) per
 the in-app-services-as-vendor-listings model — the hub is the discovery front
 door over those, not a parallel catalog.
 
-**Naming + nav (owner-locked, decision #4).** Hub = "Services" (bottom-nav tab +
-side-tab slot); marketplace = "Vendors". ⚠ Build requirement: pin a "Your
-vendors" quick card on mobile Home so the active booking/chat workflow isn't
-buried under More.
+**Naming + nav (owner-locked, decision #4).** Hub page/section = "In-app
+services"; bottom-nav tab uses a SHORT label; marketplace = "Vendors". ⚠ Build
+requirement: pin a "Your vendors" quick card on mobile Home so the active
+booking/chat workflow isn't buried under More.
 
 **Build sub-steps (lands in Phase 2):**
-1. Rename "Services" → "Vendors" across `customer-nav-config.ts` +
-   `customer-bottom-nav.tsx` + `customer-sidebar.tsx` (label only; route
-   `/vendors` unchanged). Add the new "Services" hub nav item/tab.
+1. Rename the marketplace label "Services" → "Vendors" across
+   `customer-nav-config.ts` + `customer-bottom-nav.tsx` + `customer-sidebar.tsx`
+   (label only; route `/vendors` unchanged). Add the new in-app-services hub nav
+   item/tab.
 2. Rebuild `/add-ons` into the grouped benefit-led hub (card + state model).
 3. Rewrite `/add-ons/[feature]` intro pages (benefit-first).
 4. Feature→route deep-link map + CTA-state logic (free / owned / buyable / soon).
 5. Mobile Home "Your vendors" quick card.
 
+### Vendor in-app services (tokens + subscription)
+
+The same "In-app services" concept on the vendor doorway = **what the vendor buys
+from Setnayan**. Today these are scattered across the vendor sidebar's
+Business/Grow groups (`subscription`, `tokens`, `redeem-code`, plus `branches`,
+`manpower`, `marketing`, `verify`). Consolidate into one **In-app services**
+section/menu:
+- **Core (owner-named):** Subscription (Pro / Enterprise) · Tokens (packs +
+  redeem code).
+- **Candidates to fold in (confirm during build):** Boosted ads / Marketing,
+  Verification, Additional branches — they're also "things you buy from
+  Setnayan." Manpower (team seats) is borderline — may stay in a Team group.
+- Same card treatment as the customer hub (what it is · what it unlocks · price ·
+  Open/Buy), so both doorways share one "In-app services" pattern.
+
 ## Proposed IA — vendor dashboard
 
-- **Side tab:** keep the 4 groups; chrome polish only.
+- **Side tab:** keep the 4 groups; chrome polish only — EXCEPT consolidate the
+  scattered paid items into one **In-app services** section (see above).
 - **Bottom nav:** `Home · Bookings · Calendar · Messages · More`
   — swap **Calendar in for Earnings** (Earnings → More). Rationale: the vendor
   pitch is "the ultimate calendar that stops double-bookings"; burying Calendar

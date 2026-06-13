@@ -56,6 +56,7 @@ import {
   SIDE_LABELS,
   type GuestRole,
   type GuestSide,
+  type PaxProgress,
 } from '@/lib/guests';
 import { LiveSearch } from './live-search';
 import { quickAddGuest } from '../quick-add-actions';
@@ -127,6 +128,7 @@ export function MobileGuestCarousel({
   attending,
   pending,
   declined,
+  paxProgress,
   teamFilter,
   pendingClaims,
   unsent = 0,
@@ -148,6 +150,8 @@ export function MobileGuestCarousel({
   attending: number;
   pending: number;
   declined: number;
+  /** Pax-target progress (Adaptive Pax Pricing Phase 2); null = no target set. */
+  paxProgress: PaxProgress | null;
   teamFilter: 'all' | 'bride' | 'groom';
   // Pending invite-claims (review queue) — badges the Journey panel's Confirm
   // step, mirroring the desktop ribbon (redesign Phase 1).
@@ -370,6 +374,28 @@ export function MobileGuestCarousel({
           {/* 1 — Summary: animated RSVP counts (also filter links). Four
               stats sit on ONE row so the panel is as low as the search row. */}
           <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] overflow-y-auto px-4 py-3">
+            {/* Pax-target meter (Adaptive Pax Pricing Phase 2) — sure-attending
+                vs the couple's minimum pax. Hidden when no target is set. */}
+            {paxProgress ? (
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                  <span className="font-mono uppercase tracking-[0.12em] text-terracotta">
+                    {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
+                  </span>
+                  <span className="tabular-nums text-ink/70">
+                    {paxProgress.exceeded
+                      ? `${paxProgress.headcount} · ${paxProgress.overBy} over ${paxProgress.target}`
+                      : `${paxProgress.headcount} of ${paxProgress.target} · ${paxProgress.progressPct}%`}
+                  </span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10">
+                  <div
+                    className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+                    style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
             <div className="grid grid-cols-4 gap-2">
               <StatBox
                 label="Total"

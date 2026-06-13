@@ -350,6 +350,69 @@ export function computeGuestStats(guests: GuestRow[]): GuestStats {
   return stats;
 }
 
+// Which guests count toward the live headcount + the pax sent to vendors
+// (events.headcount_basis). 'attending' = sure guests only (the owner-locked
+// default + the basis vendor pricing keys off); 'attending_plus_maybe' adds
+// maybes; 'invited' is everyone still on the list (total minus declined).
+// Adaptive Pax Pricing, 2026-06-13.
+export type HeadcountBasis = 'attending' | 'attending_plus_maybe' | 'invited';
+
+export function headcountForBasis(
+  stats: GuestStats,
+  basis: HeadcountBasis = 'attending',
+): number {
+  switch (basis) {
+    case 'attending_plus_maybe':
+      return stats.attending + stats.maybe;
+    case 'invited':
+      return stats.total - stats.declined;
+    case 'attending':
+    default:
+      return stats.attending;
+  }
+}
+
+export type PaxProgress = {
+  /** events.estimated_pax — the couple's "minimum pax" = the pricing floor. */
+  target: number;
+  /** Live headcount on the chosen basis (Phase 1 default: sure attending). */
+  headcount: number;
+  /** max(target, headcount) — the vendor-facing number once it tops the floor. */
+  livePax: number;
+  /** Headcount as a % of the target, capped at 100 for the bar. */
+  progressPct: number;
+  /** headcount has passed the minimum pax floor. */
+  exceeded: boolean;
+  /** Guests above the floor (0 until exceeded). */
+  overBy: number;
+  /** Guests still needed to reach the floor (0 once met). */
+  remaining: number;
+};
+
+// Progress of the live headcount toward the couple's minimum pax (the pricing
+// floor). Returns null when no target is set (estimated_pax NULL/0). The meter
+// fills on the chosen basis; livePax = max(target, headcount) is the
+// vendor-facing number once the count tops the floor. Pure — no DB, no prices.
+// Adaptive Pax Pricing, 2026-06-13.
+export function computePaxProgress(
+  stats: GuestStats,
+  estimatedPax: number | null | undefined,
+  basis: HeadcountBasis = 'attending',
+): PaxProgress | null {
+  if (!estimatedPax || estimatedPax <= 0) return null;
+  const headcount = headcountForBasis(stats, basis);
+  const livePax = Math.max(estimatedPax, headcount);
+  return {
+    target: estimatedPax,
+    headcount,
+    livePax,
+    progressPct: Math.min(100, Math.round((headcount / estimatedPax) * 100)),
+    exceeded: headcount > estimatedPax,
+    overBy: Math.max(0, headcount - estimatedPax),
+    remaining: Math.max(0, estimatedPax - headcount),
+  };
+}
+
 export function guestDisplayName(
   guest: Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
 ): string {

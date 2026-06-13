@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · fix(nav): bolder bottom-nav active pill + tap-fired press-light (visibility follow-up)
+
+Follow-up to the canonical bottom-nav template — the first cut was too subtle to read as "changed" on a real device (8% grey pill, press-light only on hold). Owner asked to make it unmistakable.
+
+- `app/_components/nav/bottom-nav.tsx` — active pill grey **8% → 15%** so the active tab reads at a glance; `--bn-glow` knob **1.2 → 1.5**. The press-light is now a **one-shot bloom** (`nav-press-flash`, re-keyed per press via a `flash` state) that fires on a normal **tap** (not just press-and-hold) — even a quick tap plays the full bloom-and-fade. Still fills the pill top-to-bottom and feathers only at the ends.
+- `app/globals.css` — `@keyframes nav-press-flash` + `.nav-press-flash` (peak reads `--bn-glow`, duration `--bn-dur`).
+- `scripts/lint-bottom-nav.mjs` — added `nav-press-flash` to the protected markers so the press-light can't be silently stripped either.
+- Note: the travel + flash are CSS-motion, so iOS **Reduce Motion** still freezes them; the bolder static pill is the motion-independent "it changed" signal.
+- Verified: typecheck + lint (no new warnings) + guard pass.
+
+SPEC IMPACT: tuning of the owner-locked bottom-nav template (memory `project_setnayan_bottom_nav_canonical` baseline updated: glow 1.2→1.5, pill 8%→15%, press-light fires on tap). No SKU / schema / pricing / route impact.
+
+---
+
 ## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 8 (couple settings: edit deadline + pricing view)
 
 The couple-control half of decisions #5 + #6: a "Guest list & pricing" card on `/details` lets the couple set their **guest-list edit deadline** (overrides the default 14-days-before-the-event) and pick their **pricing view** (realtime vs final-only). No migration — the columns landed in Phase 1; only their UI was missing.

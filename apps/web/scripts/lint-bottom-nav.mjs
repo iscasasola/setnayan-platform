@@ -54,6 +54,7 @@ const REQUIRED_MARKERS = [
   '--bn-glow', // press-light intensity knob
   '--bn-stretch', // pill travel-stretch knob
   'nav-pill-stretch', // the travel-stretch animation hook
+  'nav-press-flash', // the press-down light bloom hook
   'aria-label="Primary navigation"',
 ];
 

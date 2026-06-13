@@ -90,6 +90,13 @@ export function BottomNav({ items }: Props) {
     };
   }, [pressed]);
 
+  // One-shot press-light flash: re-keyed on every press-down so even a quick
+  // tap plays the full bloom-and-fade (NOT tied to holding). Persists at the
+  // last-pressed column; the keyframe self-fades to invisible between taps.
+  const [flash, setFlash] = useState<{ index: number; id: number } | null>(
+    null,
+  );
+
   // Surface a dev warning when callers exceed the 6-tab budget — beyond 6,
   // labels get cramped at common PH mobile widths (360-414px).
   useEffect(() => {
@@ -122,7 +129,7 @@ export function BottomNav({ items }: Props) {
           // Retune the whole app's nav feel by editing ONLY these four.
           '--bn-dur': '500ms',
           '--bn-grow': '1.15',
-          '--bn-glow': '1.2',
+          '--bn-glow': '1.5',
           '--bn-stretch': '1.1',
         } as CSSProperties
       }
@@ -152,41 +159,43 @@ export function BottomNav({ items }: Props) {
                 left: 6,
                 right: 6,
                 borderRadius: 999,
-                background: 'rgba(30, 34, 41, 0.08)', // --m-ink @ 8%
+                background: 'rgba(30, 34, 41, 0.15)', // --m-ink @ 15% — bolder so the active tab reads at a glance
               }}
             />
           </span>
         ) : null}
 
-        {/* Press light — blooms under the finger on press-down, fills the
-            pill top-to-bottom (tall element clipped by the row), feathers
-            only at the left/right ends, fades on release. Never travels:
-            its X jumps to the pressed column (no transition on transform). */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-1/2 z-[1]"
-          style={{
-            left: 0,
-            width: `${colW}%`,
-            height: 44,
-            transform: `translateY(-50%) translateX(${(pressed ?? 0) * 100}%)`,
-          }}
-        >
+        {/* Press light — a one-shot WHITE bloom under the finger on
+            press-down. Fills the pill top-to-bottom (tall element clipped by
+            the row) and feathers only at the left/right ends. Re-keyed per
+            press (flash.id) so even a quick TAP plays the full bloom-and-fade;
+            never travels — it jumps to the pressed column. */}
+        {flash ? (
           <span
-            className="absolute left-1/2 top-1/2"
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 z-[1]"
             style={{
-              width: `calc(100% - 4px)`,
-              height: 90,
-              borderRadius: 999,
-              background: 'rgba(255, 255, 255, 0.92)',
-              filter: 'blur(12px)',
-              opacity: pressed === null ? 0 : 'calc(var(--bn-glow) * 0.58)',
-              transform: `translate(-50%, -50%) scaleX(${pressed === null ? 0.6 : 1})`,
-              transition:
-                'opacity 150ms ease-out, transform 220ms ease-out',
+              left: 0,
+              width: `${colW}%`,
+              height: 44,
+              transform: `translateY(-50%) translateX(${flash.index * 100}%)`,
             }}
-          />
-        </span>
+          >
+            <span
+              key={flash.id}
+              className="nav-press-flash absolute left-1/2 top-1/2"
+              style={{
+                width: `calc(100% - 4px)`,
+                height: 90,
+                borderRadius: 999,
+                background: 'rgba(255, 255, 255, 0.95)',
+                filter: 'blur(12px)',
+                opacity: 0,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          </span>
+        ) : null}
 
         <ul
           className="relative z-10 grid py-1"
@@ -200,7 +209,10 @@ export function BottomNav({ items }: Props) {
               item={item}
               active={i === activeIndex}
               pressed={pressed === i}
-              onPressStart={() => setPressed(i)}
+              onPressStart={() => {
+                setPressed(i);
+                setFlash((f) => ({ index: i, id: f ? f.id + 1 : 1 }));
+              }}
               onPressEnd={() => setPressed(null)}
             />
           ))}

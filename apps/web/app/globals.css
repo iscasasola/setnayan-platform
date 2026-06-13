@@ -240,6 +240,23 @@
   animation: nav-pill-travel var(--bn-dur, 500ms) cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
+/*
+ * Canonical bottom-nav press-light — a one-shot white bloom under the
+ * finger on press-DOWN (project_setnayan_bottom_nav_canonical). Runs to
+ * completion on every tap (re-keyed per press), so even a quick tap shows
+ * the full bloom-and-fade — it is NOT tied to holding. Peak brightness
+ * reads the --bn-glow knob; duration reads --bn-dur. Ends at opacity 0 so
+ * the element reverts to its hidden inline base between taps.
+ */
+@keyframes nav-press-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scaleX(0.6); }
+  28% { opacity: calc(var(--bn-glow, 1.5) * 0.62); transform: translate(-50%, -50%) scaleX(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scaleX(1); }
+}
+.nav-press-flash {
+  animation: nav-press-flash var(--bn-dur, 500ms) ease-out;
+}
+
 @layer components {
   /*
    * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.

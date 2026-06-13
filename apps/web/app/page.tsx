@@ -1,65 +1,32 @@
 /**
- * v2.1 marketing homepage · /
+ * Homepage · / — HERO-ONLY (owner directive 2026-06-14: "remove everything.
+ * just keep the hero part as the whole page").
  *
- * WHY: CLAUDE.md 2026-05-28 10th + 11th rows — v2.1 brief LOCKED AS CANONICAL
- * + the keynote-template `Setnayan Site.html` is now the canonical homepage
- * layout. Owner directive "this is the template we will use" → replace the
- * prior `page-sections/*` composition wholesale with the v2.1 12-section
- * narrative ported from /tmp/setnayan-keynote-template/components/
- * homepage-*.jsx.
+ * The homepage is now ONLY the top nav + the hero. The hero is the
+ * admin-uploaded scroll-scrub video (HeroVideoScrub) when one is published,
+ * falling back to the default keynote hero otherwise — see
+ * lib/hero-video.ts + _sections.tsx Hero().
  *
- * SECTIONS (premium couple-centric redesign · owner brief 2026-06-13 —
- * homepage is strictly couple-centric; vendor doorway = VendorBand + footer):
- *   1. PromoBar           — pilot announcement (sticky top, above nav)
- *   2. Nav                — sticky nav with brand + search + CTA + mobile menu
- *   3. Hero               — "Goodbye, Viber chaos. Hello, Set na 'yan." +
- *                           chaos-vs-clean HeroCollage
- *   4. ProblemSection     — "Bakit Setnayan?" Six apps / twelve spreadsheets
- *   5. ForCouples         — couple feature showcase (replaced TwoSides)
- *   6. MarketplacePreview — verified vendor card grid
- *   7. OnTheDay           — day-of livestream + Same-Day Edit
- *   8. PersonalSite       — phone mock with guest microsite
- *   9. DashboardPreview   — couple dashboard mock
- *   10. PricingSection    — publisher posture (0% commission)
- *   11. FAQSection        — honest Q&A
- *   12. ClosingCTA + VendorBand + Footer
+ * COMPOSITION:
+ *   1. Nav   — sticky nav with brand + search + CTA + mobile menu (kept so
+ *              visitors can still Sign in / reach other pages)
+ *   2. Hero  — full-screen scroll-scrub video → end-of-scroll CTA
  *
- * v2.1 DRIFT SCRUBS applied throughout (per CLAUDE.md 2026-05-28 11th row):
- *   - "5% platform fee" / "we take a cut" → "0% commission"
- *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
- *   - "Setnayan Concierge" → "Setnayan AI"
- *   - Vendor verification is FREE during launch (the old "₱1,499 one-time
- *     verification" + "₱499 refresh" fee was removed 2026-06-13 — stale)
+ * REMOVED 2026-06-14 (owner "Hero + top nav"): PromoBar (pilot announcement)
+ * + ProblemSection + ForCouples + MarketplacePreview + OnTheDay + PersonalSite
+ * + DashboardPreview + PricingSection + FAQSection + ClosingCTA + VendorBand +
+ * Footer. The section components still live in _sections.tsx (other pages may
+ * use them); they are simply no longer composed here.
  *
- * Per [[feedback_setnayan_button_preservation]] all CTAs match template
- * placement + concept verbatim. Per [[feedback_setnayan_orphan_prevention]]
- * every CTA links to a real shipped route (/, /vendors, /for-vendors,
- * /signup, /login, /pricing, /privacy, /help, /features).
- *
- * REPLACES: the prior 17-section composition (page-sections/_*). Those
- * page-sections files retire — see CLAUDE.md decision-log row for this PR.
- * Per the prior file's metadata + JSON-LD + force-static behaviour: kept
- * the static rendering + GEO Phase G2 metadata + the homepage JSON-LD
- * Organization + WebSite + BreadcrumbList + SoftwareApplication graph so
- * AI answer engines + SERP cards keep their extractable surface intact.
+ * KEPT INTENTIONALLY (invisible, no visual footprint): GEO/SERP metadata + the
+ * WebSite + SoftwareApplication JSON-LD graph, so AI answer engines + search
+ * cards keep their extractable surface. force-dynamic stays because Hero()
+ * reads the published hero-video row (createAdminClient) + resolves frame URLs
+ * per request.
  */
 
-import {
-  PromoBar,
-  Nav,
-  Hero,
-  ProblemSection,
-  ForCouples,
-  MarketplacePreview,
-  OnTheDay,
-  PersonalSite,
-  DashboardPreview,
-  PricingSection,
-  FAQSection,
-  ClosingCTA,
-  VendorBand,
-  Footer,
-} from '@/app/_components/marketing/_sections';
+import { Nav } from '@/app/_components/marketing/site-nav';
+import { Hero } from '@/app/_components/marketing/_sections';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
@@ -93,11 +60,10 @@ export const metadata = {
   },
 };
 
-// Per-request rendering (owner 2026-06-08): the PricingSection reads live prices
-// from the admin-managed catalog DB (fetchV2BundleCatalog / fetchV2CustomerCatalog
-// via createAdminClient), the same way /pricing does. force-dynamic skips static
-// prerender so (a) admin price edits show immediately with no redeploy, and (b)
-// the CI build never hits the createAdminClient "missing service key" throw.
+// Per-request rendering: Hero() reads the published hero-video row via
+// createAdminClient and resolves frame URLs (presigned per render) — so the
+// page must render per request, not at build time. force-dynamic also keeps
+// the CI build from hitting the createAdminClient "missing service key" throw.
 // Trade-off accepted: the homepage loses static CDN caching. (Was force-static.)
 export const dynamic = 'force-dynamic';
 
@@ -175,20 +141,8 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-      <PromoBar />
-      <Nav />
-      <Hero />
-      <ProblemSection />
-      <ForCouples />
-      <MarketplacePreview />
-      <OnTheDay />
-      <PersonalSite />
-      <DashboardPreview />
-      <PricingSection />
-      <FAQSection />
-      <ClosingCTA />
-      <VendorBand />
-      <Footer />
+        <Nav />
+        <Hero />
       </main>
     </>
   );

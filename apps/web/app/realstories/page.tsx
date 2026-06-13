@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { SiteHeader } from '@/app/_components/site-header';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
   ALL_REAL_WEDDINGS,
@@ -9,7 +9,7 @@ import {
 } from '@/lib/real-weddings';
 import { loadPublishedShowcases, type ShowcaseEntry } from '@/lib/showcase-db';
 
-// /weddings — public Real Weddings showcase index (iteration 0046).
+// /realstories — public Real Weddings showcase index (iteration 0046).
 //
 // Real, consent-gated editorials (loadPublishedShowcases — couples who opted in,
 // past the T+30d grace window) take priority and link to each couple's own
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   title: 'Real weddings · Setnayan',
   description:
     'Real Filipino weddings, told by the couples who lived them — browse by ceremony type, venue, and theme. Preview a sample showcase now; real couple editorials begin December 2026 with explicit consent per RA 10173.',
-  alternates: { canonical: '/weddings' },
+  alternates: { canonical: '/realstories' },
   keywords: [
     'real Filipino weddings',
     'Philippines wedding inspiration',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     title: 'Real weddings · Setnayan',
     description:
       'Real Filipino weddings, told by the couples who lived them. Preview a sample showcase now; real editorials begin December 2026.',
-    url: '/weddings',
+    url: '/realstories',
   },
 };
 
@@ -47,11 +47,11 @@ export const metadata: Metadata = {
 // sample, so the page always renders even without DB access.
 export const revalidate = 3600;
 
-// Sample card (RealWedding) — links to its editorial preview at /weddings/[slug].
+// Sample card (RealWedding) — links to its editorial preview at /realstories/[slug].
 function SampleCard({ wedding }: { wedding: RealWedding }) {
   return (
     <Link
-      href={`/weddings/${wedding.slug}`}
+      href={`/realstories/${wedding.slug}`}
       className="group flex flex-col rounded-2xl border border-ink/10 bg-white/50 p-5 transition hover:border-terracotta/40 hover:bg-white sm:p-6"
     >
       <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export default async function WeddingsIndexPage() {
     ? samples.map((w, i) => ({
         '@type': 'ListItem' as const,
         position: i + 1,
-        url: `${SITE_URL}/weddings/${w.slug}`,
+        url: `${SITE_URL}/realstories/${w.slug}`,
         name: weddingTitle(w),
       }))
     : showcases.map((s, i) => ({
@@ -141,7 +141,7 @@ export default async function WeddingsIndexPage() {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'Real weddings · Setnayan',
-    url: `${SITE_URL}/weddings`,
+    url: `${SITE_URL}/realstories`,
     inLanguage: 'en-PH',
     isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
     mainEntity: { '@type': 'ItemList', itemListElement: itemListElements },
@@ -155,14 +155,14 @@ export default async function WeddingsIndexPage() {
         '@type': 'ListItem',
         position: 2,
         name: 'Real weddings',
-        item: `${SITE_URL}/weddings`,
+        item: `${SITE_URL}/realstories`,
       },
     ],
   };
 
   return (
     <>
-      <SiteHeader />
+      <Nav />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
@@ -200,7 +200,7 @@ export default async function WeddingsIndexPage() {
           <>
             {featured ? (
               <Link
-                href={`/weddings/${featured.slug}`}
+                href={`/realstories/${featured.slug}`}
                 className="group mt-10 block overflow-hidden rounded-3xl border border-ink/10 bg-white/60 transition hover:border-terracotta/40 hover:bg-white"
               >
                 <div className="flex h-24 w-full sm:h-32" aria-hidden>

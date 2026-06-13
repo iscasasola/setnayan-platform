@@ -143,17 +143,30 @@ const nextConfig: NextConfig = {
     '@tensorflow-models/face-detection',
   ],
   images: {
-    // AVIF first — ~50% smaller than WebP for the photographic content
-    // marketing surfaces use (hero, coverage, vendor portfolios). Next.js
-    // falls back to WebP for clients without AVIF support.
-    formats: ['image/avif', 'image/webp'],
+    // WebP only — AVIF dropped 2026-06-14 to cut the Vercel image-optimization
+    // bill. Emitting BOTH avif+webp DOUBLES Vercel's per-transformation charge,
+    // and our gallery / vendor-portfolio / seeded-stock images are mostly
+    // viewed once, so the per-transform cost dominates the per-byte delivery
+    // saving AVIF would buy. WebP is universally supported and visually
+    // indistinguishable for this content. (Reverses the prior "AVIF first"
+    // posture purely on cost grounds; the proper fix — move optimization +
+    // delivery to Cloudflare Images with free R2 egress — is tracked in
+    // Image_Optimization_Plan.md. This is the zero-infra interim cut.)
+    formats: ['image/webp'],
     // Tight whitelist — only origins we control. Empty array is fine in
     // local dev (no remote images), so build succeeds with R2 unset.
     remotePatterns: remoteImagePatterns,
-    // Cache optimized variants for a week so we don't re-optimize on every
-    // revalidation. Vercel's image CDN charges per transformation, not per
-    // delivery, so this is pure savings.
-    minimumCacheTTL: 60 * 60 * 24 * 7,
+    // Drop the two largest responsive variants (2048 / 3840) from Next's
+    // default spread. They're the most expensive transforms to encode and are
+    // only ever requested by full-bleed images on 4K displays, where the 1920
+    // variant is already sharp. Trims transform count + per-image cache
+    // footprint with no visible difference on normal screens.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    // Cache optimized variants for a MONTH (was 7 days) so we don't re-optimize
+    // on every ISR revalidation. Vercel's image CDN charges per transformation,
+    // not per delivery, so a longer TTL is pure savings — the source images
+    // (R2 hero / vendor / moodboard photos) are immutable once uploaded.
+    minimumCacheTTL: 60 * 60 * 24 * 31,
   },
   // Server actions accept file uploads (merchant QR codes, future vendor
   // logos + payment screenshots). Default 1MB is too small for phone-camera
@@ -244,6 +257,17 @@ const nextConfig: NextConfig = {
   // files in public/ are served directly by Next.js; the rewrite is a
   // URL-only remap so a deep-link in marketing email or social card lands
   // on the right slide deck without a 404 + redirect dance.
+  // 2026-06-14 — Real Weddings showcase renamed `/weddings` → `/realstories`
+  // (owner "rename it as /realstories"). 301-redirect the old paths so the
+  // already-indexed `/weddings` URLs consolidate their ranking to the new path
+  // and any in-flight nav links still pointing at `/weddings` (the nav PR #1391
+  // was open at rename time) keep working instead of 404-ing.
+  async redirects() {
+    return [
+      { source: '/weddings', destination: '/realstories', permanent: true },
+      { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       { source: '/keynote', destination: '/keynote/index.html' },

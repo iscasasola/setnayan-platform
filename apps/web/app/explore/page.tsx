@@ -40,6 +40,7 @@ import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import type { FilterDrawerProps } from './_components/filter-drawer';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
 import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
@@ -452,7 +453,7 @@ type Props = {
      *  todays-one-thing CTA + event-home-detail-pane Browse vendors
      *  button — the next-steps CTA was removed 2026-05-24). Direct
      *  visits to /vendors (top-nav
-     *  Browse, sitemap, /weddings, /venue, /waitlist, /not-found, etc.)
+     *  Browse, sitemap, /realstories, /venue, /waitlist, /not-found, etc.)
      *  never set this param so the full chrome renders unchanged. */
     from?: string;
     /** 2026-05-30 — Ceremony Faith pill (StickyMarketplaceHeader contextual
@@ -1821,35 +1822,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
       />
-      {/* Inline marketplace header. Auth-aware CTA swap (2026-05-20): when
-          a signed-in user clicks "Marketplace" from the dashboard outer
-          header, we route the right-side CTA back to /dashboard instead of
-          pushing them at /signup — without this the page reads as
-          "logged out" even though the session cookie is still alive. The
-          `user` variable above is fetched server-side via the same
-          createClient() used for the catalog filter; no extra roundtrip. */}
-      <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href={user ? '/dashboard' : '/'} className="flex items-center text-ink">
-            <Wordmark size={22} />
-          </Link>
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Return to Dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/signup"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Plan with Setnayan
-            </Link>
-          )}
-        </div>
-      </header>
+      {/* Shared marketing top nav (same as every other public page, owner
+          2026-06-14 "keep this top nav the same on Explore + For vendors").
+          Rendered NON-sticky here because the marketplace search bar
+          (StickyMarketplaceHeader) is itself `sm:sticky sm:top-0` — two
+          sticky-top bars would stack/overlap on scroll. */}
+      <Nav sticky={false} />
 
       <NoticeBanner noticeKey={noticeKey} />
 

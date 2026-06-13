@@ -61,7 +61,7 @@ const RESERVED_SUBDOMAINS = new Set([
 // any bucket-① marketing route bounce to /login (or /dashboard when a
 // session exists) so the app boots straight into the product. Bucket-③
 // shareable surfaces (guest invites, day-of, /vendors browse, /v/[slug],
-// /weddings showcase, /help) stay reachable in-app; legal pages (/privacy,
+// /realstories showcase, /help) stay reachable in-app; legal pages (/privacy,
 // /terms) stay reachable because store review requires them.
 const APP_EXCLUDED_MARKETING_PATHS = new Set([
   '/',

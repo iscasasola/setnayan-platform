@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { removeBrandIcon, saveBusinessIdentity } from './actions';
 import { TinInput } from './_components/tin-input';
@@ -63,30 +65,19 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
       </header>
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {decodeURIComponent(search.error)}
-        </p>
+        <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>
       ) : null}
       {search.saved ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Settings saved. Live changes propagate to all surfaces immediately.
-        </p>
+        </FormFlash>
       ) : null}
       {search.brand_icon ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Brand icon updated. It now shows on the browser tab, the app icon, and
           the in-app logo everywhere. Browsers may keep the old tab icon cached
           for a bit &mdash; see the note below to clear it once.
-        </p>
+        </FormFlash>
       ) : null}
       {search.brand_icon_removed ? (
         <p
@@ -272,26 +263,6 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
         </section>
       </div>
     </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">{label}</span>
-      {children}
-      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
-    </label>
   );
 }
 

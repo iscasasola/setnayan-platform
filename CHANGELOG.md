@@ -33,6 +33,39 @@ Owner directive 2026-06-13 (*"why do i see services here? we just want a search 
 Verified: `tsc --noEmit` clean, `next lint` clean (no findings in changed files), production build green (214/214 pages), retired-strings + email-links + bottom-nav guards pass.
 
 SPEC IMPACT: completes the `/vendors` (Explore) search-first reframe started in #1382 — the curated catalog is now demoted behind `?browse=`; search is multi-field. Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner heads-up: venue browsing (Reception 6-setting facet picker + ceremony-venue cards) now reaches couples via search or "Browse all categories" rather than auto-rendering on landing.
+## 2026-06-14 · feat(realstories): rename the Real Weddings showcase /weddings → /realstories (PR A of the Real-Stories featuring program)
+
+Owner: "rename it as /realstories." First of a sequenced program to turn the showcase into a Facebook-shareable featuring loop (PR A = rename · PR B = OG share cards + share buttons · PR C = couple "Publish to Real Stories" consent + vendor "share to your Page" · PR D = admin curate/feature).
+
+- **`git mv app/weddings → app/realstories`** (index + `[slug]` detail). Swapped every `/weddings` route reference → `/realstories` across 14 files: the two route pages (canonical · breadcrumb · Article JSON-LD · back-links), `sitemap-weddings.xml` (now emits `/realstories` URLs — route filename kept so the sitemap URL itself doesn't 404), `sitemap-static`, `robots.ts` (allow-list), `lib/real-weddings.ts`, `lib/showcase-db.ts`, `app/[slug]/_components/editorial/data.ts`, plus the inbound links on `/privacy`, `/signup`, `/vendors`, and the couple `dashboard/.../website/privacy` consent surface.
+- **301 redirects** added in `next.config.ts`: `/weddings` → `/realstories` and `/weddings/:slug` → `/realstories/:slug` (`permanent: true`). Consolidates the already-indexed `/weddings` ranking to the new path AND keeps the in-flight nav PR #1391's `/weddings` links working (it was open at rename time) instead of 404-ing.
+- Visible **"Real weddings" copy + the SEO title/keywords are intentionally unchanged** (strong "real Filipino weddings" keyword); only the route path changed. The nav label "Real Stories" → `/realstories` is the friendly label over the keyword-rich page — aligning the page H1 to "Real Stories" is an optional owner follow-up.
+
+SPEC IMPACT: iteration 0046 showcase route renamed `/weddings` → `/realstories` (301-preserved). Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR B — per-editorial OG share cards (satori, reusing `lib/social/card.tsx`) + Facebook/Pinterest/Copy share buttons on the editorial, so a shared link shows a beautiful preview and deep-links to the exact story.
+
+---
+
+## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
+
+Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited `apps/web/next.config.ts` against `origin/main`: the `images` block ran every photo (R2 hero/vendor/moodboard + Supabase + the seeded Pexels/Picsum/Wikimedia stock hotlinks) through Vercel's per-transformation image optimizer, emitting **both** AVIF **and** WebP across Next's full default 8-size `deviceSizes` spread — a high billable-transformation count for a gallery-heavy, mostly view-once image workload. Confirmed NOT the cause: no `vercel.json` / no Vercel `crons` schedule, so the dormant `/api/cron/*` routes are not billing. Zero-infra interim cut (no component/render changes, fully reversible):
+
+- apps/web/next.config.ts `images` — `formats` AVIF+WebP → **WebP only** (~halves transforms; WebP visually indistinguishable here, reverses the prior "AVIF first" posture on cost grounds); `deviceSizes` trimmed to `[640,750,828,1080,1200,1920]` (drops the two most-expensive variants 2048/3840 — 1920 is already sharp on 4K full-bleed); `minimumCacheTTL` 7d → **31d** (fewer re-optimizations of immutable source images).
+- Verified: `tsc --noEmit` ✅ · `next lint` ✅. No schema/migration.
+
+Structural follow-up (NOT in this PR): the proper near-zero fix is the Cloudflare Images cutover already specced in `Image_Optimization_Plan.md` (free R2 egress + on-demand variants) — needs owner Cloudflare decision. Owner action surfaced separately: set a Vercel **Spend Management** hard cap so an overage can never recur silently.
+
+SPEC IMPACT: None — infra/cost config tuning, no SKU/schema/pricing/UX/product-copy change. Minor reversal of the documented "AVIF first" image posture, on cost grounds only; flagged here for lineage.
+## 2026-06-14 · feat(home): hero-only homepage — strip the marketing narrative to nav + hero
+
+Owner directive 2026-06-14 ("remove everything. just keep the hero part as the whole page"; clarified scope = **Hero + top nav**). The homepage `/` now renders ONLY the sticky `Nav` + the `Hero` (the admin-uploaded scroll-scrub video, falling back to the default keynote hero when none is published).
+
+- `apps/web/app/page.tsx` — render reduced to `<Nav /><Hero />`. **Removed from the homepage:** `PromoBar`, `ProblemSection`, `ForCouples`, `MarketplacePreview`, `OnTheDay`, `PersonalSite`, `DashboardPreview`, `PricingSection`, `FAQSection`, `ClosingCTA`, `VendorBand`, `Footer`. Imports trimmed to `{ Nav, Hero }`. The section components are **not deleted** — they still live in `_sections.tsx` and are reused by `app/v/[slug]/page.tsx` + the dedicated marketing pages (`/features`, `/pricing`, `/vendors`, `/about`, `/help`), so that content (and its SEO) is unchanged on those routes.
+- Kept (no visual footprint): the GEO/SERP `metadata` + the `WebSite` + `SoftwareApplication` JSON-LD graph (AI-answer-engine / search-card surface), and `export const dynamic = 'force-dynamic'` — Hero() reads the published hero-video row + resolves presigned frame URLs per request. Updated the force-dynamic rationale comment (was attributed to the now-removed PricingSection).
+- Homepage e2e (`tests/e2e/homepage.spec.ts`) unaffected: it asserts the hero h1, "Start planning", and "Sign in" — all in the retained Nav + Hero.
+
+**Trade-offs (flagged for owner):** (1) the homepage loses its crawlable marketing copy + the footer's Privacy/Terms links — those legal links now reach users only via other pages; (2) traditional-SEO text on `/` drops to near-zero (mitigated: JSON-LD retained + the marketing content still lives on `/features`, `/pricing`, etc.). Easily reverted (git) if the owner wants sections back.
+
+SPEC IMPACT: Homepage composition diverges from iteration `0015_main_website` (full marketing narrative). Logged in corpus `DECISION_LOG.md` (2026-06-14); 0015 AS-BUILT note deferred to the next corpus pass.
 
 ---
 
@@ -46,6 +79,57 @@ The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notificat
 - Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
 
 SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A4.
+## 2026-06-14 · refactor(dashboard): shared <ContractCard> — dedup Track A3
+
+The couple contract list (`app/dashboard/[eventId]/contracts/page.tsx`) and the vendor contract list (`app/vendor-dashboard/contracts/page.tsx`) forked byte-identical presentation: the contract row card, the status badge, the `STATUS_TONE` tone map, and the empty-state shell. Extracted them into a single shared module at `app/_components/contracts/`. Both pages keep their own role-scoped, RLS-bound fetch (`fetchEventContracts` for couples · `fetchVendorContracts` for vendors) — only the presentational card/badge/empty-state is shared; per-role differences (detail-route `href`, "From {vendor}" vs "For {event}" subtitle) are passed via props, mirroring the `viewerRole`-parameterized `chat-message-stream.tsx` pattern. No behavior or visual change — pure dedup.
+
+- apps/web/app/_components/contracts/contract-card.tsx — NEW <ContractCard> (+ <ContractStatusBadge>, <ContractsEmptyState>, and the now-single-source STATUS_TONE map)
+- apps/web/app/dashboard/[eventId]/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
+- apps/web/app/vendor-dashboard/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
+- Verified: tsc --noEmit ✅ (exit 0) · next lint ✅ (No ESLint warnings or errors). No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor; no SKU/schema/pricing/copy/UX change. Dashboard dedup Track A3.
+## 2026-06-14 · refactor(dashboard): shared <ThreadListCard> — dedup Track A5
+
+The couple (`/dashboard/[eventId]/messages`) and vendor (`/vendor-dashboard/messages`) messages-LIST pages forked identical thread-row markup — the `<li>`/`<Link>` shell, the avatar slot, title + inquiry-status badge + last-activity line, and the trailing chevron (the thread DETAIL view was already shared via `<ChatMessageStream>`). Extracted that row into a shared `<ThreadListCard>` (plus a `<ThreadListAvatar>` helper) under `app/_components/chat/`, parameterized on the per-role differences (href, title, optional avatar/badge/extra, timestamp line). Each page keeps its OWN role-scoped fetch + scoping validation (couple validates the event via `fetchCoupleThreads`; vendor validates the vendor profile via `fetchVendorThreads`) — the pages are not merged and the fetch is not shared. The couple-only follow-gate UI stays couple-only in the couple page. Pure dedup: rendered output (classes/copy/order/unread-status logic) is unchanged.
+
+- apps/web/app/_components/chat/thread-list-card.tsx — NEW
+- apps/web/app/dashboard/[eventId]/messages/page.tsx — render shared row (keeps follow-gate; dropped local `Avatar`)
+- apps/web/app/vendor-dashboard/messages/page.tsx — render shared row
+- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A5.
+## 2026-06-14 · feat(seating): zone walkthrough video (seat-finding PR 6 of 6)
+
+The "first-person walk to your table" the market ships **nowhere** — a coordinator (or a no-coordinator couple's DIY helper) records a short vertical clip walking from the entrance to a cluster of tables, tags those tables, and a guest who finds their seat watches the exact walk to their table. Migration `20261219000000_walkthrough_zones.sql`.
+
+- **Schema** — new `event_walkthrough_zones` (one row per named zone, holds the R2 clip ref + `published_at`) + nullable `event_tables.walkthrough_zone_id` (`ON DELETE SET NULL` — dropping a zone never touches seating). RLS mirrors `event_tables`: couple (`current_couple_event_ids`) + coordinator delegate (`moderator_area_level(...,'seat_plan')='edit'`). The guest read is the SECURITY DEFINER RPC only — the table is never anon-readable.
+- **`public_seat_lookup` RPC** — DROP+CREATE (return-type change) adds `{walk_zone_label, walk_video_key}` via a LEFT JOIN to the matched table's PUBLISHED zone clip. Every existing guard preserved (min-len 2, LIKE-escape, published-gate, minimal columns, LIMIT 25); guests with no zone clip get exactly today's result.
+- **`/api/seat-lookup` route** — presigns each distinct clip ref (deduped; a zone's clip is shared by its tables) to a short-lived GET URL, so the table stays private. A presign failure degrades to "no clip", never a 500.
+- **`/[slug]/find-seat` finder** — each result is now a `MatchCard` with a lazy "▶ Watch the walk to your table" disclosure (the `<video>` + its bytes mount only on tap; inline-SVG glyph, no icon dep on the public build).
+- **Coordinator/couple manager** — new `/dashboard/[eventId]/seating/walkthrough` (linked from the seating header). Create/rename/delete zones, tag tables (parameterized `.in()` set-update, UUID-validated), upload a clip via the shared `<FileUpload>` (bucket `media`, video MIME, 60 MB), preview, and a "show to guests" publish toggle (guarded — can't publish an empty zone). Every server action authorizes couple OR seat_plan-edit delegate; RLS is the backstop.
+
+Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests + migration-timestamp guard clean.
+
+SPEC IMPACT: implements the 2026-06-13 "zone-clip routing" half of the seat-finding design (iter 0008 + 0031 + the retired Indoor-Blueprint walkthrough half). **Built ungated/free** — the walkthrough is COORDINATOR LABOR (not a Setnayan SKU) and must stay delegatable so a no-coordinator couple does it free (dual-path parity + free-wayfinding). **Open (owner):** whether the *hosting/tool* is monetized at all is deferred to the holistic pricing pass (do not gate before that). Migration applied to prod (statement-by-statement). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · fix(nav): one shared marketing top nav on every page + clickable logo → home
+
+Owner report: the top nav menu *changed* when clicking through to a nav destination — and the "SET NA 'YAN" logo wasn't clickable. Root cause: the canonical 6-page `Nav` (What you get · Explore · For vendors · Our story · Real Stories) only rendered on the homepage; the linked pages had **forked into 4 other headers** — the legacy `SiteHeader` (Marketplace / How it works / Features / Pricing / Help) on `/about`, `/how-it-works`, `/pricing`, `/features`, and a bespoke inline header on `/blog`. So every click swapped the whole menu. The logo was a bare `<Wordmark>` (no link), despite the owner's own note "Home (the video scrub) = the logo".
+
+- **NEW `app/_components/marketing/site-nav.tsx`** — the canonical `PromoBar` + `Nav` extracted out of the heavy homepage module (`_sections.tsx`) into one lean file (imports only `Link` + `Wordmark` + `MobileMenu`, so importing `<Nav>` into a subpage doesn't drag framer-motion / `HeroVideoScrub` / catalog fetchers into that page's bundle). Single source of truth for the marketing top nav — per the owner anti-fork chrome doctrine.
+- **Logo → home:** the `<Wordmark>` is now wrapped in `<Link href="/" aria-label="Setnayan — home">`. Clicking the mark/wordmark routes to the hero on every page (same-page link on `/`).
+- `_sections.tsx` — `PromoBar`/`Nav` definitions removed (now re-homed in `site-nav`); dropped the now-unused `MobileMenu` import. `page.tsx` imports `PromoBar, Nav` from `site-nav`; homepage render unchanged.
+- **Swapped to the shared `<Nav>`** (replacing the legacy `SiteHeader` / inline header): `app/features/_PageBody.tsx` (covers `/features` **and** `/tl/features`), `app/about/page.tsx`, `app/blog/page.tsx`, `app/how-it-works/page.tsx`, `app/pricing/page.tsx`, plus `app/tl/about/page.tsx` + `app/tl/how-it-works/page.tsx` so the `/tl` locale stays internally consistent (nav labels are English in both old and new — no localization regression).
+- **`/weddings` (the "Real Stories" landing) also swapped to the shared `<Nav>`** (follow-up: owner caught that clicking "Real Stories" still showed the legacy `SiteHeader`). The `/weddings/[slug]` editorial detail keeps its immersive "← Back" bar (blog-post pattern).
+- **Owner reversed the vendor deferral for the nav bar specifically ("keep this top nav the same on Explore + For vendors"):** `/for-vendors` swaps its bespoke `VendorNav` → shared `<Nav>`; `/vendors` (Explore) replaces its minimal inline `<header>` (logo + auth-aware CTA) → `<Nav sticky={false} />`. The page-level marketplace search/filter chrome (`StickyMarketplaceHeader`, `ExploreSearchHero`) is untouched.
+- **`Nav` gained a `sticky` prop (default `true`).** `/vendors` renders `<Nav sticky={false} />` because the marketplace search bar is itself `sm:sticky sm:top-0` — two sticky-top bars would stack/overlap on scroll. Every other page keeps the sticky nav.
+- **Removed the "Search anything… ⌘K" pill from the nav** (owner "delete the search there"). The marketplace keeps its own page-level search (that's the page's purpose, not a nav control).
+- **Auto-hide on scroll (owner "hide the top nav as we scroll down … pure scrubbing on the screen"):** `site-nav.tsx` is now a `'use client'` island; the sticky `<Nav>` slides up out of view on scroll-down and slides back on scroll-up (or when near the very top, `scrollY < 64`). So the homepage hero scrub (`HeroVideoScrub`, a 300vh pinned track) goes full-screen the moment you scroll into it. Passive `scroll` listener throttled with `requestAnimationFrame`; `motion-reduce:transition-none` for reduced-motion. Only applies when `sticky` (non-sticky `/vendors` scrolls the nav away naturally).
+- **Folded in the overlapping `claude/real-stories-editorials` work (was PR #1390, now superseded — collided in `_sections.tsx`/`CHANGELOG`, already DIRTY):** "Real Stories" points at the real-wedding showcase **`/weddings`** (iteration 0046, Maria & Juan sample editorial), NOT `/blog`, in the shared `Nav`, homepage `Footer` (keeps `/blog` as "Planning guides"), and `_SiteFooter`. `/blog` URLs untouched → zero SEO risk. `site-header.tsx` `PRIMARY_NAV` aligned to the 6-page IA for the residual `SiteHeader` pages (`/download`, `/waitlist`).
+
+SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav was owner-locked 2026-06-13 and the `/blog`→`/weddings` "Real Stories" repoint was owner-decided 2026-06-14, already in corpus `DECISION_LOG.md`). Logged in corpus `DECISION_LOG.md` (2026-06-14). Now the shared `<Nav>` renders on every public marketing page; `SiteHeader` survives only on `/download`/`/waitlist` (labels aligned) and `/tl/*` pages beyond `about`/`how-it-works`/`features`. `VendorNav` (`for-vendors/_components/vendor-nav.tsx`) is now unused.
+
+---
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 
@@ -81,8 +165,31 @@ Makes the published scroll-scrub hero actually **show** without waiting on the o
 Net: today the scrub shows via presigned frames (works with existing R2 creds, R2 egress stays free); once `media.setnayan.com` + `R2_PUBLIC_URL` are wired (PR #1380), it auto-switches to cacheable public URLs with no further change. Verified with a 13-case key-derivation/URL-resolution suite.
 
 SPEC IMPACT: None (read-path + storage refinement; no SKU/pricing/schema-contract change). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · refactor(dashboard): shared `<Field>` + `<FormFlash>` form primitives — dedup Track A1 (settings centerpiece)
+
+Dashboard-consolidation Track A, step 1 (owner-approved plan 2026-06-13: "consolidate the dashboard design, remove all duplicates, make sure they all fall properly to their respective roles" → dedup-first, then the locked IA redesign). A grounded audit of `origin/main` found the chrome (shared `app/_components/nav/*` primitives) and role-gating already consolidated — the real duplication is at the surface/primitive level: `function Field()` defined locally in **15 files** and the saved/error flash banner copy-pasted across **~39**. This extracts the two byte-identical primitives and proves them on the three settings/profile pages (couple · vendor · admin).
+
+- `app/_components/forms/field.tsx` — NEW shared `<Field label htmlFor help? required? children>`. The vendor variant's optional `required` asterisk is folded in as the superset, so couple/admin call sites (which omit it) reproduce byte-for-byte.
+- `app/_components/forms/form-flash.tsx` — NEW shared `<FormFlash tone="error"|"success">`: the terracotta `role="alert"` + emerald `role="status"` banner chrome. Message text and which search param triggers each banner stay in the page (no copy change). One-off tones (couple amber deletion-pending, admin neutral icon-reset) intentionally left inline — they aren't the duplicated pattern.
+- `app/dashboard/profile/page.tsx` · `app/vendor-dashboard/profile/page.tsx` · `app/admin/settings/page.tsx` — deleted each page's local `Field` def + the duplicated banner `<p>` blocks; now import the shared primitives. **No behavior/visual change**: sections, fields, copy, role-scoped data, and the vendor page's deliberate v2.1-token styling are untouched (visual unification of section labels/cards is Track B, owner-locked — not done here). Couple's `Row` facts-grid helper kept in place (FactsRow extraction deferred).
+- Verified locally: `tsc --noEmit` ✅ (exit 0, 0 errors) · `next lint` on the 5 changed files ✅ (no warnings/errors). No schema, migration, or env change.
+
+SPEC IMPACT: None — code-internal refactor; no SKU, schema, pricing, copy, or UX change. First landing of the dashboard dedup program (plan at `~/.claude/plans/binary-cuddling-popcorn.md`); Track A continues with the app-wide `Field`/flash sweep (A2), then shared surface cards (contracts · notifications · messages-list · verify). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
+## 2026-06-14 · feat(seating): live day-of seat-plan propagation (seat-finding PR 5 of 6)
+
+The "win over frozen paper" — a reseat done DURING the event reaches the guest-facing surfaces on its own, with **no push/email** (the owner's silent-only lock). The data path was already live (all finder surfaces are `force-dynamic` reading `event_seat_assignments`); this PR adds the **day-of UX** that was missing. **No migration.**
+
+- **`lib/day-of-mode.ts`** — new `isEventDayActive()` = `live || post` phase (T-1h .. T+24h). The existing `live` window is midnight-anchored (T-1h..T+8h ≈ 11pm-prev..8am), so an EVENING reception falls in `post` — `isEventDayActive` spans the whole wedding day so the feature actually covers evening weddings.
+- **`lib/use-day-of-live-refresh.ts`** (new) — `useDayOfLiveTick(eventDate, onTick)`: fires on a 45s cadence + tab-focus + visibility-regain, only while the wedding day is active AND the tab is visible. A PULL, never a push — no notification/email/realtime channel; inert during normal planning.
+- **`app/_components/live-refresher.tsx`** (new) — render-nothing companion that calls `router.refresh()` on each tick (re-runs the server component → fresh props). Mounted on **`/[slug]/find-my-table`** (paid wayfinding map re-lights) and the **`/dashboard/[eventId]/guests/checkin`** desk (each guest's table re-labels on the board; the desk's local check-in/scanner state survives the refresh — verified `selected`/results read the live memoized `guests` prop).
+- **`/[slug]/find-seat` free finder** — `NameSearch` now takes `eventDate` and silently re-fires the *last* lookup on each day-of tick (its result lives in client state, so `router.refresh()` can't reach it). Quiet refresh never flips an existing result to an error.
+- **`day-of-editing-banner.tsx`** (new) — a clock-driven banner on the seating editor (a sibling of `<SeatingEditor>`, so the 4.4k-line editor is untouched): during the wedding day it tells the editor that changes reach guests instantly AND that **printed cards/signs are frozen snapshots — the live digital plan is today's source of truth** (encodes the day-of digital-only-responsibility lock). `seating/page.tsx` + `checkin/page.tsx` + the two `[slug]` pages now select `events.event_date`.
+
+Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests clean. PR pending (branch `claude/seat-live-propagation`, auto-merge to arm).
+
+SPEC IMPACT: implements the 2026-06-13 "live day-of reprogramming" 3-lock decision (digital-only responsibility · exclusive lock [shipped PR 2] · silent-only updates) for iter 0008 seat plan + 0031 day-of guest. **Open (owner):** PR 4 (paid seat pass) is still unbuilt — it will inherit this live-data + tick pattern when it lands. Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
 

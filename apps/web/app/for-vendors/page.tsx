@@ -32,7 +32,7 @@
  * touched COPY only, not button positions.
  */
 
-import { VendorNav } from './_components/vendor-nav';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { VendorHero } from './_components/vendor-hero';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
@@ -249,7 +249,7 @@ export default async function ForVendorsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
       />
       <main className="m-surface min-h-dvh">
-        <VendorNav />
+        <Nav />
         <VendorHero />
         <StackCloseVendor />
         <ForVendorsDeepDive />

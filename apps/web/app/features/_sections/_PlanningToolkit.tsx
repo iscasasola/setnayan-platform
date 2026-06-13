@@ -6,6 +6,7 @@ import {
   CalendarDays,
   type LucideIcon,
 } from 'lucide-react';
+import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 // Planning toolkit — guest list (0001), seating (0008), budget (0007),
 // mood board (0010), schedule. One sub-section per feature with the
@@ -13,65 +14,110 @@ import {
 // Visual style mirrors the homepage Maria & Juan dashboard mocks but
 // at a smaller, per-feature scale.
 
-type Feature = {
+type FeatureMeta = {
   Icon: LucideIcon;
-  title: string;
-  oneLiner: string;
-  body: string;
   iteration: string;
-  pillarLabel: string;
   visual: React.ReactNode;
 };
 
-const FEATURES: Feature[] = [
-  {
-    Icon: Users,
-    title: 'Guest list — every guest, every detail',
-    oneLiner: 'From save-the-dates to seating, RSVPs, plus-ones, dietary notes — all one row each.',
-    body: 'Every guest is one row in your guest book. Track RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, and personal QR — all linked to the same database your invitations and gallery read from. No more juggling a Google Sheet plus a Notes app plus a WhatsApp thread. When a guest opens their invite QR, your guest list updates in real time.',
-    iteration: 'Iteration 0001',
-    pillarLabel: 'Free with every account',
-    visual: <GuestListMock />,
-  },
-  {
-    Icon: Armchair,
-    title: 'Seating chart — drag, drop, done',
-    oneLiner: 'Visual seating that respects who shouldn&rsquo;t sit next to whom.',
-    body: 'Drag guests onto tables. Setnayan flags awkward pairings (your aunt who shouldn&rsquo;t sit near your in-laws), keeps plus-ones together, and reserves the bridal-table seats for sponsors. Print the seating chart as a PDF — or hand the chart to your coordinator and let them re-arrange right up until the day.',
-    iteration: 'Iteration 0008',
-    pillarLabel: 'Free with every account',
-    visual: <SeatingMock />,
-  },
-  {
-    Icon: Wallet,
-    title: 'Budget — the truth, in PHP',
-    oneLiner: 'Budget by category, paid vs. owed, what&rsquo;s due next month.',
-    body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what&rsquo;s due in the next 30 days. Every payment ties back to a vendor and an OR — no orphaned line items.',
-    iteration: 'Iteration 0007',
-    pillarLabel: 'Free with every account',
-    visual: <BudgetMock />,
-  },
-  {
-    Icon: Palette,
-    title: 'Mood board — your wedding’s look',
-    oneLiner: 'Pin photos, lock palettes, share with vendors in one click.',
-    body: 'Pin photos from Pinterest, Instagram, your friend&rsquo;s wedding album. Setnayan extracts the dominant palette so your florist, your stationer, and your stylist all reference the same hex codes. Per-role palettes for the bride, the groom, the entourage, and the venue. Share the board with a vendor by link — no account required to view.',
-    iteration: 'Iteration 0010',
-    pillarLabel: 'Free with every account',
-    visual: <MoodBoardMock />,
-  },
-  {
-    Icon: CalendarDays,
-    title: 'Schedule — the day, minute by minute',
-    oneLiner: 'Build your day-of timeline; we sync it to every vendor&rsquo;s calendar.',
-    body: 'Compose your day-of run-of-show: prep, ceremony, photos, reception, after-party. Each block has a time, a location, the responsible vendors, and the guests involved. Subscribe to .ics so it syncs to your phone. When you adjust a block, every vendor on that block gets a notification.',
-    iteration: 'Iteration 0008',
-    pillarLabel: 'Free with every account',
-    visual: <ScheduleMock />,
-  },
+type FeatureCopy = { title: string; oneLiner: string; body: string };
+
+// Language-neutral structural data (icon + iteration tag + the micro-mock
+// illustration). Zips with COPY[locale].features by index — keep both arrays
+// the same length + order. The mocks below stay shared: they're reassurance
+// illustrations (product-screenshot style), not translated prose.
+const FEATURE_META: FeatureMeta[] = [
+  { Icon: Users, iteration: 'Iteration 0001', visual: <GuestListMock /> },
+  { Icon: Armchair, iteration: 'Iteration 0008', visual: <SeatingMock /> },
+  { Icon: Wallet, iteration: 'Iteration 0007', visual: <BudgetMock /> },
+  { Icon: Palette, iteration: 'Iteration 0010', visual: <MoodBoardMock /> },
+  { Icon: CalendarDays, iteration: 'Iteration 0008', visual: <ScheduleMock /> },
 ];
 
-export function PlanningToolkit() {
+const COPY: Record<
+  MarketingLocale,
+  {
+    eyebrow: string;
+    heading: string;
+    intro: string;
+    pillarLabel: string;
+    features: FeatureCopy[];
+  }
+> = {
+  en: {
+    eyebrow: 'Section 1 · The planning toolkit',
+    heading: 'The unfun parts, made un-painful.',
+    intro:
+      'Guest list, seating, budget, mood board, schedule. Five tools that replace the spreadsheet, the Notes app, the Google Doc, the Pinterest board, and the calendar invite. All free, all linked, all updating each other in real time.',
+    pillarLabel: 'Free with every account',
+    features: [
+      {
+        title: 'Guest list — every guest, every detail',
+        oneLiner:
+          'From save-the-dates to seating, RSVPs, plus-ones, dietary notes — all one row each.',
+        body: 'Every guest is one row in your guest book. Track RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, and personal QR — all linked to the same database your invitations and gallery read from. No more juggling a Google Sheet plus a Notes app plus a WhatsApp thread. When a guest opens their invite QR, your guest list updates in real time.',
+      },
+      {
+        title: 'Seating chart — drag, drop, done',
+        oneLiner: 'Visual seating that respects who shouldn’t sit next to whom.',
+        body: 'Drag guests onto tables. Setnayan flags awkward pairings (your aunt who shouldn’t sit near your in-laws), keeps plus-ones together, and reserves the bridal-table seats for sponsors. Print the seating chart as a PDF — or hand the chart to your coordinator and let them re-arrange right up until the day.',
+      },
+      {
+        title: 'Budget — the truth, in PHP',
+        oneLiner: 'Budget by category, paid vs. owed, what’s due next month.',
+        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due in the next 30 days. Every payment ties back to a vendor and an OR — no orphaned line items.',
+      },
+      {
+        title: 'Mood board — your wedding’s look',
+        oneLiner: 'Pin photos, lock palettes, share with vendors in one click.',
+        body: 'Pin photos from Pinterest, Instagram, your friend’s wedding album. Setnayan extracts the dominant palette so your florist, your stationer, and your stylist all reference the same hex codes. Per-role palettes for the bride, the groom, the entourage, and the venue. Share the board with a vendor by link — no account required to view.',
+      },
+      {
+        title: 'Schedule — the day, minute by minute',
+        oneLiner: 'Build your day-of timeline; we sync it to every vendor’s calendar.',
+        body: 'Compose your day-of run-of-show: prep, ceremony, photos, reception, after-party. Each block has a time, a location, the responsible vendors, and the guests involved. Subscribe to .ics so it syncs to your phone. When you adjust a block, every vendor on that block gets a notification.',
+      },
+    ],
+  },
+  tl: {
+    eyebrow: 'Section 1 · The planning toolkit',
+    heading: 'Ang mga nakakapagod na parte, ginawang hindi na masakit.',
+    intro:
+      'Guest list, seating, budget, mood board, schedule. Limang tool na kapalit ng spreadsheet, ng Notes app, ng Google Doc, ng Pinterest board, at ng calendar invite. Libre lahat, konektado lahat, nag-u-update sa isa’t isa real-time.',
+    pillarLabel: 'Libre sa bawat account',
+    features: [
+      {
+        title: 'Guest list — bawat guest, bawat detalye',
+        oneLiner:
+          'Mula save-the-dates hanggang seating, RSVPs, plus-ones, dietary notes — isang row bawat isa.',
+        body: 'Bawat guest ay isang row sa guest book mo. I-track ang RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, at personal QR — lahat naka-link sa parehong database na binabasa ng invitations at gallery mo. Wala nang pag-juggle ng Google Sheet plus Notes app plus WhatsApp thread. Pag binuksan ng guest ang invite QR nila, nag-u-update ang guest list mo real-time.',
+      },
+      {
+        title: 'Seating chart — drag, drop, tapos',
+        oneLiner: 'Visual seating na gumagalang kung sino ang hindi dapat magkatabi.',
+        body: 'I-drag ang guests sa tables. Nila-flag ng Setnayan ang awkward na pagkakatabi (ang tita mo na hindi dapat malapit sa in-laws mo), pinagsasama ang plus-ones, at nirereserba ang bridal-table seats para sa sponsors. I-print ang seating chart bilang PDF — o ibigay ang chart sa coordinator mo at hayaan silang mag-ayos hanggang sa mismong araw.',
+      },
+      {
+        title: 'Budget — ang totoo, sa PHP',
+        oneLiner: 'Budget per category, bayad vs. utang, ano ang due next month.',
+        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ilalabas kung ano ang due sa susunod na 30 araw. Bawat bayad ay nakakabit sa vendor at sa OR — walang orphaned line items.',
+      },
+      {
+        title: 'Mood board — ang hitsura ng kasal mo',
+        oneLiner: 'Mag-pin ng photos, i-lock ang palettes, i-share sa vendors in one click.',
+        body: 'Mag-pin ng photos mula Pinterest, Instagram, sa wedding album ng kaibigan mo. Kinukuha ng Setnayan ang dominant palette para ang florist, stationer, at stylist mo ay pare-parehong hex codes ang reference. Per-role palettes para sa bride, groom, entourage, at venue. I-share ang board sa vendor via link — walang account na kailangan para tingnan.',
+      },
+      {
+        title: 'Schedule — ang araw, minuto por minuto',
+        oneLiner: 'Buuin ang day-of timeline mo; sini-sync namin ito sa calendar ng bawat vendor.',
+        body: 'Buuin ang day-of run-of-show mo: prep, ceremony, photos, reception, after-party. May oras, lokasyon, responsableng vendors, at kasaling guests ang bawat block. I-subscribe sa .ics para mag-sync sa phone mo. Pag in-adjust mo ang isang block, makakakuha ng notification ang bawat vendor sa block na ‘yun.',
+      },
+    ],
+  },
+};
+
+export function PlanningToolkit({ locale }: { locale: MarketingLocale }) {
+  const c = COPY[locale];
   return (
     <section
       id="planning-toolkit"
@@ -81,25 +127,26 @@ export function PlanningToolkit() {
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <header className="mb-12 max-w-2xl space-y-3">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Section 1 &middot; The planning toolkit
+            {c.eyebrow}
           </p>
           <h2
             id="planning-toolkit-heading"
             className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl"
           >
-            The unfun parts, made un-painful.
+            {c.heading}
           </h2>
-          <p className="text-base text-ink/65">
-            Guest list, seating, budget, mood board, schedule. Five tools that
-            replace the spreadsheet, the Notes app, the Google Doc, the
-            Pinterest board, and the calendar invite. All free, all linked,
-            all updating each other in real time.
-          </p>
+          <p className="text-base text-ink/65">{c.intro}</p>
         </header>
 
         <div className="space-y-12 sm:space-y-16">
-          {FEATURES.map((f, i) => (
-            <FeatureRow key={f.title} feature={f} flipped={i % 2 === 1} />
+          {c.features.map((f, i) => (
+            <FeatureRow
+              key={f.title}
+              copy={f}
+              meta={FEATURE_META[i]!}
+              pillarLabel={c.pillarLabel}
+              flipped={i % 2 === 1}
+            />
           ))}
         </div>
       </div>
@@ -107,8 +154,18 @@ export function PlanningToolkit() {
   );
 }
 
-function FeatureRow({ feature, flipped }: { feature: Feature; flipped: boolean }) {
-  const { Icon } = feature;
+function FeatureRow({
+  copy,
+  meta,
+  pillarLabel,
+  flipped,
+}: {
+  copy: FeatureCopy;
+  meta: FeatureMeta;
+  pillarLabel: string;
+  flipped: boolean;
+}) {
+  const { Icon } = meta;
   return (
     <article className="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
       <div className={`space-y-4 ${flipped ? 'lg:order-2' : ''}`}>
@@ -117,22 +174,22 @@ function FeatureRow({ feature, flipped }: { feature: Feature; flipped: boolean }
             <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
-            {feature.iteration} &middot; {feature.pillarLabel}
+            {meta.iteration} · {pillarLabel}
           </span>
         </div>
         <h3 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          {feature.title}
+          {copy.title}
         </h3>
         <p
           className="text-base font-medium text-ink/80"
-          dangerouslySetInnerHTML={{ __html: feature.oneLiner }}
+          dangerouslySetInnerHTML={{ __html: copy.oneLiner }}
         />
         <p
           className="text-sm text-ink/65"
-          dangerouslySetInnerHTML={{ __html: feature.body }}
+          dangerouslySetInnerHTML={{ __html: copy.body }}
         />
       </div>
-      <div className={flipped ? 'lg:order-1' : ''}>{feature.visual}</div>
+      <div className={flipped ? 'lg:order-1' : ''}>{meta.visual}</div>
     </article>
   );
 }

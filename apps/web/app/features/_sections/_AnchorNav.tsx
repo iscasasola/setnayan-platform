@@ -1,12 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 // Sticky horizontal scroll-spy nav. Native anchor links + IntersectionObserver
 // for active-state highlighting. Accessible: keyboard-focusable, visible
 // focus rings, no JS required for navigation (graceful — links work even if
 // the IO callback never fires). Active pill scrolls into view on small
 // screens so the visitor can always see where they are.
+//
+// The category chips read in English in BOTH locales by design: "planning
+// toolkit", "vendors", "budget" are the terms Filipino couples actually use
+// when speaking Taglish, so translating them would read less natural, not
+// more. Only the nav's accessible label localizes.
 
 type NavItem = { id: string; label: string };
 
@@ -19,7 +25,12 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'compliance', label: 'Compliance & receipts' },
 ];
 
-export function FeaturesAnchorNav() {
+const NAV_ARIA_LABEL: Record<MarketingLocale, string> = {
+  en: 'Feature sections',
+  tl: 'Mga seksyon ng features',
+};
+
+export function FeaturesAnchorNav({ locale }: { locale: MarketingLocale }) {
   const [activeId, setActiveId] = useState<string>(NAV_ITEMS[0]?.id ?? '');
   const navRef = useRef<HTMLElement | null>(null);
 
@@ -70,7 +81,7 @@ export function FeaturesAnchorNav() {
   return (
     <nav
       ref={navRef}
-      aria-label="Feature sections"
+      aria-label={NAV_ARIA_LABEL[locale]}
       className="sticky top-0 z-30 border-b border-ink/10 bg-cream/95 backdrop-blur supports-[backdrop-filter]:bg-cream/80"
     >
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">

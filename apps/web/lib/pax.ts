@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from './supabase/admin';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -15,44 +16,137 @@ export type HeadcountBasis = 'attending' | 'attending_plus_maybe' | 'invited';
 // helpers that need a DB read.
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve the live pax for an event from the DB:
- *   max(events.estimated_pax floor, headcount on events.headcount_basis)
- * Only SURE attending guests count by default (the owner-locked basis); the
- * other bases are honored if the couple ever switches. Returns null when there
- * is nothing to anchor on (no target set AND no qualifying guests) — callers
- * treat null as "no pax to send / show".
- */
-export async function resolveLivePax(
+// Live headcount on a basis (the count query, shared by resolveLivePax +
+// ensureFinalized so the floor math and the finalize snapshot never diverge).
+async function liveHeadcount(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<number | null> {
-  const { data: ev } = await supabase
-    .from('events')
-    .select('estimated_pax, headcount_basis')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
-  const estimatedPax: number | null = ev?.estimated_pax ?? null;
-  const basis = (ev?.headcount_basis ?? 'attending') as HeadcountBasis;
-
-  let headQuery = supabase
+  basis: HeadcountBasis,
+): Promise<number> {
+  let q = supabase
     .from('guests')
     .select('guest_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .is('deleted_at', null);
   if (basis === 'invited') {
-    headQuery = headQuery.neq('rsvp_status', 'declined');
+    q = q.neq('rsvp_status', 'declined');
   } else if (basis === 'attending_plus_maybe') {
-    headQuery = headQuery.in('rsvp_status', ['attending', 'maybe']);
+    q = q.in('rsvp_status', ['attending', 'maybe']);
   } else {
-    headQuery = headQuery.eq('rsvp_status', 'attending');
+    q = q.eq('rsvp_status', 'attending');
   }
-  const { count } = await headQuery;
-  const headcount = count ?? 0;
+  const { count } = await q;
+  return count ?? 0;
+}
 
-  if (estimatedPax == null && headcount === 0) return null;
-  return Math.max(estimatedPax ?? 0, headcount);
+export type FinalizeState = {
+  /** Guest list is finalized — the binding count is frozen. */
+  locked: boolean;
+  /** The frozen binding count (null until finalized). */
+  finalPax: number | null;
+  estimatedPax: number | null;
+  basis: HeadcountBasis;
+};
+
+/**
+ * Lazy auto-finalize (Phase 7, owner decision #6) — cron-free. If the guest-list
+ * edit deadline has passed and the event isn't yet locked, stamp
+ * guest_count_locked_at + freeze final_pax = max(estimated_pax, headcount). Once
+ * locked, the binding count never moves again (late RSVPs / accepted claims
+ * can't change a vendor's cost). Idempotent + race-safe (the UPDATE is gated on
+ * guest_count_locked_at IS NULL). Returns the finalize state either way.
+ */
+export async function ensureFinalized(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<FinalizeState> {
+  const { data: ev } = await supabase
+    .from('events')
+    .select(
+      'estimated_pax, headcount_basis, guest_list_edit_deadline, guest_count_locked_at, final_pax, event_date',
+    )
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  const estimatedPax: number | null = ev?.estimated_pax ?? null;
+  const basis = (ev?.headcount_basis ?? 'attending') as HeadcountBasis;
+  if (!ev) return { locked: false, finalPax: null, estimatedPax, basis };
+
+  if (ev.guest_count_locked_at) {
+    return { locked: true, finalPax: ev.final_pax ?? null, estimatedPax, basis };
+  }
+
+  // Effective deadline (end of day): the couple's explicit date, else 14 days
+  // before the event — a sane default (FINALIZE_LEAD_DAYS, provisional) so
+  // auto-finalize works out-of-box; the explicit column overrides once the
+  // settings UI to change it lands. No event date + no explicit → never locks.
+  // Parsed as UTC (trailing 'Z') so the lock fires at the same instant
+  // regardless of the server's timezone — a couple's end-of-deadline-day in
+  // UTC. (Review fix: bare "T23:59:59" parses as server-local time.)
+  const FINALIZE_LEAD_DAYS = 14;
+  let deadlineEnd: number | null = null;
+  if (ev.guest_list_edit_deadline) {
+    deadlineEnd = Date.parse(`${ev.guest_list_edit_deadline}T23:59:59Z`);
+  } else if (ev.event_date) {
+    const d = new Date(`${ev.event_date}T23:59:59Z`);
+    d.setUTCDate(d.getUTCDate() - FINALIZE_LEAD_DAYS);
+    deadlineEnd = d.getTime();
+  }
+  if (deadlineEnd == null || Number.isNaN(deadlineEnd) || Date.now() <= deadlineEnd) {
+    return { locked: false, finalPax: null, estimatedPax, basis };
+  }
+  // Deadline passed → finalize now (freeze the binding count). The WRITE goes
+  // through the service-role admin client (not the caller's, which may be the
+  // couple's RLS client) — both so the column-guard trigger
+  // (guard_pax_finalize_columns) permits it AND so a couple can't forge the
+  // lock via the API. The lazy lock is a write-on-read (cron-free, per the
+  // cron-free lock); idempotent + rare.
+  const admin = createAdminClient();
+  const count = await liveHeadcount(admin, eventId, basis);
+  const computed = Math.max(estimatedPax ?? 0, count);
+  // null when a finalized event genuinely has nothing to anchor on (no estimate
+  // AND no guests) — intentional: resolveLivePax then returns null = "no pax to
+  // price", which is correct for an empty finalized event.
+  const computedFinalPax = computed > 0 ? computed : null;
+  await admin
+    .from('events')
+    .update({
+      guest_count_locked_at: new Date().toISOString(),
+      final_pax: computedFinalPax,
+    })
+    .eq('event_id', eventId)
+    .is('guest_count_locked_at', null);
+  // Re-read the AUTHORITATIVE persisted values (review fix): on a finalize race
+  // the loser's UPDATE matches 0 rows, so trust the DB, not the local compute —
+  // the loser returns the winner's frozen value, never a stale snapshot.
+  const { data: after } = await admin
+    .from('events')
+    .select('guest_count_locked_at, final_pax')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return {
+    locked: Boolean(after?.guest_count_locked_at),
+    finalPax: after?.final_pax ?? null,
+    estimatedPax,
+    basis,
+  };
+}
+
+/**
+ * Live pax = the frozen final_pax once the list is finalized, else
+ * max(events.estimated_pax floor, live headcount on the event's basis). Only
+ * SURE attending guests count by default (the owner-locked basis). Auto-finalizes
+ * lazily. Returns null when there's nothing to anchor on.
+ */
+export async function resolveLivePax(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<number | null> {
+  const fin = await ensureFinalized(supabase, eventId);
+  if (fin.locked) return fin.finalPax;
+  const headcount = await liveHeadcount(supabase, eventId, fin.basis);
+  if (fin.estimatedPax == null && headcount === 0) return null;
+  return Math.max(fin.estimatedPax ?? 0, headcount);
 }
 
 // ---------------------------------------------------------------------------

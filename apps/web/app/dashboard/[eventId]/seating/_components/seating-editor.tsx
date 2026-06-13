@@ -65,6 +65,7 @@ import {
   type EventTableRow,
   type FloorBoothRow,
   type FloorPlanRow,
+  type TableShapeHint,
   type TableType,
 } from '@/lib/seating';
 import {
@@ -85,6 +86,7 @@ import {
   updateTableLabel,
   updateTablePosition,
   updateTableRotation,
+  updateTableType,
 } from '../actions';
 import { useSeatingPresence } from './use-seating-presence';
 
@@ -803,6 +805,26 @@ export function SeatingEditor({
     startTransition(() => updateTableRotation(fd));
   };
 
+  // Change a table's STYLE (long → round, etc.). Capacity resets to the new
+  // shape and guests in chairs the new shape lacks are returned to the pool;
+  // the notice reports how many. Optimistic so the shape flips instantly.
+  const changeStyle = (t: EventTableRow, newType: TableType) => {
+    if (newType === t.table_type) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('table_id', t.table_id);
+    fd.set('table_type', newType);
+    const newLabel = TABLE_TYPE_LABEL[newType];
+    startTransition(async () => {
+      const res = await updateTableType(fd);
+      setNotice(
+        res.unseated > 0
+          ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${res.unseated} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
+          : `“${t.table_label}” is now a ${newLabel.toLowerCase()}.`,
+      );
+    });
+  };
+
   // Delete / restore a single chair (clears the edge where two tables connect).
   const toggleSeat = (tableId: string, seatNumber: number, removed: boolean) => {
     const fd = new FormData();
@@ -1202,12 +1224,17 @@ export function SeatingEditor({
                 .map((o) => ({ ...pxOf(o), rot: rotationOf(o), scale: footprintPx(o).w / serpBoxW })),
             );
           } else if (isRect(movingShape)) {
+            // A banquet/family-head flush join sits a whole tabletop-length
+            // away from the neighbour's centre, so a tiny catch radius is
+            // almost impossible to hit by hand. Scale the catch to the moving
+            // table's half-length — drag it ROUGHLY end-to-end and it snaps.
             snap = rectChainSnap(
               dragPx,
               halfLenOf(movingEarly),
               tables
                 .filter((o) => o.table_id !== d.id && isRect(shapeHintFor(o.table_type)))
                 .map((o) => ({ ...pxOf(o), rot: rotationOf(o), halfLen: halfLenOf(o) })),
+              Math.max(40, halfLenOf(movingEarly) * 0.9),
             );
           } else if (movingShape === 'round') {
             snap = roundKissSnap(
@@ -2147,9 +2174,57 @@ export function SeatingEditor({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
+            {/* Stage + dance-floor dimensions in metres. Sizes store as percent
+                of the canvas, so they only map to metres once a room size is
+                set; otherwise size the stage/dance with their drag grips. */}
+            {venueScaled ? (
+              <>
+                <MetreSizeField
+                  label="Stage W (m)"
+                  metres={(stage.w / 100) * venue.width}
+                  onMetres={(m) => {
+                    setStage((s) => ({ ...s, w: Math.max(2, Math.min(100, (m / venue.width) * 100)) }));
+                    setFloorDirty(true);
+                  }}
+                />
+                <MetreSizeField
+                  label="Stage L (m)"
+                  metres={(stage.h / 100) * venue.length}
+                  onMetres={(m) => {
+                    setStage((s) => ({ ...s, h: Math.max(2, Math.min(100, (m / venue.length) * 100)) }));
+                    setFloorDirty(true);
+                  }}
+                />
+                {dance.enabled ? (
+                  <>
+                    <MetreSizeField
+                      label="Dance W (m)"
+                      metres={(dance.w / 100) * venue.width}
+                      onMetres={(m) => {
+                        setDance((d) => ({ ...d, w: Math.max(2, Math.min(100, (m / venue.width) * 100)) }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                    <MetreSizeField
+                      label="Dance L (m)"
+                      metres={(dance.h / 100) * venue.length}
+                      onMetres={(m) => {
+                        setDance((d) => ({ ...d, h: Math.max(2, Math.min(100, (m / venue.length) * 100)) }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                  </>
+                ) : null}
+              </>
+            ) : null}
             <p className="flex-1 text-xs text-ink/50">
               Enter your reception room&rsquo;s width × length and tables render at their true footprint, so you can
-              see what fits. <span className="text-ink/40">Zoom in to seat people; Fit to see the whole room.</span>
+              see what fits.{' '}
+              {venueScaled ? (
+                <span className="text-ink/40">Stage &amp; dance-floor sizes are in metres too.</span>
+              ) : (
+                <span className="text-ink/40">Zoom in to seat people; Fit to see the whole room.</span>
+              )}
             </p>
           </div>
         ) : null}
@@ -2912,6 +2987,11 @@ export function SeatingEditor({
                         onSeatTier={(tier) => seatTierHere(st, tier)}
                       />
                     ) : null}
+                    <TableStylePicker
+                      value={st.table_type}
+                      onChange={(tt) => changeStyle(st, tt)}
+                      className="rounded-xl border border-ink/15 px-3 py-1"
+                    />
                     <div className="flex items-center gap-2">
                       <div className="flex flex-1 items-center justify-between rounded-xl border border-ink/15 px-1">
                         <button
@@ -3121,6 +3201,9 @@ export function SeatingEditor({
                 >
                   <X className="h-4 w-4" />
                 </button>
+                </div>
+                <div className="mt-1.5 border-t border-ink/10 pt-1.5">
+                  <TableStylePicker value={st.table_type} onChange={(tt) => changeStyle(st, tt)} />
                 </div>
                 {pickerOpen ? (
                   <SeatPeoplePanel
@@ -3443,6 +3526,78 @@ function BoothIcon({ type, className }: { type: BoothType; className?: string })
               ? Package
               : Store;
   return <Icon className={className} />;
+}
+
+// A metres number input for the stage / dance-floor dimensions in the room
+// panel. Shows one decimal; commits the typed value on change.
+function MetreSizeField({
+  label,
+  metres,
+  onMetres,
+}: {
+  label: string;
+  metres: number;
+  onMetres: (m: number) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</span>
+      <input
+        type="number"
+        min={0.5}
+        max={200}
+        step={0.5}
+        value={Math.round(metres * 10) / 10}
+        onChange={(e) => {
+          const m = Number(e.target.value);
+          if (Number.isFinite(m) && m > 0) onMetres(m);
+        }}
+        className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+      />
+    </label>
+  );
+}
+
+// Change-style dropdown for the per-table popup — the full table catalog
+// grouped by shape, so a couple can turn a long table into a round one (etc.)
+// after the fact. Native <select> so it works the same on phone + desktop.
+const STYLE_GROUPS: ReadonlyArray<{ label: string; shape: TableShapeHint }> = [
+  { label: 'Round', shape: 'round' },
+  { label: 'Long banquet', shape: 'long_banquet' },
+  { label: 'Family head', shape: 'family_head' },
+  { label: 'Sweetheart', shape: 'sweetheart' },
+  { label: 'Serpentine', shape: 'serpentine' },
+];
+function TableStylePicker({
+  value,
+  onChange,
+  className,
+}: {
+  value: TableType;
+  onChange: (t: TableType) => void;
+  className?: string;
+}) {
+  return (
+    <label className={`flex items-center gap-1.5 ${className ?? ''}`}>
+      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">Style</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as TableType)}
+        aria-label="Table style"
+        className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-terracotta"
+      >
+        {STYLE_GROUPS.map((g) => (
+          <optgroup key={g.shape} label={g.label}>
+            {TABLE_TYPE_CATALOG.filter((t) => t.shapeHint === g.shape).map((t) => (
+              <option key={t.type} value={t.type}>
+                {t.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function MemberRow({

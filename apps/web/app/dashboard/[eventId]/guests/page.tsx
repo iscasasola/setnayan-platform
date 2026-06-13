@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeGuestStats,
+  computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
   fetchGuestsByEvent,
@@ -18,6 +19,7 @@ import {
   type GuestRow,
   type GuestSide,
   type GuestStats,
+  type PaxProgress,
   type RsvpStatus,
 } from '@/lib/guests';
 import {
@@ -139,7 +141,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       fetchGuestsByEvent(supabase, eventId),
       supabase
         .from('events')
-        .select('role_palette')
+        .select('role_palette, estimated_pax')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchGuestGroupsByEvent(supabase, eventId),
@@ -305,6 +307,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
 
   const stats = computeGuestStats(guests);
+  // Pax-target progress (Adaptive Pax Pricing Phase 2) — sure-attending vs the
+  // couple's minimum pax (events.estimated_pax). null when no target is set.
+  // Read-only here; the vendor-facing pushes land in later phases.
+  const paxProgress = computePaxProgress(
+    stats,
+    eventRow.data?.estimated_pax ?? null,
+  );
   const allTags = uniqueTags(guests);
   const flash = pickFlash(search);
   // Any filter active across ANY dimension — gates the mobile sticky
@@ -468,6 +477,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           eventId={eventId}
           active={rsvpFilter}
           search={search}
+          paxProgress={paxProgress}
         />
 
         <LifecycleRibbon
@@ -603,6 +613,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           attending={stats.attending}
           pending={stats.pending}
           declined={stats.declined}
+          paxProgress={paxProgress}
           teamFilter={teamFilter}
           pendingClaims={pendingClaimsCount}
           unsent={unsentCount}
@@ -807,11 +818,13 @@ function SummaryStrip({
   eventId,
   active,
   search,
+  paxProgress,
 }: {
   stats: GuestStats;
   eventId: string;
   active: RsvpStatus | '';
   search: Record<string, string | undefined>;
+  paxProgress: PaxProgress | null;
 }) {
   const buildHref = (rsvp: RsvpStatus | null) => {
     const p = new URLSearchParams();
@@ -843,6 +856,42 @@ function SummaryStrip({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 lg:flex-row lg:items-center lg:gap-5">
       <div className="min-w-0 flex-1">
+        {paxProgress ? (
+          <div className="mb-2.5">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="font-mono uppercase tracking-[0.15em] text-terracotta">
+                {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
+              </span>
+              <span className="tabular-nums text-ink/70">
+                {paxProgress.exceeded ? (
+                  <>
+                    {paxProgress.headcount} guests · {paxProgress.overBy} over your{' '}
+                    {paxProgress.target} minimum
+                  </>
+                ) : (
+                  <>
+                    {paxProgress.headcount} of {paxProgress.target} pax ·{' '}
+                    {paxProgress.progressPct}%
+                  </>
+                )}
+              </span>
+            </div>
+            <div
+              role="img"
+              aria-label={
+                paxProgress.exceeded
+                  ? `Now planning for ${paxProgress.headcount} attending guests, ${paxProgress.overBy} over the ${paxProgress.target} minimum pax`
+                  : `${paxProgress.headcount} attending of a ${paxProgress.target} minimum pax target, ${paxProgress.progressPct}%`
+              }
+              className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
+            >
+              <div
+                className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+                style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         <div className="flex items-baseline justify-between text-xs text-ink/55">
           <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
           <span className="tabular-nums">

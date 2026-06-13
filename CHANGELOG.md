@@ -94,6 +94,19 @@ Adds the "Phase B" consent surface the 0046 migration pointed at: couples can no
 Verified: tsc + production build (`/dashboard/[eventId]/website/privacy` compiles).
 
 **SPEC IMPACT:** implements the 0046 in-dashboard consent toggle (flips from unbuilt → shipped); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 2 (couple guest-list pax meter)
+
+The visible half of the feature: a pax-target meter on the guest list showing progress toward the couple's minimum pax (`events.estimated_pax`), filling on the **sure-attending** basis (the owner-locked "who counts"). Read-only, couple-facing; no vendor/pricing writes (those are phases 3-5). Independent of the Phase 1 migration — pure compute on data that already exists (`computeGuestStats` headcount + `estimated_pax`), so it ships without any prod schema change.
+
+- New pure helpers in `lib/guests.ts`: `headcountForBasis(stats, basis)` and `computePaxProgress(stats, estimatedPax, basis)` → `PaxProgress { target, headcount, livePax = max(target, headcount), progressPct (capped 100), exceeded, overBy, remaining }`. Returns `null` when no target is set (meter hidden). `basis` defaults to `'attending'`; the `attending_plus_maybe` / `invited` arms are wired for the future `events.headcount_basis` column but unused in V1.
+- `guests/page.tsx` now selects `estimated_pax` alongside `role_palette` (same batched read, no extra RTT) and computes `paxProgress` once.
+- Desktop: `SummaryStrip` renders the meter above the confirmations bar — "Guest target · N of M pax · X%" with a terracotta bar; flips to "Now planning for N · K over your M minimum" (deeper bar, full) once sure-attending tops the floor.
+- Mobile: the carousel's Summary panel renders the same meter above the RSVP count boxes.
+- Unit suite `lib/guests.pax.test.ts` (8 tests): basis selection, floor-protected `livePax`, bar capping at 100% while `overBy` reports true excess, exact-at-target not exceeded, null on no/zero/negative target.
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 8/8 unit tests ✓ · `next build` ✓.
+
+**SPEC IMPACT:** None to locked scope. Part of the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory `project_setnayan_adaptive_pax_pricing` (Phase 2 done). Corpus iteration `0001_creating_guest_list` AS-BUILT note to follow once the program lands.
 
 ---
 

@@ -20,6 +20,19 @@ Adversarial review: SHIP after its two wiring fixes (commit the script + the tur
 OWNER QA (native): the Capacitor WebView (`apps/mobile` remote-URL shell) uses the same SW + `no-cache` update path, so it propagates by design — worth one Android + one iOS deploy-then-reopen confirmation pass.
 
 SPEC IMPACT: None (build/PWA infra; no schema/SKU/pricing/UX). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · feat(realstories): real-editorial share — photo OG card + share buttons on the couple's `/[slug]` (PR C, couple half)
+
+Couple half of PR C of the Real-Stories featuring program. The couple consent ("Feature our wedding" → `public_summary_consent_at`) already existed; this makes a real couple's **own editorial shareable with a beautiful, photo-based** Facebook/Pinterest card.
+
+- **`lib/social/realstory-card.tsx`** — added the **photo-background variant**: when an editorial has a hero photo, the card is the couple's actual photo (smart-cropped to 1.91:1) with a bottom gradient scrim + white Cardo-serif names + eyebrow + venue/date. Falls back to the branded card on any fetch/decode failure (never fails the share). Verified locally over a deliberately-light test photo — the scrim keeps the white type legible.
+- **NEW `app/api/og/realstory-slug/[slug]/route.ts`** — the OG card for a REAL couple's `/[slug]` (vs the sample route). Resolves the event by slug, renders the card **only when `data.published`** (else 302→`/brand/og-card.webp`); the RA 10173 public-showcase consent gates the `/realstories` index, not a couple sharing their own public page. Shorter cache (1h + SWR) so a republish/photo-swap refreshes.
+- **`app/[slug]/_components/editorial/data.ts`** — `EditorialData` gains `slug` (real event's slug; **null for the curated sample**, which is how the editorial render avoids double-rendering share buttons on the sample).
+- **`app/[slug]/_components/editorial/editorial-content.tsx`** — renders `<ShareButtons>` at the top of the editorial **only when `data.slug` is set** (real editorials), pointed at `/{slug}` with the slug OG card as the Pinterest media.
+- **`app/[slug]/page.tsx`** — `generateMetadata` now sets `og:image` (the slug card route) + `twitter.summary_large_image`. The route's `published` gate means a share previews as the brand card pre-editorial and the photo editorial card once the story is live — in every phase.
+
+Verified: tsc + lint clean on changed files (satori/sharp = known local-install gap, in CI). Both card variants (branded + photo) rendered + eyeballed locally.
+
+SPEC IMPACT: real editorials at `/[slug]` are now FB/Pinterest-shareable with a per-couple photo OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). The **vendor half of PR C** ("Featured in Real Stories" + "Share to your Page") is still outstanding — its background agent hit a transient rate-limit before opening a PR; to be re-run.
 
 ---
 

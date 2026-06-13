@@ -19,6 +19,7 @@ Setnayan is software, not an agency. Couples start free with the planning worksp
 - [About Setnayan](https://www.setnayan.com/about) — Brand story, what the platform is (software, not an agency), who it's for, geography, languages, 0% commission, and a brand/entity FAQ.
 - [Real Weddings](https://www.setnayan.com/weddings) — Editorial showcase of weddings shipped through Setnayan. Editorials publish 30 days post-event with explicit couple consent per RA 10173.
 - [Help and Support](https://www.setnayan.com/help) — Step-by-step guides for couples and vendors; contact form for human support.
+- [Journal](https://www.setnayan.com/blog) — Editorial wedding-planning guides for Filipino couples: month-by-month planning timelines, supplier cost guides, and Filipino wedding customs (civil vs church, the ninong/ninang entourage) explained. Long-form articles, no paywall.
 - [Download](https://www.setnayan.com/download) — Setnayan desktop app for macOS and Windows.
 - [Sign in](https://www.setnayan.com/login) and [Create account](https://www.setnayan.com/signup) — couple or vendor signup paths.
 - [Privacy](https://www.setnayan.com/privacy) and [Terms](https://www.setnayan.com/terms) — RA 10173 (Data Privacy Act of the Philippines) compliant. National Privacy Commission registration in progress.

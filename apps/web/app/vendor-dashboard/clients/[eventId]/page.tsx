@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   Church,
   LayoutGrid,
+  Martini,
   MessageSquarePlus,
   Palette,
   Users,
@@ -178,6 +179,14 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   });
   if (error || !data) redirect('/vendor-dashboard/clients');
   const brief = data as Brief;
+
+  // Cocktail-area editability probe: the RPC raises unless this vendor is booked
+  // in an eligible category AND the couple has enabled the room + left vendor
+  // editing on. A clean result means we can show the "arrange it" entry point.
+  const { data: cocktailEdit } = await supabase.rpc('get_vendor_cocktail_editor', {
+    p_event_id: eventId,
+  });
+  const canEditCocktail = !!cocktailEdit;
 
   // Phase 3: live timeline rows (RLS booked-vendor read, locked D2 full
   // visibility) — block ids drive the Suggest forms — plus this org's own
@@ -636,6 +645,29 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
             </p>
           )}
         </div>
+
+        {/* Cocktail area — vendor-arrangeable second room (booths only). Only
+            shown to booked vendors in an eligible category when the couple has
+            enabled the room + left vendor editing on. */}
+        {canEditCocktail ? (
+          <div className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-4 sm:p-6 lg:col-span-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Martini aria-hidden className="h-5 w-5 text-terracotta" /> Cocktail area
+            </h2>
+            <p className="mt-2 text-sm text-ink/65">
+              The couple opened up their cocktail / waiting area for you to arrange — place and
+              move booths (and the room itself, if you&rsquo;re the stylist) right on their blueprint.
+            </p>
+            <p className="mt-3 text-sm">
+              <Link
+                href={`/vendor-dashboard/clients/${eventId}/cocktail`}
+                className="font-medium text-terracotta underline"
+              >
+                Arrange the cocktail area
+              </Link>
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );

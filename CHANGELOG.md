@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-13 · feat(weddings): the sample is a fallback — real weddings auto-replace it
+
+Per owner ("this is our sample until a real wedding is uploaded"), the `/weddings` index + `sitemap-weddings.xml` now treat samples as PLACEHOLDERS: they render only while there are no real (non-sample) weddings. The moment a real wedding enters the source — a non-sample entry now, or the DB-driven Phase-4 published-editorials browse later (0046 deferred) — the sample drops out automatically (both the index listing and the sitemap filter `!isSample`, falling back to the sample only when the real set is empty). The index intro copy is conditional (sample framing vs real-weddings framing). No behaviour change today — only the sample exists, so it still shows.
+
+**SPEC IMPACT:** encodes the sample-as-placeholder lifecycle; `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+
+---
+
 ## 2026-06-13 · refactor(weddings): the Real Weddings sample now renders the real editorial (follows it)
 
 Per owner direction ("when we update the editorial, this sample needs to follow the editorial as well"), the `/weddings/[slug]` showcase no longer uses a bespoke layout — it renders through the **same `EditorialContent` component** as a real wedding's post-event editorial (the `/[slug]` Phase-4 "newspaper"). A curated Maria & Juan sample fixture feeds it via a `loadEditorialData` sentinel, so any future change to the editorial format updates the sample automatically — no parallel layout to drift.

@@ -27,9 +27,15 @@ export function GET(): Response {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
+  // Samples are placeholders — emit them only until a real wedding exists
+  // (mirrors the /weddings index fallback). Once a real (non-sample) wedding
+  // enters the source, the sample drops out of the sitemap too.
+  const realWeddings = ALL_REAL_WEDDINGS.filter((w) => !w.isSample);
+  const shown = realWeddings.length > 0 ? realWeddings : ALL_REAL_WEDDINGS;
+
   const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
     { loc: `${baseUrl}/weddings`, lastmod: REAL_WEDDINGS_LASTMOD, changefreq: 'weekly', priority: '0.8' },
-    ...ALL_REAL_WEDDINGS.map((w) => ({
+    ...shown.map((w) => ({
       loc: `${baseUrl}/weddings/${w.slug}`,
       lastmod: w.updatedAt ?? w.publishedAt,
       changefreq: 'monthly',

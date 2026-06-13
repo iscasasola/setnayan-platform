@@ -1019,6 +1019,23 @@ function PublicLanding({
         )}
       </div>
 
+      {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
+          navigation on this always-rendered public landing: the /find-seat
+          route resolves the published plan itself and shows a friendly
+          "not posted yet" state when there's nothing to search, so this link
+          is safe to always render (mirrors the find-my-table CTA pattern). A
+          guest who scanned the shared venue QR taps this, types their name,
+          and sees their table — no app, no login, no paid SKU. */}
+      <div className="mt-8 text-center">
+        <Link
+          href={`/${event.slug}/find-seat`}
+          className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta"
+        >
+          <MapPin aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Find your seat
+        </Link>
+      </div>
+
       {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
           scans without a guest cookie) get the live wall too during the
           celebration window. Same screened feed as the projector. */}

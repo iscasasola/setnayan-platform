@@ -125,6 +125,20 @@ Per owner ("english and taglish"): the public locales are **English (root) + Tag
 Verified: tsc + build (`/about` + `/tl/about` static) + retired-strings clean.
 
 **SPEC IMPACT:** locale set corrected to English + Taglish (no Cebuano); `DECISION_LOG.md` updated.
+## 2026-06-13 · feat(seating): FREE guest seat-finder — "find your seat" (seat-finding PR 1 of 6)
+
+First slice of the guest seat-finding program (`DECISION_LOG.md` 2026-06-13 — "Interactive guest seat-finding linked to Custom QR" + "Live day-of reprogramming"; market study finding: assigned-seat wayfinding is open white space, the industry ceiling is scan→name→table#). Delivers the design's FREE tier-(a) baseline that didn't exist: a guest who scans the shared/master venue QR (lands on `/[slug]`) taps "Find your seat", types their name, and sees their table label — no app, no login, no paid SKU. The richer personalized entrance→table map stays the paid `/[slug]/find-my-table` (Indoor Blueprint) surface.
+
+- New `SECURITY DEFINER` RPC `public_seat_lookup(p_slug, p_query)` (migration `20261215000000`, ⚠ NOT yet applied to prod): name→table_label for a PUBLISHED plan only (`event_floor_plan.published_at`), anon-callable, returns ONLY `{display_name, table_label}` (never guest_id/qr_token/PII), min query length 2, LIKE-wildcard-escaped, `LIMIT 25`, soft-deleted guests excluded. Mirrors `get_vendor_seat_plan`'s published-gate + minimal-columns posture.
+- New public route `/api/seat-lookup/[slug]` — normalizes via `normalizeGuestName`, best-effort per-IP throttle, graceful-empty on a pre-migration DB.
+- New public page `/[slug]/find-seat` (no session/SKU) + client `name-search` (debounced, pure-CSS, client-side min-length guard) + a "Find your seat" CTA on the anonymous `PublicLanding` (pure navigation; the route self-gates the published state).
+- New `lib/seat-lookup.ts` (`sanitizeSeatLookupQuery` + types) with a 3-case unit suite.
+
+Read-only for guests (cannot corrupt seating data) and no lock needed — shippable independently of the lock foundation (PR 2). Keeps the seat-plan-stays-free lock (~₱0 to run) and is the wedge vs the PH rival that gates seating behind ₱8,995.
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 92/92 unit tests ✓ · retired-strings ✓. Production build via CI.
+
+**SPEC IMPACT:** Builds the documented seat-finding design (corpus `DECISION_LOG.md` 2026-06-13 rows); extends iter 0008 (seating) + 0031 (day-of guest). ⚠ Migration `20261215000000` must be applied to prod (`supabase db push`). The Custom-QR-vs-Indoor-Blueprint reconciliation (live code still gates the paid finder on `INDOOR_BLUEPRINT`, contradicting the corpus "retired" decision) is flagged for owner — PR 4 territory.
 
 ---
 

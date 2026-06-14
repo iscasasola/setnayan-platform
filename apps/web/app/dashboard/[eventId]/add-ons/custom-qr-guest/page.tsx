@@ -45,7 +45,11 @@ export const metadata = { title: 'Custom QR per guest · Setnayan' };
  */
 
 const SKU_CODE = 'CUSTOM_QR_GUEST';
-const FALLBACK_PRICE_PHP = 1499; // v2.1 brief § 5 · ₱1,499
+// Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
+// hardcoded price). The old ₱1,499 fallback diverged from the live catalog
+// (₱999) and would over-charge on a catalog-read miss; removed. When the row is
+// unreadable (e.g. no service-role key in CI / pre-seed) the buy block degrades
+// gracefully below instead of inventing a number.
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -93,7 +97,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
   // Pricing from the live V2 catalog (single source of truth) with a fallback
   // so the page never crashes if the catalog row is missing pre-seed.
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? FALLBACK_PRICE_PHP;
+  const pricePhp = skuRecord?.price_php ?? null;
 
   return (
     <section className="space-y-6">
@@ -274,7 +278,7 @@ async function UnownedView({
   appUrl: string;
   monogram: ReturnType<typeof resolveMonogram>;
   qrColors: ReturnType<typeof resolveBrandedQrColors>;
-  pricePhp: number;
+  pricePhp: number | null;
   brandColor: string;
   supabase: SupabaseLike;
   event: { display_name: string | null };
@@ -389,23 +393,29 @@ async function UnownedView({
           </li>
         </ul>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-ink/65">
-            One price for your whole guest list ·{' '}
-            <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
-          </p>
-          <div className="sm:w-auto">
-            <InlineCheckoutDrawer
-              eventId={eventId}
-              serviceKey={SKU_CODE}
-              displayName={`Custom QR per guest${event.display_name ? ` · ${event.display_name}` : ''}`}
-              originalPriceCentavos={String(Math.round(pricePhp * 100))}
-              settings={settings}
-              triggerLabel="Brand my guests' QRs"
-              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-            />
+        {pricePhp != null ? (
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              One price for your whole guest list ·{' '}
+              <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
+            </p>
+            <div className="sm:w-auto">
+              <InlineCheckoutDrawer
+                eventId={eventId}
+                serviceKey={SKU_CODE}
+                displayName={`Custom QR per guest${event.display_name ? ` · ${event.display_name}` : ''}`}
+                originalPriceCentavos={String(Math.round(pricePhp * 100))}
+                settings={settings}
+                triggerLabel="Brand my guests' QRs"
+                triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="mt-5 text-sm text-ink/65">
+            Pricing loads from your catalog &mdash; please refresh in a moment.
+          </p>
+        )}
         <p className="mt-3 text-xs text-ink/50">
           Want to fine-tune your monogram + colors first? Set them on your{' '}
           <Link

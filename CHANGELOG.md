@@ -14,6 +14,17 @@ Owner: "the video is no longer fill. i see the square video and not see the fill
 SHARPNESS NOTE (surfaced to owner): the live published hero is **1,019 frames @ 720×720** (old extraction). Filling the screen upscales that → soft on laptops/desktops — the exact reason it was contained this morning. For fill AND crisp the owner must re-upload + re-publish in `/admin/hero-video` (re-extracts at the current 960px cap), and the extraction `FRAME_MAX_EDGE` can be bumped (e.g. 1440–1920) at the cost of a heavier preload (the "front-door freeze" trade-off).
 
 SPEC IMPACT: None on schema/SKU. Homepage-UX reversal (contain → fill) logged to corpus `DECISION_LOG.md`.
+## 2026-06-14 · fix(pricing): catalog is the single source of truth for every charge + make SETNAYAN_AI / PRO_RSVP / EVENT_WEBSITE resolvable
+
+PR 1 of the pricing/payments plumbing fix (owner "fix them all now", from a 3-audit pass on origin/main). Mechanics only — no price *values* changed; they now simply come from the admin catalog instead of code.
+
+- **Charge integrity (keystone).** `app/dashboard/[eventId]/checkout/actions.ts` `submitOrderAction` now re-resolves the charged price from `platform_retail_catalog_v2` for **every** catalog SKU, not just pax-priced ones. Previously flat SKUs trusted the browser-supplied `original_centavos`, so a per-page hardcoded fallback (or a tampered client) set the actual billed amount. Now the admin-set catalog price is authoritative for every order; only SKUs with no catalog row (vendor / bundle / legacy) keep the client value. Doc on `resolvePaxPricedOrderCentavos` (`lib/v2-catalog.ts`) updated to match.
+- **Allowlist + build status.** Added `SETNAYAN_AI`, `PRO_RSVP`, `EVENT_WEBSITE` to `V2_SKU_CODES` (`lib/v2/sku-catalog-v2.ts`) — they were live catalog rows but `formatV2Sku()` returned `null` for them (silently price-null'd every surface that reads them this way, and blocked building the Setnayan AI buy surface). Added honest `BUILD_STATUS` for `SETNAYAN_AI` (live) + `PRO_RSVP` (partial) so they stop defaulting to "Coming soon" on `/pricing`.
+- **Hardcode purge.** Removed the two divergent hardcoded price fallbacks the audit flagged: Custom QR per Guest `₱1,499` (catalog `₱999`) and Pakanta `₱1,999` (catalog `₱3,499`). Both pages now read catalog-only and degrade gracefully ("Pricing loads from your catalog") when the row is unreadable — the same pattern `animated-monogram` already uses.
+
+Typecheck green. Does **not** flip `SETNAYAN_AI_PAYWALL_ENABLED` (owner's Vercel env switch) and does **not** yet wire the Setnayan AI buy surface — that's PR 2.
+
+SPEC IMPACT: None. No price values changed; this only makes the admin catalog the runtime source of truth and removes code-side price literals. (Bundle SKUs `GUIDED_PACK`/`MEDIA_PACK` are not yet covered by the server re-resolution — flagged for PR 2.)
 
 ## 2026-06-14 · docs(workflow): MERGE_WORKFLOW.md — one-page merge/deploy quick reference
 

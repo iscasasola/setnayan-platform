@@ -85,6 +85,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_WEBSITE:        'partial',  // RSVP phase ₱2,499
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
+  PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
+  SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱3,999 · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 
@@ -375,15 +377,17 @@ export function formatSkuPriceLabel(
 
 /**
  * Server-side AUTHORITATIVE price for an order line, in centavos — the keystone
- * for tamper-proof pax pricing. submitOrderAction calls this; when the SKU is
- * pax-priced it recomputes the charge from events.estimated_pax + the catalog
- * config, IGNORING the client-supplied original_centavos (defence-in-depth ·
- * mirrors the voucher re-validation in the same action).
+ * for tamper-proof, admin-managed pricing. submitOrderAction calls this and
+ * overrides the client-supplied original_centavos with the result for EVERY
+ * catalog SKU, so the charged amount always equals the admin-set catalog price
+ * (defence-in-depth · mirrors the voucher re-validation in the same action).
  *
  * Returns:
- *   • { is_pax_priced: true,  centavos } — caller MUST override the price.
- *   • { is_pax_priced: false, centavos } — caller keeps trusting the client
- *     (every flat V2-customer SKU · byte-identical charge path preserved).
+ *   • { is_pax_priced, centavos } — the authoritative charge for THIS order in
+ *     centavos. `centavos` is correct for both flat SKUs (retail_price_php × 100)
+ *     and the pax-curve SKU (keyed to events.estimated_pax). The is_pax_priced
+ *     flag is informational only — the catalog is the source of truth either way,
+ *     and the caller overrides the client price whenever this is non-null.
  *   • null — SKU not in platform_retail_catalog_v2 (vendor / bundle / legacy
  *     SKUs) OR any DB error → caller falls back to the client price, so a
  *     transient read failure NEVER blocks an order.

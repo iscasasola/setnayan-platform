@@ -53,6 +53,13 @@ export const V2_SKU_CODES = [
   'PATIKTOK_COMPILER',
   'PRO_WEBSITE',
   'SDE',
+  // Website lifecycle + planner · seeded by migration 20260915000000 but were
+  // MISSING from this allowlist, so formatV2Sku() returned null for them even
+  // though the live catalog rows exist (silently price-null'd every surface that
+  // reads them through formatV2Sku, incl. the Setnayan AI buy surface).
+  'SETNAYAN_AI',
+  'PRO_RSVP',
+  'EVENT_WEBSITE',
   // 2 bundles (platform_package_catalog, not retail)
   'GUIDED_PACK',
   'MEDIA_PACK',

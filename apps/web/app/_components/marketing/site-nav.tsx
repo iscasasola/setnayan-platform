@@ -55,17 +55,17 @@ export function PromoBar() {
 //    so two sticky bars don't stack/overlap on scroll.
 // ─────────────────────────────────────────────────────────────────────
 export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
-  // Simple 6-page site (owner 2026-06-13): Home (the video scrub, = the logo) ·
-  // What you get · Explore (search anything across all services) · For vendors ·
-  // Our story · Real Stories. Pricing folds into "What you get"; Help + legal
-  // live in the footer. Keeps the top nav clean + strategic.
+  // Simple site nav (owner 2026-06-13/14): Home (the video scrub, = the logo) ·
+  // Explore (search anything across all services) · For vendors · Our story ·
+  // Real Stories. "What you get" was REMOVED from the nav 2026-06-14 — it now
+  // lives ON the homepage itself: after the hero, "Tap to learn more ↓" reveals
+  // the "A Place for Each" / what-you-get narrative (see PostHeroReveal +
+  // WhatYouGet). Pricing folds into that narrative; Help + legal + planning
+  // guides (/blog) live in the footer. Keeps the top nav clean + strategic.
   //
   // "Real Stories" → /weddings: the real-wedding showcase (iteration 0046,
-  // seeded with the Maria & Juan sample editorial) IS the destination. /blog
-  // is the planning-guides "Setnayan Journal" — kept reachable as "Planning
-  // guides" in the footer. (Owner 2026-06-14.)
+  // seeded with the Maria & Juan sample editorial) IS the destination.
   const links: Array<{ label: string; href: string }> = [
-    { label: 'What you get', href: '/features' },
     { label: 'Explore', href: '/vendors' },
     { label: 'For vendors', href: '/for-vendors' },
     { label: 'Our story', href: '/about' },

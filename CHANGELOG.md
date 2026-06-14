@@ -5004,6 +5004,17 @@ Payloads are ids/flags only; #1046's `insertFaultLog` redaction is the second-la
 **Verify:** `tsc --noEmit` clean; `next lint` clean for the changed files (only pre-existing warnings elsewhere). Founder-only marketplace today → travels usually empty (no Expand shown) until vendor density grows; native list + notes render as before. No migration.
 
 **SPEC IMPACT:** Region flips from hard-filter to **ringed** in the leaf-match contract. Logged in corpus `DECISION_LOG.md` (2026-06-05) + prototype `Onboarding_Wedding_Flow_2026-06-01.html` step 13 rebuilt to match. Pending corpus mirrors: leaf-match region-ringed note · 0007 Transportation cross-ref · 0022 vendor radius/travel control. **Deferred (need data, not fakeable per "real numbers only"):** budget demote-flag (no price in venue search), style ring-1/2 sub-split (engine doesn't return `compatible_venue_settings`).
+## 2026-06-05 · feat(v2): canonical region-weighted inquiry-burn pricing (1-2-3, min-wage banded)
+
+**Context:** Owner repriced the vendor token **burn-to-answer** from the 2026-06-03 region ladder **3-4-5-6** down to **1-2-3 tokens = ₱100 / ₱200 / ₱300** (₱300 ceiling), banded by the wedding region's **minimum wage** and keyed to `events.region`. Rationale: the burn is an anti-spam / skin-in-the-game gate, **not** a value meter — realized booking value is off-platform-invisible (RA 11967) and one burn unlocks the whole (vendor, event) relationship, so it can't be priced to the booking. It's priced cheap at the low-ticket floor; value-scaling stays in the region-tiered subscription (unchanged). The ₱600 old NCR ceiling was 20% of a ₱3k service; ₱300 is 10% and ≈ the old pre-refinement ₱250 flat while the lead is now 6-dim matched + scored.
+
+**What changed** (`apps/web/lib/v2/`):
+- New `region-token-burn.ts` — canonical source of truth for the burn: `TOKEN_PRICE_PHP` (₱100), `BURN_CEILING_TOKENS` (3), `BURN_BAND_REGIONS` (band→region slugs), and pure `regionBurnTokens(region)` / `regionBurnPhp(region)` helpers. Band 3 = NCR/CALABARZON/Central Luzon; band 2 = Cebu/Iloilo/Davao/CDO/CAR/Ilocos/Cagayan/MIMAROPA; band 1 = Bicol/E.Visayas/Zamboanga/SOCCSKSARGEN/Caraga/BARMM. Keyed on the onboarding `events.region` slugs (underscore + PSGC aliases included for the known region-slug drift); unknown/null/`abroad` → floor band 1.
+- **No behavior change** — nothing imports it yet. Mirrors the existing `token-stacking.ts` pattern (compute ahead of activation). **Activating the live charge** (wiring `consume_vendor_assets(vendor, regionBurnTokens(event.region))` into the inquiry-answer path, which `unlock-category.ts` keeps "economically inert" in the pilot) is a deliberate post-pilot go-live, intentionally NOT in this change — it needs owner sign-off.
+
+**Verify:** Pure, self-contained TS module, no imports, never throws (kind floor default). Typecheck + lint via CI on the PR (local `tsc` impractical in a fresh worktree without installed deps).
+
+**SPEC IMPACT:** Corpus already updated this session (authorized direct edits): `Token_Economy_Flow_Map_2026-06-01.html`, `CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md` (+.docx), `Price_Reconciliation_2026-06-04.md`, `V2_Cutover_Plan_2026-05-28.md` (+.docx), `Onboarding_Blueprint_2026-05-30.md` (+.docx), and a `DECISION_LOG.md` 2026-06-05 row — all reflect 1-2-3 superseding 3-4-5-6. No pending Cowork item.
 
 ## 2026-06-05 · fix(onboarding): un-stretch the Church ceremony photo (Style step)
 

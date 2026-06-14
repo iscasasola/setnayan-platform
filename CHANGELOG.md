@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · perf(website): homepage hero stops freezing the front door — progressive release + lighter frames
+
+The homepage hero scroll-scrub showed a "Setting it up for you…" veil that **hard-locked page scroll until every frame downloaded**. The live published hero is **1,019 frames** (`f-0000…f-1018`, 720×720, served as presigned GETs to the R2 S3 endpoint — no CDN) ≈ tens of MB, so the first thing every visitor hit was a multi-second (up to the 30s backstop) freeze. The frame count is a relic: it was extracted by an old uploader at ~30fps, while the current uploader already caps at 12fps/150.
+
+- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — **progressive release.** The veil now lifts as soon as the opening frames are in (`LEAD = min(N, 24)`, the same set already marked `fetchPriority: 'high'`) instead of waiting for all N; the rest stream in the background. Safe because `apply()` already holds the nearest already-loaded frame, so the scrub never blanks. Hang backstop tightened 30s → 12s. Hero is now interactive in ~1s regardless of frame count. Softens the prior "everything must load first" design (owner-approved this session) — the pitch + progress bar still show; they just no longer trap the visitor.
+- `apps/web/app/admin/hero-video/hero-uploader.tsx` — **lighter extraction defaults** for future re-uploads: FPS 12→8, `FRAME_MAX_EDGE` 1280→960, `FRAME_JPEG_QUALITY` 0.90→0.82. A ~5s clip now makes ~40 frames @ ~960px — a small preload. (Owner action to realize the win on the *current* hero: re-upload + re-publish in `/admin/hero-video` so the live 1,019-frame sequence is re-extracted to ~40.)
+
+SPEC IMPACT: None on schema/SKU. Notable homepage-UX decision logged to corpus `DECISION_LOG.md` (hero no longer hard-blocks first paint; default extraction density reduced).
+
 ## 2026-06-14 · fix(build): stop Vercel build OOM — skip redundant in-build typecheck/lint
 
 A production-build OOM resurfaced (the recurring #1258): a Vercel build sat **19 minutes** in Next's "Linting and checking validity of types" phase, then a process was SIGKILL'd out of memory → `routes-manifest.json couldn't be found` → deploy errored. Production kept serving the last good deploy, but the OOM is intermittent and creeping back as the route count grows past Vercel's **free 8GB build-machine ceiling**. #1258 already pulled the `webpackMemoryOptimizations` + `--max-old-space-size=4096` levers; this pulls the next free one.

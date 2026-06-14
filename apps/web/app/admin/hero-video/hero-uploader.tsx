@@ -31,22 +31,23 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
-// HYBRID extraction (owner 2026-06-14): the middle ground between the two
-// earlier approaches — dense-but-soft (30fps @ 720px) vs sparse-but-sharp
-// (6fps @ 1920px). 12fps glides smoothly enough for a scroll-scrub without the
-// 30fps frame explosion; 1280px stays crisp on the CONTAINED hero (capped at
-// min(native, 86vmin), so it's never displayed full-bleed) on normal and most
-// retina displays. A ~5s clip → ~60 frames × ~1280px → a bounded preload.
-const FPS = 12;
-const MAX_FRAMES = 150; // ceiling (~12.5s @ 12fps); real hero clips are ~4–6s
+// LIGHT extraction (owner 2026-06-14): the homepage hero preloads its frames
+// behind a "Setting it up…" veil, so frame COUNT × frame SIZE IS the visitor's
+// first-load wait. Kept deliberately lean — 8fps glides smoothly enough for a
+// scroll-scrub (apply() rounds to the nearest frame), 960px stays crisp on the
+// CONTAINED hero (capped at min(native, 86vmin), never full-bleed), and q0.82 is
+// indistinguishable on a moving scrub. A ~5s clip → ~40 frames × ~960px → a small
+// preload; the scrub also releases after the opening frames (see HeroVideoScrub).
+const FPS = 8;
+const MAX_FRAMES = 150; // ceiling (~18s @ 8fps); real hero clips are ~4–6s
 const MIN_FRAMES = 36;
-// Long-edge cap for extracted frames. 1280 keeps the contained hero crisp
-// without the 1920px payload; sources smaller than this pass through unchanged
+// Long-edge cap for extracted frames. 960 keeps the contained hero crisp while
+// keeping the preload light; sources smaller than this pass through unchanged
 // (never upscaled).
-const FRAME_MAX_EDGE = 1280;
-// JPEG quality — 0.90 stays clean on the contained hero while trimming size to
-// offset the larger frames vs the old 720px capture.
-const FRAME_JPEG_QUALITY = 0.9;
+const FRAME_MAX_EDGE = 960;
+// JPEG quality — 0.82 is clean on a moving, contained scrub while cutting bytes
+// meaningfully vs 0.90.
+const FRAME_JPEG_QUALITY = 0.82;
 const FRAME_UPLOAD_CONCURRENCY = 5;
 
 async function presignAndPut(body: Blob, pathPrefix: string, filename: string, contentType: string): Promise<string> {

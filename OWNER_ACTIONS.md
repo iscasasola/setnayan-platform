@@ -881,6 +881,62 @@ The R2 env vars themselves (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
 `R2_SECRET_ACCESS_KEY`, and optional `R2_PUBLIC_URL`) are already set in Vercel;
 the bucket names are hardcoded in `apps/web/lib/r2.ts` (no per-bucket env vars).
 
+### R2 media public host — edge-cache the homepage hero + fix vendor/profile photos (~10 min, recommended)
+
+**Status:** Public media (homepage hero frames, vendor logos, profile photos)
+is served today from R2's **private S3 API endpoint**
+(`setnayan-media.<account>.r2.cloudflarestorage.com`) via short-lived **presigned
+URLs**. The app already browser-caches the hero frames on this path (PR #1427),
+but presigned URLs can't be cached at Cloudflare's edge and they expire, so:
+returning visitors still re-download occasionally, and a plain `<img>` against
+the raw S3 endpoint 400s (which is why some vendor/profile photos don't show).
+
+**Why this is the better end-state:** point the **`setnayan-media`** bucket at a
+real **public host** and every media object becomes a stable, plain URL that
+Cloudflare caches at the **edge** AND the browser caches **permanently** — the
+hero loads near-instantly on repeat visits worldwide, and vendor/profile photos
+resolve directly. **No code change is needed** — `apps/web/lib/hero-video.ts`
+and `lib/r2.ts` already auto-switch from presigned to public URLs the moment
+`R2_PUBLIC_URL` is a real host instead of the S3 endpoint.
+
+> ⚠ Only the **`setnayan-media`** bucket should be public. The other four
+> (`setnayan-thread-files`, `setnayan-vendor-contracts`, `setnayan-samples`,
+> `setnayan-vendor-verification`) hold private files and must STAY private —
+> they keep using presigned URLs.
+
+**Step 1 — give the media bucket a public address.** https://dash.cloudflare.com
+→ R2 → **`setnayan-media`** → **Settings** → **Public access**, then either:
+
+- **Custom domain (recommended, production-grade):** connect a subdomain such as
+  `media.setnayan.com`. This requires the domain's DNS to be **on Cloudflare**;
+  if `setnayan.com` DNS lives elsewhere (e.g. with the app's host), delegate just
+  the `media` subdomain to Cloudflare, or skip to the r2.dev option. Real CDN
+  caching, no rate limits.
+- **r2.dev URL (quick test):** flip on the bucket's public `r2.dev` development
+  URL. Zero DNS work, but it's **rate-limited and not meant for production
+  traffic** — good for confirming the switch works before wiring the custom
+  domain.
+
+**Step 2 — point the app at it.** Vercel → project → **Settings → Environment
+Variables** → set **`R2_PUBLIC_URL`** to that host, with **no bucket segment and
+no trailing slash**:
+
+```
+R2_PUBLIC_URL = https://media.setnayan.com
+```
+
+(The code builds `${R2_PUBLIC_URL}/${key}` — the host must be bound to the media
+bucket, so the key sits right at the root. Do NOT use the S3 endpoint here.)
+
+**Step 3 — redeploy.** Vercel → Deployments → redeploy latest (or push any
+commit). The homepage is force-dynamic, so the next render emits public URLs.
+
+**Verify:** hard-refresh `https://www.setnayan.com`, open DevTools → Network →
+filter `media` — the hero frame requests should now point at your public host
+(e.g. `media.setnayan.com/...`), return **200** with a `cache-control` header,
+and show `(disk cache)` / `cf-cache-status: HIT` on a second load. Vendor/profile
+photos elsewhere in the app should also render.
+
 ### Daily.co video (for vendor meetings, ~30 min, free tier limited)
 
 **Why:** Iteration 0019 chat shipped without video. Adding Daily.co means

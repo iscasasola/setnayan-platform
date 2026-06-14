@@ -42,13 +42,6 @@ export function Voices() {
   const others = [
     {
       quote:
-        'I used to spend Tuesdays writing Official Receipts by hand. Setnayan does it the moment a payment clears. My accountant cried a little when I showed her.',
-      who: 'Joey Castro',
-      role: 'Owner, Ato Catering · Quezon City',
-      kind: 'vendor' as const,
-    },
-    {
-      quote:
         'My mom’s in San Mateo, my Lolo’s in Bacolod, my best friend lives in Sydney. Every one of them sent in their food order through their own phone. It just worked.',
       who: 'Andrea Sy',
       role: 'Bride · 22 April 2026 · Cebu',
@@ -809,7 +802,6 @@ export function Footer() {
         <FooterCol
           title="Compliance"
           items={[
-            { label: 'Tax-compliant receipts', href: '/help' },
             { label: 'Data Privacy Act compliant', href: '/privacy' },
           ]}
         />

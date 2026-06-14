@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, AlertTriangle } from 'lucide-react';
 import { Tile } from './_overview-tile';
+import { AppleSecretReminder } from './_apple-secret-reminder';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata = { title: 'Overview · Setnayan HQ' };
@@ -303,6 +304,11 @@ export default async function AdminOverview() {
           money &amp; catalog config, insights, and platform settings.
         </p>
       </header>
+
+      {/* One-off ops reminder · date-gated to 2026-12-08 (3 days before the
+          Apple Sign-in client secret expires 2026-12-11). Renders null the
+          rest of the year. See ./_apple-secret-reminder.tsx. */}
+      <AppleSecretReminder />
 
       {/* COMMAND CENTER · action queues grouped by lane.
        *  Ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08 ·

@@ -11,6 +11,16 @@ Owner: *"remove this and just leave the logo on top. keep it clean and simple."*
 - **`apps/web/app/login/page.tsx`** — removed the "WELCOME BACK" eyebrow, the "Pick up *where you left off.*" display heading, the "Your guest list is right where you saved it." micro-copy, and the "setnayan.com" footer from the `.m-login-brand` panel. Kept the Wordmark (still links home) on the existing ivory→paper gradient rail; dropped the now-unneeded flex `gap`. Form panel (email/password + Google/Apple OAuth) untouched.
 
 SPEC IMPACT: minor login-surface copy removal (iteration 0000 shell). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(admin): date-gated Apple-secret renewal reminder on the HQ home
+
+Owner: *"add a reminder on my admin account to renew this and place a prompt for me to paste on claude. 3 days before that day comes."* The Supabase "Sign in with Apple" client secret is a ~6-month JWT (the current one expires **2026-12-11**); this surfaces a self-service renewal reminder.
+
+- **`apps/web/app/admin/_apple-secret-reminder.tsx`** (new) — client component, **date-gated to 2026-12-08** (3 days before expiry), dismissible per-browser via `localStorage`. Shows a copy-to-clipboard **paste prompt** the owner drops into Claude Code (`node ~/.setnayan-apple-renew/mint.cjs` → re-mint the JWT → paste into Supabase Auth → Providers → Apple). Escalates copy + border to mulberry once past the expiry date. Renders `null` (server + first paint) the rest of the year — no hydration mismatch, zero footprint until the window opens.
+- **`apps/web/app/admin/page.tsx`** — mounts `<AppleSecretReminder />` just below the home header.
+
+Context: chosen over an always-on local `launchd` auto-renewer (built earlier this session, then removed because it needed a Supabase Management API token the owner opted not to store). The `.p8` + `mint.cjs` helper live at `~/.setnayan-apple-renew/` on the owner's Mac (not in the repo). To roll the window forward after a renewal, bump `SHOW_FROM`/`EXPIRES` + the `localStorage` key suffix in the component. `tsc --noEmit` green.
+
+SPEC IMPACT: adds a one-off internal-ops reminder card to the admin console (iteration 0023). Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(auth): login provider set = email/password + Google + Apple (drop Facebook + magic-link)
 

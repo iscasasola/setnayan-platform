@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(website): 4-path couple website — add the Save the Date phase + turn the lifecycle ON for weddings
+
+Owner design this session: the couple wedding website is four named paths the guest moves through over time — **Save the Date → RSVP → Event → Editorial** — time-gated (the page shows whichever path fits the date), single `/[slug]` page (no separate routes). The phase engine already existed (`rsvp | event | editorial`) but was flag-dark (`WEBSITE_PHASES_ENABLED`, off) and had no Save the Date.
+
+- `apps/web/lib/invitation-widgets.ts` — added `save_the_date` to `LifecyclePhase` (now 4 phases) + `STD_THRESHOLD_DAYS = 90` (provisional). `getLifecyclePhase()` now splits the far-future pre-event window: `> 90 days` out → `save_the_date`, within → `rsvp` (past → `editorial`, near-event windows unchanged). `WIDGET_PHASES.hero` includes `save_the_date` so the hero renders in the new phase.
+- `apps/web/lib/calendar-links.ts` (new) — pure Google-Calendar-URL + RFC 5545 all-day `.ics` helpers (mirrors the budget feed) for the Save-the-Date "add to calendar".
+- `apps/web/app/[slug]/_components/save-the-date.tsx` (new) — the minimal STD view: monogram/name + date + countdown + add-to-calendar + "invitation to follow". Asks nothing of the guest.
+- `apps/web/app/[slug]/page.tsx` — **lifecycle now ON for weddings** (`phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding'`; the surface is already wedding-only via `notFound()`). Added the `save_the_date` body branch to both the anonymous (PublicLanding) and signed-in (InvitationSite) paths + the `?phase=save_the_date` host/demo preview.
+- `apps/web/app/dashboard/[eventId]/website/page.tsx` — "Your page through time" block: host-only `?phase=` preview chips for all four phases.
+
+This is the load-bearing flip: enabling the lifecycle for weddings means post-event sites now render the Editorial recap and day-of sites the live surface (both already built, previously flag-dark). Verify the four `?phase=` states on the preview before merge. Mood-board palette wiring + Editorial content alignment (love story → Event, public/private spend) are deliberately separate follow-up PRs.
+
+SPEC IMPACT: 4-path couple-website IA (Save the Date phase added; lifecycle live for weddings; single-page phase-swap; ~90-day STD threshold). Logged at the bottom of `DECISION_LOG.md` (corpus). Touches the lifecycle described in `Wedding_Website_Lifecycle_Spec_2026-06-07` + iteration `0002` — corpus correction headers to follow with the palette/editorial PRs.
+
 ## 2026-06-14 · feat(hero): make the loading wait useful — story veil + lock-then-swipe
 
 Owner: the loading time should sell, not stall. The hero veil now carries the pitch while the dense sequence loads, then invites the swipe once it's ready.

@@ -59,6 +59,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const barRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<Uint8Array>(new Uint8Array(0));
   const readyRef = useRef(false);
+  const armedRef = useRef(false); // gate the swipe-to-dismiss until just after ready, so leftover momentum can't auto-start the scrub mid-way
   const statusRef = useRef<HTMLDivElement>(null);
   const lastIdx = useRef(-1);
 
@@ -87,7 +88,15 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       if (readyRef.current) return;
       readyRef.current = true;
       unlock();
-      // Keep the veil up but invite the swipe — it fades on the first scroll.
+      // Always begin at the FIRST frame: discard any scroll that slipped through during
+      // loading (e.g. iOS momentum the lock didn't fully catch), then arm the
+      // swipe-to-dismiss after a beat so that leftover momentum can't auto-start mid-scrub.
+      window.scrollTo(0, 0);
+      lastIdx.current = -1;
+      window.setTimeout(() => {
+        armedRef.current = true;
+      }, 350);
+      // Keep the veil up but invite the swipe — it fades on the first deliberate scroll.
       if (statusRef.current) {
         statusRef.current.textContent = 'Swipe up to begin ↑';
         statusRef.current.style.color = 'var(--m-orange-3)';
@@ -182,8 +191,9 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         const w = Math.min(p / SCRUB_END, 1);
         const idx = Math.round(w * (N - 1));
         const c = Math.min(Math.max((p - 0.8) / 0.18, 0), 1);
-        // Once everything's loaded and the visitor starts to swipe, fade the veil away.
-        if (readyRef.current && p > 0.004 && loaderRef.current && loaderRef.current.style.opacity !== '0') {
+        // Once everything's loaded AND the visitor makes a deliberate swipe (armed a
+        // beat after ready, so leftover momentum can't), fade the veil away.
+        if (readyRef.current && armedRef.current && p > 0.004 && loaderRef.current && loaderRef.current.style.opacity !== '0') {
           loaderRef.current.style.opacity = '0';
         }
         apply(idx, c, p);

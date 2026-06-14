@@ -64,6 +64,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameH
   const imgRef = useRef<HTMLImageElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollHintRef = useRef<HTMLDivElement>(null);
   const capARef = useRef<HTMLDivElement>(null);
   const capBRef = useRef<HTMLDivElement>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
@@ -183,6 +184,10 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameH
         endRef.current.style.opacity = String(c);
         endRef.current.style.transform = `translate(-50%, calc(-50% + ${((1 - c) * 16).toFixed(1)}px))`;
       }
+      // Fade the "scroll ↓" hint out as the end overlay reveals — at the end
+      // there's nothing more to scroll into until the "Tap to learn more" pill
+      // (PostHeroReveal) is tapped, so the hint hands off cleanly.
+      if (scrollHintRef.current) scrollHintRef.current.style.opacity = String(1 - c);
     };
 
     if (reduce) {
@@ -288,8 +293,9 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameH
           </div>
         </div>
         <div
+          ref={scrollHintRef}
           className="m-mono absolute left-1/2 -translate-x-1/2"
-          style={{ bottom: 22, fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}
+          style={{ bottom: 22, fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)', transition: 'opacity .3s ease' }}
         >
           scroll ↓
         </div>

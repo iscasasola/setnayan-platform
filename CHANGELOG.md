@@ -21,6 +21,21 @@ Owner locked the RSVP path's purpose: **seat reservation + attendance confirmati
 - `apps/web/app/dashboard/[eventId]/seating/page.tsx` — a **reserved → seated** summary strip above the editor: Reserved (confirmed attending) · Seated (in a chair) · To seat (the rest, highlighted when > 0). Derived from data the page already loads (`seatingGuests` carries `rsvp_status` + `seated_table_id`) — **no new query, no migration**.
 
 SPEC IMPACT: formalizes RSVP = hold-a-place reservation + attendance confirmation, and surfaces the RSVP→seat-plan handoff for the couple. Logged in `DECISION_LOG.md` (corpus). Stacks on PR C (`claude/couple-editorial`).
+## 2026-06-14 · feat(homepage): post-hero "Tap to learn more" → "A Place for Each" / what-you-get
+
+Owner design this session: after the hero scrub's "Set na 'yan" end-card, the page should LOCK — the visitor can end right there, or **Tap to learn more ↓**, which reveals the "what you get" content below the hero. "What you get" is removed from the top nav (the homepage IS it now). The post-hero content answers "how does this actually help me?" in depth — you create + run the whole wedding free, add paid services only if you want more — price-free by design ("a place for each").
+
+- `apps/web/app/_components/marketing/PostHeroReveal.tsx` (new · client) — gates the post-hero content. It renders EXPANDED on the server (SEO + no-JS see everything), then collapses on mount so the hero's end IS the page bottom — a natural "lock" with no scroll-momentum fight. A fixed "Tap to learn more ↓" pill fades in at the hero end; tap expands + smooth-scrolls into the content. `prefers-reduced-motion` skips the gate (content stays open).
+- `apps/web/app/_components/marketing/WhatYouGet.tsx` (new) — the "A Place for Each" narrative: reframe ("not just a place to inquire — a home you move into, free") → a place for each (free-tool grid) → free 0%-commission marketplace → soft paid upgrade (no prices) → CTA. Dependency-light (no framer-motion) so it renders through the client gate as server children.
+- `apps/web/app/page.tsx` — composes Nav + Hero + PostHeroReveal{ WhatYouGet + SiteFooter }. (Homepage gains a footer it previously lacked.)
+- `apps/web/app/_components/marketing/site-nav.tsx` — removed the "What you get" → /features link from the top nav (desktop + mobile share the one `links` array).
+- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — minor: fade the "scroll ↓" hint as the end overlay reveals, so it hands off cleanly to the new pill (homepage-only component).
+
+**Verification:** `tsc` clean · `next lint` clean (no new warnings) · lint:retired/botnav/email-links pass · production build green. The `/features` route + its content are untouched (still live, just not in the nav) — duplicate-content de-dup with the homepage is a follow-up.
+
+**SPEC IMPACT:** Homepage IA — the "what you get" content is now surfaced on the homepage behind a tap-gate, and "What you get" is dropped from the top nav. Touches iteration `0015` (main website) homepage composition. Logged at the bottom of `DECISION_LOG.md` (corpus).
+
+---
 
 ## 2026-06-12 · fix(monogram): chrome-size fallback for hero-only hairline scripts
 ## 2026-06-14 · ci(automerge): make auto-upload reliable across all sessions (auto-arm + lighthouse required-check fix)

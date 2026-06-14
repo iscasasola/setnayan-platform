@@ -1,22 +1,27 @@
 /**
- * Homepage · / — HERO-ONLY (owner directive 2026-06-14: "remove everything.
- * just keep the hero part as the whole page").
+ * Homepage · / — HERO → "tap to learn more" → "what you get".
  *
- * The homepage is now ONLY the top nav + the hero. The hero is the
- * admin-uploaded scroll-scrub video (HeroVideoScrub) when one is published,
- * falling back to the default keynote hero otherwise — see
+ * The hero is the admin-uploaded scroll-scrub video (HeroVideoScrub) when one
+ * is published, falling back to the default keynote hero otherwise — see
  * lib/hero-video.ts + _sections.tsx Hero().
  *
  * COMPOSITION:
- *   1. Nav   — sticky nav with brand + search + CTA + mobile menu (kept so
- *              visitors can still Sign in / reach other pages)
- *   2. Hero  — full-screen scroll-scrub video → end-of-scroll CTA
+ *   1. Nav            — sticky nav with brand + CTA + mobile menu
+ *   2. Hero           — full-screen scroll-scrub video → end-of-scroll CTA
+ *   3. PostHeroReveal — gates the content below: at the hero end the page LOCKS
+ *                       (the collapsed content makes the hero end the page
+ *                       bottom), a "Tap to learn more ↓" pill fades in, and a
+ *                       tap expands + scrolls into:
+ *                         • WhatYouGet — the "A Place for Each" narrative
+ *                           (how Setnayan helps you · free-first · price-free)
+ *                         • SiteFooter
  *
- * REMOVED 2026-06-14 (owner "Hero + top nav"): PromoBar (pilot announcement)
- * + ProblemSection + ForCouples + MarketplacePreview + OnTheDay + PersonalSite
- * + DashboardPreview + PricingSection + FAQSection + ClosingCTA + VendorBand +
- * Footer. The section components still live in _sections.tsx (other pages may
- * use them); they are simply no longer composed here.
+ * 2026-06-14 (owner): after the hero, answer "how does this help me?" in depth —
+ * you create + run the whole wedding free, add paid services only if you want
+ * more. "What you get" was pulled from the top nav (this page IS it now).
+ * Earlier hero-only directive (PromoBar + ProblemSection + … + Footer removed)
+ * is superseded for everything BELOW the hero; those section components still
+ * live in _sections.tsx for other pages.
  *
  * KEPT INTENTIONALLY (invisible, no visual footprint): GEO/SERP metadata + the
  * WebSite + SoftwareApplication JSON-LD graph, so AI answer engines + search
@@ -27,6 +32,9 @@
 
 import { Nav } from '@/app/_components/marketing/site-nav';
 import { Hero } from '@/app/_components/marketing/_sections';
+import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
+import { WhatYouGet } from '@/app/_components/marketing/WhatYouGet';
+import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward from prior page.tsx so AI answer engines + SERP cards
@@ -143,6 +151,10 @@ export default function HomePage() {
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
         <Nav />
         <Hero />
+        <PostHeroReveal>
+          <WhatYouGet />
+          <SiteFooter />
+        </PostHeroReveal>
       </main>
     </>
   );

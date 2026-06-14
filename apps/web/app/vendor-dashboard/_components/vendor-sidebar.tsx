@@ -98,6 +98,7 @@ import {
   MessageSquare,
   Music,
   Palette,
+  Globe,
   ShieldCheck,
   Sparkles,
   Star,
@@ -149,6 +150,17 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         href: '/vendor-dashboard/profile',
         icon: User,
         matchPrefix: '/vendor-dashboard/profile',
+      },
+      {
+        // 2026-06-15 nav-tune — live preview of the vendor's public page
+        // (/v/[slug]) "as couples see it" + Edit + Open-live. Desktop parity
+        // for the new Website bottom-nav tab per
+        // [[feedback_setnayan_orphan_prevention]].
+        key: 'website',
+        label: 'Website',
+        href: '/vendor-dashboard/website',
+        icon: Globe,
+        matchPrefix: '/vendor-dashboard/website',
       },
     ],
   },

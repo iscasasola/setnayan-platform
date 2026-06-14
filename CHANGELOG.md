@@ -13,6 +13,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 Verified: (a) repro — headless Chromium loading the live site with `window.indexedDB` made to throw synchronously renders the exact error screen; with the same block, the patched logic renders `/login`. (b) unit — real `idb-keyval` `get()` throws `SecurityError` synchronously when IndexedDB is blocked; `safe(() => get())` swallows it and resolves `undefined`. This crash hit **both native shells** (same web bundle) **and** Safari Private Browsing on the live site.
 
 SPEC IMPACT: None (defensive bug fix; no schema/SKU/behavior change for working storage).
+## 2026-06-15 · feat(nav): vendor + Setnayan HQ bottom navs go to a full 6 tabs (Website · Money + Insights)
+
+Owner: "vendor and Setnayan HQ bottom nav must maximize the 6 menus." Both mobile strips were running 5/4 of 6 slots; filled the rest with the surface that best serves each doorway. Two forks resolved with the owner (AskUserQuestion) against the **real shipped** nav — the first-pass recommendation was built on a stale surface scan, corrected before any edit.
+
+- **Vendor → 6 tabs: Home · Bookings · Calendar · Messages · Website · More.** New **Website** tab (owner picked it over Services for the 6th slot; the 4th content slot stayed **Calendar over Earnings** — Earnings remains in More, preserving the 2026-06-14 "calendar = the vendor pitch" call). Website is a **live preview** of the vendor's public page (`/v/[slug]`) "as couples see it" with Edit + Open-live; degrades gracefully when there's no slug yet (Pro custom-address) or the page isn't publicly visible. New route `app/vendor-dashboard/website/page.tsx`; added to the desktop sidebar Home group (orphan-prevention parity).
+- **Setnayan HQ → 6 tabs: Home · Work · Directory · Money · Insights · More.** Re-promoted **Money** + **Insights** to dedicated tabs (owner-approved — "6 tabs, keep 'Work'"), reversing the *fold-into-More* part of the 2026-06-08 ops redesign while **keeping** the Queues→Work rename. `/admin/money` is now a real card-grid landing (was a redirect); new `/admin/insights` landing; `/admin/more` carries the Platform group only (retired the 3-section accordion `more-landing.tsx` → flat `MobileLandingGrid`, matching `/admin/directory`). `payment-methods` deliberately stays under More's `/admin/settings` umbrella to avoid a Money+More double-highlight.
+- Both landings mirror their desktop sidebar group 1:1 (no orphan surfaces). `lint:botnav` + `tsc --noEmit` + `next lint` all green.
+
+PR pending (branch `claude/nav-6tab-website-insights`, auto-merge) — required production build runs in CI. SPEC IMPACT: nav config is shipped-code-canonical (the iteration specs predate the 2026-06 nav refactors). Logged to corpus `DECISION_LOG.md`; flagged for owner that this reverses parts of two dated nav decisions (2026-06-08 admin minimal-spine + restores Money tab) — owner-approved this session. No schema/SKU/price change.
 
 ## 2026-06-15 · feat(kwento): close the 3 buildable Kwento gaps — guest self-delete, FaceBlock author-hide, couple email (Alaala Lane 3)
 

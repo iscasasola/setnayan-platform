@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
 
@@ -102,28 +104,19 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
       </header>
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {decodeURIComponent(search.error)}
-        </p>
+        </FormFlash>
       ) : null}
       {search.saved ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Payment details saved. Live changes show on every order detail page.
-        </p>
+        </FormFlash>
       ) : null}
       {search.qr_uploaded ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           QR code uploaded. It now shows on order detail pages for couples.
-        </p>
+        </FormFlash>
       ) : null}
       {search.qr_removed ? (
         <p
@@ -388,25 +381,5 @@ function QrUploadBlock({
 
       <QrUploadForm kind={kind} replace={!!currentUrl} />
     </section>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">{label}</span>
-      {children}
-      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
-    </label>
   );
 }

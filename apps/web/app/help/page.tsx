@@ -3,6 +3,7 @@ import { HelpCircle, MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } fr
 import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
 import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
 
@@ -357,22 +358,5 @@ export default async function HelpPage({ searchParams }: Props) {
         </footer>
       </main>
     </>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">{label}</span>
-      {children}
-    </label>
   );
 }

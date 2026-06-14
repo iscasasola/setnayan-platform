@@ -6,6 +6,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction } from './actions';
 import { JoinShell, InvalidTokenScreen } from './_components/join-shell';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Join event' };
 
@@ -137,12 +138,9 @@ export default async function JoinPage({ params, searchParams }: Props) {
   return (
     <JoinShell event={event}>
       {errorMessage ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {errorMessage}
-        </p>
+        </FormFlash>
       ) : null}
 
       <p className="text-base text-ink/70">

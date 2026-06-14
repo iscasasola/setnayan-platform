@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Zap, Upload } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { QuickAddList } from './_components/quick-add-list';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Quick add guests' };
 
@@ -69,12 +70,9 @@ export default async function QuickAddGuestsPage({ params, searchParams }: Props
       </header>
 
       {errorMsg ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {errorMsg}
-        </p>
+        </FormFlash>
       ) : null}
 
       <QuickAddList eventId={eventId} />

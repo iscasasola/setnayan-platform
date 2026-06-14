@@ -1,5 +1,6 @@
 import { ExternalLink, LineChart } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Funnels · Admin' };
 
@@ -192,12 +193,9 @@ export default async function AdminFunnelsPage({ searchParams }: Props) {
       </form>
 
       {errors.length > 0 ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {errors.join(' · ')}
-        </p>
+        </FormFlash>
       ) : null}
 
       <div className="space-y-6">

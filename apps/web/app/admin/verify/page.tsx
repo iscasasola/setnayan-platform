@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayServiceLabel } from '@/lib/vendors';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
   parseVisibility,
@@ -188,14 +189,7 @@ function FlashBanner({
   search: Awaited<Props['searchParams']>;
 }) {
   if (search.error) {
-    return (
-      <p
-        role="alert"
-        className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-      >
-        {decodeURIComponent(search.error)}
-      </p>
-    );
+    return <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>;
   }
   if (search.app_approved === '1') {
     return (
@@ -353,12 +347,9 @@ async function ApplicationsSurface({
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
 
       {appErr ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           Verification applications couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
-        </p>
+        </FormFlash>
       ) : null}
 
       {error ? null : null}
@@ -769,12 +760,9 @@ async function VisibilitySurface({
       <VisibilityTabs current={statusParam ?? 'coming_soon'} />
 
       {queryError ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           Vendor visibility queue couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
-        </p>
+        </FormFlash>
       ) : null}
 
       {error ? null : null}

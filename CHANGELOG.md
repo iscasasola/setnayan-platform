@@ -4,7 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-12 · fix(monogram): chrome-size fallback for hero-only hairline scripts
+## 2026-06-14 · ci(automerge): make auto-upload reliable across all sessions (auto-arm + lighthouse required-check fix)
+
+Owner: make auto-merge-to-prod the standing, enforced default so it never depends on a session remembering — and stop the silent stall where required checks never report. Two `.github` guardrails:
+
+- `.github/workflows/auto-merge.yml` (new) — arms `gh pr merge --auto --merge` on every **non-draft** PR (`opened` / `reopened` / `ready_for_review`). Removes the "forgot to arm auto-merge" failure mode that let ~20 PRs pile up. Branch protection still gates the actual merge (all 7 required checks must pass), so broken code can never auto-merge. HOLD a PR by opening it as a **draft**; pause an armed one with `gh pr merge <#> --disable-auto`.
+- `.github/workflows/lighthouse.yml` — `lighthouse` is a REQUIRED check but was path-filtered to `apps/web/**`, so docs/backend/migration-only PRs never triggered it → the required context never reported → the PR sat "mergeable but blocked" forever and auto-merge could never complete. Now the workflow runs on every PR and the job short-circuits to a ~10s success when no frontend files changed (still reporting the required `lighthouse` context); a real frontend change runs the full audit. Detection **fails open** — any uncertainty runs the full audit, so the quality gate is never silently skipped.
+
+Net: every green PR now auto-merges to prod with no manual step, and docs/backend PRs stop stalling the queue. Retire `auto-merge.yml` at public-vendor launch when updates move to a temp/staging site.
+
+SPEC IMPACT: None (CI/merge automation; no app schema/SKU/pricing/surface change). Workflow policy logged in corpus `DECISION_LOG.md` (2026-06-14) + memory `project_setnayan_deployment_phases`.
 
 **Context:** flagged in the #1260 typeface-picker ship — Tangerine and Luxurious Script are featherweight hairlines that vanish at the chrome icon's ~28–36px (event switcher · profile avatar). The owner's "exact font in chrome" lock (2026-06-03) predates these faces and is preserved for every face that holds up small.
 
@@ -146,6 +155,24 @@ Read-only, no migration. Ready-but-empty today (no consented editorials exist ye
 SPEC IMPACT: closes the Real-Stories featuring loop (couple publish → admin curate → couple share → **vendor share**). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
+## 2026-06-14 · refactor(dashboard): app-wide <Field>/<FormFlash> dedup sweep — Track A2
+
+Finishes the form-primitive dedup (dashboard-consolidation Track A): replaces remaining LOCAL copies with the shared primitives already on `main` (`@/app/_components/forms/field` + `@/app/_components/forms/form-flash`). Pure behavior- and visual-preserving refactor — rendered DOM is identical; no copy/logic/route/schema change. Net −102 LOC across 16 files (53 ins / 155 del).
+
+- **Local `Field` defs removed: 3 of 12 candidates.** Replaced with `import { Field } from '@/app/_components/forms/field'` where the local def was byte-identical to the shared superset (shared adds an optional `required` asterisk; every call site uses only `label`/`htmlFor`/`help`): `app/admin/settings/payment-methods/page.tsx`, `app/help/page.tsx`, `app/vendor-dashboard/services/page.tsx`.
+- **9 of 12 left inline (NOT byte-identical — would change DOM if forced):**
+  - `app/[slug]/page.tsx`, `app/dashboard/[eventId]/guests/[guestId]/page.tsx`, `app/dashboard/[eventId]/guests/new/page.tsx` — different contract: take `{id, type, placeholder, defaultValue}` and render their own `<input>` inside a `<div>`.
+  - `app/admin/vendors/[vendorProfileId]/edit/page.tsx` — asterisk is `text-rose-600` (shared uses `text-terracotta`) + no `help` slot.
+  - `app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx` — `<div>` wrapper, uppercase `text-xs` label, `hint` (not `help`).
+  - `app/admin/connection-logs/connection-logs-client.tsx` — `{label, children}`, mono `<p>` label in a `<div>`.
+  - `app/admin/force-majeure/[flagId]/page.tsx`, `app/admin/payouts/page.tsx` — `<dt>/<dd>` read-only description-list display fields (not form fields).
+  - `app/dashboard/[eventId]/paperwork/page.tsx` — deadline display field with `{tone, icon, collapsible}` + lucide icons.
+- **Standard flash banners converted to `<FormFlash>`: 19** (15 `tone="error"` + 4 `tone="success"`), each byte-identical to what `FormFlash` renders (`mb-4 rounded-md border … px-4 py-3 text-sm`, exact terracotta-700 / emerald-800 tokens, `role="alert"`/`role="status"`), preserving the exact `{msg}` expression (incl. `decodeURIComponent(search.error)`). Touched: `admin/addons`, `admin/concierge-abuse`, `admin/funnels`, `admin/payment-options`, `admin/payouts`, `admin/settings/demo-mode`, `admin/settings/payment-methods` (×3), `admin/social-queue`, `admin/user-reports`, `admin/verify` (×3), `dashboard/(account)/api-keys`, `dashboard/[eventId]/guests/quick`, `join/[eventId]`, `vendor-dashboard/payment-options` (×2).
+- **Non-standard banner tones left inline** (would change DOM): all amber (`border-amber-…`), neutral ink (`border-ink/… bg-ink/…`), `text-emerald-900` success variants (concierge-abuse), `border-emerald-200` / no-`role` variants (social-queue success loop), and any with different margin (`mb-6`/`mt-4`/none), padding (`px-3 py-2`), `text-xs`, icon children, or `inline-flex` structure. ~50 such variant `<p>` banners remain inline by design.
+
+Verify: `pnpm exec tsc --noEmit` exit 0, zero `error TS` · `pnpm exec next lint --file <each of 16 changed files>` clean (no unused imports left behind).
+
+SPEC IMPACT: None (code-internal; no behavior/visual/route/schema change)
 
 ## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
 
@@ -426,6 +453,20 @@ SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav was owner-lock
 ---
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
+## 2026-06-14 · feat(nav): pill-segmented dashboard menus (shared `.sn-seg` template — no more rectangles)
+
+Owner: "make each menu a pill also, not rectangles again." Extends the floating-pill bottom-nav language to the in-page dashboard section menus.
+
+- `app/globals.css` — new SHARED pill-segmented template: `.sn-seg` (rounded pill TRACK — subtle ink-tint bg + 0.5px border) + `.sn-seg-item` (evenly-sized options) + active state via `aria-selected="true"` / `aria-current="page"` / `.is-active` (raised white pill + ink text + soft shadow). One source of truth, matching the bottom-nav pill language.
+- Converted the four dashboard section menus to it (style only — all logic/handlers/state/a11y preserved):
+  - **Services tabs** (`services-takeover.tsx`) — both the desktop top strip and the mobile sticky-top nav (Summary·Shortlist·Build·Compare·Lock) → pill segmented (was `border-b` underline strips); BB_TAB_EVENT + `?tab=` mirroring intact. Mobile items get `min-w-0` + truncate so 5 labels degrade cleanly on ~320px.
+  - **Guests menu** (`mobile-guest-carousel.tsx`) — the 5-pill row at the top of the carousel sheet → `.sn-seg` (was a `grid grid-cols-5` + `border-b`); carousel logic untouched.
+  - **Schedule toggle** (`schedule-mode-toggle.tsx`) — Preparation/Event-Day → pill segmented; `?view=` Link contract intact (active badge recolored for legibility on the white pill).
+  - **Guest view-switcher** (`view-switcher.tsx`) — List/Mind-map → pill segmented.
+- Built via a parallel convert-then-adversarially-verify workflow; all four passed (minor non-blocking notes only).
+- Verified: typecheck ✅ · lint ✅ · `lint:botnav` ✅ · production build ✅.
+
+SPEC IMPACT: adds the shared `.sn-seg` pill-segmented menu template (companion to the bottom-nav pill template). Memory `project_setnayan_bottom_nav_canonical` + corpus `DECISION_LOG.md` updated. No SKU / schema / pricing / route impact.
 
 **Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.
 
@@ -484,6 +525,21 @@ The "win over frozen paper" — a reseat done DURING the event reaches the guest
 Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests clean. PR pending (branch `claude/seat-live-propagation`, auto-merge to arm).
 
 SPEC IMPACT: implements the 2026-06-13 "live day-of reprogramming" 3-lock decision (digital-only responsibility · exclusive lock [shipped PR 2] · silent-only updates) for iter 0008 seat plan + 0031 day-of guest. **Open (owner):** PR 4 (paid seat pass) is still unbuilt — it will inherit this live-data + tick pattern when it lands. Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+## 2026-06-13 · feat(nav): floating-pill bar + consistent pill — finalize the ONE bottom-nav template
+
+Two owner directives, one PR, both in the single shared `app/_components/nav/bottom-nav.tsx` (every console already mounts it; nothing hardcoded left to remove — the legacy dashboard bottom-nav.tsx is already gone, and the lint guard enforces delegation):
+
+1. **Floating pill bar** (owner: "we want it in a long floating pill … use this as the template"). The bar was an edge-to-edge bottom strip (`fixed inset-x-0 bottom-0 border-t`) — that's what never matched the demos. It's now a **floating pill**: `fixed left-[14px] right-[14px] bottom-[calc(safe-area+12px)] rounded-full border` + a soft drop shadow + `overflow-hidden`, frosted-glass background unchanged. Applies to customer / vendor / admin at once.
+2. **Consistent active pill across 3/4/5/6 tabs** (owner: "still not the same … must adjust for 3,4,5,6 icons"). The pill (and press-light) used to FILL its cell, so admin's 4 wide cells made a wider pill than the 5-tab consoles. Now it's a CONSISTENT centered capsule — `width: min(52px, calc(100% - 8px))`, `margin-inline:auto` (press-light `min(64px, calc(100% - 2px))`). Tabs still distribute evenly (1fr) for tap targets, but the visible pill is the same ~52px on 3/4/5-tab bars (caps only on a tight 6-tab phone).
+
+Net: the bottom nav is now a single floating-pill template — same shape, same pill, same colours, same motion — on every console; only each role's tabs differ. No change to the `--bn-*` knobs or guard markers.
+
+Verified: typecheck ✅ · lint ✅ · `lint:botnav` ✅.
+
+SPEC IMPACT: finalizes the owner-locked bottom-nav template (floating pill + consistent capsule). Supersedes the earlier edge-to-edge bar + "pill fills the cell" measurements. Memory `project_setnayan_bottom_nav_canonical` + corpus `DECISION_LOG.md` updated. No SKU / schema / pricing / route impact.
+
+---
 
 ## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
 
@@ -3661,6 +3717,19 @@ The takeover now has 4 of 5 tabs real (Summary · Shortlist · Build · Lock); *
 **Verify:** `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓. Behind `BUDGET_BUILD_ENABLED` (default OFF) → zero production change.
 
 **SPEC IMPACT:** Phase 5 (core) of `Budget_Build_Services_Takeover_2026-06-08.md`. Logged in `DECISION_LOG.md`.
+## 2026-06-07 · feat(admin-pricing): per-SKU cost + margin column, editable cost + active toggle (0023)
+
+**Context:** `/admin/pricing` already SELECTed `saas_overhead_cost_php` from `platform_retail_catalog_v2` but never showed or wrote it. Owner needs the per-SKU cost-per-event and margin visible while editing prices live, plus a way to deactivate the 3 retired SKUs (Indoor Blueprint, High Res Archive, Call-Time Escalator) from the UI.
+
+**What landed (2 files, admin-only surface):**
+- **`app/admin/pricing/page.tsx`** — added a `marginPct(price, cost)` helper (divide-by-zero guarded → `null` for FREE SKUs). Each retail row now renders **Cost / event** (reuses `formatPeso`) and a computed **Margin %**. Header stats grid gains an **Avg margin (paid)** tile (now 5 tiles). The single-row edit form gains a `saas_overhead_cost_php` number input beside the retail-price field. (The `is_active` toggle was already present in the form — left intact / functional so retired SKUs are deactivatable.)
+- **`app/admin/pricing/actions.ts`** — `updateRetailSku` now reads, validates (non-negative, 2-dp rounded), and writes `saas_overhead_cost_php` alongside `retail_price_php`, preserving the existing `updated_by_admin_id` audit field, the prior-row snapshot/audit diff, and the 3 `revalidatePath` calls.
+
+No prices changed, no catalog rows added/removed, no DB migration or write — all cost values + deactivations are entered later by the owner via this UI.
+
+**Verify:** `pnpm typecheck` (tsc --noEmit) ✓ — clean.
+
+**SPEC IMPACT:** None — pricing model already landed in the corpus (Pricing.md § 00).
 
 ## 2026-06-09 · feat(mood-board): couple-facing Recolor Studio + 4-chapter redesign (0010)
 
@@ -4971,6 +5040,17 @@ Payloads are ids/flags only; #1046's `insertFaultLog` redaction is the second-la
 **Verify:** `tsc --noEmit` clean; `next lint` clean for the changed files (only pre-existing warnings elsewhere). Founder-only marketplace today → travels usually empty (no Expand shown) until vendor density grows; native list + notes render as before. No migration.
 
 **SPEC IMPACT:** Region flips from hard-filter to **ringed** in the leaf-match contract. Logged in corpus `DECISION_LOG.md` (2026-06-05) + prototype `Onboarding_Wedding_Flow_2026-06-01.html` step 13 rebuilt to match. Pending corpus mirrors: leaf-match region-ringed note · 0007 Transportation cross-ref · 0022 vendor radius/travel control. **Deferred (need data, not fakeable per "real numbers only"):** budget demote-flag (no price in venue search), style ring-1/2 sub-split (engine doesn't return `compatible_venue_settings`).
+## 2026-06-05 · feat(v2): canonical region-weighted inquiry-burn pricing (1-2-3, min-wage banded)
+
+**Context:** Owner repriced the vendor token **burn-to-answer** from the 2026-06-03 region ladder **3-4-5-6** down to **1-2-3 tokens = ₱100 / ₱200 / ₱300** (₱300 ceiling), banded by the wedding region's **minimum wage** and keyed to `events.region`. Rationale: the burn is an anti-spam / skin-in-the-game gate, **not** a value meter — realized booking value is off-platform-invisible (RA 11967) and one burn unlocks the whole (vendor, event) relationship, so it can't be priced to the booking. It's priced cheap at the low-ticket floor; value-scaling stays in the region-tiered subscription (unchanged). The ₱600 old NCR ceiling was 20% of a ₱3k service; ₱300 is 10% and ≈ the old pre-refinement ₱250 flat while the lead is now 6-dim matched + scored.
+
+**What changed** (`apps/web/lib/v2/`):
+- New `region-token-burn.ts` — canonical source of truth for the burn: `TOKEN_PRICE_PHP` (₱100), `BURN_CEILING_TOKENS` (3), `BURN_BAND_REGIONS` (band→region slugs), and pure `regionBurnTokens(region)` / `regionBurnPhp(region)` helpers. Band 3 = NCR/CALABARZON/Central Luzon; band 2 = Cebu/Iloilo/Davao/CDO/CAR/Ilocos/Cagayan/MIMAROPA; band 1 = Bicol/E.Visayas/Zamboanga/SOCCSKSARGEN/Caraga/BARMM. Keyed on the onboarding `events.region` slugs (underscore + PSGC aliases included for the known region-slug drift); unknown/null/`abroad` → floor band 1.
+- **No behavior change** — nothing imports it yet. Mirrors the existing `token-stacking.ts` pattern (compute ahead of activation). **Activating the live charge** (wiring `consume_vendor_assets(vendor, regionBurnTokens(event.region))` into the inquiry-answer path, which `unlock-category.ts` keeps "economically inert" in the pilot) is a deliberate post-pilot go-live, intentionally NOT in this change — it needs owner sign-off.
+
+**Verify:** Pure, self-contained TS module, no imports, never throws (kind floor default). Typecheck + lint via CI on the PR (local `tsc` impractical in a fresh worktree without installed deps).
+
+**SPEC IMPACT:** Corpus already updated this session (authorized direct edits): `Token_Economy_Flow_Map_2026-06-01.html`, `CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md` (+.docx), `Price_Reconciliation_2026-06-04.md`, `V2_Cutover_Plan_2026-05-28.md` (+.docx), `Onboarding_Blueprint_2026-05-30.md` (+.docx), and a `DECISION_LOG.md` 2026-06-05 row — all reflect 1-2-3 superseding 3-4-5-6. No pending Cowork item.
 
 ## 2026-06-05 · fix(onboarding): un-stretch the Church ceremony photo (Style step)
 

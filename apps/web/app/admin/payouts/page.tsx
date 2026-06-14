@@ -3,6 +3,7 @@ import { Wallet, Clock3, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   PAYOUT_STAGE_LABEL,
   PAYOUT_STAGE_TONE,
@@ -185,9 +186,9 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
       />
 
       {error ? (
-        <p role="alert" className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <FormFlash tone="error">
           Payouts couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
-        </p>
+        </FormFlash>
       ) : null}
 
       {rows.length === 0 ? (

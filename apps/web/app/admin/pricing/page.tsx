@@ -68,6 +68,16 @@ function formatPeso(amount: number): string {
   });
 }
 
+/**
+ * Margin % = (price − cost) / price × 100, rounded to a whole percent.
+ * Returns null when price is 0 (divide-by-zero · FREE SKU) so callers can
+ * render an em-dash instead.
+ */
+function marginPct(price: number, cost: number): number | null {
+  if (price <= 0) return null;
+  return Math.round(((price - cost) / price) * 100);
+}
+
 function timeAgo(iso: string): string {
   const now = Date.now();
   const then = new Date(iso).getTime();
@@ -153,6 +163,17 @@ export default async function AdminPricingPage({ searchParams }: Props) {
     paidRows.length > 0 ? Math.max(...paidRows.map((r) => r.retail_price_php)) : 0;
   const minPrice =
     paidRows.length > 0 ? Math.min(...paidRows.map((r) => r.retail_price_php)) : 0;
+  // Average margin across paid SKUs (FREE SKUs have no meaningful margin so
+  // they're excluded from the denominator).
+  const marginValues = paidRows
+    .map((r) => marginPct(r.retail_price_php, r.saas_overhead_cost_php))
+    .filter((m): m is number => m !== null);
+  const avgMargin =
+    marginValues.length > 0
+      ? Math.round(
+          marginValues.reduce((sum, m) => sum + m, 0) / marginValues.length,
+        )
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
@@ -171,7 +192,7 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         </p>
       </header>
 
-      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-paper p-4 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-paper p-4 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Active SKUs" value={activeCount.toString()} />
         <Stat label="Inactive" value={inactiveCount.toString()} />
         <Stat
@@ -181,6 +202,10 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         <Stat
           label="Min price (paid)"
           value={minPrice > 0 ? `₱${formatPeso(minPrice)}` : '—'}
+        />
+        <Stat
+          label="Avg margin (paid)"
+          value={avgMargin !== null ? `${avgMargin}%` : '—'}
         />
       </div>
 
@@ -337,6 +362,20 @@ function RetailRowView({
               className="input-field mt-1 w-full"
             />
           </label>
+          <label className="block">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              Cost / event (₱ · pesos)
+            </span>
+            <input
+              name="saas_overhead_cost_php"
+              type="number"
+              step="0.01"
+              min="0"
+              defaultValue={row.saas_overhead_cost_php}
+              required
+              className="input-field mt-1 w-full"
+            />
+          </label>
           <label className="block sm:col-span-2">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
               Description (optional)
@@ -407,7 +446,26 @@ function RetailRowView({
           {editorName ? ` by ${editorName}` : ''}
         </p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            Cost / event
+          </span>
+          <p className="font-mono text-xs tabular-nums text-ink/70">
+            ₱{formatPeso(row.saas_overhead_cost_php)}
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            Margin
+          </span>
+          <p className="font-mono text-xs tabular-nums text-ink/70">
+            {(() => {
+              const m = marginPct(row.retail_price_php, row.saas_overhead_cost_php);
+              return m !== null ? `${m}%` : '—';
+            })()}
+          </p>
+        </div>
         <span className="font-mono text-sm font-semibold tabular-nums text-ink">
           {row.retail_price_php > 0 ? `₱${formatPeso(row.retail_price_php)}` : 'FREE'}
         </span>

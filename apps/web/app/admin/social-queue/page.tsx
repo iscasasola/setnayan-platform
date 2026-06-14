@@ -1,5 +1,6 @@
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { runSocialFlush } from '@/lib/social/flush';
 import { isFacebookConfigured } from '@/lib/social/facebook';
@@ -1615,14 +1616,7 @@ function QueueSection({
 
 function FlashBanner({ search }: { search: Awaited<Props['searchParams']> }) {
   if (search.error) {
-    return (
-      <p
-        role="alert"
-        className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-      >
-        {decodeURIComponent(search.error)}
-      </p>
-    );
+    return <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>;
   }
   const success: Array<[keyof Awaited<Props['searchParams']>, string]> = [
     ['posted', 'Marked posted — the card left the queue.'],

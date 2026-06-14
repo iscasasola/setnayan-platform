@@ -393,29 +393,27 @@ export function MobileGuestCarousel({
         {!kbOpen && (
           <nav
             aria-label="Guest panels"
-            className="h-[52px] shrink-0 border-b border-ink/10"
+            className="flex h-[52px] shrink-0 items-center px-2"
           >
-            <ul className="grid h-full grid-cols-5 px-1">
+            <ul className="sn-seg w-full">
               {PANELS.map((p, i) => {
                 const Icon = p.icon;
                 const isActive = active === i;
                 return (
-                  <li key={p.key}>
+                  <li key={p.key} className="contents">
                     <button
                       type="button"
                       onClick={() => goTo(i)}
                       aria-current={isActive ? 'true' : undefined}
-                      className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 transition-colors hover:bg-ink/5"
+                      className={`sn-seg-item flex-col gap-0.5 px-1 ${isActive ? 'is-active' : ''}`}
                     >
                       <Icon
                         aria-hidden
                         strokeWidth={1.75}
-                        className={`h-[22px] w-[22px] ${isActive ? 'text-terracotta' : 'text-ink/45'}`}
+                        className="h-[20px] w-[20px]"
                       />
                       <span
-                        className={`text-[10px] tracking-wide ${
-                          isActive ? 'font-semibold text-ink' : 'text-ink/55'
-                        }`}
+                        className={`text-[10px] tracking-wide ${isActive ? 'font-semibold' : ''}`}
                       >
                         {p.label}
                       </span>

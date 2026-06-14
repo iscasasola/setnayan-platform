@@ -236,11 +236,22 @@ export async function r2SignedGet(args: {
   bucket: R2BucketName;
   key: string;
   expiresIn?: number;
+  /**
+   * Overrides the `Cache-Control` header R2 returns on the GET response (the S3
+   * `response-cache-control` param, signed into the URL). Lets a long-lived,
+   * immutable asset (e.g. homepage hero frames) be browser-cached across visits
+   * even on the presigned path — without touching how the object was uploaded.
+   */
+  responseCacheControl?: string;
 }): Promise<string> {
   const client = requireR2Client();
   return await getSignedUrl(
     client,
-    new GetObjectCommand({ Bucket: args.bucket, Key: args.key }),
+    new GetObjectCommand({
+      Bucket: args.bucket,
+      Key: args.key,
+      ResponseCacheControl: args.responseCacheControl,
+    }),
     { expiresIn: args.expiresIn ?? 60 * 60 * 24 },
   );
 }

@@ -85,6 +85,15 @@ export type NavGroup = {
   label: string;
   items: NavItem[];
   /**
+   * Optional menu icon for the mobile bottom-nav accordion. When the bottom
+   * nav is built FROM NavGroup[] (the customer journey-group model), each
+   * top-level menu carries this icon. The desktop sidebar renders section
+   * HEADINGS as text only, so it ignores this field — it exists purely so the
+   * accordion's top-level menus can show a glyph. (Optional for back-compat
+   * with admin/vendor NavGroup[] that don't drive an accordion.)
+   */
+  icon?: LucideIcon;
+  /**
    * Initial open-state when no localStorage value exists. Defaults to true
    * (sections start expanded). Set false for low-priority groups.
    */

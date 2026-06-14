@@ -1,319 +1,134 @@
 'use client';
 
 /**
- * CustomerBottomNav — customer mobile primary nav.
+ * CustomerBottomNav — customer mobile primary nav (JOURNEY-GROUP ACCORDION).
  *
- * SIX FIXED MENUS · ACCORDION (0021 ADDENDUM · owner-locked 2026-06-15):
- *   1. Home    — navigates to the event hub (no children).
- *   2. Guests  — Summary · Search · Add · Customize · Journey
- *   3. Vendors — Explore · Messages · Contracts · Disputes
- *   4. Studio  — Website · Mood Board · Monogram
- *   5. Budget  — navigates (no children).
- *   6. Wedding — Find date · Schedule · Seating · Event QR · Live Wall
+ * SIX FIXED JOURNEY MENUS · ALL EXPAND (re-pointed from the destination-menu
+ * structure shipped in PR #1465 back to the journey-group IA the owner wants):
+ *   1. Setnayan — Home · Studio · Explore
+ *   2. Plan     — Guests · Seating · Schedule · Budget
+ *   3. Book     — Messages · Contracts
+ *   4. Design   — Website · Mood Board · Monogram
+ *   5. Day-of   — Live Wall · Event QR
+ *   6. After    — Activity · Disputes
  *
- * A menu WITH children extracts an inline accordion on tap (the menu glides
- * to the far-left corner = back-hinge, its children cascade out); a menu
- * WITHOUT children navigates straight. NO "More" overflow, NO horizontal
- * scroll. Account/settings live under the profile avatar (top-right
- * ProfileMenu → Profile / Settings / Sign out · front door to iteration
- * 0025) — the nav no longer carries a Settings group.
+ * EVERY menu has children → EVERY menu extracts an inline accordion on tap
+ * (the menu glides to the far-left corner = back-hinge, its children cascade
+ * out). NONE navigate directly — there is no childless "navigates straight"
+ * menu anymore. Home is a CHILD of Setnayan (tap Setnayan → Home), by design.
+ * NO "More" overflow, NO horizontal scroll. Account/settings live under the
+ * profile avatar (top-right ProfileMenu → Profile / Settings / Sign out ·
+ * front door to iteration 0025) — the nav carries no Settings group.
  *
- * The shared <BottomNav> renders the accordion when given the `menus` prop
- * (this builder). The four locked motion knobs + the traveling pill +
- * press-light + icon-grow are reused verbatim from the canonical primitive
- * (project_setnayan_bottom_nav_canonical). Vendor + admin doorways keep the
- * flat `items` path unchanged (customer-first rollout · spec §8).
+ * SINGLE SOURCE OF TRUTH: this builder no longer hand-rolls its own roster.
+ * It derives the accordion menus directly from buildCustomerNavGroups
+ * (customer-nav-config.ts) — the SAME six journey groups the desktop sidebar
+ * renders. Each NavGroup → a BottomNavMenu { key, label, icon: group.icon,
+ * children: group.items }. Each NavItem → a BottomNavItem (the item's
+ * `matchPrefix` becomes the menu/child `activeMatch`; sentinel matchPrefixes
+ * like `__home__` map to an exact-match on the item's own href so Home only
+ * lights on the exact event-home route, never on every `${base}/*` child).
  *
- * ROUTE MAPPING (real routes vs. parent-route fallbacks):
- *   Home      → /dashboard/{id}                              (real · navigates)
- *   Guests    → /dashboard/{id}/guests                       (real · expands)
- *     · Summary   → /guests                                  (real · parent page)
- *     · Search    → /guests?gpanel=search                    (fallback · parent + query)
- *     · Add       → /guests/new                              (real)
- *     · Customize → /guests?gpanel=customize                 (fallback · parent + query)
- *     · Journey   → /guests?gview=map                        (real · page reads gview)
- *   Vendors   → /dashboard/{id}/vendors                      (real · expands)
- *     · Explore   → /vendors                                 (real)
- *     · Messages  → /messages                                (real)
- *     · Contracts → /contracts                               (real)
- *     · Disputes  → /disputes                                (real)
- *   Studio    → /dashboard/{id}/add-ons                      (real · expands)
- *     · Website   → /site-editor/{id}                        (real)
- *     · Mood Board→ /add-ons/mood-board                      (real)
- *     · Monogram  → /monogram                                (real)
- *   Budget    → /dashboard/{id}/budget                       (real · navigates)
- *   Wedding   → (no own route · anchors the accordion)       (expands)
- *     · Find date → /find-date                               (real)
- *     · Schedule  → /schedule                                (real)
- *     · Seating   → /seating                                 (real)
- *     · Event QR  → /event-qr                                (real)
- *     · Live Wall → /live                                    (real)
- *
- * The Guests Search/Customize children resolve to the /guests page with a
- * `?gpanel=` query (the MobileGuestCarousel's panels are local state today,
- * so the query is an accepted fallback — the link is valid + never 404s; a
- * follow-up can teach the carousel to read it). Every other child is a real
- * first-class route.
+ * The shared <BottomNav> renders the accordion when given the `menus` prop.
+ * The four locked motion knobs + the traveling pill + press-light + icon-grow
+ * are reused verbatim from the canonical primitive
+ * (project_setnayan_bottom_nav_canonical). The accordion machinery in
+ * bottom-nav.tsx already (a) lights a parent menu when ANY of its children
+ * matches the route, and (b) never navigates a parent that HAS children —
+ * tapping always expands. Since all six journey menus have children, no
+ * special-casing is required. Vendor + admin doorways keep the flat `items`
+ * path unchanged (customer-first rollout · spec §8).
  *
  * CLIENT BOUNDARY: 'use client' required because BottomNavMenu[] carries
  * LucideIcon refs (forwardRef objects) — passing them from a Server Component
- * to the Client BottomNav trips Next.js serialization.
+ * to the Client BottomNav trips Next.js serialization. buildCustomerNavGroups
+ * itself lives in a neutral module so Server Components can also call it.
  */
 
-import {
-  Home,
-  Users,
-  Compass,
-  Sparkles,
-  Wallet,
-  Heart,
-  LayoutDashboard,
-  Search,
-  UserPlus,
-  SlidersHorizontal,
-  Route,
-  MessageSquare,
-  FileText,
-  AlertTriangle,
-  Globe,
-  Palette,
-  Type,
-  CalendarSearch,
-  CalendarClock,
-  LayoutGrid,
-  QrCode,
-  MonitorPlay,
-} from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
-import type { BottomNavMenu } from '@/app/_components/nav/types';
+import type {
+  BottomNavItem,
+  BottomNavMenu,
+  NavGroup,
+  NavItem,
+} from '@/app/_components/nav/types';
+import { Home } from 'lucide-react';
+import { buildCustomerNavGroups } from './customer-nav-config';
 
 /**
- * Builds the 6-menu accordion config for the given eventId. The single source
- * of truth for the customer mobile bar; the desktop sidebar consumes the same
- * destination model via buildCustomerNavGroups (customer-nav-config.ts).
+ * Maps a NavItem (sidebar/destination shape) onto a BottomNavItem
+ * (accordion shape). The NavItem's `matchPrefix` (defaults to `href`) carries
+ * active-detection. A SENTINEL matchPrefix (`__…__` — used by Home so the
+ * strict-prefix branch never fires in the sidebar) can't be matched against a
+ * real path, so for the bottom nav we instead exact-match the item's own
+ * `href` (the actual route). All other items use prefix-match on
+ * `matchPrefix ?? href`.
+ */
+function navItemToBottomNavItem(item: NavItem): BottomNavItem {
+  const isSentinel =
+    typeof item.matchPrefix === 'string' &&
+    item.matchPrefix.startsWith('__') &&
+    item.matchPrefix.endsWith('__');
+
+  return {
+    key: item.key,
+    label: item.label,
+    href: item.href,
+    icon: item.icon,
+    badge: item.badge,
+    // Sentinel → exact-match the real href; otherwise prefix-match
+    // matchPrefix (falls back to href). The shared matchesPath() uses
+    // `pathname === prefix || pathname.startsWith(prefix + '/')`.
+    activeMatch: isSentinel ? item.href : (item.matchPrefix ?? item.href),
+    activeMatchExact: isSentinel ? true : undefined,
+  };
+}
+
+/**
+ * Maps a NavGroup (journey group) onto a BottomNavMenu — a top-level
+ * accordion menu that EXPANDS to its children. `href` is a non-JS / keyboard
+ * fallback only (a menu with children opens the section on tap); point it at
+ * the first child so it still resolves. `activeMatch` is the union of the
+ * children's prefixes so the menu lights when any child route is active (the
+ * accordion's own activeMenuIndex also checks children, so this is belt-and-
+ * suspenders + keeps a sane fallback if the group ever had zero children).
+ */
+function navGroupToBottomNavMenu(group: NavGroup): BottomNavMenu {
+  const children = group.items.map(navItemToBottomNavItem);
+  const firstChild = children[0];
+
+  return {
+    key: group.key,
+    label: group.label,
+    // Per the NavGroup→accordion contract the top-level menu always carries a
+    // glyph; fall back to Home only if a group somehow omitted its icon.
+    icon: group.icon ?? Home,
+    // Fallback href (menus with children expand, they don't navigate).
+    href: firstChild?.href ?? '#',
+    // Union of child prefixes — lights the menu when any child is active.
+    activeMatch: children.flatMap((c) =>
+      Array.isArray(c.activeMatch) ? c.activeMatch : [c.activeMatch],
+    ),
+    children,
+  };
+}
+
+/**
+ * Builds the 6-menu journey accordion config for the given eventId, derived
+ * from the SAME buildCustomerNavGroups the desktop sidebar consumes — one
+ * roster, two renderings.
  */
 export function buildCustomerNavMenus(eventId: string): BottomNavMenu[] {
-  const base = `/dashboard/${eventId}`;
-
-  return [
-    {
-      // 1 · Home — navigates. Exact-match so every other event route (all
-      // share the `${base}/` prefix) doesn't keep Home perpetually lit.
-      key: 'home',
-      label: 'Home',
-      href: base,
-      icon: Home,
-      activeMatch: base,
-      activeMatchExact: true,
-    },
-    {
-      // 2 · Guests — extracts the lifecycle accordion. The menu's own route
-      // (/guests) is the Summary landing.
-      key: 'guests',
-      label: 'Guests',
-      href: `${base}/guests`,
-      icon: Users,
-      activeMatch: [`${base}/guests`, `${base}/sponsors`, `${base}/hosts`],
-      children: [
-        {
-          key: 'guests-summary',
-          label: 'Summary',
-          href: `${base}/guests`,
-          icon: LayoutDashboard,
-          // Exact — every other guests sub-route shares the /guests prefix.
-          activeMatch: `${base}/guests`,
-          activeMatchExact: true,
-        },
-        {
-          key: 'guests-search',
-          label: 'Search',
-          href: `${base}/guests?gpanel=search`,
-          icon: Search,
-          activeMatch: `${base}/guests`,
-          activeMatchExact: true,
-        },
-        {
-          key: 'guests-add',
-          label: 'Add',
-          href: `${base}/guests/new`,
-          icon: UserPlus,
-          activeMatch: `${base}/guests/new`,
-        },
-        {
-          key: 'guests-customize',
-          label: 'Customize',
-          href: `${base}/guests?gpanel=customize`,
-          icon: SlidersHorizontal,
-          activeMatch: `${base}/guests`,
-          activeMatchExact: true,
-        },
-        {
-          key: 'guests-journey',
-          label: 'Journey',
-          href: `${base}/guests?gview=map`,
-          icon: Route,
-          activeMatch: `${base}/guests`,
-          activeMatchExact: true,
-        },
-      ],
-    },
-    {
-      // 3 · Vendors — find → talk → sign → resolve. The menu's own route is
-      // the marketplace (Explore).
-      key: 'vendors',
-      label: 'Vendors',
-      href: `${base}/vendors`,
-      icon: Compass,
-      activeMatch: [
-        `${base}/vendors`,
-        `${base}/messages`,
-        `${base}/contracts`,
-        `${base}/disputes`,
-      ],
-      children: [
-        {
-          key: 'vendors-explore',
-          label: 'Explore',
-          href: `${base}/vendors`,
-          icon: Compass,
-          activeMatch: `${base}/vendors`,
-        },
-        {
-          key: 'vendors-messages',
-          label: 'Messages',
-          href: `${base}/messages`,
-          icon: MessageSquare,
-          activeMatch: `${base}/messages`,
-        },
-        {
-          key: 'vendors-contracts',
-          label: 'Contracts',
-          href: `${base}/contracts`,
-          icon: FileText,
-          activeMatch: `${base}/contracts`,
-        },
-        {
-          key: 'vendors-disputes',
-          label: 'Disputes',
-          href: `${base}/disputes`,
-          icon: AlertTriangle,
-          activeMatch: `${base}/disputes`,
-        },
-      ],
-    },
-    {
-      // 4 · Studio — the in-app services hub; the design tools are its
-      // children. The menu's own route (/add-ons) is the services grid.
-      key: 'add-ons',
-      label: 'Studio',
-      href: `${base}/add-ons`,
-      icon: Sparkles,
-      activeMatch: [
-        `${base}/add-ons`,
-        `/site-editor/${eventId}`,
-        `${base}/website`,
-        `${base}/invitation`,
-        `${base}/monogram`,
-      ],
-      children: [
-        {
-          key: 'studio-website',
-          label: 'Website',
-          href: `/site-editor/${eventId}`,
-          icon: Globe,
-          activeMatch: [
-            `/site-editor/${eventId}`,
-            `${base}/website`,
-            `${base}/invitation`,
-          ],
-        },
-        {
-          key: 'studio-moodboard',
-          label: 'Mood Board',
-          href: `${base}/add-ons/mood-board`,
-          icon: Palette,
-          activeMatch: `${base}/add-ons/mood-board`,
-        },
-        {
-          key: 'studio-monogram',
-          label: 'Monogram',
-          href: `${base}/monogram`,
-          icon: Type,
-          activeMatch: `${base}/monogram`,
-        },
-      ],
-    },
-    {
-      // 5 · Budget — navigates (no children).
-      key: 'budget',
-      label: 'Budget',
-      href: `${base}/budget`,
-      icon: Wallet,
-      activeMatch: [`${base}/budget`, `${base}/orders`, '/receipts'],
-    },
-    {
-      // 6 · Wedding — the event-day / logistics bucket. No own route — tapping
-      // extracts the accordion; the active highlight is driven by the children.
-      key: 'wedding',
-      label: 'Wedding',
-      // href is a fallback only (a menu with children opens the section). Point
-      // it at the first child so a non-JS / keyboard fallback still resolves.
-      href: `${base}/find-date`,
-      icon: Heart,
-      activeMatch: [
-        `${base}/find-date`,
-        `${base}/schedule`,
-        `${base}/seating`,
-        `${base}/event-qr`,
-        `${base}/live`,
-      ],
-      children: [
-        {
-          key: 'wedding-finddate',
-          label: 'Find date',
-          href: `${base}/find-date`,
-          icon: CalendarSearch,
-          activeMatch: `${base}/find-date`,
-        },
-        {
-          key: 'wedding-schedule',
-          label: 'Schedule',
-          href: `${base}/schedule`,
-          icon: CalendarClock,
-          activeMatch: `${base}/schedule`,
-        },
-        {
-          key: 'wedding-seating',
-          label: 'Seating',
-          href: `${base}/seating`,
-          icon: LayoutGrid,
-          activeMatch: `${base}/seating`,
-        },
-        {
-          key: 'wedding-eventqr',
-          label: 'Event QR',
-          href: `${base}/event-qr`,
-          icon: QrCode,
-          activeMatch: `${base}/event-qr`,
-        },
-        {
-          key: 'wedding-livewall',
-          label: 'Live Wall',
-          href: `${base}/live`,
-          icon: MonitorPlay,
-          activeMatch: `${base}/live`,
-        },
-      ],
-    },
-  ];
+  return buildCustomerNavGroups(eventId).map(navGroupToBottomNavMenu);
 }
 
 /**
  * CustomerBottomNav — wraps the shared BottomNav primitive with the
- * customer-doorway 6-menu accordion config. Renders nothing on lg+ (the
- * sidebar takes over). Per [[feedback_setnayan_orphan_prevention]] every
- * menu/child destination route exists (or resolves to a valid parent route
- * with a query fallback — see the builder header).
+ * customer-doorway 6-menu journey accordion config. Renders nothing on lg+
+ * (the sidebar takes over). Per [[feedback_setnayan_orphan_prevention]] every
+ * menu/child destination route exists (the roster is the same one the sidebar
+ * ships, whose hrefs all resolve to real route folders under
+ * apps/web/app/dashboard/[eventId]/ + /site-editor/[eventId]).
  *
  * The global nav shows on EVERY customer surface (owner directive
  * 2026-06-13 "global nav everywhere").

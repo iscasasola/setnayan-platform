@@ -58,6 +58,15 @@ PR 1 (#1431) made `submitOrderAction` re-resolve the charged price from `platfor
 **Bundle purchase path (verified):** the onboarding bundle screen routes to `/dashboard/[eventId]/add-ons/bundle?code=GUIDED_PACK|MEDIA_PACK`, which mounts the shared `InlineCheckoutDrawer` with `service_key = package_code` → submit hits the SAME `submitOrderAction` / `orders` + `payments` path as every retail SKU. No new action, no schema change. NO price VALUE invented or changed — only existing DB rows read. tsc green.
 
 SPEC IMPACT: None on prices/schema (server re-resolution only · prices stay owner-set in `platform_package_catalog`). Closes the bundle leg of the "catalog = single source of truth for every charge" program (PR 1 retail → PR 2 AI buy surface → this 2b bundle re-resolution).
+## 2026-06-15 · ci(mobile): Android `.aab` build workflow for Google Play submission
+
+App-store submission prep. The owner is registering a Google Play (Personal) developer account and has activated the Apple Developer Program. Native build tooling isn't installed locally (no JDK / Android SDK / full Xcode), so the Android app bundle is built in CI to match the existing `build-desktop.yml` "CI is the build machine" pattern.
+
+- **New `.github/workflows/build-android.yml`** — `workflow_dispatch`-only (manual). Sets up JDK 17 + Node 22 + Android SDK 36, runs `npm ci` + `npx cap sync android` in `apps/mobile`, decodes the upload keystore from `ANDROID_KEYSTORE_BASE64` + `ANDROID_KEYSTORE_PASSWORD` secrets into a gitignored `keystore.properties`, builds `:app:bundleRelease`, and uploads the signed `.aab` as an artifact. Manual-only on purpose so it doesn't fire red before the secrets exist.
+
+Upload keystore was generated out-of-repo at `/Users/Shared/setnayan-keys/` (alias `setnayan`, RSA 2048, 10000-day validity); `.gitignore` already blocks `*.jks` / `keystore.properties`. Full owner runbook (registration steps, listing copy, Google Data Safety answers, Apple privacy labels, iOS Xcode steps, Guideline 4.2 risk note) in the spec corpus: `0052_native_apps_delivery/App_Store_Submission_Runbook_2026-06-15.md`.
+
+SPEC IMPACT: None (CI infra + owner-action docs; no schema/SKU/feature change). The runbook is a new corpus delivery doc, not an iteration-spec edit.
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 

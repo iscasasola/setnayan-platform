@@ -204,6 +204,17 @@ Couple half of PR C of the Real-Stories featuring program. The couple consent ("
 Verified: tsc + lint clean on changed files (satori/sharp = known local-install gap, in CI). Both card variants (branded + photo) rendered + eyeballed locally.
 
 SPEC IMPACT: real editorials at `/[slug]` are now FB/Pinterest-shareable with a per-couple photo OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). The **vendor half of PR C** ("Featured in Real Stories" + "Share to your Page") is still outstanding — its background agent hit a transient rate-limit before opening a PR; to be re-run.
+## 2026-06-14 · feat(hero): contained scrub presentation + hybrid extraction (12fps @ 1280px)
+
+The hero scrub looked pixelated because the source clip (incl. the uploaded Higgsfield render) is **960×960**, and the hero stretched it **edge-to-edge** (`object-fit:cover` over 100vh) → ~1.5–2.7× upscale → pixelation. Measured: the live frame is a faithful 960×960 / 178 KB JPEG, so it's not compression — it's upscaling a 960px source past its native size. Owner chose **"contain it · sharp, not full-screen"** over re-rendering bigger.
+
+- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — the scrub frame is now **centered and contained** on the dark canvas, sized `min(nativeSide, 86vmin)` so it is **never displayed larger than the source's native resolution** (no upscaling → crisp on any screen), with a subtle rounded frame + shadow. New optional `frameWidth`/`frameHeight` props feed the native cap (fallback 960). The sticky stage is now flex-centered; scrim + end-CTA + scroll hint overlay unchanged.
+- `apps/web/app/_components/marketing/_sections.tsx` — `Hero()` passes `frameWidth`/`frameHeight` from the published config.
+- `apps/web/app/admin/hero-video/hero-uploader.tsx` — **hybrid frame extraction (owner 2026-06-14)**: the middle ground between the merged #1416 dense-but-soft capture (30fps @ 720px) and the sparse-but-sharp first cut (6fps @ 1920px). Now `FPS=12`, `FRAME_MAX_EDGE=1280`, `FRAME_JPEG_QUALITY=0.90`, `MIN_FRAMES=36`, `MAX_FRAMES=150`, `imageSmoothingQuality='high'`. 12fps glides smoothly enough for a scroll-scrub without the 30fps frame explosion; 1280px stays crisp on the **contained** hero (never full-bleed) on normal + most retina displays; a ~5s clip → ~60 frames → a bounded preload.
+
+Net: the contained hero renders **smooth AND sharp** — smoother than the 6fps cut, crisper than the live 720px capture, without a payload blow-up. Trade-off the owner accepted: not edge-to-edge. Extraction constants run at admin upload time (browser → R2), so they don't affect the homepage JS bundle / Lighthouse gates; the contain change is what bounds on-page payload.
+
+SPEC IMPACT: None (hero presentation + admin asset-quality tuning; no schema/SKU/pricing). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
 

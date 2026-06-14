@@ -22,6 +22,14 @@ type Props = {
   frameUrls: string[];
   ctaText: string;
   ctaHref: string;
+  /**
+   * Native frame dimensions. The hero is presented CONTAINED (centered on a
+   * dark canvas) and never displayed larger than these, so the source is never
+   * upscaled — a 960px clip stays crisp instead of pixelating when stretched
+   * full-bleed. (Owner 2026-06-14: "contain it · sharp, not full-screen".)
+   */
+  frameWidth?: number;
+  frameHeight?: number;
 };
 
 const SCRUB_END = 0.82; // frames play over the first 82% of scroll; CTA reveals after
@@ -47,7 +55,11 @@ const CAP_STYLE: CSSProperties = {
   willChange: 'opacity',
 };
 
-export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
+export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameHeight }: Props) {
+  // Cap the displayed square to the source's native size so we never upscale
+  // (upscaling a 960px source full-bleed was the pixelation). 86vmin keeps it
+  // within the viewport on any screen; falls back to 960 when dims are unknown.
+  const nativeSide = Math.min(frameWidth || 960, frameHeight || 960) || 960;
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
@@ -211,14 +223,23 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
 
   return (
     <section ref={wrapRef} className="relative" style={{ height: '300vh', background: '#0e0f12' }}>
-      <div className="sticky top-0 overflow-hidden" style={{ height: '100vh', background: '#0e0f12' }}>
+      <div className="sticky top-0 overflow-hidden flex items-center justify-center" style={{ height: '100vh', background: '#0e0f12' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* CONTAINED + centered, capped at the source's native size → never
+            upscaled → stays crisp on the dark canvas (vs the old full-bleed
+            `cover`, which pixelated a 960px source). */}
         <img
           ref={imgRef}
           alt=""
           aria-hidden
-          className="absolute inset-0 h-full w-full"
-          style={{ objectFit: 'cover' }}
+          className="block"
+          style={{
+            width: `min(${nativeSide}px, 86vmin)`,
+            height: `min(${nativeSide}px, 86vmin)`,
+            objectFit: 'cover',
+            borderRadius: 18,
+            boxShadow: '0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06)',
+          }}
         />
         <div
           ref={scrimRef}

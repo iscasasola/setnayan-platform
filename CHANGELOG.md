@@ -837,6 +837,21 @@ The build-order gate before any live two-way seating editing: ONE editor at a ti
 Verified: `tsc` + `next lint` + `build` + 89/89 unit tests, across both the build and an independent re-verify. Adversarial review confirmed the concurrency core sound (no double-win; server-clock staleness only) and all four UX findings fixed.
 
 **SPEC IMPACT:** Builds documented seat-finding PR 2 (corpus `DECISION_LOG.md` 2026-06-13 + memory `project_setnayan_seatfinding_pr2_lock`); extends iter 0008. ⚠ **MIGRATION-FIRST:** `20261216000000` MUST be applied to prod BEFORE this merges/deploys, or the editor view-only-locks (missing RPC). Open for owner: ① action-layer enforcement (not RLS — `assert_seating_lock_held` shipped + used live); ② co-owner exclusivity is a behavior change for two-partner couples. Fast-follows: distinguish transient-infra errors from genuine lock-loss on the assert path; first-mount banner flicker.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 9 (final-only behavior + post-finalize edit-guard) — spec fully landed
+
+The last two items, completing the program: decision #5's final-only behavior and the post-finalize guest-edit guard.
+
+**#5 — final-only now does something** (`lib/pax.ts` `fetchVendorPaxProposals`): in `adaptive_pricing_mode='final_only'` the per-vendor surcharge proposals are **suppressed while the count is still moving** (not yet locked) — faithful to "set the adjustment once at finalization." Once the count finalizes, the binding proposal appears (both modes). Realtime (the default) proposes continuously, as before. So the Phase 8 toggle now changes real behavior for both parties, not just a stored preference.
+
+**Post-finalize edit-guard** (decision #6's "anything after can't work"):
+- Migration **`20261215000000_guard_guest_edits_when_locked.sql`** (applied to prod): a `BEFORE INSERT/UPDATE/DELETE` trigger on `guests` that blocks **count-affecting** writes (insert, `rsvp_status` change, soft-delete, hard delete) once `guest_count_locked_at` is set — path-independent (couple page, quick-add, import, the guest self-RSVP portal, accepted claims). **service_role is exempt** (admin/system + the finalize path) and **cosmetic edits pass** (photo/tags/seating/meal — only the headcount is frozen). Check-in is unaffected regardless (it writes `guest_checkins`, never `guests`).
+- Friendly pre-checks (`lib/pax.ts` `guestEditsLocked`) on the two main add paths — `createGuest` (redirect `?error=finalized`, new error copy) + `quickAddGuest` (inline error) — so the couple sees "your guest list is finalized" instead of a raw DB error; the trigger is the backstop for every other path.
+
+With this, **all six locked decisions are fully implemented in behavior** (not just settings). Program complete: schema → couple meter → inquiry snapshot → vendor rate → surcharge+confirm → HQ audit → auto-finalize → couple settings → final-only + edit-guard.
+
+Verified: `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
+
+**SPEC IMPACT:** None to locked scope. Closes the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, all 6 decisions). Memory `project_setnayan_adaptive_pax_pricing` → fully complete.
 
 ---
 

@@ -67,13 +67,16 @@ function greatVibes(): OtFont {
  *  Shear in SVG y-down space: x' = x − y·tan(θ) leans the top to the right. */
 const ITALIC_SHEAR = Math.tan((12 * Math.PI) / 180);
 
-function shearPathData(p: OtPath, shear: number): string {
+function shearPathData(p: OtPath, shear: number, baselineY: number): string {
   if (!shear) return p.toPathData(2);
+  // Pivot the shear at the BASELINE so the glyph only leans (like CSS italic) —
+  // not also translates. x ← x − (y − baselineY)·shear: zero shift at the
+  // baseline, top (y<baselineY) leans right. (A naive y·shear would slide the
+  // whole glyph left by baselineY·shear and break alignment with the divider/∞.)
   for (const c of p.commands) {
-    // Each on/off-curve point: x ← x − y·shear (y-down: above-baseline y<0 → +x).
-    if (typeof c.x === 'number' && typeof c.y === 'number') c.x -= c.y * shear;
-    if (typeof c.x1 === 'number' && typeof c.y1 === 'number') c.x1 -= c.y1 * shear;
-    if (typeof c.x2 === 'number' && typeof c.y2 === 'number') c.x2 -= c.y2 * shear;
+    if (typeof c.x === 'number' && typeof c.y === 'number') c.x -= (c.y - baselineY) * shear;
+    if (typeof c.x1 === 'number' && typeof c.y1 === 'number') c.x1 -= (c.y1 - baselineY) * shear;
+    if (typeof c.x2 === 'number' && typeof c.y2 === 'number') c.x2 -= (c.y2 - baselineY) * shear;
   }
   return p.toPathData(2);
 }
@@ -90,7 +93,7 @@ function glyphPath(
 ): string {
   const adv = font.getAdvanceWidth(ch, fontSize);
   const p = font.getPath(ch, cx - adv / 2, baselineY, fontSize);
-  return shearPathData(p, shear);
+  return shearPathData(p, shear, baselineY);
 }
 
 export type EventLockupSource = {
@@ -209,12 +212,15 @@ export function drawLockupBadge(
     cap(lockup.b, 142, 78, 74);
   } else {
     // infinity — gold ∞ stroke + caps (no fontkit; literal path via drawSvgPath).
+    // borderWidth is in VIEWBOX units (NOT ×scale): pdf-lib emits setLineWidth
+    // AFTER the scale operator, so it's scaled once by the CTM → 6 → 6·scale on
+    // page, matching monogram-mark.tsx's strokeWidth=6. (×scale would double it.)
     page.drawSvgPath(INFINITY_PATH, {
       x: ox,
       y: oy,
       scale,
       borderColor: GOLD,
-      borderWidth: 6 * scale,
+      borderWidth: 6,
       borderLineCap: LineCapStyle.Round,
     });
     cap(lockup.a, 56, 56, 30);

@@ -57,9 +57,12 @@ const INK_FAINT = '#9AA0A6'; // eyebrows / captions
 // bundled opentype.js parser rejects variable fonts (it chokes on the `fvar`
 // table), so a static weight is mandatory for deterministic rendering. We use
 // Cardo (a classical Garamond-cousin serif) for display, Poppins for body
-// sans, and Great Vibes for the script flourish. Cardo has no separate italic
-// face — satori synthesizes a slant for `fontStyle: italic`, which reads as a
-// gentle editorial italic, exactly the intent.
+// sans, and Great Vibes for the script flourish. NOTE: this satori version does
+// NOT synthesize an oblique for `fontStyle: italic` on a family registered only
+// at style:normal — it renders the upright face. So the lockup serif glyphs
+// (bar/duo/infinity) read UPRIGHT on the card, a slight slant-drift vs the
+// chrome's true-italic CSS face. Acceptable; bundling an italic TTF + registering
+// it at style:italic would close the gap (deferred).
 const FONT_DIR = path.join(process.cwd(), 'lib', 'social', 'fonts');
 
 function loadFont(file: string): Buffer {
@@ -375,7 +378,14 @@ function lockupTree(
   type Geo = { vb: [number, number, number, number] };
   const GEO: Record<typeof style, Geo> = {
     bar: { vb: [6, 14, 120, 70] },
-    duo: { vb: [18, 18, 66, 62] },
+    // duo's canonical tight viewBox is near-square (66w) → k≈4.5 → the glyphs
+    // balloon and SPILL the ring, because (unlike the chrome's SVG viewport)
+    // satori div-positioned glyphs have nothing to clip them. Pad the viewBox
+    // horizontally around the content (caps centred ~x50) so k drops to ~2.1 and
+    // the un-clipped glyphs sit inside the ring. Padding only ever SHRINKS the
+    // mark — it cannot overflow. duo therefore reads a touch smaller than the
+    // other styles on the card; exact parity needs Vercel-side visual tuning.
+    duo: { vb: [-20, 18, 140, 62] },
     script: { vb: [8, 6, 168, 90] },
     infinity: { vb: [18, 8, 164, 76] },
   };

@@ -27,6 +27,7 @@ import {
 } from 'pdf-lib';
 import { RECEPTION_PARTS, sel, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
 import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
+import { deriveMonogram } from '@/lib/monogram';
 
 export type ConceptPdfEvent = {
   display_name: string;
@@ -154,9 +155,10 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
   const monoText = ascii(event.monogram_text?.trim() || initialsFrom(event.display_name)).slice(0, 7);
   const monoColor = hexToRgb(event.monogram_color, GOLD);
   // The couple's chosen type-only lockup (bar/duo/script/infinity), or null →
-  // keep the legacy initials badge. Use the un-squashed "A & B"-form label so
-  // splitInitials picks the two sides cleanly.
-  const lockupLabel = event.monogram_text?.trim() || event.display_name || '';
+  // keep the legacy initials badge. Use deriveMonogram (splits on &|and|+|/|-)
+  // so the label matches the QR/hero/chrome — the raw display_name would drop
+  // the lockup for "and"/"-"/"+"-joined couples (splitInitials only splits "&").
+  const lockupLabel = event.monogram_text?.trim() || deriveMonogram(event.display_name);
   const lockup = lockupForEvent(event, lockupLabel);
   const names = ascii(event.display_name || 'Your Wedding');
   const dateStr = formatDate(event.event_date);

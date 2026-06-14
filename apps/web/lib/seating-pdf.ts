@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, degrees, type PDFPage, type RGB } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
+import { deriveMonogram } from '@/lib/monogram';
 import {
   CHAIR_PX,
   TABLE_TYPE_LABEL,
@@ -212,9 +213,11 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
   const monoColor = hex(event.monogram_color, theme.accent);
   // The couple's chosen type-only lockup (bar/duo/script/infinity), or null →
   // keep the legacy initials badge (framed · single-initial · bespoke · legacy).
-  // The lockup label keeps the "A & B" form deriveMonogram produces, not the
-  // squashed "A&B" monoText above.
-  const lockupLabel = event.monogram_text?.trim() || event.display_name;
+  // The lockup label must be the SAME normalized "A & B" the QR/hero/chrome use
+  // (deriveMonogram splits on &|and|+|/|-), so "Maria and Juan" / "Aira-Boy"
+  // still resolve two initials — not the raw display_name (splitInitials only
+  // splits on a literal "&", which would drop the lockup for those couples).
+  const lockupLabel = event.monogram_text?.trim() || deriveMonogram(event.display_name);
   const lockup = lockupForEvent(event, lockupLabel);
 
   // ---- shared header band -------------------------------------------------

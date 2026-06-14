@@ -59,28 +59,59 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const barRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<Uint8Array>(new Uint8Array(0));
   const readyRef = useRef(false);
+  const armedRef = useRef(false); // gate the swipe-to-dismiss until just after ready, so leftover momentum can't auto-start the scrub mid-way
+  const statusRef = useRef<HTMLDivElement>(null);
   const lastIdx = useRef(-1);
 
   const N = frameUrls.length;
 
-  // Preload frames WITH load-tracking. Guards against the "stuck / next images don't
-  // show" feeling on a dense sequence: (1) apply() never swaps to a frame that hasn't
-  // decoded yet — it holds the nearest loaded one; (2) the loading veil stays up until
-  // EVERY frame is decoded (owner: "everything must load first" — the user never enters
-  // the scrub on a half-loaded sequence), then fades out. A thin progress bar shows it
-  // working; a long backstop timeout is the only escape hatch if a request truly hangs.
+  // Preload frames WITH load-tracking + a "make the wait useful" loading veil.
+  // Owner: everything must load first AND the wait should sell the story, then invite
+  // the swipe. So while frames load we LOCK page scroll and hold the visitor on the
+  // pitch + a progress bar; once every frame is in we release scroll and flip the
+  // prompt to "Swipe up to begin". apply() also never swaps to an unloaded frame.
   useEffect(() => {
     const n = frameUrls.length;
     const loaded = new Uint8Array(n);
     loadedRef.current = loaded;
     readyRef.current = false;
     let done = 0;
-    const baseline = n; // owner: everything must load first — hold the veil until EVERY frame is in
+    const reduce =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const stopTouch = (e: TouchEvent) => e.preventDefault();
+    const unlock = () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('touchmove', stopTouch);
+    };
     const reveal = () => {
       if (readyRef.current) return;
       readyRef.current = true;
-      if (loaderRef.current) loaderRef.current.style.opacity = '0';
+      unlock();
+      // Always begin at the FIRST frame: discard any scroll that slipped through during
+      // loading (e.g. iOS momentum the lock didn't fully catch), then arm the
+      // swipe-to-dismiss after a beat so that leftover momentum can't auto-start mid-scrub.
+      window.scrollTo(0, 0);
+      lastIdx.current = -1;
+      window.setTimeout(() => {
+        armedRef.current = true;
+      }, 350);
+      // Keep the veil up but invite the swipe — it fades on the first deliberate scroll.
+      if (statusRef.current) {
+        statusRef.current.textContent = 'Swipe up to begin ↑';
+        statusRef.current.style.color = 'var(--m-orange-3)';
+        statusRef.current.style.opacity = '1';
+      }
     };
+
+    if (reduce) {
+      readyRef.current = true;
+      if (loaderRef.current) loaderRef.current.style.opacity = '0';
+    } else {
+      document.body.style.overflow = 'hidden'; // lock scroll while the veil is up
+      document.addEventListener('touchmove', stopTouch, { passive: false });
+    }
+
     const imgs = frameUrls.map((u, i) => {
       const im = new window.Image();
       im.decoding = 'async';
@@ -90,17 +121,20 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         loaded[i] = 1;
         done++;
         if (barRef.current) barRef.current.style.transform = `scaleX(${(done / n).toFixed(3)})`;
-        if (done >= baseline) reveal();
+        if (!reduce && done >= n) reveal(); // every frame in → release + invite swipe
       };
       im.onload = onDone;
-      im.onerror = onDone; // a single failed frame must not trap the user behind the veil
+      im.onerror = onDone; // a failed frame still counts, so the veil can never trap the user
       im.src = u;
       return im;
     });
     framesRef.current = imgs;
     if (imgRef.current && imgs[0]) imgRef.current.src = imgs[0].src;
-    const safety = window.setTimeout(reveal, 30000); // backstop only, for a request that truly hangs (load/error never fire); the nearest-loaded fallback still covers any gap
-    return () => window.clearTimeout(safety);
+    const safety = window.setTimeout(() => { if (!reduce) reveal(); }, 30000); // backstop for a request that truly hangs
+    return () => {
+      window.clearTimeout(safety);
+      unlock(); // always release scroll on unmount
+    };
   }, [frameUrls]);
 
   useEffect(() => {
@@ -157,6 +191,11 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         const w = Math.min(p / SCRUB_END, 1);
         const idx = Math.round(w * (N - 1));
         const c = Math.min(Math.max((p - 0.8) / 0.18, 0), 1);
+        // Once everything's loaded AND the visitor makes a deliberate swipe (armed a
+        // beat after ready, so leftover momentum can't), fade the veil away.
+        if (readyRef.current && armedRef.current && p > 0.004 && loaderRef.current && loaderRef.current.style.opacity !== '0') {
+          loaderRef.current.style.opacity = '0';
+        }
         apply(idx, c, p);
       });
     };
@@ -233,25 +272,42 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — hides the half-loaded sequence until the opening frames decode, then fades out. */}
+        {/* Loading veil — turns the wait into the pitch: holds the visitor on the story
+            (scroll locked) until every frame is in, then invites the swipe; fades on first scroll. */}
         <div
           ref={loaderRef}
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          style={{ background: '#0e0f12', zIndex: 5, transition: 'opacity .7s ease' }}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center px-6"
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease' }}
         >
-          <div style={{ width: 190, textAlign: 'center' }}>
+          <div style={{ maxWidth: 600, textAlign: 'center' }}>
             <div
               className="m-mono"
-              style={{ fontSize: 10, letterSpacing: '.24em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)', marginBottom: 14 }}
+              style={{ fontSize: 10, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginBottom: 22 }}
             >
-              Setting the scene
+              Set na ’yan
             </div>
-            <div style={{ height: 2, borderRadius: 2, background: 'rgba(255,255,255,.14)', overflow: 'hidden' }}>
+            <p
+              className="m-serif italic"
+              style={{ color: '#1E2229', fontSize: 'clamp(1.4rem, 4.4vw, 2.15rem)', lineHeight: 1.32, margin: '0 auto 14px', maxWidth: 560 }}
+            >
+              Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don’t fit your wedding?
+            </p>
+            <p style={{ color: 'rgba(30,34,41,.6)', fontSize: 'clamp(.95rem, 2.6vw, 1.05rem)', lineHeight: 1.5, margin: '0 auto 30px', maxWidth: 440 }}>
+              We’re setting it all up for you.
+            </p>
+            <div style={{ height: 2, maxWidth: 220, margin: '0 auto 16px', borderRadius: 2, background: 'rgba(30,34,41,.12)', overflow: 'hidden' }}>
               <div
                 ref={barRef}
-                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .2s linear' }}
+                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
               />
+            </div>
+            <div
+              ref={statusRef}
+              className="m-mono"
+              style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(30,34,41,.5)', transition: 'color .5s ease, opacity .5s ease' }}
+            >
+              Setting it up for you…
             </div>
           </div>
         </div>

@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(alaala): onboarding "promise" beat — name Alaala at the emotional peak (Lane 1 complete)
+
+Completes **Lane 1** (the narrative spine). Right after the couple commits their love story in onboarding (after `love_preview`, before the practical region/pax/budget questions — the emotional peak), a one-screen brand moment names the pillar and states the guardrail.
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — new `alaala_promise` screen inserted in `FLOW_IDS` between `love_preview` and `region`; label added to the exhaustive `NEXT_LABEL_BY_ID`; `canContinue` defaults true (a 1-tap brand moment, not a gate). Copy: *"Your day, kept alive."* — "we keep it as your *Alaala*: the moments you'll be too busy to see, the people who can't be there, the stories your guests tell. A living memory, not a frozen album. And we stay out of the way — the day is yours to live; we just quietly remember it."
+
+SPEC IMPACT: None on schema/SKU (onboarding copy + one screen). **Lane 1 (spine) now complete** (Studio hub band + `/our-story` naming + onboarding promise); Lane 2 (a dedicated in-app Alaala hub) next.
+
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 
 Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tagalog: memory / remembrance / keepsake — it gathers Papic / Panood / Kwento / Pakanta / the rest into one promise) + a 3-lane embed plan (narrative spine → in-app Alaala hub → finish the uncopyable keystones). This is **Lane 1 (the spine), increment 1**:

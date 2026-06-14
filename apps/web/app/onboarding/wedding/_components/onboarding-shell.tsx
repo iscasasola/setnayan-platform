@@ -117,7 +117,7 @@ import { SDLoader } from '@/components/sd-loader';
    anchor to the real wedding year. The old single `love_met` (which crammed the Spark
    AND the Almost onto one page) is split into `love_spark` + `love_almost` so each page
    is ONE clearly-titled story (owner 2026-06-08 — "set each page to be 1 story"). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -158,6 +158,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   love_intro:'Continue', love_spark:'Continue', love_almost:'Continue', love_proposal:'Continue', love_milestones:'Continue',
   love_tone:'See our story', love_preview:'This is us',
   date:'Continue', region:'Continue', pax:'Continue', budget:'Continue',
+  // alaala_promise: a brand moment after the love story (names the pillar +
+  // states the guardrail); chrome Continue advances, canContinue defaults true.
+  alaala_promise:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
   // bundle (owner 2026-06-08): chrome CTA = the "skip the offer, build à la carte" advance to
   // `services`. The two bundle cards carry their OWN "Get {title}" CTAs that route to checkout.
@@ -3530,6 +3533,24 @@ export function OnboardingShell({
               windowEnd={state.windowEnd}
               onChange={patch}
             />
+          </section>
+
+          {/* ALAALA PROMISE — a brand moment after the love story, before the
+              practical questions: name the pillar + state the guardrail. The
+              chrome Continue advances (canContinue defaults true). */}
+          <section className={`screen${activeId === 'alaala_promise' ? ' active' : ''}`} id="screen-alaala-promise">
+            <div className="viewzone">
+              <div className="eyebrow">Our promise</div>
+              <h1 className="q">Your day, kept alive.</h1>
+              <p className="sub">
+                Everything you just shared {'—'} and everything that happens on the day {'—'} we keep
+                as your <em>Alaala</em>: the moments you{'’'}ll be too busy to see, the people who
+                can{'’'}t be there, the stories your guests tell. A living memory, not a frozen album.
+              </p>
+              <p className="sub" style={{ opacity: 0.72, marginTop: 8 }}>
+                And we stay out of the way. The day is yours to live {'—'} we just quietly remember it.
+              </p>
+            </div>
           </section>
 
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}

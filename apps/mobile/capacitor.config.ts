@@ -39,6 +39,17 @@ const config: CapacitorConfig = {
   ios: {
     // Lets the WebView surface camera/mic permission prompts natively.
     limitsNavigationsToAppBoundDomains: false,
+    // Platform-tagged UA so the server applies the iOS in-app price markup
+    // (apps/web/lib/platform-pricing.ts · Apple's up-to-30% IAP cut on digital
+    // goods). Still contains 'SetnayanApp' → isCapacitorClient()/middleware
+    // matching is unchanged.
+    appendUserAgent: 'SetnayanApp/ios',
+  },
+  android: {
+    // Platform-tagged UA so the server applies the Android in-app price markup
+    // (apps/web/lib/platform-pricing.ts · Google Play's up-to-30% cut). Still
+    // contains 'SetnayanApp' → isCapacitorClient()/middleware matching unchanged.
+    appendUserAgent: 'SetnayanApp/android',
   },
   plugins: {
     SplashScreen: {

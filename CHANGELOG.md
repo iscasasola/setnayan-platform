@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(pricing): native (iOS/Android) in-app prices +30% to net the same as web
+
+Owner directive — set iOS/Android pricing +30%. Apple/Google take up to 30% on in-app purchases of digital goods, so a native in-app purchase is marked up by that to net ≈ the web price. **Web checkout stays at the base catalog price** (Apple Pay / Google Pay on the web = 0% store cut); the app deep-links there where store rules allow.
+
+- **New `lib/platform-pricing.ts`** — `getRequestPlatform()` reads the request UA (the Capacitor shell appends `SetnayanApp/ios` | `SetnayanApp/android`; build/cron → `web`), `NATIVE_PRICE_MARKUP_PCT = 30`, `applyPlatformMarkupCentavos/Pesos()` (× 1.30, rounded to whole pesos). Tamper-safe: a spoofed UA can only look like web → pays the lower base; the base catalog price is the floor, we never undercharge.
+- **Charge (authoritative):** `submitOrderAction` applies the markup to the resolved base (flat / pax / bundle / non-catalog) right before the voucher math — every SKU covered.
+- **Display (shown == billed):** `getCustomerSkuPrice`, `formatV2Sku`, and `fetchV2CustomerCatalog` apply the same markup from the same request platform, so the buy surfaces + /pricing show the native price in-app and the base price on web.
+- **Native shell:** `apps/mobile/capacitor.config.ts` gains platform-tagged `appendUserAgent` (`SetnayanApp/ios` · `SetnayanApp/android`); still contains `SetnayanApp`, so `isCapacitorClient()`/middleware matching is unchanged.
+- The base price stays admin-managed in the catalog — this is a derived markup, never a second stored price. `NATIVE_PRICE_MARKUP_PCT` can move to `platform_settings` for admin control later (mirrors the Setnayan Pay fee).
+
+`tsc` + `pnpm test:unit` (133/133, +7 markup tests) green. **Follow-up (flagged):** the one pax-priced SKU's (Papic Guest) per-event display label still shows the base while the charge marks up — covered by the charge, fast follow on the label.
+
+SPEC IMPACT: native in-app pricing policy (+30%) — corpus `Pricing_Holistic_Pass §6` (web-checkout-not-IAP) gets the markup counterpart; logged in DECISION_LOG.
+
 ## 2026-06-15 · feat(pricing): soft-paywall banner on the match surface (completes the Setnayan AI buy flow)
 
 Follow-up to the AI buy surface (#1433). The buy *page* shipped there; this adds the **soft paywall where couples feel the gate** — the top of the vendor shortlist on `/dashboard/[eventId]/vendors`. When the AI paywall is ON and the event hasn't purchased Setnayan AI (`shouldOfferSetnayanAiPurchase(event)`), a "See your ranked shortlist — Unlock" banner links to `/add-ons/setnayan-ai` (which shows the catalog price + checkout). Rendered in both the takeover shortlist slot and the bare return by wrapping the `services` element.

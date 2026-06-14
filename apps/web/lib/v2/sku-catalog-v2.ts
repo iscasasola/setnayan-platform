@@ -25,6 +25,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getRequestPlatform, applyPlatformMarkupPesos } from '@/lib/platform-pricing';
 
 /**
  * Every active V2 retail SKU code in `platform_retail_catalog_v2`.
@@ -169,11 +170,16 @@ export async function formatV2Sku(
     .eq('service_code', sku)
     .maybeSingle();
   if (error || !data) return null;
+  // Native (iOS/Android) store-cut markup so a buy surface shows what it'll
+  // charge (submitOrderAction marks up the same way). Web → base. See
+  // lib/platform-pricing.ts.
+  const platform = await getRequestPlatform();
+  const pricePhp = applyPlatformMarkupPesos(Number(data.retail_price_php), platform);
   return {
     service_code: data.service_code as V2SkuCode,
     display_name: data.title,
-    price_php: Number(data.retail_price_php),
-    price_centavos: Math.round(Number(data.retail_price_php) * 100),
+    price_php: pricePhp,
+    price_centavos: Math.round(pricePhp * 100),
     is_token_able: data.is_token_able,
     description: data.description ?? null,
   };

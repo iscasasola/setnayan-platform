@@ -51,6 +51,7 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
+import { getRequestPlatform, applyPlatformMarkupCentavos } from '@/lib/platform-pricing';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -302,6 +303,20 @@ export async function submitOrderAction(
       originalCentavos = BigInt(bundleCentavos);
     }
   }
+
+  // ---- Native (iOS/Android) store-cut markup ----
+  //
+  // Apply the +30% native markup AFTER the base is resolved (catalog flat / pax
+  // / bundle, or the client value for non-catalog SKUs) and BEFORE the voucher
+  // math, so a discount applies to what the customer actually pays. Web →
+  // unchanged (base catalog price). The display readers (lib/v2-catalog.ts) apply
+  // the SAME markup from the same request platform, so shown == billed. See
+  // lib/platform-pricing.ts for the WHY (Apple/Google take up to 30% on in-app
+  // digital purchases; web checkout is 0% store cut).
+  const platform = await getRequestPlatform();
+  originalCentavos = BigInt(
+    applyPlatformMarkupCentavos(Number(originalCentavos), platform),
+  );
 
   // Re-validate the voucher server-side EVEN THOUGH the apply step already
   // checked. Two reasons: (a) defence-in-depth · the client could lie about

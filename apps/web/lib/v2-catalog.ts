@@ -22,6 +22,7 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getRequestPlatform, applyPlatformMarkupPesos } from '@/lib/platform-pricing';
 
 export type V2CustomerSku = {
   service_code: string;
@@ -143,10 +144,17 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
 
   if (error || !data) return [];
 
+  // Native (iOS/Android) store-cut markup on the headline price — web → base.
+  // Only the displayed retail_price_php is marked up here (the "from ₱X" label +
+  // flat-SKU price); the pax component fields stay raw so the per-event pax
+  // charge (submitOrderAction, which marks up the COMPUTED total) can't double-
+  // round. See lib/platform-pricing.ts.
+  const platform = await getRequestPlatform();
+
   return data.map((row) => ({
     service_code: row.service_code as string,
     title: row.title as string,
-    retail_price_php: Number(row.retail_price_php),
+    retail_price_php: applyPlatformMarkupPesos(Number(row.retail_price_php), platform),
     saas_overhead_cost_php: Number(row.saas_overhead_cost_php),
     is_token_able: Boolean(row.is_token_able),
     description: (row.description as string | null) ?? null,
@@ -276,7 +284,13 @@ export const getCustomerSkuPrice = cache(
       .eq('is_active', true)
       .maybeSingle();
     if (error || !data) return null;
-    return formatPeso(Number((data as { retail_price_php: number }).retail_price_php));
+    const platform = await getRequestPlatform();
+    return formatPeso(
+      applyPlatformMarkupPesos(
+        Number((data as { retail_price_php: number }).retail_price_php),
+        platform,
+      ),
+    );
   },
 );
 

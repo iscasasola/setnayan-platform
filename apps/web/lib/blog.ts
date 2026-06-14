@@ -41,6 +41,11 @@ export type BlogBlock =
   | { type: 'p'; text: string }
   | { type: 'h2'; text: string }
   | { type: 'ul'; items: string[] }
+  // Editorial pull-quote — a bite-size "nugget" the magazine reader renders as
+  // a gold-ruled standout between sections.
+  | { type: 'quote'; text: string }
+  // Inline editorial figure — public-path image with alt + optional caption.
+  | { type: 'image'; src: string; alt: string; caption?: string }
   // Internal-link call-out — hub-and-spoke linking to the rest of the site
   // (SEO playbook §13: no orphan pages). Always an internal href.
   | { type: 'cta'; text: string; href: string; label: string };
@@ -59,12 +64,19 @@ export type BlogArticle = {
   updatedAt?: string;
   /** At most one true at a time — pins the index hero. */
   featured?: boolean;
+  /** Editorial cover image (public path). AI-generated placeholder for V1
+   *  (owner 2026-06-15 — "AI now, swap to real photography later"). Also the
+   *  OpenGraph + BlogPosting `image`, so every share/SERP card gets art. */
+  cover: string;
+  coverAlt: string;
   blocks: BlogBlock[];
 };
 
 export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   {
     slug: 'what-to-do-12-months-before-your-philippine-wedding',
+    cover: '/blog/hero.webp',
+    coverAlt: 'A Filipino couple walking hand in hand through a garden at golden hour',
     title: 'What to do 12 months before your Philippine wedding',
     excerpt:
       'A month-by-month countdown for Filipino couples — from booking your date and church to the final headcount.',
@@ -95,6 +107,10 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
         ],
       },
       {
+        type: 'quote',
+        text: 'Book the suppliers who only take one event a day first — they are the first to run out.',
+      },
+      {
         type: 'cta',
         text: 'Compare verified Filipino wedding vendors by city, category, and the styles they specialize in.',
         href: '/explore',
@@ -107,6 +123,12 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'p',
         text: 'With the big rocks in place, move to the suppliers that shape how the day looks and feels. This is also the moment to settle your motif and palette, because almost every other vendor — florist, stylist, stationery, cake, attire — will ask for it.',
+      },
+      {
+        type: 'image',
+        src: '/blog/budget.webp',
+        alt: 'Wedding rings, an invitation suite and florals styled together',
+        caption: 'Settle your palette early — every other supplier briefs against it.',
       },
       {
         type: 'ul',
@@ -124,6 +146,10 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'p',
         text: 'Now the details. Send save-the-dates, finalize invitations, and choose your ceremony and reception music. Begin the marriage-licence process with your local civil registrar — a Philippine marriage licence is valid for 120 days from issue, so time it so it is still valid on your wedding day, not expired and not issued too late.',
+      },
+      {
+        type: 'quote',
+        text: 'A Philippine marriage licence is valid for 120 days. Time it so it is live on your day — not expired, not issued too late.',
       },
       {
         type: 'ul',
@@ -152,6 +178,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'how-much-do-wedding-suppliers-cost-philippines',
+    cover: '/blog/budget.webp',
+    coverAlt: 'Gold wedding rings, a letterpress invitation suite and eucalyptus on a styled table',
     title: 'How much do wedding suppliers cost in the Philippines?',
     excerpt:
       'Typical 2026 price ranges for the most-booked wedding suppliers — and how to budget for them without surprises.',
@@ -233,6 +261,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'civil-vs-church-wedding-philippines',
+    cover: '/blog/ceremony.webp',
+    coverAlt: 'The veil-and-cord rite draped over a kneeling couple in a sunlit church',
     title: 'Civil vs. church wedding in the Philippines: which is right for you?',
     excerpt:
       'Requirements, timeline, and cost differences between a civil and a church wedding — and how to choose.',
@@ -251,6 +281,10 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'p',
         text: 'Both a civil and a church wedding require a marriage licence from the local civil registrar where either of you resides. The licence has a 10-day posting period before release and is valid for 120 days from issue, anywhere in the Philippines. Both also need valid government IDs, the licence, and — if either of you is 18 to 25 — a parental consent or advice document.',
+      },
+      {
+        type: 'quote',
+        text: 'Both make you legally married. The difference is the ceremony, the requirements, and the feel of the day.',
       },
       {
         type: 'h2',
@@ -304,6 +338,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'filipino-wedding-entourage-guide-ninong-ninang-sponsors',
+    cover: '/blog/nugget.webp',
+    coverAlt: 'Thirteen golden arrhae coins resting in an open ceremonial chest',
     title: 'The Filipino wedding entourage, explained: ninong, ninang, and sponsors',
     excerpt:
       'Who stands where and does what — principal sponsors, secondary sponsors, and the bearers in a Filipino wedding.',
@@ -375,6 +411,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'wedding-budget-breakdown-philippines',
+    cover: '/blog/budget.webp',
+    coverAlt: 'Wedding rings, invitations and florals styled on a wooden table',
     title: 'Wedding budget breakdown: where the money actually goes',
     excerpt:
       'A realistic percentage breakdown of a Filipino wedding budget — so you know what to spend where before you commit.',
@@ -433,6 +471,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'marriage-license-requirements-philippines',
+    cover: '/blog/hero.webp',
+    coverAlt: 'A Filipino couple together at golden hour, planning ahead',
     title: 'Marriage licence in the Philippines: a step-by-step guide',
     excerpt:
       'Where to apply, what to bring, the 10-day wait, and the 120-day validity — the licence process, demystified.',
@@ -485,6 +525,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'how-to-choose-a-wedding-venue-philippines',
+    cover: '/blog/venue.webp',
+    coverAlt: 'A garden wedding reception lit by warm string lights at dusk',
     title: 'How to choose your wedding venue in the Philippines',
     excerpt:
       'Guest count, weather, and the questions to ask before you sign — a practical guide to picking the right venue.',
@@ -536,6 +578,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'catholic-wedding-requirements-philippines',
+    cover: '/blog/ceremony.webp',
+    coverAlt: 'A church wedding ceremony bathed in warm light through a tall window',
     title: 'Catholic wedding requirements in the Philippines',
     excerpt:
       'Pre-Cana, marriage banns, and the documents your parish will ask for — and how early to start.',
@@ -588,6 +632,8 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   },
   {
     slug: 'filipino-wedding-traditions-explained',
+    cover: '/blog/nugget.webp',
+    coverAlt: 'Golden arrhae coins in a ceremonial chest, a Filipino wedding tradition',
     title: 'Filipino wedding traditions, explained',
     excerpt:
       'The candle, veil, and cord; the arrhae; the money dance; and the reception customs that make a Filipino wedding ours.',
@@ -606,6 +652,10 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'p',
         text: 'During the ceremony, secondary sponsors perform three symbolic acts: candle sponsors light two candles for God\'s presence in the union; veil sponsors drape a veil over the couple to symbolize being clothed as one; and cord sponsors place a figure-eight cord, the yugal, to represent everlasting union. The groom also gives the arrhae — 13 blessed coins — as a pledge to provide for the family.',
+      },
+      {
+        type: 'quote',
+        text: 'The yugal — a figure-eight cord — is draped over the couple to symbolise everlasting union.',
       },
       {
         type: 'h2',
@@ -647,6 +697,53 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
 // only as the index-level "newest content" hint.
 // ───────────────────────────────────────────────────────────────────────────
 
+// ───────────────────────────────────────────────────────────────────────────
+// Nuggets — bite-size, shareable wisdom lifted from the guides (owner
+// 2026-06-15). Each one taps through to its source article, so the strip is a
+// low-maintenance discovery layer, never a separate content type to keep fresh.
+// ───────────────────────────────────────────────────────────────────────────
+
+export type BlogNugget = {
+  /** The wisdom, plain prose — rendered in the editorial serif. */
+  text: string;
+  category: BlogCategoryKey;
+  /** Slug of the guide this nugget is drawn from (the card links to it). */
+  sourceSlug: string;
+};
+
+export const BLOG_NUGGETS: ReadonlyArray<BlogNugget> = [
+  {
+    text: 'A Philippine marriage licence is valid for 120 days — time it so it is still live on your wedding day.',
+    category: 'planning',
+    sourceSlug: 'marriage-license-requirements-philippines',
+  },
+  {
+    text: 'Catering and venue usually take more than half the budget. Build those first, then fit the rest around what is left.',
+    category: 'planning',
+    sourceSlug: 'wedding-budget-breakdown-philippines',
+  },
+  {
+    text: 'Book the suppliers who only take one event a day first — photo-and-video, coordinator, and host.',
+    category: 'vendors',
+    sourceSlug: 'what-to-do-12-months-before-your-philippine-wedding',
+  },
+  {
+    text: 'The yugal — a figure-eight cord — is draped over the couple to symbolise everlasting union.',
+    category: 'culture',
+    sourceSlug: 'filipino-wedding-traditions-explained',
+  },
+  {
+    text: 'The arrhae: 13 blessed coins the groom gives as a pledge to provide for the family.',
+    category: 'culture',
+    sourceSlug: 'filipino-wedding-entourage-guide-ninong-ninang-sponsors',
+  },
+  {
+    text: 'Custom gowns commonly need 4–6 months. Order early, then relax.',
+    category: 'planning',
+    sourceSlug: 'what-to-do-12-months-before-your-philippine-wedding',
+  },
+];
+
 export const BLOG_LASTMOD = '2026-06-13';
 
 export const ALL_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [...BLOG_ARTICLES].sort(
@@ -687,6 +784,8 @@ export function blogPlainText(blocks: ReadonlyArray<BlogBlock>): string {
   return blocks
     .map((b) => {
       if (b.type === 'ul') return b.items.join(' ');
+      if (b.type === 'image') return b.caption ?? '';
+      // p / h2 / quote / cta all carry a `.text` field.
       return b.text;
     })
     .join(' ')

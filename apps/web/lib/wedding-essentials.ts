@@ -116,7 +116,7 @@ export type WeddingEssential = {
    * Where the primary CTA navigates.
    *
    * For `vendor_pick` essentials: the scoped marketplace URL (e.g.
-   * `/vendors?folder=reception`). When the card has 2 planGroups (venue),
+   * `/explore?folder=reception`). When the card has 2 planGroups (venue),
    * the marketplace URL points at the combined ceremony+reception folder
    * landing — couples pick which side they're shopping for there.
    *
@@ -163,7 +163,7 @@ export const WEDDING_ESSENTIALS: ReadonlyArray<WeddingEssential> = [
     label: 'Venue',
     hint: 'Where you say I do + where you celebrate. Often two different places.',
     planGroups: ['ceremony_venue', 'reception_venue'],
-    primaryHref: (_eventId) => `/vendors?folder=reception`,
+    primaryHref: (_eventId) => `/explore?folder=reception`,
     primaryCtaLabel: 'Browse venues',
     softMonthsBefore: 12,
   },
@@ -193,7 +193,7 @@ export const WEDDING_ESSENTIALS: ReadonlyArray<WeddingEssential> = [
     label: 'Catering',
     hint: 'Food + service. Tastings happen 4-6 months out; book the team earlier.',
     planGroups: ['catering'],
-    primaryHref: (_eventId) => `/vendors?folder=catering`,
+    primaryHref: (_eventId) => `/explore?folder=catering`,
     primaryCtaLabel: 'Browse caterers',
     softMonthsBefore: 9,
   },
@@ -203,7 +203,7 @@ export const WEDDING_ESSENTIALS: ReadonlyArray<WeddingEssential> = [
     label: 'Officiant',
     hint: 'Priest, pastor, or judge. Civil ceremonies need them booked early too.',
     planGroups: ['officiant'],
-    primaryHref: (_eventId) => `/vendors?folder=ceremony`,
+    primaryHref: (_eventId) => `/explore?folder=ceremony`,
     primaryCtaLabel: 'Browse officiants',
     softMonthsBefore: 9,
   },

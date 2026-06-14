@@ -15,6 +15,7 @@ import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { checkOrderOwnership } from '@/lib/entitlements';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Custom QR per guest · Setnayan' };
@@ -58,29 +59,19 @@ export default async function CustomQrGuestPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, event_date, slug, monogram_text, monogram_color, role_palette',
+      'event_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  // Owned-state — same query shape as website/page.tsx:124. Exclude
-  // cancelled / refunded / lapsed so a still-in-reconciliation order locks
-  // the page into its post-purchase "owned" state and the couple isn't
-  // double-charged. Graceful-degrade on a missing/legacy orders table
-  // (42P01 / 42703) — pre-bootstrap databases surface the buy CTA rather
+  // Owned-state via the shared checkOrderOwnership() reader (lib/entitlements.ts).
+  // Refund-aware: a still-in-reconciliation order locks the page into its
+  // post-purchase "owned" state so the couple isn't double-charged; cancelled /
+  // refunded / lapsed releases it. Graceful-degrade on a missing/legacy orders
+  // table (42P01 / 42703) — pre-bootstrap databases surface the buy CTA rather
   // than crashing, matching the PR #380/#390 hotfix pattern.
-  let owns = false;
-  const { data: ordersData, error: ordersError } = await supabase
-    .from('orders')
-    .select('service_key, status')
-    .eq('event_id', eventId)
-    .eq('service_key', SKU_CODE)
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-  if (ordersError && ordersError.code !== '42P01' && ordersError.code !== '42703') {
-    throw new Error(`Failed to load Custom QR order state: ${ordersError.message}`);
-  }
-  owns = (ordersData ?? []).length > 0;
+  const owns = await checkOrderOwnership(supabase, eventId, SKU_CODE);
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});

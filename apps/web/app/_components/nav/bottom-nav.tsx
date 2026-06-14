@@ -1,59 +1,104 @@
 'use client';
 
 /**
- * BottomNav — v2.1 Navigation Refactor Phase 0.
+ * BottomNav — THE canonical bottom navigation for the whole app.
  *
- * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 template package adoption" +
- * 14th 2026-05-28 row System Wiring Map audit. Mobile bottom-nav
- * primitive consumed by Phases 1-3 across the 3 doorways. Today each
- * doorway re-implements its own bottom nav (the customer side has the
- * 5-tab bar at apps/web/app/dashboard/[eventId]/_components/bottom-nav.tsx;
- * vendor + admin lean on the horizontal nav strip on desktop and have no
- * mobile bottom equivalent). This primitive lets Phases 1-3 ship a
- * coherent v2.1 mobile chrome across all 3 doorways.
+ * 🔒 UNBREAKABLE TEMPLATE (owner-locked 2026-06-13 ·
+ *    project_setnayan_bottom_nav_canonical · DECISION_LOG 2026-06-13).
+ * Every bottom-nav surface — customer dashboard, vendor dashboard,
+ * admin/HQ — mounts THIS component and passes only its own tabs. No
+ * surface hand-rolls a bar. The matching lint guard
+ * (scripts/lint-bottom-nav.mjs) fails the build if a `*bottom-nav*`
+ * wrapper is added that does not delegate here.
+ *
+ * THE LOCKED INTERACTION (measured off Instagram's Liquid-Glass bar):
+ *  - Frosted-glass stadium bar (translucent --m-paper + backdrop-blur).
+ *  - Active indicator = a FULL stadium pill that fills its tab cell and
+ *    TRAVELS ON RELEASE (selection commits on finger-up → the route
+ *    changes → the active index flips → the pill glides over) with a
+ *    spring + a subtle horizontal "liquid" stretch (.nav-pill-stretch).
+ *  - Press feedback = a diffused WHITE light that blooms under the finger
+ *    ON PRESS-DOWN (pointerdown, not release): it fills the pill
+ *    top-to-bottom solid and feathers only at the left/right ends (tall
+ *    element clipped by the row's overflow-hidden), fading on release.
+ *  - The pressed icon grows while held, settles on release.
+ *  This nav treatment SUPERSEDES the generic .sn-bounce for bottom navs.
+ *
+ * CENTRAL TUNING: the four motion knobs live as CSS custom props on the
+ * nav root (--bn-dur / --bn-grow / --bn-glow / --bn-stretch). Retune the
+ * whole app's nav feel by editing those four values here — nowhere else.
+ * Owner-locked baseline 2026-06-13: 500ms · grow 1.15 · glow 1.2 ·
+ * stretch 1.1 · white light.
  *
  * SCOPE: mobile-only (`lg:hidden`). Fixed bottom strip. Evenly
- * distributed grid, one column per item up to 6 (the customer doorway's
- * 6-tab row). Caller passes BottomNavItem[]. Renders nothing if empty;
- * warns to console if > 6 items.
+ * distributed columns, one per item up to 6 (the customer 6-tab row).
  *
  * ACTIVE DETECTION: each item's `activeMatch` accepts a single prefix
  * string OR an array of prefixes (any-of). Match is exact-equal OR
  * `startsWith(prefix + '/')` — same trailing-slash rule as <SidebarItem>
- * to prevent `/budgets` mis-matching `/budget`.
+ * so `/budgets` never mis-matches `/budget`. `activeMatchExact` suppresses
+ * the startsWith branch for Home-style tabs that prefix every sibling.
  *
- * SAFE-AREA: pb-[env(safe-area-inset-bottom)] keeps the bar above the
- * iOS home indicator. Background uses var(--m-paper)/95 + backdrop-blur
- * so content scrolling beneath bleeds through the chrome.
- *
- * Z-INDEX: z-30 — same layer as <SidebarShell> sidebar so neither covers
- * the other when both render (they shouldn't, since sidebar is lg+ and
- * bottom-nav is lg-hidden, but explicit layering survives future css
- * refactors).
- *
- * GEOMETRY: 56px min height per tab + 44pt touch target. Icon 22px,
- * label 10px tracking-wide. Active: --m-orange icon + ink label
- * font-semibold. Inactive: --m-slate icon + --m-slate label.
+ * SAFE-AREA: pb-[env(safe-area-inset-bottom)] keeps the bar above the iOS
+ * home indicator. Z-INDEX: z-30 (same layer as <SidebarShell>).
  */
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { BottomNavItem, NavBadgeTone } from './types';
 
 type Props = {
   items: BottomNavItem[];
 };
 
+function useIsActive(pathname: string) {
+  return useCallback(
+    (item: BottomNavItem) => {
+      const matches = Array.isArray(item.activeMatch)
+        ? item.activeMatch
+        : [item.activeMatch];
+      return item.activeMatchExact
+        ? matches.some((prefix) => pathname === prefix)
+        : matches.some(
+            (prefix) =>
+              pathname === prefix || pathname.startsWith(prefix + '/'),
+          );
+    },
+    [pathname],
+  );
+}
+
 export function BottomNav({ items }: Props) {
   const pathname = usePathname() ?? '';
+  const isActive = useIsActive(pathname);
 
-  // Surface a console warning in dev when callers exceed the 6-tab budget.
-  // The customer doorway uses 6 tabs (Home · Guests · Vendors · Website ·
-  // Add-ons · More) and the owner wants them on ONE row, not wrapped to
-  // two (CLAUDE.md 2026-05-31). Vendor + admin doorways have 5 items and
-  // stay at 5 columns. Beyond 6, labels get cramped at common PH mobile
-  // widths (360-414px) — flag so callers consolidate into a "More" tab.
+  // Which tab is being physically pressed right now (pointerdown → up).
+  // Drives the white press-light + the icon grow. Cleared on release,
+  // pointer-leave, cancel, and any window-level pointerup (release outside
+  // the bar) so the light never sticks on.
+  const [pressed, setPressed] = useState<number | null>(null);
+  useEffect(() => {
+    if (pressed === null) return;
+    const clear = () => setPressed(null);
+    window.addEventListener('pointerup', clear);
+    window.addEventListener('pointercancel', clear);
+    return () => {
+      window.removeEventListener('pointerup', clear);
+      window.removeEventListener('pointercancel', clear);
+    };
+  }, [pressed]);
+
+  // One-shot press-light flash: re-keyed on every press-down so even a quick
+  // tap plays the full bloom-and-fade (NOT tied to holding). Persists at the
+  // last-pressed column; the keyframe self-fades to invisible between taps.
+  const [flash, setFlash] = useState<{ index: number; id: number } | null>(
+    null,
+  );
+
+  // Surface a dev warning when callers exceed the 6-tab budget — beyond 6,
+  // labels get cramped at common PH mobile widths (360-414px).
   useEffect(() => {
     if (items.length > 6) {
       // eslint-disable-next-line no-console
@@ -65,64 +110,148 @@ export function BottomNav({ items }: Props) {
 
   if (items.length < 1) return null;
 
+  const n = Math.min(items.length, 6);
+  const colW = 100 / n;
+  const activeIndex = items.findIndex((it) => isActive(it));
+
   return (
     <nav
       aria-label="Primary navigation"
       className="fixed inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
-      style={{
-        background: 'rgba(251, 248, 242, 0.95)', // --m-paper @ 95% alpha
-        borderColor: 'var(--m-line)',
-      }}
+      style={
+        {
+          // Frosted-glass bar. Slightly desaturated paper so the WHITE press
+          // light reads against it (a white glow on pure white is invisible —
+          // same reason Instagram's bar is a touch grey).
+          background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha
+          borderColor: 'var(--m-line)',
+          // 🔒 The four central tuning knobs (owner-locked baseline 2026-06-13).
+          // Retune the whole app's nav feel by editing ONLY these four.
+          '--bn-dur': '500ms',
+          '--bn-grow': '1.15',
+          '--bn-glow': '1.5',
+          '--bn-stretch': '1.1',
+        } as CSSProperties
+      }
     >
-      {/* Columns driven entirely by the inline gridTemplateColumns below —
-          one column per item up to 6, so the customer's 6 tabs flow in a
-          single row instead of wrapping the 6th onto a second row. */}
-      <ul
-        className="grid px-1 py-1"
-        style={{
-          gridTemplateColumns: `repeat(${Math.min(items.length, 6)}, minmax(0, 1fr))`,
-        }}
-      >
-        {items.map((item) => (
-          <BottomNavTab key={item.key} item={item} pathname={pathname} />
-        ))}
-      </ul>
+      <div className="relative overflow-hidden">
+        {/* Active pill — travels on release. Outer track carries the
+            horizontal position (transitioned); inner span carries the
+            stretch keyframe (re-keyed per active index). Hidden when no
+            tab matches the current route. */}
+        {activeIndex >= 0 ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 z-0"
+            style={{
+              left: 0,
+              width: `${colW}%`,
+              height: 44,
+              transform: `translateY(-50%) translateX(${activeIndex * 100}%)`,
+              transition:
+                'transform var(--bn-dur) cubic-bezier(0.34, 1.4, 0.5, 1)',
+            }}
+          >
+            <span
+              key={activeIndex}
+              className="nav-pill-stretch absolute inset-y-0"
+              style={{
+                left: 6,
+                right: 6,
+                borderRadius: 999,
+                background: 'rgba(30, 34, 41, 0.15)', // --m-ink @ 15% — bolder so the active tab reads at a glance
+              }}
+            />
+          </span>
+        ) : null}
+
+        {/* Press light — a one-shot WHITE bloom under the finger on
+            press-down. Fills the pill top-to-bottom (tall element clipped by
+            the row) and feathers only at the left/right ends. Re-keyed per
+            press (flash.id) so even a quick TAP plays the full bloom-and-fade;
+            never travels — it jumps to the pressed column. */}
+        {flash ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 z-[1]"
+            style={{
+              left: 0,
+              width: `${colW}%`,
+              height: 44,
+              transform: `translateY(-50%) translateX(${flash.index * 100}%)`,
+            }}
+          >
+            <span
+              key={flash.id}
+              className="nav-press-flash absolute left-1/2 top-1/2"
+              style={{
+                width: `calc(100% - 4px)`,
+                height: 90,
+                borderRadius: 999,
+                background: 'rgba(255, 255, 255, 0.95)',
+                filter: 'blur(12px)',
+                opacity: 0,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          </span>
+        ) : null}
+
+        <ul
+          className="relative z-10 grid py-1"
+          style={{
+            gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`,
+          }}
+        >
+          {items.map((item, i) => (
+            <BottomNavTab
+              key={item.key}
+              item={item}
+              active={i === activeIndex}
+              pressed={pressed === i}
+              onPressStart={() => {
+                setPressed(i);
+                setFlash((f) => ({ index: i, id: f ? f.id + 1 : 1 }));
+              }}
+              onPressEnd={() => setPressed(null)}
+            />
+          ))}
+        </ul>
+      </div>
     </nav>
   );
 }
 
 function BottomNavTab({
   item,
-  pathname,
+  active,
+  pressed,
+  onPressStart,
+  onPressEnd,
 }: {
   item: BottomNavItem;
-  pathname: string;
+  active: boolean;
+  pressed: boolean;
+  onPressStart: () => void;
+  onPressEnd: () => void;
 }) {
-  const matches = Array.isArray(item.activeMatch)
-    ? item.activeMatch
-    : [item.activeMatch];
-  // Exact-match override for tabs whose route is a prefix of every other
-  // tab's route (e.g., admin Home `/admin` shouldn't startsWith-match
-  // `/admin/payments`). Mirrors the customer dashboard bottom-nav's
-  // home-tab pattern at /apps/web/app/dashboard/[eventId]/_components/
-  // bottom-nav.tsx:106.
-  const isActive = item.activeMatchExact
-    ? matches.some((prefix) => pathname === prefix)
-    : matches.some(
-        (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
-      );
-
   const Icon = item.icon;
 
   return (
     <li>
       <Link
         href={item.href}
-        aria-current={isActive ? 'page' : undefined}
-        className="flex min-h-[56px] min-h-[44pt] flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        aria-current={active ? 'page' : undefined}
+        onPointerDown={onPressStart}
+        onPointerUp={onPressEnd}
+        onPointerLeave={onPressEnd}
+        onPointerCancel={onPressEnd}
+        className="flex min-h-[56px] min-h-[44pt] select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
-          color: isActive ? 'var(--m-ink)' : 'var(--m-slate)',
+          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
           outlineColor: 'var(--m-orange)',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
         }}
       >
         <span className="relative inline-flex">
@@ -130,7 +259,11 @@ function BottomNavTab({
             aria-hidden
             className="h-[22px] w-[22px]"
             strokeWidth={1.75}
-            style={{ color: isActive ? 'var(--m-orange)' : 'var(--m-slate)' }}
+            style={{
+              color: active ? 'var(--m-orange)' : 'var(--m-slate)',
+              transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
+              transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
           />
           {item.badge && item.badge.count > 0 ? (
             <BadgeDot tone={item.badge.tone} count={item.badge.count} label={item.badge.label} />
@@ -138,7 +271,7 @@ function BottomNavTab({
         </span>
         <span
           className="whitespace-nowrap text-[10px] tracking-wide"
-          style={{ fontWeight: isActive ? 600 : 400 }}
+          style={{ fontWeight: active ? 600 : 400 }}
         >
           {item.label}
         </span>
@@ -148,10 +281,9 @@ function BottomNavTab({
 }
 
 /**
- * Compact badge dot positioned over the top-right corner of the icon. Uses
- * the same tone palette as the sidebar badge but renders smaller — bottom-
- * nav real-estate is too tight for a full pill, so the dot + sr-only label
- * carries the count for assistive tech.
+ * Compact badge dot over the top-right of the icon. Same tone palette as
+ * the sidebar badge but smaller — bottom-nav real-estate is too tight for
+ * a full pill, so the dot + sr-only label carries the count for AT.
  */
 function BadgeDot({
   tone,

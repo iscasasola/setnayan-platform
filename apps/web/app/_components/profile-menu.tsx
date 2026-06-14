@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { EventMonogram } from '@/app/_components/event-monogram';
 
 /**
  * (I) menu — iteration 0000 § (I) menu (locked 2026-05-14 single-strip
@@ -37,26 +36,19 @@ import { EventMonogram } from '@/app/_components/event-monogram';
 type Props = {
   email: string;
   /**
-   * Optional uploaded profile photo URL. When present, renders inside
-   * the avatar circle as an <img> with object-cover so the photo is
-   * cropped round. When absent, falls back to the email initial. The
-   * photo upload surface itself is V1.x scope; this prop scaffolds the
-   * contract so the wiring is one line when upload lands.
+   * The ACCOUNT's uploaded profile photo (presigned display URL of
+   * `users.profile_photo_url`). When present, renders inside the avatar
+   * circle as an <img> with object-cover so the photo is cropped round.
+   * When absent, falls back to the email initial.
+   *
+   * 2026-06-12 owner directive REVERSES the 2026-06-03 "avatar IS the
+   * event's logo" lock: "each account should have their account profile
+   * photo and not the event logo. event logo is for the event only." The
+   * `monogram` prop that let the primary event's framed monogram override
+   * this avatar is removed — the event logo now lives ONLY on the event
+   * switcher's monogram chip; this avatar is the account's identity.
    */
   photoUrl?: string | null;
-  /**
-   * The event's monogram. When present the avatar IS the event's logo — the
-   * couple's framed onboarding monogram (owner-locked 2026-06-03 "that will be
-   * the logo of the event"). Falls back to photo / initial when absent (e.g.
-   * the non-event dashboard chrome, admin / vendor doorways).
-   */
-  monogram?: {
-    display_name: string | null;
-    monogram_text: string | null;
-    monogram_color: string | null;
-    monogram_frame_key?: string | null;
-    monogram_font_key?: string | null;
-  } | null;
   /** Optional aria-label override. */
   ariaLabel?: string;
 };
@@ -64,16 +56,11 @@ type Props = {
 export function ProfileMenu({
   email,
   photoUrl,
-  monogram,
   ariaLabel = 'Account menu',
 }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const initial = email?.charAt(0).toUpperCase() || '?';
-  const hasMonogram = !!(
-    monogram &&
-    (monogram.monogram_frame_key || monogram.monogram_font_key)
-  );
 
   useEffect(() => {
     if (!open) return;
@@ -102,16 +89,9 @@ export function ProfileMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full transition-colors focus:outline-none ${
-          hasMonogram
-            ? 'hover:opacity-80 focus-visible:ring-2 focus-visible:ring-terracotta/40'
-            : 'border border-ink/15 bg-cream text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta focus-visible:border-terracotta focus-visible:text-terracotta'
-        }`}
+        className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta"
       >
-        {hasMonogram && monogram ? (
-          // The event's logo — the couple's framed onboarding monogram.
-          <EventMonogram event={monogram} size="lg" />
-        ) : photoUrl ? (
+        {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           // ^ Profile photo URL points at a Supabase/R2 host that's already
           // dimensioned for the 44×44 avatar surface — no Next.js Image

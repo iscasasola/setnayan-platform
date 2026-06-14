@@ -24,7 +24,6 @@ import {
 import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import {
   HARD_SINGLE_PICK_GROUPS,
-  canonicalServiceToPlanGroupId,
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
@@ -33,6 +32,11 @@ import {
   fetchSlotsForCoupleBooking,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
+import {
+  acquireSchedulePools,
+  releaseSchedulePools,
+  resolvePoolIdsForService,
+} from '@/lib/schedule-pools';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -217,20 +221,84 @@ export async function updateVendorStatus(formData: FormData) {
   if (!user) redirect('/login');
 
   // Snapshot the prior state so we can detect the "first-time delivered"
-  // transition that triggers the review-request notification below.
+  // transition that triggers the review-request notification below, and
+  // the white→BOOKED capacity transition for the schedule-pool gate.
   const { data: prev } = await supabase
     .from('event_vendors')
-    .select('status, vendor_name')
+    .select('status, vendor_name, marketplace_vendor_id, service_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // ── Schedule-pool gate (owner lock 2026-06-12) ─────────────────────────
+  // White (considering..contracted) is unlimited and consumes nothing; only
+  // BOOKED (deposit_paid/delivered/complete) consumes pool capacity. The
+  // acquire fires BEFORE the status write so a full/closed date blocks the
+  // flip atomically (the RPC holds the pool row locks); the reverse
+  // transition releases via released_at status-flip — never a DELETE.
+  // Off-platform vendors (no marketplace_vendor_id) and rows without a
+  // booked service degrade open — no shared scheduling primitive.
+  const prevRow = prev as {
+    status?: VendorStatus;
+    vendor_name?: string;
+    marketplace_vendor_id?: string | null;
+    service_id?: string | null;
+  } | null;
+  const wasConsuming = prevRow?.status
+    ? DOWNPAID_STATUSES.has(prevRow.status)
+    : false;
+  const willConsume = DOWNPAID_STATUSES.has(status);
+  if (
+    !wasConsuming
+    && willConsume
+    && prevRow?.marketplace_vendor_id
+    && prevRow.service_id
+  ) {
+    const poolIds = await resolvePoolIdsForService(
+      supabase,
+      prevRow.marketplace_vendor_id,
+      prevRow.service_id,
+    );
+    if (poolIds.length > 0) {
+      const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
+      if (acq.status === 'full') {
+        throw new Error(
+          `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before marking the deposit paid.`,
+        );
+      }
+      if (acq.status === 'blocked') {
+        throw new Error(
+          "The vendor has closed this date on their calendar — message them before marking the deposit paid.",
+        );
+      }
+      if (acq.status === 'error') {
+        throw new Error(acq.message);
+      }
+      // 'ok' | 'no_date' | 'no_pools' | 'not_authorized' fall through:
+      // no_date/no_pools = degrade open (eventual-consistency doctrine);
+      // not_authorized can't happen past the RLS-gated reads above.
+    }
+  }
 
   const { error } = await supabase
     .from('event_vendors')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // The acquire above may have consumed pools for a status flip that
+    // never landed — free them so the date isn't phantom-held.
+    if (!wasConsuming && willConsume) {
+      await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+    }
+    throw new Error(error.message);
+  }
+
+  // BOOKED → white downgrade frees the date (status-flip, never DELETE).
+  // Best-effort: the visible status change already succeeded.
+  if (wasConsuming && !willConsume) {
+    await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+  }
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
@@ -269,13 +337,30 @@ export async function deleteVendor(formData: FormData) {
   if (!user) redirect('/login');
 
   // Read the category before deleting so we know whether removing this pick
-  // frees the reception "ground 0" anchor (CLAUDE.md 2026-06-02 directive 3).
+  // frees the reception "ground 0" anchor (CLAUDE.md 2026-06-02 directive 3),
+  // and the status for the booked-row guard below.
   const { data: removing } = await supabase
     .from('event_vendors')
-    .select('category')
+    .select('category, status')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // Booked rows (deposit_paid+) can't be hard-deleted from the tracker —
+  // money has moved and the row holds live schedule-pool reservations.
+  // Route through the cancel/dispute flow instead (2026-06-04 conflict
+  // audit finding #6; owner status-flip lock 2026-06-12).
+  const removingStatus = (removing as { status?: VendorStatus } | null)?.status;
+  if (removingStatus && DOWNPAID_STATUSES.has(removingStatus)) {
+    throw new Error(
+      'This vendor is already booked (downpayment recorded). Use the cancel flow on their workspace page instead of deleting.',
+    );
+  }
+
+  // Defensive release of any stray live pool reservations before the row
+  // goes away (a hard delete would CASCADE them silently — release first
+  // so the date frees with an auditable reason).
+  await releaseSchedulePools(supabase, vendorId, 'host_cancelled');
 
   const { error } = await supabase
     .from('event_vendors')
@@ -375,6 +460,50 @@ export type FinalizeVendorResult =
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
 
+// True when a lock write lost the hard-single race to a concurrent host: the
+// event_vendors_hard_single_lock_uniq partial index (migration 20261210000000)
+// rejects the second CONFIRMED row in a hard-single group with 23505.
+function isHardSingleUniqueViolation(
+  err: { code?: string; message?: string; details?: string } | null | undefined,
+): boolean {
+  if (!err || err.code !== '23505') return false;
+  return `${err.message ?? ''} ${err.details ?? ''}`.includes(
+    'event_vendors_hard_single_lock_uniq',
+  );
+}
+
+// Re-read the now-locked sibling so a lost-the-race write surfaces the SAME
+// Switch/Cancel modal as the early fast-path check. Returns null if the
+// sibling can't be resolved (caller then falls back to a generic error).
+async function buildHardSingleConflict(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  vendorId: string,
+  groupId: string | null,
+  groupCategories: VendorCategory[],
+): Promise<Extract<FinalizeVendorResult, { status: 'hard_single_conflict' }> | null> {
+  const { data: siblings } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, status')
+    .eq('event_id', eventId)
+    .in('category', groupCategories as unknown as string[])
+    .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+    .is('archived_at', null)
+    .neq('vendor_id', vendorId)
+    .limit(1);
+  const sib = siblings?.[0];
+  if (!sib) return null;
+  const { PLAN_GROUPS: planGroups } = await import('@/lib/wedding-plan-groups');
+  const groupRow = planGroups.find((g) => g.id === groupId);
+  return {
+    status: 'hard_single_conflict',
+    groupId: groupId ?? '',
+    groupLabel: groupRow?.label ?? groupId ?? 'this category',
+    existingVendorId: sib.vendor_id as string,
+    existingVendorName: sib.vendor_name as string,
+  };
+}
+
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
@@ -435,27 +564,29 @@ export async function finalizeVendor(
     return { status: 'already_locked', vendorId };
   }
 
-  // Hard-single conflict check.
+  // Hard-single conflict check. The DB enforces the invariant via the
+  // event_vendors_hard_single_lock_uniq partial index (migration
+  // 20261210000000) no matter which write path runs; this early read is the
+  // FAST-PATH UX that surfaces the Switch/Cancel modal before we attempt the
+  // write. The two write paths below convert a lost-the-race 23505 into the
+  // same modal.
   const groupId = planGroupForCategory(targetCategory);
+  const isHardSingle = !!(groupId && HARD_SINGLE_PICK_GROUPS.has(groupId));
+  const groupCategories: VendorCategory[] = isHardSingle
+    ? VENDOR_CATEGORIES.filter((c) => planGroupForCategory(c) === groupId)
+    : [];
   let existingLocked:
     | { vendor_id: string; vendor_name: string; category: VendorCategory }
     | null = null;
 
-  if (groupId && HARD_SINGLE_PICK_GROUPS.has(groupId)) {
-    const groupCategories = (() => {
-      const list: VendorCategory[] = [];
-      for (const c of VENDOR_CATEGORIES) {
-        if (planGroupForCategory(c) === groupId) list.push(c);
-      }
-      return list;
-    })();
-
+  if (isHardSingle) {
     const { data: lockedSiblings, error: lockedErr } = await supabase
       .from('event_vendors')
       .select('vendor_id, vendor_name, category, status')
       .eq('event_id', eventId)
       .in('category', groupCategories as unknown as string[])
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+      .is('archived_at', null)
       .neq('vendor_id', vendorId)
       .limit(1);
     if (lockedErr) {
@@ -587,6 +718,15 @@ export async function finalizeVendor(
         },
       );
       if (acqErr) {
+        // The slot RPC flips status→'contracted' inside its lock; if that loses
+        // the hard-single race it raises 23505 on the partial index. Surface
+        // the Switch/Cancel modal instead of a red error.
+        if (isHardSingle && isHardSingleUniqueViolation(acqErr)) {
+          const conflict = await buildHardSingleConflict(
+            supabase, eventId, vendorId, groupId, groupCategories,
+          );
+          if (conflict) return conflict;
+        }
         return { status: 'error', message: acqErr.message };
       }
       const acqStatus =
@@ -766,12 +906,27 @@ export async function finalizeVendor(
   // flipped status→'contracted' + stamped service_time_slot_id inside the
   // acquire RPC's lock, so it skips this write (slotPathLocked).
   if (!slotPathLocked) {
+    // Status precondition (conflict-guard re-audit 2026-06-13, item 4): never
+    // let this soft-hold lock-write clobber a row that concurrently advanced
+    // to a money status. Without it, a finalize racing a downpayment could
+    // downgrade deposit_paid/delivered/complete back to 'contracted'.
     const { error: lockErr } = await supabase
       .from('event_vendors')
       .update({ status: LOCKED_STATUS, updated_at: new Date().toISOString() })
       .eq('vendor_id', vendorId)
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .not('status', 'in', '("deposit_paid","delivered","complete")');
     if (lockErr) {
+      // Lost the hard-single race to a concurrent host: the partial-unique
+      // index rejected this second CONFIRMED row with 23505. Re-read the
+      // winning sibling and surface the same Switch/Cancel modal as the early
+      // fast-path check — this is the authoritative, DB-serialized gate.
+      if (isHardSingle && isHardSingleUniqueViolation(lockErr)) {
+        const conflict = await buildHardSingleConflict(
+          supabase, eventId, vendorId, groupId, groupCategories,
+        );
+        if (conflict) return conflict;
+      }
       await insertFaultLog({
         event_type: 'SUPABASE_SAVE_ERROR',
         element_name: 'Lock (finalize) vendor booking',
@@ -940,159 +1095,30 @@ export async function finalizeVendor(
   }
 
   // ----------------------------------------------------------------------
-  // Auto-add cascade on finalize — CLAUDE.md 2026-05-22 owner directive.
+  // Auto-add cascade on finalize — REMOVED (owner 2026-06-12, link-gated
+  // rule; supersedes the CLAUDE.md 2026-05-22 "everything-cascade"
+  // directive).
   //
-  // Owner verbatim: "when finalized, and the other services of that vendor
-  // is not yet availed, it will be automatically added to the list of the
-  // event. example. a vendor locked in catering but also has a photobooth.
-  // their photobooth would automatically be on the list for photobooths.
-  // so the host can consider them as well."
+  // The old block here read ALL of the locked vendor's active
+  // vendor_services rows and auto-inserted considering picks
+  // (source='auto_cascade_from_finalize') into every other plan group.
+  // Owner-locked replacement: if the vendor did not explicitly link a
+  // service via vendor_service_links, it must NOT be auto-added to the
+  // couple's build.
   //
-  // Complements the intra-category archive sweep ABOVE (Task #26): that
-  // pass collapses other vendors competing for the SAME category. This
-  // pass expands the host's plan into OTHER categories the locked vendor
-  // can also handle. The two are complementary, not conflicting.
+  //   • LINKED services already reach the build through the shipped
+  //     category-satisfaction system in lib/vendors-plan-budget.ts — a
+  //     committed pick's vendor_service_links mark covered categories
+  //     "✓ included with {vendor}". They are price-included coverage,
+  //     not separate picks, so inserting event_vendors rows for them
+  //     would double-represent the link.
+  //   • UNLINKED services surface only via opt-in channels: the
+  //     cross-category RECOMMENDED badge (buildCrossCategoryRecommendations
+  //     in lib/wedding-plan-groups.ts) and inquiry cross-sell.
   //
-  // Algorithm:
-  //   1. Skip if the target vendor isn't marketplace-linked (off-platform
-  //      / custom vendors don't have vendor_services rows).
-  //   2. Look up vendor_services rows for the locked vendor.
-  //   3. For each row, resolve canonical_service → target PlanGroupId.
-  //   4. Skip if target == source category (no self-cascade).
-  //   5. Skip if host already has a finalized vendor in the target group
-  //      (don't replace someone's chosen pick).
-  //   6. Skip if host already has any event_vendors row (any status) for
-  //      THIS vendor in the target category (no duplicate).
-  //   7. INSERT new event_vendors row with status='considering',
-  //      source='auto_cascade_from_finalize', source_category=X.
-  //
-  // Failure mode: the cascade swallows errors silently (try/catch around
-  // the whole block). The lock step has already succeeded — failing the
-  // entire finalize because of a cascade hiccup would be hostile UX. The
-  // worst case is the host sees their lock but not the auto-cascaded
-  // considering picks; they can manually add them later if needed.
-  //
-  // Reversal: revertVendorToConsidering does NOT auto-remove cascaded
-  // rows. Host can manually remove via the existing pick-row Remove
-  // button (which fires deleteVendor). V1 keeps this simple — explicit
-  // host control over considering picks.
+  // Historical rows with source='auto_cascade_from_finalize' persist in
+  // the DB; UI rendering for them is kept. No new rows are produced.
   // ----------------------------------------------------------------------
-  if (targetVendor.marketplace_vendor_id) {
-    try {
-      const { data: vendorServices } = await supabase
-        .from('vendor_services')
-        .select('category')
-        .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
-        .eq('is_active', true);
-
-      if (vendorServices && vendorServices.length > 0) {
-        // Compute distinct target categories from the vendor's services.
-        // We bucket by PlanGroupId, then for each unique target group we
-        // pick the FIRST canonical category in vendor_services as the
-        // representative — that's the category the new event_vendors
-        // row gets stamped with. Picking one specific category (rather
-        // than the whole group) keeps the row queryable + filterable by
-        // VENDOR_CATEGORIES the same way every other row is.
-        const sourceCategory = targetVendor.category as VendorCategory;
-        const sourceGroupId = planGroupForCategory(sourceCategory);
-        // Map of PlanGroupId → first VendorCategory we saw for it.
-        const targetGroupToCategory = new Map<string, VendorCategory>();
-        for (const vs of vendorServices) {
-          const canonicalService = (vs as { category: string }).category;
-          if (!canonicalService) continue;
-          const targetGroup = canonicalServiceToPlanGroupId(canonicalService);
-          if (!targetGroup) continue;
-          // Skip self-cascade: don't auto-add into the same PlanGroup the
-          // host just locked in. (Hard-single groups can only have one
-          // vendor anyway; soft-single + multi groups would clutter.)
-          if (sourceGroupId && targetGroup === sourceGroupId) continue;
-          if (!targetGroupToCategory.has(targetGroup)) {
-            targetGroupToCategory.set(
-              targetGroup,
-              canonicalService as VendorCategory,
-            );
-          }
-        }
-
-        if (targetGroupToCategory.size > 0) {
-          // Pre-fetch the host's existing event_vendors rows in one trip
-          // so we can check (a) finalized vendors per group and (b) any
-          // existing row for THIS vendor per category without N+1
-          // queries. Filter out archived rows — they don't count as
-          // "already taken" since the host could re-add the vendor.
-          const { data: existing } = await supabase
-            .from('event_vendors')
-            .select('vendor_id, category, status, marketplace_vendor_id')
-            .eq('event_id', eventId)
-            .is('archived_at', null);
-
-          // Build two lookup sets:
-          //   • finalizedCategories: VendorCategory[] where the host has
-          //     a CONFIRMED status already (cascade skips these groups)
-          //   • vendorTakenCategories: VendorCategory[] where the host
-          //     already has any row for the SAME vendor (no duplicate)
-          const finalizedGroups = new Set<string>();
-          const vendorTakenCategories = new Set<string>();
-          for (const row of existing ?? []) {
-            const rowStatus = (row as { status: string | null }).status;
-            const rowCategory = (row as { category: string }).category;
-            const rowVendor = (row as { marketplace_vendor_id: string | null })
-              .marketplace_vendor_id;
-            if (
-              rowStatus &&
-              (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(
-                rowStatus,
-              )
-            ) {
-              const g = planGroupForCategory(rowCategory as VendorCategory);
-              if (g) finalizedGroups.add(g);
-            }
-            if (rowVendor === targetVendor.marketplace_vendor_id) {
-              vendorTakenCategories.add(rowCategory);
-            }
-          }
-
-          // Build the insert payload for every eligible target.
-          const insertRows: Array<{
-            event_id: string;
-            category: VendorCategory;
-            category_key: string | null;
-            vendor_name: string;
-            status: string;
-            marketplace_vendor_id: string;
-            source: string;
-            source_category: VendorCategory;
-          }> = [];
-          for (const [targetGroup, targetCategory] of targetGroupToCategory) {
-            // Skip if host already finalized something in this group.
-            if (finalizedGroups.has(targetGroup)) continue;
-            // Skip if host already has ANY row for this vendor in this
-            // exact category.
-            if (vendorTakenCategories.has(targetCategory)) continue;
-            insertRows.push({
-              event_id: eventId,
-              category: targetCategory,
-              category_key: primaryTileForVendorCategory(targetCategory),
-              vendor_name: targetVendor.vendor_name as string,
-              status: 'considering',
-              marketplace_vendor_id: targetVendor.marketplace_vendor_id,
-              source: 'auto_cascade_from_finalize',
-              source_category: sourceCategory,
-            });
-          }
-
-          if (insertRows.length > 0) {
-            // Batch insert — single round-trip. Errors are swallowed
-            // intentionally per the failure-mode comment above; the
-            // lock succeeded and that's what matters most to the host.
-            await supabase.from('event_vendors').insert(insertRows);
-          }
-        }
-      }
-    } catch {
-      // Silent cascade failure — preserves the successful lock.
-    }
-  }
 
   // Re-anchor "ground 0" when a RECEPTION venue is the thing just locked.
   // A LOCKED reception wins the anchor over any 'considering' one, so every
@@ -2484,6 +2510,12 @@ export async function cancelBookingAsHost(
         (profileRow as { user_id: string | null }).user_id ?? null;
     }
   }
+
+  // Free any stray live schedule-pool reservations with an auditable
+  // reason BEFORE the row delete cascades them away. Pre-payment rows
+  // normally hold none (white never consumes — owner lock 2026-06-12),
+  // so this is belt-and-suspenders for downgrade leftovers. Best-effort.
+  await releaseSchedulePools(supabase, vendorIdRaw, 'host_cancelled');
 
   // PRIMARY ACTION — hard-delete the event_vendors row. RLS enforces
   // host-on-event membership. If the row vanished between our read and

@@ -23,16 +23,6 @@ const UUID_RE =
 const LEGACY_SERVICES_RE =
   /^\/dashboard\/([^/]+)\/services(\/.*)?$/;
 
-// /vendors/compare orphan guard (Task #12 · CLAUDE.md 2026-05-22).
-// PR #231 (2026-05-20) shipped the compare surface but left its entry-points
-// for V1.2 wiring, which leaves the route reachable only by hand-typed URL —
-// a shipped orphan per the `feedback_setnayan_orphan_prevention` rule locked
-// 2026-05-22. Until V1.2 wires a real entry point on /vendors or
-// /dashboard/[eventId]/vendors, every hit is redirected to /vendors with a
-// notice banner. 307 (temporary + method-preserving) — the page itself is
-// preserved on disk, not deleted, so the redirect lifts cleanly when V1.2
-// removes this match. Matches GET requests with or without query params.
-const COMPARE_ORPHAN_PATH = '/vendors/compare';
 
 // Wildcard vendor subdomain support · owner directive 2026-05-28.
 // `{vendor-slug}.setnayan.com` → internal rewrite to `/v/{slug}` so the
@@ -65,6 +55,37 @@ const RESERVED_SUBDOMAINS = new Set([
   'preview', // reserved
 ]);
 
+// Native-app login-first entry (0052 design addition · owner-locked
+// 2026-06-10). The Capacitor shell omits the marketing brochure: someone
+// who installed the app has already converted. App-originated requests to
+// any bucket-① marketing route bounce to /login (or /dashboard when a
+// session exists) so the app boots straight into the product. Bucket-③
+// shareable surfaces (guest invites, day-of, /vendors browse, /v/[slug],
+// /realstories showcase, /help) stay reachable in-app; legal pages (/privacy,
+// /terms) stay reachable because store review requires them.
+const APP_EXCLUDED_MARKETING_PATHS = new Set([
+  '/',
+  '/features',
+  '/for-vendors',
+  '/pricing',
+  '/how-it-works',
+  '/waitlist',
+  '/download',
+]);
+
+// Two detection signals, either suffices:
+//   1. `setnayan-client-type=capacitor` cookie — set by ClientTypeDetector
+//      after the first render inside the shell's WebView.
+//   2. `SetnayanApp` user-agent marker — appended by the shell via
+//      `appendUserAgent` in apps/mobile/capacitor.config.ts. Covers the very
+//      first request of a fresh install, before the cookie exists.
+function isCapacitorClient(request: NextRequest): boolean {
+  return (
+    request.cookies.get('setnayan-client-type')?.value === 'capacitor' ||
+    (request.headers.get('user-agent') ?? '').includes('SetnayanApp')
+  );
+}
+
 function detectVendorSubdomain(hostname: string): string | null {
   const m = hostname.match(VENDOR_SUBDOMAIN_RE);
   if (!m) return null;
@@ -89,14 +110,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(rewrite);
   }
 
-  // /vendors/compare → /vendors?notice=compare_v1_2 (Task #12). Strip the
-  // visitor-supplied query string — the compare page never wired its `ids`
-  // param to anything actionable, so preserving it would only leak intent
-  // the receiving page cannot honor. The banner explains the gap politely.
-  if (pathname === COMPARE_ORPHAN_PATH) {
+  // /vendors → /explore rename (permanent · owner directive 2026-06-14). The
+  // public marketplace moved from /vendors to /explore; redirect the old paths
+  // (with subpaths + query strings) so bookmarks, shared links, and search
+  // equity carry over. 308 = permanent + method-preserving, matching the
+  // legacy /services → /add-ons precedent below. Runs AFTER the vendor-
+  // subdomain rewrite so slug.setnayan.com still resolves to /v/{slug}; the
+  // /v/[slug] vendor PROFILE route is a different prefix and is untouched.
+  if (pathname === '/vendors' || pathname.startsWith('/vendors/')) {
+    // /vendors/compare is still an un-wired orphan (its `ids` param was never
+    // honored — Task #12), so it lands on /explore with the explanatory notice
+    // banner instead of a bare /explore/compare. Query intentionally dropped.
+    if (pathname === '/vendors/compare') {
+      return NextResponse.redirect(
+        new URL('/explore?notice=compare_v1_2', request.url),
+        308,
+      );
+    }
+    const rest = pathname.slice('/vendors'.length); // '' | '/categories' | …
     return NextResponse.redirect(
-      new URL('/vendors?notice=compare_v1_2', request.url),
-      307,
+      new URL(`/explore${rest}${search}`, request.url),
+      308,
     );
   }
 
@@ -208,6 +242,17 @@ export async function middleware(request: NextRequest) {
       maxAge: 0,
     });
     return redirect;
+  }
+
+  // Native shell skips the brochure: marketing routes redirect to the
+  // product. 307 — the routes themselves stay live on the web, and the
+  // redirect target depends on session state, so nothing should cache it
+  // as permanent.
+  if (isCapacitorClient(request) && APP_EXCLUDED_MARKETING_PATHS.has(pathname)) {
+    return NextResponse.redirect(
+      new URL(user ? '/dashboard' : '/login', request.url),
+      307,
+    );
   }
 
   // Signed-in visitors landing on the marketing homepage get bounced to

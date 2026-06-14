@@ -6,17 +6,22 @@ import { useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, u
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import {
   Armchair,
+  CakeSlice,
+  Camera,
   ChevronDown,
   DoorOpen,
   Eye,
   EyeOff,
   FileDown,
   Footprints,
+  Gift,
   Link2,
   List,
   Map as MapIcon,
+  Martini,
   Maximize2,
   Minus,
+  Package,
   Plus,
   Printer,
   RotateCcw,
@@ -25,6 +30,7 @@ import {
   Save,
   Search,
   Sparkles,
+  Store,
   Trash2,
   Truck,
   Unlink,
@@ -33,41 +39,72 @@ import {
   X,
 } from 'lucide-react';
 import {
+  BOOTH_CATALOG,
   CHAIR_PX,
   ROLE_TIER_LABELS,
   SIDE_COLORS,
   TABLE_FOOTPRINT_M,
+  boothPerimeterSlots,
+  clampBoothToPerimeter,
+  computeAutoLayout,
+  freeBoothSlots,
   defaultTablePosition,
   effectiveCapacity,
+  guestTier,
   removedSeatSet,
   roleTier,
+  rectChainSnap,
   rotatePoint,
+  roundKissSnap,
+  serpentineChainSnap,
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
   tableGeometry,
+  type BoothType,
   type EventTableRow,
+  type FloorBoothRow,
   type FloorPlanRow,
+  type TableShapeHint,
   type TableType,
 } from '@/lib/seating';
 import {
   assignGroup,
   assignGuest,
-  autoSeatGuests,
+  autoArrange,
   createTable,
   deleteTable,
   linkTables,
   publishSeating,
+  saveBooths,
   saveFloorPlan,
   seatRoleAtTable,
+  setGuestSeatingPriority,
   setTableSeat,
   unassignGuest,
   unlinkTable,
   updateTableLabel,
   updateTablePosition,
   updateTableRotation,
+  updateTableType,
 } from '../actions';
 import { useSeatingPresence } from './use-seating-presence';
+import { useSeatingLock } from './use-seating-lock';
+import { SeatingLockError } from '../seating-lock-error';
+
+// True when a thrown error is the server lock-guard's "you no longer hold the
+// editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
+// actions don't preserve the class instance across the RSC boundary, so we
+// match defensively: instanceof first (client-thrown / preserved), then the
+// error's code, then its message text (dev) — covering prod digests too, where
+// the message is replaced but the original copy is unique enough to match.
+function isSeatingLockLost(err: unknown): boolean {
+  if (err instanceof SeatingLockError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { code?: unknown; message?: unknown };
+  if (e.code === 'seating_lock_not_held') return true;
+  return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
+}
 
 export type SeatingGuest = {
   guest_id: string;
@@ -86,6 +123,8 @@ export type SeatingGuest = {
   // caterer report aggregates it per table unit.
   meal_preference: string | null;
   dietary_restrictions: string | null;
+  // Explicit priority-tier override (1–4); null = derived from role/group.
+  seating_priority: number | null;
 };
 
 export type SeatingGroup = {
@@ -101,6 +140,7 @@ type Props = {
   guests: SeatingGuest[];
   groups: SeatingGroup[];
   floorPlan: FloorPlanRow;
+  booths: FloorBoothRow[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
   me: { id: string; name: string };
 };
@@ -114,7 +154,8 @@ type LocalPos = { x: number; y: number };
 type GuestSeatOp =
   | { type: 'seat'; guestId: string; tableId: string; seat: number | null }
   | { type: 'unseat'; guestId: string }
-  | { type: 'seatGroup'; ids: string[]; tableId: string };
+  | { type: 'seatGroup'; ids: string[]; tableId: string }
+  | { type: 'priority'; guestId: string; value: number | null };
 
 // Default placement for an un-positioned table — shared with the PDF + day-of
 // map (lib/seating) so the layout matches everywhere.
@@ -126,6 +167,7 @@ export function SeatingEditor({
   guests: guestsProp,
   groups,
   floorPlan,
+  booths: boothsProp,
   me,
 }: Props) {
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
@@ -139,6 +181,10 @@ export function SeatingEditor({
       case 'unseat':
         return state.map((g) =>
           g.guest_id === op.guestId ? { ...g, seated_table_id: null, seat_number: null } : g,
+        );
+      case 'priority':
+        return state.map((g) =>
+          g.guest_id === op.guestId ? { ...g, seating_priority: op.value } : g,
         );
       case 'seatGroup': {
         const set = new Set(op.ids);
@@ -158,7 +204,7 @@ export function SeatingEditor({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
-    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance';
+    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail' | 'booth';
     id: string;
     sx: number;
     sy: number;
@@ -192,12 +238,54 @@ export function SeatingEditor({
     w: floorPlan.dance_w,
     h: floorPlan.dance_h,
   });
+  // Cocktail / waiting-area room — a SECOND room on the same canvas (sits
+  // outside the reception walls). Booths place inside; tables/chairs blocked.
+  const [cocktail, setCocktail] = useState({
+    enabled: floorPlan.cocktail_enabled,
+    x: floorPlan.cocktail_x,
+    y: floorPlan.cocktail_y,
+    w: floorPlan.cocktail_w,
+    h: floorPlan.cocktail_h,
+    label: floorPlan.cocktail_label,
+    vendorEdit: floorPlan.cocktail_vendor_edit,
+  });
+  // True when a booth centre sits inside the cocktail room (used to tag the
+  // booth's zone on save — geometry is the source of truth).
+  const inCocktail = (bx: number, by: number) =>
+    cocktail.enabled &&
+    Math.abs(bx - cocktail.x) <= cocktail.w / 2 &&
+    Math.abs(by - cocktail.y) <= cocktail.h / 2;
+  // Vendor booths (Photo Booth, Mobile Bar, …) — perimeter-anchored markers.
+  // New booths get a tmp- id until the next save returns real rows; the prop
+  // re-syncs local state whenever there's nothing unsaved (boothsDirty=false),
+  // so a server revalidation can't clobber an in-flight drag.
+  const [booths, setBooths] = useState<FloorBoothRow[]>(boothsProp);
+  const [boothsDirty, setBoothsDirty] = useState(false);
+  const boothsDirtyRef = useRef(false);
+  boothsDirtyRef.current = boothsDirty;
+  const tmpBoothSeq = useRef(0);
+  useEffect(() => {
+    if (!boothsDirtyRef.current) setBooths(boothsProp);
+  }, [boothsProp]);
+  // Live floor-plan geometry for the booth perimeter rules (lib/seating).
+  const boothFp = () => ({
+    stage_x: stage.x,
+    stage_y: stage.y,
+    stage_w: stage.w,
+    stage_h: stage.h,
+    entrance_enabled: entrance.enabled,
+    entrance_x: entrance.x,
+    entrance_y: entrance.y,
+    service_entrance_enabled: serviceDoor.enabled,
+    service_entrance_x: serviceDoor.x,
+    service_entrance_y: serviceDoor.y,
+  });
   // Drag-resize of the stage / dance-floor (SE grip, NW corner anchored) and
   // of the venue walls. Self-contained pointer handlers on the grips; the
   // pxPerMeter is FROZEN at wall-grab so the canvas resizing mid-drag can't
   // feed back into the drag math.
   const rectDragRef = useRef<{
-    kind: 'stage' | 'dance';
+    kind: 'stage' | 'dance' | 'cocktail';
     startX: number;
     startY: number;
     startW: number;
@@ -227,6 +315,7 @@ export function SeatingEditor({
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showAddBooth, setShowAddBooth] = useState(false);
   const [canvasW, setCanvasW] = useState(0);
   const [floorDirty, setFloorDirty] = useState(false);
 
@@ -289,13 +378,51 @@ export function SeatingEditor({
   // Link-mode: started from a table's popup; the NEXT table tapped on the
   // canvas joins it into one named unit (identity + QR only).
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
+  // Exclusive editor lock (PR 2 · owner lock 2026-06-13): ONE editor per event,
+  // co-owners included. We attempt to acquire on mount; if a live peer already
+  // holds it we drop to view-only and surface a "Take over editing" button. A
+  // SOLO editor simply holds the lock (just a 30s heartbeat — no banner, no
+  // regression). `canEdit` is the single gate every edit affordance checks.
+  //
+  // The holder re-broadcasts a fresh heartbeat on presence every 30s; we feed
+  // that live value back into the hook (liveHolderHeartbeatAt below) so the
+  // hook judges stale-takeover off the FRESHEST beat, not the one-shot value
+  // frozen in the acquire envelope (which would falsely "go stale" ~90s after
+  // we landed in view-only even while the holder is alive). The state is
+  // declared here, fed into the hook, then refreshed by the effect after the
+  // presence peer list resolves below — breaking the lock↔presence data cycle.
+  const [liveHolderHeartbeatAt, setLiveHolderHeartbeatAt] = useState<string | null>(null);
+  const lock = useSeatingLock(eventId, me.name, liveHolderHeartbeatAt);
+  const canEdit = lock.status === 'editing';
+  useEffect(() => {
+    // Try to take the lock as soon as the editor opens (the surface itself is
+    // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.
+    lock.acquire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Live presence: who else is in this seat plan, which table they have
-  // selected, and their cursor on the canvas (Supabase Realtime).
-  const { peers, sendCursor } = useSeatingPresence(eventId, me, highlightId);
+  // selected, their cursor — and who holds the editor lock (so every peer can
+  // render the banner + compute stale-takeover from the server heartbeat).
+  const { peers, sendCursor } = useSeatingPresence(eventId, me, highlightId, {
+    lockHolderId: canEdit ? me.id : null,
+    lockHolderLabel: canEdit ? me.name : null,
+    lockHeartbeatAt: lock.holderHeartbeatAt,
+  });
   const peerList = [...peers.values()];
   const peerOnTable = (tableId: string) => peerList.find((p) => p.table === tableId) ?? null;
+  // The peer who claims the lock (if any) — used for the view-only banner copy.
+  const lockHolderPeer = peerList.find((p) => p.lockHolderId) ?? null;
+  // Feed the holder's LIVE presence heartbeat back into the lock hook so its
+  // stale-takeover clock tracks the freshest beat (see liveHolderHeartbeatAt
+  // above). When no peer is broadcasting a lock, clear it so the hook falls
+  // back to its own frozen envelope value.
+  const lockHolderPeerHeartbeat = lockHolderPeer?.lockHeartbeatAt ?? null;
+  useEffect(() => {
+    setLiveHolderHeartbeatAt(lockHolderPeerHeartbeat);
+  }, [lockHolderPeerHeartbeat]);
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<EventTableRow | null>(null);
   // The spatial chair canvas can't hold many tables on a phone, so small
   // screens default to a scrollable table-card list (0008 spec's mobile
   // surface). Both views are available on both platforms via the toggle.
@@ -423,49 +550,171 @@ export function SeatingEditor({
   const totalCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
   const unseatedCount = guests.length - seatedCount;
 
+  // Run a lock-gated server action and react to a lost-lock signal. After a
+  // takeover, the client still believes canEdit===true until the <=30s heartbeat
+  // returns 'lost'; in that window a gated action throws SeatingLockError. Rather
+  // than a generic "try again", we proactively drop to view-only (clear editing)
+  // and post a brief notice so the user understands their changes are paused.
+  // Re-throws any OTHER error so existing per-caller handling (e.g. link/unlink's
+  // own catch) still runs. Returns null on a lock loss so callers can short out.
+  // Returns true (and drops to view-only + notices) when `err` is the lock-lost
+  // signal; false otherwise so callers can rethrow. Shared by runGated and the
+  // try/catch callers (link/unlink/saveLayout/AddTablePanel).
+  const handleLockLost = (err: unknown): boolean => {
+    if (!isSeatingLockLost(err)) return false;
+    lock.notifyLost();
+    setNotice('Editing was taken over by another co-host — you’re viewing only now. Your last change wasn’t saved.');
+    return true;
+  };
+  const runGated = async <T,>(fn: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await fn();
+    } catch (err) {
+      if (handleLockLost(err)) return null;
+      throw err;
+    }
+  };
+
   // --- seat / move / unseat -------------------------------------------------
   const place = (tableId: string, seatNumber: number | null) => {
+    if (!canEdit) return;
     if (!pickedId) return;
     const guestId = pickedId;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('guest_id', guestId);
     if (seatNumber !== null) fd.set('seat_number', String(seatNumber));
     setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId, seat: seatNumber });
-      await assignGuest(fd);
+      await runGated(() => assignGuest(fd));
     });
   };
 
   const unseat = (guestId: string) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_id', guestId);
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      await unassignGuest(fd);
+      await runGated(() => unassignGuest(fd));
     });
   };
 
   const removeTable = (tableId: string) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     if (highlightId === tableId) setHighlightId(null);
     startTransition(async () => {
       applyTableOpt({ type: 'delete', id: tableId });
-      await deleteTable(fd);
+      await runGated(() => deleteTable(fd));
     });
   };
 
-  const runAutoSeat = () => {
+  // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
+  // silently returning everyone at it to the unseated pool — so a table with
+  // seated guests asks first. Empty tables keep one-tap delete.
+  const seatedAt = (tableId: string) => guests.filter((g) => g.seated_table_id === tableId).length;
+  const requestRemoveTable = (t: EventTableRow) => {
+    if (seatedAt(t.table_id) === 0) removeTable(t.table_id);
+    else setConfirmDelete(t);
+  };
+
+  // Every table's current %-position (saved spot, else its default-grid home) —
+  // shared by free-venue booth placement so booths tuck behind the real tables.
+  const tablePointsNow = () =>
+    tables.map((t, i) => positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled));
+
+  // One-click Auto Arrange — three deterministic steps, all free sorting
+  // logic (no AI): (1) computeAutoLayout rebuilds the table grid stage-out,
+  // (2) booths re-anchor — to the legal wall band in a sized room, or into a
+  // tidy row behind the tables in a free venue (gardens / open fields have no
+  // walls), (3) the server's role-tier auto-seat fills guests into the layout.
+  // Optimistic: the new geometry paints immediately; the server action then
+  // persists positions + booths and seats guests in one round-trip.
+  const runAutoArrange = () => {
     setConfirmAuto(false);
+    if (!canEdit) return; // view-only: someone else holds the editor lock.
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+    const fp = boothFp();
+    const layout = computeAutoLayout({
+      tables,
+      floorPlan: {
+        ...fp,
+        dance_enabled: dance.enabled,
+        dance_x: dance.x,
+        dance_y: dance.y,
+        dance_w: dance.w,
+        dance_h: dance.h,
+        cocktail_enabled: cocktail.enabled,
+        cocktail_x: cocktail.x,
+        cocktail_y: cocktail.y,
+        cocktail_w: cocktail.w,
+        cocktail_h: cocktail.h,
+      },
+      rect: { width: rect.width, height: rect.height },
+      footprintOf: footprintPx,
+    });
+    // Sized room → hug the walls; free venue → a row behind the tables.
+    const slots = venueScaled
+      ? boothPerimeterSlots(fp, booths.length)
+      : freeBoothSlots(
+          { x: stage.x, y: stage.y },
+          tables.map((t, i) => layout[t.table_id] ?? positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled)),
+          booths.length,
+        );
+    const nextBooths = booths.map((b, i) => ({
+      ...b,
+      x_pos: slots[i]?.x ?? b.x_pos,
+      y_pos: slots[i]?.y ?? b.y_pos,
+    }));
+    setPositions((p) => ({ ...p, ...layout }));
+    setBooths(nextBooths);
     const fd = new FormData();
     fd.set('event_id', eventId);
-    startTransition(() => autoSeatGuests(fd));
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('positions', JSON.stringify(layout));
+    fd.set('booths', boothsPayload(nextBooths));
+    startTransition(async () => {
+      const res = await runGated(() => autoArrange(fd));
+      if (!res) return; // lock lost — runGated already dropped us to view-only.
+      // The action persisted everything it was sent — nothing is "unsaved".
+      setDirty(new Set());
+      setBoothsDirty(false);
+      const boothWhere = venueScaled ? 'on the perimeter' : 'behind the tables';
+      setNotice(
+        res.seated > 0
+          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
+          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone attending is already seated.`,
+      );
+    });
+  };
+
+  // Tap the P-chip to cycle a guest's explicit priority override: from the
+  // derived tier it starts an override at 1, then 2→3→4, then back to derived
+  // (null). Optimistic — the chip flips instantly, the server persists.
+  const cyclePriority = (g: SeatingGuest) => {
+    if (!canEdit) return;
+    const next =
+      g.seating_priority === null ? 1 : g.seating_priority >= 4 ? null : g.seating_priority + 1;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('guest_id', g.guest_id);
+    fd.set('priority', next === null ? '' : String(next));
+    startTransition(async () => {
+      applyGuestOpt({ type: 'priority', guestId: g.guest_id, value: next });
+      await runGated(() => setGuestSeatingPriority(fd));
+    });
   };
 
   // Publish the seating pack + open the printable sign sheets. The print route
@@ -487,31 +736,37 @@ export function SeatingEditor({
   // Rename a table from the popup's inline field. No-op on an empty/unchanged
   // label; revalidation reflects the new name across the sidebar, list + print.
   const renameTable = (tableId: string, label: string) => {
+    if (!canEdit) return;
     const trimmed = label.trim();
     const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
     if (!trimmed || trimmed === current) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('table_label', trimmed.slice(0, 64));
-    startTransition(() => updateTableLabel(fd));
+    startTransition(async () => {
+      await runGated(() => updateTableLabel(fd));
+    });
   };
 
   // Bulk-seat a group onto a table (seat-what-fits; the server returns counts
   // and we surface a notice on overflow). Used by the pick-then-tap flow AND
   // the popup's in-context "Seat people" picker.
   const seatGroupMembers = (groupId: string, tableId: string) => {
+    if (!canEdit) return;
     const groupLabel = groups.find((g) => g.group_id === groupId)?.label ?? 'group';
     const memberIds = guests.filter((g) => g.group_id === groupId).map((g) => g.guest_id);
     setNotice(null);
     if (memberIds.length === 0) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('guest_ids', JSON.stringify(memberIds));
     startTransition(async () => {
       applyGuestOpt({ type: 'seatGroup', ids: memberIds, tableId });
-      const res = await assignGroup(fd);
+      const res = await runGated(() => assignGroup(fd));
       if (res && res.overflow > 0) {
         const label = tableLabelById.get(tableId) ?? 'that table';
         setNotice(
@@ -531,6 +786,7 @@ export function SeatingEditor({
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
   const seatGuestHere = (t: EventTableRow, guestId: string) => {
+    if (!canEdit) return;
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
@@ -542,25 +798,28 @@ export function SeatingEditor({
     }
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('guest_id', guestId);
     if (free !== null) fd.set('seat_number', String(free));
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
-      await assignGuest(fd);
+      await runGated(() => assignGuest(fd));
     });
   };
 
   // Seat a whole role tier here (the picker's Role tab). Server-side
   // seat-what-fits; we surface the overflow notice like group seating.
   const seatTierHere = (t: EventTableRow, tier: 1 | 2 | 3 | 4) => {
+    if (!canEdit) return;
     setNotice(null);
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('tier', String(tier));
     startTransition(async () => {
-      const res = await seatRoleAtTable(fd);
+      const res = await runGated(() => seatRoleAtTable(fd));
       if (res && res.overflow > 0) {
         setNotice(
           `${ROLE_TIER_LABELS[tier]}: seated ${res.seated} of ${res.requested} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
@@ -571,19 +830,48 @@ export function SeatingEditor({
 
   // Link two tables into one named unit / dissolve a unit (identity + QR only —
   // seating math stays per-table; the print pack emits ONE sign per unit).
+  // A successful link is visually quiet (the joined table just adopts the
+  // unit's name — it doesn't move), so say what happened in the notice bar;
+  // without it a working link reads as "nothing happened".
   const doLinkTables = (fromId: string, toId: string) => {
     setLinkingFrom(null);
+    if (!canEdit) return;
+    const fromLabel = tableLabelById.get(fromId) ?? 'the first table';
+    const toLabel = tableLabelById.get(toId) ?? 'the second table';
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id_a', fromId);
     fd.set('table_id_b', toId);
-    startTransition(() => linkTables(fd));
+    startTransition(async () => {
+      try {
+        await linkTables(fd);
+        setNotice(
+          `Linked — “${toLabel}” is now part of “${fromLabel}”: one name, one printed QR sign. They stay separate tables on the floor, so drag them side-by-side if you want them touching. Use the unlink button to undo.`,
+        );
+      } catch (err) {
+        if (!handleLockLost(err)) {
+          setNotice(`Couldn't link “${fromLabel}” and “${toLabel}” — please try again.`);
+        }
+      }
+    });
   };
   const doUnlink = (tableId: string) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
-    startTransition(() => unlinkTable(fd));
+    startTransition(async () => {
+      try {
+        await unlinkTable(fd);
+        setNotice('Unlinked — every table in that unit is back to its own name and QR sign.');
+      } catch (err) {
+        if (!handleLockLost(err)) {
+          setNotice(`Couldn't unlink the table — please try again.`);
+        }
+      }
+    });
   };
 
   // The table's current orientation (optimistic override → row default).
@@ -612,6 +900,9 @@ export function SeatingEditor({
     startRot: number;
     latest: number;
   } | null>(null);
+  // Serpentine chain snap may rotate the dragged wedge mid-drag (the joint
+  // dictates the angle); the final angle commits once on release.
+  const serpSnapRotRef = useRef<{ id: string; rot: number } | null>(null);
 
   const angleDeg = (cx: number, cy: number, px: number, py: number) =>
     (Math.atan2(py - cy, px - cx) * 180) / Math.PI;
@@ -621,36 +912,71 @@ export function SeatingEditor({
   // Persist a final orientation exactly (1° granularity — unlike the ±15°
   // buttons, a continuous gesture may land on a fine angle via Shift).
   const commitRotation = (tableId: string, deg: number) => {
+    if (!canEdit) return;
     const next = normDeg(deg);
     setRotById((m) => ({ ...m, [tableId]: next }));
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('rotation_deg', String(next));
-    startTransition(() => updateTableRotation(fd));
+    startTransition(async () => {
+      await runGated(() => updateTableRotation(fd));
+    });
   };
 
   // Rotate a table by `delta` degrees (or to an absolute angle). Snaps to 15°,
   // updates instantly, persists. Rotation is what lets wedges/banquets connect.
   const rotateTable = (t: EventTableRow, delta: number, absolute = false) => {
+    if (!canEdit) return;
     const base = absolute ? 0 : rotationOf(t);
     const next = ((Math.round((base + delta) / 15) * 15) % 360 + 360) % 360;
     setRotById((m) => ({ ...m, [t.table_id]: next }));
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', t.table_id);
     fd.set('rotation_deg', String(next));
-    startTransition(() => updateTableRotation(fd));
+    startTransition(async () => {
+      await runGated(() => updateTableRotation(fd));
+    });
+  };
+
+  // Change a table's STYLE (long → round, etc.). Capacity resets to the new
+  // shape and guests in chairs the new shape lacks are returned to the pool;
+  // the notice reports how many. Optimistic so the shape flips instantly.
+  const changeStyle = (t: EventTableRow, newType: TableType) => {
+    if (!canEdit) return;
+    if (newType === t.table_type) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', t.table_id);
+    fd.set('table_type', newType);
+    const newLabel = TABLE_TYPE_LABEL[newType];
+    startTransition(async () => {
+      const res = await runGated(() => updateTableType(fd));
+      if (!res) return; // lock lost — runGated already dropped us to view-only.
+      setNotice(
+        res.unseated > 0
+          ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${res.unseated} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
+          : `“${t.table_label}” is now a ${newLabel.toLowerCase()}.`,
+      );
+    });
   };
 
   // Delete / restore a single chair (clears the edge where two tables connect).
   const toggleSeat = (tableId: string, seatNumber: number, removed: boolean) => {
+    if (!canEdit) return;
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
     fd.set('table_id', tableId);
     fd.set('seat_number', String(seatNumber));
     fd.set('removed', removed ? 'true' : 'false');
-    startTransition(() => setTableSeat(fd));
+    startTransition(async () => {
+      await runGated(() => setTableSeat(fd));
+    });
   };
 
   // --- collision avoidance: tables never overlap ----------------------------
@@ -683,8 +1009,28 @@ export function SeatingEditor({
       const ddy = Math.abs(((y - dance.y) / 100) * rect.height);
       if (ddx < (m.w + dzw) / 2 && ddy < (m.h + dzh) / 2) return true;
     }
+    // The cocktail / waiting-area room is also a no-table zone (booths only).
+    if (cocktail.enabled) {
+      const czw = (cocktail.w / 100) * rect.width;
+      const czh = (cocktail.h / 100) * rect.height;
+      const cdx = Math.abs(((x - cocktail.x) / 100) * rect.width);
+      const cdy = Math.abs(((y - cocktail.y) / 100) * rect.height);
+      if (cdx < (m.w + czw) / 2 && cdy < (m.h + czh) / 2) return true;
+    }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
+      // Chainable families never "collide" with their own kind: serpentine
+      // wedges chain tip-to-tip and banquet/family-head runs join end-flush,
+      // so their bounding boxes overlap BY DESIGN (the box includes chair
+      // overhang past the tabletop). Without this exemption the mount-time
+      // resolver tears saved chains apart on every reload. Rounds keep
+      // colliding — their kiss snap lands just OUTSIDE the threshold.
+      const ms = shapeHintFor(moving.table_type);
+      const os = shapeHintFor(o.table_type);
+      const rectish = (s: typeof ms) => s === 'long_banquet' || s === 'family_head';
+      if ((ms === 'serpentine' && os === 'serpentine') || (rectish(ms) && rectish(os))) {
+        return false;
+      }
       const op = posFor(o, i);
       if (!op) return false;
       const of = footprintPx(o);
@@ -819,6 +1165,9 @@ export function SeatingEditor({
 
   // --- table reposition (drag the centre hub) ------------------------------
   const onHubPointerDown = (t: EventTableRow) => (e: React.PointerEvent) => {
+    // View-only (a peer holds the editor lock): no drag, no seating. Let the
+    // event bubble so the canvas can still pan/zoom for inspection.
+    if (!canEdit) return;
     if (pickedGroupId) {
       // A group is picked → pressing the hub seats the whole group here.
       e.stopPropagation();
@@ -834,6 +1183,13 @@ export function SeatingEditor({
       return;
     }
     e.preventDefault();
+    // This drag-start fully owns the gesture — don't let it bubble to the
+    // canvas. onCanvasPointerDown's two-finger-rotate detector can't tell this
+    // first finger from a genuine SECOND finger (both arrive with
+    // pointersRef.size === 1), so without this it cancels the drag the instant
+    // it begins — the table won't move. A real second finger lands on the
+    // canvas (not this hub), so it still reaches the rotate detector.
+    e.stopPropagation();
     dragRef.current = { kind: 'table', id: t.table_id, sx: e.clientX, sy: e.clientY, moved: false };
     setDragId(t.table_id);
     // Tracked in pointersRef too, so a SECOND finger landing on the canvas can
@@ -844,17 +1200,38 @@ export function SeatingEditor({
 
   // Drag the floor-plan elements (same pointer model as a table hub).
   const onMarkerPointerDown =
-    (kind: 'stage' | 'entrance' | 'service' | 'dance') => (e: React.PointerEvent) => {
+    (kind: 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail') => (e: React.PointerEvent) => {
+      if (!canEdit) return; // view-only: floor-plan markers aren't draggable.
       if (pickedId) {
         // Don't seat onto a marker, and don't start a pan.
         e.stopPropagation();
         return;
       }
       e.preventDefault();
+      // Same as the table hub: this drag-start owns the gesture, so keep it off
+      // the canvas pointer handler (no stray pan / gesture-detection on a marker
+      // drag).
+      e.stopPropagation();
       dragRef.current = { kind, id: kind, sx: e.clientX, sy: e.clientY, moved: false };
       setDragId(`__${kind}__`);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     };
+
+  // Drag a vendor booth — same pointer model, but the move handler runs the
+  // hardcoded perimeter snap (clampBoothToPerimeter) on every frame, so a
+  // booth can only travel along the legal wall band.
+  const onBoothPointerDown = (boothId: string) => (e: React.PointerEvent) => {
+    if (!canEdit) return; // view-only: booths aren't draggable.
+    if (pickedId || pickedGroupId) {
+      e.stopPropagation();
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { kind: 'booth', id: boothId, sx: e.clientX, sy: e.clientY, moved: false };
+    setDragId(`__booth_${boothId}__`);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
 
   const ZOOM_MIN = 0.1; // low enough that Fit frames even a large free auto-grow board
   const ZOOM_MAX = 2.6;
@@ -970,6 +1347,75 @@ export function SeatingEditor({
       const x = Math.max(lo, Math.min(hi, (((sx - panRef.current.x) / zoomRef.current) / rect.width) * 100));
       const y = Math.max(lo, Math.min(hi, (((sy - panRef.current.y) / zoomRef.current) / rect.height) * 100));
       if (d.kind === 'table') {
+        // Table chaining: when dragging near a same-family table's connection
+        // point, magnet them together — serpentine tips chain into an
+        // S / circle (position + rotation), banquet/family-head ends join
+        // flush into one continuous run (position + rotation), and rounds
+        // kiss edge-to-edge with the chair rings clearing (position only).
+        // Wins over the alignment/grid snap; Alt drags free. Chained pairs
+        // skip the collision pass (they're MEANT to touch) and overlapsAny
+        // exempts the touching families so saved chains survive remounts.
+        const movingEarly = tables.find((t) => t.table_id === d.id);
+        const movingShape = movingEarly ? shapeHintFor(movingEarly.table_type) : null;
+        if (movingEarly && movingShape && !e.altKey && movingShape !== 'sweetheart') {
+          const dragPx = { x: (x / 100) * rect.width, y: (y / 100) * rect.height };
+          const isRect = (s: ReturnType<typeof shapeHintFor>) =>
+            s === 'long_banquet' || s === 'family_head';
+          const pxOf = (o: EventTableRow) => {
+            const i = tables.indexOf(o);
+            const p = positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+            return { x: (p.x / 100) * rect.width, y: (p.y / 100) * rect.height };
+          };
+          // Tabletop half-length (rects) — hub only, chairs hang past it.
+          const halfLenOf = (o: EventTableRow) => {
+            const g = tableGeometry(shapeHintFor(o.table_type), o.capacity);
+            return (g.hub.w / 2) * (footprintPx(o).w / g.box.w);
+          };
+          let snap: { x: number; y: number; rot?: number } | null = null;
+          if (movingShape === 'serpentine') {
+            const serpBoxW = tableGeometry('serpentine', movingEarly.capacity).box.w;
+            snap = serpentineChainSnap(
+              dragPx,
+              tables
+                .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'serpentine')
+                .map((o) => ({ ...pxOf(o), rot: rotationOf(o), scale: footprintPx(o).w / serpBoxW })),
+            );
+          } else if (isRect(movingShape)) {
+            // A banquet/family-head flush join sits a whole tabletop-length
+            // away from the neighbour's centre, so a tiny catch radius is
+            // almost impossible to hit by hand. Scale the catch to the moving
+            // table's half-length — drag it ROUGHLY end-to-end and it snaps.
+            snap = rectChainSnap(
+              dragPx,
+              halfLenOf(movingEarly),
+              tables
+                .filter((o) => o.table_id !== d.id && isRect(shapeHintFor(o.table_type)))
+                .map((o) => ({ ...pxOf(o), rot: rotationOf(o), halfLen: halfLenOf(o) })),
+              Math.max(40, halfLenOf(movingEarly) * 0.9),
+            );
+          } else if (movingShape === 'round') {
+            snap = roundKissSnap(
+              dragPx,
+              footprintPx(movingEarly).w / 2,
+              tables
+                .filter((o) => o.table_id !== d.id && shapeHintFor(o.table_type) === 'round')
+                .map((o) => ({ ...pxOf(o), radius: footprintPx(o).w / 2 })),
+            );
+          }
+          if (snap) {
+            guidesRef.current = { x: null, y: null };
+            const nx = Math.max(lo, Math.min(hi, (snap.x / rect.width) * 100));
+            const ny = Math.max(lo, Math.min(hi, (snap.y / rect.height) * 100));
+            if (snap.rot !== undefined) {
+              serpSnapRotRef.current = { id: d.id, rot: snap.rot };
+              if (rotationOf(movingEarly) !== snap.rot) {
+                setRotById((m) => ({ ...m, [d.id]: snap.rot! }));
+              }
+            }
+            setPositions((p) => ({ ...p, [d.id]: { x: nx, y: ny } }));
+            return;
+          }
+        }
         // Alignment snap: pull to another table's centre (or the room
         // centreline) when within tolerance — the matched axis draws a guide
         // hairline. Hold Alt to drag free of all snapping.
@@ -1010,18 +1456,42 @@ export function SeatingEditor({
           if (gy === null) ay = Math.round(ay / gridY) * gridY;
         }
         guidesRef.current = { x: gx, y: gy };
-        // Slide around neighbours: snap to the nearest spot that doesn't overlap.
-        const moving = tables.find((t) => t.table_id === d.id);
-        const free = moving
-          ? nearestFree(ax, ay, moving, rect, (o, i) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled))
-          : { x: ax, y: ay };
-        setPositions((p) => ({ ...p, [d.id]: free }));
+        // Follow the cursor directly (with the alignment + grid snap above).
+        // We deliberately DON'T run the overlap resolver here: it used to
+        // spiral an already-touching table far across the room on the first
+        // pixel of a drag — the "table jumps a lot to the right when clicked"
+        // bug, worst on round/sweetheart (collision-prone) and invisible on
+        // banquet/serpentine (same-kind collision is exempt + they chain).
+        // The couple can place tables wherever they like, touching included;
+        // the mount-time auto-place still gives un-positioned tables a
+        // non-overlapping home, so nothing lands stacked on load.
+        setPositions((p) => ({ ...p, [d.id]: { x: ax, y: ay } }));
       } else if (d.kind === 'stage') {
         setStage((s) => ({ ...s, x, y }));
       } else if (d.kind === 'dance') {
         setDance((dz) => ({ ...dz, x, y }));
+      } else if (d.kind === 'cocktail') {
+        setCocktail((c) => ({ ...c, x, y }));
       } else if (d.kind === 'service') {
         setServiceDoor((sd) => ({ ...sd, x, y }));
+      } else if (d.kind === 'booth') {
+        // In a SIZED room the perimeter rules run live: snap to the nearest
+        // legal wall position, clear of the stage wall, door corridors and
+        // other booths. In a FREE venue (garden / open field) there are no
+        // walls to hug — the booth drops wherever it's dragged (board-clamped,
+        // like a table). Owner-directed 2026-06-13.
+        // Inside the cocktail room a booth places FREELY (it's a no-wall second
+        // room); elsewhere in a sized venue it snaps to the reception perimeter.
+        const p =
+          venueScaled && !inCocktail(x, y)
+            ? clampBoothToPerimeter(
+                x,
+                y,
+                boothFp(),
+                booths.filter((b) => b.booth_id !== d.id).map((b) => ({ x: b.x_pos, y: b.y_pos })),
+              )
+            : { x, y };
+        setBooths((bs) => bs.map((b) => (b.booth_id === d.id ? { ...b, x_pos: p.x, y_pos: p.y } : b)));
       } else {
         setEntrance((en) => ({ ...en, x, y }));
       }
@@ -1057,8 +1527,17 @@ export function SeatingEditor({
     dragRef.current = null;
     setDragId(null);
     guidesRef.current = { x: null, y: null };
+    const serpRot = serpSnapRotRef.current;
+    serpSnapRotRef.current = null;
     if (d?.moved) {
-      if (d.kind === 'table') setDirty((s) => new Set(s).add(d.id));
+      if (d.kind === 'table') {
+        setDirty((s) => new Set(s).add(d.id));
+        // The chain snap rotated the wedge to fit the joint — persist it once.
+        if (serpRot && serpRot.id === d.id) {
+          const t = tables.find((x) => x.table_id === d.id);
+          if (t && (t.rotation_deg ?? 0) !== serpRot.rot) commitRotation(d.id, serpRot.rot);
+        }
+      } else if (d.kind === 'booth') setBoothsDirty(true);
       else setFloorDirty(true);
     } else if (d && d.kind === 'table' && !pickedId && !pickedGroupId) {
       if (linkingFrom && d.id !== linkingFrom) {
@@ -1100,15 +1579,78 @@ export function SeatingEditor({
     setDance((dz) => ({ ...dz, enabled: false }));
     setFloorDirty(true);
   };
+  const addCocktailArea = () => {
+    setCocktail((c) => ({ ...c, enabled: true }));
+    setFloorDirty(true);
+  };
+  const removeCocktailArea = () => {
+    setCocktail((c) => ({ ...c, enabled: false }));
+    setFloorDirty(true);
+  };
+  // Add a vendor booth. Sized room → it spawns onto the nearest legal
+  // perimeter spot (bottom-centre bias), never mid-room. Free venue → into the
+  // tidy row behind the tables (no walls to hug); the couple drags from there.
+  const addBooth = (type: BoothType) => {
+    const label = BOOTH_CATALOG.find((b) => b.type === type)?.label ?? 'Booth';
+    const p = venueScaled
+      ? clampBoothToPerimeter(
+          50,
+          96,
+          boothFp(),
+          booths.map((b) => ({ x: b.x_pos, y: b.y_pos })),
+        )
+      : freeBoothSlots({ x: stage.x, y: stage.y }, tablePointsNow(), booths.length + 1)[booths.length] ?? {
+          x: stage.x,
+          y: 90,
+        };
+    tmpBoothSeq.current += 1;
+    setBooths((bs) => [
+      ...bs,
+      {
+        booth_id: `tmp-${tmpBoothSeq.current}`,
+        event_id: eventId,
+        booth_type: type,
+        label,
+        x_pos: p.x,
+        y_pos: p.y,
+        sort_order: bs.length,
+        // Zone is re-derived from geometry on save; couple-placed booths carry
+        // no vendor link.
+        zone: inCocktail(p.x, p.y) ? 'cocktail' : 'reception',
+        event_vendor_id: null,
+      },
+    ]);
+    setBoothsDirty(true);
+  };
+  const removeBooth = (boothId: string) => {
+    setBooths((bs) => bs.filter((b) => b.booth_id !== boothId));
+    setBoothsDirty(true);
+  };
+  // Serialize local booth state for the server (tmp ids become inserts).
+  const boothsPayload = (bs: FloorBoothRow[]) =>
+    JSON.stringify(
+      bs.map((b, i) => ({
+        booth_id: b.booth_id.startsWith('tmp-') ? null : b.booth_id,
+        booth_type: b.booth_type,
+        label: b.label,
+        x_pos: b.x_pos,
+        y_pos: b.y_pos,
+        sort_order: i,
+        // Geometry decides the zone: a booth dropped inside the cocktail room
+        // is a cocktail booth, otherwise reception.
+        zone: inCocktail(b.x_pos, b.y_pos) ? 'cocktail' : 'reception',
+        event_vendor_id: b.event_vendor_id ?? null,
+      })),
+    );
 
   // SE resize grip for the stage / dance-floor rects. NW-corner anchored: the
   // grip drags the bottom-right corner; the centre shifts by half the delta so
   // the top-left edge stays put. Self-contained pointer capture on the grip.
-  const onRectGripDown = (kind: 'stage' | 'dance') => (e: React.PointerEvent) => {
+  const onRectGripDown = (kind: 'stage' | 'dance' | 'cocktail') => (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const cur = kind === 'stage' ? stage : dance;
+    const cur = kind === 'stage' ? stage : kind === 'cocktail' ? cocktail : dance;
     rectDragRef.current = {
       kind,
       startX: cur.x,
@@ -1131,6 +1673,7 @@ export function SeatingEditor({
     const x = r.startX + (w - r.startW) / 2;
     const y = r.startY + (h - r.startH) / 2;
     if (r.kind === 'stage') setStage({ x, y, w, h });
+    else if (r.kind === 'cocktail') setCocktail((c) => ({ ...c, x, y, w, h }));
     else setDance((dz) => ({ ...dz, x, y, w, h }));
     setFloorDirty(true);
   };
@@ -1255,47 +1798,78 @@ export function SeatingEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables.length, venueScaled, view]);
 
-  const layoutDirty = dirty.size > 0 || floorDirty;
+  const layoutDirty = dirty.size > 0 || floorDirty || boothsDirty;
   const saveLayout = () => {
+    if (!canEdit) return;
     const ids = Array.from(dirty);
     const fdDirty = floorDirty;
+    const bDirty = boothsDirty;
+    const lockId = lock.lockId ?? '';
     startTransition(async () => {
-      for (const id of ids) {
-        const pos = positions[id];
-        if (!pos) continue;
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('table_id', id);
-        fd.set('x_pos', String(pos.x));
-        fd.set('y_pos', String(pos.y));
-        await updateTablePosition(fd);
-      }
-      if (fdDirty) {
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('stage_x', String(stage.x));
-        fd.set('stage_y', String(stage.y));
-        fd.set('stage_w', String(stage.w));
-        fd.set('stage_h', String(stage.h));
-        fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
-        fd.set('entrance_x', String(entrance.x));
-        fd.set('entrance_y', String(entrance.y));
-        fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
-        fd.set('dance_x', String(dance.x));
-        fd.set('dance_y', String(dance.y));
-        fd.set('dance_w', String(dance.w));
-        fd.set('dance_h', String(dance.h));
-        fd.set('service_entrance_enabled', serviceDoor.enabled ? 'true' : 'false');
-        fd.set('service_entrance_x', String(serviceDoor.x));
-        fd.set('service_entrance_y', String(serviceDoor.y));
-        if (venue.enabled && venue.width > 0 && venue.length > 0) {
-          fd.set('venue_width_m', String(venue.width));
-          fd.set('venue_length_m', String(venue.length));
+      // Multi-step save — if any step reports the lock was lost (a peer took
+      // over mid-save), drop to view-only and stop instead of erroring out the
+      // remaining writes. Other errors propagate as before.
+      try {
+        if (bDirty) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('booths', boothsPayload(booths));
+          await saveBooths(fd);
+          setBoothsDirty(false);
         }
-        await saveFloorPlan(fd);
+        for (const id of ids) {
+          const pos = positions[id];
+          if (!pos) continue;
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('table_id', id);
+          fd.set('x_pos', String(pos.x));
+          fd.set('y_pos', String(pos.y));
+          await updateTablePosition(fd);
+        }
+        if (fdDirty) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('stage_x', String(stage.x));
+          fd.set('stage_y', String(stage.y));
+          fd.set('stage_w', String(stage.w));
+          fd.set('stage_h', String(stage.h));
+          fd.set('entrance_enabled', entrance.enabled ? 'true' : 'false');
+          fd.set('entrance_x', String(entrance.x));
+          fd.set('entrance_y', String(entrance.y));
+          fd.set('dance_enabled', dance.enabled ? 'true' : 'false');
+          fd.set('dance_x', String(dance.x));
+          fd.set('dance_y', String(dance.y));
+          fd.set('dance_w', String(dance.w));
+          fd.set('dance_h', String(dance.h));
+          fd.set('service_entrance_enabled', serviceDoor.enabled ? 'true' : 'false');
+          fd.set('service_entrance_x', String(serviceDoor.x));
+          fd.set('service_entrance_y', String(serviceDoor.y));
+          fd.set('cocktail_enabled', cocktail.enabled ? 'true' : 'false');
+          fd.set('cocktail_x', String(cocktail.x));
+          fd.set('cocktail_y', String(cocktail.y));
+          fd.set('cocktail_w', String(cocktail.w));
+          fd.set('cocktail_h', String(cocktail.h));
+          fd.set('cocktail_label', cocktail.label);
+          fd.set('cocktail_vendor_edit', cocktail.vendorEdit ? 'true' : 'false');
+          if (venue.enabled && venue.width > 0 && venue.length > 0) {
+            fd.set('venue_width_m', String(venue.width));
+            fd.set('venue_length_m', String(venue.length));
+          }
+          await saveFloorPlan(fd);
+        }
+        setDirty(new Set());
+        setFloorDirty(false);
+      } catch (err) {
+        if (handleLockLost(err)) {
+          setNotice('Editing was taken over by another co-host — you’re viewing only now. Your unsaved layout changes weren’t saved.');
+          return;
+        }
+        throw err;
       }
-      setDirty(new Set());
-      setFloorDirty(false);
     });
   };
 
@@ -1327,7 +1901,9 @@ export function SeatingEditor({
           <button
             type="button"
             onClick={() => setShowAddTable((v) => !v)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600"
+            disabled={!canEdit}
+            title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
           </button>
@@ -1343,7 +1919,14 @@ export function SeatingEditor({
           Only show unseated
         </label>
 
-        {showAddTable ? <AddTablePanel eventId={eventId} onDone={() => setShowAddTable(false)} /> : null}
+        {showAddTable && canEdit ? (
+          <AddTablePanel
+            eventId={eventId}
+            lockId={lock.lockId}
+            onDone={() => setShowAddTable(false)}
+            onLockLost={handleLockLost}
+          />
+        ) : null}
 
         {/* Tables */}
         <Section label={`Tables · ${tables.length}`}>
@@ -1401,7 +1984,7 @@ export function SeatingEditor({
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeTable(t.table_id)}
+                      onClick={() => requestRemoveTable(t)}
                       aria-label={`Delete ${t.table_label}`}
                       className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
                     >
@@ -1428,6 +2011,7 @@ export function SeatingEditor({
                   picked={pickedId === g.guest_id}
                   tableLabel={g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null}
                   onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
+                  onCyclePriority={() => cyclePriority(g)}
                 />
               ))}
             </ul>
@@ -1512,6 +2096,7 @@ export function SeatingEditor({
                                 g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null
                               }
                               onPick={() => setPickedId((id) => (id === g.guest_id ? null : g.guest_id))}
+                              onCyclePriority={() => cyclePriority(g)}
                             />
                           ))
                         )}
@@ -1527,6 +2112,67 @@ export function SeatingEditor({
 
       {/* ---------------- Canvas ---------------- */}
       <div className="space-y-3">
+        {/* Exclusive-editor lock banner (PR 2). Renders whenever we are NOT the
+            active editor (canEdit === false) — a SOLO editor who holds the lock
+            (status==='editing') still sees NOTHING (no regression). Two shapes:
+            (a) a live peer is present → "X is editing" + takeover once stale;
+            (b) NO peer present but we still can't edit → a solo-recovery banner
+            so the user is never stranded in view-only (orphaned lock, or a
+            transient acquire failure on mount). Recovery is always one click:
+            acquire() re-asserts and the DB grants it (took_over for a stale/
+            orphaned lock, acquired once it frees). */}
+        {peers.size > 0 && !canEdit ? (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-3 py-2 text-xs text-ink/80"
+          >
+            <Eye className="h-3.5 w-3.5 shrink-0 text-mulberry" />
+            <span className="min-w-0 flex-1">
+              <strong className="font-semibold text-ink">
+                {lockHolderPeer?.lockHolderLabel ?? lock.holderLabel ?? 'Someone'}
+              </strong>{' '}
+              is editing this seat plan — you&rsquo;re viewing only. Your changes are paused until
+              they finish.
+            </span>
+            {lock.status === 'stale_takeover_available' ? (
+              <button
+                type="button"
+                onClick={lock.acquire}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 font-semibold text-cream hover:bg-mulberry-600"
+              >
+                Take over editing
+              </button>
+            ) : (
+              <span className="shrink-0 text-ink/45">Checking for handover…</span>
+            )}
+          </div>
+        ) : !canEdit ? (
+          // No peer present, yet we can't edit — never strand a solo user.
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-3 py-2 text-xs text-ink/80"
+          >
+            <Eye className="h-3.5 w-3.5 shrink-0 text-mulberry" />
+            <span className="min-w-0 flex-1">
+              {lock.status === 'acquiring' ? (
+                <>Opening the seat plan for editing…</>
+              ) : (
+                <>
+                  You&rsquo;re viewing only — the editor lock isn&rsquo;t held by you yet. Tap to
+                  start editing.
+                </>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={lock.acquire}
+              disabled={lock.status === 'acquiring'}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-mulberry px-2.5 py-1 font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Retry editing'}
+            </button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <ul className="flex flex-wrap gap-2 text-[11px]">
             {peerList.map((p) => (
@@ -1611,11 +2257,76 @@ export function SeatingEditor({
                 <Footprints className="h-3.5 w-3.5" /> Dance floor
               </button>
             ) : null}
+            {view === 'plan' && !cocktail.enabled ? (
+              <button
+                type="button"
+                onClick={addCocktailArea}
+                title="A second room (cocktail / waiting area) — booths only, no tables"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+              >
+                <Martini className="h-3.5 w-3.5" /> Cocktail area
+              </button>
+            ) : null}
+            {view === 'plan' ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAddBooth((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={showAddBooth}
+                  title={
+                    venueScaled
+                      ? 'Vendor booths anchor to the walls — never blocking the stage or doors'
+                      : 'Vendor booths — drop them anywhere; an open venue has no walls'
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+                >
+                  <Store className="h-3.5 w-3.5" /> Add booth
+                  <ChevronDown className="h-3 w-3 text-ink/40" />
+                </button>
+                {showAddBooth ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-hidden
+                      tabIndex={-1}
+                      onClick={() => setShowAddBooth(false)}
+                      className="fixed inset-0 z-30 cursor-default"
+                    />
+                    <div
+                      role="menu"
+                      className="absolute left-0 z-40 mt-1 w-48 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg"
+                    >
+                      {BOOTH_CATALOG.map((b) => (
+                        <button
+                          key={b.type}
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            setShowAddBooth(false);
+                            addBooth(b.type);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]"
+                        >
+                          <BoothIcon type={b.type} className="h-4 w-4 text-terracotta-700" />
+                          {b.label}
+                        </button>
+                      ))}
+                      <p className="px-3 py-1.5 text-[10px] text-ink/45">
+                        {venueScaled
+                          ? 'Booths snap to the perimeter — clear of the stage wall & door paths.'
+                          : 'Open venue — place booths anywhere; no walls to hug.'}
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             {view === 'plan' && layoutDirty ? (
               <button
                 type="button"
                 onClick={saveLayout}
-                disabled={isPending}
+                disabled={isPending || !canEdit}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta disabled:opacity-50"
               >
                 <Save className="h-3.5 w-3.5" /> Save layout ({dirty.size + (floorDirty ? 1 : 0)})
@@ -1693,10 +2404,11 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => setConfirmAuto(true)}
-              disabled={isPending || unseatedCount === 0 || tables.length === 0}
+              disabled={isPending || tables.length === 0 || !canEdit}
+              title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
               className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Sparkles className="h-3.5 w-3.5" /> Auto-seat guests
+              <Sparkles className="h-3.5 w-3.5" /> Auto Arrange
             </button>
           </div>
         </div>
@@ -1745,9 +2457,83 @@ export function SeatingEditor({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
+            {/* Stage + dance-floor dimensions in metres. Sizes store as percent
+                of the canvas, so they only map to metres once a room size is
+                set; otherwise size the stage/dance with their drag grips. */}
+            {venueScaled ? (
+              <>
+                <MetreSizeField
+                  label="Stage W (m)"
+                  metres={(stage.w / 100) * venue.width}
+                  onMetres={(m) => {
+                    setStage((s) => ({ ...s, w: Math.max(2, Math.min(100, (m / venue.width) * 100)) }));
+                    setFloorDirty(true);
+                  }}
+                />
+                <MetreSizeField
+                  label="Stage L (m)"
+                  metres={(stage.h / 100) * venue.length}
+                  onMetres={(m) => {
+                    setStage((s) => ({ ...s, h: Math.max(2, Math.min(100, (m / venue.length) * 100)) }));
+                    setFloorDirty(true);
+                  }}
+                />
+                {dance.enabled ? (
+                  <>
+                    <MetreSizeField
+                      label="Dance W (m)"
+                      metres={(dance.w / 100) * venue.width}
+                      onMetres={(m) => {
+                        setDance((d) => ({ ...d, w: Math.max(2, Math.min(100, (m / venue.width) * 100)) }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                    <MetreSizeField
+                      label="Dance L (m)"
+                      metres={(dance.h / 100) * venue.length}
+                      onMetres={(m) => {
+                        setDance((d) => ({ ...d, h: Math.max(2, Math.min(100, (m / venue.length) * 100)) }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                  </>
+                ) : null}
+                {cocktail.enabled ? (
+                  <>
+                    <MetreSizeField
+                      label="Cocktail W (m)"
+                      metres={(cocktail.w / 100) * venue.width}
+                      onMetres={(m) => {
+                        setCocktail((c) => ({
+                          ...c,
+                          w: Math.max(2, Math.min(100, (m / venue.width) * 100)),
+                        }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                    <MetreSizeField
+                      label="Cocktail L (m)"
+                      metres={(cocktail.h / 100) * venue.length}
+                      onMetres={(m) => {
+                        setCocktail((c) => ({
+                          ...c,
+                          h: Math.max(2, Math.min(100, (m / venue.length) * 100)),
+                        }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                  </>
+                ) : null}
+              </>
+            ) : null}
             <p className="flex-1 text-xs text-ink/50">
               Enter your reception room&rsquo;s width × length and tables render at their true footprint, so you can
-              see what fits. <span className="text-ink/40">Zoom in to seat people; Fit to see the whole room.</span>
+              see what fits.{' '}
+              {venueScaled ? (
+                <span className="text-ink/40">Stage &amp; dance-floor sizes are in metres too.</span>
+              ) : (
+                <span className="text-ink/40">Zoom in to seat people; Fit to see the whole room.</span>
+              )}
             </p>
           </div>
         ) : null}
@@ -1953,8 +2739,65 @@ export function SeatingEditor({
                 onPointerUp={onRectGripUp}
                 onPointerCancel={onRectGripUp}
                 aria-label="Resize dance floor"
-                className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border-2 border-mulberry bg-cream"
-              />
+                title="Drag to resize the dance floor"
+                className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-mulberry bg-cream text-mulberry shadow-sm"
+              >
+                <Maximize2 className="h-3 w-3 rotate-90" />
+              </button>
+            </div>
+          ) : null}
+
+          {/* Cocktail / waiting-area room — a SECOND room on the same canvas
+              (booths only; tables are blocked from it via overlapsAny). Unlike
+              the dance floor it's a CONTAINER, so the body is pointer-events-
+              none (booths inside stay clickable); move via the label chip,
+              resize via the corner grip. */}
+          {cocktail.enabled ? (
+            <div
+              className="pointer-events-none absolute z-[4]"
+              style={{
+                left: `${cocktail.x}%`,
+                top: `${cocktail.y}%`,
+                width: `${cocktail.w}%`,
+                height: `${cocktail.h}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/45 bg-terracotta/[0.04]" />
+              <button
+                type="button"
+                onPointerDown={onMarkerPointerDown('cocktail')}
+                aria-label={`${cocktail.label} — drag to move`}
+                className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border bg-cream px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta shadow-sm ${
+                  dragId === '__cocktail__'
+                    ? 'border-terracotta cursor-grabbing'
+                    : 'border-terracotta/40 cursor-grab'
+                }`}
+              >
+                <Martini className="h-3 w-3" />
+                {cocktail.label}
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={removeCocktailArea}
+                aria-label="Remove cocktail area"
+                className="pointer-events-auto absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onPointerDown={onRectGripDown('cocktail')}
+                onPointerMove={onRectGripMove}
+                onPointerUp={onRectGripUp}
+                onPointerCancel={onRectGripUp}
+                aria-label="Resize cocktail area"
+                title="Drag to resize the cocktail area"
+                className="pointer-events-auto absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+              >
+                <Maximize2 className="h-3 w-3 rotate-90" />
+              </button>
             </div>
           ) : null}
 
@@ -1987,8 +2830,11 @@ export function SeatingEditor({
               onPointerUp={onRectGripUp}
               onPointerCancel={onRectGripUp}
               aria-label="Resize stage"
-              className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border-2 border-terracotta bg-cream"
-            />
+              title="Drag to resize the stage"
+              className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+            >
+              <Maximize2 className="h-3 w-3 rotate-90" />
+            </button>
           </div>
 
           {/* draggable entrance door marker */}
@@ -2047,6 +2893,39 @@ export function SeatingEditor({
             </div>
           ) : null}
 
+          {/* vendor booths — perimeter-anchored markers; the drag handler runs
+              the wall-snap rules live so they can't leave the legal band */}
+          {booths.map((b) => (
+            <div
+              key={b.booth_id}
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}
+            >
+              <button
+                type="button"
+                onPointerDown={onBoothPointerDown(b.booth_id)}
+                aria-label={`${b.label} — ${venueScaled ? 'drag along the walls' : 'drag to move'}`}
+                className={`flex select-none items-center gap-1.5 rounded-md border bg-cream/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink/70 shadow-sm backdrop-blur-sm ${
+                  dragId === `__booth_${b.booth_id}__`
+                    ? 'border-terracotta cursor-grabbing'
+                    : 'border-ink/25 cursor-grab'
+                }`}
+              >
+                <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />
+                {b.label}
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => removeBooth(b.booth_id)}
+                aria-label={`Remove ${b.label}`}
+                className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+
           {tables.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40">
               Add a table from the sidebar to start your floor plan.
@@ -2089,7 +2968,10 @@ export function SeatingEditor({
             return (
               <div
                 key={t.table_id}
-                className="absolute"
+                // Bounce when this table becomes the selected one (tap → popup).
+                // `.sn-bounce` animates the standalone `scale` property, which
+                // composes with the inline translate/scale transform below.
+                className={`absolute${highlighted ? ' sn-bounce' : ''}`}
                 style={{
                   left: `${pos.x}%`,
                   top: `${pos.y}%`,
@@ -2200,7 +3082,10 @@ export function SeatingEditor({
                             else setPickedId(occupant.guest_id);
                           }}
                           title={occupant.name}
-                          className="relative block h-full w-full"
+                          // Bounce this chair when its guest becomes the picked one.
+                          className={`relative block h-full w-full${
+                            pickedId === occupant.guest_id ? ' sn-bounce' : ''
+                          }`}
                         >
                           {/* the chair, tinted in the guest's group/side colour */}
                           <Armchair
@@ -2369,8 +3254,10 @@ export function SeatingEditor({
                 onPointerCancel={onWallGripUp}
                 aria-label="Drag to resize the room"
                 title="Drag to resize the room"
-                className="absolute bottom-0 right-0 z-20 h-4 w-4 cursor-nwse-resize rounded-tl bg-ink/30 hover:bg-terracotta"
-              />
+                className="absolute bottom-0 right-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tl-md border border-ink/30 bg-cream text-ink/60 hover:border-terracotta hover:text-terracotta"
+              >
+                <Maximize2 className="h-3 w-3 rotate-90" />
+              </button>
             </>
           ) : null}
 
@@ -2469,6 +3356,11 @@ export function SeatingEditor({
                         onSeatTier={(tier) => seatTierHere(st, tier)}
                       />
                     ) : null}
+                    <TableStylePicker
+                      value={st.table_type}
+                      onChange={(tt) => changeStyle(st, tt)}
+                      className="rounded-xl border border-ink/15 px-3 py-1"
+                    />
                     <div className="flex items-center gap-2">
                       <div className="flex flex-1 items-center justify-between rounded-xl border border-ink/15 px-1">
                         <button
@@ -2498,7 +3390,7 @@ export function SeatingEditor({
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeTable(st.table_id)}
+                        onClick={() => requestRemoveTable(st)}
                         aria-label="Delete table"
                         className="flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:border-rose-400 hover:text-rose-600"
                       >
@@ -2664,7 +3556,7 @@ export function SeatingEditor({
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeTable(st.table_id)}
+                  onClick={() => requestRemoveTable(st)}
                   aria-label="Delete table"
                   className="rounded-lg p-1.5 text-ink/50 hover:bg-rose-50 hover:text-rose-600"
                 >
@@ -2678,6 +3570,9 @@ export function SeatingEditor({
                 >
                   <X className="h-4 w-4" />
                 </button>
+                </div>
+                <div className="mt-1.5 border-t border-ink/10 pt-1.5">
+                  <TableStylePicker value={st.table_type} onChange={(tt) => changeStyle(st, tt)} />
                 </div>
                 {pickerOpen ? (
                   <SeatPeoplePanel
@@ -2765,7 +3660,7 @@ export function SeatingEditor({
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeTable(t.table_id)}
+                          onClick={() => requestRemoveTable(t)}
                           aria-label={`Delete ${t.table_label}`}
                           className="rounded p-1 text-ink/30 hover:bg-rose-50 hover:text-rose-600"
                         >
@@ -2859,19 +3754,44 @@ export function SeatingEditor({
         )}
       </div>
 
-      {/* auto-seat confirm */}
+      {/* auto-arrange confirm */}
       {confirmAuto ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
           <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />
-              <h3 className="text-lg font-semibold text-ink">Auto-seat guests</h3>
+              <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
             </div>
-            <p className="text-sm text-ink/70">
-              Seat the <span className="font-semibold">{unseatedCount}</span> unseated, attending{' '}
-              {unseatedCount === 1 ? 'guest' : 'guests'} across {tables.length}{' '}
-              {tables.length === 1 ? 'table' : 'tables'} by role tier — closest to the stage first. This won&rsquo;t
-              move anyone you&rsquo;ve already placed, and it skips sweetheart tables.
+            <p className="text-sm text-ink/70">One click, three steps:</p>
+            <ol className="mt-2 space-y-1.5 text-sm text-ink/70">
+              <li>
+                <span className="font-semibold text-ink/85">1 · Tables</span> — laid out in a grid
+                fanning from the stage; head &amp; family tables land nearest it. The dance floor
+                stays clear.
+              </li>
+              <li>
+                <span className="font-semibold text-ink/85">2 · Booths</span> —{' '}
+                {booths.length > 0 ? `your ${booths.length} booth${booths.length === 1 ? '' : 's'}` : 'any booths'}{' '}
+                {venueScaled
+                  ? 'anchor to the back wall & sides, never blocking the stage or door paths.'
+                  : 'tuck into a row behind the tables, out of the guests’ sightline (an open venue has no walls).'}
+              </li>
+              <li>
+                <span className="font-semibold text-ink/85">3 · Guests</span> —{' '}
+                {unseatedCount > 0 ? (
+                  <>
+                    the <span className="font-semibold">{unseatedCount}</span> unseated, attending{' '}
+                    {unseatedCount === 1 ? 'guest is' : 'guests are'} seated by priority tier, highest
+                    priority nearest the stage.
+                  </>
+                ) : (
+                  'everyone attending is already seated, so seats stay as they are.'
+                )}{' '}
+                No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
+              </li>
+            </ol>
+            <p className="mt-2 text-xs text-ink/50">
+              Table positions change and are saved. You can drag anything afterwards.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -2883,10 +3803,56 @@ export function SeatingEditor({
               </button>
               <button
                 type="button"
-                onClick={runAutoSeat}
+                onClick={runAutoArrange}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
-                <Sparkles className="h-4 w-4" /> Auto-seat
+                <Sparkles className="h-4 w-4" /> Auto Arrange
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* delete-table confirm — shown only when seated guests would be released.
+          Bottom sheet on phones (thumb zone, safe area), centered card otherwise. */}
+      {confirmDelete ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 md:items-center md:p-4"
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            className="w-full rounded-t-2xl border border-ink/10 bg-cream p-5 shadow-xl md:max-w-sm md:rounded-2xl"
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-rose-600" />
+              <h3 className="text-lg font-semibold text-ink">
+                Delete {confirmDelete.link_group_label ?? confirmDelete.table_label}?
+              </h3>
+            </div>
+            <p className="text-sm text-ink/70">
+              <span className="font-semibold">{seatedAt(confirmDelete.table_id)}</span> seated{' '}
+              {seatedAt(confirmDelete.table_id) === 1 ? 'guest' : 'guests'} will go back to{' '}
+              <span className="font-semibold">Unseated</span>, and the table is removed from the plan.
+            </p>
+            <div className="mt-4 flex gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                className="h-11 flex-1 rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink hover:bg-ink/5 md:h-auto md:flex-none md:py-1.5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  removeTable(confirmDelete.table_id);
+                  setConfirmDelete(null);
+                }}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-cream hover:bg-rose-700 md:h-auto md:flex-none md:py-1.5"
+              >
+                <Trash2 className="h-4 w-4" /> Delete table
               </button>
             </div>
           </div>
@@ -2915,25 +3881,117 @@ function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?
   return <li className={`rounded-full px-2.5 py-1 font-medium ${cls}`}>{children}</li>;
 }
 
+function BoothIcon({ type, className }: { type: BoothType; className?: string }) {
+  const Icon =
+    type === 'photo_booth'
+      ? Camera
+      : type === 'mobile_bar'
+        ? Martini
+        : type === 'dessert_station'
+          ? CakeSlice
+          : type === 'gift_table'
+            ? Gift
+            : type === 'souvenir_table'
+              ? Package
+              : Store;
+  return <Icon className={className} />;
+}
+
+// A metres number input for the stage / dance-floor dimensions in the room
+// panel. Shows one decimal; commits the typed value on change.
+function MetreSizeField({
+  label,
+  metres,
+  onMetres,
+}: {
+  label: string;
+  metres: number;
+  onMetres: (m: number) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</span>
+      <input
+        type="number"
+        min={0.5}
+        max={200}
+        step={0.5}
+        value={Math.round(metres * 10) / 10}
+        onChange={(e) => {
+          const m = Number(e.target.value);
+          if (Number.isFinite(m) && m > 0) onMetres(m);
+        }}
+        className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+      />
+    </label>
+  );
+}
+
+// Change-style dropdown for the per-table popup — the full table catalog
+// grouped by shape, so a couple can turn a long table into a round one (etc.)
+// after the fact. Native <select> so it works the same on phone + desktop.
+const STYLE_GROUPS: ReadonlyArray<{ label: string; shape: TableShapeHint }> = [
+  { label: 'Round', shape: 'round' },
+  { label: 'Long banquet', shape: 'long_banquet' },
+  { label: 'Family head', shape: 'family_head' },
+  { label: 'Sweetheart', shape: 'sweetheart' },
+  { label: 'Serpentine', shape: 'serpentine' },
+];
+function TableStylePicker({
+  value,
+  onChange,
+  className,
+}: {
+  value: TableType;
+  onChange: (t: TableType) => void;
+  className?: string;
+}) {
+  return (
+    <label className={`flex items-center gap-1.5 ${className ?? ''}`}>
+      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">Style</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as TableType)}
+        aria-label="Table style"
+        className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-terracotta"
+      >
+        {STYLE_GROUPS.map((g) => (
+          <optgroup key={g.shape} label={g.label}>
+            {TABLE_TYPE_CATALOG.filter((t) => t.shapeHint === g.shape).map((t) => (
+              <option key={t.type} value={t.type}>
+                {t.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function MemberRow({
   guest,
   color,
   picked,
   tableLabel,
   onPick,
+  onCyclePriority,
 }: {
   guest: SeatingGuest;
   color: string;
   picked: boolean;
   tableLabel: string | null;
   onPick: () => void;
+  onCyclePriority: () => void;
 }) {
+  const tier = guestTier(guest.role, guest.group_category, guest.seating_priority);
+  const overridden = guest.seating_priority !== null;
   return (
-    <li>
+    <li className="flex items-center gap-1">
       <button
         type="button"
         onClick={onPick}
-        className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left transition ${
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition ${
           picked ? 'bg-terracotta/10 ring-1 ring-terracotta/40' : 'hover:bg-ink/[0.03]'
         }`}
       >
@@ -2944,6 +4002,21 @@ function MemberRow({
         ) : (
           <span className="shrink-0 text-[10px] text-ink/30">unseated</span>
         )}
+      </button>
+      {/* Priority tier chip — P1 seats nearest the stage. Tap cycles an explicit
+          override 1→2→3→4→back to the role-derived tier (hollow = derived). */}
+      <button
+        type="button"
+        onClick={onCyclePriority}
+        title={`Seating priority: ${ROLE_TIER_LABELS[tier]}${overridden ? ' (set by you — tap to cycle, back to auto after P4)' : ' (from their role — tap to override)'}`}
+        aria-label={`Seating priority P${tier}${overridden ? ', overridden' : ', from role'} — change`}
+        className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums transition ${
+          overridden
+            ? 'bg-mulberry text-cream hover:bg-mulberry-600'
+            : 'bg-ink/5 text-ink/45 hover:bg-ink/10 hover:text-ink/70'
+        }`}
+      >
+        P{tier}
       </button>
     </li>
   );
@@ -3227,7 +4300,19 @@ function SeatBadge({ guest, color }: { guest: SeatingGuest; color: string }) {
   );
 }
 
-function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => void }) {
+function AddTablePanel({
+  eventId,
+  lockId,
+  onDone,
+  onLockLost,
+}: {
+  eventId: string;
+  lockId: string | null;
+  onDone: () => void;
+  // Called when createTable reports the editor lock was lost (peer takeover) so
+  // the parent drops to view-only + notices, instead of an unhandled throw.
+  onLockLost: (err: unknown) => boolean;
+}) {
   const [isPending, startTransition] = useTransition();
   // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
   // Capacity is capped at the selected type's seat count and resets to it when
@@ -3241,8 +4326,14 @@ function AddTablePanel({ eventId, onDone }: { eventId: string; onDone: () => voi
     <form
       action={(fd) => {
         fd.set('event_id', eventId);
+        fd.set('lock_id', lockId ?? '');
         startTransition(async () => {
-          await createTable(fd);
+          try {
+            await createTable(fd);
+          } catch (err) {
+            if (onLockLost(err)) return; // handled — dropped to view-only
+            throw err;
+          }
           onDone();
         });
       }}

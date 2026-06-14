@@ -8,6 +8,7 @@ import { fetchThreadById } from './chat';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { tierCaps } from '@/lib/vendor-tier-caps';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -241,11 +242,24 @@ async function notifyOtherParty(args: {
     if (args.isFirstMessage) {
       // First couple-to-vendor message — fire vendor_inquiry_received with a
       // longer preview (200 chars per spec) and a more pointed title.
+      // Returning-client enrichment (owner-locked 2026-06-12): when this
+      // couple previously CONFIRMED-booked the vendor on a different event,
+      // say so in the notification + email. Best-effort — a null lookup
+      // (error or simply no prior booking) falls back to the plain copy.
+      const priorLocked = await findPriorLockedEventName(
+        admin,
+        args.eventId,
+        args.vendorProfileId,
+      );
       await emitNotification({
         userId: vendorRes.data.user_id,
         type: 'vendor_inquiry_received',
-        title: `New booking inquiry from ${eventName}`,
-        body: args.body.slice(0, 200),
+        title: priorLocked
+          ? `New booking inquiry from ${eventName} — a returning client`
+          : `New booking inquiry from ${eventName}`,
+        body: priorLocked
+          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+          : args.body.slice(0, 200),
         relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
       });
       return;
@@ -275,6 +289,70 @@ async function notifyOtherParty(args: {
       body: preview,
       relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
     });
+  }
+}
+
+/**
+ * Returning-client lookup for the inquiry-received notification (owner-locked
+ * 2026-06-12: "when an inquiry from an old locked client, we want to notify
+ * that this is coming from a client they previously locked"). Predicate =
+ * prior CONFIRMED booking (event_vendors.status in CONFIRMED_VENDOR_STATUSES,
+ * marketplace_vendor_id = this vendor) on a DIFFERENT event sharing a
+ * couple-type event_members member with the inquiry's event — the same
+ * (stricter) predicate as the inbox badge RPC (get_returning_client_flags),
+ * but run with the admin client since this fires server-side at inquiry time
+ * with no vendor session. Returns the most recent prior event's display_name,
+ * or null on no match / any error (best-effort — never blocks the inquiry).
+ */
+async function findPriorLockedEventName(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  vendorProfileId: string,
+): Promise<string | null> {
+  try {
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const userIds = Array.from(
+      new Set((members ?? []).map((m) => m.user_id).filter(Boolean)),
+    );
+    if (userIds.length === 0) return null;
+
+    const { data: otherMemberships } = await admin
+      .from('event_members')
+      .select('event_id')
+      .in('user_id', userIds)
+      .eq('member_type', 'couple')
+      .neq('event_id', eventId);
+    const otherEventIds = Array.from(
+      new Set((otherMemberships ?? []).map((m) => m.event_id).filter(Boolean)),
+    );
+    if (otherEventIds.length === 0) return null;
+
+    const { data: booked } = await admin
+      .from('event_vendors')
+      .select('event_id')
+      .eq('marketplace_vendor_id', vendorProfileId)
+      .in('event_id', otherEventIds)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+    const bookedEventIds = Array.from(
+      new Set((booked ?? []).map((b) => b.event_id).filter(Boolean)),
+    );
+    if (bookedEventIds.length === 0) return null;
+
+    const { data: priorEvent } = await admin
+      .from('events')
+      .select('display_name')
+      .in('event_id', bookedEventIds)
+      .order('event_date', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    return priorEvent?.display_name?.trim() || null;
+  } catch {
+    // Best-effort enrichment only — never let it break inquiry delivery.
+    return null;
   }
 }
 
@@ -321,7 +399,10 @@ export async function acceptInquiry(formData: FormData) {
     // (unlock_vendor_event) is atomic + idempotent + TIER-GATED (owner 2026-06-07
     // reissue, migration 20260911000000): FREE can't accept in-app inquiries;
     // FREE-VERIFIED gets ≤10 new unlocks/rolling-week FREE (no token burn);
-    // PRO/ENTERPRISE unlimited + burns 1-3 tokens. A re-accept of an already-unlocked
+    // PRO/ENTERPRISE unlimited + burns 1-3 tokens — EXCEPT a returning
+    // customer (prior unlock on a different event sharing a couple member)
+    // costs FLAT 1 token (resync · owner-locked 2026-06-12, migration
+    // 20261201000000). A re-accept of an already-unlocked
     // (vendor,event) is free + un-gated. Any RAISE rolls the whole tx back (no
     // phantom unlock) — we surface a friendly, tier-appropriate message and do
     // NOT accept. The RPC also ownership-checks the caller (defense-in-depth

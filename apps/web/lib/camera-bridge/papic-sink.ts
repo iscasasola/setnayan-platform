@@ -40,7 +40,17 @@ export interface PapicSinkDeps {
   record(
     r2Ref: string,
     kind: 'photo' | 'clip',
+    posterR2Ref?: string,
   ): Promise<{ ok: true; count: number } | { ok: false; error: string }>;
+  /**
+   * Optional: extract one poster JPEG from a CLIP so the server's always-on
+   * NSFW screen can classify it (nsfwjs is image-only; the lambda has no
+   * ffmpeg). Browser deps wire lib/clip-poster.ts; node contexts may omit it.
+   * Returning null — or any poster-leg failure — NEVER blocks delivery: the
+   * clip ships without a poster and stays 'unscreened' (every guest-facing
+   * surface excludes clips structurally, so unscreened clips never project).
+   */
+  extractPoster?(file: CapturedFile): Promise<Uint8Array | null>;
   /**
    * Optional: stash the capture in the camera_bridge offline queue (O1 drains
    * it later). Returns true when queued. Omitted in contexts with no queue
@@ -60,6 +70,14 @@ export function captureUploadMeta(file: CapturedFile): { filename: string; conte
   return {
     filename: `bridge-${file.capturedAtMs}.${ext}`,
     contentType: file.mimeType,
+  };
+}
+
+/** Derive the upload filename/Content-Type for a clip's poster frame. */
+export function posterUploadMeta(file: CapturedFile): { filename: string; contentType: string } {
+  return {
+    filename: `bridge-${file.capturedAtMs}-poster.jpg`,
+    contentType: 'image/jpeg',
   };
 }
 
@@ -105,9 +123,43 @@ export async function deliverCapture(
   }
   if (!put) return queue('upload_failed');
 
+  // 2b. CLIP poster leg (best-effort, fail-open): extract one JPEG frame and
+  // PUT it next to the clip so the server's NSFW screen — which is image-only
+  // — can classify the clip by proxy. ANY failure here just drops the poster:
+  // the clip still records, stays 'unscreened', and guest surfaces exclude it.
+  let posterR2Ref: string | undefined;
+  if (file.kind === 'clip' && deps.extractPoster) {
+    try {
+      const posterBytes = await deps.extractPoster(file);
+      if (posterBytes && posterBytes.byteLength > 0) {
+        const posterMeta = posterUploadMeta(file);
+        const posterPresigned = await deps.presign({
+          pathPrefix: `papic/seat-${opts.seatIndex}`,
+          filename: posterMeta.filename,
+          contentType: posterMeta.contentType,
+          sizeBytes: posterBytes.byteLength,
+        });
+        if (posterPresigned) {
+          const posterPut = await deps.put(
+            posterPresigned.uploadUrl,
+            posterBytes,
+            posterMeta.contentType,
+          );
+          if (posterPut) posterR2Ref = posterPresigned.r2Ref;
+        }
+      }
+    } catch {
+      posterR2Ref = undefined;
+    }
+  }
+
   // 3. Record the papic_photos row (RLS-validated server action).
   try {
-    const result = await deps.record(presigned.r2Ref, file.kind === 'clip' ? 'clip' : 'photo');
+    const result = await deps.record(
+      presigned.r2Ref,
+      file.kind === 'clip' ? 'clip' : 'photo',
+      posterR2Ref,
+    );
     if (!result.ok) {
       // A server rejection is FINAL — queueing a not_your_seat/revoked capture
       // would retry forever. Surface it, don't queue it.
@@ -130,6 +182,12 @@ export function makeBrowserSinkDeps(args: {
   enqueueOffline?: PapicSinkDeps['enqueueOffline'];
 }): PapicSinkDeps {
   return {
+    // Lazy import keeps the poster module out of the panel's initial bundle;
+    // extractClipPosterBytes itself never throws (null on any trouble).
+    extractPoster: async (file) => {
+      const { extractClipPosterBytes } = await import('@/lib/clip-poster');
+      return extractClipPosterBytes(file.bytes, file.mimeType);
+    },
     presign: async (req) => {
       const res = await fetch('/api/upload', {
         method: 'POST',

@@ -98,7 +98,7 @@ export default async function PapicModerationPage({
       .limit(100),
     admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, captured_at')
+      .select('photo_id, r2_object_key, captured_at, photo_type, poster_r2_key')
       .eq('event_id', eventId)
       .eq('moderation_state', 'nsfw_blocked')
       .order('captured_at', { ascending: false })
@@ -118,13 +118,20 @@ export default async function PapicModerationPage({
       guestId: (r.guest_id as string | null) ?? null,
       r2Ref: (r.r2_object_key as string | null) ?? null,
       capturedAt: (r.captured_at as string | null) ?? null,
+      isClip: false,
     })),
     ...(screenedSeat ?? []).map((r) => ({
       table: 'papic_photos' as const,
       id: r.photo_id as string,
       guestId: null as string | null,
-      r2Ref: (r.r2_object_key as string | null) ?? null,
+      // A flagged CLIP was screened via its poster frame — thumbnail that
+      // (an <img> can't render the video file).
+      r2Ref:
+        ((r.photo_type as string | null) === 'clip'
+          ? (r.poster_r2_key as string | null)
+          : (r.r2_object_key as string | null)) ?? null,
       capturedAt: (r.captured_at as string | null) ?? null,
+      isClip: (r.photo_type as string | null) === 'clip',
     })),
   ].sort((a, b) => (b.capturedAt ?? '').localeCompare(a.capturedAt ?? ''));
 
@@ -387,10 +394,10 @@ export default async function PapicModerationPage({
             Filtered by the content screen
           </h2>
           <p className="max-w-2xl text-xs text-ink/60">
-            Setnayan automatically screens every photo for explicit content —
-            the screen is always on and can&rsquo;t be turned off. Photos it
-            filters are hidden from guests and your public pages, but you can
-            review them here. Approving restores a single photo.
+            Setnayan automatically screens every photo and clip for explicit
+            content — the screen is always on and can&rsquo;t be turned off.
+            Anything it filters is hidden from guests and your public pages,
+            but you can review it here. Approving restores a single item.
           </p>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {screenedRows.map((s) => {
@@ -417,7 +424,8 @@ export default async function PapicModerationPage({
                       </div>
                     )}
                     <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
-                      <ShieldAlert aria-hidden className="h-3 w-3" strokeWidth={2} /> Filtered
+                      <ShieldAlert aria-hidden className="h-3 w-3" strokeWidth={2} />{' '}
+                      {s.isClip ? 'Filtered clip' : 'Filtered'}
                     </span>
                   </div>
                   <span className="truncate text-xs font-medium text-ink/70">{name}</span>

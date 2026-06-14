@@ -67,6 +67,10 @@ import {
   Star,
   LifeBuoy,
   Flag,
+  MessageSquareWarning,
+  Landmark,
+  RefreshCw,
+  UsersRound,
   Users,
   Briefcase,
   TestTube,
@@ -85,6 +89,7 @@ import {
   Tag,
   Globe,
   Megaphone,
+  Video,
   Music,
   TrendingUp,
   Activity,
@@ -94,11 +99,14 @@ import {
   CircleUser,
   LineChart,
   Settings,
+  Share2,
   Wallet,
   ShoppingBag,
   Bell,
   SlidersHorizontal,
   UserX,
+  PartyPopper,
+  Newspaper,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -171,7 +179,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'subscriptions',
         label: 'Subscriptions',
         href: '/admin/subscriptions',
-        icon: BadgeCheck,
+        icon: RefreshCw,
         matchPrefix: '/admin/subscriptions',
       },
       {
@@ -187,6 +195,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/disputes',
         icon: Shield,
         matchPrefix: '/admin/disputes',
+      },
+      {
+        key: 'pax-changes',
+        label: 'Pax changes',
+        href: '/admin/pax-changes',
+        icon: UsersRound,
+        matchPrefix: '/admin/pax-changes',
       },
       {
         key: 'force-majeure',
@@ -224,7 +239,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'user-reports',
         label: 'User reports',
         href: '/admin/user-reports',
-        icon: Shield,
+        icon: MessageSquareWarning,
         matchPrefix: '/admin/user-reports',
       },
       {
@@ -234,6 +249,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Approvals',
         href: '/admin/approvals',
         icon: CheckCheck,
+      },
+      {
+        // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
+        // post couple creations + vendor verification features + take-downs.
+        key: 'social-queue',
+        label: 'Social queue',
+        href: '/admin/social-queue',
+        icon: Share2,
+        matchPrefix: '/admin/social-queue',
       },
       {
         key: 'help',
@@ -379,7 +403,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'payment-methods',
         label: 'Payment methods',
         href: '/admin/settings/payment-methods',
-        icon: CreditCard,
+        icon: Landmark,
       },
     ],
   },
@@ -415,6 +439,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Tag,
       },
       {
+        // Event-type roster CRUD (2026-06-13 cutover) — create/launch/retire
+        // event types; pickers + vendor checkboxes + filters follow live.
+        key: 'event-types',
+        label: 'Event Types',
+        href: '/admin/event-types',
+        icon: PartyPopper,
+      },
+      {
         key: 'refinements',
         label: 'Refinements',
         href: '/admin/refinements',
@@ -425,6 +457,22 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Website',
         href: '/admin/website',
         icon: Globe,
+      },
+      {
+        key: 'hero-video',
+        label: 'Hero video',
+        href: '/admin/hero-video',
+        icon: Video,
+      },
+      {
+        // Real Stories featuring (PR D) — pin + order which consented wedding
+        // editorials surface (and which is the hero) on the public /realstories
+        // index. Curation on top of the RA 10173 consent gate.
+        key: 'real-stories',
+        label: 'Real Stories',
+        href: '/admin/real-stories',
+        icon: Newspaper,
+        matchPrefix: '/admin/real-stories',
       },
       {
         key: 'ads',

@@ -1,7 +1,7 @@
 /**
  * taxonomy-filters.ts — the SHARED couple-side taxonomy scoping predicates.
  *
- * One implementation imported by every couple-facing surface (`/vendors`
+ * One implementation imported by every couple-facing surface (`/explore`
  * marketplace + the dashboard category search) so the two can never disagree —
  * the drift class that produced the faith vocab mess. Pure functions, no I/O;
  * unit-tested in taxonomy-filters.test.ts.

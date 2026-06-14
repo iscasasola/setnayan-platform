@@ -12,7 +12,7 @@
  *   - "5% platform fee" / "we take a cut" → "0% commission"
  *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
  *   - "Setnayan Concierge" → "Setnayan AI"
- *   - "₱1,499 one-time verification" + "₱499 refresh" preserved (v2.1-correct)
+ *   - Vendor verification FREE during launch ("₱1,499 one-time verification" + "₱499 refresh" fee removed 2026-06-13 — stale)
  */
 
 export type EventFixture = {
@@ -128,8 +128,12 @@ export const PILOT_TIMELINE: TimelineItem[] = [
 ];
 
 // Couple-side feature list — v2.1 brief § 4 "For couples" rows.
+// 2026-06-13 reprice scrub (Pricing.md § 00): the free tier is the planning
+// workspace (schedule · budget · guest list · seat plan · mood board) +
+// marketplace browse + match preview. RSVP, wedding website, and QR
+// invitations are paid SKUs — no longer promised as free.
 export const COUPLE_FEATURES = [
-  '18 free planning tools. Guest list, RSVP, seating, mood board, budget. No subscription, no paywall.',
+  'Free planning workspace. Guest list, seating, budget, schedule, mood board. No card to start.',
   'Personal QR invitations for every guest, with optional branded monogram.',
   "Day-of livestream so anyone who can't be there sees every moment.",
   "Papic guest capture — your guests' phones become a coordinated photo crew.",
@@ -138,12 +142,16 @@ export const COUPLE_FEATURES = [
 ];
 
 // Vendor-side feature list — v2.1 brief § 4 "For vendors" rows, drift-scrubbed.
+// 2026-06-13: subscription prices removed from these static bullets — vendor
+// tier prices are DB-managed (vendor_billing_catalog via getVendorPrices())
+// and have shifted twice; /for-vendors renders them live. Static marketing
+// fixtures carry no peso figures so they can never drift again.
 export const VENDOR_FEATURES = [
   'Free listing. Profile, chat with couples, accept bookings — no monthly fee to start.',
   'Real calendar with team roles, agent privacy redaction, per-service scoping.',
-  '₱1,499 one-time verification badge. ₱499 per refresh when documents change.',
-  'Pro Vendor ₱1,999/28 days unlocks AI proposals, analytics, custom microsite.',
-  'Enterprise ₱5,499/28 days unlocks multi-category listing + sub-4hr priority support.',
+  'Free verified profile during launch — no listing fee, no badge fee.',
+  'Pro Vendor unlocks AI proposals, analytics, and a custom microsite.',
+  'Enterprise unlocks multi-category listing + sub-4hr priority support.',
   '100 free tokens on verification before 2027-01-31. Founder bonus for pilot vendors.',
 ];
 
@@ -160,10 +168,13 @@ export const LIVE_TODAY = [
 ];
 
 // FAQ — v2.1 brief § 1 + § 7 (with drift scrubs).
+// 2026-06-13 reprice scrub: free-tier answer matches Pricing.md § 00.A
+// (no free RSVP / website / full matching); vendor answer carries no peso
+// figures (tier prices are DB-managed and rendered live on /for-vendors).
 export const FAQ_ITEMS = [
   {
     q: 'Is Setnayan really free for couples?',
-    a: 'Yes. 18 planning tools — guest list, RSVP, seating, mood board, budget, vendor messaging, personal website, QR invitations — all free, forever. We make money from Setnayan Productions services (livestream, highlight reels, monograms, etc.) that you choose à la carte, and from vendor subscriptions.',
+    a: 'Starting is free, and the planning workspace stays free — guest list, seating, budget, schedule, mood board, plus browsing the full vendor marketplace with a preview of your matches. The paid layer is optional software you add when you want it: Setnayan AI matchmaking, your wedding website and RSVP, and the Setnayan Productions services (livestream, highlight reels, monograms). Vendor subscriptions are the other side of how we make money.',
   },
   {
     q: 'What does Setnayan take from vendor bookings?',
@@ -171,7 +182,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: 'What do vendors pay?',
-    a: 'Free to list. ₱1,499 one-time for the lifetime verification badge (₱499 per refresh when documents change). Pro Vendor ₱1,999/28 days unlocks visibility upgrades, AI proposals, and custom microsite. Enterprise ₱5,499/28 days adds multi-category listing and priority support.',
+    a: 'Free to list, and verification is free during launch — no listing fee, no badge fee. Optional 28-day prepaid subscriptions add reach: Pro unlocks visibility upgrades, AI proposals, and a custom microsite; Enterprise adds multi-category listing and priority support. Current subscription prices are on the For Vendors page.',
   },
   {
     q: "What's the pilot?",

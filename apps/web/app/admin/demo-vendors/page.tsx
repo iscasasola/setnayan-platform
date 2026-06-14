@@ -18,7 +18,7 @@
  *   • Owner wants a fast cleanup path (one click) without dropping to terminal.
  *   • The Dec 1 hard-cleanup deadline matters; making the cleanup surface
  *     visible in admin makes it harder to forget.
- *   • Agent 2 ships ?demo=1; this page links to /vendors?demo=1 so the owner
+ *   • Agent 2 ships ?demo=1; this page links to /explore?demo=1 so the owner
  *     can preview the marketplace surface as a couple sees it.
  *
  * Cross-PR coordination:
@@ -259,26 +259,26 @@ export default async function DemoVendorsAdminPage() {
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
-            href="/vendors?demo=1"
+            href="/explore?demo=1"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm text-cream hover:bg-ink/90"
           >
             <ExternalLink className="h-4 w-4" />
-            /vendors?demo=1
+            /explore?demo=1
           </Link>
           <Link
-            href="/vendors?demo=1&category=photography"
+            href="/explore?demo=1&category=photography"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-4 py-2 text-sm text-ink/75 hover:bg-ink/10"
           >
             Photography
           </Link>
           <Link
-            href="/vendors?demo=1&category=catering"
+            href="/explore?demo=1&category=catering"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-4 py-2 text-sm text-ink/75 hover:bg-ink/10"
           >
             Catering
           </Link>
           <Link
-            href="/vendors?demo=1&category=wedding_coordination"
+            href="/explore?demo=1&category=wedding_coordination"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-4 py-2 text-sm text-ink/75 hover:bg-ink/10"
           >
             Coordinators

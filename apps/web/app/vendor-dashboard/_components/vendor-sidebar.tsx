@@ -34,11 +34,14 @@
  *   2. Work (key 'pipeline')     — Bookings · Messages · Services ·
  *                      Contracts · Repertoire · Attributes (merged the old
  *                      Pipeline + Communicate groups)
- *   3. Grow (key 'marketing')    — Marketing · Verify · Reviews ·
- *                      Moodboard library
+ *   3. Grow (key 'marketing')    — Subscription · Tokens · Redeem code ·
+ *                      Marketing · Verify · Reviews · Moodboard library
+ *                      (single home for paid reach + reputation · the three
+ *                      paid SKUs folded in from Business 2026-06-14 per the
+ *                      owner-locked REDESIGN_PLAN)
  *   4. Business (key 'money')    — Earnings · How clients pay you
- *                      (payment-options) · Tokens · Manpower · Redeem code ·
- *                      Branches · Team & Setnayan (merged the old Money +
+ *                      (payment-options) · Manpower · Branches · Team &
+ *                      Setnayan (pure money/ops · merged the old Money +
  *                      Team groups · Tax docs retired 2026-05-29 under the
  *                      V2 publisher posture · Setnayan no longer withholds
  *                      vendor income tax · no Form 2307 obligation)
@@ -86,14 +89,17 @@
 import {
   Home,
   Briefcase,
+  CalendarDays,
   ClipboardList,
   FileSignature,
+  FileText,
   HardHat,
   Megaphone,
   MessageSquare,
   Music,
   Palette,
   ShieldCheck,
+  Sparkles,
   Star,
   Tag,
   User,
@@ -154,39 +160,56 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     label: 'Work',
     items: [
       { key: 'bookings', label: 'Bookings', href: '/vendor-dashboard/bookings', icon: Briefcase, matchPrefix: '/vendor-dashboard/bookings' },
+      // Schedule-pool surfaces (owner lock 2026-06-12) — one schedule per
+      // service category; Clients = booked + in-conversation + imported
+      // outside clients.
+      { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
+      { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
       { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
       { key: 'services', label: 'Services', href: '/vendor-dashboard/services', icon: ClipboardList, matchPrefix: '/vendor-dashboard/services' },
       { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
+      // Data-link program ③ — auto-filled proposals for booked clients.
+      { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },
       { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
       { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
     ],
   },
   {
-    // "Grow" = visibility + reputation. Group KEY stays 'marketing' for
-    // open-state continuity; item keys unchanged.
+    // "Grow" = the single home for paid reach + reputation. Group KEY stays
+    // 'marketing' for open-state continuity; item keys unchanged.
+    //
+    // CONSOLIDATION 2026-06-14 (owner-locked REDESIGN_PLAN) — the paid
+    // "grow your business with Setnayan" SKUs (Subscription · Tokens ·
+    // Redeem code) moved here from the Business group so Grow is the one
+    // place for everything that buys a vendor more reach + trust. Routes,
+    // hrefs, icons and per-item gating are unchanged — only the group
+    // object the items live in changed. Business keeps the pure money/ops
+    // surfaces.
     key: 'marketing',
     label: 'Grow',
     items: [
+      // Subscription — self-serve Pro/Enterprise upgrade (Phase D · Tier #5).
+      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
+      { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
+      { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
       { key: 'marketing', label: 'Marketing', href: '/vendor-dashboard/marketing', icon: Megaphone, matchPrefix: '/vendor-dashboard/marketing' },
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
+      { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
       { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
     ],
   },
   {
-    // "Business" = money + org. Merges the old Money + Team. Group KEY
-    // stays 'money' for open-state continuity; item keys unchanged. (Tax
-    // docs retired 2026-05-29 under V2 publisher posture.)
+    // "Business" = pure money + org/ops. Merges the old Money + Team. Group
+    // KEY stays 'money' for open-state continuity; item keys unchanged. (Tax
+    // docs retired 2026-05-29 under V2 publisher posture · Subscription ·
+    // Tokens · Redeem code moved to the Grow group 2026-06-14.)
     key: 'money',
     label: 'Business',
     items: [
       { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
       { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
-      // Subscription — self-serve Pro/Enterprise upgrade (Phase D · Tier #5).
-      { key: 'subscription', label: 'Subscription', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-      { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
-      { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
       // Branches — Enterprise sub-location accounts (owner-locked 2026-06-05).
       // Owner/admin only: 'branches' is absent from VENDOR_SCOPED_NAV_ITEM_KEYS
       // so filterVendorNavGroups hides it from agents/viewers. The page + the
@@ -204,12 +227,23 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
  * separate context from customer + admin doorways. Mirrors the
  * customer-sidebar + admin-sidebar header treatment.
  */
-export function VendorSidebar({ role }: { role: VendorTeamRole | null }) {
+export function VendorSidebar({
+  role,
+  showRepertoire = true,
+}: {
+  role: VendorTeamRole | null;
+  showRepertoire?: boolean;
+}) {
   const pathname = usePathname() ?? '/vendor-dashboard';
   // Role-aware nav shell — owner/admin see the full tree; agent/viewer see
   // the scoped subset (Phase 1: Overview only). Single source of truth in
   // lib/vendor-role.ts so Phase 2 expands agent surfaces in one place.
-  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role);
+  // Service-aware: Repertoire is a music-act surface (band · singer ·
+  // orchestra · choir · DJ) — hidden for every other category (owner
+  // directive 2026-06-13; the page keeps its own isMusicVendor gate).
+  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
+    showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
+  );
 
   return (
     <>

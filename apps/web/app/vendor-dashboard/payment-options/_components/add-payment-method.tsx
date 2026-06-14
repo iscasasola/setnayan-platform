@@ -105,13 +105,13 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
             const Icon = tile.icon;
             return (
               <button
-                key={tile.key}
+                key={active ? `${tile.key}-active` : tile.key}
                 type="button"
                 onClick={() => setType(tile.key)}
                 aria-pressed={active}
                 className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
                   active
-                    ? 'border-terracotta bg-terracotta/10'
+                    ? 'border-terracotta bg-terracotta/10 sn-bounce'
                     : 'border-ink/15 bg-cream hover:border-ink/30'
                 }`}
               >

@@ -69,12 +69,83 @@ export const ROLE_SUBTYPE_HINT: Readonly<Record<RoleSubtype, string>> = {
 // Permission templates per role. Stored on each moderator row's
 // permissions_json column at invite time; can be overridden later via a
 // per-moderator edit (V1.1 follow-up).
+// Feature-access program Phase 2 (2026-06-12, corpus
+// 03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md § 3): an
+// optional `areas` object carries per-area grants that OVERRIDE the coarse
+// edit_all/checkout flags. Resolution lives in SQL
+// (public.moderator_area_level, migration 20261129000000) — keep
+// resolveAreaLevel below in lockstep with it.
+export type DelegateArea =
+  | 'guest_list'
+  | 'seat_plan'
+  | 'schedule'
+  | 'vendors'
+  | 'invitations'
+  | 'mood_board'
+  | 'budget';
+
+export type AreaLevel = 'edit' | 'view' | null;
+
 export type ModeratorPermissions = {
   edit_all: boolean;
   checkout: boolean;
   invite_hosts: boolean;
   remove_hosts: boolean;
+  areas?: Partial<Record<DelegateArea, AreaLevel>>;
 };
+
+export const DELEGATE_AREAS: readonly DelegateArea[] = [
+  'guest_list',
+  'seat_plan',
+  'schedule',
+  'vendors',
+  'invitations',
+  'mood_board',
+  'budget',
+] as const;
+
+export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
+  guest_list: 'Guest list',
+  seat_plan: 'Seat plan',
+  schedule: 'Schedule',
+  vendors: 'Vendors',
+  invitations: 'Invitations',
+  mood_board: 'Mood board',
+  budget: 'Budget',
+};
+
+// The coordinator's default grants — locked § 3 table: planning areas Edit,
+// mood board View (aesthetic direction stays the couple's), budget OFF
+// (locked D1 — couple-raiseable to View, never Edit in V1). Seat-plan
+// publish + first invitation deploy remain couple-confirmed regardless
+// (DB trigger + locked D4).
+export const COORDINATOR_AREAS: Readonly<Partial<Record<DelegateArea, AreaLevel>>> = {
+  guest_list: 'edit',
+  seat_plan: 'edit',
+  schedule: 'edit',
+  vendors: 'edit',
+  invitations: 'edit',
+  mood_board: 'view',
+  budget: null,
+};
+
+/**
+ * TS mirror of public.moderator_area_level (migration 20261129000000).
+ * areas[k] wins when the key is present; legacy flags fall back. Budget
+ * never exceeds 'view' in V1 (locked D1).
+ */
+export function resolveAreaLevel(
+  perms: ModeratorPermissions | null | undefined,
+  area: DelegateArea,
+): AreaLevel {
+  if (!perms) return null;
+  if (perms.areas && area in perms.areas) {
+    return perms.areas[area] ?? null;
+  }
+  if (area === 'budget') return perms.checkout ? 'view' : null;
+  if (area === 'mood_board') return 'view';
+  return perms.edit_all ? 'edit' : 'view';
+}
 
 export const PERMISSION_TEMPLATES: Readonly<Record<RoleSubtype, ModeratorPermissions>> = {
   bride: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },

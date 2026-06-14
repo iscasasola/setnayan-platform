@@ -20,6 +20,11 @@
 import { type ReactElement } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
+import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+
+const SHARE_SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+).replace(/\/$/, '');
 
 export async function EditorialContent({ eventId }: { eventId: string }): Promise<ReactElement> {
   let data: EditorialData | null = null;
@@ -57,6 +62,21 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
         <PhaseRibbon />
+
+        {/* Share this story — real editorials only (the curated sample has a
+            null slug; its /realstories/[slug] detail page owns the share bar,
+            so this never double-renders on the sample). Couples share out of
+            pride and their booked vendors for social proof — both drive traffic
+            back via the og:image card at /api/og/realstory-slug/[slug]. */}
+        {data.slug ? (
+          <div className="mt-3 flex justify-end">
+            <ShareButtons
+              url={`${SHARE_SITE_URL}/${data.slug}`}
+              title={`${data.displayName} — a Setnayan Real Story`}
+              image={`${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`}
+            />
+          </div>
+        ) : null}
 
         <div className="border-t-[3px] border-double border-ink" />
 
@@ -320,7 +340,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
       <span className="min-w-0 flex-1">
         {featured ? (
           <a
-            href={`/vendors/${v.slug}`}
+            href={`/v/${v.slug}`}
             className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
           >
             {v.name}

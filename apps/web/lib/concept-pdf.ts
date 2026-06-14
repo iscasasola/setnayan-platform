@@ -26,6 +26,8 @@ import {
   type RGB,
 } from 'pdf-lib';
 import { RECEPTION_PARTS, sel, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
+import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
+import { deriveMonogram } from '@/lib/monogram';
 
 export type ConceptPdfEvent = {
   display_name: string;
@@ -33,6 +35,12 @@ export type ConceptPdfEvent = {
   event_date: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
+  // Monogram design columns — present when the couple designed a lockup, so the
+  // cover badge draws their REAL mark (bar/duo/script/infinity) not just initials.
+  monogram_style?: string | null;
+  monogram_font_key?: string | null;
+  monogram_frame_key?: string | null;
+  monogram_custom_svg?: string | null;
 };
 
 export type ConceptPdfInput = {
@@ -146,6 +154,12 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
 
   const monoText = ascii(event.monogram_text?.trim() || initialsFrom(event.display_name)).slice(0, 7);
   const monoColor = hexToRgb(event.monogram_color, GOLD);
+  // The couple's chosen type-only lockup (bar/duo/script/infinity), or null →
+  // keep the legacy initials badge. Use deriveMonogram (splits on &|and|+|/|-)
+  // so the label matches the QR/hero/chrome — the raw display_name would drop
+  // the lockup for "and"/"-"/"+"-joined couples (splitInitials only splits "&").
+  const lockupLabel = event.monogram_text?.trim() || deriveMonogram(event.display_name);
+  const lockup = lockupForEvent(event, lockupLabel);
   const names = ascii(event.display_name || 'Your Wedding');
   const dateStr = formatDate(event.event_date);
 
@@ -247,9 +261,13 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
     const cx = A4.w / 2;
     const cy = A4.h - 236;
     p.drawCircle({ x: cx, y: cy, size: 46, borderColor: monoColor, borderWidth: 2, color: PAPER });
-    const monoSize = fitSize(monoText, serif, 74, 26, 10);
-    const mw = serif.widthOfTextAtSize(monoText, monoSize);
-    p.drawText(monoText, { x: cx - mw / 2, y: cy - monoSize * 0.34, size: monoSize, font: serif, color: INK });
+    if (lockup) {
+      drawLockupBadge(p, lockup, { centerX: cx, centerY: cy, radius: 46 });
+    } else {
+      const monoSize = fitSize(monoText, serif, 74, 26, 10);
+      const mw = serif.widthOfTextAtSize(monoText, monoSize);
+      p.drawText(monoText, { x: cx - mw / 2, y: cy - monoSize * 0.34, size: monoSize, font: serif, color: INK });
+    }
 
     center(p, names, A4.h - 330, fitSize(names, serif, A4.w - 80, 30, 15), serif, INK);
     if (dateStr) center(p, dateStr.toUpperCase(), A4.h - 352, 11, font, GOLD);

@@ -10,7 +10,7 @@ import { List, Network, type LucideIcon } from 'lucide-react';
  */
 type ViewKey = 'list' | 'map';
 
-const FILTER_KEYS = ['q', 'rsvp', 'view', 'team', 'tag', 'sort'] as const;
+const FILTER_KEYS = ['q', 'rsvp', 'view', 'group', 'team', 'tag', 'sort'] as const;
 
 export function GuestsViewSwitcher({
   eventId,

@@ -12,7 +12,7 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Privacy policy · Setnayan',
   description:
-    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, BIR receipts, and DPO contact.',
+    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, receipts, and DPO contact.',
   alternates: { canonical: '/privacy' },
   openGraph: {
     title: 'Privacy policy · Setnayan',
@@ -104,7 +104,7 @@ export default function PrivacyPage() {
             <code className="font-mono text-[12px]">setnayan.com/{'{event-slug}'}</code>{' '}
             transitions from invitation and day-of mode into a public editorial
             article 30 days after the event date. The page becomes publicly
-            indexable on <code className="font-mono text-[12px]">setnayan.com/weddings</code>{' '}
+            indexable on <code className="font-mono text-[12px]">setnayan.com/realstories</code>{' '}
             and discoverable by search engines.
           </p>
           <p className="pt-2">
@@ -173,10 +173,14 @@ export default function PrivacyPage() {
 
         <Section title="TikTok integration (Patiktok)">
           <p>
-            Couples on the Patiktok Personal tier (₱1,999/day) connect their own
+            {/* 2026-06-13 reprice scrub: per-day tier prices removed — the
+                figures predated the locked catalog (Patiktok is a flat-price
+                SKU; current price on /pricing). Privacy copy describes data
+                flows, not prices. */}
+            Couples on the Patiktok Personal tier connect their own
             TikTok account to Setnayan so Patiktok booth compilations can
             auto-post to the couple&rsquo;s handle. Setnayan uses TikTok&rsquo;s
-            Login Kit and Content Posting API. The Setnayan tier (₱999/day)
+            Login Kit and Content Posting API. The Setnayan tier
             does not require a couple-side TikTok connection — those
             compilations post to <strong>@SetnayanWeddings</strong>, our
             company-owned handle, using credentials Setnayan manages directly.

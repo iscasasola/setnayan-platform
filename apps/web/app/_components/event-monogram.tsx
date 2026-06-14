@@ -3,7 +3,9 @@ import {
   resolveMonogram,
   resolveMonogramDesign,
   monogramFrameAssetUrl,
+  splitInitials,
 } from '@/lib/monogram';
+import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -65,6 +67,42 @@ export function EventMonogram({
   });
   const ink = design?.color ?? color;
   const { box, text: textSize, px } = SIZE_TOKENS[size];
+
+  // Type-only lockup (bar · duo · script · infinity) → draw the couple's REAL
+  // chosen mark, not just their initials in a font (owner 2026-06-13, reversing
+  // the 2026-06-03 letters-forward lock). Needs BOTH initials — a single-name
+  // event ("S") has no second glyph for the lockup, so it falls through to the
+  // letters-forward badge below. `framed` is deliberately NOT a mark style: its
+  // ornate gold ring is illegible at chrome size, so it keeps the framed branch.
+  const markStyle: MonogramMarkStyle | null =
+    design?.style === 'bar' ||
+    design?.style === 'duo' ||
+    design?.style === 'script' ||
+    design?.style === 'infinity'
+      ? design.style
+      : null;
+  if (markStyle && design) {
+    const [ia, ib] = splitInitials(text);
+    if (ia && ib) {
+      return (
+        <MonogramMark
+          style={markStyle}
+          a={ia}
+          b={ib}
+          fontFamily={design.fontFamily}
+          fontStyle={design.fontStyle}
+          letterSpacing={design.letterSpacing}
+          color={ink}
+          px={px}
+          /* No square `box` here — the mark fills the chip HEIGHT (px) and its
+             width follows its natural aspect, so wide lockups (∞ / bar / script)
+             read at full size instead of letterboxing inside a square. */
+          className={`shrink-0 ${className ?? ''}`}
+          title={text}
+        />
+      );
+    }
+  }
 
   // Framed — the couple's REAL onboarding monogram: the gold frame webp + their
   // initials in the chosen font + ink, exactly like the onboarding medallion,

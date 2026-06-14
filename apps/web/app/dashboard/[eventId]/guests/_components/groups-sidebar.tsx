@@ -133,7 +133,7 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }
               ) : (
                 <div className="flex items-center gap-1">
                   <Link
-                    href={hrefByGroupId[g.group_id] ?? `/dashboard/${eventId}/guests?view=group:${g.group_id}`}
+                    href={hrefByGroupId[g.group_id] ?? `/dashboard/${eventId}/guests?group=${g.group_id}`}
                     className={`flex flex-1 items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
                       isCurrent ? rowTint.active : rowTint.idle
                     }`}

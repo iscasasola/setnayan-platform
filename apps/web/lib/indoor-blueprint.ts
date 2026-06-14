@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultTablePosition, type EventTableRow, type TableType } from '@/lib/seating';
+import { checkOrderOwnership } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/indoor-blueprint.ts
@@ -31,34 +32,18 @@ import { defaultTablePosition, type EventTableRow, type TableType } from '@/lib/
 export const INDOOR_BLUEPRINT_SERVICE_KEY = 'INDOOR_BLUEPRINT';
 export const INDOOR_BLUEPRINT_PRICE_PHP = 1499; // v2.1 brief § 5 · ₱1,499
 
-const RELINQUISHED_STATUSES = new Set(['cancelled', 'refunded', 'lapsed']);
-
 /**
  * Does this event own the paid Indoor Blueprint upgrade?
  *
- * Returns false on any DB shape error (missing table/column) so the gated
- * surface degrades to the upgrade CTA rather than throwing. Mirrors
- * eventOwnsProWebsite() exactly.
+ * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
+ * refund-aware, graceful-degrade on a missing orders table so the gated surface
+ * shows the upgrade CTA rather than throwing.
  */
 export async function eventOwnsIndoorBlueprint(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('status')
-    .eq('event_id', eventId)
-    .eq('service_key', INDOOR_BLUEPRINT_SERVICE_KEY)
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-
-  if (error) {
-    if (error.code === '42P01' || error.code === '42703') return false;
-    throw new Error(`Failed to resolve Indoor Blueprint ownership: ${error.message}`);
-  }
-
-  return (data ?? []).some(
-    (row) => !RELINQUISHED_STATUSES.has((row.status as string | null) ?? ''),
-  );
+  return checkOrderOwnership(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

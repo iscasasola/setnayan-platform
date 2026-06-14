@@ -24,6 +24,12 @@ const config: CapacitorConfig = {
   appId: 'com.setnayan.app',
   appName: 'Setnayan',
   webDir: 'www',
+  // Marks every WebView request as app-originated so the web middleware can
+  // apply the login-first entry redirect (0052 design addition 2026-06-10)
+  // from the very first request of a fresh install — before the
+  // `setnayan-client-type` cookie exists. Keep in sync with
+  // `isCapacitorClient()` in apps/web/middleware.ts.
+  appendUserAgent: 'SetnayanApp',
   server: {
     url: SERVER_URL,
     // Only HTTPS in production. Flip to true (and use http://) when you point

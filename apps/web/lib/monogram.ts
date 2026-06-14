@@ -7,6 +7,15 @@ export type MonogramConfig = {
   // draw the mark in the couple's EXACT chosen face instead of a generic serif.
   fontFamily?: string;
   fontStyle?: 'italic' | 'normal';
+  // Full chosen-lockup design (populated when resolveMonogram is given the
+  // design columns) — lets string-SVG surfaces like the QR center draw the
+  // couple's actual LOCKUP, not just initials. `inkColor` is the lockup ink
+  // (mulberry / gold), distinct from `color` (the couple's accent used for the
+  // badge ring + the legacy initials).
+  style?: MonoStyle | null;
+  letterSpacing?: string;
+  inkColor?: string;
+  frameKey?: string | null;
 };
 
 const DEFAULT_BG = '#FAF7F2'; // cream
@@ -39,6 +48,20 @@ export function deriveMonogram(displayName: string | null | undefined): string {
   return (parts[0]?.charAt(0) ?? 'S').toUpperCase();
 }
 
+/**
+ * Pull the two lockup initials out of a resolved monogram label. The label is
+ * "A & B" for couples (deriveMonogram / monogram_text), or a single "S" for
+ * one-name events. Returns ['', ''] when there isn't a clean pair so callers
+ * can fall back to the letters-forward badge. Shared by the dashboard chip
+ * (EventMonogram), the landing hero (HeroMonogram), and the QR-center overlay.
+ */
+export function splitInitials(text: string): [string, string] {
+  const parts = text.split('&').map((s) => s.trim()).filter(Boolean);
+  const a = (parts[0]?.charAt(0) ?? '').toUpperCase();
+  const b = (parts[1]?.charAt(0) ?? '').toUpperCase();
+  return [a, b];
+}
+
 export function resolveMonogram(event: {
   display_name: string | null;
   monogram_text: string | null;
@@ -59,7 +82,16 @@ export function resolveMonogram(event: {
     text: (event.monogram_text?.trim() || deriveMonogram(event.display_name)).slice(0, 12),
     color: event.monogram_color ?? '#C97B4B',
     bg: DEFAULT_BG,
-    ...(design ? { fontFamily: design.fontFamily, fontStyle: design.fontStyle } : {}),
+    ...(design
+      ? {
+          fontFamily: design.fontFamily,
+          fontStyle: design.fontStyle,
+          style: design.style,
+          letterSpacing: design.letterSpacing,
+          inkColor: design.color,
+          frameKey: design.frameKey,
+        }
+      : {}),
   };
 }
 
@@ -296,6 +328,73 @@ export function resolveMonogramDesign(input: {
  * The badge covers ~7×7 modules ≈ 3% of the pattern area — well under the
  * 25% coverage limit that level H (~30% redundancy) can reconstruct.
  */
+/**
+ * Build the inner SVG for one type-only lockup (bar · duo · script · infinity),
+ * normalized to a tight viewBox. STRING twin of the React `MonogramMark`
+ * (app/_components/monogram-mark.tsx) — identical geometry, kept in sync by hand
+ * (lib/ is framework-agnostic and can't import the JSX component). Used by the
+ * QR-center overlay so a scanned/printed QR carries the couple's real mark, not
+ * just their initials.
+ */
+function lockupMarkSvg(opts: {
+  style: 'bar' | 'duo' | 'script' | 'infinity';
+  a: string;
+  b: string;
+  fontFamily: string;
+  fontStyle: 'italic' | 'normal';
+  letterSpacing: string;
+  ink: string;
+}): { viewBox: string; inner: string } {
+  const { style, a, b, fontFamily, fontStyle, letterSpacing, ink } = opts;
+  const A = escapeXml(a);
+  const B = escapeXml(b);
+  const g =
+    `fill="${ink}" font-family="${escapeAttr(fontFamily)}" font-style="${fontStyle}" ` +
+    `letter-spacing="${escapeAttr(letterSpacing)}" font-weight="600" text-anchor="middle"`;
+  if (style === 'bar') {
+    return {
+      viewBox: '6 14 120 70',
+      inner:
+        `<text x="28" y="72" font-size="64" ${g}>${A}</text>` +
+        `<line x1="66" y1="16" x2="66" y2="42" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/>` +
+        `<line x1="66" y1="66" x2="66" y2="82" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/>` +
+        `<text x="66" y="60" font-size="22" ${g}>&amp;</text>` +
+        `<text x="104" y="72" font-size="64" ${g}>${B}</text>`,
+    };
+  }
+  if (style === 'duo') {
+    return {
+      viewBox: '18 18 66 62',
+      inner:
+        `<text x="42" y="72" font-size="66" ${g}>${A}</text>` +
+        `<text x="58" y="72" font-size="66" ${g}>${B}</text>`,
+    };
+  }
+  if (style === 'script') {
+    return {
+      viewBox: '8 6 168 90',
+      inner:
+        `<text x="42" y="78" font-size="74" ${g}>${A}</text>` +
+        `<text x="92" y="76" font-size="46" ${g}>&amp;</text>` +
+        `<text x="142" y="78" font-size="74" ${g}>${B}</text>`,
+    };
+  }
+  // infinity — gold ∞ + caps. The gradient id is fixed: every ∞ mark on a page
+  // (e.g. a print sheet of guest QRs) shares one identical gradient, so the
+  // duplicate <defs> are harmless (the browser resolves url(#…) to the first).
+  return {
+    viewBox: '18 8 164 76',
+    inner:
+      `<defs><linearGradient id="sn-mono-gold" x1="0" y1="0" x2="1" y2="0">` +
+      `<stop offset="0" stop-color="#A88340"/><stop offset="0.5" stop-color="#E4C77E"/>` +
+      `<stop offset="1" stop-color="#A88340"/></linearGradient></defs>` +
+      `<path d="M100 46 C76 14 26 14 26 46 C26 78 76 78 100 46 C124 14 174 14 174 46 C174 78 124 78 100 46 Z" ` +
+      `fill="none" stroke="url(#sn-mono-gold)" stroke-width="6" stroke-linecap="round"/>` +
+      `<text x="56" y="56" font-size="30" ${g}>${A}</text>` +
+      `<text x="140" y="56" font-size="30" ${g}>${B}</text>`,
+  };
+}
+
 export function monogramOverlaySvg(opts: {
   viewBoxSize: number;
   monogram: MonogramConfig;
@@ -307,25 +406,53 @@ export function monogramOverlaySvg(opts: {
   // Badge sizing in module units.
   const padR = Math.max(3, viewBoxSize * 0.08); // outer rounded-rect padding radius
   const circleR = Math.max(2.5, viewBoxSize * 0.135);
-  // Font sizing scales with text length so "A & B" and "MJB" both fit.
-  const textLen = monogram.text.length;
-  const fontSize = textLen <= 1
-    ? circleR * 1.4
-    : textLen <= 3
-      ? circleR * 0.95
-      : textLen <= 5
-        ? circleR * 0.7
-        : circleR * 0.55;
-
-  const safeText = escapeXml(monogram.text);
   const fill = escapeAttr(monogram.bg ?? DEFAULT_BG);
   const stroke = escapeAttr(monogram.color);
 
-  // Layered: rounded-rect clearance (cream) → circle border (terracotta) → text.
+  // When the couple chose a type-only lockup, draw their REAL mark inside the
+  // cream clearance circle (owner 2026-06-14) — same footprint as the old
+  // initials badge, so QR scannability (level-H, ~3% coverage) is unchanged.
+  const lockStyle = monogram.style;
+  const [a, b] = splitInitials(monogram.text);
+  const isLockup =
+    (lockStyle === 'bar' || lockStyle === 'duo' || lockStyle === 'script' || lockStyle === 'infinity') &&
+    Boolean(a) &&
+    Boolean(b);
+
+  let inner: string;
+  if (isLockup) {
+    const mark = lockupMarkSvg({
+      style: lockStyle,
+      a,
+      b,
+      fontFamily: monogram.fontFamily ?? "ui-serif, Georgia, serif",
+      fontStyle: monogram.fontStyle ?? 'italic',
+      letterSpacing: monogram.letterSpacing ?? '0',
+      ink: monogram.inkColor ?? monogram.color,
+    });
+    // Square fit-box inside the circle; the wide marks letterbox within it.
+    const box = circleR * 1.5;
+    inner =
+      `<svg x="${cx - box / 2}" y="${cy - box / 2}" width="${box}" height="${box}" ` +
+      `viewBox="${mark.viewBox}" preserveAspectRatio="xMidYMid meet">${mark.inner}</svg>`;
+  } else {
+    // Legacy / framed / single-name → initials, now in the couple's CHOSEN face
+    // (was a hardcoded serif italic) so even the fallback matches their site.
+    const textLen = monogram.text.length;
+    const fontSize =
+      textLen <= 1 ? circleR * 1.4 : textLen <= 3 ? circleR * 0.95 : textLen <= 5 ? circleR * 0.7 : circleR * 0.55;
+    const ff = monogram.fontFamily ? escapeAttr(monogram.fontFamily) : 'ui-serif, Georgia, serif';
+    const fStyle = monogram.fontStyle ?? 'italic';
+    const inkText = escapeAttr(monogram.inkColor ?? monogram.color);
+    inner = `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="${ff}" font-style="${fStyle}" font-weight="600" font-size="${fontSize}" fill="${inkText}">${escapeXml(monogram.text)}</text>`;
+  }
+
+  // Layered: rounded-rect clearance (cream) → circle (cream fill + accent ring)
+  // → the couple's mark (lockup or initials).
   return `
     <rect x="${cx - padR}" y="${cy - padR}" width="${padR * 2}" height="${padR * 2}" rx="${padR * 0.35}" fill="${fill}" />
     <circle cx="${cx}" cy="${cy}" r="${circleR}" fill="${fill}" stroke="${stroke}" stroke-width="${Math.max(0.5, viewBoxSize * 0.018)}" />
-    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="ui-serif, Georgia, serif" font-style="italic" font-weight="600" font-size="${fontSize}" fill="${stroke}">${safeText}</text>
+    ${inner}
   `;
 }
 

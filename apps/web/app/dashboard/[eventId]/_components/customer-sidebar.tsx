@@ -23,18 +23,24 @@
  * desktop. The 5-item mobile BottomNav lives in customer-bottom-nav.tsx
  * alongside this file.
  *
- * 6 GROUPS (per canonical IA — same logical buckets the admin sidebar
- * established at PR #606, adapted to the customer surfaces). The 'Today'
- * group was retired 2026-06-03 with the planner wizard; Home moved to
- * the top of Plan:
- *   1. Plan          — Home · Guests · Seating · Schedule · Services · Find your date
- *   2. Spend         — Budget (Orders + Receipts retired 2026-05-30
- *                       per owner directive · routes still reachable
- *                       via order-confirmation emails + /add-ons)
- *   3. Communicate   — Messages · Contracts
- *   4. Share         — Website · Add-ons · Mood Board
- *   5. After         — Activity · Disputes · Event QR
- *   6. Settings      — Hosts · Profile
+ * 7 JOURNEY GROUPS (owner-locked REDESIGN_PLAN · 2026-06-14 — the IA now
+ * reads as the couple's planning JOURNEY, and everything past the top +
+ * Plan collapses by default). Full WHY + per-item provenance lives in the
+ * builder at customer-nav-config.ts:
+ *   0. (top · "Setnayan") — Home · Studio · Explore        (open)
+ *   1. Plan      — Guests · Seating · Schedule · Budget     (open)
+ *   2. Book      — Messages · Contracts                     (collapsed)
+ *   3. Design    — Website · Mood Board · Monogram          (collapsed)
+ *   4. Day-of    — Live Wall · Event QR                     (collapsed)
+ *   5. After     — Activity · Disputes                      (collapsed)
+ *   6. Settings  — Personalization · Hosts · Profile · Find your date (collapsed)
+ *
+ * Net change from the prior verb-bucket IA: Services→Explore (Compass) and
+ * Add-ons→Studio relabels (routes unchanged), Budget folded into Plan,
+ * Event QR moved to Day-of, Find your date demoted to Settings, the long
+ * tail collapses by default, and Activity gained an explicit matchPrefix.
+ * Orders + Receipts stay retired-from-sidebar (reachable via order-
+ * confirmation emails + Studio + Budget).
  *
  * REMOVED from the brief vs the original ship spec:
  *   - "Privacy" under Settings — /dashboard/profile/privacy doesn't exist

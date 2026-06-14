@@ -247,9 +247,13 @@ function sniffMimeFromName(name: string): string | null {
 /**
  * Parses a public URL back into a `{ bucket, key }` pair.
  *
- * Handles both URL shapes `publicUrlFor` can emit:
- *   1. `${R2_PUBLIC_URL}/${bucket}/${key}` (custom domain)
- *   2. `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${key}` (raw)
+ * Handles every URL shape `publicUrlFor` can emit:
+ *   1. `${R2_PUBLIC_URL}/${key}` — the `media` bucket bound to a public domain
+ *      / r2.dev subdomain (NO bucket segment; this is the live shape).
+ *   2. `${R2_PUBLIC_URL}/${bucket}/${key}` — non-media buckets, or the legacy
+ *      shape from before the media bucket got its own public domain.
+ *   3. `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${key}` — the
+ *      raw account endpoint (dev/preview fallback when R2_PUBLIC_URL is unset).
  *
  * Returns null for URLs that don't look like R2 (e.g. legacy Supabase
  * Storage URLs — we leave those alone and rely on the owner's manual
@@ -258,18 +262,23 @@ function sniffMimeFromName(name: string): string | null {
 function parseR2Url(
   publicUrl: string,
 ): { bucket: string; key: string } | null {
-  let pathname: string;
+  let parsed: URL;
   try {
-    pathname = new URL(publicUrl).pathname;
+    parsed = new URL(publicUrl);
   } catch {
     return null;
   }
+  let pathname = parsed.pathname;
 
-  // Strip the R2_PUBLIC_URL pathname prefix (custom domain may have a path).
+  // Strip the R2_PUBLIC_URL pathname prefix (custom domain may have a path),
+  // and remember whether this URL is served from the public host.
   const base = process.env.R2_PUBLIC_URL;
+  let onPublicHost = false;
   if (base) {
     try {
-      const basePath = new URL(base).pathname.replace(/\/+$/, '');
+      const baseUrl = new URL(base);
+      onPublicHost = parsed.host === baseUrl.host;
+      const basePath = baseUrl.pathname.replace(/\/+$/, '');
       if (basePath && pathname.startsWith(basePath)) {
         pathname = pathname.slice(basePath.length);
       }
@@ -279,14 +288,24 @@ function parseR2Url(
   }
 
   const stripped = pathname.replace(/^\/+/, '');
-  const slash = stripped.indexOf('/');
-  if (slash <= 0 || slash === stripped.length - 1) return null;
-
-  const bucket = stripped.slice(0, slash);
-  const key = decodeURIComponent(stripped.slice(slash + 1));
+  if (!stripped) return null;
   const knownBuckets: string[] = Object.values(R2_BUCKETS);
-  if (!knownBuckets.includes(bucket)) return null;
-  return { bucket, key };
+
+  // Shapes 2 & 3: an explicit bucket segment leads the path.
+  const slash = stripped.indexOf('/');
+  if (slash > 0 && slash < stripped.length - 1) {
+    const maybeBucket = stripped.slice(0, slash);
+    if (knownBuckets.includes(maybeBucket)) {
+      return { bucket: maybeBucket, key: decodeURIComponent(stripped.slice(slash + 1)) };
+    }
+  }
+
+  // Shape 1: bucket-bound public host → the whole path is the media key.
+  if (onPublicHost) {
+    return { bucket: R2_BUCKETS.media, key: decodeURIComponent(stripped) };
+  }
+
+  return null;
 }
 
 /**

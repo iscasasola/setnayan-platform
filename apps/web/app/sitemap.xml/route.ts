@@ -9,7 +9,8 @@
  *
  * Architecture:
  *   /sitemap.xml              ← THIS file · sitemapindex
- *   /sitemap-static.xml       ← 17 marketing routes · hardcoded honest lastmod
+ *   /sitemap-static.xml       ← marketing routes · hardcoded honest lastmod
+ *   /sitemap-help.xml         ← /help hub + 61 per-article URLs · HELP_LASTMOD
  *   /sitemap-venues.xml       ← venue_directory rows · lastmod = created_at
  *   /sitemap-vendors.xml      ← verified vendor_profiles · lastmod = updated_at
  *   /sitemap-weddings.xml     ← Phase 4 editorials (empty until feature ships)
@@ -45,6 +46,8 @@ export async function GET(): Promise<Response> {
   // crawl targets), then weddings (editorial discovery surface).
   const children: ReadonlyArray<{ slug: string; lastmod: string }> = [
     { slug: 'sitemap-static.xml', lastmod: now },
+    { slug: 'sitemap-help.xml', lastmod: now },
+    { slug: 'sitemap-blog.xml', lastmod: now },
     { slug: 'sitemap-venues.xml', lastmod: now },
     { slug: 'sitemap-vendors.xml', lastmod: now },
     { slug: 'sitemap-weddings.xml', lastmod: now },

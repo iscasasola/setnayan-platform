@@ -10,12 +10,16 @@
  * the list / changing details."
  *
  * Layout: the guest list scrolls in the top region; this component docks a
- * fixed, ~one-third-height panel sheet at the bottom of the screen, with the
- * guest menus rendered as a real bottom-nav bar pinned to the very bottom
- * edge BELOW the sheet (owner directive 2026-06-03 — "place the menus of
- * guest as bottom nav, not on the top of carousel"). In FOCUS MODE the global
- * 5-tab nav is already hidden on the Guests page, so this menu IS the
- * page's bottom navigation. It is FIVE swipeable panels (owner directive
+ * fixed, ~one-third-height panel sheet ABOVE the global 5-tab bottom nav
+ * (nav-everywhere 2026-06-13 — the global nav is now enabled on every
+ * customer surface incl. Guests, so there can be only ONE element pinned to
+ * bottom-0: that global nav). The guest menus (the 5 Summary·Search·Add·
+ * Customize·Journey pills) therefore moved BACK to the TOP of the sheet as
+ * an in-flow row — the very FIRST row of the sheet's flex column, above the
+ * grabber + active panel — instead of being a second fixed bottom bar (which
+ * would double-stack with the global nav). The pill row keeps its tap-to-
+ * switch (goTo) + active-state styling; horizontal swipe still works too.
+ * It is FIVE swipeable panels (owner directive
  * 2026-06-02 — the top is now JUST
  * the guest list, so the RSVP counts that used to sit in the page's top
  * StatsStrip move into the Summary panel here):
@@ -34,17 +38,16 @@
  *                 the List/Mind-map view switch (redesign Phase 1; the mobile
  *                 twin of the desktop ribbon + switcher)
  *
- * Supersedes the single docked MobileActionBar. The bottom nav (the
- * guest menus, rendered below the sheet) jumps between panels; horizontal
+ * Supersedes the single docked MobileActionBar. The pill row (the guest
+ * menus, rendered at the TOP of the sheet) jumps between panels; horizontal
  * swipe works too. All `lg:hidden` — desktop keeps the inline Toolbar +
  * sticky FacetsSidebar + StatsStrip untouched.
  *
  * Sheet height comes from `--gcar-h` set on the page <section>; the component
- * renders an in-flow spacer covering the sheet + the bottom-nav strip so the
- * guest list's last rows clear both. Sheet + nav sit at z-40 (above page
- * content). The global 5-tab nav is suppressed on the Guests route
- * (CustomerBottomNav returns null in focus mode), so the only bottom chrome
- * is this panel sheet + its 4-item menu nav.
+ * renders an in-flow spacer covering the sheet + the global 5-tab nav (≈80px)
+ * so the guest list's last rows clear both. The sheet sits at z-40 (above
+ * page content) and rests directly on top of the global bottom nav (which
+ * is now enabled on the Guests route, pinned to bottom-0).
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
@@ -56,6 +59,7 @@ import {
   SIDE_LABELS,
   type GuestRole,
   type GuestSide,
+  type PaxProgress,
 } from '@/lib/guests';
 import { LiveSearch } from './live-search';
 import { quickAddGuest } from '../quick-add-actions';
@@ -127,6 +131,7 @@ export function MobileGuestCarousel({
   attending,
   pending,
   declined,
+  paxProgress,
   teamFilter,
   pendingClaims,
   unsent = 0,
@@ -148,6 +153,8 @@ export function MobileGuestCarousel({
   attending: number;
   pending: number;
   declined: number;
+  /** Pax-target progress (Adaptive Pax Pricing Phase 2); null = no target set. */
+  paxProgress: PaxProgress | null;
   teamFilter: 'all' | 'bride' | 'groom';
   // Pending invite-claims (review queue) — badges the Journey panel's Confirm
   // step, mirroring the desktop ribbon (redesign Phase 1).
@@ -239,6 +246,22 @@ export function MobileGuestCarousel({
   // closed (grabber only), up to snap open; a tap toggles. The keyboard-docked
   // heights (kbOpen) are unchanged.
   const GRABBER_H = 36; // h-9 grabber strip
+  // The Summary·Search·Add·Customize·Journey pill row now lives INSIDE the
+  // sheet as its first row (nav-everywhere 2026-06-13 — it can no longer be a
+  // second fixed bottom bar without double-stacking the global nav). Its
+  // height is fixed via the matching `h-[52px]` className below so the
+  // scrollHeight read stays a stable intrinsic measurement (same no-feedback-
+  // loop reasoning as the panel cap).
+  const TABS_H = 52;
+  // The global 5-tab bottom nav (CustomerBottomNav) is now enabled on this
+  // route and pinned to bottom-0 at ~80px. The sheet rests directly on top of
+  // it; the spacer reserves room for sheet + this nav + safe area.
+  // 80px = the clearance the dashboard layout itself reserves for the global
+  // nav (app/dashboard/[eventId]/layout.tsx wraps page content in `pb-20`).
+  // The nav's content box is ~67px (44pt tab min-height + py-1 + border);
+  // 80px matches the app-wide reservation so the sheet never overlaps the
+  // nav's tap targets. (safe-area is added separately in the calc()s.)
+  const GLOBAL_NAV_H = 80;
   // The sheet opens to EXACTLY the active panel's content height (measured), so
   // it stays at its minimum and the guest list above keeps the most room. The
   // Search panel (one compose bar) ends up far shorter than Summary (2×2 count
@@ -248,15 +271,18 @@ export function MobileGuestCarousel({
   // CRITICAL — no measurement feedback loop. We read `section.scrollHeight` and
   // size the sheet from it. For that read to be stable the section's own height
   // must NOT depend on the sheet height: the panels are capped with a FIXED
-  // `max-h-[calc(60dvh-2.25rem)]` (the track height when the sheet is at its
-  // 60vh cap, minus the 36px grabber) — NOT `max-h-full` (which is 100% of the
-  // track, i.e. derived from the very height this effect sets). With the fixed
-  // cap, scrollHeight is the true intrinsic content height and can't change when
-  // the sheet grows, so the ResizeObserver never re-fires from its own resize.
+  // `max-h-[calc(60dvh-2.25rem-52px)]` (the track height when the sheet is at
+  // its 60vh cap, minus the 36px grabber AND the 52px in-sheet pill row) — NOT
+  // `max-h-full` (which is 100% of the track, i.e. derived from the very height
+  // this effect sets). With the fixed cap, scrollHeight is the true intrinsic
+  // content height and can't change when the sheet grows, so the ResizeObserver
+  // never re-fires from its own resize.
   // (The earlier `max-h-full` made the section resize whenever openH changed →
   // ResizeObserver → re-measure → the `transition-[height]` animated each tiny
   // correction = the sheet "vibrated" and never settled at full height.)
-  const [openH, setOpenH] = useState(176);
+  // 228 = 52px pill row + 36px grabber + ~140px panel fallback, before the
+  // first ResizeObserver measurement lands.
+  const [openH, setOpenH] = useState(228);
   const [dragH, setDragH] = useState<number | null>(null);
   const dragRef = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
 
@@ -266,7 +292,10 @@ export function MobileGuestCarousel({
     if (!section) return;
     const measure = () => {
       const cap = Math.round(window.innerHeight * 0.6);
-      setOpenH(Math.min(GRABBER_H + section.scrollHeight, cap));
+      // Sheet open height = pill row + grabber + the active panel's intrinsic
+      // content height, capped at 60vh. TABS_H is added because the pill row
+      // now lives inside the sheet (above the grabber + panel).
+      setOpenH(Math.min(TABS_H + GRABBER_H + section.scrollHeight, cap));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -278,7 +307,12 @@ export function MobileGuestCarousel({
     };
   }, [active, kbOpen]);
 
-  const restingH = collapsed ? GRABBER_H : openH;
+  // Collapsed floor = pill row + grabber (the panel content collapses away,
+  // but the menu pills stay reachable so the user can still switch panels
+  // while the sheet is minimized — they used to live in the always-visible
+  // bottom nav, which is gone now).
+  const COLLAPSED_H = TABS_H + GRABBER_H;
+  const restingH = collapsed ? COLLAPSED_H : openH;
 
   const onGrabberDown = (e: React.PointerEvent) => {
     if (kbOpen) return;
@@ -290,7 +324,7 @@ export function MobileGuestCarousel({
     const d = dragRef.current;
     if (!d) return;
     if (Math.abs(e.clientY - d.startY) > 3) d.moved = true;
-    setDragH(Math.max(GRABBER_H, Math.min(d.startH - (e.clientY - d.startY), openH)));
+    setDragH(Math.max(COLLAPSED_H, Math.min(d.startH - (e.clientY - d.startY), openH)));
   };
   const onGrabberUp = (e: React.PointerEvent) => {
     const d = dragRef.current;
@@ -301,19 +335,21 @@ export function MobileGuestCarousel({
       setCollapsed((c) => !c);
     } else {
       // Snap to whichever end the drag finished closer to.
-      const finalH = Math.max(GRABBER_H, Math.min(d.startH - (e.clientY - d.startY), openH));
-      setCollapsed(finalH < (GRABBER_H + openH) / 2);
+      const finalH = Math.max(COLLAPSED_H, Math.min(d.startH - (e.clientY - d.startY), openH));
+      setCollapsed(finalH < (COLLAPSED_H + openH) / 2);
     }
     setDragH(null);
   };
 
   return (
     <>
-      {/* in-flow spacer covering the panel sheet + the bottom-nav strip so the
-          guest list's last rows clear both fixed elements */}
+      {/* in-flow spacer covering the panel sheet + the global bottom nav so the
+          guest list's last rows clear both. The sheet rests on top of the
+          global nav, so the reserved height = sheet height + ~80px global nav
+          + safe area. */}
       <div
         aria-hidden
-        className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] transition-[height] duration-200 ease-out lg:hidden"
+        className="h-[calc(var(--gcar-h)+80px+env(safe-area-inset-bottom))] transition-[height] duration-200 ease-out lg:hidden"
         style={
           // Mirror the sheet's resting height so the guest list's bottom padding
           // tracks the panel exactly (per-panel open height, or just the grabber
@@ -321,24 +357,75 @@ export function MobileGuestCarousel({
           // 348px→0 reflow was the iOS tap-delivery bug (owner-reported 2026-06-03).
           kbOpen
             ? undefined
-            : { height: `calc(${restingH}px + 4rem + env(safe-area-inset-bottom))` }
+            : { height: `calc(${restingH}px + ${GLOBAL_NAV_H}px + env(safe-area-inset-bottom))` }
         }
       />
 
-      {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
-          4-menu strip rendered after this block). One soft upward shadow + a
-          single hairline ring + rounded top reads as "window above / nav
-          below". Owner directive 2026-06-03: the 4 menus moved OUT of the top
-          of this sheet and BECAME the bottom nav, so this sheet now holds only
-          the active panel. */}
+      {/* Panel content sheet — docked directly ABOVE the global 5-tab bottom
+          nav (which is pinned to bottom-0 on this route). One soft upward
+          shadow + a single hairline ring + rounded top reads as "window above
+          / nav below". nav-everywhere 2026-06-13: the guest pill menus moved
+          BACK to the TOP of this sheet (first flex row, below) so there's no
+          second fixed bottom bar; this sheet now holds the pill row + grabber
+          + active panel. The bottom offset matches the global nav height
+          (80px) so the sheet rests on top of it with no overlap or gap. */}
       <div
-        className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen || dragH !== null ? '' : 'transition-[height] duration-200 ease-out'}`}
+        className={`fixed inset-x-0 bottom-[calc(80px+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen || dragH !== null ? '' : 'transition-[height] duration-200 ease-out'}`}
         style={
           kbOpen
-            ? { bottom: kbInset, height: active === 2 ? 120 : active === 1 ? 84 : undefined }
+            ? // Keyboard path: the pill row + grabber are both hidden (see the
+              // !kbOpen guards below), so the sheet is track-only. Add (2) +
+              // Search (1) dock to a fixed compact height above the keyboard;
+              // other panels keep the full --gcar-h. NO TABS_H here — the pill
+              // row isn't rendered while typing, so adding it would leave dead
+              // space above the input.
+              { bottom: kbInset, height: active === 2 ? 120 : active === 1 ? 84 : undefined }
             : { height: dragH ?? restingH }
         }
       >
+        {/* Guest menus AS the sheet's TOP row (nav-everywhere 2026-06-13 — moved
+            back here from a second fixed bottom bar so the global 5-tab nav can
+            own bottom-0 alone). Keeps the 5-pill grid + terracotta active state +
+            goTo tap-switching; the active panel below highlights here. Fixed
+            h-[52px] (= TABS_H) keeps the panel scrollHeight read stable. Hidden
+            while typing so the input gets the full height above the keyboard,
+            matching the prior bottom-nav behavior. */}
+        {!kbOpen && (
+          <nav
+            aria-label="Guest panels"
+            className="h-[52px] shrink-0 border-b border-ink/10"
+          >
+            <ul className="grid h-full grid-cols-5 px-1">
+              {PANELS.map((p, i) => {
+                const Icon = p.icon;
+                const isActive = active === i;
+                return (
+                  <li key={p.key}>
+                    <button
+                      type="button"
+                      onClick={() => goTo(i)}
+                      aria-current={isActive ? 'true' : undefined}
+                      className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 transition-colors hover:bg-ink/5"
+                    >
+                      <Icon
+                        aria-hidden
+                        strokeWidth={1.75}
+                        className={`h-[22px] w-[22px] ${isActive ? 'text-terracotta' : 'text-ink/45'}`}
+                      />
+                      <span
+                        className={`text-[10px] tracking-wide ${
+                          isActive ? 'font-semibold text-ink' : 'text-ink/55'
+                        }`}
+                      >
+                        {p.label}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        )}
         {/* Grabber — tap to collapse the panel down to this handle so the guest
             list above stretches; tap again to expand. Hidden while typing. */}
         {!kbOpen && (
@@ -360,8 +447,8 @@ export function MobileGuestCarousel({
             />
           </button>
         )}
-        {/* swipe track — 5 panels, scroll-snap; full sheet height now that the
-            tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
+        {/* swipe track — 5 panels, scroll-snap; fills the sheet below the pill
+            row + grabber. Tap a pill above OR swipe to jump between panels. */}
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -369,7 +456,29 @@ export function MobileGuestCarousel({
         >
           {/* 1 — Summary: animated RSVP counts (also filter links). Four
               stats sit on ONE row so the panel is as low as the search row. */}
-          <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] overflow-y-auto px-4 py-3">
+          <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] overflow-y-auto px-4 py-3">
+            {/* Pax-target meter (Adaptive Pax Pricing Phase 2) — sure-attending
+                vs the couple's minimum pax. Hidden when no target is set. */}
+            {paxProgress ? (
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                  <span className="font-mono uppercase tracking-[0.12em] text-terracotta">
+                    {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
+                  </span>
+                  <span className="tabular-nums text-ink/70">
+                    {paxProgress.exceeded
+                      ? `${paxProgress.headcount} · ${paxProgress.overBy} over ${paxProgress.target}`
+                      : `${paxProgress.headcount} of ${paxProgress.target} · ${paxProgress.progressPct}%`}
+                  </span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10">
+                  <div
+                    className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+                    style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
             <div className="grid grid-cols-4 gap-2">
               <StatBox
                 label="Total"
@@ -408,7 +517,7 @@ export function MobileGuestCarousel({
               the search bar"). The filters + sort live in bottom sheets opened
               from the icons; the input docks flush above the keyboard. */}
           <section
-            className={`flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-start'
             }`}
           >
@@ -444,7 +553,7 @@ export function MobileGuestCarousel({
           {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
               up so the two inputs sit flush above it. */}
           <section
-            className={`flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-center'
             }`}
           >
@@ -456,7 +565,7 @@ export function MobileGuestCarousel({
               select-all + live count + Assign live here; Assign opens the
               bottom sheet (Side / Role / Group, with a create-new text box). */}
           {mapMode ? (
-            <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col items-center justify-center gap-2 px-6 py-6 text-center">
+            <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] flex-col items-center justify-center gap-2 px-6 py-6 text-center">
               <p className="text-sm text-ink/60">
                 Bulk-select works in list view. The mind map adds people with its
                 own <span aria-hidden>+</span> buttons.
@@ -479,15 +588,15 @@ export function MobileGuestCarousel({
               (redesign Phase 1). Mobile twin of the desktop ribbon + switcher;
               lives HERE (not atop the page) per the locked "mobile top = just
               the guest list" directive. */}
-          <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] space-y-3 overflow-y-auto px-4 py-3">
+          <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] space-y-3 overflow-y-auto px-4 py-3">
             <div className="flex items-center gap-0.5 overflow-x-auto overscroll-x-contain">
               {(
                 [
                   { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent },
-                  { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims },
-                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated },
-                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true },
+                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent, word: 'to send' },
+                  { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
+                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
+                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },
                 ] as const
               ).map((s, i) => (
                 <span key={s.key} className="flex shrink-0 items-center gap-0.5">
@@ -514,6 +623,9 @@ export function MobileGuestCarousel({
                         }`}
                       >
                         {s.badge}
+                        {'word' in s && s.word ? (
+                          <span className="ml-1 font-normal opacity-80">{s.word}</span>
+                        ) : null}
                       </span>
                     ) : null}
                   </Link>
@@ -550,48 +662,6 @@ export function MobileGuestCarousel({
         </div>
       </div>
 
-      {/* The 4 guest menus AS a bottom nav (owner directive 2026-06-03 — "place
-          the 4 menus of guest as bottom nav, not on the top of carousel").
-          Pinned to the very bottom edge, it mirrors the global BottomNav visual
-          language (icon + label · terracotta active). Tapping an item jumps the
-          sheet above to that panel; the active panel highlights here. */}
-      <nav
-        aria-label="Guest panels"
-        className={`fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden ${
-          kbOpen ? 'hidden' : ''
-        }`}
-      >
-        <ul className="grid grid-cols-5 px-1 py-1">
-          {PANELS.map((p, i) => {
-            const Icon = p.icon;
-            const isActive = active === i;
-            return (
-              <li key={p.key}>
-                <button
-                  type="button"
-                  onClick={() => goTo(i)}
-                  aria-current={isActive ? 'true' : undefined}
-                  className="flex min-h-[56px] min-h-[44pt] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 transition-colors hover:bg-ink/5"
-                >
-                  <Icon
-                    aria-hidden
-                    strokeWidth={1.75}
-                    className={`h-[22px] w-[22px] ${isActive ? 'text-terracotta' : 'text-ink/45'}`}
-                  />
-                  <span
-                    className={`text-[10px] tracking-wide ${
-                      isActive ? 'font-semibold text-ink' : 'text-ink/55'
-                    }`}
-                  >
-                    {p.label}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
       {/* Assign bottom sheet — sibling of the carousel (not a child) so the
           carousel's overflow-hidden doesn't clip it. */}
       <AssignSheet
@@ -622,7 +692,7 @@ export function MobileGuestCarousel({
               <h2 className="text-sm font-semibold text-ink">Filter</h2>
               {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
                 <Link
-                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
+                  href={buildHref({ team: null, rsvp: null, view: null, group: null, tag: null })}
                   onClick={() => setFilterSheet(false)}
                   className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-ink/55 hover:text-ink"
                 >
@@ -669,10 +739,13 @@ export function MobileGuestCarousel({
             </SegRow>
 
             <div className="grid grid-cols-2 gap-2">
+              {/* Role + Group are independent filters now (2026-06-13) — each
+                  writes its OWN param (`view` / `group`) so a host can pick a
+                  role view AND a custom group at once. */}
               <SelectFilter
                 label="Role"
                 allLabel="All roles"
-                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
+                value={activeView !== 'all' ? activeView : ''}
                 options={views
                   .filter((v) => v.key !== 'all')
                   .map((v) => ({ value: v.key, label: v.label }))}
@@ -684,7 +757,7 @@ export function MobileGuestCarousel({
                 value={currentGroupId ?? ''}
                 disabled={groups.length === 0}
                 options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
-                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
+                onChange={(v) => router.push(buildHref({ group: v || null }))}
               />
             </div>
 
@@ -1051,7 +1124,7 @@ function CustomizePanel({
   // the selection isn't stranded behind the entry button.
   if (!selectMode && count === 0) {
     return (
-      <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col items-center justify-center overflow-y-auto px-6 py-3 text-center">
+      <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] flex-col items-center justify-center overflow-y-auto px-6 py-3 text-center">
         <button
           type="button"
           onClick={() => guestSelection.enter()}
@@ -1065,7 +1138,7 @@ function CustomizePanel({
   }
 
   return (
-    <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-row items-center justify-between gap-2 overflow-y-auto px-4 py-3">
+    <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem-52px)] flex-row items-center justify-between gap-2 overflow-y-auto px-4 py-3">
       <label className="inline-flex shrink-0 items-center gap-2 text-sm text-ink">
         <input
           type="checkbox"

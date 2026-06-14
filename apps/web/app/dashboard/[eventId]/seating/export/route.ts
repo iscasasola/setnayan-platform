@@ -33,7 +33,9 @@ export async function GET(
   // All reads go through the couple's RLS — a non-member gets empty/null.
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, slug, event_date, monogram_text, monogram_color')
+    .select(
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) {

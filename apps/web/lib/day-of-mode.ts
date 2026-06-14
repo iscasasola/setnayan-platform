@@ -58,6 +58,24 @@ export function isInDayOfWindow(eventDate: string | Date): boolean {
 }
 
 /**
+ * True across the whole wedding-day span — the `live` AND `post` phases
+ * (T-1h .. T+24h). Use this (NOT `isInDayOfWindow`) to gate "live seat-plan
+ * propagation": the `live` window is midnight-anchored (T-1h..T+8h ≈ 11pm-prev
+ * .. 8am), so an EVENING reception actually lands in `post`. Guests arrive and
+ * the digital plan is the source of truth across both — so the day-of editing
+ * banner and the silent guest-finder self-refresh stay on for the full day,
+ * not just the morning hours.
+ *
+ * @example
+ * // evening reception, 6pm on the wedding day → delta ≈ +18h → 'post'
+ * isEventDayActive(today); // true (post phase still counts)
+ */
+export function isEventDayActive(eventDate: string | Date): boolean {
+  const phase = getDayOfPhase(eventDate);
+  return phase === 'live' || phase === 'post';
+}
+
+/**
  * Returns the current day-of phase for the given event date.
  *
  * - `pre`      : T - 3 days   .. T - 1 hour

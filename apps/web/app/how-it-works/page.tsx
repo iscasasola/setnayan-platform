@@ -11,7 +11,7 @@ import {
   Clock,
   Apple,
 } from 'lucide-react';
-import { SiteHeader } from '@/app/_components/site-header';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { Logo } from '@/app/_components/logo';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -20,19 +20,29 @@ import { getVendorPrices } from '@/lib/v2-catalog';
 // budget without origin pressure. Each page rebuilds at most once per hour.
 export const dynamic = 'force-dynamic';
 
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
+  /\/$/,
+  '',
+);
+
+// English + Taglish are the two public locales (owner: "english and taglish").
+// Reciprocal hreflang with /tl/how-it-works; x-default → en. "Taglish" has no
+// ISO code → tl-PH is the closest standard.
+const LANGUAGES = {
+  'en-PH': `${SITE_URL}/how-it-works`,
+  'tl-PH': `${SITE_URL}/tl/how-it-works`,
+  'x-default': `${SITE_URL}/how-it-works`,
+};
+
 export const metadata = {
   title: 'How Setnayan works — couples, vendors, guests, admins',
   description:
     "The complete map of who's who on Setnayan and where each person spends their time. One paragraph per role, plus how the flow connects.",
   alternates: {
-    canonical: '/how-it-works',
+    canonical: `${SITE_URL}/how-it-works`,
+    languages: LANGUAGES,
   },
 };
-
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
-  /\/$/,
-  '',
-);
 
 const HOW_IT_WORKS_JSONLD = {
   '@context': 'https://schema.org',
@@ -196,13 +206,22 @@ export default async function HowItWorksPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOW_IT_WORKS_JSONLD) }}
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
-        <SiteHeader />
+        <Nav />
 
         {/* Hero */}
         <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            How it works
-          </p>
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+              How it works
+            </p>
+            <Link
+              href="/tl/how-it-works"
+              hrefLang="tl-PH"
+              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+            >
+              Taglish
+            </Link>
+          </div>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
             One platform, six kinds of people. Here&rsquo;s the map.
           </h1>
@@ -357,11 +376,14 @@ export default async function HowItWorksPage() {
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For couples</p>
               </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                Plan one wedding, free.
+                Start planning, free.
               </h3>
+              {/* 2026-06-13 reprice scrub (Pricing.md § 00.D): invitations +
+                  day-of experience are paid SKUs — the free claim lists only
+                  the free workspace. */}
               <p className="mt-2 text-sm text-ink/70">
-                Guest list, invitations, vendors, budget, seating, mood board — and the day-of
-                experience. No card needed to start.
+                Guest list, seating, budget, schedule, mood board — plus the full vendor
+                marketplace. No card needed to start.
               </p>
               <Link
                 href="/signup"
@@ -379,7 +401,7 @@ export default async function HowItWorksPage() {
                 List your wedding business — free.
               </h3>
               <p className="mt-2 text-sm text-ink/70">
-                A free verified profile, in-app chat with couples, BIR-compliant receipts. Pro at
+                A free verified profile and in-app chat with couples. Pro at
                 {p.proMonthly} / 28 days unlocks unlimited services, custom slug + bid CTA on your
                 profile, advanced proposal builder, and editorial credits on the weddings you shoot.
               </p>

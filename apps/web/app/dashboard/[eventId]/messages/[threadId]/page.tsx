@@ -5,9 +5,11 @@ import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 
 export const metadata = { title: 'Thread' };
 
@@ -63,6 +65,11 @@ export default async function CoupleThreadPage({ params }: Props) {
       })
     : 'Vendor';
 
+  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
+  // so show the current count, matching what the vendor now sees.
+  const livePax = await resolveLivePax(supabase, thread.event_id);
+  const headerPax = livePax ?? thread.pax_current;
+
   return (
     <section className="flex h-[calc(100dvh-12rem)] flex-col gap-4">
       <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
@@ -77,10 +84,22 @@ export default async function CoupleThreadPage({ params }: Props) {
           {vendor?.tagline ? (
             <p className="truncate text-xs text-ink/60">{vendor.tagline}</p>
           ) : null}
+          {/* The pax this vendor is quoting against (Adaptive Pax Pricing) —
+              fresh on view (Phase 5); so the couple sees what the vendor sees. */}
+          {headerPax ? (
+            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta">
+              Planning for ~{headerPax} guests
+              {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
+                ? ` · was ${thread.pax_at_inquiry} at inquiry`
+                : ''}
+            </p>
+          ) : null}
         </div>
       </header>
 
       <ChatPrivacyNotice />
+
+      <ThreadInterestChips supabase={supabase} threadId={threadId} />
 
       <ChatMessageStream
         threadId={threadId}

@@ -35,6 +35,7 @@ import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
 import {
   bucketVendorsByGroup,
+  canonicalServiceToPlanGroupId,
   PLAN_GROUPS,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
@@ -47,10 +48,15 @@ import { BuildPins } from './_components/build-pins';
 import type { AnchorData } from './_components/build-anchors';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
-import { BuildCompare } from './_components/build-compare';
+import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import { VendorAvailabilityIntersection } from '../_components/vendor-availability-intersection';
-import { getCommonAvailableDays, rangeFromPrecision, formatDayKey } from '@/lib/vendor-availability';
+import {
+  getAvailableDaysForVendorSet,
+  getCommonAvailableDays,
+  rangeFromPrecision,
+  formatDayKey,
+} from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 
 export const metadata = { title: 'Vendors' };
@@ -313,17 +319,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       PLAN_GROUPS.map((g) => [g.id as string, g.label]),
     );
     for (const v of vendors) {
-      const labels = (v.covers_plan_groups ?? [])
-        .map((id) => groupLabelById.get(id))
-        .filter((l): l is string => Boolean(l));
-      if (labels.length === 0) continue;
+      // Carry the group id alongside the label (2026-06-12): host covers ARE
+      // plan-group ids, so they feed category-satisfaction directly.
+      const covers = (v.covers_plan_groups ?? [])
+        .map((id) => ({ label: groupLabelById.get(id), groupId: id }))
+        .filter((c): c is { label: string; groupId: string } => Boolean(c.label));
+      if (covers.length === 0) continue;
       const existing = enrichmentByVendorId.get(v.vendor_id);
       enrichmentByVendorId.set(v.vendor_id, {
         ...(existing ?? {}),
-        linked_services: [
-          ...(existing?.linked_services ?? []),
-          ...labels.map((label) => ({ label })),
-        ],
+        linked_services: [...(existing?.linked_services ?? []), ...covers],
       });
     }
   }
@@ -531,6 +536,82 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         return null;
       }
     })();
+    // Compare §4 (takeover spec) — available wedding dates PER BUILD
+    // (2026-06-12): the day-intersection of each saved build's CONNECTED
+    // vendors' calendars inside the couple's year/month window. The spec
+    // reverses the usual order — build the team first, then see which dates
+    // everyone can do — so this runs PRE-booking and reads blocks via the
+    // ADMIN client (0022 § 2.3 RLS only opens calendars after a booking).
+    // Aggregate-only surfacing, mirroring the §6a eyeing posture: day counts
+    // + the spec's "[X] and [Y] don't overlap" pair, never raw calendars.
+    // Manual / off-platform picks have no calendars → never constrain. Null
+    // (day-precise or missing date) → Compare hides the row entirely.
+    const compareAvailability = await (async () => {
+      const eventDate = ev?.event_date ?? null;
+      if (!eventDate || (matchPrecision !== 'year' && matchPrecision !== 'month')) return null;
+      const range = rangeFromPrecision(eventDate, matchPrecision);
+      if (!range) return null;
+      const profileByVendorId = new Map<string, { profileId: string; name: string }>();
+      for (const v of vendors) {
+        if (!v.marketplace_vendor_id) continue;
+        profileByVendorId.set(v.vendor_id, {
+          profileId: v.marketplace_vendor_id,
+          name: marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Vendor',
+        });
+      }
+      const fmt = (k: string) => {
+        const [y, m, d] = k.split('-').map(Number);
+        return new Date(y ?? 0, (m ?? 1) - 1, d ?? 1).toLocaleDateString('en-PH', {
+          month: 'short',
+          day: 'numeric',
+        });
+      };
+      const cols: Array<{ key: string; picks: ReadonlyArray<{ vendorId?: string }> }> = [
+        ...savedBuilds.map((b) => ({ key: b.build_id, picks: b.snapshot.picks ?? [] })),
+        { key: 'current', picks: currentPlan.picks },
+      ];
+      try {
+        const admin = createAdminClient();
+        const byColumn: Record<string, CompareDatesInfo> = {};
+        for (const col of cols) {
+          const set = col.picks
+            .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
+            .filter((x): x is { profileId: string; name: string } => Boolean(x));
+          if (set.length === 0) {
+            byColumn[col.key] = {
+              connectedCount: 0,
+              totalAvailable: 0,
+              dayLabels: [],
+              moreCount: 0,
+              conflictText: null,
+            };
+            continue;
+          }
+          const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
+          byColumn[col.key] = {
+            connectedCount: r.connectedVendorCount,
+            totalAvailable: r.availableDayKeys.length,
+            dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
+            moreCount: Math.max(0, r.availableDayKeys.length - 3),
+            conflictText:
+              r.availableDayKeys.length === 0
+                ? r.conflictPair
+                  ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
+                  : 'No single date works for this combination — swap a vendor.'
+                : null,
+          };
+        }
+        return {
+          windowLabel: formatEventDateWithPrecision(eventDate, matchPrecision).replace(
+            /^Sometime in /,
+            '',
+          ),
+          byColumn,
+        };
+      } catch {
+        return null;
+      }
+    })();
     // Build-tab anchors (PR D) — Date/Budget/Location with Flag/Pin. State lives
     // on the existing events columns (populated = Pinned, empty = Flagged); no
     // migration. Reuses the already-computed matchFormattedDate + precision.
@@ -584,8 +665,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         rangeLoPhp={Math.round(model.rangeLoCentavos / 100)}
         rangeHiPhp={Math.round(model.rangeHiCentavos / 100)}
         categoryFill={{
+          // Covered categories (2026-06-12) are excluded from Flag/Compute —
+          // another committed pick's package already includes them.
           openCats: buildChildren
-            .filter((c) => c.state === 'empty')
+            .filter((c) => c.state === 'empty' && !c.coveredBy)
             .map((c) => ({ groupId: c.groupId, label: c.label })),
           lockedCount: buildChildren.filter((c) => c.state === 'finalized').length,
           flaggedGroups,
@@ -606,6 +689,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             budgetPhp={currentPlan.budgetPhp}
             currentPlan={currentPlan}
             savedBuilds={savedBuilds}
+            availability={compareAvailability}
           />
         }
         lockSlot={
@@ -708,11 +792,11 @@ async function fetchVendorPhotoMaps(
   servicePhotoByVendor: Map<string, string>;
   manualPhotoByVendor: Map<string, string>;
   /** vendor_id → linked-services-on-card labels for its picked service. */
-  linkedByVendorId: Map<string, { label: string }[]>;
+  linkedByVendorId: Map<string, { label: string; groupId: string | null }[]>;
 }> {
   const servicePhotoByVendor = new Map<string, string>();
   const manualPhotoByVendor = new Map<string, string>();
-  const linkedByVendorId = new Map<string, { label: string }[]>();
+  const linkedByVendorId = new Map<string, { label: string; groupId: string | null }[]>();
 
   // 1. vendor_id → service_id / manual_vendor_id. Falls back to a service_id-
   //    only select when manual_vendor_id isn't migrated yet.
@@ -780,11 +864,14 @@ async function fetchVendorPhotoMaps(
   ]);
 
   // service_id → ordered linked labels → resolve to vendor_id.
-  const linksByServiceId = new Map<string, { label: string }[]>();
+  const linksByServiceId = new Map<string, { label: string; groupId: string | null }[]>();
   for (const row of (linkRes.data ?? []) as LinkRow[]) {
     const label = row.linked_label ?? row.linked_canonical_service;
     const arr = linksByServiceId.get(row.vendor_service_id) ?? [];
-    arr.push({ label });
+    // groupId (2026-06-12 category-satisfaction): which plan group this link
+    // covers. Null when the canonical service maps to no group — the chip
+    // still renders, it just can't mark a category covered.
+    arr.push({ label, groupId: canonicalServiceToPlanGroupId(row.linked_canonical_service) });
     linksByServiceId.set(row.vendor_service_id, arr);
   }
   for (const [vendorId, serviceId] of serviceIdByVendor) {

@@ -7,11 +7,13 @@ import { countUnread } from '@/lib/notifications';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
-import { DashboardEventSwitcher } from '@/app/_components/dashboard-event-switcher';
+import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { VendorSidebar } from './_components/vendor-sidebar';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
 
@@ -72,7 +74,7 @@ export default async function VendorDashboardLayout({
   if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
   const supabase = await createClient();
 
-  const [profileRes, unreadCount, roles, events, vendorRole] = await Promise.all([
+  const [profileRes, unreadCount, roles, events, vendorRole, vendorProfile] = await Promise.all([
     supabase
       .from('users')
       .select('account_type, email, display_name, deleted_at')
@@ -98,8 +100,15 @@ export default async function VendorDashboardLayout({
     // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
     // render from one source. Independent of the others → safe in Promise.all.
     resolveVendorRole(supabase, user.id),
+    // Vendor profile (own or via team membership) — drives service-aware nav:
+    // Repertoire only exists for music acts (owner directive 2026-06-13;
+    // mirrors the page-level isMusicVendor gate that already shipped).
+    // Defensive .catch(): nav gating must never crash the layout.
+    fetchOwnVendorProfile(supabase, user.id).catch(() => null),
   ]);
   const profile = profileRes.data;
+  // Service-aware nav: Repertoire is a music-act surface only.
+  const showRepertoire = isMusicVendor(vendorProfile?.services);
 
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
@@ -115,8 +124,9 @@ export default async function VendorDashboardLayout({
   // `fetchUserRoleSummary` (apps/web/lib/roles.ts:165-167): a user has access
   // if they own a `vendor_profiles` row OR sit on any `vendor_team_members`
   // row, regardless of `users.account_type`. This matches the rule the
-  // always-visible RoleSwitchPill uses to decide whether to offer the "Shop
-  // console" target (apps/web/app/_components/role-switch-pill.tsx:82-95).
+  // unified switcher uses to decide whether to offer the "Shop console"
+  // target (apps/web/app/dashboard/[eventId]/_components/event-switcher.tsx
+  // roleTargets builder — formerly the RoleSwitchPill, retired 2026-06-12).
   //
   // Before this 2026-05-29 fix the layout instead checked the rigid
   // `profile?.account_type === 'vendor'` predicate, which bounced anyone
@@ -141,6 +151,10 @@ export default async function VendorDashboardLayout({
   // Hide archived events; active-first + expired-rightmost; primary (or first
   // active) is the anchor monogram. Zero events → the wrapper renders the
   // empty "+" monogram linking to /dashboard/create-event.
+
+  // DB-driven creatable event types for the switcher's add-event sheet
+  // (2026-06-13 cutover) — request-cached, so layouts + pages share one read.
+  const creatableEventTypes = await getCreatableEventTypes();
   const visibleEvents = events.filter((e) => !e.archived);
   const activeEvents = sortEventsForSwitcher(visibleEvents);
   const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
@@ -156,40 +170,41 @@ export default async function VendorDashboardLayout({
     // monogram, matching the customer doorway (the basic-badge bug otherwise).
     monogram_frame_key: e.monogram_frame_key,
     monogram_font_key: e.monogram_font_key,
+    monogram_style: e.monogram_style,
   }));
 
-  // Switch View pill — lives in the desktop sidebar footer (added 2026-05-29
-  // per owner directive to standardize role-switch placement across the 3
-  // doorways instead of cramming it into the topBar). Mobile retains the
-  // pill in the topBar cluster via lg:hidden wrapper since SidebarShell's
-  // sidebar is hidden at <lg viewports.
-  const switchViewPill = (
-    <RoleSwitchPill
-      currentRole="vendor"
-      hasCustomerAccess={roles.hasCustomerAccess}
-      hasVendorAccess={roles.hasVendorAccess}
-      hasAdminAccess={roles.hasAdminAccess}
-      vendorProfiles={roles.vendorProfiles}
-    />
-  );
-
-  // Top bar — vendor utilities cluster: brand logo, mobile-only Switch View
-  // pill, live unread bell, display name, sign-out form. Desktop topBar no
-  // longer carries the Switch View pill — it renders in the sidebar footer
-  // slot (sidebarFooter prop below).
+  // Top bar — vendor utilities cluster: unified switcher, live unread bell,
+  // display name, sign-out form. The RoleSwitchPill (mobile topBar + desktop
+  // sidebar footer) is RETIRED 2026-06-12 per owner directive "single
+  // switcher" — the unified EventSwitcher top-left now owns BOTH event
+  // switching and cross-console hopping (Customer view / Setnayan HQ) on
+  // every viewport.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Top-left EventSwitcher — replaces the "Setnayan · Vendor" brand
-          wordmark that sat here, so the switcher occupies the same top-left
-          corner it holds on the customer doorway (owner directive 2026-06-02).
-          Customer chrome carries no brand wordmark in this corner either
-          (2026-05-15 chrome lock), so all three doorways read consistently.
-          Cross-console hopping stays with the RoleSwitchPill on the right. */}
-      <DashboardEventSwitcher primaryEvent={primaryEvent} switcherEvents={switcherEvents} />
+      {/* Top-left unified switcher — same top-left corner it holds on the
+          customer doorway (owner directive 2026-06-02). Customer chrome
+          carries no brand wordmark in this corner either (2026-05-15 chrome
+          lock), so all three doorways read consistently. Zero couple events →
+          the switcher renders the empty "+" monogram anchor but the menu
+          (incl. the "Switch view" rows) still opens via the caret. */}
+      <EventSwitcher
+        currentRole="vendor"
+        currentEventId={primaryEvent?.event_id ?? null}
+        currentEventName={primaryEvent?.display_name ?? null}
+        currentEventDate={primaryEvent?.event_date ?? null}
+        currentMonogramText={primaryEvent?.monogram_text ?? null}
+        currentMonogramColor={primaryEvent?.monogram_color ?? null}
+        currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
+        currentMonogramFontKey={primaryEvent?.monogram_font_key}
+        currentMonogramStyle={primaryEvent?.monogram_style}
+        events={switcherEvents}
+        hasCustomerAccess={roles.hasCustomerAccess}
+        hasVendorAccess={roles.hasVendorAccess}
+        hasAdminAccess={roles.hasAdminAccess}
+        vendorProfiles={roles.vendorProfiles}
+        eventTypes={creatableEventTypes}
+      />
       <div className="flex items-center gap-2">
-        {/* Mobile-only Switch View pill — desktop renders it in the
-            sidebar footer slot below. */}
-        <div className="lg:hidden">{switchViewPill}</div>
         {/* Live unread bell — replaces the SubnavTab liveNotificationsUserId
             wiring from the pre-Phase 2 layout. Single canonical surface
             for unread count + click-through to /vendor-dashboard/
@@ -217,7 +232,7 @@ export default async function VendorDashboardLayout({
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<VendorSidebar role={vendorRole} />} sidebarFooter={switchViewPill} topBar={topBar}>
+      <SidebarShell sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} />} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

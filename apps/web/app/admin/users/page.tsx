@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { type ReactNode } from 'react';
-import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
+import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle, LogOut } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -9,6 +9,7 @@ import {
   blacklistUser,
   confirmUserEmail,
   deleteUser,
+  forceSignOutUser,
   issueCompGrant,
   resetUserPassword,
   revokeCompGrant,
@@ -62,6 +63,9 @@ type Props = {
      * a successful redirect. Cleared on the next navigation.
      */
     grant_banner?: string;
+    /** Transient flags from forceSignOutUser redirects. */
+    signed_out?: string;
+    error?: string;
   }>;
 };
 
@@ -146,6 +150,27 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 px-5 py-4"
         >
           <p className="text-sm text-emerald-900">{grantBanner}</p>
+        </section>
+      ) : null}
+
+      {search.signed_out ? (
+        <section
+          role="status"
+          className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 px-5 py-4"
+        >
+          <p className="text-sm text-emerald-900">
+            Force sign-out complete — that user&rsquo;s sessions are revoked on
+            every device. Audit-logged.
+          </p>
+        </section>
+      ) : null}
+
+      {search.error ? (
+        <section
+          role="alert"
+          className="mb-6 rounded-2xl border border-rose-300/60 bg-rose-50/80 px-5 py-4"
+        >
+          <p className="text-sm text-rose-900">{search.error}</p>
         </section>
       ) : null}
 
@@ -391,6 +416,20 @@ function UsersTable({
                             Reset password
                           </SubmitButton>
                         </form>
+                        <ConfirmForm
+                          action={forceSignOutUser}
+                          message={`Force sign-out ${u.email ?? 'this user'}? They are signed out on EVERY device immediately — use for compromised accounts. Their data is untouched; they can log back in.`}
+                        >
+                          <input type="hidden" name="user_id" value={u.user_id} />
+                          <SubmitButton
+                            title="Revoke every session for this user (compromised-account remedy). Audit-logged."
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-amber-100 hover:text-amber-900 disabled:opacity-60"
+                            pendingLabel="Signing out…"
+                          >
+                            <LogOut className="h-3 w-3" strokeWidth={2} />
+                            Force sign-out
+                          </SubmitButton>
+                        </ConfirmForm>
                         <ConfirmForm
                           action={deleteUser}
                           message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from vendor to customer). Not reversible from this page.`}

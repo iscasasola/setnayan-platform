@@ -42,11 +42,9 @@ import {
   Users,
   LayoutGrid,
   CalendarClock,
-  Briefcase,
+  Compass,
   CalendarSearch,
   Wallet,
-  ShoppingCart,
-  Receipt,
   MessageSquare,
   FileText,
   Globe,
@@ -69,32 +67,80 @@ import type { NavGroup } from '@/app/_components/nav/types';
  *   - Desktop sidebar (`customer-sidebar.tsx` · client · for active-state highlight)
  *   - Mobile /more landing (`more/page.tsx` · server · for the overflow grid)
  *
- * Stable group/item `key` values mean future label edits don't reset
- * the per-section `setnayan.nav.section.<key>.open` localStorage state.
+ * JOURNEY-GROUP IA (owner-locked REDESIGN_PLAN · 2026-06-14): the groups now
+ * read as the couple's planning JOURNEY rather than verb buckets, and every
+ * group past the top + Plan collapses by default so the long tail
+ * (Book · Design · Day-of · After · Settings) stays out of the way until
+ * the couple reaches that phase:
+ *   0. (top · headerless-feeling "Setnayan") — Home · Studio · Explore
+ *   1. Plan      — Guests · Seating · Schedule · Budget
+ *   2. Book      — Messages · Contracts                      (collapsed)
+ *   3. Design    — Website · Mood Board · Monogram           (collapsed)
+ *   4. Day-of    — Live Wall · Event QR                      (collapsed)
+ *   5. After     — Activity · Disputes                       (collapsed)
+ *   6. Settings  — Personalization · Hosts · Profile · Find your date (collapsed)
+ *
+ * Stable item `key` values are PRESERVED across the relabel/regroup so the
+ * per-section `setnayan.nav.section.<key>.open` localStorage state and any
+ * per-item state survive. Only labels, group membership, two icons
+ * (Explore→Compass), and one matchPrefix (Activity) changed. Routes are
+ * UNCHANGED — Services→Explore and Add-ons→Studio are pure relabels.
  */
 export function buildCustomerNavGroups(eventId: string): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
   return [
     {
-      key: 'plan',
-      label: 'Plan',
+      // Top group — the three always-relevant anchors. Short "Setnayan"
+      // heading (SidebarSection always renders a heading row, so an empty
+      // label would leave a bare clickable chevron bar — a brand label
+      // reads cleaner than an empty one).
+      key: 'main',
+      label: 'Setnayan',
+      defaultOpen: true,
       items: [
         {
-          // Home — the event hub. Promoted to the top of Plan when the
-          // 'Today' group was retired alongside the planner wizard
-          // (2026-06-03 · superseded by onboarding scoping + the per-service
-          // deadline timeline in lib/upcoming-items.ts; /today now redirects
-          // to event-home). Sentinel matchPrefix so the strict-prefix branch
-          // never fires — only the exact-equality branch keeps Home lit
-          // (every other event route shares the `${base}/` prefix; CLAUDE.md
-          // 2026-05-22 PR #311 documents the prefix-vs-exact trap).
+          // Home — the event hub. Sentinel matchPrefix so the strict-prefix
+          // branch never fires — only the exact-equality branch keeps Home
+          // lit (every other event route shares the `${base}/` prefix;
+          // CLAUDE.md 2026-05-22 PR #311 documents the prefix-vs-exact trap).
           key: 'home',
           label: 'Home',
           href: base,
           icon: Home,
           matchPrefix: '__home__',
         },
+        {
+          // Studio — the in-app Setnayan services hub (Papic · Panood ·
+          // Save-the-Date · etc.). Relabeled from "Add-ons" 2026-06-14;
+          // key + route (/add-ons) unchanged. /add-ons/mood-board has its
+          // own Design entry — accepted dual-highlight (Studio's prefix is
+          // also a prefix of mood-board's path), mirrors the admin Payment
+          // methods dual-bucket precedent.
+          key: 'add-ons',
+          label: 'Studio',
+          href: `${base}/add-ons`,
+          icon: Sparkles,
+          matchPrefix: `${base}/add-ons`,
+        },
+        {
+          // Explore — the vendor marketplace. Relabeled from "Services"
+          // 2026-06-14 (the couple browses + discovers vendors here);
+          // key 'vendors' + route /vendors unchanged. Icon swapped
+          // Briefcase→Compass to read as discovery, not management.
+          key: 'vendors',
+          label: 'Explore',
+          href: `${base}/vendors`,
+          icon: Compass,
+          matchPrefix: `${base}/vendors`,
+        },
+      ],
+    },
+    {
+      key: 'plan',
+      label: 'Plan',
+      defaultOpen: true,
+      items: [
         {
           key: 'guests',
           label: 'Guests',
@@ -117,51 +163,23 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           matchPrefix: `${base}/schedule`,
         },
         {
-          // Renamed "Vendors" → "Services" 2026-06-02 (owner: the tab shows
-          // the SERVICES the vendors provide). key + route path unchanged.
-          key: 'vendors',
-          label: 'Services',
-          href: `${base}/vendors`,
-          icon: Briefcase,
-          matchPrefix: `${base}/vendors`,
-        },
-        {
-          key: 'find-date',
-          label: 'Find your date',
-          href: `${base}/find-date`,
-          icon: CalendarSearch,
-          matchPrefix: `${base}/find-date`,
-        },
-      ],
-    },
-    {
-      key: 'spend',
-      label: 'Spend',
-      items: [
-        {
+          // Budget — moved into Plan from the retired "Spend" group
+          // 2026-06-14 (the couple budgets as part of planning). key + href
+          // + icon unchanged. Orders + Receipts stay retired-from-sidebar
+          // (reachable via order-confirmation emails + Studio + Budget).
           key: 'budget',
           label: 'Budget',
           href: `${base}/budget`,
           icon: Wallet,
         },
-        // ORDERS + RECEIPTS retired from sidebar 2026-05-30 per owner
-        // directive: "Orders and receipts should be gone?". V2 publisher
-        // posture (CLAUDE.md 2026-05-28 V2 cutover) makes both surfaces
-        // low-traffic for the 5-20 family-cohort pilot launching
-        // 2026-06-01 — pilot couples won't be buying SKUs during the
-        // small test window, so the sidebar entries were sitting empty.
-        // The routes /dashboard/[eventId]/orders + /receipts STAY
-        // reachable via:
-        //   - order-confirmation emails (deep-link)
-        //   - add-ons surface (per-order flow)
-        //   - Budget page (financial overview)
-        // Future revisit: post-pilot when SKU purchase volume justifies
-        // dedicated nav surfaces, re-add to Spend section.
       ],
     },
     {
-      key: 'communicate',
-      label: 'Communicate',
+      key: 'book',
+      label: 'Book',
+      // Collapse-by-default: the couple reaches booking after they've
+      // shortlisted in Explore — keep it tidy until then.
+      defaultOpen: false,
       items: [
         {
           key: 'messages',
@@ -180,32 +198,19 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       ],
     },
     {
-      key: 'share',
-      label: 'Share',
+      key: 'design',
+      label: 'Design',
+      defaultOpen: false,
       items: [
         {
           key: 'website',
-          // Flipped 2026-06-03: the "Website" doorway opens the full-screen
-          // Reels editor (/site-editor) directly. The journey scroll at
-          // /website is retired (now redirects to the editor).
+          // The "Website" doorway opens the full-screen Reels editor
+          // (/site-editor) directly. The journey scroll at /website is
+          // retired (redirects to the editor).
           label: 'Website',
           href: `/site-editor/${eventId}`,
           icon: Globe,
           matchPrefix: `/site-editor/${eventId}`,
-        },
-        {
-          key: 'add-ons',
-          label: 'Add-ons',
-          href: `${base}/add-ons`,
-          icon: Sparkles,
-          // /add-ons/mood-board has its own dedicated sidebar entry so
-          // we exclude it from the Add-ons match via matching against
-          // the bare /add-ons prefix only. Both will end up lit when
-          // viewing /add-ons/mood-board because Mood Board's href IS
-          // a prefix of that path AND the Add-ons matchPrefix is too —
-          // accepted dual-highlight, mirrors the admin Payment methods
-          // dual-bucket precedent (Money + Settings groups).
-          matchPrefix: `${base}/add-ons`,
         },
         {
           key: 'mood-board',
@@ -215,17 +220,22 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           matchPrefix: `${base}/add-ons/mood-board`,
         },
         {
-          // Standalone Monogram Maker (Monogram_Maker_Plan_2026-06-05) — a
-          // returnable home to craft the wedding monogram (initials + 1 of 5
-          // lockups + live draw-on preview), persisting the same columns
-          // onboarding writes. Reachable here + via the Add-ons "Monogram
-          // Creator" card; mobile shows it under the More tab (5-item cap).
+          // Standalone Monogram Maker — a returnable home to craft the
+          // wedding monogram. Reachable here + via the Studio "Monogram
+          // Creator" card; mobile surfaces it under the More tab.
           key: 'monogram',
           label: 'Monogram',
           href: `${base}/monogram`,
           icon: Type,
           matchPrefix: `${base}/monogram`,
         },
+      ],
+    },
+    {
+      key: 'dayof',
+      label: 'Day-of',
+      defaultOpen: false,
+      items: [
         {
           // Salamisim day-of console (0012 P3) — wall mode override, screen
           // codes, tile kill switch, FaceBlock posture, Kwento approvals.
@@ -237,26 +247,10 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           icon: MonitorPlay,
           matchPrefix: `${base}/live`,
         },
-      ],
-    },
-    {
-      key: 'after',
-      label: 'After',
-      items: [
         {
-          key: 'activity',
-          label: 'Activity',
-          href: `${base}/activity`,
-          icon: Activity,
-        },
-        {
-          key: 'disputes',
-          label: 'Disputes',
-          href: `${base}/disputes`,
-          icon: Shield,
-          matchPrefix: `${base}/disputes`,
-        },
-        {
+          // Event QR — moved here from "After" 2026-06-14: crew scans the
+          // master QR on arrival day-of to register their capture device.
+          // key + href unchanged.
           key: 'event-qr',
           label: 'Event QR',
           href: `${base}/event-qr`,
@@ -265,17 +259,41 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       ],
     },
     {
-      key: 'settings',
-      label: 'Settings',
-      // Low-traffic — collapse by default to keep the Share + After groups
-      // closer to the fold without forcing a scroll on lg-medium viewports.
+      key: 'after',
+      label: 'After',
       defaultOpen: false,
       items: [
         {
-          // Personalization — the curated onboarding record + match criteria
-          // (CLAUDE.md 2026-06-02 directive 2). Route stays /details
-          // (relabel-not-rename). Reached here in the sidebar/More AND from
-          // the Home "Personalized" block's Personalize button.
+          key: 'activity',
+          label: 'Activity',
+          href: `${base}/activity`,
+          icon: Activity,
+          // Correctness fix 2026-06-14: without a matchPrefix the default
+          // would be the bare href and sub-routes like /activity/[id] would
+          // still light it (href IS a prefix), BUT making the umbrella
+          // explicit documents the intent + keeps it consistent with every
+          // other umbrella item. /activity and /activity/* both light up.
+          matchPrefix: `${base}/activity`,
+        },
+        {
+          key: 'disputes',
+          label: 'Disputes',
+          href: `${base}/disputes`,
+          icon: Shield,
+          matchPrefix: `${base}/disputes`,
+        },
+      ],
+    },
+    {
+      key: 'settings',
+      label: 'Settings',
+      // Low-traffic — collapse by default.
+      defaultOpen: false,
+      items: [
+        {
+          // Personalization — the curated onboarding record + match criteria.
+          // Route stays /details (relabel-not-rename). Reached here in the
+          // sidebar/More AND from the Home "Personalized" block.
           key: 'personalization',
           label: 'Personalization',
           href: `${base}/details`,
@@ -300,6 +318,16 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           // itself surfaces privacy controls inline (no separate route
           // exists in this codebase).
           matchPrefix: '__profile-exact__',
+        },
+        {
+          // Find your date — demoted from Plan to Settings 2026-06-14 so it
+          // stays reachable (NOT deleted). Its proper home is a future Home
+          // card (out of scope here). key + href + icon unchanged.
+          key: 'find-date',
+          label: 'Find your date',
+          href: `${base}/find-date`,
+          icon: CalendarSearch,
+          matchPrefix: `${base}/find-date`,
         },
       ],
     },

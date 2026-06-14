@@ -58,7 +58,19 @@ export const metadata = { title: 'Animated Monogram · Setnayan' };
  */
 
 const SKU_CODE = 'ANIMATED_MONOGRAM';
-const FALLBACK_PRICE_PHP = 2499; // v2.1 brief § 5 · ₱2,499
+
+/**
+ * The ink AnimatedMonogramHero should paint. For the four type-only lockups
+ * (bar/duo/script/infinity) that's the resolved lockup ink (mulberry · the ∞
+ * paints its own gold gradient inside the component); for framed / single-name
+ * / legacy events it's the couple's accent color (the text-circle render). Keeps
+ * the add-ons previews in lockstep with the live website hero (HeroMonogram).
+ */
+function lockupColor(m: ReturnType<typeof resolveMonogram>): string {
+  const isLockup =
+    m.style === 'bar' || m.style === 'duo' || m.style === 'script' || m.style === 'infinity';
+  return isLockup ? m.inkColor ?? m.color : m.color;
+}
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -72,7 +84,7 @@ export default async function AnimatedMonogramPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, monogram_text, monogram_color, monogram_motion_key',
+      'event_id, display_name, slug, monogram_text, monogram_color, monogram_motion_key, monogram_style, monogram_font_key, monogram_frame_key',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -93,11 +105,12 @@ export default async function AnimatedMonogramPage({ params }: Props) {
     ? buildEventLandingUrl({ appUrl, slug: event.slug })
     : null;
 
-  // Pricing from the live V2 catalog (single source of truth) with a fallback
-  // so the page never crashes if the catalog row is missing pre-seed (no
-  // service-role key in CI → formatV2Sku throws → fall back).
+  // Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
+  // hardcoded price). null when the catalog row is unreadable (e.g. no
+  // service-role key in CI / pre-seed) → the buy block degrades gracefully
+  // below rather than inventing a number. In prod the row is always seeded.
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? FALLBACK_PRICE_PHP;
+  const pricePhp = skuRecord?.price_php ?? null;
 
   return (
     <section className="space-y-6">
@@ -191,9 +204,13 @@ function OwnedView({
         <div className="mt-6 flex justify-center">
           {/* key forces a remount so the chosen motion replays each page visit */}
           <AnimatedMonogramHero
-            key={`owned-${monogram.text}-${motion}`}
+            key={`owned-${monogram.text}-${monogram.style ?? ''}-${motion}`}
             text={monogram.text}
-            color={monogram.color}
+            color={lockupColor(monogram)}
+            fontFamily={monogram.fontFamily}
+            fontStyle={monogram.fontStyle}
+            lockupStyle={monogram.style}
+            letterSpacing={monogram.letterSpacing}
             size="lg"
             motion={motion}
           />
@@ -234,7 +251,7 @@ async function UnownedView({
   motionLabel,
 }: {
   monogram: ReturnType<typeof resolveMonogram>;
-  pricePhp: number;
+  pricePhp: number | null;
   eventId: string;
   displayName: string | null;
   supabase: SupabaseLike;
@@ -281,9 +298,13 @@ async function UnownedView({
             </span>
             {/* key remounts the component so the motion replays on each render */}
             <AnimatedMonogramHero
-              key={`preview-${monogram.text}-${motion}`}
+              key={`preview-${monogram.text}-${monogram.style ?? ''}-${motion}`}
               text={monogram.text}
-              color={monogram.color}
+              color={lockupColor(monogram)}
+              fontFamily={monogram.fontFamily}
+              fontStyle={monogram.fontStyle}
+              lockupStyle={monogram.style}
+              letterSpacing={monogram.letterSpacing}
               size="md"
               motion={motion}
             />
@@ -326,23 +347,29 @@ async function UnownedView({
           </li>
         </ul>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-ink/65">
-            One price for your wedding ·{' '}
-            <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
-          </p>
-          <div className="sm:w-auto">
-            <InlineCheckoutDrawer
-              eventId={eventId}
-              serviceKey={SKU_CODE}
-              displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
-              originalPriceCentavos={String(Math.round(pricePhp * 100))}
-              settings={settings}
-              triggerLabel="Draw my monogram live"
-              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-            />
+        {pricePhp != null ? (
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              One price for your wedding ·{' '}
+              <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
+            </p>
+            <div className="sm:w-auto">
+              <InlineCheckoutDrawer
+                eventId={eventId}
+                serviceKey={SKU_CODE}
+                displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
+                originalPriceCentavos={String(Math.round(pricePhp * 100))}
+                settings={settings}
+                triggerLabel="Draw my monogram live"
+                triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="mt-5 text-sm text-ink/65">
+            Pricing loads from your catalog &mdash; please refresh in a moment.
+          </p>
+        )}
         <p className="mt-3 text-xs text-ink/50">
           Want to fine-tune your monogram + colours first? Set them on your{' '}
           <Link

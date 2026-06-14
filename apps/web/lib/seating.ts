@@ -142,6 +142,19 @@ export type FloorPlanRow = {
   service_entrance_enabled: boolean;
   service_entrance_x: number;
   service_entrance_y: number;
+  // Cocktail / waiting-area room — a SECOND room on the same canvas (sits
+  // outside the reception walls). Booths place inside; tables/chairs blocked.
+  cocktail_enabled: boolean;
+  cocktail_x: number;
+  cocktail_y: number;
+  cocktail_w: number;
+  cocktail_h: number;
+  cocktail_label: string;
+  cocktail_width_m: number | null;
+  cocktail_length_m: number | null;
+  cocktail_schedule_block_id: string | null;
+  // Couple revoke switch — when false, booked stylist/booth vendors can't edit.
+  cocktail_vendor_edit: boolean;
   venue_width_m: number | null;
   venue_length_m: number | null;
   // When the couple last published the seating pack (stamped table QR sheets).
@@ -164,6 +177,16 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   service_entrance_enabled: false,
   service_entrance_x: 97,
   service_entrance_y: 50,
+  cocktail_enabled: false,
+  cocktail_x: 50,
+  cocktail_y: 40,
+  cocktail_w: 30,
+  cocktail_h: 22,
+  cocktail_label: 'Cocktail Area',
+  cocktail_width_m: null,
+  cocktail_length_m: null,
+  cocktail_schedule_block_id: null,
+  cocktail_vendor_edit: true,
   venue_width_m: null,
   venue_length_m: null,
   published_at: null,
@@ -176,7 +199,7 @@ export async function fetchFloorPlan(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,venue_width_m,venue_length_m,published_at',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,venue_width_m,venue_length_m,published_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -201,6 +224,23 @@ export async function fetchFloorPlan(
     service_entrance_enabled: Boolean(data.service_entrance_enabled),
     service_entrance_x: num(data.service_entrance_x, D.service_entrance_x),
     service_entrance_y: num(data.service_entrance_y, D.service_entrance_y),
+    cocktail_enabled: Boolean(data.cocktail_enabled),
+    cocktail_x: num(data.cocktail_x, D.cocktail_x),
+    cocktail_y: num(data.cocktail_y, D.cocktail_y),
+    cocktail_w: num(data.cocktail_w, D.cocktail_w),
+    cocktail_h: num(data.cocktail_h, D.cocktail_h),
+    cocktail_label:
+      typeof data.cocktail_label === 'string' && data.cocktail_label.length > 0
+        ? data.cocktail_label
+        : D.cocktail_label,
+    cocktail_width_m: data.cocktail_width_m === null ? null : Number(data.cocktail_width_m),
+    cocktail_length_m: data.cocktail_length_m === null ? null : Number(data.cocktail_length_m),
+    cocktail_schedule_block_id:
+      (data as { cocktail_schedule_block_id?: string | null }).cocktail_schedule_block_id ?? null,
+    cocktail_vendor_edit:
+      data.cocktail_vendor_edit === undefined || data.cocktail_vendor_edit === null
+        ? true
+        : Boolean(data.cocktail_vendor_edit),
     venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,
@@ -441,9 +481,12 @@ export function tableGeometry(shape: TableShapeHint, capacity: number): TableGeo
     };
 
     // Seat order: outer left→right, then inner left→right (stable seat_number map).
+    // End insets keep the seam chair-free when wedges chain tip-to-tip: at a
+    // joint the neighbouring wedges' chairs must clear each other (inner radius
+    // is tight — 0.36 rad ≈ a chair-width gap across the seam; 0.32 crowded).
     const seats: SeatSlot[] = [
       ...along(outerN, Rco, 0.18),
-      ...along(innerN, Rci, 0.32),
+      ...along(innerN, Rci, 0.36),
     ];
 
     // Ribbon body: outer arc left→right, then inner arc right→left, closed.
@@ -576,6 +619,9 @@ export type AutoSeatGuest = {
   // members contiguous within their tier so they land together. null = the
   // guest belongs to no custom group and falls back to pure name order.
   group_id: string | null;
+  // Explicit per-guest tier override (guests.seating_priority, 1–4). null /
+  // undefined = derive from role + group_category via roleTier().
+  seating_priority?: number | null;
 };
 
 export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: number };
@@ -599,8 +645,20 @@ export const ROLE_TIER_LABELS: Record<1 | 2 | 3 | 4, string> = {
   4: 'Friends & others',
 };
 
+// Override-aware tier: an explicit guests.seating_priority (1–4) wins; null /
+// undefined / out-of-range falls back to the role-derived tier. Exported so the
+// editor's priority chip shows exactly the tier auto-arrange will use.
+export function guestTier(
+  role: string,
+  groupCategory: string,
+  override?: number | null,
+): 1 | 2 | 3 | 4 {
+  if (override === 1 || override === 2 || override === 3 || override === 4) return override;
+  return roleTier(role, groupCategory);
+}
+
 function tierOf(g: AutoSeatGuest): 1 | 2 | 3 | 4 {
-  return roleTier(g.role, g.group_category);
+  return guestTier(g.role, g.group_category, g.seating_priority);
 }
 
 // Default stage anchor (top-centre) when the event has no saved floor plan.
@@ -641,17 +699,10 @@ export function computeAutoSeat(
   }
 
   // Table pool: everything except sweetheart (reserved for the couple),
-  // sorted nearest-to-stage first.
-  const pool = tables
-    .map((t, i) => ({ t, p: tablePoint(t, i, tables.length) }))
-    .filter((x) => x.t.table_type !== 'sweetheart_2')
-    .sort((a, b) => {
-      const da = (a.p.x - stage.x) ** 2 + (a.p.y - stage.y) ** 2;
-      const db = (b.p.x - stage.x) ** 2 + (b.p.y - stage.y) ** 2;
-      if (da !== db) return da - db;
-      return a.p.y - b.p.y || a.p.x - b.p.x;
-    })
-    .map((x) => x.t);
+  // sorted highest priority score first (= nearest to the stage).
+  const pool = rankTablesByStage(tables, stage)
+    .filter((r) => r.table.table_type !== 'sweetheart_2')
+    .map((r) => r.table);
 
   // Eligible: attending, not yet seated, not the couple themselves.
   const eligible = guests.filter(
@@ -725,4 +776,691 @@ export function computeAutoSeat(
     result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Auto Arrange (iteration 0008 expansion, owner-directed 2026-06-13). One
+// click = three deterministic steps, all pure sorting logic (zero AI calls,
+// zero per-run cost):
+//   1. computeAutoLayout — stage-out coordinate grid for table positions
+//   2. boothPerimeterSlots / clampBoothToPerimeter — vendor booths anchored
+//      to the walls under hardcoded visibility rules
+//   3. computeAutoSeat (above) — guests into tables by priority tier
+// ---------------------------------------------------------------------------
+
+export type RankedTable = {
+  table: EventTableRow;
+  // Squared-distance from the stage in percent units (the sort key).
+  distance: number;
+  // Human-readable 0–100 proximity score (100 = on the stage). Monotonic
+  // inverse of distance; surfaced in tests + future UI, never re-derived.
+  priorityScore: number;
+};
+
+// Rank tables by physical proximity to the stage node: high proximity = high
+// priority score. Deterministic ties (y then x then table_id) so two runs on
+// the same plan always agree.
+export function rankTablesByStage(
+  tables: EventTableRow[],
+  stage: { x: number; y: number },
+): RankedTable[] {
+  return tables
+    .map((t, i) => {
+      const p =
+        t.x_pos !== null && t.y_pos !== null
+          ? { x: Number(t.x_pos), y: Number(t.y_pos) }
+          : defaultTablePosition(i, tables.length, false);
+      const d2 = (p.x - stage.x) ** 2 + (p.y - stage.y) ** 2;
+      return { table: t, p, distance: d2, priorityScore: Math.round(10000 / (100 + d2)) / 100 };
+    })
+    .sort(
+      (a, b) =>
+        a.distance - b.distance ||
+        a.p.y - b.p.y ||
+        a.p.x - b.p.x ||
+        a.table.table_id.localeCompare(b.table.table_id),
+    )
+    .map(({ table, distance, priorityScore }) => ({ table, distance, priorityScore }));
+}
+
+// --- vendor booths ----------------------------------------------------------
+
+export type BoothType =
+  | 'photo_booth'
+  | 'mobile_bar'
+  | 'dessert_station'
+  | 'gift_table'
+  | 'souvenir_table'
+  | 'custom';
+
+export const BOOTH_CATALOG: ReadonlyArray<{ type: BoothType; label: string }> = [
+  { type: 'photo_booth', label: 'Photo Booth' },
+  { type: 'mobile_bar', label: 'Mobile Bar' },
+  { type: 'dessert_station', label: 'Dessert Station' },
+  { type: 'gift_table', label: 'Gift Table' },
+  { type: 'souvenir_table', label: 'Souvenir Table' },
+  { type: 'custom', label: 'Custom booth' },
+];
+
+export type BoothZone = 'reception' | 'cocktail';
+
+export type FloorBoothRow = {
+  booth_id: string;
+  event_id: string;
+  booth_type: BoothType;
+  label: string;
+  x_pos: number;
+  y_pos: number;
+  sort_order: number;
+  // Which room on the blueprint this booth sits in. Derived from geometry
+  // (inside the cocktail rect → 'cocktail') at save time; couple-managed
+  // perimeter booths stay 'reception'.
+  zone: BoothZone;
+  // The booked vendor running this booth (set for vendor-placed cocktail
+  // booths so a booth vendor may only move/delete their own); null otherwise.
+  event_vendor_id: string | null;
+};
+
+export async function fetchBooths(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<FloorBoothRow[]> {
+  const { data, error } = await supabase
+    .from('event_floor_booths')
+    .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  // Graceful-degrade (same contract as fetchFloorPlan): a not-yet-migrated
+  // table or RLS hiccup renders a booth-less plan, never a crashed page.
+  if (error || !data) return [];
+  return (data as FloorBoothRow[]).map((b) => ({
+    ...b,
+    x_pos: Number(b.x_pos),
+    y_pos: Number(b.y_pos),
+    // Pre-migration rows lack these columns; default sensibly.
+    zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
+    event_vendor_id: b.event_vendor_id ?? null,
+  }));
+}
+
+// Booth footprint + the hardcoded perimeter rulebook. All numbers are percent
+// of the canvas — the same unit as every other floor-plan coordinate.
+export const BOOTH_W = 12;
+export const BOOTH_H = 6;
+// Booth centres sit this far in from the wall (back edge to the wall).
+const WALL_INSET = 4;
+// Keep clear of room corners…
+const CORNER_CLEAR = 8;
+// …of the entrance / service doors (guest + load-in paths stay open)…
+const DOOR_CLEAR = 12;
+// …and of the stage's own wall extent (sightlines + backstage access).
+const STAGE_CLEAR = 6;
+// Minimum centre-to-centre spacing between booths along a wall.
+const BOOTH_GAP = BOOTH_W + 3;
+
+type WallName = 'top' | 'right' | 'bottom' | 'left';
+const WALLS: WallName[] = ['top', 'right', 'bottom', 'left'];
+
+type FloorPlanLike = Pick<
+  FloorPlanRow,
+  | 'stage_x'
+  | 'stage_y'
+  | 'stage_w'
+  | 'stage_h'
+  | 'entrance_enabled'
+  | 'entrance_x'
+  | 'entrance_y'
+  | 'service_entrance_enabled'
+  | 'service_entrance_x'
+  | 'service_entrance_y'
+>;
+
+// Point on a wall at 1-D coordinate t (percent along the wall, 0→100
+// clockwise from each wall's natural start).
+function wallPoint(wall: WallName, t: number): { x: number; y: number } {
+  if (wall === 'top') return { x: t, y: WALL_INSET };
+  if (wall === 'bottom') return { x: t, y: 100 - WALL_INSET };
+  if (wall === 'left') return { x: WALL_INSET, y: t };
+  return { x: 100 - WALL_INSET, y: t };
+}
+
+// Which wall the stage is parked against (nearest wall to its centre).
+// Booths are NEVER anchored to this wall — flanking the stage blocks
+// sightlines from the side tables and the performers' access path.
+export function stageWallOf(fp: FloorPlanLike): WallName {
+  const d: Array<[WallName, number]> = [
+    ['top', fp.stage_y],
+    ['bottom', 100 - fp.stage_y],
+    ['left', fp.stage_x],
+    ['right', 100 - fp.stage_x],
+  ];
+  d.sort((a, b) => a[1] - b[1] || WALLS.indexOf(a[0]) - WALLS.indexOf(b[0]));
+  return d[0]![0];
+}
+
+// The open intervals of a wall where a booth centre may sit, after removing
+// the corner margins and every door-clearance window that projects onto this
+// wall. The stage wall returns no intervals at all.
+function allowedWallIntervals(wall: WallName, fp: FloorPlanLike): Array<{ from: number; to: number }> {
+  if (wall === stageWallOf(fp)) return [];
+  // Blocked windows in the wall's 1-D coordinate.
+  const blocked: Array<{ from: number; to: number }> = [];
+  const doors: Array<{ x: number; y: number }> = [];
+  if (fp.entrance_enabled) doors.push({ x: fp.entrance_x, y: fp.entrance_y });
+  if (fp.service_entrance_enabled) doors.push({ x: fp.service_entrance_x, y: fp.service_entrance_y });
+  for (const door of doors) {
+    // A door blocks this wall when it sits on (or near) it.
+    const nearWall =
+      wall === 'top'
+        ? door.y <= 2 * DOOR_CLEAR
+        : wall === 'bottom'
+          ? door.y >= 100 - 2 * DOOR_CLEAR
+          : wall === 'left'
+            ? door.x <= 2 * DOOR_CLEAR
+            : door.x >= 100 - 2 * DOOR_CLEAR;
+    if (!nearWall) continue;
+    const t = wall === 'top' || wall === 'bottom' ? door.x : door.y;
+    blocked.push({ from: t - DOOR_CLEAR, to: t + DOOR_CLEAR });
+  }
+  // The stage also shadows the two walls it touches sideways (a stage parked
+  // top-centre still owns part of the left/right walls near its corners).
+  const sx0 = fp.stage_x - fp.stage_w / 2 - STAGE_CLEAR;
+  const sx1 = fp.stage_x + fp.stage_w / 2 + STAGE_CLEAR;
+  const sy0 = fp.stage_y - fp.stage_h / 2 - STAGE_CLEAR;
+  const sy1 = fp.stage_y + fp.stage_h / 2 + STAGE_CLEAR;
+  if (wall === 'top' && sy0 <= WALL_INSET + BOOTH_H) blocked.push({ from: sx0, to: sx1 });
+  if (wall === 'bottom' && sy1 >= 100 - WALL_INSET - BOOTH_H) blocked.push({ from: sx0, to: sx1 });
+  if (wall === 'left' && sx0 <= WALL_INSET + BOOTH_H) blocked.push({ from: sy0, to: sy1 });
+  if (wall === 'right' && sx1 >= 100 - WALL_INSET - BOOTH_H) blocked.push({ from: sy0, to: sy1 });
+
+  // Subtract the blocked windows from the corner-clear span.
+  let open: Array<{ from: number; to: number }> = [{ from: CORNER_CLEAR, to: 100 - CORNER_CLEAR }];
+  for (const b of blocked) {
+    const next: Array<{ from: number; to: number }> = [];
+    for (const seg of open) {
+      if (b.to <= seg.from || b.from >= seg.to) {
+        next.push(seg);
+        continue;
+      }
+      if (b.from > seg.from) next.push({ from: seg.from, to: b.from });
+      if (b.to < seg.to) next.push({ from: b.to, to: seg.to });
+    }
+    open = next;
+  }
+  // A segment must fit at least one booth.
+  return open.filter((seg) => seg.to - seg.from >= BOOTH_W);
+}
+
+// Deterministic anchor slots for n booths: back wall (opposite the stage)
+// first, centre-out, then the two side walls. Used by Auto Arrange to park
+// every booth; the same geometry drag-snap uses, so a dragged booth can only
+// land where Auto Arrange could have put it.
+export function boothPerimeterSlots(fp: FloorPlanLike, n: number): Array<{ x: number; y: number }> {
+  const stage = stageWallOf(fp);
+  const OPPOSITE: Record<WallName, WallName> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+  const SIDES: Record<WallName, [WallName, WallName]> = {
+    top: ['right', 'left'],
+    bottom: ['right', 'left'],
+    left: ['top', 'bottom'],
+    right: ['top', 'bottom'],
+  };
+  const wallOrder: WallName[] = [OPPOSITE[stage], ...SIDES[stage]];
+
+  const out: Array<{ x: number; y: number }> = [];
+  for (const wall of wallOrder) {
+    if (out.length >= n) break;
+    for (const seg of allowedWallIntervals(wall, fp)) {
+      if (out.length >= n) break;
+      const len = seg.to - seg.from;
+      const fit = Math.max(1, Math.floor(len / BOOTH_GAP));
+      // Even spacing within the segment, pushed centre-out so the first booth
+      // lands mid-wall (most visible without blocking anything).
+      const ts: number[] = [];
+      for (let i = 0; i < fit; i++) ts.push(seg.from + (len * (i + 0.5)) / fit);
+      const mid = (seg.from + seg.to) / 2;
+      ts.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid) || a - b);
+      for (const t of ts) {
+        if (out.length >= n) break;
+        out.push(wallPoint(wall, t));
+      }
+    }
+  }
+  // More booths than legal slots (tiny room, many doors): stack the extras on
+  // the back wall mid-point rather than inventing an illegal position.
+  while (out.length < n) out.push(wallPoint(OPPOSITE[stage], 50));
+  return out;
+}
+
+// Free-venue booth placement (gardens / open fields — no walls). There's no
+// perimeter to hug, so Auto Arrange tucks booths into a row JUST BEYOND the
+// furthest table from the stage: behind the guests, out of the sightline, but
+// free-floating (the couple can drag them anywhere afterwards). The row runs
+// perpendicular to the stage→tables axis and is centred on the stage's lateral
+// line. Pure + deterministic. Coords are percent of the canvas like everything
+// else; the free board may legitimately exceed 0–100, and the editor clamps.
+export function freeBoothSlots(
+  stage: { x: number; y: number },
+  tablePoints: ReadonlyArray<{ x: number; y: number }>,
+  n: number,
+): Array<{ x: number; y: number }> {
+  if (n <= 0) return [];
+  const gap = BOOTH_W + 3;
+  const row = (cx: number, cy: number, px: number, py: number) =>
+    Array.from({ length: n }, (_, i) => {
+      const off = (i - (n - 1) / 2) * gap;
+      return { x: cx + px * off, y: cy + py * off };
+    });
+  // No tables yet → a horizontal row on the far side of the stage from centre.
+  if (tablePoints.length === 0) return row(stage.x, stage.y <= 50 ? 90 : 10, 1, 0);
+
+  const cx = tablePoints.reduce((a, p) => a + p.x, 0) / tablePoints.length;
+  const cy = tablePoints.reduce((a, p) => a + p.y, 0) / tablePoints.length;
+  let dx = cx - stage.x;
+  let dy = cy - stage.y;
+  let len = Math.hypot(dx, dy);
+  if (len < 1e-6) {
+    dx = 0;
+    dy = 1;
+    len = 1;
+  } // stage sits on the cluster → push the row downward
+  const ux = dx / len;
+  const uy = dy / len; // stage → tables (depth axis)
+  const maxProj = Math.max(...tablePoints.map((p) => (p.x - stage.x) * ux + (p.y - stage.y) * uy));
+  const depth = maxProj + BOOTH_H + 8; // a touch past the furthest table
+  return row(stage.x + ux * depth, stage.y + uy * depth, -uy, ux);
+}
+
+// Live drag-snap: pull a booth centre to the nearest legal perimeter spot —
+// nearest allowed wall interval, then slid along the wall until it clears
+// every other booth. The hardcoded boundary rules are enforced HERE, so a
+// booth physically cannot be dropped mid-room, on the stage wall, or across
+// a door corridor.
+export function clampBoothToPerimeter(
+  x: number,
+  y: number,
+  fp: FloorPlanLike,
+  others: Array<{ x: number; y: number }>,
+): { x: number; y: number } {
+  let best: { x: number; y: number; wall: WallName; t: number } | null = null;
+  let bestD = Infinity;
+  for (const wall of WALLS) {
+    for (const seg of allowedWallIntervals(wall, fp)) {
+      const raw = wall === 'top' || wall === 'bottom' ? x : y;
+      const t = Math.max(seg.from + BOOTH_W / 2, Math.min(seg.to - BOOTH_W / 2, raw));
+      const p = wallPoint(wall, t);
+      const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = { ...p, wall, t };
+      }
+    }
+  }
+  if (!best) return { x: 50, y: 100 - WALL_INSET }; // no legal wall at all — park bottom-centre
+  // Slide along the wall away from any booth closer than BOOTH_GAP.
+  const along = (p: { x: number; y: number }) => (best!.wall === 'top' || best!.wall === 'bottom' ? p.x : p.y);
+  const conflict = (t: number) =>
+    others.some((o) => {
+      const op = { x: o.x, y: o.y };
+      const sameWall = Math.hypot(op.x - wallPoint(best!.wall, along(op)).x, op.y - wallPoint(best!.wall, along(op)).y) < BOOTH_H;
+      return sameWall && Math.abs(along(op) - t) < BOOTH_GAP;
+    });
+  if (!conflict(best.t)) return { x: best.x, y: best.y };
+  for (let step = 1; step <= 20; step++) {
+    for (const dir of [1, -1]) {
+      const t = best.t + dir * step * (BOOTH_GAP / 2);
+      if (t < CORNER_CLEAR + BOOTH_W / 2 || t > 100 - CORNER_CLEAR - BOOTH_W / 2) continue;
+      if (!conflict(t)) return wallPoint(best.wall, t);
+    }
+  }
+  return { x: best.x, y: best.y }; // dense wall — accept the overlap rather than fly mid-room
+}
+
+// --- table auto-layout --------------------------------------------------------
+
+export type AutoLayoutInput = {
+  tables: EventTableRow[];
+  floorPlan: FloorPlanLike &
+    Pick<FloorPlanRow, 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'> &
+    Pick<FloorPlanRow, 'cocktail_enabled' | 'cocktail_x' | 'cocktail_y' | 'cocktail_w' | 'cocktail_h'>;
+  // Canvas pixel rect — converts table pixel footprints into percent.
+  rect: { width: number; height: number };
+  // Real rendered footprint (px, chairs included) — the editor passes its
+  // to-scale footprint; tests pass a stub.
+  footprintOf: (t: EventTableRow) => { w: number; h: number };
+};
+
+// Deterministic stage-out grid: rows parallel to the stage, filled centre-out,
+// highest-priority table types nearest the stage. The sweetheart table is
+// pinned front-and-centre. Rows step away from the stage; slots skip the
+// dance floor and stop at the booth perimeter band (tables live in 10–90%,
+// booths own the outer ring). Pure — returns ONLY the new position map.
+export function computeAutoLayout(input: AutoLayoutInput): Record<string, { x: number; y: number }> {
+  const { tables, floorPlan: fp, rect, footprintOf } = input;
+  if (tables.length === 0 || rect.width <= 0 || rect.height <= 0) return {};
+
+  // Stage-out axis, snapped to the dominant direction toward the room centre —
+  // axis-aligned rows read as the "coordinate grid" the floor plan wants.
+  const dx = 50 - fp.stage_x;
+  const dy = 50 - fp.stage_y;
+  const u: { x: number; y: number } =
+    Math.abs(dy) >= Math.abs(dx) ? { x: 0, y: dy >= 0 ? 1 : -1 } : { x: dx >= 0 ? 1 : -1, y: 0 };
+  const v = { x: u.y, y: u.x }; // row direction, perpendicular to u
+
+  const pctW = (px: number) => (px / rect.width) * 100;
+  const pctH = (px: number) => (px / rect.height) * 100;
+  // Footprint of t in percent, projected on the u (depth) / v (row) axes.
+  const depthOf = (t: EventTableRow) => {
+    const f = footprintOf(t);
+    return u.x === 0 ? pctH(f.h) : pctW(f.w);
+  };
+  const breadthOf = (t: EventTableRow) => {
+    const f = footprintOf(t);
+    return u.x === 0 ? pctW(f.w) : pctH(f.h);
+  };
+
+  // Table priority order for the layout: sweetheart (couple) right at the
+  // stage, then the family/sponsor head tables, rounds, banquets, serpentines.
+  // Stable within a type (sort_order, then label, then id) → reruns agree.
+  const TYPE_RANK: Record<TableShapeHint, number> = {
+    sweetheart: 0,
+    family_head: 1,
+    round: 2,
+    long_banquet: 3,
+    serpentine: 4,
+  };
+  const ordered = [...tables].sort((a, b) => {
+    const ra = TYPE_RANK[shapeHintFor(a.table_type)];
+    const rb = TYPE_RANK[shapeHintFor(b.table_type)];
+    return (
+      ra - rb ||
+      a.sort_order - b.sort_order ||
+      a.table_label.localeCompare(b.table_label) ||
+      a.table_id.localeCompare(b.table_id)
+    );
+  });
+
+  // Stage front edge along u + breathing room.
+  const stageHalfU = u.x === 0 ? fp.stage_h / 2 : fp.stage_w / 2;
+  const stageFront =
+    u.x === 0
+      ? fp.stage_y + (u.y > 0 ? stageHalfU : -stageHalfU)
+      : fp.stage_x + (u.x > 0 ? stageHalfU : -stageHalfU);
+  const ROW_GAP = 4;
+  const SLOT_GAP = 3;
+  // Tables keep out of the outer ring — that band belongs to the booths.
+  const LO = 10;
+  const HI = 90;
+
+  type NoTableRect = { x0: number; x1: number; y0: number; y1: number };
+  const danceRect: NoTableRect | null = fp.dance_enabled
+    ? {
+        x0: fp.dance_x - fp.dance_w / 2,
+        x1: fp.dance_x + fp.dance_w / 2,
+        y0: fp.dance_y - fp.dance_h / 2,
+        y1: fp.dance_y + fp.dance_h / 2,
+      }
+    : null;
+  // The cocktail / waiting-area room is also a no-table zone (booths only).
+  const cocktailRect: NoTableRect | null = fp.cocktail_enabled
+    ? {
+        x0: fp.cocktail_x - fp.cocktail_w / 2,
+        x1: fp.cocktail_x + fp.cocktail_w / 2,
+        y0: fp.cocktail_y - fp.cocktail_h / 2,
+        y1: fp.cocktail_y + fp.cocktail_h / 2,
+      }
+    : null;
+  const hitsRect = (rect: NoTableRect | null, cx: number, cy: number, t: EventTableRow) => {
+    if (!rect) return false;
+    const halfW = (u.x === 0 ? breadthOf(t) : depthOf(t)) / 2;
+    const halfH = (u.x === 0 ? depthOf(t) : breadthOf(t)) / 2;
+    return (
+      cx + halfW > rect.x0 && cx - halfW < rect.x1 && cy + halfH > rect.y0 && cy - halfH < rect.y1
+    );
+  };
+  // Return whichever no-table zone a candidate centre lands in (dance first,
+  // then cocktail), or null when clear.
+  const blockingRect = (cx: number, cy: number, t: EventTableRow): NoTableRect | null => {
+    if (hitsRect(danceRect, cx, cy, t)) return danceRect;
+    if (hitsRect(cocktailRect, cx, cy, t)) return cocktailRect;
+    return null;
+  };
+
+  const out: Record<string, { x: number; y: number }> = {};
+  const rowAnchor = u.x === 0 ? fp.stage_x : fp.stage_y; // rows centre on the stage axis
+  let cursor = 0; // index into `ordered`
+  let depth = stageFront + (u.x !== 0 ? 0 : 0); // set per-row below
+  let rowStart = stageFront;
+
+  while (cursor < ordered.length) {
+    // Row depth = the tallest table that will sit in it (measured greedily on
+    // the next batch) — step the row line out by half of that plus the gap.
+    const rowTables: EventTableRow[] = [];
+    let rowDepth = 0;
+    // Greedy fill: how many of the upcoming tables fit across the room width?
+    let used = 0;
+    const roomBreadth = HI - LO;
+    for (let i = cursor; i < ordered.length; i++) {
+      const t = ordered[i]!;
+      const w = breadthOf(t) + SLOT_GAP;
+      if (rowTables.length > 0 && used + w > roomBreadth) break;
+      rowTables.push(t);
+      used += w;
+      rowDepth = Math.max(rowDepth, depthOf(t));
+    }
+    const rowSign = u.x === 0 ? u.y : u.x;
+    depth = rowStart + rowSign * (ROW_GAP + rowDepth / 2);
+    // Clamp the row inside the playable band; once we run off the far edge,
+    // keep stacking on the last legal line (a packed room beats a lost table).
+    const depthClamped = Math.max(LO, Math.min(HI, depth));
+
+    // Centre-out slotting: first table on the stage axis, then alternate
+    // right/left, each consuming its own breadth.
+    let right = 0; // edge offset already used on the + side
+    let left = 0;
+    for (let k = 0; k < rowTables.length; k++) {
+      const t = rowTables[k]!;
+      const w = breadthOf(t) + SLOT_GAP;
+      let offset: number;
+      if (k === 0) {
+        offset = 0;
+        right = w / 2;
+        left = w / 2;
+      } else if (right <= left) {
+        offset = right + w / 2;
+        right += w;
+      } else {
+        offset = -(left + w / 2);
+        left += w;
+      }
+      let cx = u.x === 0 ? rowAnchor + offset * v.x : depthClamped;
+      let cy = u.x === 0 ? depthClamped : rowAnchor + offset * v.y;
+      cx = Math.max(LO, Math.min(HI, cx));
+      cy = Math.max(LO, Math.min(HI, cy));
+      // A no-table zone (dance floor or cocktail room) in the way → push the
+      // table one zone-width sideways (deterministic single rule; the editor's
+      // nearestFree pass resolves any residual contact on render).
+      const hitRect = blockingRect(cx, cy, t);
+      if (hitRect) {
+        const push = hitRect.x1 - hitRect.x0 + breadthOf(t) / 2;
+        const cand = u.x === 0 ? cx + push : cx;
+        const candY = u.x === 0 ? cy : cy + push;
+        if (cand <= HI && candY <= HI && !blockingRect(cand, candY, t)) {
+          cx = Math.max(LO, Math.min(HI, cand));
+          cy = Math.max(LO, Math.min(HI, candY));
+        }
+      }
+      out[t.table_id] = { x: cx, y: cy };
+    }
+    rowStart = depthClamped + rowSign * (rowDepth / 2);
+    cursor += rowTables.length;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Serpentine chaining (owner-directed 2026-06-13: "the ends of the table must
+// be able to snap together"). The 2026-05-09 serpentine lock always intended
+// wedges to chain into an S / circle / oval; this is the magnetic snap that
+// makes the connection real. Pure px-space math — the editor feeds it world-
+// layer pixel centres and applies the returned position + rotation.
+//
+// A wedge has two radial end edges (at ±sweep/2). Another wedge can attach to
+// an end in exactly two tangent-continuous ways, and BOTH are pure rotations
+// of the anchor wedge (no mirroring needed — the wedge is symmetric):
+//   · continue the circle — rotate the anchor by ±sweep about its arc centre
+//   · S-bend — rotate the anchor 180° about the end-edge midpoint
+// Chairs need no special handling: each wedge's chairs are inset from its
+// ends (outer 0.18 rad / inner 0.36 rad), so when the tips meet flush the
+// chairs flow around the joint without colliding, and they already rotate
+// with the wedge.
+// ---------------------------------------------------------------------------
+
+export const SERPENTINE_SWEEP_DEG = 104;
+const SERP_RI = 80;
+const SERP_RO = 120;
+
+// The wedge's local frame (box-centre origin, y-down — identical numbers to
+// tableGeometry's serpentine branch): arc centre + the two end-edge midpoints.
+export function serpentineFrame(): { centre: SeatSlot; endPlus: SeatSlot; endMinus: SeatSlot } {
+  const s = (SERPENTINE_SWEEP_DEG * Math.PI) / 180;
+  // Outline extremes: outer-arc apex at φ=0 (minY) and the inner-arc ends at
+  // φ=±s/2 (maxY) — the recentre offset tableGeometry applies.
+  const minY = -SERP_RO;
+  const maxY = -SERP_RI * Math.cos(s / 2);
+  const oy = (minY + maxY) / 2;
+  const rm = (SERP_RI + SERP_RO) / 2;
+  const end = (sign: 1 | -1): SeatSlot => ({
+    x: sign * rm * Math.sin(s / 2),
+    y: -rm * Math.cos(s / 2) - oy,
+  });
+  return { centre: { x: 0, y: -oy }, endPlus: end(1), endMinus: end(-1) };
+}
+
+// World-space end-edge midpoints of a wedge at centre (x,y) px, rotation deg,
+// render scale — for the editor and for tests to verify tips really touch.
+export function serpentineEndsWorld(w: {
+  x: number;
+  y: number;
+  rot: number;
+  scale: number;
+}): SeatSlot[] {
+  const f = serpentineFrame();
+  return [f.endPlus, f.endMinus].map((e) => {
+    const r = rotatePoint({ x: e.x * w.scale, y: e.y * w.scale }, w.rot);
+    return { x: w.x + r.x, y: w.y + r.y };
+  });
+}
+
+// Magnetic end-to-end snap: given the dragged wedge's candidate centre (px)
+// and every OTHER serpentine on the floor, return the closest legal chained
+// placement (position + rotation) within tolerance, or null to drag free.
+// 4 candidates per neighbour: continue-the-circle past either end, or S-bend
+// off either end. Deterministic: nearest candidate wins; ties keep the first.
+export function serpentineChainSnap(
+  dragPx: { x: number; y: number },
+  neighbours: Array<{ x: number; y: number; rot: number; scale: number }>,
+  tolPx = 36,
+): { x: number; y: number; rot: number } | null {
+  const f = serpentineFrame();
+  const norm = (d: number) => ((d % 360) + 360) % 360;
+  let best: { x: number; y: number; rot: number } | null = null;
+  let bestD = tolPx * tolPx;
+  const consider = (c: { x: number; y: number; rot: number }) => {
+    const d = (c.x - dragPx.x) ** 2 + (c.y - dragPx.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  };
+  for (const b of neighbours) {
+    const cLocal = rotatePoint({ x: f.centre.x * b.scale, y: f.centre.y * b.scale }, b.rot);
+    const cw = { x: b.x + cLocal.x, y: b.y + cLocal.y }; // arc centre, world px
+    // Continue the circle: the anchor rotated ±sweep about its arc centre.
+    for (const sgn of [1, -1] as const) {
+      const r = rotatePoint({ x: b.x - cw.x, y: b.y - cw.y }, sgn * SERPENTINE_SWEEP_DEG);
+      consider({ x: cw.x + r.x, y: cw.y + r.y, rot: norm(b.rot + sgn * SERPENTINE_SWEEP_DEG) });
+    }
+    // S-bend: the anchor rotated 180° about an end-edge midpoint.
+    for (const end of [f.endPlus, f.endMinus]) {
+      const eLocal = rotatePoint({ x: end.x * b.scale, y: end.y * b.scale }, b.rot);
+      const m = { x: b.x + eLocal.x, y: b.y + eLocal.y };
+      consider({ x: 2 * m.x - b.x, y: 2 * m.y - b.y, rot: norm(b.rot + 180) });
+    }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------------------
+// Rect + round chaining (owner follow-up 2026-06-13: "the long table should
+// also connect and the round tables"). Same magnetic model as the serpentine
+// snap, with shape-appropriate joints:
+//   · long banquet / family head — ends snap FLUSH and collinear, forming one
+//     continuous run. Chairs sit only on the long edges (never the ends, each
+//     column inset half a chair-gap from its end), so a flush seam reads as
+//     one uninterrupted chair line — the seam columns sit exactly one
+//     chair-gap apart, the same spacing as within a single table.
+//   · round — snaps to a "kiss": centres pulled to the exact distance where
+//     the two chair rings (plus the collision gap) just clear, so clustered
+//     rounds look connected without any chair overlap, and the resolver
+//     never shoves them apart on reload.
+// ---------------------------------------------------------------------------
+
+// End-to-end snap for the rectangular runs. halfLen = half the TABLETOP
+// length (hub.w/2 × render scale) — the chair overhang is excluded so the
+// tabletops join flush. The joined table adopts the anchor's orientation.
+export function rectChainSnap(
+  dragPx: { x: number; y: number },
+  halfLenA: number,
+  neighbours: Array<{ x: number; y: number; rot: number; halfLen: number }>,
+  tolPx = 36,
+): { x: number; y: number; rot: number } | null {
+  let best: { x: number; y: number; rot: number } | null = null;
+  let bestD = tolPx * tolPx;
+  for (const b of neighbours) {
+    const dir = rotatePoint({ x: 1, y: 0 }, b.rot); // the run axis
+    for (const sgn of [1, -1] as const) {
+      const off = sgn * (b.halfLen + halfLenA);
+      const cand = { x: b.x + dir.x * off, y: b.y + dir.y * off, rot: ((b.rot % 360) + 360) % 360 };
+      const d = (cand.x - dragPx.x) ** 2 + (cand.y - dragPx.y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = cand;
+      }
+    }
+  }
+  return best;
+}
+
+// Breathing room added to a round-table kiss so the snapped distance stays
+// just OUTSIDE the editor's collision threshold (footprints + 10px gap) —
+// a kissed pair must survive the mount-time resolver untouched.
+export const ROUND_KISS_GAP = 11;
+
+// Edge-to-edge snap for round tables: pull the dragged centre onto the line
+// of centres at kiss distance. radius = footprint box half-width (chair ring
+// + pad, scaled), so chairs clear by construction. Direction is preserved —
+// the couple chooses WHERE around the anchor the table sits.
+export function roundKissSnap(
+  dragPx: { x: number; y: number },
+  radiusA: number,
+  neighbours: Array<{ x: number; y: number; radius: number }>,
+  tolPx = 36,
+): { x: number; y: number } | null {
+  let best: { x: number; y: number } | null = null;
+  let bestD = tolPx * tolPx;
+  for (const b of neighbours) {
+    const dx = dragPx.x - b.x;
+    const dy = dragPx.y - b.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) continue; // dropped dead-centre — no direction to kiss along
+    const kiss = radiusA + b.radius + ROUND_KISS_GAP;
+    const cand = { x: b.x + (dx / len) * kiss, y: b.y + (dy / len) * kiss };
+    const d = (cand.x - dragPx.x) ** 2 + (cand.y - dragPx.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = cand;
+    }
+  }
+  return best;
 }

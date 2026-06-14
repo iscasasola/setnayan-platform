@@ -45,23 +45,20 @@ import {
   type ConciergeStatus,
 } from '@/lib/concierge';
 import { ConciergeBanner } from './_components/concierge-banner';
-// TodaysOneThing legacy component lives at ./_components/todays-one-thing.tsx
-// and the lib helpers (pickTodaysOneThing / countUnlockedCategories) live at
-// @/lib/todays-one-thing — both retained on disk as a quick-revert path
-// while the Setnayan AI wizard (originally branded Concierge in V1; V2
-// cutover 2026-05-28 renamed the surface · iteration 0016 substrate
-// unchanged · CLAUDE.md Sixth 2026-05-23 row · Phase 1 PR #467) replaces
-// this surface.
+// TodaysOneThing single-focus hero (./_components/todays-one-thing.tsx) +
+// the lib helpers (pickTodaysOneThing / countUnlockedCategories at
+// @/lib/todays-one-thing) are LIVE again on event-home as of 2026-06-13
+// (owner: revive the single-focus "one thing today" card, free for all
+// couples — pure deadline math, no AI). It renders above the fuller
+// Things-to-complete roadmap. See the render block + topPriorityTask
+// compute below.
 //
-// WizardHero import REMOVED 2026-05-24: the wizard surface MOVED to its
-// own /dashboard/[eventId]/today route + first BottomNav tab "Today"
-// per owner directive. Event-home no longer renders <WizardHero> inline.
-// If a future iteration needs to surface the wizard back on event-home
-// (e.g., a compact peek-card variant), re-add the import here and the
-// JSX in the section where the comment placeholder lives.
-// pickTodaysOneThing + countUnlockedCategories lib helpers retained at
-// @/lib/todays-one-thing for the quick-revert path. Unused here now that
-// the wizard owns the Setnayan AI surface (on /today, not event-home).
+// History: WizardHero (the 65-card paid wizard surface) was retired
+// 2026-06-03 (/today now redirects). The retired wizard RENDER layer
+// (wizard-hero.tsx + wizard-carousel.tsx + wizard-card.tsx + wizard-cards/
+// + in-flight-tray.tsx) was DELETED 2026-06-13. The shared lib modules it
+// used (lib/wizard.ts, lib/planner.ts, wizard-actions.ts) stay — live
+// features (pakanta, mood board, the 9-step journey) still import them.
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
@@ -95,7 +92,8 @@ import {
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { EventCountdownHeader } from './_components/event-countdown-header';
-import { countUnlockedCategories } from '@/lib/todays-one-thing';
+import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
+import { TodaysOneThing } from './_components/todays-one-thing';
 import {
   WeddingRoadmapAsync,
   WeddingRoadmapSkeleton,
@@ -1530,10 +1528,19 @@ export default async function EventHomePage({
   // the top of Services; the full editable record stays at /details). Every
   // input below is derived from data the page already loaded — no new fetches.
   // remainingTaskCount feeds the countdown's "X of N vendors locked" bar
-  // below (countUnlockedCategories — unchanged). The old "Setnayan AI" hero
-  // (pickTodaysOneThing) was replaced by the Things-to-complete roadmap, which
-  // self-fetches; its compute no longer lives here.
+  // below (countUnlockedCategories — unchanged).
   const remainingTaskCount = countUnlockedCategories(eventVendors);
+  // Today's one thing — REVIVED 2026-06-13 (owner: bring back the single-focus
+  // hero, free). pickTodaysOneThing resolves the host's #1 most-urgent unlocked
+  // task from hard-floor deadline math (pure function, ₱0 — no AI). Only with a
+  // firm date ('day' precision); window/month/year dates skip (no anchor to
+  // count back from). Rendered above the fuller Things-to-complete roadmap;
+  // null here → the hero is skipped (the countdown + roadmap cover those edge
+  // states), so we never double-surface a date prompt or an empty card.
+  const topPriorityTask =
+    event.event_date && eventDatePrecision === 'day'
+      ? pickTodaysOneThing(eventVendors, event.event_date, now)
+      : null;
   // "X of N vendors locked" for the countdown progress bar. N = lockable
   // plan-groups (entry-point cards excluded), matching the resolver's universe
   // so the header and the focus card agree. locked = N − unlocked.
@@ -1607,10 +1614,25 @@ export default async function EventHomePage({
         now={now}
       />
 
+      {/* Today's one thing — the single highest-priority next action (owner
+       *  REVIVED 2026-06-13). Headspace-pattern single-focus card sitting above
+       *  the fuller roadmap; only the resolved-task variant renders here (the
+       *  no-date + all-locked edge states are already covered by the countdown
+       *  and the roadmap, so we don't double-surface them). Free for every
+       *  couple — pure deadline math, no AI. Hidden in Manual mode. */}
+      {!planningManual && topPriorityTask ? (
+        <TodaysOneThing
+          eventId={eventId}
+          topPriorityTask={topPriorityTask}
+          weddingDateMissing={false}
+          totalRemainingTasks={remainingTaskCount}
+        />
+      ) : null}
+
       {/* Things to complete — the free wedding roadmap (owner 2026-06-05). The
        *  ordered tasks, timed by months-to-earliest-date; the couple taps each
-       *  done themselves (manual check-off · NO automation / no AI). Replaces
-       *  the single "Up next" hero with the fuller list. Hidden in Manual mode
+       *  done themselves (manual check-off · NO automation / no AI). The fuller
+       *  list beneath the single-focus hero above. Hidden in Manual mode
        *  like the rest of the assist. Streams in its own Suspense. */}
       {!planningManual ? (
         <Suspense fallback={<WeddingRoadmapSkeleton />}>

@@ -1,0 +1,165 @@
+/**
+ * onboarding-desktop.css — editorial desktop canvas (owner 2026-06-13).
+ *
+ * This is NOT part of the locked prototype port (onboarding.css mirrors the
+ * prototype one-for-one and must not be hand-tweaked). It is a desktop-only
+ * enrichment layered on top: it shows the OnboardingDesktopAside beside the
+ * phone frame and centers the pair. Everything is scoped under `.onbw` and gated
+ * behind min-width:1024px, so mobile + tablet (where the phone IS the whole
+ * experience) are byte-for-byte unchanged.
+ *
+ * The phone frame itself (.onbw .phone — 430×880, port-as-is lock 2026-06-02) is
+ * never restyled here; we only adjust the parent layout and add the aside.
+ */
+
+/* Hidden by default — the aside only exists on desktop. */
+.onbw .onb-aside {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  /* Lay the canvas out as a centered pair: [editorial aside] · [phone card].
+     align-items:center vertically centers the 880px card on tall screens; the
+     pair stays horizontally centered with stone breathing room on either side. */
+  .onbw {
+    align-items: center;
+    gap: clamp(40px, 5vw, 96px);
+    padding: 32px;
+  }
+
+  /* Pin the locked frame to its 430px width in the flex row. The prototype sets
+     `.phone { width:100%; max-width:430px }`; inside this flex pair that
+     width:100% flex-basis could let the card SHRINK below 430px on narrower
+     desktops. flex:0 0 430px + width:430px hold the card at exactly its locked
+     width (visually identical to today) — a layout safeguard, NOT a restyle. */
+  .onbw .phone {
+    flex: 0 0 430px;
+    width: 430px;
+  }
+
+  .onbw .onb-aside {
+    display: flex;
+    align-items: center;
+    /* Match the card height so the editorial column reads centered against the
+       phone (the 880px mirrors .onbw .phone's desktop height in onboarding.css —
+       kept in sync there). */
+    height: 880px;
+    max-width: 408px;
+    flex: 0 1 408px;
+  }
+
+  .onbw .onb-aside-inner {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .onbw .onb-aside-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+  .onbw .onb-aside-mark svg {
+    width: 40px;
+    height: 40px;
+    display: block;
+    flex: 0 0 auto;
+  }
+  .onbw .onb-aside-wm {
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 0.34em;
+    color: var(--gold-deep);
+    font-weight: 500;
+  }
+
+  .onbw .onb-aside-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 16px;
+  }
+
+  .onbw .onb-aside-h {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(34px, 3vw, 46px);
+    line-height: 1.07;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 18px;
+  }
+
+  .onbw .onb-aside-sub {
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 34ch;
+    margin-bottom: 32px;
+  }
+
+  .onbw .onb-aside-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    margin-bottom: 36px;
+    padding: 0;
+  }
+  .onbw .onb-aside-list li {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-family: var(--sans);
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+  .onbw .onb-aside-tick {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--gold-wash);
+    color: var(--gold-deep);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .onbw .onb-aside-tick svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .onbw .onb-aside-sig {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 20px;
+    color: var(--gold-deep);
+  }
+  .onbw .onb-aside-sig::before {
+    content: '';
+    display: block;
+    width: 34px;
+    height: 1px;
+    background: var(--line-2);
+    margin-bottom: 14px;
+  }
+}
+
+/* Short desktop viewports (< 940px tall): the 880px card + 32px padding can't
+   fit, so fall back to top-aligned + scroll instead of clipping the card's top
+   bar / bottom CTA. The aside drops its fixed height so it doesn't force scroll
+   on its own. */
+@media (min-width: 1024px) and (max-height: 940px) {
+  .onbw {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+  .onbw .onb-aside {
+    height: auto;
+    align-self: center;
+  }
+}

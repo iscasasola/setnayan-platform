@@ -16,6 +16,8 @@
  *   Phase 4 — find-vendor + account-or-skip + Your Plan commit
  */
 
+import type { FaithKey } from '@/lib/faith-registry';
+
 /** Role on the event — Bride / Groom / Someone helping (parent/planner/entourage). */
 export type OnboardingRole = 'bride' | 'groom' | 'helper';
 
@@ -25,18 +27,12 @@ export type OnboardingKind = 'religious' | 'civil' | 'mixed';
 /**
  * Faith / tradition — maps to events.ceremony_type (single value when kind=religious)
  * + events.secondary_ceremony_type (when kind=mixed, up to 2 picks).
- * V1.x active: catholic + civil; INC/Christian/Muslim/Cultural ship as Coming Soon
- * with notify-me signup (per iteration 0043 · wedding_type_launch_status).
+ * The union derives from lib/faith-registry — the single faith source
+ * (consolidation 2026-06-12; adding a faith = one registry entry + one DB row).
+ * Which faiths are LIVE is decided at runtime by wedding_type_launch_status
+ * (iteration 0043); coming-soon faiths render with notify-me signup.
  */
-export type OnboardingFaith =
-  | 'catholic'
-  | 'christian'
-  | 'inc'
-  | 'muslim'
-  | 'cultural'
-  | 'chinese'
-  | 'jewish'
-  | 'born_again';
+export type OnboardingFaith = FaithKey;
 
 /** Current screen index — 0-based into the SCREEN_SEQUENCE array. */
 export type OnboardingStep = number;

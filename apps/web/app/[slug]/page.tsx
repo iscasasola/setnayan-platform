@@ -31,6 +31,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
+import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
@@ -123,7 +124,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -678,6 +679,11 @@ type EventRow = {
   // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
   // unknown + sanitized at use so a thin/absent palette degrades to defaults.
   role_palette?: unknown;
+  // Couple's love story (events.love_story JSONB, written at onboarding; also
+  // feeds Pakanta). Rendered on the pre-event paths (Save the Date teaser ·
+  // RSVP · Event) via <OurStory>; NOT on the post-event Editorial. Typed
+  // unknown + tolerated at use (partial/absent → section hides).
+  love_story?: unknown;
   // Chosen-lockup design columns — selected at the top of this route (line ~124)
   // and threaded into HeroMonogram so the public hero draws the couple's real
   // mark (bar/duo/script/infinity/framed), not just initials.
@@ -1031,6 +1037,7 @@ function PublicLanding({
           venueName={event.venue_name}
           venueAddress={event.venue_address}
           publicId={event.public_id}
+          loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
         />
       ) : (
@@ -1125,6 +1132,11 @@ function PublicLanding({
           ))}
         </section>
       ) : null}
+
+      {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
+          The normal body only renders pre-event (STD + editorial are separate
+          branches), so this naturally stays off the post-event Editorial. */}
+      <OurStory loveStory={event.love_story} variant="full" />
         </>
       )}
     </InvitationShell>
@@ -1511,6 +1523,7 @@ function InvitationSite({
             venueName={event.venue_name}
             venueAddress={event.venue_address}
             publicId={event.public_id}
+            loveStory={event.love_story}
             showTextHero={false}
           />
         ) : (
@@ -1676,6 +1689,11 @@ function InvitationSite({
             this wedding.
           </section>
         ) : null}
+
+        {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
+            The normal body only renders pre-event (STD + editorial are separate
+            branches), so this naturally stays off the post-event Editorial. */}
+        <OurStory loveStory={event.love_story} variant="full" />
           </>
         )}
 

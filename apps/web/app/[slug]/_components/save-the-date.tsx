@@ -19,6 +19,7 @@ import {
   icsDataHref,
 } from '@/lib/calendar-links';
 import { CountdownWidget } from './countdown';
+import { OurStory } from './our-story';
 
 type Props = {
   displayName: string;
@@ -26,6 +27,9 @@ type Props = {
   venueName: string | null;
   venueAddress: string | null;
   publicId: string;
+  // Couple's love story (events.love_story) — shown here as a one-line teaser
+  // (the full story lives on the RSVP + Event paths). Absent → nothing renders.
+  loveStory?: unknown;
   /**
    * When true, render the couple's name + date here. The anonymous path has
    * no hero for text-only events, so it asks the STD view to carry it. The
@@ -40,6 +44,7 @@ export function SaveTheDateView({
   venueName,
   venueAddress,
   publicId,
+  loveStory,
   showTextHero,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
@@ -98,6 +103,8 @@ export function SaveTheDateView({
           ) : null}
         </div>
       ) : null}
+
+      <OurStory loveStory={loveStory} variant="teaser" />
 
       <p className="mx-auto max-w-prose text-sm text-ink/60">
         Full invitation to follow. We can&rsquo;t wait to celebrate with you.

@@ -7,7 +7,7 @@
  * 2026-05-30 row § 1(a) Pro 28-day price flip ₱1,999 → ₱2,499:
  *   - 0% commission · we never touch the money (preserved)
  *   - Pro ₱2,499/28d (CLAUDE.md 2026-05-30 § 1(a) cadence + price update)
- *   - 100 free bidding tokens on verification before 31 Jan 2027 (preserved)
+ *   - Founder bonus (100 free tokens before 31 Jan 2027) REMOVED 2026-06-15 (owner)
  *   - "Concierge matchmaking" copy in hero blurb → "Setnayan AI matchmaking"
  *     per V2 retire of Concierge brand
  *
@@ -96,11 +96,7 @@ export async function VendorHero() {
             </strong>{' '}
             Pro at <strong style={{ color: 'var(--m-ink)' }}>{p.proMonthly}/28 days</strong>{' '}
             unlocks AI matchmaking, boosted reach, AI proposal
-            drafting, demand pulse. Founder bonus{' '}
-            <strong style={{ color: 'var(--m-ink)' }}>
-              100 free bidding tokens
-            </strong>{' '}
-            on verification before 31 Jan 2027.
+            drafting, and demand pulse.
           </p>
           <div
             style={{

@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(studio): rebuild /add-ons into the benefit-led Studio hub
+
+The couple `/dashboard/[eventId]/add-ons` page (the sidebar "Studio" item + bottom-nav "Studio" tab both already point here) was a cinema-poster grid that listed every in-app service flat, by vendor taxonomy. Rebuilt it as the **Studio hub** — a calm, benefit-led, job-to-be-done discovery surface in the v2.1 paper palette (premium-calm, not posters). REDESIGN_PLAN Phase 2.
+
+- **Four job-to-be-done groups** (fixed order), each a mono section label + a responsive paper-card grid:
+  1. **Capture the day** — Papic · Panood · Photo Delivery · Patiktok
+  2. **Your website & story** — Landing Page · Save the Date · Monogram Creator · Custom QR per guest · LED Background
+  3. **Plan & organize** *(free)* — the four free core sidebar tools (Guest list · Seating · Budget · Schedule) lead the group, then Mood Board · Indoor Blueprint
+  4. **Music & extras** — Music Creator · Playlist · Paprint · Orders
+  Within each group, available cards come first and coming-soon cards sink to the bottom.
+- **New card model** (`add-ons/_components/studio-card.tsx`): a soft paper card — tinted `--m-paper-2` icon square + name + one-line benefit + chip + CTA. Available → **"Open"** deep-link to the feature's own page (which already handles buy-vs-use); `tier === 'free'` shows a subtle "Free" chip; `coming_soon` → muted non-interactive "Soon" chip, no CTA. No price is ever shown on the card (pricing stays admin-managed on the feature page).
+- **Additive catalog change** (`lib/add-ons-catalog.ts`): two new OPTIONAL fields on `AddOnEntry` — `studioGroup` (set on all 16 entries) + `tier?: 'free'` (marked only on genuinely-free entries: mood-board · playlist · orders · landing-page · music-creator). No existing field removed/repurposed, so the Services/vendors tab (the other importer, which consumes `poster.*`) is unaffected. Plus a separate `studioFreeTools(eventId)` factory (NOT added to `ADD_ONS`, so it can't pollute the Services tab) for the four free sidebar deep-links.
+- **service-poster.tsx kept** — the `ServicePoster` *component* is now unused, but the file still exports the `PosterStyle`/`PosterMotion` *types* that the catalog imports and the Services tab consumes via `addon.poster.*`. Deleting it would break the build, so it stays (the task's delete was conditional on "unused anywhere"; it is not).
+- Dropped the old internal-admin iteration-code pill (and its `createClient`/`getCurrentUser` calls) — the Studio design surfaces only status + Free chips.
+- **Deferred (noted, not built):** owned-aware "Learn more vs Open" CTA, and a working Notify-me backend for coming-soon items (kept as a static "Soon" state).
+- Verified: typecheck ✅ · lint ✅ (all 3 changed/new files clean). Route unchanged (`/dashboard/[eventId]/add-ons`).
+
+SPEC IMPACT: refines REDESIGN_PLAN Phase 2 (Studio hub); no routes/schema/pricing change.
+
+---
+
 ## 2026-06-14 · fix(pricing): real charges read admin-only — kill divergent hardcoded price fallbacks
 
 Owner rule (2026-06-14): every feature is priced in the admin catalog (amount admin-set, frequency predefined per SKU); code must never hardcode a price. Two hardcoded fallbacks diverged from admin (the ₱2,499-vs-₱1,999 Animated Monogram mismatch the pricing collection flagged). Neither value is changed here (numbers stay parked for the holistic pricing pass) — this only enforces the *source*.

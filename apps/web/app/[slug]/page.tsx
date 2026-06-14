@@ -40,6 +40,10 @@ import { LiveWallBlock } from './_components/live-wall-block';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
+import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+
+/** Panood Watch-Live data for the day-of page (PANOOD_SYSTEM owners only). */
+type WatchLiveData = { embedUrl: string; watchUrl: string };
 
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 type LiveWallData = {
@@ -494,14 +498,34 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // capped to the newest dozen so a busy wall doesn't presign hundreds per
   // page view. Wall trouble must never break the wedding page → try/null.
   let liveWall: LiveWallData | null = null;
+  // Panood Watch-Live (owner 2026-06-12: "panood … must be on the on-the-day
+  // part") — when the event holds PANOOD_SYSTEM and the couple staged their
+  // watch link (events.panood_watch_url, migration 20261122000000), the live
+  // page leads with the broadcast for the loved ones watching from afar.
+  // youtube-nocookie embed; the URL was normalize-or-rejected at save time.
+  let watchLive: WatchLiveData | null = null;
   if (dayOfPhase === 'live') {
     try {
-      const { data: wallActivation } = await admin
-        .from('event_software_activations_v2')
-        .select('service_code')
-        .eq('event_id', event.event_id)
-        .eq('service_code', 'LIVE_WALL')
-        .maybeSingle();
+      const [{ data: wallActivation }, { data: panoodActivation }, watchRowRes] =
+        await Promise.all([
+          admin
+            .from('event_software_activations_v2')
+            .select('service_code')
+            .eq('event_id', event.event_id)
+            .eq('service_code', 'LIVE_WALL')
+            .maybeSingle(),
+          admin
+            .from('event_software_activations_v2')
+            .select('service_code')
+            .eq('event_id', event.event_id)
+            .eq('service_code', 'PANOOD_SYSTEM')
+            .maybeSingle(),
+          admin
+            .from('events')
+            .select('panood_watch_url')
+            .eq('event_id', event.event_id)
+            .maybeSingle(),
+        ]);
       if (wallActivation) {
         const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
         liveWall = {
@@ -512,8 +536,19 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
             : null,
         };
       }
+      const watchUrl = watchRowRes.error
+        ? null
+        : ((watchRowRes.data as { panood_watch_url?: string | null } | null)
+            ?.panood_watch_url ?? null);
+      if (panoodActivation && watchUrl) {
+        const videoId = parseYouTubeVideoId(watchUrl);
+        if (videoId) {
+          watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
+        }
+      }
     } catch {
       liveWall = null;
+      watchLive = null;
     }
   }
 
@@ -533,6 +568,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
         liveWall={liveWall}
+        watchLive={watchLive}
       />
     );
   }
@@ -555,6 +591,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
         liveWall={liveWall}
+        watchLive={watchLive}
       />
     );
   }
@@ -584,6 +621,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
         liveWall={liveWall}
+        watchLive={watchLive}
       />
     );
   }
@@ -645,6 +683,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         widgets={widgets}
         backdrop={backdrop}
         liveWall={liveWall}
+        watchLive={watchLive}
         guestLiveGallery={guestLiveGallery}
       />
       {papicGuestActive && (
@@ -768,6 +807,46 @@ type GuestRow = {
  * itself renders behind the content area (reads as ambient glow, not paper).
  * The footer goes transparent over the backdrop's bottom vignette.
  */
+/**
+ * Panood Watch-Live — the broadcast embedded on the day-of page (spec §7.5:
+ * the live page leads with it for the loved ones watching from afar).
+ * youtube-nocookie (privacy-enhanced — no tracking cookies before playback);
+ * the URL was normalized/validated at save time (lib/panood-watch.ts), so the
+ * iframe src is structurally a YouTube embed, never raw user input.
+ */
+function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
+  return (
+    <section
+      aria-label="Watch the celebration live"
+      className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
+    >
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+          Watch live
+        </p>
+        <a
+          href={watchLive.watchUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-cream/65 underline-offset-4 hover:text-cream hover:underline"
+        >
+          Open on YouTube
+        </a>
+      </div>
+      <div className="aspect-video w-full">
+        <iframe
+          title="Live broadcast of the celebration"
+          src={watchLive.embedUrl}
+          className="h-full w-full border-0"
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </section>
+  );
+}
+
 function InvitationShell({
   children,
   backdrop,
@@ -901,6 +980,7 @@ function PublicLanding({
   scheduleBlocks,
   backdrop,
   liveWall,
+  watchLive,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -939,6 +1019,8 @@ function PublicLanding({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
+  /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
+  watchLive?: WatchLiveData | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -1096,6 +1178,15 @@ function PublicLanding({
           Find your seat
         </Link>
       </div>
+
+      {/* Panood Watch-Live — anonymous path FIRST: the remote relatives
+          clicking the shared link from Messenger are exactly the cookie-less
+          viewers this exists for. */}
+      {dayOfPhase === 'live' && watchLive ? (
+        <section className="mt-10">
+          <WatchLiveBlock watchLive={watchLive} />
+        </section>
+      ) : null}
 
       {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
           scans without a guest cookie) get the live wall too during the
@@ -1312,6 +1403,7 @@ function InvitationSite({
   widgets,
   backdrop,
   liveWall,
+  watchLive,
   guestLiveGallery,
 }: {
   event: EventRow;
@@ -1356,6 +1448,8 @@ function InvitationSite({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
+  /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
+  watchLive?: WatchLiveData | null;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery?: GuestLiveGallery | null;
 }) {
@@ -1554,6 +1648,11 @@ function InvitationSite({
             the article so a guest at the venue sees "happening now" before
             scrolling past hero / greeting / QR. The same ScheduleWidget renders
             in its default position below for non-live phases. */}
+        {/* Panood Watch-Live — leads the live page: the loved ones who
+            couldn't fly home open the same link and watch the ceremony.
+            Spec §7.5: remote guests first. */}
+        {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} /> : null}
+
         {isLive && scheduleBlocks.length > 0 ? (
           <section
             aria-label="Day-of schedule"

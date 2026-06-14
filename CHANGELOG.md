@@ -9,6 +9,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 Follow-up to the dense-frame hero scrub (#1416). On a ~1000-frame sequence the scrub could swap the `<img>` to a frame that hadn't downloaded/decoded yet and **freeze on blank** ("next images don't show / feels stuck"), especially on the initial load or a slower connection.
 
 - `app/_components/marketing/HeroVideoScrub.tsx` — three guards: (1) `apply()` never swaps to a not-yet-decoded frame — it holds the **nearest already-loaded** frame until the target one arrives (no blank freeze); (2) the opening 24 frames load at `fetchPriority:'high'`; (3) a **loading veil** with a thin progress bar holds until **every frame is decoded** (owner: "everything must load first" — the user never enters the scrub on a half-loaded sequence), then fades out; a 30s backstop is the only escape hatch if a request truly hangs. Reduced-motion hides the veil and shows the final frame.
+- Caption readability (owner: "readable and bold"): the two story captions go **bold (`fontWeight 800`, forces weight on the single-weight Instrument Serif), larger**, near-black, with a **crisp white outline + halo** so they stay legible over both the bright field and the darker objects (vintage cars) instead of the thin faint serif they shipped as.
 
 SPEC IMPACT: None (homepage hero load/UX robustness only).
 

@@ -26,19 +26,24 @@ type Props = {
 
 const SCRUB_END = 0.82; // frames play over the first 82% of scroll; CTA reveals after
 
-// Shared style for the two scroll-synced story captions: dark editorial serif with a
-// soft light halo so it reads on the bright video, parked in the both-crops safe zone.
+// Shared style for the two scroll-synced story captions: bold near-black serif with a
+// crisp white outline + halo so it stays readable over BOTH the bright field and the
+// darker objects (cars), parked in the both-crops safe zone. fontWeight 800 forces a
+// heavy weight even on the single-weight display serif (Instrument Serif).
 const CAP_STYLE: CSSProperties = {
   left: '50%',
   top: '68%',
   transform: 'translate(-50%, -50%)',
   opacity: 0,
-  maxWidth: 760,
+  maxWidth: 840,
   width: '100%',
-  color: '#1E2229',
-  fontSize: 'clamp(1.5rem, 3.4vw, 2.5rem)',
-  lineHeight: 1.12,
-  textShadow: '0 1px 2px rgba(255,255,255,.6), 0 2px 32px rgba(255,255,255,.9)',
+  color: '#14171c',
+  fontWeight: 800,
+  fontSize: 'clamp(1.7rem, 4.2vw, 3rem)',
+  lineHeight: 1.08,
+  letterSpacing: '0.005em',
+  textShadow:
+    '0 0 2px #FBFBFA, 0 0 4px #FBFBFA, 0 1px 1px #FBFBFA, 0 -1px 1px #FBFBFA, 1px 0 1px #FBFBFA, -1px 0 1px #FBFBFA, 0 3px 18px rgba(251,251,250,.8)',
   willChange: 'opacity',
 };
 

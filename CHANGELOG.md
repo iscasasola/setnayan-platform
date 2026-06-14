@@ -977,6 +977,18 @@ Owner audit ("check what needs to be deleted") → owner selected: remove BIR-re
 - **₱228K mock** — hero pipeline card "Today's earnings · ₱228K · 2 bookings paid" → "Booked this week · 2 bookings confirmed" (kept the truthful "Paid straight to you · Setnayan never holds your money" line).
 
 `tsc --noEmit` green. SPEC IMPACT: None on schema/SKU/price — removes inaccurate/contradictory public claims (aligns with the #1316 public-claims purge). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(pricing): wire the holistic pass — website collapse + flat-₱100 vendor tokens (migration)
+
+Executes the **verified, unambiguous** parts of `Pricing_Holistic_Pass_2026-06-15.md` (owner "do it now"). New migration `20261230000000_holistic_pricing_pass_2026_06_15.sql` (idempotent, **NOT applied — owner runs `supabase db push`**):
+
+- **⚠ Website collapse (load-bearing).** New `COUPLE_WEBSITE_PRO` ₱3,999 — the single premium unlock across all 4 website phases (owner ruling 2026-06-14). Retires (is_active=false) the overlapping in-build SKUs it absorbs: `EVENT_WEBSITE` · `PRO_RSVP` · `RSVP_PRO_WEBSITE` · `RSVP_WEBSITE` · `PRO_WEBSITE` (Editorial ₱7,999 — the §5① "absorb" rec, executed per do-it-now). The **free 4-in-1 site + unlimited free RSVP are NOT SKUs** and are untouched; deactivation doesn't revoke existing orders (ownership = `orders.status`). Reader keys updated: `COUPLE_WEBSITE_PRO` added to `V2_SKU_CODES` + `BUILD_STATUS` ('partial' — buy surface is a follow-up).
+- **Vendor token packs → flat ₱100/token** (§4): ₱400/1,000/2,500/5,000/10,000 (was the tiered ₱1,000–18,000 ladder).
+
+**Deliberately NOT touched — flagged for owner confirmation:** the migration history shows `ANIMATED_MONOGRAM` is **₱2,499** and `PAKANTA` is **₱3,499** in the DB (seeds, never repriced) — the collection-doc's "live+DB" figures the §2 doc relied on were wrong. Per the source hierarchy (live site > DB > docs) I did **not** silently cut those; confirm against the live site. Every other §2 à-la-carte value already matches the canonical DB (no-op).
+
+Still queued (need the bundle-membership PRs #1447/#1451 on main first): seed the 5 family bundles into `platform_package_catalog` + membership, multi-bundle cart, pick-one Papic, the `COUPLE_WEBSITE_PRO` buy surface. `tsc` green.
+
+SPEC IMPACT: executes the website collapse + token reprice (corpus `Pricing_Holistic_Pass §1/§4` + DECISION_LOG); à-la-carte resolutions stay provisional pending the 2 flagged confirmations.
 
 ## 2026-06-15 · feat(recap): Auto-Recap — the "living recap" keepsake (Living Memories pillar · produce-the-keepsake)
 

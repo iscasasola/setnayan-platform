@@ -60,6 +60,12 @@ export const V2_SKU_CODES = [
   'SETNAYAN_AI',
   'PRO_RSVP',
   'EVENT_WEBSITE',
+  // Couple Website PRO — the single ₱3,999 premium unlock that collapses the
+  // overlapping website/RSVP SKUs (PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE/RSVP_*),
+  // owner ruling 2026-06-14, seeded by migration 20261230000000. The collapsed
+  // codes stay listed here for historical order rows but go is_active=false in
+  // the catalog (hidden from /pricing).
+  'COUPLE_WEBSITE_PRO',
   // 2 bundles (platform_package_catalog, not retail)
   'GUIDED_PACK',
   'MEDIA_PACK',

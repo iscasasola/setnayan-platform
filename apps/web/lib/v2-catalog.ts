@@ -86,6 +86,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
+  COUPLE_WEBSITE_PRO:  'partial',  // the single ₱3,999 website unlock (migration 20261230000000) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · buy surface = follow-up
   SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱3,999 · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02

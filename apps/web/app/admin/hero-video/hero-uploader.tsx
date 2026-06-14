@@ -6,8 +6,10 @@
  * Flow (all client-side, since Vercel can't run ffmpeg):
  *   1. Admin picks a video file.
  *   2. We upload the original to R2 (presigned PUT via /api/upload).
- *   3. We extract frames IN THE BROWSER — load the video, seek to N evenly
- *      spaced timestamps, draw each to a canvas, export JPEG.
+ *   3. We extract frames IN THE BROWSER — load the video, seek to N densely
+ *      spaced timestamps (~native fps), draw each to a downscaled canvas, export
+ *      JPEG. Dense frames keep the scroll-scrub smooth (no stepping); the
+ *      downscale keeps the homepage preload light.
  *   4. We upload each frame JPEG to R2.
  *   5. We persist the frame URLs to homepage_hero_config (server action).
  *   6. Admin clicks Publish → the homepage swaps to the scroll-scrub.
@@ -21,10 +23,14 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
-const FPS = 8;
-const MAX_FRAMES = 180;
-const MIN_FRAMES = 24;
-const FRAME_UPLOAD_CONCURRENCY = 4;
+// Dense capture so the scroll-scrub glides instead of stepping: sample at ~native
+// frame rate with a high ceiling, but downscale each frame (DOWNSCALE_MAX) so even
+// ~1000 frames stay light to preload on the homepage.
+const FPS = 30; // was 8 — capture effectively every frame, not a sparse sample
+const MAX_FRAMES = 1200; // was 180 — safe ceiling (~40s @ 30fps); below this every frame is kept
+const MIN_FRAMES = 48; // was 24
+const DOWNSCALE_MAX = 720; // px longest edge — a scrub is full-screen motion, 720 reads crisp and ~halves payload vs 1080
+const FRAME_UPLOAD_CONCURRENCY = 6; // was 4 — more frames, so upload a few more in parallel
 
 async function presignAndPut(body: Blob, pathPrefix: string, filename: string, contentType: string): Promise<string> {
   const res = await fetch('/api/upload', {
@@ -77,7 +83,7 @@ async function extractFrames(
     });
     const dur = video.duration;
     if (!Number.isFinite(dur) || dur <= 0) throw new Error('Video has no readable duration.');
-    const scale = Math.min(1, 1080 / Math.max(video.videoWidth, video.videoHeight));
+    const scale = Math.min(1, DOWNSCALE_MAX / Math.max(video.videoWidth, video.videoHeight));
     const w = Math.max(2, Math.round(video.videoWidth * scale));
     const h = Math.max(2, Math.round(video.videoHeight * scale));
     const canvas = document.createElement('canvas');

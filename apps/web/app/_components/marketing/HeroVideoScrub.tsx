@@ -16,7 +16,7 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 type Props = {
   frameUrls: string[];
@@ -26,11 +26,29 @@ type Props = {
 
 const SCRUB_END = 0.82; // frames play over the first 82% of scroll; CTA reveals after
 
+// Shared style for the two scroll-synced story captions: dark editorial serif with a
+// soft light halo so it reads on the bright video, parked in the both-crops safe zone.
+const CAP_STYLE: CSSProperties = {
+  left: '50%',
+  top: '68%',
+  transform: 'translate(-50%, -50%)',
+  opacity: 0,
+  maxWidth: 760,
+  width: '100%',
+  color: '#1E2229',
+  fontSize: 'clamp(1.5rem, 3.4vw, 2.5rem)',
+  lineHeight: 1.12,
+  textShadow: '0 1px 2px rgba(255,255,255,.6), 0 2px 32px rgba(255,255,255,.9)',
+  willChange: 'opacity',
+};
+
 export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const capARef = useRef<HTMLDivElement>(null);
+  const capBRef = useRef<HTMLDivElement>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
   const lastIdx = useRef(-1);
 
@@ -51,7 +69,12 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     if (N === 0) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const apply = (idx: number, c: number) => {
+    // Story captions fade in over scroll bands during the scrub, before the end CTA:
+    //   A = the overwhelm (the spectrum of choices) · B = the relief ("say it once").
+    const band = (x: number, a: number, b: number, fade: number) =>
+      x <= a || x >= b ? 0 : x < a + fade ? (x - a) / fade : x > b - fade ? (b - x) / fade : 1;
+
+    const apply = (idx: number, c: number, p: number) => {
       const frame = framesRef.current[idx];
       if (frame && idx !== lastIdx.current && imgRef.current) {
         lastIdx.current = idx;
@@ -59,6 +82,9 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       }
       if (scrimRef.current) scrimRef.current.style.opacity = String(c);
       if (imgRef.current) imgRef.current.style.opacity = String(1 - c * 0.5);
+      // Captions hide as soon as the end overlay starts revealing (c > 0).
+      if (capARef.current) capARef.current.style.opacity = String(c > 0 ? 0 : band(p, 0.06, 0.34, 0.05));
+      if (capBRef.current) capBRef.current.style.opacity = String(c > 0 ? 0 : band(p, 0.45, 0.72, 0.05));
       if (endRef.current) {
         endRef.current.style.opacity = String(c);
         endRef.current.style.transform = `translate(-50%, calc(-50% + ${((1 - c) * 16).toFixed(1)}px))`;
@@ -66,7 +92,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     };
 
     if (reduce) {
-      apply(N - 1, 1);
+      apply(N - 1, 1, 1);
       return;
     }
 
@@ -82,7 +108,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         const w = Math.min(p / SCRUB_END, 1);
         const idx = Math.round(w * (N - 1));
         const c = Math.min(Math.max((p - 0.8) / 0.18, 0), 1);
-        apply(idx, c);
+        apply(idx, c, p);
       });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -116,6 +142,13 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
               'radial-gradient(120% 90% at 50% 46%, rgba(14,15,18,.45) 0%, rgba(14,15,18,.72) 55%, rgba(14,15,18,.92) 100%)',
           }}
         />
+        {/* Story captions — fade in over the scrub; hidden by reduced-motion and once the end CTA reveals. */}
+        <div ref={capARef} aria-hidden className="m-serif italic pointer-events-none absolute px-6 text-center" style={CAP_STYLE}>
+          A thousand choices. The same questions, over and over.
+        </div>
+        <div ref={capBRef} aria-hidden className="m-serif italic pointer-events-none absolute px-6 text-center" style={CAP_STYLE}>
+          Say it once — and find your perfect fit.
+        </div>
         <div
           ref={endRef}
           className="absolute px-6 text-center"

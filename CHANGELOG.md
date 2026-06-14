@@ -24,6 +24,14 @@ The couple `/dashboard/[eventId]/add-ons` page (the sidebar "Studio" item + bott
 SPEC IMPACT: refines REDESIGN_PLAN Phase 2 (Studio hub); no routes/schema/pricing change.
 
 ---
+## 2026-06-14 · feat(hero): dense frame extraction + scroll-synced story captions on the homepage scrub
+
+The admin-uploaded homepage hero (`/admin/hero-video` → `HeroVideoScrub`) extracted only a sparse 180 frames (8 fps, hard cap), so the scroll-scrub *stepped* over its 300vh track instead of gliding. Now it captures effectively every frame, and the scrub carries two story-caption beats over the bright video before the existing end CTA.
+
+- `app/admin/hero-video/hero-uploader.tsx` — frame capture made dense: `FPS` 8→30 (≈native), `MAX_FRAMES` 180→1200 (safe ~40s ceiling; below it every frame is kept), `MIN_FRAMES` 24→48, upload concurrency 4→6. To keep the homepage preload light despite ~1000 frames, the per-frame downscale dropped 1080→`DOWNSCALE_MAX` 720px (a scrub is full-screen motion; 720 reads crisp and ~halves payload). Browser seek-based extraction is otherwise unchanged — only density + frame size.
+- `app/_components/marketing/HeroVideoScrub.tsx` — two scroll-synced captions fade in over the scrub (A: "A thousand choices. The same questions, over and over." during the overwhelm; B: "Say it once — and find your perfect fit." during the trim), then yield to the existing "Set na ’yan" + CTA end overlay. Dark editorial serif with a soft light halo for legibility on the bright frames, parked in the both-crops (16:9 + 9:16) safe zone; `aria-hidden` and hidden under reduced-motion.
+
+SPEC IMPACT: None (homepage hero motion/UX only — no schema, SKU, pricing, or copy-of-record change; the captions are marketing motion text and the end CTA / "0% commission" line is unchanged).
 
 ## 2026-06-14 · fix(pricing): real charges read admin-only — kill divergent hardcoded price fallbacks
 

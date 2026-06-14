@@ -447,3 +447,51 @@ export async function resolvePaxPricedOrderCentavos(
     centavos: computePaxPriceCentavos(config, pax),
   };
 }
+
+/**
+ * Server-side AUTHORITATIVE bundle price for an order line, in CENTAVOS.
+ *
+ * The 4-tier paywall bundles (Essentials = GUIDED_PACK · Complete = MEDIA_PACK)
+ * live in `platform_package_catalog` (package_code · title · retail_price_php),
+ * NOT in `platform_retail_catalog_v2`. So `resolvePaxPricedOrderCentavos` returns
+ * null for them and, without this helper, the bundle order would fall back to the
+ * client-supplied `original_centavos` — a tamperable ₱12,999 / ₱27,999.
+ *
+ * This is the bundle analogue of `resolvePaxPricedOrderCentavos`: it re-resolves
+ * the charge from the admin-set `retail_price_php` so the billed amount ALWAYS
+ * equals the catalog bundle price, identical to how flat retail SKUs are made
+ * authoritative. Bundles are flat-priced (no pax curve), so the math is just
+ * `retail_price_php × 100`.
+ *
+ * Returns:
+ *   • centavos — the authoritative bundle charge (retail_price_php × 100).
+ *   • null — package_code not in platform_package_catalog (not a bundle) OR a
+ *     DB error / build-time env → caller keeps the client price, so a transient
+ *     read failure NEVER blocks an order.
+ *
+ * Honors `is_active` (same soft-deactivation semantics as the retail reader):
+ * a retired bundle resolves null here, so the caller never re-prices against a
+ * deactivated row — it simply keeps the client value (the order then lands the
+ * same way a non-catalog SKU would).
+ */
+export async function resolveBundleChargeCentavos(
+  packageCode: string,
+): Promise<number | null> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return null;
+  }
+
+  const { data: pkg, error } = await admin
+    .from('platform_package_catalog')
+    .select('retail_price_php')
+    .eq('package_code', packageCode)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !pkg || pkg.retail_price_php == null) return null;
+
+  return Math.round(Number(pkg.retail_price_php) * 100);
+}

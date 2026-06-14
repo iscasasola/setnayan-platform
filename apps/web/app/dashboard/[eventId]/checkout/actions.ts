@@ -50,7 +50,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
-import { resolvePaxPricedOrderCentavos } from '@/lib/v2-catalog';
+import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -283,9 +283,24 @@ export async function submitOrderAction(
   // never over/under-charge. Only SKUs with NO catalog row (vendor / bundle /
   // legacy · resolved === null) keep the client value.
   // Owner 2026-06-14: "every price is admin-managed · never hardcoded in code."
+  //
+  // NOTE: two catalogs back the charge, checked in order. (1) the retail catalog
+  // above covers the 19 retail SKUs (flat + the pax curve). (2) the 4-tier paywall
+  // BUNDLES (GUIDED_PACK = Essentials · MEDIA_PACK = Complete) live in a SEPARATE
+  // table (platform_package_catalog · keyed by package_code, flat-priced), so the
+  // retail resolve returns null for them and the bundle order would otherwise fall
+  // back to the tamperable client price. resolveBundleChargeCentavos re-resolves
+  // the authoritative bundle price from the admin-set retail_price_php, identical
+  // to how flat retail SKUs are made authoritative. Only SKUs in NEITHER catalog
+  // (vendor / legacy · both resolves null) keep the client value.
   const resolved = await resolvePaxPricedOrderCentavos(eventId, serviceKey);
   if (resolved) {
     originalCentavos = BigInt(resolved.centavos);
+  } else {
+    const bundleCentavos = await resolveBundleChargeCentavos(serviceKey);
+    if (bundleCentavos != null) {
+      originalCentavos = BigInt(bundleCentavos);
+    }
   }
 
   // Re-validate the voucher server-side EVEN THOUGH the apply step already

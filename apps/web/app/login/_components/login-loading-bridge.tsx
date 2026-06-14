@@ -11,8 +11,8 @@
  * that form's pending state — no change to the signInWithPassword server
  * action or the redirect flow. On success the action redirects, this unmounts,
  * and the cleanup hides the overlay; on error the redirect back to /login also
- * unmounts it. Scoped to password sign-in only (the magic-link form keeps its
- * lightweight "Sending…" button).
+ * unmounts it. Scoped to the password sign-in form (the OAuth buttons drive
+ * their own SubmitButton spinner via useFormStatus on their own forms).
  */
 
 import { useEffect } from 'react';

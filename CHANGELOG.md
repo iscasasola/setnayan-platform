@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(monogram): "Your Plan" tile pointed at a dead "coming soon" stub instead of the live maker
+
+Found during a monogram dead-code audit (owner: "we have several monogram makers — keep the ones that serve the app, delete what doesn't"). The audit found NO duplicate/orphaned makers — the three editor modes on `/dashboard/[eventId]/monogram` (typographic lockup · Cipher Studio · Bespoke AI) + the onboarding picker + the paid Animated Monogram upsell are all live and distinct. The one genuinely stale thing: the **"Your Plan" monogram tile** linked to `/dashboard/[eventId]/add-ons/monogram-creator` — a route that doesn't exist, so it rendered the iteration-0037 *"Monogram Creator… Coming back soon"* placeholder (a relic from before the maker shipped). Couples clicking it hit a dead end instead of the live maker.
+
+- `your-plan-section.tsx` — the monogram tile now links to `/dashboard/[eventId]/monogram` (the live maker; matches what the side nav already points at).
+- `add-ons/[addon]/page.tsx` — added `SHIPPED_REDIRECTS` so `/add-ons/monogram-creator` 307-redirects to `/monogram` (any old CTA/bookmark lands on the real tool), and removed the stale `monogram-creator` "coming soon" entry from `ADD_ON_META`.
+- Verified: typecheck ✅ · lint ✅.
+
+SPEC IMPACT: None — corrects a stale internal link to a shipped feature; no schema/SKU/pricing/route-shape change. (Flagged for later, NOT changed here: the `music-creator` + `landing-page` add-on stubs may be similarly stale if those features are live; and the kept surfaces — animated hero / PDF / maker preview / social card — still render initials rather than the chosen lockup, pending owner's consistency-scope decision.)
+
+---
+
 ## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
 
 Two correctness/clarity fixes to the admin doorway nav (`apps/web/app/admin/_components/`). Surgical — no labels, hrefs, routes, order, or `is_admin` gating changed.

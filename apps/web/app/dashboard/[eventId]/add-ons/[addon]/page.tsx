@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { IterationPlaceholder } from '../../_components/placeholder';
 import { createClient } from '@/lib/supabase/server';
 
@@ -55,16 +55,11 @@ const ADD_ON_META: Record<
     blurb:
       'Wedding-day supplies + favors from vetted Filipino suppliers — souvenirs, tokens, sponsor gifts, ceremony props — direct-to-venue with logistics quoted up front.',
   },
-  // Coming-soon placeholders so contextual CTAs (e.g. "Set your monogram"
-  // → /add-ons/monogram-creator) land on a polite page instead of a 404.
-  // The listing-level tiles for these stay status='coming_soon' on
-  // /add-ons (unclickable) per owner direction 2026-05-20.
-  'monogram-creator': {
-    iteration: 'Iteration 0037',
-    title: 'Monogram Creator',
-    blurb:
-      'Design your wedding monogram with an AI brief — initials, motif, refinement loop. Locks across QR center, hero, save-the-date, AI Highlight, signage. Coming back soon.',
-  },
+  // Coming-soon placeholders so contextual CTAs land on a polite page instead
+  // of a 404. The listing-level tiles for these stay status='coming_soon' on
+  // /add-ons (unclickable) per owner direction 2026-05-20. NOTE: once a feature
+  // ships, move its slug to SHIPPED_REDIRECTS below (don't leave a stale
+  // "coming soon" stub pointing away from the live surface).
   'music-creator': {
     iteration: 'Iteration 0036',
     title: 'Music Creator',
@@ -77,6 +72,12 @@ const ADD_ON_META: Record<
     blurb:
       'Customize the public landing page guests see when they scan your QR or open your link — beyond the default invitation surface. Coming back soon.',
   },
+};
+
+// Add-on slugs whose feature has since shipped — any old contextual CTA or
+// bookmark redirects to the live surface instead of a stale "coming soon" stub.
+const SHIPPED_REDIRECTS: Record<string, string> = {
+  'monogram-creator': 'monogram', // Monogram Maker (iteration 0037) is live
 };
 
 type Props = {
@@ -100,6 +101,8 @@ async function isInternalAdmin(): Promise<boolean> {
 
 export default async function AddOnDetailPage({ params }: Props) {
   const { eventId, addon } = await params;
+  const shipped = SHIPPED_REDIRECTS[addon];
+  if (shipped) redirect(`/dashboard/${eventId}/${shipped}`);
   const meta = ADD_ON_META[addon];
   if (!meta) notFound();
   const showDevCodes = await isInternalAdmin();

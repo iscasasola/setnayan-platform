@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(build): stop Vercel build OOM — skip redundant in-build typecheck/lint
+
+A production-build OOM resurfaced (the recurring #1258): a Vercel build sat **19 minutes** in Next's "Linting and checking validity of types" phase, then a process was SIGKILL'd out of memory → `routes-manifest.json couldn't be found` → deploy errored. Production kept serving the last good deploy, but the OOM is intermittent and creeping back as the route count grows past Vercel's **free 8GB build-machine ceiling**. #1258 already pulled the `webpackMemoryOptimizations` + `--max-old-space-size=4096` levers; this pulls the next free one.
+
+- `apps/web/next.config.ts` — `typescript.ignoreBuildErrors: true` + `eslint.ignoreDuringBuilds: true`. The in-`next build` type-check loads the **full TypeScript program** (multiple GB resident) on top of the webpack output — the single largest memory peak, and exactly where the OOM died. Both checks are **already enforced as dedicated, required CI jobs** (`.github/workflows/ci.yml` → `typecheck-lint`: `pnpm typecheck` + `pnpm lint`) in their own isolated containers, so this removes a pure duplication. FREE, OUTPUT-NEUTRAL (type-check/lint never affect emitted JS), and loses NO safety — a type/lint error still fails the required CI job and blocks the merge. Does NOT disable the webpack `server-only` compile guard (fires during compilation, not the type-check pass).
+- `turbo.json` — declared the 9 build env vars Vercel flagged as "set on your project, but missing from turbo.json" (`GOOGLE_DRIVE_OAUTH_*`, `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`, `YOUTUBE_OAUTH_*`, `RECRAFT_API_KEY`, `WEBSITE_PHASES_ENABLED`) so build-time reads are stable and the turbo cache key is correct.
+
+SPEC IMPACT: None. Build-pipeline config only — no schema, no SKU, no product surface.
+
 ## 2026-06-14 · feat(website): seat-reservation delta — "your place is reserved" + couple reserved→seated view (4-path PR D)
 
 Owner locked the RSVP path's purpose: **seat reservation + attendance confirmation**, in the "holds a place; couple seats them" model (no guest seat-picking, no conflict logic, no capacity gate). Small delta on top of the already-shipped RSVP.

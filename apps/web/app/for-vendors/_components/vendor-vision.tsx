@@ -48,7 +48,7 @@ const PILLARS = [
 const DISCOVERY = [
   ['Matched on fit, not fame', 'A new vendor who’s right for a couple ranks above a famous one who’s booked or out of budget.'],
   ['No track record doesn’t bury you', '“No reviews yet” reads as unknown, never as bad — it costs you nothing in the rankings.'],
-  ['100 free inquiries to start', 'Verify and we drop 100 tokens in your wallet — about a hundred matched couples before you spend a peso.'],
+  ['Free weekly unlocks to start', 'Verified vendors get free couple unlocks every week — so a new vendor can answer matched couples without spending a peso.'],
   ['Hidden until you reply', 'Your name stays private until you answer, so couples choose you for the fit — before they’ve heard of you.'],
   ['Every search shows real matches', 'Couples always get a fillable shortlist, so new vendors get real attention from day one.'],
   ['You climb by merit', 'Reply fast, finish well, earn real reviews. Nail your first five couples and you rise fast. No budget can fake that.'],
@@ -207,9 +207,8 @@ export async function VendorVision() {
           <p style={{ fontSize: 16, color: 'var(--m-slate)', lineHeight: 1.62, marginTop: 14, maxWidth: 700 }}>
             No listing fee. No commission. The only thing you ever spend is a <strong style={{ color: 'var(--m-ink)' }}>token</strong> — and only to
             open a conversation with a couple we’ve matched to you. One token opens one real inquiry; after that, the
-            whole conversation is yours, free. Verify your business and we drop <strong style={{ color: 'var(--m-ink)' }}>100 free tokens</strong> in your
-            wallet — about a hundred matched couples before you spend a peso. Need more? Top up in packs at {p.tokenUnit} a
-            token, whenever you want.
+            whole conversation is yours, free. Verified vendors get <strong style={{ color: 'var(--m-ink)' }}>free couple unlocks every week</strong>, so
+            you can start without spending. Beyond that, top up in packs at {p.tokenUnit} a token, whenever you want.
           </p>
           <p style={{ fontSize: 15, color: 'var(--m-slate-2)', lineHeight: 1.6, marginTop: 12, maxWidth: 700 }}>
             And it can pay you back: every Setnayan service you recommend that shows up at the wedding earns a token

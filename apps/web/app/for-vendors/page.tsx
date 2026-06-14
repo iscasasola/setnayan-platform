@@ -25,7 +25,7 @@
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
  *   - Verification FREE during launch (₱1,499 one-time fee removed 2026-06-13) + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
- *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
+ *   - Founder bonus (100-token grant before 31 Jan 2027) REMOVED 2026-06-15 (owner)
  *
  * Per [[feedback_setnayan_button_preservation]] — every CTA placement +
  * interaction concept matches the template verbatim. The drift scrubs
@@ -55,7 +55,7 @@ export async function generateMetadata() {
   const title = `Setnayan for Vendors — Verified free + Pro · ${p.proMonthly}/28d`;
   return {
     title,
-    description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. 100 free tokens on verification (until 31 Jan 2027).`,
+    description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews.`,
     alternates: { canonical: '/for-vendors' },
     openGraph: {
       title,
@@ -67,7 +67,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: `0% commission. Verified is free. Pro ${p.proMonthly}/28d. 100 free tokens on verification.`,
+      description: `0% commission. Verified is free. Pro ${p.proMonthly}/28d.`,
     },
   };
 }
@@ -120,7 +120,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#verified-vendor`,
       name: 'Verified Vendor · free verified badge',
       description:
-        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week + 100 free tokens on verification.',
+        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week.',
       price: '0',
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -138,7 +138,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (28-day prepaid block)',
       description:
-        "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. 28-day prepaid blocks (13 cycles/year).",
+        "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks. 28-day prepaid blocks (13 cycles/year).",
       price: String(p.num.proMonthly),
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -186,7 +186,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
       name: 'Pro Vendor (annual subscription · save 23%)',
       description:
-        `${p.proAnnual}/year instead of ${p.proMonthly} × 13 cycles · save ${p.proAnnualSave}. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. Single annual payment.`,
+        `${p.proAnnual}/year instead of ${p.proMonthly} × 13 cycles · save ${p.proAnnualSave}. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks. Single annual payment.`,
       price: String(p.num.proAnnual),
       priceCurrency: 'PHP',
       priceSpecification: {

@@ -19,7 +19,8 @@
  *   - "Boosted Ads · ₱1,200/wk" preserved (matches v2.1 brief)
  *   - Boosters surface mention added (CLAUDE.md 2026-05-30 row § 1(d) reinstated)
  *   - 0% commission claim preserved (V2 publisher posture per CLAUDE.md 2026-05-28 3rd row)
- *   - Founder bonus 100 tokens preserved (matches v2.1 brief § 1)
+ *   - Founder bonus (100 tokens before 31 Jan 2027) REMOVED 2026-06-15 (owner); the
+ *     standing "up to 10 free couple unlocks/week" verified perk stays
  *   - Verification FREE during launch (₱1,499 one-time fee removed 2026-06-13; card shows "₱0 to start")
  *   - Pro 28-day ₱1,999 → ₱2,499 (2026-05-30 § 1(a))
  *   - Pro Annual ₱19,999 → ₱24,999 (2026-05-30 § 4)
@@ -57,14 +58,7 @@ const MATRIX_SECTIONS: MatrixSection[] = [
     rows: [
       ['Bids per week', 'Up to 10', 'Unlimited', 'Unlimited', 'Unlimited'],
       ['Bidding token packs', 'Buy packs', 'Buy packs', 'Buy packs', 'Buy packs'],
-      [
-        'Founder bonus 100 tokens (until 31 Jan 2027)',
-        '—',
-        'On verification',
-        'On verification',
-        'On verification',
-      ],
-      ['Ongoing token bonus qualification', false, true, true, true],
+      ['Free couple unlocks per week', '—', 'Up to 10', 'Up to 10', 'Up to 10'],
       ['Earn tokens from Productions referrals', 'Free', 'Free', 'Free', 'Free'],
     ],
   },
@@ -100,8 +94,8 @@ const MATRIX_SECTIONS: MatrixSection[] = [
     ],
   },
   {
-    section: '🛠 Pro tools',
-    note: 'Editorial tagging that auto-builds your "successful weddings" collection, category-specific toolkits, AI proposal drafts — the toolkit Pro+ vendors use to close more weddings.',
+    section: '📈 Grow & scale · Pro+',
+    note: "Tools that expand your business as it grows — never ones you need to run your craft. Editorial tagging that auto-builds your \"successful weddings\" collection, category toolkits, AI proposal drafts: automation, polish, and insight that put you in front of more couples and save you time as you scale.",
     rows: [
       [
         'Editorial Tagging · auto-featured in couples\' editorials',
@@ -322,7 +316,7 @@ export async function ForVendorsDeepDive() {
       {/* Free vs Pro intro */}
       <div style={{ marginBottom: 14 }}>
         <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
-          Free vs Pro · what you get on each side
+          Free is a whole business · paid tiers are for growing
         </div>
         <div
           style={{
@@ -333,9 +327,12 @@ export async function ForVendorsDeepDive() {
             lineHeight: 1.5,
           }}
         >
-          Free is designed to beat the patchwork stack you use today (Kasal +
-          Google Calendar + WhatsApp + Wave). Pro is the stuff{' '}
-          <em style={{ color: 'var(--m-ink)' }}>only Setnayan can offer</em> —
+          Free isn’t a trial — it’s a complete business that already beats the
+          patchwork stack you use today (Kasal + Google Calendar + WhatsApp +
+          Wave). Pro and Enterprise don’t unlock your craft; they expand it —
+          more categories, more team, wider reach, and tools that scale as you
+          grow. Everything{' '}
+          <em style={{ color: 'var(--m-ink)' }}>only Setnayan can offer</em>,
           because we have the couples, the data, and the ops team.
         </div>
       </div>
@@ -667,59 +664,6 @@ export async function ForVendorsDeepDive() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Founder bonus callout */}
-      <div
-        className="m-card m-callout"
-        style={{
-          padding: 22,
-          marginTop: 16,
-          display: 'grid',
-          gap: 20,
-          alignItems: 'center',
-          background: 'var(--m-ink)',
-          color: 'var(--m-paper)',
-          border: 'none',
-        }}
-      >
-        <div
-          className="m-display"
-          style={{ fontSize: 'clamp(1.6rem, 3.5vw, 36px)', color: 'var(--m-orange-3)' }}
-        >
-          100×
-        </div>
-        <div>
-          <div className="m-label-mono" style={{ color: 'var(--m-orange-3)' }}>
-            Founder bonus · 100 free bidding tokens on verification
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              color: 'var(--m-paper)',
-              marginTop: 4,
-              lineHeight: 1.5,
-            }}
-          >
-            Verify your business before{' '}
-            <strong style={{ color: 'var(--m-orange-3)' }}>
-              31 January 2027
-            </strong>{' '}
-            and we drop{' '}
-            <strong style={{ color: 'var(--m-orange-3)' }}>
-              100 free bidding tokens
-            </strong>{' '}
-            into your account — enough to chase ~100 couple inquiries without
-            spending a peso on packs. After 31 Jan 2027, founder bonus ends.
-          </div>
-        </div>
-        <Link
-          href="/signup?as=vendor"
-          className="m-btn m-btn-orange"
-          style={{ padding: '10px 18px' }}
-        >
-          Verify now →
-        </Link>
       </div>
 
       {/* 0% commission strip */}

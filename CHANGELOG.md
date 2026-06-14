@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(auth): login provider set = email/password + Google + Apple (drop Facebook + magic-link)
+
+Owner: *"let us fix the login page. i only want the email and password plus google and apple id. no facebook. no magic link."* The locked V1 sign-in set is now **email + password**, **Continue with Google**, and **Continue with Apple** — nothing else.
+
+- **`apps/web/app/login/page.tsx`** — removed the secondary **magic-link** form (the "Or send a magic link" / "Email me a magic link" block), its `sent`/`magicLinkSent` searchParam handling + "Magic link sent" status banner, and the `signInWithMagicLink` import. Email+password form, OAuth row, "Forgot password?", "Stay signed in", and the create-account tail link are untouched.
+- **`apps/web/app/login/actions.ts`** — deleted the now-dead `signInWithMagicLink` server action (was the only consumer of `signInWithOtp` here). `signInWithPassword` + the "Stay signed in" cookie-downgrade are unchanged.
+- **`apps/web/app/_components/oauth-button-row.tsx`** — swapped the **Facebook** button for an **Apple** button (gate `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED` → `NEXT_PUBLIC_OAUTH_APPLE_ENABLED`; `FacebookFIcon` → monochrome `AppleIcon`; `pendingLabel` "Redirecting to Apple…"). Same neutral Clean-Editorial chrome + `<SubmitButton>` instant-loading pattern. This component is shared, so `/signup` gets the same provider set automatically.
+- **`apps/web/app/auth/oauth-actions.ts`** — `signInWithFacebook` → `signInWithApple`; provider union `'google' | 'facebook'` → `'google' | 'apple'`. Flow + `safeNext`/`redirectTo` round-trip unchanged.
+- **`.env.example`** — `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED` → `NEXT_PUBLIC_OAUTH_APPLE_ENABLED`; comment now documents the Google+Apple set + Apple Developer Program dependency.
+
+Facebook **sharing** (`lib/social/facebook.ts` et al.) is a different feature and is untouched — only Facebook *login* was removed. `tsc --noEmit` green on the full app.
+
+**Owner action to make the OAuth buttons appear (both still default OFF):** in Supabase Studio → Auth → Providers, toggle ON + paste credentials for Google and Apple, then set `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true` / `NEXT_PUBLIC_OAUTH_APPLE_ENABLED=true` in Vercel. **Apple additionally requires Apple Developer Program enrollment ($99/yr)** for the Services ID + client-secret JWT. Until configured, the buttons stay hidden and only email/password renders.
+
+SPEC IMPACT: reverses two prior locks — Apple OAuth was "deferred to V1.1 per owner directive 2026-05-23", and the magic-link form was "preserved as industry-standard passwordless affordance". Both superseded by the owner's 2026-06-15 directive. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(native-bridge): `.then()` on Capacitor `addListener` crashes the native apps on first launch
 
 **THE native-shell launch-blocker** (found by reading the real WKWebView console via Safari Web Inspector on the iOS sim). On first launch the app booted straight to the root error boundary instead of `/login`. Real device console: `TypeError: App.addListener("backButton", …).then is not a function` at `app/layout-*.js`.

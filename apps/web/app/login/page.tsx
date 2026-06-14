@@ -15,8 +15,9 @@
  *     panel content rendered as a top strip.
  *   - --m-* CSS variable palette (paper · ink · slate · ivory · orange · line).
  *   - Wordmark from @/app/_components/brand-marks.
- *   - "Pick up where you left off." display heading with italic blush accent.
- *   - .m-mono uppercase eyebrows + .m-serif italic micro-copy.
+ *   - Brand panel is logo-only (owner directive 2026-06-15 "keep it clean and
+ *     simple") — the eyebrow + display heading + micro-copy + footer were
+ *     dropped; only the Wordmark remains on the gradient rail.
  *
  * PRESERVED per [[feedback_setnayan_button_preservation]]:
  *   - Server action signInWithPassword from ./actions.ts (Supabase Auth
@@ -98,8 +99,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         }}
       >
         {/* Brand panel · stacked on mobile, becomes left column on lg+ via
-            .m-login-card css. Gradient + tagline mirror the template's
-            LoginScreen left rail (1fr column on desktop). */}
+            .m-login-card css. Logo only — owner directive 2026-06-15 "remove
+            this and just leave the logo on top. keep it clean and simple"
+            (dropped the Welcome-back eyebrow + "Pick up where you left off."
+            heading + guest-list micro-copy + setnayan.com footer). Gradient
+            kept so the panel still reads as a distinct brand rail. */}
         <div
           className="m-login-brand"
           style={{
@@ -108,7 +112,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               'linear-gradient(135deg, var(--m-ivory) 0%, var(--m-paper-2) 100%)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 24,
             color: 'var(--m-ink)',
           }}
         >
@@ -119,58 +122,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           >
             <Wordmark size={26} />
           </Link>
-          <div>
-            <div
-              className="m-mono"
-              style={{
-                fontSize: 10,
-                color: 'var(--m-slate)',
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Welcome back
-            </div>
-            <h2
-              className="m-serif"
-              style={{
-                fontSize: 34,
-                lineHeight: 1.04,
-                margin: '12px 0 0',
-                color: 'var(--m-ink)',
-                fontWeight: 400,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Pick up{' '}
-              <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
-                where you left off.
-              </em>
-            </h2>
-            <p
-              className="m-serif"
-              style={{
-                fontStyle: 'italic',
-                fontSize: 14,
-                color: 'var(--m-slate)',
-                marginTop: 12,
-                lineHeight: 1.55,
-              }}
-            >
-              Your guest list is right where you saved it.
-            </p>
-          </div>
-          <div
-            className="m-mono"
-            style={{
-              fontSize: 10,
-              color: 'var(--m-slate-2)',
-              letterSpacing: '0.06em',
-              marginTop: 'auto',
-            }}
-          >
-            setnayan.com
-          </div>
         </div>
 
         {/* Form panel · right column on lg+. The email + password form is

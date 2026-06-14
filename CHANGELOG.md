@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · style(login): brand panel is logo-only ("keep it clean and simple")
+
+Owner: *"remove this and just leave the logo on top. keep it clean and simple."* Stripped the `/login` brand rail down to just the Wordmark.
+
+- **`apps/web/app/login/page.tsx`** — removed the "WELCOME BACK" eyebrow, the "Pick up *where you left off.*" display heading, the "Your guest list is right where you saved it." micro-copy, and the "setnayan.com" footer from the `.m-login-brand` panel. Kept the Wordmark (still links home) on the existing ivory→paper gradient rail; dropped the now-unneeded flex `gap`. Form panel (email/password + Google/Apple OAuth) untouched.
+
+SPEC IMPACT: minor login-surface copy removal (iteration 0000 shell). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · feat(auth): login provider set = email/password + Google + Apple (drop Facebook + magic-link)
 
 Owner: *"let us fix the login page. i only want the email and password plus google and apple id. no facebook. no magic link."* The locked V1 sign-in set is now **email + password**, **Continue with Google**, and **Continue with Apple** — nothing else.

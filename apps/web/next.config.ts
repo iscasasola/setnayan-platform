@@ -113,6 +113,26 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Skip the in-`next build` TypeScript type-check + ESLint passes. BOTH are
+  // already enforced as dedicated, isolated, REQUIRED CI jobs
+  // (.github/workflows/ci.yml → `typecheck-lint`: `pnpm typecheck` (tsc
+  // --noEmit) + `pnpm lint`), so re-running them inside `next build` is pure
+  // duplication — and it's the build's single largest memory peak: Next's
+  // "checking validity of types" phase loads the FULL TypeScript program
+  // (multiple GB resident) on top of the already-built webpack output, which
+  // is precisely what tips this app's `next build` over Vercel's free 8GB
+  // build-machine ceiling and OOM-kills the deploy (no routes-manifest.json →
+  // "couldn't be found"). That's the recurring #1258 OOM, creeping back as the
+  // route count grows; the in-build type-check was the 19-minute phase the OOM
+  // died in. Skipping it is FREE, OUTPUT-NEUTRAL (type-checking + linting never
+  // affect emitted JS), and loses NO safety — a type or lint error still fails
+  // the required `typecheck-lint` job in its own isolated container and blocks
+  // the merge. It does NOT disable the webpack `server-only` compile guard the
+  // CI `build` job exists to catch: that fires during compilation, not the
+  // type-check pass, so it's unaffected by these flags. The next free lever
+  // after #1258's webpackMemoryOptimizations + --max-old-space-size cap.
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   // Standalone build per kickoff brief — produces a self-contained server bundle
   // for Tauri desktop wrapping + container deploys.
   output: 'standalone',

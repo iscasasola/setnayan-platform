@@ -16,6 +16,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -630,13 +631,11 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   let photoWallActive = false;
   if (photoWallPhotos.length > 0) {
     try {
-      const { data: act } = await admin
-        .from('event_software_activations_v2')
-        .select('service_code')
-        .eq('event_id', eventId)
-        .eq('service_code', 'LIVE_WALL')
-        .maybeSingle();
-      photoWallActive = Boolean(act);
+      // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
+      // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's editorial
+      // photo-wall section surfaces too. The old event_software_activations_v2
+      // read had no payment-path writer.
+      photoWallActive = await eventOwnsSku(admin, eventId, 'LIVE_WALL');
     } catch {
       photoWallActive = false;
     }

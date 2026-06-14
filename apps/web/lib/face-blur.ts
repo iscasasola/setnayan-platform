@@ -384,12 +384,15 @@ export async function bakeFaceBlurForCapture(opts: {
       .is('deleted_at', null);
     if (!fbCount) return { baked: false, reason: 'no_faceblock_guest' };
 
-    const { count: skuCount } = await admin
-      .from('event_software_activations_v2')
-      .select('event_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('service_code', 'LIVE_WALL');
-    if (!skuCount) return { baked: false, reason: 'no_live_wall' };
+    // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
+    // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's FaceBlock
+    // guests still get wall-safe blurred derivatives baked. The old
+    // event_software_activations_v2 read had no payment-path writer, so a
+    // paid wall never baked. Dynamic import matches this module's lazy-load
+    // posture for its heavy static graph.
+    const { eventOwnsSku } = await import('@/lib/entitlements');
+    const ownsWall = await eventOwnsSku(admin, eventId, 'LIVE_WALL');
+    if (!ownsWall) return { baked: false, reason: 'no_live_wall' };
 
     // Fetch originals back from R2 by the stored ref (same as nsfw-screen).
     const { readR2Object } = await import('@/lib/drive-upload');

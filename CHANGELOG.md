@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
+
+Owner renewed the Apple Developer membership → wire real macOS signing so a downloaded `.dmg` opens without the Gatekeeper "unidentified developer / damaged" warning (was: ad-hoc signed only). Env-var-driven so **no certificate ever lands in the repo**; Tauri v2's bundler imports the cert + notarizes during `tauri build`. Follows the `desktop-latest` rolling-release work ([#1434](https://github.com/iscasasola/setnayan-platform/pull/1434)).
+
+- `.github/workflows/build-desktop.yml` — job-level `env` feeds six `APPLE_*` repo secrets to `tauri build`. When `APPLE_SIGNING_IDENTITY` is set: Developer-ID-sign + hardened-runtime + notarize-via-notarytool + staple, then a new verify step logs `codesign` authority / `spctl` Gatekeeper verdict / `stapler validate`. When the secrets are absent (forks, or before the owner adds them): the existing ad-hoc codesign step runs instead (made conditional on `env.APPLE_SIGNING_IDENTITY == ''`) so CI is unchanged and never breaks. Release-body Gatekeeper note reworded for both states; `tauri.conf.json` identifier (`com.setnayan.desktop`) confirmed correct.
+
+**OWNER ACTION REQUIRED — add these 6 repo secrets** (Settings → Secrets and variables → Actions) before macOS builds will sign; until then they keep ad-hoc-signing:
+- `APPLE_CERTIFICATE` — base64 of the exported *Developer ID Application* cert `.p12`
+- `APPLE_CERTIFICATE_PASSWORD` — that `.p12`'s password
+- `APPLE_SIGNING_IDENTITY` — e.g. `Developer ID Application: <Name> (<TEAMID>)`
+- `APPLE_ID` — Apple ID email
+- `APPLE_PASSWORD` — an **app-specific password** (appleid.apple.com → Sign-In & Security), not the account password
+- `APPLE_TEAM_ID` — 10-char Team ID
+
+Windows signing is still unsigned (separate Phase-2 item).
+
+SPEC IMPACT: None. CI/release-plumbing only — no schema, SKU, or product-surface change.
+
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 
 Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tagalog: memory / remembrance / keepsake — it gathers Papic / Panood / Kwento / Pakanta / the rest into one promise) + a 3-lane embed plan (narrative spine → in-app Alaala hub → finish the uncopyable keystones). This is **Lane 1 (the spine), increment 1**:

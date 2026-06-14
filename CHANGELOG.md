@@ -9,6 +9,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 Owner-requested quick reference for the auto-upload merge policy: what ships (every green non-draft PR, auto), the 4 phrases that change it (hold = draft · pause = `--disable-auto` · go-staging = "we're now publicly accepting vendors" · reset = "auto-upload mode"), and why it's safe (7 required checks gate every merge). Complements the server-side enforcement shipped in #1424 and the corpus memories `project_setnayan_merge_workflow_reality` / `project_setnayan_deployment_phases`.
 
 SPEC IMPACT: None (repo-process doc only).
+## 2026-06-14 · perf(website): homepage hero — browser-cache frames across repeat visits (presigned path)
+
+Follow-up to the progressive-release fix. First-visit is handled by progressive release; this makes a RETURNING visitor re-use browser-cached frames instead of re-downloading tens of MB. On the live presigned path (R2 S3 endpoint, no public host), two things blocked that: the signed URL was re-minted every 6h (cache-key churn) and the GET response carried no `Cache-Control`.
+
+- `apps/web/lib/r2.ts` — `r2SignedGet` gains an optional `responseCacheControl` that signs the S3 `response-cache-control` override into the URL → R2 returns that `Cache-Control` on the GET, with no change to how objects were uploaded.
+- `apps/web/lib/hero-video.ts` — frame presigns now request `Cache-Control: public, max-age=31536000, immutable` (frame keys are content-stable; a republish writes entirely new keys). Presign lifetime 24h → **7d** (SigV4 max) and the re-sign interval 6h → **6d**, so the same signed URL is served for ~6 days → the browser cache key stops churning. A republish still bumps `updated_at` → fresh URLs immediately. Worst case for a returning visitor drops from "re-download every 6h / possibly every visit" to "at most one re-download per ~6 days."
+
+This is the in-code repeat-visit win that needs NO infra change. The best end-state — edge (CDN) caching + permanently stable URLs — is the optional Cloudflare action of binding the media bucket to a public host; the read path (`resolveMediaUrls` / `publicHostConfigured`) already auto-switches to plain public URLs when `R2_PUBLIC_URL` is a real host instead of the S3 endpoint.
+
+SPEC IMPACT: None on schema/SKU. Caching behavior only; logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-14 · perf(website): homepage hero stops freezing the front door — progressive release + lighter frames
 

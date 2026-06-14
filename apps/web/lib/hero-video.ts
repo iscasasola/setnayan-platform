@@ -101,16 +101,36 @@ function keyFromUrl(url: string): string | null {
   }
 }
 
-// Presigned GET lifetime (24h) and how often we re-sign the batch (6h). The
-// cache TTL is well under the presign lifetime so a cached URL can never expire
-// while it's still being served.
-const PRESIGN_TTL_SECONDS = 60 * 60 * 24;
-const FRAME_CACHE_TTL_SECONDS = 60 * 60 * 6;
+// Repeat-visit caching on the presigned path: a RETURNING visitor should re-use
+// the browser-cached frames, not re-download tens of MB. Two levers:
+//   • Keep the signed URL STABLE for ~6 days (the re-sign interval) so the
+//     browser cache key doesn't churn. The batch is cached on the row's
+//     `updated_at` AND this TTL, so a republish bumps `updated_at` → fresh URLs
+//     immediately, but an unchanged hero re-uses the exact same URLs for days.
+//   • Sign a long, immutable Cache-Control onto each GET (see presignFrames).
+// Presign lifetime is the SigV4 maximum (7d) and stays safely above the re-sign
+// interval, so a URL can never expire while it's still being served.
+// (The best end-state is a public CDN host — see resolveMediaUrls / R2_PUBLIC_URL.)
+const PRESIGN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d — SigV4 maximum
+const FRAME_CACHE_TTL_SECONDS = 60 * 60 * 24 * 6; // re-sign every 6d (< presign lifetime)
+
+// Frame keys are content-stable: a republish writes entirely NEW keys (new
+// upload slug + per-frame UUID), so a given URL's bytes never change → safe to
+// mark immutable and cache for a year. The browser then serves cached frames
+// locally without ever re-hitting R2 with a (possibly expired) signature.
+const FRAME_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 /** Presigns an ordered list of media keys (module-scope for a stable unstable_cache identity). */
 async function presignFrames(keys: string[]): Promise<string[]> {
   return Promise.all(
-    keys.map((key) => r2SignedGet({ bucket: R2_BUCKETS.media, key, expiresIn: PRESIGN_TTL_SECONDS })),
+    keys.map((key) =>
+      r2SignedGet({
+        bucket: R2_BUCKETS.media,
+        key,
+        expiresIn: PRESIGN_TTL_SECONDS,
+        responseCacheControl: FRAME_CACHE_CONTROL,
+      }),
+    ),
   );
 }
 

@@ -15,6 +15,19 @@ The audit found Setnayan AI is free for **two** reasons: the paywall flag is off
 **Dormant until you flip it.** The buy state only renders when `SETNAYAN_AI_PAYWALL_ENABLED=true` (your Vercel env switch) — shipping this changes nothing live today. After it merges: set the flag → couples can buy at ₱3,999 → paying unlocks the ranked match (chain verified end-to-end). Typecheck green. Stacks on PR 1 (#1431).
 
 SPEC IMPACT: None on prices. Closes the "no purchase path for SETNAYAN_AI" gap so the first paywall can actually charge once enabled.
+## 2026-06-14 · feat(our-story): "Living Memories" brand manifesto — /our-story page + homepage teaser + shareable card
+
+Owner: "I want to share this idea with the world … embrace this new concept of memories." The umbrella idea over Papic / Panood / Kwento / Editorial — memory-keeping evolved from paper albums → digital albums → **LIVING memories**; a wedding was never meant to be frozen, and the four features prove it (capture → keep).
+
+- **New page `apps/web/app/our-story/page.tsx`** (static, `force-static`) — the full manifesto: cinematic dark open (paper → digital → living eras) → the manifesto core ("a wedding was never a still photo") → the four features as proof (the moments = Papic · the people = Panood · the stories = Kwento · kept forever = Editorial) → close + CTA. JSON-LD (BreadcrumbList + AboutPage), `og:image` → `/api/og/manifesto`.
+- **New `apps/web/app/_components/marketing/OurStory.tsx`** — `OurStoryManifesto()` (page body) + `OurStoryTeaser()` (homepage band). Zero-dep `Reveal`/`Blob` + `--m-*` Clean-Editorial tokens + the `#0e0f12` hero canvas so the brand reads as one film; sells FEELING, not implementation; inline-SVG feature mocks (mirrors `WhatYouGet`'s `RoomMock`).
+- **Homepage `apps/web/app/page.tsx`** — `<OurStoryTeaser />` inserted inside `PostHeroReveal` (between `WhatYouGet` and the footer); a soft brand grace-note that routes into `/our-story` (the primary "start planning" CTA still fires above it in `WhatYouGet`).
+- **Nav `apps/web/app/_components/marketing/site-nav.tsx`** — "Our story" repointed `/about` → `/our-story` (desktop + mobile share the `links` array; `/about` stays reachable directly).
+- **New shareable card `apps/web/lib/social/manifesto-card.tsx` + `apps/web/app/api/og/manifesto/route.ts`** — dark "A new way to remember / Memories that move" card via satori + sharp (bundled static fonts, no new dep), in **3 formats**: `og` 1200×630 (link unfurl) · `square` 1080×1080 (feed) · `story` 1080×1920 (Reels/TikTok/Stories), selected via `?format=`. Same pipeline as `realstory-card.tsx`.
+
+Companion corpus artifacts (manifesto copy + 55s film script/storyboard): `03_Strategy/Living_Memories_Manifesto_2026-06-14.md` + `03_Strategy/Living_Memories_Film_Script_2026-06-14.md`.
+
+SPEC IMPACT: None on schema/SKU. New brand-manifesto surface (iteration 0015); the four media-feature positionings + the umbrella thesis are logged to corpus `DECISION_LOG.md` + memory.
 
 ## 2026-06-14 · fix(hero): restore full-bleed fill — homepage hero covers the screen again
 

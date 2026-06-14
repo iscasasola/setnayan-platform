@@ -34,6 +34,7 @@ import { Nav } from '@/app/_components/marketing/site-nav';
 import { Hero } from '@/app/_components/marketing/_sections';
 import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
 import { WhatYouGet } from '@/app/_components/marketing/WhatYouGet';
+import { OurStoryTeaser } from '@/app/_components/marketing/OurStory';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
@@ -153,6 +154,7 @@ export default function HomePage() {
         <Hero />
         <PostHeroReveal>
           <WhatYouGet />
+          <OurStoryTeaser />
           <SiteFooter />
         </PostHeroReveal>
       </main>

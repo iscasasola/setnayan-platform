@@ -50,19 +50,50 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const capARef = useRef<HTMLDivElement>(null);
   const capBRef = useRef<HTMLDivElement>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef<Uint8Array>(new Uint8Array(0));
+  const readyRef = useRef(false);
   const lastIdx = useRef(-1);
 
   const N = frameUrls.length;
 
-  // Preload every frame so the swap is instant (cached decode, no flicker).
+  // Preload frames WITH load-tracking. Two guards against the "stuck / next images
+  // don't show" feeling on a dense sequence: (1) apply() never swaps to a frame that
+  // hasn't decoded yet — it holds the nearest loaded one; (2) a brief loading veil
+  // waits for the opening frames, then fades out while the rest stream in behind it.
   useEffect(() => {
-    const imgs = frameUrls.map((u) => {
+    const n = frameUrls.length;
+    const loaded = new Uint8Array(n);
+    loadedRef.current = loaded;
+    readyRef.current = false;
+    let done = 0;
+    const baseline = Math.min(n, 60); // reveal once the opening stretch is in; the rest loads behind the veil
+    const reveal = () => {
+      if (readyRef.current) return;
+      readyRef.current = true;
+      if (loaderRef.current) loaderRef.current.style.opacity = '0';
+    };
+    const imgs = frameUrls.map((u, i) => {
       const im = new window.Image();
+      im.decoding = 'async';
+      if (i < 24) (im as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high'; // opening frames first
+      const onDone = () => {
+        if (loaded[i]) return;
+        loaded[i] = 1;
+        done++;
+        if (barRef.current) barRef.current.style.transform = `scaleX(${(done / n).toFixed(3)})`;
+        if (done >= baseline) reveal();
+      };
+      im.onload = onDone;
+      im.onerror = onDone; // a single failed frame must not trap the user behind the veil
       im.src = u;
       return im;
     });
     framesRef.current = imgs;
     if (imgRef.current && imgs[0]) imgRef.current.src = imgs[0].src;
+    const safety = window.setTimeout(reveal, 6000); // hard ceiling — never leave the veil up
+    return () => window.clearTimeout(safety);
   }, [frameUrls]);
 
   useEffect(() => {
@@ -75,9 +106,19 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       x <= a || x >= b ? 0 : x < a + fade ? (x - a) / fade : x > b - fade ? (b - x) / fade : 1;
 
     const apply = (idx: number, c: number, p: number) => {
-      const frame = framesRef.current[idx];
-      if (frame && idx !== lastIdx.current && imgRef.current) {
-        lastIdx.current = idx;
+      const loaded = loadedRef.current;
+      // Never swap to a not-yet-loaded frame (the "stuck on blank" bug) — hold the
+      // nearest already-loaded frame until the target one arrives.
+      let useIdx = idx;
+      if (loaded.length && !loaded[idx]) {
+        for (let d = 1; d < N; d++) {
+          if (idx - d >= 0 && loaded[idx - d]) { useIdx = idx - d; break; }
+          if (idx + d < N && loaded[idx + d]) { useIdx = idx + d; break; }
+        }
+      }
+      const frame = framesRef.current[useIdx];
+      if (frame && useIdx !== lastIdx.current && imgRef.current) {
+        lastIdx.current = useIdx;
         imgRef.current.src = frame.src;
       }
       if (scrimRef.current) scrimRef.current.style.opacity = String(c);
@@ -92,6 +133,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     };
 
     if (reduce) {
+      if (loaderRef.current) loaderRef.current.style.opacity = '0';
       apply(N - 1, 1, 1);
       return;
     }
@@ -183,6 +225,28 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
           style={{ bottom: 22, fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}
         >
           scroll ↓
+        </div>
+        {/* Loading veil — hides the half-loaded sequence until the opening frames decode, then fades out. */}
+        <div
+          ref={loaderRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+          style={{ background: '#0e0f12', zIndex: 5, transition: 'opacity .7s ease' }}
+        >
+          <div style={{ width: 190, textAlign: 'center' }}>
+            <div
+              className="m-mono"
+              style={{ fontSize: 10, letterSpacing: '.24em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)', marginBottom: 14 }}
+            >
+              Setting the scene
+            </div>
+            <div style={{ height: 2, borderRadius: 2, background: 'rgba(255,255,255,.14)', overflow: 'hidden' }}>
+              <div
+                ref={barRef}
+                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .2s linear' }}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>

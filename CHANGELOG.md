@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(hero): scrub never freezes on an unloaded frame + loading veil
+
+Follow-up to the dense-frame hero scrub (#1416). On a ~1000-frame sequence the scrub could swap the `<img>` to a frame that hadn't downloaded/decoded yet and **freeze on blank** ("next images don't show / feels stuck"), especially on the initial load or a slower connection.
+
+- `app/_components/marketing/HeroVideoScrub.tsx` — three guards: (1) `apply()` never swaps to a not-yet-decoded frame — it holds the **nearest already-loaded** frame until the target one arrives (no blank freeze); (2) the opening 24 frames load at `fetchPriority:'high'`; (3) a brief **loading veil** with a thin progress bar covers the half-loaded sequence until ~60 opening frames decode (6s hard ceiling), then fades out while the rest stream in behind it. Reduced-motion hides the veil and shows the final frame.
+
+SPEC IMPACT: None (homepage hero load/UX robustness only).
+
 ## 2026-06-14 · feat(studio): rebuild /add-ons into the benefit-led Studio hub
 
 The couple `/dashboard/[eventId]/add-ons` page (the sidebar "Studio" item + bottom-nav "Studio" tab both already point here) was a cinema-poster grid that listed every in-app service flat, by vendor taxonomy. Rebuilt it as the **Studio hub** — a calm, benefit-led, job-to-be-done discovery surface in the v2.1 paper palette (premium-calm, not posters). REDESIGN_PLAN Phase 2.

@@ -31,6 +31,8 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { buildSitePaletteVars } from '@/lib/site-palette';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
@@ -121,7 +123,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -671,6 +673,11 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Couple's mood-board palette (events.role_palette JSONB, iteration 0010).
+  // Read here to skin the public site's --color-* tokens via buildSitePaletteVars
+  // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
+  // unknown + sanitized at use so a thin/absent palette degrades to defaults.
+  role_palette?: unknown;
   // Chosen-lockup design columns — selected at the top of this route (line ~124)
   // and threaded into HeroMonogram so the public hero draws the couple's real
   // mark (bar/duo/script/infinity/framed), not just initials.
@@ -758,12 +765,22 @@ type GuestRow = {
 function InvitationShell({
   children,
   backdrop,
+  rolePalette,
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
+  // Couple's mood-board palette (events.role_palette). When present + themeable,
+  // it overrides the --color-* tokens for THIS subtree only, re-skinning every
+  // cream/ink/terracotta/mulberry class on the couple site (all four phases).
+  // Null/thin palette → no override → the Clean-Editorial defaults apply.
+  rolePalette?: unknown;
 }) {
+  const themeVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
   return (
-    <main className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}>
+    <main
+      className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
+      style={themeVars ? (themeVars as React.CSSProperties) : undefined}
+    >
       {backdrop}
       <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
@@ -971,7 +988,7 @@ function PublicLanding({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop}>
+    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -1219,7 +1236,7 @@ function PrivateLanding({
   bespokeSvg: string | null;
 }) {
   return (
-    <InvitationShell>
+    <InvitationShell rolePalette={event.role_palette}>
       <div className="space-y-8 text-center">
         <div className="flex justify-center">
           <HeroMonogram
@@ -1402,7 +1419,7 @@ function InvitationSite({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop}>
+    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">

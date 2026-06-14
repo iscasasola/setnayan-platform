@@ -27,6 +27,7 @@ import {
   togglePaymentMethodShown,
 } from './actions';
 import { AddPaymentMethod } from './_components/add-payment-method';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'How clients pay you · Vendor · Setnayan' };
 
@@ -117,20 +118,14 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
       </header>
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {search.error}
-        </p>
+        </FormFlash>
       ) : null}
       {search.msg ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           {search.msg}
-        </p>
+        </FormFlash>
       ) : null}
 
       <section className="mb-6 space-y-3">

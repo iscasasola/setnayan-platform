@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { AlertTriangle, ShieldAlert, ShieldCheck, Users as UsersIcon } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   ENFORCEMENT_LEVEL_LABEL,
   ENFORCEMENT_LEVEL_TONE,
@@ -183,12 +184,9 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
 
       {/* Status banners */}
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {decodeURIComponent(search.error)}
-        </p>
+        </FormFlash>
       ) : null}
       {search.cleared === '1' ? (
         <p

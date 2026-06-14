@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveReport } from './actions';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'User reports · Admin' };
 export const dynamic = 'force-dynamic';
@@ -198,13 +199,10 @@ export default async function AdminUserReportsPage({
       </div>
 
       {listError && (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           Reports couldn&apos;t load right now. We&apos;ve logged the issue —
           refresh in a moment.
-        </p>
+        </FormFlash>
       )}
 
       {rows.length === 0 ? (

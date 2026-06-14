@@ -1,186 +1,158 @@
 /**
- * Customer NavGroup[] builder — v2.1 Navigation Phase 1 (customer doorway).
+ * Customer NavGroup[] builder — UNIFIED NAV (0021 ADDENDUM · accordion bottom
+ * nav + side nav · owner-locked 2026-06-15).
  *
- * WHY (canonical, do not collapse): this file extracts ONLY the `buildCustomerNavGroups`
- * function out of `customer-sidebar.tsx` (which has `'use client'` at the top because
- * it uses `usePathname` for active-state highlighting). The mobile overflow landing
- * at `apps/web/app/dashboard/[eventId]/more/page.tsx` is a Server Component (it uses
- * Next.js 15's `await params` + exports `metadata`). When a Server Component imports
- * an exported function from a `'use client'` module, the import becomes a CLIENT
- * REFERENCE — an opaque marker that React serializes through the RSC payload — NOT
- * the actual function. Calling that reference server-side either throws or returns
- * unresolvable client refs that the downstream `<CustomerMobileLanding>` (also a
- * Server Component) cannot render. Result: the page crashes into `error.tsx` with
- * the polite "Something on our end didn't work" surface (Sentry ref 19475950).
+ * ONE config, two renderings. The bottom nav (mobile) and the side nav
+ * (desktop) are driven by the SAME six-destination model:
+ *   1. Home    — navigates (no children)
+ *   2. Guests  — Summary · Search · Add · Customize · Journey
+ *   3. Vendors — Explore · Messages · Contracts · Disputes
+ *   4. Studio  — Website · Mood Board · Monogram
+ *   5. Budget  — navigates (no children)
+ *   6. Wedding — Find date · Schedule · Seating · Event QR · Live Wall
  *
- * Fix: extract the pure data builder (which uses zero client APIs — just lucide icon
- * refs + string concatenation + plain object construction) to this neutral module.
- * Both Server (`/more/page.tsx`) and Client (`customer-sidebar.tsx`) safely import
- * from here. Lucide icon refs are React component references — they render correctly
- * in BOTH server and client contexts; the boundary issue was the `'use client'` file
- * wrapping, not the icons themselves.
+ * The bottom nav consumes the accordion shape directly via
+ * buildCustomerNavMenus (customer-bottom-nav.tsx · BottomNavMenu[]). This
+ * file is the DESKTOP-SIDEBAR projection of that same model into NavGroup[]:
+ * each of the six menus becomes a sidebar SECTION (the menu = the section
+ * heading), with its children as the section's items. Childless menus (Home,
+ * Budget) render as a single-item section so they stay one tap away. "Same
+ * model, platform skin" (spec §7).
  *
- * Same class of crash as PR #614 (admin console crash · CLAUDE.md 2026-05-29 row
- * "2 pilot blockers diagnosed"): a wrapper module mixed Server-Component
- * serialization with Lucide forwardRef icons across the RSC boundary. There the fix
- * was adding `'use client'` to the wrapper (admin-bottom-nav.tsx). Here the fix is
- * the opposite direction — the consumer (`/more/page.tsx`) is intentionally a Server
- * Component (so it can read `params` + export `metadata`), so the BUILDER has to be
- * the non-client side.
+ * NO "More" overflow (the /more landing is retired → redirect). NO Settings
+ * group — Profile · Appearance · Notifications · URL & Slug · Payment Methods
+ * · Privacy & Data · Hosts all live under the profile avatar (top-right
+ * ProfileMenu → Profile / Settings · front door to iteration 0025).
+ * Owner-approved re-homings (spec §2): Disputes → Vendors · Find your date →
+ * Wedding · Activity → folded into Home (Home's event hub surfaces the
+ * activity feed). Hosts is reachable via the avatar/Settings (omitted from
+ * the bar).
  *
- * Pattern for future agents extending the nav: any builder function consumed by a
- * Server Component MUST live in a non-`'use client'` file. Builders consumed only
- * by client components can live in `'use client'` files. Builders consumed by both
- * (like this one) live in a neutral file like this one.
+ * Server-Component safety (unchanged): this is a NEUTRAL (non-'use client')
+ * module so both the client sidebar (customer-sidebar.tsx) and any Server
+ * Component can import + call the builder. Lucide icon refs render in both
+ * server + client contexts. See PR #614 lineage in the prior header.
  *
- * NavGroup type is imported from `apps/web/app/_components/nav/types.ts` which is
- * already a neutral module (verified — no `'use client'` directive).
+ * Stable group/item `key` values are PRESERVED where they previously existed
+ * (home · guests · vendors · add-ons · budget · messages · contracts ·
+ * disputes · website · mood-board · monogram · schedule · seating · event-qr
+ * · live · find-date) so the per-section `setnayan.nav.section.<key>.open`
+ * localStorage state survives the regroup.
+ *
+ * NavGroup type is imported from the neutral types module.
  */
 
 import {
   Home,
   Users,
-  LayoutGrid,
-  CalendarClock,
   Compass,
-  CalendarSearch,
+  Sparkles,
   Wallet,
+  Heart,
+  LayoutDashboard,
+  Search,
+  UserPlus,
+  SlidersHorizontal,
+  Route,
   MessageSquare,
   FileText,
+  AlertTriangle,
   Globe,
-  MonitorPlay,
-  Sparkles,
   Palette,
   Type,
-  Activity,
-  Shield,
+  CalendarSearch,
+  CalendarClock,
+  LayoutGrid,
   QrCode,
-  UserPlus,
-  User,
-  SlidersHorizontal,
+  MonitorPlay,
 } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
 /**
- * Builds the canonical customer NavGroup[] for the given eventId. Single source
- * of truth across:
- *   - Desktop sidebar (`customer-sidebar.tsx` · client · for active-state highlight)
- *   - Mobile /more landing (`more/page.tsx` · server · for the overflow grid)
- *
- * JOURNEY-GROUP IA (owner-locked REDESIGN_PLAN · 2026-06-14): the groups now
- * read as the couple's planning JOURNEY rather than verb buckets, and every
- * group past the top + Plan collapses by default so the long tail
- * (Book · Design · Day-of · After · Settings) stays out of the way until
- * the couple reaches that phase:
- *   0. (top · headerless-feeling "Setnayan") — Home · Studio · Explore
- *   1. Plan      — Guests · Seating · Schedule · Budget
- *   2. Book      — Messages · Contracts                      (collapsed)
- *   3. Design    — Website · Mood Board · Monogram           (collapsed)
- *   4. Day-of    — Live Wall · Event QR                      (collapsed)
- *   5. After     — Activity · Disputes                       (collapsed)
- *   6. Settings  — Personalization · Hosts · Profile · Find your date (collapsed)
- *
- * Stable item `key` values are PRESERVED across the relabel/regroup so the
- * per-section `setnayan.nav.section.<key>.open` localStorage state and any
- * per-item state survive. Only labels, group membership, two icons
- * (Explore→Compass), and one matchPrefix (Activity) changed. Routes are
- * UNCHANGED — Services→Explore and Add-ons→Studio are pure relabels.
+ * Builds the canonical customer NavGroup[] for the given eventId — the desktop
+ * sidebar projection of the six-destination accordion model. Single source of
+ * truth on desktop; the mobile bottom nav uses the sibling
+ * buildCustomerNavMenus (BottomNavMenu[]) which carries the identical roster.
  */
 export function buildCustomerNavGroups(eventId: string): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
   return [
     {
-      // Top group — the three always-relevant anchors. Short "Setnayan"
-      // heading (SidebarSection always renders a heading row, so an empty
-      // label would leave a bare clickable chevron bar — a brand label
-      // reads cleaner than an empty one).
-      key: 'main',
-      label: 'Setnayan',
+      // 1 · Home — navigates (no children). Single-item section.
+      key: 'home',
+      label: 'Home',
       defaultOpen: true,
       items: [
         {
-          // Home — the event hub. Sentinel matchPrefix so the strict-prefix
-          // branch never fires — only the exact-equality branch keeps Home
-          // lit (every other event route shares the `${base}/` prefix;
-          // CLAUDE.md 2026-05-22 PR #311 documents the prefix-vs-exact trap).
           key: 'home',
           label: 'Home',
           href: base,
           icon: Home,
+          // Sentinel matchPrefix so the strict-prefix branch never fires —
+          // every other event route shares the `${base}/` prefix.
           matchPrefix: '__home__',
         },
+      ],
+    },
+    {
+      // 2 · Guests — lifecycle accordion.
+      key: 'guests',
+      label: 'Guests',
+      defaultOpen: true,
+      items: [
         {
-          // Studio — the in-app Setnayan services hub (Papic · Panood ·
-          // Save-the-Date · etc.). Relabeled from "Add-ons" 2026-06-14;
-          // key + route (/add-ons) unchanged. /add-ons/mood-board has its
-          // own Design entry — accepted dual-highlight (Studio's prefix is
-          // also a prefix of mood-board's path), mirrors the admin Payment
-          // methods dual-bucket precedent.
-          key: 'add-ons',
-          label: 'Studio',
-          href: `${base}/add-ons`,
-          icon: Sparkles,
-          matchPrefix: `${base}/add-ons`,
+          key: 'guests',
+          label: 'Summary',
+          href: `${base}/guests`,
+          icon: LayoutDashboard,
+          // Exact home for /guests — sub-routes (new, import, [id]) light their
+          // own entries / fall under the umbrella below.
+          matchPrefix: '__guests-summary__',
         },
         {
-          // Explore — the vendor marketplace. Relabeled from "Services"
-          // 2026-06-14 (the couple browses + discovers vendors here);
-          // key 'vendors' + route /vendors unchanged. Icon swapped
-          // Briefcase→Compass to read as discovery, not management.
+          key: 'guests-search',
+          label: 'Search',
+          href: `${base}/guests?gpanel=search`,
+          icon: Search,
+          matchPrefix: '__guests-search__',
+        },
+        {
+          key: 'guests-add',
+          label: 'Add',
+          href: `${base}/guests/new`,
+          icon: UserPlus,
+          matchPrefix: `${base}/guests/new`,
+        },
+        {
+          key: 'guests-customize',
+          label: 'Customize',
+          href: `${base}/guests?gpanel=customize`,
+          icon: SlidersHorizontal,
+          matchPrefix: '__guests-customize__',
+        },
+        {
+          key: 'guests-journey',
+          label: 'Journey',
+          href: `${base}/guests?gview=map`,
+          icon: Route,
+          matchPrefix: '__guests-journey__',
+        },
+      ],
+    },
+    {
+      // 3 · Vendors — find → talk → sign → resolve. Disputes re-homed here.
+      key: 'vendors',
+      label: 'Vendors',
+      defaultOpen: false,
+      items: [
+        {
           key: 'vendors',
           label: 'Explore',
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,
         },
-      ],
-    },
-    {
-      key: 'plan',
-      label: 'Plan',
-      defaultOpen: true,
-      items: [
-        {
-          key: 'guests',
-          label: 'Guests',
-          href: `${base}/guests`,
-          icon: Users,
-          matchPrefix: `${base}/guests`,
-        },
-        {
-          key: 'seating',
-          label: 'Seating',
-          href: `${base}/seating`,
-          icon: LayoutGrid,
-          matchPrefix: `${base}/seating`,
-        },
-        {
-          key: 'schedule',
-          label: 'Schedule',
-          href: `${base}/schedule`,
-          icon: CalendarClock,
-          matchPrefix: `${base}/schedule`,
-        },
-        {
-          // Budget — moved into Plan from the retired "Spend" group
-          // 2026-06-14 (the couple budgets as part of planning). key + href
-          // + icon unchanged. Orders + Receipts stay retired-from-sidebar
-          // (reachable via order-confirmation emails + Studio + Budget).
-          key: 'budget',
-          label: 'Budget',
-          href: `${base}/budget`,
-          icon: Wallet,
-        },
-      ],
-    },
-    {
-      key: 'book',
-      label: 'Book',
-      // Collapse-by-default: the couple reaches booking after they've
-      // shortlisted in Explore — keep it tidy until then.
-      defaultOpen: false,
-      items: [
         {
           key: 'messages',
           label: 'Messages',
@@ -195,18 +167,23 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           icon: FileText,
           matchPrefix: `${base}/contracts`,
         },
+        {
+          key: 'disputes',
+          label: 'Disputes',
+          href: `${base}/disputes`,
+          icon: AlertTriangle,
+          matchPrefix: `${base}/disputes`,
+        },
       ],
     },
     {
-      key: 'design',
-      label: 'Design',
+      // 4 · Studio — the in-app services hub; design tools are its children.
+      key: 'add-ons',
+      label: 'Studio',
       defaultOpen: false,
       items: [
         {
           key: 'website',
-          // The "Website" doorway opens the full-screen Reels editor
-          // (/site-editor) directly. The journey scroll at /website is
-          // retired (redirects to the editor).
           label: 'Website',
           href: `/site-editor/${eventId}`,
           icon: Globe,
@@ -220,9 +197,6 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           matchPrefix: `${base}/add-ons/mood-board`,
         },
         {
-          // Standalone Monogram Maker — a returnable home to craft the
-          // wedding monogram. Reachable here + via the Studio "Monogram
-          // Creator" card; mobile surfaces it under the More tab.
           key: 'monogram',
           label: 'Monogram',
           href: `${base}/monogram`,
@@ -232,102 +206,61 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       ],
     },
     {
-      key: 'dayof',
-      label: 'Day-of',
+      // 5 · Budget — navigates (no children). Single-item section.
+      key: 'budget',
+      label: 'Budget',
       defaultOpen: false,
       items: [
         {
-          // Salamisim day-of console (0012 P3) — wall mode override, screen
-          // codes, tile kill switch, FaceBlock posture, Kwento approvals.
-          // Renders an add-on doorway when LIVE_WALL isn't owned, so it's
-          // safe to show for every event.
-          key: 'live',
-          label: 'Live Wall',
-          href: `${base}/live`,
-          icon: MonitorPlay,
-          matchPrefix: `${base}/live`,
-        },
-        {
-          // Event QR — moved here from "After" 2026-06-14: crew scans the
-          // master QR on arrival day-of to register their capture device.
-          // key + href unchanged.
-          key: 'event-qr',
-          label: 'Event QR',
-          href: `${base}/event-qr`,
-          icon: QrCode,
+          key: 'budget',
+          label: 'Budget',
+          href: `${base}/budget`,
+          icon: Wallet,
+          matchPrefix: `${base}/budget`,
         },
       ],
     },
     {
-      key: 'after',
-      label: 'After',
+      // 6 · Wedding — the event-day / logistics bucket. Find your date re-homed
+      // here from the retired Settings group.
+      key: 'wedding',
+      label: 'Wedding',
       defaultOpen: false,
       items: [
         {
-          key: 'activity',
-          label: 'Activity',
-          href: `${base}/activity`,
-          icon: Activity,
-          // Correctness fix 2026-06-14: without a matchPrefix the default
-          // would be the bare href and sub-routes like /activity/[id] would
-          // still light it (href IS a prefix), BUT making the umbrella
-          // explicit documents the intent + keeps it consistent with every
-          // other umbrella item. /activity and /activity/* both light up.
-          matchPrefix: `${base}/activity`,
-        },
-        {
-          key: 'disputes',
-          label: 'Disputes',
-          href: `${base}/disputes`,
-          icon: Shield,
-          matchPrefix: `${base}/disputes`,
-        },
-      ],
-    },
-    {
-      key: 'settings',
-      label: 'Settings',
-      // Low-traffic — collapse by default.
-      defaultOpen: false,
-      items: [
-        {
-          // Personalization — the curated onboarding record + match criteria.
-          // Route stays /details (relabel-not-rename). Reached here in the
-          // sidebar/More AND from the Home "Personalized" block.
-          key: 'personalization',
-          label: 'Personalization',
-          href: `${base}/details`,
-          icon: SlidersHorizontal,
-          matchPrefix: `${base}/details`,
-        },
-        {
-          key: 'hosts',
-          label: 'Hosts',
-          href: `${base}/hosts`,
-          icon: UserPlus,
-          matchPrefix: `${base}/hosts`,
-        },
-        {
-          key: 'profile',
-          label: 'Profile',
-          href: `/dashboard/profile`,
-          icon: User,
-          // Sentinel matchPrefix so the strict-prefix branch never fires;
-          // /dashboard/profile/concierge (retired surface) should not
-          // auto-light the top-level Profile entry. The Profile page
-          // itself surfaces privacy controls inline (no separate route
-          // exists in this codebase).
-          matchPrefix: '__profile-exact__',
-        },
-        {
-          // Find your date — demoted from Plan to Settings 2026-06-14 so it
-          // stays reachable (NOT deleted). Its proper home is a future Home
-          // card (out of scope here). key + href + icon unchanged.
           key: 'find-date',
           label: 'Find your date',
           href: `${base}/find-date`,
           icon: CalendarSearch,
           matchPrefix: `${base}/find-date`,
+        },
+        {
+          key: 'schedule',
+          label: 'Schedule',
+          href: `${base}/schedule`,
+          icon: CalendarClock,
+          matchPrefix: `${base}/schedule`,
+        },
+        {
+          key: 'seating',
+          label: 'Seating',
+          href: `${base}/seating`,
+          icon: LayoutGrid,
+          matchPrefix: `${base}/seating`,
+        },
+        {
+          key: 'event-qr',
+          label: 'Event QR',
+          href: `${base}/event-qr`,
+          icon: QrCode,
+          matchPrefix: `${base}/event-qr`,
+        },
+        {
+          key: 'live',
+          label: 'Live Wall',
+          href: `${base}/live`,
+          icon: MonitorPlay,
+          matchPrefix: `${base}/live`,
         },
       ],
     },

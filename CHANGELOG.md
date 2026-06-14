@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(pricing): soft-paywall banner on the match surface (completes the Setnayan AI buy flow)
+
+Follow-up to the AI buy surface (#1433). The buy *page* shipped there; this adds the **soft paywall where couples feel the gate** — the top of the vendor shortlist on `/dashboard/[eventId]/vendors`. When the AI paywall is ON and the event hasn't purchased Setnayan AI (`shouldOfferSetnayanAiPurchase(event)`), a "See your ranked shortlist — Unlock" banner links to `/add-ons/setnayan-ai` (which shows the catalog price + checkout). Rendered in both the takeover shortlist slot and the bare return by wrapping the `services` element.
+
+**Dormant until you flip the flag.** `shouldOfferSetnayanAiPurchase` returns false while `SETNAYAN_AI_PAYWALL_ENABLED` is off, so there's no banner today — it appears the moment the paywall goes live, alongside the per-candidate "% match" pills the gate already controls. Pure-UI addition; no price value, no SKU, no schema. `tsc` green.
+
+SPEC IMPACT: None (UI; the price still comes from the catalog via the buy page).
+
 ## 2026-06-15 · feat(recap): Auto-Recap — the "living recap" keepsake (Living Memories pillar · produce-the-keepsake)
 
 Ships the **produce-the-keepsake** row of the Living Memories pillar that was buildable TODAY without a video pipeline (there is none in the repo — no FFmpeg/Remotion/owned-music; SDE/Thank-You/Highlights as *films* remain blocked on that infra). The recap rides the shipped image/PDF substrate (`pdf-lib`/`satori`/`sharp`) the Kwento Magazine + social cards already use, and is assembled ON THE FLY from data that already exists — **no new SKU, FREE** (parity with Kwento Magazine).

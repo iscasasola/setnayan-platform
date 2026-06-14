@@ -21,6 +21,16 @@ Owner renewed the Apple Developer membership → wire real macOS signing so a do
 Windows signing is still unsigned (separate Phase-2 item).
 
 SPEC IMPACT: None. CI/release-plumbing only — no schema, SKU, or product-surface change.
+## 2026-06-15 · fix(pricing): 4-tier BUNDLE charge is now catalog-authoritative (PR 2b of the pricing/payments plumbing fix)
+
+PR 1 (#1431) made `submitOrderAction` re-resolve the charged price from `platform_retail_catalog_v2` for every RETAIL SKU so the browser-supplied amount is never trusted. But the **two 4-tier paywall bundles** — Essentials (`GUIDED_PACK` ₱12,999) and Complete (`MEDIA_PACK` ₱27,999) — live in a **different** table (`platform_package_catalog`, columns `package_code`/`title`/`retail_price_php`), so the retail re-resolution returned null for them and the bundle charge fell back to the **client-supplied** `original_centavos` — a tamperable ₱12,999/₱27,999.
+
+- **`apps/web/lib/v2-catalog.ts`** — new `resolveBundleChargeCentavos(packageCode): Promise<number | null>`: the bundle analogue of `resolvePaxPricedOrderCentavos`. Reads the admin-set `retail_price_php` from `platform_package_catalog` (honors `is_active`, flat-priced → `× 100`), returns null for non-bundle/retired/error so the caller degrades to the client value exactly as before.
+- **`apps/web/app/dashboard/[eventId]/checkout/actions.ts`** — `submitOrderAction` now checks the package catalog when the retail resolve misses: `resolvePaxPricedOrderCentavos` → else `resolveBundleChargeCentavos`. A tampered bundle URL/price can no longer change what's billed. Flat + pax retail behavior is byte-identical (untouched first branch).
+
+**Bundle purchase path (verified):** the onboarding bundle screen routes to `/dashboard/[eventId]/add-ons/bundle?code=GUIDED_PACK|MEDIA_PACK`, which mounts the shared `InlineCheckoutDrawer` with `service_key = package_code` → submit hits the SAME `submitOrderAction` / `orders` + `payments` path as every retail SKU. No new action, no schema change. NO price VALUE invented or changed — only existing DB rows read. tsc green.
+
+SPEC IMPACT: None on prices/schema (server re-resolution only · prices stay owner-set in `platform_package_catalog`). Closes the bundle leg of the "catalog = single source of truth for every charge" program (PR 1 retail → PR 2 AI buy surface → this 2b bundle re-resolution).
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 

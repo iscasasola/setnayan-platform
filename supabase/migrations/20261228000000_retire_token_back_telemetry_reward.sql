@@ -1,0 +1,25 @@
+-- Retire the "token back" Productions media stacking/telemetry reward.
+--
+-- Owner 2026-06-15: "we will retire this idea." Vendors do NOT earn bidding
+-- tokens back for delivering/recommending Setnayan Productions media services
+-- (the "recommend an add-on → earn a token back" mechanic).
+--
+-- The reward fanout was NEVER built — the calculator (lib/v2/token-stacking.ts)
+-- and the telemetry capture were the only pieces, and both are deleted in this
+-- PR. `telemetry_events` fed ONLY that reward:
+--   • sole writer  = lib/telemetry/insert.ts (the 7 /api/telemetry/<media> routes)
+--   • sole readers = the token-stacking calculator + the /admin/telemetry viewer
+-- All deleted in this PR, leaving no consumer. Safe to drop; CASCADE removes its
+-- RLS policies. The separate `app_telemetry_logs` (Connection Logs / client-fault
+-- tracker, fed by /api/telemetry/client-fault + auto-resolve) is a DIFFERENT
+-- table and is intentionally left untouched.
+--
+-- NOT dropped here (separate manpower/crew domain — flagged to owner pending the
+-- crew-rate-marketplace decision): the manpower telemetry-reward objects
+-- `event_software_activations_v2`, `token_rewards_log`,
+-- `execute_manpower_telemetry_reward()`. Also left as harmless no-ops: the
+-- unused `grant_source` enum values 'telemetry_reward' / 'referral_reward' in the
+-- earned_token_vouchers / token_grants_log CHECK constraints — nothing writes
+-- them now that the wallet UI labels are removed.
+
+DROP TABLE IF EXISTS public.telemetry_events CASCADE;

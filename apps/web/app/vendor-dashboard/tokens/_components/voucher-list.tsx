@@ -21,8 +21,9 @@ import { Clock3 } from 'lucide-react';
  * `expires_at DEFAULT NOW() + INTERVAL '45 days'`.
  *
  * Grant source labels are humanized; raw enum values (pilot_grant,
- * telemetry_reward, manpower_handshake, admin_grant, referral_reward) map
- * to friendly editorial copy per [[feedback_setnayan_no_dev_text_post_launch]].
+ * manpower_handshake, admin_grant) map to friendly editorial copy per
+ * [[feedback_setnayan_no_dev_text_post_launch]]. (telemetry_reward +
+ * referral_reward retired 2026-06-15 with the token-back mechanic.)
  */
 
 export type VoucherRow = {
@@ -36,10 +37,8 @@ export type VoucherRow = {
 
 const GRANT_SOURCE_LABEL: Record<string, string> = {
   pilot_grant: 'Founder bonus',
-  telemetry_reward: 'Telemetry reward',
   manpower_handshake: 'Manpower handshake',
   admin_grant: 'From Setnayan',
-  referral_reward: 'Referral reward',
 };
 
 const SHORT_DATE = new Intl.DateTimeFormat('en-PH', {

@@ -15,6 +15,29 @@ Cause: `app/_components/native-bridge.tsx` chained `.then().catch()` directly on
 Verified deterministically: a headless repro with `addListener` stubbed to return a non-thenable handle (matching the device) reproduces the **exact** `TypeError` + same bundle, and crashes to the error boundary; the patched bridge renders `/login`. (Separately, the earlier IndexedDB fix #1460 was a valid but UNRELATED Safari-Private-Browsing fix — a look-alike that produced the same error screen; THIS is the native-launch cause.)
 
 SPEC IMPACT: None (defensive bug fix on the native shell glue).
+## 2026-06-15 · chore(tokens): fully retire the "token back" Productions-referral/stacking reward (code + DB + docs)
+
+Owner: "make sure the codes for the token back is also removed/deleted and so does the documentation. we will retire this idea." Follow-up to removing the `/for-vendors` Recommend-&-Earn section (#1462). The mechanic — a vendor earning bidding tokens BACK for delivering/recommending Setnayan Productions media services — was **never wired** (the reward fanout was always "V1.x scope"; only a dead calculator + telemetry capture ever existed). Mapped + verified each file before deleting.
+
+**Deleted (reward-only):**
+- `lib/v2/token-stacking.ts` — the 1/3/5/7/9/11/14 stacking-reward calculator.
+- `lib/telemetry/insert.ts` + the **7** `app/api/telemetry/{papic,panood,patiktok,pabati,sde,camera_bridge,live_wall}/route.ts` media checkpoint endpoints (sole writers of `telemetry_events`).
+- `app/admin/telemetry/` (viewer page + loading) + its 3 admin-nav links (`admin/insights`, `admin-sidebar`, `admin-bottom-nav`) + the orphaned `Activity` icon imports.
+- **Migration `20261228000000`** drops `telemetry_events` (CASCADE — sole writer/readers all deleted).
+
+**Edited (shared — surgical):** removed the `telemetry_reward` + `referral_reward` labels from the vendor wallet UI (`voucher-list.tsx` + `recent-history.tsx`).
+
+**Kept (verified separate):** `app_telemetry_logs` / the Connection-Logs fault tracker (`/api/telemetry/client-fault` + `auto-resolve` → `fault-log.ts`) — different system, untouched.
+
+**NOT touched — flagged to owner (separate manpower/crew domain, pending the crew-rate-marketplace decision):** the manpower telemetry-reward objects `event_software_activations_v2`, `token_rewards_log`, `execute_manpower_telemetry_reward()`, `/api/v1/manpower/verify-telemetry`, and the `manpower_handshake` grant_source; plus the now-unused `telemetry_reward`/`referral_reward` grant_source CHECK enum values (left as harmless no-ops — nothing writes them).
+
+**Surviving token economy unchanged:** burn-to-answer · founder grant · admin grants · voucher redemption · subscription bundles · purchase.
+
+Docs updated: corpus ground-truth + `CLAUDE-CODE-BRIEF-v2.1` §2.4/§5.3 + memory `project_setnayan_vendor_token_model`. `tsc --noEmit` green.
+
+SPEC IMPACT: retires a non-existent feature across code + schema + canonical docs. Logged to corpus `DECISION_LOG.md`.
+
+⚠️ The `20261228000000` migration is **destructive** (DROP TABLE) and is NOT auto-applied — apply deliberately via the normal `supabase db push` flow.
 
 ## 2026-06-15 · chore(for-vendors): remove the "recommend an add-on → earn a token" referral mechanic (doesn't exist)
 

@@ -92,7 +92,6 @@ import {
   Video,
   Music,
   TrendingUp,
-  Activity,
   Bug,
   WifiOff,
   BarChart3,
@@ -352,12 +351,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Operations & Hiring',
         href: '/admin/operations-hiring',
         icon: TrendingUp,
-      },
-      {
-        key: 'telemetry',
-        label: 'Telemetry',
-        href: '/admin/telemetry',
-        icon: Activity,
       },
       {
         key: 'connection-logs',

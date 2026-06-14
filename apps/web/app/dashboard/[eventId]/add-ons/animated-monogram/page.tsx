@@ -59,6 +59,19 @@ export const metadata = { title: 'Animated Monogram · Setnayan' };
 
 const SKU_CODE = 'ANIMATED_MONOGRAM';
 
+/**
+ * The ink AnimatedMonogramHero should paint. For the four type-only lockups
+ * (bar/duo/script/infinity) that's the resolved lockup ink (mulberry · the ∞
+ * paints its own gold gradient inside the component); for framed / single-name
+ * / legacy events it's the couple's accent color (the text-circle render). Keeps
+ * the add-ons previews in lockstep with the live website hero (HeroMonogram).
+ */
+function lockupColor(m: ReturnType<typeof resolveMonogram>): string {
+  const isLockup =
+    m.style === 'bar' || m.style === 'duo' || m.style === 'script' || m.style === 'infinity';
+  return isLockup ? m.inkColor ?? m.color : m.color;
+}
+
 type Props = { params: Promise<{ eventId: string }> };
 
 export default async function AnimatedMonogramPage({ params }: Props) {
@@ -71,7 +84,7 @@ export default async function AnimatedMonogramPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, monogram_text, monogram_color, monogram_motion_key',
+      'event_id, display_name, slug, monogram_text, monogram_color, monogram_motion_key, monogram_style, monogram_font_key, monogram_frame_key',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -191,9 +204,13 @@ function OwnedView({
         <div className="mt-6 flex justify-center">
           {/* key forces a remount so the chosen motion replays each page visit */}
           <AnimatedMonogramHero
-            key={`owned-${monogram.text}-${motion}`}
+            key={`owned-${monogram.text}-${monogram.style ?? ''}-${motion}`}
             text={monogram.text}
-            color={monogram.color}
+            color={lockupColor(monogram)}
+            fontFamily={monogram.fontFamily}
+            fontStyle={monogram.fontStyle}
+            lockupStyle={monogram.style}
+            letterSpacing={monogram.letterSpacing}
             size="lg"
             motion={motion}
           />
@@ -281,9 +298,13 @@ async function UnownedView({
             </span>
             {/* key remounts the component so the motion replays on each render */}
             <AnimatedMonogramHero
-              key={`preview-${monogram.text}-${motion}`}
+              key={`preview-${monogram.text}-${monogram.style ?? ''}-${motion}`}
               text={monogram.text}
-              color={monogram.color}
+              color={lockupColor(monogram)}
+              fontFamily={monogram.fontFamily}
+              fontStyle={monogram.fontStyle}
+              lockupStyle={monogram.style}
+              letterSpacing={monogram.letterSpacing}
               size="md"
               motion={motion}
             />

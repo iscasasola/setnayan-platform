@@ -28,7 +28,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, role_palette, reception_design',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, role_palette, reception_design',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -150,6 +150,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       event_date: event.event_date,
       monogram_text: event.monogram_text,
       monogram_color: event.monogram_color,
+      monogram_style: event.monogram_style,
+      monogram_font_key: event.monogram_font_key,
+      monogram_frame_key: event.monogram_frame_key,
+      monogram_custom_svg: event.monogram_custom_svg,
     },
     design,
     palette: swatches,

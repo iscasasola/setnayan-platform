@@ -125,8 +125,17 @@ const nextConfig: NextConfig = {
   // route's lambda.
   // models/face-detection/ (lib/face-blur.ts — Salamisim P2 FaceBlock baker)
   // follows the identical committed-weights + node:fs pattern.
+  // Monogram-lockup PDF badges (lib/lockup-pdf.ts) read these TTFs with node:fs
+  // via a path that's indirected through a function param, so @vercel/nft can't
+  // statically resolve them at the readFileSync call site — trace them explicitly
+  // or the seating/concept-pdf routes throw ENOENT for bar/duo/script/infinity.
   outputFileTracingIncludes: {
-    '/**': ['./models/nsfw/**/*', './models/face-detection/**/*'],
+    '/**': [
+      './models/nsfw/**/*',
+      './models/face-detection/**/*',
+      './assets/cipher-fonts/*.ttf',
+      './lib/social/fonts/*.ttf',
+    ],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required

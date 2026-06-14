@@ -133,6 +133,8 @@ async function coupleCreationContext(
   let monogramText = 'S';
   let monogramColor = '#C97B4B';
   let monogramCustomSvg: string | null = null;
+  let monogramStyle: string | null = null;
+  let monogramFontKey: string | null = null;
 
   if (consent?.event_id) {
     const { data: ev } = await admin
@@ -145,6 +147,8 @@ async function coupleCreationContext(
     if (ev) {
       coupleName = ev.display_name ?? null;
       monogramCustomSvg = ev.monogram_custom_svg ?? null;
+      monogramStyle = ev.monogram_style ?? null;
+      monogramFontKey = ev.monogram_font_key ?? null;
       const mono = resolveMonogram({
         display_name: ev.display_name ?? null,
         monogram_text: ev.monogram_text ?? null,
@@ -164,6 +168,8 @@ async function coupleCreationContext(
     monogramText,
     monogramColor,
     monogramCustomSvg,
+    monogramStyle,
+    monogramFontKey,
   };
 }
 

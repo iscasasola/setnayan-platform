@@ -3,7 +3,7 @@ name: build-android
 # Builds the Setnayan Android app bundle (.aab) for Google Play upload.
 #
 # Why CI instead of a local build: the Capacitor shell needs a full Android
-# SDK + JDK 17 toolchain that we don't keep on dev machines. This workflow
+# SDK + JDK 21 toolchain that we don't keep on dev machines. This workflow
 # compiles a SIGNED release .aab in the cloud and uploads it as an artifact
 # you download and hand to the Play Console. It mirrors build-desktop.yml's
 # "CI is the build machine" pattern.
@@ -28,11 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          # Capacitor 8 (@capacitor/android ^8.4) compiles its library modules
+          # with Java 21 source/target — JDK 17 fails with "invalid source
+          # release: 21". AGP 8.13 supports 21, so this is the floor.
+          java-version: '21'
 
       - name: Set up Node 22
         uses: actions/setup-node@v4

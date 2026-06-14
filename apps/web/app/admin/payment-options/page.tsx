@@ -17,6 +17,7 @@ import {
   removePaymentMethod,
 } from './actions';
 import { DirectPayPreviewButton } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Payment options · Admin' };
 
@@ -132,13 +133,10 @@ export default async function AdminPaymentOptionsPage() {
       </header>
 
       {error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           Payment options couldn&apos;t load right now. We&apos;ve logged the
           issue — refresh in a moment or check Sentry for the full detail.
-        </p>
+        </FormFlash>
       ) : null}
 
       {/* ── Section 1 · Needs review ─────────────────────────────────────── */}

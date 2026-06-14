@@ -10,6 +10,7 @@ import {
   type ApiScope,
 } from '@/lib/api-keys';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { createApiKey, revokeApiKey } from './actions';
 
 export const metadata = { title: 'API keys' };
@@ -63,12 +64,9 @@ export default async function ApiKeysPage({ searchParams }: Props) {
       </header>
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           {decodeURIComponent(search.error)}
-        </p>
+        </FormFlash>
       ) : null}
 
       {justCreated ? (

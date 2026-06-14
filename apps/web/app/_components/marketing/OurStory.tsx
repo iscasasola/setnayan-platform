@@ -283,6 +283,12 @@ export function OurStoryManifesto() {
               >
                 The way we remember has been waiting for the technology to catch up. It just did.
               </p>
+              <p
+                className="m-serif italic mx-auto mt-6"
+                style={{ color: 'var(--m-orange-3)', fontSize: 'clamp(1.2rem, 3vw, 1.6rem)', lineHeight: 1.3, maxWidth: 540 }}
+              >
+                We call it Alaala — the memory you keep.
+              </p>
               <div className="mt-9">
                 <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
                   Start your wedding <span style={{ color: 'var(--m-orange-3)' }}>· free</span>

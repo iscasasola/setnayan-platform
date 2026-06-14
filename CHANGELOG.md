@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(hero): restore full-bleed fill — homepage hero covers the screen again
+
+Owner: "the video is no longer fill. i see the square video and not see the filled screen." Reverses this morning's `e15a28ac` contain decision ("contain it · sharp, not full-screen"), which centered the scrub in an `86vmin` square capped at the source's native size to avoid upscaling a low-res clip.
+
+- `apps/web/app/_components/marketing/HeroVideoScrub.tsx` — frame `<img>` back to `absolute inset-0 h-full w-full` + `object-fit: cover` (full-bleed). Dropped the `frameWidth`/`frameHeight` props + the `nativeSide` cap + the flex-centering wrapper; the captions/scrim/end-overlay are unchanged (already positioned for the both-crops safe zone).
+- `apps/web/app/_components/marketing/_sections.tsx` — `Hero()` stops passing the now-unused `frameWidth`/`frameHeight` to `<HeroVideoScrub>` (still read by the admin editor via `hero-video.ts`, untouched).
+
+SHARPNESS NOTE (surfaced to owner): the live published hero is **1,019 frames @ 720×720** (old extraction). Filling the screen upscales that → soft on laptops/desktops — the exact reason it was contained this morning. For fill AND crisp the owner must re-upload + re-publish in `/admin/hero-video` (re-extracts at the current 960px cap), and the extraction `FRAME_MAX_EDGE` can be bumped (e.g. 1440–1920) at the cost of a heavier preload (the "front-door freeze" trade-off).
+
+SPEC IMPACT: None on schema/SKU. Homepage-UX reversal (contain → fill) logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-14 · docs(workflow): MERGE_WORKFLOW.md — one-page merge/deploy quick reference
 
 Owner-requested quick reference for the auto-upload merge policy: what ships (every green non-draft PR, auto), the 4 phrases that change it (hold = draft · pause = `--disable-auto` · go-staging = "we're now publicly accepting vendors" · reset = "auto-upload mode"), and why it's safe (7 required checks gate every merge). Complements the server-side enforcement shipped in #1424 and the corpus memories `project_setnayan_merge_workflow_reality` / `project_setnayan_deployment_phases`.

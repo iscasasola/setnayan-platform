@@ -5,6 +5,8 @@ import path from 'node:path';
 import satori from 'satori';
 import sharp from 'sharp';
 
+import { splitInitials, resolveMonogramDesign, type MonoStyle } from '@/lib/monogram';
+
 /**
  * apps/web/lib/social/card.tsx — branded 1080×1080 social-card renderer
  * (Phase B of the social auto-publish pipeline — corpus
@@ -70,6 +72,13 @@ const FONT_SANS = loadFont('Poppins-Regular.ttf');
 const FONT_SANS_MEDIUM = loadFont('Poppins-Medium.ttf');
 const FONT_SANS_BOLD = loadFont('Poppins-Bold.ttf');
 const FONT_SCRIPT = loadFont('GreatVibes-Regular.ttf');
+// Cormorant (a real static OFL TTF copied from assets/cipher-fonts) — the EXACT
+// face the `bar` + `infinity` lockups use on the dashboard chrome + landing hero
+// (resolveMonogramDesign maps `cormorant`). The plain initials path keeps Cardo
+// (the card's display serif); only the type-only lockups reference Cormorant, so
+// the on-card mark matches what the couple designed in onboarding. satori needs
+// a static face — this one has `glyf`, no `fvar`, so it parses cleanly.
+const FONT_CORMORANT = loadFont('Cormorant-Regular.ttf');
 
 // satori font registry — `name` is the family string we reference in styles.
 const SATORI_FONTS = [
@@ -79,6 +88,7 @@ const SATORI_FONTS = [
   { name: 'Poppins', data: FONT_SANS_MEDIUM, weight: 500 as const, style: 'normal' as const },
   { name: 'Poppins', data: FONT_SANS_BOLD, weight: 700 as const, style: 'normal' as const },
   { name: 'GreatVibes', data: FONT_SCRIPT, weight: 400 as const, style: 'normal' as const },
+  { name: 'Cormorant', data: FONT_CORMORANT, weight: 600 as const, style: 'normal' as const },
 ];
 
 /** The card canvas is always 1080 wide; only the height changes per format. */
@@ -115,6 +125,15 @@ export type CardContext =
       /** Raw sanitized custom monogram SVG (events.monogram_custom_svg). When
        *  present it's composited over the satori card via a second sharp pass. */
       monogramCustomSvg: string | null;
+      /** events.monogram_style — when it's a TYPE-ONLY lockup (bar/duo/script/
+       *  infinity) AND there are two initials AND no monogramCustomSvg, the card
+       *  draws the couple's REAL lockup (matching the chrome + hero + QR) instead
+       *  of plain initials in a ring. null/legacy/`framed`/single-initial keep the
+       *  existing initials-in-a-ring rendering. */
+      monogramStyle: string | null;
+      /** events.monogram_font_key — the couple's chosen typeface key, fed through
+       *  resolveMonogramDesign so the lockup draws in their exact face. */
+      monogramFontKey: string | null;
     }
   | {
       sourceType: 'vendor_feature';
@@ -243,11 +262,245 @@ function eyebrow(text: string, color = GOLD_DEEP): VNode {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Monogram LOCKUP (satori element tree).
+//
+// When the couple chose a TYPE-ONLY lockup (bar/duo/script/infinity) with two
+// initials and NO custom SVG, the card draws their REAL mark — matching the
+// dashboard chrome (app/_components/monogram-mark.tsx), the landing hero, and
+// the QR center (lib/monogram.ts `lockupMarkSvg`). We CANNOT rasterize the
+// shared SVG-with-text twin here: sharp's SVG text rasterizer would substitute
+// the wrong system font. Instead we rebuild the same geometry as native satori
+// elements (absolutely-positioned text spans in the BUNDLED faces + an inline
+// <svg> path for the gold ∞), so satori shapes the glyphs with our own TTF
+// buffers and the on-card mark reads in the couple's exact typeface.
+//
+// Geometry mirrors monogram-mark.tsx / lockupMarkSvg viewBox units, scaled to a
+// fixed pixel box. Text-anchor=middle in SVG → here each glyph is a fixed-width
+// flex box centered on the target x, with its baseline aligned via the box
+// bottom (satori has no SVG-text baseline, so we approximate: a span whose box
+// bottom sits ~fontSize*0.22 below the SVG baseline reads identically once the
+// ascender/descender settle).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Mulberry ink shared by all four type-only lockups (mirror lib/monogram.ts). */
+const LOCKUP_INK = '#5C2542';
+
+/** A single positioned glyph inside the lockup box. `cx`/`baseY` are in the
+ *  SCALED pixel space of the lockup box; `fs` is the scaled font size. */
+function lockupGlyph(opts: {
+  char: string;
+  cx: number;
+  baseY: number;
+  fs: number;
+  fontFamily: string;
+  fontStyle: 'italic' | 'normal';
+  color: string;
+}): VNode {
+  const { char, cx, baseY, fs, fontFamily, fontStyle, color } = opts;
+  // Fixed-width centering box so text-anchor=middle is honored without
+  // measuring glyph metrics. Width = ~1.4× fs comfortably holds one cap; the
+  // box is centered on cx. Top is derived from the baseline: a line box of
+  // height ~fs*1.0 sits with its text baseline near the box bottom, so we place
+  // the box so its bottom is a hair below baseY.
+  const boxW = fs * 1.6;
+  const top = baseY - fs * 1.06;
+  return el(
+    'div',
+    {
+      position: 'absolute',
+      left: `${cx - boxW / 2}px`,
+      top: `${top}px`,
+      width: `${boxW}px`,
+      height: `${fs * 1.2}px`,
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      fontFamily,
+      fontStyle,
+      fontWeight: 600,
+      fontSize: `${fs}px`,
+      lineHeight: 1,
+      color,
+    },
+    char,
+  );
+}
+
+/**
+ * Build the lockup as a satori element tree, or return null when this ctx is
+ * NOT a type-only two-initial lockup (legacy / framed / single-initial / custom
+ * SVG present → caller keeps the existing initials-in-a-ring rendering).
+ *
+ * `boxPx` is the rendered edge of the square the lockup centers within (the
+ * 360px ring interior). The lockup's wide viewBox is scaled to fit `boxPx` wide
+ * and centered vertically — exactly how monogram-mark.tsx letterboxes within a
+ * square chip.
+ */
+function lockupTree(
+  ctx: Extract<CardContext, { sourceType: 'couple_creation' }>,
+  boxPx: number,
+): VNode | null {
+  if (ctx.monogramCustomSvg) return null; // bespoke / cipher mark wins.
+
+  const styleKey = ctx.monogramStyle;
+  const isTypeOnly =
+    styleKey === 'bar' ||
+    styleKey === 'duo' ||
+    styleKey === 'script' ||
+    styleKey === 'infinity';
+  if (!isTypeOnly) return null;
+
+  const [a, b] = splitInitials(ctx.monogramText);
+  if (!a || !b) return null; // single initial → not a lockup.
+
+  const style = styleKey as Exclude<MonoStyle, 'framed'>;
+
+  // Resolve the couple's chosen face. We only consume fontStyle (the bundled
+  // satori faces don't vary by family the way the chrome's CSS vars do — bar /
+  // duo / infinity are serif, script is calligraphic), so map family ourselves
+  // to the bundled TTFs while honoring the resolved italic/normal slant.
+  const design = resolveMonogramDesign({
+    monogram_style: ctx.monogramStyle,
+    monogram_font_key: ctx.monogramFontKey,
+    monogram_frame_key: null,
+  });
+  const fontStyle: 'italic' | 'normal' = design?.fontStyle ?? (style === 'script' ? 'normal' : 'italic');
+  // bar + infinity = Cormorant (their exact chrome face); duo = Cardo (Playfair
+  // Display isn't a bundled satori face — Cardo is the card's display serif and
+  // the closest available serif-italic); script = Great Vibes.
+  const serifFamily = style === 'duo' ? 'Cardo' : 'Cormorant';
+  const ink = LOCKUP_INK;
+
+  // Per-style viewBox (minX minY w h) — verbatim from lockupMarkSvg geometry.
+  type Geo = { vb: [number, number, number, number] };
+  const GEO: Record<typeof style, Geo> = {
+    bar: { vb: [6, 14, 120, 70] },
+    duo: { vb: [18, 18, 66, 62] },
+    script: { vb: [8, 6, 168, 90] },
+    infinity: { vb: [18, 8, 164, 76] },
+  };
+  const [minX, minY, vbW, vbH] = GEO[style].vb;
+  // Scale so the wider dimension fits boxPx; center within a boxPx × boxPx square.
+  const k = boxPx / Math.max(vbW, vbH);
+  const renderW = vbW * k;
+  const renderH = vbH * k;
+  const offX = (boxPx - renderW) / 2;
+  const offY = (boxPx - renderH) / 2;
+  // Map a viewBox coordinate → pixel within the boxPx square.
+  const px = (x: number) => offX + (x - minX) * k;
+  const py = (y: number) => offY + (y - minY) * k;
+
+  const children: VNode[] = [];
+
+  if (style === 'bar') {
+    children.push(
+      lockupGlyph({ char: a, cx: px(28), baseY: py(72), fs: 64 * k, fontFamily: serifFamily, fontStyle, color: ink }),
+      // Divider — two segments around the "&".
+      el('div', {
+        position: 'absolute',
+        left: `${px(66) - (2.5 * k) / 2}px`,
+        top: `${py(16)}px`,
+        width: `${2.5 * k}px`,
+        height: `${(42 - 16) * k}px`,
+        borderRadius: `${1.25 * k}px`,
+        backgroundColor: ink,
+      }),
+      el('div', {
+        position: 'absolute',
+        left: `${px(66) - (2.5 * k) / 2}px`,
+        top: `${py(66)}px`,
+        width: `${2.5 * k}px`,
+        height: `${(82 - 66) * k}px`,
+        borderRadius: `${1.25 * k}px`,
+        backgroundColor: ink,
+      }),
+      lockupGlyph({ char: '&', cx: px(66), baseY: py(60), fs: 22 * k, fontFamily: serifFamily, fontStyle, color: ink }),
+      lockupGlyph({ char: b, cx: px(104), baseY: py(72), fs: 64 * k, fontFamily: serifFamily, fontStyle, color: ink }),
+    );
+  } else if (style === 'duo') {
+    children.push(
+      lockupGlyph({ char: a, cx: px(42), baseY: py(72), fs: 66 * k, fontFamily: serifFamily, fontStyle, color: ink }),
+      lockupGlyph({ char: b, cx: px(58), baseY: py(72), fs: 66 * k, fontFamily: serifFamily, fontStyle, color: ink }),
+    );
+  } else if (style === 'script') {
+    children.push(
+      lockupGlyph({ char: a, cx: px(42), baseY: py(78), fs: 74 * k, fontFamily: 'GreatVibes', fontStyle: 'normal', color: ink }),
+      lockupGlyph({ char: '&', cx: px(92), baseY: py(76), fs: 46 * k, fontFamily: 'GreatVibes', fontStyle: 'normal', color: ink }),
+      lockupGlyph({ char: b, cx: px(142), baseY: py(78), fs: 74 * k, fontFamily: 'GreatVibes', fontStyle: 'normal', color: ink }),
+    );
+  } else {
+    // infinity — inline <svg> for the gold ∞ path (its width-6 stroke scales
+    // with the viewBox → k), then two cap spans over the loops.
+    children.push(
+      {
+        type: 'svg',
+        props: {
+          width: `${renderW}px`,
+          height: `${renderH}px`,
+          viewBox: `${minX} ${minY} ${vbW} ${vbH}`,
+          style: { position: 'absolute', left: `${offX}px`, top: `${offY}px` },
+          children: [
+            {
+              type: 'defs',
+              props: {
+                children: {
+                  type: 'linearGradient',
+                  props: {
+                    id: 'sn-card-gold',
+                    x1: '0',
+                    y1: '0',
+                    x2: '1',
+                    y2: '0',
+                    children: [
+                      { type: 'stop', props: { offset: '0', 'stop-color': GOLD_DEEP } },
+                      { type: 'stop', props: { offset: '0.5', 'stop-color': '#E4C77E' } },
+                      { type: 'stop', props: { offset: '1', 'stop-color': GOLD_DEEP } },
+                    ],
+                  },
+                },
+              },
+            },
+            {
+              type: 'path',
+              props: {
+                d: 'M100 46 C76 14 26 14 26 46 C26 78 76 78 100 46 C124 14 174 14 174 46 C174 78 124 78 100 46 Z',
+                fill: 'none',
+                stroke: 'url(#sn-card-gold)',
+                'stroke-width': 6,
+                'stroke-linecap': 'round',
+              },
+            },
+          ],
+        },
+      } as unknown as VNode,
+      lockupGlyph({ char: a, cx: px(56), baseY: py(56), fs: 30 * k, fontFamily: 'Cormorant', fontStyle, color: ink }),
+      lockupGlyph({ char: b, cx: px(140), baseY: py(56), fs: 30 * k, fontFamily: 'Cormorant', fontStyle, color: ink }),
+    );
+  }
+
+  return el(
+    'div',
+    {
+      position: 'relative',
+      display: 'flex',
+      width: `${boxPx}px`,
+      height: `${boxPx}px`,
+    },
+    children,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Per-type card bodies (the middle block; frame + wordmark wrap them).
 // ─────────────────────────────────────────────────────────────────────────────
 
 function coupleCreationBody(ctx: Extract<CardContext, { sourceType: 'couple_creation' }>): VNode {
   const name = ctx.coupleName?.trim() || 'A Setnayan couple';
+  // When the couple chose a type-only lockup (bar/duo/script/infinity) with two
+  // initials and no custom SVG, draw their REAL mark inside the ring (matching
+  // chrome + hero + QR). Otherwise: framed / legacy / single-initial → the
+  // existing plain-initials ring; custom SVG → the composited slot.
+  const lockup = lockupTree(ctx, 300);
   // When a custom SVG is present we leave an empty 420×420 slot here; the
   // sharp composite pass paints the rasterized mark into it (see render fn).
   const monogramSlot: VNode = ctx.monogramCustomSvg
@@ -268,17 +521,18 @@ function coupleCreationBody(ctx: Extract<CardContext, { sourceType: 'couple_crea
           border: `2px solid ${GOLD}`,
           backgroundColor: '#FAF7F2',
         },
-        el(
-          'div',
-          {
-            fontFamily: 'Cardo',
-            fontStyle: 'italic',
-            fontSize: ctx.monogramText.length <= 1 ? '200px' : '140px',
-            color: ctx.monogramColor || TERRACOTTA,
-            letterSpacing: '2px',
-          },
-          ctx.monogramText,
-        ),
+        lockup ??
+          el(
+            'div',
+            {
+              fontFamily: 'Cardo',
+              fontStyle: 'italic',
+              fontSize: ctx.monogramText.length <= 1 ? '200px' : '140px',
+              color: ctx.monogramColor || TERRACOTTA,
+              letterSpacing: '2px',
+            },
+            ctx.monogramText,
+          ),
       );
 
   return el(

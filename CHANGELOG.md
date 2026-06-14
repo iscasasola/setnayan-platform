@@ -54,6 +54,17 @@ Found during a monogram dead-code audit (owner: "we have several monogram makers
 - Verified: typecheck ✅ · lint ✅.
 
 SPEC IMPACT: None — corrects a stale internal link to a shipped feature; no schema/SKU/pricing/route-shape change. (Flagged for later, NOT changed here: the `music-creator` + `landing-page` add-on stubs may be similarly stale if those features are live; and the kept surfaces — animated hero / PDF / maker preview / social card — still render initials rather than the chosen lockup, pending owner's consistency-scope decision.)
+## 2026-06-14 · feat(realstories): vendor "Featured in Real Stories" + Share to your Page (PR C, vendor half — CLOSES the loop)
+
+The vendor half of PR C — the last piece of the Real-Stories featuring loop. Gives vendors a one-click "Share to your Facebook Page" for the published weddings they helped create (free social proof + reach back to Setnayan).
+
+- **NEW `lib/realstories-vendor.ts`** — `loadVendorFeaturedStories(bookedEventIds)`: the vendor's OWN booked events intersected with the **same RA 10173 public-showcase gate** as `lib/showcase-db.ts` (couple opted in via `users.public_summary_consent_at`, wedding with a public slug, past the T+30d grace). Self-contained (own consent-join, no `showcase-db` ripple), admin-client read, best-effort → `[]`. Ownership is already enforced by the caller passing only the vendor's own booked event ids.
+- **NEW `app/vendor-dashboard/real-stories/page.tsx`** — lists each featured wedding (couple · city · date) with "View the story" → the couple's `/[slug]` editorial + a **`<ShareButtons>`** (reused from PR B) pointed at that editorial with `/api/og/realstory-slug/[slug]` as the share image. Vendor-auth-gated (`fetchOwnVendorProfile`). Pre-launch empty state ("Your featured weddings will appear here…") — no fabricated entries.
+- **`app/vendor-dashboard/_components/vendor-sidebar.tsx`** — "Real Stories" nav item (Sparkles icon) in the **Grow** group; auto-propagates to the `/more` overflow + mobile via `VENDOR_NAV_GROUPS`.
+
+Read-only, no migration. Ready-but-empty today (no consented editorials exist yet); populates automatically as couples publish. tsc + lint clean.
+
+SPEC IMPACT: closes the Real-Stories featuring loop (couple publish → admin curate → couple share → **vendor share**). Logged in corpus `DECISION_LOG.md` (2026-06-14).
 
 ---
 

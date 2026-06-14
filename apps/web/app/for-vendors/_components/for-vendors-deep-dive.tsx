@@ -54,12 +54,11 @@ const MATRIX_SECTIONS: MatrixSection[] = [
   },
   {
     section: '🪙 Bidding · the per-action engine',
-    note: 'Vendors spend tokens to accept couple inquiries. Earn tokens by recommending Productions services that couples buy and use (handshake-confirmed).',
+    note: 'Vendors spend tokens to accept couple inquiries; verified vendors get free couple unlocks every week.',
     rows: [
       ['Bids per week', 'Up to 10', 'Unlimited', 'Unlimited', 'Unlimited'],
       ['Bidding token packs', 'Buy packs', 'Buy packs', 'Buy packs', 'Buy packs'],
       ['Free couple unlocks per week', '—', 'Up to 10', 'Up to 10', 'Up to 10'],
-      ['Earn tokens from Productions referrals', 'Free', 'Free', 'Free', 'Free'],
     ],
   },
   {

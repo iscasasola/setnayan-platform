@@ -20,9 +20,11 @@
 > Engineering work has landed and is awaiting these owner actions to be
 > production-effective. Numbered in recommended execution order.
 
-### 2026-06-11 — generate Web Push VAPID keys + paste 3 Vercel env vars (~5 min · unlocks push notifications)
+### ✅ DONE (verified 2026-06-13) — Web Push VAPID keys set · push live on Production
 
-Web Push shipped (PR #1229) but **no-ops until you give it keys**. VAPID keys are self-generated — no Apple/Google account needed.
+**✅ Completed 2026-06-11 · verified live 2026-06-13.** All three keys (`NEXT_PUBLIC_VAPID_PUBLIC_KEY` · `VAPID_PRIVATE_KEY` · `VAPID_SUBJECT`) are set in Vercel (Production + Preview), and a production deploy after that date carries them, so `sendWebPush` is firing. The steps below are retained for reference / key rotation only — **do not re-run with new keys on Production** (rotating the public key invalidates push subscriptions already created against the old one).
+
+Web Push shipped (PR #1229). VAPID keys are self-generated — no Apple/Google account needed.
 
 ```bash
 npx web-push generate-vapid-keys
@@ -221,7 +223,7 @@ Recommended: **(b)** if you want the script in the repo for the V1.5+ traffic ph
 
 #### 9. Push pending Supabase migrations to prod (~5 min · Task #49 fix)
 
-🔴 **Active user-facing bug:** Guest-list edit form throws `invalid input value for enum guest_role: "bride"` (Claire) and `...groom` (Ice). The migration `20260530020000_guest_role_add_bride_groom.sql` (commit `2e6f64f`, 2026-05-21) exists on `main` but hasn't been applied to prod. Migration follows the same idempotent `ALTER TYPE ... ADD VALUE IF NOT EXISTS` pattern as `20260514012000_notification_type_additions.sql` — safe to push.
+✅ **RESOLVED 2026-06-13** — the `guest_role` enum on prod now includes `bride` + `groom` (24 values total, verified via DB introspection); the edit form no longer throws. _Historical report:_ Guest-list edit form threw `invalid input value for enum guest_role: "bride"` (Claire) and `...groom` (Ice). The migration `20260530020000_guest_role_add_bride_groom.sql` (commit `2e6f64f`, 2026-05-21) exists on `main` but hasn't been applied to prod. Migration follows the same idempotent `ALTER TYPE ... ADD VALUE IF NOT EXISTS` pattern as `20260514012000_notification_type_additions.sql` — safe to push.
 
 There may be other unpushed migrations from the last 12 days too (31 migrations have landed since the 2026-05-20 prod-sync verification). Easiest is to push all in one batch.
 

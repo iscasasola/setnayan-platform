@@ -1006,6 +1006,11 @@ Verified: `tsc` + production build clean (no new deps).
 `tsc --noEmit` + `next lint` clean (no new warnings); `next build` compiles (exit 0). The URL param contract is otherwise unchanged, so server filtering logic and the rest of the mobile carousel are untouched.
 
 **SPEC IMPACT:** None to locked scope/SKUs. UX/architecture note → `DECISION_LOG.md` (guest-list desktop consolidation + `view`/`group` param split for combinable role-view × custom-group filtering). No schema/migration change.
+## 2026-06-13 · docs(owner-actions): sync Web Push (VAPID) + guest_role enum bug to verified prod state
+
+`OWNER_ACTIONS.md` corrected against live prod (doc-only, no code/schema change). (1) The **Web Push / VAPID** owner-action is marked ✅ done — all three keys (`NEXT_PUBLIC_VAPID_PUBLIC_KEY` · `VAPID_PRIVATE_KEY` · `VAPID_SUBJECT`) were confirmed set in Vercel (Production + Preview since 2026-06-11) with later prod deploys carrying them, so `sendWebPush` is live; the steps are kept for key-rotation reference with a do-not-rotate-on-Production warning (rotating the public key invalidates existing push subscriptions). (2) The §9 **"active user-facing bug"** (guest-list edit form throwing `invalid input value for enum guest_role: "bride"`) is marked ✅ resolved — the prod `guest_role` enum now includes `bride` + `groom` (24 values, verified via DB introspection). Both were stale 🔴 entries with no remaining action.
+
+**SPEC IMPACT:** None (doc-only; corpus `API_Integration_Checklist.md` #19e/#19f/#21d statuses synced to ✅/handed-off in the same pass).
 
 ---
 

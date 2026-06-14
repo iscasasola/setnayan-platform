@@ -79,16 +79,23 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameH
   const N = frameUrls.length;
 
   // Preload frames WITH load-tracking + a "make the wait useful" loading veil.
-  // Owner: everything must load first AND the wait should sell the story, then invite
-  // the swipe. So while frames load we LOCK page scroll and hold the visitor on the
-  // pitch + a progress bar; once every frame is in we release scroll and flip the
-  // prompt to "Swipe up to begin". apply() also never swaps to an unloaded frame.
+  // Owner: the wait should sell the story, then invite the swipe — but it must NOT
+  // hold the visitor hostage until the LAST frame lands (a long frame sequence made
+  // that a multi-second freeze on the front door). So we LOCK page scroll and hold
+  // the visitor on the pitch + a progress bar only until the OPENING frames are in
+  // (LEAD, below); then we release scroll and flip the prompt to "Swipe up to begin"
+  // while the rest stream in the background. apply() holds the nearest already-loaded
+  // frame, so the scrub never blanks even if a later frame hasn't arrived yet.
   useEffect(() => {
     const n = frameUrls.length;
     const loaded = new Uint8Array(n);
     loadedRef.current = loaded;
     readyRef.current = false;
     let done = 0;
+    let leadDone = 0;
+    // Release once the OPENING frames are in (these get fetchPriority high below),
+    // not after all N — the rest keep loading in the background.
+    const LEAD = Math.min(n, 24);
     const reduce =
       typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -133,8 +140,11 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameH
         if (loaded[i]) return;
         loaded[i] = 1;
         done++;
+        if (i < LEAD) leadDone++;
         if (barRef.current) barRef.current.style.transform = `scaleX(${(done / n).toFixed(3)})`;
-        if (!reduce && done >= n) reveal(); // every frame in → release + invite swipe
+        // Opening frames in (or, for a tiny sequence, all of them) → release + invite
+        // the swipe; the bar keeps advancing behind the fading veil as the rest arrive.
+        if (!reduce && (leadDone >= LEAD || done >= n)) reveal();
       };
       im.onload = onDone;
       im.onerror = onDone; // a failed frame still counts, so the veil can never trap the user
@@ -143,7 +153,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref, frameWidth, frameH
     });
     framesRef.current = imgs;
     if (imgRef.current && imgs[0]) imgRef.current.src = imgs[0].src;
-    const safety = window.setTimeout(() => { if (!reduce) reveal(); }, 30000); // backstop for a request that truly hangs
+    const safety = window.setTimeout(() => { if (!reduce) reveal(); }, 12000); // backstop if even the opening frames stall
     return () => {
       window.clearTimeout(safety);
       unlock(); // always release scroll on unmount

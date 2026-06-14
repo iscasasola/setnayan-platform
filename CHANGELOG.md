@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
+
+Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tagalog: memory / remembrance / keepsake — it gathers Papic / Panood / Kwento / Pakanta / the rest into one promise) + a 3-lane embed plan (narrative spine → in-app Alaala hub → finish the uncopyable keystones). This is **Lane 1 (the spine), increment 1**:
+
+- **`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`** (the Studio hub) — adds an **Alaala framing band** above the service sections: names the pillar ("Alaala · the memory you keep"), frames the memory features below as "the pieces of your Alaala — the living memory of your day," and states the **guardrail** ("it never gets in the way — the day stays yours; the tech just quietly remembers it"). Calm v2.1 surface, `--m-*` tokens; no catalog restructure.
+- **`apps/web/app/_components/marketing/OurStory.tsx`** — the live `/our-story` manifesto close now NAMES the pillar: *"We call it Alaala — the memory you keep."*
+
+Canonical pillar definition (spec corpus): `03_Strategy/Alaala_Pillar_2026-06-15.md`. SPEC IMPACT: None on schema/SKU (naming + framing copy). **Queued:** Lane 1 remainder (onboarding "promise" beat) · Lane 2 (a dedicated in-app Alaala hub with the save-the-date→day-of→editorial through-line) · Lane 3 (finish the keystones: Kwento → Live Photo Wall → produced-output SDE/Thank-You/Highlights — the parts competitors structurally can't copy).
+
 ## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
 
 The audit found Setnayan AI is free for **two** reasons: the paywall flag is off AND **nothing let a couple buy it** (no add-on page, not in the onboarding add-on map). The entitlement chain was fully wired (checkout → admin approve → `events.setnayan_ai_active` → `lib/setnayan-ai.ts` gate) but had no front door. This PR builds it.

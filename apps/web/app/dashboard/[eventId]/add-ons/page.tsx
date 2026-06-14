@@ -67,6 +67,30 @@ export default async function StudioPage({ params }: Props) {
         </p>
       </header>
 
+      {/* Alaala — the pillar framing. The memory features below (capture · your
+          website & story · music) are the pieces of the couple's living memory;
+          the free planning tools stay practical. Names the pillar + states the
+          guardrail (the tech never intrudes). Calm v2.1 surface, --m-* tokens. */}
+      <div
+        className="rounded-2xl border p-5 sm:p-6"
+        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+      >
+        <p
+          className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.22em]"
+          style={{ color: 'var(--m-orange-2)' }}
+        >
+          Alaala · the memory you keep
+        </p>
+        <p className="mt-3 max-w-prose text-[15px] leading-relaxed" style={{ color: 'var(--m-ink)' }}>
+          The pieces below become your <span className="italic">Alaala</span> — the living memory of
+          your day. The moments you’ll be too busy to see, the people who can’t be there, the stories
+          your guests tell — all kept, and made into something you hold forever.
+        </p>
+        <p className="mt-2 max-w-prose text-[13px] leading-relaxed" style={{ color: 'var(--m-slate)' }}>
+          And it never gets in the way. The day stays yours — the tech just quietly remembers it.
+        </p>
+      </div>
+
       {SECTIONS.map(({ group, label, free }) => {
         const addOns = ADD_ONS.filter((a) => a.studioGroup === group).slice().sort(
           comingSoonLast,

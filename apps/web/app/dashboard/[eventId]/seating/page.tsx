@@ -10,7 +10,14 @@ import {
   guestDisplayName,
   guestInitials,
 } from '@/lib/guests';
-import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchTables, groupColorFor } from '@/lib/seating';
+import {
+  fetchAssignments,
+  fetchBooths,
+  fetchFloorPlan,
+  fetchSigns,
+  fetchTables,
+  groupColorFor,
+} from '@/lib/seating';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
@@ -26,7 +33,7 @@ export default async function SeatingPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, eventRow] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -35,6 +42,7 @@ export default async function SeatingPage({ params }: Props) {
       fetchGroupMembershipsByEvent(supabase, eventId),
       fetchFloorPlan(supabase, eventId),
       fetchBooths(supabase, eventId),
+      fetchSigns(supabase, eventId),
       supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
@@ -131,6 +139,7 @@ export default async function SeatingPage({ params }: Props) {
         groups={groups}
         floorPlan={floorPlan}
         booths={booths}
+        signs={signs}
         me={{
           id: user.id,
           name:

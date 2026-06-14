@@ -9,6 +9,7 @@ import {
   CakeSlice,
   Camera,
   ChevronDown,
+  ClipboardList,
   DoorOpen,
   Eye,
   EyeOff,
@@ -21,6 +22,7 @@ import {
   Martini,
   Maximize2,
   Minus,
+  Navigation,
   Package,
   Plus,
   Printer,
@@ -29,6 +31,7 @@ import {
   Ruler,
   Save,
   Search,
+  Signpost,
   Sparkles,
   Store,
   Trash2,
@@ -65,6 +68,7 @@ import {
   type EventTableRow,
   type FloorBoothRow,
   type FloorPlanRow,
+  type FloorSignRow,
   type TableShapeHint,
   type TableType,
 } from '@/lib/seating';
@@ -78,6 +82,7 @@ import {
   publishSeating,
   saveBooths,
   saveFloorPlan,
+  saveSigns,
   seatRoleAtTable,
   setGuestSeatingPriority,
   setTableSeat,
@@ -141,6 +146,7 @@ type Props = {
   groups: SeatingGroup[];
   floorPlan: FloorPlanRow;
   booths: FloorBoothRow[];
+  signs: FloorSignRow[];
   // Who I am, for live presence (cursors + "editing Table N" rings).
   me: { id: string; name: string };
 };
@@ -168,6 +174,7 @@ export function SeatingEditor({
   groups,
   floorPlan,
   booths: boothsProp,
+  signs: signsProp,
   me,
 }: Props) {
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
@@ -204,7 +211,7 @@ export function SeatingEditor({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
-    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail' | 'booth';
+    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail' | 'booth' | 'sign';
     id: string;
     sx: number;
     sy: number;
@@ -248,6 +255,9 @@ export function SeatingEditor({
     h: floorPlan.cocktail_h,
     label: floorPlan.cocktail_label,
     vendorEdit: floorPlan.cocktail_vendor_edit,
+    // Dock mode: when linked, the room docks beside the reception at the
+    // entrance door with a drawn doorway (arrive→register→enter).
+    linked: floorPlan.cocktail_linked,
   });
   // True when a booth centre sits inside the cocktail room (used to tag the
   // booth's zone on save — geometry is the source of truth).
@@ -267,6 +277,35 @@ export function SeatingEditor({
   useEffect(() => {
     if (!boothsDirtyRef.current) setBooths(boothsProp);
   }, [boothsProp]);
+  // Wayfinding signs (rotatable arrow + label) — same local-state-then-save
+  // model as booths: tmp- ids until the next save returns real rows.
+  const [signs, setSigns] = useState<FloorSignRow[]>(signsProp);
+  const [signsDirty, setSignsDirty] = useState(false);
+  const signsDirtyRef = useRef(false);
+  signsDirtyRef.current = signsDirty;
+  const tmpSignSeq = useRef(0);
+  useEffect(() => {
+    if (!signsDirtyRef.current) setSigns(signsProp);
+  }, [signsProp]);
+  // Dock the cocktail room beside the reception at the entrance door: cross-axis
+  // aligned to the door, out-axis pushed GAP + half-extent outside the wall
+  // nearest the entrance. Coordinates may exceed 0–100 (the room lives OUTSIDE
+  // the reception; the server clamp is widened to match).
+  const dockCocktail = (
+    c: { x: number; y: number; w: number; h: number },
+    en: { x: number; y: number },
+  ): { x: number; y: number } => {
+    const GAP = 6;
+    const dTop = en.y;
+    const dRight = 100 - en.x;
+    const dBottom = 100 - en.y;
+    const dLeft = en.x;
+    const min = Math.min(dTop, dRight, dBottom, dLeft);
+    if (min === dTop) return { x: en.x, y: en.y - (GAP + c.h / 2) };
+    if (min === dRight) return { x: en.x + (GAP + c.w / 2), y: en.y };
+    if (min === dBottom) return { x: en.x, y: en.y + (GAP + c.h / 2) };
+    return { x: en.x - (GAP + c.w / 2), y: en.y };
+  };
   // Live floor-plan geometry for the booth perimeter rules (lib/seating).
   const boothFp = () => ({
     stage_x: stage.x,
@@ -1233,6 +1272,19 @@ export function SeatingEditor({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
+  const onSignPointerDown = (signId: string) => (e: React.PointerEvent) => {
+    if (!canEdit) return;
+    if (pickedId || pickedGroupId) {
+      e.stopPropagation();
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { kind: 'sign', id: signId, sx: e.clientX, sy: e.clientY, moved: false };
+    setDragId(`__sign_${signId}__`);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
   const ZOOM_MIN = 0.1; // low enough that Fit frames even a large free auto-grow board
   const ZOOM_MAX = 2.6;
   const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
@@ -1471,7 +1523,9 @@ export function SeatingEditor({
       } else if (d.kind === 'dance') {
         setDance((dz) => ({ ...dz, x, y }));
       } else if (d.kind === 'cocktail') {
-        setCocktail((c) => ({ ...c, x, y }));
+        // Dragging the room is the natural "separate" gesture — auto-unlink so
+        // the couple can place it freely (re-link via the room's link toggle).
+        setCocktail((c) => (c.linked ? { ...c, x, y, linked: false } : { ...c, x, y }));
       } else if (d.kind === 'service') {
         setServiceDoor((sd) => ({ ...sd, x, y }));
       } else if (d.kind === 'booth') {
@@ -1492,8 +1546,17 @@ export function SeatingEditor({
               )
             : { x, y };
         setBooths((bs) => bs.map((b) => (b.booth_id === d.id ? { ...b, x_pos: p.x, y_pos: p.y } : b)));
+      } else if (d.kind === 'sign') {
+        const sx = Math.max(0, Math.min(100, x));
+        const sy = Math.max(0, Math.min(100, y));
+        setSigns((ss) => ss.map((s) => (s.sign_id === d.id ? { ...s, x_pos: sx, y_pos: sy } : s)));
+        setSignsDirty(true);
       } else {
         setEntrance((en) => ({ ...en, x, y }));
+        // Keep a linked cocktail room docked to the moving entrance.
+        setCocktail((c) =>
+          c.linked && c.enabled ? { ...c, ...dockCocktail(c, { x, y }) } : c,
+        );
       }
       return;
     }
@@ -1557,6 +1620,8 @@ export function SeatingEditor({
 
   const addEntrance = () => {
     setEntrance({ enabled: true, x: 50, y: 94 });
+    // A linked cocktail room docks to the new entrance immediately.
+    setCocktail((c) => (c.linked && c.enabled ? { ...c, ...dockCocktail(c, { x: 50, y: 94 }) } : c));
     setFloorDirty(true);
   };
   const removeEntrance = () => {
@@ -1580,11 +1645,69 @@ export function SeatingEditor({
     setFloorDirty(true);
   };
   const addCocktailArea = () => {
-    setCocktail((c) => ({ ...c, enabled: true }));
+    // Enable + dock to the entrance door (when linked and an entrance exists).
+    const docked =
+      cocktail.linked && entrance.enabled
+        ? dockCocktail({ x: cocktail.x, y: cocktail.y, w: cocktail.w, h: cocktail.h }, entrance)
+        : { x: cocktail.x, y: cocktail.y };
+    setCocktail((c) => ({ ...c, enabled: true, x: docked.x, y: docked.y }));
+
+    // Seed a default "Front Desk" registration booth in the room (idempotent —
+    // never double-seeds across local state + the last-fetched prop).
+    if (![...booths, ...boothsProp].some((b) => b.booth_type === 'registration_desk')) {
+      tmpBoothSeq.current += 1;
+      const id = `tmp-${tmpBoothSeq.current}`;
+      setBooths((bs) => [
+        ...bs,
+        {
+          booth_id: id,
+          event_id: eventId,
+          booth_type: 'registration_desk' as BoothType,
+          label: 'Front Desk',
+          x_pos: docked.x,
+          y_pos: docked.y,
+          sort_order: bs.length,
+          zone: 'cocktail',
+          event_vendor_id: null,
+        },
+      ]);
+      setBoothsDirty(true);
+    }
+
+    // Seed a default "Restrooms" wayfinding sign (idempotent) — placed near the
+    // entrance, clamped on-canvas (signs are 0–100), pointing right by default.
+    if (signs.length === 0 && signsProp.length === 0) {
+      const cl = (n: number) => Math.max(4, Math.min(96, n));
+      tmpSignSeq.current += 1;
+      setSigns((ss) => [
+        ...ss,
+        {
+          sign_id: `tmp-${tmpSignSeq.current}`,
+          event_id: eventId,
+          label: 'Restrooms',
+          x_pos: cl(entrance.enabled ? entrance.x + 10 : 75),
+          y_pos: cl(entrance.enabled ? Math.min(96, entrance.y) : 88),
+          rotation_deg: 90,
+          sort_order: ss.length,
+        },
+      ]);
+      setSignsDirty(true);
+    }
+
     setFloorDirty(true);
   };
   const removeCocktailArea = () => {
     setCocktail((c) => ({ ...c, enabled: false }));
+    setFloorDirty(true);
+  };
+  // Toggle the cocktail room's dock mode. Linking re-docks to the entrance;
+  // unlinking leaves the room where it is so the couple can free-place it.
+  const toggleCocktailLink = () => {
+    setCocktail((c) => {
+      const linked = !c.linked;
+      if (linked && entrance.enabled) return { ...c, linked, ...dockCocktail(c, entrance) };
+      return { ...c, linked };
+    });
     setFloorDirty(true);
   };
   // Add a vendor booth. Sized room → it spawns onto the nearest legal
@@ -1643,6 +1766,52 @@ export function SeatingEditor({
       })),
     );
 
+  // Wayfinding signs — serialize for the replace-all saveSigns (tmp ids → null).
+  const signsPayload = (ss: FloorSignRow[]) =>
+    JSON.stringify(
+      ss.map((s, i) => ({
+        sign_id: s.sign_id.startsWith('tmp-') ? null : s.sign_id,
+        label: s.label,
+        x_pos: s.x_pos,
+        y_pos: s.y_pos,
+        rotation_deg: s.rotation_deg,
+        sort_order: i,
+      })),
+    );
+  const addSign = () => {
+    if (signs.length >= 24) return;
+    tmpSignSeq.current += 1;
+    setSigns((ss) => [
+      ...ss,
+      {
+        sign_id: `tmp-${tmpSignSeq.current}`,
+        event_id: eventId,
+        label: 'Restrooms',
+        x_pos: 50,
+        y_pos: 50,
+        rotation_deg: 90,
+        sort_order: ss.length,
+      },
+    ]);
+    setSignsDirty(true);
+  };
+  const rotateSign = (signId: string) => {
+    setSigns((ss) =>
+      ss.map((s) => (s.sign_id === signId ? { ...s, rotation_deg: (s.rotation_deg + 45) % 360 } : s)),
+    );
+    setSignsDirty(true);
+  };
+  const relabelSign = (signId: string, label: string) => {
+    const v = label.trim().slice(0, 40);
+    if (!v) return;
+    setSigns((ss) => ss.map((s) => (s.sign_id === signId ? { ...s, label: v } : s)));
+    setSignsDirty(true);
+  };
+  const removeSign = (signId: string) => {
+    setSigns((ss) => ss.filter((s) => s.sign_id !== signId));
+    setSignsDirty(true);
+  };
+
   // SE resize grip for the stage / dance-floor rects. NW-corner anchored: the
   // grip drags the bottom-right corner; the centre shifts by half the delta so
   // the top-left edge stays put. Self-contained pointer capture on the grip.
@@ -1673,7 +1842,12 @@ export function SeatingEditor({
     const x = r.startX + (w - r.startW) / 2;
     const y = r.startY + (h - r.startH) / 2;
     if (r.kind === 'stage') setStage({ x, y, w, h });
-    else if (r.kind === 'cocktail') setCocktail((c) => ({ ...c, x, y, w, h }));
+    else if (r.kind === 'cocktail')
+      setCocktail((c) => {
+        const next = { ...c, x, y, w, h };
+        // While linked, keep the resized room's near edge GAP off the door.
+        return c.linked && entrance.enabled ? { ...next, ...dockCocktail(next, entrance) } : next;
+      });
     else setDance((dz) => ({ ...dz, x, y, w, h }));
     setFloorDirty(true);
   };
@@ -1739,10 +1913,6 @@ export function SeatingEditor({
   const fitView = () => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    if (tables.length === 0) {
-      applyView(1, { x: 0, y: 0 });
-      return;
-    }
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -1760,6 +1930,24 @@ export function SeatingEditor({
       minY = Math.min(minY, cy - (geo.box.h * s) / 2);
       maxY = Math.max(maxY, cy + (geo.box.h * s) / 2);
     });
+    // Frame the cocktail room too — it can dock OUTSIDE the reception walls
+    // (off the 0–100 canvas), so Fit must include it or it'd be out of view.
+    if (cocktail.enabled) {
+      minX = Math.min(minX, ((cocktail.x - cocktail.w / 2) / 100) * rect.width);
+      maxX = Math.max(maxX, ((cocktail.x + cocktail.w / 2) / 100) * rect.width);
+      minY = Math.min(minY, ((cocktail.y - cocktail.h / 2) / 100) * rect.height);
+      maxY = Math.max(maxY, ((cocktail.y + cocktail.h / 2) / 100) * rect.height);
+      if (entrance.enabled) {
+        minX = Math.min(minX, (entrance.x / 100) * rect.width);
+        maxX = Math.max(maxX, (entrance.x / 100) * rect.width);
+        minY = Math.min(minY, (entrance.y / 100) * rect.height);
+        maxY = Math.max(maxY, (entrance.y / 100) * rect.height);
+      }
+    }
+    if (!Number.isFinite(minX)) {
+      applyView(1, { x: 0, y: 0 });
+      return;
+    }
     const bw = Math.max(1, maxX - minX);
     const bh = Math.max(1, maxY - minY);
     const z1 = clampZoom(Math.min(rect.width / bw, rect.height / bh) * 0.86);
@@ -1798,12 +1986,22 @@ export function SeatingEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables.length, venueScaled, view]);
 
-  const layoutDirty = dirty.size > 0 || floorDirty || boothsDirty;
+  // When the cocktail room is first enabled it docks OUTSIDE the reception walls
+  // (off the 0–100 canvas), so frame it or it'd open out of view.
+  const prevCocktailEnabledRef = useRef(cocktail.enabled);
+  useEffect(() => {
+    if (cocktail.enabled && !prevCocktailEnabledRef.current) fitView();
+    prevCocktailEnabledRef.current = cocktail.enabled;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cocktail.enabled]);
+
+  const layoutDirty = dirty.size > 0 || floorDirty || boothsDirty || signsDirty;
   const saveLayout = () => {
     if (!canEdit) return;
     const ids = Array.from(dirty);
     const fdDirty = floorDirty;
     const bDirty = boothsDirty;
+    const sDirty = signsDirty;
     const lockId = lock.lockId ?? '';
     startTransition(async () => {
       // Multi-step save — if any step reports the lock was lost (a peer took
@@ -1817,6 +2015,14 @@ export function SeatingEditor({
           fd.set('booths', boothsPayload(booths));
           await saveBooths(fd);
           setBoothsDirty(false);
+        }
+        if (sDirty) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lockId);
+          fd.set('signs', signsPayload(signs));
+          await saveSigns(fd);
+          setSignsDirty(false);
         }
         for (const id of ids) {
           const pos = positions[id];
@@ -1855,6 +2061,7 @@ export function SeatingEditor({
           fd.set('cocktail_h', String(cocktail.h));
           fd.set('cocktail_label', cocktail.label);
           fd.set('cocktail_vendor_edit', cocktail.vendorEdit ? 'true' : 'false');
+          fd.set('cocktail_linked', cocktail.linked ? 'true' : 'false');
           if (venue.enabled && venue.width > 0 && venue.length > 0) {
             fd.set('venue_width_m', String(venue.width));
             fd.set('venue_length_m', String(venue.length));
@@ -2265,6 +2472,17 @@ export function SeatingEditor({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
               >
                 <Martini className="h-3.5 w-3.5" /> Cocktail area
+              </button>
+            ) : null}
+            {view === 'plan' ? (
+              <button
+                type="button"
+                onClick={addSign}
+                disabled={signs.length >= 24}
+                title="A directional sign (Restrooms, Parking…) — drag to place, rotate to point"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-mulberry disabled:opacity-40"
+              >
+                <Signpost className="h-3.5 w-3.5" /> Add sign
               </button>
             ) : null}
             {view === 'plan' ? (
@@ -2752,6 +2970,30 @@ export function SeatingEditor({
               the dance floor it's a CONTAINER, so the body is pointer-events-
               none (booths inside stay clickable); move via the label chip,
               resize via the corner grip. */}
+          {/* Doorway connector — drawn from the reception entrance to the docked
+              cocktail room's near edge (arrive → register → enter). */}
+          {cocktail.enabled && cocktail.linked && entrance.enabled ? (
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[3] h-full w-full overflow-visible text-terracotta"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              <line
+                x1={entrance.x}
+                y1={entrance.y}
+                x2={Math.max(cocktail.x - cocktail.w / 2, Math.min(cocktail.x + cocktail.w / 2, entrance.x))}
+                y2={Math.max(cocktail.y - cocktail.h / 2, Math.min(cocktail.y + cocktail.h / 2, entrance.y))}
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+                opacity={0.6}
+              />
+            </svg>
+          ) : null}
+
           {cocktail.enabled ? (
             <div
               className="pointer-events-none absolute z-[4]"
@@ -2777,6 +3019,27 @@ export function SeatingEditor({
                 <Martini className="h-3 w-3" />
                 {cocktail.label}
               </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={toggleCocktailLink}
+                  aria-label={cocktail.linked ? 'Unlink from the entrance' : 'Dock at the entrance'}
+                  title={
+                    cocktail.linked
+                      ? 'Linked to the entrance door — click to free-place'
+                      : 'Free-floating — click to dock at the entrance door'
+                  }
+                  className={`pointer-events-auto absolute left-1.5 bottom-1.5 inline-flex h-5 items-center gap-1 rounded-md border bg-cream px-1.5 text-[9px] font-semibold uppercase tracking-wide shadow-sm ${
+                    cocktail.linked
+                      ? 'border-terracotta/40 text-terracotta'
+                      : 'border-ink/20 text-ink/55'
+                  }`}
+                >
+                  {cocktail.linked ? <Link2 className="h-3 w-3" /> : <Unlink className="h-3 w-3" />}
+                  {cocktail.linked ? 'Linked' : 'Separate'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
@@ -2923,6 +3186,59 @@ export function SeatingEditor({
               >
                 <X className="h-3 w-3" />
               </button>
+            </div>
+          ))}
+
+          {/* Wayfinding signs — rotatable arrow + label (Restrooms, Parking…) */}
+          {signs.map((s) => (
+            <div
+              key={s.sign_id}
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${s.x_pos}%`, top: `${s.y_pos}%` }}
+            >
+              <button
+                type="button"
+                onPointerDown={onSignPointerDown(s.sign_id)}
+                onDoubleClick={() => {
+                  const v = window.prompt('Sign label', s.label);
+                  if (v !== null) relabelSign(s.sign_id, v);
+                }}
+                aria-label={`${s.label} sign — drag to move, double-click to rename`}
+                className={`flex select-none items-center gap-1 rounded-full border bg-cream px-2 py-1 text-[10px] font-semibold text-mulberry shadow-sm ${
+                  dragId === `__sign_${s.sign_id}__`
+                    ? 'border-mulberry cursor-grabbing'
+                    : 'border-mulberry/40 cursor-grab'
+                }`}
+              >
+                <Navigation
+                  className="h-3 w-3"
+                  style={{ transform: `rotate(${s.rotation_deg}deg)` }}
+                />
+                {s.label}
+              </button>
+              {canEdit ? (
+                <>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => rotateSign(s.sign_id)}
+                    aria-label={`Rotate ${s.label} sign`}
+                    title="Rotate 45°"
+                    className="absolute -left-2 -top-2 rounded-full border border-mulberry/30 bg-cream p-0.5 text-mulberry/70 shadow-sm hover:text-mulberry"
+                  >
+                    <RotateCw className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => removeSign(s.sign_id)}
+                    aria-label={`Remove ${s.label} sign`}
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </>
+              ) : null}
             </div>
           ))}
 
@@ -3893,7 +4209,9 @@ function BoothIcon({ type, className }: { type: BoothType; className?: string })
             ? Gift
             : type === 'souvenir_table'
               ? Package
-              : Store;
+              : type === 'registration_desk'
+                ? ClipboardList
+                : Store;
   return <Icon className={className} />;
 }
 

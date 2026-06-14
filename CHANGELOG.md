@@ -438,6 +438,21 @@ Adversarial review (separate agent): **PASS — no functional regressions**; eve
 SPEC IMPACT: None — chrome/routing refactor; no SKU/schema/pricing/copy change. The `(account)` route group is an internal structure only (URLs unchanged). Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner follow-up flagged: per-deploy SW cache-buster auto-stamp.
 
 ---
+## 2026-06-14 · feat(seating): cocktail arrival zone — entrance dock + Front Desk booth + wayfinding signs
+
+Owner-directed (2026-06-14), extending the cocktail/waiting-area feature with three arrival-zone pieces. Designed + adversarially reviewed via workflows (the review caught a vendor-side dock-corruption bug, fixed). Stacks on the vendor-editor PR [#1381](https://github.com/iscasasola/setnayan-platform/pull/1381) — **merge that first.**
+
+1. **Linked at the entrance door.** New `cocktail_linked` (default TRUE) — a couple/coordinator connect⇄separate toggle on the room. Linked **docks** the room beside the reception at `entrance_x/y` (nearest-wall + GAP push, cross-axis aligned to the door) with a drawn doorway connector (arrive→register→enter). Dragging the room auto-unlinks; re-docks on entrance move / add / room resize. The cocktail coordinate clamp is **widened to [-80,180]** across all three write paths (couple `saveFloorPlan`, `vendor_set_cocktail_area`, cocktail-zone booths in `parseBoothsPayload`) so the off-wall room isn't snapped on-canvas; `fitView` now frames the cocktail room + entrance, and the view auto-fits when the room is enabled. Vendors **read** the link but can't toggle it.
+2. **Default Front Desk booth.** New `registration_desk` booth_type; `addCocktailArea` idempotently seeds one "Front Desk" booth into the room (guarded across local state + the fetched prop, so no duplicate on toggle/reload). `ClipboardList` icon.
+3. **General wayfinding signs.** New `event_floor_signs` table (rotatable arrow + 1–40 char label, default "Restrooms", add ≤24). Couple/coordinator manage via a replace-all `saveSigns` (same shape as `saveBooths`, lock-asserted); ARRANGE-tier cocktail vendors CRUD via `vendor_upsert/move/delete_sign` (booth-tier vendors rejected). Editor: drag / rotate 45° / double-click rename / delete + an "Add sign" toolbar button.
+
+- `supabase/migrations/20261222000000_iteration_0008_cocktail_arrival_zone.sql` — **additive, APPLIED TO PROD 2026-06-14** (statement-by-statement, ledgered): `cocktail_linked` col, `registration_desk` in the `event_floor_booths` booth_type CHECK, `event_floor_signs` + RLS (couple Pattern B + coordinator seat_plan='edit'), `get_vendor_cocktail_editor` v2 (adds `linked`+`entrance`+`signs`), `vendor_set_cocktail_area` widened clamp, `vendor_upsert_cocktail_booth` + 3 vendor sign RPCs (all ARRANGE-gated).
+- `lib/seating.ts` (cocktail_linked, registration_desk, FloorSignRow + fetchSigns), couple `actions.ts` (cocktail_linked + widened clamp + saveSigns), `page.tsx` (fetchSigns), `seating-editor.tsx` (dock + toggle + connector + seeds + sign UI + fitView), vendor `cocktail-editor.tsx`/`actions.ts` (read-only connector + sign CRUD).
+- **Concurrency note (intentional):** vendor cocktail/booth/sign writes stay OUTSIDE the couple's exclusive seating lock (low-stakes pins; documented in the migration header).
+- **Deferred follow-up (flagged):** signs + Front Desk don't yet reach the guest-consumable surfaces (publish print-pack, day-of guest map 0031) — authoring only for now.
+- Verified: `tsc` clean; migration applied + verified on prod; adversarial review (6 agents) → 1 confirmed bug fixed.
+
+SPEC IMPACT: extends iteration 0008's cocktail-area feature. Logged in corpus `DECISION_LOG.md` + `0008` AS-BUILT header.
 
 ## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
 

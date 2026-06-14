@@ -5,6 +5,7 @@ import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests'
 import { renderBrandedInvitationQrSvg, resolveBrandedQrColors } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { checkOrderOwnership } from '@/lib/entitlements';
 
 export const metadata = { title: 'Branded QR print sheet · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -39,18 +40,11 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  // Ownership gate — same query shape as the detail page. Graceful-degrade on
-  // a missing orders table by treating it as not-owned (→ redirect to buy).
-  const { data: orders, error: ordersError } = await supabase
-    .from('orders')
-    .select('status')
-    .eq('event_id', eventId)
-    .eq('service_key', 'CUSTOM_QR_GUEST')
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-  if (ordersError && ordersError.code !== '42P01' && ordersError.code !== '42703') {
-    throw new Error(`Failed to load Custom QR order state: ${ordersError.message}`);
-  }
-  const owns = (orders ?? []).length > 0;
+  // Ownership gate via the shared checkOrderOwnership() reader
+  // (lib/entitlements.ts) — same refund-aware read as the detail page.
+  // Graceful-degrade on a missing orders table by treating it as not-owned
+  // (→ redirect to buy).
+  const owns = await checkOrderOwnership(supabase, eventId, 'CUSTOM_QR_GUEST');
   if (!owns) {
     redirect(`/dashboard/${eventId}/add-ons/custom-qr-guest`);
   }

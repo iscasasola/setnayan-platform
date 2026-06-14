@@ -38,11 +38,7 @@ export function GuestsViewSwitcher({
   ];
 
   return (
-    <div
-      role="tablist"
-      aria-label="Guest list view"
-      className="inline-flex rounded-lg border border-ink/15 bg-cream p-0.5"
-    >
+    <div role="tablist" aria-label="Guest list view" className="sn-seg inline-flex">
       {tabs.map(({ key, label, Icon }) => {
         const on = key === active;
         return (
@@ -51,11 +47,7 @@ export function GuestsViewSwitcher({
             href={hrefFor(key)}
             role="tab"
             aria-selected={on}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
-              on
-                ? 'bg-white font-medium text-ink shadow-sm'
-                : 'text-ink/55 hover:text-ink'
-            }`}
+            className="sn-seg-item inline-flex items-center justify-center gap-1.5 px-3 text-sm"
           >
             <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             {label}

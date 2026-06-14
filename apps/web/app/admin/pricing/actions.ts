@@ -77,6 +77,7 @@ export async function updateRetailSku(formData: FormData) {
   const title = formData.get('title');
   const description = formData.get('description');
   const retailPriceRaw = formData.get('retail_price_php');
+  const costRaw = formData.get('saas_overhead_cost_php');
   // Checkboxes only post when checked. Coerce absence to FALSE.
   const isActiveRaw = formData.get('is_active');
 
@@ -89,6 +90,9 @@ export async function updateRetailSku(formData: FormData) {
   if (typeof retailPriceRaw !== 'string') {
     throw new Error('Missing retail_price_php');
   }
+  if (typeof costRaw !== 'string') {
+    throw new Error('Missing saas_overhead_cost_php');
+  }
 
   const retailPrice = Number(retailPriceRaw);
   if (!Number.isFinite(retailPrice) || retailPrice < 0) {
@@ -97,6 +101,12 @@ export async function updateRetailSku(formData: FormData) {
   // Round to 2 decimals to match NUMERIC(10,2) schema. Avoids floating-point
   // drift if admin enters a high-precision value.
   const retailPriceRounded = Math.round(retailPrice * 100) / 100;
+
+  const cost = Number(costRaw);
+  if (!Number.isFinite(cost) || cost < 0) {
+    throw new Error('saas_overhead_cost_php must be a non-negative number');
+  }
+  const costRounded = Math.round(cost * 100) / 100;
 
   const isActive = isActiveRaw === 'on' || isActiveRaw === 'true';
 
@@ -109,7 +119,7 @@ export async function updateRetailSku(formData: FormData) {
   // fails we still proceed with the update (matches /admin/users pattern).
   const { data: prior } = await admin
     .from('platform_retail_catalog_v2')
-    .select('title, description, retail_price_php, is_active')
+    .select('title, description, retail_price_php, saas_overhead_cost_php, is_active')
     .eq('service_code', serviceCode)
     .maybeSingle();
 
@@ -133,6 +143,7 @@ export async function updateRetailSku(formData: FormData) {
       title: title.trim(),
       description: descriptionTrim === '' ? null : descriptionTrim,
       retail_price_php: retailPriceRounded,
+      saas_overhead_cost_php: costRounded,
       is_active: isActive,
       updated_by_admin_id: adminUserId,
       // updated_at auto-stamped by tg_v2_catalog_set_updated_at trigger ·
@@ -154,6 +165,7 @@ export async function updateRetailSku(formData: FormData) {
         title: title.trim(),
         description: descriptionTrim === '' ? null : descriptionTrim,
         retail_price_php: retailPriceRounded,
+        saas_overhead_cost_php: costRounded,
         is_active: isActive,
       },
     },

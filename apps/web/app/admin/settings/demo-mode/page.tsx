@@ -34,6 +34,7 @@ import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
 } from '@/lib/demo-mode';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Demo mode · Admin · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -124,13 +125,10 @@ export default async function DemoModeAdminPage({ searchParams }: Props) {
       </header>
 
       {justToggled ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Demo mode is now <strong>{search.toggled === 'on' ? 'ON' : 'OFF'}</strong>.
           The cookie is set for the current admin session.
-        </p>
+        </FormFlash>
       ) : null}
 
       <section className="space-y-5 rounded-xl border border-ink/10 bg-cream p-5">

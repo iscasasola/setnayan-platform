@@ -1,0 +1,40 @@
+name: auto-enable-automerge
+
+# AUTO-UPLOAD guardrail (owner 2026-06-14): every non-draft PR has auto-merge
+# armed automatically, so shipping to prod never depends on a session (Claude
+# or human) remembering to run `gh pr merge --auto`. The actual merge is still
+# gated by branch protection — auto-merge only fires once ALL required checks
+# pass (typecheck+lint · production build · secret scan · migration timestamp
+# guard · playwright e2e · bundle size · lighthouse). Broken code can never
+# auto-merge; this only removes the "forgot to arm it" failure mode that let
+# PRs pile up unmerged.
+#
+# To HOLD a PR (don't let it auto-merge): open it as a DRAFT — this workflow
+# skips drafts. Marking it "Ready for review" arms auto-merge. To pause an
+# already-armed PR: `gh pr merge <#> --disable-auto`.
+#
+# RETIRE THIS at public-vendor launch: when updates move to a temp/staging
+# site (see corpus deployment-phases), delete this workflow so prod stops
+# auto-accepting every green PR.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-automerge:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Arm auto-merge (merge commit)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --auto --merge \
+          || echo "Could not arm auto-merge (already merged, or not yet mergeable) — branch protection still gates the merge."

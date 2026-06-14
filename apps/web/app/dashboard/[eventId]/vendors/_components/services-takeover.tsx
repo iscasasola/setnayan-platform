@@ -139,8 +139,9 @@ export function ServicesTakeover({
         <X className="h-5 w-5" strokeWidth={2} aria-hidden />
       </Link>
 
-      {/* Desktop tab strip — mobile uses the sticky-top section nav below. */}
-      <div role="tablist" aria-label="Services sections" className="mb-4 hidden items-center gap-1 border-b border-ink/10 lg:flex">
+      {/* Desktop tab strip — pill segmented control (sn-seg). Mobile uses the
+          sticky-top pill nav below. */}
+      <div role="tablist" aria-label="Services sections" className="sn-seg mb-4 hidden lg:flex">
         {BUDGET_BUILD_TABS.map((key) => {
           const { label, icon: Icon } = TAB_META[key];
           const on = key === tab;
@@ -153,9 +154,7 @@ export function ServicesTakeover({
               aria-selected={on}
               aria-controls="budget-build-panel"
               onClick={() => selectTab(key)}
-              className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                on ? 'border-terracotta text-ink sn-bounce' : 'border-transparent text-ink/50 hover:text-ink/80'
-              }`}
+              className={`sn-seg-item${on ? ' sn-bounce' : ''}`}
             >
               <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               {label}
@@ -164,43 +163,35 @@ export function ServicesTakeover({
         })}
       </div>
 
-      {/* Mobile section nav — sticky header (desktop uses the top strip above).
-          The global bottom nav now owns the very bottom of the screen, so this
-          surface's own section nav rides at the top of the page body instead of
-          stacking a second bottom bar. */}
-      <nav
-        role="tablist"
-        aria-label="Services sections"
-        className="sticky top-0 z-10 flex border-b border-ink/10 bg-cream/95 backdrop-blur lg:hidden"
-      >
-        {BUDGET_BUILD_TABS.map((key) => {
-          const { label, icon: Icon } = TAB_META[key];
-          const on = key === tab;
-          return (
-            <button
-              key={`${key}-${tab}`}
-              type="button"
-              role="tab"
-              id={`bbtab-m-${key}`}
-              aria-selected={on}
-              aria-controls="budget-build-panel"
-              onClick={() => selectTab(key)}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2${on ? ' sn-bounce' : ''}`}
-            >
-              <Icon
-                className={`h-5 w-5 ${on ? 'text-terracotta' : 'text-ink/50'}`}
-                strokeWidth={1.75}
-                aria-hidden
-              />
-              <span
-                className={`text-[10px] ${on ? 'font-semibold text-terracotta' : 'text-ink/60'}`}
+      {/* Mobile section nav — sticky-header pill segmented control (sn-seg).
+          Desktop uses the top strip above. The global bottom nav now owns the
+          very bottom of the screen, so this surface's own section nav rides at
+          the top of the page body as a pill track instead of stacking a second
+          bottom bar. The sticky wrapper keeps a soft backdrop pad behind the
+          pill; the rectangular border-b framing is gone. */}
+      <div className="sticky top-0 z-10 -mx-2 mb-2 bg-cream/95 px-2 py-2 backdrop-blur lg:hidden">
+        <nav role="tablist" aria-label="Services sections" className="sn-seg">
+          {BUDGET_BUILD_TABS.map((key) => {
+            const { label, icon: Icon } = TAB_META[key];
+            const on = key === tab;
+            return (
+              <button
+                key={`${key}-${tab}`}
+                type="button"
+                role="tab"
+                id={`bbtab-m-${key}`}
+                aria-selected={on}
+                aria-controls="budget-build-panel"
+                onClick={() => selectTab(key)}
+                className={`sn-seg-item min-w-0 px-1.5 text-[11px]${on ? ' sn-bounce' : ''}`}
               >
-                {label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                <span className="min-w-0 truncate">{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
       {/* Active tab content */}
       <div

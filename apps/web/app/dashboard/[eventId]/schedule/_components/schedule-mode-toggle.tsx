@@ -44,7 +44,7 @@ export function ScheduleModeToggle({
     <div
       role="tablist"
       aria-label="Schedule view"
-      className="inline-flex w-full max-w-md rounded-xl border border-ink/10 bg-cream p-1 sm:w-auto"
+      className="sn-seg w-full max-w-md sm:w-auto"
     >
       <Segment
         key={`preparation-${active === 'preparation'}`}
@@ -84,10 +84,8 @@ function Segment({
       role="tab"
       aria-selected={isActive}
       scroll={false}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
-        isActive
-          ? 'bg-ink text-cream shadow-sm sn-bounce'
-          : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
+      className={`sn-seg-item gap-2 text-sm font-medium sm:flex-none sm:px-4${
+        isActive ? ' sn-bounce' : ''
       }`}
     >
       <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -95,7 +93,7 @@ function Segment({
       {badge !== undefined ? (
         <span
           className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none ${
-            isActive ? 'bg-cream/20 text-cream' : 'bg-terracotta/15 text-terracotta'
+            isActive ? 'bg-ink/10 text-ink' : 'bg-terracotta/15 text-terracotta'
           }`}
         >
           {badge}

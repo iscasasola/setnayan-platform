@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCentavosPhp } from '@/lib/sku-catalog';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 
 export const metadata = { title: 'Add-ons · Admin' };
 
@@ -251,12 +252,9 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
       </header>
 
       {catalogError ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <FormFlash tone="error">
           Add-ons couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
-        </p>
+        </FormFlash>
       ) : null}
 
       {/*

@@ -22,6 +22,7 @@ import {
   formatPhp,
 } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
 import {
   createVendorService,
   proposeCategory,
@@ -720,26 +721,6 @@ function RequestStatusBadge({
     >
       {label}
     </span>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">{label}</span>
-      {children}
-      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
-    </label>
   );
 }
 

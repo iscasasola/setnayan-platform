@@ -192,6 +192,20 @@ Finishes the form-primitive dedup (dashboard-consolidation Track A): replaces re
 Verify: `pnpm exec tsc --noEmit` exit 0, zero `error TS` · `pnpm exec next lint --file <each of 16 changed files>` clean (no unused imports left behind).
 
 SPEC IMPACT: None (code-internal; no behavior/visual/route/schema change)
+## 2026-06-14 · refactor(dashboard): shared verification cards — dedup Track A6
+
+Deduped the presentational layer the vendor (SUBMIT) and admin (REVIEW) verification surfaces had forked. New `apps/web/app/_components/verification/` owns the genuinely-shared cards; both pages keep their own role-scoped, RLS-bound fetch + server actions (vendor submits its draft; admin approves/rejects/demotes) — only presentation was extracted, never the data or action flows.
+
+- **`verification-status-card.tsx`** — owns all verification-state presentation keyed off `VERIFICATION_STATE_LABEL`. Two exports because the two surfaces render the state at different sizes: `VerificationStatusCard` (vendor's full hero card; the "Latest application" footer is passed in as a `meta` node) and `VerificationStateBadge` (admin queue's compact "Tier · …" pill). Both surfaces' tone palettes are co-located here and preserved byte-for-byte (they intentionally differ slightly — `text-ink/75` card vs `text-ink/65` pill).
+- **`doc-slot-card.tsx`** — the vendor doc-slot card *shell* (`DocSlotCard`: bordered tile + "Item N of N" eyebrow + label + hint) plus the shared `SlotBadge`. The per-slot input form (file upload / URL field / Setnayan-run notice) is passed in as `children`, so the submit-side action wiring stays in the vendor page. The admin's read-only `<details>` doc list is genuinely different DOM and was left in-page on purpose.
+- **`application-progress.tsx`** — the vendor's `{n} of {total} · {pct}%` progress card with its accessible progress bar. The admin shows the same count as a plain inline "Checklist: N/12" line (no bar) — left in-page.
+- **`vendor-dashboard/verify/page.tsx`** now renders the three shared components (local `StatusCard`, `ApplicationProgressBar`, `SlotBadge`, and the old inline `DocSlotCard` markup removed; a thin `VendorDocSlotCard` wrapper feeds the shared shell). **`admin/verify/page.tsx`** swapped its local `StateBadge` for the shared `VerificationStateBadge`. Net ~162 LOC removed from the two pages.
+
+All three new components carry a JSDoc header noting the 2026-06-14 A6 dedup and mirror the `viewerRole` role-parameterization of `app/_components/chat-message-stream.tsx`. No DOM/visual change — the rendered markup matches today byte-for-byte.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files.
+
+SPEC IMPACT: None (code-internal; no behavior/visual change).
 
 ## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
 

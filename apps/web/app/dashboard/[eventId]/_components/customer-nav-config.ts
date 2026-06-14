@@ -58,6 +58,7 @@ import {
   UserPlus,
   User,
   SlidersHorizontal,
+  Aperture,
 } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
@@ -72,7 +73,7 @@ import type { NavGroup } from '@/app/_components/nav/types';
  * group past the top + Plan collapses by default so the long tail
  * (Book · Design · Day-of · After · Settings) stays out of the way until
  * the couple reaches that phase:
- *   0. (top · headerless-feeling "Setnayan") — Home · Studio · Explore
+ *   0. (top · headerless-feeling "Setnayan") — Home · Studio · Alaala · Explore
  *   1. Plan      — Guests · Seating · Schedule · Budget
  *   2. Book      — Messages · Contracts                      (collapsed)
  *   3. Design    — Website · Mood Board · Monogram           (collapsed)
@@ -122,6 +123,19 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           href: `${base}/add-ons`,
           icon: Sparkles,
           matchPrefix: `${base}/add-ons`,
+        },
+        {
+          // Alaala — the living-memory hub (Lane 2 of the Alaala embed,
+          // owner 2026-06-15). The narrative "story" view of the memory pillar
+          // that the Studio "store" sells into (the arc of the day: opening →
+          // moment → people → stories → look & sound → kept forever). Placed in
+          // the top anchor group for prominence per the "winning piece"
+          // directive — surfaced for owner review (top group was 3 anchors).
+          key: 'alaala',
+          label: 'Alaala',
+          href: `${base}/alaala`,
+          icon: Aperture,
+          matchPrefix: `${base}/alaala`,
         },
         {
           // Explore — the vendor marketplace. Relabeled from "Services"

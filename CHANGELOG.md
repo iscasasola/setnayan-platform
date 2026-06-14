@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(alaala): the in-app Alaala hub — the memory arc as a place (Lane 2)
+
+Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
+
+- **New route `apps/web/app/dashboard/[eventId]/alaala/page.tsx`** — server component, **catalog-driven**: maps the real `ADD_ONS` entries to six memory stages (opening → moment → people → stories → look & sound → kept forever); each chip deep-links into that feature's setup. Header names the pillar + states the guardrail. Calm v2.1, `--m-*` tokens. (Per-event ownership / "watch it fill with real content" is a follow-up; today it's the narrative + the links.)
+- **`apps/web/app/dashboard/[eventId]/_components/customer-nav-config.ts`** — adds an **Alaala** entry (Aperture icon, `key: 'alaala'`, `/alaala`) to the top anchor group → **Home · Studio · Alaala · Explore**. ⚠ IA NOTE: the top group was 3 anchors; promoted to 4 for prominence per the owner "winning piece" directive — **flagged for owner review** (easy to move to a journey group if preferred).
+
+SPEC IMPACT: None on schema/SKU (new narrative surface + one nav item). **Lane 3 next** — finish the keystones (Kwento → Live Photo Wall → produced-output), the part competitors structurally can't copy.
+
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 
 Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tagalog: memory / remembrance / keepsake — it gathers Papic / Panood / Kwento / Pakanta / the rest into one promise) + a 3-lane embed plan (narrative spine → in-app Alaala hub → finish the uncopyable keystones). This is **Lane 1 (the spine), increment 1**:

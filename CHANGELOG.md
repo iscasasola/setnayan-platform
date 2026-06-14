@@ -24,6 +24,19 @@ SPEC IMPACT: None (CI/merge automation; no app schema/SKU/pricing/surface change
 **Verification:** `tsc` clean · `next lint` clean. No schema; no behavior change for the original four faces or the two sturdy new serifs.
 
 **SPEC IMPACT:** None beyond the #1260 row's flagged follow-up now closed (corpus DECISION_LOG batch row).
+## 2026-06-14 · feat(website): love story → the pre-event paths; Editorial = pure showcase (4-path PR C)
+
+Owner decisions this session: (1) "no show of what they spent" — the Editorial recaps *what was used/created* (gallery, vendor credits, "used at this wedding", thank-you) but shows **no money** (it already showed none — confirmed); (2) "love story applies to save the date, rsvp and event" — the couple's love story moves OFF the post-event Editorial and ONTO the run-up paths. Stacks on PR B (branch `claude/couple-palette`).
+
+- `apps/web/app/[slug]/_components/our-story.tsx` (new) — a self-contained `OurStory` with a small PURE composer that weaves only the **timeless** love-story beats (how they met · the proposal · the spark) + a milestone timeline. Deliberately NOT the editorial's `composeLede` (whose closing is past-tense "were married" — wrong before the wedding). `variant="teaser"` (one line, for Save the Date) / `"full"` (prose + timeline, for RSVP + Event). Renders nothing when there's no story. Reads the existing `events.love_story` JSONB (no migration).
+- `apps/web/app/[slug]/page.tsx` — `love_story` added to the event select + `EventRow`; `<OurStory variant="full">` rendered in both run-up bodies (PublicLanding + InvitationSite — which only render in the rsvp/event phases, so it naturally stays off Editorial); `<OurStory variant="teaser">` threaded into `SaveTheDateView`.
+- `apps/web/app/[slug]/_components/save-the-date.tsx` — takes `loveStory`, renders the teaser.
+- `apps/web/app/[slug]/_components/editorial/editorial-content.tsx` — removed the love narrative: the lede prose paragraphs (kept the thank-you pull-quote) + the "The Story So Far" milestone timeline (+ its now-unused `Timeline` component). Editorial now leads with its masthead title + cover photo, then the showcase (team · gallery · live wall · reviews · Powered by Setnayan). No money anywhere.
+
+Photo scrims: the hero + editorial cover photo already carry gradient scrims (no net-new needed); `OurStory` is text-only.
+
+SPEC IMPACT: love story relocates from post-event Editorial → pre-event paths (iteration 0002 + 0046); Editorial is a money-free showcase. Resolves the two open product calls (spend privacy + love-story home). Logged in `DECISION_LOG.md` (corpus).
+
 ## 2026-06-14 · feat(website): mood-board palette skins the couple site — contrast-safe theming (4-path PR B)
 
 Owner design: "our RSVP will adapt to the mood board's palette" + "the editorial will also be based on their moodboard and the rest of their personal website." The couple's palette already lived in the DB (`events.role_palette`, iteration 0010 mood board) but was never applied to the public site — the `/[slug]` page rendered fixed brand colors. This wires it in, across all four paths, with a legibility guarantee.

@@ -53,10 +53,6 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
     };
   }
 
-  const milestones = Array.isArray(data.loveStory.milestones)
-    ? data.loveStory.milestones.filter((x) => x && (x.year || x.title || x.note))
-    : [];
-
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
@@ -130,7 +126,10 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
             (story first, numbers as the recap right after). */}
         <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[1.95fr_0.85fr] lg:gap-9">
           <div className="min-w-0">
-            <LeadArticle paragraphs={copy.leadParagraphs} pullQuote={copy.pullQuote} />
+            {/* Editorial = post-event SHOWCASE: the love story now lives on the
+                run-up paths (Save the Date / RSVP / Event), not here. We keep
+                the thank-you pull-quote, drop the love-narrative paragraphs. */}
+            <LeadArticle paragraphs={[]} pullQuote={copy.pullQuote} />
             {data.vendors.length ? <TeamBehindTheDay vendors={data.vendors} /> : null}
           </div>
 
@@ -138,14 +137,6 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
             <ByTheNumbers data={data} />
           </aside>
         </div>
-
-        {/* Timeline ------------------------------------------------------------ */}
-        {milestones.length ? (
-          <>
-            <SectionRule title="The Story So Far" />
-            <Timeline milestones={milestones} />
-          </>
-        ) : null}
 
         {/* From the couple (pull from special_message) ------------------------ */}
         {data.specialMessage ? (
@@ -515,32 +506,6 @@ function SectionRule({ title }: { title: string }): ReactElement {
       <h3 className="m-0 whitespace-nowrap font-display text-2xl font-bold">{title}</h3>
       <span aria-hidden className="h-px flex-1 bg-ink" />
     </div>
-  );
-}
-
-function Timeline({
-  milestones,
-}: {
-  milestones: NonNullable<EditorialData['loveStory']['milestones']>;
-}): ReactElement {
-  return (
-    <ol className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-      {milestones.slice(0, 9).map((ms, i) => (
-        <li key={i} className="border-l-2 border-terracotta pl-3">
-          {ms.year ? (
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-              {ms.year}
-            </div>
-          ) : null}
-          {ms.title ? (
-            <div className="mt-0.5 font-display text-lg font-semibold leading-tight">
-              {ms.title}
-            </div>
-          ) : null}
-          {ms.note ? <p className="mt-1 font-serif text-sm leading-snug text-ink/70">{ms.note}</p> : null}
-        </li>
-      ))}
-    </ol>
   );
 }
 

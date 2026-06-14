@@ -68,7 +68,7 @@ export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
   const links: Array<{ label: string; href: string }> = [
     { label: 'Explore', href: '/vendors' },
     { label: 'For vendors', href: '/for-vendors' },
-    { label: 'Our story', href: '/about' },
+    { label: 'Our story', href: '/our-story' },
     { label: 'Real Stories', href: '/weddings' },
   ];
 

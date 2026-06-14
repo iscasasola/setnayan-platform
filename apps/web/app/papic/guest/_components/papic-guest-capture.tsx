@@ -49,6 +49,10 @@ export function PapicGuestCapture({
   const [kwentoConsent, setKwentoConsent] = useState(false);
   const [kwentoPhase, setKwentoPhase] = useState<'idle' | 'sending' | 'sent' | 'held'>('idle');
   const [kwentoError, setKwentoError] = useState<string | null>(null);
+  // The just-sent message, so the guest can change their mind and delete it.
+  // The 24h window + ownership are enforced server-side by the delete RPC.
+  const [sentMessageId, setSentMessageId] = useState<string | null>(null);
+  const [deletePhase, setDeletePhase] = useState<'idle' | 'deleting' | 'deleted'>('idle');
 
   // UGC terms gate (Apple 1.2 / Google Play UGC). The guest must accept the
   // objectionable-content terms once before their first capture. If they've
@@ -198,9 +202,16 @@ export function PapicGuestCapture({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ captureId: kwentoCaptureId, body: text, consent: true }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; state?: string; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        state?: string;
+        error?: string;
+        messageId?: string;
+      };
       if (res.ok && json.ok) {
         setKwentoPhase(json.state === 'flagged' ? 'held' : 'sent');
+        setSentMessageId(json.messageId ?? null);
+        setDeletePhase('idle');
         return;
       }
       setKwentoPhase('idle');
@@ -216,6 +227,21 @@ export function PapicGuestCapture({
     } catch {
       setKwentoPhase('idle');
       setKwentoError('No signal — try again in a moment.');
+    }
+  };
+
+  const deleteKwento = async () => {
+    if (!sentMessageId || deletePhase === 'deleting') return;
+    setDeletePhase('deleting');
+    try {
+      const res = await fetch('/api/papic/kwento/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: sentMessageId }),
+      });
+      setDeletePhase(res.ok ? 'deleted' : 'idle');
+    } catch {
+      setDeletePhase('idle');
     }
   };
 
@@ -433,15 +459,27 @@ export function PapicGuestCapture({
             ) : null}
           </div>
         ) : null}
-        {kwentoPhase === 'sent' ? (
-          <p className="text-center text-xs text-cream/80">
-            Naipadala na! 💛 Salamat — your story is on its way to the couple.
-          </p>
-        ) : null}
-        {kwentoPhase === 'held' ? (
-          <p className="text-center text-xs text-cream/70">
-            Sent — held for the couple to review first. 💛
-          </p>
+        {kwentoPhase === 'sent' || kwentoPhase === 'held' ? (
+          <div className="space-y-1 text-center">
+            <p className="text-xs text-cream/80">
+              {kwentoPhase === 'sent'
+                ? 'Naipadala na! 💛 Salamat — your story is on its way to the couple.'
+                : 'Sent — held for the couple to review first. 💛'}
+            </p>
+            {sentMessageId && deletePhase !== 'deleted' ? (
+              <button
+                type="button"
+                onClick={() => void deleteKwento()}
+                disabled={deletePhase === 'deleting'}
+                className="text-[11px] text-cream/50 underline underline-offset-2 hover:text-cream/80 disabled:opacity-50"
+              >
+                {deletePhase === 'deleting' ? 'Removing…' : 'Changed your mind? Delete this story'}
+              </button>
+            ) : null}
+            {deletePhase === 'deleted' ? (
+              <p className="text-[11px] text-cream/50">Deleted — it won&rsquo;t be shared.</p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

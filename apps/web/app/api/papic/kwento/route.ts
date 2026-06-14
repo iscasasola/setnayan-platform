@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
+import { emitNotification } from '@/lib/notification-emit';
 
 // POST /api/papic/kwento — a zero-account guest writes the story behind one
 // of their captures (Kwento P1, 0012 § Kwento; owner-locked: text-only, free
@@ -79,8 +80,37 @@ export async function POST(req: Request) {
   const row = (Array.isArray(data) ? data[0] : data) as
     | { message_id?: string; moderation_state?: string }
     | undefined;
-  return NextResponse.json({
-    ok: true,
-    state: row?.moderation_state ?? verdict.state,
-  });
+  const state = row?.moderation_state ?? verdict.state;
+
+  // A flagged Kwento can't auto-appear on the wall — nudge the couple to review
+  // it. Clean ones surface in the queue/wall console without an email (no spam
+  // during a live reception). after() = post-response, cron-free.
+  if (state === 'flagged') {
+    after(async () => {
+      try {
+        const { data: members } = await admin
+          .from('event_members')
+          .select('user_id')
+          .eq('event_id', session.event_id)
+          .eq('member_type', 'couple');
+        const seen = new Set<string>();
+        for (const m of (members ?? []) as Array<{ user_id?: string }>) {
+          const uid = m.user_id;
+          if (!uid || seen.has(uid)) continue;
+          seen.add(uid);
+          await emitNotification({
+            userId: uid,
+            type: 'kwento_flagged',
+            title: 'A guest story needs your review',
+            body: 'A guest added a caption that needs your okay before it can appear on the wall.',
+            relatedUrl: `/dashboard/${session.event_id}/add-ons/papic/moderation`,
+          });
+        }
+      } catch {
+        // never let a notification failure affect the guest's send
+      }
+    });
+  }
+
+  return NextResponse.json({ ok: true, state, messageId: row?.message_id ?? null });
 }

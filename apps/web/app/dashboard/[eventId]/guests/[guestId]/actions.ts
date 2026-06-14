@@ -218,6 +218,16 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // box still checked is cheap.
   if (faceblock_enabled) {
     after(async () => {
+      // Hide this guest as the PUBLIC author of every Kwento they wrote (P2
+      // parity with the wall) — best-effort, must not block the wall re-bake.
+      try {
+        const { createAdminClient } = await import('@/lib/supabase/admin');
+        await createAdminClient().rpc('set_guest_messages_hidden_by_faceblock', {
+          p_guest_id: guestId,
+        });
+      } catch {
+        /* message-hide is best-effort; the wall re-bake below is the priority */
+      }
       const { rebakeWallForEvent } = await import('@/lib/face-blur');
       await rebakeWallForEvent(eventId);
     });

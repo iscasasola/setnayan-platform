@@ -83,7 +83,13 @@ export type NotificationType =
   // password update succeeds: "Your password was changed — if this wasn't
   // you, reset it immediately and sign out other devices." NOT fired from
   // signOutOtherDevices (that's the remedy, not the threat).
-  | 'security_alert';
+  | 'security_alert'
+  // Added 2026-06-15 (Alaala Lane 3 · Kwento P1) alongside migration
+  // 20261227000000_kwento_flagged_notification_type.sql. Fired (couple-recipient)
+  // from app/api/papic/kwento/route.ts when a guest's Kwento is HELD by Tier-1
+  // moderation and needs review before it can appear on the wall. Clean Kwentos
+  // do NOT notify (the queue/wall console surfaces them; no live-reception spam).
+  | 'kwento_flagged';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -112,6 +118,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_tokens_credited: 'Tokens credited',
   guest_claim_pending: 'Guest request to confirm',
   security_alert: 'Security alert',
+  kwento_flagged: 'Guest story to review',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -155,6 +162,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // dispute_filed. Benign for the user who made the change, urgent for the
   // one who didn't; the tray must read as "look at this now" either way.
   security_alert: 'bg-rose-100 text-rose-800',
+  // A held guest story = the couple's okay is needed → amber (action-needed),
+  // matching review_request / guest_claim_pending.
+  kwento_flagged: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

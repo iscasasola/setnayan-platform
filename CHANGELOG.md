@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(kwento): close the 3 buildable Kwento gaps — guest self-delete, FaceBlock author-hide, couple email (Alaala Lane 3)
+
+Kwento (photo-anchored guest messages) was ~90% shipped; this closes the three remaining **buildable** gaps. The "words baked into a film" moat stays blocked on the absent video render pipeline — a separate, owner-actionable infra decision, not a Kwento gap.
+
+- **Guest 24h self-delete.** New service-role RPC `guest_delete_own_message` (24h window + author-only + not-baked guard; soft-delete + pulls it from the wall immediately) + `POST /api/papic/kwento/delete` + an inline "Changed your mind? Delete this story" affordance on the guest capture surface after sending (`papic-guest-capture.tsx`). The submit route now returns the `messageId`.
+- **FaceBlock → hide author.** New RPC `set_guest_messages_hidden_by_faceblock`; the couple's guest-edit action calls it (best-effort, inside the existing FaceBlock `after()` block) so enabling "blur my face on the wall" also hides that guest as the public author of their Kwentos (the couple still sees them privately).
+- **Couple email on a held Kwento.** New `kwento_flagged` notification type (0028 enum); the submit route fires `emitNotification` (via `after()`, couple-recipient, links to the moderation queue) ONLY when Tier-1 moderation HELD the message — clean ones surface in the queue/wall console without an email (no live-reception spam).
+
+Migrations: `20261227000000_kwento_flagged_notification_type.sql` (standalone enum-add) + `20261227000100_kwento_p1_self_delete_faceblock_sync.sql` (2 RPCs). **Applied to prod 2026-06-15** (idempotent: `ADD VALUE IF NOT EXISTS` + `CREATE OR REPLACE`). tsc + lint green.
+
+SPEC IMPACT: 0012 § Kwento — P1 self-delete + FaceBlock author-sync + flagged-email landed; the produced-FILM form remains blocked on the video pipeline. No price/SKU change.
 ## 2026-06-15 · feat(pricing): soft-paywall banner on the match surface (completes the Setnayan AI buy flow)
 
 Follow-up to the AI buy surface (#1433). The buy *page* shipped there; this adds the **soft paywall where couples feel the gate** — the top of the vendor shortlist on `/dashboard/[eventId]/vendors`. When the AI paywall is ON and the event hasn't purchased Setnayan AI (`shouldOfferSetnayanAiPurchase(event)`), a "See your ranked shortlist — Unlock" banner links to `/add-ons/setnayan-ai` (which shows the catalog price + checkout). Rendered in both the takeover shortlist slot and the bare return by wrapping the `services` element.

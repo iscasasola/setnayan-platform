@@ -9,16 +9,21 @@ name: lighthouse
 #
 # Core Web Vitals (LCP / TBT / max-potential-FID / CLS / FCP / speed-index)
 # ship as `warn` (Task #33) — we report them on every PR and use the next
-# 1-2 weeks of runs to establish baselines. Flip to `error` post-pilot once
-# we know which page actually anchors the budget (Slug pages may need
-# different thresholds than marketing-static surfaces).
+# 1-2 weeks of runs to establish baselines.
+#
+# REQUIRED-CHECK NOTE: `lighthouse` is a REQUIRED status check on `main`. A
+# required check that is path-filtered never reports on PRs outside those
+# paths (docs / backend / migrations only), which leaves the PR permanently
+# "mergeable but blocked" and auto-merge can never complete. So this workflow
+# now runs on EVERY pull request and the job itself decides whether Lighthouse
+# is applicable: when no frontend files changed it short-circuits to a ~10s
+# success (still reporting the required `lighthouse` context); when frontend
+# files DID change it runs the full audit. Detection fails OPEN — any
+# uncertainty runs the full audit, so the quality gate is never silently
+# skipped on a real frontend change.
 
 on:
   pull_request:
-    paths:
-      - 'apps/web/**'
-      - '.lighthouserc.json'
-      - '.github/workflows/lighthouse.yml'
   workflow_dispatch:
 
 jobs:
@@ -26,18 +31,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect frontend changes
+        id: changes
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -n "$base" ] && git cat-file -e "$base" 2>/dev/null; then
+            if git diff --name-only "$base" HEAD \
+              | grep -qE '^(apps/web/|\.lighthouserc\.json$|\.github/workflows/lighthouse\.yml$)'; then
+              echo "frontend=true" >> "$GITHUB_OUTPUT"
+              echo "Frontend files changed — running the full Lighthouse audit."
+            else
+              echo "frontend=false" >> "$GITHUB_OUTPUT"
+              echo "No frontend files changed — Lighthouse not applicable; reporting success."
+            fi
+          else
+            # Base commit unavailable (e.g. workflow_dispatch) — run to be safe.
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            echo "Could not determine changed files — running the full audit (fail-open)."
+          fi
 
       - uses: pnpm/action-setup@v4
+        if: steps.changes.outputs.frontend == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.frontend == 'true'
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.changes.outputs.frontend == 'true'
         run: pnpm install --frozen-lockfile=false
 
       - name: Build web
+        if: steps.changes.outputs.frontend == 'true'
         run: pnpm --filter @setnayan/web build
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://placeholder.supabase.co
@@ -45,6 +75,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
       - name: Run Lighthouse CI
+        if: steps.changes.outputs.frontend == 'true'
         run: npx --yes @lhci/cli@0.14 autorun
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://placeholder.supabase.co

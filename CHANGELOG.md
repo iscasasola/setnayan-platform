@@ -4,7 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-12 · fix(monogram): chrome-size fallback for hero-only hairline scripts
+## 2026-06-14 · ci(automerge): make auto-upload reliable across all sessions (auto-arm + lighthouse required-check fix)
+
+Owner: make auto-merge-to-prod the standing, enforced default so it never depends on a session remembering — and stop the silent stall where required checks never report. Two `.github` guardrails:
+
+- `.github/workflows/auto-merge.yml` (new) — arms `gh pr merge --auto --merge` on every **non-draft** PR (`opened` / `reopened` / `ready_for_review`). Removes the "forgot to arm auto-merge" failure mode that let ~20 PRs pile up. Branch protection still gates the actual merge (all 7 required checks must pass), so broken code can never auto-merge. HOLD a PR by opening it as a **draft**; pause an armed one with `gh pr merge <#> --disable-auto`.
+- `.github/workflows/lighthouse.yml` — `lighthouse` is a REQUIRED check but was path-filtered to `apps/web/**`, so docs/backend/migration-only PRs never triggered it → the required context never reported → the PR sat "mergeable but blocked" forever and auto-merge could never complete. Now the workflow runs on every PR and the job short-circuits to a ~10s success when no frontend files changed (still reporting the required `lighthouse` context); a real frontend change runs the full audit. Detection **fails open** — any uncertainty runs the full audit, so the quality gate is never silently skipped.
+
+Net: every green PR now auto-merges to prod with no manual step, and docs/backend PRs stop stalling the queue. Retire `auto-merge.yml` at public-vendor launch when updates move to a temp/staging site.
+
+SPEC IMPACT: None (CI/merge automation; no app schema/SKU/pricing/surface change). Workflow policy logged in corpus `DECISION_LOG.md` (2026-06-14) + memory `project_setnayan_deployment_phases`.
 
 **Context:** flagged in the #1260 typeface-picker ship — Tangerine and Luxurious Script are featherweight hairlines that vanish at the chrome icon's ~28–36px (event switcher · profile avatar). The owner's "exact font in chrome" lock (2026-06-03) predates these faces and is preserved for every face that holds up small.
 

@@ -11,7 +11,24 @@ export const SEAT_LOOKUP_MIN_LEN = 2;
 /** Hard cap on returned matches (mirrors the RPC's LIMIT). */
 export const SEAT_LOOKUP_MAX_MATCHES = 25;
 
-export type SeatMatch = { display_name: string; table_label: string };
+export type SeatMatch = {
+  display_name: string;
+  table_label: string;
+  // Seat-finding PR 6 — the zone walkthrough clip for this guest's table, when
+  // the couple/coordinator has recorded + published one. `walk_video_url` is a
+  // short-lived presigned GET URL the route resolves from the stored r2:// ref;
+  // null/absent when the table has no published zone clip (the common case).
+  walk_zone_label?: string | null;
+  walk_video_url?: string | null;
+};
+
+/** Shape the `public_seat_lookup` RPC returns (pre-presign — raw r2:// key). */
+export type SeatLookupRow = {
+  display_name: string;
+  table_label: string;
+  walk_zone_label: string | null;
+  walk_video_key: string | null;
+};
 
 /**
  * Normalize + length-gate a raw seat-lookup query. Reuses normalizeGuestName

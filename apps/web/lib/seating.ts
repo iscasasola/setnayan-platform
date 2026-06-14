@@ -142,6 +142,19 @@ export type FloorPlanRow = {
   service_entrance_enabled: boolean;
   service_entrance_x: number;
   service_entrance_y: number;
+  // Cocktail / waiting-area room — a SECOND room on the same canvas (sits
+  // outside the reception walls). Booths place inside; tables/chairs blocked.
+  cocktail_enabled: boolean;
+  cocktail_x: number;
+  cocktail_y: number;
+  cocktail_w: number;
+  cocktail_h: number;
+  cocktail_label: string;
+  cocktail_width_m: number | null;
+  cocktail_length_m: number | null;
+  cocktail_schedule_block_id: string | null;
+  // Couple revoke switch — when false, booked stylist/booth vendors can't edit.
+  cocktail_vendor_edit: boolean;
   venue_width_m: number | null;
   venue_length_m: number | null;
   // When the couple last published the seating pack (stamped table QR sheets).
@@ -164,6 +177,16 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   service_entrance_enabled: false,
   service_entrance_x: 97,
   service_entrance_y: 50,
+  cocktail_enabled: false,
+  cocktail_x: 50,
+  cocktail_y: 40,
+  cocktail_w: 30,
+  cocktail_h: 22,
+  cocktail_label: 'Cocktail Area',
+  cocktail_width_m: null,
+  cocktail_length_m: null,
+  cocktail_schedule_block_id: null,
+  cocktail_vendor_edit: true,
   venue_width_m: null,
   venue_length_m: null,
   published_at: null,
@@ -176,7 +199,7 @@ export async function fetchFloorPlan(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,venue_width_m,venue_length_m,published_at',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,venue_width_m,venue_length_m,published_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -201,6 +224,23 @@ export async function fetchFloorPlan(
     service_entrance_enabled: Boolean(data.service_entrance_enabled),
     service_entrance_x: num(data.service_entrance_x, D.service_entrance_x),
     service_entrance_y: num(data.service_entrance_y, D.service_entrance_y),
+    cocktail_enabled: Boolean(data.cocktail_enabled),
+    cocktail_x: num(data.cocktail_x, D.cocktail_x),
+    cocktail_y: num(data.cocktail_y, D.cocktail_y),
+    cocktail_w: num(data.cocktail_w, D.cocktail_w),
+    cocktail_h: num(data.cocktail_h, D.cocktail_h),
+    cocktail_label:
+      typeof data.cocktail_label === 'string' && data.cocktail_label.length > 0
+        ? data.cocktail_label
+        : D.cocktail_label,
+    cocktail_width_m: data.cocktail_width_m === null ? null : Number(data.cocktail_width_m),
+    cocktail_length_m: data.cocktail_length_m === null ? null : Number(data.cocktail_length_m),
+    cocktail_schedule_block_id:
+      (data as { cocktail_schedule_block_id?: string | null }).cocktail_schedule_block_id ?? null,
+    cocktail_vendor_edit:
+      data.cocktail_vendor_edit === undefined || data.cocktail_vendor_edit === null
+        ? true
+        : Boolean(data.cocktail_vendor_edit),
     venue_width_m: data.venue_width_m === null ? null : Number(data.venue_width_m),
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,
@@ -802,6 +842,8 @@ export const BOOTH_CATALOG: ReadonlyArray<{ type: BoothType; label: string }> = 
   { type: 'custom', label: 'Custom booth' },
 ];
 
+export type BoothZone = 'reception' | 'cocktail';
+
 export type FloorBoothRow = {
   booth_id: string;
   event_id: string;
@@ -810,6 +852,13 @@ export type FloorBoothRow = {
   x_pos: number;
   y_pos: number;
   sort_order: number;
+  // Which room on the blueprint this booth sits in. Derived from geometry
+  // (inside the cocktail rect → 'cocktail') at save time; couple-managed
+  // perimeter booths stay 'reception'.
+  zone: BoothZone;
+  // The booked vendor running this booth (set for vendor-placed cocktail
+  // booths so a booth vendor may only move/delete their own); null otherwise.
+  event_vendor_id: string | null;
 };
 
 export async function fetchBooths(
@@ -818,7 +867,7 @@ export async function fetchBooths(
 ): Promise<FloorBoothRow[]> {
   const { data, error } = await supabase
     .from('event_floor_booths')
-    .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order')
+    .select('booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id')
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -829,6 +878,9 @@ export async function fetchBooths(
     ...b,
     x_pos: Number(b.x_pos),
     y_pos: Number(b.y_pos),
+    // Pre-migration rows lack these columns; default sensibly.
+    zone: b.zone === 'cocktail' ? 'cocktail' : 'reception',
+    event_vendor_id: b.event_vendor_id ?? null,
   }));
 }
 
@@ -1068,7 +1120,9 @@ export function clampBoothToPerimeter(
 
 export type AutoLayoutInput = {
   tables: EventTableRow[];
-  floorPlan: FloorPlanLike & Pick<FloorPlanRow, 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'>;
+  floorPlan: FloorPlanLike &
+    Pick<FloorPlanRow, 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'> &
+    Pick<FloorPlanRow, 'cocktail_enabled' | 'cocktail_x' | 'cocktail_y' | 'cocktail_w' | 'cocktail_h'>;
   // Canvas pixel rect — converts table pixel footprints into percent.
   rect: { width: number; height: number };
   // Real rendered footprint (px, chairs included) — the editor passes its
@@ -1138,7 +1192,8 @@ export function computeAutoLayout(input: AutoLayoutInput): Record<string, { x: n
   const LO = 10;
   const HI = 90;
 
-  const danceRect = fp.dance_enabled
+  type NoTableRect = { x0: number; x1: number; y0: number; y1: number };
+  const danceRect: NoTableRect | null = fp.dance_enabled
     ? {
         x0: fp.dance_x - fp.dance_w / 2,
         x1: fp.dance_x + fp.dance_w / 2,
@@ -1146,16 +1201,29 @@ export function computeAutoLayout(input: AutoLayoutInput): Record<string, { x: n
         y1: fp.dance_y + fp.dance_h / 2,
       }
     : null;
-  const hitsDance = (cx: number, cy: number, t: EventTableRow) => {
-    if (!danceRect) return false;
+  // The cocktail / waiting-area room is also a no-table zone (booths only).
+  const cocktailRect: NoTableRect | null = fp.cocktail_enabled
+    ? {
+        x0: fp.cocktail_x - fp.cocktail_w / 2,
+        x1: fp.cocktail_x + fp.cocktail_w / 2,
+        y0: fp.cocktail_y - fp.cocktail_h / 2,
+        y1: fp.cocktail_y + fp.cocktail_h / 2,
+      }
+    : null;
+  const hitsRect = (rect: NoTableRect | null, cx: number, cy: number, t: EventTableRow) => {
+    if (!rect) return false;
     const halfW = (u.x === 0 ? breadthOf(t) : depthOf(t)) / 2;
     const halfH = (u.x === 0 ? depthOf(t) : breadthOf(t)) / 2;
     return (
-      cx + halfW > danceRect.x0 &&
-      cx - halfW < danceRect.x1 &&
-      cy + halfH > danceRect.y0 &&
-      cy - halfH < danceRect.y1
+      cx + halfW > rect.x0 && cx - halfW < rect.x1 && cy + halfH > rect.y0 && cy - halfH < rect.y1
     );
+  };
+  // Return whichever no-table zone a candidate centre lands in (dance first,
+  // then cocktail), or null when clear.
+  const blockingRect = (cx: number, cy: number, t: EventTableRow): NoTableRect | null => {
+    if (hitsRect(danceRect, cx, cy, t)) return danceRect;
+    if (hitsRect(cocktailRect, cx, cy, t)) return cocktailRect;
+    return null;
   };
 
   const out: Record<string, { x: number; y: number }> = {};
@@ -1209,14 +1277,15 @@ export function computeAutoLayout(input: AutoLayoutInput): Record<string, { x: n
       let cy = u.x === 0 ? depthClamped : rowAnchor + offset * v.y;
       cx = Math.max(LO, Math.min(HI, cx));
       cy = Math.max(LO, Math.min(HI, cy));
-      // Dance floor in the way → push the table one dance-width sideways
-      // (deterministic single rule; the editor's nearestFree pass resolves any
-      // residual contact on render).
-      if (hitsDance(cx, cy, t) && danceRect) {
-        const push = danceRect.x1 - danceRect.x0 + breadthOf(t) / 2;
+      // A no-table zone (dance floor or cocktail room) in the way → push the
+      // table one zone-width sideways (deterministic single rule; the editor's
+      // nearestFree pass resolves any residual contact on render).
+      const hitRect = blockingRect(cx, cy, t);
+      if (hitRect) {
+        const push = hitRect.x1 - hitRect.x0 + breadthOf(t) / 2;
         const cand = u.x === 0 ? cx + push : cx;
         const candY = u.x === 0 ? cy : cy + push;
-        if (cand <= HI && candY <= HI && !hitsDance(cand, candY, t)) {
+        if (cand <= HI && candY <= HI && !blockingRect(cand, candY, t)) {
           cx = Math.max(LO, Math.min(HI, cand));
           cy = Math.max(LO, Math.min(HI, candY));
         }

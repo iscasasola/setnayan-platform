@@ -213,7 +213,7 @@ export async function renameTaxonomyNode(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(formData, 'ok', `Renamed to "${label}".`);
 }
 
@@ -268,7 +268,7 @@ export async function remapCanonical(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(
     formData,
     'ok',
@@ -342,7 +342,7 @@ export async function setServiceFaith(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(
     formData,
     'ok',
@@ -410,7 +410,7 @@ export async function setCategoryEventTypes(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(
     formData,
     'ok',
@@ -514,7 +514,7 @@ export async function setFolderEventTypes(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(
     formData,
     'ok',
@@ -533,7 +533,7 @@ function slugify(label: string, sep: '_' | '-'): string {
 
 /**
  * Admin: add a new tile under a parent — the expandable-taxonomy core. The
- * tile goes live on `/vendors` with no deploy (the catalog reads the snapshot),
+ * tile goes live on `/explore` with no deploy (the catalog reads the snapshot),
  * ready to receive re-mapped canonicals. Audit-logged.
  */
 export async function createTaxonomyNode(formData: FormData) {
@@ -596,7 +596,7 @@ export async function createTaxonomyNode(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(formData, 'ok', `Added tile "${label}" under ${parentId}.`);
 }
 
@@ -644,7 +644,7 @@ export async function deleteTaxonomyNode(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(
     formData,
     'ok',
@@ -710,7 +710,7 @@ export async function moveTaxonomyNode(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(formData, 'ok', `Moved ${direction}.`);
 }
 
@@ -863,7 +863,7 @@ export async function createCanonicalLeaf(formData: FormData) {
   });
 
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(
     formData,
     'ok',
@@ -966,7 +966,7 @@ export async function promoteCategoryRequest(formData: FormData) {
   });
 
   revalidatePath(BASE);
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirectBack(formData, 'ok', `Promoted "${req.proposed_label}" → new service "${canonical}".`, {
     anchor: `t-${tileId}`,
   });

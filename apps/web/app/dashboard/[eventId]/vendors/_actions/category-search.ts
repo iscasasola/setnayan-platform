@@ -300,7 +300,7 @@ export async function searchCategoryVendors(input: {
   // Ranked category query (boosted → review_count → rating) + live search.
   // (`admin` is created above for the last-minute config read.)
 
-  // Demo-vendor exclusion — mirror the public `/vendors` browse: real couples
+  // Demo-vendor exclusion — mirror the public `/explore` browse: real couples
   // never see `is_demo = TRUE` vendors; only an admin in demo mode (admin
   // profile + the demo cookie) does. Cheap fast-path: skip the admin lookup
   // unless the demo cookie is present.

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
-import { activateConcierge } from '@/app/dashboard/profile/concierge/actions';
+import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 
 /**

@@ -49,6 +49,10 @@ export async function saveHeroVideo(input: {
         video_url: publicUrlFor(R2_BUCKETS.media, input.videoKey),
         video_r2_key: input.videoKey,
         video_mime_type: input.videoMime,
+        // frame_keys are the source of truth — the read path builds display
+        // URLs from them (presigned today, public once R2_PUBLIC_URL points at
+        // the media bucket's public domain). frame_urls kept for reference.
+        frame_keys: input.frameKeys,
         frame_urls: frameUrls,
         frame_count: frameUrls.length,
         frame_width: input.frameWidth,

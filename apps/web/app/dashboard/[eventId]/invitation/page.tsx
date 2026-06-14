@@ -44,7 +44,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color',
+      'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key',
     )
     .eq('event_id', eventId)
     .maybeSingle();

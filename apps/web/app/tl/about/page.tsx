@@ -7,7 +7,7 @@ import {
   Sparkles,
   ArrowRight,
 } from 'lucide-react';
-import { SiteHeader } from '@/app/_components/site-header';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { Footer } from '@/app/_components/marketing/_sections';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
@@ -147,7 +147,7 @@ export default function AboutPageTaglish() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
-      <SiteHeader />
+      <Nav />
 
       <main className="min-h-dvh bg-cream">
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 pt-16 sm:px-6 sm:pt-20 lg:px-8">
@@ -282,7 +282,7 @@ export default function AboutPageTaglish() {
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
-                href="/vendors"
+                href="/explore"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
                 Browse vendors

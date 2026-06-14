@@ -27,6 +27,13 @@ import { appendLedger } from '@/lib/ledger';
 // contract (activateOrderSku never throws). PR4 registers PAPIC_SEATS there,
 // never by re-editing approvePayment. Replaces the three hardcoded
 // service_key branches that used to live in the promoteOrder block.
+//
+// Merge note (2026-06-14): main concurrently added the OLD-style inline
+// concierge + SETNAYAN_AI + vendor-branch activation to this file; that work
+// is fully subsumed by this dispatcher — lib/sku-activation.ts already
+// registers `concierge_complete`, `SETNAYAN_AI`, and the branch-prefix hook —
+// so main's inline imports/constants are dropped here (typecheck confirms
+// nothing else references them).
 import { activateOrderSku } from '@/lib/sku-activation';
 
 async function requireAdmin(): Promise<{ userId: string }> {

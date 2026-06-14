@@ -46,6 +46,7 @@ export type R2BucketName = (typeof R2_BUCKETS)[R2BucketKey];
 
 let _client: S3Client | null = null;
 let _warnedMissingEnv = false;
+let _warnedBadPublicUrl = false;
 
 /**
  * Returns `true` when all three R2 credentials are present. Use this guard
@@ -134,18 +135,52 @@ export function requireR2Client(): S3Client {
 /**
  * Returns the public URL for an R2 object.
  *
- * If `R2_PUBLIC_URL` is set (custom domain or r2.dev subdomain), the URL is
- * built off that base. Otherwise we fall back to the account-scoped endpoint,
- * which only works if the bucket has public access enabled.
+ * `R2_PUBLIC_URL` is the PUBLIC host bound to the `media` bucket — a custom
+ * domain (e.g. `https://media.setnayan.com`) or the bucket's `r2.dev` dev
+ * subdomain. A Cloudflare public bucket URL binds to ONE bucket and serves
+ * objects at `/{key}` with NO bucket segment in the path, so the media URL is
+ * `${R2_PUBLIC_URL}/${key}`.
  *
- * The returned URL is round-trippable — `deletePublicAsset` parses it back
- * into a bucket + key pair.
+ * `media` is the only publicly-served bucket — every `<img>`-facing call site
+ * (hero scrub frames, vendor/service photos, profile photos, merchant QR)
+ * routes there. The other buckets (thread-files, contracts, verification,
+ * bir-2307) hold private data and are always read via short-lived presigned
+ * GETs (`presignDisplayUrl`), never via this public URL; for those we keep the
+ * legacy `${base}/${bucket}/${key}` shape purely so `parseR2Url` can still
+ * round-trip a stored value back into a bucket+key on delete.
+ *
+ * ⚠ The S3 API endpoint (`<account>.r2.cloudflarestorage.com`) is NOT publicly
+ * readable — it requires SigV4-signed requests and 400s a plain browser GET.
+ * It is only used as a last-resort fallback so dev/preview without
+ * `R2_PUBLIC_URL` still produces a parseable (if non-loadable) URL.
+ *
+ * The returned URL is round-trippable — `deletePublicAsset` (via `parseR2Url`)
+ * parses it back into a bucket + key pair.
  */
 export function publicUrlFor(bucket: string, key: string): string {
   const base = process.env.R2_PUBLIC_URL;
   const encodedKey = key.split('/').map(encodeURIComponent).join('/');
   if (base) {
+    // Guardrail: the S3 API endpoint is NOT publicly readable (SigV4-only), so
+    // pointing R2_PUBLIC_URL at it makes every public <img> 400. This is the
+    // exact misconfig that blanked the homepage hero scrub. Warn once, loudly.
+    if (!_warnedBadPublicUrl && base.includes('.r2.cloudflarestorage.com')) {
+      console.warn(
+        '[r2] R2_PUBLIC_URL points at the S3 API endpoint ' +
+          '(*.r2.cloudflarestorage.com), which is NOT publicly readable — public ' +
+          'images (hero frames, vendor/profile photos) will return HTTP 400. Set ' +
+          'R2_PUBLIC_URL to a custom domain (e.g. https://media.setnayan.com) or ' +
+          "the media bucket's r2.dev subdomain instead.",
+      );
+      _warnedBadPublicUrl = true;
+    }
     const trimmed = base.replace(/\/+$/, '');
+    // The public domain is bound to the media bucket → object lives at /{key}.
+    if (bucket === R2_BUCKETS.media) {
+      return `${trimmed}/${encodedKey}`;
+    }
+    // Non-public buckets: keep the bucket segment so the legacy round-trip in
+    // parseR2Url still resolves. These URLs are never fetched publicly.
     return `${trimmed}/${bucket}/${encodedKey}`;
   }
   const accountId = process.env.R2_ACCOUNT_ID;

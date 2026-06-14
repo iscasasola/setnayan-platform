@@ -11,7 +11,7 @@ import {
   Clock,
   Apple,
 } from 'lucide-react';
-import { SiteHeader } from '@/app/_components/site-header';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { Logo } from '@/app/_components/logo';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -198,7 +198,7 @@ export default async function HowItWorksPageTaglish() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOW_IT_WORKS_JSONLD) }}
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
-        <SiteHeader />
+        <Nav />
 
         {/* Hero */}
         <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">

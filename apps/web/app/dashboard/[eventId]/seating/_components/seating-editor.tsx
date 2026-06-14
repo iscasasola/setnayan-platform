@@ -204,7 +204,7 @@ export function SeatingEditor({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
-    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance' | 'booth';
+    kind: 'table' | 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail' | 'booth';
     id: string;
     sx: number;
     sy: number;
@@ -238,6 +238,23 @@ export function SeatingEditor({
     w: floorPlan.dance_w,
     h: floorPlan.dance_h,
   });
+  // Cocktail / waiting-area room — a SECOND room on the same canvas (sits
+  // outside the reception walls). Booths place inside; tables/chairs blocked.
+  const [cocktail, setCocktail] = useState({
+    enabled: floorPlan.cocktail_enabled,
+    x: floorPlan.cocktail_x,
+    y: floorPlan.cocktail_y,
+    w: floorPlan.cocktail_w,
+    h: floorPlan.cocktail_h,
+    label: floorPlan.cocktail_label,
+    vendorEdit: floorPlan.cocktail_vendor_edit,
+  });
+  // True when a booth centre sits inside the cocktail room (used to tag the
+  // booth's zone on save — geometry is the source of truth).
+  const inCocktail = (bx: number, by: number) =>
+    cocktail.enabled &&
+    Math.abs(bx - cocktail.x) <= cocktail.w / 2 &&
+    Math.abs(by - cocktail.y) <= cocktail.h / 2;
   // Vendor booths (Photo Booth, Mobile Bar, …) — perimeter-anchored markers.
   // New booths get a tmp- id until the next save returns real rows; the prop
   // re-syncs local state whenever there's nothing unsaved (boothsDirty=false),
@@ -268,7 +285,7 @@ export function SeatingEditor({
   // pxPerMeter is FROZEN at wall-grab so the canvas resizing mid-drag can't
   // feed back into the drag math.
   const rectDragRef = useRef<{
-    kind: 'stage' | 'dance';
+    kind: 'stage' | 'dance' | 'cocktail';
     startX: number;
     startY: number;
     startW: number;
@@ -638,6 +655,11 @@ export function SeatingEditor({
         dance_y: dance.y,
         dance_w: dance.w,
         dance_h: dance.h,
+        cocktail_enabled: cocktail.enabled,
+        cocktail_x: cocktail.x,
+        cocktail_y: cocktail.y,
+        cocktail_w: cocktail.w,
+        cocktail_h: cocktail.h,
       },
       rect: { width: rect.width, height: rect.height },
       footprintOf: footprintPx,
@@ -987,6 +1009,14 @@ export function SeatingEditor({
       const ddy = Math.abs(((y - dance.y) / 100) * rect.height);
       if (ddx < (m.w + dzw) / 2 && ddy < (m.h + dzh) / 2) return true;
     }
+    // The cocktail / waiting-area room is also a no-table zone (booths only).
+    if (cocktail.enabled) {
+      const czw = (cocktail.w / 100) * rect.width;
+      const czh = (cocktail.h / 100) * rect.height;
+      const cdx = Math.abs(((x - cocktail.x) / 100) * rect.width);
+      const cdy = Math.abs(((y - cocktail.y) / 100) * rect.height);
+      if (cdx < (m.w + czw) / 2 && cdy < (m.h + czh) / 2) return true;
+    }
     return tables.some((o, i) => {
       if (o.table_id === moving.table_id) return false;
       // Chainable families never "collide" with their own kind: serpentine
@@ -1170,7 +1200,7 @@ export function SeatingEditor({
 
   // Drag the floor-plan elements (same pointer model as a table hub).
   const onMarkerPointerDown =
-    (kind: 'stage' | 'entrance' | 'service' | 'dance') => (e: React.PointerEvent) => {
+    (kind: 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail') => (e: React.PointerEvent) => {
       if (!canEdit) return; // view-only: floor-plan markers aren't draggable.
       if (pickedId) {
         // Don't seat onto a marker, and don't start a pan.
@@ -1440,6 +1470,8 @@ export function SeatingEditor({
         setStage((s) => ({ ...s, x, y }));
       } else if (d.kind === 'dance') {
         setDance((dz) => ({ ...dz, x, y }));
+      } else if (d.kind === 'cocktail') {
+        setCocktail((c) => ({ ...c, x, y }));
       } else if (d.kind === 'service') {
         setServiceDoor((sd) => ({ ...sd, x, y }));
       } else if (d.kind === 'booth') {
@@ -1448,14 +1480,17 @@ export function SeatingEditor({
         // other booths. In a FREE venue (garden / open field) there are no
         // walls to hug — the booth drops wherever it's dragged (board-clamped,
         // like a table). Owner-directed 2026-06-13.
-        const p = venueScaled
-          ? clampBoothToPerimeter(
-              x,
-              y,
-              boothFp(),
-              booths.filter((b) => b.booth_id !== d.id).map((b) => ({ x: b.x_pos, y: b.y_pos })),
-            )
-          : { x, y };
+        // Inside the cocktail room a booth places FREELY (it's a no-wall second
+        // room); elsewhere in a sized venue it snaps to the reception perimeter.
+        const p =
+          venueScaled && !inCocktail(x, y)
+            ? clampBoothToPerimeter(
+                x,
+                y,
+                boothFp(),
+                booths.filter((b) => b.booth_id !== d.id).map((b) => ({ x: b.x_pos, y: b.y_pos })),
+              )
+            : { x, y };
         setBooths((bs) => bs.map((b) => (b.booth_id === d.id ? { ...b, x_pos: p.x, y_pos: p.y } : b)));
       } else {
         setEntrance((en) => ({ ...en, x, y }));
@@ -1544,6 +1579,14 @@ export function SeatingEditor({
     setDance((dz) => ({ ...dz, enabled: false }));
     setFloorDirty(true);
   };
+  const addCocktailArea = () => {
+    setCocktail((c) => ({ ...c, enabled: true }));
+    setFloorDirty(true);
+  };
+  const removeCocktailArea = () => {
+    setCocktail((c) => ({ ...c, enabled: false }));
+    setFloorDirty(true);
+  };
   // Add a vendor booth. Sized room → it spawns onto the nearest legal
   // perimeter spot (bottom-centre bias), never mid-room. Free venue → into the
   // tidy row behind the tables (no walls to hug); the couple drags from there.
@@ -1571,6 +1614,10 @@ export function SeatingEditor({
         x_pos: p.x,
         y_pos: p.y,
         sort_order: bs.length,
+        // Zone is re-derived from geometry on save; couple-placed booths carry
+        // no vendor link.
+        zone: inCocktail(p.x, p.y) ? 'cocktail' : 'reception',
+        event_vendor_id: null,
       },
     ]);
     setBoothsDirty(true);
@@ -1589,17 +1636,21 @@ export function SeatingEditor({
         x_pos: b.x_pos,
         y_pos: b.y_pos,
         sort_order: i,
+        // Geometry decides the zone: a booth dropped inside the cocktail room
+        // is a cocktail booth, otherwise reception.
+        zone: inCocktail(b.x_pos, b.y_pos) ? 'cocktail' : 'reception',
+        event_vendor_id: b.event_vendor_id ?? null,
       })),
     );
 
   // SE resize grip for the stage / dance-floor rects. NW-corner anchored: the
   // grip drags the bottom-right corner; the centre shifts by half the delta so
   // the top-left edge stays put. Self-contained pointer capture on the grip.
-  const onRectGripDown = (kind: 'stage' | 'dance') => (e: React.PointerEvent) => {
+  const onRectGripDown = (kind: 'stage' | 'dance' | 'cocktail') => (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const cur = kind === 'stage' ? stage : dance;
+    const cur = kind === 'stage' ? stage : kind === 'cocktail' ? cocktail : dance;
     rectDragRef.current = {
       kind,
       startX: cur.x,
@@ -1622,6 +1673,7 @@ export function SeatingEditor({
     const x = r.startX + (w - r.startW) / 2;
     const y = r.startY + (h - r.startH) / 2;
     if (r.kind === 'stage') setStage({ x, y, w, h });
+    else if (r.kind === 'cocktail') setCocktail((c) => ({ ...c, x, y, w, h }));
     else setDance((dz) => ({ ...dz, x, y, w, h }));
     setFloorDirty(true);
   };
@@ -1796,6 +1848,13 @@ export function SeatingEditor({
           fd.set('service_entrance_enabled', serviceDoor.enabled ? 'true' : 'false');
           fd.set('service_entrance_x', String(serviceDoor.x));
           fd.set('service_entrance_y', String(serviceDoor.y));
+          fd.set('cocktail_enabled', cocktail.enabled ? 'true' : 'false');
+          fd.set('cocktail_x', String(cocktail.x));
+          fd.set('cocktail_y', String(cocktail.y));
+          fd.set('cocktail_w', String(cocktail.w));
+          fd.set('cocktail_h', String(cocktail.h));
+          fd.set('cocktail_label', cocktail.label);
+          fd.set('cocktail_vendor_edit', cocktail.vendorEdit ? 'true' : 'false');
           if (venue.enabled && venue.width > 0 && venue.length > 0) {
             fd.set('venue_width_m', String(venue.width));
             fd.set('venue_length_m', String(venue.length));
@@ -2198,6 +2257,16 @@ export function SeatingEditor({
                 <Footprints className="h-3.5 w-3.5" /> Dance floor
               </button>
             ) : null}
+            {view === 'plan' && !cocktail.enabled ? (
+              <button
+                type="button"
+                onClick={addCocktailArea}
+                title="A second room (cocktail / waiting area) — booths only, no tables"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta"
+              >
+                <Martini className="h-3.5 w-3.5" /> Cocktail area
+              </button>
+            ) : null}
             {view === 'plan' ? (
               <div className="relative">
                 <button
@@ -2429,6 +2498,32 @@ export function SeatingEditor({
                     />
                   </>
                 ) : null}
+                {cocktail.enabled ? (
+                  <>
+                    <MetreSizeField
+                      label="Cocktail W (m)"
+                      metres={(cocktail.w / 100) * venue.width}
+                      onMetres={(m) => {
+                        setCocktail((c) => ({
+                          ...c,
+                          w: Math.max(2, Math.min(100, (m / venue.width) * 100)),
+                        }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                    <MetreSizeField
+                      label="Cocktail L (m)"
+                      metres={(cocktail.h / 100) * venue.length}
+                      onMetres={(m) => {
+                        setCocktail((c) => ({
+                          ...c,
+                          h: Math.max(2, Math.min(100, (m / venue.length) * 100)),
+                        }));
+                        setFloorDirty(true);
+                      }}
+                    />
+                  </>
+                ) : null}
               </>
             ) : null}
             <p className="flex-1 text-xs text-ink/50">
@@ -2646,6 +2741,60 @@ export function SeatingEditor({
                 aria-label="Resize dance floor"
                 title="Drag to resize the dance floor"
                 className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-mulberry bg-cream text-mulberry shadow-sm"
+              >
+                <Maximize2 className="h-3 w-3 rotate-90" />
+              </button>
+            </div>
+          ) : null}
+
+          {/* Cocktail / waiting-area room — a SECOND room on the same canvas
+              (booths only; tables are blocked from it via overlapsAny). Unlike
+              the dance floor it's a CONTAINER, so the body is pointer-events-
+              none (booths inside stay clickable); move via the label chip,
+              resize via the corner grip. */}
+          {cocktail.enabled ? (
+            <div
+              className="pointer-events-none absolute z-[4]"
+              style={{
+                left: `${cocktail.x}%`,
+                top: `${cocktail.y}%`,
+                width: `${cocktail.w}%`,
+                height: `${cocktail.h}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/45 bg-terracotta/[0.04]" />
+              <button
+                type="button"
+                onPointerDown={onMarkerPointerDown('cocktail')}
+                aria-label={`${cocktail.label} — drag to move`}
+                className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border bg-cream px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-terracotta shadow-sm ${
+                  dragId === '__cocktail__'
+                    ? 'border-terracotta cursor-grabbing'
+                    : 'border-terracotta/40 cursor-grab'
+                }`}
+              >
+                <Martini className="h-3 w-3" />
+                {cocktail.label}
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={removeCocktailArea}
+                aria-label="Remove cocktail area"
+                className="pointer-events-auto absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onPointerDown={onRectGripDown('cocktail')}
+                onPointerMove={onRectGripMove}
+                onPointerUp={onRectGripUp}
+                onPointerCancel={onRectGripUp}
+                aria-label="Resize cocktail area"
+                title="Drag to resize the cocktail area"
+                className="pointer-events-auto absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
               >
                 <Maximize2 className="h-3 w-3 rotate-90" />
               </button>

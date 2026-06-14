@@ -22,9 +22,11 @@
 --       (the booked vendor running this booth, for vendor-edit ownership
 --       scoping in the follow-up vendor-editor PR) + coordinator-delegate RLS
 --       (matching the rest of the seat-plan family).
---   (c) data fold — event_floor_objects rows fold into event_floor_booths
---       (cocktail-tagged when they sat on an additional area), then
---       event_floor_objects + event_floor_areas are DROPPED.
+--   (c) the superseded event_floor_objects + event_floor_areas tables (and the
+--       /seating/areas route) are RETIRED, but their fold-into-booths + DROP is
+--       deferred to a separate owner-gated cleanup migration — prod carries
+--       test-event rows and the DROP is one-way. This migration stays purely
+--       ADDITIVE so it is safe to apply ahead of the UI.
 --   (d) get_vendor_seat_plan v3 — drops `areas`, sources booths from
 --       event_floor_booths (zone + is_mine + vendor_name), adds the cocktail
 --       room to the payload.
@@ -35,9 +37,9 @@
 -- ownership-scoped and never touch reception seating. This migration only adds
 -- the couple-controlled `cocktail_vendor_edit` gate those RPCs will read.
 --
--- The DROPs are safe: the superseded tables shipped the same day with no
--- production data (the marketplace is founder-only). Idempotent throughout;
--- RLS preserved/extended at change time.
+-- Purely additive + idempotent → safe to apply on a live DB ahead of the UI.
+-- RLS preserved/extended at change time. (The destructive cleanup of the two
+-- superseded tables ships separately, owner-gated.)
 -- ============================================================================
 
 BEGIN;
@@ -93,35 +95,16 @@ CREATE POLICY event_floor_booths_moderator_write
   USING (public.moderator_area_level(event_id, 'seat_plan') = 'edit')
   WITH CHECK (public.moderator_area_level(event_id, 'seat_plan') = 'edit');
 
--- (c) fold the superseded multi-area pins into event_floor_booths -------------
--- Map object_type → booth_type; a pin that sat on an additional area becomes a
--- cocktail-zone booth, a reception-canvas pin (area_id NULL) stays reception.
--- Guarded so the migration stays idempotent after the DROPs below.
-DO $fold$
-BEGIN
-  IF to_regclass('public.event_floor_objects') IS NOT NULL THEN
-    INSERT INTO public.event_floor_booths
-      (event_id, booth_type, label, x_pos, y_pos, zone, event_vendor_id, sort_order)
-    SELECT
-      fo.event_id,
-      CASE fo.object_type
-        WHEN 'bar'     THEN 'mobile_bar'
-        WHEN 'dessert' THEN 'dessert_station'
-        ELSE 'custom'
-      END,
-      fo.label,
-      fo.x_pos,
-      fo.y_pos,
-      CASE WHEN fo.area_id IS NULL THEN 'reception' ELSE 'cocktail' END,
-      fo.event_vendor_id,
-      0
-    FROM public.event_floor_objects fo;
-
-    DROP TABLE public.event_floor_objects;
-  END IF;
-  DROP TABLE IF EXISTS public.event_floor_areas;
-END
-$fold$;
+-- (c) The superseded multi-area tables (event_floor_objects / event_floor_areas)
+-- and the /seating/areas route are retired by this iteration — but the DROP +
+-- the data fold into event_floor_booths are intentionally NOT done here. Prod
+-- carries a handful of rows on test events; folding (object_type → booth_type,
+-- area pins → cocktail-zone booths) then dropping is a destructive, one-way
+-- cleanup that ships as a separate owner-gated migration once the new editor is
+-- in place. This migration stays purely ADDITIVE so it is safe to apply ahead
+-- of the UI. Until that cleanup lands, those two tables sit orphaned (no route
+-- reads or writes them) and get_vendor_seat_plan sources booths from
+-- event_floor_booths only.
 
 -- (d) get_vendor_seat_plan v3 — no more `areas`; booths from event_floor_booths;
 --     adds the cocktail room. Same gates as v2 (booked · floor-touching

@@ -1,33 +1,40 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { sanitizeSeatLookupQuery, type SeatMatch } from '@/lib/seat-lookup';
+import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
 
 // Client search box for the FREE seat finder (seat-finding PR 1). Debounced
 // calls to /api/seat-lookup/[slug]; the same sanitize (min length 2) runs
 // client-side so we never fire a request the RPC would just reject. Pure-CSS
 // chrome (no icon deps) so it can't break the public build on an icon name.
+//
+// Day-of live propagation (PR 5): when `eventDate` is the wedding day, the last
+// successful lookup re-fires silently on a quiet cadence + tab-focus, so a guest
+// who looked up their seat once sees a live reseat without re-typing. Pull-only,
+// no notification — see useDayOfLiveTick.
 
-export function NameSearch({ slug }: { slug: string }) {
+export function NameSearch({
+  slug,
+  eventDate,
+}: {
+  slug: string;
+  eventDate?: string | null;
+}) {
   const [q, setQ] = useState('');
   const [matches, setMatches] = useState<SeatMatch[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // Last query we actually sent — what the day-of tick re-fires.
+  const lastQueryRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    const clean = sanitizeSeatLookupQuery(q);
-    if (!clean) {
-      abortRef.current?.abort();
-      setMatches(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const handle = setTimeout(async () => {
+  const runSearch = useCallback(
+    async (clean: string, { quiet = false }: { quiet?: boolean } = {}) => {
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+      if (!quiet) setLoading(true);
       try {
         const res = await fetch(
           `/api/seat-lookup/${encodeURIComponent(slug)}?q=${encodeURIComponent(clean)}`,
@@ -36,13 +43,37 @@ export function NameSearch({ slug }: { slug: string }) {
         const json = (await res.json()) as { matches?: SeatMatch[] };
         setMatches(json.matches ?? []);
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') setMatches([]);
+        // A quiet day-of refresh that fails leaves the existing result alone.
+        if ((err as Error).name !== 'AbortError' && !quiet) setMatches([]);
       } finally {
-        setLoading(false);
+        if (!quiet) setLoading(false);
       }
+    },
+    [slug],
+  );
+
+  useEffect(() => {
+    const clean = sanitizeSeatLookupQuery(q);
+    if (!clean) {
+      abortRef.current?.abort();
+      lastQueryRef.current = null;
+      setMatches(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const handle = setTimeout(() => {
+      lastQueryRef.current = clean;
+      void runSearch(clean);
     }, 250);
     return () => clearTimeout(handle);
-  }, [q, slug]);
+  }, [q, runSearch]);
+
+  // Day-of: silently re-run the last lookup so the shown table stays current.
+  useDayOfLiveTick(eventDate, () => {
+    const clean = lastQueryRef.current;
+    if (clean) void runSearch(clean, { quiet: true });
+  });
 
   return (
     <div className="space-y-4">
@@ -73,15 +104,7 @@ export function NameSearch({ slug }: { slug: string }) {
         matches.length > 0 ? (
           <ul className="space-y-2" aria-live="polite">
             {matches.map((m, i) => (
-              <li
-                key={`${m.display_name}-${m.table_label}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3 shadow-sm"
-              >
-                <span className="text-sm text-ink/80">{m.display_name}</span>
-                <span className="shrink-0 rounded-md bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-700">
-                  {m.table_label}
-                </span>
-              </li>
+              <MatchCard key={`${m.display_name}-${m.table_label}-${i}`} match={m} />
             ))}
           </ul>
         ) : touched && !loading ? (
@@ -92,5 +115,57 @@ export function NameSearch({ slug }: { slug: string }) {
         ) : null
       ) : null}
     </div>
+  );
+}
+
+/**
+ * One search result — the guest's name + table label, plus (PR 6) an optional
+ * "Watch the walk to your table" disclosure when the couple/coordinator has
+ * published a first-person zone-walkthrough clip for this table's zone. The
+ * video is lazy: the <video> mounts (and the bytes start loading) only after
+ * the guest taps Watch. Pure inline-SVG glyph — no icon dep, so the public
+ * build never breaks on an icon name.
+ */
+function MatchCard({ match }: { match: SeatMatch }) {
+  const [open, setOpen] = useState(false);
+  const video = match.walk_video_url ?? null;
+
+  return (
+    <li className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <span className="text-sm text-ink/80">{match.display_name}</span>
+        <span className="shrink-0 rounded-md bg-emerald-50 px-2.5 py-1 text-sm font-semibold text-emerald-700">
+          {match.table_label}
+        </span>
+      </div>
+
+      {video ? (
+        <div className="border-t border-ink/10 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="inline-flex items-center gap-2 rounded-md bg-terracotta/10 px-3 py-1.5 text-sm font-medium text-terracotta-700 transition-colors hover:bg-terracotta/15"
+          >
+            <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            {open ? 'Hide the walk' : 'Watch the walk to your table'}
+          </button>
+          {match.walk_zone_label ? (
+            <span className="ml-2 text-xs text-ink/50">{match.walk_zone_label}</span>
+          ) : null}
+          {open ? (
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              src={video}
+              className="mt-3 aspect-[9/16] w-full max-w-xs rounded-lg border border-ink/10 bg-black object-contain"
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </li>
   );
 }

@@ -56,7 +56,7 @@ function buildHref(category: VendorCategory | null, context: CategoryFilterChips
   if (context.verifiedOnly) params.set('verified', '1');
   if (context.matchEvent) params.set('match', '1');
   const qs = params.toString();
-  return qs ? `/vendors?${qs}` : '/vendors';
+  return qs ? `/explore?${qs}` : '/explore';
 }
 
 export function CategoryFilterChips({ currentCategory, context }: Props) {

@@ -217,7 +217,7 @@ export function daysRemaining(row: VendorAdSubscriptionRow): number {
 
 /**
  * Pull active ad subscriptions for many vendor profile IDs in one round trip
- * (used by the public `/vendors` marketplace to surface Boosted/Sponsored
+ * (used by the public `/explore` marketplace to surface Boosted/Sponsored
  * badges + extend each card's visibility radius). Reads the
  * `vendor_active_ads` view so we get the single most-permissive row per
  * vendor (Sponsored > Boosted; larger radius wins).

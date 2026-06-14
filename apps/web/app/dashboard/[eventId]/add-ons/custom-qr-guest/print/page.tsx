@@ -34,7 +34,7 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, event_date, slug, monogram_text, monogram_color, role_palette',
+      'event_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();

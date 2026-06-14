@@ -403,7 +403,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   30 days after our event, our editorial page becomes publicly
                   searchable on{' '}
                   <span className="m-mono" style={{ fontSize: 11 }}>
-                    setnayan.com/weddings
+                    setnayan.com/realstories
                   </span>
                   . We can keep it private at any time.
                 </span>

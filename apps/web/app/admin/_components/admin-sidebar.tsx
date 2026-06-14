@@ -67,6 +67,10 @@ import {
   Star,
   LifeBuoy,
   Flag,
+  MessageSquareWarning,
+  Landmark,
+  RefreshCw,
+  UsersRound,
   Users,
   Briefcase,
   TestTube,
@@ -102,6 +106,7 @@ import {
   SlidersHorizontal,
   UserX,
   PartyPopper,
+  Newspaper,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -174,7 +179,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'subscriptions',
         label: 'Subscriptions',
         href: '/admin/subscriptions',
-        icon: BadgeCheck,
+        icon: RefreshCw,
         matchPrefix: '/admin/subscriptions',
       },
       {
@@ -195,7 +200,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'pax-changes',
         label: 'Pax changes',
         href: '/admin/pax-changes',
-        icon: TrendingUp,
+        icon: UsersRound,
         matchPrefix: '/admin/pax-changes',
       },
       {
@@ -234,7 +239,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'user-reports',
         label: 'User reports',
         href: '/admin/user-reports',
-        icon: Shield,
+        icon: MessageSquareWarning,
         matchPrefix: '/admin/user-reports',
       },
       {
@@ -398,7 +403,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'payment-methods',
         label: 'Payment methods',
         href: '/admin/settings/payment-methods',
-        icon: CreditCard,
+        icon: Landmark,
       },
     ],
   },
@@ -458,6 +463,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Hero video',
         href: '/admin/hero-video',
         icon: Video,
+      },
+      {
+        // Real Stories featuring (PR D) — pin + order which consented wedding
+        // editorials surface (and which is the hero) on the public /realstories
+        // index. Curation on top of the RA 10173 consent gate.
+        key: 'real-stories',
+        label: 'Real Stories',
+        href: '/admin/real-stories',
+        icon: Newspaper,
+        matchPrefix: '/admin/real-stories',
       },
       {
         key: 'ads',

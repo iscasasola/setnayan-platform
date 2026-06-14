@@ -19,7 +19,7 @@ import {
 import { resolvePrimaryHostEvent } from '@/lib/events';
 import { slugifyCity } from '@/app/venues/_lib/venue-directory';
 import { NavLinksRow } from '@/app/_components/nav-links';
-import { AddVenueToPlanButton } from '@/app/vendors/_components/add-venue-to-plan-button';
+import { AddVenueToPlanButton } from '@/app/explore/_components/add-venue-to-plan-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -676,7 +676,7 @@ export default async function VenueDetailPage({ params }: Props) {
 
         <footer className="mt-12 flex flex-wrap gap-x-6 gap-y-2 border-t border-ink/10 pt-6">
           <Link
-            href="/vendors?folder=reception"
+            href="/explore?folder=reception"
             className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             ← Back to Reception folder
@@ -1013,7 +1013,7 @@ function VenueNotFound({ slug }: { slug: string }) {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href="/vendors?folder=reception"
+            href="/explore?folder=reception"
             className="inline-flex items-center justify-center rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
           >
             Browse reception venues

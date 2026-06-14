@@ -641,13 +641,13 @@ function GroupCard({
   // For groups with a `subcategoryHint` (Live band, Host/MC, Cocktail
   // Booths, LED Background, Cake, Photobooth, Bridal Car, Guest Shuttle,
   // Rings, etc.) the search href deep-links to
-  // `/vendors?folder=<slug>&category=<canonical>` — vendor-grid mode
+  // `/explore?folder=<slug>&category=<canonical>` — vendor-grid mode
   // FILTERED to that specific canonical_service in the 192-row taxonomy.
   // The host lands on a narrow vendor list instead of the broader folder.
   //
   // For groups without a subcategoryHint (Photography & Video, Catering,
   // Attire, Florals & Decor, Logistics) the search href stays at
-  // `/vendors?folder=<slug>#<slug>` — catalog mode scoped to the folder
+  // `/explore?folder=<slug>#<slug>` — catalog mode scoped to the folder
   // with smooth-scroll anchor to the section header. Task #47 closes the
   // reported bug where clicking Reception Search showed Ceremony churches.
   //

@@ -26,19 +26,24 @@ type Props = {
 
 const SCRUB_END = 0.82; // frames play over the first 82% of scroll; CTA reveals after
 
-// Shared style for the two scroll-synced story captions: dark editorial serif with a
-// soft light halo so it reads on the bright video, parked in the both-crops safe zone.
+// Shared style for the two scroll-synced story captions: bold near-black serif with a
+// crisp white outline + halo so it stays readable over BOTH the bright field and the
+// darker objects (cars), parked in the both-crops safe zone. fontWeight 800 forces a
+// heavy weight even on the single-weight display serif (Instrument Serif).
 const CAP_STYLE: CSSProperties = {
   left: '50%',
   top: '68%',
   transform: 'translate(-50%, -50%)',
   opacity: 0,
-  maxWidth: 760,
+  maxWidth: 840,
   width: '100%',
-  color: '#1E2229',
-  fontSize: 'clamp(1.5rem, 3.4vw, 2.5rem)',
-  lineHeight: 1.12,
-  textShadow: '0 1px 2px rgba(255,255,255,.6), 0 2px 32px rgba(255,255,255,.9)',
+  color: '#14171c',
+  fontWeight: 800,
+  fontSize: 'clamp(1.7rem, 4.2vw, 3rem)',
+  lineHeight: 1.08,
+  letterSpacing: '0.005em',
+  textShadow:
+    '0 0 2px #FBFBFA, 0 0 4px #FBFBFA, 0 1px 1px #FBFBFA, 0 -1px 1px #FBFBFA, 1px 0 1px #FBFBFA, -1px 0 1px #FBFBFA, 0 3px 18px rgba(251,251,250,.8)',
   willChange: 'opacity',
 };
 
@@ -50,19 +55,52 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
   const capARef = useRef<HTMLDivElement>(null);
   const capBRef = useRef<HTMLDivElement>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef<Uint8Array>(new Uint8Array(0));
+  const readyRef = useRef(false);
   const lastIdx = useRef(-1);
 
   const N = frameUrls.length;
 
-  // Preload every frame so the swap is instant (cached decode, no flicker).
+  // Preload frames WITH load-tracking. Guards against the "stuck / next images don't
+  // show" feeling on a dense sequence: (1) apply() never swaps to a frame that hasn't
+  // decoded yet — it holds the nearest loaded one; (2) the loading veil stays up until
+  // EVERY frame is decoded (owner: "everything must load first" — the user never enters
+  // the scrub on a half-loaded sequence), then fades out. A thin progress bar shows it
+  // working; a long backstop timeout is the only escape hatch if a request truly hangs.
   useEffect(() => {
-    const imgs = frameUrls.map((u) => {
+    const n = frameUrls.length;
+    const loaded = new Uint8Array(n);
+    loadedRef.current = loaded;
+    readyRef.current = false;
+    let done = 0;
+    const baseline = n; // owner: everything must load first — hold the veil until EVERY frame is in
+    const reveal = () => {
+      if (readyRef.current) return;
+      readyRef.current = true;
+      if (loaderRef.current) loaderRef.current.style.opacity = '0';
+    };
+    const imgs = frameUrls.map((u, i) => {
       const im = new window.Image();
+      im.decoding = 'async';
+      if (i < 24) (im as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high'; // opening frames first
+      const onDone = () => {
+        if (loaded[i]) return;
+        loaded[i] = 1;
+        done++;
+        if (barRef.current) barRef.current.style.transform = `scaleX(${(done / n).toFixed(3)})`;
+        if (done >= baseline) reveal();
+      };
+      im.onload = onDone;
+      im.onerror = onDone; // a single failed frame must not trap the user behind the veil
       im.src = u;
       return im;
     });
     framesRef.current = imgs;
     if (imgRef.current && imgs[0]) imgRef.current.src = imgs[0].src;
+    const safety = window.setTimeout(reveal, 30000); // backstop only, for a request that truly hangs (load/error never fire); the nearest-loaded fallback still covers any gap
+    return () => window.clearTimeout(safety);
   }, [frameUrls]);
 
   useEffect(() => {
@@ -75,9 +113,19 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       x <= a || x >= b ? 0 : x < a + fade ? (x - a) / fade : x > b - fade ? (b - x) / fade : 1;
 
     const apply = (idx: number, c: number, p: number) => {
-      const frame = framesRef.current[idx];
-      if (frame && idx !== lastIdx.current && imgRef.current) {
-        lastIdx.current = idx;
+      const loaded = loadedRef.current;
+      // Never swap to a not-yet-loaded frame (the "stuck on blank" bug) — hold the
+      // nearest already-loaded frame until the target one arrives.
+      let useIdx = idx;
+      if (loaded.length && !loaded[idx]) {
+        for (let d = 1; d < N; d++) {
+          if (idx - d >= 0 && loaded[idx - d]) { useIdx = idx - d; break; }
+          if (idx + d < N && loaded[idx + d]) { useIdx = idx + d; break; }
+        }
+      }
+      const frame = framesRef.current[useIdx];
+      if (frame && useIdx !== lastIdx.current && imgRef.current) {
+        lastIdx.current = useIdx;
         imgRef.current.src = frame.src;
       }
       if (scrimRef.current) scrimRef.current.style.opacity = String(c);
@@ -92,6 +140,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     };
 
     if (reduce) {
+      if (loaderRef.current) loaderRef.current.style.opacity = '0';
       apply(N - 1, 1, 1);
       return;
     }
@@ -183,6 +232,28 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
           style={{ bottom: 22, fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}
         >
           scroll ↓
+        </div>
+        {/* Loading veil — hides the half-loaded sequence until the opening frames decode, then fades out. */}
+        <div
+          ref={loaderRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+          style={{ background: '#0e0f12', zIndex: 5, transition: 'opacity .7s ease' }}
+        >
+          <div style={{ width: 190, textAlign: 'center' }}>
+            <div
+              className="m-mono"
+              style={{ fontSize: 10, letterSpacing: '.24em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)', marginBottom: 14 }}
+            >
+              Setting the scene
+            </div>
+            <div style={{ height: 2, borderRadius: 2, background: 'rgba(255,255,255,.14)', overflow: 'hidden' }}>
+              <div
+                ref={barRef}
+                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .2s linear' }}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>

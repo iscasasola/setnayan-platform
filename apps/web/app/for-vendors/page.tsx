@@ -38,7 +38,6 @@ import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { EditorialBand } from './_components/editorial-band';
-import { RecommendStrip } from './_components/recommend-strip';
 import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -269,14 +268,6 @@ export default async function ForVendorsPage() {
         <StackCloseVendor />
         <ForVendorsDeepDive />
         <Voices />
-        {/*
-          RecommendStrip · replaces the couple-facing Pricing cards + the full
-          21-service ProductionsCatalog (couple content, misplaced on a vendor
-          page — audited 2026-06-15 full reflow). Keeps the one vendor-relevant
-          angle (recommend an add-on → earn a referral token) and links to
-          /pricing for the full catalog instead of dumping it inline.
-        */}
-        <RecommendStrip />
         <FAQ
           vendorPrices={{
             proMonthly: p.proMonthly,

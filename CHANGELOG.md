@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · chore(for-vendors): remove the "recommend an add-on → earn a token" referral mechanic (doesn't exist)
+
+Owner flagged the "Recommend & earn" section: "we no longer have this." The recommend-an-add-on → earn-a-bidding-token-back referral mechanic isn't a real feature, so the section was built on a false premise (and it was the only reason couple add-ons appeared on the vendor page).
+
+- **Deleted `recommend-strip.tsx`** + removed `<RecommendStrip />` from `page.tsx` (import + usage). The page flow is now Hero → Vision → EditorialBand → Stack → Deep-dive → Voices → FAQ → CTA.
+- **`for-vendors-deep-dive.tsx`** — removed the matrix row `Earn tokens from Productions referrals` and trimmed the Bidding-section note (dropped "Earn tokens by recommending Productions services…" → now just "Vendors spend tokens to accept couple inquiries; verified vendors get free couple unlocks every week"). Same retired mechanic.
+- **Kept:** the EditorialBand reception photo (no false claim); the Patricia Cruz testimonial (its "referral program" line is an organic word-of-mouth metaphor, not the token mechanic). **Untouched + flagged to owner:** the separate, "coming soon" Crew-Rate Marketplace ("earn a referral cut on crew gigs") — a different mechanic; confirm if that's also gone.
+
+`tsc --noEmit` green. SPEC IMPACT: removes a non-existent feature from public copy (extends the public-claims hygiene work). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(providers): IndexedDB sync-throw crashes the app where storage is blocked (native shells + Safari Private)
 
 **Launch-blocking crash, found while running the iOS native shell on the simulator.** The Capacitor app booted to the root error boundary ("Something on our end didn't work") instead of `/login`. Root-caused + reproduced deterministically: `app/providers.tsx` `createIdbStorage()` runs inside a `useState` initializer **during render**, and `prime()` calls idb-keyval `get()`, which lazily hits `indexedDB.open()`. A **remote-URL WKWebView** (and **Safari Private Browsing**) partition/block IndexedDB and throw `SecurityError` **synchronously** on that access. The existing guard was `.then().catch()` — async-only — so the synchronous throw escaped into React render → root error boundary (client-side, no `digest`).

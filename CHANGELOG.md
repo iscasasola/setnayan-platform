@@ -431,6 +431,20 @@ SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav was owner-lock
 ---
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
+## 2026-06-14 · feat(nav): pill-segmented dashboard menus (shared `.sn-seg` template — no more rectangles)
+
+Owner: "make each menu a pill also, not rectangles again." Extends the floating-pill bottom-nav language to the in-page dashboard section menus.
+
+- `app/globals.css` — new SHARED pill-segmented template: `.sn-seg` (rounded pill TRACK — subtle ink-tint bg + 0.5px border) + `.sn-seg-item` (evenly-sized options) + active state via `aria-selected="true"` / `aria-current="page"` / `.is-active` (raised white pill + ink text + soft shadow). One source of truth, matching the bottom-nav pill language.
+- Converted the four dashboard section menus to it (style only — all logic/handlers/state/a11y preserved):
+  - **Services tabs** (`services-takeover.tsx`) — both the desktop top strip and the mobile sticky-top nav (Summary·Shortlist·Build·Compare·Lock) → pill segmented (was `border-b` underline strips); BB_TAB_EVENT + `?tab=` mirroring intact. Mobile items get `min-w-0` + truncate so 5 labels degrade cleanly on ~320px.
+  - **Guests menu** (`mobile-guest-carousel.tsx`) — the 5-pill row at the top of the carousel sheet → `.sn-seg` (was a `grid grid-cols-5` + `border-b`); carousel logic untouched.
+  - **Schedule toggle** (`schedule-mode-toggle.tsx`) — Preparation/Event-Day → pill segmented; `?view=` Link contract intact (active badge recolored for legibility on the white pill).
+  - **Guest view-switcher** (`view-switcher.tsx`) — List/Mind-map → pill segmented.
+- Built via a parallel convert-then-adversarially-verify workflow; all four passed (minor non-blocking notes only).
+- Verified: typecheck ✅ · lint ✅ · `lint:botnav` ✅ · production build ✅.
+
+SPEC IMPACT: adds the shared `.sn-seg` pill-segmented menu template (companion to the bottom-nav pill template). Memory `project_setnayan_bottom_nav_canonical` + corpus `DECISION_LOG.md` updated. No SKU / schema / pricing / route impact.
 
 **Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.
 

@@ -257,6 +257,56 @@
   animation: nav-press-flash var(--bn-dur, 500ms) ease-out;
 }
 
+/*
+ * Pill segmented control — the shared in-page MENU template (owner-locked
+ * 2026-06-14 "make each menu a pill, not rectangles"). A rounded pill TRACK
+ * holding evenly-sized options; the active option is a raised pill. Matches
+ * the floating-pill bottom nav's pill language so every menu in the app reads
+ * consistently. Apply `.sn-seg` to the container, `.sn-seg-item` to each
+ * option, and mark the active one with aria-selected / aria-current="page" /
+ * `.is-active`. Logic (handlers/state) is the caller's — this is style only.
+ */
+.sn-seg {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m-ink) 5%, transparent);
+  border: 0.5px solid var(--m-line);
+}
+.sn-seg-item {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  color: var(--m-slate);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.sn-seg-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.sn-seg-item[aria-selected='true'],
+.sn-seg-item[aria-current='page'],
+.sn-seg-item.is-active {
+  background: var(--m-paper);
+  color: var(--m-ink);
+  box-shadow: 0 1px 3px rgba(30, 34, 41, 0.12);
+}
+
 @layer components {
   /*
    * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.

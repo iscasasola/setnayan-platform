@@ -108,6 +108,26 @@ export function addOnHref(key: string, eventId: string): string {
 
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
+    key: 'setnayan-ai',
+    label: 'Setnayan AI',
+    Icon: Sparkles,
+    iteration: '0016',
+    status: 'live',
+    category: 'tool',
+    blurb:
+      'Ranked vendor matches by date, budget, location, guest count & faith — a shortlist made for your wedding, not a directory',
+    cta: 'See your matches',
+    studioGroup: 'plan_organize',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'linear-gradient(135deg, #2A1330 0%, #5A2E66 50%, #8B4A93 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #E8C8FF 0%, transparent 55%)',
+      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+    },
+  },
+  {
     key: 'orders',
     label: 'Orders',
     Icon: Receipt,

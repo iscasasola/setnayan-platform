@@ -52,3 +52,20 @@ export function isSetnayanAiActive(
   if (!isSetnayanAiPaywallEnabled()) return notManuallyOff;
   return notManuallyOff && event?.setnayan_ai_active === true;
 }
+
+/**
+ * Should this event be offered the PAID "Unlock Setnayan AI" purchase?
+ *
+ * True only when the paywall is enforced AND the event has not purchased the
+ * entitlement (`setnayan_ai_active`). Deliberately keyed on the entitlement
+ * boolean, NOT `isSetnayanAiActive` — a couple who bought it but toggled to
+ * Manual still OWNS it and must never see the buy CTA again (double-charge
+ * guard). When the paywall is OFF this is always false (AI is free → nothing to
+ * sell). Drives the `/add-ons/setnayan-ai` buy surface + the soft-paywall CTA on
+ * the match surface; both stay dormant until `SETNAYAN_AI_PAYWALL_ENABLED=true`.
+ */
+export function shouldOfferSetnayanAiPurchase(
+  event: { setnayan_ai_active?: boolean | null } | null | undefined,
+): boolean {
+  return isSetnayanAiPaywallEnabled() && event?.setnayan_ai_active !== true;
+}

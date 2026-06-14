@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
+
+The audit found Setnayan AI is free for **two** reasons: the paywall flag is off AND **nothing let a couple buy it** (no add-on page, not in the onboarding add-on map). The entitlement chain was fully wired (checkout → admin approve → `events.setnayan_ai_active` → `lib/setnayan-ai.ts` gate) but had no front door. This PR builds it.
+
+- **New buy page** `app/dashboard/[eventId]/add-ons/setnayan-ai/page.tsx` with a 3-state gate off the single governing gate (`lib/setnayan-ai.ts`): **active** (AI on — covers free-during-launch when the flag is off + paid-and-on when it's on), **owns-but-off** (purchased / pending order / paywall-off but toggled to Manual → nudge to switch Assisted on, never a second charge), and **buy** (paywall on + not owned → `InlineCheckoutDrawer` at the catalog price, with graceful "loads from catalog" when the row is unreadable). Price read from the V2 catalog only (`formatV2Sku('SETNAYAN_AI')`, now resolvable after PR 1); the server re-resolves the authoritative charge regardless.
+- **New helper** `shouldOfferSetnayanAiPurchase(event)` in `lib/setnayan-ai.ts` — keyed on the `setnayan_ai_active` entitlement boolean (not the Assisted/Manual toggle) so an owner who toggled Manual is never re-offered the purchase. Reusable for a future soft-paywall CTA on the match surface.
+- **Registered** Setnayan AI as the lead card in `lib/add-ons-catalog.ts` (`plan_organize` studio group) so it's discoverable in the Studio hub.
+
+**Dormant until you flip it.** The buy state only renders when `SETNAYAN_AI_PAYWALL_ENABLED=true` (your Vercel env switch) — shipping this changes nothing live today. After it merges: set the flag → couples can buy at ₱3,999 → paying unlocks the ranked match (chain verified end-to-end). Typecheck green. Stacks on PR 1 (#1431).
+
+SPEC IMPACT: None on prices. Closes the "no purchase path for SETNAYAN_AI" gap so the first paywall can actually charge once enabled.
+
 ## 2026-06-14 · fix(hero): restore full-bleed fill — homepage hero covers the screen again
 
 Owner: "the video is no longer fill. i see the square video and not see the filled screen." Reverses this morning's `e15a28ac` contain decision ("contain it · sharp, not full-screen"), which centered the scrub in an `86vmin` square capped at the source's native size to avoid upscaling a low-res clip.

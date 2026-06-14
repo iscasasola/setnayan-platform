@@ -28,6 +28,16 @@ Owner: "I want to share this idea with the world … embrace this new concept of
 Companion corpus artifacts (manifesto copy + 55s film script/storyboard): `03_Strategy/Living_Memories_Manifesto_2026-06-14.md` + `03_Strategy/Living_Memories_Film_Script_2026-06-14.md`.
 
 SPEC IMPACT: None on schema/SKU. New brand-manifesto surface (iteration 0015); the four media-feature positionings + the umbrella thesis are logged to corpus `DECISION_LOG.md` + memory.
+## 2026-06-15 · ci(desktop): publish every main build to a rolling `desktop-latest` release (kill the stale download)
+
+Owner asked to stop the public Mac download going stale. Audit found: the desktop `.dmg`/`.msi` build off `main` only ever landed as a 14-day **Actions artifact** (login-gated, expiring), while the one public download — GitHub Release `v0.0.1` — was a **one-time manual upload from 2026-05-13**, ~a month behind `main`. The verified macOS artifact is a real, mountable, ad-hoc-signed `Setnayan.app` (Apple-Silicon-only Tauri remote-URL shell, ~2.9 MB app / 1.4 MB dmg).
+
+- `.github/workflows/build-desktop.yml` — new `publish-latest` job (`needs: build`, push-to-`main` only) downloads both platform artifacts and publishes them to a rolling **`desktop-latest`** pre-release via `softprops/action-gh-release@v2`, giving a stable always-current URL (`…/releases/download/desktop-latest/Setnayan_0.0.1_aarch64.dmg`). `if: always()` so a flaky Windows leg (non-required check) can't freeze the Mac refresh; `fail_on_unmatched_files: true` so an empty publish fails loudly. Release body documents the ad-hoc-signed / not-notarized / Apple-Silicon-only Gatekeeper caveats. The semantic `v0.0.1` release is left untouched.
+- Same file — flipped the artifact upload `if-no-files-found: warn` → `error`: a desktop build that produces no installer is a real failure and should not pass silently.
+
+STILL OPEN (surfaced to owner, NOT in this PR — need owner action/decision): (1) **Developer-ID signing + notarization** — downloads still hit Gatekeeper friction until Setnayan has an Apple Developer cert + notarization secrets; (2) **no Intel/x86_64 or universal macOS build** — Intel Macs can't run it; (3) **no "Download for Mac" link on setnayan.com** — only discoverable via the Releases page.
+
+SPEC IMPACT: None. CI/release-plumbing only — no schema, SKU, or product-surface change.
 
 ## 2026-06-14 · fix(hero): restore full-bleed fill — homepage hero covers the screen again
 

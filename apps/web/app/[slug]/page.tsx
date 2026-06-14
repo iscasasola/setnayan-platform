@@ -30,6 +30,7 @@ import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
+import { SaveTheDateView } from './_components/save-the-date';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
@@ -373,11 +374,12 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     // handles the rest of the page exactly as it would for a public event.
   }
 
-  // Website lifecycle-phase engine (Increment C · flag-dark). `phasesEnabled`
-  // is OFF by default (WEBSITE_PHASES_ENABLED !== 'true'); when off, every
-  // new phase-gated behavior below is bypassed and the page renders exactly
-  // as it does today.
-  const phasesEnabled = isWebsitePhasesEnabled();
+  // Website lifecycle-phase engine. The 4-path lifecycle (save_the_date →
+  // rsvp → event → editorial) ships ON for weddings — this whole surface is
+  // wedding-only (non-weddings notFound() above), so the lifecycle is the
+  // wedding website. The WEBSITE_PHASES_ENABLED env flag stays as an override
+  // for any future non-wedding event types.
+  const phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding';
 
   // Date-driven phase by default. PREVIEW override: `?phase=rsvp|event|
   // editorial` shows any phase regardless of date (the live "event" phase is
@@ -397,7 +399,10 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     (event.display_name ?? '').toUpperCase().includes('[TEST]');
   const phaseParam = typeof search.phase === 'string' ? search.phase.toLowerCase() : '';
   const isValidPhaseParam =
-    phaseParam === 'rsvp' || phaseParam === 'event' || phaseParam === 'editorial';
+    phaseParam === 'save_the_date' ||
+    phaseParam === 'rsvp' ||
+    phaseParam === 'event' ||
+    phaseParam === 'editorial';
   let phasePreviewAllowed = isDemoEvent;
   if (phasesEnabled && isValidPhaseParam && !phasePreviewAllowed) {
     const supabase = await createClient();
@@ -945,6 +950,11 @@ function PublicLanding({
   // the real editorial module. Entirely bypassed when the flag is off.
   const showEditorialPlaceholder =
     phasesEnabled && lifecyclePhase === 'editorial';
+  // 4-path lifecycle: far before the wedding, the body is the minimal Save the
+  // Date (announcement) — countdown + add-to-calendar, no RSVP/widgets. Hero
+  // (media) stays above; the text hero is carried by the STD view when there's
+  // no hero media (anonymous path has no monogram hero fallback).
+  const showSaveTheDate = phasesEnabled && lifecyclePhase === 'save_the_date';
   // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
@@ -997,6 +1007,15 @@ function PublicLanding({
       ) : null}
       {showEditorialPlaceholder ? (
         <EditorialContent eventId={event.event_id} />
+      ) : showSaveTheDate ? (
+        <SaveTheDateView
+          displayName={event.display_name}
+          dateIso={event.event_date}
+          venueName={event.venue_name}
+          venueAddress={event.venue_address}
+          publicId={event.public_id}
+          showTextHero={!hasHeroMedia}
+        />
       ) : (
         <>
       <div className="space-y-6 text-center">
@@ -1376,6 +1395,10 @@ function InvitationSite({
   // renders above it (hero shows in all phases). Bypassed when the flag is off.
   const showEditorialPlaceholder =
     phasesEnabled && lifecyclePhase === 'editorial';
+  // 4-path lifecycle: far before the wedding, the body is the minimal Save the
+  // Date (announcement). The monogram hero already renders above for the guest
+  // path, so the STD view doesn't carry the text hero (showTextHero={false}).
+  const showSaveTheDate = phasesEnabled && lifecyclePhase === 'save_the_date';
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
@@ -1464,6 +1487,15 @@ function InvitationSite({
             footer sign-out (below) stay. Bypassed when the flag is off. */}
         {showEditorialPlaceholder ? (
           <EditorialContent eventId={event.event_id} />
+        ) : showSaveTheDate ? (
+          <SaveTheDateView
+            displayName={event.display_name}
+            dateIso={event.event_date}
+            venueName={event.venue_name}
+            venueAddress={event.venue_address}
+            publicId={event.public_id}
+            showTextHero={false}
+          />
         ) : (
           <>
         {/* Greeting — always-on per the editor contract; gated here so V1.1

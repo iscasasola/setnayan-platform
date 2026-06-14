@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(providers): IndexedDB sync-throw crashes the app where storage is blocked (native shells + Safari Private)
+
+**Launch-blocking crash, found while running the iOS native shell on the simulator.** The Capacitor app booted to the root error boundary ("Something on our end didn't work") instead of `/login`. Root-caused + reproduced deterministically: `app/providers.tsx` `createIdbStorage()` runs inside a `useState` initializer **during render**, and `prime()` calls idb-keyval `get()`, which lazily hits `indexedDB.open()`. A **remote-URL WKWebView** (and **Safari Private Browsing**) partition/block IndexedDB and throw `SecurityError` **synchronously** on that access. The existing guard was `.then().catch()` — async-only — so the synchronous throw escaped into React render → root error boundary (client-side, no `digest`).
+
+- **`apps/web/app/providers.tsx`** — wrap every idb-keyval call (`get`/`set`/`del`) in a `safe()` helper that catches **both** a synchronous throw and an async rejection, and latches `idbUsable=false` after the first failure so it stops touching IndexedDB and falls back to pure in-memory cache (app still works, cache just doesn't persist that session).
+
+Verified: (a) repro — headless Chromium loading the live site with `window.indexedDB` made to throw synchronously renders the exact error screen; with the same block, the patched logic renders `/login`. (b) unit — real `idb-keyval` `get()` throws `SecurityError` synchronously when IndexedDB is blocked; `safe(() => get())` swallows it and resolves `undefined`. This crash hit **both native shells** (same web bundle) **and** Safari Private Browsing on the live site.
+
+SPEC IMPACT: None (defensive bug fix; no schema/SKU/behavior change for working storage).
+
 ## 2026-06-15 · feat(kwento): close the 3 buildable Kwento gaps — guest self-delete, FaceBlock author-hide, couple email (Alaala Lane 3)
 
 Kwento (photo-anchored guest messages) was ~90% shipped; this closes the three remaining **buildable** gaps. The "words baked into a film" moat stays blocked on the absent video render pipeline — a separate, owner-actionable infra decision, not a Kwento gap.

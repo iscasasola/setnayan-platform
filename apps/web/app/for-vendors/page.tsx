@@ -37,8 +37,9 @@ import { VendorHero } from './_components/vendor-hero';
 import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
-import { ProductionsCatalog } from './_components/productions-catalog';
-import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
+import { EditorialBand } from './_components/editorial-band';
+import { RecommendStrip } from './_components/recommend-strip';
+import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
@@ -253,29 +254,29 @@ export default async function ForVendorsPage() {
         <Nav />
         <VendorHero />
         {/*
-          VendorVision · the "why" spine (owner brief 2026-06-15 "share our
-          vision to the vendors"). Sits between the hero hook and the
-          StackCloseVendor proof: the promise (give back your time), set-price-
-          once, every-inquiry-counts, never-abuse-your-business, how new vendors
-          get discovered, the 5 growth tools, tokens (simple+honest), and
-          Pro/Enterprise framed as growth-gated not craft-gated. Prices DB-driven.
+          VendorVision · the "why" spine (owner brief 2026-06-15). The narrative
+          that earns the vendor before the proof: the promise (give back your
+          time), set-price-once, every-inquiry-counts, never-abuse, and how new
+          vendors get discovered. Trimmed in the 2026-06-15 full reflow — the
+          tools/tokens/Pro-Enterprise blocks moved to the what-you-get + pricing
+          sections below to stop the page repeating itself.
         */}
         <VendorVision />
+        {/* EditorialBand · one full-bleed photographic breath (owner 2026-06-15
+            "use photos if needed") — bridges the vision into the what-you-get
+            stack with a real on-brand reception photo. */}
+        <EditorialBand />
         <StackCloseVendor />
         <ForVendorsDeepDive />
         <Voices />
-        <Pricing />
         {/*
-          ProductionsCatalog · added 2026-05-30 per CLAUDE.md row "For Vendors
-          Section 4 · The Complete Offering". Renders the 18 complimentary
-          tools + 21 Productions services live from platform_retail_catalog_v2.
-          Sits between Pricing (vendor tier comparison) and FAQ so vendors who
-          just compared Free/Verified/Pro/Enterprise see what couples actually
-          buy next — and recognise the Token-Worthy items they can recommend
-          for referral tokens. Auto-updates when admin edits a price in
-          /admin/pricing (revalidatePath fired from server action).
+          RecommendStrip · replaces the couple-facing Pricing cards + the full
+          21-service ProductionsCatalog (couple content, misplaced on a vendor
+          page — audited 2026-06-15 full reflow). Keeps the one vendor-relevant
+          angle (recommend an add-on → earn a referral token) and links to
+          /pricing for the full catalog instead of dumping it inline.
         */}
-        <ProductionsCatalog />
+        <RecommendStrip />
         <FAQ
           vendorPrices={{
             proMonthly: p.proMonthly,

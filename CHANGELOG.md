@@ -77,6 +77,18 @@ Owner brief: "share our vision to the vendors." The page led with the feature st
 - Built entirely in the page's `--m-*` Clean-Editorial tokens + `m-display`/`m-card`/`m-btn` vocabulary; responsive via scoped `.m-vv-*` grid classes. `tsc --noEmit` green.
 
 SPEC IMPACT: None on schema / SKU / price. New vendor-facing positioning on /for-vendors (iteration 0015 marketing site · vendor pitch shared with 0022); logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(blog): Setnayan Journal magazine redesign — photo-led cover, Nuggets, inspiration reader
+
+Owner: "this is very powerful … present it in a more fashionable way than just a set of boxes — a preview in the beginning and an inspiration blog when opened … can you create photos as well?" Turns the text-only `/blog` (0038 first slice) into a photo-led editorial without disturbing the SEO/GEO machinery.
+
+- **`lib/blog.ts`** — `BlogArticle` gains `cover` + `coverAlt` (now also the OG/BlogPosting `image`, so every share/SERP card gets art); `BlogBlock` union gains `quote` (gold pull-quote) + `image` (inline figure); new `BLOG_NUGGETS` — bite-size shareable wisdom lifted from the guides, each linking to its source article (owner: nuggets = "shareable wisdom from guides"). `blogPlainText` handles the new block types.
+- **`app/blog/page.tsx`** — magazine index: full-bleed **cover** for the featured guide (scrim + Cormorant masthead), a dark **Nuggets** band, a wide **lead** story + photo-led `StoryCard` grid (replaces the uniform text boxes). Category filter + Blog/Breadcrumb JSON-LD preserved; OG image added.
+- **`app/blog/[slug]/page.tsx`** — inspiration reader: immersive cover header, drop-cap lead, gold pull-quotes, inline figures, photo "Keep reading" cards. `summary_large_image` Twitter card + OG/BlogPosting `image`. Static render + soft-404 shape (`dynamicParams=false`) unchanged.
+- **`public/blog/{hero,venue,budget,ceremony,nugget}.webp`** — 5 AI-generated covers (Recraft), optimized webp. Owner-approved as V1 placeholders — "AI now, swap to real photography later." Reused thematically across the 9 articles.
+
+Brand-native: uses the existing Clean-Editorial tokens (`cream`/`ink`/`terracotta`=champagne-gold/`mulberry` CTA/`accent-soft`) + `font-display` (Cormorant) — no new font. Typecheck green on the changed files; lint/build via CI + Vercel preview.
+
+SPEC IMPACT: 0038 editorial — blog identity clarified (owner 2026-06-15): helpful planning-education that spans event types as they unlock + weaves in useful services; distinct from "Real Stories" (real-event showcases). Article cover-image + Nuggets concept added. → corpus DECISION_LOG.
 
 ## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
 

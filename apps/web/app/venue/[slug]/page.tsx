@@ -17,8 +17,9 @@ import {
   type PairedVenueCandidate,
 } from '@/lib/venue-recommendations';
 import { resolvePrimaryHostEvent } from '@/lib/events';
+import { slugifyCity } from '@/app/venues/_lib/venue-directory';
 import { NavLinksRow } from '@/app/_components/nav-links';
-import { AddVenueToPlanButton } from '@/app/vendors/_components/add-venue-to-plan-button';
+import { AddVenueToPlanButton } from '@/app/explore/_components/add-venue-to-plan-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -224,10 +225,17 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const venue = await fetchVenue(slug);
   if (!venue) {
-    return { title: 'Venue not found · Setnayan' };
+    return { title: 'Venue not found' };
   }
-  const cityPart = venue.location_city ? ` · ${venue.location_city}` : '';
-  const baseTitle = `${venue.name}${cityPart} · Setnayan`;
+  // Layout title.template already appends "· Setnayan" — appending it here
+  // too doubled the suffix on every live venue title. Same for the city:
+  // most directory names already carry it ("Antonio's — Tagaytay").
+  const cityPart =
+    venue.location_city &&
+    !venue.name.toLowerCase().includes(venue.location_city.toLowerCase())
+      ? ` · ${venue.location_city}`
+      : '';
+  const baseTitle = `${venue.name}${cityPart}`;
   if (venue.is_demo === true) {
     return {
       title: baseTitle,
@@ -414,15 +422,25 @@ export default async function VenueDetailPage({ params }: Props) {
             name: 'Home',
             item: `${SITE_URL}/`,
           },
+          // Level 2 previously pointed at /vendors?folder=reception_venue —
+          // a querystring URL robots.txt disallows (?filter/?sort family).
+          // Crawl-blocked breadcrumb nodes are dead weight; the /venues hub
+          // + /venues/[city] indexes are the canonical trail now.
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Wedding venues',
-            item: `${SITE_URL}/vendors?folder=reception_venue`,
+            item: `${SITE_URL}/venues`,
           },
           {
             '@type': 'ListItem',
             position: 3,
+            name: venue.location_city,
+            item: `${SITE_URL}/venues/${slugifyCity(venue.location_city)}`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 4,
             name: venue.name,
             item: `${SITE_URL}/venue/${venue.slug}`,
           },
@@ -656,13 +674,21 @@ export default async function VenueDetailPage({ params }: Props) {
           </aside>
         </div>
 
-        <footer className="mt-12 border-t border-ink/10 pt-6">
+        <footer className="mt-12 flex flex-wrap gap-x-6 gap-y-2 border-t border-ink/10 pt-6">
           <Link
-            href="/vendors?folder=reception"
+            href="/explore?folder=reception"
             className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             ← Back to Reception folder
           </Link>
+          {venue.location_city ? (
+            <Link
+              href={`/venues/${slugifyCity(venue.location_city)}`}
+              className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
+            >
+              More venues in {venue.location_city} →
+            </Link>
+          ) : null}
         </footer>
       </article>
     </main>
@@ -987,7 +1013,7 @@ function VenueNotFound({ slug }: { slug: string }) {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href="/vendors?folder=reception"
+            href="/explore?folder=reception"
             className="inline-flex items-center justify-center rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
           >
             Browse reception venues

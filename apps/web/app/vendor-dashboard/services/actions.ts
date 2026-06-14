@@ -122,12 +122,15 @@ export async function createVendorService(formData: FormData) {
 
   let category: VendorCategory;
   let starting_price_php: number | null;
+  let added_pax_price_php: number | null;
   let crew_size: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
   try {
     category = parseCategory(formData.get('category'));
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
+    // Optional per-added-guest surcharge (Adaptive Pax Pricing); blank = none.
+    added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     last_minute_end_months = parseInt0OrNull(formData.get('last_minute_end_months'));
     last_minute_surcharge_pct = parseSurchargePctOrNull(
@@ -221,6 +224,7 @@ export async function createVendorService(formData: FormData) {
     category,
     title,
     starting_price_php,
+    added_pax_price_php,
     crew_size,
     crew_meal_required,
     branch_id,
@@ -282,11 +286,13 @@ export async function updateVendorService(formData: FormData) {
   }
 
   let starting_price_php: number | null;
+  let added_pax_price_php: number | null;
   let crew_size: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
   try {
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
+    added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
     crew_size = parseInt0OrNull(formData.get('crew_size'));
     last_minute_end_months = parseInt0OrNull(formData.get('last_minute_end_months'));
     last_minute_surcharge_pct = parseSurchargePctOrNull(
@@ -327,6 +333,7 @@ export async function updateVendorService(formData: FormData) {
     .from('vendor_services')
     .update({
       starting_price_php,
+      added_pax_price_php,
       crew_size,
       crew_meal_required,
       branch_id,

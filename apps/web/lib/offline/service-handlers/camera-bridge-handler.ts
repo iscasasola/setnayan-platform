@@ -121,7 +121,15 @@ export async function syncOne(item: OfflineItem): Promise<SyncResult> {
       });
       return res.ok;
     },
-    record: (r2Ref, kind) => recordSeatCapture(parsed.seat_token, r2Ref, kind),
+    record: (r2Ref, kind, posterR2Ref) =>
+      recordSeatCapture(parsed.seat_token, r2Ref, kind, posterR2Ref),
+    // The drain runs in the browser (sync daemon), so a queued clip still gets
+    // its NSFW-screen poster frame at drain time. Lazy import keeps the module
+    // out of the daemon's initial bundle; extraction never throws (null).
+    extractPoster: async (file) => {
+      const { extractClipPosterBytes } = await import('@/lib/clip-poster');
+      return extractClipPosterBytes(file.bytes, file.mimeType);
+    },
   };
 
   return syncOneWith(deps, item);

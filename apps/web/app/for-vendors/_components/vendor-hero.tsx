@@ -22,7 +22,7 @@ export async function VendorHero() {
   return (
     <section
       style={{
-        padding: '96px 56px 64px',
+        padding: 'clamp(64px, 10vw, 96px) clamp(20px, 5vw, 56px) 64px',
         position: 'relative',
         overflow: 'hidden',
         background: 'var(--m-paper)',
@@ -231,16 +231,58 @@ export async function VendorHero() {
               className="m-display"
               style={{ fontSize: 28, color: 'var(--m-paper)', marginTop: 4 }}
             >
-              ₱228K · 2 payouts
+              ₱228K · 2 bookings paid
             </div>
+            {/* No payout/BIR-receipt claims here — Setnayan never holds vendor
+                money (couples pay vendors directly) per the standing payment-
+                disclosure rule + the 2026-06-13 public-claims purge (#1316). */}
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}
             >
-              BIR ORs auto-stamped · 24h disbursement
+              Paid straight to you · Setnayan never holds your money
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Operational wins strip — the four reasons vendors switch from
+          Viber/IG DMs (owner brief 2026-06-13). Leads the pitch before the
+          deep-dive matrix repeats each in detail. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 14,
+          marginTop: 56,
+          position: 'relative',
+        }}
+      >
+        {[
+          {
+            title: 'The ultimate calendar',
+            body: 'Team roles, agent privacy redactions, and locked dates that make double-bookings impossible.',
+          },
+          {
+            title: '0% commission',
+            body: 'Couples pay you directly. You keep 100% of every booking — Setnayan never takes a cut.',
+          },
+          {
+            title: 'Verified badge — free',
+            body: 'ID, DTI, sample work, references. An official stamp of legitimacy, free during launch.',
+          },
+          {
+            title: 'Automated bookings',
+            body: 'Bid request → chat → quote → locked date in one rail, not 50 back-and-forth messages.',
+          },
+        ].map((w) => (
+          <div key={w.title} className="m-card" style={{ padding: 20 }}>
+            <div className="m-display" style={{ fontSize: 18, color: 'var(--m-ink)' }}>
+              {w.title}
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--m-slate)', lineHeight: 1.55, marginTop: 6 }}>{w.body}</p>
+          </div>
+        ))}
       </div>
 
       {/* Responsive grid — desktop 2-col, mobile stack */}

@@ -123,6 +123,25 @@ jobs:
       - name: Lint retired strings
         run: node apps/web/scripts/lint-retired-strings.mjs
 
+  lint-bottom-nav:
+    name: lint bottom-nav template
+    runs-on: ubuntu-latest
+    # Enforces the UNBREAKABLE bottom-nav template (owner-locked 2026-06-13 ·
+    # project_setnayan_bottom_nav_canonical). Fails if a doorway adds a
+    # *-bottom-nav.tsx wrapper that doesn't delegate to the canonical
+    # <BottomNav>, OR if the canonical primitive loses its locked-interaction
+    # markers (the central --bn-* tuning props + the travel-stretch hook).
+    # See apps/web/scripts/lint-bottom-nav.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint bottom-nav template
+        run: node apps/web/scripts/lint-bottom-nav.mjs
+
   lint-email-links:
     name: lint email template links
     runs-on: ubuntu-latest

@@ -9,6 +9,9 @@ export type VendorServiceRow = {
   /** Per-listing name (#1 multi-service-per-leaf); null → fall back to category label. */
   title: string | null;
   starting_price_php: number | null;
+  /** Optional surcharge (PHP) per guest above the quoted count; null/blank =
+   *  no extra charge for added pax (Adaptive Pax Pricing, 2026-06-13). */
+  added_pax_price_php: number | null;
   crew_size: number | null;
   crew_meal_required: boolean;
   is_active: boolean;
@@ -26,7 +29,7 @@ export type VendorServiceRow = {
 };
 
 const BASE_COLS =
-  'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
+  'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const FULL_SELECT = `${BASE_COLS},title,branch_id,last_minute_end_months,last_minute_surcharge_pct,daily_capacity`;
 
 export async function fetchVendorServices(

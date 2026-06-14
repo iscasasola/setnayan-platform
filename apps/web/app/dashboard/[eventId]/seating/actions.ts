@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
+import { SeatingLockError } from './seating-lock-error';
 import {
+  BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
   computeAutoSeat,
   effectiveCapacity,
@@ -14,6 +16,7 @@ import {
   removedSeatSet,
   roleTier,
   type AutoSeatGuest,
+  type BoothType,
   type TableType,
 } from '@/lib/seating';
 
@@ -22,6 +25,55 @@ function clampPct(v: unknown): number | null {
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, n));
+}
+
+// ---------------------------------------------------------------------------
+// Exclusive seating-editor lock (PR 2 · owner lock 2026-06-13) — one editor at
+// a time per event, co-owners included. Enforcement lives HERE in the
+// server-action layer (not RLS): assertSeatingLockHeld() calls the DB guard
+// (server-clock 90s cutoff) BEFORE every mutation, so a peer who took over (or
+// whose own lock went stale) gets a typed, recoverable error instead of an
+// opaque RLS denial. The editor reads this error code to drop to view-only.
+// (SeatingLockError lives in its own module — a 'use server' file may only
+// export async functions, so the class can't be declared/exported here.)
+// ---------------------------------------------------------------------------
+
+// Assert the caller currently holds a LIVE seating lock for the event before a
+// mutation runs. lockId is best-effort threaded from the client (the active
+// lock the editor acquired); when present it pins the assert so a silent peer
+// takeover is also caught. A missing/empty lockId still asserts the caller
+// holds *some* live lock on the event. Throws SeatingLockError on failure.
+async function assertSeatingLockHeld(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  lockId: string | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('assert_seating_lock_held', {
+    p_event_id: eventId,
+    p_lock_id: lockId && lockId.length > 0 ? lockId : null,
+  });
+  if (error) throw new SeatingLockError();
+}
+
+// Pull the optional lock_id the editor stamps onto every gated FormData.
+function lockIdFrom(formData: FormData): string | null {
+  const v = formData.get('lock_id');
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+// Best-effort heartbeat after a successful mutation — keeps the holder's lock
+// warm without a separate round-trip. NEVER throws: a 'lost' result (peer took
+// over) is handled by the next assert / the client heartbeat, not here.
+async function refreshSeatingLock(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  lockId: string | null,
+): Promise<void> {
+  if (!lockId) return;
+  try {
+    await supabase.rpc('refresh_seating_editor_lock', { p_lock_id: lockId });
+  } catch {
+    // swallow — refresh is opportunistic; correctness rides on assert-before.
+  }
 }
 
 const VALID_TYPES = new Set<TableType>(TABLE_TYPE_CATALOG.map((t) => t.type));
@@ -57,6 +109,8 @@ export async function createTable(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase.from('event_tables').insert({
     event_id: eventId,
     table_label: trimmed,
@@ -65,6 +119,7 @@ export async function createTable(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -81,6 +136,8 @@ export async function deleteTable(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .delete()
@@ -88,6 +145,7 @@ export async function deleteTable(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -119,6 +177,8 @@ export async function assignGuest(formData: FormData) {
     if (Number.isInteger(n) && n >= 0 && n < 64) seatNumber = n;
   }
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase.from('event_seat_assignments').upsert(
     {
       event_id: eventId,
@@ -130,6 +190,7 @@ export async function assignGuest(formData: FormData) {
   );
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -165,6 +226,8 @@ export async function assignGroup(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const [tables, assignments] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -202,6 +265,7 @@ export async function assignGroup(
       .from('event_seat_assignments')
       .upsert(rows, { onConflict: 'event_id,guest_id' });
     if (error) throw new Error(error.message);
+    await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
   }
 
@@ -227,6 +291,10 @@ export async function autoSeatGuests(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Bulk action: assert the lock ONCE up front (not per row).
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
   const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
@@ -246,6 +314,7 @@ export async function autoSeatGuests(formData: FormData) {
     // Primary group = first membership, mirroring how the editor colours a
     // guest, so auto-seat clusters the same groups the couple sees.
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
+    seating_priority: g.seating_priority ?? null,
   }));
 
   // Anchor the role-tier rings on where the couple actually placed the stage.
@@ -265,6 +334,7 @@ export async function autoSeatGuests(formData: FormData) {
     if (error) throw new Error(error.message);
   }
 
+  await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -299,6 +369,20 @@ export async function saveFloorPlan(formData: FormData) {
   const serviceX = clampPct(formData.get('service_entrance_x'));
   const serviceY = clampPct(formData.get('service_entrance_y'));
 
+  // Cocktail / waiting-area room — a second room on the same canvas.
+  const cocktailEnabled = formData.get('cocktail_enabled') === 'true';
+  const cocktailX = clampPct(formData.get('cocktail_x'));
+  const cocktailY = clampPct(formData.get('cocktail_y'));
+  const cocktailW = clampSize(formData.get('cocktail_w'));
+  const cocktailH = clampSize(formData.get('cocktail_h'));
+  const cocktailLabelRaw = formData.get('cocktail_label');
+  const cocktailLabel =
+    typeof cocktailLabelRaw === 'string' && cocktailLabelRaw.trim().length > 0
+      ? cocktailLabelRaw.trim().slice(0, 80)
+      : 'Cocktail Area';
+  // Couple revoke switch — absent or anything but 'false' keeps vendor edit on.
+  const cocktailVendorEdit = formData.get('cocktail_vendor_edit') !== 'false';
+
   // Venue dimensions (metres) — null when the couple hasn't set a room size.
   const parseDim = (v: FormDataEntryValue | null): number | null => {
     if (typeof v !== 'string' || v.length === 0) return null;
@@ -314,6 +398,8 @@ export async function saveFloorPlan(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const { error } = await supabase.from('event_floor_plan').upsert(
     {
@@ -333,6 +419,13 @@ export async function saveFloorPlan(formData: FormData) {
       service_entrance_enabled: serviceEnabled,
       service_entrance_x: serviceX ?? 97,
       service_entrance_y: serviceY ?? 50,
+      cocktail_enabled: cocktailEnabled,
+      cocktail_x: cocktailX ?? 50,
+      cocktail_y: cocktailY ?? 40,
+      cocktail_w: cocktailW ?? 30,
+      cocktail_h: cocktailH ?? 22,
+      cocktail_label: cocktailLabel,
+      cocktail_vendor_edit: cocktailVendorEdit,
       venue_width_m: venueWidth,
       venue_length_m: venueLength,
       updated_at: new Date().toISOString(),
@@ -341,6 +434,7 @@ export async function saveFloorPlan(formData: FormData) {
   );
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -374,6 +468,8 @@ export async function updateTablePosition(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .update({ x_pos: clampedX, y_pos: clampedY, updated_at: new Date().toISOString() })
@@ -381,6 +477,7 @@ export async function updateTablePosition(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -397,6 +494,8 @@ export async function unassignGuest(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_seat_assignments')
     .delete()
@@ -404,6 +503,7 @@ export async function unassignGuest(formData: FormData) {
     .eq('guest_id', guestId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -426,6 +526,8 @@ export async function updateTableRotation(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .update({ rotation_deg: rotation, updated_at: new Date().toISOString() })
@@ -433,7 +535,77 @@ export async function updateTableRotation(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Change a table's STYLE/type (owner-directed 2026-06-13: "they picked long
+// table, then decided to make them round tables — give them the right to do
+// so"). Capacity resets to the new type's seat count and the geometry changes,
+// so deleted-chair state (removed_seats) is cleared and any guest sitting in a
+// chair that no longer exists is returned to the unseated pool. Position +
+// label are kept. Returns how many guests were unseated so the editor can say.
+export async function updateTableType(
+  formData: FormData,
+): Promise<{ unseated: number }> {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const newType = formData.get('table_type');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || !isValidTableType(newType)) {
+    throw new Error('Invalid input');
+  }
+  const newCapacity = TABLE_TYPE_CATALOG.find((t) => t.type === newType)?.defaultCapacity ?? 8;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  // Guests sitting in a chair index that the new (smaller) shape no longer has
+  // are unseated. Chairs 0..newCapacity-1 keep their occupant; null-seat rows
+  // (dropped on the table without a specific chair) beyond capacity also clear.
+  const assignments = await fetchAssignments(supabase, eventId);
+  const here = assignments.filter((a) => a.table_id === tableId);
+  const toUnseat = here.filter(
+    (a) => a.seat_number === null || a.seat_number < 0 || a.seat_number >= newCapacity,
+  );
+  // If everyone has a low seat number but there are simply MORE of them than
+  // the new capacity, drop the surplus (highest seat numbers first).
+  const keep = here.filter((a) => !toUnseat.includes(a));
+  const surplus = keep
+    .slice()
+    .sort((a, b) => (b.seat_number ?? 0) - (a.seat_number ?? 0))
+    .slice(0, Math.max(0, keep.length - newCapacity));
+  const unseatIds = [...toUnseat, ...surplus].map((a) => a.guest_id);
+
+  if (unseatIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('table_id', tableId)
+      .in('guest_id', unseatIds);
+    if (delErr) throw new Error(delErr.message);
+  }
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({
+      table_type: newType,
+      capacity: newCapacity,
+      removed_seats: [],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return { unseated: unseatIds.length };
 }
 
 // Delete or restore a single chair at a table (toggles membership of
@@ -455,6 +627,8 @@ export async function setTableSeat(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const [tables, assignments] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -480,6 +654,7 @@ export async function setTableSeat(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -546,6 +721,8 @@ export async function updateTableLabel(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { error } = await supabase
     .from('event_tables')
     .update({ table_label: label, updated_at: new Date().toISOString() })
@@ -570,6 +747,7 @@ export async function updateTableLabel(formData: FormData) {
     if (syncErr) throw new Error(syncErr.message);
   }
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -596,6 +774,8 @@ export async function linkTables(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const tables = await fetchTables(supabase, eventId);
   const a = tables.find((t) => t.table_id === tableA);
   const b = tables.find((t) => t.table_id === tableB);
@@ -619,6 +799,7 @@ export async function linkTables(formData: FormData) {
     .in('table_id', [...memberIds]);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -637,6 +818,8 @@ export async function unlinkTable(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
   const { data: row } = await supabase
     .from('event_tables')
     .select('link_group_id')
@@ -652,6 +835,7 @@ export async function unlinkTable(formData: FormData) {
     .eq('link_group_id', row.link_group_id);
   if (error) throw new Error(error.message);
 
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
@@ -678,6 +862,8 @@ export async function seatRoleAtTable(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   const [tables, assignments, guests] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -729,8 +915,241 @@ export async function seatRoleAtTable(
       .from('event_seat_assignments')
       .upsert(rows, { onConflict: 'event_id,guest_id' });
     if (error) throw new Error(error.message);
+    await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
   }
 
   return { seated: rows.length, requested: eligible.length, overflow: eligible.length - rows.length };
+}
+
+// ---------------------------------------------------------------------------
+// Auto Arrange (owner-directed 2026-06-13) — booths + one-click arrangement.
+// All placement math is deterministic lib/seating.ts logic computed on the
+// client; these actions validate + persist, then run the (equally pure)
+// auto-seat pass server-side. No AI calls anywhere on this path.
+// ---------------------------------------------------------------------------
+
+const VALID_BOOTH_TYPES = new Set(BOOTH_CATALOG.map((b) => b.type));
+const MAX_BOOTHS = 12;
+
+type BoothPayload = {
+  booth_id: string | null;
+  booth_type: BoothType;
+  label: string;
+  x_pos: number;
+  y_pos: number;
+  sort_order: number;
+  zone: 'reception' | 'cocktail';
+  event_vendor_id: string | null;
+};
+
+// Parse + clamp the booths JSON. Throws on anything malformed — the editor
+// always sends well-formed data, so a failure here is a tampered request.
+function parseBoothsPayload(raw: unknown): BoothPayload[] {
+  if (typeof raw !== 'string') throw new Error('Invalid input');
+  let arr: unknown;
+  try {
+    arr = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid input');
+  }
+  if (!Array.isArray(arr) || arr.length > MAX_BOOTHS) throw new Error('Invalid input');
+  return arr.map((b, i) => {
+    const o = b as Record<string, unknown>;
+    const type = o.booth_type;
+    if (typeof type !== 'string' || !VALID_BOOTH_TYPES.has(type as BoothType)) {
+      throw new Error('Invalid booth type');
+    }
+    const label = typeof o.label === 'string' ? o.label.trim().slice(0, 60) : '';
+    const x = Number(o.x_pos);
+    const y = Number(o.y_pos);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Invalid input');
+    const zone = o.zone === 'cocktail' ? 'cocktail' : 'reception';
+    const vendorId =
+      typeof o.event_vendor_id === 'string' && o.event_vendor_id.length > 0
+        ? o.event_vendor_id
+        : null;
+    return {
+      booth_id: typeof o.booth_id === 'string' && o.booth_id.length > 0 ? o.booth_id : null,
+      booth_type: type as BoothType,
+      label: label || (BOOTH_CATALOG.find((c) => c.type === type)?.label ?? 'Booth'),
+      x_pos: Math.max(0, Math.min(100, x)),
+      y_pos: Math.max(0, Math.min(100, y)),
+      sort_order: i,
+      zone: zone as 'reception' | 'cocktail',
+      event_vendor_id: vendorId,
+    };
+  });
+}
+
+// Replace-all save of the event's booth markers (RLS scopes writes to the
+// couple's own events). Booths NOT in the payload are deleted.
+async function persistBooths(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  booths: BoothPayload[],
+) {
+  const keepIds = booths.map((b) => b.booth_id).filter((id): id is string => id !== null);
+  const del = supabase.from('event_floor_booths').delete().eq('event_id', eventId);
+  const { error: delError } = await (keepIds.length > 0
+    ? del.not('booth_id', 'in', `(${keepIds.join(',')})`)
+    : del);
+  if (delError) throw new Error(delError.message);
+  for (const b of booths) {
+    const row = {
+      event_id: eventId,
+      booth_type: b.booth_type,
+      label: b.label,
+      x_pos: b.x_pos,
+      y_pos: b.y_pos,
+      sort_order: b.sort_order,
+      zone: b.zone,
+      event_vendor_id: b.event_vendor_id,
+    };
+    const { error } = b.booth_id
+      ? await supabase.from('event_floor_booths').update(row).eq('booth_id', b.booth_id).eq('event_id', eventId)
+      : await supabase.from('event_floor_booths').insert(row);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function saveBooths(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
+  const booths = parseBoothsPayload(formData.get('booths'));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+  await persistBooths(supabase, eventId, booths);
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// Explicit per-guest priority-tier override (guests.seating_priority). An
+// empty value clears the override back to the role-derived tier.
+export async function setGuestSeatingPriority(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const guestId = formData.get('guest_id');
+  const raw = formData.get('priority');
+  if (typeof eventId !== 'string' || typeof guestId !== 'string' || guestId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const priority =
+    typeof raw === 'string' && ['1', '2', '3', '4'].includes(raw) ? Number(raw) : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase
+    .from('guests')
+    .update({ seating_priority: priority })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// One-click Auto Arrange: persist the client-computed table layout + booth
+// anchors, then run the deterministic role-tier auto-seat against the NEW
+// positions so "nearest the stage" means the layout that was just made.
+// Seating stays idempotent (already-seated guests never move).
+export async function autoArrange(formData: FormData): Promise<{ seated: number }> {
+  const eventId = formData.get('event_id');
+  const positionsRaw = formData.get('positions');
+  if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  let positions: Record<string, { x: number; y: number }>;
+  try {
+    positions = JSON.parse(positionsRaw);
+  } catch {
+    throw new Error('Invalid input');
+  }
+  const booths = parseBoothsPayload(formData.get('booths') ?? '[]');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Bulk action: assert the lock ONCE up front (not per persisted table).
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
+  const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+    fetchGuestsByEvent(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
+  ]);
+
+  // Persist positions — only for tables that really belong to this event, with
+  // clamped finite coordinates. Unknown ids in the payload are ignored.
+  const tableIds = new Set(tables.map((t) => t.table_id));
+  const cleanPos: Record<string, { x: number; y: number }> = {};
+  for (const [id, p] of Object.entries(positions)) {
+    if (!tableIds.has(id)) continue;
+    const x = Number((p as { x: unknown }).x);
+    const y = Number((p as { y: unknown }).y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    cleanPos[id] = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+  }
+  for (const [id, p] of Object.entries(cleanPos)) {
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: p.x, y_pos: p.y })
+      .eq('table_id', id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  await persistBooths(supabase, eventId, booths);
+
+  // Auto-seat against the freshly arranged positions.
+  const arrangedTables = tables.map((t) =>
+    cleanPos[t.table_id] ? { ...t, x_pos: cleanPos[t.table_id]!.x, y_pos: cleanPos[t.table_id]!.y } : t,
+  );
+  const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
+    guest_id: g.guest_id,
+    role: g.role,
+    group_category: g.group_category,
+    rsvp_status: g.rsvp_status,
+    plus_one_of_guest_id: g.plus_one_of_guest_id,
+    last_name: g.last_name,
+    first_name: g.first_name,
+    group_id: memberships.get(g.guest_id)?.[0] ?? null,
+    seating_priority: g.seating_priority ?? null,
+  }));
+  const rows = computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, {
+    x: floorPlan.stage_x,
+    y: floorPlan.stage_y,
+  });
+  if (rows.length > 0) {
+    const { error } = await supabase.from('event_seat_assignments').insert(
+      rows.map((r) => ({
+        event_id: eventId,
+        table_id: r.table_id,
+        guest_id: r.guest_id,
+        seat_number: r.seat_number,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  await refreshSeatingLock(supabase, lockId);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return { seated: rows.length };
 }

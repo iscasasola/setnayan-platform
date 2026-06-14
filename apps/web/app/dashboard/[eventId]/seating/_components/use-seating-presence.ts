@@ -24,6 +24,23 @@ export type PresencePeer = {
   table: string | null;
   /** last cursor position in canvas percent, with a freshness timestamp */
   cursor: { x: number; y: number; ts: number } | null;
+  /**
+   * Seating-editor lock (PR 2) — who this peer believes holds the exclusive
+   * editor lock, and when that holder last heartbeated. Carried on presence so
+   * every editor can render the "X is editing — view only" banner and compute
+   * stale-takeover eligibility from the SERVER heartbeat without polling an RPC.
+   * Null on all three when nobody is editing yet.
+   */
+  lockHolderId: string | null;
+  lockHolderLabel: string | null;
+  lockHeartbeatAt: string | null;
+};
+
+/** What this client publishes about its own lock state onto presence. */
+export type LockBroadcast = {
+  lockHolderId: string | null;
+  lockHolderLabel: string | null;
+  lockHeartbeatAt: string | null;
 };
 
 // Same earthy accents as guest groups — deterministic per user id.
@@ -38,6 +55,8 @@ export function useSeatingPresence(
   eventId: string,
   me: { id: string; name: string },
   selectedTableId: string | null,
+  /** This client's view of the editor lock, re-broadcast on every change. */
+  lock: LockBroadcast = { lockHolderId: null, lockHolderLabel: null, lockHeartbeatAt: null },
 ) {
   const [peers, setPeers] = useState<Map<string, PresencePeer>>(new Map());
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
@@ -45,6 +64,9 @@ export function useSeatingPresence(
   // Latest selection readable from the subscribe callback without re-joining.
   const selectedRef = useRef<string | null>(selectedTableId);
   selectedRef.current = selectedTableId;
+  // Same for the lock snapshot (read inside subscribe + track without re-join).
+  const lockRef = useRef<LockBroadcast>(lock);
+  lockRef.current = lock;
 
   useEffect(() => {
     const supabase = createClient();
@@ -53,7 +75,13 @@ export function useSeatingPresence(
     });
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ name: string; table: string | null }>();
+        const state = channel.presenceState<{
+          name: string;
+          table: string | null;
+          lockHolderId?: string | null;
+          lockHolderLabel?: string | null;
+          lockHeartbeatAt?: string | null;
+        }>();
         setPeers((prev) => {
           const next = new Map<string, PresencePeer>();
           for (const [key, metas] of Object.entries(state)) {
@@ -67,6 +95,9 @@ export function useSeatingPresence(
               color: peerColor(key),
               table: meta.table ?? null,
               cursor: old?.cursor ?? null,
+              lockHolderId: meta.lockHolderId ?? null,
+              lockHolderLabel: meta.lockHolderLabel ?? null,
+              lockHeartbeatAt: meta.lockHeartbeatAt ?? null,
             });
           }
           return next;
@@ -86,7 +117,13 @@ export function useSeatingPresence(
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          void channel.track({ name: me.name, table: selectedRef.current });
+          void channel.track({
+            name: me.name,
+            table: selectedRef.current,
+            lockHolderId: lockRef.current.lockHolderId,
+            lockHolderLabel: lockRef.current.lockHolderLabel,
+            lockHeartbeatAt: lockRef.current.lockHeartbeatAt,
+          });
         }
       });
     channelRef.current = channel;
@@ -96,13 +133,20 @@ export function useSeatingPresence(
     };
   }, [eventId, me.id, me.name]);
 
-  // Selection changed → update what the others see ("editing Table 7").
+  // Selection OR lock state changed → re-publish so the others see "editing
+  // Table 7" and "X holds the editor lock" without re-joining the channel.
   useEffect(() => {
     const ch = channelRef.current;
     if (ch && ch.state === 'joined') {
-      void ch.track({ name: me.name, table: selectedTableId });
+      void ch.track({
+        name: me.name,
+        table: selectedTableId,
+        lockHolderId: lock.lockHolderId,
+        lockHolderLabel: lock.lockHolderLabel,
+        lockHeartbeatAt: lock.lockHeartbeatAt,
+      });
     }
-  }, [selectedTableId, me.name]);
+  }, [selectedTableId, me.name, lock.lockHolderId, lock.lockHolderLabel, lock.lockHeartbeatAt]);
 
   // Throttled live cursor (canvas-percent coords; ~12 msgs/s ceiling).
   const sendCursor = (x: number, y: number) => {

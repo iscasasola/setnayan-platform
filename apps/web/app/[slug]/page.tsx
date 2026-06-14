@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Camera, CircleSlash, Lock, MapPin, Sparkles } from 'lucide-react';
@@ -11,8 +12,7 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
-import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
-import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   resolveMonogramMotion,
   type MonogramMotionKey,
@@ -30,6 +30,7 @@ import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
+import { SaveTheDateView } from './_components/save-the-date';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
@@ -98,6 +99,8 @@ const RESERVED_TOP_LEVEL = new Set([
   'contact',
   'vendor',
   'v',
+  'venue',
+  'venues',
   '_next',
 ]);
 
@@ -105,6 +108,82 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ invite?: string; invite_error?: string; phase?: string }>;
 };
+
+// Soft-404 fix (SEO) — this route has a loading.tsx, so the streaming shell
+// commits an HTTP 200 BEFORE the page body runs; a notFound() thrown in the
+// body renders the 404 UI but the status stays 200 (Google soft-404, and any
+// junk top-level URL was an indexable 200). generateMetadata resolves before
+// the stream starts on Next 15.1, so the slug lookup happens HERE: a miss
+// throws notFound() pre-stream and the response is a real 404. React cache()
+// dedupes the read — the page body reuses the same single DB roundtrip.
+const fetchEventBySlug = cache(async (slug: string) => {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('events')
+    .select(
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
+    )
+    .ilike('slug', slug)
+    .maybeSingle();
+  return data;
+});
+
+export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+  const { slug } = await params;
+  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+
+  const event = await fetchEventBySlug(slug);
+  if (!event) notFound();
+  if (event.event_type !== 'wedding') notFound();
+
+  const visibility = (event.landing_page_visibility ?? 'public') as
+    | 'public'
+    | 'unlisted'
+    | 'private';
+
+  // Unlisted = reachable by link but not discoverable; private = lock screen
+  // for strangers. Neither should be in a search index, and neither should
+  // leak the couple's names into SERP snippets via metadata.
+  if (visibility !== 'public') {
+    return {
+      title: 'Wedding invitation',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const description = `You're invited — ${event.display_name}${
+    event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
+  }. RSVP on Setnayan.`;
+  return {
+    title: event.display_name,
+    description,
+    alternates: { canonical: `${siteUrl}/${event.slug}` },
+    openGraph: {
+      type: 'website',
+      url: `${siteUrl}/${event.slug}`,
+      title: `${event.display_name} · Setnayan`,
+      description,
+      siteName: 'Setnayan',
+      locale: 'en_PH',
+      // Share card: the editorial card (couple's hero photo + scrim) once their
+      // story is published, else the brand card — the route decides per the
+      // `published` gate, so a shared link previews richly in every phase.
+      // See app/api/og/realstory-slug/[slug]/route.ts.
+      images: [
+        {
+          url: `${siteUrl}/api/og/realstory-slug/${event.slug}`,
+          width: 1200,
+          height: 630,
+          alt: `${event.display_name} · Setnayan`,
+        },
+      ],
+    },
+    twitter: { card: 'summary_large_image' as const },
+  };
+}
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
   const { slug } = await params;
@@ -124,13 +203,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const admin = createAdminClient();
 
-  const { data: event } = await admin
-    .from('events')
-    .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key',
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  const event = await fetchEventBySlug(slug);
 
   if (!event) notFound();
   if (event.event_type !== 'wedding') notFound();
@@ -301,11 +374,12 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     // handles the rest of the page exactly as it would for a public event.
   }
 
-  // Website lifecycle-phase engine (Increment C · flag-dark). `phasesEnabled`
-  // is OFF by default (WEBSITE_PHASES_ENABLED !== 'true'); when off, every
-  // new phase-gated behavior below is bypassed and the page renders exactly
-  // as it does today.
-  const phasesEnabled = isWebsitePhasesEnabled();
+  // Website lifecycle-phase engine. The 4-path lifecycle (save_the_date →
+  // rsvp → event → editorial) ships ON for weddings — this whole surface is
+  // wedding-only (non-weddings notFound() above), so the lifecycle is the
+  // wedding website. The WEBSITE_PHASES_ENABLED env flag stays as an override
+  // for any future non-wedding event types.
+  const phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding';
 
   // Date-driven phase by default. PREVIEW override: `?phase=rsvp|event|
   // editorial` shows any phase regardless of date (the live "event" phase is
@@ -325,7 +399,10 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     (event.display_name ?? '').toUpperCase().includes('[TEST]');
   const phaseParam = typeof search.phase === 'string' ? search.phase.toLowerCase() : '';
   const isValidPhaseParam =
-    phaseParam === 'rsvp' || phaseParam === 'event' || phaseParam === 'editorial';
+    phaseParam === 'save_the_date' ||
+    phaseParam === 'rsvp' ||
+    phaseParam === 'event' ||
+    phaseParam === 'editorial';
   let phasePreviewAllowed = isDemoEvent;
   if (phasesEnabled && isValidPhaseParam && !phasePreviewAllowed) {
     const supabase = await createClient();
@@ -594,6 +671,12 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Chosen-lockup design columns — selected at the top of this route (line ~124)
+  // and threaded into HeroMonogram so the public hero draws the couple's real
+  // mark (bar/duo/script/infinity/framed), not just initials.
+  monogram_style?: string | null;
+  monogram_font_key?: string | null;
+  monogram_frame_key?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -867,6 +950,11 @@ function PublicLanding({
   // the real editorial module. Entirely bypassed when the flag is off.
   const showEditorialPlaceholder =
     phasesEnabled && lifecyclePhase === 'editorial';
+  // 4-path lifecycle: far before the wedding, the body is the minimal Save the
+  // Date (announcement) — countdown + add-to-calendar, no RSVP/widgets. Hero
+  // (media) stays above; the text hero is carried by the STD view when there's
+  // no hero media (anonymous path has no monogram hero fallback).
+  const showSaveTheDate = phasesEnabled && lifecyclePhase === 'save_the_date';
   // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
@@ -919,6 +1007,15 @@ function PublicLanding({
       ) : null}
       {showEditorialPlaceholder ? (
         <EditorialContent eventId={event.event_id} />
+      ) : showSaveTheDate ? (
+        <SaveTheDateView
+          displayName={event.display_name}
+          dateIso={event.event_date}
+          venueName={event.venue_name}
+          venueAddress={event.venue_address}
+          publicId={event.public_id}
+          showTextHero={!hasHeroMedia}
+        />
       ) : (
         <>
       <div className="space-y-6 text-center">
@@ -957,6 +1054,23 @@ function PublicLanding({
             the couple sent you to see your invitation.
           </p>
         )}
+      </div>
+
+      {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
+          navigation on this always-rendered public landing: the /find-seat
+          route resolves the published plan itself and shows a friendly
+          "not posted yet" state when there's nothing to search, so this link
+          is safe to always render (mirrors the find-my-table CTA pattern). A
+          guest who scanned the shared venue QR taps this, types their name,
+          and sees their table — no app, no login, no paid SKU. */}
+      <div className="mt-8 text-center">
+        <Link
+          href={`/${event.slug}/find-seat`}
+          className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta"
+        >
+          <MapPin aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Find your seat
+        </Link>
       </div>
 
       {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
@@ -1107,35 +1221,14 @@ function PrivateLanding({
   return (
     <InvitationShell>
       <div className="space-y-8 text-center">
-        {bespokeSvg ? (
-          <div className="flex justify-center">
-            <BespokeMonogramMark
-              svg={bespokeSvg}
-              color={monogram.color}
-              size="md"
-              entrance={Boolean(animatedMonogram)}
-            />
-          </div>
-        ) : animatedMonogram ? (
-          <div className="flex justify-center">
-            <AnimatedMonogramHero
-              text={monogram.text}
-              color={monogram.color}
-              fontFamily={monogram.fontFamily}
-              fontStyle={monogram.fontStyle}
-              size="md"
-              motion={animatedMonogram}
-            />
-          </div>
-        ) : (
-          <div
-            aria-hidden
-            className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-            style={{ borderColor: monogram.color, color: monogram.color }}
-          >
-            {monogram.text}
-          </div>
-        )}
+        <div className="flex justify-center">
+          <HeroMonogram
+            event={event}
+            monogram={monogram}
+            animatedMonogram={animatedMonogram}
+            bespokeSvg={bespokeSvg}
+          />
+        </div>
         <div className="space-y-3">
           <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             {event.display_name}
@@ -1302,6 +1395,10 @@ function InvitationSite({
   // renders above it (hero shows in all phases). Bypassed when the flag is off.
   const showEditorialPlaceholder =
     phasesEnabled && lifecyclePhase === 'editorial';
+  // 4-path lifecycle: far before the wedding, the body is the minimal Save the
+  // Date (announcement). The monogram hero already renders above for the guest
+  // path, so the STD view doesn't carry the text hero (showTextHero={false}).
+  const showSaveTheDate = phasesEnabled && lifecyclePhase === 'save_the_date';
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
@@ -1336,37 +1433,15 @@ function InvitationSite({
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                 You are invited
               </p>
-              {bespokeSvg ? (
-                <div className="mt-6 flex justify-center">
-                  <BespokeMonogramMark
-                    svg={bespokeSvg}
-                    color={monogram.color}
-                    size="md"
-                    shadow
-                    entrance={Boolean(animatedMonogram)}
-                  />
-                </div>
-              ) : animatedMonogram ? (
-                <div className="mt-6 flex justify-center">
-                  <AnimatedMonogramHero
-                    text={monogram.text}
-                    color={monogram.color}
-                    fontFamily={monogram.fontFamily}
-                    fontStyle={monogram.fontStyle}
-                    size="md"
-                    shadow
-                    motion={animatedMonogram}
-                  />
-                </div>
-              ) : (
-                <div
-                  aria-hidden
-                  className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic shadow-sm"
-                  style={{ borderColor: monogram.color, color: monogram.color }}
-                >
-                  {monogram.text}
-                </div>
-              )}
+              <div className="mt-6 flex justify-center">
+                <HeroMonogram
+                  event={event}
+                  monogram={monogram}
+                  animatedMonogram={animatedMonogram}
+                  bespokeSvg={bespokeSvg}
+                  shadow
+                />
+              </div>
               {/* Italic serif display name — structural typography from v2.1
                   guest-microsite template (CLAUDE.md 2026-05-28 row 11).
                   Couple palette tokens (monogram.color · cream · ink ·
@@ -1386,33 +1461,14 @@ function InvitationSite({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
             </p>
-            {bespokeSvg ? (
-              <div className="mt-6 flex justify-center">
-                <BespokeMonogramMark
-                  svg={bespokeSvg}
-                  color={monogram.color}
-                  size="md"
-                  entrance={Boolean(animatedMonogram)}
-                />
-              </div>
-            ) : animatedMonogram ? (
-              <div className="mt-6 flex justify-center">
-                <AnimatedMonogramHero
-                  text={monogram.text}
-                  color={monogram.color}
-                  size="md"
-                  motion={animatedMonogram}
-                />
-              </div>
-            ) : (
-              <div
-                aria-hidden
-                className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-                style={{ borderColor: monogram.color, color: monogram.color }}
-              >
-                {monogram.text}
-              </div>
-            )}
+            <div className="mt-6 flex justify-center">
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+              />
+            </div>
             {/* Italic serif treatment — see comment on the heroPhotoUrl
                 branch above. Same structural enhancement from v2.1
                 template; couple palette untouched. */}
@@ -1431,6 +1487,15 @@ function InvitationSite({
             footer sign-out (below) stay. Bypassed when the flag is off. */}
         {showEditorialPlaceholder ? (
           <EditorialContent eventId={event.event_id} />
+        ) : showSaveTheDate ? (
+          <SaveTheDateView
+            displayName={event.display_name}
+            dateIso={event.event_date}
+            venueName={event.venue_name}
+            venueAddress={event.venue_address}
+            publicId={event.public_id}
+            showTextHero={false}
+          />
         ) : (
           <>
         {/* Greeting — always-on per the editor contract; gated here so V1.1

@@ -307,12 +307,23 @@ export function widgetShouldRender(row: InvitationWidgetRow | null): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * The three website lifecycle phases:
- *   - rsvp      : before the wedding — the invitation + RSVP-gathering site
- *   - event     : the wedding day itself — the live day-of surface
- *   - editorial : after the wedding — the story / gallery recap
+ * The four website lifecycle phases (4-path model · 2026-06-14):
+ *   - save_the_date : far before the wedding (> STD_THRESHOLD_DAYS out) — the
+ *                     announcement. Asks nothing of the guest; monogram + date
+ *                     + countdown + calendar-add only.
+ *   - rsvp          : the run-up — the invitation + RSVP-gathering site
+ *   - event         : the wedding day itself — the live day-of surface
+ *   - editorial     : after the wedding — the story / gallery recap
  */
-export type LifecyclePhase = 'rsvp' | 'event' | 'editorial';
+export type LifecyclePhase = 'save_the_date' | 'rsvp' | 'event' | 'editorial';
+
+/**
+ * Days-before-the-wedding cutoff that splits the pre-event window into the
+ * Save the Date phase (earlier — announcement) and the RSVP phase (later —
+ * invitation). Provisional; tunable. Mirrors the ~90-day handoff in the
+ * 4-path timeline design.
+ */
+export const STD_THRESHOLD_DAYS = 90;
 
 /**
  * Per-widget phase visibility — the element×phase matrix (spec §2). A widget
@@ -321,7 +332,7 @@ export type LifecyclePhase = 'rsvp' | 'event' | 'editorial';
  * widget type without a phase mapping is a type error).
  */
 export const WIDGET_PHASES: Record<WidgetType, LifecyclePhase[]> = {
-  hero: ['rsvp', 'event', 'editorial'],
+  hero: ['save_the_date', 'rsvp', 'event', 'editorial'],
   greeting: ['rsvp'],
   qr_card: ['rsvp', 'event'],
   event_details: ['rsvp', 'event'],
@@ -369,9 +380,10 @@ export function isWebsitePhasesEnabled(): boolean {
  * before* the wedding AND *more than 24 hours after* it. Those are opposite
  * lifecycle phases, so 'inactive' MUST be disambiguated by comparing the event
  * date to now: a wedding already in the past → 'editorial'; one still in the
- * future → 'rsvp'. (Mapping 'inactive' straight to 'rsvp' would wrongly show
- * the invitation on a wedding that happened a week ago — the day-of 'post'
- * window only lasts 24h.)
+ * future → 'save_the_date' when it's more than STD_THRESHOLD_DAYS out, else
+ * 'rsvp'. (Mapping 'inactive' straight to 'rsvp' would wrongly show the
+ * invitation on a wedding that happened a week ago — the day-of 'post' window
+ * only lasts 24h.)
  *
  * A null event date (very early planning, no date set yet) maps to 'rsvp'.
  */
@@ -392,7 +404,13 @@ export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
       // that is days away from now.
       const eventMs = new Date(eventDate).getTime();
       if (!Number.isFinite(eventMs)) return 'rsvp';
-      return eventMs < Date.now() ? 'editorial' : 'rsvp';
+      const now = Date.now();
+      if (eventMs < now) return 'editorial';
+      // Future, beyond the near-event run-up: split the long pre-event window
+      // into Save the Date (announcement, > STD_THRESHOLD_DAYS out) and RSVP
+      // (invitation, within the threshold).
+      const daysUntil = (eventMs - now) / (24 * 60 * 60 * 1000);
+      return daysUntil > STD_THRESHOLD_DAYS ? 'save_the_date' : 'rsvp';
     }
   }
 }

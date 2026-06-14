@@ -214,7 +214,9 @@ export function YourPlanSection({
       Icon: Sparkles,
       labelKey: 'tool.monogram',
       subtitle: subtitleFor('monogram', stats),
-      href: `/dashboard/${eventId}/add-ons/monogram-creator`,
+      // The Monogram Maker shipped (iteration 0037) — link straight to the live
+      // surface, not the retired `/add-ons/monogram-creator` "coming soon" stub.
+      href: `/dashboard/${eventId}/monogram`,
     },
   ];
 

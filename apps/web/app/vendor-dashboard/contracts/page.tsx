@@ -1,19 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, FileText, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorContracts, statusLabel, type ContractStatus } from '@/lib/contracts';
+import { fetchVendorContracts } from '@/lib/contracts';
+import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
 
 export const metadata = { title: 'Contracts · Vendor' };
-
-const STATUS_TONE: Record<ContractStatus, string> = {
-  draft: 'bg-ink/10 text-ink/70',
-  // Repurposed under upload-only scope (2026-05-18) — see lib/contracts.ts.
-  sent_for_signature: 'bg-emerald-100 text-emerald-800',
-  fully_signed: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-rose-100 text-rose-800',
-};
 
 export default async function VendorContractsPage() {
   const supabase = await createClient();
@@ -60,52 +53,23 @@ export default async function VendorContractsPage() {
       </header>
 
       {contracts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
-          <FileText aria-hidden className="mx-auto h-8 w-8 text-ink/40" strokeWidth={1.5} />
-          <p className="mt-3 text-sm text-ink/65">
-            No contracts yet. Upload one when a couple is ready to commit.
-          </p>
-        </div>
+        <ContractsEmptyState
+          message="No contracts yet. Upload one when a couple is ready to commit."
+        />
       ) : (
         <ul className="space-y-3">
           {contracts.map((c) => {
             const event = eventMap.get(c.event_id);
             return (
-              <li
+              <ContractCard
                 key={c.contract_id}
-                className="rounded-2xl border border-ink/10 bg-cream"
-              >
-                <Link
-                  href={`/vendor-dashboard/contracts/${c.contract_id}`}
-                  className="flex flex-col gap-2 p-5 transition-colors hover:bg-terracotta/[0.03] sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-semibold tracking-tight text-ink">
-                        {c.title}
-                      </h2>
-                      <span
-                        className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[c.status]}`}
-                      >
-                        {statusLabel(c.status)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-ink/55">
-                      For {event?.display_name ?? 'Unknown event'} ·{' '}
-                      {new Date(c.created_at).toLocaleDateString('en-PH', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                  <ArrowRight
-                    aria-hidden
-                    className="h-4 w-4 shrink-0 text-ink/40"
-                    strokeWidth={1.75}
-                  />
-                </Link>
-              </li>
+                title={c.title}
+                status={c.status}
+                createdAt={c.created_at}
+                href={`/vendor-dashboard/contracts/${c.contract_id}`}
+                subtitlePrefix="For"
+                subtitleName={event?.display_name ?? 'Unknown event'}
+              />
             );
           })}
         </ul>

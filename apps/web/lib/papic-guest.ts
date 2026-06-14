@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { checkOrderOwnership } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -49,34 +50,18 @@ export const PAPIC_GUEST_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
  */
 export const GUEST_CAPTURE_CREDITS = 150;
 
-const RELINQUISHED_STATUSES = new Set(['cancelled', 'refunded', 'lapsed']);
-
 /**
  * Does this event own the paid Premium Guest Camera Pack?
  *
- * Returns false on any DB shape error (missing table/column) so the gated
- * surface degrades to the upgrade CTA / "no guest cameras" state rather than
- * throwing. Mirrors eventOwnsProWebsite() / eventOwnsIndoorBlueprint() exactly.
+ * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
+ * refund-aware, graceful-degrade on a missing orders table so the gated surface
+ * shows the upgrade CTA / "no guest cameras" state rather than throwing.
  */
 export async function eventOwnsPapicGuest(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('status')
-    .eq('event_id', eventId)
-    .eq('service_key', PAPIC_GUEST_SERVICE_KEY)
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-
-  if (error) {
-    if (error.code === '42P01' || error.code === '42703') return false;
-    throw new Error(`Failed to resolve Premium Guest Camera ownership: ${error.message}`);
-  }
-
-  return (data ?? []).some(
-    (row) => !RELINQUISHED_STATUSES.has((row.status as string | null) ?? ''),
-  );
+  return checkOrderOwnership(supabase, eventId, PAPIC_GUEST_SERVICE_KEY);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

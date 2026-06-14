@@ -47,7 +47,7 @@ function CycleLink({
       className={
         'rounded-full px-4 py-1.5 text-sm transition ' +
         (active
-          ? 'bg-ink text-paper'
+          ? 'bg-ink text-paper sn-bounce'
           : 'text-ink/65 hover:text-ink')
       }
     >

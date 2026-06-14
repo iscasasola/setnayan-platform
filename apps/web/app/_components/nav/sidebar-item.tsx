@@ -53,7 +53,7 @@ export function SidebarItem({ item, pathname }: Props) {
         href={item.href}
         aria-current={isActive ? 'page' : undefined}
         title={item.description ?? item.label}
-        className="relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]"
+        className={`relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]${isActive ? ' sn-bounce' : ''}`}
         style={{
           color: isActive ? 'var(--m-ink)' : 'var(--m-slate)',
           background: isActive ? 'var(--m-orange-4)' : 'transparent',

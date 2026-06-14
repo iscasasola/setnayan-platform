@@ -1,11 +1,12 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, X, LayoutGrid, ArrowRight } from 'lucide-react';
+import { Link2, X, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeGuestStats,
+  computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
   fetchGuestsByEvent,
@@ -18,6 +19,7 @@ import {
   type GuestRow,
   type GuestSide,
   type GuestStats,
+  type PaxProgress,
   type RsvpStatus,
 } from '@/lib/guests';
 import {
@@ -26,6 +28,7 @@ import {
   roleImportanceRank,
 } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { ensureFinalized } from '@/lib/pax';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
@@ -39,6 +42,7 @@ import {
 import { LifecycleRibbon } from './_components/lifecycle-ribbon';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
+import { ActiveFilters } from './_components/active-filters';
 
 export const metadata = { title: 'Guests' };
 
@@ -99,6 +103,7 @@ type Props = {
     q?: string;
     rsvp?: string;
     view?: string;
+    group?: string;
     gview?: string;
     team?: string;
     tag?: string;
@@ -137,7 +142,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       fetchGuestsByEvent(supabase, eventId),
       supabase
         .from('events')
-        .select('role_palette')
+        .select('role_palette, estimated_pax')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchGuestGroupsByEvent(supabase, eventId),
@@ -190,7 +195,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
   const q = (search.q ?? '').trim().toLowerCase();
   const rsvpFilter = (search.rsvp ?? '') as RsvpStatus | '';
-  const view = search.view ?? 'all';
+  // Back-compat: the pre-2026-06-13 scheme encoded a custom group by
+  // overloading `view` as "group:<id>" (mutually exclusive with role
+  // views). Custom groups now ride their own `group` param so they can
+  // stack with a role view. A stale "view=group:<id>" link/bookmark is
+  // mapped onto the new param here so it still resolves.
+  const rawView = search.view ?? 'all';
+  const legacyGroup = rawView.startsWith('group:')
+    ? rawView.slice('group:'.length)
+    : null;
+  const view = legacyGroup ? 'all' : rawView;
   const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
@@ -198,10 +212,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const tagFilter = (search.tag ?? '').trim();
   const sort = (search.sort ?? 'importance') as SortKey;
 
-  // Custom-group view detection — view param is "group:<group_id>"
-  // when the host has clicked a custom group in the sidebar.
-  const currentGroupId =
-    view.startsWith('group:') ? view.slice('group:'.length) : null;
+  // Custom-group filter — its OWN `group` param now (see back-compat note
+  // above), independent of the role-group `view`, so a host can stack
+  // "Wedding Party" AND "Cousins" at once.
+  const currentGroupId = (search.group ?? '').trim() || legacyGroup || null;
   const groupMemberSet = currentGroupId
     ? new Set(
         Array.from(membershipsMap.entries())
@@ -276,13 +290,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     }
     return true;
   });
-  // The role-group sidebar only filters when view is one of the
-  // canonical role groups — custom-group views ("group:<uuid>") skip
-  // this step because the groupMemberSet filter above already narrowed
-  // the list to the group's members.
-  if (!currentGroupId) {
-    visible = filterByRoleGroup(visible, view);
-  }
+  // Role-view + custom-group now COMBINE (2026-06-13) — the group-member
+  // filter ran in the loop above; the role-group filter runs here
+  // unconditionally. `view` is 'all' (a no-op) when no role view is
+  // active, so this is safe whether a group, a view, or both are set.
+  visible = filterByRoleGroup(visible, view);
   // Group sort needs each guest's first (alphabetical) group label — build
   // the lookup once. Ungrouped guests sort last (handled in sortCompare).
   const sortGroupKey =
@@ -296,8 +308,29 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
 
   const stats = computeGuestStats(guests);
+  // Pax-target progress (Adaptive Pax Pricing Phase 2) — sure-attending vs the
+  // couple's minimum pax (events.estimated_pax). null when no target is set.
+  // Read-only here; the vendor-facing pushes land in later phases.
+  const paxProgress = computePaxProgress(
+    stats,
+    eventRow.data?.estimated_pax ?? null,
+  );
+  // Auto-finalize check (Adaptive Pax Pricing Phase 7) — lazily locks the count
+  // once the guest-list edit deadline passes (default 14d before the event), so
+  // the meter + vendor costs freeze. Surfaces the finalized banner below.
+  const finalize = await ensureFinalized(supabase, eventId);
   const allTags = uniqueTags(guests);
   const flash = pickFlash(search);
+  // Any filter active across ANY dimension — gates the mobile sticky
+  // active-filters strip so it never renders as an empty bar.
+  const hasAnyFilter = Boolean(
+    q ||
+      rsvpFilter ||
+      (view && view !== 'all') ||
+      currentGroupId ||
+      tagFilter ||
+      teamFilter !== 'all',
+  );
 
   // Resolve each guest's stored photo ref → a display URL once on the server:
   // a 24h presigned GET for r2:// refs, or the raw Google avatar URL passed
@@ -378,7 +411,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             {stats.total} {stats.total === 1 ? 'guest' : 'guests'}
           </h1>
         </div>
-        <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:self-auto">
+        <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
+          {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
           <Link
             href={`/dashboard/${eventId}/guests/import`}
             className="button-secondary"
@@ -432,14 +466,36 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </Link>
       ) : null}
 
-      {/* Desktop-only chrome — owner directive 2026-06-02: on mobile the top
-          is JUST the guest list. The Team segment, RSVP stats strip, seating
-          shortcut, share-invite link, and the search/sort toolbar all move to
-          lg+ only. On mobile the counts + search/sort/add/filters all live in
-          the lower-third MobileGuestCarousel (Summary · Search & sort · Add ·
-          Customize); seating + share stay reachable from the planning nav /
-          QR surfaces. */}
-      <div className="hidden space-y-6 lg:block">
+      {/* Guest list finalized (Adaptive Pax Pricing Phase 7) — the edit deadline
+          passed; the binding count is frozen so late changes no longer move
+          vendor costs. Shown on desktop + mobile. */}
+      {finalize.locked ? (
+        <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
+          <span className="font-semibold text-ink">Guest list finalized</span>
+          {finalize.finalPax ? ` · ${finalize.finalPax} guests locked in` : ''}. Changes
+          after your guest‑list deadline no longer change vendor costs.
+        </p>
+      ) : null}
+
+      {/* Desktop-only chrome — owner directive 2026-06-02 (mobile top = just
+          the guest list; the carousel carries the counts/search/add/filters).
+          Consolidated 2026-06-13 from 8 stacked blocks into 4 compact rows so
+          the guest list rises above the fold: a slim summary strip (the RSVP
+          counts ARE the filter), the lifecycle ribbon, one filter bar (search
+          · sort · list/map view switch), and the always-visible active-filters
+          chip row. Side moved into the rail; the duplicate "Invited" stat card
+          and the standalone "Seating chart" card were removed (the ribbon's
+          Seat step + the left nav already reach seating); Share moved to the
+          header. */}
+      <div className="hidden space-y-3 lg:block">
+        <SummaryStrip
+          stats={stats}
+          eventId={eventId}
+          active={rsvpFilter}
+          search={search}
+          paxProgress={paxProgress}
+        />
+
         <LifecycleRibbon
           eventId={eventId}
           active="build"
@@ -449,45 +505,34 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           arrived={arrivedCount}
         />
 
-        <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
-
-        <TeamSegment
+        {/* inline search + sort + list/map switch — desktop only; mobile uses
+            the carousel's Search panel + Journey view switch. */}
+        <Toolbar
           eventId={eventId}
-          team={teamFilter}
-          counts={teamCounts}
+          q={q}
+          sort={sort}
           search={search}
+          gview={gview}
         />
 
-        <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
-
-      <Link
-        href={`/dashboard/${eventId}/seating`}
-        className="group inline-flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
-      >
-        <span className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
-            <LayoutGrid aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <span className="flex flex-col">
-            <span className="text-base font-semibold text-ink">Seating chart</span>
-            <span className="text-xs text-ink/55">
-              Tables, floor plan, who sits where
-            </span>
-          </span>
-        </span>
-        <ArrowRight
-          aria-hidden
-          className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
-          strokeWidth={1.75}
-        />
-      </Link>
-
-      {joinUrl ? <ShareInvite joinUrl={joinUrl} /> : null}
-
-        {/* inline search + sort — desktop only; mobile uses the carousel's
-            Search & sort panel. */}
-        <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
+        <ActiveFilters eventId={eventId} search={search} groups={groups} />
       </div>
+
+      {/* Active filters — mobile sticky strip (lg:hidden). The always-visible
+          twin of the desktop chip row + the carousel's filter dot, so a couple
+          can SEE and drop individual filters without opening the filter sheet
+          (2026-06-13). Gated on hasAnyFilter so it never shows as an empty bar;
+          pl-11 clears the fixed back-X at top-left. */}
+      {hasAnyFilter ? (
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/10 bg-cream/95 py-2 pl-11 pr-3 backdrop-blur lg:hidden">
+          <ActiveFilters
+            eventId={eventId}
+            search={search}
+            groups={groups}
+            className="flex-nowrap whitespace-nowrap"
+          />
+        </div>
+      ) : null}
 
       {/* Mind-map view (redesign Phase 2) — the full editor over the SAME
           records as the list. The component splits responsively itself:
@@ -515,6 +560,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <FacetsSidebar
           eventId={eventId}
           view={view}
+          team={teamFilter}
+          teamCounts={teamCounts}
           tagFilter={tagFilter}
           tags={allTags}
           search={search}
@@ -572,7 +619,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
           currentSort={sort}
           views={VIEW_FILTERS}
-          activeView={currentGroupId ? '' : view}
+          activeView={view}
           groups={groups}
           currentGroupId={currentGroupId}
           tags={allTags}
@@ -582,6 +629,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           attending={stats.attending}
           pending={stats.pending}
           declined={stats.declined}
+          paxProgress={paxProgress}
           teamFilter={teamFilter}
           pendingClaims={pendingClaimsCount}
           unsent={unsentCount}
@@ -774,42 +822,97 @@ function pickFlash(search: {
   return null;
 }
 
-function StatsStrip({
+// Summary strip (redesign 2026-06-13) — replaces the old StatsStrip's
+// progress bar + FIVE stat cards. The total no longer gets its own
+// "Invited" card (it already headlines the H1 + the "of N" caption — the
+// duplication the owner flagged); instead the four RSVP states ARE the
+// filter, as toggle pills (tap an active pill to clear it). Plus-ones is
+// kept as a caption so the count isn't lost. Pill links preserve every
+// other active param so RSVP combines with side / view / group / tag.
+function SummaryStrip({
   stats,
   eventId,
   active,
+  search,
+  paxProgress,
 }: {
   stats: GuestStats;
   eventId: string;
   active: RsvpStatus | '';
+  search: Record<string, string | undefined>;
+  paxProgress: PaxProgress | null;
 }) {
-  const cards: {
-    key: RsvpStatus | 'plus_ones' | 'total';
-    label: string;
-    count: number;
-    tint: string;
-  }[] = [
-    { key: 'total', label: 'Invited', count: stats.total, tint: 'bg-ink/5 text-ink' },
-    { key: 'attending', label: 'Attending', count: stats.attending, tint: 'bg-emerald-100 text-emerald-800' },
-    { key: 'pending', label: 'Pending', count: stats.pending, tint: 'bg-amber-100 text-amber-800' },
-    { key: 'declined', label: 'Declined', count: stats.declined, tint: 'bg-rose-100 text-rose-800' },
-    { key: 'plus_ones', label: 'Plus-ones', count: stats.plus_ones, tint: 'bg-terracotta/10 text-terracotta-700' },
-  ];
+  const buildHref = (rsvp: RsvpStatus | null) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(search)) {
+      if (k === 'rsvp' || !v) continue;
+      p.set(k, v);
+    }
+    if (rsvp) p.set('rsvp', rsvp);
+    const qs = p.toString();
+    return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
+  };
 
-  // Confirm-progress (redesign Phase 3, the deferred "confirm-progress bar"):
-  // responded = everyone no longer Pending. Segments use the same tints as the
-  // stat cards below so the bar reads as a summary of them, not a new concept.
   const responded = stats.total - stats.pending;
   const pct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
   const seg = (n: number) => (stats.total > 0 ? (n / stats.total) * 100 : 0);
 
+  const pills: {
+    key: RsvpStatus;
+    label: string;
+    count: number;
+    tint: string;
+  }[] = [
+    { key: 'attending', label: 'Attending', count: stats.attending, tint: 'bg-emerald-100 text-emerald-800' },
+    { key: 'pending', label: 'Pending', count: stats.pending, tint: 'bg-amber-100 text-amber-800' },
+    { key: 'declined', label: 'Declined', count: stats.declined, tint: 'bg-rose-100 text-rose-800' },
+    { key: 'maybe', label: 'Maybe', count: stats.maybe, tint: 'bg-sky-100 text-sky-800' },
+  ];
+
   return (
-    <div className="space-y-2">
-      <div>
+    <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 lg:flex-row lg:items-center lg:gap-5">
+      <div className="min-w-0 flex-1">
+        {paxProgress ? (
+          <div className="mb-2.5">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="font-mono uppercase tracking-[0.15em] text-terracotta">
+                {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
+              </span>
+              <span className="tabular-nums text-ink/70">
+                {paxProgress.exceeded ? (
+                  <>
+                    {paxProgress.headcount} guests · {paxProgress.overBy} over your{' '}
+                    {paxProgress.target} minimum
+                  </>
+                ) : (
+                  <>
+                    {paxProgress.headcount} of {paxProgress.target} pax ·{' '}
+                    {paxProgress.progressPct}%
+                  </>
+                )}
+              </span>
+            </div>
+            <div
+              role="img"
+              aria-label={
+                paxProgress.exceeded
+                  ? `Now planning for ${paxProgress.headcount} attending guests, ${paxProgress.overBy} over the ${paxProgress.target} minimum pax`
+                  : `${paxProgress.headcount} attending of a ${paxProgress.target} minimum pax target, ${paxProgress.progressPct}%`
+              }
+              className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
+            >
+              <div
+                className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+                style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         <div className="flex items-baseline justify-between text-xs text-ink/55">
           <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
           <span className="tabular-nums">
             {responded} of {stats.total} responded · {pct}%
+            {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
           </span>
         </div>
         <div
@@ -822,30 +925,31 @@ function StatsStrip({
           <div className="h-full bg-rose-300" style={{ width: `${seg(stats.declined)}%` }} />
         </div>
       </div>
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {cards.map((card) => {
-          const href =
-            card.key === 'total' || card.key === 'plus_ones'
-              ? `/dashboard/${eventId}/guests`
-              : `/dashboard/${eventId}/guests?rsvp=${card.key}`;
-          const isActive = (card.key === 'total' && !active) || card.key === active;
+      <ul className="grid grid-cols-4 gap-2 lg:flex lg:shrink-0">
+        {pills.map((pill) => {
+          const isActive = pill.key === active;
+          // Tap an active pill to clear the RSVP filter (toggle); otherwise
+          // apply it. Either way the other active filters are preserved.
+          const href = isActive ? buildHref(null) : buildHref(pill.key);
           return (
-            <li key={card.key}>
+            <li key={pill.key}>
               <Link
                 href={href}
-                className={`flex flex-col rounded-lg border px-3 py-2.5 transition-colors ${
+                aria-current={isActive ? 'true' : undefined}
+                title={isActive ? `Clear ${pill.label} filter` : `Show only ${pill.label}`}
+                className={`flex min-w-[4.25rem] flex-col rounded-lg border px-3 py-1.5 transition-colors ${
                   isActive
                     ? 'border-terracotta bg-terracotta/5'
                     : 'border-ink/10 hover:border-ink/25'
                 }`}
               >
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  {card.label}
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                  {pill.label}
                 </span>
                 <span
-                  className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-base font-semibold ${card.tint}`}
+                  className={`mt-0.5 inline-flex w-fit rounded-full px-2 py-0.5 text-base font-semibold ${pill.tint}`}
                 >
-                  {card.count}
+                  {pill.count}
                 </span>
               </Link>
             </li>
@@ -856,19 +960,19 @@ function StatsStrip({
   );
 }
 
-function ShareInvite({ joinUrl }: { joinUrl: string }) {
+// Share invite link — a compact header dropdown (2026-06-13). Was a
+// full-width collapsible row in the desktop chrome stack; folding it into
+// the header keeps the share affordance one tap away without spending a
+// stacked row above the guest list. Native <details> so it needs no
+// client JS; the panel is absolutely positioned under the summary.
+function ShareDropdown({ joinUrl }: { joinUrl: string }) {
   return (
-    <details className="rounded-lg border border-ink/10 bg-cream">
-      <summary className="cursor-pointer list-none px-4 py-3 text-base font-medium">
-        <span className="inline-flex select-none items-center gap-2 text-ink">
-          <Link2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          Share invite link
-        </span>
-        <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-          anyone with the link can sign up and join
-        </span>
+    <details className="group relative">
+      <summary className="button-secondary inline-flex cursor-pointer list-none select-none items-center gap-2">
+        <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Share
       </summary>
-      <div className="border-t border-ink/10 p-4">
+      <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-ink/15 bg-cream p-4 shadow-[0_12px_32px_-12px_rgba(30,34,41,0.4)]">
         <p className="mb-2 text-xs text-ink/60">
           Send this to guests via text or email. They&rsquo;ll sign in, pick a role, and
           land on the guest list.
@@ -886,17 +990,28 @@ function Toolbar({
   q,
   sort,
   search,
+  gview,
 }: {
   eventId: string;
   q: string;
   sort: SortKey;
-  search: { rsvp?: string; view?: string; tag?: string };
+  search: {
+    rsvp?: string;
+    view?: string;
+    group?: string;
+    team?: string;
+    tag?: string;
+    gview?: string;
+  };
+  gview: 'list' | 'map';
 }) {
   // Search input is a CLIENT ISLAND (owner directive 2026-05-23 — "no
   // need to press enter"). It owns its own state + debounces URL
   // updates so typing filters live. Sort + Apply remain in a native
   // form because sort changes are infrequent and the existing
-  // form-submit pattern is fine for them.
+  // form-submit pattern is fine for them. The List/Mind-map switch (was
+  // its own stacked row pre-2026-06-13) now lives at the right of this
+  // bar.
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       {/* Suspense required: LiveSearch uses useSearchParams() */}
@@ -914,7 +1029,10 @@ function Toolbar({
         {q ? <input type="hidden" name="q" value={q} /> : null}
         {search.rsvp ? <input type="hidden" name="rsvp" value={search.rsvp} /> : null}
         {search.view ? <input type="hidden" name="view" value={search.view} /> : null}
+        {search.group ? <input type="hidden" name="group" value={search.group} /> : null}
+        {search.team ? <input type="hidden" name="team" value={search.team} /> : null}
         {search.tag ? <input type="hidden" name="tag" value={search.tag} /> : null}
+        {search.gview ? <input type="hidden" name="gview" value={search.gview} /> : null}
         <select
           name="sort"
           defaultValue={sort}
@@ -930,6 +1048,9 @@ function Toolbar({
           Apply
         </button>
       </form>
+      <div className="sm:ml-auto">
+        <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
+      </div>
     </div>
   );
 }
@@ -937,6 +1058,8 @@ function Toolbar({
 function FacetsSidebar({
   eventId,
   view,
+  team,
+  teamCounts,
   tagFilter,
   tags,
   search,
@@ -945,16 +1068,27 @@ function FacetsSidebar({
 }: {
   eventId: string;
   view: string;
+  team: 'all' | 'bride' | 'groom';
+  teamCounts: { all: number; bride: number; groom: number };
   tagFilter: string;
   tags: string[];
   search: { q?: string; rsvp?: string; sort?: string };
   groups: GuestGroupWithCount[];
   currentGroupId: string | null;
 }) {
+  // baseQuery now carries EVERY active dimension (2026-06-13) — not just
+  // q/rsvp/sort — so toggling any one facet preserves the rest. This is
+  // what lets a role-view, a custom group, a side, an RSVP, and a tag all
+  // stack: every link rebuilds from the full current state and overrides a
+  // single key.
   const baseQuery = new URLSearchParams();
   if (search.q) baseQuery.set('q', search.q);
   if (search.rsvp) baseQuery.set('rsvp', search.rsvp);
   if (search.sort) baseQuery.set('sort', search.sort);
+  if (view && view !== 'all') baseQuery.set('view', view);
+  if (team !== 'all') baseQuery.set('team', team);
+  if (tagFilter) baseQuery.set('tag', tagFilter);
+  if (currentGroupId) baseQuery.set('group', currentGroupId);
 
   const buildHref = (overrides: Record<string, string | null>) => {
     const q = new URLSearchParams(baseQuery);
@@ -966,13 +1100,48 @@ function FacetsSidebar({
     return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
   };
 
-  // The locked role-group view is "active" only when the host is on
-  // one of those keys — custom-group views (view === "group:<uuid>")
-  // should leave the role-group strip in neutral state.
-  const activeRoleView = currentGroupId ? '' : view;
+  // Role-view + custom-group are independent now, so the role-view strip
+  // reflects `view` directly (no longer blanked when a group is active).
+  const activeRoleView = view;
+
+  // Side facet — moved into the rail (2026-06-13) from the old full-width
+  // segment row. Same `team` param + "both counts to both sides" rule.
+  const sideOptions: {
+    key: 'all' | 'bride' | 'groom';
+    label: string;
+    count: number;
+    dot?: string;
+  }[] = [
+    { key: 'all', label: 'Everyone', count: teamCounts.all },
+    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-rose-500' },
+    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: 'bg-sky-600' },
+  ];
 
   return (
     <aside className="hidden space-y-6 self-start lg:sticky lg:top-24 lg:block">
+      <FacetGroup label="Side">
+        <ul className="space-y-1">
+          {sideOptions.map((s) => (
+            <li key={s.key}>
+              <Link
+                href={buildHref({ team: s.key === 'all' ? null : s.key })}
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  team === s.key
+                    ? 'bg-terracotta/10 font-medium text-terracotta-700'
+                    : 'text-ink/70 hover:bg-ink/5'
+                }`}
+              >
+                {s.dot ? (
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
+                ) : null}
+                <span className="flex-1">{s.label}</span>
+                <span className="text-[10px] text-ink/40">{s.count}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </FacetGroup>
+
       <FacetGroup label="View">
         <ul className="space-y-1">
           {VIEW_FILTERS.map((v) => (
@@ -1010,7 +1179,9 @@ function FacetsSidebar({
         hrefByGroupId={Object.fromEntries(
           groups.map((g) => [
             g.group_id,
-            buildHref({ view: `group:${g.group_id}` }),
+            // Own `group` param now (2026-06-13) so the chosen group
+            // stacks with any active role view instead of replacing it.
+            buildHref({ group: g.group_id }),
           ]),
         )}
       />
@@ -1084,85 +1255,6 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
           + Add your first guest
         </Link>
       </div>
-    </div>
-  );
-}
-
-// Team Bride / Team Groom / Everyone — side filter (iteration 0001,
-// 2026-06-02). Orthogonal to the role-group `view` filter: a guest can
-// be Team Bride AND a Principal Sponsor. Server-rendered Links so the
-// filter works with no client JS; preserves the other active params.
-function TeamSegment({
-  eventId,
-  team,
-  counts,
-  search,
-}: {
-  eventId: string;
-  team: 'all' | 'bride' | 'groom';
-  counts: { all: number; bride: number; groom: number };
-  search: { q?: string; rsvp?: string; view?: string; sort?: string; tag?: string };
-}) {
-  const buildHref = (value: 'all' | 'bride' | 'groom') => {
-    const params = new URLSearchParams();
-    if (search.q) params.set('q', search.q);
-    if (search.rsvp) params.set('rsvp', search.rsvp);
-    if (search.view) params.set('view', search.view);
-    if (search.sort) params.set('sort', search.sort);
-    if (search.tag) params.set('tag', search.tag);
-    if (value !== 'all') params.set('team', value);
-    const qs = params.toString();
-    return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
-  };
-
-  const segs: {
-    key: 'all' | 'bride' | 'groom';
-    label: string;
-    count: number;
-    dot?: string;
-    on: string;
-  }[] = [
-    { key: 'all', label: 'Everyone', count: counts.all, on: 'bg-ink text-cream' },
-    {
-      key: 'bride',
-      label: 'Team Bride',
-      count: counts.bride,
-      dot: 'bg-rose-500',
-      on: 'bg-rose-600 text-cream',
-    },
-    {
-      key: 'groom',
-      label: 'Team Groom',
-      count: counts.groom,
-      dot: 'bg-sky-600',
-      on: 'bg-sky-700 text-cream',
-    },
-  ];
-
-  return (
-    <div className="flex gap-2">
-      {segs.map((s) => {
-        const active = team === s.key;
-        return (
-          <Link
-            key={s.key}
-            href={buildHref(s.key)}
-            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-3 py-2.5 text-sm font-medium transition-colors sm:max-w-[170px] sm:flex-none ${
-              active
-                ? `border-transparent ${s.on}`
-                : 'border-ink/15 text-ink/70 hover:border-ink/30'
-            }`}
-          >
-            {s.dot ? <span className={`h-2 w-2 rounded-full ${s.dot}`} /> : null}
-            {s.label}
-            <span
-              className={`text-xs font-semibold ${active ? 'opacity-80' : 'text-ink/40'}`}
-            >
-              {s.count}
-            </span>
-          </Link>
-        );
-      })}
     </div>
   );
 }

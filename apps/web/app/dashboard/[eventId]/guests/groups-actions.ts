@@ -356,7 +356,7 @@ export async function createGuestGroup(
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(
     backToList(eventId, {
-      view: `group:${inserted.group_id}`,
+      group: inserted.group_id,
       group_created: '1',
     }),
   );
@@ -401,7 +401,7 @@ export async function updateGuestGroup(
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(
     backToList(eventId, {
-      view: `group:${groupId}`,
+      group: groupId,
       group_saved: '1',
     }),
   );
@@ -468,7 +468,7 @@ export async function removeGuestFromGroup(
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(
     backToList(eventId, {
-      view: `group:${groupId}`,
+      group: groupId,
       group_member_removed: '1',
     }),
   );

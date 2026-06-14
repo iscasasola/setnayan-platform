@@ -24,7 +24,7 @@
  *   - "Setnayan Concierge matching/matchmaking" → "Setnayan AI matching/matchmaking"
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
- *   - ₱1,499 one-time verification + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
+ *   - Verification FREE during launch (₱1,499 one-time fee removed 2026-06-13) + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
  *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
  *
  * Per [[feedback_setnayan_button_preservation]] — every CTA placement +
@@ -32,7 +32,7 @@
  * touched COPY only, not button positions.
  */
 
-import { VendorNav } from './_components/vendor-nav';
+import { Nav } from '@/app/_components/marketing/site-nav';
 import { VendorHero } from './_components/vendor-hero';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
@@ -107,7 +107,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#free-listing`,
       name: 'Free vendor listing on Setnayan',
       description:
-        'Free verified business profile + in-app chat + pipeline + calendar + BIR receipts. 0% commission on every booking — Setnayan never touches the money between you and your couples.',
+        'Free verified business profile + in-app chat + pipeline + calendar + itemized receipts. 0% commission on every booking — Setnayan never touches the money between you and your couples.',
       price: '0',
       priceCurrency: 'PHP',
       availability: 'https://schema.org/InStock',
@@ -249,7 +249,7 @@ export default async function ForVendorsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
       />
       <main className="m-surface min-h-dvh">
-        <VendorNav />
+        <Nav />
         <VendorHero />
         <StackCloseVendor />
         <ForVendorsDeepDive />

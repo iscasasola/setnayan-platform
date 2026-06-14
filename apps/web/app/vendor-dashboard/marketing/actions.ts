@@ -208,7 +208,7 @@ export async function startAdSubscription(formData: FormData) {
 
   revalidatePath('/vendor-dashboard/marketing');
   revalidatePath('/admin/ads');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect(`/vendor-dashboard/marketing?started=${encodeURIComponent(option.skuCode)}`);
 }
 
@@ -288,6 +288,6 @@ export async function cancelAdSubscription(formData: FormData) {
 
   revalidatePath('/vendor-dashboard/marketing');
   revalidatePath('/admin/ads');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect('/vendor-dashboard/marketing?cancelled=1');
 }

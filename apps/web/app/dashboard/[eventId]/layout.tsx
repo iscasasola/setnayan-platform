@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { getLocale, makeT } from '@/lib/i18n';
@@ -11,11 +12,10 @@ import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
-import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
-import { isBudgetBuildEnabled } from '@/lib/budget-build';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 type Props = {
   children: React.ReactNode;
@@ -55,13 +55,15 @@ type Props = {
  *     `setnayan.nav.sidebar.collapsed`). Resizable freeform width is
  *     deferred to a follow-up — the collapse toggle covers 95% of the
  *     "give me more reading room" use case.
- *   - `lg:-ml-60` outer-cancellation hack. The outer dashboard layout's
- *     OuterDashboardHeader returns null on event-scoped routes (the
- *     usePathname() check there does the right thing). With the legacy
- *     `lg:pl-60` removed from the outer layout (Phase 0 already replaced
- *     the outer chrome's hardcoded sidebar offset), no negative-margin
- *     cancellation is needed. The new SidebarShell handles desktop offset
- *     internally via --shell-main-offset.
+ *   - `lg:-ml-60` outer-cancellation hack (removed 2026-06-14 chrome
+ *     retirement). The legacy cream OuterDashboardHeader + its `lg:pl-60`
+ *     gutter moved OUT of the shared parent layout into the `(account)`
+ *     route group, so the parent no longer renders any chrome or gutter on
+ *     event routes — there is nothing left to cancel. SidebarShell handles
+ *     the desktop offset internally via --shell-main-offset. This is what
+ *     killed the "old cream chrome flashes, then the paper chrome takes
+ *     over" effect on event-route navigations (the cream shell used to paint
+ *     server-side and be suppressed only by a client usePathname() guard).
  *
  * AUTHORIZATION + DATA FETCHING preserved verbatim from the prior layout
  * — see in-flow comments at the membership check + the 5th-hotfix Promise.
@@ -96,7 +98,30 @@ export default async function EventLayout({ children, params }: Props) {
   }
 
   if (!membership || membership.member_type !== 'couple') {
-    notFound();
+    // Delegate path (feature-access program Phase 2, 2026-06-12): an
+    // accepted, non-removed event_moderators row admits the user — this is
+    // the 0048 invite system finally going live. Data access is enforced
+    // per-area by the moderator RLS policies (migration 20261129000000);
+    // the layout only answers "may they see this event's shell at all".
+    const { data: moderator, error: moderatorError } = await supabase
+      .from('event_moderators')
+      .select('moderator_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .not('accepted_at', 'is', null)
+      .is('removed_at', null)
+      .maybeSingle();
+    if (moderatorError) {
+      logQueryError(
+        'EventLayout (event_moderators)',
+        moderatorError,
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+    }
+    if (!moderator) {
+      notFound();
+    }
   }
 
   // 5th hotfix pass extension (2026-05-23 PM) — same defensive pattern
@@ -107,11 +132,11 @@ export default async function EventLayout({ children, params }: Props) {
   // layout — not the parent /dashboard/layout.tsx that #452 hardened.
   // Each fetcher wrapped in .catch() with safe defaults so one throw
   // can't crash the whole layout tree.
-  const [eventRes, unreadCount, unreadMessages, locale, switcherEvents, roles] = await Promise.all([
+  const [eventRes, unreadCount, unreadMessages, locale, switcherEvents, roles, profilePhotoUrl] = await Promise.all([
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key';
+          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -189,6 +214,26 @@ export default async function EventLayout({ children, params }: Props) {
         vendorProfiles: [],
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
     }),
+    // Account profile photo for the (I) avatar (owner directive 2026-06-12:
+    // the avatar is the ACCOUNT's photo, never the event logo — reverses the
+    // 2026-06-03 avatar-IS-event-logo lock). Presigned display URL resolved
+    // server-side; degrades to null (initial fallback) on any error.
+    (async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('profile_photo_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return displayUrlForStoredAsset(data?.profile_photo_url);
+    })().catch((err: unknown) => {
+      logQueryError(
+        'EventLayout (profile photo threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return null;
+    }),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -217,9 +262,14 @@ export default async function EventLayout({ children, params }: Props) {
   // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
   // owned by the layout; now SidebarShell owns the sticky chrome and we
   // just inject the inner row.
+  // DB-driven creatable event types for the switcher's add-event sheet
+  // (2026-06-13 cutover) — request-cached via React cache().
+  const creatableEventTypes = await getCreatableEventTypes();
+
   const topBar = (
     <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
       <EventSwitcher
+        currentRole="customer"
         currentEventId={event.event_id}
         currentEventName={event.display_name}
         currentEventDate={event.event_date}
@@ -227,6 +277,7 @@ export default async function EventLayout({ children, params }: Props) {
         currentMonogramColor={event.monogram_color}
         currentMonogramFrameKey={event.monogram_frame_key}
         currentMonogramFontKey={event.monogram_font_key}
+        currentMonogramStyle={event.monogram_style}
         events={switcherEvents
           .filter((e) => !e.archived)
           .map((e) => ({
@@ -238,23 +289,26 @@ export default async function EventLayout({ children, params }: Props) {
             monogram_color: e.monogram_color,
             monogram_frame_key: e.monogram_frame_key,
             monogram_font_key: e.monogram_font_key,
+            monogram_style: e.monogram_style,
           }))}
+        hasCustomerAccess={roles.hasCustomerAccess}
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}
         vendorProfiles={roles.vendorProfiles}
+        eventTypes={creatableEventTypes}
       />
       <div className="flex items-center gap-2">
         {/* Marketplace (Store) link + mobile Switch View pill REMOVED from
             the event-scoped top nav per owner directive 2026-06-03 (circled
             both icons on the mobile top strip; "remove these 2 on top nav").
             Neither function is orphaned:
-            • Marketplace `/vendors` stays reachable via the home
+            • Marketplace `/explore` stays reachable via the home
               marketplace-tease-strip CTA, the "Browse your matched services"
               button, and every plan-card folder link.
             • Role-switching (Shop / Setnayan HQ consoles) stays reachable via the
-              EventSwitcher dropdown's "Switch view" rows (left monogram caret)
-              on mobile, plus the desktop sidebar-footer pill (sidebarFooterPill
-              below). */}
+              unified EventSwitcher's "Switch view" rows (left monogram caret)
+              on every viewport — the desktop sidebar-footer pill was retired
+              2026-06-12 (single-switcher directive). */}
         {/* Messages icon + unread badge (iteration 0019; badge follow-up to
             the icon-only link from PR #837). Read-state lands via the
             chat_thread_reads marker (migration
@@ -274,52 +328,30 @@ export default async function EventLayout({ children, params }: Props) {
           ariaBaseLabel={tr('nav.notifications')}
           ariaUnreadSuffix="unread"
         />
+        {/* (I) avatar = the ACCOUNT's profile photo (or initial fallback) —
+            owner directive 2026-06-12. The event's monogram/logo belongs to
+            the event only and lives on the EventSwitcher chip at left. */}
         <ProfileMenu
           email={user.email ?? ''}
-          monogram={{
-            display_name: event.display_name,
-            monogram_text: event.monogram_text,
-            monogram_color: event.monogram_color,
-            monogram_frame_key: event.monogram_frame_key,
-            monogram_font_key: event.monogram_font_key,
-          }}
+          photoUrl={profilePhotoUrl}
           ariaLabel={tr('common.profile')}
         />
       </div>
     </div>
   );
 
-  // Outer-cancel: the parent /dashboard/layout.tsx applies `lg:pl-60`
-  // unconditionally even though OuterDashboardHeader (the consumer of
-  // that 240px sidebar) returns null on event-scoped routes via its
-  // usePathname() check. Without cancelling the parent's padding, the
-  // SidebarShell sidebar would render PLUS 240px of dead left padding,
-  // pushing the event-scoped main content 480px right of the viewport
-  // edge on lg+. `lg:-ml-60` cancels the outer's 240px so the event-
-  // route body sits flush against the SidebarShell sidebar's right
-  // border with only SidebarShell's own --shell-main-offset controlling
-  // the offset. Same pattern as the pre-Phase-1 layout's outer-cancel
-  // hack (the cancel still needs to live here because the outer layout
-  // is part of an unrelated chrome surface that other routes consume).
-  // Switch View pill for the desktop sidebar footer slot — standardized
-  // 2026-05-29 across all 3 doorways. The mobile-only duplicate inside
-  // the topBar above (lg:hidden wrapper) handles <lg viewports where
-  // SidebarShell's sidebar is hidden.
-  const sidebarFooterPill = (
-    <RoleSwitchPill
-      currentRole="customer"
-      hasCustomerAccess
-      hasVendorAccess={roles.hasVendorAccess}
-      hasAdminAccess={roles.hasAdminAccess}
-      vendorProfiles={roles.vendorProfiles}
-    />
-  );
+  // 2026-06-14 chrome retirement: the `lg:-ml-60` outer-cancel hack is GONE.
+  // The parent `dashboard/layout.tsx` no longer renders the cream
+  // OuterDashboardHeader or its `lg:pl-60` gutter (that chrome moved to the
+  // `(account)` route group), so there is no parent padding left to cancel —
+  // SidebarShell owns the desktop offset entirely via --shell-main-offset.
+  // This is the structural half of removing the old-cream-flash on
+  // event-route navigations.
 
   return (
-    <div className="lg:-ml-60">
+    <>
       <SidebarShell
         sidebar={<CustomerSidebar eventId={eventId} />}
-        sidebarFooter={sidebarFooterPill}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
@@ -334,7 +366,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} budgetBuild={isBudgetBuildEnabled()} />
-    </div>
+      <CustomerBottomNav eventId={eventId} />
+    </>
   );
 }

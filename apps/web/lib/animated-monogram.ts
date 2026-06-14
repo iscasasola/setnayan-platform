@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { checkOrderOwnership } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/animated-monogram.ts
@@ -54,44 +55,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const ANIMATED_MONOGRAM_SERVICE_KEY = 'ANIMATED_MONOGRAM';
 
 /**
- * Statuses that mean an order no longer confers ownership. Anything else
- * (submitted · pending_approval · approved · paid · fulfilled · active) keeps
- * the capability unlocked. Mirrors the .not('status','in',...) filter at
- * website/page.tsx:130 + pro-website.ts.
- */
-const RELINQUISHED_STATUSES = new Set(['cancelled', 'refunded', 'lapsed']);
-
-/**
  * Does this event own the paid Animated Monogram upgrade?
  *
- * Returns false on any DB shape error (missing table/column) so callers
- * degrade to the static monogram + the upgrade CTA rather than throwing.
+ * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
+ * refund-aware, graceful-degrade on a missing orders table so callers fall back
+ * to the static monogram + the upgrade CTA rather than throwing.
  */
 export async function eventOwnsAnimatedMonogram(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('status')
-    .eq('event_id', eventId)
-    .eq('service_key', ANIMATED_MONOGRAM_SERVICE_KEY)
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-
-  // Pre-bootstrap / schema-drift tolerance — undefined table or column means
-  // the orders substrate isn't there yet; treat as "not owned" so the page
-  // shows the static monogram + the upgrade entry point safely. A real error
-  // still surfaces so we don't silently mis-gate in production.
-  if (error) {
-    if (error.code === '42P01' || error.code === '42703') return false;
-    throw new Error(
-      `Failed to resolve Animated Monogram ownership: ${error.message}`,
-    );
-  }
-
-  // Defense-in-depth: also filter client-side in case the DB-side enum filter
-  // ever drifts — only a row in a live status confers ownership.
-  return (data ?? []).some(
-    (row) => !RELINQUISHED_STATUSES.has((row.status as string | null) ?? ''),
-  );
+  return checkOrderOwnership(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
 }

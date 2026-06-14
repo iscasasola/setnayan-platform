@@ -458,15 +458,17 @@ export function Pricing() {
 const FAQ_ITEMS = [
   {
     q: 'How do payments work during the pilot?',
-    a: 'Temporarily, every in-app service payment uses a QR-code method — GCash QR or Maya QR. At checkout you scan the QR, pay from your wallet, and the Setnayan team confirms the booking within minutes. This keeps payments fully traceable, BIR-compliant, and zero-Apple-fee while we finalize the Xendit / InstaPay integrations. Card payments and direct bank transfers ship later this year.',
+    a: 'Temporarily, every in-app service payment uses a QR-code method — GCash QR or Maya QR. At checkout you scan the QR, pay from your wallet, and the Setnayan team confirms the booking within minutes. This keeps payments fully traceable and zero-Apple-fee while we finalize the Xendit / InstaPay integrations. Card payments and direct bank transfers ship later this year.',
   },
   {
     q: 'Where do I pay — in the app or on the web?',
-    a: 'On the web. The Setnayan iOS, Android, Mac, and Windows apps are great for planning, RSVPs, messaging, and uploading photos — but every purchase (vendor booking, milestone payment, in-app service like Panood) opens a secure Safari/Chrome window to setnayan.com to complete. This keeps your BIR receipts, dispute protection, and milestone payment trails all in one place — and avoids the 15–30% surcharge mobile app stores add to in-app purchases. One transaction layer, one source of truth.',
+    a: 'On the web. The Setnayan iOS, Android, Mac, and Windows apps are great for planning, RSVPs, messaging, and uploading photos — but every purchase (vendor booking, milestone payment, in-app service like Panood) opens a secure Safari/Chrome window to setnayan.com to complete. This keeps your receipts, dispute protection, and milestone payment trails all in one place — and avoids the 15–30% surcharge mobile app stores add to in-app purchases. One transaction layer, one source of truth.',
   },
   {
+    // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP, the wedding website,
+    // and QR invitations are paid SKUs — no longer promised as free.
     q: 'Is the planning really free?',
-    a: 'Yes. Guest list, RSVP, seating chart, budget, mood board, schedule, QR invitations — every planning surface is free forever. No subscription. No per-guest fee. No paywall on anything you need to actually run the wedding.',
+    a: 'Starting is free, and the planning workspace stays free — guest list, seating chart, budget, mood board, and schedule, with no subscription and no per-guest fee. Optional paid software (Setnayan AI matchmaking, the wedding website and RSVP, QR invitations, and the Productions services) is added only when the couple chooses it.',
   },
   {
     q: 'Do I have to be the bride or groom to sign up?',
@@ -474,7 +476,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How does Setnayan make money?',
-    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week, and everyone starts with 100 free tokens on verification. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week, and everyone starts with 100 free tokens on verification. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',

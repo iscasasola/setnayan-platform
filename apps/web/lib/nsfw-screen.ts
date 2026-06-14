@@ -196,10 +196,14 @@ function parseR2Ref(ref: string): { bucket: string | null; key: string } {
 /**
  * Screen one capture and persist the verdict.
  *
- * 1. Confirms the row exists and is still 'unscreened' (and is not a video
- *    clip — papic_photos.photo_type='clip' is skipped; nsfwjs is image-only).
+ * 1. Confirms the row exists and is still 'unscreened'.
  * 2. Classifies the bytes (provided, or fetched back from R2 by the stored
- *    `r2://bucket/key` ref).
+ *    `r2://bucket/key` ref). VIDEO CLIPS (papic_photos.photo_type='clip')
+ *    are classified by their POSTER FRAME (poster_r2_key — one JPEG the
+ *    client extracted at capture time); nsfwjs is image-only and the lambda
+ *    has no ffmpeg, so the poster is the clip's screening proxy. A clip with
+ *    no poster (legacy rows, extraction failure) stays 'unscreened' — every
+ *    guest-facing surface excludes clips structurally, so it never projects.
  * 3. UPDATEs moderation_state ONLY where it is still 'unscreened' — never
  *    clobbers a couple's override or a concurrent consent/faceblock verdict.
  *
@@ -228,15 +232,31 @@ export async function screenCapture(opts: {
     if (rowError || !row) return; // row gone / pre-migration env — nothing to do
     const record = row as unknown as Record<string, unknown>;
     if (record.moderation_state !== 'unscreened') return; // already decided
+
+    // Clips: swap the classification target to the poster frame. Queried
+    // separately (not in selectCols) so an env without the poster_r2_key
+    // migration degrades to clip-skip without disturbing the photo path.
+    let classifyRef = opts.r2ObjectKey;
+    let bytes = opts.bytes;
     if (opts.table === 'papic_photos' && record.photo_type === 'clip') {
-      return; // video clips are out of scope for the image classifier
+      const { data: posterRow, error: posterError } = await admin
+        .from('papic_photos')
+        .select('poster_r2_key')
+        .eq('r2_object_key', opts.r2ObjectKey)
+        .maybeSingle();
+      const posterRef =
+        !posterError && typeof posterRow?.poster_r2_key === 'string'
+          ? posterRow.poster_r2_key.trim()
+          : '';
+      if (!posterRef) return; // no poster → clip stays 'unscreened' (guest surfaces exclude clips)
+      classifyRef = posterRef;
+      bytes = undefined; // opts.bytes would be the VIDEO bytes — never classify those
     }
 
-    let bytes = opts.bytes;
     if (!bytes) {
       const { readR2Object } = await import('@/lib/drive-upload');
       const { R2_BUCKETS } = await import('@/lib/r2');
-      const { bucket, key } = parseR2Ref(opts.r2ObjectKey);
+      const { bucket, key } = parseR2Ref(classifyRef);
       bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
     }
 

@@ -60,27 +60,27 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Free for couples on the baseline planning tools; verified Filipino wedding vendors list with 0% commission on bookings.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually from ₱999 (Pabati) to ₱16,999 (Media Pack bundle). Vendor side: Free (₱0/month) baseline listing, Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). Paid planning tiers: Setnayan AI ₱3,999, Essentials ₱12,999, Complete ₱27,999 — one-time per event. Individual services retail ₱999–₱7,999. Vendor side: Verified is free during launch; Pro ₱6,000 and Enterprise ₱10,000 per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Yes for the baseline planning tools — guest list, RSVP, Pakulay (mood board), vendor browse, and in-app chat are all free with every account. Premium tools like Today\'s Focus AI wizard (₱1,499 one-time) and Pro Website (₱5,499) are optional. You only pay for what you choose to add.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (₱3,999 one-time), the Event Website (₱1,999), and premium RSVP are optional paid software. You only pay for what you choose to add.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on vendor bookings?',
-        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software service purchases (Today\'s Focus, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Verified one-time, Pro monthly, Enterprise monthly).',
+        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software purchases by couples (planning tiers plus services like Papic, Panood, and the Editorial Website) and vendor subscriptions (Pro and Enterprise, 28-day or annual).',
       },
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock through thank-you cards, with religion-adaptive copy and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier, ₱3,999 one-time per event. Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
@@ -105,7 +105,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-are-vendors-verified',
         title: 'How are vendors verified on Setnayan?',
-        body: 'Vendors complete an identity check (DTI registration, mayor\'s permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. ₱1,499 one-time for a lifetime Verified badge — no annual renewal fee. Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.',
+        body: 'Vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee. Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.',
       },
       {
         slug: 'what-is-pakanta',
@@ -115,22 +115,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (₱2,999, disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, auto-tagged via face detection) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (from ₱2,999, scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, auto-tagged via face detection) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
       },
       {
         slug: 'what-is-panood',
         title: 'What is Panood?',
-        body: 'Live streaming for your wedding, embedded directly on your event website. ₱3,499 per day with up to four cameras. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your wedding, embedded directly on your event website. ₱2,499 per day. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',
         title: 'What is Pakulay?',
         body: 'The visual mood board for your wedding — included free with every couple account. Three pillars: palette (colors), location feel (venue look + atmosphere), and dress codes (attire direction by role tier). Pakulay finalizes once and downstream services (catering, florals, attire, stationery) pull from the same locked vision.',
-      },
-      {
-        slug: 'is-setnayan-bir-compliant',
-        title: 'Is Setnayan BIR-compliant?',
-        body: 'Yes. BIR-compliant receipts on every Setnayan software purchase. Vendor-to-couple payments settle off-platform per Filipino direct-booking norms; vendors handle their own BIR receipts on those direct bookings.',
       },
       {
         slug: 'how-does-setnayan-handle-privacy',
@@ -458,3 +453,59 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     ],
   },
 ];
+
+// ───────────────────────────────────────────────────────────────────────────
+// Per-article lookup helpers (SEO/GEO — /help/[slug] indexable article pages,
+// 2026-06-13). Article slugs are GLOBALLY UNIQUE across all topics (verified),
+// so a flat slug → article resolution is unambiguous and the public URL can be
+// /help/[slug] with no topic segment.
+//
+// `HELP_LASTMOD` is the single honest last-substantive-edit date for the help
+// corpus — every article was authored/last-revised together (GEO Phase G3,
+// 2026-05-28). The sitemap-help route stamps every help URL with this one date
+// rather than a build-time Date() (which Google reads as freshness fraud). Bump
+// it in the same edit when an article body materially changes.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const HELP_LASTMOD = '2026-05-28';
+
+export type HelpArticleWithTopic = {
+  article: HelpArticle;
+  topic: HelpTopic;
+};
+
+/** Flat list of every article paired with its parent topic. */
+export const ALL_HELP_ARTICLES: ReadonlyArray<HelpArticleWithTopic> =
+  HELP_TOPICS.flatMap((topic) =>
+    topic.articles.map((article) => ({ article, topic })),
+  );
+
+/** Resolve an article (and its topic) by its globally-unique slug. */
+export function findHelpArticle(
+  slug: string,
+): HelpArticleWithTopic | undefined {
+  return ALL_HELP_ARTICLES.find((entry) => entry.article.slug === slug);
+}
+
+/** Other articles in the same topic — used for "related" cross-links. */
+export function relatedHelpArticles(
+  slug: string,
+  limit = 6,
+): HelpArticle[] {
+  const found = findHelpArticle(slug);
+  if (!found) return [];
+  return found.topic.articles
+    .filter((a) => a.slug !== slug)
+    .slice(0, limit);
+}
+
+/**
+ * Trim an article body to a meta-description-friendly length (~155 chars) at a
+ * word boundary, never mid-word, with an ellipsis when truncated.
+ */
+export function helpMetaDescription(body: string, max = 155): string {
+  if (body.length <= max) return body;
+  const slice = body.slice(0, max);
+  const lastSpace = slice.lastIndexOf(' ');
+  return `${slice.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+}

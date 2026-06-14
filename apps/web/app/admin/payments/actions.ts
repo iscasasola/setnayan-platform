@@ -20,31 +20,21 @@ import {
 // via the canonical helper. Best-effort writes — never throws, never blocks
 // the parent mutation. See lib/ledger.ts for the contract.
 import { appendLedger } from '@/lib/ledger';
-// Canonical Setnayan AI activation pattern. When admin approves a payment
-// for the TF SKU (service_key === 'concierge_complete' · the V1 SKU code
-// preserved across the V2 cutover per lib/concierge.ts:8), we fire
-// activateConcierge to flip events.concierge_status='active' + stamp
-// concierge_activated_at + compute wedding-anchored concierge_expires_at.
-// Other SKUs in pilot just transition to 'paid'/'fulfilled' via the existing
-// promoteOrder branch — per-SKU activation hooks are V1.x scope.
-import { activateConcierge } from '@/app/dashboard/profile/concierge/actions';
-// Vendor "Additional Branch" activation — maps a paid branch order
-// (service_key vendor_additional_branch__{branch_id}) back to its branch.
-import { branchIdFromServiceKey } from '@/lib/vendor-branches';
-
-// SKU code for Setnayan AI. Same string lib/concierge.ts + sku-catalog +
-// stress-test-lock-unlock.ts use. Pulled out as a constant so the brittle
-// service-key match in approvePayment below is grep-able when the post-pilot
-// rename to TODAYS_FOCUS lands (the V2 spec rename never replaced the actual
-// SKU code · the code stays 'concierge_complete' until a coordinated migration
-// flips it everywhere at once).
-const TODAYS_FOCUS_SKU_CODE = 'concierge_complete';
-// New flat per-event Setnayan AI SKU (catalog service_code SETNAYAN_AI, ₱3,999).
-// ⚠ VERIFY this matches the actual order.service_key a SETNAYAN_AI checkout
-// writes before flipping SETNAYAN_AI_PAYWALL_ENABLED on — the order key is set
-// at checkout, not derived from the catalog code. Safe until then: the gate
-// ignores the entitlement while the paywall flag is off.
-const SETNAYAN_AI_SKU_CODE = 'SETNAYAN_AI';
+// Per-SKU activation dispatcher (PR3 hardening). After approvePayment flips an
+// order to 'paid', SOME SKUs need a side effect to unlock the capability
+// (concierge state machine, Setnayan AI boolean, vendor branch flag). The
+// dispatcher owns those hooks behind a frozen, extensible map — non-fatal by
+// contract (activateOrderSku never throws). PR4 registers PAPIC_SEATS there,
+// never by re-editing approvePayment. Replaces the three hardcoded
+// service_key branches that used to live in the promoteOrder block.
+//
+// Merge note (2026-06-14): main concurrently added the OLD-style inline
+// concierge + SETNAYAN_AI + vendor-branch activation to this file; that work
+// is fully subsumed by this dispatcher — lib/sku-activation.ts already
+// registers `concierge_complete`, `SETNAYAN_AI`, and the branch-prefix hook —
+// so main's inline imports/constants are dropped here (typecheck confirms
+// nothing else references them).
+import { activateOrderSku } from '@/lib/sku-activation';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -240,128 +230,21 @@ export async function approvePayment(formData: FormData) {
       console.error('vendor payout scheduling failed (non-fatal):', e);
     }
 
-    // Day 3 voucher sprint · Setnayan AI activation hook.
-    //
-    // When the approved order is a Setnayan AI purchase, fire the canonical
-    // activateConcierge action (apps/web/app/dashboard/profile/concierge/
-    // actions.ts) so events.concierge_status flips from 'diy' → 'active' +
-    // concierge_activated_at stamps NOW + concierge_expires_at is computed
-    // from the wedding-anchored formula (lib/concierge.ts:computeConciergeExpiry).
-    // Without this hook the couple sees "Payment matched" + "Order paid" in
-    // their notifications but Setnayan AI stays gated behind the upgrade
-    // banner — wired surface, broken outcome.
-    //
-    // For all OTHER SKUs in pilot we deliberately stop at order.status='paid'
-    // (the promoteOrder branch above already did this). Per-SKU activation
-    // hooks (Papic seat provisioning, Patiktok booth date claim, etc.) are
-    // V1.x scope per the sprint brief. The Setnayan AI hook ships first
-    // because (a) it's the headline V1 SKU at ₱2,499 (lib/concierge.ts), (b)
-    // the activation pattern + lazy-eval expiry sweep is already shipped
-    // and tested, and (c) pilot couples buying Setnayan AI need it
-    // unlocked the moment the admin approves their payment.
-    //
-    // Failure isolation: catch + log + continue. The order is already
-    // 'paid' at this point + the payment is 'matched' + the buyer
-    // notifications + receipt + payouts have all landed. A failed
-    // activateConcierge call leaves the couple in a recoverable state
-    // (admin can flip the event row manually via Supabase Studio) but
-    // MUST NOT roll back the approval. Treat activation as the cherry on
-    // top of an approved payment, not as a prerequisite for approval.
-    //
-    // Idempotency: activateConcierge is idempotent on the events row · re-
-    // running it preserves the original concierge_activated_at anchor (it
-    // reads the existing value before computing the update payload, see
-    // actions.ts line 131-133). Safe to re-fire if an admin re-approves a
-    // ghost payment (the prior approval's WHERE clause already prevents
-    // that race anyway).
-    if (order?.service_key === TODAYS_FOCUS_SKU_CODE && order.event_id) {
-      try {
-        const activationResult = await activateConcierge({
-          eventId: order.event_id,
-          orderId: payment.order_id,
-        });
-        if (activationResult.status === 'activated') {
-          // Day 3 voucher sprint: ledger write for the service_activated
-          // transition. Snapshot the service_key so a later audit can spot
-          // which SKU actually flipped the events row.
-          await appendLedger(admin, {
-            order_id: payment.order_id,
-            event_type: 'service_activated',
-            actor_user_id: userId,
-            actor_role: 'admin',
-            metadata: {
-              service_key: order.service_key,
-              event_id: order.event_id,
-              concierge_expires_at: activationResult.expiresAt ?? null,
-            },
-          });
-        } else {
-          // status === 'enforcement_blocked' — the couple's account hit
-          // 'full_banned' enforcement. The order stays 'paid' but TF
-          // doesn't activate. Surface to logs for admin follow-up · the
-          // existing dispute flow handles refund-or-clear from here.
-          console.warn(
-            '[approvePayment] Today\'s Focus activation blocked by enforcement:',
-            { order_id: payment.order_id, event_id: order.event_id },
-          );
-        }
-      } catch (e) {
-        // Non-fatal: order stays 'paid'. Admin can manually flip the
-        // events row via Supabase Studio + re-run activation. Log + move
-        // on so the parent approval flow completes.
-        console.error('[approvePayment] Today\'s Focus activation threw:', e);
-      }
-    }
-
-    // Setnayan AI (new flat per-event SKU) activation hook. A confirmed
-    // SETNAYAN_AI order (₱3,999) is a one-time per-event purchase with NO
-    // expiry — distinct from the legacy concierge_complete machinery above
-    // (no activateConcierge, no wedding-anchored expiry, no trial). We stamp a
-    // single boolean: events.setnayan_ai_active = true. The gate
-    // (lib/setnayan-ai.ts) consults it ONLY when SETNAYAN_AI_PAYWALL_ENABLED is
-    // on (default off), so this is INERT until the paywall is deliberately
-    // flipped. Non-fatal + idempotent (a plain boolean set), like the hooks
-    // around it.
-    if (order?.service_key === SETNAYAN_AI_SKU_CODE && order.event_id) {
-      try {
-        await admin
-          .from('events')
-          .update({ setnayan_ai_active: true })
-          .eq('event_id', order.event_id);
-      } catch (e) {
-        console.error('[approvePayment] Setnayan AI activation threw:', e);
-      }
-    }
-
-    // Vendor "Additional Branch" activation hook (owner-locked 2026-06-05).
-    // When the approved order is a branch subscription (service_key
-    // vendor_additional_branch__{branch_id}), flip that branch active and
-    // stamp the order's 28-day period. Mirrors the Setnayan AI hook above:
-    // non-fatal, idempotent, runs only after the order is 'paid'.
-    const branchId = order?.service_key
-      ? branchIdFromServiceKey(order.service_key)
-      : null;
-    if (branchId) {
-      try {
-        const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
-        await admin
-          .from('vendor_branches')
-          .update({ branch_subscription_active: true, cancelled_at: null })
-          .eq('branch_id', branchId);
-        await admin
-          .from('orders')
-          .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
-          .eq('order_id', payment.order_id);
-        await appendLedger(admin, {
-          order_id: payment.order_id,
-          event_type: 'service_activated',
-          actor_user_id: userId,
-          actor_role: 'admin',
-          metadata: { service_key: order?.service_key ?? null, branch_id: branchId },
-        });
-      } catch (e) {
-        console.error('[approvePayment] branch activation threw:', e);
-      }
+    // Per-SKU activation dispatcher (PR3 hardening). The order is now 'paid';
+    // some SKUs need a side effect to unlock the capability (concierge state
+    // machine, Setnayan AI boolean, vendor branch flag). Non-fatal by
+    // contract — activateOrderSku never throws, so a failed activation leaves
+    // a recoverable state (admin re-runs / flips the row manually) but never
+    // rolls back the already-approved payment. Hooks are idempotent. PR4
+    // registers PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
+    if (order) {
+      await activateOrderSku({
+        admin,
+        orderId: payment.order_id,
+        eventId: order.event_id ?? null,
+        serviceKey: order.service_key ?? '',
+        actorUserId: userId,
+      });
     }
   }
 

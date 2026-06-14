@@ -41,6 +41,11 @@
  *     "192 verified vendors" + "BIR-stamped receipts" + "Setnayan AI AI"
  *     bullets preserved as-is from template — all canonical under v2.1
  *     brief (CLAUDE.md 2026-05-28 11th row).
+ *
+ * 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU and the
+ * "BIR-stamped receipts" claim was purged platform-wide (PR #1316), so the
+ * bullets + "Free planning forever" line above are superseded — copy now
+ * sells the free workspace (guest list · seating · budget · mood board).
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -53,7 +58,7 @@ import { signUp } from './actions';
 export const metadata: Metadata = {
   title: 'Create account · Setnayan',
   description:
-    'Create a Setnayan account in seconds. Free for couples planning their wedding. Free baseline listing for Filipino wedding vendors.',
+    'Create a Setnayan account in seconds. Free to start for couples planning their wedding. Free baseline listing for Filipino wedding vendors.',
   alternates: { canonical: '/signup' },
 };
 
@@ -86,9 +91,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
 
   const benefitBullets = [
-    'Guest list + RSVP · free',
+    'Guest list + schedule · free',
     '192 verified vendors',
-    'BIR-stamped receipts',
+    'Mood board · free',
     'Budget + seating tools · free',
   ];
 
@@ -176,7 +181,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 lineHeight: 1.55,
               }}
             >
-              No card. Free planning forever. Invite co-hosts later.
+              No card. The planning workspace is free. Invite co-hosts later.
             </p>
           </div>
           <ul
@@ -398,7 +403,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   30 days after our event, our editorial page becomes publicly
                   searchable on{' '}
                   <span className="m-mono" style={{ fontSize: 11 }}>
-                    setnayan.com/weddings
+                    setnayan.com/realstories
                   </span>
                   . We can keep it private at any time.
                 </span>

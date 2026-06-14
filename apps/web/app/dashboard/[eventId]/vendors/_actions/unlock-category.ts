@@ -40,6 +40,8 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
+import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
+import { resolveLivePax } from '@/lib/pax';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -122,6 +124,9 @@ export async function unlockCategoryWithInquiry(input: {
   // request; the inserted `category` is a vendor_services canonical key, so its
   // tile comes from the live taxonomy map (null when unknown — safe expand-phase).
   const tax = await getTaxonomy();
+  // Live pax to snapshot onto each new inquiry (Adaptive Pax Pricing Phase 3).
+  // Same for every vendor in this event → resolve once. null = nothing to send.
+  const livePax = await resolveLivePax(supabase, eventId);
 
   for (const cand of candidates) {
     const vendorProfileId = cand.vendorProfileId;
@@ -172,12 +177,22 @@ export async function unlockCategoryWithInquiry(input: {
             event_id: eventId,
             vendor_profile_id: vendorProfileId,
             created_by_user_id: user.id,
+            // Push the live pax onto the thread (Adaptive Pax Pricing Phase 3);
+            // the immutable at-inquiry snapshot is set once just below.
+            ...(livePax != null ? { pax_current: livePax } : {}),
           },
           { onConflict: 'event_id,vendor_profile_id' },
         )
-        .select('thread_id')
+        .select('thread_id, pax_at_inquiry')
         .single();
       if (thread?.thread_id) {
+        // Snapshot the count the vendor first quoted against, exactly once.
+        if (livePax != null && thread.pax_at_inquiry == null) {
+          await supabase
+            .from('chat_threads')
+            .update({ pax_at_inquiry: livePax })
+            .eq('thread_id', thread.thread_id);
+        }
         const msg = new FormData();
         msg.set('thread_id', thread.thread_id);
         msg.set('body', INQUIRY_BODY);
@@ -185,6 +200,32 @@ export async function unlockCategoryWithInquiry(input: {
         // the first message. No return_to → it returns without redirecting.
         await sendChatMessage(msg);
         inquiredAny = true;
+
+        // Structured per-service interest context (owner-locked 2026-06-12
+        // "multi-service inquiry mapping"). The resolved service is the
+        // 'initial' interest; this vendor's price-included vendor_service_links
+        // are recorded as 'linked' (informational ✓-included context, never a
+        // separate unlock). Best-effort — recordThreadInterests never throws,
+        // and the inquiry already landed regardless.
+        const seeds: InterestSeed[] = [
+          { vendorServiceId: serviceId, categoryKey: category, source: 'initial' },
+        ];
+        const { data: links } = await admin
+          .from('vendor_service_links')
+          .select('linked_canonical_service')
+          .eq('vendor_service_id', serviceId);
+        for (const link of links ?? []) {
+          const key = (link as { linked_canonical_service?: string | null })
+            .linked_canonical_service;
+          if (key) {
+            seeds.push({ vendorServiceId: null, categoryKey: key, source: 'linked' });
+          }
+        }
+        await recordThreadInterests(supabase, {
+          threadId: thread.thread_id,
+          addedByRole: 'couple',
+          seeds,
+        });
       }
     } catch {
       /* best-effort — the pick stands even if the message fails */

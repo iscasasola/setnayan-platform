@@ -39,6 +39,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import '../_styles/onboarding.css';
+// Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
+// Layered ON TOP of the prototype CSS — see onboarding-desktop.css header.
+import '../_styles/onboarding-desktop.css';
+import { OnboardingDesktopAside } from './desktop-aside';
 // Phase-5 cutover: the lazy DB commit + the existing auth server actions reused
 // at the account gate (no new auth code — same OAuth/signup the marketing site uses).
 import {
@@ -702,7 +706,9 @@ function Rail({ children, className, wrapClassName }: { children: ReactNode; cla
 /* Picker service card — per-service photo + label + select check (owner 2026-06-05). */
 function PickCard({ cat, label, desc, selected, onClick }: { cat: string; label: string; desc?: string; selected: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`svccard${selected ? ' sel' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
+    // key flips with `selected` so the button remounts on each pick → the .sn-bounce
+    // selection-feedback animation replays every time this card becomes selected.
+    <button key={selected ? 'on' : 'off'} type="button" className={`svccard${selected ? ' sel sn-bounce' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
       <span className="svcph" style={{ backgroundImage: `url(${PICKER_ASSET(cat)})` }} />
       <span className="svcck" aria-hidden="true">✓</span>
       <span className="svclb">{label}</span>
@@ -2858,6 +2864,9 @@ export function OnboardingShell({
 
   return (
     <div className="onbw">
+      {/* Desktop-only editorial canvas (≥1024px) beside the phone frame. Hidden
+          on mobile + tablet; the phone frame below is byte-for-byte unchanged. */}
+      <OnboardingDesktopAside />
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}
@@ -2998,7 +3007,9 @@ export function OnboardingShell({
             <div className="tapzone">
               <div className="stack" data-single="">
                 {ROLE_OPTIONS.map((o) => (
-                  <div key={o.value} className={`opt${sel(role === o.value)}`} onClick={() => selectRole(o.value)}>
+                  // key includes `role` on the selected card so it remounts when the
+                  // selection moves → the .sn-bounce replays on each newly-picked role.
+                  <div key={role === o.value ? `${o.value}-sel-${role}` : o.value} className={`opt${sel(role === o.value)}${role === o.value ? ' sn-bounce' : ''}`} onClick={() => selectRole(o.value)}>
                     <div className="otrow">
                       <div className="ot">{o.title}</div>
                       <span className="check" />
@@ -3026,7 +3037,9 @@ export function OnboardingShell({
             <div className="tapzone">
               <div className="stack" data-single="">
                 {KIND_OPTIONS.map((o) => (
-                  <div key={o.value} className={`opt${sel(kind === o.value)}`} onClick={() => selectKind(o.value)}>
+                  // key includes `kind` on the selected card so it remounts when the
+                  // selection moves → the .sn-bounce replays on each newly-picked kind.
+                  <div key={kind === o.value ? `${o.value}-sel-${kind}` : o.value} className={`opt${sel(kind === o.value)}${kind === o.value ? ' sn-bounce' : ''}`} onClick={() => selectKind(o.value)}>
                     <div className="otrow">
                       <div className="ot">{o.title}</div>
                       <span className="check" />
@@ -3069,10 +3082,13 @@ export function OnboardingShell({
                     // /admin/wedding-types); fall back to the built-in soon
                     // flag if the status read was unavailable.
                     const soon = activeFaiths ? !activeFaiths.includes(c.value) : c.soon;
+                    const picked = faith.includes(c.value);
                     return (
                       <span
-                        key={c.value}
-                        className={`chip${sel(faith.includes(c.value))}${soon ? ' is-soon' : ''}`}
+                        // key folds in this chip's selected state so it remounts when it
+                        // becomes selected → the .sn-bounce replays on each pick.
+                        key={picked ? `${c.value}-sel` : c.value}
+                        className={`chip${sel(picked)}${soon ? ' is-soon' : ''}${picked ? ' sn-bounce' : ''}`}
                         onClick={soon ? undefined : () => selectFaith(c.value)}
                         aria-disabled={soon || undefined}
                       >
@@ -3255,7 +3271,7 @@ export function OnboardingShell({
                   { stem: '📍 the place — ', label: '📍 the place' },
                   { stem: '😅 the awkward part — ', label: '😅 the awkward part' },
                 ].map((c) => (
-                  <span key={c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}`} onClick={() => dropSpark(c.stem)}>{c.label}</span>
+                  <span key={state.loveStory.spark_anchor === c.stem ? `${c.stem}-sel` : c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}${state.loveStory.spark_anchor === c.stem ? ' sn-bounce' : ''}`} onClick={() => dropSpark(c.stem)}>{c.label}</span>
                 ))}
               </div>
               <div className={`followup${state.loveStory.spark.trim() ? ' show' : ''}`}>
@@ -3300,7 +3316,7 @@ export function OnboardingShell({
                   { kind: 'different_paths', label: 'Different dreams?' },
                   { kind: 'doubt', label: 'Just wasn’t sure?' },
                 ].map((c) => (
-                  <span key={c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}`} onClick={() => pickCue(c.kind)}>{c.label}</span>
+                  <span key={state.loveStory.obstacle_kind === c.kind ? `${c.kind}-sel` : c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}${state.loveStory.obstacle_kind === c.kind ? ' sn-bounce' : ''}`} onClick={() => pickCue(c.kind)}>{c.label}</span>
                 ))}
               </div>
               <div className={`followup${state.loveStory.obstacle.trim() ? ' show' : ''}`}>
@@ -3331,7 +3347,7 @@ export function OnboardingShell({
                   { prop: 'trip', label: 'On a trip' },
                   { prop: 'meaningful', label: 'Somewhere meaningful' },
                 ].map((c) => (
-                  <span key={c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}`} onClick={() => pickProposal(c.prop)}>{c.label}</span>
+                  <span key={state.loveStory.proposal_setting === c.prop ? `${c.prop}-sel` : c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}${state.loveStory.proposal_setting === c.prop ? ' sn-bounce' : ''}`} onClick={() => pickProposal(c.prop)}>{c.label}</span>
                 ))}
               </div>
               <div className="stem">

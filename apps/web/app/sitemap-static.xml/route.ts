@@ -40,30 +40,46 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /vendors browse — DB-backed catalog. Page itself updates on every
   // verification + new tile lands. Daily.
-  { path: '/vendors', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
+  { path: '/explore', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
 
   // /pricing — locked at v2.1 brief (CLAUDE.md tenth + eleventh 2026-05-28
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.
   { path: '/pricing', lastmod: '2026-05-29', changefreq: 'weekly', priority: '0.9' },
 
-  // /weddings editorial showcase index — empty pre-pilot but route exists
-  // and the iframe + meta surface is finalized. Weekly placeholder.
-  { path: '/weddings', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.85' },
+  // /realstories hub moved to sitemap-weddings.xml (iteration 0046 first slice,
+  // 2026-06-13) — kept out of sitemap-static to avoid a duplicate URL across
+  // sitemaps (same hub-in-its-own-child pattern as /help + /blog).
 
   // /features — v2.1 template adoption shipped (CLAUDE.md eleventh
-  // 2026-05-28 row PR #581). Monthly cadence is honest now.
-  { path: '/features', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.85' },
+  // 2026-05-28 row PR #581); localized to EN + Taglish 2026-06-13.
+  { path: '/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.85' },
+
+  // /tl/features — Taglish edition of /features (localization, 2026-06-13).
+  // hreflang reciprocal lives in both pages' metadata.
+  { path: '/tl/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
 
   // /for-vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).
   { path: '/for-vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
 
-  // /how-it-works — iteration 0015 marketing site.
-  { path: '/how-it-works', lastmod: '2026-05-12', changefreq: 'monthly', priority: '0.75' },
+  // /tl/about — Taglish edition of /about (localization first slice,
+  // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
+  { path: '/tl/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
 
-  // /help — iteration 0029 help center + FAQPage JSON-LD shipped 2026-05-28
-  // via PR #571 (CLAUDE.md 13th 2026-05-28 row).
-  { path: '/help', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.75' },
+  // /how-it-works — iteration 0015 marketing site.
+  { path: '/how-it-works', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
+
+  // /tl/how-it-works — Taglish edition of /how-it-works (localization,
+  // 2026-06-13). hreflang reciprocal lives in both pages' metadata.
+  { path: '/tl/how-it-works', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
+
+  // /help moved to its own sitemap-help.xml (2026-06-13) — it now owns the
+  // /help hub + 61 per-article /help/[slug] URLs, so listing /help here too
+  // would duplicate it across two children.
+
+  // /about — brand/entity page (SEO/GEO, 2026-06-13). Canonical "what is
+  // Setnayan" surface for AI grounding; fixes the previously-dead footer link.
+  { path: '/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.
   { path: '/waitlist', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.7' },
@@ -84,11 +100,11 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/login', lastmod: '2026-05-23', changefreq: 'yearly', priority: '0.5' },
   { path: '/signup', lastmod: '2026-05-23', changefreq: 'yearly', priority: '0.6' },
 
-  // Keynote scroll decks (CLAUDE.md 2026-05-28 11th row · v2.1 static
-  // React+Babel pages). Stable until next deck refresh cycle.
-  { path: '/keynote', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.6' },
-  { path: '/keynote/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.6' },
-  { path: '/keynote/engineering', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.5' },
+  // Keynote scroll decks de-listed 2026-06-13 — the 2026-05-28 deck snapshot
+  // drifted from the live product (carried retired ₱1,499 verification fee,
+  // "BIR-compliant receipts", and "Today's Focus" naming). Also disallowed in
+  // robots.ts so AI answer engines stop citing stale copy. Re-list after a
+  // deck refresh if /keynote should rank again.
 ];
 
 export async function GET(): Promise<Response> {

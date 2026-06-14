@@ -172,10 +172,11 @@ export function SiteEditor(props: SiteEditorProps) {
     [router],
   );
 
-  // ✕ closes the full-screen editor back to the event dashboard home. (It used
-  // to return to the /website journey scroll, but that page now redirects to
-  // this editor — flipped 2026-06-03 — so home is the correct close target.)
-  const backHref = `/dashboard/${eventId}`;
+  // ✕ closes the full-screen editor back to the website hub
+  // (/dashboard/[eventId]/website). The hub lives inside the dashboard layout,
+  // so the couple lands back on the chrome'd surface (top bar + global bottom
+  // nav) that launched the editor — not the bare dashboard home.
+  const backHref = `/dashboard/${eventId}/website`;
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-cream text-ink transition-colors lg:flex-row">

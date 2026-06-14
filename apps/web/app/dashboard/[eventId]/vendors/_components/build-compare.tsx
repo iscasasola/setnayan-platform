@@ -34,16 +34,40 @@ const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
 const SLOTS: BuildSlot[] = ['A', 'B', 'C'];
 
+// ── Available dates per build (takeover spec §4 · 2026-06-12) ───────────────
+// Server-computed (page.tsx) day-intersection of each column's CONNECTED
+// vendors' calendars in the couple's year/month window. Rendered as a footer
+// row; columns with no connected vendors show a dash, an empty intersection
+// shows the never-blank "swap one" copy.
+export type CompareDatesInfo = {
+  /** Marketplace-connected vendors that constrained the result. */
+  connectedCount: number;
+  totalAvailable: number;
+  /** First few available days, pre-formatted ("Nov 14"). */
+  dayLabels: string[];
+  moreCount: number;
+  /** Set when the intersection is empty — the "swap one" message. */
+  conflictText: string | null;
+};
+
+export type CompareAvailability = {
+  windowLabel: string;
+  /** Keyed by build_id, plus 'current' for the live column. */
+  byColumn: Record<string, CompareDatesInfo>;
+};
+
 export function BuildCompare({
   eventId,
   budgetPhp,
   currentPlan,
   savedBuilds,
+  availability = null,
 }: {
   eventId: string;
   budgetPhp: number | null;
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
+  availability?: CompareAvailability | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -341,6 +365,40 @@ export function BuildCompare({
                   );
                 })}
               </tr>
+              {availability ? (
+                <tr className="border-t border-ink/10">
+                  <td className="px-3 py-2 align-top text-[11px] leading-snug text-ink/55">
+                    Dates that work
+                    <span className="block text-[10px] text-ink/40">in {availability.windowLabel}</span>
+                  </td>
+                  {columns.map((c) => {
+                    const a = availability.byColumn[c.key];
+                    return (
+                      <td key={c.key} className="px-2 py-2 text-right align-top">
+                        {!a || a.connectedCount === 0 ? (
+                          <span
+                            className="text-[10px] text-ink/35"
+                            title="No Setnayan-connected vendors in this build to check calendars for"
+                          >
+                            —
+                          </span>
+                        ) : a.conflictText ? (
+                          <span className="block text-[10px] leading-snug text-rose-700">
+                            {a.conflictText}
+                          </span>
+                        ) : (
+                          <span className="block text-[10px] leading-snug text-emerald-700">
+                            {a.totalAvailable} day{a.totalAvailable === 1 ? '' : 's'} free
+                            {a.dayLabels.length > 0
+                              ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${a.moreCount}` : ''}`
+                              : ''}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

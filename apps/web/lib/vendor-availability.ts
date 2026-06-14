@@ -511,3 +511,105 @@ export async function getBatchVendorAvailableDays(
 
   return result;
 }
+
+// ── Per-build availability (Compare tab · 2026-06-12) ───────────────────────
+// The takeover spec §4 reverses the usual order: build the vendor combination
+// FIRST, then see which dates the whole team can do. So this variant takes an
+// EXPLICIT vendor set (a saved build's picks — possibly not yet booked) instead
+// of the event's confirmed vendors. It reads blocks via the caller-supplied
+// client — the Compare page passes the ADMIN client because the 0022 § 2.3 RLS
+// only opens a vendor's calendar to couples with an active booking, and a
+// build is by definition pre-booking. Privacy posture mirrors the §6a eyeing
+// count: we surface only the AGGREGATE (which days work + which pair has no
+// overlap — the spec's required "[X] and [Y] don't overlap" copy), never a
+// vendor's raw calendar.
+
+export type BuildAvailabilityResult = {
+  /** Marketplace-connected vendors that constrained the result. Manual /
+   *  off-platform picks have no calendar → they never constrain. */
+  connectedVendorCount: number;
+  /** YYYY-MM-DD keys inside the window no connected vendor blocks. */
+  availableDayKeys: string[];
+  totalDaysInRange: number;
+  /** When the intersection is EMPTY: the first vendor pair with no common
+   *  free day (the "swap one of these" hint). Null when empty-for-another-
+   *  reason (3-way conflict) or when the intersection isn't empty. */
+  conflictPair: [string, string] | null;
+};
+
+export async function getAvailableDaysForVendorSet(
+  client: SupabaseClient,
+  vendorSet: ReadonlyArray<{ profileId: string; name: string }>,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Promise<BuildAvailabilityResult> {
+  const totalDaysInRange = daysBetween(rangeStart, rangeEnd) + 1;
+  // Dedupe profiles (a build can pick the same vendor for two categories).
+  const byProfile = new Map<string, string>();
+  for (const v of vendorSet) if (!byProfile.has(v.profileId)) byProfile.set(v.profileId, v.name);
+  const profileIds = [...byProfile.keys()];
+  if (profileIds.length === 0) {
+    return { connectedVendorCount: 0, availableDayKeys: [], totalDaysInRange, conflictPair: null };
+  }
+
+  const { data: blocks, error } = await client
+    .from('vendor_calendar_blocks')
+    .select('vendor_profile_id, blocked_at, blocked_until')
+    .in('vendor_profile_id', profileIds)
+    .lte('blocked_at', rangeEnd.toISOString())
+    .gte('blocked_until', rangeStart.toISOString());
+  if (error) {
+    // Honest failure: report the vendor count, claim no available days.
+    return { connectedVendorCount: profileIds.length, availableDayKeys: [], totalDaysInRange, conflictPair: null };
+  }
+
+  // Per-vendor blocked-day sets (needed for the conflict-pair hint).
+  const blockedByProfile = new Map<string, Set<string>>();
+  for (const id of profileIds) blockedByProfile.set(id, new Set());
+  for (const block of blocks ?? []) {
+    const b = block as { vendor_profile_id: string; blocked_at: string; blocked_until: string };
+    const set = blockedByProfile.get(b.vendor_profile_id);
+    if (!set) continue;
+    const start = new Date(b.blocked_at);
+    const end = new Date(b.blocked_until);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const finalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    while (cursor <= finalDay) {
+      set.add(dayKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  // Walk the window once; collect the intersection.
+  const allDayKeys: string[] = [];
+  const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+  const last = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+  while (cursor <= last) {
+    allDayKeys.push(dayKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  const availableDayKeys = allDayKeys.filter((k) => {
+    for (const set of blockedByProfile.values()) if (set.has(k)) return false;
+    return true;
+  });
+
+  // Empty intersection → find the first PAIR with no common free day (the
+  // spec's never-blank "swap one" hint). O(n² · days) on ≤ ~20 vendors.
+  let conflictPair: [string, string] | null = null;
+  if (availableDayKeys.length === 0 && profileIds.length >= 2) {
+    outer: for (let i = 0; i < profileIds.length; i++) {
+      for (let j = i + 1; j < profileIds.length; j++) {
+        const a = blockedByProfile.get(profileIds[i]!)!;
+        const b = blockedByProfile.get(profileIds[j]!)!;
+        const pairHasFreeDay = allDayKeys.some((k) => !a.has(k) && !b.has(k));
+        if (!pairHasFreeDay) {
+          conflictPair = [byProfile.get(profileIds[i]!)!, byProfile.get(profileIds[j]!)!];
+          break outer;
+        }
+      }
+    }
+  }
+
+  return { connectedVendorCount: profileIds.length, availableDayKeys, totalDaysInRange, conflictPair };
+}

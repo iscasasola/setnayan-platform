@@ -94,9 +94,12 @@ export async function recordSeatCapture(
   token: string,
   r2ObjectKey: string,
   kind: 'photo' | 'clip' = 'photo',
+  posterR2Key?: string,
 ): Promise<RecordSeatCaptureResult> {
   const cleanToken = token?.trim();
   const cleanKey = r2ObjectKey?.trim();
+  // Poster frame (clips only) — the NSFW screen's image proxy for the video.
+  const cleanPoster = kind === 'clip' ? posterR2Key?.trim() || null : null;
   if (!cleanToken || !cleanKey) return { ok: false, error: 'missing_input' };
 
   const supabase = await createClient();
@@ -124,16 +127,38 @@ export async function recordSeatCapture(
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
 
-  const { data: inserted, error: insertError } = await supabase
-    .from('papic_photos')
-    .insert({
-      event_id: seat.event_id,
-      paparazzi_seat_id: seat.seat_id,
-      r2_object_key: cleanKey,
-      photo_type: kind === 'clip' ? 'clip' : 'photo',
-    })
-    .select('photo_id')
-    .single();
+  const insertWithoutPoster = () =>
+    supabase
+      .from('papic_photos')
+      .insert({
+        event_id: seat.event_id,
+        paparazzi_seat_id: seat.seat_id,
+        r2_object_key: cleanKey,
+        photo_type: kind === 'clip' ? 'clip' : 'photo',
+      })
+      .select('photo_id')
+      .single();
+
+  let { data: inserted, error: insertError } = cleanPoster
+    ? await supabase
+        .from('papic_photos')
+        .insert({
+          event_id: seat.event_id,
+          paparazzi_seat_id: seat.seat_id,
+          r2_object_key: cleanKey,
+          photo_type: 'clip',
+          // The poster frame the NSFW screen classifies as the clip's proxy.
+          poster_r2_key: cleanPoster,
+        })
+        .select('photo_id')
+        .single()
+    : await insertWithoutPoster();
+
+  // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204):
+  // retry without the poster — losing the screen proxy must never lose a clip.
+  if (insertError && cleanPoster && insertError.code === 'PGRST204') {
+    ({ data: inserted, error: insertError } = await insertWithoutPoster());
+  }
 
   if (insertError) {
     return { ok: false, error: insertError.message.slice(0, 80) };

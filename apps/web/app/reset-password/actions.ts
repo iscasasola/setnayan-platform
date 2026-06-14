@@ -10,10 +10,9 @@
  *   2. revoke every OTHER session (scope:'others') — a reset implies
  *      possible compromise, so any device holding the old session gets
  *      signed out; the just-established recovery session stays
- *   3. emit the 0028 `security_alert` notification (in-app + email) —
- *      "your password was changed" — wired 2026-06-12 alongside migration
- *      20261116000000_notification_type_security_alert.sql (the enum change
- *      PR #1262 deliberately skipped). Fire-and-forget via after().
+ *   3. emit the 0028 `security_alert` notification (in-app + email + push)
+ *      via the shared lib/security-alert.ts template — one copy source for
+ *      all three security triggers. Fire-and-forget via after().
  *   4. land the user on the right doorway for their account type
  *      (customer → /dashboard · vendor → /vendor-dashboard · admin → /admin)
  */
@@ -21,7 +20,7 @@
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitSecurityAlert } from '@/lib/security-alert';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { accountHomePath, validateNewPassword } from '@/lib/account-security';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -89,30 +88,20 @@ export async function completePasswordReset(formData: FormData) {
   }
 
   // 0028 template #10 — security_alert. Best-effort + non-blocking: after()
-  // runs once the response is sent, and emitNotification itself never throws
-  // (it logs and continues), so the redirect is never delayed by the
-  // notifications insert or the Resend call. relatedUrl = the profile page
-  // hosting the Security section for this doorway (customer + admin share
-  // /dashboard/profile, mirroring SECURITY_RETURN_PATHS).
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'https://setnayan-platform-web.vercel.app';
+  // runs once the response is sent, and emitSecurityAlert never throws, so
+  // the redirect is never delayed by the notifications insert or the Resend
+  // call. relatedUrl = the profile page hosting the Security section for
+  // this doorway (customer + admin share /dashboard/profile, mirroring
+  // SECURITY_RETURN_PATHS).
   const securityProfilePath =
     profile?.account_type === 'vendor'
       ? '/vendor-dashboard/profile'
       : '/dashboard/profile';
   const alertUserId = user.id;
   after(() =>
-    emitNotification({
+    emitSecurityAlert({
       userId: alertUserId,
-      type: 'security_alert',
-      title: 'Your Setnayan password was changed',
-      body:
-        'Your password was just reset via the email recovery link, and all ' +
-        'other devices were signed out. If this was you, no action is ' +
-        'needed. If this wasn’t you, reset your password again immediately ' +
-        `(${appUrl}/forgot-password) — your email inbox may also be ` +
-        'compromised, so secure it first.',
+      event: 'password_reset',
       relatedUrl: securityProfilePath,
     }),
   );

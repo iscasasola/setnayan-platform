@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
   CheckCircle2,
+  ClipboardList,
   Copy,
   Mail,
   Trash2,
@@ -14,9 +15,13 @@ import {
   ROLE_SUBTYPES,
   ROLE_SUBTYPE_LABEL,
   ROLE_SUBTYPE_HINT,
+  DELEGATE_AREAS,
+  DELEGATE_AREA_LABEL,
+  resolveAreaLevel,
+  type ModeratorPermissions,
   type RoleSubtype,
 } from '@/lib/event-moderators';
-import { inviteHost, revokeHostInvite } from './actions';
+import { inviteHost, revokeHostInvite, removeHost, setDelegateBudget } from './actions';
 
 export const metadata = { title: 'Hosts · Setnayan' };
 
@@ -26,6 +31,8 @@ type Props = {
     invite_sent?: string;
     invite_error?: string;
     invite_revoked?: string;
+    grant_updated?: string;
+    host_removed?: string;
     token?: string;
   }>;
 };
@@ -40,6 +47,25 @@ type ModeratorRow = {
   invitation_expires_at: string | null;
   accepted_at: string | null;
   invitation_token: string | null;
+  permissions_json: ModeratorPermissions | null;
+};
+
+// 0016 event_action_log shape (migration 20260518500000), reused as the
+// delegate activity stream. `area` rides in payload_json.
+type ActionLogRow = {
+  id: string;
+  performed_by_user_id: string | null;
+  action_type: string;
+  action_target_table: string | null;
+  notes: string | null;
+  payload_json: { area?: string | null } | null;
+  performed_at: string;
+};
+
+type BookedCoordinator = {
+  vendor_id: string;
+  vendor_name: string;
+  contact_email: string | null;
 };
 
 type UserMini = {
@@ -69,15 +95,15 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     .is('removed_at', null)
     .maybeSingle();
   let isHost = !!modCheck;
-  if (!isHost) {
-    const { data: legacy } = await supabase
-      .from('event_members')
-      .select('member_type')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    isHost = (legacy as { member_type: string } | null)?.member_type === 'couple';
-  }
+  const { data: legacy } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const isCouple =
+    (legacy as { member_type: string } | null)?.member_type === 'couple';
+  if (isCouple) isHost = true;
   if (!isHost) redirect('/dashboard');
 
   const admin = createAdminClient();
@@ -85,23 +111,53 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // other — one parallel batch instead of two serial reads (owner perf pass
   // 2026-06-03). The accepted-host user lookup below stays sequential (it needs
   // the userIds derived from these rows).
-  const [{ data: eventRow }, { data: rows }] = await Promise.all([
-    admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
-    // All moderator rows (accepted + pending); revoked (removed_at) filtered out.
-    admin
-      .from('event_moderators')
-      .select(
-        'moderator_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, invitation_token',
-      )
-      .eq('event_id', eventId)
-      .is('removed_at', null)
-      .order('accepted_at', { ascending: true }),
-  ]);
+  const [{ data: eventRow }, { data: rows }, { data: logRows }, { data: coordRows }] =
+    await Promise.all([
+      admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      // All moderator rows (accepted + pending); revoked (removed_at) filtered out.
+      admin
+        .from('event_moderators')
+        .select(
+          'moderator_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, invitation_token, permissions_json',
+        )
+        .eq('event_id', eventId)
+        .is('removed_at', null)
+        .order('accepted_at', { ascending: true }),
+      // Delegate activity stream — couple-visible (locked doc § 3: "your
+      // coordinator did X"). Rows come from the log_delegate_write trigger
+      // into the 0016 event_action_log.
+      admin
+        .from('event_action_log')
+        .select(
+          'id, performed_by_user_id, action_type, action_target_table, notes, payload_json, performed_at',
+        )
+        .eq('event_id', eventId)
+        .like('action_type', 'delegate_%')
+        .order('performed_at', { ascending: false })
+        .limit(15),
+      // Booked coordinators on the couple's vendor records — the one-click
+      // "Promote your coordinator" path (locked doc § 3).
+      admin
+        .from('event_vendors')
+        .select('vendor_id, vendor_name, contact_email')
+        .eq('event_id', eventId)
+        .eq('category', 'planner_coordinator')
+        .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
+    ]);
   const eventName = (eventRow as { display_name: string | null } | null)?.display_name ?? 'Your event';
 
   const all = (rows ?? []) as ModeratorRow[];
   const accepted = all.filter((r) => r.accepted_at);
   const pending = all.filter((r) => !r.accepted_at && r.invitation_token);
+  const activity = (logRows ?? []) as ActionLogRow[];
+
+  // Booked coordinators not yet invited (matched loosely by email).
+  const invitedEmails = new Set(
+    all.map((r) => (r.invitation_email ?? '').toLowerCase()).filter(Boolean),
+  );
+  const promotable = ((coordRows ?? []) as BookedCoordinator[]).filter(
+    (c) => c.contact_email && !invitedEmails.has(c.contact_email.toLowerCase()),
+  );
 
   // Resolve user info for accepted hosts (display_name + email).
   const userIds = accepted.map((r) => r.user_id).filter((id): id is string => !!id);
@@ -120,6 +176,8 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const sentToken = search.token ?? null;
   const inviteError = search.invite_error ?? null;
   const justRevoked = search.invite_revoked === '1';
+  const grantUpdated = search.grant_updated === '1';
+  const hostRemoved = search.host_removed === '1';
 
   // Build the share URL with a localhost-safe fallback. In production this
   // resolves to https://www.setnayan.com via SITE_URL; locally to localhost.
@@ -179,14 +237,62 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      {justRevoked ? (
+      {justRevoked || grantUpdated || hostRemoved ? (
         <p
           role="status"
           className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Invitation revoked.
+          {justRevoked
+            ? 'Invitation revoked.'
+            : grantUpdated
+              ? 'Access updated.'
+              : 'Host removed — their access ended immediately.'}
         </p>
+      ) : null}
+
+      {/* Promote your coordinator — one-click delegate invite for booked
+          planner/coordinator vendors (feature-access program § 3). */}
+      {isCouple && promotable.length > 0 ? (
+        <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
+          <header className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+              Promote your coordinator
+            </p>
+            <p className="max-w-prose text-sm text-ink/65">
+              Your booked coordinator can plan WITH you — edit the guest list,
+              seat plan, schedule, and vendor records, with every change logged
+              below. Publishing the seat plan and the first invitation send
+              always stay with you.
+            </p>
+          </header>
+          <ul className="divide-y divide-ink/10">
+            {promotable.map((c) => (
+              <li
+                key={c.vendor_id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-ink">{c.vendor_name}</p>
+                  <p className="font-mono text-xs text-ink/55">{c.contact_email}</p>
+                </div>
+                <form action={inviteHost}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="invitation_email" value={c.contact_email ?? ''} />
+                  <input type="hidden" name="role_subtype" value="wedding_planner_external" />
+                  <input type="hidden" name="delegate_kind" value="coordinator" />
+                  <input type="hidden" name="display_label" value={c.vendor_name.slice(0, 80)} />
+                  <button
+                    type="submit"
+                    className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta/90"
+                  >
+                    Invite as delegate
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {inviteError ? (
@@ -268,12 +374,16 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           <ul className="divide-y divide-ink/10">
             {accepted.map((row) => {
               const userInfo = row.user_id ? usersById[row.user_id] ?? null : null;
+              const budgetLevel = resolveAreaLevel(row.permissions_json, 'budget');
+              const grantChips = DELEGATE_AREAS.filter((a) => a !== 'budget')
+                .map((a) => ({ area: a, level: resolveAreaLevel(row.permissions_json, a) }))
+                .filter((g) => g.level !== null);
               return (
                 <li
                   key={row.moderator_id}
                   className="flex flex-wrap items-start justify-between gap-3 py-3"
                 >
-                  <div className="space-y-0.5">
+                  <div className="space-y-1.5">
                     <p className="text-sm font-medium text-ink">
                       {userInfo?.display_name?.trim() || userInfo?.email || '—'}
                     </p>
@@ -281,23 +391,134 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                       {ROLE_SUBTYPE_LABEL[row.role_subtype]}
                       {row.display_label ? ` · ${row.display_label}` : ''}
                     </p>
+                    <p className="flex flex-wrap gap-1">
+                      {grantChips.map((g) => (
+                        <span
+                          key={g.area}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            g.level === 'edit'
+                              ? 'bg-terracotta/10 text-terracotta'
+                              : 'bg-ink/5 text-ink/60'
+                          }`}
+                        >
+                          {DELEGATE_AREA_LABEL[g.area]}
+                          {g.level === 'view' ? ' · view' : ''}
+                        </span>
+                      ))}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          budgetLevel ? 'bg-ink/5 text-ink/60' : 'bg-ink/[0.03] text-ink/35'
+                        }`}
+                      >
+                        Budget {budgetLevel ? '· view' : '· off'}
+                      </span>
+                    </p>
                   </div>
-                  <p className="font-mono text-[10px] text-ink/50">
-                    Joined{' '}
-                    {row.accepted_at
-                      ? new Date(row.accepted_at).toLocaleDateString('en-PH', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })
-                      : '—'}
-                  </p>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <p className="font-mono text-[10px] text-ink/50">
+                      Joined{' '}
+                      {row.accepted_at
+                        ? new Date(row.accepted_at).toLocaleDateString('en-PH', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        : '—'}
+                    </p>
+                    {isCouple && row.user_id !== user.id ? (
+                      <div className="flex items-center gap-2">
+                        <form action={setDelegateBudget}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="moderator_id" value={row.moderator_id} />
+                          <input
+                            type="hidden"
+                            name="budget_grant"
+                            value={budgetLevel ? 'off' : 'view'}
+                          />
+                          <button
+                            type="submit"
+                            className="text-[11px] text-ink/55 underline hover:text-ink"
+                          >
+                            {budgetLevel ? 'Hide budget' : 'Allow budget view'}
+                          </button>
+                        </form>
+                        <form action={removeHost}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="moderator_id" value={row.moderator_id} />
+                          <button
+                            type="submit"
+                            className="text-[11px] text-terracotta-700 underline hover:text-terracotta"
+                          >
+                            Remove
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
           </ul>
         )}
       </section>
+
+      {/* Delegate activity — "your coordinator did X" (couple-visible). */}
+      {isCouple && activity.length > 0 ? (
+        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+          <header className="space-y-1">
+            <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+              <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Delegate activity
+            </p>
+            <p className="text-sm text-ink/65">
+              Everything your hosts changed, most recent first. You&apos;ll always
+              know who did what.
+            </p>
+          </header>
+          <ul className="divide-y divide-ink/10">
+            {activity.map((a) => {
+              const actor = a.performed_by_user_id
+                ? usersById[a.performed_by_user_id] ?? null
+                : null;
+              const verb = a.action_type.endsWith('insert')
+                ? 'added'
+                : a.action_type.endsWith('delete')
+                  ? 'removed'
+                  : 'updated';
+              const area = a.payload_json?.area ?? null;
+              const what =
+                area === 'guest_list'
+                  ? 'a guest'
+                  : area === 'seat_plan'
+                    ? 'the seat plan'
+                    : area === 'schedule'
+                      ? 'a schedule block'
+                      : area === 'vendors'
+                        ? 'a vendor record'
+                        : a.action_target_table ?? 'the plan';
+              return (
+                <li key={a.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
+                  <span className="text-sm text-ink/80">
+                    <span className="font-medium">
+                      {actor?.display_name?.trim() || actor?.email || 'A delegate'}
+                    </span>{' '}
+                    {verb} {what}
+                    {a.notes ? <span className="text-ink/55"> — {a.notes}</span> : null}
+                  </span>
+                  <span className="font-mono text-[10px] text-ink/45">
+                    {new Date(a.performed_at).toLocaleString('en-PH', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {/* Invite form */}
       <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">

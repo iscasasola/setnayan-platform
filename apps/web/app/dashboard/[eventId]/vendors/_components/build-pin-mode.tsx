@@ -106,13 +106,13 @@ export function BuildPinModeControl({
           const on = mode === key;
           return (
             <button
-              key={key}
+              key={on ? `${key}-on` : key}
               type="button"
               role="tab"
               aria-selected={on}
               onClick={() => pick(key)}
               className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                on ? 'bg-mulberry text-paper' : 'text-ink/60 hover:bg-ink/[0.04]'
+                on ? 'bg-mulberry text-paper sn-bounce' : 'text-ink/60 hover:bg-ink/[0.04]'
               }`}
             >
               <Icon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />

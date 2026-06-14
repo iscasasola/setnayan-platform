@@ -5,9 +5,13 @@ import type { MetadataRoute } from 'next';
 const ALLOWED_PATHS = [
   '/',
   '/v/',
-  '/vendors',
+  '/explore',
+  '/venues',
+  '/venue/',
   '/for-vendors',
   '/help',
+  '/realstories',
+  '/tl', // Taglish locale subpath (Taglish ≈ tl; localization first slice — /tl/about live)
   // Forward-looking — these surfaces are in the SEO playbook
   // (17_SEO_and_AI_Discoverability_Playbook.md §5.1) but not yet
   // shipped. Pre-allowing them avoids a robots.txt edit when they go live.
@@ -15,7 +19,11 @@ const ALLOWED_PATHS = [
   '/suppliers',
   '/blog',
 ];
-const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '/receipts'];
+// /keynote + /proto are dated internal pitch/prototype decks (snapshot
+// 2026-05-28) that drifted from the live product — they carried retired
+// claims (₱1,499 verification fee, "BIR-compliant receipts", "Today's Focus").
+// Disallowed 2026-06-13 so crawlers + AI answer engines stop indexing stale copy.
+const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '/receipts', '/keynote', '/proto'];
 const QUERY_DISALLOWS = ['/*?sort=', '/*?filter=', '/*?session=', '/*?ref='];
 
 const AI_ANSWER_ENGINES = ['ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'ClaudeBot'];

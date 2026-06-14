@@ -73,6 +73,7 @@ import {
 } from '@/lib/orders';
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
+import { VendorProposalsCard } from './_components/vendor-proposals-card';
 import {
   CancelBookingButton,
   DisputeLinkButton,
@@ -981,6 +982,16 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </ul>
           )}
         </section>
+
+        {/* ----------------------------------------------------------- */}
+        {/* Proposals (data-link program ③ — renders only when this      */}
+        {/* vendor has sent one; self-contained, RLS-scoped)             */}
+        {/* ----------------------------------------------------------- */}
+        <VendorProposalsCard
+          eventId={eventId}
+          marketplaceVendorId={ev.marketplace_vendor_id}
+          displayName={displayName}
+        />
 
         {/* ----------------------------------------------------------- */}
         {/* Schedules                                                    */}

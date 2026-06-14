@@ -21,6 +21,8 @@
  */
 
 import { VENDOR_NAV_GROUPS } from '../_components/vendor-sidebar';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isMusicVendor } from '@/lib/songs';
 import { VendorMobileLanding } from '../_components/vendor-mobile-landing';
 import { DesktopRedirect } from './_components/desktop-redirect';
 import { createClient } from '@/lib/supabase/server';
@@ -50,6 +52,8 @@ const DESCRIPTIONS: Record<string, string> = {
     'Active and pending bookings. Soft-hold, downpaid, delivered, and cancelled — all in one stream.',
   contracts:
     'Contracts you upload for your booked hosts. Setnayan hosts the PDFs; signatures stay between you and the couple.',
+  proposals:
+    'Auto-filled proposals for booked clients — saved templates merge the couple\u2019s live event details into a printable quote.',
   services:
     'The services + packages you offer. Pricing, inclusions, and what hosts see on your public profile.',
   repertoire:
@@ -101,8 +105,18 @@ export default async function VendorMoreLanding() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const role = user ? await resolveVendorRole(supabase, user.id) : null;
-  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role);
+  const [role, vendorProfile] = user
+    ? await Promise.all([
+        resolveVendorRole(supabase, user.id),
+        fetchOwnVendorProfile(supabase, user.id).catch(() => null),
+      ])
+    : [null, null];
+  // Service-aware: Repertoire tile only for music acts (owner directive
+  // 2026-06-13) — mirrors the sidebar filter.
+  const showRepertoire = isMusicVendor(vendorProfile?.services);
+  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
+    showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
+  );
 
   return (
     <>

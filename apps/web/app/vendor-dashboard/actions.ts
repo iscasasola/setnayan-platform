@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { geocodeNominatim } from '@/lib/geo';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -55,34 +56,27 @@ const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([
   'civil_registrar',
 ]);
 
-// Iteration 0041 — event_types vendor opt-in. Mirrors the
-// `vendor_profiles_event_types_check` CHECK constraint in
-// migration 20260521090000. Keep in sync when new public.event_type
-// enum values land.
-const ALLOWED_EVENT_TYPES: ReadonlySet<string> = new Set([
-  'wedding',
-  'gender_reveal',
-  'debut',
-  'birthday',
-  'celebration',
-  'travel',
-  'corporate',
-  'tournament',
-  'christening',
-]);
-
 /**
  * Parse the repeated checkbox values for `event_types` into a clean array.
- * Always returns a non-empty array — the column has CHECK
- * `cardinality(event_types) > 0`, so if a vendor unchecks every box we
- * default to `['wedding']` rather than letting the insert fail.
+ *
+ * DB-driven roster (2026-06-13 cutover): the allowlist is every ACTIVE
+ * `event_type_vocab` row — vendors may serve any active type regardless of
+ * its couple-side `enabled` flag (pre-tagging coverage before a public
+ * unlock). The validate_event_types_vendor_profiles trigger (migration
+ * 20261204000000) is the DB backstop.
+ *
+ * Always returns a non-empty array — the column keeps the never-empty
+ * CHECK, so if a vendor unchecks every box we default to `['wedding']`
+ * rather than letting the update fail.
  */
-function parseEventTypesArray(raw: FormDataEntryValue[]): string[] {
+async function parseEventTypesArray(raw: FormDataEntryValue[]): Promise<string[]> {
+  const vocab = await getEventTypeVocab();
+  const allowed = new Set(vocab.map((t) => t.key));
   const out: string[] = [];
   for (const item of raw) {
     if (typeof item !== 'string') continue;
     const trimmed = item.trim();
-    if (!ALLOWED_EVENT_TYPES.has(trimmed)) continue;
+    if (!allowed.has(trimmed)) continue;
     if (out.includes(trimmed)) continue;
     out.push(trimmed);
   }
@@ -253,7 +247,11 @@ export async function saveVendorProfile(formData: FormData) {
       formData.getAll('compatible_venue_settings'),
       ALLOWED_VENUE_SETTINGS,
     ),
-    event_types: parseEventTypesArray(formData.getAll('event_types')),
+    event_types: await parseEventTypesArray(formData.getAll('event_types')),
+    // Social Sharing Program (20261203000000) — opt OUT of the verification
+    // celebration post on Setnayan's Facebook page (unticked = featured;
+    // Free unnamed · Pro+ named per the hybrid-anonymity doctrine).
+    social_feature_opt_out: formData.get('social_feature_opt_out') === 'on',
     updated_at: new Date().toISOString(),
   };
 

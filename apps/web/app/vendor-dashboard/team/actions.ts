@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_TEAM_ROLES, type VendorTeamRole } from '@/lib/vendor-team';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
@@ -224,6 +226,15 @@ export async function removeVendorTeamMember(formData: FormData) {
       `/vendor-dashboard/team?error=${encodeURIComponent(error.message)}`,
     );
   }
+
+  // Offboarding ends the login too: revoke the removed member's auth sessions
+  // on every device (their vendor-data access already died via the per-request
+  // current_vendor_ids check; this clears a possibly-shared shop device).
+  // Best-effort in the background — removal never fails on a revoke hiccup.
+  // Note: if this person is ALSO a couple/customer account, they're signed out
+  // of that too and simply log back in.
+  const removedUserId = target.user_id as string;
+  after(() => revokeAllSessions(removedUserId).catch(() => {}));
 
   revalidatePath('/vendor-dashboard/team');
   redirect('/vendor-dashboard/team?saved=1');

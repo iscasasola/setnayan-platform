@@ -4,6 +4,1596 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(website): 4-path couple website — add the Save the Date phase + turn the lifecycle ON for weddings
+
+Owner design this session: the couple wedding website is four named paths the guest moves through over time — **Save the Date → RSVP → Event → Editorial** — time-gated (the page shows whichever path fits the date), single `/[slug]` page (no separate routes). The phase engine already existed (`rsvp | event | editorial`) but was flag-dark (`WEBSITE_PHASES_ENABLED`, off) and had no Save the Date.
+
+- `apps/web/lib/invitation-widgets.ts` — added `save_the_date` to `LifecyclePhase` (now 4 phases) + `STD_THRESHOLD_DAYS = 90` (provisional). `getLifecyclePhase()` now splits the far-future pre-event window: `> 90 days` out → `save_the_date`, within → `rsvp` (past → `editorial`, near-event windows unchanged). `WIDGET_PHASES.hero` includes `save_the_date` so the hero renders in the new phase.
+- `apps/web/lib/calendar-links.ts` (new) — pure Google-Calendar-URL + RFC 5545 all-day `.ics` helpers (mirrors the budget feed) for the Save-the-Date "add to calendar".
+- `apps/web/app/[slug]/_components/save-the-date.tsx` (new) — the minimal STD view: monogram/name + date + countdown + add-to-calendar + "invitation to follow". Asks nothing of the guest.
+- `apps/web/app/[slug]/page.tsx` — **lifecycle now ON for weddings** (`phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding'`; the surface is already wedding-only via `notFound()`). Added the `save_the_date` body branch to both the anonymous (PublicLanding) and signed-in (InvitationSite) paths + the `?phase=save_the_date` host/demo preview.
+- `apps/web/app/dashboard/[eventId]/website/page.tsx` — "Your page through time" block: host-only `?phase=` preview chips for all four phases.
+
+This is the load-bearing flip: enabling the lifecycle for weddings means post-event sites now render the Editorial recap and day-of sites the live surface (both already built, previously flag-dark). Verify the four `?phase=` states on the preview before merge. Mood-board palette wiring + Editorial content alignment (love story → Event, public/private spend) are deliberately separate follow-up PRs.
+
+SPEC IMPACT: 4-path couple-website IA (Save the Date phase added; lifecycle live for weddings; single-page phase-swap; ~90-day STD threshold). Logged at the bottom of `DECISION_LOG.md` (corpus). Touches the lifecycle described in `Wedding_Website_Lifecycle_Spec_2026-06-07` + iteration `0002` — corpus correction headers to follow with the palette/editorial PRs.
+
+## 2026-06-14 · feat(hero): make the loading wait useful — story veil + lock-then-swipe
+
+Owner: the loading time should sell, not stall. The hero veil now carries the pitch while the dense sequence loads, then invites the swipe once it's ready.
+
+- `app/_components/marketing/HeroVideoScrub.tsx` — while frames load, the **light (alabaster)** veil shows the story ("Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don't fit your wedding? We're setting it all up for you.") + a live progress bar, and **page scroll is locked** (`body overflow:hidden` + a non-passive `touchmove` preventer) so nobody swipes into a half-loaded scrub. When every frame is in, scroll is **released** and the status flips to **"Swipe up to begin ↑"** (gold); the veil fades on the first deliberate swipe. A 30s backstop + unmount cleanup always release the lock; reduced-motion skips the veil/lock entirely.
+- **Always starts at frame 1:** on ready we snap scroll back to the top (`scrollTo(0,0)`) and arm the swipe-to-dismiss ~350ms later, so any scroll that slipped through during loading (e.g. iOS momentum) can't make the scrub start mid-way.
+
+SPEC IMPACT: None (homepage hero load/UX only — marketing motion copy; no schema/SKU/pricing).
+
+Follow-up to the dense-frame hero scrub (#1416). On a ~1000-frame sequence the scrub could swap the `<img>` to a frame that hadn't downloaded/decoded yet and **freeze on blank** ("next images don't show / feels stuck"), especially on the initial load or a slower connection.
+
+- `app/_components/marketing/HeroVideoScrub.tsx` — three guards: (1) `apply()` never swaps to a not-yet-decoded frame — it holds the **nearest already-loaded** frame until the target one arrives (no blank freeze); (2) the opening 24 frames load at `fetchPriority:'high'`; (3) a **loading veil** with a thin progress bar holds until **every frame is decoded** (owner: "everything must load first" — the user never enters the scrub on a half-loaded sequence), then fades out; a 30s backstop is the only escape hatch if a request truly hangs. Reduced-motion hides the veil and shows the final frame.
+- Caption readability (owner: "readable and bold"): the two story captions go **bold (`fontWeight 800`, forces weight on the single-weight Instrument Serif), larger**, near-black, with a **crisp white outline + halo** so they stay legible over both the bright field and the darker objects (vintage cars) instead of the thin faint serif they shipped as.
+
+SPEC IMPACT: None (homepage hero load/UX robustness only).
+
+## 2026-06-14 · feat(studio): rebuild /add-ons into the benefit-led Studio hub
+
+The couple `/dashboard/[eventId]/add-ons` page (the sidebar "Studio" item + bottom-nav "Studio" tab both already point here) was a cinema-poster grid that listed every in-app service flat, by vendor taxonomy. Rebuilt it as the **Studio hub** — a calm, benefit-led, job-to-be-done discovery surface in the v2.1 paper palette (premium-calm, not posters). REDESIGN_PLAN Phase 2.
+
+- **Four job-to-be-done groups** (fixed order), each a mono section label + a responsive paper-card grid:
+  1. **Capture the day** — Papic · Panood · Photo Delivery · Patiktok
+  2. **Your website & story** — Landing Page · Save the Date · Monogram Creator · Custom QR per guest · LED Background
+  3. **Plan & organize** *(free)* — the four free core sidebar tools (Guest list · Seating · Budget · Schedule) lead the group, then Mood Board · Indoor Blueprint
+  4. **Music & extras** — Music Creator · Playlist · Paprint · Orders
+  Within each group, available cards come first and coming-soon cards sink to the bottom.
+- **New card model** (`add-ons/_components/studio-card.tsx`): a soft paper card — tinted `--m-paper-2` icon square + name + one-line benefit + chip + CTA. Available → **"Open"** deep-link to the feature's own page (which already handles buy-vs-use); `tier === 'free'` shows a subtle "Free" chip; `coming_soon` → muted non-interactive "Soon" chip, no CTA. No price is ever shown on the card (pricing stays admin-managed on the feature page).
+- **Additive catalog change** (`lib/add-ons-catalog.ts`): two new OPTIONAL fields on `AddOnEntry` — `studioGroup` (set on all 16 entries) + `tier?: 'free'` (marked only on genuinely-free entries: mood-board · playlist · orders · landing-page · music-creator). No existing field removed/repurposed, so the Services/vendors tab (the other importer, which consumes `poster.*`) is unaffected. Plus a separate `studioFreeTools(eventId)` factory (NOT added to `ADD_ONS`, so it can't pollute the Services tab) for the four free sidebar deep-links.
+- **service-poster.tsx kept** — the `ServicePoster` *component* is now unused, but the file still exports the `PosterStyle`/`PosterMotion` *types* that the catalog imports and the Services tab consumes via `addon.poster.*`. Deleting it would break the build, so it stays (the task's delete was conditional on "unused anywhere"; it is not).
+- Dropped the old internal-admin iteration-code pill (and its `createClient`/`getCurrentUser` calls) — the Studio design surfaces only status + Free chips.
+- **Deferred (noted, not built):** owned-aware "Learn more vs Open" CTA, and a working Notify-me backend for coming-soon items (kept as a static "Soon" state).
+- Verified: typecheck ✅ · lint ✅ (all 3 changed/new files clean). Route unchanged (`/dashboard/[eventId]/add-ons`).
+
+SPEC IMPACT: refines REDESIGN_PLAN Phase 2 (Studio hub); no routes/schema/pricing change.
+## 2026-06-14 · feat(monogram): chosen lockup in the PDFs, the social/OG card, and the animated hero (items 2+3 of "do all 3")
+
+Completes the monogram-everywhere consistency pass. The couple's chosen type-only lockup (bar/duo/script/infinity) now renders on the three remaining surfaces; framed / single-initial / legacy / bespoke keep the existing initials rendering everywhere. Built as a 3-agent parallel workflow, then **adversarially reviewed** (3 skeptical reviewers) — the review caught real bugs the build agents' own local checks missed, all fixed before merge.
+
+- **PDFs** (`lib/lockup-pdf.ts` new + `seating-pdf.ts` + `concept-pdf.ts` + both export routes + `types/opentype.js.d.ts`): draws the lockup in the monogram badge via `opentype.js` glyph-paths + `pdf-lib` `drawSvgPath` (no `@pdf-lib/fontkit` dep needed). Both routes now SELECT + pass the monogram design columns. **Review fixes:** use `deriveMonogram` for the label (raw `display_name` dropped the lockup for "and"/"-"/"+"-joined couples); pivot the synthetic italic shear at the baseline (was drifting caps left, misaligned with the divider/∞); `drawSvgPath` `borderWidth: 6` not `6×scale` (pdf-lib applies the line width after the CTM scale → ∞ was ~4× too thin). Verified by rasterizing all four styles — caps align, ∞ reads at the right weight.
+- **Social / OG card** (`lib/social/card.tsx` + `app/api/social/card/[postId]/route.ts` + bundled `Cormorant-Regular.ttf`): the lockup is built as a native **satori element tree** (so glyphs use the bundled fonts, not sharp's font substitution); route threads the design onto the card ctx. **Review fix:** padded `duo`'s near-square viewBox so the un-clipped satori glyphs fit the ring (satori has no SVG viewport to clip like the chrome) — duo reads a touch smaller on the card.
+- **Animation** (`animated-monogram-hero.tsx` + `hero-monogram.tsx` + maker preview + 2 add-on/maker callers): rebuilt the 6 motion signatures (draw/foil/bloom/editorial/halo/stardust) to play on the chosen **lockup** instead of the text initials, all SSR-safe + reduced-motion fallbacks. Threaded through all 4 callers, so the paid animation on the **public hero** now animates the mark, and the **Monogram Maker live preview** is now WYSIWYG. Reviewer verdict: ship (guards + threading + geometry verified end-to-end; only cosmetic minors).
+- **Font-tracing safety net** (`next.config.ts`): `outputFileTracingIncludes` now bundles `assets/cipher-fonts/*.ttf` + `lib/social/fonts/*.ttf` so the PDF routes don't ENOENT in the serverless runtime — confirmed traced into `.next/standalone`.
+- Verified: typecheck ✅ · lint ✅ · production build ✅ (exit 0) · PDF badges rasterized + visually confirmed. Social card + animations render only on the Vercel preview (known local satori gap) — eyeball the preview.
+
+**Flagged for owner:** there is **no Playfair Display static TTF** in the repo, so the `duo` style substitutes a near-equivalent serif in the PDF (Bodoni Moda) and the OG card (Cardo); it's exact in chrome/hero/QR (web font). Adding a Playfair static TTF would make `duo` pixel-exact in those raster surfaces. Also deferred (reviewer minors, no action to ship): foil sheen doesn't clip across the stroked ∞; a harmless duplicate gradient id in the infinity+foil SVG; `transform-box: view-box` degrades gracefully on Safari < 16.
+
+SPEC IMPACT: completes the chosen-lockup-as-mark consistency across all couple-facing surfaces (extends the chip #1374/#1376 + hero/QR #1402). No SKU/pricing impact; no migration (monogram columns already exist). Logged in corpus `DECISION_LOG.md`.
+
+---
+## 2026-06-14 · feat(hero): dense frame extraction + scroll-synced story captions on the homepage scrub
+
+The admin-uploaded homepage hero (`/admin/hero-video` → `HeroVideoScrub`) extracted only a sparse 180 frames (8 fps, hard cap), so the scroll-scrub *stepped* over its 300vh track instead of gliding. Now it captures effectively every frame, and the scrub carries two story-caption beats over the bright video before the existing end CTA.
+
+- `app/admin/hero-video/hero-uploader.tsx` — frame capture made dense: `FPS` 8→30 (≈native), `MAX_FRAMES` 180→1200 (safe ~40s ceiling; below it every frame is kept), `MIN_FRAMES` 24→48, upload concurrency 4→6. To keep the homepage preload light despite ~1000 frames, the per-frame downscale dropped 1080→`DOWNSCALE_MAX` 720px (a scrub is full-screen motion; 720 reads crisp and ~halves payload). Browser seek-based extraction is otherwise unchanged — only density + frame size.
+- `app/_components/marketing/HeroVideoScrub.tsx` — two scroll-synced captions fade in over the scrub (A: "A thousand choices. The same questions, over and over." during the overwhelm; B: "Say it once — and find your perfect fit." during the trim), then yield to the existing "Set na ’yan" + CTA end overlay. Dark editorial serif with a soft light halo for legibility on the bright frames, parked in the both-crops (16:9 + 9:16) safe zone; `aria-hidden` and hidden under reduced-motion.
+
+SPEC IMPACT: None (homepage hero motion/UX only — no schema, SKU, pricing, or copy-of-record change; the captions are marketing motion text and the end CTA / "0% commission" line is unchanged).
+
+## 2026-06-14 · fix(pricing): real charges read admin-only — kill divergent hardcoded price fallbacks
+
+Owner rule (2026-06-14): every feature is priced in the admin catalog (amount admin-set, frequency predefined per SKU); code must never hardcode a price. Two hardcoded fallbacks diverged from admin (the ₱2,499-vs-₱1,999 Animated Monogram mismatch the pricing collection flagged). Neither value is changed here (numbers stay parked for the holistic pricing pass) — this only enforces the *source*.
+
+- `api/v1/billing/initialize-maya/route.ts` — `readSkuPrice`/`readBundlePrice` now read the admin catalog as the ONLY source for a real charge: SKU miss/failure → `null` (caller 400s), bundle failure → throw (caller 500s, fail-closed). The hardcoded `PRICING_BOOK`/`BUNDLE_BOOK` are now **DEMO-ONLY** (relabeled) — used solely under `DEMO_MODE` (walkthrough recording, no real charge), so a stale fallback can never bill a wrong amount.
+- `add-ons/animated-monogram/page.tsx` — removed `FALLBACK_PRICE_PHP = 2499`; the price comes only from `formatV2Sku()` (admin). When the catalog row is unreadable (CI / pre-seed only — never a real customer in prod), `pricePhp` is `null` and the buy block degrades to "Pricing loads from your catalog" instead of inventing a number.
+- Verified: typecheck ✅ · lint ✅. Maya route is dormant V1 plumbing (no public API / Maya not approved in V1), so this hardens it ahead of activation.
+
+SPEC IMPACT: None — enforces the admin-priced rule (memory `project_setnayan_pricing_admin_managed`); no price value changed, no schema/route change. (The demo book still lists stale/retired SKU prices on purpose — parked; it never bills.)
+
+---
+
+## 2026-06-14 · fix(monogram): "Your Plan" tile pointed at a dead "coming soon" stub instead of the live maker
+
+Found during a monogram dead-code audit (owner: "we have several monogram makers — keep the ones that serve the app, delete what doesn't"). The audit found NO duplicate/orphaned makers — the three editor modes on `/dashboard/[eventId]/monogram` (typographic lockup · Cipher Studio · Bespoke AI) + the onboarding picker + the paid Animated Monogram upsell are all live and distinct. The one genuinely stale thing: the **"Your Plan" monogram tile** linked to `/dashboard/[eventId]/add-ons/monogram-creator` — a route that doesn't exist, so it rendered the iteration-0037 *"Monogram Creator… Coming back soon"* placeholder (a relic from before the maker shipped). Couples clicking it hit a dead end instead of the live maker.
+
+- `your-plan-section.tsx` — the monogram tile now links to `/dashboard/[eventId]/monogram` (the live maker; matches what the side nav already points at).
+- `add-ons/[addon]/page.tsx` — added `SHIPPED_REDIRECTS` so `/add-ons/monogram-creator` 307-redirects to `/monogram` (any old CTA/bookmark lands on the real tool), and removed the stale `monogram-creator` "coming soon" entry from `ADD_ON_META`.
+- Verified: typecheck ✅ · lint ✅.
+
+SPEC IMPACT: None — corrects a stale internal link to a shipped feature; no schema/SKU/pricing/route-shape change. (Flagged for later, NOT changed here: the `music-creator` + `landing-page` add-on stubs may be similarly stale if those features are live; and the kept surfaces — animated hero / PDF / maker preview / social card — still render initials rather than the chosen lockup, pending owner's consistency-scope decision.)
+## 2026-06-14 · feat(realstories): vendor "Featured in Real Stories" + Share to your Page (PR C, vendor half — CLOSES the loop)
+
+The vendor half of PR C — the last piece of the Real-Stories featuring loop. Gives vendors a one-click "Share to your Facebook Page" for the published weddings they helped create (free social proof + reach back to Setnayan).
+
+- **NEW `lib/realstories-vendor.ts`** — `loadVendorFeaturedStories(bookedEventIds)`: the vendor's OWN booked events intersected with the **same RA 10173 public-showcase gate** as `lib/showcase-db.ts` (couple opted in via `users.public_summary_consent_at`, wedding with a public slug, past the T+30d grace). Self-contained (own consent-join, no `showcase-db` ripple), admin-client read, best-effort → `[]`. Ownership is already enforced by the caller passing only the vendor's own booked event ids.
+- **NEW `app/vendor-dashboard/real-stories/page.tsx`** — lists each featured wedding (couple · city · date) with "View the story" → the couple's `/[slug]` editorial + a **`<ShareButtons>`** (reused from PR B) pointed at that editorial with `/api/og/realstory-slug/[slug]` as the share image. Vendor-auth-gated (`fetchOwnVendorProfile`). Pre-launch empty state ("Your featured weddings will appear here…") — no fabricated entries.
+- **`app/vendor-dashboard/_components/vendor-sidebar.tsx`** — "Real Stories" nav item (Sparkles icon) in the **Grow** group; auto-propagates to the `/more` overflow + mobile via `VENDOR_NAV_GROUPS`.
+
+Read-only, no migration. Ready-but-empty today (no consented editorials exist yet); populates automatically as couples publish. tsc + lint clean.
+
+SPEC IMPACT: closes the Real-Stories featuring loop (couple publish → admin curate → couple share → **vendor share**). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+---
+
+## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
+
+Two correctness/clarity fixes to the admin doorway nav (`apps/web/app/admin/_components/`). Surgical — no labels, hrefs, routes, order, or `is_admin` gating changed.
+
+- **Bottom-nav activeMatch gaps (`admin-bottom-nav.tsx`)** — several live admin routes lit no mobile tab (the 4-tab strip Home · Work · Directory · More) because they were absent from the per-tab `activeMatch` arrays, so navigating to them left every tab dark. Cross-checked the full sidebar route list against the four arrays and added every orphan:
+  - **Work** tab: `+/admin/pax-changes`, `+/admin/user-reports`, `+/admin/social-queue`, `+/admin/account-deletions` (the last surfaced by the orphan cross-check).
+  - **More** tab: `+/admin/refinements`, `+/admin/hero-video`, `+/admin/real-stories` (the last two surfaced by the cross-check — all three are Platform-group surfaces).
+  - `/admin/settings/payment-methods` + `/admin/settings/demo-mode` already light More via the existing `/admin/settings` prefix; `/dashboard/profile` (My account) is an intentional cross-doorway link to the shared profile and correctly lights no admin tab.
+- **Duplicate sidebar icons (`admin-sidebar.tsx`)** — four pairs of semantically-different items rendered the same glyph; gave the lower-frequency member a distinct, true-to-meaning lucide icon (imports added: `MessageSquareWarning`, `Landmark`, `RefreshCw`, `UsersRound`):
+  - **Disputes** (vendor-txn) keeps `Shield`; **User reports** (UGC moderation) `Shield`→`MessageSquareWarning`.
+  - **Payment options** (act-now queue) keeps `CreditCard`; **Payment methods** (bank-rails config) `CreditCard`→`Landmark`.
+  - **Verify** keeps `BadgeCheck`; **Subscriptions** (recurring billing) `BadgeCheck`→`RefreshCw`.
+  - **Operations & Hiring** keeps `TrendingUp`; **Pax changes** (headcount-change queue) `TrendingUp`→`UsersRound`.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `scripts/lint-bottom-nav.mjs` passed.
+
+SPEC IMPACT: None (nav highlight + icons; no routes/labels/gates changed).
+## 2026-06-14 · refactor(nav): couple sidebar journey groups + Studio/Explore + 6-tab bottom nav
+
+Reorganizes the COUPLE dashboard navigation per the owner-locked REDESIGN_PLAN journey-group IA. **Pure nav/labels — every route is unchanged**; item `key` values are preserved so per-section `setnayan.nav.section.<key>.open` localStorage state survives.
+
+- **`customer-nav-config.ts` (`buildCustomerNavGroups`)** rebuilt from 6 verb buckets (Plan/Spend/Communicate/Share/After/Settings) into 7 journey groups, with everything past the top + Plan collapsed by default:
+  - **Top group** (key `main`, "Setnayan", open): **Home · Studio · Explore**. `add-ons` relabeled **"Studio"** (in-app services hub, route `/add-ons` unchanged); `vendors` relabeled **"Explore"** with icon swapped Briefcase→**Compass** (route `/dashboard/[eventId]/vendors` unchanged — this is the couple in-app surface, distinct from the public `/explore` marketplace).
+  - **Plan** (open): Guests · Seating · Schedule · **Budget** (folded in from the retired Spend group).
+  - **Book** (collapsed): Messages · Contracts.
+  - **Design** (collapsed): Website · Mood Board · Monogram.
+  - **Day-of** (collapsed): Live Wall · **Event QR** (moved from After).
+  - **After** (collapsed): Activity · Disputes. **Activity gained an explicit `matchPrefix`** (`…/activity`) so sub-routes like `/activity/[id]` light it.
+  - **Settings** (collapsed): Personalization · Hosts · Profile · **Find your date** (demoted from Plan, kept reachable — not deleted).
+  - Removed the now-unused `ShoppingCart`/`Receipt`/`Briefcase` lucide imports; added `Compass`.
+- **`customer-bottom-nav.tsx`** rebuilt from 5 tabs to the owner-locked **6 tabs: Home · Guests · Studio · Budget · Wedding · More** (icons Home/Users/Sparkles/Wallet/Globe/Menu). The shared `<BottomNav>` already supports 6 columns — no primitive change. **Wedding** tab → `/site-editor/[eventId]` (+ legacy `/website` + `/invitation` in activeMatch). **More umbrella** re-enumerated per orphan-prevention to cover every non-tab route: **Explore/vendors** (no longer a primary tab), Seating, Schedule, Messages, Contracts, Mood Board, Monogram, Live Wall, Event QR, Activity, Disputes, Personalization, Find-your-date, Profile, plus legacy/app-root surfaces (receipts, orders, paperwork, documents, date-selection).
+- **`more/page.tsx`** — `BOTTOM_NAV_KEYS` updated to the new primary-tab set (`home, guests, add-ons, budget, website`) so the /more grid drops those and shows true overflow; **Explore (vendors)** now appears in the grid (added a description). Description map refreshed: added `vendors`/`monogram`/`live`, dropped `add-ons`/`budget` (now bottom tabs); header de-dupe copy updated for the 6-tab set.
+- **`customer-sidebar.tsx`** — JSDoc group-list comment refreshed to the 7 journey groups.
+
+Verified: `tsc --noEmit` clean; `next lint` clean on all 4 changed files; `scripts/lint-bottom-nav.mjs` (canonical bottom-nav guard) passes (delegation + template integrity).
+
+SPEC IMPACT: None (nav/labels; routes unchanged).
+
+---
+
+## 2026-06-14 · fix(pwa): auto-stamp the service-worker cache version per deploy (kills stale-shell-after-deploy)
+## 2026-06-14 · refactor(nav): vendor Grow-group merge + Calendar into bottom nav + More activeMatch fix
+
+Vendor dashboard navigation consolidation per the owner-locked REDESIGN_PLAN. Routes, hrefs, icons and all role/tier gating are unchanged — only nav grouping + which routes light which mobile tab.
+
+- `apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx` — **Grow** is now the single home for paid reach + reputation. Moved **Subscription**, **Tokens**, **Redeem code** from the Business (`money`) group into the Grow (`marketing`) group (keys/hrefs/icons/`matchPrefix`/gating untouched — only the group object they live in changed). After: **Grow** = Subscription · Tokens · Redeem code · Marketing · Verify · Reviews · Moodboard library; **Business** = Earnings · How clients pay you · Manpower · Branches · Team & Setnayan. Group order + every role-scope/enterprise-tier gate preserved (gating keys on item `key`, which is unchanged, so the move is gating-neutral).
+- `apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx` — mobile tabs are now **Home · Bookings · Calendar · Messages · More** (Calendar `CalendarDays` → `/vendor-dashboard/calendar` replaces Earnings as primary tab 3; Earnings stays reachable via the sidebar Business group + the More umbrella). The vendor pitch is the calendar that stops double-bookings, so it earns a primary tab.
+- Same file — fixed the **More** `activeMatch` umbrella so no vendor route goes unlit on mobile. Added the audit-flagged gaps (`/clients`, `/proposals`, `/subscription`), moved `/earnings` IN (left the tab bar), and added `/tax-documents` for bookmark continuity. More now enumerates every non-primary-tab vendor route.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `node scripts/lint-bottom-nav.mjs` passes (delegation + template integrity intact).
+
+SPEC IMPACT: None (nav grouping/labels; routes + gates unchanged)
+
+
+
+Durable follow-up to the 2026-06-14 chrome retirement (which only one-time-bumped `sw.js` v3→v4). `public/sw.js` namespaces all five caches (SHELL/STATIC/IMAGE/FONT/DAYOF) by a hand-maintained `const VERSION`; `STATIC_CACHE` serves Next chunks stale-while-revalidate, so when VERSION isn't bumped on a deploy, returning PWA users get the PRIOR build's shell/JS for one load. Now it auto-bumps per deploy:
+
+- `apps/web/scripts/stamp-sw.mjs` (NEW) — at build, rewrites the `const VERSION = '…';` line to the deploy's `VERCEL_GIT_COMMIT_SHA` (12-char prefix). Line-anchored regex (`/^const VERSION = '…';/m`) targets ONLY the code line, never the commented examples of that shape in the header; FAILS the build (exit 1) if the line ever goes missing; no-op (keeps the `'v4'` fallback) when the SHA is unset (dev/local builds never dirty the file).
+- `apps/web/package.json` "build" → `node scripts/stamp-sw.mjs && … next build`.
+- `turbo.json` — added `VERCEL_GIT_COMMIT_SHA` to the `build` task `env` so turbo forces a cache MISS per commit → the stamp always runs. **Without this**, a revert / redeploy / root-or-other-package-only commit could turbo-cache-HIT, skip the build script, and ship an un-bumped `sw.js` — re-introducing the stale shell (caught in adversarial review). Next's own `.next/cache` keeps the forced rebuild incremental, so the cost is small.
+- `public/sw.js` — comment now documents the stamp; `const VERSION = 'v4'` kept as the stamp target + dev fallback.
+
+Why it works: every deploy changes `sw.js` bytes → the browser's SW-update check re-fetches `/sw.js` (already served `no-cache` per next.config.ts), byte-compares, installs the new worker; the existing `install`→`skipWaiting()` + `activate`→(delete non-`KNOWN_CACHES` + `clients.claim()`) evict the prior deploy's caches. Worst case = one extra cold load per deploy (as intended). Registration stays `/sw.js` (a `?v=<sha>` URL would be defeated by the stale shell re-registering the old URL — the file-byte-change on a fixed URL is the reliable trigger).
+
+Adversarial review: SHIP after its two wiring fixes (commit the script + the turbo `env` entry) — both applied here. Stamp unit-tested: stamps the real line, ignores the commented examples, no-ops without the var, fails loud on a missing line. No TS changed (tsc/lint unaffected); CI's production-build check exercises the stamp end-to-end.
+
+OWNER QA (native): the Capacitor WebView (`apps/mobile` remote-URL shell) uses the same SW + `no-cache` update path, so it propagates by design — worth one Android + one iOS deploy-then-reopen confirmation pass.
+
+SPEC IMPACT: None (build/PWA infra; no schema/SKU/pricing/UX). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · feat(realstories): real-editorial share — photo OG card + share buttons on the couple's `/[slug]` (PR C, couple half)
+
+Couple half of PR C of the Real-Stories featuring program. The couple consent ("Feature our wedding" → `public_summary_consent_at`) already existed; this makes a real couple's **own editorial shareable with a beautiful, photo-based** Facebook/Pinterest card.
+
+- **`lib/social/realstory-card.tsx`** — added the **photo-background variant**: when an editorial has a hero photo, the card is the couple's actual photo (smart-cropped to 1.91:1) with a bottom gradient scrim + white Cardo-serif names + eyebrow + venue/date. Falls back to the branded card on any fetch/decode failure (never fails the share). Verified locally over a deliberately-light test photo — the scrim keeps the white type legible.
+- **NEW `app/api/og/realstory-slug/[slug]/route.ts`** — the OG card for a REAL couple's `/[slug]` (vs the sample route). Resolves the event by slug, renders the card **only when `data.published`** (else 302→`/brand/og-card.webp`); the RA 10173 public-showcase consent gates the `/realstories` index, not a couple sharing their own public page. Shorter cache (1h + SWR) so a republish/photo-swap refreshes.
+- **`app/[slug]/_components/editorial/data.ts`** — `EditorialData` gains `slug` (real event's slug; **null for the curated sample**, which is how the editorial render avoids double-rendering share buttons on the sample).
+- **`app/[slug]/_components/editorial/editorial-content.tsx`** — renders `<ShareButtons>` at the top of the editorial **only when `data.slug` is set** (real editorials), pointed at `/{slug}` with the slug OG card as the Pinterest media.
+- **`app/[slug]/page.tsx`** — `generateMetadata` now sets `og:image` (the slug card route) + `twitter.summary_large_image`. The route's `published` gate means a share previews as the brand card pre-editorial and the photo editorial card once the story is live — in every phase.
+
+Verified: tsc + lint clean on changed files (satori/sharp = known local-install gap, in CI). Both card variants (branded + photo) rendered + eyeballed locally.
+
+SPEC IMPACT: real editorials at `/[slug]` are now FB/Pinterest-shareable with a per-couple photo OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). The **vendor half of PR C** ("Featured in Real Stories" + "Share to your Page") is still outstanding — its background agent hit a transient rate-limit before opening a PR; to be re-run.
+
+---
+
+## 2026-06-14 · refactor(explore): rename the public marketplace route `/vendors` → `/explore` (308 redirects, SEO preserved)
+
+Owner directive 2026-06-14 (*"also fix the address to https://www.setnayan.com/explore"*). The "Explore" nav already pointed at the marketplace; this makes the **URL** match — the public discovery surface now lives at `/explore`. Companion to the search-first reframe in the same PR.
+
+- **Route moved:** `git mv apps/web/app/vendors → apps/web/app/explore` (25 files: page + `categories/` + `compare/` + 18 `_components/` + `actions.ts`; no layout/route-handlers/dynamic-segments, so no route-shape changes). All intra-folder relative imports survive the move; the 3 external `@/app/vendors/...` imports (`v/[slug]`, `venue/[slug]`, the dashboard category-search overlay) were repointed to `@/app/explore/...`.
+- **115+ internal references rewritten** `/vendors` → `/explore` — every `Link`/`href`/`router.push`/`<form action>`/`redirect`/`revalidatePath`/canonical/OpenGraph/JSON-LD/sitemap/robots value that targets the marketplace. Driven by an exhaustive bucketed audit (a discovery + an adversarial-verification multi-agent pass) so the **landmines stayed put**: `/dashboard/[eventId]/vendors` (couple in-app), `/admin/vendors` (console), `/api/v1/vendors` (public API), `/keynote/vendors` (static deck), `@/lib/vendors*` imports, `/vendors-*` identifiers, and `/v/[slug]` vendor profiles are all unchanged.
+- **308 permanent redirects** in `middleware.ts` (repo convention — there's no `next.config` `redirects()`): `/vendors` → `/explore`, `/vendors/categories` → `/explore/categories`, query strings preserved via `${rest}${search}`; the old `/vendors/compare` orphan-guard (307 → `/vendors?notice=…`) was folded into the new block as `/vendors/compare` → `/explore?notice=compare_v1_2` (308) and the dead `COMPARE_ORPHAN_PATH` const removed. Runs after the vendor-subdomain rewrite so `slug.setnayan.com` still resolves to `/v/{slug}`.
+- **SEO:** `/explore` page canonical + OpenGraph url + the 12 JSON-LD ItemList folder URLs, `robots.ts` allow-list, and `sitemap-static.xml` all repointed to `/explore`. `sitemap-vendors.xml` (vendor-profile `/v/` URLs) and the sitemap-index child filename correctly left untouched.
+- **Drive-by bug fix (flagged):** `editorial-content.tsx` linked featured vendors to `/vendors/${slug}` — a route that never existed under `/vendors` (profiles are `/v/[slug]`), so it 404'd. Corrected to `/v/${slug}`.
+
+Verified: `tsc --noEmit` clean; `next lint` clean; production build green (214/214 pages — `/explore`, `/explore/categories`, `/explore/compare` present, no `/vendors` route, all keep-routes intact); retired-strings + email-links + bottom-nav guards pass; adversarial 3-agent verification (stray-links / keep-integrity / redirect-SEO).
+
+SPEC IMPACT: the public marketplace URL is now `/explore` (was `/vendors`); old URLs 308-redirect. Logged in corpus `DECISION_LOG.md` (2026-06-14). The locked 6-page IA's "Explore" tile now matches its address.
+
+---
+
+## 2026-06-14 · feat(explore): bare `/vendors` = search bar only (catalog demoted) + unified multi-field search
+
+Owner directive 2026-06-13 (*"why do i see services here? we just want a search bar … they can search for a category + vendor + service + place or details they can combine and we want to show all that works with their search"*). Direct follow-up to the same-day `explore-search-hero` PR (#1382), which added the search hero but kept the full category catalog rendering **below** it — so a bare `/vendors` still showed services. This finishes the reframe: the hero stands alone on the landing, and the search itself becomes genuinely multi-field.
+
+- **Catalog demoted off the bare landing.** `apps/web/app/vendors/page.tsx` — new `browseMode` flag (`?browse=1` / `?folder=` / `?tile=` / `?from=plan`) threaded into `CatalogView`; the curated browse catalog below the hero (`IconTileFolderStrip` + `PairedVenuePanel` + the per-folder grids) now renders **only** when `browseMode` is true. A bare Explore visit shows the `ExploreSearchHero` + popular chips and a single "Browse all categories →" link. **Demoted, not deleted** — every catalog deep-link (dashboard planning cards, scoped folders, `?browse=1`) still renders the full catalog; nothing was removed.
+- **Hero chips are now live "Popular searches."** `CatalogView` derives the hero's chips from the top categories by live vendor count (`fetchVendorCountsByService`, already fetched there) instead of the static `EXPLORE_HERO_CHIPS` list (kept as the pre-launch fallback when no category has vendors yet).
+- **Unified multi-field search.** New `applyMarketplaceTextSearch()` replaces the `business_name`-only `ilike` on `q` (main query + broadened-count query). Each whitespace token must match the vendor name, tagline, city, OR a listed service (resolved against the 192-taxonomy) — one PostgREST `.or()` group per token, chained so tokens INTERSECT ("photographer tagaytay" → photography vendors in Tagaytay only). Tokens stripped to `[a-z0-9]` (well-formed + injection-safe inside the `.or()` predicate). **No migration** — `services.ov` uses the existing GIN index; name/tagline/city already live on `vendor_market_stats`. (Scale note: leading-wildcard `ilike` won't hit a btree — add `pg_trgm` GIN later if the pool grows.)
+- **The results-page search bar now actually searches.** `sticky-marketplace-header.tsx` — the vendor-grid search input had no surrounding form, so free-text Enter was a silent no-op (only autocomplete category-jumps worked). Wrapped it in a GET form with hidden inputs carrying the host's filters (city/sort/match/event_type/folder/venue/faith) so free-text refinement works once a visitor is in results. `category` is intentionally not preserved (a fresh free-text query reads as "search everything").
+- `taxonomy-search.tsx` `'bar'`-variant placeholder → "Search vendors, services, or places…".
+
+Verified: `tsc --noEmit` clean, `next lint` clean (no findings in changed files), production build green (214/214 pages), retired-strings + email-links + bottom-nav guards pass.
+
+SPEC IMPACT: completes the `/vendors` (Explore) search-first reframe started in #1382 — the curated catalog is now demoted behind `?browse=`; search is multi-field. Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner heads-up: venue browsing (Reception 6-setting facet picker + ceremony-venue cards) now reaches couples via search or "Browse all categories" rather than auto-rendering on landing.
+## 2026-06-14 · feat(realstories): admin curate/feature + hero slot for the public Real Stories index (PR D of the Real Stories featuring program)
+
+Fourth of the sequenced Real Stories program (PR A = rename · PR B = OG share cards · PR C = couple/vendor publish-to-Real-Stories · **PR D = admin curate/feature**). Adds a Setnayan HQ surface to FEATURE (pin) + ORDER which published, consent-gated wedding editorials surface on `/realstories`, and which fills the hero. Depends on nothing from B/C. Pre-launch there are zero real consented showcases, so every state degrades gracefully to the existing labelled sample.
+
+- **Migration `supabase/migrations/20261221000000_realstories_featuring.sql`** (additive + idempotent · **NOT auto-applied** — owner runs `supabase db push --db-url "$SUPABASE_DB_URL"`): two nullable columns on `events` — `showcase_featured_at timestamptz` (NULL = not featured) + `showcase_feature_rank int` (lower = higher; NULL last) + a partial index on featured rows. No new table. RLS unchanged: `events` already enables RLS at CREATE TABLE time and the existing `couple_can_update_event` policy carries `OR public.is_admin()`; the public read path uses the admin (service-role) client exactly as `loadPublishedShowcases` already does.
+- **Admin surface `app/admin/real-stories/` (page + actions)** — lists the consent-gated, past-grace, public-slug weddings (new `loadShowcaseCandidatesForAdmin` in `lib/showcase-db.ts`), each with a Feature toggle + a 0–9999 order input; two server actions (`setShowcaseFeatured` / `setShowcaseRank`) re-assert `requireAdmin` + the full RA 10173 eligibility gate before writing, audit every mutation to `admin_audit_log`, and `revalidatePath('/realstories')` so the public page updates with no redeploy. Three honest states: empty ("No published Real Stories yet… the public page shows the sample meanwhile"), migration-not-applied (shows the exact `db push` command), and the curated sample explained as non-featurable.
+- **Public ordering + hero `lib/showcase-db.ts` + `app/realstories/page.tsx`** — `loadPublishedShowcases` now selects the two columns and orders featured-first (`rank` → `featured_at` → `event_date`), surfacing a `featured` flag on `ShowcaseEntry`; the index renders the leading featured real showcase as a hero (new `RealHero`, mirroring the sample featured-hero), the rest as the grid. Graceful pre-migration fallback: if the featuring columns don't exist yet, the loader retries the original newest-first query (every row `featured:false`) so real showcases still surface. Sample fallback intact when there are zero real showcases.
+- **Nav** — "Real Stories" entry added to the admin Platform group (`admin-sidebar.tsx`) + the `/admin/more` mobile overflow (`more-landing.tsx`), both with the `Newspaper` icon.
+- **Did NOT touch PR B's files** (`app/realstories/[slug]/page.tsx`, `app/realstories/_components/*`, `lib/social/*`, `app/api/og/*`). Verified `tsc --noEmit` (zero errors in these files; only the unrelated pre-existing missing-optional-native-dep errors remain) + `next lint` clean.
+
+SPEC IMPACT: iteration 0046 Real Stories gains an admin featuring/curation layer (events.showcase_featured_at + showcase_feature_rank). Logged in corpus `DECISION_LOG.md` (2026-06-14). Honesty lock preserved: only REAL consented editorials are ever featurable; the sample stays labelled "Sample showcase" and cannot be admin-featured.
+## 2026-06-14 · feat(realstories): Facebook-shareable editorials — OG share card + share buttons (PR B of the Real-Stories featuring program)
+
+Owner: *"the editorials should be shareable so vendors and customers can share on their facebook … will it have a preview on facebook … so the exact editorial can be viewable than just a link."* The editorial pages set `og:title`/`og:description` but had **no `og:image`**, so a Facebook/Pinterest share rendered as a bare link. This adds the per-editorial share card + share buttons.
+
+- **NEW `lib/social/realstory-card.tsx`** — renders a **1200×630 (1.91:1 Open Graph ratio)** branded share card via the same satori + sharp + bundled-static-font pipeline as `lib/social/card.tsx` (kept self-contained so the two render paths evolve independently): gold-ruled editorial mat · "A SETNAYAN REAL STORY" eyebrow · couple names in Cardo serif · venue/ceremony descriptor · date · the wedding's palette swatch row · SETNAYAN wordmark. `heroPhotoUrl` accepted now so the real-editorial photo-background variant is a one-line wire-up later (today's live sample has no photo → branded card).
+- **NEW `app/api/og/realstory/[slug]/route.ts`** — public, Node-runtime, immutable-cached. Renders the card for a slug from the fixed public `REAL_WEDDINGS` set (404 on unknown); on any render error it 302s to the static `/brand/og-card.webp` so a crawler never gets a 500.
+- **NEW `app/realstories/_components/share-buttons.tsx`** — client `<ShareButtons>`: **Facebook** (sharer), **Pinterest** (pins the og:image — wedding inspo is Pinterest-native), **Copy link** (Messenger/Viber/IG-DM). Reusable — drops onto the couple's own `/[slug]` editorial + the vendor "share to your Page" surface in PR C. (Brand glyphs inlined; newer lucide dropped Facebook/Pinterest icons.)
+- **`app/realstories/[slug]/page.tsx`** — `generateMetadata` now sets `openGraph.images` (the card, 1200×630) + `twitter.card: 'summary_large_image'`; the showcase bar renders `<ShareButtons>`. So a shared Real Story shows the couple + palette + venue and **deep-links to that exact editorial** — a beautiful clickable card, not a link.
+
+Verified: tsc + lint clean on changed files (the `satori`/`sharp` module-resolution errors are the known local-install gap — present in CI). The satori render can't run in the local install (those deps live only in CI), so the **card visual is verified on the Vercel preview** post-build, not locally.
+
+SPEC IMPACT: iteration 0046 editorials are now FB/Pinterest-shareable with a per-story OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR C — couple "Publish to Real Stories" consent + "Share our story" + vendor "Featured / Share to your Page" (reuses `<ShareButtons>` + the card, adds the photo-background variant); PR D (parallel) — admin curate/feature.
+## 2026-06-14 · feat(chrome): the chosen monogram lockup now renders on the public hero + QR centers (consistency follow-up)
+
+Follow-up to the monogram-as-event-logo work (PRs #1374/#1376). An audit of every monogram render site found the dashboard switcher showed the couple's real lockup, but the two highest-impact couple-facing surfaces still drew plain initials. Owner: bring the public hero + QR centers in line.
+
+**Public landing hero (`app/[slug]`).** The three near-identical hero cascades (PrivateLanding + the 2 InvitationSite variants) drew initials in a serif circle when the couple hadn't bought the paid animation. Centralized into one new `app/_components/hero-monogram.tsx` (`HeroMonogram`) with the full precedence: bespoke/Cipher SVG → paid AnimatedMonogram (text) → **chosen lockup via MonogramMark (bar/duo/script/infinity, frameless, 80px)** → **framed (gold frame + initials)** → legacy/single-name circle. The page already selected the design columns; added the three to the local `EventRow` type so the sub-components' `event` prop carries them. Removed the now-inlined AnimatedMonogramHero/BespokeMonogramMark imports from the page.
+  - SCOPE NOTE (flagged): the paid ANIMATED_MONOGRAM layer still animates the typographic text, not the lockup — animated lockup variants are a deliberate follow-up. Non-animated couples (the common case) now get their real static lockup.
+
+**QR-code centers (`lib/monogram.ts` → `monogramOverlaySvg`).** It drew hardcoded serif-italic initials, ignoring the chosen font/style. Now: `MonogramConfig` carries the full design (via `resolveMonogram`), and `monogramOverlaySvg` draws the chosen lockup inside the cream clearance circle via a new string-SVG twin of `MonogramMark` (`lockupMarkSvg`) — same footprint, so the level-H QR stays scannable. Framed/legacy fall back to initials, now in the couple's chosen face. Threaded the three design columns into the 5 QR-caller selects (site-editor, custom-qr-guest + its print, invitation + its print). `splitInitials` promoted to `lib/monogram.ts` (shared by chip + hero + QR).
+
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · generated real composited QRs through the actual `compositeMonogram` for all 5 styles + legacy — each center shows the correct mark, QR structure intact.
+
+SPEC IMPACT: extends the chosen-lockup-as-logo behavior (reversed the 2026-06-03 letters-forward lock, PR #1374) to the public hero + QR centers. Still out of line (deliberately deferred): animated-hero-as-lockup, PDF/print exports, monogram-maker preview, social/OG card. Logged in corpus `DECISION_LOG.md`. No SKU/pricing impact; no migration (columns already exist).
+
+---
+
+## 2026-06-14 · feat(realstories): rename the Real Weddings showcase /weddings → /realstories (PR A of the Real-Stories featuring program)
+
+Owner: "rename it as /realstories." First of a sequenced program to turn the showcase into a Facebook-shareable featuring loop (PR A = rename · PR B = OG share cards + share buttons · PR C = couple "Publish to Real Stories" consent + vendor "share to your Page" · PR D = admin curate/feature).
+
+- **`git mv app/weddings → app/realstories`** (index + `[slug]` detail). Swapped every `/weddings` route reference → `/realstories` across 14 files: the two route pages (canonical · breadcrumb · Article JSON-LD · back-links), `sitemap-weddings.xml` (now emits `/realstories` URLs — route filename kept so the sitemap URL itself doesn't 404), `sitemap-static`, `robots.ts` (allow-list), `lib/real-weddings.ts`, `lib/showcase-db.ts`, `app/[slug]/_components/editorial/data.ts`, plus the inbound links on `/privacy`, `/signup`, `/vendors`, and the couple `dashboard/.../website/privacy` consent surface.
+- **301 redirects** added in `next.config.ts`: `/weddings` → `/realstories` and `/weddings/:slug` → `/realstories/:slug` (`permanent: true`). Consolidates the already-indexed `/weddings` ranking to the new path AND keeps the in-flight nav PR #1391's `/weddings` links working (it was open at rename time) instead of 404-ing.
+- Visible **"Real weddings" copy + the SEO title/keywords are intentionally unchanged** (strong "real Filipino weddings" keyword); only the route path changed. The nav label "Real Stories" → `/realstories` is the friendly label over the keyword-rich page — aligning the page H1 to "Real Stories" is an optional owner follow-up.
+
+SPEC IMPACT: iteration 0046 showcase route renamed `/weddings` → `/realstories` (301-preserved). Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR B — per-editorial OG share cards (satori, reusing `lib/social/card.tsx`) + Facebook/Pinterest/Copy share buttons on the editorial, so a shared link shows a beautiful preview and deep-links to the exact story.
+## 2026-06-14 · fix(dashboard): retire the legacy cream chrome — kill the "old design flashes then reroutes to the new design"
+
+Owner: *"the dashboard tries to load the original first design then reroutes to the new design — we want the latest design to be the first design, delete the old design."* Audit (multi-agent) found this is **not** a content reroute — it's a **dual-chrome layering** bug. The shared parent `app/dashboard/layout.tsx` rendered the legacy cream `OuterDashboardHeader` + a `bg-cream lg:pl-60` gutter **unconditionally** (server-side) for every `/dashboard` route, including event routes — where it was suppressed only by a **client** `usePathname()` guard and its gutter cancelled by a `lg:-ml-60` hack in `[eventId]/layout.tsx`. So the old chrome painted first, then hydration removed it and the paper `SidebarShell` overlaid it. (A docstring in `[eventId]/layout.tsx` claimed this cleanup had already shipped "Phase 0" — it never did.)
+
+Owner chose **retire the old chrome entirely** (one paper system everywhere). Fix = a Next.js **route-group split**:
+
+- **Moved** the non-event routes — picker `page.tsx`, `profile/`, `notifications/`, `create-event/`, `api-keys/`, `loading.tsx` — into a new URL-transparent group `app/dashboard/(account)/` (git tracked as renames; URLs unchanged).
+- **NEW** `app/dashboard/(account)/layout.tsx` — owns the account chrome: the events/roles/unread/avatar fetch + switcher mapping (lifted verbatim from the old parent) + `<OuterDashboardHeader>` + the `lg:pl-60` gutter, on a `--m-paper` base. Renders ONLY on account routes (structurally, server-side) — no client guard, no flash.
+- **Slimmed** `app/dashboard/layout.tsx` — now renders NO chrome: only the auth gate, the defensive users-profile probe (column-drift `SELECT *` fallback + try/catch), deleted-account sign-out, vendor→`/vendor-dashboard` redirect, ghosting `after()`, and the welcome `GuidedTour`, in an `app-surface min-h-dvh` + `--m-paper` wrapper (keeps the Source Sans readability lock for every dashboard route).
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — removed the `usePathname()`/`isEventScopedRoute` "return null on event routes" guard (no longer mounted there) → drops `'use client'` (now a server component); swapped the cream classes to the v2.1 `--m-paper`/`--m-paper-2`/`--m-line` paper tokens.
+- **`app/dashboard/[eventId]/layout.tsx`** — removed the `lg:-ml-60` outer-cancel wrapper (parent adds no gutter now → nothing to cancel; SidebarShell owns its own `--shell-main-offset`).
+- **Import fixes** for the folder move: `@/app/dashboard/create-event/…` → `@/app/dashboard/(account)/create-event/…` (+ `profile/concierge`) in `[eventId]/_components/event-switcher.tsx`, `lib/event-types-db.ts`, `admin/payments/actions.ts`, and the header itself.
+- **`public/sw.js`** VERSION `v3`→`v4` — evicts the stale `STATIC_CACHE` so returning PWA users don't get the prior build's old-chrome shell for one load. (A per-deploy auto-stamp `NEXT_PUBLIC_CACHE_BUSTER ← VERCEL_GIT_COMMIT_SHA` is the durable fix — flagged in-code as an owner follow-up.)
+
+Adversarial review (separate agent): **PASS — no functional regressions**; every old-parent responsibility still runs on the right subtree, the server-component conversion is clean, no broken imports, account chrome + post-login redirect intact. Verified: `tsc --noEmit` ✅ (0 errors) · `next lint` ✅ (clean) on all changed files. No schema/migration.
+
+SPEC IMPACT: None — chrome/routing refactor; no SKU/schema/pricing/copy change. The `(account)` route group is an internal structure only (URLs unchanged). Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner follow-up flagged: per-deploy SW cache-buster auto-stamp.
+
+---
+
+## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
+
+Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited `apps/web/next.config.ts` against `origin/main`: the `images` block ran every photo (R2 hero/vendor/moodboard + Supabase + the seeded Pexels/Picsum/Wikimedia stock hotlinks) through Vercel's per-transformation image optimizer, emitting **both** AVIF **and** WebP across Next's full default 8-size `deviceSizes` spread — a high billable-transformation count for a gallery-heavy, mostly view-once image workload. Confirmed NOT the cause: no `vercel.json` / no Vercel `crons` schedule, so the dormant `/api/cron/*` routes are not billing. Zero-infra interim cut (no component/render changes, fully reversible):
+
+- apps/web/next.config.ts `images` — `formats` AVIF+WebP → **WebP only** (~halves transforms; WebP visually indistinguishable here, reverses the prior "AVIF first" posture on cost grounds); `deviceSizes` trimmed to `[640,750,828,1080,1200,1920]` (drops the two most-expensive variants 2048/3840 — 1920 is already sharp on 4K full-bleed); `minimumCacheTTL` 7d → **31d** (fewer re-optimizations of immutable source images).
+- Verified: `tsc --noEmit` ✅ · `next lint` ✅. No schema/migration.
+
+Structural follow-up (NOT in this PR): the proper near-zero fix is the Cloudflare Images cutover already specced in `Image_Optimization_Plan.md` (free R2 egress + on-demand variants) — needs owner Cloudflare decision. Owner action surfaced separately: set a Vercel **Spend Management** hard cap so an overage can never recur silently.
+
+SPEC IMPACT: None — infra/cost config tuning, no SKU/schema/pricing/UX/product-copy change. Minor reversal of the documented "AVIF first" image posture, on cost grounds only; flagged here for lineage.
+## 2026-06-14 · feat(home): hero-only homepage — strip the marketing narrative to nav + hero
+
+Owner directive 2026-06-14 ("remove everything. just keep the hero part as the whole page"; clarified scope = **Hero + top nav**). The homepage `/` now renders ONLY the sticky `Nav` + the `Hero` (the admin-uploaded scroll-scrub video, falling back to the default keynote hero when none is published).
+
+- `apps/web/app/page.tsx` — render reduced to `<Nav /><Hero />`. **Removed from the homepage:** `PromoBar`, `ProblemSection`, `ForCouples`, `MarketplacePreview`, `OnTheDay`, `PersonalSite`, `DashboardPreview`, `PricingSection`, `FAQSection`, `ClosingCTA`, `VendorBand`, `Footer`. Imports trimmed to `{ Nav, Hero }`. The section components are **not deleted** — they still live in `_sections.tsx` and are reused by `app/v/[slug]/page.tsx` + the dedicated marketing pages (`/features`, `/pricing`, `/vendors`, `/about`, `/help`), so that content (and its SEO) is unchanged on those routes.
+- Kept (no visual footprint): the GEO/SERP `metadata` + the `WebSite` + `SoftwareApplication` JSON-LD graph (AI-answer-engine / search-card surface), and `export const dynamic = 'force-dynamic'` — Hero() reads the published hero-video row + resolves presigned frame URLs per request. Updated the force-dynamic rationale comment (was attributed to the now-removed PricingSection).
+- Homepage e2e (`tests/e2e/homepage.spec.ts`) unaffected: it asserts the hero h1, "Start planning", and "Sign in" — all in the retained Nav + Hero.
+
+**Trade-offs (flagged for owner):** (1) the homepage loses its crawlable marketing copy + the footer's Privacy/Terms links — those legal links now reach users only via other pages; (2) traditional-SEO text on `/` drops to near-zero (mitigated: JSON-LD retained + the marketing content still lives on `/features`, `/pricing`, etc.). Easily reverted (git) if the owner wants sections back.
+
+SPEC IMPACT: Homepage composition diverges from iteration `0015_main_website` (full marketing narrative). Logged in corpus `DECISION_LOG.md` (2026-06-14); 0015 AS-BUILT note deferred to the next corpus pass.
+
+---
+
+## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
+
+The couple (`/dashboard/notifications`) and vendor (`/vendor-dashboard/notifications`) notification pages both called the same user-scoped `fetchOwnNotifications` from `lib/notifications.ts` yet forked a byte-identical `<ul>` of items + a near-identical empty state, differing only in a back-link, header subtitle, mark-all placement, and empty-state copy. Extracted the shared list/item/empty-state markup to `app/_components/notifications/notifications-list.tsx`; both pages become thin containers that keep their own auth gate + header + mark-all-read control and pass the already-fetched rows down with per-role `returnTo` + `emptyState` props. No behavior or visual change — rendered output matches byte-for-byte.
+
+- apps/web/app/_components/notifications/notifications-list.tsx — NEW
+- apps/web/app/dashboard/notifications/page.tsx — thin container
+- apps/web/app/vendor-dashboard/notifications/page.tsx — thin container
+- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A4.
+## 2026-06-14 · refactor(dashboard): shared <ContractCard> — dedup Track A3
+
+The couple contract list (`app/dashboard/[eventId]/contracts/page.tsx`) and the vendor contract list (`app/vendor-dashboard/contracts/page.tsx`) forked byte-identical presentation: the contract row card, the status badge, the `STATUS_TONE` tone map, and the empty-state shell. Extracted them into a single shared module at `app/_components/contracts/`. Both pages keep their own role-scoped, RLS-bound fetch (`fetchEventContracts` for couples · `fetchVendorContracts` for vendors) — only the presentational card/badge/empty-state is shared; per-role differences (detail-route `href`, "From {vendor}" vs "For {event}" subtitle) are passed via props, mirroring the `viewerRole`-parameterized `chat-message-stream.tsx` pattern. No behavior or visual change — pure dedup.
+
+- apps/web/app/_components/contracts/contract-card.tsx — NEW <ContractCard> (+ <ContractStatusBadge>, <ContractsEmptyState>, and the now-single-source STATUS_TONE map)
+- apps/web/app/dashboard/[eventId]/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
+- apps/web/app/vendor-dashboard/contracts/page.tsx — render shared card + empty state (dropped local STATUS_TONE + forked markup)
+- Verified: tsc --noEmit ✅ (exit 0) · next lint ✅ (No ESLint warnings or errors). No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor; no SKU/schema/pricing/copy/UX change. Dashboard dedup Track A3.
+## 2026-06-14 · refactor(dashboard): shared <ThreadListCard> — dedup Track A5
+
+The couple (`/dashboard/[eventId]/messages`) and vendor (`/vendor-dashboard/messages`) messages-LIST pages forked identical thread-row markup — the `<li>`/`<Link>` shell, the avatar slot, title + inquiry-status badge + last-activity line, and the trailing chevron (the thread DETAIL view was already shared via `<ChatMessageStream>`). Extracted that row into a shared `<ThreadListCard>` (plus a `<ThreadListAvatar>` helper) under `app/_components/chat/`, parameterized on the per-role differences (href, title, optional avatar/badge/extra, timestamp line). Each page keeps its OWN role-scoped fetch + scoping validation (couple validates the event via `fetchCoupleThreads`; vendor validates the vendor profile via `fetchVendorThreads`) — the pages are not merged and the fetch is not shared. The couple-only follow-gate UI stays couple-only in the couple page. Pure dedup: rendered output (classes/copy/order/unread-status logic) is unchanged.
+
+- apps/web/app/_components/chat/thread-list-card.tsx — NEW
+- apps/web/app/dashboard/[eventId]/messages/page.tsx — render shared row (keeps follow-gate; dropped local `Avatar`)
+- apps/web/app/vendor-dashboard/messages/page.tsx — render shared row
+- Verified: tsc --noEmit ✅ · next lint ✅. No schema/migration.
+
+SPEC IMPACT: None — code-internal refactor. Dashboard dedup Track A5.
+## 2026-06-14 · feat(seating): zone walkthrough video (seat-finding PR 6 of 6)
+
+The "first-person walk to your table" the market ships **nowhere** — a coordinator (or a no-coordinator couple's DIY helper) records a short vertical clip walking from the entrance to a cluster of tables, tags those tables, and a guest who finds their seat watches the exact walk to their table. Migration `20261219000000_walkthrough_zones.sql`.
+
+- **Schema** — new `event_walkthrough_zones` (one row per named zone, holds the R2 clip ref + `published_at`) + nullable `event_tables.walkthrough_zone_id` (`ON DELETE SET NULL` — dropping a zone never touches seating). RLS mirrors `event_tables`: couple (`current_couple_event_ids`) + coordinator delegate (`moderator_area_level(...,'seat_plan')='edit'`). The guest read is the SECURITY DEFINER RPC only — the table is never anon-readable.
+- **`public_seat_lookup` RPC** — DROP+CREATE (return-type change) adds `{walk_zone_label, walk_video_key}` via a LEFT JOIN to the matched table's PUBLISHED zone clip. Every existing guard preserved (min-len 2, LIKE-escape, published-gate, minimal columns, LIMIT 25); guests with no zone clip get exactly today's result.
+- **`/api/seat-lookup` route** — presigns each distinct clip ref (deduped; a zone's clip is shared by its tables) to a short-lived GET URL, so the table stays private. A presign failure degrades to "no clip", never a 500.
+- **`/[slug]/find-seat` finder** — each result is now a `MatchCard` with a lazy "▶ Watch the walk to your table" disclosure (the `<video>` + its bytes mount only on tap; inline-SVG glyph, no icon dep on the public build).
+- **Coordinator/couple manager** — new `/dashboard/[eventId]/seating/walkthrough` (linked from the seating header). Create/rename/delete zones, tag tables (parameterized `.in()` set-update, UUID-validated), upload a clip via the shared `<FileUpload>` (bucket `media`, video MIME, 60 MB), preview, and a "show to guests" publish toggle (guarded — can't publish an empty zone). Every server action authorizes couple OR seat_plan-edit delegate; RLS is the backstop.
+
+Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests + migration-timestamp guard clean.
+
+SPEC IMPACT: implements the 2026-06-13 "zone-clip routing" half of the seat-finding design (iter 0008 + 0031 + the retired Indoor-Blueprint walkthrough half). **Built ungated/free** — the walkthrough is COORDINATOR LABOR (not a Setnayan SKU) and must stay delegatable so a no-coordinator couple does it free (dual-path parity + free-wayfinding). **Open (owner):** whether the *hosting/tool* is monetized at all is deferred to the holistic pricing pass (do not gate before that). Migration applied to prod (statement-by-statement). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · fix(nav): one shared marketing top nav on every page + clickable logo → home
+
+Owner report: the top nav menu *changed* when clicking through to a nav destination — and the "SET NA 'YAN" logo wasn't clickable. Root cause: the canonical 6-page `Nav` (What you get · Explore · For vendors · Our story · Real Stories) only rendered on the homepage; the linked pages had **forked into 4 other headers** — the legacy `SiteHeader` (Marketplace / How it works / Features / Pricing / Help) on `/about`, `/how-it-works`, `/pricing`, `/features`, and a bespoke inline header on `/blog`. So every click swapped the whole menu. The logo was a bare `<Wordmark>` (no link), despite the owner's own note "Home (the video scrub) = the logo".
+
+- **NEW `app/_components/marketing/site-nav.tsx`** — the canonical `PromoBar` + `Nav` extracted out of the heavy homepage module (`_sections.tsx`) into one lean file (imports only `Link` + `Wordmark` + `MobileMenu`, so importing `<Nav>` into a subpage doesn't drag framer-motion / `HeroVideoScrub` / catalog fetchers into that page's bundle). Single source of truth for the marketing top nav — per the owner anti-fork chrome doctrine.
+- **Logo → home:** the `<Wordmark>` is now wrapped in `<Link href="/" aria-label="Setnayan — home">`. Clicking the mark/wordmark routes to the hero on every page (same-page link on `/`).
+- `_sections.tsx` — `PromoBar`/`Nav` definitions removed (now re-homed in `site-nav`); dropped the now-unused `MobileMenu` import. `page.tsx` imports `PromoBar, Nav` from `site-nav`; homepage render unchanged.
+- **Swapped to the shared `<Nav>`** (replacing the legacy `SiteHeader` / inline header): `app/features/_PageBody.tsx` (covers `/features` **and** `/tl/features`), `app/about/page.tsx`, `app/blog/page.tsx`, `app/how-it-works/page.tsx`, `app/pricing/page.tsx`, plus `app/tl/about/page.tsx` + `app/tl/how-it-works/page.tsx` so the `/tl` locale stays internally consistent (nav labels are English in both old and new — no localization regression).
+- **`/weddings` (the "Real Stories" landing) also swapped to the shared `<Nav>`** (follow-up: owner caught that clicking "Real Stories" still showed the legacy `SiteHeader`). The `/weddings/[slug]` editorial detail keeps its immersive "← Back" bar (blog-post pattern).
+- **Owner reversed the vendor deferral for the nav bar specifically ("keep this top nav the same on Explore + For vendors"):** `/for-vendors` swaps its bespoke `VendorNav` → shared `<Nav>`; `/vendors` (Explore) replaces its minimal inline `<header>` (logo + auth-aware CTA) → `<Nav sticky={false} />`. The page-level marketplace search/filter chrome (`StickyMarketplaceHeader`, `ExploreSearchHero`) is untouched.
+- **`Nav` gained a `sticky` prop (default `true`).** `/vendors` renders `<Nav sticky={false} />` because the marketplace search bar is itself `sm:sticky sm:top-0` — two sticky-top bars would stack/overlap on scroll. Every other page keeps the sticky nav.
+- **Removed the "Search anything… ⌘K" pill from the nav** (owner "delete the search there"). The marketplace keeps its own page-level search (that's the page's purpose, not a nav control).
+- **Auto-hide on scroll (owner "hide the top nav as we scroll down … pure scrubbing on the screen"):** `site-nav.tsx` is now a `'use client'` island; the sticky `<Nav>` slides up out of view on scroll-down and slides back on scroll-up (or when near the very top, `scrollY < 64`). So the homepage hero scrub (`HeroVideoScrub`, a 300vh pinned track) goes full-screen the moment you scroll into it. Passive `scroll` listener throttled with `requestAnimationFrame`; `motion-reduce:transition-none` for reduced-motion. Only applies when `sticky` (non-sticky `/vendors` scrolls the nav away naturally).
+- **Folded in the overlapping `claude/real-stories-editorials` work (was PR #1390, now superseded — collided in `_sections.tsx`/`CHANGELOG`, already DIRTY):** "Real Stories" points at the real-wedding showcase **`/weddings`** (iteration 0046, Maria & Juan sample editorial), NOT `/blog`, in the shared `Nav`, homepage `Footer` (keeps `/blog` as "Planning guides"), and `_SiteFooter`. `/blog` URLs untouched → zero SEO risk. `site-header.tsx` `PRIMARY_NAV` aligned to the 6-page IA for the residual `SiteHeader` pages (`/download`, `/waitlist`).
+
+SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav was owner-locked 2026-06-13 and the `/blog`→`/weddings` "Real Stories" repoint was owner-decided 2026-06-14, already in corpus `DECISION_LOG.md`). Logged in corpus `DECISION_LOG.md` (2026-06-14). Now the shared `<Nav>` renders on every public marketing page; `SiteHeader` survives only on `/download`/`/waitlist` (labels aligned) and `/tl/*` pages beyond `about`/`how-it-works`/`features`. `VendorNav` (`for-vendors/_components/vendor-nav.tsx`) is now unused.
+
+---
+
+## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
+
+**Bug:** the homepage scroll-scrub hero (PR #1372) shipped, published (120 frames, `is_published=true`), and renders `<HeroVideoScrub>` on the live page — but it paints **blank** because every frame URL points at the R2 **S3 API endpoint** (`https://<account>.r2.cloudflarestorage.com/setnayan-media/…`), which requires SigV4-signed requests and returns **HTTP 400** to a plain browser `<img>`. Root cause: `R2_PUBLIC_URL` in Vercel prod is set to the S3 API endpoint (confirmed via the live `<head>` preconnect, which `layout.tsx` derives from `R2_PUBLIC_URL`), and `publicUrlFor()` builds `${R2_PUBLIC_URL}/${bucket}/${key}` off it. This silently broke **all** raw-public-URL assets (vendor/service/profile photos, merchant QR) — not just the hero; it was masked because most display paths use short-lived presigned GETs (`presignDisplayUrl`), and the full-screen hero is the first feature to depend on raw public URLs.
+
+- `apps/web/lib/r2.ts` `publicUrlFor()` — `media` is the only publicly-served bucket; a Cloudflare public bucket URL (custom domain or `r2.dev`) binds to ONE bucket and serves objects at `/{key}` with NO bucket segment. So media URLs are now `${R2_PUBLIC_URL}/${key}` (bucket segment dropped). Non-media buckets (private; read via presigned GETs) keep the legacy `${base}/${bucket}/${key}` shape purely for delete round-trip. Added a one-shot runtime `console.warn` when `R2_PUBLIC_URL` is mistakenly set to `*.r2.cloudflarestorage.com` — the exact footgun that caused this.
+- `apps/web/lib/storage.ts` `parseR2Url()` — now round-trips all three shapes: bucket-less media (new live shape, matched by public-host comparison), `${base}/${bucket}/${key}`, and the raw `…cloudflarestorage.com/{bucket}/{key}` (legacy URLs already stored in the DB → deletes stay safe through the transition). Verified with a 13-case round-trip suite (custom domain, r2.dev, non-media, legacy, transition, no-base, encoded keys, foreign URLs).
+- `.env.example` — documented `R2_PUBLIC_URL` (was a bare `=`): must be a public host bound to `setnayan-media`, never the S3 API endpoint.
+
+**OWNER ACTIONS (required for the fix to take effect — code alone is inert):** (1) In Cloudflare R2, make `setnayan-media` publicly readable — recommend a custom domain `media.setnayan.com` for prod (r2.dev works for a quick test). (2) Set `R2_PUBLIC_URL` in Vercel (Production) to that host. (3) After (1)+(2)+merge, the dashboard/vendor/profile images self-heal (URLs recomputed from keys at render); the hero row's stored `frame_urls`+`video_url` need a one-shot DB rewrite (prepared, run post-env) + `revalidatePath('/')`.
+
+SPEC IMPACT: None (config + URL-construction fix; no schema, no SKU, no pricing). The R2 public-URL convention (`R2_PUBLIC_URL` = media-bucket public host, no bucket segment) logged in corpus `DECISION_LOG.md` (2026-06-13).
+## 2026-06-14 · feat(explore): search-first reframe of the public `/vendors` (Explore) landing
+
+Owner directive 2026-06-13 ("opens with ONE clean universal search box … simple, modern, clean, strategic … lead with search, simplify"). Closes follow-up (1) from the 2026-06-13 nav-simplify entry below. The public `/vendors` catalog landing now **leads with a search-first hero** instead of the pinned `StickyMarketplaceHeader` (44pt search pill + FilterDrawer trigger, bottom-pinned on mobile). The rich category browse (icon-tile folder strip + folder grids) still renders below as the "browse everything" breadth.
+
+- **NEW `app/vendors/_components/explore-search-hero.tsx`** — premium-calm hero on the Clean-Editorial `--m-*` marketing tokens (paper/ink/slate + champagne-gold accent): eyebrow "Explore" · headline "Everything for your day, in one search." · subhead naming both vendors AND Setnayan's own services · one big centered universal search box · a short row of quick-search chips. The box is the existing `TaxonomySearch` autocomplete (its 192-canonical option list already spans the `setnayan_*` first-party services), wrapped in `<form method="get" action="/vendors">` so free-text Enter submits `?q=` and suggestion-pick router-pushes `?category=` — results land in the existing vendor-grid path (which floats `is_setnayan_service` rows first). No new index, no schema, no migration.
+- `app/vendors/_components/taxonomy-search.tsx` — added a `variant?: 'bar' | 'hero'` prop (default `'bar'` → every existing caller unchanged). `'hero'` = taller rounded-full field on `--m-*` tokens + a drops-DOWN paper dropdown (the hero sits at the top, no bottom bar to dodge).
+- `app/vendors/page.tsx` — `CatalogView` (non-focused) renders `<ExploreSearchHero>` in place of the catalog-mode `<StickyMarketplaceHeader>`; removed the now-dead catalog-mode FilterDrawer faith-option computation (`crossFolderFaithCounts/Options` + `drawerFaithValue`). Added `EXPLORE_HERO_CHIPS` (6 real V1.1-base canonicals: photography/videography/catering/wedding_coordination/bridal_hmua/wedding_cake). `pb-36` mobile clearance → `pb-16` (no bottom-pinned bar). Focused-mode (`?from=plan`) path + the **vendor-grid** `StickyMarketplaceHeader` (with the full FilterDrawer) are untouched — landing-mode filters simplify to search-first only.
+- `app/vendors/_components/icon-tile-folder-strip.tsx` — sticky offset `sm:top-[88px]` → `top-0` (the strip is now the landing's sole top-sticky element; nothing pins above it).
+
+Deliberate simplifications flagged to owner: (a) the public Explore **landing** drops its Filters drawer (city/sort/verified/match/faith) — filters reappear the moment a search/category drops the visitor into vendor-grid mode; (b) the `setnayan_*` services are intentionally NOT chipped — `?category=setnayan_papic` returns an **empty grid on prod today** (no publicly-visible first-party listing yet), so they surface via the search autocomplete + the catalog tiles below until provisioned as real visible vendor listings.
+
+SPEC IMPACT: None (UX reframe of an existing surface; no schema/pricing/SKU change). Logged in corpus `DECISION_LOG.md` (2026-06-14). Open owner decisions surfaced in the PR: provision `setnayan_*` services as visible vendor listings so they appear in search RESULTS (not just catalog tiles); and the separate "Real Stories" (`/blog`) editorials-vs-guides direction (follow-up (2), still unstarted).
+## 2026-06-14 · fix(hero): scrub frames resolve from R2 keys (presigned now, public later) — homepage scrub displays
+
+Makes the published scroll-scrub hero actually **show** without waiting on the owner's Cloudflare/Vercel work. The scrub was blank because the stored frame URLs were the R2 S3 API endpoint (`…r2.cloudflarestorage.com`), which 400s a plain browser `<img>` (see the 2026-06-13 R2 entry + PR #1380). `R2_PUBLIC_URL` in prod is still the S3 endpoint, so rather than block on the public-bucket setup, the read path now builds loadable URLs from the frame **keys** at render time.
+
+- `supabase/migrations/20261220000000_homepage_hero_frame_keys.sql` — adds `frame_keys JSONB` to `homepage_hero_config` (the R2 object keys = source of truth, decoupled from URL shape) + backfills the existing published row from `frame_urls` (`split_part` on `/setnayan-media/`). **APPLIED TO PROD** (120 keys backfilled, ledger row `20261220000000` recorded; bumped from `…19` which `iteration_0008_cocktail_vendor_rpcs` already claimed).
+- `apps/web/lib/hero-video.ts` — `fetchPublishedHeroVideo()` resolves keys → **public URLs** when `R2_PUBLIC_URL` is a real public host (custom domain / r2.dev), else **presigned GETs** (`r2SignedGet`, 24h). The homepage is `force-dynamic`, so the presigned batch is wrapped in `unstable_cache` keyed on the row's `updated_at` (6h TTL ≪ 24h presign life) — the **same** signed URLs are reused across renders so browsers actually cache the frames (without this, a per-render-unique query string would force every repeat visitor to re-download the whole ~120-frame sequence); an admin republish bumps `updated_at` → fresh URLs. Prefers stored `frame_keys`, derives from `frame_urls` for old rows (`keyFromUrl` handles all shapes). Still **never throws** — any read/resolve failure returns null → default hero. `videoUrl` no longer surfaced to the scrub (it renders frames, not the source video); admin video preview presigns from `video_r2_key`.
+- `apps/web/app/admin/hero-video/actions.ts` — `saveHeroVideo()` now persists `frame_keys` (already in hand from the uploader).
+
+Net: today the scrub shows via presigned frames (works with existing R2 creds, R2 egress stays free); once `media.setnayan.com` + `R2_PUBLIC_URL` are wired (PR #1380), it auto-switches to cacheable public URLs with no further change. Verified with a 13-case key-derivation/URL-resolution suite.
+
+SPEC IMPACT: None (read-path + storage refinement; no SKU/pricing/schema-contract change). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · refactor(dashboard): shared `<Field>` + `<FormFlash>` form primitives — dedup Track A1 (settings centerpiece)
+
+Dashboard-consolidation Track A, step 1 (owner-approved plan 2026-06-13: "consolidate the dashboard design, remove all duplicates, make sure they all fall properly to their respective roles" → dedup-first, then the locked IA redesign). A grounded audit of `origin/main` found the chrome (shared `app/_components/nav/*` primitives) and role-gating already consolidated — the real duplication is at the surface/primitive level: `function Field()` defined locally in **15 files** and the saved/error flash banner copy-pasted across **~39**. This extracts the two byte-identical primitives and proves them on the three settings/profile pages (couple · vendor · admin).
+
+- `app/_components/forms/field.tsx` — NEW shared `<Field label htmlFor help? required? children>`. The vendor variant's optional `required` asterisk is folded in as the superset, so couple/admin call sites (which omit it) reproduce byte-for-byte.
+- `app/_components/forms/form-flash.tsx` — NEW shared `<FormFlash tone="error"|"success">`: the terracotta `role="alert"` + emerald `role="status"` banner chrome. Message text and which search param triggers each banner stay in the page (no copy change). One-off tones (couple amber deletion-pending, admin neutral icon-reset) intentionally left inline — they aren't the duplicated pattern.
+- `app/dashboard/profile/page.tsx` · `app/vendor-dashboard/profile/page.tsx` · `app/admin/settings/page.tsx` — deleted each page's local `Field` def + the duplicated banner `<p>` blocks; now import the shared primitives. **No behavior/visual change**: sections, fields, copy, role-scoped data, and the vendor page's deliberate v2.1-token styling are untouched (visual unification of section labels/cards is Track B, owner-locked — not done here). Couple's `Row` facts-grid helper kept in place (FactsRow extraction deferred).
+- Verified locally: `tsc --noEmit` ✅ (exit 0, 0 errors) · `next lint` on the 5 changed files ✅ (no warnings/errors). No schema, migration, or env change.
+
+SPEC IMPACT: None — code-internal refactor; no SKU, schema, pricing, copy, or UX change. First landing of the dashboard dedup program (plan at `~/.claude/plans/binary-cuddling-popcorn.md`); Track A continues with the app-wide `Field`/flash sweep (A2), then shared surface cards (contracts · notifications · messages-list · verify). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+---
+## 2026-06-14 · feat(seating): live day-of seat-plan propagation (seat-finding PR 5 of 6)
+
+The "win over frozen paper" — a reseat done DURING the event reaches the guest-facing surfaces on its own, with **no push/email** (the owner's silent-only lock). The data path was already live (all finder surfaces are `force-dynamic` reading `event_seat_assignments`); this PR adds the **day-of UX** that was missing. **No migration.**
+
+- **`lib/day-of-mode.ts`** — new `isEventDayActive()` = `live || post` phase (T-1h .. T+24h). The existing `live` window is midnight-anchored (T-1h..T+8h ≈ 11pm-prev..8am), so an EVENING reception falls in `post` — `isEventDayActive` spans the whole wedding day so the feature actually covers evening weddings.
+- **`lib/use-day-of-live-refresh.ts`** (new) — `useDayOfLiveTick(eventDate, onTick)`: fires on a 45s cadence + tab-focus + visibility-regain, only while the wedding day is active AND the tab is visible. A PULL, never a push — no notification/email/realtime channel; inert during normal planning.
+- **`app/_components/live-refresher.tsx`** (new) — render-nothing companion that calls `router.refresh()` on each tick (re-runs the server component → fresh props). Mounted on **`/[slug]/find-my-table`** (paid wayfinding map re-lights) and the **`/dashboard/[eventId]/guests/checkin`** desk (each guest's table re-labels on the board; the desk's local check-in/scanner state survives the refresh — verified `selected`/results read the live memoized `guests` prop).
+- **`/[slug]/find-seat` free finder** — `NameSearch` now takes `eventDate` and silently re-fires the *last* lookup on each day-of tick (its result lives in client state, so `router.refresh()` can't reach it). Quiet refresh never flips an existing result to an error.
+- **`day-of-editing-banner.tsx`** (new) — a clock-driven banner on the seating editor (a sibling of `<SeatingEditor>`, so the 4.4k-line editor is untouched): during the wedding day it tells the editor that changes reach guests instantly AND that **printed cards/signs are frozen snapshots — the live digital plan is today's source of truth** (encodes the day-of digital-only-responsibility lock). `seating/page.tsx` + `checkin/page.tsx` + the two `[slug]` pages now select `events.event_date`.
+
+Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests clean. PR pending (branch `claude/seat-live-propagation`, auto-merge to arm).
+
+SPEC IMPACT: implements the 2026-06-13 "live day-of reprogramming" 3-lock decision (digital-only responsibility · exclusive lock [shipped PR 2] · silent-only updates) for iter 0008 seat plan + 0031 day-of guest. **Open (owner):** PR 4 (paid seat pass) is still unbuilt — it will inherit this live-data + tick pattern when it lands. Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+## 2026-06-13 · refactor(nav): simple 6-page site map — Home · What you get · Explore · For vendors · Our story · Real Stories
+
+Owner directive 2026-06-13 ("here are the pages we will have… we want it to be simple"): collapse the busy top nav to the locked 6-page IA + Log in. Home = the video scrub (= the logo). Every target page already exists — this is nav + labels, no new pages.
+
+- `app/_components/marketing/_sections.tsx` `Nav()` — `links` array → **What you get** (`/features`) · **Explore** (`/vendors`) · **For vendors** (`/for-vendors`) · **Our story** (`/about`) · **Real Stories** (`/blog`). Dropped from the top nav: Marketplace (→ Explore), How it works (→ What you get), Pricing (→ folded into What you get + footer), Help (→ footer). The same array feeds the mobile menu, so both update together.
+- Nav search button label "Search vendors, dates, help…" → **"Search anything…"** — signals the universal-search direction for Explore (one box across vendors + our own services, which already surface as listings).
+- `Footer()` Product column aligned: Marketplace → **Explore services**, How it works → **What you get**, added **Real Stories** (`/blog`); Pricing/Help/Privacy/Terms stay reachable in the footer.
+- `/blog` page itself unchanged (still "Setnayan Journal" SEO) — the nav says "Real Stories" but the guides-vs-editorials content direction is an owner decision, not silently flipped.
+
+SPEC IMPACT: public-site IA simplified to 6 pages + login (no new routes; nav/labels only). Open follow-ups (owner): (1) Explore = make `/vendors` open search-first; (2) Real Stories = decide if `/blog` becomes real-event editorials or stays planning guides under the new name. Logged in corpus `DECISION_LOG.md` (2026-06-13).
+
+---
+
+## 2026-06-13 · refactor(seating): cocktail/waiting area in the SAME blueprint — booths-only second room (replaces same-day multi-area overlay) [PR A of 3]
+
+Owner adjustment 2026-06-13: "instead of areas & booths, use our seatplan maker for another smaller room — the cocktail / waiting area just outside the reception; booths only, NO tables/chairs; just 1 place; make the room in the SAME blueprint as the seat plan; the cocktail area can be accessed by the booth vendors + the stylist, who can also customize the size." This is the schema + consolidation slice; the couple editor (PR B) and the vendor editor + write RPCs (PR C) follow.
+
+The multi-area pin overlay that shipped the same morning (`event_floor_areas` + `event_floor_objects`, the `/seating/areas` route) is **superseded** — collapsed into ONE cocktail room drawn on the existing `event_floor_plan` canvas, with booths stored on the existing `event_floor_booths` table (one blueprint, one booth table).
+
+- `supabase/migrations/20261218000000_iteration_0008_cocktail_area.sql` — **purely ADDITIVE**: (a) `event_floor_plan` cocktail_* room columns (resizable labelled rectangle on the same canvas + optional schedule-block tie + optional metric size + `cocktail_vendor_edit` couple revoke switch); (b) `event_floor_booths` gains `zone` (`reception`|`cocktail`) + `event_vendor_id` (booth-owner link for vendor scoping) + coordinator-delegate RLS (matching the rest of the seat-plan family); (c) `get_vendor_seat_plan` v3 — drops `areas`, sources booths from `event_floor_booths` (zone + `is_mine` + `vendor_name`), adds the cocktail room to the payload. **APPLIED TO PROD 2026-06-13** (statement-by-statement via `supabase db query`, since `db push` is ledger-drift-blocked; ledger row recorded). The `/seating/areas` route + the `event_floor_objects`/`event_floor_areas` tables are retired, but their **data fold + DROP is deferred to a separate owner-gated cleanup migration** — prod carries a few rows on two test events (`test-maria-and-jose` + a junk slug), and the DROP is one-way; until then those tables sit orphaned (no route reads them).
+- `app/dashboard/[eventId]/seating/areas/` — **deleted** (route page + actions + `area-canvas` component); the "Areas & booths" link removed from `seating/page.tsx` (the cocktail control returns inside the editor in PR B).
+- `app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx` — vendor viewer reworked to the v3 payload: booths zone-tagged (no `area_id`); the cocktail room renders as a dashed second room on the SAME canvas; a single cocktail-window note replaces the N-areas loop.
+- Vendor WRITE access (stylist + booth vendors arranging the cocktail area) is intentionally **not** in this PR — it lands in PR C via SECURITY DEFINER RPCs (column- + ownership-scoped, never reception seating). This PR only adds the couple-controlled `cocktail_vendor_edit` gate those RPCs will read.
+- Migration timestamps unique (351 ✓). Typecheck/lint/build run in CI (no `node_modules` in the worktree).
+
+SPEC IMPACT: refines iteration 0008. Retires the same-day multi-area model (`event_floor_areas`/`event_floor_objects` + `/seating/areas`) in favour of a single in-blueprint cocktail room. Opens (in PR C) the first vendor WRITE access to a couple planning surface — flagged for owner. Logged in corpus `DECISION_LOG.md` (2026-06-13) + the `0008_seating_chart_editor.md` AS-BUILT header.
+## 2026-06-13 · fix(chrome): bigger monogram marks — fill the chip height (presence follow-up)
+
+Follow-up to the monogram-as-event-logo change (PR #1374). The four type-only marks rendered inside a square box with `preserveAspectRatio=meet`, so the wide lockups (∞ / bar / script) letterboxed vertically and drew at ~half the chip height — they read small.
+
+- `monogram-mark.tsx` — the SVG now sets `height={px}` and lets width auto-compute from the viewBox aspect (no forced square → no vertical letterbox), and each viewBox is cropped tight to its glyphs (`bar` 6 14 120 70 · `duo` 18 18 66 62 · `script` 8 6 168 90 · `infinity` 18 8 164 76). Marks now fill the full chip height at every size (28/36/44).
+- `event-monogram.tsx` — drops the square `box` (h-9 w-9) class from the mark's className so the auto width isn't clamped; `box` still governs the framed + letters-forward + empty branches (unchanged).
+- Verified: typecheck ✅ · lint ✅ · a faithful before/after SVG preview confirmed the marks roughly double in drawn height and read clearly.
+
+SPEC IMPACT: None — pure visual tuning of the already-logged monogram-as-logo feature (corpus DECISION_LOG 2026-06-13). No SKU / schema / pricing / route impact.
+
+---
+
+## 2026-06-13 · feat(homepage): admin-uploaded hero video — full-screen scroll-scrub homepage hero
+
+Owner directive 2026-06-13: a place in the admin console to upload a hero video that becomes the homepage's full-screen scroll-scrub, ending on a "Start your wedding planning here — free" CTA. V1 scope addition (flagged). Vercel can't run ffmpeg, so frames are extracted **in the admin's browser** (the only render pipeline in-repo is a stub) — same one-upload UX, no new infra.
+
+- `supabase/migrations/20261217000000_homepage_hero_video.sql` — new single-row `homepage_hero_config` (video + extracted `frame_urls` JSONB + cta + `is_published`), read-all RLS, writes via service-role (mirrors `platform_settings`). **Needs applying to prod** (`supabase db push --db-url`).
+- `lib/hero-video.ts` — `fetchPublishedHeroVideo()` (homepage read, degrades to default hero on any failure / pre-migration) + `fetchHeroVideoConfigForAdmin()`.
+- `app/_components/marketing/HeroVideoScrub.tsx` — client island; preloads the frame sequence and swaps frames on scroll (image-sequence scrub — browser `<video>` seeking is unreliable; this is the Apple technique). Zero-dep (passive scroll + rAF, no GSAP/Lenis). `object-fit:cover` so a 1:1 source fits desktop + mobile; CTA fades in at the end; reduced-motion shows final frame + CTA.
+- `app/_components/marketing/_sections.tsx` — `Hero()` now async; renders `<HeroVideoScrub>` when a video is published, else the existing headline + `HeroCollage` (graceful fallback).
+- `app/admin/hero-video/` — `page.tsx` + `hero-uploader.tsx` (pick video → presigned R2 upload → in-browser frame extraction via `<video>`+canvas → upload frames → save → Publish/Unpublish) + `actions.ts` (admin-gated, service-role writes, `revalidatePath('/')` on publish). Sidebar entry "Hero video" under Content.
+- Reuses the existing `/api/upload` presigned-PUT flow (already allows `video/mp4` 60 MB + image frames on the `media` bucket) + `publicUrlFor` for permanent frame URLs.
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · production build via CI (required check).
+
+SPEC IMPACT: new V1 feature — admin homepage-hero-video upload + public scroll-scrub hero. New table `homepage_hero_config`. Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; one new admin surface (`/admin/hero-video`) + one new homepage behavior (publish-gated, fallback-safe).
+## 2026-06-13 · feat(onboarding+chrome): desktop editorial canvas + the saved monogram IS the event logo
+
+Two owner asks (2026-06-13): (1) give the wedding onboarding a real desktop version, and (2) make the monogram the couple designs in onboarding their actual event logo, dependent on their chosen lockup.
+
+**Desktop canvas — enrich the surround, keep the locked frame.** On desktop the onboarding (`/onboarding/wedding`) rendered as a 430×880 phone card stranded on a stone background. Owner picked "enrich the canvas, keep the frame": the locked `.onbw>.phone` prototype (port-as-is lock 2026-06-02) is untouched; a new desktop-only editorial aside fills the space beside it.
+- New `app/onboarding/wedding/_components/desktop-aside.tsx` (`OnboardingDesktopAside`) — brand mark + SETNAYAN wordmark, eyebrow, serif headline, value line, 3 reassurance ticks, "Set na 'yan." signature. `aria-hidden` (purely decorative; the phone carries every control + the brand lockup, so SRs don't hear it twice).
+- New `app/onboarding/wedding/_styles/onboarding-desktop.css` — desktop-only (`@media min-width:1024px`), all scoped under `.onbw`, layered ON TOP of the prototype mirror (whose header forbids hand-tweaking it). Centers the [aside · phone] pair; **pins the phone to its locked 430px** in the flex row so `width:100%` can't shrink it below the lock; under 940px viewport height it falls back to top-aligned + scroll so the 880px card never clips. Below 1024px the aside is `display:none` → mobile + tablet are byte-for-byte unchanged.
+- `onboarding-shell.tsx` — import both + render `<OnboardingDesktopAside/>` as the first child of `.onbw`.
+
+**Saved monogram → event logo (reverses the 2026-06-03 letters-forward lock for the four type-only lockups).** The switcher logo already used the couple's chosen font + ink, but only drew their initials in that font — not the lockup they designed. Now it draws their real mark, varying with their choice.
+- New `app/_components/monogram-mark.tsx` (`MonogramMark`) — self-contained inline-SVG twin of the four TYPE-ONLY lockups (bar · duo · script · infinity) from `mono-lockup.tsx`: same geometry, mark-only (names stripped), no trace animation, no `.onbw` CSS dependency. `framed` deliberately stays letters-forward (its 237-path gold ring is illegible at ~28–44px — the exact reason the original lock existed); single-initial events stay letters-forward too.
+- `event-monogram.tsx` — renders `MonogramMark` for type-only styles when both initials exist; framed + legacy + single-name paths unchanged.
+- Threaded `monogram_style` end-to-end — it was selected nowhere in the chrome, so the four `frame=null` type lockups collapsed to whichever shared the font. Touched: `EventSwitcher` (`SwitcherEvent` type + props + both `EventMonogram` call sites), `dashboard/[eventId]/layout.tsx` (event select + anchor + menu map), `outer-dashboard-header.tsx` (`PrimaryEventData` + anchor), `dashboard/layout.tsx` (primary + list maps), `admin/layout.tsx` + `vendor-dashboard/layout.tsx` (maps + anchors). `lib/events.ts` already selected it; `resolveMonogramDesign` already prefers the style key.
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · a faithful standalone SVG preview confirmed all four marks render distinct + legible at 28/36/44px and the desktop canvas composes cleanly. Production build runs in CI.
+
+SPEC IMPACT: reverses the 2026-06-03 "chrome monogram renders letters-forward" lock for the four type-only lockups (framed unchanged); adds a desktop-only onboarding canvas (the port-as-is frame itself is untouched). Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; no new routes; no migration (`monogram_style` column already exists).
+## 2026-06-13 · refactor(entitlements): one shared couple-SKU ownership reader + a per-SKU activation dispatcher (seat-finding PR 3 of 6 · paid-layer hardening)
+
+Behavior-preserving consolidation that de-risks the paid layer and sets up PR 4's Papic seat-pass. Three refactors over existing order state — **zero new tables, zero migration, zero behavior change for already-owned SKUs**. Activation state IS `orders.status` (no new column).
+
+- **New `lib/entitlements.ts`** — `checkOrderOwnership(supabase, eventId, serviceKey)`: the single refund-aware ownership read, extracted verbatim from `eventOwnsProWebsite` (refund-aware `.not('status','in',('cancelled','refunded','lapsed'))` + `42P01`/`42703` graceful-degrade-to-`false` + defense-in-depth client-side filter; any other DB error still throws). Exports the canonical `RELINQUISHED_STATUSES` set.
+- **5 gate helpers delegate** — `eventOwnsProWebsite` / `eventOwnsIndoorBlueprint` / `eventOwnsAnimatedMonogram` / `eventOwnsPapicSeats` / `eventOwnsPapicGuest` keep their exported names + signatures + `*_SERVICE_KEY` constants; bodies are now a one-line `checkOrderOwnership(...)` call and each file's local `RELINQUISHED_STATUSES` copy is deleted (now the only definition is in `entitlements.ts`). Geometry/seat/quota helpers in those files are untouched. *(Spec said "6 identical helpers"; reality has 5 of this exact pattern — `add-on-stats.ts:eventOwnsFeature` is a different shape (multi-SKU `.in()` + `status='paid'` only) and was left untouched.)*
+- **3 inline `CUSTOM_QR_GUEST` gates route through the helper** — `add-ons/custom-qr-guest/page.tsx`, `.../print/page.tsx`, `api/website/qr/guest/[guestId]/route.ts`. The route preserves its existing 500-on-genuine-DB-error response by wrapping the helper call in try/catch (the helper throws where the old inline gate returned a 500 NextResponse — identical outcome).
+- **New `lib/sku-activation.ts`** — `activateOrderSku(ctx)`: a frozen, extensible per-SKU activation dispatcher (exact-match map for `concierge_complete` + `SETNAYAN_AI`; prefix/predicate fallback for `vendor_additional_branch__{branch_id}`). **Contract: every hook is non-fatal — `activateOrderSku` wraps each in try/catch and NEVER throws**, so a failed activation never rolls back the already-approved payment. PR 4 registers `PAPIC_SEATS` by editing this map only.
+- **`admin/payments/actions.ts`** — the three hardcoded `if (order?.service_key === …)` activation branches inside `if (promoteOrder)` are replaced by ONE `activateOrderSku(...)` call (after `schedulePayoutsForOrder`, before the block closes). Dropped now-relocated imports (`activateConcierge`, `branchIdFromServiceKey`) + now-unused constants (`TODAYS_FOCUS_SKU_CODE`, `SETNAYAN_AI_SKU_CODE`); `appendLedger` import retained (still used at 3 other sites). `revalidatePath('/dashboard','layout')` left exactly as-is.
+- New unit suite `lib/entitlements.test.ts` (11 cases — owned/not-owned/relinquished-filter/42P01/42703/other-error-throws/canonical-query-shape).
+- Verified: `pnpm typecheck` ✅ · `pnpm lint` ✅ (0 errors) · `pnpm build` ✅ · `pnpm test:unit` ✅ (99/99).
+
+SPEC IMPACT: None — pure behavior-preserving refactor. No SKU / pricing / schema / route change. NO migration (spec-confirmed; activation state is `orders.status`, `events.setnayan_ai_active` already exists per `20260917000000`). Note: timestamp `20261217000000` (which a migration *would* have used) is already claimed on main by the in-flight homepage-hero PR #1372 — another reason no migration is correct here. Logged at the bottom of corpus `DECISION_LOG.md` (2026-06-13): the dispatcher is now the single extension point for PR 4's Papic seat-pass.
+
+---
+
+## 2026-06-13 · feat(nav): global bottom nav everywhere — Guests/Services relocate their bars up, Website gets a hub
+
+Owner directive 2026-06-13 ("global nav everywhere"): the customer bottom nav must stay visible on every surface. This retires the Guests + Services "focus-mode" suppressions (2026-06-03) and gives the Website tab a real hub so the full-screen editor isn't a chrome-less dead-end.
+
+- `customer-bottom-nav.tsx` — removed BOTH focus-mode early-returns (the `/guests` always-hide and the `/vendors` budgetBuild-hide); the component is now a thin `<BottomNav items=…>` wrapper (dropped the now-unused `usePathname` + `budgetBuild` prop). Website tab repointed from `/site-editor` to the new `${base}/website` hub; activeMatch now covers `/website` + `/site-editor` + `/invitation`. `layout.tsx` stops passing `budgetBuild` (and drops the now-unused `isBudgetBuildEnabled` import).
+- **Services** (`services-takeover.tsx`) — the mobile section nav (Summary·Shortlist·Build·Compare·Lock) flips from a `fixed bottom-0` bar to a **sticky-top header** (border-b, z-10), so the global nav owns the bottom. CustomEvent (`BB_TAB_EVENT`) + `?tab=` URL mirroring + floating ✕ all preserved; desktop strip unchanged.
+- **Guests** (`mobile-guest-carousel.tsx`) — the carousel's 5-pill menu (Summary·Search·Add·Customize·Journey) moved from a `fixed bottom-0` bar to the **top row of the sheet**; the sheet now docks at `bottom-[calc(80px+safe-area)]` (the app-wide `pb-20` nav clearance) so it rests above the global nav with no double bar. Panel state stays inside the carousel (no risky page-level state lift); ResizeObserver no-feedback-loop logic, keyboard docking, grabber, snap track, and all 5 panels preserved. Collapsed floor keeps the pills reachable.
+- **Website** — `/dashboard/[eventId]/website` was a redirect; now a real **hub page** inside EventLayout (so it has the global nav): couple-membership gate, reuses the editor's exact event fetch (display_name + slug + `buildEventLandingUrl`), shows the live URL + a "Launch editor" CTA → `/site-editor` + quick-links (Invitation & URL, Who-can-view). The editor's ✕ `backHref` now returns to the hub instead of event home. The full-screen editor itself is unchanged.
+- Built via a mapping workflow + a parallel implement-then-adversarially-verify workflow; the review caught an undersized nav-clearance (56→80px) in Guests, fixed here.
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · `lint:botnav` ✅ · production build ✅.
+
+SPEC IMPACT: reverses the 2026-06-03 Guests/Services focus-mode lock + adds a Website hub. Logged in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical`. No SKU / schema / pricing impact; one new in-dashboard route (`/website` hub, replacing a redirect).
+
+---
+
+## 2026-06-13 · fix(nav): bolder bottom-nav active pill + tap-fired press-light (visibility follow-up)
+
+Follow-up to the canonical bottom-nav template — the first cut was too subtle to read as "changed" on a real device (8% grey pill, press-light only on hold). Owner asked to make it unmistakable.
+
+- `app/_components/nav/bottom-nav.tsx` — active pill grey **8% → 15%** so the active tab reads at a glance; `--bn-glow` knob **1.2 → 1.5**. The press-light is now a **one-shot bloom** (`nav-press-flash`, re-keyed per press via a `flash` state) that fires on a normal **tap** (not just press-and-hold) — even a quick tap plays the full bloom-and-fade. Still fills the pill top-to-bottom and feathers only at the ends.
+- `app/globals.css` — `@keyframes nav-press-flash` + `.nav-press-flash` (peak reads `--bn-glow`, duration `--bn-dur`).
+- `scripts/lint-bottom-nav.mjs` — added `nav-press-flash` to the protected markers so the press-light can't be silently stripped either.
+- Note: the travel + flash are CSS-motion, so iOS **Reduce Motion** still freezes them; the bolder static pill is the motion-independent "it changed" signal.
+- Verified: typecheck + lint (no new warnings) + guard pass.
+
+SPEC IMPACT: tuning of the owner-locked bottom-nav template (memory `project_setnayan_bottom_nav_canonical` baseline updated: glow 1.2→1.5, pill 8%→15%, press-light fires on tap). No SKU / schema / pricing / route impact.
+## 2026-06-13 · feat(seating): exclusive seating-editor lock (seat-finding PR 2 of 6 · the live-edit gate)
+
+The build-order gate before any live two-way seating editing: ONE editor at a time per event. Owner-locked — applies to couple co-owners too (the second partner drops to view-only), and it's the FIRST enablement of coordinator seating writes (gated behind the lock AND the existing `can_edit_seating` delegation). Event-scoped lock, 30s heartbeat / 90s server-clock stale-takeover. Built in a fresh-context agent then double adversarially reviewed (build → verify → fix → re-verify).
+
+- New migration `20261216000000_seating_editor_locks.sql`: `seating_editor_locks` table (`UNIQUE(event_id)`) + RLS read policy (couple / seat_plan-edit delegate / admin; RPC-only writes) + 4 `SECURITY DEFINER` RPCs — acquire (`INSERT ON CONFLICT` fast-path → `SELECT FOR UPDATE` serialize → mine / took_over(>90s) / held_by_other), refresh (`ROW_COUNT`→ok/lost), release (idempotent DELETE), `assert_seating_lock_held`. ⚠ NOT yet applied to prod.
+- `actions.ts`: `assertSeatingLockHeld()` before all 18 mutations (bulk actions assert/refresh once); best-effort refresh after; `SeatingLockError` in its own module (a `'use server'` file can only export async fns). `publishSeating` EXEMPT (couple-only via the `enforce_couple_publish` trigger).
+- `use-seating-lock.ts` (new): acquire-on-mount · 30s heartbeat · release on unmount/pagehide (best-effort — the 90s server stale-takeover is the real backstop) · stale-takeover · one-shot auto-retry on transient acquire failure.
+- `use-seating-presence.ts`: broadcasts the holder's live heartbeat on the existing channel so view-only peers compute staleness from the LIVE beat (no false "Take over" against a live editor).
+- `seating-editor.tsx`: view-only gating on every edit affordance; lock banner + takeover when a peer is present AND a solo-recovery banner when none (a solo editor can never get stuck); gated action callers catch a lost lock and drop to view-only.
+
+Verified: `tsc` + `next lint` + `build` + 89/89 unit tests, across both the build and an independent re-verify. Adversarial review confirmed the concurrency core sound (no double-win; server-clock staleness only) and all four UX findings fixed.
+
+**SPEC IMPACT:** Builds documented seat-finding PR 2 (corpus `DECISION_LOG.md` 2026-06-13 + memory `project_setnayan_seatfinding_pr2_lock`); extends iter 0008. ⚠ **MIGRATION-FIRST:** `20261216000000` MUST be applied to prod BEFORE this merges/deploys, or the editor view-only-locks (missing RPC). Open for owner: ① action-layer enforcement (not RLS — `assert_seating_lock_held` shipped + used live); ② co-owner exclusivity is a behavior change for two-partner couples. Fast-follows: distinguish transient-infra errors from genuine lock-loss on the assert path; first-mount banner flicker.
+
+---
+
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 8 (couple settings: edit deadline + pricing view)
+
+The couple-control half of decisions #5 + #6: a "Guest list & pricing" card on `/details` lets the couple set their **guest-list edit deadline** (overrides the default 14-days-before-the-event) and pick their **pricing view** (realtime vs final-only). No migration — the columns landed in Phase 1; only their UI was missing.
+
+- **`updatePaxSettings`** (`dashboard/[eventId]/actions.ts`) — host-gated, admin-write, audited (same pattern as `updateGuestCount`). Writes `events.guest_list_edit_deadline` (validated ISO date or null = use the default) + `adaptive_pricing_mode` (`realtime`|`final_only`). The finalize LOCK columns (`guest_count_locked_at`/`final_pax`) are NOT touched here — they stay guarded to the service-role finalize path (Phase 7 trigger).
+- **`PaxSettingsCard`** (new client component) + wired into `/details`: a date input + a two-option radio, with a Save/transition + saved/error feedback.
+
+**Effect today:** the deadline override is honored by `ensureFinalized()` (Phase 7) the moment it ships — the couple controls when their count finalizes. The `adaptive_pricing_mode` value is now **stored + selectable**; its display behavior (final-only hiding the realtime cost projection on the budget) is the one remaining follow-up.
+
+**Still deferred (documented):** decision #5's final-only **display effect** + the budget cost-projection it gates; a hard post-deadline **edit-guard** (UX only — the freeze protects the money).
+
+Verified: `tsc` + `lint` + `next build` clean.
+
+**SPEC IMPACT:** None to locked scope. 14-day default provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decisions #5/#6); memory updated.
+## 2026-06-13 · feat(i18n): Taglish /features + the shared marketing-i18n foundation (dictionary + thin routes)
+
+Owner picked the **dictionary + thin-routes** architecture for scaling Taglish ("english and taglish" → "dictionary + thin routes"). This lands that foundation and proves it on the hardest page — `/features`, whose copy was spread across **11 section components** (the exact case an inline twin can't handle without duplicating 11 files).
+
+- New shared foundation `lib/marketing-i18n.tsx`: `MarketingLocale` type, `localeAlternates()` (reciprocal en-PH/tl-PH/x-default hreflang + canonical), `localeUrl`/`inLanguageTag`, and a `<LocaleSwitch>` hero switcher — so future localized pages stop hand-rolling their own `LANGUAGES` map.
+- `/features` refactored to **dictionary-driven**: each of the 11 sections now reads its copy from a co-located `COPY[locale]` dict (icons / iteration tags / SKU brand names stay language-neutral). The page splits into a shared `_PageBody` (threads `locale` + per-locale JSON-LD) + two **thin routes**: `/features` (en) and the new **`/tl/features`** (tl). The two can never structurally drift — only the prose differs.
+- The micro-mock visuals + footer stay shared (illustrative product-screenshot chrome — normal to leave in the default language).
+- **Stale-claim fix:** the guest-microsite "Multilingual EN / TL / CEB toggle" → "EN / TL" (Cebuano was dropped from the public locale set 2026-06-13, #1362).
+- `/tl/features` added to `sitemap-static.xml`; `/features` lastmod bumped.
+
+Correctness: dict strings use real Unicode punctuation (— ’ “ ” ·), which renders identically whether a section uses plain `{text}` or `dangerouslySetInnerHTML`, so the EN output is unchanged. Still skipping `/pricing` + home (both read live data → an inline copy drifts; they need this dictionary applied to their data layer, not a hand-translated clone).
+
+Verified: tsc + eslint (no new issues) + production build (`/features` + `/tl/features` register identically — same body, both `ƒ`).
+
+**SPEC IMPACT:** localization foundation established + extended to `/features`; `DECISION_LOG.md` updated. Next pages reuse `lib/marketing-i18n.tsx`; the live-data pages (`/pricing`, home) are the remaining architecture step.
+
+---
+
+## 2026-06-13 · feat(i18n): Taglish /how-it-works — localization rolls to the role-map page
+
+Second page in the English + Taglish localization (after `/tl/about`). The "how it works" role-map — the highest-intent explainer for couples deciding whether Setnayan fits — now has a Taglish twin.
+
+- New `/tl/how-it-works` — Taglish edition of the six-role map + flow + CTAs. The live vendor Pro price comes from the SAME `getVendorPrices()` source as the EN page → no price drift; only the prose is translated.
+- Reciprocal **hreflang** on both pages (en-PH/tl-PH/x-default via `alternates.languages`) + an EN ↔ Taglish switcher in each hero. (EN page: `SITE_URL` hoisted above `metadata` + canonical made absolute, matching the `/about` pattern.)
+- `/tl/how-it-works` added to `sitemap-static.xml`; `/how-it-works` lastmod bumped (hreflang + switcher); `/tl` already in the robots allow-list. Fixed a stale "Tagalog" → "Taglish" comment on the `/tl/about` sitemap row.
+
+Content is inline per-page (same as `/tl/about`) — a shared per-locale dictionary (or `[locale]` route group) remains the scale-up step once more pages localize. **`/pricing` intentionally NOT twinned:** it renders live SKU prices from `platform_retail_catalog_v2`, so an inline copy would drift — it needs the dictionary/shared-data approach, not a hand-translated clone.
+
+Verified: tsc + production build (`/how-it-works` + `/tl/how-it-works` both register as `ƒ` dynamic).
+
+**SPEC IMPACT:** localization extended to a 2nd page; `DECISION_LOG.md` updated. Scale-up architecture (dictionary vs route group · CEB-dropped · which pages next) still flagged for owner.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 7 (auto-finalize at the edit deadline)
+
+Owner decision #6: the guest count auto-finalizes at the edit deadline; after that the binding pax is frozen and vendor costs are final. Works out-of-box — no settings UI required.
+
+- **Migration `20261213000000_pax_final_count.sql`** — `events.final_pax INT` (the frozen binding count). **Applied to prod 2026-06-13.**
+- **`lib/pax.ts`** — `ensureFinalized()` (lazy, cron-free): if the edit deadline has passed and the event isn't locked, stamp `guest_count_locked_at` + freeze `final_pax = max(estimated_pax, headcount)`. The effective deadline is the couple's explicit `guest_list_edit_deadline`, else **14 days before the event** (default, provisional). Race-safe (UPDATE gated on `guest_count_locked_at IS NULL`). `resolveLivePax()` now returns `final_pax` once locked → late RSVPs / accepted claims can't move a booked cost (the binding-price guarantee). Extracted `liveHeadcount()` so the floor math + finalize snapshot never diverge.
+- **Guest page** — calls `ensureFinalized()` on view (lazy lock) and shows a "Guest list finalized · N guests locked in" banner (desktop + mobile) when locked.
+
+**Why the freeze is the core:** check-in only writes `guest_checkins` (never `guests`), so day-of check-in is unaffected; and because pricing reads go through `resolveLivePax` → `final_pax`, even a post-deadline guest add (e.g. an accepted claim) can't change a vendor's cost. So pricing correctness comes from the freeze, not from hard-blocking edits.
+
+**Deferred (documented fast-follows), not in this PR:** (a) decision #5's realtime-vs-final **display toggle** UI + the budget cost-projection it gates (the `adaptive_pricing_mode` column defaults to `realtime` = today's behavior); (b) a settings surface to **override** the 14-day deadline default; (c) a hard **edit-guard** that blocks planning edits post-deadline (UX only — the freeze already protects money). Flagged so "complete" stays honest.
+
+**Adversarial review (3 lenses) caught + fixed three real issues before merge:**
+- **Timezone** — `${date}T23:59:59` parsed as server-local time; now parsed as UTC (`…Z`) so the lock fires at the same instant on any server.
+- **Race / authority** — the finalize loser's UPDATE matches 0 rows but it returned its own (stale) computed `final_pax`. Now the write goes through the **service-role admin client** and re-reads the **DB-authoritative** `guest_count_locked_at` + `final_pax`, so the loser returns the winner's frozen value.
+- **Money integrity (blocker)** — `guest_count_locked_at` / `final_pax` were couple-writable under the broad events UPDATE RLS (a couple could forge `final_pax=1` to dodge a surcharge). New migration **`20261214000000_guard_pax_finalize_columns.sql`** (applied to prod): a BEFORE UPDATE trigger silently reverts any non-`service_role` change to those two columns; the finalize path writes them via the admin client. (Over-engineering findings — move finalize to a cron, full SQL transaction — dismissed: the cron-free lazy-on-read lock is the locked pattern, and the re-fetch covers the practical race.)
+
+Verified: `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
+
+**SPEC IMPACT:** None to locked scope. 14-day finalize lead is provisional. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, decision #6); memory updated.
+
+---
+
+## 2026-06-13 · refactor(i18n): the two locales are English + Taglish (rewrite /tl/about in Taglish; drop Cebuano)
+
+Per owner ("english and taglish"): the public locales are **English (root) + Taglish** — the real conversational register Filipino couples use — not formal Tagalog + Cebuano. Follow-up to #1360.
+
+- `/tl/about` rewritten in genuine **Taglish** (natural English-Tagalog code-switching — "i-plan ang event, mag-hire from a 0%-commission marketplace…") instead of formal Tagalog.
+- Locale switcher relabeled **Tagalog → Taglish** on both `/about` and `/tl/about`; the `/about` "in your language" fact now reads "English-primary, with Taglish."
+- **Cebuano dropped** — `/ceb` removed from the robots allow-list. (The `/tl` route + `tl-PH` hreflang stay: "Taglish" has no ISO code, so `tl` is the closest standard; the register + label are Taglish.)
+
+Verified: tsc + build (`/about` + `/tl/about` static) + retired-strings clean.
+
+**SPEC IMPACT:** locale set corrected to English + Taglish (no Cebuano); `DECISION_LOG.md` updated.
+## 2026-06-13 · feat(seating): FREE guest seat-finder — "find your seat" (seat-finding PR 1 of 6)
+
+First slice of the guest seat-finding program (`DECISION_LOG.md` 2026-06-13 — "Interactive guest seat-finding linked to Custom QR" + "Live day-of reprogramming"; market study finding: assigned-seat wayfinding is open white space, the industry ceiling is scan→name→table#). Delivers the design's FREE tier-(a) baseline that didn't exist: a guest who scans the shared/master venue QR (lands on `/[slug]`) taps "Find your seat", types their name, and sees their table label — no app, no login, no paid SKU. The richer personalized entrance→table map stays the paid `/[slug]/find-my-table` (Indoor Blueprint) surface.
+
+- New `SECURITY DEFINER` RPC `public_seat_lookup(p_slug, p_query)` (migration `20261215000000`, ⚠ NOT yet applied to prod): name→table_label for a PUBLISHED plan only (`event_floor_plan.published_at`), anon-callable, returns ONLY `{display_name, table_label}` (never guest_id/qr_token/PII), min query length 2, LIKE-wildcard-escaped, `LIMIT 25`, soft-deleted guests excluded. Mirrors `get_vendor_seat_plan`'s published-gate + minimal-columns posture.
+- New public route `/api/seat-lookup/[slug]` — normalizes via `normalizeGuestName`, best-effort per-IP throttle, graceful-empty on a pre-migration DB.
+- New public page `/[slug]/find-seat` (no session/SKU) + client `name-search` (debounced, pure-CSS, client-side min-length guard) + a "Find your seat" CTA on the anonymous `PublicLanding` (pure navigation; the route self-gates the published state).
+- New `lib/seat-lookup.ts` (`sanitizeSeatLookupQuery` + types) with a 3-case unit suite.
+
+Read-only for guests (cannot corrupt seating data) and no lock needed — shippable independently of the lock foundation (PR 2). Keeps the seat-plan-stays-free lock (~₱0 to run) and is the wedge vs the PH rival that gates seating behind ₱8,995.
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 92/92 unit tests ✓ · retired-strings ✓. Production build via CI.
+
+**SPEC IMPACT:** Builds the documented seat-finding design (corpus `DECISION_LOG.md` 2026-06-13 rows); extends iter 0008 (seating) + 0031 (day-of guest). ⚠ Migration `20261215000000` must be applied to prod (`supabase db push`). The Custom-QR-vs-Indoor-Blueprint reconciliation (live code still gates the paid finder on `INDOOR_BLUEPRINT`, contradicting the corpus "retired" decision) is flagged for owner — PR 4 territory.
+
+---
+
+## 2026-06-13 · feat(i18n): Tagalog /about — first slice of marketing-site localization (hreflang)
+
+First slice of the SEO localization ("Cebuano moat", SEO playbook §0.14): the public marketing site was EN-only (the existing `lib/i18n` is dashboard-only). Ships a Tagalog edition of the brand/entity page at `/tl/about` with the **locale-subpath** URL strategy + reciprocal **hreflang**, establishing the pattern CEB + more pages follow.
+
+- New `/tl/about` — fully static Tagalog `/about` (hero · fact grid · "software, hindi ahensiya" · Tagalog FAQ · CTAs); JSON-LD `inLanguage: tl-PH`, `AboutPage`/`BreadcrumbList`/`FAQPage`.
+- Reciprocal **hreflang** on both `/about` (en-PH, x-default) and `/tl/about` (tl-PH) via `alternates.languages`; an EN ↔ Tagalog locale switcher on each.
+- `/tl` + `/ceb` added to the `robots.ts` allow-list; `/tl/about` added to `sitemap-static.xml`.
+
+Natural Filipino copy (brand/product terms kept in English, as couples actually speak). Content is inline for this first slice; a shared per-locale dictionary (or `[locale]` route group) is the scale-up step when localizing more pages.
+
+Verified: tsc + production build (`/about` + `/tl/about` both static ○).
+
+**SPEC IMPACT:** new localization surface; `DECISION_LOG.md` + SEO playbook §0.14 note the first slice. The scale-up architecture (dictionary vs `[locale]` route group · CEB · which pages next) is flagged for owner direction.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 6 (HQ audit of cost changes) — program COMPLETE
+
+The final phase: an append-only HQ trail of every pax-driven vendor cost change, so a mediator can answer "why did this vendor's cost jump?" during a dispute (the architect-mandate admin surface). Completes the 6-phase Adaptive Pax Pricing program.
+
+- **Migration `20261212000000_pax_change_audit.sql`** — new `pax_change_audit` table (internal bigserial PK; no FKs so history outlives bookings) capturing action (accept/decline), live_pax, quote_base_pax, prev_pax, rate, prev/new surcharge, prev/new total, created_at. RLS enabled at create time: **admin-read only** (`is_admin()`); writes come from the service-role confirm actions (bypass RLS) so there's intentionally no insert policy. **Applied to prod 2026-06-13** (`db push`; only pending migration on remote was this one).
+- **`pax-actions.ts`** — `acceptPaxSurcharge`/`declinePaxSurcharge` now write one audit row each (best-effort `try/catch` — a failed insert never blocks the vendor's decision). On decline the new surcharge/total equal the previous (price held).
+- **`/admin/pax-changes`** (new) — read-only HQ list of the audit (vendor · event · action · guest delta · surcharge before→after · total before→after), batched name resolution, graceful empty state. Added to the admin sidebar after Disputes (`TrendingUp` icon). Auth via the admin layout gate.
+
+No couple/vendor-facing change. `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
+
+**Program summary (Phases 1-6, all shipped 2026-06-13):** schema → couple guest-list meter → inquiry pax snapshot → vendor per-guest rate → surcharge with in-thread vendor confirm → HQ audit. Both migrations (`20261211000000`, `20261212000000`) applied to prod.
+
+**SPEC IMPACT:** None to locked scope. Closes the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13 admin_surface). Memory `project_setnayan_adaptive_pax_pricing` → program complete. Corpus `0023_admin_console` AS-BUILT note (new pax-changes surface) + `0007`/`0021`/`0022` notes to follow.
+
+---
+
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 5 (per-vendor surcharge + in-thread confirm)
+
+The money-moving core. When the couple's guest count moves a booked vendor's cost (vendor set a per-added-guest rate), the change surfaces as an Accept/Decline card in the chat thread and only moves `total_cost_php` when the **vendor confirms** — symmetric (a drop shows a credit), per the owner lock. No migration (uses the Phase 1 columns).
+
+- **`lib/pax.ts`**: `computeAddedPaxSurcharge({livePax, quoteBasePax, ratePhp, block})` = `ceil((livePax-base)/block)*rate` (0 when no rate / at-or-below base — the owner fallback; mirrors the customer floor+block model). `fetchVendorPaxProposals()` returns the booked services (total_cost_php set) carrying a rate whose live pax has moved away from the last-decided count (`cost_basis_pax`), each with the `delta` to confirm.
+- **Vendor thread** (`vendor-dashboard/messages/[threadId]`): recomputes live pax **fresh on view** via the admin client (the vendor's RLS can't read the couple's guests; gated by the existing thread-ownership check) → always-current "Planning for ~N" + an Accept/Decline card per pending service: "Now planning for N (you quoted ~M). At ₱X/guest your total would increase/decrease by ±₱Y."
+- **`pax-actions.ts`** (new): `acceptPaxSurcharge` re-derives the target server-side (authoritative — client value never trusted), writes `total_cost_php = total − applied + target`, `pax_surcharge_php`, `cost_basis_pax`, locks `pax_quote_base`; `declinePaxSurcharge` just sets `cost_basis_pax` (holds the price). event_vendors is the couple's table → admin-client write after the ownership gate.
+- **Couple thread**: header now shows the same fresh live pax (the couple's own client can read their guests).
+- **Budget** auto-reflects — `total_cost_php` updates on Accept, so the couple's vendor cost updates with no extra wiring.
+- `lib/pax.test.ts`: 6 tests (no-rate fallback, at/below base, per-guest, per-block round-up, null guards, symmetric drop).
+
+**Design note (deviation from the originally-floated after()-push):** rather than hooking every guest mutation to push `pax_current`, the thread/budget **recompute fresh on view** (admin client) — correct whenever viewed, no mutation-hook sprawl, and it sidesteps the vendor-RLS-can't-read-guests problem. The stored `pax_current`/`pax_at_inquiry` remain (inbox previews + the immutable base). An after()-push to pre-warm the cache is a trivial future add.
+
+**Scope:** surcharge applies to **booked** services (a committed `total_cost_php`) with a rate; inquiry-stage just shows the count (Phase 3). Phase 6 (HQ audit of every cost change) still to come.
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 6/6 unit tests ✓ · `next build` ✓.
+
+**SPEC IMPACT:** None to locked scope. Builds the spec'd-but-unbuilt `0021 §12.3` confirm flow (single-rate form). Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0007_budget_expenses` + `0021 §12.3` AS-BUILT notes to follow.
+
+---
+
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 4 (vendor per-added-guest rate input)
+
+Vendors can now set an optional per-added-guest surcharge rate on each service. Input + storage only — the rate has **no effect yet**; applying it to live costs is Phase 5 (where the surcharge math + the symmetric vendor-confirm flow land). Honors the owner's fallback: blank = no extra charge.
+
+- `vendor-dashboard/services/page.tsx`: new "Additional cost per added guest (PHP)" field in BOTH the new-service form and the edit-service form (pre-filled from the saved value), beside the existing starting price. Helper copy: "Optional. Charged per guest above the count you quote. Leave blank for no extra charge."
+- `services/actions.ts`: `createVendorService` + `updateVendorService` parse `added_pax_price_php` via the existing `parseInt0OrNull` and write it (insert + update).
+- `lib/vendor-services.ts`: `VendorServiceRow` + `BASE_COLS` carry `added_pax_price_php` so the editor pre-fills and any reader sees it.
+
+Deliberately self-contained — does NOT touch `lib/pax.ts` (Phase 3's file): the surcharge *math* (`computeAddedPaxSurcharge`) belongs in Phase 5 where it's first applied, so Phase 4 has no cross-phase file dependency. Column exists in prod (migration `20261211000000` applied 2026-06-13).
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓ (exit 0).
+
+**SPEC IMPACT:** None to locked scope. Peso amount is vendor-entered (no default seeded). Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0022_vendor_dashboard` AS-BUILT note (the per-pax pricing it specced now exists in its single-rate form) to follow.
+
+---
+
+## 2026-06-13 · feat(nav): canonical bottom-nav template — traveling pill + press-light, app-wide + lint-guarded
+
+Owner-locked the bottom-nav tap interaction as THE unbreakable app-wide template ("set it as an unbreakable rule, like the real template of the app"), after a long session dialling the feel against an Instagram Liquid-Glass reference video.
+
+- `app/_components/nav/bottom-nav.tsx` — upgraded the ONE shared primitive that all three doorways already mount (customer/vendor/admin wrappers just pass `items`). New locked interaction: a **full stadium pill** that fills its tab cell and **travels on RELEASE** (selection commits on finger-up → route changes → active index flips → pill glides over) with a spring + subtle horizontal "liquid" stretch; a diffused **white press-light** that blooms under the finger **on press-down** (pointerdown), fills the pill top-to-bottom solid and feathers only at the left/right ends (tall element clipped by the row's `overflow-hidden`), fading on release; the pressed **icon grows** while held. Four motion knobs live as `--bn-*` CSS custom props on the nav root (**owner-locked baseline: 500ms · grow 1.15 · glow 1.2 · stretch 1.1 · white**) — retune the whole app's nav feel from ONE place. Removed the generic `.sn-bounce` on active tabs (this nav treatment supersedes it). Props/types unchanged → zero churn for the three wrappers.
+- `app/globals.css` — `@keyframes nav-pill-travel` + `.nav-pill-stretch` (peak/duration read `--bn-stretch`/`--bn-dur`).
+- `scripts/lint-bottom-nav.mjs` (new) + `lint:botnav` script + CI job `lint-bottom-nav` — the "unbreakable" enforcement: fails the build if a `*-bottom-nav.tsx` wrapper is added that doesn't delegate to the canonical primitive, OR if the canonical loses its locked-interaction markers (the `--bn-*` knobs + the travel-stretch hook).
+- Lights up customer + vendor + admin bottom navs automatically (all consume the shared component). Guest landing (0031 day-of) has no bottom nav — nothing to change there.
+- Verified: `typecheck` clean · `lint` clean (no new warnings in changed files) · `lint:botnav` passes.
+
+SPEC IMPACT: Owner-locked the bottom nav as an unbreakable app-wide template + lint guard. Recorded in corpus `DECISION_LOG.md` (2026-06-13) + memory `project_setnayan_bottom_nav_canonical` (indexed in `MEMORY.md`). No SKU / schema / pricing / route impact.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 3 (snapshot pax on new inquiries)
+
+Inquiries now carry the couple's live pax. When a couple opens a vendor inquiry — via `unlockCategoryWithInquiry()` (add-a-category) or `startServiceInquiry()` (`/v/[slug]`) — the thread snapshots the count, and both thread headers show it. First runtime use of the Phase 1 columns (now applied to prod).
+
+- New server helper `lib/pax.ts` → `resolveLivePax(supabase, eventId)` = `max(events.estimated_pax floor, headcount on events.headcount_basis)`; counts only SURE attending guests by default (the locked basis); returns `null` when there's nothing to anchor on. (`HeadcountBasis` defined locally here to keep the server module import-independent; mirrors the union in `lib/guests.ts`.)
+- Both inquiry upserts now set `chat_threads.pax_current` (insert + on-conflict) and set the immutable `chat_threads.pax_at_inquiry` exactly once (when still null) — the count the vendor first quoted against. `null` live-pax → no pax written (graceful).
+- `lib/chat.ts`: `THREAD_SELECT` + `ChatThreadRow` carry `pax_at_inquiry` / `pax_current`, so both thread pages get them with no extra query.
+- Vendor thread header (`vendor-dashboard/messages/[threadId]`) and couple thread header (`dashboard/[eventId]/messages/[threadId]`) render "Planning for ~N guests · was M at inquiry" (the "was M" only once the count has grown).
+
+Read/snapshot only — no cost recompute or surcharge yet (phases 4-5). Inquiry status-flip / one-thread-per-pairing rules untouched.
+
+**Migration note:** the Phase 1 migration `20261211000000` was **applied to prod 2026-06-13** (`supabase db push`; it was the only pending migration — clean apply), so these columns exist at runtime. Independent of the Phase 2 PR (defines its own `HeadcountBasis`).
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · `next build` ✓.
+
+**SPEC IMPACT:** None to locked scope. Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory updated. Corpus `0019_communications` (thread context) + `0006`/`0007` AS-BUILT notes to follow once the program lands.
+
+---
+
+## 2026-06-13 · feat(weddings): DB-driven Real Weddings browse — real editorials replace the sample (consent-gated)
+
+Builds the deferred 0046 cross-wedding browse so `/weddings` surfaces REAL published editorials and the sample yields automatically — end-to-end, per owner ("our sample until a real wedding is uploaded").
+
+- `lib/showcase-db.ts` (new) — `loadPublishedShowcases()`: server-only, admin-client, **consent-gated** query. A wedding qualifies only when it's a wedding with a public slug, past the **T+30d grace window**, AND a couple member's account opted in to public showcase inclusion (`users.public_summary_consent_at` — the RA 10173 gate shipped in `20260519000000_phase_a_event_editorial_consent.sql`). Best-effort → `[]` on any issue. **Verified against prod:** the 3-step join runs clean and returns 0 today (no consented past weddings), so the sample still shows.
+- `/weddings` index — now async + DB-backed: shows real showcases (each linking to the couple's **canonical `/[slug]` editorial**, never a duplicate copy under `/weddings`) when any exist; otherwise the curated sample. Conditional intro copy. Renders per-request (dynamic) → real weddings appear the instant they qualify, no cache to bust.
+- `sitemap-weddings.xml` — same priority: emits real `/[slug]` editorial URLs (honest `event_date` lastmod) when they exist, else the sample.
+
+The per-wedding editorial itself is unchanged (0002 Phase 4 at `/[slug]`); this adds the cross-wedding browse + discovery. First real wedding = the founder's Dec 2026 (→ ~Jan 2027), at which point the sample drops automatically.
+
+Verified: tsc + production build (`/weddings` dynamic, `/weddings/[slug]` sample SSG ●, `/sitemap-weddings.xml` ISR).
+
+**SPEC IMPACT:** implements the 0046 cross-wedding DB browse (consent-gated); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+## 2026-06-13 · feat(weddings): in-dashboard Real Weddings consent toggle (RA 10173 opt-in / one-click opt-out)
+
+Adds the "Phase B" consent surface the 0046 migration pointed at: couples can now opt in/out of public `/weddings` showcase listing **anytime** from `/dashboard/[eventId]/website/privacy`. Previously `users.public_summary_consent_at` was set only at signup, with no way to change it later — this completes the RA 10173 one-click opt-out guardrail for the consent-gated browse (PR #1353).
+
+- New `setShowcaseConsent` server action — host-gated (reuses `requireHostMembership`), writes the caller's OWN `users.public_summary_consent_at` (NOW() to opt in, NULL to opt out) via the admin client (the `users` self-update path isn't exposed to the auth client).
+- The privacy page reads the current state (via admin, defaults off on error) and renders a clear opt-in/out card — links to `/weddings`, with an explicit "only after the day, 30-day grace, only while on" note.
+
+Verified: tsc + production build (`/dashboard/[eventId]/website/privacy` compiles).
+
+**SPEC IMPACT:** implements the 0046 in-dashboard consent toggle (flips from unbuilt → shipped); `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 2 (couple guest-list pax meter)
+
+The visible half of the feature: a pax-target meter on the guest list showing progress toward the couple's minimum pax (`events.estimated_pax`), filling on the **sure-attending** basis (the owner-locked "who counts"). Read-only, couple-facing; no vendor/pricing writes (those are phases 3-5). Independent of the Phase 1 migration — pure compute on data that already exists (`computeGuestStats` headcount + `estimated_pax`), so it ships without any prod schema change.
+
+- New pure helpers in `lib/guests.ts`: `headcountForBasis(stats, basis)` and `computePaxProgress(stats, estimatedPax, basis)` → `PaxProgress { target, headcount, livePax = max(target, headcount), progressPct (capped 100), exceeded, overBy, remaining }`. Returns `null` when no target is set (meter hidden). `basis` defaults to `'attending'`; the `attending_plus_maybe` / `invited` arms are wired for the future `events.headcount_basis` column but unused in V1.
+- `guests/page.tsx` now selects `estimated_pax` alongside `role_palette` (same batched read, no extra RTT) and computes `paxProgress` once.
+- Desktop: `SummaryStrip` renders the meter above the confirmations bar — "Guest target · N of M pax · X%" with a terracotta bar; flips to "Now planning for N · K over your M minimum" (deeper bar, full) once sure-attending tops the floor.
+- Mobile: the carousel's Summary panel renders the same meter above the RSVP count boxes.
+- Unit suite `lib/guests.pax.test.ts` (8 tests): basis selection, floor-protected `livePax`, bar capping at 100% while `overBy` reports true excess, exact-at-target not exceeded, null on no/zero/negative target.
+
+Verified: `tsc --noEmit` ✓ · `next lint` ✓ (no new warnings) · 8/8 unit tests ✓ · `next build` ✓.
+
+**SPEC IMPACT:** None to locked scope. Part of the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13); memory `project_setnayan_adaptive_pax_pricing` (Phase 2 done). Corpus iteration `0001_creating_guest_list` AS-BUILT note to follow once the program lands.
+
+---
+
+## 2026-06-13 · feat(weddings): the sample is a fallback — real weddings auto-replace it
+
+Per owner ("this is our sample until a real wedding is uploaded"), the `/weddings` index + `sitemap-weddings.xml` now treat samples as PLACEHOLDERS: they render only while there are no real (non-sample) weddings. The moment a real wedding enters the source — a non-sample entry now, or the DB-driven Phase-4 published-editorials browse later (0046 deferred) — the sample drops out automatically (both the index listing and the sitemap filter `!isSample`, falling back to the sample only when the real set is empty). The index intro copy is conditional (sample framing vs real-weddings framing). No behaviour change today — only the sample exists, so it still shows.
+
+**SPEC IMPACT:** encodes the sample-as-placeholder lifecycle; `DECISION_LOG.md` + the `0046_wedding_showcase` header note it.
+
+---
+
+## 2026-06-13 · refactor(weddings): the Real Weddings sample now renders the real editorial (follows it)
+
+Per owner direction ("when we update the editorial, this sample needs to follow the editorial as well"), the `/weddings/[slug]` showcase no longer uses a bespoke layout — it renders through the **same `EditorialContent` component** as a real wedding's post-event editorial (the `/[slug]` Phase-4 "newspaper"). A curated Maria & Juan sample fixture feeds it via a `loadEditorialData` sentinel, so any future change to the editorial format updates the sample automatically — no parallel layout to drift.
+
+- `editorial/data.ts`: new `SAMPLE_EDITORIAL_EVENT_ID` + `sampleEditorialData()` (a complete `EditorialData` for Maria & Juan — Catholic garden wedding in Tagaytay: love story, by-the-numbers, archetype, illustrative team credits, couple/guest reviews, Setnayan-services strip; no real PII) + a sentinel branch at the top of `loadEditorialData` that returns the fixture **without touching the DB**.
+- `app/weddings/[slug]/page.tsx`: rewritten to render `<EditorialContent eventId={sample} />` behind a slim "Sample showcase" bar (back-nav + an honest "real editorials begin December 2026" line); the bespoke facts-strip/story/team layout is removed. A `slug → fixture id` map keeps the sentinel single-sourced.
+- Real, consent-gated editorials (0002/0046 Phase 4) are unchanged — real event ids fall straight through the sentinel to the live DB loader.
+
+Verified: `tsc` + production build (`/weddings/[slug]` sample prerendered ● through the editorial; no DB at build).
+
+**SPEC IMPACT:** Supersedes the bespoke showcase-detail layout from PR #1349 (same day). `DECISION_LOG.md` + the `0046_wedding_showcase` AS-BUILT header note that the sample now renders via the editorial.
+
+---
+
+## 2026-06-13 · feat(weddings): Real Weddings showcase live with a sample (iteration 0046 first slice)
+
+Lights up the `/weddings` surface (previously a polite "coming December 2026" empty state) with a populated, indexable showcase — and seeds one clearly-labelled SAMPLE wedding so the page demonstrates the format before real editorials exist.
+
+- **`/weddings` + `/weddings/[slug]`** — the index now renders a featured showcase + grid; the new per-showcase page carries the couple, an at-a-glance facts strip (ceremony · setting · city · theme · guests), the story, a "team behind the day" section (role chips → /vendors + /venues), a "How Setnayan helped" block, and `Article` + `BreadcrumbList` JSON-LD. Same in-code-constant SSG pattern as `/blog` (no DB, no markdown dep, `dynamicParams=false` → real 404s).
+- **Sample, not a real client.** The one seed (`Maria & Juan`, a Catholic garden wedding in Tagaytay) is `isSample: true` — fictional, with a visible "Sample showcase" label + a line that real couple editorials begin December 2026. No real person's data (so no RA 10173 consent gate) and no fabricated vendor business names (the team section links to vendor *categories*). The canonical DB-driven, consent-gated real-editorial model (0046/0002 Phase 4) is unchanged and merges in alongside these later.
+- **Discovery**: `sitemap-weddings.xml` now emits the hub + sample (honest per-entry lastmod) instead of an empty urlset; `/weddings` removed from `sitemap-static` to avoid a duplicate URL (hub-in-its-own-child pattern, like /help + /blog); `/weddings` added to the `robots.ts` allow-list; the `llms.txt` Real Weddings entry notes a sample is viewable now.
+
+Verified: `tsc` + production build (`/weddings`, `/weddings/[slug]`, `/sitemap-weddings.xml` all generate; sample prerendered ●).
+
+**SPEC IMPACT:** Implements the 0046 first slice (cross-wedding browse + per-showcase page) with a sample seed; the `0046_wedding_showcase` AS-BUILT header + `DECISION_LOG.md` note the sample-now / real-editorials-December-2026 split.
+
+---
+
+## 2026-06-13 · feat(blog): +5 Setnayan Journal articles (Journal now 9 posts)
+
+Follow-up to the 0038 first slice (PR #1344). Adds 5 more PH-anchored long-tail articles to `lib/blog.ts` (4 → 9): a wedding-budget breakdown, a marriage-licence step-by-step, how to choose a venue, Catholic-wedding requirements (Pre-Cana / banns / documents), and Filipino wedding traditions explained. Same in-code-constant engine — no schema, no new deps, no route changes; each article auto-picks-up the existing `sitemap-blog.xml` (honest per-article lastmod), `BlogPosting`/`BreadcrumbList` JSON-LD, and the category filters. Benefits-only copy, no quoted SKU prices (drift-proof), internal-link CTAs to /vendors · /venues · /how-it-works · /signup.
+
+Verified: `tsc` + production build clean (all 9 articles prerendered ●).
+
+**SPEC IMPACT:** Extends the 0038 first-slice content set (4 → 9 articles); the `DECISION_LOG.md` #1344 row + the `0038_editorial_and_affiliates` AS-BUILT header note the 9-article count.
+
+---
+## 2026-06-13 · feat(ui): universal press + select-bounce interaction — pressing anything feels alive, picking anything pops
+
+Owner directive — "set this as a universal function … across the whole app, so we can see an interaction when something is pressed" + the seat-plan ask "when a table/seat is selected … bounce 15%."
+
+**The primitive (globals.css):**
+- **Press feedback made truly universal.** The global :active press rule (button / [role=button] / a.button / input[submit|button] / summary, added 2026-05-31) switched from `transform: scale(0.96)` to the standalone **`scale: 0.96` PROPERTY** (transition `transform`→`scale`). The standalone `scale` property is independent of `transform`, so it now COMPOSES with any element's existing transform instead of clobbering it. The old rule silently broke press feedback on every interactive element that carried its own transform (seat-plan tables `translate(-50%,-50%) scale()`, translated/rotated cards) — they dropped their transform and jumped on press. Verified app-wide via grep: nothing sets the standalone `scale` property anywhere, so nothing collides; the lone flagged `.m-btn:active{transform:translateY(0)}` is a false alarm (different property, composes). Near-pure improvement; frozen by the existing prefers-reduced-motion block.
+- **`.sn-bounce` + `@keyframes sn-pick-bounce`** — a reusable 15% select-bounce (scale 1 → 1.15 → settle), also using the `scale` property so it composes anywhere. Re-triggers via a React `key` (in-page toggles) or a route re-mount (nav).
+
+**Rolled out across the app (parallel, one agent per file):**
+- Seat plan: the selected table + the picked guest's chair bounce.
+- Active nav everywhere: `sidebar-item` + `bottom-nav` active item (all three doorways).
+- Onboarding pickers (the #1 funnel surface): service cards + role/kind `.opt` cards + faith chips + love-story cue chips (all className-only `.sel` on plain elements a global aria rule could never reach).
+- Tab strips + toggles: vendors `services-takeover` (desktop + mobile), schedule mode toggle, `build-pin-mode`, attire-guide persona picker, vendor cycle toggle + payment-method tiles, marketplace reception facet chips, admin verify tabs + payments filter chips.
+
+**Why no single global select rule:** keying a bounce on aria-selected/aria-pressed/role=tab/aria-current would bounce-storm on every page load (everything already-selected re-mounts on route change) AND miss the onboarding pickers (className-only, no aria). So the press feedback is global; the louder select-bounce is applied per-surface at genuine "I just picked this" moments.
+
+**Verification:** designed + rolled out + adversarially verified via three background workflows (map/design, app-wide safety audit + survey, parallel apply + verify). `tsc` clean, `next lint` clean on all touched files. Live: seat-plan table bounce animation confirmed running (getAnimations); the press now keeps an element's transform (hub stays put); bottom-nav active tab + selected onboarding `.opt` carry `.sn-bounce`. 15 files.
+
+**SPEC IMPACT:** None (app-wide interaction polish). Two minor a11y notes parked (cycle-toggle rationale wording; attire-guide drops keyboard focus on deselect-remount — acceptable).
+
+## 2026-06-13 · fix(concurrency): DB guard for the hard-single double-lock (last open conflict-audit item)
+
+**Context:** the final un-serialized cross-actor write from the 2026-06-04 conflict audit (PR #1339 closed the other two). `finalizeVendor` enforced "exactly one CONFIRMED vendor per hard-single plan group per event" (ceremony_venue · reception_venue · officiant · coordinator · host_mc · led_background) with an app-level read-then-write — two hosts of the SAME event (e.g. a couple member + a moderator) could both pass the sibling check and both lock a different vendor in one group. Blast radius was low (white soft-holds, no money, self-correcting) so it was deferred; this closes it. **Owner picked Approach A** (generated column + partial-unique index) over the advisory-lock RPC alternative, because it's path-independent and self-backfilling.
+
+**Migration `20261210000000_hard_single_lock_guard.sql` (applied to prod + behaviorally verified):**
+- New `event_vendors.hard_single_group` — a `GENERATED ALWAYS … STORED` column mapping the 7 hard-single categories (`religious_venue`/`church_fees`→ceremony_venue · `venue`→reception_venue · `officiant` · `planner_coordinator`→coordinator · `host_emcee`→host_mc · `led_screens`→led_background) to their 6 groups; `NULL` for every other category. The full category→group map stays canonical in TS (`lib/wedding-plan-groups.ts`); only these 7 hard-single rows are mirrored in SQL, and an unmapped future category yields `NULL` and is simply un-guarded — never worse than today.
+- Partial-unique index `event_vendors_hard_single_lock_uniq (event_id, hard_single_group) WHERE hard_single_group IS NOT NULL AND archived_at IS NULL AND status IN (CONFIRMED)`. **Path-independent** — it rejects the second confirmed write no matter which path makes it (the generic finalize lock write, the `acquire_service_time_slot` slot path, a `deposit_paid` flip, or an admin approval). Auto-backfills existing rows; no changes at the many `event_vendors` INSERT sites. A defensive pre-dedupe demotes any pre-existing duplicates to `considering` (verified 0 on prod — no-op).
+
+**App change (`app/dashboard/[eventId]/vendors/actions.ts`):** the lost-the-race `23505` is converted back into the existing `hard_single_conflict` modal so the UX is unchanged — added `isHardSingleUniqueViolation()` + `buildHardSingleConflict()` helpers, wired into both confirmed-write paths (the slot-acquire RPC error and the generic lock write). The early fast-path sibling check now also filters `archived_at IS NULL` to match the index predicate.
+
+**Behaviorally verified on prod** (rolled-back transaction): inserting a second `contracted` venue for one event is rejected with `23505`; the generated column resolved `venue → reception_venue`; 0 test rows persisted. `tsc --noEmit` clean.
+
+**SPEC IMPACT:** None to product behavior (UX identical; the guard only makes the rare concurrent case correct). Architecture note → `DECISION_LOG.md`; the conflict-architecture "build DB guards before two-way features" lock is now satisfied for ALL shipped two-way surfaces. Memory `project_setnayan_conflict_architecture` updated (hard-single item flipped from OPEN to CLOSED).
+## 2026-06-13 · feat(blog): Setnayan Journal — public editorial surface (`/blog`), iteration 0038 first slice
+
+First slice of iteration 0038 (Editorial & Affiliates), which was a V1.1 paper spec / NOT-BUILT until now. Ships the **editorial content surface only** — the affiliate/recommendations/sponsored-content parts (which need DB tables + monetization decisions) are deliberately deferred to later slices.
+
+- **`/blog` + `/blog/[slug]`** — new public SSG routes that **mirror the shipped `/help/[slug]` pattern exactly**: content is an in-code typed constant (`lib/blog.ts`) — no DB, no CMS vendor, no markdown-renderer dependency — so every slug is pre-rendered via `generateStaticParams` with `dynamicParams=false`, and anything else 404s at the routing layer (no `loading.tsx` → no soft-404, same fix class as the help per-article rollout).
+- **4 PH-anchored long-tail seed articles** (the SEO playbook §0/§5 + 0038 § 4.0 targets): a 12-month planning timeline, a supplier-cost guide, civil-vs-church, and the ninong/ninang entourage explainer. Bodies sell **benefits only** (public-surface hygiene) and quote **no Setnayan SKU prices** (drift-proof) — only durable facts (free planning workspace, 0% commission). Each article carries internal-link CTAs to `/vendors`, `/how-it-works`, and `/signup` (hub-and-spoke, no orphan pages).
+- **Structured JSON-LD**: `BlogPosting` + `BreadcrumbList` per article; `Blog` + `ItemList` + `BreadcrumbList` on the index. `en-PH`, publisher pointed at the existing `#organization` node.
+- **Discovery**: new `sitemap-blog.xml` route with **honest per-article `lastmod`** (`updatedAt ?? publishedAt`, not a build-time `Date()`), registered in the `sitemap.xml` index; a **"Journal" link** added to the marketing footer; and a `/blog` entry added to `public/llms.txt` (GEO). `/blog` was already pre-allowed in `robots.ts`, so no robots change.
+
+Verified: `tsc` + production build clean (no new deps).
+
+**SPEC IMPACT:** Implements iteration **0038 first slice** — `/blog` + `/blog/[slug]` flip from "NOT BUILT" to shipped in the corpus `0038_editorial_and_affiliates` AS-BUILT header + `App_Build_Status.md` (0038 → ⚠ partial: editorial shipped, affiliates/recommendations/sponsored deferred). Logged at the bottom of `DECISION_LOG.md`.
+## 2026-06-13 · feat(guests): desktop guest-list redesign — consolidated chrome, unified filters, combinable views+groups
+
+**Context:** the Guests tab desktop layout had grown by accretion to **8 stacked chrome blocks** (header · lifecycle ribbon · view switcher · team segment · stats strip · seating card · share link · search toolbar) before the guest list began — pushing the list past the laptop fold. The owner flagged two duplications: the guest total rendered **3×** (H1 "280 guests" + an "Invited 280" stat card + "270 of 280 responded"), and seating was reachable **3 ways** on one screen (left nav + the ribbon's Seat step + a standalone "Seating chart" card). Both were desktop-only — the mobile bottom-sheet carousel never had them. Approved direction this session: consolidate desktop + unify the six scattered filter controls into one system + make role-views and custom groups combinable.
+
+**Layout (desktop, `app/dashboard/[eventId]/guests/page.tsx`):** 8 blocks → 4 rows.
+- New `SummaryStrip` replaces the old `StatsStrip` (progress bar + 5 cards): a slim strip with the confirmations bar + **four RSVP toggle pills (Attending/Pending/Declined/Maybe) that ARE the filter** — tap an active pill to clear it. Plus-ones kept as a caption. The duplicate **"Invited" card is gone** (the total headlines the H1 + the "of N" caption).
+- The standalone **"Seating chart" card is removed** (the ribbon's Seat step + the left nav already reach `/seating`).
+- **Share** folded from a full-width collapsible row into a compact header `<details>` dropdown (`ShareDropdown`).
+- The List/Mind-map switch folded into the search/sort toolbar; **Side** (Everyone/Bride/Groom) moved from a full-width segment row into the rail (rail is now Side → Views → Groups → Tags).
+
+**Unified filters + always-visible state:** new `ActiveFilters` server component — a removable-chip row that is the single home for *every* active dimension (search · side · RSVP · role-view · group · tag) with one "Clear all". Rendered inline on desktop and as a **sticky strip above the list on mobile** (`lg:hidden`, gated on `hasAnyFilter`) — closes the mobile gap where active filters were only a dot on the filter icon. The desktop rail's `buildHref` now carries *every* active param so any one facet toggles without dropping the rest.
+
+**Combinable views + groups (the behavior change):** custom groups moved off the overloaded `view="group:<id>"` scheme onto their own **`group` param**, so a host can stack "Wedding Party" (role view) AND "Cousins" (custom group) — previously mutually exclusive. The role-group filter now always runs (was skipped when a group was active). Touch points: `page.tsx` (derive `currentGroupId` from `group`; always `filterByRoleGroup`; `activeView=view`), `groups-actions.ts` ×3 redirects, `groups-sidebar.tsx` fallback href, `view-switcher.tsx` preserved-keys, mobile carousel role/group selects + Clear-all. A back-compat shim maps any stale `view=group:<id>` link onto the new param so old bookmarks/redirects still resolve.
+
+**Ribbon clarity:** the lifecycle badges read backwards ("Seat 192" looked like 192 *are* seated; it means 192 are *not*). Added an inline `badgeWord` so badges now read **"258 to send" / "to review" / "192 to seat" / "arrived"** on both the desktop ribbon and the mobile Journey panel.
+
+`tsc --noEmit` + `next lint` clean (no new warnings); `next build` compiles (exit 0). The URL param contract is otherwise unchanged, so server filtering logic and the rest of the mobile carousel are untouched.
+
+**SPEC IMPACT:** None to locked scope/SKUs. UX/architecture note → `DECISION_LOG.md` (guest-list desktop consolidation + `view`/`group` param split for combinable role-view × custom-group filtering). No schema/migration change.
+
+---
+
+## 2026-06-13 · fix(concurrency): DB guards for the two un-serialized two-way writes (re-audit of the 2026-06-04 conflict findings)
+
+**Context:** the standing conflict-architecture lock ("build DB-level guards before two-way features") was re-verified against current `origin/main` after the schedule-pool (#1288/#1290/#1292), linked-inquiry (#1312), and vendor-portal (#1323) two-way features shipped. A full re-audit found the 2026-06-04 list of 7 races is now **closed at the DB level** by the pool layer (`acquire_schedule_pools()` deterministic-order `FOR UPDATE` + the partial-unique live-booking index serialize every BOOKED transition; `updateVendorStatus` is the single writer; `unlock_vendor_event()`'s `UNIQUE(vendor_profile_id,event_id)` + `ON CONFLICT` guards the unlock burn; `chat_threads UNIQUE(event_id,vendor_profile_id)` guards thread/unlock duplication; `deleteVendor` refuses booked rows + releases pools, and chat/orders are independently keyed so no orphans). **Two writers were still un-serialized**, both fixed here (migration `20261209000000_concurrency_guards.sql`, applied to prod via `db push` + verified):
+
+- **`import_external_client()` token double-spend (the one real money race introduced by the new features)** — the RPC did INSERT-then-burn with no idempotency key, so a vendor double-clicking "Import client" (or a retry after a slow 200) created two `external_client` calendar blocks and **burned two tokens**. Added a partial-unique index `vendor_calendar_blocks_external_client_uniq (vendor_profile_id, pool_id, blocked_at, client_name) WHERE block_source='external_client'`; the RPC now `INSERT … ON CONFLICT DO NOTHING` and **only burns when a new row was inserted** (rowcount-gated, mirrors the proven `unlock_vendor_event` pattern). A duplicate returns the existing block with `tokens_burned:0, already:true` so the caller's success UX still fires. Defensive pre-dedupe collapses any pre-existing dupes (≈0 rows — `external_client` shipped 2026-06-12 on the founder-only marketplace) so the index can build.
+- **`respond_vendor_proposal()` accept/decline last-writer-wins** — the RPC did `SELECT` (no lock) → in-memory guard → `UPDATE` (no status precondition), so two concurrent accepts, or accept-vs-decline, both passed. Added `SELECT … FOR UPDATE` to serialize, plus `AND status IN ('sent','viewed')` on the UPDATE with a `GET DIAGNOSTICS` rowcount → `already_resolved` (defense in depth). Blast radius was cosmetic (accepting is a signal, not a payment) but the fix is trivially correct.
+- **`finalizeVendor` lock-write status precondition** (app-level, `app/dashboard/[eventId]/vendors/actions.ts`) — the generic soft-hold lock UPDATE flipped `status→'contracted'` with no precondition; added `.not('status','in','("deposit_paid","delivered","complete")')` so a finalize racing a downpayment can never downgrade a money-locked row back to a white soft-hold.
+
+**Verified live on prod:** ledger row present · partial-unique index present · `import_external_client` carries `ON CONFLICT` + the `already` branch · `respond_vendor_proposal` carries `FOR UPDATE` + the status precondition + `GET DIAGNOSTICS`. `tsc --noEmit` clean.
+
+**Known remaining item (flagged, NOT fixed here — owner call):** the **hard-single double-lock** (exactly-one-vendor-per-group, e.g. one ceremony venue) is still an app-level read-then-write in `finalizeVendor`, not a DB constraint. It only affects two hosts of the *same* event racing on *white soft-holds* (no money, self-correcting), is explicitly owner-accepted-for-V1 in a code comment, and a proper DB fix needs a stored `plan_group` column or an `pg_advisory_xact_lock`-wrapped RPC — more work than its blast radius warrants today. Left as a documented V1.x item.
+
+**SPEC IMPACT:** None to product behavior. Architecture note → `DECISION_LOG.md` (the conflict-architecture lock's "build DB guards before two-way features" item is now satisfied for all shipped two-way surfaces except the flagged hard-single); memory `project_setnayan_conflict_architecture` updated with the re-audit outcome.
+
+---
+
+## 2026-06-13 · fix(vendor): stacked-cost worked example used the retired ₱1,999/28d Pro price
+
+`app/vendor-dashboard/marketing/page.tsx` `StackedExample` — the only hardcoded peso figures on the page (everything else renders from `vendor_billing_catalog`). Pro Vendor corrected to the DB-canonical ₱6,000/28d (≈ ₱1,500/wk) and the example's weekly total recomputed ₱23,844 → ~₱24,883. Closes the "signed-in vendor-dashboard/marketing still shows ₱1,999/28d" leftover flagged in PR #1335. Boosted Ads ₱7,999/wk + Sponsored Boost ₱799,999/yr figures left as-is (not contradicted by any canonical source at hand).
+
+**SPEC IMPACT:** None (display copy aligned to the already-canonical DB price).
+
+---
+
+## 2026-06-13 · feat(pricing): 4-tier site-sync — locked 2026-06-07 pricing across all public surfaces
+
+**Context:** the owner-locked 2026-06-07 reprice (corpus `Pricing.md § 00` — Free–Explore ₱0 · Setnayan AI ₱3,999 · Essentials ₱12,999 · Complete ₱27,999; 19 paid SKUs, SRP ₱53,981) had landed in the DB catalogs (`platform_retail_catalog_v2` / `platform_package_catalog` / `vendor_billing_catalog`) but NOT in the public marketing copy, which still sold the three reversed pillars (§ 00.D): free-to-plan / free wedding website / free RSVP, plus the retired ₱1,499 Setnayan AI price. This PR is the pending "site-sync" flagged in `Pricing.md § 00.E` and memory `project_setnayan_pricing_tiers`.
+
+**Changes (all prices render live from the DB catalogs — zero hardcoded peso figures added to TSX):**
+- **Homepage** (`app/page.tsx`, `_components/marketing/_sections.tsx`, `_fixtures.ts`) — PricingSection re-cut from 3 cards (Couples-free / Productions / Bundles) to the 4-tier ladder (DB-priced; Essentials/Complete CTAs → onboarding, their only purchase point per owner 2026-06-08). DashboardPreview planner price now reads `SETNAYAN_AI` (was leaking the retired `TODAYS_FOCUS` ₱1,499). "Free to plan" → "Start free"; FAQ + couple-features re-scoped to the free workspace (guest list · seating · budget · schedule · mood board); vendor bullets/FAQ carry no static peso figures (DB renders them on /for-vendors). Restored-JSON-LD featureList: "Free guest list & RSVP management" → free-claims only on actually-free tools.
+- **/pricing** (`app/pricing/page.tsx`) — new 4-tier overview section (display-only; bundles stay onboarding-only) + tier `Product`/`Offer` JSON-LD re-listed for GEO coherence (offer URL = `/onboarding/wedding`). "Free website. Free QR. Free forever." → "Start free." workspace card. Metadata/OG scrubbed of free-website claims. Stale "BIR receipts" → "itemized receipts"; "Pro Website" → "Editorial Website".
+- **/for-vendors** (`page-tail.tsx`) — "Is the planning really free?" FAQ no longer promises RSVP/QR-invitations free; fallback money-FAQ renamed Pro Website → Editorial Website. (Offer JSON-LD already DB-driven — untouched.)
+- **/about** — metadata + FACTS + body: "Free for couples" → "Free to start" with the workspace enumerated (RSVP dropped from free lists). FAQPage JSON-LD inherits the lib/help.ts fixes.
+- **/waitlist** — "Free wedding website…" bullet de-freed; free bullet now lists only the workspace.
+- **/how-it-works** — "Plan one wedding, free" card body re-scoped (invitations + day-of experience removed from the free claim).
+- **/signup** — "Guest list + RSVP · free" and "BIR-stamped receipts" bullets replaced (the latter per the #1316 claims purge); "Free planning forever" → "The planning workspace is free"; metadata softened.
+- **/privacy** — uncanonical Patiktok "₱1,999/day Personal / ₱999/day Setnayan" tier prices stripped (tier names kept; prices live on /pricing).
+- **`lib/help.ts`** — cost / is-it-free / Setnayan-AI / Papic / Panood articles realigned to § 00 (cascades into /help pages + /about FAQPage JSON-LD). Setnayan AI described as the assisted-planning tier at ₱3,999.
+- **`lib/v2-catalog.ts`** — `getCustomerSkuPrice` now honors `is_active` so a retired SKU can never leak a stale price onto a marketing surface.
+- **`public/llms.txt`** — full reprice: 4 planning tiers added; à-la-carte re-cut to the 19 live SKUs (Indoor Blueprint · Call-Time Escalator · Pro Website · High Res Archive retired); vendor subs corrected to the DB-canonical Pro ₱6,000/28d (₱60,000/yr) · Enterprise ₱10,000/28d (₱100,000/yr); token packs corrected to the flat ₱100/token ladder (₱400–₱10,000); Free vendor tier dropped from the public table (not marketplace-searchable per the 2026-06-07 capability matrix).
+
+**DB:** NO migration needed — prod catalogs already carry § 00 in full (verified live: 19 active customer SKUs, 3 removed SKUs `is_active=false`, GUIDED_PACK ₱12,999 / MEDIA_PACK ₱27,999, vendor subs + flat-₱100 packs). The brief's vendor figures (Pro ₱2,499 / Ent ₱5,499, ₱250-token packs) are pre-reprice corpus values — DB + live site win per the source-of-truth order (DECISION_LOG 2026-06-09 "already canonical at HEAD so NO reprice").
+
+**Known leftover (flagged, untouched):** the DB carries BOTH `RSVP_PRO_WEBSITE` "RSVP Pro" ₱4,499 AND `PRO_RSVP` "Pro RSVP" ₱1,999 active while base `RSVP_WEBSITE` ₱2,499 is inactive — § 00.B says RSVP ₱2,499 + RSVP Pro ₱4,499. llms.txt mirrors the DB; the naming collision needs an owner call. Signed-in `vendor-dashboard/marketing` still shows "₱1,999/28d" Pro copy (non-public, out of scope here).
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · `next build` passes.
+
+**SPEC IMPACT:** `Pricing.md § 00.E` site-sync → SHIPPED (corpus edit left to the parent session per worktree instruction — log a DECISION_LOG ship row + flip the § 00.E "site-sync PR pending" note). Memory `project_setnayan_pricing_tiers` "site-sync pending" flag clearable once merged.
+
+## 2026-06-13 · fix(geo): restore the dropped homepage JSON-LD graph + lead the entity description with the moat
+
+**Context:** An audit of how Google AI Mode describes setnayan.com found it parroting a generic "guest list + QR + seating + marketplace" summary — never naming the differentiated capture/media layer (Papic, Panood, Setnayan AI, Pakanta). Root cause traced to two things AI answer engines ground on:
+
+1. **The homepage JSON-LD graph was silently dropped.** The v2.1 marketing port (`e0a739b8`) replaced the homepage composition but its file header (lines 40-42) still *claims* to emit "Organization + WebSite + BreadcrumbList + SoftwareApplication" — the graph emits nowhere. Only the layout-level basic `Organization` survived, so the homepage named **zero products** to crawlers, and the site-wide `${SITE_URL}/#website` node that `/about` references via `isPartOf` was left **dangling** (defined nowhere on the site).
+2. **The `Organization` description led with the generic framing** ("free tools, 0% commission, verified suppliers") — almost verbatim what AI Mode echoed back.
+
+**Changes:**
+- `app/page.tsx` — restored a clean homepage graph: a `WebSite` node (canonical `#website`, fixes the dangling `/about` ref) + a `SoftwareApplication` whose `featureList` enumerates the moat (Papic auto-tagged galleries + personal reels, Panood livestream, Setnayan AI, Pakanta, Animated Monogram) + a ₱0 baseline `Offer`. **Facts only — no SKU prices** (those drift; `/pricing` stays source of truth). Hero left untouched (v2.1-locked per [[feedback_setnayan_button_preservation]]).
+- `app/layout.tsx` — rewrote the global `Organization` `description` to lead with the capture/media moat before the (kept) 0%-commission + PH-cities SEO keywords.
+- `public/llms.txt` — added one sentence to the summary blockquote (the most-quoted line) naming the signature day-of services. The rest of the file was already comprehensive (refreshed earlier today).
+- `app/about/page.tsx` — owner set the "best in market" goal and chose the positioning anchor (2026-06-13): **PH-first, proof-stacked.** Because AI engines discount self-praise and only repeat *corroborated* superlatives, the play is to own a precisely-scoped category we're genuinely #1 in rather than claim a bare "best." The `/about` hero + meta now assert: *"the Philippines' own all-in-one wedding & life-events platform — and the first built here to plan the event, run a 0%-commission marketplace of verified local vendors, and capture the day so every guest goes home with their own highlight reel,"* plus a *"not a foreign directory with a Philippine filter"* wedge. Only TRUE first/only claims (no unprovable "best" puffery, which AI ignores anyway and which the public-claims-purge lesson warns against). Off-site corroboration (directories, "best of" press, reviews) is the real lever and is owner-actioned — tracked separately.
+
+**Why it's not a clone-risk:** everything named is already on the public `/features` + `/pricing` + `/help` surfaces — this only makes machines describe what couples already see. The real moat (render pipeline, face-tagging params, owned music catalogue, marketplace liquidity) stays in private code/infra and is never in public copy.
+
+**SPEC IMPACT:** None on schema. Adds a standing public-surface hygiene principle to DECISION_LOG (benefits in public copy; implementation/architecture never) — the actual clone-risk reducer.
+## 2026-06-13 · feat(social): auto-publish Phase C — TikTok (photo mode) + 9:16 story card format
+
+**Context:** owner directive to sync the app to Facebook/Instagram/TikTok. Phase C (corpus § 8.5) brings TikTok in and adds the portrait card format. Builds on Phase B (#1322). No migration (`tiktok_enabled` already on `social_publish_settings`).
+
+- **9:16 story card format:** `renderSocialCardJpeg(ctx, format)` now takes `'square'` (1080×1080, unchanged/byte-identical default) or `'story'` (1080×1920). The centered-column layouts adapt; the custom-monogram composite top is **derived** (`squareTop + (height − 1080)/2`), not a second magic number — verified the A&M mark stays centered in its ring on the taller canvas. Route gains `?format=story`; `socialCardUrl(postId, 'story')` appends it (default URL unchanged so FB/IG keep their square cards).
+- **TikTok adapter (`lib/social/tiktok.ts`):** `isTikTokConfigured()` + `postPhotoToTikTok()` — Content Posting API **Photo Mode** (`POST /v2/post/publish/content/init/`, `post_mode: DIRECT_POST`, `media_type: PHOTO`, `source: PULL_FROM_URL` with the 9:16 card URL, `auto_add_music`). Never-throws, 15-s timeout, title ≤90 / caption ≤4000. Async publish → returns `publish_id`, no synchronous permalink. **Real MP4/Reels video is explicitly Phase D** (needs a render pipeline) — marked in-code.
+- **Dispatch:** `dispatchDuePosts` gains a TikTok leg (story card) — fires only when `tiktok_enabled && isTikTokConfigured()`. When enabled-but-unconfigured (the realistic pre-audit state) the leg is **skipped, never failed** — FB/IG still publish.
+- **Assisted-manual mode (the default until audit + OAuth land):** when `tiktok_enabled && !isTikTokConfigured()`, the Autopilot chip reads "assisted (audit pending)" and a **"TikTok — ready to post manually"** panel lists recent posts with a 9:16 card preview, a select-all caption block, and a "Download 9:16 card" link — the 30-second manual-post affordance. TikTok is now a real settings checkbox. Env banner points to API checklist #21c.
+- **`.env.example`:** `TIKTOK_ACCESS_TOKEN` added (per-account OAuth token; needs Content Posting API audit + a verified PULL_FROM_URL domain; token-refresh wiring is a follow-on).
+
+**Verification:** `tsc --noEmit` + `next lint` clean. Both formats rendered locally and dimension-confirmed (square 1080×1080, story 1080×1920); 9:16 visually confirmed on-brand. TikTok auto-posting stays inert until the owner completes the audit + OAuth; assisted-manual works immediately once `tiktok_enabled` is on.
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5 Phase C → BUILT (assisted-manual; auto-post gated on audit/OAuth) + DECISION_LOG ship row. Video Reels carried forward as Phase D.
+## 2026-06-13 · feat(papic): NSFW screening on all capture ingest paths — clip (poster-frame) coverage closes the last gap
+
+**Context:** the 2026-06-11 app-store-readiness audit flagged the corpus hard constraint "NSFW filter is on by default and CANNOT be disabled" (Apple 1.2 proactive UGC filter). Audit of `apps/web` found the filter mostly SHIPPED already (PR #1244 engine + both photo ingest paths + display gates); the one real gap was **video clips** — `lib/nsfw-screen.ts` skipped `photo_type='clip'` entirely, so clips entering via the camera-bridge path stayed `'unscreened'` forever with no quarantine signal.
+
+**Audit result (already screened before this change):** paparazzi seat photos (`app/papic/actions.ts` → `screenCapture` in `after()`), guest disposable-camera photos (`app/api/papic/guest-capture/route.ts`, image-only by design), camera-bridge deliveries (funnel through `recordSeatCapture`), Live Wall (`wall_ingest` SECURITY DEFINER allowlist — fail-closed, `'unscreened'` never projects, clips excluded), guest live gallery (allowlist `'clean'`, photos only), public editorial page (blocklist on `nsfw_blocked`/`*_withheld`, hero excludes clips), couple moderation page (quarantine review + single-item Approve override). No reels builder exists yet. No NSFW toggle exists anywhere — kept that way.
+
+**What changed (clip coverage via poster frame — nsfwjs is image-only, the lambda has no ffmpeg):**
+- `supabase/migrations/20261208000000_papic_clip_poster_nsfw.sql` — `papic_photos.poster_r2_key TEXT` (the clip's screening proxy). **Applied to prod** statement-by-statement via `supabase db query` + manual ledger row (ledger drift from parallel sessions blocked `db push`, per standing memory).
+- `lib/clip-poster.ts` (new, browser-only) — extracts one ≤640px JPEG poster from recorded clip bytes (off-DOM `<video>` → seek 0.5s → canvas), 5s timeout, never throws, null on any trouble.
+- `lib/camera-bridge/papic-sink.ts` — optional `extractPoster` dep + poster presign/PUT leg in `deliverCapture` + `posterUploadMeta`; `record()` gains optional `posterR2Ref`. Poster leg is STRICTLY fail-open: no poster failure ever loses or blocks a capture.
+- `app/papic/actions.ts` — `recordSeatCapture` accepts `posterR2Key` (clips only), stores it on the row, retries without it on pre-migration `PGRST204`.
+- `lib/nsfw-screen.ts` — `screenCapture` now screens clips by classifying the POSTER bytes and landing the verdict in the clip row's `moderation_state`; clips with no poster stay `'unscreened'` (and clips are structurally excluded from every guest-facing surface, so unscreened clips never reach guests).
+- Browser wiring: `camera-bridge-panel.tsx` + offline drain `camera-bridge-handler.ts` pass the poster ref through (the drain runs in-browser, so queued clips get posters at drain time).
+- Moderation page — flagged clips render their poster thumbnail with a "Filtered clip" badge; copy now says "every photo and clip".
+- Tests: `lib/camera-bridge/papic-sink.test.ts` (9 new; 75 total pass) — poster recorded on success, fail-open on extract-null/extract-throw/poster-presign-fail/poster-PUT-fail, stills never extract, backwards-compatible without the dep, main-leg failure short-circuits the poster leg.
+
+**Known limitation (documented, accepted):** clips are screened by ONE poster frame, not frame-by-frame — explicit content appearing mid-clip but not in the poster passes the automated screen (couple Hide/Report/Block still covers it). Legacy clips (pre-poster) and posters that fail to extract stay `'unscreened'`, which all guest surfaces already exclude for clips.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · 75/75 unit tests pass.
+
+**SPEC IMPACT:** none on the corpus constraint itself (the "NSFW filter on by default, cannot be disabled" lock is now fully true in code, clips included). Spec corpus note for 0012 Papic — clip screening = poster-frame proxy — left to the parent session per its instruction (no corpus edits from this worktree).
+## 2026-06-13 · feat(email): security_alert template wired to password + session events
+
+**Context:** the account-security suite (#1262) shipped change-password / reset-password / sign-out-other-devices, and a 2026-06-12 follow-up had already wired inline `security_alert` emits on the two password events — but the copy was duplicated across two call sites, and "Sign out other devices" deliberately emitted nothing.
+
+- **New `lib/security-alert.ts`:** centralized `emitSecurityAlert()` template — single subject **"Security alert on your Setnayan account"**, body = what happened (per event type) → when (Asia/Manila timestamp) → "If this was you, no action is needed" → "If this wasn't you, reset your password immediately" with the `/forgot-password` link. Delivery rides the standard `emitNotification` funnel (in-app row + plaintext Resend email with the funnel's standard "Manage notifications" footer + Web Push — `security_alert` is already on the high-signal push allowlist). No bespoke email path invented; the module only owns the copy.
+- **Three triggers, all non-blocking via Next 15 `after()`:** `password_changed` (`lib/account-security-actions.ts` · changePassword, refactored from inline copy) · `password_reset` (`app/reset-password/actions.ts` · completePasswordReset, refactored from inline copy) · **`sessions_revoked` (NEW)** on `signOutOtherDevices`.
+- **⚠ Decision reversal surfaced for owner:** the 2026-06-12 comment said sign-out-others "intentionally does NOT emit — it's the remedy, not the threat". Reversed here: if an intruder uses that button to kick the real owner's devices out, the alert is the owner's only signal — same reasoning behind major providers' session-revocation notices. Flagged in the PR for sign-off.
+- No migration — the `security_alert` notification enum value already landed (`20261120000311_notification_type_security_alert.sql`).
+
+**Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the three changed files.
+
+**SPEC IMPACT:** iteration `0028_email_notifications` template #10 (`security_alert`) is now BUILT with three triggers (the spec listed the template; trigger wiring is the as-built delta). Parent session to mark in the corpus + close the "open: security_alert email" item in memory `project_setnayan_account_security`.
+## 2026-06-13 · fix(budget): exclude linked-only services from budget median
+
+**Context:** open item from the linked-services program (#1187): migration `20261014000000_vendor_service_links.sql` § 2 added `vendor_services.is_linked_only` (TRUE = listing exists only as an auto-covered linked component, no standalone market price) and explicitly deferred "wiring the median consumer to read it". That follow-up was never done, so linked-only placeholder rows were depressing the couple-facing budget planner's per-leaf market stats.
+
+- **`lib/budget-allocation-data.ts` · `fetchLeafMedians()`:** added `.eq('is_linked_only', false)` to the `vendor_services` solo-price query. This single query feeds **all five** per-leaf market stats (`median` · `count` · `min` · `p25` · `p75`), so the one filter cleans the median AND the sibling aggregates shown to couples (band ranges, thin-data sample counts that drive the benchmark-vs-median blend).
+- Audited the other aggregates for the same contamination: `lib/admin/growth-stats.ts` medians are conversion-day medians (not prices) and its `vendor_services` head-count is an admin inventory metric; `lib/budget.ts` service-fallback lines are per-(couple's own vendor) price surfacing, not market aggregation. No other consumer needed the filter.
+- No migration needed — the column already exists on prod with `DEFAULT FALSE`; this is purely the deferred consumer-side wiring.
+
+**Verification:** `npx tsc --noEmit` clean (app code) + `next lint` clean on the changed file.
+
+**SPEC IMPACT:** closes the "budget median needs `WHERE is_linked_only=FALSE`" open item tracked in the linked-services/demo-coverage workstream (memory `project_setnayan_linked_services_and_demo_coverage`). Parent session to mark it resolved in the corpus.
+## 2026-06-13 · feat(marketing): premium couple-centric homepage redesign + responsive marketing system
+
+**Context:** owner brief 2026-06-13 — "One App, Less Drama" positioning pass. Homepage becomes **strictly couple-centric** (vendor pitch moves to a high-contrast pre-footer band + /for-vendors); hero leads with the emotional hook "Goodbye, Viber chaos. Hello, Set na 'yan."; the whole marketing surface gets a fluid-responsive type/padding system so it reads premium on phones, not just desktops.
+
+- **`globals.css`:** new marketing layout primitives — `.m-section` (clamp() fluid section padding, replaces hardcoded `px-14` + inline `paddingTop: 120`) and `.m-h-xl/lg/md` (clamp() display headings, replace inline `fontSize: 64–96px` that overflowed phones).
+- **Hero (`_sections.tsx`):** new headline pair — serif italic "Goodbye, Viber chaos." + display "Hello, Set na 'yan." Subhead leads with "Plan your Filipino wedding without the twelve spreadsheets." HeroCollage gains a **chaos layer** (tilted washed-out Viber/Budget_v8.xlsx/GCash-receipt chips peeking from behind the clean dashboard card — the brief's messy-vs-clean split visual). Hero secondary CTA is now "See how it works ↓" (anchors to `#bakit-setnayan`); the "I'm a vendor →" hero button moved to the VendorBand.
+- **Nav:** mobile/tablet hamburger menu (new client island `_nav-mobile.tsx` — links + Sign in + Start planning sheet under the sticky nav; below `lg` there was previously NO way to reach nav links). Desktop links now `lg`+, search pill `xl`+.
+- **ProblemSection:** re-eyebrowed "Bakit Setnayan?", `id="bakit-setnayan"` anchor, chaos→one-place arrow rotates vertical on mobile with reserved space.
+- **TwoSides → ForCouples:** the vendor half of the old side-by-side is gone from the homepage (couple-centric directive). COUPLE_FEATURES now renders as a 3-col lifted-card grid. `VENDOR_FEATURES` fixture retained (unused by homepage).
+- **NEW VendorBand** (pre-footer, mulberry, full-bleed link): "Are you an event vendor? Run your business here →" + mono proof points (0% commission · free verified badge · one calendar, zero double-bookings). ClosingCTA drops its vendor ghost button (single doorway).
+- **All other sections** (Marketplace / OnTheDay / PersonalSite / DashboardPreview / Pricing / FAQ / Closing / Footer / PromoBar): converted to the fluid `.m-section` + `.m-h-*` system; footer goes 2-col on mobile; promo bar drops detail sentence below `sm`.
+- **/for-vendors:** hero section padding fluid; **operational-wins strip** added under the hero (The ultimate calendar · 0% commission · Verified badge — free · Automated bookings — the four switch-from-Viber reasons, per the brief); 5 fixed `fontSize: 36–44` headings in the deep dive → clamp(); VendorNav made responsive (was fixed `padding: 18px 56px`, wordmark wrapped to 3 lines on phones).
+- **Compliance fix while in the file:** vendor-hero pipeline card claimed "BIR ORs auto-stamped · 24h disbursement" — violates the #1316 BIR-claims purge AND the standing vendor-payment-disclosure rule (Setnayan never holds vendor money). Now: "₱228K · 2 bookings paid / Paid straight to you · Setnayan never holds your money".
+
+**Verification:** `tsc --noEmit` + `next lint` clean on all touched files. Visual pass on local dev (desktop 1280 + mobile 375): hero chaos-vs-clean collage, hamburger menu open/close, Bakit-Setnayan arrow, VendorBand, footer 2-col, /for-vendors wins strip + nav. Production build run locally before PR.
+
+**SPEC IMPACT:** corpus `0015_main_website` describes the pre-redesign homepage — superseded-by-live per the 2026-06-07 source-of-truth flip; logged as a DECISION_LOG row (homepage couple-centric + VendorBand + hero copy) rather than a spec rewrite.
+
+## 2026-06-13 · fix(seo/content): finish the BIR-claim purge #1316 missed (3 public surfaces)
+
+**Context:** Triggered by an audit of how Google AI Mode describes setnayan.com. While verifying payment-claim exposure, found that PR #1316 (merged earlier today) purged "BIR-compliant OR / 12% VAT" claims from `/features` but **left "BIR receipts" wording on three public surfaces it didn't touch.** Applied the canonical line #1316 established (keep "itemized receipts", drop "BIR").
+
+- `app/for-vendors/page.tsx` — Free-listing `Offer` JSON-LD description: "calendar + BIR receipts" → "calendar + itemized receipts" (this string is machine-read by AI engines, so it mattered most).
+- `app/pricing/page.tsx` — footer line: "BIR receipts on every software purchase" → "itemized receipts on every software purchase".
+- `app/privacy/page.tsx` — page metadata description: "vendor data, BIR receipts, and DPO contact" → "vendor data, receipts, and DPO contact".
+
+**Surfaced, NOT changed (needs owner sign-off):** `app/terms/page.tsx`, the supplies `cart-drawer.tsx`, and the `admin/payments` engine still compute + display a **12% VAT** line. #1316 deliberately left these alone because they are the *actual checkout tax treatment*, not a marketing claim — and the 0026 spec says V1 launches **non-VAT** (percentage tax). Removing them changes the price math customers see, so it's a tax-registration decision, not a copy edit.
+
+**SPEC IMPACT:** None on schema. Reinforces the public-claims-purge decision (DECISION_LOG #1316). The VAT-vs-non-VAT checkout question is logged for owner resolution.
+## 2026-06-13 · feat(social): auto-publish Phase B — branded card renderer + Instagram feed posting
+
+**Context:** owner directive to sync the app to Facebook/Instagram/TikTok. Phase B (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5) gives every auto-post a branded 1080×1080 image and turns on Instagram. Builds on Phase A (#1311). No migration — pure code on the existing `social_posts` substrate.
+
+- **Renderer (`lib/social/card.tsx`): satori (JSX→SVG with explicit font buffers) + sharp (SVG→JPEG).** satori added as a dep — its explicit-font-buffer model is deterministic on Vercel serverless (avoids librsvg/fontconfig flakiness). Five Clean-Editorial layouts (couple_creation · vendor_feature · milestone · announcement · evergreen) on cream with a champagne-gold frame, Cardo display serif + Poppins body + Great Vibes script (static TTFs bundled under `lib/social/fonts/` — satori rejects variable fonts; Cardo substitutes for variable-only Cormorant). Custom monograms (`events.monogram_custom_svg`) are rasterized via sharp and composited into a reserved slot; text monograms render in-layout.
+- **On-the-fly card route (`/api/social/card/[postId]`):** public GET, renders from the `social_posts` row (+ consent→event / vendor joins), `Cache-Control: immutable`, 404 on missing row, cream-wordmark fallback card on any error so a Graph fetch never gets a broken image. Zero storage cost (no R2 write); also powers the live `<img>` previews now shown in the admin queue.
+- **Instagram adapter (`lib/social/instagram.ts`):** `isInstagramConfigured()` + `postToInstagramFeed()` — Graph v21.0 two-step (`/media` container → `/media_publish`) + permalink fetch, never-throws, 15-s timeouts, caption clamped to 2200. Needs `IG_USER_ID` (IG Business account linked to the Page; same `META_PAGE_ACCESS_TOKEN` with `instagram_content_publish`).
+- **Multi-platform dispatch (`flush.ts`):** `dispatchFacebook` → `dispatchDuePosts`, now selecting `instagram_enabled`; fires when autopublish AND (FB live OR IG live). Per row `effectiveMedia = media_url || socialCardUrl(post_id)`, posts to each enabled+configured platform, merges `platform_results.{facebook,instagram}`, status `published` if any leg succeeds, source stamps prefer the FB permalink then IG. **FB-only behavior preserved exactly when IG is off** — and FB posts now ride the branded card as photo posts (better reach) for free.
+- **Admin queue:** Instagram is a live chip (off / live / awaiting-env) with an enabled checkbox + env banner; card previews on Scheduled/Published/Failed; FB+IG permalinks on published rows. `.env.example` gains the Meta block (`META_PAGE_ID`/`META_PAGE_ACCESS_TOKEN` were never added) + `IG_USER_ID`.
+- **Out of scope (next):** Reels/TikTok video (1080×1920) — feed cards only.
+
+**Verification:** `pnpm exec tsc --noEmit` + `next lint` clean. All 5 card types rendered locally to valid 1080×1080 JPEGs and visually confirmed on-brand (gold frame, serif headline, SETNAYAN + "Set na 'yan." wordmark). Activation still gated on the master switch + Meta env (+ `IG_USER_ID` for Instagram).
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5 Phase B → BUILT + DECISION_LOG ship row.
+## 2026-06-13 · feat(vendor-portal): host⇄vendor data link — timeline lens · caterer production sheet · proposal auto-fill (data-link program ①②③, all rule-based, zero LLM)
+
+**Context:** owner-requested Vendor Portal expansion (corpus `03_Strategy/Vendor_Portal_Event_Data_Link_2026-06-13.md`) — three deterministic links between the couple's live event data and the booked vendor's dashboard, built as deltas on the shipped feature-access program (#1296 Brief · #1305 timeline+Suggest+seat-plan). No LLM inference anywhere; every number is SQL aggregation or TS arithmetic.
+
+- **① Timeline relevance lens** — new pure-TS `lib/vendor-timeline.ts`: static `schedule_block_type × event_vendors.category` relevance map (primary/supporting/context) + regex keyword fallback for `custom` blocks + `deriveCallTime` (earliest primary slot minus per-category setup lead). Brief page (`/vendor-dashboard/clients/[eventId]`) gets Full-timeline/My-slots-only toggle (`?lens=mine`), "Your slot" chips, left-border relevance accents, and a "Suggested call time" banner whose one-tap form routes through the EXISTING Suggest flow (vendors still never write the timeline — D2 full-visibility lock respected: the lens highlights, never hides). `.ics` route gains `?mine=1` (same rule base; booked categories resolved via the Brief RPC since vendors can't read `event_vendors`).
+- **② Caterer Production Sheet** — migration `20261208003000_vendor_portion_rules_catering_metrics.sql`: (a) `vendor_portion_rules` (per-ORG per-head ratios: label/unit/qty_per_guest/meal-subset/block-scope/basis/waste%, RLS = org CRUD via `current_vendor_profile_ids()`, reused across events); (b) `get_vendor_catering_metrics(event_id)` SECURITY DEFINER RPC — same booked + food-category gate + counts-only PII guard as the Brief: 3 headcount scenarios (confirmed/expected/ceiling), meal mix incl. explicit `unspecified`, per-`invited_to_blocks` pax (all 3 scenarios per block), dietary-restriction COUNT, `as_of` freshness stamp, provisional/final flag (final when pending+maybe=0 OR event ≤7 days out). New page `/vendor-dashboard/clients/[eventId]/production-sheet`: scenario cards, meal mix, per-part-of-day pax, ingredient-totals table (`ceil(count × qty × (1+waste%))` — vendor-authored quantities only, nothing estimated), portion-rule add/delete, print CSS. Linked from the Brief's Meals card.
+- **③ Proposal auto-fill** — migration `20261208006000_vendor_proposals.sql`: `vendor_proposal_templates` (org CRUD) + `vendor_proposals` (public_id prefix `J`; INSERT gated to `current_vendor_booked_event_ids()` + draft-only; vendor UPDATE/DELETE drafts only — sent rows are vendor-immutable; couple/delegate SELECT non-drafts) + `respond_vendor_proposal()` RPC (couple accept/decline, status-flip-never-delete). New `lib/vendor-proposals.ts` resolver: 14 `{{merge_tokens}}` (couple_name/event_date/venue/guest counts/meal_breakdown/table_count/my_slot/call_time/package_*) resolved ONLY from the two already-authorized RPCs + the vendor's own `vendor_packages`; unresolved tokens render an explicit "⟨not yet shared by couple⟩" chip, never guessed. Surfaces: `/vendor-dashboard/proposals` (template editor w/ token reference, new-proposal form for booked clients, status list; sidebar + /more nav entries), shared `/proposals/[publicId]` detail+print page (RLS decides the viewer; vendor Send/Delete on drafts; couple Accept/Decline; snapshot freezes on send — "details as of {date} · N confirmed guests"; standing payment-disclosure footer: pay vendor directly, Setnayan never holds money), couple card on the vendor workspace (renders only when proposals exist; graceful-degrade pre-migration). New shared `components/print-button.tsx`.
+- **V1 scope guards:** proposals are BOOKED-clients-only at the DB gate — inquiry-stage proposals parked pending the owner's proposal=answer (burn-to-answer) ruling. All three components free on every tier (reach-not-features). Block-vendor pin column + couple "Lock guest list" remain designed-not-built (Phase B sign-offs).
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · production build green. Migrations applied to prod in-session (see below).
+
+**SPEC IMPACT:** `03_Strategy/Vendor_Portal_Event_Data_Link_2026-06-13.md` build-state updated (designed → shipped); decision-log row appended; memory `project_setnayan_vendor_feature_access_map` updated.
+
+## 2026-06-13 · fix(migrations): resolve duplicate timestamp 20261206000000 blocking all PR merges
+
+**Context:** two parallel sessions merged migrations with the **same** 14-digit timestamp — `20261206000000_iteration_0008_auto_arrange.sql` (PR #1318) and `20261206000000_thread_service_interests.sql`. Each PR's CI was green because neither branch contained the other's file; once both landed on `main`, the `migration timestamp guard` job started failing on **every** open PR, blocking all merges across the repo.
+
+- **Renamed `20261206000000_thread_service_interests.sql` → `20261207000000_thread_service_interests.sql`** (the ledger-safe choice — verified against the prod migration ledger: `supabase_migrations.schema_migrations` shows version `20261206000000` is already applied as `iteration_0008_auto_arrange`, while `thread_service_interests` is **not applied** and never could be under that version, since `version` is the ledger PK). Renaming the unapplied migration carries **zero ledger drift**; auto_arrange (live on prod) is untouched.
+- Updated the migration's internal header comment to the new filename with a one-line note on why it moved.
+- `node scripts/check-migration-timestamps.mjs` now passes: 339 migrations, all unique prefixes.
+- `20261207000000` is past the last existing migration (`20261205000000_event_type_vocab_dynamic.sql` + the 20261206 pair), so ordering is preserved — this migration still applies after auto_arrange.
+
+**Verification:** migration-timestamp guard script green locally (339 unique). The renamed migration will apply fresh on the next `supabase db push --db-url` (it was never applied under the old name).
+
+**SPEC IMPACT:** None — pure migration-file rename to clear a CI/ledger collision. No schema, no DDL change, no spec surface affected.
+## 2026-06-13 · refactor(home): revive free "Today's one thing" focus hero + tear down the retired wizard render layer (74 files, ~15.2K lines)
+
+**Context:** Owner follow-up to the stale-claim purge — "if there are still formulas on Today's Focus that still work, bring them to Setnayan AI if it fits, or if they can be free, move to free." Audited every computational "formula" from the retired Today's Focus / Setnayan AI wizard. Finding: the valuable formulas were already migrated (statutory deadlines + recommended deadlines + roadmap → FREE in `lib/upcoming-items.ts` + `lib/wedding-roadmap.ts`; vendor-matching → Setnayan AI layer + free in onboarding/search). The one working-but-dormant formula with untapped free value was `pickTodaysOneThing`. Two owner decisions: revive it free, and delete the retired wizard.
+
+- **Revived `pickTodaysOneThing` as a FREE single-focus hero** on event-home. The resolver (pure hard-floor deadline math, ₱0, no AI) picks the host's #1 most-urgent unlocked task (overdue → due-this-week → next-up → not-started, foundation-tier tiebreak). The legacy `_components/todays-one-thing.tsx` hero (3 variants, already on disk) is re-wired in `app/dashboard/[eventId]/page.tsx` between the countdown header and the "Things to complete" roadmap. Gated to firm dates (`event_date_precision === 'day'`) and hidden in Manual mode; only the resolved-task variant renders (no-date / all-locked edge states stay covered by the countdown + roadmap, so no double-surfacing).
+- **Deleted the retired wizard RENDER layer (74 files):** `wizard-hero.tsx`, `wizard-carousel.tsx`, `wizard-card.tsx`, the entire `wizard-cards/` directory (70 cards), and `in-flight-tray.tsx`. Verified self-contained — `wizard-hero` was the sole entry point and nothing live rendered it (the `/today` route already redirects since 2026-06-03).
+- **Scope correction (surfaced to owner):** "delete ALL retired wizard code" could NOT be taken literally — `lib/wizard.ts` (imported by `pakanta-actions`), `lib/planner.ts` (imported by event-home `page.tsx` + `actions.ts` for the 9-step journey), and `wizard-actions.ts` (imported by the live mood board for `uploadMoodboardSlot`/`removeMoodboardSlot`) are load-bearing for live features and were KEPT. They now carry some dead exports (the card-only helpers) — a safe optional follow-up prune. Updated the `/today` redirect comment to reflect the deletion.
+
+**Verification:** `pnpm typecheck` (2/2 packages) + `pnpm lint` (2/2, only pre-existing warnings in untouched files) both GREEN in a fresh worktree off origin/main after the deletion — no dangling imports, revival props type-check. Post-delete repo sweep: zero code references to the deleted paths (comments only).
+
+**SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). The "Today's Focus retired" decision (memory + DECISION_LOG) is amended: the single-focus `pickTodaysOneThing` hero is back (free), and the wizard render layer is gone (no longer "left on disk as quick-revert"). The paid 65-card wizard surface stays retired; no pricing/SKU change. None for the corpus beyond the log row.
+
+## 2026-06-13 · feat(seating): change a table's style after the fact · stage/dance dimensions in metres · easier banquet connect
+
+Three owner-directed seat-plan editor additions (2026-06-13):
+
+- **Change table style** ("they picked long table, then decided to make them round tables — give them the right to do so"). The per-table popup gains a **Style** dropdown (full catalog grouped by shape: round / long banquet / family head / sweetheart / serpentine). New `updateTableType` action resets capacity to the new shape, clears deleted-chair state, and returns any guest sitting in a chair the new (smaller) shape lacks to the unseated pool — the notice reports how many. Position + label are kept.
+- **Stage & dance-floor dimensions in metres.** When a room size is set, the Room panel shows Stage W/L and Dance W/L numeric inputs (metres), converting against the venue dimensions (a 24%-wide stage in a 20 m room reads 4.8 m; typing 8 m sets it to 40%). Free-size venues have no metre scale, so there the drag grips remain the way to size them.
+- **Easier banquet/family-head connect.** The rect end-to-end snap catch radius was a flat 36 px — almost impossible to hit by hand, since a family-head's flush join sits a whole tabletop-length (~250 px) from the neighbour's centre. It now scales with the moving table's half-length (`max(40, halfLen·0.9)`), so dragging two long tables roughly end-to-end snaps them flush. (This compounds with the same-day catapult fix, which previously flung a table away before it reached the join.)
+
+**Verification:** 42/42 pure-logic tests (1 new: the scaled tolerance catches a half-table-short drag the 36 px default misses, still landing flush). `tsc` clean. Live on the demo event: changed round "Barkada" → long banquet (capacity 8) and reverted; Stage W = 8 m in a 20 m room set the stage to 40%; Style dropdown lists all 11 catalog types. No demo data left changed.
+
+**SPEC IMPACT:** iteration 0008 — tables are now re-styleable post-creation and the stage/dance floor carry metre dimensions; logged in DECISION_LOG.
+
+## 2026-06-13 · fix(seating): tables no longer catapult across the room on the first pixel of a drag (worst on round + sweetheart)
+
+**Context:** owner — "round tables and sweetheart table still move to the right when clicked. we want the same as the long table and serpentine tables." Reproduced on the demo event: a 6–8px nudge flung round "Sponsors 1" 63% of the canvas, "Barkada" 56%, Sweethearts 39%, while the rectangular Family Head barely moved (14%).
+
+- **Root cause:** the interactive drag ran the overlap resolver (`nearestFree`) on every pointer-move. If the grabbed table already touched a neighbour, the very first move spiralled it outward to the nearest clear spot — a big sideways jump. It hit round/sweetheart hardest (they collide with everything) and was invisible on banquet/serpentine (same-kind collision is exempt and they snap to joints, both of which bypass the resolver).
+- **Fix:** during a drag the table now follows the cursor directly (alignment + grid snap still applied; chain/kiss snap still applies for connecting). The resolver is no longer run per-move, so nothing teleports. The mount-time auto-place still gives un-positioned tables a non-overlapping home, so nothing lands stacked on load; couples may now place tables touching on purpose.
+
+**Verification:** live on the demo event — a realistic drag of round "Sponsors 1", "Barkada" and "Sweethearts" tracks the cursor (~3% move for a ~24px drag) instead of catapulting 40–65%; instrumented the move handler to confirm the smooth `align` path runs (never the spiral). `tsc` clean.
+
+**SPEC IMPACT:** None (drag-interaction fix). Also unblocks connecting banquet/round tables — the catapult could fling a table away before it reached its neighbour to snap.
+
+## 2026-06-13 · fix(seating): free-size venues have no walls — booths & doors place freely (gardens / open fields)
+
+**Context:** owner directive — "if the place is free size, the entrance/doors doesn't need to connect to a wall. sometimes gardens, or open fields doesn't have walls." The booth feature anchored booths to the canvas EDGES as if they were walls, unconditionally — but in free-size mode (no room dimensions set) the canvas edge is just the viewport, not a wall, so a garden/field booth was being force-snapped to a non-existent wall.
+
+- **Gated the entire wall/perimeter paradigm on `venueScaled`.** Sized room (width × length set) → walls exist → booths keep the perimeter rules (snap to walls, clear of stage wall + door corridors). Free venue → no walls → booths place + drag FREELY, board-clamped like a table.
+- **`freeBoothSlots` (lib/seating.ts):** Auto Arrange + Add-booth in a free venue tuck booths into a tidy row JUST BEYOND the furthest table from the stage (behind the guests, out of the sightline), perpendicular to the stage→tables axis, centred on the stage line — free-floating, draggable anywhere after. Pure + deterministic.
+- **Booth drag** (`onCanvasPointerMove`): free venue drops the booth wherever dragged (no `clampBoothToPerimeter`); sized room unchanged.
+- **Doors were already free** (entrance / service-door markers drag with no wall-snap) — confirmed, no change needed; the directive is satisfied for doors.
+- **Copy** now branches on `venueScaled`: Add-booth tooltip + menu hint, the Auto Arrange dialog's booth step, the result notice ("behind the tables" vs "on the perimeter"), and the booth marker aria-label ("drag to move" vs "drag along the walls").
+
+**Verification:** 41/41 pure-logic tests (3 new: free row sits beyond the furthest table + centred + evenly spaced + deterministic; coordinates are free, never pinned to a 0/100 wall band; no-tables + n=0 fallbacks). `tsc` clean (pre-existing unrelated `satori` types error only). Live browser on the free-size demo event: Add-booth landed the booth behind the tables (not at a wall inset); dragging it to mid-canvas LEFT it at interior coords (64.7, 43.7) instead of snapping to a wall. Nothing persisted to the demo DB.
+
+**SPEC IMPACT:** None beyond the 0008 booth surface already logged; refines its wall model.
+
+## 2026-06-13 · feat(seating): banquet runs join end-flush + round tables kiss edge-to-edge — chaining for every chainable shape
+
+**Context:** owner follow-up after the serpentine snap shipped — "yes the connected. but the long table should also connect and the round tables." Same magnetic model, shape-appropriate joints:
+
+- **Long banquet / family head — end-to-end runs.** `rectChainSnap`: dragging a rect table near another rect's end snaps the TABLETOPS flush and collinear (position + rotation adopts the anchor's run axis; either end; banquet↔family-head mixes allowed — real head-table runs mix lengths). Chairs adjust by construction: these tables seat only along the long edges with each chair column inset half a gap from its end, so a flush seam puts the facing columns exactly ONE chair-gap apart — the same rhythm as inside a single table (test-pinned).
+- **Round — edge-to-edge kiss.** `roundKissSnap`: a dragged round pulls onto the line of centres at exactly chair-ring + chair-ring + 11px. Direction is preserved (the couple picks which side it lands on), chairs can never overlap, and the +11px keeps the pair just OUTSIDE the collision threshold so the mount-time resolver never separates a kissed cluster.
+- **Editor:** the chain-snap branch is now a shape dispatcher (serpentine → tips · rect → run ends · round → kiss; sweetheart excluded); Alt still drags free; rect snaps commit the adopted rotation on release. `overlapsAny` exemption extended to rect↔rect (flush runs overlap bounding boxes by design — same reload-stability reasoning as serpentine).
+
+**Verification:** 38/38 pure-logic tests (6 new: flush-seam exactness + rotation adoption, seam chair-gap ≥ one chair, both ends offered, kiss distance exact + direction preserved + collision-clear, null cases). `tsc` clean. Live browser check on the demo event: dragged the round "Barkada" at "Sponsors 1" — landed centre distance 228.00 world px vs expected kiss 228.00 (snapped exactly). No demo data persisted (positions client-side only; nothing saved).
+
+**SPEC IMPACT:** None beyond the 0008 as-built drift already logged with the serpentine row.
+
+## 2026-06-13 · feat(seating): serpentine wedges snap tip-to-tip — chain into an S / circle, chairs flow around the joint
+
+**Context:** owner directive with annotated screenshot — "the ends of the table must be able to snap together. connecting the serpentine … connect the tips of the tables and make sure that the chairs adjust as well." The 2026-05-09 serpentine lock always intended wedges to chain ("chain + rotate several wedges to build an S / circle / oval") but the editor had no end-to-end snapping — wedges could only be eyeballed adjacent, and the collision resolver actively pushed touching wedges apart.
+
+- **`lib/seating.ts`:** `serpentineChainSnap` — pure px-space magnetic snap. A wedge end can accept a neighbour in exactly two tangent-continuous ways, both pure rotations of the anchor (the wedge is symmetric, no mirroring): *continue the circle* (rotate ±sweep about the arc centre) or *S-bend* (rotate 180° about the end-edge midpoint). 4 candidates per neighbouring wedge; nearest within 36 px wins, deterministic. Plus `serpentineFrame` / `serpentineEndsWorld` / `SERPENTINE_SWEEP_DEG` exports.
+- **Chairs adjust by construction:** chairs are positioned per-wedge with end insets and already rotate with the wedge, so when tips meet flush the chairs flow continuously around the joint. The inner-edge inset widens 0.32 → 0.36 rad — at 0.32 the seam's facing inner chairs crowded ~4 px; at 0.36 every junction type keeps ≥ ~40 px chair-centre clearance (pinned by test).
+- **Editor:** dragging a serpentine near another wedge's end magnets position AND rotation to the joint (live, every frame); Alt drags free; the snapped rotation commits once on release via the existing `commitRotation`. `overlapsAny` exempts serpentine↔serpentine pairs — chained wedges are MEANT to touch, and without the exemption the mount-time resolver tears saved chains apart on every reload.
+- **Scope note:** physical chaining is orthogonal to the named-unit "link" feature (identity + QR) — chain tips for the shape, link for one name/sign; both compose.
+
+**Verification:** 32/32 pure-logic tests green (4 new: tips glue to <1e-6 px with only legal junction angles (±104° / 180°); both junction families offered + deterministic; no snap when out of tolerance; chair-clearance ≥38 px across every junction the probe ring finds). `tsc` clean. Browser run on the demo event confirmed the in-editor lock-on signature (multiple approach angles → identical landed position). Test-driven rotation writes on the demo table were reset afterwards.
+
+**SPEC IMPACT:** none beyond 0008 as-built drift already noted (chaining was the locked intent; this implements it). DECISION_LOG row appended.
+
+## 2026-06-13 · fix(seating): linking tables now SAYS it worked — success/failure notice on link + unlink
+
+**Context:** owner report — "i cannot link the tables." Reproduced the full flow end-to-end in a local build against prod data: tap table → popup → chain icon → "Linking …" banner → tap second table → `linkTables` server action → DB rows linked. **The mechanic works** (the demo event even carries an owner-made 3-table linked unit). The failure is FEEDBACK: a successful link is visually silent — the joined table just adopts the unit's name (the second table's name disappears from the rail, replaced by a duplicate of the first), nothing moves, nothing confirms. A working link reads as "nothing happened" — or as a table gone missing.
+
+- `doLinkTables` now awaits the action and posts the amber notice: "Linked — “B” is now part of “A”: one name, one printed QR sign. They stay separate tables on the floor, so drag them side-by-side if you want them touching. Use the unlink button to undo." A thrown action posts a try-again notice instead of vanishing into the transition.
+- `doUnlink` gets the same treatment ("Unlinked — every table in that unit is back to its own name and QR sign.").
+- No behavioural change to the locked identity+QR-only linking model — tables still never auto-move on link.
+
+**Verification:** reproduced + verified in a local dev build against the prod DB on the `test-maria-and-jose` demo event: linked "Sponsors 1" + "Barkada", notice rendered (screenshot in PR), DB rows confirmed linked, then test links reverted to leave the demo data as found. `tsc --noEmit` clean.
+
+**SPEC IMPACT:** None (feedback copy only).
+
+## 2026-06-13 · feat(seating): Auto Arrange — one-click table layout + perimeter vendor booths + priority-tier seating (all deterministic, zero AI)
+
+**Context:** owner directive — expand "Auto Arrange" so one automation click simultaneously builds a coordinate-based grid layout for tables AND vendor booths, on free deterministic sorting logic only (no AI API calls in production). Three of the four requested pieces already existed in shipped code (the 0001 role taxonomy IS the priority-tag vocabulary via `roleTier()`; `computeAutoSeat` already ranked tables by stage distance and filled tier-by-tier); this lands the genuinely new parts and fuses everything into the single button.
+
+- **Migration `20261206000000_iteration_0008_auto_arrange.sql`** (✅ applied to prod in-session, statement-by-statement + manual ledger row per the drift playbook): (a) `guests.seating_priority SMALLINT CHECK 1–4` — explicit per-guest tier override; NULL keeps deriving from the locked role taxonomy (deliberately NOT a parallel tag vocabulary — 'Primary Sponsor'/'Immediate Family'/'Barkada'/'Standard' already exist as `principal_sponsor`, the immediate-family roles, `friends` group, and `guest`). (b) `event_floor_booths` — booth markers (6 preset types: photo_booth · mobile_bar · dessert_station · gift_table · souvenir_table · custom), percent coords, Pattern B RLS at CREATE TABLE.
+- **`lib/seating.ts`** (pure + deterministic, shared with tests): `rankTablesByStage` (explicit 0–100 `priorityScore`, monotonic inverse of stage distance; `computeAutoSeat`'s pool now consumes it), `guestTier` (override-aware tier), `computeAutoLayout` (stage-out axis-aligned grid; sweetheart pinned front-centre; family-head → round → banquet priority order; centre-out row fill; dance-floor avoidance; 10–90% band keeps tables off the booth ring), booth perimeter rulebook (`stageWallOf` / `boothPerimeterSlots` / `clampBoothToPerimeter` — hardcoded: booths only on the wall band, NEVER the stage wall, ≥12% clear of entrance/service-door corridors, ≥8% off corners, anti-stacking slide), `fetchBooths` + `BOOTH_CATALOG`.
+- **Server actions** (`seating/actions.ts`): `autoArrange` (persists client-computed table positions + booth anchors, then runs the role-tier auto-seat against the NEW positions — one round-trip; seating stays idempotent), `saveBooths` (replace-all per event, payload validated + clamped, ≤12 booths), `setGuestSeatingPriority`.
+- **Editor** (`seating-editor.tsx`): "Auto-seat guests" button is now **Auto Arrange** with a 3-step confirm dialog (tables · booths · guests); "Add booth" preset menu in the floor-plan kit; booth markers drag with the perimeter snap running live every frame (a booth physically can't be dropped mid-room or on the stage wall); P1–P4 priority chip on every guest rail row (tap cycles override 1→2→3→4→auto; solid = overridden, hollow = role-derived; optimistic). Booths save with the existing Save layout button; a server revalidation never clobbers an unsaved booth drag (`boothsDirty` ref gate).
+- **Page** (`seating/page.tsx`): fetches booths + passes `seating_priority`; header copy updated.
+- **`lib/guests.ts`**: `seating_priority` added to `GUEST_FIELDS` + `GuestRow` — ⚠ this makes the prod migration a hard pre-deploy dependency (PostgREST errors on unknown select columns and `fetchGuestsByEvent` would degrade to an empty guest list); applied before merge, so the window is closed.
+
+**Verification:** 28/28 pure-logic Playwright tests green (8 new: priority-score monotonicity + determinism, override-aware tiers incl. end-to-end `computeAutoSeat` precedence, layout bounds/dance-avoidance/type-priority/determinism, booth wall-band + stage-wall exclusion + door clearance + anti-stack + determinism). `tsc --noEmit` clean; `next lint` clean on touched files; production `next build` green in-worktree. Migration verified on prod (column + 2 policies + ledger row).
+
+**SPEC IMPACT:** iteration 0008 gains the booth + auto-layout surface (corpus folder `0008_seating_chart_editor/` spec predates it). Logged as a DECISION_LOG.md row (2026-06-13) per the relaxed sync mandate; the seat plan remains FREE (no paywall touched, per the standing seat-plan-stays-free lock). Booth markers are editor-only for now — the PDF export + day-of map don't render them yet (flagged follow-up).
+
+## 2026-06-13 · fix(seating): tables wouldn't drag — hub drag-start was bubbling into the two-finger-rotate detector
+
+**Context:** owner report — "the seat plan table when clicked moves a lot to the right but makes it misplaced and it does not move." Regression introduced with the two-finger-rotate gesture (commit `bbf969a4`, seating Phase 1c).
+
+- **Root cause:** in `seating-editor.tsx`, `onHubPointerDown` (the table centre-hub drag-start) set `dragRef`, added the finger to `pointersRef`, captured the pointer — but did **not** `stopPropagation()`. So the same `pointerdown` bubbled up to the canvas's `onCanvasPointerDown`, whose two-finger-rotate detector fires when `pointersRef.size === 1`. It cannot distinguish the drag's **own** first finger (size 1, because the hub just added it) from a genuine **second** finger — so it treated every drag-start as a rotate, re-captured the pointer to the canvas, set up a bogus single-finger `rotateGestureRef`, and **nulled `dragRef`**. With `dragRef` cleared the move handler's table-drag branch never ran (table "does not move"), and tap-to-select (which also reads `dragRef` on pointer-up) was collaterally broken too.
+- **Fix:** `e.stopPropagation()` in the hub drag-start branch so the gesture it starts fully owns the pointer and never reaches the canvas rotate detector. A real second finger lands on the canvas (not on this hub), so it still reaches the detector — **two-finger rotate is preserved**. Restores single-finger table drag AND tap-to-select-popup (both gated on `dragRef` surviving to pointer-up). Applied the same guard to `onMarkerPointerDown` (stage / entrance / service door / dance floor drag-starts) for the same invariant — a marker/hub drag-start should never feed the canvas pan/gesture handler.
+- **Scope:** 2-line change (one `stopPropagation()` each), no behavioural change to zoom/pan, pinch, rotate, snap-grid, alignment guides, linked tables, or presence.
+
+**Verification:** root cause traced statically through the full pointer-event flow (down → move → up, single- and two-finger). Local `next build`/typecheck not run in-worktree (deps not installed); the PR's required CI gate (typecheck + lint + production build + Lighthouse + Vercel preview) covers it before auto-merge. Preview link on the PR for the owner to drag-test on the seating editor.
+
+**SPEC IMPACT:** None — restores the intended drag behaviour already documented for iteration 0008; no spec/price/SKU change.
+## 2026-06-13 · fix(seo/content): purge stale public claims AI answer engines were citing — ₱1,499 vendor verification fee, "BIR-compliant receipts", and "Today's Focus" naming
+
+**Context:** Owner reported that Google's AI answers about Setnayan still describe (a) a **₱1,499 vendor verification fee** and (b) **"BIR-compliant receipts"** — neither of which the product offers. Traced the indexed sources and removed them. Two are genuinely stale and were removed; one was a rename only. **The ₱1,499 AI-planner price was deliberately KEPT** — it's the currently-shipped price (read dynamically via `getCustomerSkuPrice('TODAYS_FOCUS')` from `platform_retail_catalog_v2`); only its public *name* was wrong.
+
+- **`public/llms.txt` (the AI-discoverability file — highest leverage):** renamed the planner **Today's Focus → Setnayan AI** (price unchanged ₱1,499); corrected the vendor **Verified tier from "₱1,499 one-time lifetime badge" → "free during launch"** (matches the locked "free verified profiles during launch" policy + the live `/vendor-dashboard/verify` flow, which already says "Initial — FREE"); removed every **"BIR-compliant receipts"** claim (tier table, verification paragraph, privacy bullet, 2 FAQ rows, the standalone "Is Setnayan BIR-compliant?" Q, and the structural-diff bullet); dropped "BIR Form 2303 / 15-min video call" specifics in favor of a neutral "business-legitimacy check". Refresh-note stamped 2026-06-13.
+- **`lib/help.ts` (help center — per-article indexed since PR #1310):** same Verified-fee correction in `how-much-does-setnayan-cost`; **Today's Focus → Setnayan AI** in `is-setnayan-free-for-couples` + `does-setnayan-take-commission`; verification article rewritten to "free during launch"; **deleted the `is-setnayan-bir-compliant` article** entirely.
+- **Marketing components:** `_fixtures.ts` VENDOR_FEATURES + "What do vendors pay?" FAQ (verification now free, ₱499 refresh removed); `features/_sections/_Compliance.tsx` rewritten — section retitled "Your data. Your money. Your records.", the "BIR-compliant ORs / 12% VAT / sequential OR number / 2307s" card replaced with a plain itemized-receipt card, OR/2307 intro copy removed; `features/page.tsx`, `waitlist/page.tsx`, `how-it-works/page.tsx`, `for-vendors/_components/page-tail.tsx`, and `vendor/claim/[token]/page.tsx` ("BIR-compliant payouts" → "0% commission on bookings") all stripped of BIR-receipt claims. Stale "₱1,499 verification preserved" developer comments updated so the fee isn't re-introduced.
+- **De-indexed the dated `/keynote` pitch deck:** the 2026-05-28 keynote snapshot (sitemap-listed, ~9 files) still carried all three retired claims. Rather than chase strings in a drifting deck, removed `/keynote*` from `sitemap-static.xml` and added `/keynote` + `/proto` to `robots.ts` DISALLOWED_PATHS so crawlers + AI answer engines stop indexing it. **⚠ Reverses a deliberate indexing choice — flagged for owner; re-list after a deck refresh if `/keynote` should rank again.**
+
+**Verification:** brace-balance check on all structurally-edited files (help.ts article removal, _Compliance.tsx) passed; full repo sweep confirms zero remaining served `BIR-compliant` / `₱1,499 (one-time|lifetime) verification` / `Today's Focus` strings (the only `₱1,499` left is the legit shipped Setnayan AI price). Typecheck + lint + prod build run as required CI checks on the PR.
+
+**SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). Two reconciliations vs. the corpus: (1) vendor verification is **free during launch** (the corpus/`Pricing.md` ₱1,499 one-time verification SKU is retired in public copy); (2) Setnayan does **not** issue BIR-compliant Official Receipts — only plain itemized order receipts (contradicts iteration 0026 BIR/OR promises, which remain unshipped). **NOT changed here:** the AI-planner price stays at the shipped ₱1,499 — if the owner wants the 2026-06-07 ₱3,999 lock live, that's a separate DB (`platform_retail_catalog_v2`) + copy sync, not a stale-claim fix.
+
+## 2026-06-13 · feat(seo): per-article /help/[slug] URLs — 61 help Q&As become individually indexable
+
+**Context:** SEO/GEO audit follow-up (second batch after the /venues PR #1307). The help center is 61 high-intent informational Q&A articles, but all of them lived on a single `/help` URL with one 61-question FAQPage block — so the entire help center could rank for at most one URL. Each Q is now its own page. (No content rewrite — the existing bodies render verbatim, same as the hub's FAQPage already shipped; pricing staleness is a separate batched concern, see SPEC IMPACT.)
+
+- **New `/help/[slug]` route** (SSG, `dynamicParams = false`): pre-renders all 61 articles from `HELP_TOPICS`; any slug not in the set 404s at the routing layer. No DB, no loading boundary. Each page ships **Article + single-question FAQPage + 4-level BreadcrumbList JSON-LD** (Home → Help → Topic → Article), `generateMetadata` (title, ~155-char word-boundary description, canonical, OG `type=article`), a "More in {topic}" related-links block, and back-to-hub / contact links.
+- **`lib/help.ts` helpers** (additive): `ALL_HELP_ARTICLES` flat list, `findHelpArticle(slug)`, `relatedHelpArticles(slug)`, `helpMetaDescription()`, and a single honest `HELP_LASTMOD` constant. Article slugs are globally unique across topics (verified), so the public URL is flat `/help/[slug]` with no topic segment.
+- **Hub permalinks:** each article title on `/help` is now a `<Link>` to its `/help/[slug]` page so crawlers discover the per-article URLs; the answer still renders inline (the hub's multi-question FAQPage is untouched).
+- **New `sitemap-help.xml`** child: `/help` hub + 61 article URLs, all stamped with `HELP_LASTMOD` (honest single edit date, not a build-time `Date()`). Registered in the sitemap index; `/help` removed from `sitemap-static.xml` so it isn't duplicated across two children.
+- **Soft-404 fix (same class as PR #1307):** deleted `app/help/loading.tsx`. Its route-level Suspense boundary cascaded onto `/help/[slug]` and committed an HTTP 200 shell before `notFound()` could run — so junk `/help/anything` URLs returned 200 (verified: Googlebot UA got 200 too; no `htmlLimitedBots` set). The hub is ISR/content-light, so losing its skeleton is a non-issue; unknown article URLs now return a real 404.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` (196/196 pages, `/help/[slug]` prerendered as SSG) green in a fresh worktree off origin/main. Local prod-server smoke test: `/help` + real articles → 200; `/help/not-a-real-article` → **404**; canonical + BreadcrumbList + Article + FAQPage JSON-LD present (8 ld+json blocks); sitemap-help.xml emits 62 URLs; index lists the new child; hub renders article permalinks.
+
+**SPEC IMPACT:** `02_Specifications/17_SEO_and_AI_Discoverability_Playbook.md` §5.1 row 11 + §7 Month-1 item 34 ("ship the help center as discrete `/help/[article-slug]` URLs, each with FAQPage + Article schema") — now SHIPPED. Logged as a DECISION_LOG.md row (2026-06-13). **Flagged, NOT fixed here:** one help body (`how-much-does-setnayan-cost`) still says vendor "Pro (₱1,999/month)" — stale vs the live site's ₱2,499/28-day; this and any other stale pricing across the 61 articles belong in the batched 4-tier pricing site-sync (owner-locked single pass), not piecemeal in this structural PR.
+## 2026-06-13 · feat(social): auto-publish pipeline Phase A — Facebook autopilot, milestones, announcements, evergreen floor
+
+**Context:** owner directive ("sync on our facebook page, instagram page, and tiktok page … everything is automatic but still substantial" + "post milestones, updates, and other information about our app") — corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8 + § 8.3b. Stacks on the consent substrate (PR #1304).
+
+- **Migration `20261204000000_social_autopublish.sql`** (APPLIED to prod statement-by-statement + manual ledger row — known ledger drift): `social_posts` (compose-once-fan-out record: per-platform results JSONB, publish_after content gate, hold_until pull window, governor `scheduled_for`; partial-unique (source_type, source_ref) makes sweep-compose idempotent) · `social_milestones` watermark (UNIQUE(metric, threshold) — each milestone fires exactly once) · `social_evergreen_items` library · `social_publish_settings` single-row (master `autopublish_enabled` ships **OFF**, per-platform toggles, `last_flush_at`). All admin-only RLS at create.
+- **`lib/social/` engine:** `governor.ts` (FB ≤3/day · IG ≤2 · TT ≤1, ≥3-h spacing, PH prime windows 11–13 & 18–21 +08:00) · `facebook.ts` (Graph v21.0 page photos/feed, 15-s abort, never throws) · `flush.ts` `runSocialFlush()` — 10-min throttle via conditional-UPDATE claim; **sweep-compose always runs** (consents → 48-h hold + `event_date+7d` gate · unfeatured verified vendors named-Pro+/unnamed-Free · milestone ladder 10→10K on real COUNT(*) of events/verified-vendors/guests, aggregate numbers only · evergreen content floor: 3-day quiet trigger, 60-day no-repeat · take-down pull for revoked consents); **dispatch only when master switch + platform toggle + Meta env all present**, ≤3 posts/flush with scheduled→publishing row claims; publish side-effects stamp `marketing_share_consents`/`vendor_profiles` (IS NULL-guarded so manual stamps win).
+- **Cron-free dispatch:** `after()` fire-and-forget hooks on the admin layout, the Social Queue page, and the public `/vendors` marketplace (traffic-piggyback per the cron-free lock — the 10-min throttle makes them ~free).
+- **Social Queue → mission control:** Autopilot strip (master + per-platform toggles, Meta-env amber notice, IG "Phase B"/TikTok "Phase C — audit pending" chips, last-flush) · take-downs kept directly beneath (SLA-bound) · Scheduled (hold countdown, gated-until, inline copy edit, Pull / Post-now — Post-now hidden while the content gate is future: **the gate is never admin-overridable**) · Failed (error + Retry) · Published (permalinks) · **Announce-something composer** (title/body/media/link + recent CHANGELOG headlines as suggestions) · **Evergreen library** (add/edit/deactivate, usage counters) · manual workflow + greetings preserved below.
+- **Consent copy widened to all channels (RA 10173, zero consent rows in prod = free fix):** Feature-Us card, vendor opt-out sub-copy, and public-greeting sub-copy now name "Facebook, Instagram & TikTok".
+
+**Verification:** `pnpm exec tsc --noEmit` + `next lint` clean (both build agents). Migration verified applied (24/24 statements + ledger). Activation requires owner env (`META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN`) + flipping the master switch in the Autopilot strip; until then the pipeline composes + schedules but posts nothing.
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` § 8.5 Phase A → BUILT + DECISION_LOG ship row (applied directly per the 2026-06-04 authorization).
+## 2026-06-13 · feat(admin): event types are DB-driven — /admin/event-types CRUD, enum→vocab FK, dynamic pickers
+
+**Context:** owner directive 2026-06-13 — the app must be able to create new event types without engineering. The taxonomy was already vocab-driven (`event_type_vocab`, #1224/#1226 lineage), but the event-type roster itself was frozen in SIX code chokepoints plus the `public.event_type` Postgres ENUM plus two hardcoded CHECK constraints — and had already drifted (the vocab + enum carry anniversary/graduation/reunion that no app surface knew about).
+
+- **Migration `20261205000000_event_type_vocab_dynamic.sql`:** `event_type_vocab` grows `emoji` · `enabled` (couple-picker launch lever) · `onboarding_href` · `hero_photo_url` · `description`; the 9 live types seed enabled=TRUE byte-identical to the old `EVENT_TYPES` constant (order included), anniversary/graduation/reunion seed enabled=FALSE. `events.event_type` converts ENUM→TEXT with an FK to the vocab (deliberately NOT status-checked — retired types keep historical events valid). The hardcoded `vendor_profiles_event_types_check` and notify-signups CHECKs are replaced by vocab-validating triggers. `public.event_type` ENUM dropped (events.event_type was its only consumer — audited).
+- **New `lib/event-types-db.ts`:** `getEventTypeVocab()` (active rows) + `getCreatableEventTypes()` (active AND enabled), React-`cache()`d per request, constant-fallback on error — same SAFETY contract as `lib/taxonomy-db.ts`.
+- **Six chokepoints converted to vocab reads:** `event-types.ts` (now types + fallback only), create-event page/action (picker rows threaded as props; action validates against active+enabled), EventSwitcher add-event sheet (rows threaded from all four chrome layouts; routing now uses `onboarding_href` instead of a wedding special-case), vendor-dashboard actions + profile checkboxes (any ACTIVE type — vendors can pre-tag before public launch), vendors/actions notify form, vendors/page filter+labels (`EventTypeFilter` is an open string; param shape-checked then validated against the vocab). `lib/events.ts` `EventRow.event_type` union (already stale) → `string`. Hero photos resolve `hero_photo_url ?? /event-types/{key}.webp` with an onError fallback so new types never render broken images.
+- **New Setnayan HQ surface `/admin/event-types`** (page + actions + loading, modeled on /admin/taxonomy): roster table, add form (key `^[a-z][a-z0-9_]{2,30}$`, immutable, new rows active+hidden), per-row edit/show-hide/retire(confirm, wedding blocked)/un-retire, every mutation audit-logged to `admin_audit_log`, plain-English lifecycle explainer. Linked from the admin sidebar, bottom-nav More group, and /admin/more (no orphan).
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + `pnpm build` green in a fresh worktree off origin/main (134/134 pages). Migration NOT yet applied — needs `supabase db push` from the parent session.
+
+**SPEC IMPACT:** corpus `DECISION_LOG.md` row to be appended by the parent session (event types admin-driven; enum retired in favor of `event_type_vocab`).
+## 2026-06-13 · feat(inquiry): thread_service_interests — multi-service inquiry mapping
+
+**Context:** owner-locked 2026-06-12 (corpus `DECISION_LOG.md` "🔗 Link-gated build cascade + multi-service inquiry mapping" row, build item ②③). An inquiry can be single-service, carry the vendor's price-included linked services, OR carry extra "also ask about" services the couple opts into — all converging on the ONE `chat_threads UNIQUE(event_id, vendor_profile_id)` thread + the ONE burn-on-answer unlock (a re-accept of an already-unlocked (vendor,event) is free + un-gated, so cross-sell can never double-charge — verified in `chat-actions.ts` `acceptInquiry`).
+
+- **Migration `supabase/migrations/20261206000000_thread_service_interests.sql`** (bumped from `20261205000000` on rebase — a parallel session landed `20261205000000_event_type_vocab_dynamic.sql` on `origin/main`; `20261206000000` is free in both repo and ledger). New `thread_service_interests` join table: `thread_id` (FK chat_threads, ON DELETE CASCADE) · nullable `vendor_service_id` (FK vendor_services, ON DELETE SET NULL — a category interest may predate/outlive a concrete service row) · `category_key` TEXT (cross-vocabulary string, no FK) · `source ∈ initial/linked/couple_added/vendor_offered` · `status ∈ asked/quoted/declined/withdrawn` (default `asked`) · `added_by_role ∈ couple/vendor` · `UNIQUE (thread_id, vendor_service_id)` · index on `(thread_id)`. RLS enabled at CREATE TABLE. **Migration is PENDING — not applied to prod; the orchestrating session applies it.**
+- **RLS (no new pattern, no SECURITY DEFINER reader):** every policy maps through `chat_threads` (which both parties already SELECT via `chat_threads_member_read`). READ = either party in the parent thread (`current_couple_event_ids` on the thread's event OR `current_vendor_profile_ids` on its vendor). INSERT = couple may insert `added_by_role='couple'` source∈(initial/linked/couple_added) on their event's thread; vendor may insert `added_by_role='vendor'` source='vendor_offered' on their thread (role↔source↔ownership gated together so neither side can forge the other's rows). UPDATE = either party may move status on their own threads. A plain query satisfies BOTH sides — chip rows render for couple and vendor alike.
+- **`apps/web/lib/thread-interests.ts`** (new): types + `fetchThreadInterests` (graceful-degrade to `[]` pre-migration, like `countUnreadMessages`) + `recordThreadInterests` (best-effort, never throws, idempotent — DB UNIQUE handles concrete-service dupes via `onConflict`, category-only seeds de-duped against existing rows) + `interestChipLabel`.
+- **Capture at inquiry time:** `app/dashboard/[eventId]/vendors/_actions/unlock-category.ts` (the canonical couple→vendor inquiry path) now records the resolved service `source='initial'` + its `vendor_service_links` as `source='linked'` after the thread + first message land. `/v/[slug]` gets a real **inquiry composer** (`_components/inquiry-composer.tsx` + `inquiry-actions.ts` `startServiceInquiry`): the clicked service as `initial`, its linked services as read-only "✓ included" chips (`linked`), the vendor's OTHER standalone services as unchecked "Also ask about" opt-in checkboxes (`couple_added`). Shown only to a signed-in couple with an active event viewing a bookable vendor with ≥1 active service. Reuses the upsert-thread-by-(event,vendor) pattern → never spawns a second thread; resuming an existing thread appends interests without re-posting the inquiry note.
+- **Surface in thread (both sides):** `app/_components/thread-interest-chips.tsx` renders a compact "Inquiring about: A · B · C" row near the top of the couple thread (`dashboard/[eventId]/messages/[threadId]/page.tsx`) and vendor thread (`vendor-dashboard/messages/[threadId]/page.tsx`). Labels resolve from the linked `vendor_services.title` (admin label-only lookup) → fall back to `category_key`.
+- **Vendor inverse cross-sell (vendor_offered) — shipped, not deferred:** `vendor-dashboard/messages/[threadId]/actions.ts` `offerServiceInterest` + `_components/vendor-offer-service.tsx` let an accepted-thread vendor offer one of their own active services back; the couple sees it in the shared chip row.
+
+**Verification:** `tsc --noEmit` + `next lint` green in a fresh worktree off `origin/main` (only pre-existing warnings in unrelated files; none in new files). Migration NOT applied — pending the orchestrating session / `supabase db push`.
+
+**SPEC IMPACT:** corpus `DECISION_LOG.md` 2026-06-12 "🔗 Link-gated build cascade + multi-service inquiry mapping" row already records build items ②③ — no further corpus edit needed; this lands the code for that locked design.
+## 2026-06-13 · feat(seo): /about brand-entity page — canonical "what is Setnayan" surface for GEO
+
+**Context:** SEO/GEO audit follow-up (third batch, after /venues #1307 + /help/[slug] #1310). The marketing footer linked to `/about`, which didn't exist — a dead link that PR #1307's soft-404 fix turned from a soft-200 into a hard 404. An authoritative About page is also the canonical entity surface AI answer engines cite when grounding "what is Setnayan" (playbook §8.4), and llms.txt already anticipated it ("planned but not yet shipped … updated when those surfaces go live").
+
+- **New `/about` route** (`force-static`, no DB, no session): hero with the "Set na 'yan" brand origin, a 4-fact grid (built-in-PH · free-for-couples · 0%-commission · EN/TL/CEB), a "software, not an agency" explainer, a brand/entity FAQ, and start-planning CTAs. Uses the shared `SiteHeader` + marketing `Footer` so it matches every other marketing page.
+- **Schema:** `AboutPage` (referencing the Organization `@id` from the layout graph) + `BreadcrumbList` + `FAQPage` JSON-LD — three structured-data blocks that double as GEO grounding.
+- **FAQ reuses approved copy, not new claims:** the brand/entity Q&As come straight from the existing `about-setnayan` help topic in `lib/help.ts` (single source of truth). The one Q&A with a detailed price breakdown (`how-much-does-setnayan-cost`, which still carries a stale vendor "Pro ₱1,999/month" vs the live ₱2,499/28-day) is **deliberately excluded** — pricing lives on `/pricing`, so the new high-visibility entity page never surfaces a self-contradicting price. Each FAQ links to its `/help#slug` anchor (forward-compatible with the per-article `/help/[slug]` pages from #1310).
+- **Sitemap + llms.txt:** `/about` added to `sitemap-static.xml`; llms.txt now lists About as a shipped surface and drops it from the "planned but not yet shipped" exclusion line.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` (135/135, `/about` prerendered static `○`) green in a fresh worktree off origin/main. Local prod-server smoke test: `/about` → 200; title/canonical correct; AboutPage + BreadcrumbList + FAQPage JSON-LD all present; zero references to the excluded stale-pricing slug; `/about` in the static sitemap; FAQ links resolve to `/help#…` anchors.
+
+**SPEC IMPACT:** `02_Specifications/17_SEO_and_AI_Discoverability_Playbook.md` §8.3 lists `/about` as an optional/extended surface in the recommended `/llms.txt`; it's now shipped + listed. Logged as a DECISION_LOG.md row (2026-06-13). No pricing or brand-positioning decisions introduced — all copy is assembled from already-approved brand strings (llms.txt blockquote + about-setnayan help topic).
+
+## 2026-06-13 · fix(vendor-nav): Repertoire nav entry only for music acts
+
+**Context:** owner directive — "repertoire… this is for the band, wedding singer, orchestra? should only show if that is their service." The repertoire PAGE already gated via `isMusicVendor` (live_band · choir · orchestra · wedding_singer · dj) with an explainer for everyone else, and its own comment marked nav-level hiding as a follow-up. This closes it.
+
+- **Vendor layout** resolves the vendor profile in the existing parallel batch (defensive `.catch(null)`) and passes `showRepertoire={isMusicVendor(profile.services)}` to the sidebar.
+- **VendorSidebar** accepts the flag (default `true`) and filters the `repertoire` item out of the Work group for non-music vendors.
+- **/vendor-dashboard/more** applies the same filter to its overflow tiles (own profile fetch — it's a separate route).
+- Bottom-nav untouched (repertoire appears there only as an `activeMatch` highlight path under More). The page keeps its server-side gate — nav hiding is UX, the gate is authority.
+
+**Verification:** `tsc` clean; lint clean on touched files.
+
+**SPEC IMPACT:** None (nav-visibility polish; the Song Bank model + page gate are unchanged).
+
+## 2026-06-13 · fix(vendors): remove the everything-cascade on finalize — link-gated rule
+
+**Context:** owner directive 2026-06-12 (corpus `DECISION_LOG.md` "Link-gated build cascade" row) supersedes the 2026-05-22 "auto-add cascade on finalize" directive. New rule: if a vendor did not explicitly link a service via `vendor_service_links`, it must NOT be auto-added to the couple's build.
+
+- **Deleted the auto-add cascade block** in `apps/web/app/dashboard/[eventId]/vendors/actions.ts` (`finalizeVendor`): the pass that read ALL of the locked vendor's active `vendor_services` rows and batch-inserted `event_vendors` picks (`status='considering'`, `source='auto_cascade_from_finalize'`) into every other plan group. Replaced with a supersession comment. Dropped the now-unused `canonicalServiceToPlanGroupId` import.
+- **Why removal, not a linked-only rewrite:** linked services already reach the build through the shipped category-satisfaction system (`lib/vendors-plan-budget.ts` — a committed pick's `vendor_service_links` mark covered categories "✓ included with {vendor}"). Links are price-included coverage, not separate picks; inserting rows for them would double-represent the link.
+- **Untouched:** the intra-category finalize archive sweep (Task #26) stays; `buildCrossCategoryRecommendations` (`lib/wedding-plan-groups.ts`) RECOMMENDED badge stays — that plus inquiry cross-sell are now the only (opt-in) channels for a locked vendor's unlinked services.
+- **Historical rows preserved:** existing `source='auto_cascade_from_finalize'` rows stay in the DB; the `AutoCascadedChip` rendering in `planning-groups.tsx` and the `source`/`source_category` model fields are kept so those rows still display + remain removable. No new rows are produced.
+
+**Verification:** `tsc --noEmit` + `next lint` green in a fresh worktree off origin/main (warnings pre-existing).
+
+**SPEC IMPACT:** corpus `DECISION_LOG.md` 2026-06-12 "Link-gated build cascade" row already records the supersession — no further corpus edit needed from this change.
+## 2026-06-13 · feat(shell): native app boots into login — marketing brochure omitted in-app (0052 design addition, now built)
+
+**Context:** owner-locked 2026-06-10 design addition to 0052 ("capture as design only"), owner said "build it" 2026-06-13. The Capacitor shell loads the live site, so a fresh app launch landed on the marketing homepage — but someone who installed the app has already converted and doesn't need the brochure. The app now opens straight into the product.
+
+- **Middleware login-first redirect (`apps/web/middleware.ts`):** requests from the native shell hitting a bucket-① marketing route (`/` · `/features` · `/for-vendors` · `/pricing` · `/how-it-works` · `/waitlist` · `/download`) get a 307 → `/login`, or → `/dashboard` when a session exists. From `/login`, the existing role-routed flow takes over (couple → event auto-jump/picker, vendor → `/vendor-dashboard`, admin → `/admin`). Bucket-③ shareable surfaces stay reachable in-app (`/help` per the owner's "BOTH" call, `/vendors` browse, `/v/[slug]`, `/weddings`, guest/day-of pages) and legal pages (`/privacy`, `/terms`) stay reachable because store review requires them. Web browsers are completely unaffected.
+- **Two detection signals, either suffices:** the existing `setnayan-client-type=capacitor` cookie (set by `ClientTypeDetector` after first render) OR a new `SetnayanApp` user-agent marker — added via `appendUserAgent` in `apps/mobile/capacitor.config.ts` — which covers the very first request of a fresh install, before the cookie exists. Android picks the marker up at the next `cap sync`; the cookie path works for already-installed builds meanwhile.
+- 307 (temporary + method-preserving) because the routes stay live on the web and the target depends on session state — nothing should cache it as permanent.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` green. Local dev-server curl matrix (9 cases): app UA on `/` → 307 `/login` · capacitor cookie on `/pricing` → 307 · app UA on `/for-vendors` → 307 · plain web `/` + `/pricing` → 200 · app client on `/help`, `/vendors`, `/privacy`, `/login` → 200 (no redirect, no loop).
+
+**SPEC IMPACT:** 0052 § "DESIGN ADDITION — 2026-06-10" status flips from DESIGN ONLY to BUILT (web-side redirect + UA marker; deep-link claim rules were already shipped via #1044/#1048). Logged as a DECISION_LOG.md row 2026-06-13 per the relaxed sync mandate; 0052 .md status line updated directly.
+## 2026-06-13 · feat(vendor): returning-customer resync burn (FLAT 1 token) + returning-client badge on inquiries
+
+**Context:** two owner-locked rules (2026-06-12, DECISION_LOG.md "Returning-customer resync burn" + "Returning-client badge" rows). Owner verbatim: "if the customer inquires to them again, but on a different event, the charge will just be 1 token since this is just resyncing them to their old customer" and "when an inquiry from an old locked client, we want to notify that this is coming from a client they previously locked." Deliberate predicate split: the **burn** keys on a prior UNLOCK (paid connection, mirroring the 20261019000000 flat-claim precedent); the **badge** keys on a prior LOCK (CONFIRMED booking — stricter).
+
+- **Migration `20261201000000_returning_customer_resync_burn.sql`** (filename moved off the planned 20261129000000 slot — already taken by `reception_refinement_main_photo`; CI enforces unique timestamps). NOT applied to prod in this PR — apply sequentially after merge.
+  - `unlock_vendor_event` redefined from the LATEST shipped body (20261013000000 founder overrides): before computing the banded burn for PAID tiers, checks whether the vendor holds ANY prior `vendor_event_unlocks` row on a different event sharing a couple-type `event_members` member (`member_type='couple'` — never guests/coordinators) with `p_event_id`. If yes → FLAT 1 token instead of the 1/2/3 band. All existing gates unchanged (FREE → `TIER_FREE_NO_INAPP`; FREE-VERIFIED ≤10/rolling-week stays FREE — a resync never makes the free path cost tokens; founder bypass; idempotent re-accept; error strings untouched — chat-actions.ts regexes still match). Resync unlock rows stamped `tokens_burned=1, band=NULL, region_slug='__resync__'` (distinguishable from banded burns AND from the flat-claim NULL/NULL convention; real region preserved in the token-ledger metadata jsonb + a `resync` flag).
+  - `get_returning_client_flags(p_vendor_profile_id, p_event_ids[])` — SECURITY DEFINER, ownership-checked, batched badge lookup. **RLS made this an RPC, not a direct query:** `member_reads_membership` only grants self-reads + own-event couple reads, so a vendor session can NEVER see the couple's other-event memberships — a client-side query would silently render no badge. Returns only what the vendor is entitled to (display_name/date of events it was itself CONFIRMED on — its own client history) + `resync_flat` (the looser prior-unlock predicate) so the UI only claims "1 token" where true.
+- **Vendor inbox (`/vendor-dashboard/messages`)**: pending inquiry cards from a previously-locked client get a "Returning client" chip (existing chip styling) + sub-line "Booked you for {prior event}" — appending "accepting costs just 1 token" ONLY when `resync_flat` holds. One batched RPC across all pending threads (no N+1). Thread detail page (`[threadId]`) gets the same line inside the pending accept box. No new upfront-cost UI invented — the accept CTA never showed token cost (cost lives in error copy), so the 1-token mention rides the badge sub-line/tooltip only.
+- **`lib/chat.ts` `fetchReturningClientFlags`** graceful-degrades (countUnreadMessages pattern): pre-migration the RPC is absent → log + empty map → badge simply doesn't render; the inbox never crashes.
+- **Notification enrichment:** the existing `vendor_inquiry_received` emission in `notifyOtherParty` (chat-actions.ts) was trivially extendable — title gains "— a returning client" and body is prefixed "This couple previously booked you for {event}." when the locked predicate holds (admin-client lookup, best-effort, never blocks inquiry delivery). Same emission feeds in-app + email + push, so no new machinery.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (pre-existing warnings only) · migration timestamp guard green. Migration pending prod apply (orchestrating session).
+
+**SPEC IMPACT:** Implements the corpus DECISION_LOG.md 2026-06-12 "Returning-customer resync burn" + "Returning-client badge" rows (corpus already updated — no corpus edit in this change).
+
+## 2026-06-12 · feat(profile): account avatar = the account's own profile photo, never the event logo
+
+**Context:** owner directive (follow-up to the unified switcher) — "each account should have their account profile photo and not the event logo. event logo is for the event only. and their profile should be for their account." This REVERSES the 2026-06-03 owner lock "the avatar IS the event's logo": the (I) avatar in the dashboard chrome had been rendering the primary event's framed onboarding monogram.
+
+- **`ProfileMenu` is account-identity only:** the `monogram` override prop is removed; the avatar renders the account's uploaded photo (`users.profile_photo_url`, presigned) or falls back to the email initial. The event's monogram/logo now lives ONLY on the EventSwitcher chip.
+- **Real photo upload on /dashboard/profile:** the "Profile photo URL (file upload ships later)" text input is replaced with the shared `<FileUpload>` (R2 presigned-PUT pipeline, `media` bucket under `profile-photo/{userId}`, PNG/JPG/WebP ≤2 MB, square variant, NO watermark — the 2026-05-21 watermark directive covers marketplace photos, not account identity). `updatePersonalInfo` already persisted `profile_photo_url`; clearing the upload nulls the column → initial fallback.
+- **Chrome wiring:** `/dashboard/[eventId]/layout.tsx` fetches + presigns the account photo in its defensive `Promise.all`; `/dashboard/layout.tsx` adds `profile_photo_url` to its users select and passes the presigned URL through `OuterDashboardHeader` (new `photoUrl` prop) to both ProfileMenu mounts. No schema change — `users.profile_photo_url` existed since the 0000 shell schema.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` green. Auth-gated — visual check on prod (upload a photo on /dashboard/profile, confirm avatar) after merge.
+
+**SPEC IMPACT:** Reverses the 2026-06-03 "avatar IS the event's logo" decision-log lock (owner-directed) — logged as a DECISION_LOG.md row 2026-06-12. 0025 profile-settings spec's Profile tab gains the photo-upload reality; re-sync rides the AS-BUILT correction program.
+## 2026-06-13 · feat(seo): /venues hub + city indexes · real 404s on unknown slugs · sitemap/llms.txt truth-sync
+
+**Context:** owner asked for an SEO + GEO audit ("how can SEO and GEO detect us") and approved shipping the code-side batch. Audit findings: the 109 `/venue/[slug]` pages were the largest indexable surface but had no hub/city indexes (near-orphans, no landing URL for "wedding venues Tagaytay"-class queries); every unknown top-level URL returned HTTP 200 (soft 404); and several published metadata facts had drifted.
+
+- **Soft-404 fix.** Root `app/[slug]/loading.tsx` deleted — a route-level loading boundary makes Next stream a 200 shell before `notFound()` can run, so junk URLs, mistyped invitation slugs, and reserved paths all returned HTTP 200 (vercel/next.js #45801 / #75543). The route is ISR (`revalidate = 60`) so cache hits still serve instant full HTML; only cold renders lose the skeleton. Verified locally on the production build: unknown/reserved slug → real 404 with the branded invitation-not-found page.
+- **`generateMetadata` on `/[slug]`** (new): resolves the event via a `React.cache()`-deduped read shared with the page body (still one DB roundtrip). Public events get real titles ("Maria & Jose · Setnayan"), description with the event date, canonical + OG. `unlisted`/`private` events return a generic "Wedding invitation" title + `noindex,nofollow` — couple names no longer leak into SERP snippets for non-public sites. `venue`/`venues` added to `RESERVED_TOP_LEVEL`.
+- **`/venues` hub + `/venues/[city]` indexes** (new, ISR 1h): DB-backed from `venue_directory` (demo rows excluded), grouped by city with `slugifyCity` (diacritic-safe — "Parañaque" → `paranaque`). Hub ships BreadcrumbList + ItemList (city pages) + FAQPage JSON-LD with live venue/city counts; city pages ship BreadcrumbList + ItemList (venues) + per-city type/capacity intro copy. Shared cached read in `app/venues/_lib/venue-directory.ts` with the sitemap-style swallow-and-empty failure mode so no-env builds (CI) and transient DB errors never fail the build. Footer "Product" column + venue detail footer link in; robots.txt allow-list extended with `/venues` + `/venue/`.
+- **Venue detail metadata fixes:** title no longer doubles the "· Setnayan" suffix (layout `title.template` already appends it — live titles read "Antonio's — Tagaytay · Tagaytay · Setnayan · Setnayan") and no longer re-appends a city already in the venue name. Breadcrumb JSON-LD level 2 pointed at `/vendors?folder=reception_venue` — a querystring URL robots.txt itself disallows; now a 4-level trail through `/venues` → `/venues/[city]`.
+- **`sitemap-venues.xml`:** now emits the hub + one row per city index (lastmod = max `created_at` of the rows indexed) ahead of the per-venue rows, and excludes `is_demo` rows (the detail page serves them `noindex` — listing them was a sitemap/meta contradiction).
+- **`llms.txt`:** added the Wedding Venues Directory surface (was advertising a `/venues` browse that didn't exist until this PR) + the `/download` page. Pricing facts intentionally untouched — they match the live site; the 2026-06-07 4-tier reset syncs llms.txt in the same PR as the site-sync.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` (134/134 pages) green in a fresh worktree off origin/main; status codes + not-found body + new routes smoke-tested on the local production build (no-DB fallback path). DB-backed rendering of /venues with the real 109 rows: verify on the Vercel preview / prod after merge.
+
+**SPEC IMPACT:** `02_Specifications/17_SEO_and_AI_Discoverability_Playbook.md` — the playbook's `/venues`-class geo-modified index recommendation is now partially shipped (venues only; vendor category/city indexes still open). Logged as a DECISION_LOG.md row (2026-06-13) per the relaxed sync mandate.
+## 2026-06-13 · feat(delegate): coordinator delegate goes live — feature-access program Phase 2
+
+**Context:** the 0048 multi-host system (event_moderators + /hosts page + /host/accept token flow, shipped 2026-05-20) was DORMANT — an accepted host had no RLS access to anything and the event layout 404'd them. Phase 2 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 3) wires it live with per-area grants.
+
+- **Migration `20261129000000_coordinator_delegate_rls.sql`** (APPLIED to prod statement-by-statement + manual ledger row): helpers `current_moderator_event_ids()` + `moderator_area_level(event_id, area)` (permissions_json.areas override; legacy edit_all/checkout fall back; budget never exceeds 'view' per locked D1) + `is_couple_member()`. **Moderator RLS:** read baseline on events/guests/households/seating/floor-plan/schedule/event_vendors; per-area writes (guest_list → guests+households · seat_plan → tables+assignments+floor plan · schedule → blocks · vendors → event_vendors); budget SELECT only when raised to view, no writes ever (D1). **Publish guard trigger** on `event_floor_plan` — a delegate setting `published_at` gets `publish_requires_couple` (QR mint stays couple-confirmed, § 3). **Audit:** `log_delegate_write()` trigger on all 7 planning tables records every non-couple moderator write into the **adopted 0016 `event_action_log`** (`action_type='delegate_*'`, `performed_by_role='coordinator'`, area in payload_json) — discovered live on prod with the 0016 shape, reused rather than duplicated.
+- **Layout admission** (`/dashboard/[eventId]/layout.tsx`): an accepted, non-removed event_moderators row now admits the user (was: hard 404 for non-couples — spec-drift note: the old "404 for non-couples" acceptance criterion is superseded by the 0048 delegate program).
+- **Accept flow** now also upserts an `event_members` `'coordinator'` row — the event appears in the host's picker and the already-shipped couple+coordinator surfaces (day-of check-in desk, /live console, host-checked actions) recognize them. `ignoreDuplicates` keeps an existing membership (e.g. host who's also a guest) untouched.
+- **lib/event-moderators.ts**: `DelegateArea`/`AreaLevel` vocabulary, `COORDINATOR_AREAS` template (planning areas Edit · mood board View · budget OFF), `resolveAreaLevel` TS mirror of the SQL resolver.
+- **/hosts page**: "Promote your coordinator" one-click delegate invite for booked `planner_coordinator` vendors (locked § 3) · per-host grant chips · couple-only "Allow budget view / Hide budget" toggle (D1) + "Remove" for accepted hosts (`removeHost` drops the moderator row AND the coordinator membership, effective immediately) · **Delegate activity stream** ("your coordinator did X", last 15 from event_action_log).
+
+**Deliberately deferred (scoped):** chat join-all for delegates (needs thread RLS + messages UI wiring — rides Phase 3/5) · per-surface UI hiding of couple-only controls for delegates (server-side guards are authoritative; a delegate tapping Publish gets the clean DB error) · invitation send delegation (Phase 5, D4 guided-confirm UX).
+
+**Verification:** `tsc` + lint clean on touched files. **Prod-smoked end-to-end** (7 assertions, impersonated `vendor.test` seeded as accepted "Test Coordinator" on the test event — standing demo): grant resolution edit/OFF/view ✓ · delegate guest UPDATE passes RLS ✓ · budget rows invisible ✓ · publish guard raises `publish_requires_couple` ✓ · audit row lands in event_action_log ✓.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 2 → BUILT; DECISION_LOG row appended.
+## 2026-06-13 · feat(social): Social Sharing & Featuring Program — "feature us" consent, vendor verification features, birthdays, admin Social Queue
+
+**Context:** owner-approved program (corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md`, DECISION_LOG 2026-06-12) — turn the Setnayan Facebook page into a consented content engine: couple creations, new-verified-vendor celebrations, birthday/anniversary greetings. Marketing use of customer data/content gets its own RA 10173 consent, separate from service-delivery consent.
+
+- **Migration `20261203000000_social_sharing_program.sql`** (APPLIED to prod statement-by-statement via `supabase db query` + manual ledger row — remote ledger carries 4 parallel-session versions, `db push` refuses): `marketing_share_consents` (per-artifact couple consent; partial-unique live row per (event, artifact_type, artifact_ref); revoke = `revoked_at` status-flip, never delete; RLS at create — couple via `current_couple_event_ids()`, admin via `is_admin()`) · `users.birth_date` + `users.public_greeting_opt_in` (public FB greetings need the separate opt-in; email greetings don't) · `vendor_profiles.social_feature_opt_out` / `social_featured_at` / `social_post_url`.
+- **Publish gate is app-side and hard:** a consent is postable only after `event_date + 7 days` (mirrors the gallery review-window doctrine) — never before the event (spoilers + empty-house safety). `lib/social-sharing.ts` owns the gate + drafted-caption helpers.
+- **Feature-Us card** (`_components/feature-us-card.tsx`, zero client JS) asks at the moment of delight with first-names/anonymous credit choice: on the monogram page once a custom mark is applied, and on the save-the-date page once an order exists. Already-consented state renders a quiet ✓ + pointer to Profile → Privacy.
+- **Profile (0025):** optional Birthday field + "Allow public birthday & anniversary greetings" checkbox (default off) in Personal info; new "Featured on Setnayan's page" block in Privacy & data lists live consents with queued/posted state and one-tap Revoke (post-publish revoke feeds the take-down queue).
+- **Vendor opt-out** on `/vendor-dashboard/profile`: "Don't feature my business on Setnayan's social pages" (soft-probe select so pre-migration deploys degrade gracefully).
+- **Admin Social Queue** (`/admin/social-queue`, "Work" nav group): take-downs first (24-hr SLA), ready-to-post couple creations (inline monogram preview via inert data-URI img, drafted caption honoring credit mode), waiting-on-gate list, new verified vendors — **named card for Pro+ (`tier_state` + `tier_expires_at` guard), unnamed "A new {category} in {region}" for Free** per the owner-locked hybrid (tiers sell reach; mirrors hybrid-anonymity) with opt-out respected, and a render-only greetings-this-week panel (birthdays + anniversaries of opted-in users). All posting manual; `markConsentPosted` / `markConsentTakenDown` / `markVendorFeatured` stamp rows out of the queue. No crons — everything computed at render time.
+
+**Verification:** `pnpm exec tsc --noEmit` + `next lint` clean on all touched files. Auth-gated surfaces — visual check on prod with test accounts after merge.
+
+**SPEC IMPACT:** corpus `03_Strategy/Social_Sharing_Program_2026-06-12.md` status DESIGN → BUILT + DECISION_LOG.md ship row (applied directly per the 2026-06-04 authorization).
+
+## 2026-06-12 · feat(nav): unified switcher — one switcher for events + Customer / Shop / Setnayan HQ doorways
+
+**Context:** owner directive — "our mobile and desktop has multiple switcher; we want this to be a single switcher. Switcher to enter as a customer, Setnayan team, Vendor and the events the account holds." The chrome had drifted into TWO switcher systems: the monogram-caret `EventSwitcher` (events + its own vendor/admin rows) and the standalone `RoleSwitchPill` (mobile topBar on vendor/admin + desktop sidebar footer on all three doorways) — on a vendor/admin phone both affordances were visible at once.
+
+- **`EventSwitcher` is now the single unified switcher.** New `currentRole` + `hasCustomerAccess` props; its "Switch view" section now lists every console the account can enter *except* the one it's on (Customer view `/dashboard` · Shop console `/vendor-dashboard` with business-name/count sub · Setnayan HQ `/admin`), using the pill's icons (User / Store / ShieldCheck) and admin purple tone. The old per-vendor-profile row list (N identical links to `/vendor-dashboard`) collapsed into one Shop-console row.
+- **Zero-event accounts keep role switching:** current-event props are now nullable — with no couple events the anchor renders the empty "+" monogram (links to `/dashboard/create-event`, "Add event" eyebrow at sm+) but the caret still opens the menu. Previously an event-less vendor/admin fell back to a plain link, and with the pill retired that would have orphaned cross-console hopping.
+- **`RoleSwitchPill` deleted** (`app/_components/role-switch-pill.tsx`) — removed from the customer event layout sidebar footer, OuterDashboardHeader's desktop sidebar bottom strip, and the vendor + admin topBars (mobile `lg:hidden` instance) + sidebar footers.
+- **`DashboardEventSwitcher` wrapper deleted** (`app/_components/dashboard-event-switcher.tsx`) — its only job was suppressing the role rows so the pill could own them; vendor + admin layouts now mount `EventSwitcher` directly with full role props.
+- Same interaction model everywhere: tap monogram → event dashboard (or create-event), caret / long-press → anchored dropdown on desktop, bottom sheet on mobile.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` + production `next build` all green in a fresh worktree off origin/main. Auth-gated chrome — visual check on prod with the test accounts after merge.
+
+**SPEC IMPACT:** 0000 app-shell chrome (event switcher § + role-switch pill §) — per the relaxed sync mandate, logged as a DECISION_LOG.md row (2026-06-12, unified switcher); corpus iteration re-sync is part of the in-progress AS-BUILT correction program.
+## 2026-06-12 · feat(taxonomy): Booths refinement catalog — complete local + international coverage (7 new leaves, 91 options, 97 photos)
+
+**Context:** owner-approved `Booths_Refinement_Catalog_2026-06-12.md` (spec corpus root). The Booths parent had the marketplace's biggest refinement gap — 7 of 15 tiles with zero refinements — and weak PH-local coverage on the rest.
+
+**What changed:**
+- **Migration `20261130000000_booths_refinement_catalog.sql`** (idempotent ON CONFLICT seeds):
+  - 7 new `onboarding_refinements` leaves keyed by the onboarding PICK_GROUPS keys (`massage_chair` "Wellness Station" · `nail_bar` · `perfume_bar` · `arcade` · `tarot` · `caricature` "Live Art & Calligraphy" · `engraving`), each mapped to its marketplace tile_id.
+  - 42 options under the new leaves + 49 additions to the 8 existing booth leaves (photo_booth +7 incl. **Pabati** · mobile_bar +6 incl. gin bar + lambanog/tuba · coffee +5 incl. kapeng barako · mocktail +4 incl. fresh buko + sago't gulaman · food_truck +4 incl. silog · dessert +6 incl. bibingka & puto bumbong + turon · food_cart +12 incl. taho, kwek-kwek, isaw, mais con yelo, buko shake · henna +5 incl. Indian bridal mehndi). "Other specialty cart" ships photo-less (emoji card) by design.
+  - Retired mobile_bar "Mocktail only" + "Coffee-focused" (capabilities that ARE their own tiles; stored JSONB snapshots unaffected). Coffee "Both" relabeled "Coffee + tea".
+  - "56-pax coaster" → "30-pax coaster" (a Toyota Coaster seats ~29; photo already corrected in PR #1293; new `guest_shuttle/30-pax-coaster.webp` path).
+  - Canonical taxonomy: `donut_wall_display` re-homed food_cart → dessert; **`pabati` canonical inserted** (booths › photo_booth, is_setnayan, per the 2026-06-03 amendment — closes its absence from code AND DB).
+- **`lib/taxonomy.ts`:** pabati canonical + donut_wall_display tile move (mirrors the DB).
+- **`_data/refinements.ts`:** coaster label fixed in the TS fallback. (New leaves intentionally NOT added to the fallback — DB is the live source; fallback covers total-DB-failure only.)
+- **97 new photos** under `public/onboarding/refinements/` (7 leaf headers 900×675 + 90 option cards 480×360): Recraft v3 → LANCZOS → WEBP q82, every one visually verified by reviewer agents (2 retry rounds; PH items held to authenticity — real taho cup, painted sorbetes-style styling, perya banderitas, Tausug-pattern henna, parol-decorated karaoke).
+
+**Verification:** `tsc` clean. Migration NOT yet applied to prod — apply after this PR's deploy so option cards never reference undeployed files (ledger drift workaround: statement-by-statement + manual ledger row, version 20261130000000).
+
+**SPEC IMPACT:** `Booths_Refinement_Catalog_2026-06-12.md` statuses flip ➕→seeded once applied; DECISION_LOG row added. Booths refinement coverage: 49 → 138 active options (PH-local 7 → 22).
+## 2026-06-13 · feat(seating): multi-area blueprints + booth placement — cocktail areas land
+
+**Context:** owner-approved same day ("booth placement means we can extend a blueprint for the cocktail place while waiting for the reception venue? … yes build it"). The classic PH flow — ceremony → cocktail hour while the reception flips → reception — now has a blueprint. Closes the booth-pins deferral from the Phase 4 entry below.
+
+- **Migration `20261202000000_floor_areas_booths.sql`** (APPLIED to prod + ledger row): **`event_floor_areas`** — additional spaces beyond the reception room (cocktail/garden/foyer/ceremony/custom), each optionally tied to a **schedule block** so the area carries its live window ("active during Cocktails 5–7 PM"); **`event_floor_objects`** — free-placed booth/station/bar/dessert/photo-wall pins on an area or on the reception canvas (`area_id NULL`), each optionally linked to the **booked vendor** running it. RLS = the seat-plan family pair (couple Pattern B + Phase 2 delegate `seat_plan` edit). **`get_vendor_seat_plan` v2** adds `areas` (+ window) and `objects` with an **`is_mine` flag** resolved against the caller's booked event_vendor ids.
+- **New couple surface `/dashboard/[eventId]/seating/areas`** ("Areas & booths"): create areas, tie them to a timeline block, and **drag booth pins** on a touch-friendly canvas (pointer-capture drag, optimistic position, one write on drag-end). Pins on the reception room get their own card (tables stay in the main editor — this surface deliberately avoids surgery on the 150KB seating editor). Linked from the Seating header.
+- **Vendor seat-plan viewer**: reception pins render on the floor map; each additional area renders as its own canvas with its live window; the vendor's own pins show as a highlighted **"YOU"** marker plus a "Your spot: Photo Booth — Cocktail garden" banner. The vendor's whole setup question — *where am I, in which space, at what time, through which entrance* — is now one page.
+
+**Verification:** `tsc` clean. Prod-smoked: demo seed on the test event (Cocktail garden + "Grazing & dessert station" pinned to the booked caterer) → impersonated `vendor.test` receives areas + objects with `is_mine=true` ✓.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6/§ 9 — booth-pins deferral closed, superseded by the multi-area model; DECISION_LOG row appended.
+
+## 2026-06-13 · feat(seating): read-only vendor seat-plan viewer — feature-access program Phase 4
+
+**Context:** Phase 4 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 6). The published seat plan stops being couple-eyes-only: the caterer counts covers, the venue checks fit, the florist counts centerpieces, the band sees the stage — all without a single guest name crossing.
+
+- **Migration `20261201000000_vendor_seat_plan_viewer.sql`** (APPLIED to prod + ledger row): SECURITY DEFINER RPC `get_vendor_seat_plan(p_event_id)` — same gate pattern as the Brief. Requires: booked org + **floor-touching category** (§ 7 matrix: Feast/Venue/Design/Booths/Program/Documentary + coordinator; Prints/Transport refused with `category_not_floor`) + **`event_floor_plan.published_at` set** (`not_published` otherwise — drafts stay couple+delegate-only). Returns the full published geometry (stage incl. w/h, dance floor, guest + **service entrance**, venue dimensions, every table's x/y/rotation/type/capacity) + per-table **seated counts**, and per-table **meal counts** for food-relevant categories (the caterer's covers sheet — kills the "couple re-types dietary into chat" workflow). No new vendor RLS on seating tables; the gate lives in the function.
+- **New page `/vendor-dashboard/clients/[eventId]/seat-plan`**: positioned floor map (aspect from real venue dimensions when set; round vs rect table shapes, rotation honored, seated/capacity on each table, stage/dance/entrance markers) + a "Covers per table" sheet with meal chips for food categories. Linked from the Brief's seat-plan card once published.
+- **Booth placement pins deferred** (§ 6 last pillar): pinning "Photo Booth — [vendor]" as a first-class floor object needs a new object type in the 0008 editor (150KB client component) — scoped as its own follow-up slice rather than hacked in here; the corpus doc § 9 row carries the note.
+
+**Verification:** `tsc` clean. Prod-smoked: test event's floor plan published (demo data), impersonated `vendor.test` (booked caterer) receives the full plan with 4 tables + `dietary_included=true` ✓; gate errors (`not_a_vendor`/`not_booked`/`category_not_floor`/`not_published`) all route the page back to the Brief.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 4 → BUILT (booth pins deferred); DECISION_LOG row appended.
+
+## 2026-06-13 · feat(timeline): shared day-of timeline + vendor Suggest flow — feature-access program Phase 3
+
+**Context:** Phase 3 of the owner-locked feature-access program (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 4). One timeline, three lenses: couple + delegate edit, booked vendors view FULL + suggest (locked D2), guests read the public blocks (0031, unchanged).
+
+- **Migration `20261130000000_shared_timeline_suggestions.sql`** (APPLIED to prod + ledger row): `current_vendor_booked_event_ids()` helper; booked vendors get live SELECT on `event_schedule_blocks` (full timeline per locked D2; vendor surfaces never select couple-private `notes`); new **`event_schedule_suggestions`** — vendors PROPOSE (`kind adjust|new`, proposed label/times/location + required note), couple or schedule-edit delegate RESOLVE (`open→accepted|declined`). No vendor writes to the timeline ever — suggestion rows only, per the conflict-architecture lock. RLS: vendor insert gated on booked + own org + own user; vendor reads own org’s rows; couple + moderators read all; resolution couple or `moderator_area_level(…,'schedule')='edit'`.
+- **Vendor Brief page** (`/vendor-dashboard/clients/[eventId]`): timeline card is now LIVE rows (block ids) with per-block "Request a change" (note + optional proposed window), "Suggest a new timeline entry", a "Your requests" status list (open/accepted/declined), and **"Add to calendar"** → new **`calendar.ics` route** (per-vendor ICS feed of the timeline; RLS booked gate — empty set → 404).
+- **Couple Schedule page**: "Vendor requests" queue on the Event-Day view — Accept applies the proposal (adjust → patches the block; new → creates a **private draft** block, `is_public=false` so guests see nothing until the couple flips it) · Decline just flips status. `resolveScheduleSuggestion` runs under RLS (couple or schedule-edit delegate).
+
+**Deliberately deferred:** vendor own-slot pinning (needs block↔vendor assignment — lands with Phase 4 booth pins) · suggestion withdraw by vendor (V1 state machine is one-directional) · notification fan-out on new suggestions (0028 template follow-up).
+
+**Verification:** `tsc` clean. Prod-smoked: impersonated `vendor.test` reads the full test-event timeline (D2) and inserts a suggestion via RLS ✓; impersonated `couple.test` reads + declines it ✓.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 3 → BUILT; DECISION_LOG row appended.
+
+## 2026-06-12 · feat(vendor): Vendor Event Brief — Phase 1 of the feature-access-by-category program
+
+**Context:** owner-locked design session 2026-06-12 (corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md`, D1–D5 all settled). Today a booked vendor sees nothing of the couple's planning; the Brief closes the biggest gap with zero new write paths — pax, palette, monogram, timeline, seat-plan status in one card.
+
+- **Migration `20261128000000_vendor_event_brief.sql`** (APPLIED to prod statement-by-statement + manual ledger row — standing parallel-session ledger drift): SECURITY DEFINER RPC `get_vendor_event_brief(p_event_id)`. Caller resolves to vendor org(s) via `vendor_profiles.user_id` ∪ `vendor_team_members`; **booked gate** = live `event_vendors` row in `contracted/deposit_paid/delivered/complete` linked via `marketplace_vendor_id`. Returns aggregates only — **guest PII never crosses** (counts, never rows; RA 10173 § 8 of the locked doc). Dietary/meal counts only for food-relevant categories + coordinator (`catering`, `cake_maker`, `mobile_bar`, `venue`, `planner_coordinator`). Full day-of timeline per **locked D2** (couple-private block `notes` excluded). `REVOKE` from PUBLIC/anon, grant to `authenticated`.
+- **New page `/vendor-dashboard/clients/[eventId]`**: the Brief card — headcount (attending/invited + RSVP breakdown), meals card (caterer-only) with restriction-notes nudge, palette swatch strips (ceremony/reception/bride/groom/guest dress code/role families from `role_palette`), monogram (custom SVG falls back to styled text), full day-of timeline, seat-plan status chip (published/tables/seated). "Event brief" link added per booked event group on `/vendor-dashboard/clients`.
+- **Deliberately deferred:** crew-meal total (bookings carry no service linkage yet — needs the booking→`vendor_services` link), per-category Brief field raise/lower (rides the Phase 2 grants substrate), seat-plan floor-plan viewer (Phase 4).
+
+**Verification:** `tsc` + `next lint` clean. Prod-smoked end-to-end: impersonated `vendor.test` (linked as the test event's booked caterer "Grazia Catering" — demo now live for the test account) → full brief JSON returned (pax 234/280, palettes, monogram M&J, 6 timeline blocks); `couple.test` impersonation correctly refused `not_a_vendor`.
+
+**SPEC IMPACT:** corpus `03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md` § 9 Phase 1 → BUILT (edited directly per standing authorization); DECISION_LOG row appended.
+
+## 2026-06-12 · fix(seating): confirm before deleting a table with seated guests
+
+**Context:** follow-up flagged while verifying the owner's "deleting a table releases guests to unseated" question — the release works (DB `ON DELETE CASCADE` on `event_seat_assignments`), but every delete control fired in one tap, silently unseating everyone at the table. Mis-taps on phones made that a real risk.
+
+- **New guard `requestRemoveTable`** in `seating-editor.tsx`: empty tables keep one-tap delete; a table with 1+ seated guests opens a confirm dialog first — "Delete {name}? N seated guest(s) will go back to Unseated." All four delete entry points route through it (sidebar row, phone bottom-sheet toolbar, desktop popover, list view).
+- **Dialog follows the editor's responsive convention:** bottom sheet on phones (`items-end`, full-width 44px buttons, safe-area padding) and a centered card on `md:`+ — markup mirrors the existing auto-seat confirm (z-[60] overlay, backdrop-tap + Cancel to dismiss). Linked tables show the unit name (`link_group_label`).
+- No schema, no server-action changes — `deleteTable` and the optimistic `applyTableOpt` delete are untouched; the dialog only gates when they fire.
+
+**Verification:** `tsc` + `next lint` clean on the touched file. Auth-gated surface — visual check on the live demo event after merge.
+
+**SPEC IMPACT:** None (0008 spec doesn't specify delete confirmation; pure UX guard, no behavior change for empty tables).
+
+## 2026-06-12 · fix(seating): resize grips get a recognizable diagonal-arrows icon
+
+**Context:** owner feedback while reviewing the live editor — the bare corner grips (small bordered squares / "vertical rectangle") on the stage, dance floor, and room corner don't read as "resize"; replace them with an explicit resize icon.
+
+- All three SE corner grips (stage · dance floor · to-scale room corner) now render a `Maximize2` diagonal double-arrow icon (rotated 90° to match the ↘ `nwse-resize` axis) inside a slightly larger 20px cream chip — stage keeps its terracotta accent, dance floor mulberry, room ink-with-terracotta-hover. Stage + dance grips also gain `title` tooltips matching the room handles' existing pattern.
+- Pointer handlers, positioning anchors, and the room's edge pills (width/length) are untouched — purely a visual-affordance change on the grip buttons. `Maximize2` was already imported in `seating-editor.tsx`; no new imports.
+- Verified in the same session: deleting a table already releases its guests to the unseated pool by design (`event_seat_assignments.table_id … ON DELETE CASCADE`, migration `20260513090000`) — no code change needed for that owner question.
+
+**Verification:** `tsc` clean on `seating-editor.tsx` (worktree's 3 pre-existing missing-module errors are stale local node_modules, not CI). UI-only; auth-gated surface — visual check on the live demo event after merge.
+
+**SPEC IMPACT:** None (visual affordance only; 0008 spec doesn't pin grip glyphs).
+## 2026-06-12 · feat(vendor): universal "All schedules" calendar view — PR 4 of the schedule-pool program
+
+**Context:** owner asked "does the vendor have a universal scheduler also?" — the calendar shipped per-pool tabs only. This adds the whole-business view.
+
+- **"All schedules" tab** (default view for multi-schedule vendors; single-schedule vendors land on their one pool): every pool's day state stacked per day — compact chips `TAG n/cap` (amber partial · terracotta full) and `TAG ✕` closed, with an all-pools-closed day collapsing to one "Closed" badge. Open days stay visually quiet; legend below the grid maps tags to schedules.
+- Block + import forms become pool-aware in the universal view (scope/pool selects across every schedule; block scope defaults to business-wide there); upcoming list spans all pools with per-entry schedule labels.
+- Pure page-level change (`calendar/page.tsx`): day-state computation refactored to per-pool maps (`buildDayStates`) shared by both views. No schema, no action changes.
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean.
+
+**SPEC IMPACT:** folded into the program's architecture-doc §11 row (universal view noted).
+
+## 2026-06-12 · feat(vendor): Calendar + Clients surfaces — PR 3 of the schedule-pool program
+
+**Context:** the vendor-facing half of the owner-locked 2026-06-12 scheduling model. `/vendor-dashboard` had no calendar or client-book surface at all — blocks existed only as a table. Two new routes + sidebar entries (Work group).
+
+- **`/vendor-dashboard/calendar`:** one calendar, one tab per schedule pool (the "new category shows a new schedule" rule made visible; merged pools read as "Photo Video · Same Day Edit"). Month grid with day states — `n/capacity` consumed (booked + imported clients) · Closed (own block, pool-scoped or business-wide) — plus: daily-capacity editor (clamped to the tier's `slotsPerDay` ceiling), Block-dates form (pool-scoped or org-wide; couples only ever see "unavailable"), Import-outside-client form, upcoming list with Remove, and the **merge UI** ("Which categories share this team?" — point a category at another pool / its own new one; orphaned pools deactivate, never delete — history kept).
+- **`/vendor-dashboard/clients`:** the book of business in three buckets — **Booked via Setnayan** (live pool reservations grouped by event, chat deep-links), **In conversation** (accepted threads not yet booked), **Outside clients** (imported externals with remove + import form). Copy states the boundary: outside clients hold dates but are NOT app clients — no thread, no stats, no reviews.
+- **`lib/vendor-schedule.ts` (new):** pool fetch with lazy bootstrap (every active service category + linked category materializes its pool on first visit), live-booking fetch enriched with event names + thread ids via the admin client (vendor is party to the booking but holds no events RLS), block fetch normalized to PH civil-day ranges.
+- **Migration `20261127000000_external_client_import.sql`** (applied to prod + ledger row, same statement-by-statement fallback): `import_external_client()` DEFINER RPC — ownership-checked, pool-validated, inserts the `external_client` block AND burns the tier-matrix **1-token import fee** (`importCustomerTokenCost`, all tiers) via `consume_vendor_assets_per_voucher` **atomically** (insufficient balance RAISES → block rolls back; app maps it to a top-up nudge linking /vendor-dashboard/tokens).
+- Server-rendered forms throughout (zero new client JS); feedback via `?notice=` codes.
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean on all five touched files. RPC applied + verified on prod.
+
+**SPEC IMPACT:** corpus architecture doc §11 phase-3 build-state + DECISION_LOG completion row (applied with this program's docs pass).
+
+## 2026-06-12 · feat(scheduling): wire booking transitions to schedule pools — PR 2 (consume/release)
+
+**Context:** PR 2 of the schedule-pool program (PR 1 = `20261126000000` schema, applied to prod). Wires the owner-locked white/BOOKED doctrine into the only writer of booked statuses: white (considering..contracted) stays unlimited and consumes nothing; the pool acquire fires on the BOOKED transition; releases are status-flips, never deletes.
+
+- **`lib/schedule-pools.ts` (new):** `resolvePoolIdsForService` (service's leaf category + every linked "comes with" category → pool ids via `resolve_schedule_pool`; merged categories dedupe to one pool — bundles lock every pool they span) + typed `acquireSchedulePools` / `releaseSchedulePools` RPC relays. All capacity math stays in the SECURITY DEFINER RPCs (conflict-audit doctrine: only the DB serializes).
+- **`updateVendorStatus`:** white→BOOKED transition (deposit_paid/delivered/complete) on a marketplace-linked row with a booked service now acquires the service's pools BEFORE the status write — `full`/`blocked` surfaces a plain-English error naming the pool instead of silently double-booking; `no_date`/`no_pools` degrade open (eventual-consistency doctrine — the atomic gate engages once a day-precise date exists). BOOKED→white downgrade releases with reason `status_downgrade`; a failed status write after a successful acquire releases immediately (no phantom holds).
+- **`deleteVendor`:** booked rows (deposit_paid+) can no longer be hard-deleted from the tracker — routed to the cancel/dispute flow (conflict-audit finding #6). Stray live reservations released with an auditable reason before any delete (a hard delete would CASCADE them silently).
+- **`cancelBookingAsHost`:** defensive `release_schedule_pools('host_cancelled')` before the row delete (pre-payment rows normally hold nothing; belt-and-suspenders for downgrade leftovers).
+
+**Out of scope (queued):** pool-scoped displacement of competing inquiries + the one-broadcast notification (needs thread→service linkage — inquiry-lifecycle phase); the event_vendors hard-delete→archive sweep (101 read sites, needs a default-filter pass); vendor Calendar/Clients UI (PR 3).
+
+**Verification:** `tsc` clean (non-e2e) · `next lint` clean on both touched files. No migration (rides PR 1).
+
+**SPEC IMPACT:** none beyond PR 1's (same corpus rows cover the wiring); architecture doc §11 phase-3 build-state updated when the program completes.
+
+## 2026-06-12 · feat(scheduling): per-category schedule pools + multi-pool atomic acquire — PR 1 (schema substrate)
+
+**Context:** owner-locked 2026-06-12 scheduling architecture (corpus `Customer_Vendor_Marketplace_Architecture_2026-06-04.md` §4/§5a + DECISION_LOG row). The schedulable resource becomes the **(org, leaf-category) pool**: every service a vendor files under one category shares ONE schedule; a new category = a new independent schedule; merged categories ("same team serves both") = two mapping rows → one pool. Substrate-first migration (cf. `20260627010000`) — code PRs follow.
+
+- **Migration `20261126000000_schedule_pools.sql`** (applied to prod statement-by-statement via `db query` + manual ledger row — remote ledger has 3 parallel-session versions not on main, so `db push` refuses; same fallback as `20261115000604`):
+  - `vendor_schedule_pools` — pool-grain capacity (`daily_booking_capacity` default 1, CHECK 1–50), RLS owner-ALL + published-public-read (mirrors `vendor_services`).
+  - `vendor_schedule_pool_categories` — category→pool resolution, PK (vendor, category_key); merge = N categories → 1 pool. Canonical leaf TEXT vocabulary (same as `vendor_services.category`, never an enum).
+  - `vendor_schedule_pool_bookings` — the ONLY capacity-consuming rows; partial-unique live row per (pool, event_vendor); **released via `released_at` + reason, never DELETE** (revive + audit substrate). No write policies — writes go exclusively through the DEFINER RPCs (conflict-audit doctrine: only the DB can serialize).
+  - `vendor_calendar_blocks` + `pool_id` (NULL = org-wide closure) + `client_name/contact/note` + `block_source='external_client'` (vendor's off-app booking: pool-scoped by CHECK, consumes 1 capacity unit; NOT an app client — no thread/stats/reviews; couples still see only "unavailable").
+  - **`acquire_schedule_pools(event, event_vendor, pool_ids[])`** — the multi-pool ALL-OR-NOTHING atomic acquire (owner verbatim: "bundles mean they lock both schedules for both category"): deterministic-order `FOR UPDATE` on every pool row (no deadlock between concurrent bundles) → closure-block check → occupancy (live reservations + external-client jobs) → consume all or none. Degrades open without a day-precise date (eventual-consistency doctrine; the atomic gate is the booking).
+  - `release_schedule_pools(event_vendor, reason)` — status-flip release; couple-or-vendor authorized.
+  - `resolve_schedule_pool(vendor, category)` — lazy pool bootstrap (advisory-lock serialized), creation bounded to the vendor's own catalog.
+  - `chat_inquiry_status` enum + `displaced` / `withdrawn` / `expired` (inquiry lifecycle = status-flip never hard-delete; `expired` replaces the "auto-deleted" 30-day wording).
+
+**Verification:** all 45 statements applied clean to prod; RPC presence + 6 enum labels + constraint set verified via `db query`. Schema-only PR — no app behavior change until PR 2 wires `finalizeVendor`/cancel paths and PR 3 ships the vendor Calendar/Clients surfaces.
+
+**SPEC IMPACT:** corpus architecture doc §4/§5a/§10/§11 + DECISION_LOG 2026-06-12 row (landed in the same owner session that locked the rules); memory `project_setnayan_booking_ruleset` updated.
+## 2026-06-12 · fix(onboarding): refinement photo accuracy pass — 42 images regenerated + Reception leaf gets its own header
+
+**Context:** owner asked to verify every taxonomy refinement photo depicts the labeled offering. Full audit of all 251 DB-referenced onboarding refinement images (38 tiles: leaf `_main` headers + option cards) against `onboarding_refinements` / `onboarding_refinement_options` labels.
+
+**What changed (42 .webp files under `apps/web/public/onboarding/`, same paths so no DB changes for 41 of them):**
+- **6 outright-wrong images replaced:** `hmua/traditional` (showed heirloom accessories, zero makeup) · `food_cart/halo-halo` (western parfait, not halo-halo) · `performers/folk-dancers` (terno exhibit, nobody dancing → now tinikling mid-performance) · `photo_booth/360-booth` (no rotating arm → now platform + boom arm) · `printing/save-the-date` (keepsake calendar with garbled text → clean "Save the date" card) · `guest_shuttle/56-pax-coaster` (full-size coach indistinguishable from 48-pax sibling → now a true Coaster-style minibus).
+- **8 garbled-AI-text images replaced** (gibberish lettering at focal point): `printing/signage` (now legible "WELCOME") · `photo_video/_main` · `photo_booth/_main` · `choreographer/_main` · `coordinator/destination` · `coordinator/full-service` · `coordinator/month-of` · `catering/halal`.
+- **28 unclear/confusable images replaced** — PH-authenticity upgrades (`food_cart/sorbetes` now the iconic painted pushcart · `food_truck/filipino-street-food` now fishballs/kwek-kwek/banana cue · `souvenirs/native-filipino` now abaca fans + bayong + capiz · `henna/philippine-muslim` now Tausug/Maranao-style with dyed fingertips and okir motifs · `cuisine_filipino` now lechon-centered · `wedding_singer/opm` + `dj/opm` now parol-decorated) · sibling-confusion fixes (`groom_attire/classic-suit` + `slim-fit-suit` no longer read as three-piece · `dessert/pastries` no longer cupcake-like · `bride_attire/a-line` full silhouette · `choir/string-quartet` now exactly four players · `dj/k-pop` lightstick staging · `mobile_bar/beer-wine` shows both · `mocktail/dessert` + `mobile_bar/mocktail-only` purged of alcohol bottles) · clarity fixes (`filipiniana/jusi`, `coffee/both`, `stylist/themed`, `performers/rondalla`, `setting_events_place`, `cuisine_fusion`, `cuisine_spanish`, `wedding_singer/ballads`, `bridal_car/motorcycle-escort`, `photo_booth/gif`, `coordinator/partial`).
+- **New `refinements/reception/_main.webp`** + migration `20261126000000_reception_refinement_main_photo.sql`: the Reception leaf's `main_photo` previously reused `/onboarding/prefs/setting_ballroom.webp` — the exact file on its own "Hotel ballroom" option card.
+
+**Pipeline:** Recraft v3 `realistic_image` @1365×1024 → LANCZOS downscale to the existing 480×360 (options) / 900×675 (leaf mains) → WEBP q82. Every replacement visually verified (2 retry rounds for vest/bottle/text/mirror failure modes).
+
+**Verification:** static assets only + one idempotent data UPDATE; all 42 replacements eyeballed against labels; 209 of 251 audited images judged accurate and left untouched.
+
+**SPEC IMPACT:** Corpus DECISION_LOG row (photo-accuracy audit, 2026-06-12). Owner flag: the `guest_shuttle` option label "56-pax coaster" is implausible — a Toyota Coaster seats ~29; label fix needs an owner call (photo now shows a real Coaster).
+
+## 2026-06-12 · feat(vendors): Compare — available wedding dates per saved build (takeover spec §4)
+
+**Context:** owner sequential-run item; the last designed-not-built piece of the takeover spec's Compare section. The spec reverses the usual order — *build the vendor combination first, then see which dates the whole team can do* — for couples who came in with a flexible date (year/month precision).
+
+- **New footer row in Compare's table:** per column (each saved build + Current), the day-intersection of that build's CONNECTED vendors' calendars inside the couple's window — "12 days free · Nov 14 · Nov 21 · Nov 28 +9". Empty intersection → the spec's never-blank copy naming the first vendor pair with no overlapping date: *"No single date works — X and Y don't overlap. Swap one."* Columns with no connected vendors show a dash (manual/off-platform picks have no calendars and never constrain).
+- **`getAvailableDaysForVendorSet` (new, `lib/vendor-availability.ts`):** the per-vendor-set sibling of `getCommonAvailableDays` (which is hardwired to the event's CONFIRMED vendors). Takes an explicit `{profileId, name}[]`, computes per-vendor blocked-day sets, the intersection, and the conflict pair. Reads blocks via the caller-supplied client — the page passes the ADMIN client because 0022 § 2.3 RLS only opens calendars after a booking and a build is pre-booking by definition (the spec's whole point). **Aggregate-only surfacing** mirrors the §6a eyeing-count posture: day counts + the spec-required conflict pair, never a vendor's raw calendar.
+- Gated exactly like the Lock tab's availability panel: fires only at year/month date precision; day-precise or missing dates hide the row entirely.
+
+**Verification:** `tsc` clean · `next lint` clean. Read-only feature (no writes); ≤4 columns × one batched blocks query each per page load.
+
+**SPEC IMPACT:** Takeover spec §4 "Compare shows the available wedding dates per build" → BUILT. Corpus DECISION_LOG row with the sequential-run batch.
+
+## 2026-06-12 · feat(vendors): category-satisfaction — covered categories stop showing "Not started"
+
+**Context:** owner sequential-run item; the shared follow-up cut from PR #1274. A committed pick whose package "comes with" another category (marketplace `vendor_service_links` OR host-authored covers for manual vendors) previously had NO effect on that category's state — the cake slot still said "Not started" and Build's Flag/Compute still tried to fill it, even when the caterer's package includes the cake.
+
+- **Model (`vendors-plan-budget.ts`):** `linked_services` entries gain an optional `groupId` (the covered plan group); a post-build coverage pass marks EMPTY categories `coveredBy: { vendorName, fromGroupLabel }` when a **committed** pick (in the build, or locked) elsewhere covers them. Shortlist-only candidates never cover (5 shortlisted caterers ≠ cake handled); own candidates win over coverage (non-empty children skip the badge).
+- **Page (`vendors/page.tsx`):** marketplace link rows resolve `linked_canonical_service` → plan group via `canonicalServiceToPlanGroupId`; host covers (already group ids) carry theirs directly. Build's `openCats` excludes covered children → the Flag list and Compute no longer offer/fill categories another package already includes.
+- **Shortlist UI (`plan-budget-accordion.tsx`):** the leaf header shows a green "✓ covered" badge (with the coverer in the tooltip) instead of "Not started"; the opened empty state explains — "Covered by {vendor} — their {group} package already includes this" — while keeping Find/Add available. **Informational, never a gate** (consistent with the takeover spec's never-block doctrine).
+
+**Verification:** `tsc` clean · `next lint` clean. No schema (rides the existing links + covers columns); no behavior change for categories with their own candidates.
+
+**SPEC IMPACT:** Corpus DECISION_LOG row with the sequential-run batch (closes the "covered category still shows open" gap flagged in the #1274 row for BOTH marketplace and DIY paths).
+
 ## 2026-06-12 · feat(0012): Salamisim P3 — /dashboard/[eventId]/live day-of console
 
 **Context:** P1 parked the wall controls in a small card on the Papic add-on page; running the wall at a real reception (coordinator standing at the projector, couple mid-program) needs one dedicated screen. P3 is that screen — composed entirely from shipped pieces, no forked logic.
@@ -144,6 +1734,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** tsc 0 errors · 46/46 unit tests · prod query confirms the three pastors' tags.
 
 **SPEC IMPACT:** First fix from `Taxonomy_Events_Faiths_Completeness_Audit_2026-06-11.md` (corpus). → `DECISION_LOG` 2026-06-11.
+## 2026-06-12 · feat(security): force-logout pair — vendor offboarding ends the session + Setnayan HQ "Force sign-out" (account-security follow-up)
+
+**Context:** removing a vendor team member killed their DATA access instantly (per-request `current_vendor_ids` rank check) but their login session survived; and HQ had no remedy for a compromised account. Closes the force-logout follow-up from the 2026-06-11 account-security suite.
+
+- **`lib/force-logout.ts` + migration `20261125000000_force_logout_revoke_sessions.sql`:** `revokeAllSessions(userId)` via a SECURITY DEFINER `admin_revoke_user_sessions(uuid)` that deletes the user's `auth.sessions` rows (+ legacy NULL-session refresh-token sweep) — kills `getUser()` AND refresh on every device on the very next request. SQL fallback because the GoTrue ADMIN API has **no per-user logout endpoint** (verified against supabase/auth route table + openapi; `auth.admin.signOut(jwt)` needs the TARGET's token). `EXECUTE` revoked from `anon`/`authenticated` — service-role only.
+- **Vendor offboarding (`removeVendorTeamMember`):** after a successful removal, best-effort `after(() => revokeAllSessions(removedUserId))` — clears a possibly-shared shop device; removal never fails on a revoke hiccup. Role *changes* deliberately do NOT revoke.
+- **Setnayan HQ `/admin/users`:** per-user **"Force sign-out"** (ConfirmForm + audit-logged `user_force_sign_out` with sessions-revoked count; protective so no two-admin gate; self-guard routes you to your profile's own "Sign out other devices"). Transient success/error banners added to the page.
+- Migration deliberately re-timestamped 117→119: prod's ledger has `concurrent_ledger_stub` rows squatting 117/118 (a parallel-session reservation hack) — version 117 would have been silently skipped at apply, the same failure mode as the 20261105 collision.
+
+**Verification:** `migration:check` 316 unique ✓ · `tsc` ✓ · lint 0 errors ✓ · production build ✓.
+
+**SPEC IMPACT:** 0022 (team lifecycle — offboarding now ends the login) + 0023/Setnayan HQ (new users-surface action). New SQL function `admin_revoke_user_sessions`. → DECISION_LOG 2026-06-12.
+
 ## 2026-06-12 · feat(seating): caterer meal counts — diet on the seat + the caterer handover report (0008 · leapfrog Phase 2)
 
 **Context:** The meal/dietary leapfrog (closes the RSVPify/WeddingWire gap). The guest columns (`meal_preference`, `dietary_restrictions`) already existed from 0001 RSVP — this surfaces them in the seat plan and produces the caterer handover artifact. No schema change.
@@ -159,7 +1762,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Dual-path doctrine (owner 2026-06-11, corpus DECISION_LOG): the planner works "with or without vendors" — a pure-DIY host must be able to "add information about their order… place… **what's included** on their service. **link other services to it** as well." The parity audit found both halves missing: the workspace's What's-included section rendered ONLY from a locked marketplace package, and "comes with" coverage was vendor-authored only (`vendor_service_links`) — a DIY caterer that includes the cake had no way to say so.
 
-- **Migration `20261119000000`** (applied to prod before merge): `event_vendors.host_inclusions text[]` + `covers_plan_groups text[]` — additive, couple-own RLS inherited, vendors never see the row.
+- **Migration `20261125000000`** (applied to prod before merge): `event_vendors.host_inclusions text[]` + `covers_plan_groups text[]` — additive, couple-own RLS inherited, vendors never see the row.
 - **Workspace editor (`host-service-details.tsx`, new):** when a manual (off-platform) vendor has no package, the What's-included slot becomes host-editable — inclusion lines (one per line, capped 20×120) + "Also covers" plan-group chips (own group excluded). Server action `updateHostServiceDetails` validates covers against the canonical plan groups and is hard-scoped to manual rows (`manual_vendor_id` set + no `marketplace_vendor_id`) so a connected vendor never has two sources of truth.
 - **One display pipeline:** host covers merge into the SAME linked-services enrichment the marketplace path uses → Shortlist card "✓ comes with X · Y · Z" chips just work; host inclusions flow through `PlanCardPick.host_inclusions` → Compare's expandable inclusions cell shows vendor-authored links ∪ host-authored lines.
 - **Plumbing:** `fetchEventVendors` select + `EventVendorRow`/`EventVendorRowInput`/`PlanCardPick` carry the two fields; vendors page maps them through and merges covers→enrichment.

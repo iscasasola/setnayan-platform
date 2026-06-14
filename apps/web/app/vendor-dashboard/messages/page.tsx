@@ -1,8 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MessageSquare, ArrowRight } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchVendorThreads, formatChatTimestamp } from '@/lib/chat';
+import {
+  fetchReturningClientFlags,
+  fetchVendorThreads,
+  formatChatTimestamp,
+} from '@/lib/chat';
+import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 
 export const metadata = { title: 'Messages · Vendor' };
@@ -18,6 +23,16 @@ export default async function VendorMessagesPage() {
   if (!profile) redirect('/vendor-dashboard');
 
   const threads = await fetchVendorThreads(supabase, profile.vendor_profile_id);
+
+  // Returning-client badge (owner-locked 2026-06-12): for PENDING inquiries
+  // only, flag threads whose couple previously CONFIRMED-booked this vendor on
+  // a different event. ONE batched RPC for all pending threads (no N+1);
+  // graceful-degrades to an empty map pre-migration.
+  const returningFlags = await fetchReturningClientFlags(
+    supabase,
+    profile.vendor_profile_id,
+    threads.filter((t) => t.inquiry_status === 'pending').map((t) => t.event_id),
+  );
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
@@ -49,17 +64,16 @@ export default async function VendorMessagesPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {threads.map((t) => (
+          {threads.map((t) => {
+            const returning =
+              t.inquiry_status === 'pending' ? returningFlags.get(t.event_id) : undefined;
+            return (
             <li key={t.thread_id}>
-              <Link
+              <ThreadListCard
                 href={`/vendor-dashboard/messages/${t.thread_id}`}
-                className="group flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">
-                    {t.event?.display_name ?? 'Event'}
-                  </p>
-                  {t.inquiry_status === 'pending' ? (
+                title={t.event?.display_name ?? 'Event'}
+                badge={
+                  t.inquiry_status === 'pending' ? (
                     <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
                       New inquiry · accept to reply
                     </span>
@@ -67,22 +81,43 @@ export default async function VendorMessagesPage() {
                     <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                       Declined
                     </span>
-                  ) : null}
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  ) : null
+                }
+                extra={
+                  returning ? (
+                    <>
+                      <span
+                        className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
+                        title={
+                          returning.resync_flat
+                            ? 'A client you previously locked — accepting costs just 1 token'
+                            : 'A client you previously locked'
+                        }
+                      >
+                        Returning client
+                      </span>
+                      <p className="mt-0.5 truncate text-xs text-ink/65">
+                        Booked you for{' '}
+                        {returning.prior_event_display_name ?? 'a previous event'}
+                        {returning.resync_flat
+                          ? ' · accepting costs just 1 token'
+                          : ''}
+                      </p>
+                    </>
+                  ) : null
+                }
+                timestampLine={
+                  <>
                     {t.event?.event_date
                       ? `${t.event.event_date} · `
                       : ''}
                     Last activity {formatChatTimestamp(t.updated_at)}
-                  </p>
-                </div>
-                <ArrowRight
-                  aria-hidden
-                  className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
-                  strokeWidth={1.75}
-                />
-              </Link>
+                  </>
+                }
+              />
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </section>

@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
@@ -8,10 +10,11 @@ import {
   guestDisplayName,
   guestInitials,
 } from '@/lib/guests';
-import { fetchAssignments, fetchFloorPlan, fetchTables, groupColorFor } from '@/lib/seating';
+import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchTables, groupColorFor } from '@/lib/seating';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
+import { DayOfEditingBanner } from './_components/day-of-editing-banner';
 
 export const metadata = { title: 'Seating chart' };
 
@@ -23,14 +26,18 @@ export default async function SeatingPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan] = await Promise.all([
-    fetchTables(supabase, eventId),
-    fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchGuestGroupsByEvent(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-  ]);
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, eventRow] =
+    await Promise.all([
+      fetchTables(supabase, eventId),
+      fetchAssignments(supabase, eventId),
+      fetchGuestsByEvent(supabase, eventId),
+      fetchGuestGroupsByEvent(supabase, eventId),
+      fetchGroupMembershipsByEvent(supabase, eventId),
+      fetchFloorPlan(supabase, eventId),
+      fetchBooths(supabase, eventId),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+  const eventDate = (eventRow.data?.event_date as string | null) ?? null;
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
 
@@ -73,6 +80,7 @@ export default async function SeatingPage({ params }: Props) {
       group_category: g.group_category,
       meal_preference: g.meal_preference,
       dietary_restrictions: g.dietary_restrictions,
+      seating_priority: g.seating_priority,
     };
   });
 
@@ -82,10 +90,21 @@ export default async function SeatingPage({ params }: Props) {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Seating</h1>
         <p className="max-w-prose text-base text-ink/65">
           Lay out your reception, then seat each guest in a chair. Group colours flow from your guest
-          list, and <span className="font-medium text-ink/80">Auto-seat</span> fills the closest
-          tables to the stage by role tier.
+          list, and <span className="font-medium text-ink/80">Auto Arrange</span> builds the whole
+          floor in one click — tables fan out from the stage by priority, vendor booths anchor to the
+          walls, and guests fill in tier by tier.
         </p>
+        <Link
+          href={`/dashboard/${eventId}/seating/walkthrough`}
+          className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-ink/12 bg-white px-3 py-1.5 text-sm font-medium text-ink/75 shadow-sm transition-colors hover:border-terracotta/40 hover:text-ink"
+        >
+          <Video className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          Walkthrough videos
+          <span aria-hidden className="text-ink/40">→</span>
+        </Link>
       </header>
+
+      <DayOfEditingBanner eventDate={eventDate} />
 
       <SeatingEditor
         eventId={eventId}
@@ -93,6 +112,7 @@ export default async function SeatingPage({ params }: Props) {
         guests={seatingGuests}
         groups={groups}
         floorPlan={floorPlan}
+        booths={booths}
         me={{
           id: user.id,
           name:

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { CheckinDesk, type DeskGuest, type DeskCheckin } from './_components/checkin-desk';
+import { LiveRefresher } from '@/app/_components/live-refresher';
 
 export const metadata = { title: 'Check-in desk' };
 
@@ -40,29 +41,35 @@ export default async function CheckinDeskPage({ params }: Props) {
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [{ data: guestsRaw }, { data: assignmentsRaw }, { data: tablesRaw }, { data: checkinsRaw }] =
-    await Promise.all([
-      supabase
-        .from('guests')
-        .select(
-          'guest_id, first_name, last_name, display_name, side, role, rsvp_status, photo_url, plus_one_name, qr_token',
-        )
-        .eq('event_id', eventId)
-        .is('deleted_at', null)
-        .order('last_name'),
-      supabase
-        .from('event_seat_assignments')
-        .select('guest_id, table_id')
-        .eq('event_id', eventId),
-      supabase
-        .from('event_tables')
-        .select('table_id, table_label, link_group_label')
-        .eq('event_id', eventId),
-      supabase
-        .from('guest_checkins')
-        .select('guest_id, checked_in_at, method')
-        .eq('event_id', eventId),
-    ]);
+  const [
+    { data: guestsRaw },
+    { data: assignmentsRaw },
+    { data: tablesRaw },
+    { data: checkinsRaw },
+    { data: eventRow },
+  ] = await Promise.all([
+    supabase
+      .from('guests')
+      .select(
+        'guest_id, first_name, last_name, display_name, side, role, rsvp_status, photo_url, plus_one_name, qr_token',
+      )
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .order('last_name'),
+    supabase
+      .from('event_seat_assignments')
+      .select('guest_id, table_id')
+      .eq('event_id', eventId),
+    supabase
+      .from('event_tables')
+      .select('table_id, table_label, link_group_label')
+      .eq('event_id', eventId),
+    supabase
+      .from('guest_checkins')
+      .select('guest_id, checked_in_at, method')
+      .eq('event_id', eventId),
+    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+  ]);
 
   // Linked tables (#1266) display as the unit's name when one is set.
   const tableLabelById = new Map<string, string>();
@@ -114,6 +121,12 @@ export default async function CheckinDeskPage({ params }: Props) {
       </header>
 
       <CheckinDesk eventId={eventId} guests={guests} initialCheckins={checkins} expected={expected} />
+
+      {/* Day-of: silently re-pull the roster so a live reseat updates each
+          guest's table on the board without a manual reload (seat-finding PR 5).
+          router.refresh() re-runs this server component; the desk's local
+          check-in / scanner state is preserved across the refresh. */}
+      <LiveRefresher eventDate={(eventRow?.event_date as string | null) ?? null} />
     </div>
   );
 }

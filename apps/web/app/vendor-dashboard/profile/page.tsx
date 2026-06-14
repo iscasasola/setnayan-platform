@@ -12,6 +12,8 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Field } from '@/app/_components/forms/field';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { FileUpload } from '@/app/_components/file-upload';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
@@ -19,6 +21,7 @@ import {
   changePassword,
   signOutOtherDevices,
 } from '@/lib/account-security-actions';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 import { saveVendorProfile } from '../actions';
 import { ServicesPicker } from '../_components/services-picker';
 import { CompletedEventsCard } from '../_components/completed-events-card';
@@ -73,26 +76,11 @@ const VENUE_SETTINGS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'civil_registrar', label: 'Civil registrar' },
 ];
 
-// Iteration 0041 — event_types vendor opt-in roster. Mirrors the live
-// `public.event_type` enum + the `vendor_profiles_event_types_check`
-// constraint in migration 20260521090000. Vendors check which event types
-// they actually serve; the marketplace `?event_type=` filter at /vendors
-// reads vendor_profiles.event_types[] to match.
-//
-// All 9 enum values are checkable here even though only wedding + debut
-// are creatable in the picker today — vendors can pre-tag for Coming-Soon
-// event_types so they're ready when those tiles enable.
-const EVENT_TYPES_SERVED: ReadonlyArray<{ key: string; label: string; emoji: string }> = [
-  { key: 'wedding', label: 'Wedding', emoji: '💍' },
-  { key: 'debut', label: 'Debut', emoji: '👑' },
-  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈' },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂' },
-  { key: 'celebration', label: 'Celebration', emoji: '🥂' },
-  { key: 'christening', label: 'Christening', emoji: '🕯️' },
-  { key: 'corporate', label: 'Corporate', emoji: '🏢' },
-  { key: 'travel', label: 'Travel', emoji: '✈️' },
-  { key: 'tournament', label: 'Tournament', emoji: '🏆' },
-];
+// Event-types-you-serve roster — DB-driven since the 2026-06-13 cutover.
+// Every ACTIVE `event_type_vocab` row is checkable here, regardless of its
+// couple-side `enabled` flag: vendors can pre-tag coverage for types the
+// owner hasn't publicly launched yet, so they're ready when the tile flips.
+// Fetched inside the page body via getEventTypeVocab().
 
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
@@ -144,6 +132,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   try {
   const search = await searchParams;
   const supabase = await createClient();
+  // DB-driven event-type roster (2026-06-13) — every ACTIVE vocab row is
+  // checkable; falls back to the pre-cutover constant on DB hiccups.
+  const eventTypesServed = await getEventTypeVocab();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -231,6 +222,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         logoDisplayMap: Record<string, string>;
         portfolioMax: number;
         canCustomSlug: boolean;
+        socialFeatureOptOut: boolean;
       }
     | { ok: false; message: string };
   try {
@@ -246,6 +238,21 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       .maybeSingle();
     const caps = tierCaps(
       asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state),
+    );
+
+    // social_feature_opt_out (Social Sharing Program · 20261203000000) gets
+    // its OWN soft-probe — never combined with the tier read, so a
+    // pre-migration DB (42703 on the new column) degrades this checkbox to
+    // default-off without also nuking the tier-derived portfolio cap.
+    const { data: socialRow } = await supabase
+      .from('vendor_profiles')
+      .select('social_feature_opt_out')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r));
+    const socialFeatureOptOut = Boolean(
+      (socialRow as { social_feature_opt_out?: boolean | null } | null)
+        ?.social_feature_opt_out,
     );
     const portfolioCap = caps.portfolioPhotos;
     const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
@@ -303,6 +310,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       logoDisplayMap,
       portfolioMax,
       canCustomSlug,
+      socialFeatureOptOut,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -352,6 +360,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     logoDisplayMap,
     portfolioMax,
     canCustomSlug,
+    socialFeatureOptOut,
   } = loaderState;
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
@@ -404,36 +413,18 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       ) : null}
 
       {search.error ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {search.error}
-        </p>
+        <FormFlash tone="error">{search.error}</FormFlash>
       ) : null}
-      {search.saved ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
-          Profile saved.
-        </p>
-      ) : null}
+      {search.saved ? <FormFlash tone="success">Profile saved.</FormFlash> : null}
       {search.password_changed ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Password changed. Your session stays active; use the new password next time you sign in.
-        </p>
+        </FormFlash>
       ) : null}
       {search.signed_out_others ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
+        <FormFlash tone="success">
           Signed out everywhere else. Only this device is still signed in.
-        </p>
+        </FormFlash>
       ) : null}
 
       {profile ? (
@@ -585,7 +576,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           help="Tick every event type you take bookings for. Couples browsing each marketplace see only vendors who serve their event. Wedding is checked by default for every vendor; tick others to expand your reach as those marketplaces open."
         >
           <div className="flex flex-wrap gap-2">
-            {EVENT_TYPES_SERVED.map((et) => {
+            {eventTypesServed.map((et) => {
               const checked = profile?.event_types?.includes(et.key) ?? et.key === 'wedding';
               return (
                 <label
@@ -743,6 +734,35 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               When on, your profile appears in the Setnayan vendor marketplace. New profiles show
               with a <em>Coming soon</em> badge until Setnayan verifies your business — the badge
               flips to <em>Verified</em> the moment your application is approved.
+            </span>
+          </span>
+        </label>
+
+        {/*
+          Social Sharing & Featuring Program (migration 20261203000000) — the
+          verification celebration post is opt-OUT: every newly verified
+          vendor gets featured on Setnayan's Facebook page unless this is
+          ticked. Free = unnamed category mention · Pro+ = named feature
+          (tiers sell reach · project_setnayan_vendor_hybrid_anonymity).
+        */}
+        <label
+          className="flex items-start gap-3 rounded-xl p-4"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <input
+            type="checkbox"
+            name="social_feature_opt_out"
+            defaultChecked={socialFeatureOptOut}
+            className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+          />
+          <span>
+            <span className="block text-sm font-medium text-ink">
+              Don&rsquo;t feature my business on Setnayan&rsquo;s social pages
+            </span>
+            <span className="block text-xs text-ink/55">
+              When you pass verification we celebrate it on our social pages — Facebook,
+              Instagram &amp; TikTok. Free listings get an unnamed category mention, Pro gets a
+              named feature with your logo. Tick to opt out.
             </span>
           </span>
         </label>
@@ -908,29 +928,4 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       </div>
     );
   }
-}
-
-function Field({
-  label,
-  htmlFor,
-  required = false,
-  help,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  required?: boolean;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="block text-sm font-medium text-ink">
-        {label}
-        {required ? <span className="ml-1 text-terracotta">*</span> : null}
-      </span>
-      {children}
-      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
-    </label>
-  );
 }

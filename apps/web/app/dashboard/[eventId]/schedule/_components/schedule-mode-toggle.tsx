@@ -47,6 +47,7 @@ export function ScheduleModeToggle({
       className="inline-flex w-full max-w-md rounded-xl border border-ink/10 bg-cream p-1 sm:w-auto"
     >
       <Segment
+        key={`preparation-${active === 'preparation'}`}
         href={hrefFor('preparation')}
         isActive={active === 'preparation'}
         Icon={CalendarRange}
@@ -54,6 +55,7 @@ export function ScheduleModeToggle({
         badge={prepCount > 0 ? prepCount : undefined}
       />
       <Segment
+        key={`event-day-${active === 'event-day'}`}
         href={hrefFor('event-day')}
         isActive={active === 'event-day'}
         Icon={CalendarClock}
@@ -84,7 +86,7 @@ function Segment({
       scroll={false}
       className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
         isActive
-          ? 'bg-ink text-cream shadow-sm'
+          ? 'bg-ink text-cream shadow-sm sn-bounce'
           : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
       }`}
     >

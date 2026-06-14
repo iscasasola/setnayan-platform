@@ -624,7 +624,7 @@ function UndoToast({
  *  plan-card-lock.tsx — PLAN_GROUPS → catalogFolder → WEDDING_FOLDER_SLUG. */
 function resolveBrowseSimilarHref(groupId: PlanGroupId): string {
   const group = PLAN_GROUPS.find((g) => g.id === groupId);
-  if (!group) return '/vendors';
+  if (!group) return '/explore';
   const slug = WEDDING_FOLDER_SLUG[group.catalogFolder];
-  return `/vendors?folder=${slug}#${slug}`;
+  return `/explore?folder=${slug}#${slug}`;
 }

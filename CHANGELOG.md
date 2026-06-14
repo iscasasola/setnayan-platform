@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(native-bridge): `.then()` on Capacitor `addListener` crashes the native apps on first launch
+
+**THE native-shell launch-blocker** (found by reading the real WKWebView console via Safari Web Inspector on the iOS sim). On first launch the app booted straight to the root error boundary instead of `/login`. Real device console: `TypeError: App.addListener("backButton", …).then is not a function` at `app/layout-*.js`.
+
+Cause: `app/_components/native-bridge.tsx` chained `.then().catch()` directly onto `App.addListener(...)`. Capacitor's **native** bridge returns a listener handle **synchronously** (not a Promise), so `.then` is `undefined` → `TypeError` thrown in the `useEffect` → crashes the whole app (NativeBridge is mounted app-wide). It never reproduced in a browser because the web Capacitor stub returns a Promise.
+
+- **`apps/web/app/_components/native-bridge.tsx`** — route every native-bridge call through `Promise.resolve(...)`: a `track()` helper for the two `addListener` calls (back-button + deep-link), and `Promise.resolve(...).catch()` for `SplashScreen.hide()` + `StatusBar.setOverlaysWebView()`. Now works whether the bridge returns a Promise (web) or a bare value/handle (native).
+
+Verified deterministically: a headless repro with `addListener` stubbed to return a non-thenable handle (matching the device) reproduces the **exact** `TypeError` + same bundle, and crashes to the error boundary; the patched bridge renders `/login`. (Separately, the earlier IndexedDB fix #1460 was a valid but UNRELATED Safari-Private-Browsing fix — a look-alike that produced the same error screen; THIS is the native-launch cause.)
+
+SPEC IMPACT: None (defensive bug fix on the native shell glue).
+
 ## 2026-06-15 · chore(for-vendors): remove the "recommend an add-on → earn a token" referral mechanic (doesn't exist)
 
 Owner flagged the "Recommend & earn" section: "we no longer have this." The recommend-an-add-on → earn-a-bidding-token-back referral mechanic isn't a real feature, so the section was built on a false premise (and it was the only reason couple add-ons appeared on the vendor page).

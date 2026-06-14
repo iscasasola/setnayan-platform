@@ -15,7 +15,9 @@ import { PakantaMusicForm } from './_components/pakanta-music-form';
 export const metadata = { title: 'Pakanta · Setnayan' };
 
 const SKU_CODE = 'PAKANTA';
-const FALLBACK_PRICE_PHP = 1999; // Pakanta Basic · the song-from-your-story tier.
+// Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
+// hardcoded price). The old ₱1,999 fallback diverged from the live catalog
+// (₱3,499); removed. When the row is unreadable the page degrades gracefully.
 
 /**
  * /dashboard/[eventId]/add-ons/pakanta — the couple-facing Pakanta surface.
@@ -75,7 +77,7 @@ export default async function PakantaPage({ params }: Props) {
   const hasStory = brief.storyParagraphs.length > 0 || brief.keyMoments.length > 0;
 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? FALLBACK_PRICE_PHP;
+  const pricePhp = skuRecord?.price_php ?? null;
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
@@ -138,7 +140,13 @@ export default async function PakantaPage({ params }: Props) {
       </div>
 
       {/* The music top-up — the only thing the love story doesn't carry. */}
-      <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} />
+      {pricePhp != null ? (
+        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} />
+      ) : (
+        <p className="text-sm text-ink/65">
+          Pricing loads from your catalog &mdash; please refresh in a moment.
+        </p>
+      )}
     </section>
   );
 }

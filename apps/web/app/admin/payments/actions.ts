@@ -12,6 +12,7 @@ import { captureEvent } from '@/lib/analytics';
 import {
   computePayoutBreakdown,
   dispatchVendorPayouts,
+  getSetnayanFeeBps,
   phpToCentavos,
   resolveVendorVerificationState,
 } from '@/lib/payouts';
@@ -305,9 +306,16 @@ async function schedulePayoutsForOrder(args: {
   const { gross } = computeVatFromBase(basePhp);
   const grossCentavos = phpToCentavos(gross);
 
+  // Effective convenience-fee bps: a per-order snapshot wins (orders.setnayan_fee_bps,
+  // captured at checkout) so historical orders keep their original fee; otherwise
+  // use the admin-set platform fee from platform_settings, which itself falls back
+  // to the 5.0% code constant when unset (= unchanged behavior pre-migration).
+  const effectiveFeeBps =
+    row.setnayan_fee_bps ?? (await getSetnayanFeeBps(admin));
+
   const breakdown = computePayoutBreakdown({
     grossCentavos,
-    setnayanFeeBps: row.setnayan_fee_bps ?? undefined,
+    setnayanFeeBps: effectiveFeeBps,
     gatewayFeeCentavos: row.gateway_fee_centavos ?? undefined,
   });
 

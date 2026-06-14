@@ -141,11 +141,6 @@ const BENEFITS = [
     body: 'Show up in every couple’s vendor finder for your category. No third-party fees, no inboxes to juggle.',
   },
   {
-    tag: 'BIR done for you',
-    title: 'Official Receipts, 2307s, and EWT generated on every payout.',
-    body: 'Stop hand-writing receipts. Setnayan stamps each payment with a proper BIR OR and emails the 2307 to the couple at year-end.',
-  },
-  {
     tag: 'Calendar that means something',
     title: 'Agent-redacted booking calendar with team roles + per-service scoping.',
     body: 'Your team sees what they need to see — service captains see crew counts, dispatch sees addresses, accounts sees the invoice. No more shared Google sheets.',

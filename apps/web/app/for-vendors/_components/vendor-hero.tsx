@@ -221,13 +221,13 @@ export async function VendorHero() {
               className="m-label-mono"
               style={{ color: 'var(--m-orange-3)' }}
             >
-              Today&apos;s earnings
+              Booked this week
             </div>
             <div
               className="m-display"
               style={{ fontSize: 28, color: 'var(--m-paper)', marginTop: 4 }}
             >
-              ₱228K · 2 bookings paid
+              2 bookings confirmed
             </div>
             {/* No payout/BIR-receipt claims here — Setnayan never holds vendor
                 money (couples pay vendors directly) per the standing payment-

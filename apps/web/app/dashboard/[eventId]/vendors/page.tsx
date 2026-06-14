@@ -23,8 +23,9 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { isSetnayanAiActive, shouldOfferSetnayanAiPurchase } from '@/lib/setnayan-ai';
 import {
   BUDGET_BUILD_TABS,
   isBudgetBuildEnabled,
@@ -458,7 +459,32 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a
   // "Tools & extras" strip — the standalone InAppServicesSection launcher grid
   // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
-  const services = <PlanBudgetAccordion model={model} eventId={eventId} />;
+  // Soft paywall (PR #1433 follow-up) — when the AI paywall is ON and the event
+  // hasn't purchased Setnayan AI, prompt the unlock at the TOP of the shortlist,
+  // where the ranked match is felt. Dormant until SETNAYAN_AI_PAYWALL_ENABLED=true
+  // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
+  // banner today). Links to the /add-ons/setnayan-ai buy page (catalog price +
+  // checkout). Renders in both the takeover shortlist slot and the bare return.
+  const aiOffer = shouldOfferSetnayanAiPurchase(ev);
+  const services = (
+    <>
+      {aiOffer ? (
+        <Link
+          href={`/dashboard/${eventId}/add-ons/setnayan-ai`}
+          className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
+        >
+          <span className="text-sm text-ink/80">
+            <span className="font-medium text-mulberry">See your ranked shortlist.</span>{' '}
+            Setnayan AI sorts every vendor by how well they fit your date, budget &amp; guest count.
+          </span>
+          <span className="shrink-0 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream">
+            Unlock
+          </span>
+        </Link>
+      ) : null}
+      <PlanBudgetAccordion model={model} eventId={eventId} />
+    </>
+  );
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).
   // When on, /vendors becomes a full-screen FOCUS MODE takeover with its own

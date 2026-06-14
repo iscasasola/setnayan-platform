@@ -12,7 +12,6 @@ import {
 import {
   APPLICATION_TYPE_LABEL,
   DOC_SLOTS,
-  VERIFICATION_STATE_LABEL,
   computeSlaTone,
   countCompleteSlots,
   formatPhpCentavos,
@@ -24,6 +23,7 @@ import {
   type SlaTone,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import {
   approveApplication,
   approveVendor,
@@ -498,7 +498,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SlaBadge tone={slaTone} label={slaText} />
-          <StateBadge state={application.vendor.verification_state} />
+          <VerificationStateBadge state={application.vendor.verification_state} />
           <StatusBadge status={application.status} />
         </div>
       </header>
@@ -947,24 +947,6 @@ function StatusBadge({ status }: { status: ApplicationStatus }) {
       className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[status]}`}
     >
       {label[status]}
-    </span>
-  );
-}
-
-function StateBadge({ state }: { state: VerificationState }) {
-  const tone: Record<VerificationState, string> = {
-    unverified: 'bg-ink/5 text-ink/65',
-    pending_review: 'bg-amber-50 text-amber-900',
-    verified: 'bg-emerald-100 text-emerald-800',
-    demoted: 'bg-amber-100 text-amber-900',
-    rejected: 'bg-terracotta/10 text-terracotta-700',
-  };
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[state]}`}
-      title={`Vendor verification_state = ${state}`}
-    >
-      Tier · {VERIFICATION_STATE_LABEL[state]}
     </span>
   );
 }

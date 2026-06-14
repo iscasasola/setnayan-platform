@@ -1,19 +1,14 @@
 import { redirect } from 'next/navigation';
 import {
-  AlertTriangle,
   CheckCircle2,
-  Clock,
   FileCheck,
-  Loader2,
   ShieldCheck,
-  XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   APPLICATION_TYPE_LABEL,
   DOC_SLOTS,
-  VERIFICATION_STATE_LABEL,
   countCompleteSlots,
   fetchLatestApplication,
   formatPhpCentavos,
@@ -24,10 +19,12 @@ import {
   type ApplicationType,
   type DocUploadMap,
   type DocSlot,
-  type VerificationState,
 } from '@/lib/vendor-verification';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
+import { VerificationStatusCard } from '@/app/_components/verification/verification-status-card';
+import { DocSlotCard } from '@/app/_components/verification/doc-slot-card';
+import { ApplicationProgress } from '@/app/_components/verification/application-progress';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   ensureDraftApplication,
@@ -193,9 +190,17 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         </p>
       ) : null}
 
-      <StatusCard
+      <VerificationStatusCard
         verificationState={verificationState}
-        application={application}
+        meta={
+          application ? (
+            <p className="text-xs opacity-75">
+              Latest application:{' '}
+              <span className="font-mono">{application.public_id}</span> ·{' '}
+              {APPLICATION_TYPE_LABEL[application.application_type]}
+            </p>
+          ) : null
+        }
       />
 
       {!application || application.status === 'withdrawn' ? (
@@ -203,7 +208,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
       ) : null}
 
       {hasDraft && application ? (
-        <ApplicationProgressBar
+        <ApplicationProgress
           completeCount={completeCount}
           totalSlots={totalSlots}
           applicationType={application.application_type}
@@ -239,61 +244,6 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         <RejectedCard application={application} />
       ) : null}
     </section>
-  );
-}
-
-function StatusCard({
-  verificationState,
-  application,
-}: {
-  verificationState: VerificationState;
-  application: Awaited<ReturnType<typeof fetchLatestApplication>>;
-}) {
-  const tone: Record<VerificationState, string> = {
-    unverified: 'bg-ink/5 text-ink/75 border-ink/15',
-    pending_review: 'bg-amber-50 text-amber-900 border-amber-300',
-    verified: 'bg-emerald-50 text-emerald-900 border-emerald-300',
-    demoted: 'bg-terracotta/10 text-terracotta-700 border-terracotta/30',
-    rejected: 'bg-terracotta/10 text-terracotta-700 border-terracotta/30',
-  };
-  const icon: Record<VerificationState, React.ReactNode> = {
-    unverified: <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
-    pending_review: (
-      <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-    ),
-    verified: (
-      <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-    ),
-    demoted: (
-      <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-    ),
-    rejected: <XCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
-  };
-  return (
-    <article
-      className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-5 py-4 ${tone[verificationState]}`}
-    >
-      <div className="flex items-center gap-3">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-cream/60">
-          {icon[verificationState]}
-        </span>
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-70">
-            Current state
-          </p>
-          <p className="text-base font-semibold">
-            {VERIFICATION_STATE_LABEL[verificationState]}
-          </p>
-        </div>
-      </div>
-      {application ? (
-        <p className="text-xs opacity-75">
-          Latest application:{' '}
-          <span className="font-mono">{application.public_id}</span> ·{' '}
-          {APPLICATION_TYPE_LABEL[application.application_type]}
-        </p>
-      ) : null}
-    </article>
   );
 }
 
@@ -386,47 +336,6 @@ function TypeOption({
   );
 }
 
-function ApplicationProgressBar({
-  completeCount,
-  totalSlots,
-  applicationType,
-}: {
-  completeCount: number;
-  totalSlots: number;
-  applicationType: ApplicationType;
-}) {
-  const pct = Math.round((completeCount / totalSlots) * 100);
-  return (
-    <article className="rounded-2xl border border-ink/10 bg-cream p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Application progress
-          </p>
-          <p className="text-base font-semibold">
-            {completeCount} of {totalSlots} items · {pct}%
-          </p>
-        </div>
-        <p className="font-mono text-xs text-ink/65">
-          {APPLICATION_TYPE_LABEL[applicationType]}
-        </p>
-      </div>
-      <div
-        className="mt-3 h-2 w-full rounded-full bg-ink/10"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={totalSlots}
-        aria-valuenow={completeCount}
-      >
-        <div
-          className="h-2 rounded-full bg-terracotta transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </article>
-  );
-}
-
 function DocChecklist({
   applicationId,
   docMap,
@@ -450,7 +359,7 @@ function DocChecklist({
       <ul className="grid gap-3 lg:grid-cols-2">
         {DOC_SLOTS.map((slot) => (
           <li key={slot.key}>
-            <DocSlotCard
+            <VendorDocSlotCard
               slot={slot}
               applicationId={applicationId}
               docMap={docMap}
@@ -464,7 +373,7 @@ function DocChecklist({
   );
 }
 
-function DocSlotCard({
+function VendorDocSlotCard({
   slot,
   applicationId,
   docMap,
@@ -481,24 +390,7 @@ function DocSlotCard({
   const complete = isSlotComplete(slot.key, current);
 
   return (
-    <article
-      className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 ${
-        complete ? 'border-emerald-300/60' : 'border-ink/10'
-      }`}
-    >
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Item {slot.number} of {DOC_SLOTS.length}
-          </p>
-          <h3 className="mt-0.5 text-base font-semibold text-ink">
-            {slot.label}
-          </h3>
-        </div>
-        <SlotBadge kind={slot.kind} complete={complete} />
-      </header>
-      <p className="text-xs text-ink/65">{slot.hint}</p>
-
+    <DocSlotCard slot={slot} complete={complete}>
       <SlotInputForm
         slot={slot}
         applicationId={applicationId}
@@ -506,43 +398,7 @@ function DocSlotCard({
         vendorProfileId={vendorProfileId}
         seedDisplayUrls={seedDisplayUrls}
       />
-    </article>
-  );
-}
-
-function SlotBadge({
-  kind,
-  complete,
-}: {
-  kind: 'upload' | 'external' | 'manual';
-  complete: boolean;
-}) {
-  if (complete) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
-        <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
-        Complete
-      </span>
-    );
-  }
-  if (kind === 'external') {
-    return (
-      <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
-        Setnayan-run
-      </span>
-    );
-  }
-  if (kind === 'manual') {
-    return (
-      <span className="inline-flex rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">
-        Scheduled
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/65">
-      Pending
-    </span>
+    </DocSlotCard>
   );
 }
 

@@ -4,6 +4,12 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · docs(workflow): MERGE_WORKFLOW.md — one-page merge/deploy quick reference
+
+Owner-requested quick reference for the auto-upload merge policy: what ships (every green non-draft PR, auto), the 4 phrases that change it (hold = draft · pause = `--disable-auto` · go-staging = "we're now publicly accepting vendors" · reset = "auto-upload mode"), and why it's safe (7 required checks gate every merge). Complements the server-side enforcement shipped in #1424 and the corpus memories `project_setnayan_merge_workflow_reality` / `project_setnayan_deployment_phases`.
+
+SPEC IMPACT: None (repo-process doc only).
+
 ## 2026-06-14 · perf(website): homepage hero stops freezing the front door — progressive release + lighter frames
 
 The homepage hero scroll-scrub showed a "Setting it up for you…" veil that **hard-locked page scroll until every frame downloaded**. The live published hero is **1,019 frames** (`f-0000…f-1018`, 720×720, served as presigned GETs to the R2 S3 endpoint — no CDN) ≈ tens of MB, so the first thing every visitor hit was a multi-second (up to the 30s backstop) freeze. The frame count is a relic: it was extracted by an old uploader at ~30fps, while the current uploader already caps at 12fps/150.

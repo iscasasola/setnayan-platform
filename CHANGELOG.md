@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(db): migration-ledger reconciliation — 5 drifted migrations made consistent on prod
+
+Follows the dup-timestamp hotfix [#1449](https://github.com/iscasasola/setnayan-platform/pull/1449) (which renamed `public_seat_lookup` `20261215000000`→`20261215001000` so `db push` stops keying two files to one version). A prod-ledger audit found the renamed file plus four others were drifted — their objects existed on prod but the `supabase_migrations.schema_migrations` rows were missing, so `db push` either skipped or mis-saw them. Reconciled the ledger to reality (DB-side only; **no code change** — the rename already shipped in #1449):
+
+- **Verified #1449 deduped the correct file:** the prod ledger's `20261215000000` row is `guard_guest_edits_when_locked` (the *applied* one), so renaming the *un*applied `public_seat_lookup` was right.
+- **4 migrations were fully applied but unrecorded** (every object verified present on prod) → recorded their ledger rows via `supabase migration repair --status applied`, no DB object change: `20261122000000_panood_watch_url` (events.panood_watch_url col), `20261202001000_admin_intelligence_analytics` (3 fns + idx), `20261215001000_public_seat_lookup` (fn — the dup-collision casualty), `20261216000000_seating_editor_locks` (table + 4 fns + RLS + policy).
+- **1 migration was genuinely unapplied** → applied `20261224000000_event_checklist_items` to prod (idempotent: table + unique/idx + trigger fn + trigger + RLS + 2 policies; verified live), recorded its ledger row.
+- **Did NOT run a blind `supabase db push`** (it would have hit the consistency guard against the in-flight `20261225000000_event_recaps`, PR #1448, and is the wrong tool while the ledger is drifted). Applied statement-by-statement via `supabase db query -f` with a dollar-quote/string/comment-aware splitter (psql unavailable).
+- **Result:** zero migrations pending from `origin/main`; the only remote-ledger row not yet on `main` is `20261225000000` (auto-recap, PR #1448) — it lands when that PR merges. Future `db push` is now safe.
+
+SPEC IMPACT: None (prod-ledger reconciliation; schema already matched the migrations). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
 
 Owner renewed the Apple Developer membership → wire real macOS signing so a downloaded `.dmg` opens without the Gatekeeper "unidentified developer / damaged" warning (was: ad-hoc signed only). Env-var-driven so **no certificate ever lands in the repo**; Tauri v2's bundler imports the cert + notarizes during `tauri build`. Follows the `desktop-latest` rolling-release work ([#1434](https://github.com/iscasasola/setnayan-platform/pull/1434)).

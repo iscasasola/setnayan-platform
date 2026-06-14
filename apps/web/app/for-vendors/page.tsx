@@ -34,6 +34,7 @@
 
 import { Nav } from '@/app/_components/marketing/site-nav';
 import { VendorHero } from './_components/vendor-hero';
+import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { ProductionsCatalog } from './_components/productions-catalog';
@@ -251,6 +252,15 @@ export default async function ForVendorsPage() {
       <main className="m-surface min-h-dvh">
         <Nav />
         <VendorHero />
+        {/*
+          VendorVision · the "why" spine (owner brief 2026-06-15 "share our
+          vision to the vendors"). Sits between the hero hook and the
+          StackCloseVendor proof: the promise (give back your time), set-price-
+          once, every-inquiry-counts, never-abuse-your-business, how new vendors
+          get discovered, the 5 growth tools, tokens (simple+honest), and
+          Pro/Enterprise framed as growth-gated not craft-gated. Prices DB-driven.
+        */}
+        <VendorVision />
         <StackCloseVendor />
         <ForVendorsDeepDive />
         <Voices />

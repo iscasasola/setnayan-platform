@@ -19,6 +19,42 @@ Ships the **produce-the-keepsake** row of the Living Memories pillar that was bu
 **Connections (architect mandate):** couple publishes → public page + share card go live → linked vendor sees it → HQ can audit/take down. Love story flows from `events.love_story` (single source); photos from Papic captures → wall-safe gate; voices from `photo_messages` → wall-approved.
 
 SPEC IMPACT: New surface in iteration 0012 (Papic · Living Memories produce-the-keepsake). Logged to corpus `DECISION_LOG.md`; the unbuilt-video-pipeline finding + the public-safe recap design recorded. FREE, no price invented (pricing batched per the holistic-pass rule).
+## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
+
+Owner renewed the Apple Developer membership → wire real macOS signing so a downloaded `.dmg` opens without the Gatekeeper "unidentified developer / damaged" warning (was: ad-hoc signed only). Env-var-driven so **no certificate ever lands in the repo**; Tauri v2's bundler imports the cert + notarizes during `tauri build`. Follows the `desktop-latest` rolling-release work ([#1434](https://github.com/iscasasola/setnayan-platform/pull/1434)).
+
+- `.github/workflows/build-desktop.yml` — job-level `env` feeds six `APPLE_*` repo secrets to `tauri build`. When `APPLE_SIGNING_IDENTITY` is set: Developer-ID-sign + hardened-runtime + notarize-via-notarytool + staple, then a new verify step logs `codesign` authority / `spctl` Gatekeeper verdict / `stapler validate`. When the secrets are absent (forks, or before the owner adds them): the existing ad-hoc codesign step runs instead (made conditional on `env.APPLE_SIGNING_IDENTITY == ''`) so CI is unchanged and never breaks. Release-body Gatekeeper note reworded for both states; `tauri.conf.json` identifier (`com.setnayan.desktop`) confirmed correct.
+
+**OWNER ACTION REQUIRED — add these 6 repo secrets** (Settings → Secrets and variables → Actions) before macOS builds will sign; until then they keep ad-hoc-signing:
+- `APPLE_CERTIFICATE` — base64 of the exported *Developer ID Application* cert `.p12`
+- `APPLE_CERTIFICATE_PASSWORD` — that `.p12`'s password
+- `APPLE_SIGNING_IDENTITY` — e.g. `Developer ID Application: <Name> (<TEAMID>)`
+- `APPLE_ID` — Apple ID email
+- `APPLE_PASSWORD` — an **app-specific password** (appleid.apple.com → Sign-In & Security), not the account password
+- `APPLE_TEAM_ID` — 10-char Team ID
+
+Windows signing is still unsigned (separate Phase-2 item).
+
+SPEC IMPACT: None. CI/release-plumbing only — no schema, SKU, or product-surface change.
+
+## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
+
+Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tagalog: memory / remembrance / keepsake — it gathers Papic / Panood / Kwento / Pakanta / the rest into one promise) + a 3-lane embed plan (narrative spine → in-app Alaala hub → finish the uncopyable keystones). This is **Lane 1 (the spine), increment 1**:
+
+- **`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`** (the Studio hub) — adds an **Alaala framing band** above the service sections: names the pillar ("Alaala · the memory you keep"), frames the memory features below as "the pieces of your Alaala — the living memory of your day," and states the **guardrail** ("it never gets in the way — the day stays yours; the tech just quietly remembers it"). Calm v2.1 surface, `--m-*` tokens; no catalog restructure.
+- **`apps/web/app/_components/marketing/OurStory.tsx`** — the live `/our-story` manifesto close now NAMES the pillar: *"We call it Alaala — the memory you keep."*
+
+Canonical pillar definition (spec corpus): `03_Strategy/Alaala_Pillar_2026-06-15.md`. SPEC IMPACT: None on schema/SKU (naming + framing copy). **Queued:** Lane 1 remainder (onboarding "promise" beat) · Lane 2 (a dedicated in-app Alaala hub with the save-the-date→day-of→editorial through-line) · Lane 3 (finish the keystones: Kwento → Live Photo Wall → produced-output SDE/Thank-You/Highlights — the parts competitors structurally can't copy).
+## 2026-06-15 · feat(for-vendors): vendor vision spine — the "why" above the feature stack
+
+Owner brief: "share our vision to the vendors." The page led with the feature stack (VendorHero → StackCloseVendor → DeepDive → Pricing table); this adds the missing narrative that earns the vendor *before* the proof.
+
+- **New `apps/web/app/for-vendors/_components/vendor-vision.tsx`** (`VendorVision`, async server component) — slots between `VendorHero` and `StackCloseVendor` in `page.tsx`. Six owner-authored moments, tightened to page copy: (1) the promise — "you give couples the wedding of their dreams; we give you back your time"; (2) set-your-price-once (base + per-pax, shown instantly, yours to vary per couple, never forced into a fixed public rate); (3) every-inquiry-counts (we've paid for ads too; you pay only on real fit; 0% commission); (4) we-never-abuse-your-business (rise by merit, can't pay to fake success); (5) **how new vendors get discovered** — fit-not-fame · "no reviews yet" = unknown not bad · 100 free tokens · hidden-until-reply · merit climb (the deterministic leaf-match + never-empty + hybrid-anonymity model); (6) the 5 growth tools (calendar sync · BYO couples · portfolio-as-website · editorial tagging · 0% commission).
+- **Tokens block** — "simple + honest" per owner 2026-06-15: one token opens one real matched inquiry, 100 free on verification, top-ups at `{p.tokenUnit}`/token, earn-back on recommended services. (Region-banding deliberately kept out of public copy by owner call.)
+- **Pro & Enterprise block** — growth-gated, not craft-gated (owner 2026-06-15): "Free is a whole business; Pro/Enterprise are for when you're growing." Paid tiers expand reach / team / categories / tools, never unlock the craft. Prices `{p.proMonthly}` / `{p.enterpriseMonthly}` read live from `getVendorPrices()` — never hardcoded (admin-managed-prices rule).
+- Built entirely in the page's `--m-*` Clean-Editorial tokens + `m-display`/`m-card`/`m-btn` vocabulary; responsive via scoped `.m-vv-*` grid classes. `tsc --noEmit` green.
+
+SPEC IMPACT: None on schema / SKU / price. New vendor-facing positioning on /for-vendors (iteration 0015 marketing site · vendor pitch shared with 0022); logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
 
@@ -844,6 +880,21 @@ The build-order gate before any live two-way seating editing: ONE editor at a ti
 Verified: `tsc` + `next lint` + `build` + 89/89 unit tests, across both the build and an independent re-verify. Adversarial review confirmed the concurrency core sound (no double-win; server-clock staleness only) and all four UX findings fixed.
 
 **SPEC IMPACT:** Builds documented seat-finding PR 2 (corpus `DECISION_LOG.md` 2026-06-13 + memory `project_setnayan_seatfinding_pr2_lock`); extends iter 0008. ⚠ **MIGRATION-FIRST:** `20261216000000` MUST be applied to prod BEFORE this merges/deploys, or the editor view-only-locks (missing RPC). Open for owner: ① action-layer enforcement (not RLS — `assert_seating_lock_held` shipped + used live); ② co-owner exclusivity is a behavior change for two-partner couples. Fast-follows: distinguish transient-infra errors from genuine lock-loss on the assert path; first-mount banner flicker.
+## 2026-06-13 · feat(pax): adaptive pax pricing — Phase 9 (final-only behavior + post-finalize edit-guard) — spec fully landed
+
+The last two items, completing the program: decision #5's final-only behavior and the post-finalize guest-edit guard.
+
+**#5 — final-only now does something** (`lib/pax.ts` `fetchVendorPaxProposals`): in `adaptive_pricing_mode='final_only'` the per-vendor surcharge proposals are **suppressed while the count is still moving** (not yet locked) — faithful to "set the adjustment once at finalization." Once the count finalizes, the binding proposal appears (both modes). Realtime (the default) proposes continuously, as before. So the Phase 8 toggle now changes real behavior for both parties, not just a stored preference.
+
+**Post-finalize edit-guard** (decision #6's "anything after can't work"):
+- Migration **`20261215000000_guard_guest_edits_when_locked.sql`** (applied to prod): a `BEFORE INSERT/UPDATE/DELETE` trigger on `guests` that blocks **count-affecting** writes (insert, `rsvp_status` change, soft-delete, hard delete) once `guest_count_locked_at` is set — path-independent (couple page, quick-add, import, the guest self-RSVP portal, accepted claims). **service_role is exempt** (admin/system + the finalize path) and **cosmetic edits pass** (photo/tags/seating/meal — only the headcount is frozen). Check-in is unaffected regardless (it writes `guest_checkins`, never `guests`).
+- Friendly pre-checks (`lib/pax.ts` `guestEditsLocked`) on the two main add paths — `createGuest` (redirect `?error=finalized`, new error copy) + `quickAddGuest` (inline error) — so the couple sees "your guest list is finalized" instead of a raw DB error; the trigger is the backstop for every other path.
+
+With this, **all six locked decisions are fully implemented in behavior** (not just settings). Program complete: schema → couple meter → inquiry snapshot → vendor rate → surcharge+confirm → HQ audit → auto-finalize → couple settings → final-only + edit-guard.
+
+Verified: `tsc` + `lint` + `next build` clean; migration timestamp guard ✓.
+
+**SPEC IMPACT:** None to locked scope. Closes the Adaptive Pax Pricing program (`DECISION_LOG.md` 2026-06-13, all 6 decisions). Memory `project_setnayan_adaptive_pax_pricing` → fully complete.
 
 ---
 
@@ -1553,6 +1604,22 @@ Three owner-directed seat-plan editor additions (2026-06-13):
 **Verification:** brace-balance check on all structurally-edited files (help.ts article removal, _Compliance.tsx) passed; full repo sweep confirms zero remaining served `BIR-compliant` / `₱1,499 (one-time|lifetime) verification` / `Today's Focus` strings (the only `₱1,499` left is the legit shipped Setnayan AI price). Typecheck + lint + prod build run as required CI checks on the PR.
 
 **SPEC IMPACT:** Logged as a DECISION_LOG.md row (2026-06-13). Two reconciliations vs. the corpus: (1) vendor verification is **free during launch** (the corpus/`Pricing.md` ₱1,499 one-time verification SKU is retired in public copy); (2) Setnayan does **not** issue BIR-compliant Official Receipts — only plain itemized order receipts (contradicts iteration 0026 BIR/OR promises, which remain unshipped). **NOT changed here:** the AI-planner price stays at the shipped ₱1,499 — if the owner wants the 2026-06-07 ₱3,999 lock live, that's a separate DB (`platform_retail_catalog_v2`) + copy sync, not a stale-claim fix.
+## 2026-06-13 · feat(admin): /admin/intelligence — churn radar · market pulse · lead scoring (local-DB analytics, zero AI spend)
+
+**Context:** owner request — a high-utility admin analytics dashboard that runs entirely on local database aggregations (no external AI/API costs): (1) churn detection for future-dated events whose couple has gone quiet, (2) market-wide aggregates (planned budgets, top locations, event-type mix), (3) an engagement-based lead-scoring ranking with "Auto-arrange + budget = High-Value Premium Prospect" as the headline signal.
+
+- **Migration `20261202000000_admin_intelligence_analytics.sql`** — three SECURITY DEFINER STABLE RPCs, each guarded by `is_admin() OR auth.role() = 'service_role'` and EXECUTE-revoked from `anon`:
+  - `admin_churn_risk_events(p_stale_days, p_limit)` — non-archived events with `event_date >= CURRENT_DATE` whose owner couple shows zero activity (auth `last_sign_in_at` · guest created/updated · budget line items/payments · seat assignments · event row edits) inside the window. Returns per-signal timestamps + days-inactive.
+  - `admin_market_analytics()` — one-round-trip JSONB: planned-budget aggregates over `events.estimated_budget_centavos` (avg · median · min · max · coverage), top-5 `events.region`, event-type breakdown.
+  - `admin_lead_scores(p_limit)` — 0–100 weighted score from feature adoption (budget set 15 · line items 10 · payments 10 · Auto-arrange 15 · tables 5 · guests 10+5 · vendors 10+5 · website 5 · monogram 5 · active-this-week 5); tiers `high_value` ≥70 / `engaged` ≥40 / `early`. Internal accounts (`users.is_internal`) excluded from churn + leads.
+  - Also: `events.auto_seat_last_used_at` column (stamped by the seating `autoSeatGuests` action so Auto-arrange adoption is a direct signal; ≥10 seat assignments is the proxy for pre-column events) + partial index `events_future_active_date_idx ON events(event_date) WHERE archived = FALSE`.
+- **`lib/admin/intelligence-stats.ts`** — service-role fetch of the 3 RPCs in parallel, wrapped in `unstable_cache` (10-min revalidate · `admin-intelligence` tag), so the DB sees at most ~6 aggregation rounds/hour per window variant regardless of admin traffic. Demo-mode builder mirrors growth-stats.
+- **`/admin/intelligence` page** — server-rendered, no client JS (mirrors `/admin/growth`): churn-window GET-form (7/14/30 days), Churn radar table, Market pulse stat tiles + region/type bar lists, Lead scores table with tier badges + signal chips. Registered in AdminSidebar (Insights group, Radar icon), AdminBottomNav `activeMatch`, and the `/admin/more` accordion.
+- **Migration applied to prod** statement-by-statement via `supabase db query` (ledger drift from parallel sessions blocked `db push`; ledger row `20261202000000` inserted manually). All three RPCs smoke-tested live: market pulse returns real aggregates (7 weddings · avg planned budget ₱2.16M · CALABARZON top region), churn radar 0 rows (all couples active <14d), lead scores rank 3 engaged-tier events.
+
+**Verification:** `pnpm typecheck` + `pnpm lint` green in a fresh worktree off origin/main (lint warnings pre-existing, untouched files); RPCs executed against prod with real data.
+
+**SPEC IMPACT:** new admin surface (#30-class addition to the 0023 Setnayan HQ surface map) + new `events` column. Logged as a `DECISION_LOG.md` row (2026-06-13) per the relaxed corpus-sync mandate; iteration `0023_admin_console` re-sync is part of the in-progress per-iteration AS-BUILT correction pass, not this PR.
 
 ## 2026-06-13 · feat(seo): per-article /help/[slug] URLs — 61 help Q&As become individually indexable
 

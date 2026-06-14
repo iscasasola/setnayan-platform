@@ -127,9 +127,12 @@ export function EventMonogram({
         <span
           style={{
             color: ink,
-            fontFamily: design.fontFamily,
-            fontStyle: design.fontStyle,
-            letterSpacing: design.letterSpacing,
+            // Chrome size (~28–44px) renders the SMALL stack (2026-06-12):
+            // identical to the chosen face except for hero-only hairline
+            // scripts, which fall back to a legible sibling.
+            fontFamily: design.smallFontFamily,
+            fontStyle: design.smallFontStyle,
+            letterSpacing: design.smallLetterSpacing,
             fontSize: `${Math.max(7, Math.round(px * 0.28))}px`,
             lineHeight: 1,
             whiteSpace: 'nowrap',
@@ -157,9 +160,10 @@ export function EventMonogram({
         borderColor: ink,
         ...(design
           ? {
-              fontFamily: design.fontFamily,
-              fontStyle: design.fontStyle,
-              letterSpacing: design.letterSpacing,
+              // Small stack — see the framed branch note above.
+              fontFamily: design.smallFontFamily,
+              fontStyle: design.smallFontStyle,
+              letterSpacing: design.smallLetterSpacing,
             }
           : {}),
       }}

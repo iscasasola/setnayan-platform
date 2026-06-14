@@ -155,7 +155,16 @@ const MONO_INK_HEX: Record<MonoInkKey, string> = {
 // Fallbacks stay for safety.
 const MONO_FONT_STACK: Record<
   MonoFontKey,
-  { fontFamily: string; fontStyle: 'italic' | 'normal'; letterSpacing: string }
+  {
+    fontFamily: string;
+    fontStyle: 'italic' | 'normal';
+    letterSpacing: string;
+    /** Small-size fallback (2026-06-12): hero-only hairline scripts are
+     *  illegible at chrome size (~28–36px) — tiny surfaces render this face
+     *  instead. Absent = the face holds up small (the original four + the
+     *  sturdy serifs), preserving the owner's "exact font in chrome" lock. */
+    smallFallback?: MonoFontKey;
+  }
 > = {
   cormorant: {
     fontFamily: "var(--font-display), 'Cormorant Garamond', Georgia, serif",
@@ -187,11 +196,15 @@ const MONO_FONT_STACK: Record<
     fontFamily: "var(--font-tangerine), 'Tangerine', 'Snell Roundhand', cursive",
     fontStyle: 'normal',
     letterSpacing: '0.02em',
+    // Featherweight hairlines vanish at chrome size — fall back to the
+    // established small-tolerated script (same romantic register).
+    smallFallback: 'script',
   },
   luxurious: {
     fontFamily: "var(--font-luxurious), 'Luxurious Script', 'Snell Roundhand', cursive",
     fontStyle: 'normal',
     letterSpacing: '0.02em',
+    smallFallback: 'script',
   },
   vidaloka: {
     fontFamily: "var(--font-vidaloka), 'Vidaloka', Georgia, serif",
@@ -238,6 +251,14 @@ export type MonogramDesignStyle = {
   fontFamily: string;
   fontStyle: 'italic' | 'normal';
   letterSpacing: string;
+  /** Small-surface face (2026-06-12): equal to fontFamily/fontStyle for faces
+   *  that hold up tiny; the registry's smallFallback stack for hero-only
+   *  hairline scripts (Tangerine · Luxurious Script). Chrome-size consumers
+   *  (event switcher / profile avatar) render THESE; hero/medallion/maker
+   *  keep the exact chosen face. */
+  smallFontFamily: string;
+  smallFontStyle: 'italic' | 'normal';
+  smallLetterSpacing: string;
 };
 
 /**
@@ -281,6 +302,10 @@ export function resolveMonogramDesign(input: {
   const resolvedFrame =
     frameKey && VALID_FRAMES.has(frameKey) ? frameKey : design?.frame ?? null;
 
+  // Small-surface stack: the registry's fallback face for hairline scripts,
+  // the exact face for everything else.
+  const smallStack = stack.smallFallback ? MONO_FONT_STACK[stack.smallFallback] : stack;
+
   return {
     style: design?.style ?? null,
     frameKey: resolvedFrame,
@@ -288,6 +313,9 @@ export function resolveMonogramDesign(input: {
     fontFamily: stack.fontFamily,
     fontStyle: stack.fontStyle,
     letterSpacing: stack.letterSpacing,
+    smallFontFamily: smallStack.fontFamily,
+    smallFontStyle: smallStack.fontStyle,
+    smallLetterSpacing: smallStack.letterSpacing,
   };
 }
 

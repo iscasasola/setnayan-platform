@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-12 · fix(monogram): chrome-size fallback for hero-only hairline scripts
+
+**Context:** flagged in the #1260 typeface-picker ship — Tangerine and Luxurious Script are featherweight hairlines that vanish at the chrome icon's ~28–36px (event switcher · profile avatar). The owner's "exact font in chrome" lock (2026-06-03) predates these faces and is preserved for every face that holds up small.
+
+- **`lib/monogram.ts`:** `MONO_FONT_STACK` entries gain an optional `smallFallback`; ONLY `tangerine` + `luxurious` set it (→ `script`/Great Vibes — the established chrome-tolerated script, same romantic register). `resolveMonogramDesign` returns `smallFontFamily/smallFontStyle/smallLetterSpacing` — identical to the exact face for the other six.
+- **`event-monogram.tsx` (the chrome icon):** both branches (framed + letters-forward) render the SMALL stack. Hero, medallion, Maker preview, and landing page keep the exact chosen face untouched.
+- Verified-no-change: the QR-center overlay (`monogramOverlaySvg`) already hardcodes a generic serif (and the standalone QR SVG route can't load webfonts at all) — no legibility issue there to fix.
+
+**Verification:** `tsc` clean · `next lint` clean. No schema; no behavior change for the original four faces or the two sturdy new serifs.
+
+**SPEC IMPACT:** None beyond the #1260 row's flagged follow-up now closed (corpus DECISION_LOG batch row).
 ## 2026-06-14 · feat(website): 4-path couple website — add the Save the Date phase + turn the lifecycle ON for weddings
 
 Owner design this session: the couple wedding website is four named paths the guest moves through over time — **Save the Date → RSVP → Event → Editorial** — time-gated (the page shows whichever path fits the date), single `/[slug]` page (no separate routes). The phase engine already existed (`rsvp | event | editorial`) but was flag-dark (`WEBSITE_PHASES_ENABLED`, off) and had no Save the Date.

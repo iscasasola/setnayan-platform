@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, degrees, type PDFPage, type RGB } from 'pdf-lib';
 import QRCode from 'qrcode';
+import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
 import {
   CHAIR_PX,
   TABLE_TYPE_LABEL,
@@ -28,6 +29,12 @@ export type SeatingPdfInput = {
     event_date: string | null;
     monogram_text: string | null;
     monogram_color: string | null;
+    // Monogram design columns — present when the couple designed a lockup, so
+    // the badge draws their REAL mark (bar/duo/script/infinity) not just initials.
+    monogram_style?: string | null;
+    monogram_font_key?: string | null;
+    monogram_frame_key?: string | null;
+    monogram_custom_svg?: string | null;
   };
   tables: EventTableRow[];
   assignments: SeatAssignmentRow[];
@@ -203,6 +210,12 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
 
   const monoText = (event.monogram_text?.trim() || initialsFrom(event.display_name)).slice(0, 5);
   const monoColor = hex(event.monogram_color, theme.accent);
+  // The couple's chosen type-only lockup (bar/duo/script/infinity), or null →
+  // keep the legacy initials badge (framed · single-initial · bespoke · legacy).
+  // The lockup label keeps the "A & B" form deriveMonogram produces, not the
+  // squashed "A&B" monoText above.
+  const lockupLabel = event.monogram_text?.trim() || event.display_name;
+  const lockup = lockupForEvent(event, lockupLabel);
 
   // ---- shared header band -------------------------------------------------
   const drawHeader = (page: PDFPage, subtitle: string) => {
@@ -211,8 +224,12 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     const cx = MARGIN + 26;
     const cy = top - 26;
     page.drawCircle({ x: cx, y: cy, size: 26, borderColor: monoColor, borderWidth: 1.5, color: theme.paper });
-    const mw = bold.widthOfTextAtSize(monoText, 13);
-    page.drawText(monoText, { x: cx - mw / 2, y: cy - 4.5, size: 13, font: bold, color: monoColor });
+    if (lockup) {
+      drawLockupBadge(page, lockup, { centerX: cx, centerY: cy, radius: 26 });
+    } else {
+      const mw = bold.widthOfTextAtSize(monoText, 13);
+      page.drawText(monoText, { x: cx - mw / 2, y: cy - 4.5, size: 13, font: bold, color: monoColor });
+    }
 
     // names + date
     const tx = MARGIN + 64;

@@ -11,6 +11,293 @@ Owner reversed the 2026-05-15 "auto-merge is the default" lock. New standing rul
 - CLAUDE.md — "PR workflow — auto-merge is the default" → "review-then-merge (owner reviews the preview, then merges)".
 
 SPEC IMPACT: None — repo process/governance doc; no product, schema, SKU, pricing, or UX change.
+## 2026-06-14 · feat(website): 4-path couple website — add the Save the Date phase + turn the lifecycle ON for weddings
+
+Owner design this session: the couple wedding website is four named paths the guest moves through over time — **Save the Date → RSVP → Event → Editorial** — time-gated (the page shows whichever path fits the date), single `/[slug]` page (no separate routes). The phase engine already existed (`rsvp | event | editorial`) but was flag-dark (`WEBSITE_PHASES_ENABLED`, off) and had no Save the Date.
+
+- `apps/web/lib/invitation-widgets.ts` — added `save_the_date` to `LifecyclePhase` (now 4 phases) + `STD_THRESHOLD_DAYS = 90` (provisional). `getLifecyclePhase()` now splits the far-future pre-event window: `> 90 days` out → `save_the_date`, within → `rsvp` (past → `editorial`, near-event windows unchanged). `WIDGET_PHASES.hero` includes `save_the_date` so the hero renders in the new phase.
+- `apps/web/lib/calendar-links.ts` (new) — pure Google-Calendar-URL + RFC 5545 all-day `.ics` helpers (mirrors the budget feed) for the Save-the-Date "add to calendar".
+- `apps/web/app/[slug]/_components/save-the-date.tsx` (new) — the minimal STD view: monogram/name + date + countdown + add-to-calendar + "invitation to follow". Asks nothing of the guest.
+- `apps/web/app/[slug]/page.tsx` — **lifecycle now ON for weddings** (`phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding'`; the surface is already wedding-only via `notFound()`). Added the `save_the_date` body branch to both the anonymous (PublicLanding) and signed-in (InvitationSite) paths + the `?phase=save_the_date` host/demo preview.
+- `apps/web/app/dashboard/[eventId]/website/page.tsx` — "Your page through time" block: host-only `?phase=` preview chips for all four phases.
+
+This is the load-bearing flip: enabling the lifecycle for weddings means post-event sites now render the Editorial recap and day-of sites the live surface (both already built, previously flag-dark). Verify the four `?phase=` states on the preview before merge. Mood-board palette wiring + Editorial content alignment (love story → Event, public/private spend) are deliberately separate follow-up PRs.
+
+SPEC IMPACT: 4-path couple-website IA (Save the Date phase added; lifecycle live for weddings; single-page phase-swap; ~90-day STD threshold). Logged at the bottom of `DECISION_LOG.md` (corpus). Touches the lifecycle described in `Wedding_Website_Lifecycle_Spec_2026-06-07` + iteration `0002` — corpus correction headers to follow with the palette/editorial PRs.
+
+## 2026-06-14 · feat(hero): make the loading wait useful — story veil + lock-then-swipe
+
+Owner: the loading time should sell, not stall. The hero veil now carries the pitch while the dense sequence loads, then invites the swipe once it's ready.
+
+- `app/_components/marketing/HeroVideoScrub.tsx` — while frames load, the **light (alabaster)** veil shows the story ("Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don't fit your wedding? We're setting it all up for you.") + a live progress bar, and **page scroll is locked** (`body overflow:hidden` + a non-passive `touchmove` preventer) so nobody swipes into a half-loaded scrub. When every frame is in, scroll is **released** and the status flips to **"Swipe up to begin ↑"** (gold); the veil fades on the first deliberate swipe. A 30s backstop + unmount cleanup always release the lock; reduced-motion skips the veil/lock entirely.
+- **Always starts at frame 1:** on ready we snap scroll back to the top (`scrollTo(0,0)`) and arm the swipe-to-dismiss ~350ms later, so any scroll that slipped through during loading (e.g. iOS momentum) can't make the scrub start mid-way.
+
+SPEC IMPACT: None (homepage hero load/UX only — marketing motion copy; no schema/SKU/pricing).
+
+Follow-up to the dense-frame hero scrub (#1416). On a ~1000-frame sequence the scrub could swap the `<img>` to a frame that hadn't downloaded/decoded yet and **freeze on blank** ("next images don't show / feels stuck"), especially on the initial load or a slower connection.
+
+- `app/_components/marketing/HeroVideoScrub.tsx` — three guards: (1) `apply()` never swaps to a not-yet-decoded frame — it holds the **nearest already-loaded** frame until the target one arrives (no blank freeze); (2) the opening 24 frames load at `fetchPriority:'high'`; (3) a **loading veil** with a thin progress bar holds until **every frame is decoded** (owner: "everything must load first" — the user never enters the scrub on a half-loaded sequence), then fades out; a 30s backstop is the only escape hatch if a request truly hangs. Reduced-motion hides the veil and shows the final frame.
+- Caption readability (owner: "readable and bold"): the two story captions go **bold (`fontWeight 800`, forces weight on the single-weight Instrument Serif), larger**, near-black, with a **crisp white outline + halo** so they stay legible over both the bright field and the darker objects (vintage cars) instead of the thin faint serif they shipped as.
+
+SPEC IMPACT: None (homepage hero load/UX robustness only).
+
+## 2026-06-14 · feat(studio): rebuild /add-ons into the benefit-led Studio hub
+
+The couple `/dashboard/[eventId]/add-ons` page (the sidebar "Studio" item + bottom-nav "Studio" tab both already point here) was a cinema-poster grid that listed every in-app service flat, by vendor taxonomy. Rebuilt it as the **Studio hub** — a calm, benefit-led, job-to-be-done discovery surface in the v2.1 paper palette (premium-calm, not posters). REDESIGN_PLAN Phase 2.
+
+- **Four job-to-be-done groups** (fixed order), each a mono section label + a responsive paper-card grid:
+  1. **Capture the day** — Papic · Panood · Photo Delivery · Patiktok
+  2. **Your website & story** — Landing Page · Save the Date · Monogram Creator · Custom QR per guest · LED Background
+  3. **Plan & organize** *(free)* — the four free core sidebar tools (Guest list · Seating · Budget · Schedule) lead the group, then Mood Board · Indoor Blueprint
+  4. **Music & extras** — Music Creator · Playlist · Paprint · Orders
+  Within each group, available cards come first and coming-soon cards sink to the bottom.
+- **New card model** (`add-ons/_components/studio-card.tsx`): a soft paper card — tinted `--m-paper-2` icon square + name + one-line benefit + chip + CTA. Available → **"Open"** deep-link to the feature's own page (which already handles buy-vs-use); `tier === 'free'` shows a subtle "Free" chip; `coming_soon` → muted non-interactive "Soon" chip, no CTA. No price is ever shown on the card (pricing stays admin-managed on the feature page).
+- **Additive catalog change** (`lib/add-ons-catalog.ts`): two new OPTIONAL fields on `AddOnEntry` — `studioGroup` (set on all 16 entries) + `tier?: 'free'` (marked only on genuinely-free entries: mood-board · playlist · orders · landing-page · music-creator). No existing field removed/repurposed, so the Services/vendors tab (the other importer, which consumes `poster.*`) is unaffected. Plus a separate `studioFreeTools(eventId)` factory (NOT added to `ADD_ONS`, so it can't pollute the Services tab) for the four free sidebar deep-links.
+- **service-poster.tsx kept** — the `ServicePoster` *component* is now unused, but the file still exports the `PosterStyle`/`PosterMotion` *types* that the catalog imports and the Services tab consumes via `addon.poster.*`. Deleting it would break the build, so it stays (the task's delete was conditional on "unused anywhere"; it is not).
+- Dropped the old internal-admin iteration-code pill (and its `createClient`/`getCurrentUser` calls) — the Studio design surfaces only status + Free chips.
+- **Deferred (noted, not built):** owned-aware "Learn more vs Open" CTA, and a working Notify-me backend for coming-soon items (kept as a static "Soon" state).
+- Verified: typecheck ✅ · lint ✅ (all 3 changed/new files clean). Route unchanged (`/dashboard/[eventId]/add-ons`).
+
+SPEC IMPACT: refines REDESIGN_PLAN Phase 2 (Studio hub); no routes/schema/pricing change.
+## 2026-06-14 · feat(monogram): chosen lockup in the PDFs, the social/OG card, and the animated hero (items 2+3 of "do all 3")
+
+Completes the monogram-everywhere consistency pass. The couple's chosen type-only lockup (bar/duo/script/infinity) now renders on the three remaining surfaces; framed / single-initial / legacy / bespoke keep the existing initials rendering everywhere. Built as a 3-agent parallel workflow, then **adversarially reviewed** (3 skeptical reviewers) — the review caught real bugs the build agents' own local checks missed, all fixed before merge.
+
+- **PDFs** (`lib/lockup-pdf.ts` new + `seating-pdf.ts` + `concept-pdf.ts` + both export routes + `types/opentype.js.d.ts`): draws the lockup in the monogram badge via `opentype.js` glyph-paths + `pdf-lib` `drawSvgPath` (no `@pdf-lib/fontkit` dep needed). Both routes now SELECT + pass the monogram design columns. **Review fixes:** use `deriveMonogram` for the label (raw `display_name` dropped the lockup for "and"/"-"/"+"-joined couples); pivot the synthetic italic shear at the baseline (was drifting caps left, misaligned with the divider/∞); `drawSvgPath` `borderWidth: 6` not `6×scale` (pdf-lib applies the line width after the CTM scale → ∞ was ~4× too thin). Verified by rasterizing all four styles — caps align, ∞ reads at the right weight.
+- **Social / OG card** (`lib/social/card.tsx` + `app/api/social/card/[postId]/route.ts` + bundled `Cormorant-Regular.ttf`): the lockup is built as a native **satori element tree** (so glyphs use the bundled fonts, not sharp's font substitution); route threads the design onto the card ctx. **Review fix:** padded `duo`'s near-square viewBox so the un-clipped satori glyphs fit the ring (satori has no SVG viewport to clip like the chrome) — duo reads a touch smaller on the card.
+- **Animation** (`animated-monogram-hero.tsx` + `hero-monogram.tsx` + maker preview + 2 add-on/maker callers): rebuilt the 6 motion signatures (draw/foil/bloom/editorial/halo/stardust) to play on the chosen **lockup** instead of the text initials, all SSR-safe + reduced-motion fallbacks. Threaded through all 4 callers, so the paid animation on the **public hero** now animates the mark, and the **Monogram Maker live preview** is now WYSIWYG. Reviewer verdict: ship (guards + threading + geometry verified end-to-end; only cosmetic minors).
+- **Font-tracing safety net** (`next.config.ts`): `outputFileTracingIncludes` now bundles `assets/cipher-fonts/*.ttf` + `lib/social/fonts/*.ttf` so the PDF routes don't ENOENT in the serverless runtime — confirmed traced into `.next/standalone`.
+- Verified: typecheck ✅ · lint ✅ · production build ✅ (exit 0) · PDF badges rasterized + visually confirmed. Social card + animations render only on the Vercel preview (known local satori gap) — eyeball the preview.
+
+**Flagged for owner:** there is **no Playfair Display static TTF** in the repo, so the `duo` style substitutes a near-equivalent serif in the PDF (Bodoni Moda) and the OG card (Cardo); it's exact in chrome/hero/QR (web font). Adding a Playfair static TTF would make `duo` pixel-exact in those raster surfaces. Also deferred (reviewer minors, no action to ship): foil sheen doesn't clip across the stroked ∞; a harmless duplicate gradient id in the infinity+foil SVG; `transform-box: view-box` degrades gracefully on Safari < 16.
+
+SPEC IMPACT: completes the chosen-lockup-as-mark consistency across all couple-facing surfaces (extends the chip #1374/#1376 + hero/QR #1402). No SKU/pricing impact; no migration (monogram columns already exist). Logged in corpus `DECISION_LOG.md`.
+
+---
+## 2026-06-14 · feat(hero): dense frame extraction + scroll-synced story captions on the homepage scrub
+
+The admin-uploaded homepage hero (`/admin/hero-video` → `HeroVideoScrub`) extracted only a sparse 180 frames (8 fps, hard cap), so the scroll-scrub *stepped* over its 300vh track instead of gliding. Now it captures effectively every frame, and the scrub carries two story-caption beats over the bright video before the existing end CTA.
+
+- `app/admin/hero-video/hero-uploader.tsx` — frame capture made dense: `FPS` 8→30 (≈native), `MAX_FRAMES` 180→1200 (safe ~40s ceiling; below it every frame is kept), `MIN_FRAMES` 24→48, upload concurrency 4→6. To keep the homepage preload light despite ~1000 frames, the per-frame downscale dropped 1080→`DOWNSCALE_MAX` 720px (a scrub is full-screen motion; 720 reads crisp and ~halves payload). Browser seek-based extraction is otherwise unchanged — only density + frame size.
+- `app/_components/marketing/HeroVideoScrub.tsx` — two scroll-synced captions fade in over the scrub (A: "A thousand choices. The same questions, over and over." during the overwhelm; B: "Say it once — and find your perfect fit." during the trim), then yield to the existing "Set na ’yan" + CTA end overlay. Dark editorial serif with a soft light halo for legibility on the bright frames, parked in the both-crops (16:9 + 9:16) safe zone; `aria-hidden` and hidden under reduced-motion.
+
+SPEC IMPACT: None (homepage hero motion/UX only — no schema, SKU, pricing, or copy-of-record change; the captions are marketing motion text and the end CTA / "0% commission" line is unchanged).
+
+## 2026-06-14 · fix(pricing): real charges read admin-only — kill divergent hardcoded price fallbacks
+
+Owner rule (2026-06-14): every feature is priced in the admin catalog (amount admin-set, frequency predefined per SKU); code must never hardcode a price. Two hardcoded fallbacks diverged from admin (the ₱2,499-vs-₱1,999 Animated Monogram mismatch the pricing collection flagged). Neither value is changed here (numbers stay parked for the holistic pricing pass) — this only enforces the *source*.
+
+- `api/v1/billing/initialize-maya/route.ts` — `readSkuPrice`/`readBundlePrice` now read the admin catalog as the ONLY source for a real charge: SKU miss/failure → `null` (caller 400s), bundle failure → throw (caller 500s, fail-closed). The hardcoded `PRICING_BOOK`/`BUNDLE_BOOK` are now **DEMO-ONLY** (relabeled) — used solely under `DEMO_MODE` (walkthrough recording, no real charge), so a stale fallback can never bill a wrong amount.
+- `add-ons/animated-monogram/page.tsx` — removed `FALLBACK_PRICE_PHP = 2499`; the price comes only from `formatV2Sku()` (admin). When the catalog row is unreadable (CI / pre-seed only — never a real customer in prod), `pricePhp` is `null` and the buy block degrades to "Pricing loads from your catalog" instead of inventing a number.
+- Verified: typecheck ✅ · lint ✅. Maya route is dormant V1 plumbing (no public API / Maya not approved in V1), so this hardens it ahead of activation.
+
+SPEC IMPACT: None — enforces the admin-priced rule (memory `project_setnayan_pricing_admin_managed`); no price value changed, no schema/route change. (The demo book still lists stale/retired SKU prices on purpose — parked; it never bills.)
+
+---
+
+## 2026-06-14 · fix(monogram): "Your Plan" tile pointed at a dead "coming soon" stub instead of the live maker
+
+Found during a monogram dead-code audit (owner: "we have several monogram makers — keep the ones that serve the app, delete what doesn't"). The audit found NO duplicate/orphaned makers — the three editor modes on `/dashboard/[eventId]/monogram` (typographic lockup · Cipher Studio · Bespoke AI) + the onboarding picker + the paid Animated Monogram upsell are all live and distinct. The one genuinely stale thing: the **"Your Plan" monogram tile** linked to `/dashboard/[eventId]/add-ons/monogram-creator` — a route that doesn't exist, so it rendered the iteration-0037 *"Monogram Creator… Coming back soon"* placeholder (a relic from before the maker shipped). Couples clicking it hit a dead end instead of the live maker.
+
+- `your-plan-section.tsx` — the monogram tile now links to `/dashboard/[eventId]/monogram` (the live maker; matches what the side nav already points at).
+- `add-ons/[addon]/page.tsx` — added `SHIPPED_REDIRECTS` so `/add-ons/monogram-creator` 307-redirects to `/monogram` (any old CTA/bookmark lands on the real tool), and removed the stale `monogram-creator` "coming soon" entry from `ADD_ON_META`.
+- Verified: typecheck ✅ · lint ✅.
+
+SPEC IMPACT: None — corrects a stale internal link to a shipped feature; no schema/SKU/pricing/route-shape change. (Flagged for later, NOT changed here: the `music-creator` + `landing-page` add-on stubs may be similarly stale if those features are live; and the kept surfaces — animated hero / PDF / maker preview / social card — still render initials rather than the chosen lockup, pending owner's consistency-scope decision.)
+## 2026-06-14 · feat(realstories): vendor "Featured in Real Stories" + Share to your Page (PR C, vendor half — CLOSES the loop)
+
+The vendor half of PR C — the last piece of the Real-Stories featuring loop. Gives vendors a one-click "Share to your Facebook Page" for the published weddings they helped create (free social proof + reach back to Setnayan).
+
+- **NEW `lib/realstories-vendor.ts`** — `loadVendorFeaturedStories(bookedEventIds)`: the vendor's OWN booked events intersected with the **same RA 10173 public-showcase gate** as `lib/showcase-db.ts` (couple opted in via `users.public_summary_consent_at`, wedding with a public slug, past the T+30d grace). Self-contained (own consent-join, no `showcase-db` ripple), admin-client read, best-effort → `[]`. Ownership is already enforced by the caller passing only the vendor's own booked event ids.
+- **NEW `app/vendor-dashboard/real-stories/page.tsx`** — lists each featured wedding (couple · city · date) with "View the story" → the couple's `/[slug]` editorial + a **`<ShareButtons>`** (reused from PR B) pointed at that editorial with `/api/og/realstory-slug/[slug]` as the share image. Vendor-auth-gated (`fetchOwnVendorProfile`). Pre-launch empty state ("Your featured weddings will appear here…") — no fabricated entries.
+- **`app/vendor-dashboard/_components/vendor-sidebar.tsx`** — "Real Stories" nav item (Sparkles icon) in the **Grow** group; auto-propagates to the `/more` overflow + mobile via `VENDOR_NAV_GROUPS`.
+
+Read-only, no migration. Ready-but-empty today (no consented editorials exist yet); populates automatically as couples publish. tsc + lint clean.
+
+SPEC IMPACT: closes the Real-Stories featuring loop (couple publish → admin curate → couple share → **vendor share**). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+
+---
+
+## 2026-06-14 · fix(nav): admin bottom-nav highlight gaps + duplicate sidebar icons
+
+Two correctness/clarity fixes to the admin doorway nav (`apps/web/app/admin/_components/`). Surgical — no labels, hrefs, routes, order, or `is_admin` gating changed.
+
+- **Bottom-nav activeMatch gaps (`admin-bottom-nav.tsx`)** — several live admin routes lit no mobile tab (the 4-tab strip Home · Work · Directory · More) because they were absent from the per-tab `activeMatch` arrays, so navigating to them left every tab dark. Cross-checked the full sidebar route list against the four arrays and added every orphan:
+  - **Work** tab: `+/admin/pax-changes`, `+/admin/user-reports`, `+/admin/social-queue`, `+/admin/account-deletions` (the last surfaced by the orphan cross-check).
+  - **More** tab: `+/admin/refinements`, `+/admin/hero-video`, `+/admin/real-stories` (the last two surfaced by the cross-check — all three are Platform-group surfaces).
+  - `/admin/settings/payment-methods` + `/admin/settings/demo-mode` already light More via the existing `/admin/settings` prefix; `/dashboard/profile` (My account) is an intentional cross-doorway link to the shared profile and correctly lights no admin tab.
+- **Duplicate sidebar icons (`admin-sidebar.tsx`)** — four pairs of semantically-different items rendered the same glyph; gave the lower-frequency member a distinct, true-to-meaning lucide icon (imports added: `MessageSquareWarning`, `Landmark`, `RefreshCw`, `UsersRound`):
+  - **Disputes** (vendor-txn) keeps `Shield`; **User reports** (UGC moderation) `Shield`→`MessageSquareWarning`.
+  - **Payment options** (act-now queue) keeps `CreditCard`; **Payment methods** (bank-rails config) `CreditCard`→`Landmark`.
+  - **Verify** keeps `BadgeCheck`; **Subscriptions** (recurring billing) `BadgeCheck`→`RefreshCw`.
+  - **Operations & Hiring** keeps `TrendingUp`; **Pax changes** (headcount-change queue) `TrendingUp`→`UsersRound`.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `scripts/lint-bottom-nav.mjs` passed.
+
+SPEC IMPACT: None (nav highlight + icons; no routes/labels/gates changed).
+## 2026-06-14 · refactor(nav): couple sidebar journey groups + Studio/Explore + 6-tab bottom nav
+
+Reorganizes the COUPLE dashboard navigation per the owner-locked REDESIGN_PLAN journey-group IA. **Pure nav/labels — every route is unchanged**; item `key` values are preserved so per-section `setnayan.nav.section.<key>.open` localStorage state survives.
+
+- **`customer-nav-config.ts` (`buildCustomerNavGroups`)** rebuilt from 6 verb buckets (Plan/Spend/Communicate/Share/After/Settings) into 7 journey groups, with everything past the top + Plan collapsed by default:
+  - **Top group** (key `main`, "Setnayan", open): **Home · Studio · Explore**. `add-ons` relabeled **"Studio"** (in-app services hub, route `/add-ons` unchanged); `vendors` relabeled **"Explore"** with icon swapped Briefcase→**Compass** (route `/dashboard/[eventId]/vendors` unchanged — this is the couple in-app surface, distinct from the public `/explore` marketplace).
+  - **Plan** (open): Guests · Seating · Schedule · **Budget** (folded in from the retired Spend group).
+  - **Book** (collapsed): Messages · Contracts.
+  - **Design** (collapsed): Website · Mood Board · Monogram.
+  - **Day-of** (collapsed): Live Wall · **Event QR** (moved from After).
+  - **After** (collapsed): Activity · Disputes. **Activity gained an explicit `matchPrefix`** (`…/activity`) so sub-routes like `/activity/[id]` light it.
+  - **Settings** (collapsed): Personalization · Hosts · Profile · **Find your date** (demoted from Plan, kept reachable — not deleted).
+  - Removed the now-unused `ShoppingCart`/`Receipt`/`Briefcase` lucide imports; added `Compass`.
+- **`customer-bottom-nav.tsx`** rebuilt from 5 tabs to the owner-locked **6 tabs: Home · Guests · Studio · Budget · Wedding · More** (icons Home/Users/Sparkles/Wallet/Globe/Menu). The shared `<BottomNav>` already supports 6 columns — no primitive change. **Wedding** tab → `/site-editor/[eventId]` (+ legacy `/website` + `/invitation` in activeMatch). **More umbrella** re-enumerated per orphan-prevention to cover every non-tab route: **Explore/vendors** (no longer a primary tab), Seating, Schedule, Messages, Contracts, Mood Board, Monogram, Live Wall, Event QR, Activity, Disputes, Personalization, Find-your-date, Profile, plus legacy/app-root surfaces (receipts, orders, paperwork, documents, date-selection).
+- **`more/page.tsx`** — `BOTTOM_NAV_KEYS` updated to the new primary-tab set (`home, guests, add-ons, budget, website`) so the /more grid drops those and shows true overflow; **Explore (vendors)** now appears in the grid (added a description). Description map refreshed: added `vendors`/`monogram`/`live`, dropped `add-ons`/`budget` (now bottom tabs); header de-dupe copy updated for the 6-tab set.
+- **`customer-sidebar.tsx`** — JSDoc group-list comment refreshed to the 7 journey groups.
+
+Verified: `tsc --noEmit` clean; `next lint` clean on all 4 changed files; `scripts/lint-bottom-nav.mjs` (canonical bottom-nav guard) passes (delegation + template integrity).
+
+SPEC IMPACT: None (nav/labels; routes unchanged).
+
+---
+
+## 2026-06-14 · fix(pwa): auto-stamp the service-worker cache version per deploy (kills stale-shell-after-deploy)
+## 2026-06-14 · refactor(nav): vendor Grow-group merge + Calendar into bottom nav + More activeMatch fix
+
+Vendor dashboard navigation consolidation per the owner-locked REDESIGN_PLAN. Routes, hrefs, icons and all role/tier gating are unchanged — only nav grouping + which routes light which mobile tab.
+
+- `apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx` — **Grow** is now the single home for paid reach + reputation. Moved **Subscription**, **Tokens**, **Redeem code** from the Business (`money`) group into the Grow (`marketing`) group (keys/hrefs/icons/`matchPrefix`/gating untouched — only the group object they live in changed). After: **Grow** = Subscription · Tokens · Redeem code · Marketing · Verify · Reviews · Moodboard library; **Business** = Earnings · How clients pay you · Manpower · Branches · Team & Setnayan. Group order + every role-scope/enterprise-tier gate preserved (gating keys on item `key`, which is unchanged, so the move is gating-neutral).
+- `apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx` — mobile tabs are now **Home · Bookings · Calendar · Messages · More** (Calendar `CalendarDays` → `/vendor-dashboard/calendar` replaces Earnings as primary tab 3; Earnings stays reachable via the sidebar Business group + the More umbrella). The vendor pitch is the calendar that stops double-bookings, so it earns a primary tab.
+- Same file — fixed the **More** `activeMatch` umbrella so no vendor route goes unlit on mobile. Added the audit-flagged gaps (`/clients`, `/proposals`, `/subscription`), moved `/earnings` IN (left the tab bar), and added `/tax-documents` for bookmark continuity. More now enumerates every non-primary-tab vendor route.
+
+Verify: `tsc --noEmit` exit 0 · `next lint` clean on both files · `node scripts/lint-bottom-nav.mjs` passes (delegation + template integrity intact).
+
+SPEC IMPACT: None (nav grouping/labels; routes + gates unchanged)
+
+
+
+Durable follow-up to the 2026-06-14 chrome retirement (which only one-time-bumped `sw.js` v3→v4). `public/sw.js` namespaces all five caches (SHELL/STATIC/IMAGE/FONT/DAYOF) by a hand-maintained `const VERSION`; `STATIC_CACHE` serves Next chunks stale-while-revalidate, so when VERSION isn't bumped on a deploy, returning PWA users get the PRIOR build's shell/JS for one load. Now it auto-bumps per deploy:
+
+- `apps/web/scripts/stamp-sw.mjs` (NEW) — at build, rewrites the `const VERSION = '…';` line to the deploy's `VERCEL_GIT_COMMIT_SHA` (12-char prefix). Line-anchored regex (`/^const VERSION = '…';/m`) targets ONLY the code line, never the commented examples of that shape in the header; FAILS the build (exit 1) if the line ever goes missing; no-op (keeps the `'v4'` fallback) when the SHA is unset (dev/local builds never dirty the file).
+- `apps/web/package.json` "build" → `node scripts/stamp-sw.mjs && … next build`.
+- `turbo.json` — added `VERCEL_GIT_COMMIT_SHA` to the `build` task `env` so turbo forces a cache MISS per commit → the stamp always runs. **Without this**, a revert / redeploy / root-or-other-package-only commit could turbo-cache-HIT, skip the build script, and ship an un-bumped `sw.js` — re-introducing the stale shell (caught in adversarial review). Next's own `.next/cache` keeps the forced rebuild incremental, so the cost is small.
+- `public/sw.js` — comment now documents the stamp; `const VERSION = 'v4'` kept as the stamp target + dev fallback.
+
+Why it works: every deploy changes `sw.js` bytes → the browser's SW-update check re-fetches `/sw.js` (already served `no-cache` per next.config.ts), byte-compares, installs the new worker; the existing `install`→`skipWaiting()` + `activate`→(delete non-`KNOWN_CACHES` + `clients.claim()`) evict the prior deploy's caches. Worst case = one extra cold load per deploy (as intended). Registration stays `/sw.js` (a `?v=<sha>` URL would be defeated by the stale shell re-registering the old URL — the file-byte-change on a fixed URL is the reliable trigger).
+
+Adversarial review: SHIP after its two wiring fixes (commit the script + the turbo `env` entry) — both applied here. Stamp unit-tested: stamps the real line, ignores the commented examples, no-ops without the var, fails loud on a missing line. No TS changed (tsc/lint unaffected); CI's production-build check exercises the stamp end-to-end.
+
+OWNER QA (native): the Capacitor WebView (`apps/mobile` remote-URL shell) uses the same SW + `no-cache` update path, so it propagates by design — worth one Android + one iOS deploy-then-reopen confirmation pass.
+
+SPEC IMPACT: None (build/PWA infra; no schema/SKU/pricing/UX). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · feat(realstories): real-editorial share — photo OG card + share buttons on the couple's `/[slug]` (PR C, couple half)
+
+Couple half of PR C of the Real-Stories featuring program. The couple consent ("Feature our wedding" → `public_summary_consent_at`) already existed; this makes a real couple's **own editorial shareable with a beautiful, photo-based** Facebook/Pinterest card.
+
+- **`lib/social/realstory-card.tsx`** — added the **photo-background variant**: when an editorial has a hero photo, the card is the couple's actual photo (smart-cropped to 1.91:1) with a bottom gradient scrim + white Cardo-serif names + eyebrow + venue/date. Falls back to the branded card on any fetch/decode failure (never fails the share). Verified locally over a deliberately-light test photo — the scrim keeps the white type legible.
+- **NEW `app/api/og/realstory-slug/[slug]/route.ts`** — the OG card for a REAL couple's `/[slug]` (vs the sample route). Resolves the event by slug, renders the card **only when `data.published`** (else 302→`/brand/og-card.webp`); the RA 10173 public-showcase consent gates the `/realstories` index, not a couple sharing their own public page. Shorter cache (1h + SWR) so a republish/photo-swap refreshes.
+- **`app/[slug]/_components/editorial/data.ts`** — `EditorialData` gains `slug` (real event's slug; **null for the curated sample**, which is how the editorial render avoids double-rendering share buttons on the sample).
+- **`app/[slug]/_components/editorial/editorial-content.tsx`** — renders `<ShareButtons>` at the top of the editorial **only when `data.slug` is set** (real editorials), pointed at `/{slug}` with the slug OG card as the Pinterest media.
+- **`app/[slug]/page.tsx`** — `generateMetadata` now sets `og:image` (the slug card route) + `twitter.summary_large_image`. The route's `published` gate means a share previews as the brand card pre-editorial and the photo editorial card once the story is live — in every phase.
+
+Verified: tsc + lint clean on changed files (satori/sharp = known local-install gap, in CI). Both card variants (branded + photo) rendered + eyeballed locally.
+
+SPEC IMPACT: real editorials at `/[slug]` are now FB/Pinterest-shareable with a per-couple photo OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). The **vendor half of PR C** ("Featured in Real Stories" + "Share to your Page") is still outstanding — its background agent hit a transient rate-limit before opening a PR; to be re-run.
+
+---
+
+## 2026-06-14 · refactor(explore): rename the public marketplace route `/vendors` → `/explore` (308 redirects, SEO preserved)
+
+Owner directive 2026-06-14 (*"also fix the address to https://www.setnayan.com/explore"*). The "Explore" nav already pointed at the marketplace; this makes the **URL** match — the public discovery surface now lives at `/explore`. Companion to the search-first reframe in the same PR.
+
+- **Route moved:** `git mv apps/web/app/vendors → apps/web/app/explore` (25 files: page + `categories/` + `compare/` + 18 `_components/` + `actions.ts`; no layout/route-handlers/dynamic-segments, so no route-shape changes). All intra-folder relative imports survive the move; the 3 external `@/app/vendors/...` imports (`v/[slug]`, `venue/[slug]`, the dashboard category-search overlay) were repointed to `@/app/explore/...`.
+- **115+ internal references rewritten** `/vendors` → `/explore` — every `Link`/`href`/`router.push`/`<form action>`/`redirect`/`revalidatePath`/canonical/OpenGraph/JSON-LD/sitemap/robots value that targets the marketplace. Driven by an exhaustive bucketed audit (a discovery + an adversarial-verification multi-agent pass) so the **landmines stayed put**: `/dashboard/[eventId]/vendors` (couple in-app), `/admin/vendors` (console), `/api/v1/vendors` (public API), `/keynote/vendors` (static deck), `@/lib/vendors*` imports, `/vendors-*` identifiers, and `/v/[slug]` vendor profiles are all unchanged.
+- **308 permanent redirects** in `middleware.ts` (repo convention — there's no `next.config` `redirects()`): `/vendors` → `/explore`, `/vendors/categories` → `/explore/categories`, query strings preserved via `${rest}${search}`; the old `/vendors/compare` orphan-guard (307 → `/vendors?notice=…`) was folded into the new block as `/vendors/compare` → `/explore?notice=compare_v1_2` (308) and the dead `COMPARE_ORPHAN_PATH` const removed. Runs after the vendor-subdomain rewrite so `slug.setnayan.com` still resolves to `/v/{slug}`.
+- **SEO:** `/explore` page canonical + OpenGraph url + the 12 JSON-LD ItemList folder URLs, `robots.ts` allow-list, and `sitemap-static.xml` all repointed to `/explore`. `sitemap-vendors.xml` (vendor-profile `/v/` URLs) and the sitemap-index child filename correctly left untouched.
+- **Drive-by bug fix (flagged):** `editorial-content.tsx` linked featured vendors to `/vendors/${slug}` — a route that never existed under `/vendors` (profiles are `/v/[slug]`), so it 404'd. Corrected to `/v/${slug}`.
+
+Verified: `tsc --noEmit` clean; `next lint` clean; production build green (214/214 pages — `/explore`, `/explore/categories`, `/explore/compare` present, no `/vendors` route, all keep-routes intact); retired-strings + email-links + bottom-nav guards pass; adversarial 3-agent verification (stray-links / keep-integrity / redirect-SEO).
+
+SPEC IMPACT: the public marketplace URL is now `/explore` (was `/vendors`); old URLs 308-redirect. Logged in corpus `DECISION_LOG.md` (2026-06-14). The locked 6-page IA's "Explore" tile now matches its address.
+
+---
+
+## 2026-06-14 · feat(explore): bare `/vendors` = search bar only (catalog demoted) + unified multi-field search
+
+Owner directive 2026-06-13 (*"why do i see services here? we just want a search bar … they can search for a category + vendor + service + place or details they can combine and we want to show all that works with their search"*). Direct follow-up to the same-day `explore-search-hero` PR (#1382), which added the search hero but kept the full category catalog rendering **below** it — so a bare `/vendors` still showed services. This finishes the reframe: the hero stands alone on the landing, and the search itself becomes genuinely multi-field.
+
+- **Catalog demoted off the bare landing.** `apps/web/app/vendors/page.tsx` — new `browseMode` flag (`?browse=1` / `?folder=` / `?tile=` / `?from=plan`) threaded into `CatalogView`; the curated browse catalog below the hero (`IconTileFolderStrip` + `PairedVenuePanel` + the per-folder grids) now renders **only** when `browseMode` is true. A bare Explore visit shows the `ExploreSearchHero` + popular chips and a single "Browse all categories →" link. **Demoted, not deleted** — every catalog deep-link (dashboard planning cards, scoped folders, `?browse=1`) still renders the full catalog; nothing was removed.
+- **Hero chips are now live "Popular searches."** `CatalogView` derives the hero's chips from the top categories by live vendor count (`fetchVendorCountsByService`, already fetched there) instead of the static `EXPLORE_HERO_CHIPS` list (kept as the pre-launch fallback when no category has vendors yet).
+- **Unified multi-field search.** New `applyMarketplaceTextSearch()` replaces the `business_name`-only `ilike` on `q` (main query + broadened-count query). Each whitespace token must match the vendor name, tagline, city, OR a listed service (resolved against the 192-taxonomy) — one PostgREST `.or()` group per token, chained so tokens INTERSECT ("photographer tagaytay" → photography vendors in Tagaytay only). Tokens stripped to `[a-z0-9]` (well-formed + injection-safe inside the `.or()` predicate). **No migration** — `services.ov` uses the existing GIN index; name/tagline/city already live on `vendor_market_stats`. (Scale note: leading-wildcard `ilike` won't hit a btree — add `pg_trgm` GIN later if the pool grows.)
+- **The results-page search bar now actually searches.** `sticky-marketplace-header.tsx` — the vendor-grid search input had no surrounding form, so free-text Enter was a silent no-op (only autocomplete category-jumps worked). Wrapped it in a GET form with hidden inputs carrying the host's filters (city/sort/match/event_type/folder/venue/faith) so free-text refinement works once a visitor is in results. `category` is intentionally not preserved (a fresh free-text query reads as "search everything").
+- `taxonomy-search.tsx` `'bar'`-variant placeholder → "Search vendors, services, or places…".
+
+Verified: `tsc --noEmit` clean, `next lint` clean (no findings in changed files), production build green (214/214 pages), retired-strings + email-links + bottom-nav guards pass.
+
+SPEC IMPACT: completes the `/vendors` (Explore) search-first reframe started in #1382 — the curated catalog is now demoted behind `?browse=`; search is multi-field. Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner heads-up: venue browsing (Reception 6-setting facet picker + ceremony-venue cards) now reaches couples via search or "Browse all categories" rather than auto-rendering on landing.
+## 2026-06-14 · feat(realstories): admin curate/feature + hero slot for the public Real Stories index (PR D of the Real Stories featuring program)
+
+Fourth of the sequenced Real Stories program (PR A = rename · PR B = OG share cards · PR C = couple/vendor publish-to-Real-Stories · **PR D = admin curate/feature**). Adds a Setnayan HQ surface to FEATURE (pin) + ORDER which published, consent-gated wedding editorials surface on `/realstories`, and which fills the hero. Depends on nothing from B/C. Pre-launch there are zero real consented showcases, so every state degrades gracefully to the existing labelled sample.
+
+- **Migration `supabase/migrations/20261221000000_realstories_featuring.sql`** (additive + idempotent · **NOT auto-applied** — owner runs `supabase db push --db-url "$SUPABASE_DB_URL"`): two nullable columns on `events` — `showcase_featured_at timestamptz` (NULL = not featured) + `showcase_feature_rank int` (lower = higher; NULL last) + a partial index on featured rows. No new table. RLS unchanged: `events` already enables RLS at CREATE TABLE time and the existing `couple_can_update_event` policy carries `OR public.is_admin()`; the public read path uses the admin (service-role) client exactly as `loadPublishedShowcases` already does.
+- **Admin surface `app/admin/real-stories/` (page + actions)** — lists the consent-gated, past-grace, public-slug weddings (new `loadShowcaseCandidatesForAdmin` in `lib/showcase-db.ts`), each with a Feature toggle + a 0–9999 order input; two server actions (`setShowcaseFeatured` / `setShowcaseRank`) re-assert `requireAdmin` + the full RA 10173 eligibility gate before writing, audit every mutation to `admin_audit_log`, and `revalidatePath('/realstories')` so the public page updates with no redeploy. Three honest states: empty ("No published Real Stories yet… the public page shows the sample meanwhile"), migration-not-applied (shows the exact `db push` command), and the curated sample explained as non-featurable.
+- **Public ordering + hero `lib/showcase-db.ts` + `app/realstories/page.tsx`** — `loadPublishedShowcases` now selects the two columns and orders featured-first (`rank` → `featured_at` → `event_date`), surfacing a `featured` flag on `ShowcaseEntry`; the index renders the leading featured real showcase as a hero (new `RealHero`, mirroring the sample featured-hero), the rest as the grid. Graceful pre-migration fallback: if the featuring columns don't exist yet, the loader retries the original newest-first query (every row `featured:false`) so real showcases still surface. Sample fallback intact when there are zero real showcases.
+- **Nav** — "Real Stories" entry added to the admin Platform group (`admin-sidebar.tsx`) + the `/admin/more` mobile overflow (`more-landing.tsx`), both with the `Newspaper` icon.
+- **Did NOT touch PR B's files** (`app/realstories/[slug]/page.tsx`, `app/realstories/_components/*`, `lib/social/*`, `app/api/og/*`). Verified `tsc --noEmit` (zero errors in these files; only the unrelated pre-existing missing-optional-native-dep errors remain) + `next lint` clean.
+
+SPEC IMPACT: iteration 0046 Real Stories gains an admin featuring/curation layer (events.showcase_featured_at + showcase_feature_rank). Logged in corpus `DECISION_LOG.md` (2026-06-14). Honesty lock preserved: only REAL consented editorials are ever featurable; the sample stays labelled "Sample showcase" and cannot be admin-featured.
+## 2026-06-14 · feat(realstories): Facebook-shareable editorials — OG share card + share buttons (PR B of the Real-Stories featuring program)
+
+Owner: *"the editorials should be shareable so vendors and customers can share on their facebook … will it have a preview on facebook … so the exact editorial can be viewable than just a link."* The editorial pages set `og:title`/`og:description` but had **no `og:image`**, so a Facebook/Pinterest share rendered as a bare link. This adds the per-editorial share card + share buttons.
+
+- **NEW `lib/social/realstory-card.tsx`** — renders a **1200×630 (1.91:1 Open Graph ratio)** branded share card via the same satori + sharp + bundled-static-font pipeline as `lib/social/card.tsx` (kept self-contained so the two render paths evolve independently): gold-ruled editorial mat · "A SETNAYAN REAL STORY" eyebrow · couple names in Cardo serif · venue/ceremony descriptor · date · the wedding's palette swatch row · SETNAYAN wordmark. `heroPhotoUrl` accepted now so the real-editorial photo-background variant is a one-line wire-up later (today's live sample has no photo → branded card).
+- **NEW `app/api/og/realstory/[slug]/route.ts`** — public, Node-runtime, immutable-cached. Renders the card for a slug from the fixed public `REAL_WEDDINGS` set (404 on unknown); on any render error it 302s to the static `/brand/og-card.webp` so a crawler never gets a 500.
+- **NEW `app/realstories/_components/share-buttons.tsx`** — client `<ShareButtons>`: **Facebook** (sharer), **Pinterest** (pins the og:image — wedding inspo is Pinterest-native), **Copy link** (Messenger/Viber/IG-DM). Reusable — drops onto the couple's own `/[slug]` editorial + the vendor "share to your Page" surface in PR C. (Brand glyphs inlined; newer lucide dropped Facebook/Pinterest icons.)
+- **`app/realstories/[slug]/page.tsx`** — `generateMetadata` now sets `openGraph.images` (the card, 1200×630) + `twitter.card: 'summary_large_image'`; the showcase bar renders `<ShareButtons>`. So a shared Real Story shows the couple + palette + venue and **deep-links to that exact editorial** — a beautiful clickable card, not a link.
+
+Verified: tsc + lint clean on changed files (the `satori`/`sharp` module-resolution errors are the known local-install gap — present in CI). The satori render can't run in the local install (those deps live only in CI), so the **card visual is verified on the Vercel preview** post-build, not locally.
+
+SPEC IMPACT: iteration 0046 editorials are now FB/Pinterest-shareable with a per-story OG card. Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR C — couple "Publish to Real Stories" consent + "Share our story" + vendor "Featured / Share to your Page" (reuses `<ShareButtons>` + the card, adds the photo-background variant); PR D (parallel) — admin curate/feature.
+## 2026-06-14 · feat(chrome): the chosen monogram lockup now renders on the public hero + QR centers (consistency follow-up)
+
+Follow-up to the monogram-as-event-logo work (PRs #1374/#1376). An audit of every monogram render site found the dashboard switcher showed the couple's real lockup, but the two highest-impact couple-facing surfaces still drew plain initials. Owner: bring the public hero + QR centers in line.
+
+**Public landing hero (`app/[slug]`).** The three near-identical hero cascades (PrivateLanding + the 2 InvitationSite variants) drew initials in a serif circle when the couple hadn't bought the paid animation. Centralized into one new `app/_components/hero-monogram.tsx` (`HeroMonogram`) with the full precedence: bespoke/Cipher SVG → paid AnimatedMonogram (text) → **chosen lockup via MonogramMark (bar/duo/script/infinity, frameless, 80px)** → **framed (gold frame + initials)** → legacy/single-name circle. The page already selected the design columns; added the three to the local `EventRow` type so the sub-components' `event` prop carries them. Removed the now-inlined AnimatedMonogramHero/BespokeMonogramMark imports from the page.
+  - SCOPE NOTE (flagged): the paid ANIMATED_MONOGRAM layer still animates the typographic text, not the lockup — animated lockup variants are a deliberate follow-up. Non-animated couples (the common case) now get their real static lockup.
+
+**QR-code centers (`lib/monogram.ts` → `monogramOverlaySvg`).** It drew hardcoded serif-italic initials, ignoring the chosen font/style. Now: `MonogramConfig` carries the full design (via `resolveMonogram`), and `monogramOverlaySvg` draws the chosen lockup inside the cream clearance circle via a new string-SVG twin of `MonogramMark` (`lockupMarkSvg`) — same footprint, so the level-H QR stays scannable. Framed/legacy fall back to initials, now in the couple's chosen face. Threaded the three design columns into the 5 QR-caller selects (site-editor, custom-qr-guest + its print, invitation + its print). `splitInitials` promoted to `lib/monogram.ts` (shared by chip + hero + QR).
+
+- Verified: typecheck ✅ · lint ✅ (no new warnings) · generated real composited QRs through the actual `compositeMonogram` for all 5 styles + legacy — each center shows the correct mark, QR structure intact.
+
+SPEC IMPACT: extends the chosen-lockup-as-logo behavior (reversed the 2026-06-03 letters-forward lock, PR #1374) to the public hero + QR centers. Still out of line (deliberately deferred): animated-hero-as-lockup, PDF/print exports, monogram-maker preview, social/OG card. Logged in corpus `DECISION_LOG.md`. No SKU/pricing impact; no migration (columns already exist).
+
+---
+
+## 2026-06-14 · feat(realstories): rename the Real Weddings showcase /weddings → /realstories (PR A of the Real-Stories featuring program)
+
+Owner: "rename it as /realstories." First of a sequenced program to turn the showcase into a Facebook-shareable featuring loop (PR A = rename · PR B = OG share cards + share buttons · PR C = couple "Publish to Real Stories" consent + vendor "share to your Page" · PR D = admin curate/feature).
+
+- **`git mv app/weddings → app/realstories`** (index + `[slug]` detail). Swapped every `/weddings` route reference → `/realstories` across 14 files: the two route pages (canonical · breadcrumb · Article JSON-LD · back-links), `sitemap-weddings.xml` (now emits `/realstories` URLs — route filename kept so the sitemap URL itself doesn't 404), `sitemap-static`, `robots.ts` (allow-list), `lib/real-weddings.ts`, `lib/showcase-db.ts`, `app/[slug]/_components/editorial/data.ts`, plus the inbound links on `/privacy`, `/signup`, `/vendors`, and the couple `dashboard/.../website/privacy` consent surface.
+- **301 redirects** added in `next.config.ts`: `/weddings` → `/realstories` and `/weddings/:slug` → `/realstories/:slug` (`permanent: true`). Consolidates the already-indexed `/weddings` ranking to the new path AND keeps the in-flight nav PR #1391's `/weddings` links working (it was open at rename time) instead of 404-ing.
+- Visible **"Real weddings" copy + the SEO title/keywords are intentionally unchanged** (strong "real Filipino weddings" keyword); only the route path changed. The nav label "Real Stories" → `/realstories` is the friendly label over the keyword-rich page — aligning the page H1 to "Real Stories" is an optional owner follow-up.
+
+SPEC IMPACT: iteration 0046 showcase route renamed `/weddings` → `/realstories` (301-preserved). Logged in corpus `DECISION_LOG.md` (2026-06-14). Next: PR B — per-editorial OG share cards (satori, reusing `lib/social/card.tsx`) + Facebook/Pinterest/Copy share buttons on the editorial, so a shared link shows a beautiful preview and deep-links to the exact story.
+## 2026-06-14 · fix(dashboard): retire the legacy cream chrome — kill the "old design flashes then reroutes to the new design"
+
+Owner: *"the dashboard tries to load the original first design then reroutes to the new design — we want the latest design to be the first design, delete the old design."* Audit (multi-agent) found this is **not** a content reroute — it's a **dual-chrome layering** bug. The shared parent `app/dashboard/layout.tsx` rendered the legacy cream `OuterDashboardHeader` + a `bg-cream lg:pl-60` gutter **unconditionally** (server-side) for every `/dashboard` route, including event routes — where it was suppressed only by a **client** `usePathname()` guard and its gutter cancelled by a `lg:-ml-60` hack in `[eventId]/layout.tsx`. So the old chrome painted first, then hydration removed it and the paper `SidebarShell` overlaid it. (A docstring in `[eventId]/layout.tsx` claimed this cleanup had already shipped "Phase 0" — it never did.)
+
+Owner chose **retire the old chrome entirely** (one paper system everywhere). Fix = a Next.js **route-group split**:
+
+- **Moved** the non-event routes — picker `page.tsx`, `profile/`, `notifications/`, `create-event/`, `api-keys/`, `loading.tsx` — into a new URL-transparent group `app/dashboard/(account)/` (git tracked as renames; URLs unchanged).
+- **NEW** `app/dashboard/(account)/layout.tsx` — owns the account chrome: the events/roles/unread/avatar fetch + switcher mapping (lifted verbatim from the old parent) + `<OuterDashboardHeader>` + the `lg:pl-60` gutter, on a `--m-paper` base. Renders ONLY on account routes (structurally, server-side) — no client guard, no flash.
+- **Slimmed** `app/dashboard/layout.tsx` — now renders NO chrome: only the auth gate, the defensive users-profile probe (column-drift `SELECT *` fallback + try/catch), deleted-account sign-out, vendor→`/vendor-dashboard` redirect, ghosting `after()`, and the welcome `GuidedTour`, in an `app-surface min-h-dvh` + `--m-paper` wrapper (keeps the Source Sans readability lock for every dashboard route).
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — removed the `usePathname()`/`isEventScopedRoute` "return null on event routes" guard (no longer mounted there) → drops `'use client'` (now a server component); swapped the cream classes to the v2.1 `--m-paper`/`--m-paper-2`/`--m-line` paper tokens.
+- **`app/dashboard/[eventId]/layout.tsx`** — removed the `lg:-ml-60` outer-cancel wrapper (parent adds no gutter now → nothing to cancel; SidebarShell owns its own `--shell-main-offset`).
+- **Import fixes** for the folder move: `@/app/dashboard/create-event/…` → `@/app/dashboard/(account)/create-event/…` (+ `profile/concierge`) in `[eventId]/_components/event-switcher.tsx`, `lib/event-types-db.ts`, `admin/payments/actions.ts`, and the header itself.
+- **`public/sw.js`** VERSION `v3`→`v4` — evicts the stale `STATIC_CACHE` so returning PWA users don't get the prior build's old-chrome shell for one load. (A per-deploy auto-stamp `NEXT_PUBLIC_CACHE_BUSTER ← VERCEL_GIT_COMMIT_SHA` is the durable fix — flagged in-code as an owner follow-up.)
+
+Adversarial review (separate agent): **PASS — no functional regressions**; every old-parent responsibility still runs on the right subtree, the server-component conversion is clean, no broken imports, account chrome + post-login redirect intact. Verified: `tsc --noEmit` ✅ (0 errors) · `next lint` ✅ (clean) on all changed files. No schema/migration.
+
+SPEC IMPACT: None — chrome/routing refactor; no SKU/schema/pricing/copy change. The `(account)` route group is an internal structure only (URLs unchanged). Logged in corpus `DECISION_LOG.md` (2026-06-14). Owner follow-up flagged: per-deploy SW cache-buster auto-stamp.
+
+---
 
 ## 2026-06-14 · perf(images): cut Vercel image-optimization spend (owner ~$130/mo overage)
 
@@ -22,6 +309,19 @@ Owner flagged a ~$150 Vercel bill = $20 Pro base + ~$130 usage overage. Audited 
 Structural follow-up (NOT in this PR): the proper near-zero fix is the Cloudflare Images cutover already specced in `Image_Optimization_Plan.md` (free R2 egress + on-demand variants) — needs owner Cloudflare decision. Owner action surfaced separately: set a Vercel **Spend Management** hard cap so an overage can never recur silently.
 
 SPEC IMPACT: None — infra/cost config tuning, no SKU/schema/pricing/UX/product-copy change. Minor reversal of the documented "AVIF first" image posture, on cost grounds only; flagged here for lineage.
+## 2026-06-14 · feat(home): hero-only homepage — strip the marketing narrative to nav + hero
+
+Owner directive 2026-06-14 ("remove everything. just keep the hero part as the whole page"; clarified scope = **Hero + top nav**). The homepage `/` now renders ONLY the sticky `Nav` + the `Hero` (the admin-uploaded scroll-scrub video, falling back to the default keynote hero when none is published).
+
+- `apps/web/app/page.tsx` — render reduced to `<Nav /><Hero />`. **Removed from the homepage:** `PromoBar`, `ProblemSection`, `ForCouples`, `MarketplacePreview`, `OnTheDay`, `PersonalSite`, `DashboardPreview`, `PricingSection`, `FAQSection`, `ClosingCTA`, `VendorBand`, `Footer`. Imports trimmed to `{ Nav, Hero }`. The section components are **not deleted** — they still live in `_sections.tsx` and are reused by `app/v/[slug]/page.tsx` + the dedicated marketing pages (`/features`, `/pricing`, `/vendors`, `/about`, `/help`), so that content (and its SEO) is unchanged on those routes.
+- Kept (no visual footprint): the GEO/SERP `metadata` + the `WebSite` + `SoftwareApplication` JSON-LD graph (AI-answer-engine / search-card surface), and `export const dynamic = 'force-dynamic'` — Hero() reads the published hero-video row + resolves presigned frame URLs per request. Updated the force-dynamic rationale comment (was attributed to the now-removed PricingSection).
+- Homepage e2e (`tests/e2e/homepage.spec.ts`) unaffected: it asserts the hero h1, "Start planning", and "Sign in" — all in the retained Nav + Hero.
+
+**Trade-offs (flagged for owner):** (1) the homepage loses its crawlable marketing copy + the footer's Privacy/Terms links — those legal links now reach users only via other pages; (2) traditional-SEO text on `/` drops to near-zero (mitigated: JSON-LD retained + the marketing content still lives on `/features`, `/pricing`, etc.). Easily reverted (git) if the owner wants sections back.
+
+SPEC IMPACT: Homepage composition diverges from iteration `0015_main_website` (full marketing narrative). Logged in corpus `DECISION_LOG.md` (2026-06-14); 0015 AS-BUILT note deferred to the next corpus pass.
+
+---
 
 ## 2026-06-14 · refactor(dashboard): shared <NotificationsList> — dedup Track A4
 
@@ -66,6 +366,24 @@ The "first-person walk to your table" the market ships **nowhere** — a coordin
 Verified: `tsc` + `next lint` (no new warnings) + `next build` + 92/92 unit tests + migration-timestamp guard clean.
 
 SPEC IMPACT: implements the 2026-06-13 "zone-clip routing" half of the seat-finding design (iter 0008 + 0031 + the retired Indoor-Blueprint walkthrough half). **Built ungated/free** — the walkthrough is COORDINATOR LABOR (not a Setnayan SKU) and must stay delegatable so a no-coordinator couple does it free (dual-path parity + free-wayfinding). **Open (owner):** whether the *hosting/tool* is monetized at all is deferred to the holistic pricing pass (do not gate before that). Migration applied to prod (statement-by-statement). Logged in corpus `DECISION_LOG.md` (2026-06-14).
+## 2026-06-14 · fix(nav): one shared marketing top nav on every page + clickable logo → home
+
+Owner report: the top nav menu *changed* when clicking through to a nav destination — and the "SET NA 'YAN" logo wasn't clickable. Root cause: the canonical 6-page `Nav` (What you get · Explore · For vendors · Our story · Real Stories) only rendered on the homepage; the linked pages had **forked into 4 other headers** — the legacy `SiteHeader` (Marketplace / How it works / Features / Pricing / Help) on `/about`, `/how-it-works`, `/pricing`, `/features`, and a bespoke inline header on `/blog`. So every click swapped the whole menu. The logo was a bare `<Wordmark>` (no link), despite the owner's own note "Home (the video scrub) = the logo".
+
+- **NEW `app/_components/marketing/site-nav.tsx`** — the canonical `PromoBar` + `Nav` extracted out of the heavy homepage module (`_sections.tsx`) into one lean file (imports only `Link` + `Wordmark` + `MobileMenu`, so importing `<Nav>` into a subpage doesn't drag framer-motion / `HeroVideoScrub` / catalog fetchers into that page's bundle). Single source of truth for the marketing top nav — per the owner anti-fork chrome doctrine.
+- **Logo → home:** the `<Wordmark>` is now wrapped in `<Link href="/" aria-label="Setnayan — home">`. Clicking the mark/wordmark routes to the hero on every page (same-page link on `/`).
+- `_sections.tsx` — `PromoBar`/`Nav` definitions removed (now re-homed in `site-nav`); dropped the now-unused `MobileMenu` import. `page.tsx` imports `PromoBar, Nav` from `site-nav`; homepage render unchanged.
+- **Swapped to the shared `<Nav>`** (replacing the legacy `SiteHeader` / inline header): `app/features/_PageBody.tsx` (covers `/features` **and** `/tl/features`), `app/about/page.tsx`, `app/blog/page.tsx`, `app/how-it-works/page.tsx`, `app/pricing/page.tsx`, plus `app/tl/about/page.tsx` + `app/tl/how-it-works/page.tsx` so the `/tl` locale stays internally consistent (nav labels are English in both old and new — no localization regression).
+- **`/weddings` (the "Real Stories" landing) also swapped to the shared `<Nav>`** (follow-up: owner caught that clicking "Real Stories" still showed the legacy `SiteHeader`). The `/weddings/[slug]` editorial detail keeps its immersive "← Back" bar (blog-post pattern).
+- **Owner reversed the vendor deferral for the nav bar specifically ("keep this top nav the same on Explore + For vendors"):** `/for-vendors` swaps its bespoke `VendorNav` → shared `<Nav>`; `/vendors` (Explore) replaces its minimal inline `<header>` (logo + auth-aware CTA) → `<Nav sticky={false} />`. The page-level marketplace search/filter chrome (`StickyMarketplaceHeader`, `ExploreSearchHero`) is untouched.
+- **`Nav` gained a `sticky` prop (default `true`).** `/vendors` renders `<Nav sticky={false} />` because the marketplace search bar is itself `sm:sticky sm:top-0` — two sticky-top bars would stack/overlap on scroll. Every other page keeps the sticky nav.
+- **Removed the "Search anything… ⌘K" pill from the nav** (owner "delete the search there"). The marketplace keeps its own page-level search (that's the page's purpose, not a nav control).
+- **Auto-hide on scroll (owner "hide the top nav as we scroll down … pure scrubbing on the screen"):** `site-nav.tsx` is now a `'use client'` island; the sticky `<Nav>` slides up out of view on scroll-down and slides back on scroll-up (or when near the very top, `scrollY < 64`). So the homepage hero scrub (`HeroVideoScrub`, a 300vh pinned track) goes full-screen the moment you scroll into it. Passive `scroll` listener throttled with `requestAnimationFrame`; `motion-reduce:transition-none` for reduced-motion. Only applies when `sticky` (non-sticky `/vendors` scrolls the nav away naturally).
+- **Folded in the overlapping `claude/real-stories-editorials` work (was PR #1390, now superseded — collided in `_sections.tsx`/`CHANGELOG`, already DIRTY):** "Real Stories" points at the real-wedding showcase **`/weddings`** (iteration 0046, Maria & Juan sample editorial), NOT `/blog`, in the shared `Nav`, homepage `Footer` (keeps `/blog` as "Planning guides"), and `_SiteFooter`. `/blog` URLs untouched → zero SEO risk. `site-header.tsx` `PRIMARY_NAV` aligned to the 6-page IA for the residual `SiteHeader` pages (`/download`, `/waitlist`).
+
+SPEC IMPACT: None (front-end chrome consolidation; the 6-page nav was owner-locked 2026-06-13 and the `/blog`→`/weddings` "Real Stories" repoint was owner-decided 2026-06-14, already in corpus `DECISION_LOG.md`). Logged in corpus `DECISION_LOG.md` (2026-06-14). Now the shared `<Nav>` renders on every public marketing page; `SiteHeader` survives only on `/download`/`/waitlist` (labels aligned) and `/tl/*` pages beyond `about`/`how-it-works`/`features`. `VendorNav` (`for-vendors/_components/vendor-nav.tsx`) is now unused.
+
+---
 
 ## 2026-06-13 · fix(r2): public media URLs use the bucket-bound public host (homepage hero scrub blank)
 
@@ -194,6 +512,19 @@ Two owner asks (2026-06-13): (1) give the wedding onboarding a real desktop vers
 - Verified: typecheck ✅ · lint ✅ (no new warnings) · a faithful standalone SVG preview confirmed all four marks render distinct + legible at 28/36/44px and the desktop canvas composes cleanly. Production build runs in CI.
 
 SPEC IMPACT: reverses the 2026-06-03 "chrome monogram renders letters-forward" lock for the four type-only lockups (framed unchanged); adds a desktop-only onboarding canvas (the port-as-is frame itself is untouched). Logged in corpus `DECISION_LOG.md` (2026-06-13). No SKU / pricing impact; no new routes; no migration (`monogram_style` column already exists).
+## 2026-06-13 · refactor(entitlements): one shared couple-SKU ownership reader + a per-SKU activation dispatcher (seat-finding PR 3 of 6 · paid-layer hardening)
+
+Behavior-preserving consolidation that de-risks the paid layer and sets up PR 4's Papic seat-pass. Three refactors over existing order state — **zero new tables, zero migration, zero behavior change for already-owned SKUs**. Activation state IS `orders.status` (no new column).
+
+- **New `lib/entitlements.ts`** — `checkOrderOwnership(supabase, eventId, serviceKey)`: the single refund-aware ownership read, extracted verbatim from `eventOwnsProWebsite` (refund-aware `.not('status','in',('cancelled','refunded','lapsed'))` + `42P01`/`42703` graceful-degrade-to-`false` + defense-in-depth client-side filter; any other DB error still throws). Exports the canonical `RELINQUISHED_STATUSES` set.
+- **5 gate helpers delegate** — `eventOwnsProWebsite` / `eventOwnsIndoorBlueprint` / `eventOwnsAnimatedMonogram` / `eventOwnsPapicSeats` / `eventOwnsPapicGuest` keep their exported names + signatures + `*_SERVICE_KEY` constants; bodies are now a one-line `checkOrderOwnership(...)` call and each file's local `RELINQUISHED_STATUSES` copy is deleted (now the only definition is in `entitlements.ts`). Geometry/seat/quota helpers in those files are untouched. *(Spec said "6 identical helpers"; reality has 5 of this exact pattern — `add-on-stats.ts:eventOwnsFeature` is a different shape (multi-SKU `.in()` + `status='paid'` only) and was left untouched.)*
+- **3 inline `CUSTOM_QR_GUEST` gates route through the helper** — `add-ons/custom-qr-guest/page.tsx`, `.../print/page.tsx`, `api/website/qr/guest/[guestId]/route.ts`. The route preserves its existing 500-on-genuine-DB-error response by wrapping the helper call in try/catch (the helper throws where the old inline gate returned a 500 NextResponse — identical outcome).
+- **New `lib/sku-activation.ts`** — `activateOrderSku(ctx)`: a frozen, extensible per-SKU activation dispatcher (exact-match map for `concierge_complete` + `SETNAYAN_AI`; prefix/predicate fallback for `vendor_additional_branch__{branch_id}`). **Contract: every hook is non-fatal — `activateOrderSku` wraps each in try/catch and NEVER throws**, so a failed activation never rolls back the already-approved payment. PR 4 registers `PAPIC_SEATS` by editing this map only.
+- **`admin/payments/actions.ts`** — the three hardcoded `if (order?.service_key === …)` activation branches inside `if (promoteOrder)` are replaced by ONE `activateOrderSku(...)` call (after `schedulePayoutsForOrder`, before the block closes). Dropped now-relocated imports (`activateConcierge`, `branchIdFromServiceKey`) + now-unused constants (`TODAYS_FOCUS_SKU_CODE`, `SETNAYAN_AI_SKU_CODE`); `appendLedger` import retained (still used at 3 other sites). `revalidatePath('/dashboard','layout')` left exactly as-is.
+- New unit suite `lib/entitlements.test.ts` (11 cases — owned/not-owned/relinquished-filter/42P01/42703/other-error-throws/canonical-query-shape).
+- Verified: `pnpm typecheck` ✅ · `pnpm lint` ✅ (0 errors) · `pnpm build` ✅ · `pnpm test:unit` ✅ (99/99).
+
+SPEC IMPACT: None — pure behavior-preserving refactor. No SKU / pricing / schema / route change. NO migration (spec-confirmed; activation state is `orders.status`, `events.setnayan_ai_active` already exists per `20260917000000`). Note: timestamp `20261217000000` (which a migration *would* have used) is already claimed on main by the in-flight homepage-hero PR #1372 — another reason no migration is correct here. Logged at the bottom of corpus `DECISION_LOG.md` (2026-06-13): the dispatcher is now the single extension point for PR 4's Papic seat-pass.
 
 ---
 

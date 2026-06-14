@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveBrandedQrColors } from '@/lib/qr';
+import { checkOrderOwnership } from '@/lib/entitlements';
 
 /**
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
@@ -66,18 +67,18 @@ export async function GET(
     return new NextResponse('Event not found.', { status: 404 });
   }
 
-  // Ownership gate — the branded PNG is a paid feature. Graceful-degrade on a
-  // missing orders table (42P01 / 42703) by treating it as not-owned.
-  const { data: orders, error: ordersError } = await supabase
-    .from('orders')
-    .select('status')
-    .eq('event_id', guest.event_id)
-    .eq('service_key', 'CUSTOM_QR_GUEST')
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-  if (ordersError && ordersError.code !== '42P01' && ordersError.code !== '42703') {
+  // Ownership gate — the branded PNG is a paid feature. Delegates to the shared
+  // checkOrderOwnership() reader (lib/entitlements.ts): refund-aware, graceful-
+  // degrade on a missing orders table (42P01 / 42703 → not-owned). The helper
+  // THROWS on any other DB error, so we wrap it to preserve this route's
+  // existing 500 response for a genuine read failure (rather than an uncaught
+  // throw) — behavior parity with the prior inline gate.
+  let owns = false;
+  try {
+    owns = await checkOrderOwnership(supabase, guest.event_id, 'CUSTOM_QR_GUEST');
+  } catch {
     return new NextResponse('Could not verify your upgrade.', { status: 500 });
   }
-  const owns = (orders ?? []).length > 0;
   if (!owns) {
     return new NextResponse('This branded QR is part of the Custom QR upgrade.', {
       status: 403,

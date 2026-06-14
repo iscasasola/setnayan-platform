@@ -1,6 +1,6 @@
 // Real Weddings showcase — public editorial surface (iteration 0046, first
 // slice). Mirrors lib/blog.ts: content is an in-code typed constant (no DB, no
-// CMS), so /weddings + /weddings/[slug] pre-render with generateStaticParams +
+// CMS), so /realstories + /realstories/[slug] pre-render with generateStaticParams +
 // dynamicParams=false.
 //
 // IMPORTANT — sample vs real. The canonical 0046/0002 model is that a real
@@ -103,12 +103,12 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     ],
     team: [
       { role: 'Venue', href: '/venues' },
-      { role: 'Catering', href: '/vendors' },
-      { role: 'Photography & Video', href: '/vendors' },
-      { role: 'Coordination', href: '/vendors' },
-      { role: 'Florals & Styling', href: '/vendors' },
-      { role: 'Hair & Makeup', href: '/vendors' },
-      { role: 'Host', href: '/vendors' },
+      { role: 'Catering', href: '/explore' },
+      { role: 'Photography & Video', href: '/explore' },
+      { role: 'Coordination', href: '/explore' },
+      { role: 'Florals & Styling', href: '/explore' },
+      { role: 'Hair & Makeup', href: '/explore' },
+      { role: 'Host', href: '/explore' },
     ],
     setnayanNote:
       'Maria and Juan ran their guest list, budget, schedule, seating, and vendor shortlist from one Setnayan workspace — and the day-of timeline kept every supplier on the same call times.',

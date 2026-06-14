@@ -131,7 +131,7 @@ export async function approveVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect('/admin/verify?approved=1');
 }
 
@@ -156,7 +156,7 @@ export async function rejectVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect('/admin/verify?rejected=1');
 }
 
@@ -177,7 +177,7 @@ export async function archiveVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect('/admin/verify?archived=1');
 }
 
@@ -414,7 +414,7 @@ export async function approveApplication(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   revalidatePath('/vendor-dashboard/verify');
   redirect('/admin/verify?app_approved=1&status=approved');
 }
@@ -442,7 +442,7 @@ export async function rejectApplication(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   revalidatePath('/vendor-dashboard/verify');
   redirect('/admin/verify?app_rejected=1&status=rejected');
 }
@@ -499,7 +499,7 @@ export async function demoteVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect('/admin/verify?demoted=1&status=demoted');
 }
 

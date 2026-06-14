@@ -28,6 +28,10 @@ import {
   QrCode,
   MapPin,
   Palette,
+  Users,
+  LayoutGrid,
+  Wallet,
+  CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/add-ons/_components/service-poster';
@@ -52,6 +56,22 @@ export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
  */
 export type InAppServiceCategory = PlanGroupId | 'digital_services' | 'tool';
 
+/**
+ * Which job-to-be-done section this add-on falls under on the couple-side
+ * Studio hub (/dashboard/[eventId]/add-ons). Independent of `category` (which
+ * drives the Services/vendors-tab placement) — the Studio hub groups by what
+ * the couple is *trying to do*, not by vendor taxonomy.
+ *   • capture        → make a record of the day (Papic / Panood / Photo / TikTok)
+ *   • website_story  → the public-facing event site + branding artifacts
+ *   • plan_organize  → planning aids (mood board, wayfinding)
+ *   • music_extras   → music + everything else
+ */
+export type StudioGroup =
+  | 'capture'
+  | 'website_story'
+  | 'plan_organize'
+  | 'music_extras';
+
 export type AddOnEntry = {
   key: string;
   label: string;
@@ -63,6 +83,17 @@ export type AddOnEntry = {
   blurb: string;
   cta: string;
   poster: PosterStyle;
+  /**
+   * Job-to-be-done grouping for the Studio hub (/dashboard/[eventId]/add-ons).
+   * Additive — the Services tab ignores this field. See StudioGroup.
+   */
+  studioGroup: StudioGroup;
+  /**
+   * Marks a genuinely-free add-on so the Studio card can show a "Free" chip.
+   * Left unset on paid items — never a price source. Pricing is admin-managed;
+   * the feature's own page shows the real price + handles purchase.
+   */
+  tier?: 'free';
 };
 
 /**
@@ -85,6 +116,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'View your in-app purchases · reference codes · payment status',
     cta: 'View orders',
+    studioGroup: 'music_extras',
+    tier: 'free',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -104,6 +137,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       '12-template gallery · 60s video · vertical + square + horizontal · ₱99 per render',
     cta: 'Browse templates',
+    studioGroup: 'website_story',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -123,6 +157,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Customize the public landing page guests see when they scan your QR or open your link',
     cta: 'Customize',
+    studioGroup: 'website_story',
+    tier: 'free',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -142,6 +178,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Pick from Setnayan-owned music or generate a custom track for your event reels',
     cta: 'Browse music',
+    studioGroup: 'music_extras',
+    tier: 'free',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -161,6 +199,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       "Pick songs by slot · processional · first dance · dinner · open floor · don't-play list. Synced to your DJ or band the moment you book them.",
     cta: 'Build your lineup',
+    studioGroup: 'music_extras',
+    tier: 'free',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -180,6 +220,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Design your wedding monogram · animated SVG trace · custom hero background',
     cta: 'Open studio',
+    studioGroup: 'website_story',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -199,6 +240,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'A branded QR for every guest · your monogram + palette colors · print-ready',
     cta: 'Brand my QRs',
+    studioGroup: 'website_story',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -217,6 +259,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'photography',
     blurb: 'Candid capture · gesture shutter · QR tagging · personal reels',
     cta: 'Set up',
+    studioGroup: 'capture',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -235,6 +278,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'photography',
     blurb: 'Live stream · YouTube delivery · AI Highlights · Same-Day Edit',
     cta: 'Set up',
+    studioGroup: 'capture',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -254,6 +298,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Connect Google Drive · photographer post-event handoff · share albums with guests',
     cta: 'Set up',
+    studioGroup: 'capture',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -272,6 +317,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'photobooth',
     blurb: 'Vertical-reel template gallery · render-on-demand · 9:16 1080p MP4',
     cta: 'Browse templates',
+    studioGroup: 'capture',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -291,6 +337,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
     cta: 'Browse Paprint',
+    studioGroup: 'music_extras',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -309,6 +356,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'led_background',
     blurb: '8K template render · Photo Pool blend · USB delivery',
     cta: 'Choose template',
+    studioGroup: 'website_story',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -328,6 +376,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Your seating chart, turned into wayfinding · each guest finds their table from the entrance',
     cta: 'Map my venue',
+    studioGroup: 'plan_organize',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -347,6 +396,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Your event palette · role + venue color stories · curated theme templates',
     cta: 'Open board',
+    studioGroup: 'plan_organize',
+    tier: 'free',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -357,3 +408,66 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
 ];
+
+/**
+ * A free core planning tool surfaced in the Studio hub's "Plan & organize"
+ * group. These deep-link to existing couple-sidebar routes (Guests / Seating /
+ * Budget / Schedule) rather than to an /add-ons/[feature] detail page.
+ *
+ * Kept SEPARATE from ADD_ONS on purpose — these are first-class sidebar
+ * surfaces, not in-app *services*, so they must NOT appear in the
+ * Services/vendors tab (which iterates ADD_ONS). The Studio hub merges
+ * STUDIO_FREE_TOOLS into its "Plan & organize" section at render time.
+ */
+export type StudioFreeTool = {
+  key: string;
+  label: string;
+  Icon: LucideIcon;
+  /** One-line benefit, JTBD-framed. */
+  blurb: string;
+  /** Absolute href into the existing couple sidebar route. */
+  href: string;
+  /** Always free — drives the "Free" chip on the Studio card. */
+  tier: 'free';
+};
+
+/**
+ * Build the free-tool list for a given event. href is event-scoped, so this is
+ * a factory rather than a static const.
+ */
+export function studioFreeTools(eventId: string): ReadonlyArray<StudioFreeTool> {
+  return [
+    {
+      key: 'guests',
+      label: 'Guest list',
+      Icon: Users,
+      blurb: 'Build your list, track RSVPs, and assign roles in one place',
+      href: `/dashboard/${eventId}/guests`,
+      tier: 'free',
+    },
+    {
+      key: 'seating',
+      label: 'Seating',
+      Icon: LayoutGrid,
+      blurb: 'Lay out your tables and seat every guest with drag-and-drop',
+      href: `/dashboard/${eventId}/seating`,
+      tier: 'free',
+    },
+    {
+      key: 'budget',
+      label: 'Budget',
+      Icon: Wallet,
+      blurb: 'Track every cost and payment so nothing slips through',
+      href: `/dashboard/${eventId}/budget`,
+      tier: 'free',
+    },
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      Icon: CalendarClock,
+      blurb: 'Map your day-of timeline and keep every vendor in sync',
+      href: `/dashboard/${eventId}/schedule`,
+      tier: 'free',
+    },
+  ];
+}

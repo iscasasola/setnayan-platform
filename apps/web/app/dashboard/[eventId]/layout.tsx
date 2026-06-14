@@ -55,13 +55,15 @@ type Props = {
  *     `setnayan.nav.sidebar.collapsed`). Resizable freeform width is
  *     deferred to a follow-up — the collapse toggle covers 95% of the
  *     "give me more reading room" use case.
- *   - `lg:-ml-60` outer-cancellation hack. The outer dashboard layout's
- *     OuterDashboardHeader returns null on event-scoped routes (the
- *     usePathname() check there does the right thing). With the legacy
- *     `lg:pl-60` removed from the outer layout (Phase 0 already replaced
- *     the outer chrome's hardcoded sidebar offset), no negative-margin
- *     cancellation is needed. The new SidebarShell handles desktop offset
- *     internally via --shell-main-offset.
+ *   - `lg:-ml-60` outer-cancellation hack (removed 2026-06-14 chrome
+ *     retirement). The legacy cream OuterDashboardHeader + its `lg:pl-60`
+ *     gutter moved OUT of the shared parent layout into the `(account)`
+ *     route group, so the parent no longer renders any chrome or gutter on
+ *     event routes — there is nothing left to cancel. SidebarShell handles
+ *     the desktop offset internally via --shell-main-offset. This is what
+ *     killed the "old cream chrome flashes, then the paper chrome takes
+ *     over" effect on event-route navigations (the cream shell used to paint
+ *     server-side and be suppressed only by a client usePathname() guard).
  *
  * AUTHORIZATION + DATA FETCHING preserved verbatim from the prior layout
  * — see in-flow comments at the membership check + the 5th-hotfix Promise.
@@ -300,7 +302,7 @@ export default async function EventLayout({ children, params }: Props) {
             the event-scoped top nav per owner directive 2026-06-03 (circled
             both icons on the mobile top strip; "remove these 2 on top nav").
             Neither function is orphaned:
-            • Marketplace `/vendors` stays reachable via the home
+            • Marketplace `/explore` stays reachable via the home
               marketplace-tease-strip CTA, the "Browse your matched services"
               button, and every plan-card folder link.
             • Role-switching (Shop / Setnayan HQ consoles) stays reachable via the
@@ -338,26 +340,16 @@ export default async function EventLayout({ children, params }: Props) {
     </div>
   );
 
-  // Outer-cancel: the parent /dashboard/layout.tsx applies `lg:pl-60`
-  // unconditionally even though OuterDashboardHeader (the consumer of
-  // that 240px sidebar) returns null on event-scoped routes via its
-  // usePathname() check. Without cancelling the parent's padding, the
-  // SidebarShell sidebar would render PLUS 240px of dead left padding,
-  // pushing the event-scoped main content 480px right of the viewport
-  // edge on lg+. `lg:-ml-60` cancels the outer's 240px so the event-
-  // route body sits flush against the SidebarShell sidebar's right
-  // border with only SidebarShell's own --shell-main-offset controlling
-  // the offset. Same pattern as the pre-Phase-1 layout's outer-cancel
-  // hack (the cancel still needs to live here because the outer layout
-  // is part of an unrelated chrome surface that other routes consume).
-  // The "Switch view" RoleSwitchPill that lived in the desktop sidebar
-  // footer (standardized 2026-05-29) is RETIRED 2026-06-12 per owner
-  // directive "single switcher" — the unified EventSwitcher in the topBar
-  // (left monogram caret) now owns BOTH event switching and cross-console
-  // hopping on every viewport, so the second affordance is gone.
+  // 2026-06-14 chrome retirement: the `lg:-ml-60` outer-cancel hack is GONE.
+  // The parent `dashboard/layout.tsx` no longer renders the cream
+  // OuterDashboardHeader or its `lg:pl-60` gutter (that chrome moved to the
+  // `(account)` route group), so there is no parent padding left to cancel —
+  // SidebarShell owns the desktop offset entirely via --shell-main-offset.
+  // This is the structural half of removing the old-cream-flash on
+  // event-route navigations.
 
   return (
-    <div className="lg:-ml-60">
+    <>
       <SidebarShell
         sidebar={<CustomerSidebar eventId={eventId} />}
         topBar={topBar}
@@ -375,6 +367,6 @@ export default async function EventLayout({ children, params }: Props) {
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <CustomerBottomNav eventId={eventId} />
-    </div>
+    </>
   );
 }

@@ -144,6 +144,11 @@ export type VendorCredit = {
 export type EditorialData = {
   displayName: string;
   firstNames: string; // best-effort "A & B" for headline
+  /** Public slug of the couple's site — drives the in-editorial share link +
+   *  the OG card route. NULL for the curated sample (no real event row), which
+   *  is how the editorial render distinguishes "show share buttons" (real) from
+   *  the sample (whose detail page owns its own share bar). */
+  slug: string | null;
   eventDate: string | null; // ISO
   eventDateFormatted: string | null; // en-PH long form
   venueName: string | null;
@@ -306,7 +311,7 @@ function computeArchetype(guests: number, perGuestSpend: number | null): Archety
 
 export async function loadEditorialData(eventId: string): Promise<EditorialData | null> {
   // Sample editorial (iteration 0046 Real Weddings) — the curated Maria & Juan
-  // fixture renders through THIS exact component (via the /weddings sample page),
+  // fixture renders through THIS exact component (via the /realstories sample page),
   // so the sample always tracks the live editorial format. Returns without
   // touching the DB; real event ids fall straight through to the loader below.
   if (eventId === SAMPLE_EDITORIAL_EVENT_ID) return sampleEditorialData();
@@ -324,7 +329,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos, photo_wall_photos',
+        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos, photo_wall_photos',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -648,6 +653,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   return {
     displayName,
     firstNames: deriveFirstNames(displayName),
+    slug: asString(event.slug),
     eventDate,
     eventDateFormatted: formatPhDate(eventDate),
     venueName,
@@ -726,7 +732,7 @@ function deriveMonogramFallback(displayName: string): string {
 // ============================================================================
 // Real Weddings SAMPLE editorial (iteration 0046)
 // ============================================================================
-// The curated Maria & Juan SAMPLE shown on the /weddings showcase detail page.
+// The curated Maria & Juan SAMPLE shown on the /realstories showcase detail page.
 // It flows through the SAME EditorialContent component as real weddings (via the
 // loadEditorialData sentinel above), so the sample AUTOMATICALLY follows any
 // future change to the editorial format — there is no parallel layout to drift.
@@ -740,6 +746,7 @@ export function sampleEditorialData(): EditorialData {
   return {
     displayName: 'Maria & Juan',
     firstNames: 'Maria & Juan',
+    slug: null, // sample has no real event row → editorial render skips the share bar (the /realstories/[slug] detail page owns it)
     eventDate: '2026-02-14',
     eventDateFormatted: formatPhDate('2026-02-14'),
     venueName: 'a garden estate overlooking Taal',

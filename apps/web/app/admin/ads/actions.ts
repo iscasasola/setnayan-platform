@@ -129,6 +129,6 @@ export async function adminCancelAdSubscription(formData: FormData) {
 
   revalidatePath('/admin/ads');
   revalidatePath('/vendor-dashboard/marketing');
-  revalidatePath('/vendors');
+  revalidatePath('/explore');
   redirect('/admin/ads?cancelled=1');
 }

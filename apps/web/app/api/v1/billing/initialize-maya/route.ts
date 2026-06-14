@@ -36,9 +36,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 const DEMO_MODE = process.env.SETNAYAN_DEMO_MODE === '1';
 const MAYA_APPROVED = process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED';
 
-// Hardcoded fallback used when the DB read fails OR when running purely in
-// demo mode. Mirrors the platform_retail_catalog_v2 + platform_package_catalog
-// seed values from migration 20260628000000_v2_additive_phase_a.sql.
+// DEMO-ONLY price book (owner rule 2026-06-14: prices live in admin —
+// platform_retail_catalog_v2 — and a REAL charge must NEVER fall back to a
+// hardcoded number). Used solely when DEMO_MODE=1 (walkthrough-video recording,
+// no real charge). Non-demo charges read the admin catalog and fail closed if
+// it's unavailable — see readSkuPrice/readBundlePrice. Values here are stale on
+// purpose-of-record (parked for the holistic pricing pass); they never bill.
 const PRICING_BOOK: Record<string, number> = {
   ANIMATED_MONOGRAM:   2499.0,
   PRO_WEBSITE:         2999.0,
@@ -345,43 +348,31 @@ export async function POST(request: Request) {
 // ---------- helpers ----------
 
 async function readSkuPrice(serviceCode: string): Promise<number | null> {
-  // Try DB first · fall back to PRICING_BOOK on read failure or missing row.
-  // DEMO_MODE skips the DB entirely.
-  if (!DEMO_MODE) {
-    try {
-      const admin = createAdminClient();
-      const { data } = await admin
-        .from('platform_retail_catalog_v2')
-        .select('retail_price_php')
-        .eq('service_code', serviceCode)
-        .maybeSingle();
-      if (data?.retail_price_php) {
-        return Number(data.retail_price_php);
-      }
-    } catch {
-      // Swallow · fall through to PRICING_BOOK.
-    }
-  }
-  return PRICING_BOOK[serviceCode] ?? null;
+  // DEMO_MODE → the demo book (no real charge). Otherwise the admin catalog is
+  // the ONLY source for a real charge: null on miss/failure (caller 400s) — we
+  // never bill a hardcoded fallback (owner rule 2026-06-14).
+  if (DEMO_MODE) return PRICING_BOOK[serviceCode] ?? null;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('retail_price_php')
+    .eq('service_code', serviceCode)
+    .maybeSingle();
+  return data?.retail_price_php ? Number(data.retail_price_php) : null;
 }
 
 async function readBundlePrice(bundleCode: string): Promise<number> {
-  if (!DEMO_MODE) {
-    try {
-      const admin = createAdminClient();
-      const { data } = await admin
-        .from('platform_package_catalog')
-        .select('retail_price_php')
-        .eq('package_code', bundleCode)
-        .maybeSingle();
-      if (data?.retail_price_php) {
-        return Number(data.retail_price_php);
-      }
-    } catch {
-      // Swallow · fall through to BUNDLE_BOOK.
-    }
-  }
-  return BUNDLE_BOOK[bundleCode] ?? 0;
+  // DEMO_MODE → the demo book. Otherwise read the admin catalog and FAIL CLOSED
+  // (throw → caller 500s) if it's unavailable — never bill a hardcoded fallback.
+  if (DEMO_MODE) return BUNDLE_BOOK[bundleCode] ?? 0;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('platform_package_catalog')
+    .select('retail_price_php')
+    .eq('package_code', bundleCode)
+    .maybeSingle();
+  if (data?.retail_price_php) return Number(data.retail_price_php);
+  throw new Error(`No admin price for bundle ${bundleCode} (platform_package_catalog)`);
 }
 
 function makeReferenceNumber(eventId: string, channel: 'QR' | 'MAYA'): string {

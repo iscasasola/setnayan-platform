@@ -125,8 +125,17 @@ const nextConfig: NextConfig = {
   // route's lambda.
   // models/face-detection/ (lib/face-blur.ts — Salamisim P2 FaceBlock baker)
   // follows the identical committed-weights + node:fs pattern.
+  // Monogram-lockup PDF badges (lib/lockup-pdf.ts) read these TTFs with node:fs
+  // via a path that's indirected through a function param, so @vercel/nft can't
+  // statically resolve them at the readFileSync call site — trace them explicitly
+  // or the seating/concept-pdf routes throw ENOENT for bar/duo/script/infinity.
   outputFileTracingIncludes: {
-    '/**': ['./models/nsfw/**/*', './models/face-detection/**/*'],
+    '/**': [
+      './models/nsfw/**/*',
+      './models/face-detection/**/*',
+      './assets/cipher-fonts/*.ttf',
+      './lib/social/fonts/*.ttf',
+    ],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required
@@ -257,6 +266,17 @@ const nextConfig: NextConfig = {
   // files in public/ are served directly by Next.js; the rewrite is a
   // URL-only remap so a deep-link in marketing email or social card lands
   // on the right slide deck without a 404 + redirect dance.
+  // 2026-06-14 — Real Weddings showcase renamed `/weddings` → `/realstories`
+  // (owner "rename it as /realstories"). 301-redirect the old paths so the
+  // already-indexed `/weddings` URLs consolidate their ranking to the new path
+  // and any in-flight nav links still pointing at `/weddings` (the nav PR #1391
+  // was open at rename time) keep working instead of 404-ing.
+  async redirects() {
+    return [
+      { source: '/weddings', destination: '/realstories', permanent: true },
+      { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       { source: '/keynote', destination: '/keynote/index.html' },

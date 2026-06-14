@@ -92,7 +92,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
                   </p>
                   <p className="pt-2">
                     <Link
-                      href="/vendors"
+                      href="/explore"
                       className="inline-flex items-center gap-1.5 font-semibold underline-offset-4 hover:underline"
                     >
                       Browse vendors

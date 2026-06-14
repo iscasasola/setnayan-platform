@@ -942,7 +942,7 @@ function SoftHoldLimitModal({
  * Resolve the "Browse similar vendors" deep-link from a PlanGroupId.
  *
  * Reads PLAN_GROUPS to find the group's catalogFolder, then looks up the
- * WEDDING_FOLDER_SLUG to get the URL fragment. Returns `/vendors` as a
+ * WEDDING_FOLDER_SLUG to get the URL fragment. Returns `/explore` as a
  * safe fallback if the group somehow isn't found (defensive — shouldn't
  * happen in practice since groupId comes from PLAN_GROUPS itself).
  *
@@ -953,9 +953,9 @@ function SoftHoldLimitModal({
  */
 function resolveBrowseSimilarHref(groupId: PlanGroupId): string {
   const group = PLAN_GROUPS.find((g) => g.id === groupId);
-  if (!group) return '/vendors';
+  if (!group) return '/explore';
   const slug = WEDDING_FOLDER_SLUG[group.catalogFolder];
-  return `/vendors?folder=${slug}#${slug}`;
+  return `/explore?folder=${slug}#${slug}`;
 }
 
 function UndoToast({

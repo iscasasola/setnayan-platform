@@ -97,7 +97,7 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'Compare verified Filipino wedding vendors by city, category, and the styles they specialize in.',
-        href: '/vendors',
+        href: '/explore',
         label: 'Browse the vendor marketplace',
       },
       {
@@ -226,7 +226,7 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       {
         type: 'cta',
         text: 'See verified Filipino wedding vendors filtered by your city and category.',
-        href: '/vendors',
+        href: '/explore',
         label: 'Browse vendors',
       },
     ],

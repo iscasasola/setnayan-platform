@@ -145,14 +145,14 @@ export type PlanGroup = {
   /**
    * Which catalog folder the planner's [Search] button anchors into.
    * The marketplace's CatalogView renders each folder as a `<section
-   * id={WEDDING_FOLDER_SLUG[folder]}>` so a URL like `/vendors#ceremony`
+   * id={WEDDING_FOLDER_SLUG[folder]}>` so a URL like `/explore#ceremony`
    * lands the couple on the rich PairedVenuePanel + CeremonyVenuesSection
    * directly — no filter applied, full curated browse view.
    */
   catalogFolder: WeddingFolder;
   /**
    * Optional tile (10-parent model, 2026-05-31). When set, the planner
-   * card's [Search] button deep-links to `/vendors?tile=<tile-slug>` —
+   * card's [Search] button deep-links to `/explore?tile=<tile-slug>` —
    * the tile-scoped vendor grid (overlaps the tile's canonical set). Takes
    * precedence over `subcategoryHint`. Omit for cards that should browse
    * the whole parent (e.g. Attire → all LOOK tiles).
@@ -162,9 +162,9 @@ export type PlanGroup = {
    * Optional canonical_service hint (from the taxonomy at
    * `TAXONOMY_MAP` in apps/web/lib/taxonomy.ts). When set, the planner
    * card's [Search] button deep-links to
-   * `/vendors?folder=<slug>&category=<hint>` — vendor-grid mode filtered
+   * `/explore?folder=<slug>&category=<hint>` — vendor-grid mode filtered
    * to that specific canonical_service. When omitted, falls back to
-   * `/vendors?folder=<slug>#<slug>` — catalog mode scoped to the folder.
+   * `/explore?folder=<slug>#<slug>` — catalog mode scoped to the folder.
    *
    * Used for sub-category cards (Live band, Host/MC, Cocktail Booths,
    * LED Background, etc.) so the host's discovery jump lands on the
@@ -1570,10 +1570,10 @@ function formatTargetDate(d: Date): string {
  *
  * When the group has a `subcategoryHint` (e.g. live_band, host_emcee,
  * mobile_bar, photo_booth), returns
- * `/vendors?folder=<slug>&category=<canonical>&from=plan` — vendor-grid
+ * `/explore?folder=<slug>&category=<canonical>&from=plan` — vendor-grid
  * mode filtered to that specific canonical_service in the 192-row taxonomy.
  *
- * Otherwise returns `/vendors?folder=<slug>&from=plan#<slug>` — catalog
+ * Otherwise returns `/explore?folder=<slug>&from=plan#<slug>` — catalog
  * mode scoped to the folder, smooth-scroll-anchored to the section header.
  *
  * Consumed by planning-groups.tsx (the [Search] button) and todays-one-
@@ -1608,14 +1608,14 @@ export function buildPlanGroupSearchHref(
       group.catalogTile === 'reception' ||
       group.catalogTile === 'ceremony_venue'
     ) {
-      return `/vendors?folder=venue&from=plan#${WEDDING_TILE_SLUG[group.catalogTile]}`;
+      return `/explore?folder=venue&from=plan#${WEDDING_TILE_SLUG[group.catalogTile]}`;
     }
-    return `/vendors?tile=${WEDDING_TILE_SLUG[group.catalogTile]}&from=plan`;
+    return `/explore?tile=${WEDDING_TILE_SLUG[group.catalogTile]}&from=plan`;
   }
   if (group.subcategoryHint) {
-    return `/vendors?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}&from=plan`;
+    return `/explore?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}&from=plan`;
   }
-  return `/vendors?folder=${folderSlug}&from=plan#${folderSlug}`;
+  return `/explore?folder=${folderSlug}&from=plan#${folderSlug}`;
 }
 
 // ============================================================================

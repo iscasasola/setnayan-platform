@@ -8,7 +8,7 @@
  *
  * LIVE by default — owner activated 2026-06-09 ("build it to the website"). The
  * takeover IS the production Services experience now. To DISABLE without a revert,
- * set `BUDGET_BUILD_ENABLED=false` (env) — `/vendors` then falls back to the
+ * set `BUDGET_BUILD_ENABLED=false` (env) — `/explore` then falls back to the
  * `PlanBudgetAccordion` + global bottom nav exactly as before (the kill-switch).
  *
  * Phase rollout (see the spec §): Phase 1 = this shell (tabs + takeover chrome,

@@ -1,6 +1,6 @@
 /**
  * V1 vendor-taxonomy metadata map. Powers the public marketplace at
- * `/vendors`, the dashboard planning grid, and the admin taxonomy viewer.
+ * `/explore`, the dashboard planning grid, and the admin taxonomy viewer.
  *
  * 2026-05-31 — Shrunk from the 12-folder / ~196-tile structure to a
  * **10-parent / ~53-tile** wedding taxonomy (design lock:

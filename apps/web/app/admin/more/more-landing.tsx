@@ -52,6 +52,7 @@ import {
   Bell,
   CircleUser,
   PartyPopper,
+  Newspaper,
 } from 'lucide-react';
 import type { LandingItem } from '../_components/mobile-landing-grid';
 import {
@@ -209,6 +210,14 @@ const PLATFORM_ITEMS: LandingItem[] = [
     icon: Globe,
     description:
       'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
+  },
+  {
+    key: 'real-stories',
+    label: 'Real Stories',
+    href: '/admin/real-stories',
+    icon: Newspaper,
+    description:
+      'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',
   },
   {
     key: 'ads',

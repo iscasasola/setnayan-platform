@@ -128,7 +128,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
  * 20260519000000_phase_a_event_editorial_consent.sql).
  *
  * Sets/clears the couple's `users.public_summary_consent_at`. When set, the
- * couple's wedding becomes eligible for the public /weddings showcase 30 days
+ * couple's wedding becomes eligible for the public /realstories showcase 30 days
  * after the event (the loadPublishedShowcases gate); clearing it (NULL) removes
  * them. Consent is per-user (the migration: only customers/couples write it);
  * the host gate guarantees the caller owns this event, then we write the

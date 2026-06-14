@@ -7,11 +7,11 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram, EmptyEventMonogram } from '@/app/_components/event-monogram';
-import { EventTypeCarousel } from '@/app/dashboard/create-event/_components/event-type-carousel';
+import { EventTypeCarousel } from '@/app/dashboard/(account)/create-event/_components/event-type-carousel';
 import {
   EVENT_TYPES_FALLBACK,
   type EventTypeRow,
-} from '@/app/dashboard/create-event/_components/event-types';
+} from '@/app/dashboard/(account)/create-event/_components/event-types';
 
 /**
  * Unified switcher — iteration 0000 chrome (locked 2026-05-14 single-strip

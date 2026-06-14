@@ -198,7 +198,7 @@ export default async function DemoModeAdminPage({ searchParams }: Props) {
         <ul className="space-y-2 text-sm">
           <li>
             <Link
-              href="/vendors"
+              href="/explore"
               className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
             >
               View /vendors {isOn ? '(demo vendors visible)' : '(without demo)'}

@@ -3,6 +3,7 @@ import {
   resolveMonogram,
   resolveMonogramDesign,
   monogramFrameAssetUrl,
+  splitInitials,
 } from '@/lib/monogram';
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 
@@ -39,19 +40,6 @@ const SIZE_TOKENS: Record<Size, { box: string; text: string; px: number }> = {
   md: { box: 'h-9 w-9', text: 'text-xs', px: 36 },
   lg: { box: 'h-11 w-11', text: 'text-sm', px: 44 },
 };
-
-/**
- * Pull the two lockup initials out of a resolved monogram label. The label is
- * "A & B" for couples (deriveMonogram / monogram_text), or a single "S" for
- * one-name events. Returns ['', ''] when there isn't a clean pair so the caller
- * can fall back to the letters-forward badge.
- */
-function splitInitials(text: string): [string, string] {
-  const parts = text.split('&').map((s) => s.trim()).filter(Boolean);
-  const a = (parts[0]?.charAt(0) ?? '').toUpperCase();
-  const b = (parts[1]?.charAt(0) ?? '').toUpperCase();
-  return [a, b];
-}
 
 export function EventMonogram({
   event,

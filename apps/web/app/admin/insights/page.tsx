@@ -23,7 +23,6 @@ import {
   Radar,
   BarChart3,
   TrendingUp,
-  Activity,
   Bug,
   WifiOff,
 } from 'lucide-react';
@@ -63,14 +62,6 @@ const INSIGHTS_ITEMS: LandingItem[] = [
     icon: TrendingUp,
     description:
       'Growth cockpit. Vendor count, weekly visits, hiring milestones, and bottleneck signals.',
-  },
-  {
-    key: 'telemetry',
-    label: 'Telemetry',
-    href: '/admin/telemetry',
-    icon: Activity,
-    description:
-      'Service telemetry checkpoints. Forward-reference — ships with the next refresh.',
   },
   {
     key: 'connection-logs',

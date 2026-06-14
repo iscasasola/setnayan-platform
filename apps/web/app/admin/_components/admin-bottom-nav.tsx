@@ -141,7 +141,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/intelligence',
       '/admin/funnels',
       '/admin/operations-hiring',
-      '/admin/telemetry',
       '/admin/connection-logs',
       '/admin/offline',
     ],

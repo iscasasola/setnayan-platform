@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-seats.ts
@@ -49,15 +49,18 @@ export const PAPIC_SEAT_COUNT = 5;
 /**
  * Does this event own the paid Papic Seats pass?
  *
- * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
- * refund-aware, graceful-degrade on a missing orders table so the gated surface
- * shows the upgrade CTA rather than throwing.
+ * Delegates to the bundle-aware eventOwnsSku() reader (lib/entitlements.ts) —
+ * refund-aware, graceful-degrade on a missing orders table, AND counts a
+ * MEDIA_PACK bundle (which includes PAPIC_SEATS) as owning the seats pass.
+ * Kept in lockstep with the DB RPC papic_event_owns_service (migration
+ * 20261228000000), so the seats page gate and the provisioning RPC agree — a
+ * Media-Pack buyer both SEES the provision UI and can materialize the 5 seats.
  */
 export async function eventOwnsPapicSeats(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return checkOrderOwnership(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
+  return eventOwnsSku(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

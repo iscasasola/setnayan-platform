@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(payments): Papic seat/guest provisioning is now bundle-aware at the DB level (PR #1447 follow-up)
+
+Closes the residual gap flagged in PR #1447. That PR made the app-side ownership READ bundle-aware (`eventOwnsSku` + `BUNDLE_CHILD_SKUS`), so a `MEDIA_PACK` buyer owns the child SKUs — but the DB RPC `papic_provision_seats()` gated via `papic_event_owns_service(event, key)` which matched the **exact** `service_key` only. So a Media-Pack buyer who clicked "provision seats" hit the RPC's exact-key check (`'PAPIC_SEATS'` → no direct order) and the seats never materialized. (Same for the `'PAPIC_GUEST'` path.)
+
+- **DB (new migration `20261228000000_papic_ownership_bundle_aware.sql`):** new `public.bundles_granting_sku(child) → text[]` helper (the SQL mirror of `BUNDLE_CHILD_SKUS`), and `papic_event_owns_service` now matches the exact key **OR** any owned bundle that includes it. Exact-key branch + status filter preserved verbatim → no change for à-la-carte buyers. Idempotent. **NOT applied — owner runs `supabase db push`.**
+- **App (parity):** `lib/papic-seats.ts:eventOwnsPapicSeats` and `lib/papic-guest.ts:eventOwnsPapicGuest` switched from the exact-key `checkOrderOwnership` to bundle-aware `eventOwnsSku`, so the add-on **page** gate and the DB **RPC** now agree — a Media-Pack buyer both SEES the provision UI and can materialize the seats / guest quota.
+- **Sync note:** bundle membership now lives in THREE mirrors — `BUNDLE_MEMBERS` (onboarding, canonical) → `BUNDLE_CHILD_SKUS` (`lib/entitlements.ts`) → `bundles_granting_sku` (SQL). Keep in sync if composition changes.
+
+Stacks on PR #1447 (depends on its `eventOwnsSku`/`BUNDLE_CHILD_SKUS`). `tsc` + `pnpm test:unit` (135/135) green. SPEC IMPACT: None (mechanics; no price/SKU change).
+
 ## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
 
 Owner renewed the Apple Developer membership → wire real macOS signing so a downloaded `.dmg` opens without the Gatekeeper "unidentified developer / damaged" warning (was: ad-hoc signed only). Env-var-driven so **no certificate ever lands in the repo**; Tauri v2's bundler imports the cert + notarizes during `tauri build`. Follows the `desktop-latest` rolling-release work ([#1434](https://github.com/iscasasola/setnayan-platform/pull/1434)).

@@ -277,9 +277,20 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
               />
             ) : (
               <AnimatedMonogramHero
-                key={`anim-${monogram.text}-${motion}`}
+                key={`anim-${monogram.text}-${monogram.style ?? ''}-${motion}`}
                 text={monogram.text}
-                color={monogram.color}
+                color={
+                  monogram.style === 'bar' ||
+                  monogram.style === 'duo' ||
+                  monogram.style === 'script' ||
+                  monogram.style === 'infinity'
+                    ? monogram.inkColor ?? monogram.color
+                    : monogram.color
+                }
+                fontFamily={monogram.fontFamily}
+                fontStyle={monogram.fontStyle}
+                lockupStyle={monogram.style}
+                letterSpacing={monogram.letterSpacing}
                 size="lg"
                 motion={motion}
               />

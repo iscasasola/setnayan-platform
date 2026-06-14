@@ -21,17 +21,19 @@ import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
  *
  * Render precedence (highest first):
  *   1. bespoke / Cipher custom SVG  → BespokeMonogramMark (their own AI mark)
- *   2. paid ANIMATED_MONOGRAM SKU   → AnimatedMonogramHero (animates the TEXT)
- *   3. chosen type-only lockup      → MonogramMark (bar/duo/script/infinity)   ← NEW
- *   4. chosen framed lockup         → gold frame webp + initials               ← NEW
+ *   2. paid ANIMATED_MONOGRAM SKU   → AnimatedMonogramHero — animates the couple's
+ *                                     real LOCKUP (bar/duo/script/infinity) when
+ *                                     they chose one, else the text circle
+ *   3. chosen type-only lockup      → MonogramMark (bar/duo/script/infinity · static)
+ *   4. chosen framed lockup         → gold frame webp + initials
  *   5. legacy / single-name event   → the original bordered cream initials circle
  *
- * SCOPE NOTE (flagged, owner 2026-06-14): branch 2 still animates the typographic
- * text, not the lockup — bringing the Motion Library onto MonogramMark needs
- * animated lockup variants and is a deliberate follow-up. So a couple who owns
- * the paid animation keeps animated text; everyone else now gets their real
- * static lockup here. Decorative throughout (aria-hidden) — the name + date
- * below carry the meaning, same as the circle this replaces.
+ * MONOGRAM CONSISTENCY (owner 2026-06-14): branch 2 now threads the event's
+ * resolved design into AnimatedMonogramHero, so the six motion signatures play
+ * on the SAME lockup geometry the static branches (3) + the chrome + QR center
+ * render. framed / single-initial / legacy events keep animating the text
+ * circle (AnimatedMonogramHero falls back internally). Decorative throughout
+ * (aria-hidden) — the name + date below carry the meaning, same as the circle.
  */
 
 const HERO_PX = 80; // matches the h-20 w-20 circle + AnimatedMonogramHero size="md"
@@ -67,23 +69,36 @@ export function HeroMonogram({
     );
   }
 
-  // 2 · paid animation — animates the typographic text (lockup animation = TODO).
+  const design = resolveMonogramDesign(event);
+  const ink = design?.color ?? monogram.color;
+
+  // 2 · paid animation — plays the chosen motion on the couple's real lockup
+  // (bar/duo/script/infinity). For those four, ink = the lockup color (mulberry)
+  // and the face comes from the resolved design; framed / single-initial /
+  // legacy events fall through to AnimatedMonogramHero's text-circle render
+  // using the legacy monogram color + face.
   if (animatedMonogram) {
+    const lockupStyle =
+      design?.style === 'bar' ||
+      design?.style === 'duo' ||
+      design?.style === 'script' ||
+      design?.style === 'infinity'
+        ? design.style
+        : null;
     return (
       <AnimatedMonogramHero
         text={monogram.text}
-        color={monogram.color}
-        fontFamily={monogram.fontFamily}
-        fontStyle={monogram.fontStyle}
+        color={lockupStyle ? ink : monogram.color}
+        fontFamily={design?.fontFamily ?? monogram.fontFamily}
+        fontStyle={design?.fontStyle ?? monogram.fontStyle}
+        lockupStyle={lockupStyle}
+        letterSpacing={design?.letterSpacing}
         size="md"
         shadow={shadow}
         motion={animatedMonogram}
       />
     );
   }
-
-  const design = resolveMonogramDesign(event);
-  const ink = design?.color ?? monogram.color;
 
   // 3 · the couple's REAL chosen lockup, drawn frameless at hero scale.
   const markStyle: MonogramMarkStyle | null =

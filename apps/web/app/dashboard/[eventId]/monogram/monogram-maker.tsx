@@ -160,11 +160,15 @@ export function MonogramMaker({
           <div className="mt-6 flex min-h-[150px] items-center justify-center">
             {/* key remounts so the chosen motion replays on every change */}
             <AnimatedMonogramHero
-              key={`${markText}-${design.ink}-${font}-${motion}-${replay}`}
+              key={`${markText}-${style}-${design.ink}-${font}-${motion}-${replay}`}
               text={markText}
               color={design.ink}
               fontFamily={activeFace.css}
               fontStyle={activeFace.fontStyle}
+              /* Animate the couple's REAL lockup for the four type-only styles;
+                 framed / single-initial fall back to the text circle inside
+                 AnimatedMonogramHero (unchanged). */
+              lockupStyle={style}
               size="lg"
               motion={motion}
             />

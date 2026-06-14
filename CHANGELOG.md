@@ -15,6 +15,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc` clean · `next lint` clean. No schema; no behavior change for the original four faces or the two sturdy new serifs.
 
 **SPEC IMPACT:** None beyond the #1260 row's flagged follow-up now closed (corpus DECISION_LOG batch row).
+## 2026-06-14 · feat(website): mood-board palette skins the couple site — contrast-safe theming (4-path PR B)
+
+Owner design: "our RSVP will adapt to the mood board's palette" + "the editorial will also be based on their moodboard and the rest of their personal website." The couple's palette already lived in the DB (`events.role_palette`, iteration 0010 mood board) but was never applied to the public site — the `/[slug]` page rendered fixed brand colors. This wires it in, across all four paths, with a legibility guarantee.
+
+- `apps/web/lib/site-palette.ts` (new, + `site-palette.test.ts`) — `buildSitePaletteVars(rolePalette)` maps the decorative palette to UI roles with a **WCAG-AA contrast floor**: accent (terracotta family) ← boldest palette color, darkened until it reads as text on the page; CTA (mulberry family) ← a deep palette color, darkened until light button text reads on it; paper ← a near-white palette color (subtle tint) else the safe default; ink ← kept the safe obsidian (always-legible). Returns `null` (→ defaults) when the palette is absent/too thin. Pure + unit-tested (AA asserted on a tricky pastel palette).
+- The couple-site Tailwind colors (`cream`/`ink`/`terracotta`/`mulberry` + `-600`/`-700`) already resolve to `rgb(var(--color-*) / …)`, so theming = **overriding those `--color-*` vars on `InvitationShell`'s `<main>`** — re-skins every existing class on the couple site with **no component refactor** and **zero blast radius** on the dashboard/marketing (subtree-scoped). Values emitted as space-separated RGB channels.
+- `apps/web/app/[slug]/page.tsx` — `InvitationShell` takes `rolePalette`, computes the theme, applies it as scoped `style` on `<main>`; `role_palette` added to the event select + `EventRow`; threaded to all three shells (PublicLanding · InvitationSite · PrivateLanding). Applies to Save the Date, RSVP, Event, and Editorial alike.
+
+Fallback is graceful: a couple with no mood board sees today's Clean-Editorial look unchanged.
+
+SPEC IMPACT: couples' public site is now palette-driven from the mood board (iteration 0010 → 0002 + 0046). Logged in `DECISION_LOG.md` (corpus). Follow-up (PR C): Editorial content alignment (love story → Event; public "used at this wedding" vs couple-private spend) + photo scrims over imagery.
+
 ## 2026-06-14 · feat(website): 4-path couple website — add the Save the Date phase + turn the lifecycle ON for weddings
 
 Owner design this session: the couple wedding website is four named paths the guest moves through over time — **Save the Date → RSVP → Event → Editorial** — time-gated (the page shows whichever path fits the date), single `/[slug]` page (no separate routes). The phase engine already existed (`rsvp | event | editorial`) but was flag-dark (`WEBSITE_PHASES_ENABLED`, off) and had no Save the Date.

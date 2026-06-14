@@ -106,6 +106,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/money',
       // Insights group
       '/admin/growth',
+      '/admin/intelligence',
       '/admin/funnels',
       '/admin/operations-hiring',
       '/admin/telemetry',

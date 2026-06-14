@@ -107,6 +107,7 @@ import {
   UserX,
   PartyPopper,
   Newspaper,
+  Radar,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -331,6 +332,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/growth',
         icon: LineChart,
         matchPrefix: '/admin/growth',
+      },
+      {
+        key: 'intelligence',
+        label: 'Intelligence',
+        href: '/admin/intelligence',
+        icon: Radar,
+        matchPrefix: '/admin/intelligence',
       },
       {
         key: 'funnels',

@@ -335,6 +335,14 @@ export async function autoSeatGuests(formData: FormData) {
   }
 
   await refreshSeatingLock(supabase, lockId);
+  // Stamp Auto-arrange adoption for the admin lead-scoring signal
+  // (admin_lead_scores · /admin/intelligence). Best-effort: an analytics
+  // stamp must never block seating, so the error is intentionally dropped.
+  await supabase
+    .from('events')
+    .update({ auto_seat_last_used_at: new Date().toISOString() })
+    .eq('event_id', eventId);
+
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 

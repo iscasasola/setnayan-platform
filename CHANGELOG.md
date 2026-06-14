@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · feat(website): seat-reservation delta — "your place is reserved" + couple reserved→seated view (4-path PR D)
+
+Owner locked the RSVP path's purpose: **seat reservation + attendance confirmation**, in the "holds a place; couple seats them" model (no guest seat-picking, no conflict logic, no capacity gate). Small delta on top of the already-shipped RSVP.
+
+- `apps/web/app/[slug]/page.tsx` (`RsvpWidget`) — when a guest is confirmed attending, show a **"Your place is reserved"** reassurance line. Pure server render (no client state); it's the confirmation that attendance held their place.
+- `apps/web/app/dashboard/[eventId]/seating/page.tsx` — a **reserved → seated** summary strip above the editor: Reserved (confirmed attending) · Seated (in a chair) · To seat (the rest, highlighted when > 0). Derived from data the page already loads (`seatingGuests` carries `rsvp_status` + `seated_table_id`) — **no new query, no migration**.
+
+SPEC IMPACT: formalizes RSVP = hold-a-place reservation + attendance confirmation, and surfaces the RSVP→seat-plan handoff for the couple. Logged in `DECISION_LOG.md` (corpus). Stacks on PR C (`claude/couple-editorial`).
+
+## 2026-06-12 · fix(monogram): chrome-size fallback for hero-only hairline scripts
 ## 2026-06-14 · ci(automerge): make auto-upload reliable across all sessions (auto-arm + lighthouse required-check fix)
 
 Owner: make auto-merge-to-prod the standing, enforced default so it never depends on a session remembering — and stop the silent stall where required checks never report. Two `.github` guardrails:

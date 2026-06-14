@@ -1941,6 +1941,16 @@ function RsvpWidget({
         <RsvpPill status={guest.rsvp_status} />
       </header>
 
+      {/* Seat reservation: confirming attendance holds the guest's place (the
+          couple seats them later). Show the reassurance whenever they're
+          attending — this is the "your place is reserved" confirmation. */}
+      {guest.rsvp_status === 'attending' ? (
+        <p className="flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-800">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
+          Your place is reserved — we can&rsquo;t wait to celebrate with you.
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {(
           [

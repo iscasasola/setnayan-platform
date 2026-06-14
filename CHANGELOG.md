@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-14 · fix(pricing): real charges read admin-only — kill divergent hardcoded price fallbacks
+
+Owner rule (2026-06-14): every feature is priced in the admin catalog (amount admin-set, frequency predefined per SKU); code must never hardcode a price. Two hardcoded fallbacks diverged from admin (the ₱2,499-vs-₱1,999 Animated Monogram mismatch the pricing collection flagged). Neither value is changed here (numbers stay parked for the holistic pricing pass) — this only enforces the *source*.
+
+- `api/v1/billing/initialize-maya/route.ts` — `readSkuPrice`/`readBundlePrice` now read the admin catalog as the ONLY source for a real charge: SKU miss/failure → `null` (caller 400s), bundle failure → throw (caller 500s, fail-closed). The hardcoded `PRICING_BOOK`/`BUNDLE_BOOK` are now **DEMO-ONLY** (relabeled) — used solely under `DEMO_MODE` (walkthrough recording, no real charge), so a stale fallback can never bill a wrong amount.
+- `add-ons/animated-monogram/page.tsx` — removed `FALLBACK_PRICE_PHP = 2499`; the price comes only from `formatV2Sku()` (admin). When the catalog row is unreadable (CI / pre-seed only — never a real customer in prod), `pricePhp` is `null` and the buy block degrades to "Pricing loads from your catalog" instead of inventing a number.
+- Verified: typecheck ✅ · lint ✅. Maya route is dormant V1 plumbing (no public API / Maya not approved in V1), so this hardens it ahead of activation.
+
+SPEC IMPACT: None — enforces the admin-priced rule (memory `project_setnayan_pricing_admin_managed`); no price value changed, no schema/route change. (The demo book still lists stale/retired SKU prices on purpose — parked; it never bills.)
+
+---
+
 ## 2026-06-14 · fix(monogram): "Your Plan" tile pointed at a dead "coming soon" stub instead of the live maker
 
 Found during a monogram dead-code audit (owner: "we have several monogram makers — keep the ones that serve the app, delete what doesn't"). The audit found NO duplicate/orphaned makers — the three editor modes on `/dashboard/[eventId]/monogram` (typographic lockup · Cipher Studio · Bespoke AI) + the onboarding picker + the paid Animated Monogram upsell are all live and distinct. The one genuinely stale thing: the **"Your Plan" monogram tile** linked to `/dashboard/[eventId]/add-ons/monogram-creator` — a route that doesn't exist, so it rendered the iteration-0037 *"Monogram Creator… Coming back soon"* placeholder (a relic from before the maker shipped). Couples clicking it hit a dead end instead of the live maker.

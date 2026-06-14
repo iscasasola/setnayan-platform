@@ -84,6 +84,14 @@ export default async function SeatingPage({ params }: Props) {
     };
   });
 
+  // Seat-reservation summary (RSVP "holds a place" → couple seats them).
+  // Reserved = guests who confirmed attendance; seated = those already in a
+  // chair; the rest still need a seat. Plus-ones are their own guest rows.
+  const reservedGuests = seatingGuests.filter((g) => g.rsvp_status === 'attending');
+  const reservedCount = reservedGuests.length;
+  const seatedCount = reservedGuests.filter((g) => g.seated_table_id !== null).length;
+  const toSeatCount = reservedCount - seatedCount;
+
   return (
     <section className="space-y-5">
       <header className="space-y-1">
@@ -103,6 +111,16 @@ export default async function SeatingPage({ params }: Props) {
           <span aria-hidden className="text-ink/40">→</span>
         </Link>
       </header>
+
+      {/* Reserved → seated. RSVP confirmation holds a guest's place; this is
+          the couple's view of how many reserved guests still need a chair. */}
+      {reservedCount > 0 ? (
+        <div className="flex items-stretch divide-x divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/70">
+          <SeatStat label="Reserved" value={reservedCount} hint="confirmed attending" />
+          <SeatStat label="Seated" value={seatedCount} hint="in a chair" />
+          <SeatStat label="To seat" value={toSeatCount} highlight={toSeatCount > 0} />
+        </div>
+      ) : null}
 
       <DayOfEditingBanner eventDate={eventDate} />
 
@@ -125,5 +143,28 @@ export default async function SeatingPage({ params }: Props) {
 
       <MiniTour tourKey="customer_seat_plan_v1" />
     </section>
+  );
+}
+
+/** One cell of the reserved → seated summary strip. */
+function SeatStat({
+  label,
+  value,
+  hint,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex-1 px-4 py-3 text-center">
+      <p className={`text-2xl font-semibold ${highlight ? 'text-terracotta' : 'text-ink'}`}>
+        {value}
+      </p>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink/55">{label}</p>
+      {hint ? <p className="mt-0.5 text-[11px] text-ink/45">{hint}</p> : null}
+    </div>
   );
 }

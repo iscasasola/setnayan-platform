@@ -211,6 +211,28 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // Pakanta — a custom song written for the couple. The song is composed
+    // from the onboarding love story (lib/pakanta-brief.ts); the page only
+    // collects the music top-up. Couple surface: /add-ons/pakanta.
+    key: 'pakanta',
+    label: 'Pakanta',
+    Icon: Music,
+    iteration: '0036',
+    status: 'live',
+    category: 'digital_services',
+    blurb: 'A custom song for your wedding — written from the love story you told us',
+    cta: 'Create your song',
+    studioGroup: 'music_extras',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'linear-gradient(135deg, #2A0E2E 0%, #5C1F4A 50%, #A03F6B 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #FFC8E6 0%, transparent 50%)',
+      iconBadgeClass: 'bg-pink-100/15 text-pink-100',
+    },
+  },
+  {
     key: 'animated-monogram',
     label: 'Monogram Creator',
     Icon: Type,

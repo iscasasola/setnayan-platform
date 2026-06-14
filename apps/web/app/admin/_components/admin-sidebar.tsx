@@ -260,6 +260,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/social-queue',
       },
       {
+        // Pakanta songwriting queue — each couple's custom-song brief, auto-
+        // composed from their onboarding love story + Pakanta music prefs
+        // (lib/pakanta-brief.ts). The music team writes the song from it.
+        key: 'pakanta',
+        label: 'Pakanta queue',
+        href: '/admin/pakanta',
+        icon: Music,
+        matchPrefix: '/admin/pakanta',
+      },
+      {
         key: 'help',
         label: 'Help',
         href: '/admin/help',

@@ -100,8 +100,8 @@ const MATRIX_SECTIONS: MatrixSection[] = [
     ],
   },
   {
-    section: '🛠 Pro tools',
-    note: 'Editorial tagging that auto-builds your "successful weddings" collection, category-specific toolkits, AI proposal drafts — the toolkit Pro+ vendors use to close more weddings.',
+    section: '📈 Grow & scale · Pro+',
+    note: "Tools that expand your business as it grows — never ones you need to run your craft. Editorial tagging that auto-builds your \"successful weddings\" collection, category toolkits, AI proposal drafts: automation, polish, and insight that put you in front of more couples and save you time as you scale.",
     rows: [
       [
         'Editorial Tagging · auto-featured in couples\' editorials',
@@ -322,7 +322,7 @@ export async function ForVendorsDeepDive() {
       {/* Free vs Pro intro */}
       <div style={{ marginBottom: 14 }}>
         <div className="m-eyebrow" style={{ color: 'var(--m-slate-2)' }}>
-          Free vs Pro · what you get on each side
+          Free is a whole business · paid tiers are for growing
         </div>
         <div
           style={{
@@ -333,9 +333,12 @@ export async function ForVendorsDeepDive() {
             lineHeight: 1.5,
           }}
         >
-          Free is designed to beat the patchwork stack you use today (Kasal +
-          Google Calendar + WhatsApp + Wave). Pro is the stuff{' '}
-          <em style={{ color: 'var(--m-ink)' }}>only Setnayan can offer</em> —
+          Free isn’t a trial — it’s a complete business that already beats the
+          patchwork stack you use today (Kasal + Google Calendar + WhatsApp +
+          Wave). Pro and Enterprise don’t unlock your craft; they expand it —
+          more categories, more team, wider reach, and tools that scale as you
+          grow. Everything{' '}
+          <em style={{ color: 'var(--m-ink)' }}>only Setnayan can offer</em>,
           because we have the couples, the data, and the ops team.
         </div>
       </div>

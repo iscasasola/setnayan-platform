@@ -30,6 +30,16 @@ Follows the dup-timestamp hotfix [#1449](https://github.com/iscasasola/setnayan-
 - **Result:** zero migrations pending from `origin/main`; the only remote-ledger row not yet on `main` is `20261225000000` (auto-recap, PR #1448) — it lands when that PR merges. Future `db push` is now safe.
 
 SPEC IMPACT: None (prod-ledger reconciliation; schema already matched the migrations). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · refactor(for-vendors): realign tier matrix to the "growth-gated, not craft-gated" story
+
+Follow-up to the `VendorVision` spine ([#1437](https://github.com/iscasasola/setnayan-platform/pull/1437)). That section frames Pro/Enterprise as "Free is a whole business; paid tiers are for growing" — but the comparison matrix a few scrolls down still framed the same tiers as "the toolkit Pro+ vendors use to close more weddings," which reads as paying to unlock your craft. This makes the whole page tell one story. **Framing/copy only — no feature was re-gated** (the actual Free/Verified/Pro/Enterprise capability gating is unchanged, per the 2026-06-07 capability matrix).
+
+- `apps/web/app/for-vendors/_components/for-vendors-deep-dive.tsx` — (1) **Free-vs-Pro intro** eyebrow `"Free vs Pro · what you get on each side"` → `"Free is a whole business · paid tiers are for growing"`; body rewritten to "Free isn't a trial — it's a complete business … Pro and Enterprise don't unlock your craft; they expand it — more categories, more team, wider reach, and tools that scale as you grow." (2) **Matrix section** `"🛠 Pro tools"` → `"📈 Grow & scale · Pro+"`; note rewritten from "the toolkit Pro+ vendors use to close more weddings" to "Tools that expand your business as it grows — never ones you need to run your craft."
+- The individual rows under that section (Editorial Tagging, AI Proposal Builder, category benchmarks, demand pulse, theft watch, crew-rate, co-listing) keep their Pro+ gating — all genuinely growth/scale/reach tools, now correctly framed as such. `tsc --noEmit` green.
+
+OPEN (flagged to owner, NOT changed here): **`File sharing with couples`** is still gated to Pro+ in the same section — the one row that reads as core-collaboration rather than growth. Moving it to Free/Verified is a real product/pricing decision, so it's surfaced rather than silently changed.
+
+SPEC IMPACT: None on schema / SKU / price / tier capabilities. Public-copy framing only (iteration 0015/0022); logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
 

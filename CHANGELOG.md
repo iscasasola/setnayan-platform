@@ -25,6 +25,17 @@ PR 1 of the pricing/payments plumbing fix (owner "fix them all now", from a 3-au
 Typecheck green. Does **not** flip `SETNAYAN_AI_PAYWALL_ENABLED` (owner's Vercel env switch) and does **not** yet wire the Setnayan AI buy surface — that's PR 2.
 
 SPEC IMPACT: None. No price values changed; this only makes the admin catalog the runtime source of truth and removes code-side price literals. (Bundle SKUs `GUIDED_PACK`/`MEDIA_PACK` are not yet covered by the server re-resolution — flagged for PR 2.)
+## 2026-06-14 · design(website): homepage "tap to learn more" reveal — continue the hero, make the benefit felt
+
+The hero is a cinematic dark (`#0e0f12`) scroll-scrub ending on a premium serif end-card. Tapping "Tap to learn more ↓" then dropped the visitor straight onto a flat, bright page of six one-line bordered boxes with a tiny "Free" tag — a hard cut from cinema → spreadsheet. Owner: "it felt empty… make it match our hero… let customers actually FEEL the difference."
+
+- `apps/web/app/_components/marketing/WhatYouGet.tsx` — rebuilt the post-hero narrative as one continuous film:
+  - **Beat 0 — dark bridge.** Opens on the SAME `#0e0f12` canvas as the hero end-card (no jarring cut), reusing the brand's chaos→order device: "Without Setnayan" (dim, tilted chaos chips — Viber 11pm, Budget.xlsx v8, 14 vendor PDFs, GCash receipts) → arrow → "With Setnayan" (one bright, glowing dashboard card: RSVPs/Vendors/Tables + a 62% budget bar). Canvas then fades dark→light — the relief made literal.
+  - **Beat 2 — "A place for each."** The six free tools now each carry a small inline-SVG product MOCK (RSVP avatars · table floor-plan · budget bars · run-of-show timeline · palette swatches · site + QR) plus a concrete "what it replaces" line, so each reads as a real surface, not a labelled box.
+  - Beats 1/3/4/5 (reframe · find-your-people 0% commission · soft upgrade · close+CTA) kept the owner's approved voice; add-ons surfaced as tangible chips (Setnayan AI · Papic · custom song · same-day film). Still PRICE-FREE by design.
+  - Zero new deps — reuses the repo's `Reveal`/`Blob` primitives + `--m-*` Clean Editorial tokens; renders cleanly through the client `PostHeroReveal` gate (SSR-expanded for SEO/no-JS). Typecheck clean.
+
+SPEC IMPACT: None on schema/SKU (homepage copy + layout only, price-free). Notable public-surface design decision logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-14 · docs(workflow): MERGE_WORKFLOW.md — one-page merge/deploy quick reference
 

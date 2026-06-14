@@ -222,6 +222,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'digital_services',
     blurb: 'A custom song for your wedding — written from the love story you told us',
     cta: 'Create your song',
+    studioGroup: 'music_extras',
     poster: {
       motion: 'pulse',
       baseBackground:

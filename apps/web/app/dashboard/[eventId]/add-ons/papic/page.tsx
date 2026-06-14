@@ -43,6 +43,7 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
+import { RecapCard } from './_components/recap-card';
 
 // Iteration 0012 — Papic (V1 setup surface)
 //
@@ -442,6 +443,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <LiveWallCard eventId={eventId} />
 
       <MagazineCard eventId={eventId} />
+
+      <RecapCard eventId={eventId} />
 
       <GestureReferenceCard />
 

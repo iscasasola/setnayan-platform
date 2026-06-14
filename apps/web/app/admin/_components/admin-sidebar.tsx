@@ -107,6 +107,7 @@ import {
   UserX,
   PartyPopper,
   Newspaper,
+  Images,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -483,6 +484,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/real-stories',
         icon: Newspaper,
         matchPrefix: '/admin/real-stories',
+      },
+      {
+        // Auto-Recap oversight — every couple-published "living recap" (a
+        // public page of guest photos + words) + the RA 10173 takedown lever.
+        key: 'recaps',
+        label: 'Recaps',
+        href: '/admin/recaps',
+        icon: Images,
+        matchPrefix: '/admin/recaps',
       },
       {
         key: 'ads',

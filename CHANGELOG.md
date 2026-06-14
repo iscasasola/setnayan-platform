@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(recap): Auto-Recap — the "living recap" keepsake (Living Memories pillar · produce-the-keepsake)
+
+Ships the **produce-the-keepsake** row of the Living Memories pillar that was buildable TODAY without a video pipeline (there is none in the repo — no FFmpeg/Remotion/owned-music; SDE/Thank-You/Highlights as *films* remain blocked on that infra). The recap rides the shipped image/PDF substrate (`pdf-lib`/`satori`/`sharp`) the Kwento Magazine + social cards already use, and is assembled ON THE FLY from data that already exists — **no new SKU, FREE** (parity with Kwento Magazine).
+
+- **Schema** — migration `20261225000000_event_recaps.sql`: one `event_recaps` row per event tracking publish state (`draft|published|unpublished` + `published_at` + `unpublished_by`). RLS at CREATE time (couple/coordinator SELECT · couple+admin write · no `anon` policy — public reads go service-role behind the published gate).
+- **Assembler** `lib/auto-recap.ts` — reuses `loadEditorialData`/`composeCopy` (the FRAME: love story + lede), `getWallSnapshot` (face-blurred wall-safe day stream), `bucketMoments` (chaptering) — no forks. **Public-safe by construction:** the public recap reads ONLY the couple's own curated `our_photos` + face-blurred wall-safe derivatives (`moderation_state='clean'` + `wall_safe_r2_key`, fail-closed) + wall-approved Kwentos (`wall_eligible`). Unblurred masters never touch it — those stay in the private Kwento Magazine.
+- **Public page** `app/[slug]/recap/page.tsx` — the palette-skinned "living recap" (hero · love-story prologue · time-chaptered wall-safe photos · curated gallery · "Mga Boses" guest voices · share bar), rendered only when published (else a gentle stand-in). `generateMetadata` → OG card.
+- **Share card** `lib/social/recap-card.tsx` + `app/api/og/recap/[slug]/route.ts` — 1200×630 satori/sharp card (branded + public-safe-photo variant), public, fail-safe 302→brand card.
+- **Couple surface** `app/dashboard/[eventId]/add-ons/papic/recap/{page,actions}.tsx` + `_components/recap-card.tsx` (wired onto the Papic page) — publish/unpublish + a plain-English explainer of exactly what the public page exposes (private vs public counts) + a link to the private magazine.
+- **Vendor surface** `app/vendor-dashboard/recaps/page.tsx` + `lib/recap-vendor.ts` + nav — a linked vendor sees the couples-they-helped recaps (own booked events ∩ published), shareable to their Page.
+- **Admin surface** `app/admin/recaps/{page,actions}.tsx` + nav — HQ lists every live recap + an RA 10173 takedown lever (audit-logged; couple can re-publish).
+
+**Connections (architect mandate):** couple publishes → public page + share card go live → linked vendor sees it → HQ can audit/take down. Love story flows from `events.love_story` (single source); photos from Papic captures → wall-safe gate; voices from `photo_messages` → wall-approved.
+
+SPEC IMPACT: New surface in iteration 0012 (Papic · Living Memories produce-the-keepsake). Logged to corpus `DECISION_LOG.md`; the unbuilt-video-pipeline finding + the public-safe recap design recorded. FREE, no price invented (pricing batched per the holistic-pass rule).
+
 ## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
 
 The audit found Setnayan AI is free for **two** reasons: the paywall flag is off AND **nothing let a couple buy it** (no add-on page, not in the onboarding add-on map). The entitlement chain was fully wired (checkout → admin approve → `events.setnayan_ai_active` → `lib/setnayan-ai.ts` gate) but had no front door. This PR builds it.

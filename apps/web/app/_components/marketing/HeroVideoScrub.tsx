@@ -268,7 +268,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
           ref={loaderRef}
           aria-hidden
           className="pointer-events-none absolute inset-0 flex items-center justify-center px-6"
-          style={{ background: '#0e0f12', zIndex: 5, transition: 'opacity .8s ease' }}
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease' }}
         >
           <div style={{ maxWidth: 600, textAlign: 'center' }}>
             <div
@@ -279,14 +279,14 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             </div>
             <p
               className="m-serif italic"
-              style={{ color: '#FBFBFA', fontSize: 'clamp(1.4rem, 4.4vw, 2.15rem)', lineHeight: 1.32, margin: '0 auto 14px', maxWidth: 560 }}
+              style={{ color: '#1E2229', fontSize: 'clamp(1.4rem, 4.4vw, 2.15rem)', lineHeight: 1.32, margin: '0 auto 14px', maxWidth: 560 }}
             >
               Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don’t fit your wedding?
             </p>
-            <p style={{ color: 'rgba(255,255,255,.62)', fontSize: 'clamp(.95rem, 2.6vw, 1.05rem)', lineHeight: 1.5, margin: '0 auto 30px', maxWidth: 440 }}>
+            <p style={{ color: 'rgba(30,34,41,.6)', fontSize: 'clamp(.95rem, 2.6vw, 1.05rem)', lineHeight: 1.5, margin: '0 auto 30px', maxWidth: 440 }}>
               We’re setting it all up for you.
             </p>
-            <div style={{ height: 2, maxWidth: 220, margin: '0 auto 16px', borderRadius: 2, background: 'rgba(255,255,255,.16)', overflow: 'hidden' }}>
+            <div style={{ height: 2, maxWidth: 220, margin: '0 auto 16px', borderRadius: 2, background: 'rgba(30,34,41,.12)', overflow: 'hidden' }}>
               <div
                 ref={barRef}
                 style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
@@ -295,7 +295,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
             <div
               ref={statusRef}
               className="m-mono"
-              style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.5)', transition: 'color .5s ease, opacity .5s ease' }}
+              style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(30,34,41,.5)', transition: 'color .5s ease, opacity .5s ease' }}
             >
               Setting it up for you…
             </div>

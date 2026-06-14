@@ -11,6 +11,19 @@ Follow-up to the AI buy surface (#1433). The buy *page* shipped there; this adds
 **Dormant until you flip the flag.** `shouldOfferSetnayanAiPurchase` returns false while `SETNAYAN_AI_PAYWALL_ENABLED` is off, so there's no banner today — it appears the moment the paywall goes live, alongside the per-candidate "% match" pills the gate already controls. Pure-UI addition; no price value, no SKU, no schema. `tsc` green.
 
 SPEC IMPACT: None (UI; the price still comes from the catalog via the buy page).
+## 2026-06-15 · chore(for-vendors): delete BIR-receipt claims + soften iPhone analogy & ₱228K mock
+
+Owner audit ("check what needs to be deleted") → owner selected: remove BIR-receipt claims + soften the iPhone line / ₱228K earnings mock. (Kept by owner choice: the 5 named testimonials and the "42 verified vendors" stat line.)
+
+- **BIR-receipt claims removed** — they contradicted the page's own "Setnayan never holds your money · couples pay you directly · 0% commission" (if we never receive the money we can't issue the vendor's OR), and had already been stripped from the hero (code comment at `vendor-hero.tsx` flags it) but missed elsewhere:
+  - `for-vendors-deep-dive.tsx` — deleted the "BIR done for you · Official Receipts, 2307s, and EWT generated on every payout" benefit card.
+  - `page-tail.tsx` — removed the Joey Castro "writing Official Receipts by hand … Setnayan does it" testimonial (4 voices remain); removed the footer "Tax-compliant receipts" link.
+  - `stack-close-vendor.tsx` — dropped "Manual Form 2307s" + "Hand-written ORs" from the BEFORE stack (now 8 tools, auto-updates the "N apps replaced" count); removed "BIR forms by hand" / "₱2-5K per event in BIR receipt prep" savings claims (×3); removed "BIR receipts" from the AFTER one-login list.
+  - **Kept** (true, not removed): "we check your DTI · BIR · Mayor's Permit at verification" mentions in `page.tsx` meta + the "how do I know a vendor is legit" FAQ — those describe verification, not receipt generation.
+- **iPhone analogy** — removed "What iPhone did for software, Setnayan does for Filipino wedding services" caption under "ONE SETNAYAN."
+- **₱228K mock** — hero pipeline card "Today's earnings · ₱228K · 2 bookings paid" → "Booked this week · 2 bookings confirmed" (kept the truthful "Paid straight to you · Setnayan never holds your money" line).
+
+`tsc --noEmit` green. SPEC IMPACT: None on schema/SKU/price — removes inaccurate/contradictory public claims (aligns with the #1316 public-claims purge). Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(recap): Auto-Recap — the "living recap" keepsake (Living Memories pillar · produce-the-keepsake)
 

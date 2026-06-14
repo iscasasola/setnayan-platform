@@ -15,6 +15,16 @@ Kwento (photo-anchored guest messages) was ~90% shipped; this closes the three r
 Migrations: `20261227000000_kwento_flagged_notification_type.sql` (standalone enum-add) + `20261227000100_kwento_p1_self_delete_faceblock_sync.sql` (2 RPCs). **Applied to prod 2026-06-15** (idempotent: `ADD VALUE IF NOT EXISTS` + `CREATE OR REPLACE`). tsc + lint green.
 
 SPEC IMPACT: 0012 § Kwento — P1 self-delete + FaceBlock author-sync + flagged-email landed; the produced-FILM form remains blocked on the video pipeline. No price/SKU change.
+## 2026-06-15 · feat(for-vendors): photography — real on-brand assets warm the reflowed page
+
+Owner: "use photos if needed." The reflowed page was all type + cards; added two photographic moments using real production assets already in `public/` (no fake faces — the testimonial-integrity pass stands).
+
+- **`recommend-strip.tsx`** — replaced the text pills with a 4-up image grid of actual Productions services using their real product photos: Papic (`/add-ons/papic.avif`), Panood (`/add-ons/panood.avif`), Animated Monogram (`/add-ons/custom-monogram.avif`), Highlight Reel (`/add-ons/ai-video.avif`). Makes "recommend an add-on" tangible. `next/image`, 16:9, lazy.
+- **New `editorial-band.tsx`** — one full-bleed photographic breath (the candlelit reception table, `/dashboard/cover-reception-table.avif`) behind a dark wash, with a poster line ("Spend your hours on the craft — not on chasing the next inquiry"). Inserted after `VendorVision`, bridging the vision into the what-you-get stack.
+- Deliberately left the hero alone (template/button-locked) and used no `portraits/*` faces on testimonials (would re-introduce the fabricated-endorsement problem just cleaned up).
+
+`tsc --noEmit` green. SPEC IMPACT: None. Bundled into the reflow PR #1459.
+
 ## 2026-06-15 · refactor(for-vendors): full strategic reflow — comprehensiveness → conversion
 
 Owner: "strategically update it on how it should look." The page had grown to ~20 sections that said the same things 3–6× (0% commission ×6, the tier comparison twice, "what you get" across the hero + vision + stack + deep-dive) and dumped the entire couple-facing economy (the Free/Bid/À-la-carte pricing cards + the full 21-service Productions catalog) into the middle of a vendor-recruitment page. Reflowed to a single hook → why → what-you-get → pricing → proof → recommend → objections → close arc (~18 content sections → 8). Owner approved the full reflow (AskUserQuestion). No new claims — reflow + consolidation + cuts.

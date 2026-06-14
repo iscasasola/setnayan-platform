@@ -37,6 +37,7 @@ import { VendorHero } from './_components/vendor-hero';
 import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
+import { EditorialBand } from './_components/editorial-band';
 import { RecommendStrip } from './_components/recommend-strip';
 import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 import { getVendorPrices } from '@/lib/v2-catalog';
@@ -261,6 +262,10 @@ export default async function ForVendorsPage() {
           sections below to stop the page repeating itself.
         */}
         <VendorVision />
+        {/* EditorialBand · one full-bleed photographic breath (owner 2026-06-15
+            "use photos if needed") — bridges the vision into the what-you-get
+            stack with a real on-brand reception photo. */}
+        <EditorialBand />
         <StackCloseVendor />
         <ForVendorsDeepDive />
         <Voices />

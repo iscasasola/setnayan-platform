@@ -4,7 +4,13 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-14 · fix(hero): scrub never freezes on an unloaded frame + loading veil
+## 2026-06-14 · feat(hero): make the loading wait useful — story veil + lock-then-swipe
+
+Owner: the loading time should sell, not stall. The hero veil now carries the pitch while the dense sequence loads, then invites the swipe once it's ready.
+
+- `app/_components/marketing/HeroVideoScrub.tsx` — while frames load, the veil shows the story ("Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don't fit your wedding? We're setting it all up for you.") + a live progress bar, and **page scroll is locked** (`body overflow:hidden` + a non-passive `touchmove` preventer) so nobody swipes into a half-loaded scrub. When every frame is in, scroll is **released** and the status flips to **"Swipe up to begin ↑"** (gold); the veil then fades on the first scroll. A 30s backstop + unmount cleanup always release the lock; reduced-motion skips the veil/lock entirely.
+
+SPEC IMPACT: None (homepage hero load/UX only — marketing motion copy; no schema/SKU/pricing).
 
 Follow-up to the dense-frame hero scrub (#1416). On a ~1000-frame sequence the scrub could swap the `<img>` to a frame that hadn't downloaded/decoded yet and **freeze on blank** ("next images don't show / feels stuck"), especially on the initial load or a slower connection.
 

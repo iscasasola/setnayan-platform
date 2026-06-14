@@ -58,17 +58,19 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
 
   const N = frameUrls.length;
 
-  // Preload frames WITH load-tracking. Two guards against the "stuck / next images
-  // don't show" feeling on a dense sequence: (1) apply() never swaps to a frame that
-  // hasn't decoded yet — it holds the nearest loaded one; (2) a brief loading veil
-  // waits for the opening frames, then fades out while the rest stream in behind it.
+  // Preload frames WITH load-tracking. Guards against the "stuck / next images don't
+  // show" feeling on a dense sequence: (1) apply() never swaps to a frame that hasn't
+  // decoded yet — it holds the nearest loaded one; (2) the loading veil stays up until
+  // EVERY frame is decoded (owner: "everything must load first" — the user never enters
+  // the scrub on a half-loaded sequence), then fades out. A thin progress bar shows it
+  // working; a long backstop timeout is the only escape hatch if a request truly hangs.
   useEffect(() => {
     const n = frameUrls.length;
     const loaded = new Uint8Array(n);
     loadedRef.current = loaded;
     readyRef.current = false;
     let done = 0;
-    const baseline = Math.min(n, 60); // reveal once the opening stretch is in; the rest loads behind the veil
+    const baseline = n; // owner: everything must load first — hold the veil until EVERY frame is in
     const reveal = () => {
       if (readyRef.current) return;
       readyRef.current = true;
@@ -92,7 +94,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     });
     framesRef.current = imgs;
     if (imgRef.current && imgs[0]) imgRef.current.src = imgs[0].src;
-    const safety = window.setTimeout(reveal, 6000); // hard ceiling — never leave the veil up
+    const safety = window.setTimeout(reveal, 30000); // backstop only, for a request that truly hangs (load/error never fire); the nearest-loaded fallback still covers any gap
     return () => window.clearTimeout(safety);
   }, [frameUrls]);
 

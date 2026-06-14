@@ -34,32 +34,25 @@ import { LogoMark, Wordmark } from '@/app/_components/brand-marks';
 export function Voices() {
   const featured = {
     quote:
-      'We were the first wedding our caterer ever did through Setnayan. By the end, she was the one telling other vendors about it. We were just trying to get married — we accidentally became a referral program.',
-    who: 'Patricia Cruz',
-    role: 'Bride · 6 Sept 2026 · Tagaytay',
-    detail: 'Wedding #062 · 178 guests · 7 vendors · same-day reel in 31 min',
+      'Three weddings booked through the app in my first month. None of them found me on Instagram. That’s new for me.',
+    who: 'Mika Reyes',
+    role: 'Founder, Bloom & Co. Florals · Tagaytay',
+    detail: 'Vendor · Bloom & Co. Florals · first month on Setnayan',
   };
   const others = [
-    {
-      quote:
-        'My mom’s in San Mateo, my Lolo’s in Bacolod, my best friend lives in Sydney. Every one of them sent in their food order through their own phone. It just worked.',
-      who: 'Andrea Sy',
-      role: 'Bride · 22 April 2026 · Cebu',
-      kind: 'couple' as const,
-    },
-    {
-      quote:
-        'Three weddings booked through the app in my first month. None of them found me on Instagram. That’s new for me.',
-      who: 'Mika Reyes',
-      role: 'Founder, Bloom & Co. Florals · Tagaytay',
-      kind: 'vendor' as const,
-    },
     {
       quote:
         'I’m a coordinator. I used to live in five WhatsApp groups per client. Now I live in one dashboard per wedding. I sleep again.',
       who: 'Camille Lao',
       role: 'Lead, Ilaya Coordinators · Cebu',
       kind: 'vendor' as const,
+    },
+    {
+      quote:
+        'We were the first wedding our caterer ever did through Setnayan. By the end, she was the one telling other vendors about it. We accidentally became her referral program.',
+      who: 'Patricia Cruz',
+      role: 'Couple · 6 Sept 2026 · Tagaytay',
+      kind: 'couple' as const,
     },
   ];
   return (

@@ -12,6 +12,16 @@ Owner locked the Living-Memories pillar's customer-facing name = **Alaala** (Tag
 - **`apps/web/app/_components/marketing/OurStory.tsx`** — the live `/our-story` manifesto close now NAMES the pillar: *"We call it Alaala — the memory you keep."*
 
 Canonical pillar definition (spec corpus): `03_Strategy/Alaala_Pillar_2026-06-15.md`. SPEC IMPACT: None on schema/SKU (naming + framing copy). **Queued:** Lane 1 remainder (onboarding "promise" beat) · Lane 2 (a dedicated in-app Alaala hub with the save-the-date→day-of→editorial through-line) · Lane 3 (finish the keystones: Kwento → Live Photo Wall → produced-output SDE/Thank-You/Highlights — the parts competitors structurally can't copy).
+## 2026-06-15 · feat(for-vendors): vendor vision spine — the "why" above the feature stack
+
+Owner brief: "share our vision to the vendors." The page led with the feature stack (VendorHero → StackCloseVendor → DeepDive → Pricing table); this adds the missing narrative that earns the vendor *before* the proof.
+
+- **New `apps/web/app/for-vendors/_components/vendor-vision.tsx`** (`VendorVision`, async server component) — slots between `VendorHero` and `StackCloseVendor` in `page.tsx`. Six owner-authored moments, tightened to page copy: (1) the promise — "you give couples the wedding of their dreams; we give you back your time"; (2) set-your-price-once (base + per-pax, shown instantly, yours to vary per couple, never forced into a fixed public rate); (3) every-inquiry-counts (we've paid for ads too; you pay only on real fit; 0% commission); (4) we-never-abuse-your-business (rise by merit, can't pay to fake success); (5) **how new vendors get discovered** — fit-not-fame · "no reviews yet" = unknown not bad · 100 free tokens · hidden-until-reply · merit climb (the deterministic leaf-match + never-empty + hybrid-anonymity model); (6) the 5 growth tools (calendar sync · BYO couples · portfolio-as-website · editorial tagging · 0% commission).
+- **Tokens block** — "simple + honest" per owner 2026-06-15: one token opens one real matched inquiry, 100 free on verification, top-ups at `{p.tokenUnit}`/token, earn-back on recommended services. (Region-banding deliberately kept out of public copy by owner call.)
+- **Pro & Enterprise block** — growth-gated, not craft-gated (owner 2026-06-15): "Free is a whole business; Pro/Enterprise are for when you're growing." Paid tiers expand reach / team / categories / tools, never unlock the craft. Prices `{p.proMonthly}` / `{p.enterpriseMonthly}` read live from `getVendorPrices()` — never hardcoded (admin-managed-prices rule).
+- Built entirely in the page's `--m-*` Clean-Editorial tokens + `m-display`/`m-card`/`m-btn` vocabulary; responsive via scoped `.m-vv-*` grid classes. `tsc --noEmit` green.
+
+SPEC IMPACT: None on schema / SKU / price. New vendor-facing positioning on /for-vendors (iteration 0015 marketing site · vendor pitch shared with 0022); logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(pricing): Setnayan AI buy surface — the missing purchase path (PR 2 of the pricing/payments plumbing fix)
 

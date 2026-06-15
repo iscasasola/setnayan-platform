@@ -15,6 +15,15 @@ Owner: *"build a convenience"* so adding an event type guides you to scope its t
 No schema change (operates on the existing column via admin actions). `next lint` + `tsc --noEmit` green.
 
 SPEC IMPACT: new admin surface `/admin/event-types/[eventType]/categories` + two scoping actions; makes per-event-type taxonomy tailoring a first-class, discoverable step (Setnayan HQ / iteration 0023). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(guests): day-of check-in "Scan a guest's QR" never opened the camera
+
+Owner report: *"when i click scan guest's qr. no camera went up."* The day-of check-in desk (iteration 0031, `/dashboard/[eventId]/guests/checkin`) acquired the camera but the viewfinder never appeared — the button just flipped back with no error.
+
+- **`apps/web/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx`** — `startScanner` read `videoRef.current` on the line right after `setScanning(true)`. But the `<video>` element is conditionally rendered (only while `scanning === true`), and a state setter doesn't synchronously mount it, so `videoRef.current` was **still `null`**. The function's `if (!video)` guard then fired, stopped the freshly-granted `MediaStream`, and reset `scanning` to `false` — so the camera permission could flash but no viewfinder ever showed, and no error surfaced. Fix: the click handler now only acquires the decoder + stream and flips `scanning` on; a new `useEffect([scanning, onToken])` binds the stream to the `<video>` and runs the jsQR decode loop **after** React commits the element (the same mount-then-bind pattern `papic-seat-capture.tsx` already uses). Cleanup cancels the rAF loop. `jsqrRef` caches the dynamically-imported decoder between the two.
+
+`tsc --noEmit` + `next lint` green (no new warnings on the file).
+
+SPEC IMPACT: None. Behavior now matches what iteration 0031 already specified (scanner opens a live viewfinder); no data/schema/pricing/SKU change. PR pending (branch `claude/fix-checkin-scanner-camera`, auto-merge).
 
 ## 2026-06-16 · feat(event-types): add "Gala Night" to the event-type roster
 

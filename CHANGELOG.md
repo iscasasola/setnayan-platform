@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(theme): `burgundy` was an undefined color — primary buttons rendered invisible on 9 surfaces
+
+Owner: *"the editor is fixed?"* — investigating turned up a real, pre-existing bug. After the Clean Editorial rebrand (CTAs → **mulberry**), the old `burgundy` color was **removed from `tailwind.config.ts` and `globals.css` but never deleted from the components**. So `bg-burgundy` / `text-burgundy` / `border-burgundy` were **dead classes** that resolved to nothing — primary buttons rendered with a transparent background (invisible / white-on-white).
+
+Affected (all using `burgundy`): the **editorial editor** + its page, the **living-hero studio** + page, the **hero-photo editor**, mood-board library editor, panood setup, wedding-attire guide, and the explore vendor-badge row — **9 components**, several already shipped.
+
+Fix — one line at the root: aliased **`burgundy` → the canonical Mulberry CTA** in `tailwind.config.ts` (`DEFAULT`/`600`/`700` → `--color-mulberry*`). The `<alpha-value>` placeholder covers every `burgundy/NN` opacity variant in use (`/5 /10 /20 /40 /50 /90`), so all nine surfaces render with one change and zero per-component churn.
+
+Verified: the editorial editor's **Publish** button computed background is now `rgb(92, 37, 66)` (#5C2542 Rich Mulberry) instead of transparent; the screenshot shows mulberry toggles + buttons throughout. `tsc` green; dev build renders. Prefer `mulberry` in new code — the `burgundy` slot is back-compat only.
+
+SPEC IMPACT: None (theming bug fix; the Clean Editorial palette is unchanged). Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-15 · fix(editorial): mobile dateline — Share flanks Vol·No, date centered (no orphaned Share row)
 
 Owner (mobile screenshot): *"fix placements on mobile version."* On phones the masthead `EditionLine` collapsed `flex-col items-center`, so its three parts stacked into three centered lines — `Vol. I · No. 3`, then `City · Date`, then **Share on its own full row** — re-introducing exactly the "share takes a whole row" the inline-share change removed on desktop.

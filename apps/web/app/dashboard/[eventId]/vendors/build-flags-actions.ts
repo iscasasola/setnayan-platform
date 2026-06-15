@@ -284,6 +284,14 @@ export async function computeBuildFromShortlist(input: {
   }
 
   if (toUpsert.length > 0) {
+    // onConflict MUST match the live PK. Migration 20261020000000 widened the
+    // event_build_picks PK from (event_id, plan_group_id) to
+    // (event_id, plan_group_id, vendor_id) for the multi-pick folders (Look /
+    // Booths / Prints). The old 2-col target left here no longer matches any
+    // constraint (Postgres 42P10) — align it to the 3-col PK, exactly as
+    // build-pick-actions.ts does. Compute only ever fills groups with no
+    // existing pick (the `pinnedGroupIds` guard above), so this upsert inserts
+    // one row per empty flagged group and never clobbers a couple's picks.
     const { error } = await supabase.from('event_build_picks').upsert(
       toUpsert.map((p) => ({
         event_id: input.eventId,
@@ -292,7 +300,7 @@ export async function computeBuildFromShortlist(input: {
         picked_by: user.id,
         updated_at: new Date().toISOString(),
       })),
-      { onConflict: 'event_id,plan_group_id' },
+      { onConflict: 'event_id,plan_group_id,vendor_id' },
     );
     if (error) return { ok: false, error: error.message };
   }

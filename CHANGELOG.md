@@ -4,7 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-15 · fix(for-vendors): vendor prices were rendering without the ₱ sign (missing peso glyph)
+## 2026-06-15 · fix(theme): `burgundy` was an undefined color — primary buttons rendered invisible on 9 surfaces
+
+Owner: *"the editor is fixed?"* — investigating turned up a real, pre-existing bug. After the Clean Editorial rebrand (CTAs → **mulberry**), the old `burgundy` color was **removed from `tailwind.config.ts` and `globals.css` but never deleted from the components**. So `bg-burgundy` / `text-burgundy` / `border-burgundy` were **dead classes** that resolved to nothing — primary buttons rendered with a transparent background (invisible / white-on-white).
+
+Affected (all using `burgundy`): the **editorial editor** + its page, the **living-hero studio** + page, the **hero-photo editor**, mood-board library editor, panood setup, wedding-attire guide, and the explore vendor-badge row — **9 components**, several already shipped.
+
+Fix — one line at the root: aliased **`burgundy` → the canonical Mulberry CTA** in `tailwind.config.ts` (`DEFAULT`/`600`/`700` → `--color-mulberry*`). The `<alpha-value>` placeholder covers every `burgundy/NN` opacity variant in use (`/5 /10 /20 /40 /50 /90`), so all nine surfaces render with one change and zero per-component churn.
+
+Verified: the editorial editor's **Publish** button computed background is now `rgb(92, 37, 66)` (#5C2542 Rich Mulberry) instead of transparent; the screenshot shows mulberry toggles + buttons throughout. `tsc` green; dev build renders. Prefer `mulberry` in new code — the `burgundy` slot is back-compat only.
+
+SPEC IMPACT: None (theming bug fix; the Clean Editorial palette is unchanged). Logged to corpus `DECISION_LOG.md`.
 
 Found while verifying the mobile tier-switcher (previous entry) on prod: the live `/for-vendors` matrix showed Pro/Enterprise as "**6,000 / 28d**" / "**10,000 / 28d**" — no peso sign — while Free/Verified showed "₱0". The new mobile price banner made it glaring.
 

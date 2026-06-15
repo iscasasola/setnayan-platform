@@ -141,6 +141,28 @@ export type VendorCredit = {
   slug: string | null;
 };
 
+// Which optional blocks the couple chose to show (editorial editor →
+// draft_json.sections). The spine — masthead, headline, hero — is always on.
+export type EditorialSections = {
+  byTheNumbers: boolean;
+  gallery: boolean;
+  reviews: boolean;
+  team: boolean;
+  poweredBy: boolean;
+  liveWall: boolean;
+  fromTheCouple: boolean;
+};
+
+export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
+  'byTheNumbers',
+  'gallery',
+  'reviews',
+  'team',
+  'poweredBy',
+  'liveWall',
+  'fromTheCouple',
+];
+
 export type EditorialData = {
   displayName: string;
   firstNames: string; // best-effort "A & B" for headline
@@ -188,6 +210,9 @@ export type EditorialData = {
   // Only surfaced when photoWallActive is true (LIVE_WALL SKU activated).
   photoWallPhotos: string[];
   photoWallActive: boolean;
+  // Section visibility from the editorial editor. Optional → a block shows
+  // unless its key is explicitly false (samples omit it = everything on).
+  sections?: Partial<EditorialSections>;
 };
 
 export type Review = {
@@ -684,10 +709,23 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     galleryPhotos,
     photoWallPhotos,
     photoWallActive,
+    sections: readSections(draftJson),
   };
 }
 
 // ── small utilities ───────────────────────────────────────────────────────────
+
+// draft_json.sections → a partial visibility map. Only explicit `false` hides a
+// block; anything else (missing / true) shows it, so older editorials and the
+// samples render everything by default.
+function readSections(draftJson: Record<string, unknown>): Partial<EditorialSections> {
+  const raw = asObject(draftJson.sections);
+  const out: Partial<EditorialSections> = {};
+  for (const key of EDITORIAL_SECTION_KEYS) {
+    if (raw[key] === false) out[key] = false;
+  }
+  return out;
+}
 
 function numOr(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;

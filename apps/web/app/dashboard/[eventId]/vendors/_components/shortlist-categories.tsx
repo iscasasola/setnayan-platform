@@ -43,10 +43,10 @@ const SLCAT_CSS = `
 .slcat *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 /* ── Level 1 · folder card (collapsible) ── */
-.slcat .fold{margin:0 0 10px;background:var(--card);border:0.5px solid var(--line);border-radius:18px;overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
-.slcat .fold.open{box-shadow:0 10px 26px -16px rgba(30,34,41,.4);border-color:rgba(30,34,41,.16)}
-.slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:16px 18px;font:inherit;text-align:left;min-height:56px}
-.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:21px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.01em}
+.slcat .fold{margin:0 0 8px;background:var(--card);border:0.5px solid var(--line);border-radius:16px;overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
+.slcat .fold.open{box-shadow:0 8px 22px -16px rgba(30,34,41,.4);border-color:rgba(30,34,41,.16)}
+.slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:13px 16px;font:inherit;text-align:left;min-height:48px}
+.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.01em}
 .slcat .fold.open .fold-nm{color:var(--mulberry)}
 .slcat .fold-rt{display:flex;align-items:center;gap:11px;flex:0 0 auto}
 .slcat .fold-meta{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
@@ -61,8 +61,8 @@ const SLCAT_CSS = `
 @media (prefers-reduced-motion:reduce){.slcat .fold-body{animation:none}}
 .slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
 .slcat .fold-body .cat:first-child{border-top:0}
-.slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:12px 4px;font:inherit;text-align:left;min-height:46px}
-.slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14.5px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:10px 4px;font:inherit;text-align:left;min-height:42px}
+.slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
@@ -73,10 +73,10 @@ const SLCAT_CSS = `
 /* ── Level 3 · vendor carousel + find / add-manually ── */
 .slcat .rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 4px 0;scrollbar-width:none}
 .slcat .rail::-webkit-scrollbar{display:none}
-.slcat .vc{position:relative;flex:0 0 min(224px, calc(100vw - 128px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
+.slcat .vc{position:relative;flex:0 0 min(206px, calc(100vw - 132px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:15px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
 .slcat .vc:active{transform:scale(.98)}
 .slcat .vc:hover{box-shadow:0 10px 28px -18px rgba(0,0,0,.4)}
-.slcat .vc .img{height:120px;flex:0 0 120px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
+.slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
 .slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:4px 8px}
@@ -90,8 +90,8 @@ const SLCAT_CSS = `
 .slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the vendors) */
-.slcat .act{flex:0 0 128px;scroll-snap-align:start;display:flex}
-.slcat .act>*{flex:1;min-height:198px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius:16px;text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
+.slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius:15px;text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
 .slcat .act.find>*{background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);color:var(--mulberry)}
 .slcat .act.manual>*{background:rgba(30,34,41,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
@@ -204,7 +204,7 @@ export function ShortlistCategories({
                     ? `${folder.pickCount} considering`
                     : `${folder.tiles.length} categories`}
                 </span>
-                <ChevronDown className="fold-chev" size={19} strokeWidth={1.75} aria-hidden />
+                <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>
             {folderOpen ? (
@@ -224,7 +224,7 @@ export function ShortlistCategories({
                           {t.vendors.length > 0 ? (
                             <span className="cat-count">{t.vendors.length}</span>
                           ) : null}
-                          <ChevronDown className="cat-chev" size={17} strokeWidth={1.75} aria-hidden />
+                          <ChevronDown className="cat-chev" size={16} strokeWidth={1.75} aria-hidden />
                         </span>
                       </button>
                       {tileOpen ? (

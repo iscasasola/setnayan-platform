@@ -307,6 +307,35 @@
   box-shadow: 0 1px 3px rgba(30, 34, 41, 0.12);
 }
 
+/*
+ * .bb-subnav-dock — the "lift" reveal for a section sub-nav docked above the
+ * bottom nav (owner-picked 2026-06-16). Plays ONCE on mount, so it fires when
+ * a tab's page enters (e.g. /vendors → Explore) and not when switching between
+ * sub-tabs (those are client-state, no remount). The pill starts tucked 16px
+ * lower (it sits a hair behind the nav at z-20 < nav's z-30, so it appears to
+ * rise out of the dock) and settles into place as it fades in. `both` holds the
+ * end frame. Decelerating ease so it eases into rest, never overshoots. The
+ * companion docked element also owns its fixed position / frosted pill styling.
+ */
+@keyframes bb-subnav-lift {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.bb-subnav-dock {
+  animation: bb-subnav-lift 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-subnav-dock {
+    animation: none;
+  }
+}
+
 @layer components {
   /*
    * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.

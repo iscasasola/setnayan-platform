@@ -168,43 +168,60 @@ export function ServicesTakeover({
         </div>
       </div>
 
-      {/* Mobile section nav — sticky-header pill segmented control (sn-seg).
-          Desktop uses the top strip above. The global bottom nav now owns the
-          very bottom of the screen, so this surface's own section nav rides at
-          the top of the page body as a pill track instead of stacking a second
-          bottom bar. The sticky wrapper keeps a soft backdrop pad behind the
-          pill; the rectangular border-b framing is gone. */}
-      <div className="sticky top-0 z-10 -mx-2 mb-2 bg-cream/95 px-2 py-2 backdrop-blur lg:hidden">
-        <nav role="tablist" aria-label="Services sections" className="sn-seg">
-          {BUDGET_BUILD_TABS.map((key) => {
-            const { label, icon: Icon } = TAB_META[key];
-            const on = key === tab;
-            return (
-              <button
-                key={`${key}-${tab}`}
-                type="button"
-                role="tab"
-                id={`bbtab-m-${key}`}
-                aria-selected={on}
-                aria-controls="budget-build-panel"
-                onClick={() => selectTab(key)}
-                className={`sn-seg-item min-w-0 px-1.5 text-[11px]${on ? ' sn-bounce' : ''}`}
-              >
-                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-                <span className="min-w-0 truncate">{label}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      {/* Mobile section nav — DOCKED above the global bottom nav as that tab's
+          own sub-nav (owner 2026-06-16 "pin it on top of the bottom nav as its
+          sub nav"). A floating frosted pill that LIFTS into place on section
+          entry: the `bb-subnav-dock` keyframe plays once on mount, and entering
+          /vendors is what mounts this — so the lift fires on section entry and
+          NOT when switching between sub-tabs (which is client state, no remount).
 
-      {/* Active tab content */}
+          Geometry mirrors the bottom-nav pill (bottom-nav.tsx → NavShell):
+          inset 14px, frosted --m-paper-2 @ 92% + the same soft shadow, fully
+          rounded — one size down so it reads as the nav's subordinate shelf.
+          It docks ABOVE the nav: bottom = safe-area + 12px (nav's own offset)
+          + 64px (nav height) + 8px gap = safe-area + 84px. The panel below
+          carries matching bottom padding so its last content clears this
+          floating chrome. Desktop (lg+) uses the top strip above. */}
+      <nav
+        role="tablist"
+        aria-label="Services sections"
+        className="bb-subnav-dock sn-seg fixed inset-x-[14px] bottom-[calc(env(safe-area-inset-bottom)+84px)] z-20 backdrop-blur lg:hidden"
+        style={{
+          background: 'rgba(248, 246, 240, 0.92)',
+          boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',
+        }}
+      >
+        {BUDGET_BUILD_TABS.map((key) => {
+          const { label, icon: Icon } = TAB_META[key];
+          const on = key === tab;
+          return (
+            <button
+              key={`${key}-${tab}`}
+              type="button"
+              role="tab"
+              id={`bbtab-m-${key}`}
+              aria-selected={on}
+              aria-controls="budget-build-panel"
+              onClick={() => selectTab(key)}
+              className={`sn-seg-item min-w-0 px-1.5 text-[11px]${on ? ' sn-bounce' : ''}`}
+            >
+              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              <span className="min-w-0 truncate">{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Active tab content. On mobile the docked sub-nav (above) + the global
+          bottom nav both float over this, so reserve bottom space for both:
+          safe-area + 40px clears the docked pill (whose top sits ~safe+125px)
+          on top of the layout's own pb-20. Desktop has no docked pill → pb-0. */}
       <div
         id="budget-build-panel"
         role="tabpanel"
         tabIndex={0}
         aria-label={TAB_META[tab].label}
-        className="min-w-0"
+        className="min-w-0 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:pb-0"
       >
         {active ?? <TabStub tab={tab} />}
       </div>

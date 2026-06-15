@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(explore): dock the mobile section nav above the bottom nav as a sub-nav, with a "lift" reveal
+
+Owner direction (follow-up to the de-dupe below): *"the blue one will be pinned on top of the bottom nav as its sub nav"* → after comparing reveal styles, owner picked **Lift**. The Explore (Services "Build" takeover) section nav — Summary · Shortlist · Build · Compare · Lock — was a sticky pill at the **top** of the page body on mobile. It now docks at the **bottom**, directly above the global bottom-nav pill, as that tab's contextual sub-nav.
+
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`**
+  - Mobile section nav: `sticky top-0` → `fixed` floating pill docked above the bottom nav. Geometry mirrors `bottom-nav.tsx` → `NavShell` so it reads as the nav's subordinate shelf: `inset-x-[14px]`, frosted `--m-paper-2 @ 92%` + the same soft shadow, fully rounded, `z-20` (a hair under the nav's `z-30`). Bottom offset = `calc(env(safe-area-inset-bottom) + 84px)` = nav offset (12) + nav height (64) + 8px gap.
+  - Reveal: `bb-subnav-dock` plays the **lift** keyframe **once on mount**. Entering `/vendors` is what mounts the takeover, so the lift fires on *section entry* and never re-fires when switching sub-tabs (client state, no remount) — exactly the "don't bounce on every nav" rule. Starts 16px lower + faded, behind the nav, so it appears to rise out of the dock.
+  - Tab panel: added `pb-[calc(env(safe-area-inset-bottom)+40px)] lg:pb-0` so the last content clears the docked pill (which floats over content) on top of the layout's own `pb-20`. Desktop is untouched — the top strip (`hidden lg:block`) still owns lg+, the docked pill is `lg:hidden`.
+- **`apps/web/app/globals.css`** — added the `@keyframes bb-subnav-lift` (opacity 0 + `translateY(16px)` → rest, 200ms decelerating ease, `both` fill) and the `.bb-subnav-dock` class, with a `prefers-reduced-motion: reduce` opt-out. Grouped with the `.sn-seg` rules.
+
+`next lint`, `tsc --noEmit`, and `lint:botnav` all green. (The docked element is a section `sn-seg` sub-nav, not a forked app bottom-nav, so the bottom-nav single-source guard is satisfied.) Visual confirm is on the PR's Vercel preview — the dock offset (84px) and panel clearance (40px) are geometry-derived from the nav and best eyeballed on a real phone.
+
+SPEC IMPACT: None on data/pricing/SKUs — a mobile layout + interaction change to the Explore section nav (iteration 0021 / Budget-Build takeover). The section nav is now docked bottom chrome with a lift reveal rather than a sticky top strip.
+
 ## 2026-06-16 · fix(explore): duplicate Services tab strip on mobile (Summary · Shortlist · Build · Compare · Lock rendered twice)
 
 Owner screenshot (Explore page): the 5-tab section nav rendered **twice** on phones — a full-label bar that overflowed the viewport (clipping "Lock") stacked directly above the truncated sticky pill ("Su…", "Sho…", "Co…").

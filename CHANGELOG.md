@@ -19,6 +19,16 @@ Untouched: the legacy `SiteHeader` on `/waitlist` + `/download` (separate compon
 Validation: local `tsc` blocked by the same worktree pnpm-symlink resolution issue as #1475 (blanket "Cannot find module 'react'" — toolchain, not code). Verified no dangling `Nav` references remain in the 12 pages (grep), import paths resolve, and the gate routes match the real redirected pathnames. Required CI (typecheck + lint + production build) gates the auto-merge.
 
 SPEC IMPACT: chrome architecture — the marketing top nav becomes a single persistent layout-level instance (iteration 0000 shell / 0015 main website). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(monogram): one monogram everywhere — long-press chrome icon to edit + custom-SVG shows in chrome
+
+Owner directive: the event monogram must be a single source of truth — the chrome icon links to the Maker, the Maker pre-loads the current mark, editing it changes the default everywhere, and **no second monogram** is ever stored. Investigation confirmed the lettered model was *already* single-source (onboarding ↔ Maker ↔ chrome all read/write the same `monogram_style/_font_key/_frame_key` columns; the Maker already pre-loads + `saveMonogram` revalidates the chrome). Two gaps remained, resolved per owner's answers:
+
+- **Q1 — long-press to edit (`event-switcher.tsx`).** The chrome monogram chip stays a **picker** (tap now opens the event switcher); a **long-press** raises a portaled confirm — *"Do you want to edit your monogram? [No] [Let's edit]"* — and "Let's edit" routes to `/dashboard/[eventId]/monogram` (the Maker). Esc / backdrop dismiss. The empty "+" anchor has no monogram so it's exempt (long-press no-ops; tap still links to create-event). Reassigns the chip's old tap→Home / long-press→switcher behavior (the adjacent caret still opens the switcher too).
+- **Q2 — custom SVG shows everywhere (`event-monogram.tsx` + chrome plumbing).** When a couple makes a Cipher/Bespoke-AI mark (`monogram_custom_svg`), `EventMonogram` now renders it (inert `<img>` data-URI, object-contain in the round chip) as the **top-priority** branch, so the small dashboard/switcher icon matches the website hero/QR — genuinely one mark, no letters-in-chrome / SVG-on-hero split. Plumbed `monogram_custom_svg` through `lib/events.ts` (`fetchUserEvents` select + `EventRow`), the `SwitcherEvent` type + `currentMonogramCustomSvg` prop, and all four chrome layouts (couple `[eventId]`, account, admin, vendor) + `OuterDashboardHeader`.
+
+No schema change — every column already exists. `saveMonogram` and the precedence model are unchanged (custom mark outranks lettering, exactly as the hero already did). `tsc --noEmit` green; `next lint` clean on changed files. PR pending (branch `claude/monogram-single-source`, auto-merge). Verify on the Vercel preview: long-press the header monogram → edit confirm → Maker; a couple with a Cipher/Bespoke mark sees it in the chrome icon.
+
+SPEC IMPACT: behavior on iterations 0000 (event-switcher chrome — monogram chip tap=picker, long-press=edit) + 0037 (bespoke/cipher monogram now renders in chrome). Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · fix(onboarding): system Back walks the wedding-onboarding steps (no escape to the old picker)
 

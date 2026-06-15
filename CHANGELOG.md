@@ -12,6 +12,15 @@ The couple-facing category-search overlay floated boosted vendors (`ad_rank` des
 - **`apps/web/app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx`** — the "Featured" badge now carries a `title` tooltip ("Paid placement … Not an AI recommendation") plus a quiet **"Paid partnership with Setnayan"** subline; anonymized cards show a **"Real name shown after they reply"** subline (only while `nameAnonymized`). New `.disclose` style uses existing `--mono` / `--ink-soft` tokens.
 
 SPEC IMPACT: None (trust/clarity UI; no schema, no pricing, no ranking change — the locked favorites→boosted→reviews→nearest order is untouched). Aligns with [[project_setnayan_vendor_hybrid_anonymity]] + public-surface honesty.
+## 2026-06-16 · feat(chat): show decline reason + allow follow-up / withdraw on stuck inquiries
+
+Unstuck the couple-side inquiry thread so a pending/declined inquiry is no longer a dead end. (1) The declined state now interpolates the vendor's real `chat_threads.decline_reason` ("Why: …") when present, instead of always saying the vendor "isn't available" — the data was already on the thread row but never shown. (2) A pending thread previously hard-disabled the composer after the inquiry; now the couple may send exactly ONE follow-up nudge while waiting, then it re-disables (UI gate + a matching server gate in `sendChatMessage` keyed on prior message count; the vendor accept-gate semantics are untouched). (3) Added an explicit "Withdraw inquiry" action (`withdrawInquiry` server action) that mirrors the couple-own `deleteVendor` remove path — RLS-safe hard delete of the couple's own thread (no `withdrawn` enum value exists, and adding one would be a schema change). (4) The declined-state "See similar vendors" link now deep-links to the matching plan group (`#group-<id>`, via `canonicalServiceToPlanGroupId` on the vendor's primary canonical service) so it lands in the right category instead of a generic list.
+
+- **`apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx`** — decline-reason copy, one-follow-up form gate, Withdraw action, category deep-link.
+- **`apps/web/app/dashboard/[eventId]/messages/actions.ts`** — new `withdrawInquiry` action (RLS-safe couple-own thread delete; CASCADE cleans messages/reads).
+- **`apps/web/lib/chat-actions.ts`** — relax the couple pending gate to allow exactly one follow-up (prior count ≥ 2 re-disables); vendor accept-gate unchanged.
+
+SPEC IMPACT: None (additive UX on the existing accept-gate; no schema/enum/migration change — withdraw is a remove, not a new status).
 
 ---
 

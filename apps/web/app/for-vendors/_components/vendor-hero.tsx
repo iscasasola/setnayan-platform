@@ -14,6 +14,7 @@
  * Per [[feedback_setnayan_button_preservation]] — CTA placement +
  * interaction concept preserved verbatim from template.
  */
+import Image from 'next/image';
 import Link from 'next/link';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -138,104 +139,54 @@ export async function VendorHero() {
           </div>
         </div>
 
-        {/* Right rail — vendor pipeline card */}
+        {/* Right rail — a real vendor, thriving on the results (owner 2026-06-15:
+            "use an actual person progressively successful and happy on the
+            results of the business with setnayan"). Replaces the abstract
+            pipeline mock; keeps a small real results chip so the proof stays.
+            The left column + CTAs are untouched (button-preservation lock). */}
         <div
           className="m-card"
           style={{
-            padding: 22,
-            background: 'var(--m-ink)',
-            color: 'var(--m-paper)',
+            position: 'relative',
+            padding: 0,
+            overflow: 'hidden',
             border: 'none',
             boxShadow: 'var(--m-shadow-lg)',
+            aspectRatio: '4 / 5',
           }}
         >
-          <div
-            className="m-label-mono"
-            style={{ color: 'var(--m-orange-3)' }}
-          >
-            Pipeline · Ato Catering
-          </div>
-          <div
-            className="m-display"
-            style={{ fontSize: 28, color: 'var(--m-paper)', marginTop: 8 }}
-          >
-            9 ACTIVE LEADS
-          </div>
+          <Image
+            src="/for-vendors/vendor-success.avif"
+            alt="A happy, confident Filipino wedding florist smiling in her sunlit studio surrounded by fresh bouquets — a vendor thriving with Setnayan"
+            fill
+            priority
+            sizes="(max-width: 1023px) 100vw, 44vw"
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
+          />
+          {/* Real results chip — keeps the proof the old dashboard carried */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 8,
-              marginTop: 16,
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: 16,
+              padding: '14px 16px',
+              borderRadius: 10,
+              background: 'rgba(15,16,18,0.78)',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
             }}
           >
-            {[
-              { col: 'Bid Requests', n: 3, hot: false },
-              { col: 'Chat', n: 2, hot: false },
-              { col: 'Accepted', n: 3, hot: true },
-              { col: 'Completed', n: 2, hot: false },
-            ].map((s) => (
-              <div
-                key={s.col}
-                style={{
-                  padding: 10,
-                  background: s.hot
-                    ? 'var(--m-orange-4)'
-                    : 'rgba(255,255,255,0.06)',
-                  borderRadius: 6,
-                }}
-              >
-                <div
-                  className="m-mono"
-                  style={{
-                    fontSize: 9,
-                    color: s.hot ? 'var(--m-orange-2)' : 'var(--m-slate-4)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  {s.col}
-                </div>
-                <div
-                  className="m-display"
-                  style={{
-                    fontSize: 24,
-                    color: s.hot ? 'var(--m-orange-2)' : 'var(--m-paper)',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {s.n}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: 14,
-              padding: 12,
-              background: 'rgba(255,255,255,0.06)',
-              borderRadius: 6,
-            }}
-          >
-            <div
-              className="m-label-mono"
-              style={{ color: 'var(--m-orange-3)' }}
-            >
+            <div className="m-label-mono" style={{ color: 'var(--m-orange-3)' }}>
               Booked this week
             </div>
-            <div
-              className="m-display"
-              style={{ fontSize: 28, color: 'var(--m-paper)', marginTop: 4 }}
-            >
+            <div className="m-display" style={{ fontSize: 24, color: 'var(--m-paper)', marginTop: 2 }}>
               2 bookings confirmed
             </div>
-            {/* No payout/BIR-receipt claims here — Setnayan never holds vendor
-                money (couples pay vendors directly) per the standing payment-
-                disclosure rule + the 2026-06-13 public-claims purge (#1316). */}
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}
-            >
+            {/* No payout/BIR-receipt claims — Setnayan never holds vendor money
+                (couples pay vendors directly) per the standing payment-disclosure
+                rule + the 2026-06-13 public-claims purge (#1316). */}
+            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}>
               Paid straight to you · Setnayan never holds your money
             </div>
           </div>

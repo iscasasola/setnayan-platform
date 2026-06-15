@@ -19,6 +19,14 @@ Left intentionally untouched: the **Explore/marketplace search bar** (a search a
 Validation: local `tsc --noEmit` couldn't run cleanly in the worktree (pnpm symlink resolution across the worktree boundary reports a blanket "Cannot find module 'react'" for every file — toolchain, not code). The hook body is lifted verbatim from the already-CI-green `site-nav.tsx`; required CI (typecheck + lint + production build) gates the auto-merge.
 
 SPEC IMPACT: chrome-behavior rule — `site-nav.tsx` hide-on-scroll generalized to every top nav (iteration 0000 shell + 0021/0022/0023 dashboards). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(for-vendors): hero right-rail — a real thriving vendor instead of the abstract dashboard mock
+
+Owner: "is this the correct first widget? … use an actual person progressively successful and happy on the results of the business with setnayan." The hero's right rail was an abstract dark "9 ACTIVE LEADS · Pipeline" dashboard card — product-y but cold. Swapped it for a real, happy, successful vendor — the success payoff that pairs with the tired-florist "problem" band.
+
+- **New `public/for-vendors/vendor-success.avif`** (56 KB, generated on-brand via Recraft, 3 options) — a confident, joyful Filipino wedding florist in her sunlit studio surrounded by fresh bouquets, clearly thriving and in control.
+- **`vendor-hero.tsx`** — replaced the pipeline mock with the photo + a small frosted **real results chip** ("Booked this week · 2 bookings confirmed · Paid straight to you · Setnayan never holds your money") so we keep the proof the dashboard carried, now humanized. `priority` image (LCP). The left column, headline, CTAs, and stats line are **untouched** (button-preservation lock — only the right-rail widget changed, per owner direction).
+
+`tsc --noEmit` green. SPEC IMPACT: None — hero imagery. Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
 

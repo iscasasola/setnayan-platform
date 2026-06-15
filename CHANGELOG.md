@@ -15,6 +15,18 @@ Owner: *"when I click on a button I don't want my bottom nav to reset. I want it
 Reuses the locked bottom-nav template verbatim (pill/press-light/icon-grow); `lint:botnav` + `next lint` + the isolated-file typecheck all green.
 
 SPEC IMPACT: interaction change to the customer accordion bottom nav (iteration 0021) — sections are sticky-per-session (reversing per-visit collapse) and the section hinge shows the menu's logo rather than a back-chevron.
+## 2026-06-15 · chore(for-vendors): remove the fabricated "₱18,400/year saved" figure (factual numbers only)
+
+Owner "use factual numbers only" → "then continue." Final fabricated number on the page was the constructed "Average PH vendor saves ₱18,400/year" estimate (no real data — just a sum of competitor tool subscriptions). Removed all 3 user-facing instances in `stack-close-vendor.tsx`, kept the (true) consolidation message:
+
+- Intro paragraph: "Average PH vendor saves ₱18,400/year on subscriptions alone" → "one login, free to start."
+- BEFORE-stack footer: "{N} tools · ~₱18,400/yr in subs" → "{N} tools · separate logins, separate bills."
+- AFTER-card stat: "₱18.4K / saved / year" → "1 login / for everything."
+- Footnote: "Estimated tool-subscription savings · your current stack may vary" → "One dashboard instead of the stack below."
+
+The other numbers flagged by the sweep are not user-facing (₱499/wk, ₱1,200/wk, ₱32,487, ₱71,487 are all in code comments) or already handled by the hero PR ([#1473](https://github.com/iscasasola/setnayan-platform/pull/1473): the "42 vendors / 23 in verification" stats + the "84 weddings" testimonials claim).
+
+`tsc --noEmit` green. SPEC IMPACT: None — removes a fabricated marketing figure. With this, every user-facing number on `/for-vendors` is now either a real DB price/spec or a true claim (0%, ₱0). Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · fix(theme): `burgundy` was an undefined color — primary buttons rendered invisible on 9 surfaces
 

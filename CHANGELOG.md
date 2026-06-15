@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(onboarding): system Back walks the wedding-onboarding steps (no escape to the old picker)
+
+Owner bug: *"the onboarding when back is pressed doesn't go back from the previous onboarding — it went back to the old onboarding, which is wrong. The only onboarding should be the new one."* The new `/onboarding/wedding` flow drives its 15+ screens with pure React state (`go(d)`), so the on-screen "‹" button worked — but the **device hardware Back button, the browser Back button, and the mobile swipe-back gesture were never intercepted**. They popped the whole page out of onboarding, landing the couple on whatever loaded before it. For the dashboard / `create-event` entry path that previous page was the legacy `/dashboard/create-event` event-type picker = the "old onboarding" the owner kept hitting.
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — added a mount-once history **sentinel trap**: keep exactly one extra history entry on top while the shell is mounted; each Back press pops it → `go(-1)` (which already handles the refine / style sub-steps) → re-arm a fresh sentinel (same URL, so the address bar never changes). On the first screen (`welcome`) the pop is allowed through so the couple still leaves onboarding cleanly. Forward nav stays pure state (no `pushState`), so the sentinel always sits on top. `go` + a `canGoBack` flag are read through refs so the listener stays stable (no re-arm per step). An `exitingOnbRef` flips true when the final commit→dashboard nav begins so a teardown `popstate` can't re-step the flow. **The on-screen "‹" button is untouched** — it already worked. Now every form of Back behaves identically and walks the steps.
+- **`apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx`** — the Wedding tile now `router.replace()`s into `/onboarding/wedding` instead of `router.push()`, so the legacy picker can never linger in history as a Back target behind the tailored onboarding. Backing out at the first onboarding screen returns to the dashboard, never the old picker page.
+- **Deleted `apps/web/app/dashboard/(account)/create-event/_components/wedding-type-picker.tsx`** (347 lines) — the orphaned legacy wedding form (`WeddingTypePicker`), already dead code (rendered nowhere; only a self-reference + a stale comment). Gone for good: `/onboarding/wedding` is the one and only wedding onboarding now.
+
+Validation: `tsc --noEmit` green; `next lint` clean on the changed files (only pre-existing repo-wide warnings remain). PR pending (branch `claude/onboarding-back-fix`, auto-merge). Verify on the Vercel preview: enter onboarding, advance a few screens, press the **browser/device Back** (and swipe-back on mobile) — it should step back one screen at a time, not jump to the picker.
+
+SPEC IMPACT: behavior fix on iteration 0016 (Setnayan AI / wedding onboarding) — system-Back now walks the flow; legacy `WeddingTypePicker` retired. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · feat(nav): universal top-nav hide-on-scroll-down / reveal-on-scroll-up
 
 Owner: *"we want to apply this as a universal rule on top navs. whether on website or on dashboards."* The marketing site nav already auto-hid on scroll-down (owner 2026-06-14, for the full-screen hero scrub); this promotes that to a platform-wide rule so every top nav behaves the same — marketing pages AND the couple / vendor / admin dashboards.

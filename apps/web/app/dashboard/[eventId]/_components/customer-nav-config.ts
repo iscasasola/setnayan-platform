@@ -8,7 +8,7 @@
  * menu is a journey PHASE that EXPANDS to its children — NONE navigate
  * directly (there is no childless "navigates straight" menu anymore):
  *   1. Setnayan — Home · Studio · Explore
- *   2. Plan     — Guests · Seating · Schedule · Budget
+ *   2. Plan     — Checklist · Guests · Seating · Schedule · Budget
  *   3. Book     — Messages · Contracts
  *   4. Design   — Website · Mood Board · Monogram
  *   5. Day-of   — Live Wall · Event QR
@@ -54,6 +54,7 @@
 import {
   Home,
   ClipboardList,
+  ListChecks,
   Handshake,
   Palette,
   PartyPopper,
@@ -134,6 +135,13 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       icon: ClipboardList,
       defaultOpen: true,
       items: [
+        {
+          key: 'checklist',
+          label: 'Checklist',
+          href: `${base}/checklist`,
+          icon: ListChecks,
+          matchPrefix: `${base}/checklist`,
+        },
         {
           key: 'guests',
           label: 'Guests',

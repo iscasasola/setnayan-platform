@@ -35,6 +35,20 @@ Unstuck the couple-side inquiry thread so a pending/declined inquiry is no longe
 - **`apps/web/lib/chat-actions.ts`** — relax the couple pending gate to allow exactly one follow-up (prior count ≥ 2 re-disables); vendor accept-gate unchanged.
 
 SPEC IMPACT: None (additive UX on the existing accept-gate; no schema/enum/migration change — withdraw is a remove, not a new status).
+## 2026-06-16 · feat(shortlist): surface inquiry acceptance + a Waiting-for-quotes strip
+
+Make the couple SEE where each vendor inquiry stands without opening every thread. Three additive, fail-soft surfaces, no schema change:
+
+- **Waiting for quotes (Shortlist top).** A new read-only strip lists the marketplace picks whose inquiry is still `pending` (couple reached out, no acceptance/quote yet), oldest-first, with a "how long it's been waiting" pill — built from the `chat_threads` join the Vendors page already runs (now also selecting `created_at`). Empty → renders nothing.
+- **"Ready to quote" badge (Messages list).** The couple thread list already badged `pending` ("Waiting for reply") + `declined` ("Not available"); added the missing `accepted` case as an emerald "Ready to quote" pill (matches the `inquiry_accepted` notification tone).
+- **Web Push on accept.** Added `inquiry_accepted` to `PUSH_ENABLED_TYPES` — the type already exists in the `NotificationType` enum and is already emitted on accept, so this only opens the push channel (no migration).
+
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx`** — new presentational strip (Clean Editorial `--m-*` tokens; self-contained fail-soft relative-time label).
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — extend the `chat_threads` select with `created_at`, build the oldest-first pending list during the existing enrichment pass, render `<WaitingForQuotes>` atop the Shortlist content.
+- **`apps/web/app/dashboard/[eventId]/messages/page.tsx`** — add the `accepted` badge branch.
+- **`apps/web/lib/notification-emit.ts`** — add `inquiry_accepted` to `PUSH_ENABLED_TYPES`.
+
+SPEC IMPACT: None (additive read-only surfacing + a push-channel allowlist add; no schema/enum/migration). The waiting strip links to the Messages list (the page joins threads by `vendor_profile_id`, not a per-vendor `thread_id`).
 
 ---
 

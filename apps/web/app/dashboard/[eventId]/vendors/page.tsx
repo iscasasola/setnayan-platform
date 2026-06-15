@@ -45,6 +45,7 @@ import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
@@ -169,6 +170,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     { name: string | null; logo: string | null; city: string | null }
   >();
   const enrichmentByVendorId = new Map<string, VendorEnrichment>();
+  // "Waiting for quotes" strip (inquiry-accepted-visibility 2026-06-16) — the
+  // marketplace picks whose inquiry is still `pending` (couple reached out, no
+  // acceptance/quote yet), built inside the enrichment pass below and rendered
+  // read-only at the TOP of the Shortlist. Oldest-first. Empty → strip hides.
+  const waitingForQuotes: WaitingInquiry[] = [];
 
   if (marketplaceIds.length > 0) {
     const [statsRes, profRes, threadsRes] = await Promise.all([
@@ -189,7 +195,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // event's threads.
       supabase
         .from('chat_threads')
-        .select('vendor_profile_id, inquiry_status')
+        .select('vendor_profile_id, inquiry_status, created_at')
         .eq('event_id', eventId)
         .in('vendor_profile_id', marketplaceIds),
     ]);
@@ -223,10 +229,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       anonByProfile.set(p.vendor_profile_id, p);
     }
     const inquiryByProfile = new Map<string, ChatInquiryStatus>();
+    // Pending-since (inquiry-accepted-visibility 2026-06-16) — when the couple
+    // has reached out but the vendor hasn't accepted/quoted yet, remember WHEN
+    // they reached out so the Shortlist's "Waiting for quotes" strip can show
+    // how long it's been. Only `pending` threads are tracked here.
+    const pendingSinceByProfile = new Map<string, string | null>();
     for (const t of (threadsRes.data as
-      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus }[]
+      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus; created_at: string | null }[]
       | null) ?? []) {
       inquiryByProfile.set(t.vendor_profile_id, t.inquiry_status);
+      if (t.inquiry_status === 'pending') {
+        pendingSinceByProfile.set(t.vendor_profile_id, t.created_at ?? null);
+      }
     }
 
     const venueLat = ev?.venue_latitude ?? null;
@@ -277,7 +291,28 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
+
+      // Waiting-for-quotes row — only when this pick's inquiry is still pending.
+      if (inquiryByProfile.get(pid) === 'pending') {
+        waitingForQuotes.push({
+          vendorId: v.vendor_id,
+          name: resolvedName || v.vendor_name || 'Vendor',
+          city: s.location_city ?? null,
+          waitingSince: pendingSinceByProfile.get(pid) ?? null,
+          href: `/dashboard/${eventId}/messages`,
+        });
+      }
     }
+
+    // Oldest-first (the longest-waiting inquiry leads). Rows with no timestamp
+    // sort last (treated as "just now"). Fail-soft — a bad date never throws.
+    waitingForQuotes.sort((a, b) => {
+      const ta = a.waitingSince ? new Date(a.waitingSince).getTime() : Infinity;
+      const tb = b.waitingSince ? new Date(b.waitingSince).getTime() : Infinity;
+      const va = Number.isFinite(ta) ? ta : Infinity;
+      const vb = Number.isFinite(tb) ? tb : Infinity;
+      return va - vb;
+    });
   }
 
   // Map the fetched event_vendors rows into the canonical bucketer's input
@@ -518,6 +553,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const shortlistContent = (
     <>
       {aiOfferBanner}
+      <WaitingForQuotes items={waitingForQuotes} />
       <ShortlistCategories folders={shortlistFolders} eventId={eventId} />
     </>
   );

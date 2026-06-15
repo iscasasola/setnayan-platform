@@ -4,14 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-15 · feat(for-vendors): hero right-rail — a real thriving vendor instead of the abstract dashboard mock
+## 2026-06-15 · feat(for-vendors): full-bleed hero photo + factual-only numbers
 
-Owner: "is this the correct first widget? … use an actual person progressively successful and happy on the results of the business with setnayan." The hero's right rail was an abstract dark "9 ACTIVE LEADS · Pipeline" dashboard card — product-y but cold. Swapped it for a real, happy, successful vendor — the success payoff that pairs with the tired-florist "problem" band.
+Owner, across a few messages: replace the hero's abstract "9 ACTIVE LEADS · Pipeline" dashboard mock with a real successful vendor → then "i want a full bleed photo" (not a boxed photo + chip) → then "use factual numbers only."
 
-- **New `public/for-vendors/vendor-success.avif`** (56 KB, generated on-brand via Recraft, 3 options) — a confident, joyful Filipino wedding florist in her sunlit studio surrounded by fresh bouquets, clearly thriving and in control.
-- **`vendor-hero.tsx`** — replaced the pipeline mock with the photo + a small frosted **real results chip** ("Booked this week · 2 bookings confirmed · Paid straight to you · Setnayan never holds your money") so we keep the proof the dashboard carried, now humanized. `priority` image (LCP). The left column, headline, CTAs, and stats line are **untouched** (button-preservation lock — only the right-rail widget changed, per owner direction).
+- **Full-bleed hero photo.** `vendor-hero.tsx` right rail is now a `next/image` that **bleeds to the viewport right edge and fills the row height** (no card, no rounded corners, no overlay chip). On mobile it's a full-width band under the copy. Bleed = `.m-hero-photo` margin cancels the section's horizontal padding (`calc(-1 * clamp(20px,5vw,56px))`) + `align-self:stretch` + width-scaled `min-height: clamp(420px,42vw,680px)` (keeps the 3:4 portrait from cropping to a landscape slit on ultrawide). `objectPosition: center 32%` keeps her face framed.
+- **New `public/for-vendors/vendor-success.avif`** (140 KB, Recraft, picked from 4) — a confident Filipino florist *laughing* in her sunlit studio, arms crossed, clearly thriving. The success payoff to the tired-florist "problem" band.
+- **Factual numbers only.** Removed the fabricated hero stat counts "42 verified vendors live · 23 in verification" (founder-only marketplace) → now "0% commission, ever · Paid straight to you · Free during launch" (all true). Also removed the fabricated "Eighty-four weddings in. Real names, real venues, real numbers" claim from the testimonials intro (`page-tail.tsx`).
+- **Locked part preserved:** headline + both CTAs (`/signup?as=vendor`, `/help#contact`) untouched. Verified by a 3-reviewer adversarial workflow (0 high / 0 med / 14 low — bleed math "CORRECT and SAFE", lock "CLEAN"); the two highest-value low findings (ultrawide crop + objectPosition) were applied.
 
-`tsc --noEmit` green. SPEC IMPACT: None — hero imagery. Logged to corpus `DECISION_LOG.md`.
+`tsc --noEmit` green. SPEC IMPACT: None — hero imagery + removing fabricated public numbers. Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
 

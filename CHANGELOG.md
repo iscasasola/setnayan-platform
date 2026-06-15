@@ -4,7 +4,13 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-15 · fix(editorial): masthead Volume follows the awards cycle (Nov 18 → Nov 17), not the calendar year
+## 2026-06-15 · docs(editorial): lock the rule — the editorial date is the WEDDING date, never the publish date
+
+Owner: *"the date on the editorial will not be the date published but the date of their wedding."* A 6-agent audit (5 surface auditors + an adversarial leak-hunter) confirmed this is **already** how every user-visible surface behaves — masthead dateline, lead paragraph, OG share card, and index cards all derive from `events.event_date` (via `eventDateFormatted` / `eventDateLabel` / `monthYear`). The only `publishedAt`/`published_at`/`generated_at` uses are non-visible (JSON-LD `datePublished`/`dateModified`, sitemap `lastmod`, sorting) — where the publish date is correct/expected. **No leak found.**
+
+Change is a regression guard only: a comment at `editionCenter()` (`editorial-content.tsx`) stating the owner rule so a future edit can't silently swap the dateline to a publish/generated/created date.
+
+SPEC IMPACT: iteration 0046 — codifies "editorial date = wedding date (events.event_date), never the publish date; publish date is meta-only." Logged to corpus `DECISION_LOG.md`.
 
 Owner: *"November 18 to November 17 of the next year. So Volume I is November 18, 2026 to November 17, 2027."* The Setnayan awards cycle — not Jan–Dec — defines the edition year.
 

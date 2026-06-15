@@ -783,10 +783,15 @@ function nameplate(displayName: string): string {
   return `The ${cleaned} Chronicle`;
 }
 
+// The masthead dateline = venue city · the WEDDING date. Owner rule (2026-06-15):
+// the date on the editorial is the couple's wedding date (events.event_date via
+// eventDateFormatted), NEVER the publish date (event_editorial.published_at /
+// real-weddings publishedAt). Publish dates belong only to JSON-LD/sitemap meta.
+// Do not swap this to a published/generated/created date.
 function editionCenter(data: EditorialData): string {
   const parts: string[] = [];
   if (data.venueCity) parts.push(data.venueCity);
-  if (data.eventDateFormatted) parts.push(data.eventDateFormatted);
+  if (data.eventDateFormatted) parts.push(data.eventDateFormatted); // wedding date
   return parts.join(' · ') || 'Commemorative Edition';
 }
 

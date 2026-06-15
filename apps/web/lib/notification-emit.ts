@@ -23,6 +23,13 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // high-signal, time-sensitive class this allowlist exists for — if it
   // WASN'T the user, every second until they see it matters.
   'security_alert',
+  // inquiry_accepted (inquiry-accepted-visibility 2026-06-16): a vendor taking
+  // the couple's inquiry opens the thread + reveals the name — the moment the
+  // couple has been waiting on. High-signal + time-sensitive (they'll want to
+  // reply while the vendor is engaged), so it earns a push. The type already
+  // exists in the NotificationType enum + is emitted on accept; this only adds
+  // the push channel — no schema change.
+  'inquiry_accepted',
 ]);
 
 export type EmitNotificationArgs = {

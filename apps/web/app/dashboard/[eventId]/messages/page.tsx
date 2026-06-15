@@ -241,6 +241,14 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                       <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                         Waiting for reply
                       </span>
+                    ) : t.inquiry_status === 'accepted' ? (
+                      // Accepted (inquiry-accepted-visibility 2026-06-16) — the
+                      // vendor took the inquiry, the thread is open + the name is
+                      // revealed. Emerald matches the inquiry_accepted notification
+                      // tone so the couple reads "this one's live" at a glance.
+                      <span className="mt-0.5 inline-block rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
+                        Ready to quote
+                      </span>
                     ) : t.inquiry_status === 'declined' ? (
                       <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                         Not available

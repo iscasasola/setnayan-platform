@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(for-vendors): vendor prices were rendering without the ₱ sign (missing peso glyph)
+
+Found while verifying the mobile tier-switcher (previous entry) on prod: the live `/for-vendors` matrix showed Pro/Enterprise as "**6,000 / 28d**" / "**10,000 / 28d**" — no peso sign — while Free/Verified showed "₱0". The new mobile price banner made it glaring.
+
+Root cause in **`apps/web/lib/v2-catalog.ts` `getVendorPrices()`**: `formatPeso(n)` returns the **number only** (callers prepend `₱` themselves — see lines 293/296). But `getVendorPrices` built its display strings with bare `formatPeso(n)` on the DB path while its *fallbacks* included `₱`. So in production (DB populated), every vendor price string came back sign-less: `proMonthly:"6,000"`. The RSC payload on prod confirmed it.
+
+Fix: the `fmt`/`save` helpers and `tokenUnit` now wrap with `` `₱${formatPeso(n)}` ``, so the display strings always carry the peso sign — matching the fallbacks and the hardcoded "₱0".
+
+Audited every consumer before fixing at the source: matrix (desktop + mobile banner), `stack-close-vendor`, `vendor-hero`, `how-it-works` (EN + TL), `for-vendors/page.tsx` metadata + JSON-LD descriptions, and the `FAQ` answer — **all render the fields bare**, so none double the sign. The schema.org Offer `price:` fields use the separate numeric `p.num.*`, so structured-data prices stay sign-free (correct). Verified: no `₱{...}` / `₱${...}` prepend exists anywhere for these fields.
+
+`tsc` + `next lint` clean; production build green.
+
+SPEC IMPACT: None — display-only currency-symbol fix; no price values changed. Pre-existing bug (not introduced by the tier-switcher). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(editorial): masthead Volume follows the awards cycle (Nov 18 → Nov 17), not the calendar year
 
 Owner: *"November 18 to November 17 of the next year. So Volume I is November 18, 2026 to November 17, 2027."* The Setnayan awards cycle — not Jan–Dec — defines the edition year.

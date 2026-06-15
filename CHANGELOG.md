@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(admin): per-event-type category scoping — close the "add a type → tailor its taxonomy" loop
+
+Owner: *"build a convenience"* so adding an event type guides you to scope its taxonomy (the two — `/admin/event-types` and `/admin/taxonomy` — otherwise drift, and a new type silently inherits the full wedding-shaped category set).
+
+- **`apps/web/app/admin/event-types/[eventType]/categories/page.tsx`** (new) — a dedicated **per-type scoping screen** reached from the roster. Lists all 10 folders → ~54 categories with a single **Offered / Hidden** toggle *for that one event type* (plus folder-level **Offer all / Hide all**), and a live "Offers X of N categories · universal/tailored" summary. Far faster than hand-editing the multi-type checkboxes on `/admin/taxonomy`.
+- **`apps/web/app/admin/event-types/actions.ts`** — `setTileEventTypeOffered` + `setFolderEventTypeOffered`. They write the SAME `service_categories.applicable_event_types` the marketplace + Shortlist read, with the correct allow-list semantics: hiding a *universal* category materializes "all active types except this one"; re-offering normalizes "covers every active type" back to NULL (universal). Sanitizes to active vocab keys so the validation trigger never rejects, audit-logs every change, and revalidates the marketplace / create-event / taxonomy / vendor surfaces.
+- **`apps/web/app/admin/event-types/page.tsx`** — each roster row now shows **"Offers X of N categories"**, a **"Not tailored"** amber chip when a type still inherits everything, and a **"Scope categories →"** link to the screen above. So a freshly-created type visibly reads "Not tailored · Scope categories →" — the guided prompt. Explainer copy updated (the old "taxonomy picks up new types automatically — no extra step" line was misleading; tailoring IS the step).
+
+No schema change (operates on the existing column via admin actions). `next lint` + `tsc --noEmit` green.
+
+SPEC IMPACT: new admin surface `/admin/event-types/[eventType]/categories` + two scoping actions; makes per-event-type taxonomy tailoring a first-class, discoverable step (Setnayan HQ / iteration 0023). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(event-types): add "Gala Night" to the event-type roster
 
 Owner: *"also add Gala Night."* `event_type_vocab` is the single source for the event-type roster (migration `20261205000000`), so one seed row flows to every consumer — the create-event picker, vendor "event types you serve", the marketplace `?event_type=` filter, and the `/admin/taxonomy` event-applicability checkboxes — with no TS change (`EVENT_TYPES_FALLBACK` is fail-open fallback only; new types are NOT added there by design).

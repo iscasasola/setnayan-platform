@@ -173,9 +173,10 @@ export type EditorialData = {
   slug: string | null;
   eventDate: string | null; // ISO
   eventDateFormatted: string | null; // en-PH long form
-  // Masthead dateline: this wedding's number within its year (the Nth Setnayan
-  // wedding of that year, by date). Volume is derived from the year at render
-  // (Vol. I = 2026). Null when it can't be counted → falls back to No. 1.
+  // Masthead dateline: this wedding's number within its AWARDS CYCLE (the Nth
+  // Setnayan wedding of the cycle, by date). The edition year runs Nov 18 → Nov
+  // 17; Volume (Vol. I = the Nov-18-2026 cycle) is derived from the date at
+  // render. Null when it can't be counted → falls back to No. 1.
   editionNo: number | null;
   venueName: string | null;
   venueCity: string | null;
@@ -372,20 +373,26 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const displayName = asString(event.display_name) ?? 'The Wedding';
   const eventDate = asString(event.event_date);
 
-  // Edition No. — this wedding's number within its year (the Nth Setnayan
-  // wedding of that year, by date). Volume is derived from the year at render.
+  // Edition No. — this wedding's number within its AWARDS CYCLE. The edition
+  // year runs Nov 18 → Nov 17 (Vol. I = Nov 18 2026 → Nov 17 2027), so the count
+  // window starts on the cycle's Nov-18 (not Jan 1). Counts the Setnayan
+  // weddings in this cycle up to and including this date.
   // Best-effort: a missing date / failed count → null → masthead shows No. 1.
   let editionNo: number | null = null;
   if (eventDate) {
     try {
-      const year = eventDate.slice(0, 4);
-      const { count } = await admin
-        .from('events')
-        .select('event_id', { count: 'exact', head: true })
-        .eq('event_type', 'wedding')
-        .gte('event_date', `${year}-01-01`)
-        .lte('event_date', eventDate);
-      if (typeof count === 'number' && count > 0) editionNo = count;
+      const [y, m, d] = eventDate.split('-').map(Number);
+      if (y && m && d) {
+        const onOrAfterCutoff = m > 11 || (m === 11 && d >= 18); // Nov 18+
+        const cycleStartYear = onOrAfterCutoff ? y : y - 1;
+        const { count } = await admin
+          .from('events')
+          .select('event_id', { count: 'exact', head: true })
+          .eq('event_type', 'wedding')
+          .gte('event_date', `${cycleStartYear}-11-18`)
+          .lte('event_date', eventDate);
+        if (typeof count === 'number' && count > 0) editionNo = count;
+      }
     } catch {
       editionNo = null;
     }

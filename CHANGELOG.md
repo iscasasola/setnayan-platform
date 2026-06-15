@@ -4,7 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-15 · fix(for-vendors): mobile tier-switcher for the 4-tier pricing matrix
+## 2026-06-15 · fix(editorial): masthead Volume follows the awards cycle (Nov 18 → Nov 17), not the calendar year
+
+Owner: *"November 18 to November 17 of the next year. So Volume I is November 18, 2026 to November 17, 2027."* The Setnayan awards cycle — not Jan–Dec — defines the edition year.
+
+- **`editorial-content.tsx`** — new `editionVolume(eventDate)`: the edition year runs **Nov 18 → Nov 17**; Vol. I = the Nov-18-2026 cycle, Vol. II = Nov-18-2027, … A December wedding starts a Volume; the following June is still that Volume. Clamped to ≥ I (the inaugural edition covers anything before the first cycle's start). Replaces the calendar-year `year − 2025`.
+- **`editorial/data.ts`** — the `No.` count window now starts on the cycle's **Nov-18** (not Jan 1), so `No.` is the wedding's position within its awards cycle.
+
+Verified boundary: `2027-11-17 → Vol. I`, `2027-11-18 → Vol. II`. The 5 samples (early-2026 dates) clamp to **Vol. I · No. 1–5** as before. `tsc` + `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — the editorial masthead Volume = the Setnayan awards cycle (Nov 18 → Nov 17; Vol. I = 2026-11-18 → 2027-11-17). Supersedes the same-day calendar-year edition (#1488). The awards-cycle rule is otherwise undocumented in the corpus — logged to `DECISION_LOG.md` as the canonical definition.
 
 Owner: *"the price table doesn't work well on mobile. what can we do?"* — and picked the **tier switcher** option.
 

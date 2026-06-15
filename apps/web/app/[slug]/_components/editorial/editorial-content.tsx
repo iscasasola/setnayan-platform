@@ -77,12 +77,10 @@ export async function EditorialContent({
   // A block shows unless the couple turned it off in the editorial editor.
   const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
 
-  // Masthead dateline numbers — Volume = the wedding's year (Vol. I = 2026,
-  // Vol. II = 2027…); No. = its number within that year.
-  const edYear = data.eventDate ? Number(data.eventDate.slice(0, 4)) : null;
-  const editionLeft = `Vol. ${toRoman(
-    edYear && edYear >= 2026 ? edYear - 2025 : 1,
-  )} · No. ${data.editionNo ?? 1}`;
+  // Masthead dateline numbers — Volume follows the Setnayan awards cycle (the
+  // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
+  // wedding's number within that cycle.
+  const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
 
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
@@ -743,6 +741,23 @@ function Colophon({ names, city }: { names: string; city: string | null }): Reac
 }
 
 // ── tiny presentational helpers ───────────────────────────────────────────────
+
+// Setnayan awards-cycle Volume for a wedding date. The edition year runs
+// Nov 18 → Nov 17 (not Jan–Dec): Vol. I = Nov 18 2026 → Nov 17 2027, Vol. II =
+// Nov 18 2027 → Nov 17 2028, … A December wedding starts a Volume; the following
+// June is still that same Volume. Clamped to ≥ I — the inaugural edition covers
+// anything before the first cycle's Nov-18-2026 start.
+const AWARDS_CUTOFF_MONTH = 11; // November
+const AWARDS_CUTOFF_DAY = 18; // 18th
+function editionVolume(eventDate: string | null): number {
+  if (!eventDate) return 1;
+  const [y, m, d] = eventDate.split('-').map(Number);
+  if (!y || !m || !d) return 1;
+  const onOrAfterCutoff =
+    m > AWARDS_CUTOFF_MONTH || (m === AWARDS_CUTOFF_MONTH && d >= AWARDS_CUTOFF_DAY);
+  const cycleStartYear = onOrAfterCutoff ? y : y - 1;
+  return Math.max(1, cycleStartYear - 2025);
+}
 
 // Volume number as a masthead Roman numeral (1 → I, 2 → II, …). Falls back to
 // the Arabic number above the small-numeral table for far-future volumes.

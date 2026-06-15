@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(for-vendors): hero right-rail — a real thriving vendor instead of the abstract dashboard mock
+
+Owner: "is this the correct first widget? … use an actual person progressively successful and happy on the results of the business with setnayan." The hero's right rail was an abstract dark "9 ACTIVE LEADS · Pipeline" dashboard card — product-y but cold. Swapped it for a real, happy, successful vendor — the success payoff that pairs with the tired-florist "problem" band.
+
+- **New `public/for-vendors/vendor-success.avif`** (56 KB, generated on-brand via Recraft, 3 options) — a confident, joyful Filipino wedding florist in her sunlit studio surrounded by fresh bouquets, clearly thriving and in control.
+- **`vendor-hero.tsx`** — replaced the pipeline mock with the photo + a small frosted **real results chip** ("Booked this week · 2 bookings confirmed · Paid straight to you · Setnayan never holds your money") so we keep the proof the dashboard carried, now humanized. `priority` image (LCP). The left column, headline, CTAs, and stats line are **untouched** (button-preservation lock — only the right-rail widget changed, per owner direction).
+
+`tsc --noEmit` green. SPEC IMPACT: None — hero imagery. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
 
 Owner: "make the imagery more relatable — we want them to feel 'yes, that is my problem.'" The `EditorialBand` showed a styled candlelit reception table — the aspirational *output*, which reads as the dream, not the pain. The whole repo image library (836 assets) is polished output; nothing depicts a vendor's daily grind.

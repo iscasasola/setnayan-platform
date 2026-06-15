@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(build): align compute upsert onConflict with the multi-pick PK
+
+The Build "Compute" auto-fill (`computeBuildFromShortlist` in `build-flags-actions.ts`) upserted `event_build_picks` with `onConflict: 'event_id,plan_group_id'` — the table's ORIGINAL 2-column PK. Migration `20261020000000_event_build_picks_multi.sql` widened that PK to `(event_id, plan_group_id, vendor_id)` so the multi-service folders (Look / Booths / Prints) can hold several vendors per category, which left the 2-col conflict target matching no constraint (Postgres 42P10). Aligned it to the 3-col PK, exactly as `build-pick-actions.ts` already does.
+
+Behavior is unchanged on the normal path — compute only fills categories with **no** existing pick (the `pinnedGroupIds` guard), so it inserts one row per empty flagged category and never clobbers a couple's picks; this makes the conflict target schema-correct so the upsert can't error on conflict. Surfaced by the 2026-06-16 host-search improvement audit's "multi-pick data-loss" finding — verified the real mechanism is the stale conflict target, not an overwrite (the `pinnedGroupIds` skip already prevents touching populated groups).
+
+- **`apps/web/app/dashboard/[eventId]/vendors/build-flags-actions.ts`** — `onConflict: 'event_id,plan_group_id'` → `'event_id,plan_group_id,vendor_id'` + an explanatory comment.
+
+SPEC IMPACT: None (correctness fix; aligns code with the shipped `20261020000000` multi-pick schema). Context: `03_Strategy/Host_Search_Improvement_Audit_2026-06-16.md` + `Build_3State_Solver_2026-06-16.md` § 12.
+
+---
+
 ## 2026-06-16 · feat(icons): Setnayan AI gets its own glyph (Gem) — resolves the shared-Sparkles clash with Studio
 
 Owner: *"setnayan ai gem."* Setnayan AI and Studio (`/add-ons`) were both rendering Lucide `Sparkles`, and Setnayan AI is itself a card *inside* Studio — so parent + child wore the identical icon. Setnayan AI now uses `Gem` everywhere it shows its identity mark; **Studio keeps `Sparkles`.**

@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(explore): disclose paid placement + explain anonymized vendor names
+
+The couple-facing category-search overlay floated boosted vendors (`ad_rank` desc) above the review-ranked tier under a bare **"Featured"** badge with no disclosure — couples could read paid placement as a Setnayan/AI recommendation. And Free/Verified vendors render an anonymized placeholder name until their first reply (`name_revealed_at IS NULL`) with no explanation, so the listing read as fake. Both additions are UI-only / additive.
+
+- **`apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — added `nameAnonymized: boolean` to `CategoryVendorResult`, computed server-side with the existing `isVendorNameRevealed` gate (same inputs the name resolver already uses; fail-soft `?? null` on every field). Threaded through both result constructions.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx`** — the "Featured" badge now carries a `title` tooltip ("Paid placement … Not an AI recommendation") plus a quiet **"Paid partnership with Setnayan"** subline; anonymized cards show a **"Real name shown after they reply"** subline (only while `nameAnonymized`). New `.disclose` style uses existing `--mono` / `--ink-soft` tokens.
+
+SPEC IMPACT: None (trust/clarity UI; no schema, no pricing, no ranking change — the locked favorites→boosted→reviews→nearest order is untouched). Aligns with [[project_setnayan_vendor_hybrid_anonymity]] + public-surface honesty.
+
+---
+
 ## 2026-06-16 · fix(build): align compute upsert onConflict with the multi-pick PK
 
 The Build "Compute" auto-fill (`computeBuildFromShortlist` in `build-flags-actions.ts`) upserted `event_build_picks` with `onConflict: 'event_id,plan_group_id'` — the table's ORIGINAL 2-column PK. Migration `20261020000000_event_build_picks_multi.sql` widened that PK to `(event_id, plan_group_id, vendor_id)` so the multi-service folders (Look / Booths / Prints) can hold several vendors per category, which left the 2-col conflict target matching no constraint (Postgres 42P10). Aligned it to the 3-col PK, exactly as `build-pick-actions.ts` already does.

@@ -56,6 +56,9 @@ const CSS = `
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
 .csov .r .badge.vrf{color:var(--gold-deep);background:rgba(197,160,89,.16)}
 .csov .r .badge.bst{color:var(--mulberry);background:rgba(92,37,66,.1)}
+/* Paid-placement disclosure + hybrid-anonymity hint — quiet, ink-soft so
+   they read as clarifications, not alarms. */
+.csov .r .disclose{display:block;width:100%;margin-top:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--ink-soft);opacity:.82}
 .csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(92,37,66,.12)}
 .csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(197,160,89,.18)}
 .csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,34,41,.06)}
@@ -331,7 +334,14 @@ export function CategorySearchOverlay({
               <span>{r.city}</span>
             ) : null}
             {r.verified ? <span className="badge vrf">Verified</span> : null}
-            {r.boosted ? <span className="badge bst">Featured</span> : null}
+            {r.boosted ? (
+              <span
+                className="badge bst"
+                title="Paid placement — this vendor partners with Setnayan. Not an AI recommendation."
+              >
+                Featured
+              </span>
+            ) : null}
             {r.lastMinuteAvailable ? (
               <span className="badge lm" title="Still booking close to your date">
                 Last-minute
@@ -341,6 +351,18 @@ export function CategorySearchOverlay({
               </span>
             ) : null}
           </div>
+          {/* Paid-placement disclosure (trust): boosted vendors float above the
+              review-ranked tier; spell out that "Featured" = a paid partnership
+              so couples don't read it as a Setnayan recommendation. */}
+          {r.boosted ? (
+            <span className="disclose">Paid partnership with Setnayan</span>
+          ) : null}
+          {/* Hybrid-anonymity hint: Free/Verified vendors show a placeholder
+              name until their first reply — say so, so it doesn't read as fake
+              ([[project_setnayan_vendor_hybrid_anonymity]]). */}
+          {r.nameAnonymized ? (
+            <span className="disclose">Real name shown after they reply</span>
+          ) : null}
         </div>
         <button
           type="button"

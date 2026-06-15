@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
 import { BUDGET_BUILD_TABS, type BudgetBuildTab } from '@/lib/budget-build';
+import { SubNav } from '@/app/_components/nav/sub-nav';
 
 /** Cross-tab navigation: any slot can `window.dispatchEvent(new CustomEvent(
  *  'bb:tab', { detail: 'build' }))` to switch the takeover's active tab without a
@@ -168,49 +169,22 @@ export function ServicesTakeover({
         </div>
       </div>
 
-      {/* Mobile section nav — DOCKED above the global bottom nav as that tab's
-          own sub-nav (owner 2026-06-16 "pin it on top of the bottom nav as its
-          sub nav"). A floating frosted pill that LIFTS into place on section
-          entry: the `bb-subnav-dock` keyframe plays once on mount, and entering
-          /vendors is what mounts this — so the lift fires on section entry and
-          NOT when switching between sub-tabs (which is client state, no remount).
-
-          Geometry mirrors the bottom-nav pill (bottom-nav.tsx → NavShell):
-          inset 14px, frosted --m-paper-2 @ 92% + the same soft shadow, fully
-          rounded — one size down so it reads as the nav's subordinate shelf.
-          It docks ABOVE the nav: bottom = safe-area + 12px (nav's own offset)
-          + 64px (nav height) + 8px gap = safe-area + 84px. The panel below
-          carries matching bottom padding so its last content clears this
-          floating chrome. Desktop (lg+) uses the top strip above. */}
-      <nav
-        role="tablist"
-        aria-label="Services sections"
-        className="bb-subnav-dock sn-seg fixed inset-x-[14px] bottom-[calc(env(safe-area-inset-bottom)+84px)] z-20 backdrop-blur lg:hidden"
-        style={{
-          background: 'rgba(248, 246, 240, 0.92)',
-          boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',
-        }}
-      >
-        {BUDGET_BUILD_TABS.map((key) => {
-          const { label, icon: Icon } = TAB_META[key];
-          const on = key === tab;
-          return (
-            <button
-              key={`${key}-${tab}`}
-              type="button"
-              role="tab"
-              id={`bbtab-m-${key}`}
-              aria-selected={on}
-              aria-controls="budget-build-panel"
-              onClick={() => selectTab(key)}
-              className={`sn-seg-item min-w-0 px-1.5 text-[11px]${on ? ' sn-bounce' : ''}`}
-            >
-              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-              <span className="min-w-0 truncate">{label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {/* Mobile section nav — the reusable <SubNav> docked above the global
+          bottom nav (owner 2026-06-16 "pin it on top of the bottom nav as its
+          sub nav" · icon-over-text · the bottom nav goes icons-only while it's
+          docked). It lifts in on section entry, and mounting <SubNav> here is
+          what tells the bottom nav to collapse its labels. Desktop (lg+) uses
+          the top strip above; <SubNav> is mobile-only. */}
+      <SubNav
+        items={BUDGET_BUILD_TABS.map((key) => ({
+          key,
+          label: TAB_META[key].label,
+          icon: TAB_META[key].icon,
+        }))}
+        activeKey={tab}
+        onSelect={(key) => selectTab(key as BudgetBuildTab)}
+        ariaLabel="Services sections"
+      />
 
       {/* Active tab content. On mobile the docked sub-nav (above) + the global
           bottom nav both float over this, so reserve bottom space for both:

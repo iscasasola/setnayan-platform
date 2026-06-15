@@ -42,6 +42,13 @@ export type EventRow = {
    */
   monogram_custom_svg?: string | null;
   /**
+   * Couple-UPLOADED monogram (owner rule 2026-06-15) — their own mark, stored as
+   * render-ready SVG. Top priority: the chrome icon reads
+   * `monogram_uploaded_svg ?? monogram_custom_svg`, so an upload overrules the
+   * AI/Cipher mark AND the lettered lockup. Optional; NULL = no upload.
+   */
+  monogram_uploaded_svg?: string | null;
+  /**
    * Setnayan AI subscription status · production column kept the
    * concierge_status name even after the 2026-05-24 8th-row spec lock
    * specced renaming to todays_focus_status (the rename never shipped
@@ -107,6 +114,7 @@ export const fetchUserEvents = cache(async (
          monogram_font_key,
          monogram_style,
          monogram_custom_svg,
+         monogram_uploaded_svg,
          concierge_status
        )`,
     )

@@ -1793,6 +1793,59 @@ export function OnboardingShell({
     [authed],
   );
 
+  /* ── Hardware / browser / swipe Back interception (owner bug 2026-06-15) ──────
+     The screens are React state (go(d)), so without this the device hardware Back
+     button, the browser Back button, and the mobile swipe-back gesture are NOT
+     intercepted — they pop the whole page out of onboarding, landing the couple on
+     whatever loaded before it (for dashboard-entry that was the legacy
+     /dashboard/create-event picker = "the old onboarding"). We make every form of
+     Back WALK the onboarding steps instead, exactly like the on-screen "‹" button.
+
+     Pattern: keep exactly ONE sentinel history entry on top of the stack while the
+     shell is mounted. Each Back press pops the sentinel → we step the flow back one
+     screen (go(-1), which already handles the refine / style sub-steps) and re-arm a
+     fresh sentinel so the NEXT Back is caught too. On the first screen (welcome) we
+     let the pop through so the couple leaves onboarding cleanly. Forward navigation
+     stays pure state (no pushState), so the sentinel always sits on top. The on-screen
+     "‹" button is unchanged — it still calls go(-1) directly and already works. */
+  const goRef = useRef(go);
+  goRef.current = go;
+  // canGoBack mirrors the on-screen "‹" hide rule (hidden only on welcome): Back is a
+  // step-back on every screen except the first, where it exits onboarding.
+  const canGoBackRef = useRef(false);
+  canGoBackRef.current = activeId !== 'welcome';
+  // Flipped true the instant the final commit→dashboard navigation begins, so a
+  // popstate fired during teardown is ignored (never re-steps the flow as we leave).
+  const exitingOnbRef = useRef(false);
+  useEffect(() => {
+    if (finishing) exitingOnbRef.current = true;
+  }, [finishing]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Spread the existing state so Next's internal history markers ride along on the
+    // sentinel entry (keeps the App Router's popstate handling happy).
+    const arm = () =>
+      window.history.pushState({ ...(window.history.state ?? {}), snOnboarding: true }, '');
+    arm();
+    const onPop = () => {
+      if (exitingOnbRef.current) return;
+      if (canGoBackRef.current) {
+        goRef.current(-1);
+        arm(); // re-arm — same URL, so the address bar never changes
+      } else {
+        // First screen — allow the real exit. The sentinel is already gone; pop the
+        // original /onboarding entry to return to the page that preceded onboarding.
+        exitingOnbRef.current = true;
+        window.history.back();
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+    // Mount-once: go + canGoBack are read through refs (always current) so the
+    // listener stays stable and the sentinel isn't re-pushed on every step.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* The "What would you love?" picker starts empty — nothing pre-selected (owner 2026-06-05). */
 
   /* Find-vendor (step 12): fetch REAL reception venues once on entry — the same

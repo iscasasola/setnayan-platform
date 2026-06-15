@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(nav): accordion bottom-nav stays open on tap + hinge keeps its logo (no back-chevron)
+
+Owner: *"when I click on a button I don't want my bottom nav to reset. I want it to stay where the icon is pressed"* and *"if I click on Setnayan, the logo stays and not a back button — then the icons get pushed out while the submenu is pushed in."* Two coupled accordion fixes.
+
+- **`apps/web/app/_components/nav/bottom-nav.tsx`**
+  - **Stay open:** removed the auto-collapse-on-route-change effect (`setOpen(null)` on `pathname`) and replaced it with a keep-open effect — tapping a child navigates AND keeps its section expanded, so the traveling pill glides to the freshly-active child instead of the bar snapping back to the six menus (e.g. *Setnayan → Home* now stays on the Setnayan section with Home lit). The open state persists naturally (the bar lives in the dashboard layout, not remounted across in-section nav). Safeguards: clears any stale animation lock from a fast nav, and follows the active menu if an on-page link jumps to a *different* section. Primary mode stays primary — navigation never auto-opens a section the user didn't tap.
+  - **Logo hinge:** the open menu's hinge (slot 0) now KEEPS its own glyph — the Setnayan logo — instead of swapping to a `ChevronLeft` back-arrow. It still toggles the section closed on tap (rendered in ink as the anchor; `aria-expanded`/`aria-label` updated). The existing expand choreography is unchanged and already reads as "other icons pushed out, submenu pushed in": the hinge glides to the left corner, the other top menus slide off-edge, and the children cascade in from behind the corner. Removed the now-unused `ChevronLeft` import.
+
+Reuses the locked bottom-nav template verbatim (pill/press-light/icon-grow); `lint:botnav` + `next lint` + the isolated-file typecheck all green.
+
+SPEC IMPACT: interaction change to the customer accordion bottom nav (iteration 0021) — sections are sticky-per-session (reversing per-visit collapse) and the section hinge shows the menu's logo rather than a back-chevron.
 ## 2026-06-15 · chore(for-vendors): remove the fabricated "₱18,400/year saved" figure (factual numbers only)
 
 Owner "use factual numbers only" → "then continue." Final fabricated number on the page was the constructed "Average PH vendor saves ₱18,400/year" estimate (no real data — just a sum of competitor tool subscriptions). Removed all 3 user-facing instances in `stack-close-vendor.tsx`, kept the (true) consolidation message:

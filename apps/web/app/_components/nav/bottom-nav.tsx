@@ -62,7 +62,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -227,8 +226,9 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
  * SIX fixed top-level menus. A menu WITH children extracts the accordion
  * in place; a menu WITHOUT children navigates straight. Two modes:
  *   - PRIMARY  : the six menus, evenly distributed (slot i = menu i).
- *   - SECTION  : an open menu's accordion. Slot 0 = the back-hinge (the
- *                tapped menu, leading icon swapped to a left-chevron), slots
+ *   - SECTION  : an open menu's accordion. Slot 0 = the hinge (the tapped menu,
+ *                KEEPS its own glyph — e.g. the Setnayan logo — and toggles the
+ *                section closed on tap; owner 2026-06-15 "the logo stays"), slots
  *                1..n = its children.
  *
  * The locked machinery is REUSED verbatim: the traveling dark pill, the
@@ -337,15 +337,6 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
     [],
   );
 
-  // Auto-collapse to primary mode whenever the route changes — a child tap
-  // navigates, and the bar should settle back to the six menus on the new
-  // page (the spec's "a section you settle into" is per-visit, not sticky).
-  useEffect(() => {
-    setOpen(null);
-    setAnimating(false);
-    setEntering(false);
-  }, [pathname]);
-
   // Drop the `entering` park on the next frame after a mode change so the
   // CSS transition animates the cells from the corner out to their slots.
   useEffect(() => {
@@ -370,6 +361,26 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
       ),
     [topMenus, pathname],
   );
+
+  // Keep the OPENED section expanded across navigation — owner 2026-06-15:
+  // "when I tap a button, the bottom nav must NOT reset; it should stay where
+  // the icon is pressed." This REVERSES the prior auto-collapse-on-route-change:
+  // tapping a child now navigates AND keeps its section open, so the traveling
+  // pill simply glides to the freshly-active child. `open` persists naturally
+  // because the bar lives in the dashboard layout (Next.js doesn't remount it
+  // across in-section navigation). We only (a) clear any stale animation lock
+  // from a fast nav, and (b) if a section is open and the new route belongs to a
+  // DIFFERENT top menu (an on-page link that jumped sections), follow it into
+  // that menu's section. Primary mode stays primary — navigation NEVER auto-
+  // opens a section the user didn't tap (open === null is preserved).
+  useEffect(() => {
+    if (animTimer.current) clearTimeout(animTimer.current);
+    setAnimating(false);
+    setEntering(false);
+    setOpen((prev) =>
+      prev === null ? null : activeMenuIndex >= 0 ? activeMenuIndex : prev,
+    );
+  }, [pathname, activeMenuIndex]);
 
   const openMenu = open !== null ? topMenus[open] : null;
   const openChildren = openMenu?.children?.slice(0, 5) ?? [];
@@ -481,8 +492,9 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
       });
     });
   } else if (openMenu) {
-    // SECTION MODE — back-hinge at slot 0, children at slots 1..n.
-    // The hinge is the open menu (leading icon → left-chevron).
+    // SECTION MODE — hinge at slot 0, children at slots 1..n.
+    // The hinge is the open menu and KEEPS its own glyph (the logo); tapping it
+    // collapses the section (owner 2026-06-15 "the logo stays, not a back button").
     //
     // 🔑 STABLE KEY (FIX 2026-06-15). The hinge reuses the open menu's primary
     // key `m-${openMenu.key}` (NOT a fresh `hinge-*` key), so it is the SAME
@@ -605,8 +617,9 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
                     // No children → the cell is a real <Link>, navigation
                     // happens via the anchor; nothing to do here.
                   }
-                  // children → real <Link> navigation; route change triggers
-                  // the auto-collapse effect.
+                  // children → real <Link> navigation; the section STAYS open
+                  // on route change (owner 2026-06-15) so the pill glides to
+                  // the freshly-active child — see the keep-open effect above.
                 }}
               />
             );
@@ -805,8 +818,9 @@ function BottomNavTab({
  * a menu WITH children + the back-hinge render as a <button> (open/close the
  * section). All share the locked icon-grow-on-press + the gold active icon.
  *
- * The hinge swaps its leading icon to a left-chevron + carries the menu's
- * own icon as a secondary cue, so the "way back" is unmistakable (spec §5.2).
+ * The hinge KEEPS the open menu's own glyph (e.g. the Setnayan logo) rather than
+ * swapping to a back-chevron, and tapping it collapses the section back to the
+ * six menus (owner 2026-06-15 "the logo stays, not a back button").
  */
 function AccordionCell({
   item,
@@ -846,30 +860,27 @@ function AccordionCell({
   const inner = (
     <>
       <span className="relative inline-flex">
-        {role === 'hinge' ? (
-          // Back-chevron is the unmistakable "way back" affordance (spec §5.2).
-          <ChevronLeft
-            aria-hidden
-            className="h-[22px] w-[22px]"
-            strokeWidth={2}
-            style={{
-              color: active ? 'var(--m-orange)' : 'var(--m-ink)',
-              transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
-              transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          />
-        ) : (
-          <Icon
-            aria-hidden
-            className="h-[22px] w-[22px]"
-            strokeWidth={1.75}
-            style={{
-              color: active ? 'var(--m-orange)' : 'var(--m-slate)',
-              transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
-              transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          />
-        )}
+        {/* The hinge keeps its OWN glyph (e.g. the Setnayan logo) — NOT a
+            back-chevron (owner 2026-06-15: "the logo stays, not a back button").
+            It still toggles the section closed on tap; rendered in ink so it
+            reads as the section anchor while a child holds the active pill. */}
+        <Icon
+          aria-hidden
+          className="h-[22px] w-[22px]"
+          strokeWidth={role === 'hinge' ? 2 : 1.75}
+          style={{
+            color:
+              role === 'hinge'
+                ? active
+                  ? 'var(--m-orange)'
+                  : 'var(--m-ink)'
+                : active
+                  ? 'var(--m-orange)'
+                  : 'var(--m-slate)',
+            transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
+            transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+        />
         {item.badge && item.badge.count > 0 ? (
           <BadgeDot
             tone={item.badge.tone}
@@ -939,9 +950,13 @@ function AccordionCell({
       ) : (
         <button
           type="button"
-          aria-expanded={role === 'menu' ? false : undefined}
+          aria-expanded={
+            role === 'menu' ? false : role === 'hinge' ? true : undefined
+          }
           aria-label={
-            role === 'hinge' ? `Back · ${item.label}` : `Open ${item.label}`
+            role === 'hinge'
+              ? `Collapse ${item.label} menu`
+              : `Open ${item.label}`
           }
           aria-hidden={!interactive}
           tabIndex={interactive ? undefined : -1}

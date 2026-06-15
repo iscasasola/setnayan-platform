@@ -26,7 +26,16 @@ const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-export async function EditorialContent({ eventId }: { eventId: string }): Promise<ReactElement> {
+export async function EditorialContent({
+  eventId,
+  share,
+}: {
+  eventId: string;
+  /** Share target for the editorial's own "Share this story" element. Omit for a
+   *  real editorial and it falls back to the couple's own /[slug]; the sample
+   *  detail passes its /realstories/[slug] target. */
+  share?: { url: string; title: string; image: string } | null;
+}): Promise<ReactElement> {
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -53,26 +62,23 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
     };
   }
 
+  // The editorial owns its share affordance (no external bar). Use the passed
+  // target (sample → its /realstories/[slug]) or the couple's own /[slug].
+  const effectiveShare =
+    share ??
+    (data.slug
+      ? {
+          url: `${SHARE_SITE_URL}/${data.slug}`,
+          title: `${data.displayName} — a Setnayan Real Story`,
+          image: `${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`,
+        }
+      : null);
+
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
         <PhaseRibbon />
-
-        {/* Share this story — real editorials only (the curated sample has a
-            null slug; its /realstories/[slug] detail page owns the share bar,
-            so this never double-renders on the sample). Couples share out of
-            pride and their booked vendors for social proof — both drive traffic
-            back via the og:image card at /api/og/realstory-slug/[slug]. */}
-        {data.slug ? (
-          <div className="mt-3 flex justify-end">
-            <ShareButtons
-              url={`${SHARE_SITE_URL}/${data.slug}`}
-              title={`${data.displayName} — a Setnayan Real Story`}
-              image={`${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`}
-            />
-          </div>
-        ) : null}
 
         <div className="border-t-[3px] border-double border-ink" />
 
@@ -94,6 +100,24 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
           right="Priceless"
         />
         <div className="border-t-[3px] border-ink" />
+
+        {/* Share this story — the editorial's OWN designed place (no external
+            bar). Sits in the masthead furniture, just under the dateline, and
+            renders for real editorials and curated samples alike. */}
+        {effectiveShare ? (
+          <div className="border-b border-ink/10 py-3 text-center">
+            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-ink/45">
+              Share this story
+            </p>
+            <div className="mt-2 flex justify-center">
+              <ShareButtons
+                url={effectiveShare.url}
+                title={effectiveShare.title}
+                image={effectiveShare.image}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {/* Lead headline + deck + byline -------------------------------------- */}
         <section className="py-5 text-center sm:py-6">

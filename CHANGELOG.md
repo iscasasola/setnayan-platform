@@ -4,7 +4,13 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-15 · fix(ci): macOS desktop build was red on every PR — empty APPLE_* env broke `tauri build`
+## 2026-06-15 · fix(editorial): mobile dateline — Share flanks Vol·No, date centered (no orphaned Share row)
+
+Owner (mobile screenshot): *"fix placements on mobile version."* On phones the masthead `EditionLine` collapsed `flex-col items-center`, so its three parts stacked into three centered lines — `Vol. I · No. 3`, then `City · Date`, then **Share on its own full row** — re-introducing exactly the "share takes a whole row" the inline-share change removed on desktop.
+
+- **`editorial-content.tsx` `EditionLine`** — split into two responsive layouts: desktop (`sm+`) keeps the single `Vol·No · City·Date · Share` row; mobile (`< sm`) puts **`Vol·No` (left) and `Share` (right) on one flanking row** with the **date centered just below**. So Share stays compact in the dateline furniture and the date reads as the prominent line. Verified on a 390px viewport (Jack & Jill sample).
+
+SPEC IMPACT: None (responsive layout fix). Logged to corpus `DECISION_LOG.md`.
 
 The `build (macos-latest)` desktop job had been failing every PR (non-required, so merges still went through). Root cause: the job set `APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}`, and with no such secret GitHub resolves it to an **empty string** — which `tauri build` treats as "a cert is present" and runs `security import` on nothing → `failed to import keychain certificate`. (A malformed `APPLE_CERTIFICATE` secret set 2026-06-14 was deleted first; the empty-string fallback then surfaced this second failure.)
 

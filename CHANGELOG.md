@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(explore): Shortlist parents now collapse + default to a collapsed overview
+
+Owner: *"we want the parent categories to collapse so we can find the other services faster."* Root cause: the two-level folder→category redesign was built but **never reached `main`** — PR #1504 merged at the FIRST version (folders were always-open headers, so all ~53 categories rendered in one long scroll). The later two-level + size-balance commits landed on the already-merged branch and were orphaned. This lands that redesign (recovered from the orphaned commit) **plus** collapse-by-default.
+
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx`** — replaces the always-open folder headers with a **two-level single-open accordion**: parent categories (folders) are now **collapsible**, and **all collapse by default** so the Shortlist opens as a tight list of the ~10 parents — tap one to reveal its categories, tap a category for its vendor carousel. One folder + one category open at a time. Connecting indent rail, plain height/opacity expand (no sticky overlap), and app-balanced sizing (folder header 18px, tighter rows, smaller cards). Find + Add-manually per category unchanged.
+
+`next lint` + `tsc --noEmit` green.
+
+SPEC IMPACT: None — navigation/layout only. Restores the intended two-level Shortlist and makes the parent list the default view (iteration 0021 / Budget-Build takeover). Supersedes the orphaned never-merged redesign.
+
 ## 2026-06-16 · feat(admin): per-event-type category scoping — close the "add a type → tailor its taxonomy" loop
 
 Owner: *"build a convenience"* so adding an event type guides you to scope its taxonomy (the two — `/admin/event-types` and `/admin/taxonomy` — otherwise drift, and a new type silently inherits the full wedding-shaped category set).

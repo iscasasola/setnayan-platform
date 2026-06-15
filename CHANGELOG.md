@@ -19,6 +19,17 @@ ISOLATION: the Shortlist is now **decoupled from the plan-group lock/build model
 `next lint` + `tsc --noEmit` green. Best eyeballed on the PR's Vercel preview.
 
 SPEC IMPACT: Surfaces a deliberate reversal to flag — the Shortlist tab now shows the **full taxonomy tiles** rather than the **22 planning buckets** (2026-05-22 directive), and the per-tab deadline/tier planning guidance now lives on Build/Lock only. Faith scoping is the existing include-only filter (not a hard "hide" reversal). Iteration 0021 / Budget-Build takeover.
+## 2026-06-16 · feat(nav): docked Guests-section sub-nav (Guests · Seating · Event QR · Hosts)
+
+Owner: *"create a subnav for guests on customer dashboard."* The flat 6-tab bottom nav (#1500) collapses the whole people-and-day-of cluster behind one **Guests** tab, whose `activeMatch` already enumerates the four sibling surfaces that belong to it (`/guests · /seating · /event-qr · /hosts`). This gives that tab the same subordinate shelf the Explore/Services tab got from the reusable `<SubNav>` (#1503) — so a couple can hop Guests ↔ Seating ↔ Event QR ↔ Hosts without bouncing through the bottom nav.
+
+- **`apps/web/app/dashboard/[eventId]/_components/guests-section-subnav.tsx`** (new) — wraps the reusable `<SubNav>` and wires it to the **router** (unlike the Services takeover's in-page panels: the Guests cluster is four separate routes). `onSelect → router.push`, `activeKey ← usePathname` (four mutually-exclusive prefixes; child routes of the list — `/guests/quick`, `/import`, `/claims`, `/checkin`, `/new`, `/[guestId]` — light the "Guests" item, so the shelf rides along on the guest sub-tools and offers a path back). Self-gates: renders the shelf only while the path is inside the cluster, `null` everywhere else. Item set mirrors the Guests bottom-nav tab's `activeMatch` verbatim → single source of truth with the bar above it. Mounting `<SubNav>` flips the bottom nav to icons-only for free (`useSubNavDocked`).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — mounts `<GuestsSectionSubnav>` once next to `<CustomerBottomNav>` (same place + self-gating pattern as the bottom nav, so it's reachable on every cluster route with zero per-page wiring / no orphans). Tagged the mobile shell-main wrapper with `data-shell-main` for the clearance rule below.
+- **`apps/web/app/globals.css`** — while docked, the component flags `<html class="guests-subnav-docked">`; added a rule giving `[data-shell-main]` extra bottom room (`safe-area + 8.5rem`) on mobile so the floating pill never covers the last rows of scrolling content. Cancelled at `lg` (the pill is `lg:hidden`; desktop uses the sidebar, which already lists all four surfaces).
+
+Mobile-only by construction (`<SubNav>` is `lg:hidden`). `tsc --noEmit`, `next lint`, and `lint:botnav` all green (the shelf is a section sub-nav, not a forked bottom-nav, so the single-source guard stays satisfied). Dock offset + the 8.5rem clearance are geometry-derived from the nav — eyeball on the PR's Vercel preview. PR pending (branch `claude/guests-subnav`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Extends the iteration 0021 customer nav chrome — the docked-`SubNav`-per-tab pattern now covers a SECOND tab (Guests), and for the first time drives **routing** rather than in-page panel state. Update [[project_setnayan_bottom_nav_canonical]] + DECISION_LOG.
 
 ## 2026-06-16 · feat(nav): extract a reusable `SubNav` (icon-over-text) + collapse the bottom nav to icons-only while it's docked
 

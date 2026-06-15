@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Globe,
   Lock,
+  Newspaper,
   Pencil,
   Sparkles,
 } from 'lucide-react';
@@ -178,6 +179,12 @@ export default async function WebsiteHubPage({
           icon={<Lock aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Who can view"
           blurb="Choose who reaches your page — anyone with the link, or only your guests."
+        />
+        <QuickLink
+          href={`/dashboard/${eventId}/website/editorial`}
+          icon={<Newspaper aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
+          title="Editorial"
+          blurb="Your front-page story after the day — words, photos, hero, and which features show."
         />
       </div>
 

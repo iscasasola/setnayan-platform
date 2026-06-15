@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(editorial): consolidated editorial editor — words, features, and inputs in one page
+
+Owner: *"the editorial editor will be a page where all of these can be input — the content, choosing of photos, choosing the features they want to show on the editorial."* Confirmed scope: **full story-text control** + **every optional section toggleable**.
+
+Until now the editorial was fully auto-composed and the couple couldn't change a word, hide a block, or pick photos in one place. New page at **`/dashboard/[eventId]/website/editorial`** does all of it:
+
+- **The words (full control)** — eyebrow, headline, sub-headline, the story body (multi-paragraph), pull-quote, byline. Saved to `event_editorial.draft_json`; the compose engine (`composeCopy`) already prefers these over its auto-written defaults, so any field left blank still gets a polished default (nothing can render empty/ugly). The couple's own lead paragraphs now render in `EditorialContent` (previously hard-dropped); the auto love-narrative still stays on the run-up paths.
+- **What shows (every optional section)** — toggles for By the Numbers, photo gallery, guest wishes, vendor team, Powered-by-Setnayan, Live Photo Wall, and the thank-you note → `draft_json.sections`. `EditorialContent` gates each block on the map (`isOn(k) = sections?.[k] !== false`); the masthead, headline, and hero are the always-on spine. Hiding By the Numbers collapses the sidebar to a full-width story.
+- **The inputs** — link cards to the existing piece-editors (Living hero, Photos, Thank-you note) so they live alongside the editor, plus draft/publish controls and a "Preview your editorial" link.
+- **Data + save** — `EditorialData.sections` (read via `readSections(draft_json)`, default-on); `saveEditorial` action merges into existing `draft_json` (preserves unmanaged keys like seeded reviews), sets `status` + `edited_by_couple`, host-membership-gated then written via the admin client (the composer owns `event_editorial`). New "Editorial" tile on the website hub.
+
+No migration — `event_editorial.draft_json` (JSONB) holds it all. `tsc` + `next lint` clean; production build green.
+
+SPEC IMPACT: iteration 0046 — couples now author their editorial (content + section visibility) from one page; render honors `draft_json` content overrides + `draft_json.sections` visibility. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · feat(editorial): the Share button lives ON the editorial (its own masthead spot)
 
 Owner: *"when we open the editorial, the share button will not be outside the editorial — we place it on the editorial itself; it will have its personal place."*

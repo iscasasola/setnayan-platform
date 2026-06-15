@@ -74,6 +74,9 @@ export async function EditorialContent({
         }
       : null);
 
+  // A block shows unless the couple turned it off in the editorial editor.
+  const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
+
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
@@ -148,22 +151,32 @@ export async function EditorialContent({
         {/* Below the photo: the write-up takes the wide column; the Setnayan
             "By the Numbers" sits in a slim corner sidebar. On mobile both stack
             (story first, numbers as the recap right after). */}
-        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[1.95fr_0.85fr] lg:gap-9">
+        <div
+          className={`mt-5 grid grid-cols-1 gap-6 ${
+            isOn('byTheNumbers') ? 'lg:grid-cols-[1.95fr_0.85fr] lg:gap-9' : ''
+          }`}
+        >
           <div className="min-w-0">
             {/* Editorial = post-event SHOWCASE: the love story now lives on the
                 run-up paths (Save the Date / RSVP / Event), not here. We keep
                 the thank-you pull-quote, drop the love-narrative paragraphs. */}
-            <LeadArticle paragraphs={[]} pullQuote={copy.pullQuote} />
-            {data.vendors.length ? <TeamBehindTheDay vendors={data.vendors} /> : null}
+            {/* Couple-written lead paragraphs only (full editorial control); the
+                auto-composed love narrative stays on the run-up paths. */}
+            <LeadArticle paragraphs={data.draft.leadParagraphs ?? []} pullQuote={copy.pullQuote} />
+            {isOn('team') && data.vendors.length ? (
+              <TeamBehindTheDay vendors={data.vendors} />
+            ) : null}
           </div>
 
-          <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
-            <ByTheNumbers data={data} />
-          </aside>
+          {isOn('byTheNumbers') ? (
+            <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
+              <ByTheNumbers data={data} />
+            </aside>
+          ) : null}
         </div>
 
         {/* From the couple (pull from special_message) ------------------------ */}
-        {data.specialMessage ? (
+        {isOn('fromTheCouple') && data.specialMessage ? (
           <>
             <SectionRule title="From the Couple" />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
@@ -171,7 +184,7 @@ export async function EditorialContent({
         ) : null}
 
         {/* Shared photos from the day ----------------------------------------- */}
-        {data.galleryPhotos.length ? (
+        {isOn('gallery') && data.galleryPhotos.length ? (
           <>
             <SectionRule title="From the Day" />
             <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
@@ -180,7 +193,7 @@ export async function EditorialContent({
 
         {/* Live Photo Wall (LIVE_WALL SKU) — a dense masonry of the day's
             candid photos, surfaced only when the couple availed the wall. ---- */}
-        {data.photoWallActive && data.photoWallPhotos.length ? (
+        {isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
           <>
             <SectionRule title="Live Photo Wall" />
             <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
@@ -188,11 +201,15 @@ export async function EditorialContent({
         ) : null}
 
         {/* What they said (reviews from guests / vendors / the couple) -------- */}
-        <SectionRule title="What They Said" />
-        {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+        {isOn('reviews') ? (
+          <>
+            <SectionRule title="What They Said" />
+            {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+          </>
+        ) : null}
 
         {/* The Setnayan experience — in-app services the couple availed ------- */}
-        {data.servicesAvailed.length ? (
+        {isOn('poweredBy') && data.servicesAvailed.length ? (
           <>
             <SectionRule title="Powered by Setnayan" />
             <SetnayanExperience services={data.servicesAvailed} />

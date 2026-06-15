@@ -337,15 +337,6 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
     [],
   );
 
-  // Auto-collapse to primary mode whenever the route changes — a child tap
-  // navigates, and the bar should settle back to the six menus on the new
-  // page (the spec's "a section you settle into" is per-visit, not sticky).
-  useEffect(() => {
-    setOpen(null);
-    setAnimating(false);
-    setEntering(false);
-  }, [pathname]);
-
   // Drop the `entering` park on the next frame after a mode change so the
   // CSS transition animates the cells from the corner out to their slots.
   useEffect(() => {
@@ -370,6 +361,26 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
       ),
     [topMenus, pathname],
   );
+
+  // Keep the OPENED section expanded across navigation — owner 2026-06-15:
+  // "when I tap a button, the bottom nav must NOT reset; it should stay where
+  // the icon is pressed." This REVERSES the prior auto-collapse-on-route-change:
+  // tapping a child now navigates AND keeps its section open, so the traveling
+  // pill simply glides to the freshly-active child. `open` persists naturally
+  // because the bar lives in the dashboard layout (Next.js doesn't remount it
+  // across in-section navigation). We only (a) clear any stale animation lock
+  // from a fast nav, and (b) if a section is open and the new route belongs to a
+  // DIFFERENT top menu (an on-page link that jumped sections), follow it into
+  // that menu's section. Primary mode stays primary — navigation NEVER auto-
+  // opens a section the user didn't tap (open === null is preserved).
+  useEffect(() => {
+    if (animTimer.current) clearTimeout(animTimer.current);
+    setAnimating(false);
+    setEntering(false);
+    setOpen((prev) =>
+      prev === null ? null : activeMenuIndex >= 0 ? activeMenuIndex : prev,
+    );
+  }, [pathname, activeMenuIndex]);
 
   const openMenu = open !== null ? topMenus[open] : null;
   const openChildren = openMenu?.children?.slice(0, 5) ?? [];
@@ -605,8 +616,9 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
                     // No children → the cell is a real <Link>, navigation
                     // happens via the anchor; nothing to do here.
                   }
-                  // children → real <Link> navigation; route change triggers
-                  // the auto-collapse effect.
+                  // children → real <Link> navigation; the section STAYS open
+                  // on route change (owner 2026-06-15) so the pill glides to
+                  // the freshly-active child — see the keep-open effect above.
                 }}
               />
             );

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(nav): tapping a bottom-nav item no longer collapses the accordion — section stays open
+
+Owner: *"when I click on a button I don't want my bottom nav to reset. I want it to stay where the icon is pressed."* The customer accordion bottom nav was collapsing back to the six top menus on every navigation.
+
+- **`apps/web/app/_components/nav/bottom-nav.tsx`** — removed the auto-collapse-on-route-change effect (`setOpen(null)` on `pathname`) and replaced it with a keep-open effect: tapping a child navigates AND keeps its section expanded, so the traveling pill glides to the freshly-active child instead of the bar snapping back. The open state persists naturally (the bar lives in the dashboard layout, which Next.js doesn't remount across in-section navigation). Two safeguards: clears any stale animation lock from a fast nav, and if a section is open while an on-page link jumps to a *different* top menu, follows it into that menu's section. Primary mode stays primary — navigation never auto-opens a section the user didn't tap.
+
+Reuses the locked bottom-nav template verbatim (pill/press-light/icon-grow); `lint:botnav` + `next lint` + the isolated-file typecheck all green.
+
+SPEC IMPACT: minor interaction change to the customer accordion bottom nav (iteration 0021) — sections are now sticky-per-session, reversing the prior per-visit collapse.
+
 ## 2026-06-15 · fix(theme): `burgundy` was an undefined color — primary buttons rendered invisible on 9 surfaces
 
 Owner: *"the editor is fixed?"* — investigating turned up a real, pre-existing bug. After the Clean Editorial rebrand (CTAs → **mulberry**), the old `burgundy` color was **removed from `tailwind.config.ts` and `globals.css` but never deleted from the components**. So `bg-burgundy` / `text-burgundy` / `border-burgundy` were **dead classes** that resolved to nothing — primary buttons rendered with a transparent background (invisible / white-on-white).

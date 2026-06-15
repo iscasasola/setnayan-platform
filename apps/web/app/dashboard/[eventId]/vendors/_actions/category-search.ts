@@ -30,7 +30,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
-import { resolveVendorDisplayName } from '@/lib/vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -57,6 +57,13 @@ import {
 export type CategoryVendorResult = {
   vendorProfileId: string;
   name: string;
+  /** TRUE when `name` is still the hybrid-anonymity placeholder (Free /
+   *  Verified vendor that hasn't replied yet — name_revealed_at IS NULL,
+   *  not venue-exempt, not paid-tier). The overlay surfaces a "Real name
+   *  shown after they reply" subline so couples don't read the
+   *  taxonomy-and-city placeholder as a fake listing
+   *  ([[project_setnayan_vendor_hybrid_anonymity]]). */
+  nameAnonymized: boolean;
   city: string | null;
   logoUrl: string | null;
   rating: number | null;
@@ -467,6 +474,13 @@ export async function searchCategoryVendors(input: {
       primary_canonical_service: prof?.services?.[0] ?? null,
       location_city: r.location_city ?? null,
     });
+    // Same gate `resolveVendorDisplayName` used: TRUE here means the
+    // resolved `name` above is the placeholder, not the real business_name.
+    const nameAnonymized = !isVendorNameRevealed({
+      name_revealed_at: prof?.name_revealed_at ?? null,
+      isPaidTier: isTrueNameTier(prof?.tier_state ?? null),
+      services: prof?.services ?? null,
+    });
     const vLat = (r.hq_latitude as number | null) ?? null;
     const vLng = (r.hq_longitude as number | null) ?? null;
     const dKm =
@@ -501,6 +515,7 @@ export async function searchCategoryVendors(input: {
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
+      nameAnonymized,
       city: r.location_city ?? null,
       logoUrl: r.logo_url ?? null,
       rating: r.avg_rating_overall ?? null,
@@ -581,6 +596,7 @@ export async function searchCategoryVendors(input: {
   const results: CategoryVendorResult[] = ordered.map((s) => ({
     vendorProfileId: s.vendorProfileId,
     name: s.name,
+    nameAnonymized: s.nameAnonymized,
     city: s.city,
     logoUrl: s.logoUrl,
     rating: s.rating,

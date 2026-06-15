@@ -18,6 +18,28 @@ Turned the static 18-month wedding planner into a live, **free** in-app checklis
 Positioning (owner-flagged): the checklist is **FREE and ungated** — a deterministic, zero-marginal-cost core planning tool, NOT behind the paid Setnayan AI SKU. "Setnayan AI" is the free deterministic personalization (tailors WHICH tasks appear by ceremony); the paid AI later adds proactive nudging/auto-advance. **No migration** (table already on prod). `tsc --noEmit` + `next lint` + production build all green; 13/13 unit tests pass.
 
 SPEC IMPACT: New free couple-facing surface + a free-vs-paid positioning call. Logged in corpus `DECISION_LOG.md` (iteration 0016/0021). Free-vs-paid flagged for owner sign-off in the PR.
+## 2026-06-16 · feat(explore): disclose paid placement + explain anonymized vendor names
+
+The couple-facing category-search overlay floated boosted vendors (`ad_rank` desc) above the review-ranked tier under a bare **"Featured"** badge with no disclosure — couples could read paid placement as a Setnayan/AI recommendation. And Free/Verified vendors render an anonymized placeholder name until their first reply (`name_revealed_at IS NULL`) with no explanation, so the listing read as fake. Both additions are UI-only / additive.
+
+- **`apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — added `nameAnonymized: boolean` to `CategoryVendorResult`, computed server-side with the existing `isVendorNameRevealed` gate (same inputs the name resolver already uses; fail-soft `?? null` on every field). Threaded through both result constructions.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx`** — the "Featured" badge now carries a `title` tooltip ("Paid placement … Not an AI recommendation") plus a quiet **"Paid partnership with Setnayan"** subline; anonymized cards show a **"Real name shown after they reply"** subline (only while `nameAnonymized`). New `.disclose` style uses existing `--mono` / `--ink-soft` tokens.
+
+SPEC IMPACT: None (trust/clarity UI; no schema, no pricing, no ranking change — the locked favorites→boosted→reviews→nearest order is untouched). Aligns with [[project_setnayan_vendor_hybrid_anonymity]] + public-surface honesty.
+
+---
+
+## 2026-06-16 · fix(build): align compute upsert onConflict with the multi-pick PK
+
+The Build "Compute" auto-fill (`computeBuildFromShortlist` in `build-flags-actions.ts`) upserted `event_build_picks` with `onConflict: 'event_id,plan_group_id'` — the table's ORIGINAL 2-column PK. Migration `20261020000000_event_build_picks_multi.sql` widened that PK to `(event_id, plan_group_id, vendor_id)` so the multi-service folders (Look / Booths / Prints) can hold several vendors per category, which left the 2-col conflict target matching no constraint (Postgres 42P10). Aligned it to the 3-col PK, exactly as `build-pick-actions.ts` already does.
+
+Behavior is unchanged on the normal path — compute only fills categories with **no** existing pick (the `pinnedGroupIds` guard), so it inserts one row per empty flagged category and never clobbers a couple's picks; this makes the conflict target schema-correct so the upsert can't error on conflict. Surfaced by the 2026-06-16 host-search improvement audit's "multi-pick data-loss" finding — verified the real mechanism is the stale conflict target, not an overwrite (the `pinnedGroupIds` skip already prevents touching populated groups).
+
+- **`apps/web/app/dashboard/[eventId]/vendors/build-flags-actions.ts`** — `onConflict: 'event_id,plan_group_id'` → `'event_id,plan_group_id,vendor_id'` + an explanatory comment.
+
+SPEC IMPACT: None (correctness fix; aligns code with the shipped `20261020000000` multi-pick schema). Context: `03_Strategy/Host_Search_Improvement_Audit_2026-06-16.md` + `Build_3State_Solver_2026-06-16.md` § 12.
+
+---
 
 ## 2026-06-16 · feat(icons): Setnayan AI gets its own glyph (Gem) — resolves the shared-Sparkles clash with Studio
 

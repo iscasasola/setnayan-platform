@@ -287,10 +287,22 @@ function EditionLine({
   right: ReactNode;
 }): ReactElement {
   return (
-    <div className="flex flex-col items-center gap-1 py-2 text-center font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65 sm:flex-row sm:justify-between sm:text-left">
-      <span>{left}</span>
-      <span className="tracking-[0.16em]">{center}</span>
-      <span>{right}</span>
+    <div className="py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65">
+      {/* Desktop: one dateline row — Vol·No · City·Date · Share. */}
+      <div className="hidden items-center justify-between text-left sm:flex">
+        <span>{left}</span>
+        <span className="tracking-[0.16em]">{center}</span>
+        <span>{right}</span>
+      </div>
+      {/* Mobile: Vol·No + Share flank a single row, the date sits centered below
+          — so Share never takes a whole row and the dateline stays compact. */}
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <span>{left}</span>
+          <span>{right}</span>
+        </div>
+        <div className="mt-1.5 text-center tracking-[0.16em]">{center}</div>
+      </div>
     </div>
   );
 }

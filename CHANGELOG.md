@@ -15,6 +15,33 @@ Fix — one line at the root: aliased **`burgundy` → the canonical Mulberry CT
 Verified: the editorial editor's **Publish** button computed background is now `rgb(92, 37, 66)` (#5C2542 Rich Mulberry) instead of transparent; the screenshot shows mulberry toggles + buttons throughout. `tsc` green; dev build renders. Prefer `mulberry` in new code — the `burgundy` slot is back-compat only.
 
 SPEC IMPACT: None (theming bug fix; the Clean Editorial palette is unchanged). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · fix(editorial): mobile dateline — Share flanks Vol·No, date centered (no orphaned Share row)
+
+Owner (mobile screenshot): *"fix placements on mobile version."* On phones the masthead `EditionLine` collapsed `flex-col items-center`, so its three parts stacked into three centered lines — `Vol. I · No. 3`, then `City · Date`, then **Share on its own full row** — re-introducing exactly the "share takes a whole row" the inline-share change removed on desktop.
+
+- **`editorial-content.tsx` `EditionLine`** — split into two responsive layouts: desktop (`sm+`) keeps the single `Vol·No · City·Date · Share` row; mobile (`< sm`) puts **`Vol·No` (left) and `Share` (right) on one flanking row** with the **date centered just below**. So Share stays compact in the dateline furniture and the date reads as the prominent line. Verified on a 390px viewport (Jack & Jill sample).
+
+SPEC IMPACT: None (responsive layout fix). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(editorial): the editor opens PRE-FILLED with the couple's onboarding-derived content
+
+Owner: *"the editorial is dependent on the information placed in the editor; the initial information there is the onboarding information gathered; but they can still change it."* A 3-agent trace confirmed the dependency exists (the editorial auto-composes from onboarding — names → headline, archetype → eyebrow, years/date/venue/tone → sub-headline, guest message → pull-quote — and the editor's `draft_json` overrides + section toggles drive the render) **but** found the gap: the editor page read **only `draft_json`**, so its fields were **blank** until the couple typed — it never *showed* them their onboarding content to edit.
+
+- **`…/website/editorial/page.tsx`** — now runs `loadEditorialData(eventId)` + `composeCopy()` and pre-fills each field with the couple's **current composed copy** (their override on top of the onboarding default): eyebrow, headline, sub-headline, pull-quote, byline. `composeCopy` already prefers a saved override, so an edited field shows the edit and an untouched one shows the auto-written-from-onboarding value. Best-effort (falls back to raw draft if it can't compose). "Your story" stays the couple's own (the editorial body intentionally drops the auto love-narrative — that lives on the run-up paths), so it's never pre-filled.
+- Copy updated (page + "The words" helper): *"These are written from your wedding details. Edit anything — or clear a field to let us rewrite it."* — clearing a field still deletes the override (`saveEditorial`) so it reverts to the dynamic auto-default.
+
+Net: open the editor and you **see your own front-page story already written from onboarding**, ready to tweak — and the editorial stays dependent on onboarding for anything you don't change. `tsc` + `next lint` clean. (Live click-through still pending the Chrome extension connecting.)
+
+SPEC IMPACT: iteration 0046 — the editorial editor's initial field values are the couple's onboarding-derived composed copy (editable; clear-to-revert). Logged to corpus `DECISION_LOG.md`.
+
+The `build (macos-latest)` desktop job had been failing every PR (non-required, so merges still went through). Root cause: the job set `APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}`, and with no such secret GitHub resolves it to an **empty string** — which `tauri build` treats as "a cert is present" and runs `security import` on nothing → `failed to import keychain certificate`. (A malformed `APPLE_CERTIFICATE` secret set 2026-06-14 was deleted first; the empty-string fallback then surfaced this second failure.)
+
+- **`.github/workflows/build-desktop.yml`** — removed the job-level `APPLE_*` signing `env:` block so the vars are **unset** (not empty). `tauri build` now skips cert import and the existing ad-hoc signing step produces an unsigned `.app`/`.dmg` → green. Documented how to re-add the env (gated on the secret existing, never empty) when a real Developer ID cert is configured for signed/notarized distribution.
+
+Context: owner has no Apple Developer ID cert installed (`security find-identity` → 0 identities) and the desktop app is not a launch blocker (web-first V1). Signed Mac distribution is deferred.
+
+SPEC IMPACT: None (CI infrastructure only).
+
+## 2026-06-15 · fix(for-vendors): vendor prices were rendering without the ₱ sign (missing peso glyph)
 
 Found while verifying the mobile tier-switcher (previous entry) on prod: the live `/for-vendors` matrix showed Pro/Enterprise as "**6,000 / 28d**" / "**10,000 / 28d**" — no peso sign — while Free/Verified showed "₱0". The new mobile price banner made it glaring.
 

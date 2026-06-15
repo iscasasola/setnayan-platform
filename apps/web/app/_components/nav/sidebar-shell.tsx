@@ -38,6 +38,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useHideOnScroll } from './use-hide-on-scroll';
 
 const STORAGE_KEY = 'setnayan.nav.sidebar.collapsed';
 
@@ -68,6 +69,14 @@ export function SidebarShell({ sidebar, sidebarFooter, topBar, children }: Props
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
   const [collapsed, setCollapsed] = useState(false);
+
+  // Universal top-nav rule (owner 2026-06-15): the sticky top bar hides on
+  // scroll-down and reveals on scroll-up — same behavior as the marketing
+  // site nav. One change here covers all three dashboard doorways (couple /
+  // vendor / admin), since each composes its top bar through this slot. Only
+  // engages when a topBar is actually present. The desktop LEFT sidebar is a
+  // side nav, not a top nav, so it stays put — the rule is top-navs-only.
+  const topBarHidden = useHideOnScroll(Boolean(topBar));
 
   useEffect(() => {
     try {
@@ -184,8 +193,11 @@ export function SidebarShell({ sidebar, sidebarFooter, topBar, children }: Props
               // `shell-topbar` is a stable hook so an individual page can
               // hide the sticky top strip (e.g. the Vendors tab renders its
               // own full-bleed black budget bar in its place). Purely a
-              // styling hook — no behavior here.
-              className="shell-topbar sticky top-0 z-20"
+              // styling hook — no behavior here. The transform classes apply
+              // the universal hide-on-scroll-down / reveal-on-scroll-up rule.
+              className={`shell-topbar sticky top-0 z-20 transition-transform duration-300 ease-out motion-reduce:transition-none ${
+                topBarHidden ? '-translate-y-full' : 'translate-y-0'
+              }`}
               style={{
                 background: 'var(--m-paper)',
                 borderBottom: '1px solid var(--m-line)',

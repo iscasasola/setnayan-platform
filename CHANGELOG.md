@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(nav): universal top-nav hide-on-scroll-down / reveal-on-scroll-up
+
+Owner: *"we want to apply this as a universal rule on top navs. whether on website or on dashboards."* The marketing site nav already auto-hid on scroll-down (owner 2026-06-14, for the full-screen hero scrub); this promotes that to a platform-wide rule so every top nav behaves the same — marketing pages AND the couple / vendor / admin dashboards.
+
+- **`apps/web/app/_components/nav/use-hide-on-scroll.ts`** (new) — single canonical hook. Lifts the exact scroll math out of `site-nav.tsx` (window `scrollY`; always-visible 64px top band; ±4px deadzone; `requestAnimationFrame`-throttled passive listener) and returns `hidden`. `enabled` arg (default true) lets a caller opt out without breaking rules-of-hooks. The caller owns the visual treatment, so each surface keeps its own palette/transition.
+- **`apps/web/app/_components/nav/hide-on-scroll-header.tsx`** (new) — thin client `<header>` wrapper around the hook, so **server**-component surfaces (e.g. `OuterDashboardHeader`) can adopt the rule without becoming client components themselves.
+- **`apps/web/app/_components/nav/sidebar-shell.tsx`** — the sticky `topBar` slot now applies the transform (`-translate-y-full` ↔ `translate-y-0`, 300ms ease, `motion-reduce`-aware) driven by `useHideOnScroll(Boolean(topBar))`. **One change here covers all three dashboards** (couple `dashboard/[eventId]`, `vendor-dashboard`, `admin`) since each injects only the inner row into this shared slot. The desktop LEFT sidebar is a side nav, not a top nav, so it stays put.
+- **`apps/web/app/_components/marketing/site-nav.tsx`** — refactored to consume the shared hook (deleted its inline `useState`/`useEffect` copy). Behavior identical; now a single source of truth.
+- **`apps/web/app/dashboard/_components/outer-dashboard-header.tsx`** — account-routes mobile sticky header swapped to `<HideOnScrollHeader>`.
+
+Left intentionally untouched: the **Explore/marketplace search bar** (a search affordance deliberately pinned so it never scrolls away — not a nav) and all **bottom navs** (owner said *top* navs; bottom-nav canonical lock).
+
+Validation: local `tsc --noEmit` couldn't run cleanly in the worktree (pnpm symlink resolution across the worktree boundary reports a blanket "Cannot find module 'react'" for every file — toolchain, not code). The hook body is lifted verbatim from the already-CI-green `site-nav.tsx`; required CI (typecheck + lint + production build) gates the auto-merge.
+
+SPEC IMPACT: chrome-behavior rule — `site-nav.tsx` hide-on-scroll generalized to every top nav (iteration 0000 shell + 0021/0022/0023 dashboards). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
 
 Owner: "make the imagery more relatable — we want them to feel 'yes, that is my problem.'" The `EditorialBand` showed a styled candlelit reception table — the aspirational *output*, which reads as the dream, not the pain. The whole repo image library (836 assets) is polished output; nothing depicts a vendor's daily grind.

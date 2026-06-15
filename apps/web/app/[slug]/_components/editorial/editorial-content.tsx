@@ -17,7 +17,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type ReactElement } from 'react';
+import { type ReactElement, type ReactNode } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -77,6 +77,13 @@ export async function EditorialContent({
   // A block shows unless the couple turned it off in the editorial editor.
   const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
 
+  // Masthead dateline numbers — Volume = the wedding's year (Vol. I = 2026,
+  // Vol. II = 2027…); No. = its number within that year.
+  const edYear = data.eventDate ? Number(data.eventDate.slice(0, 4)) : null;
+  const editionLeft = `Vol. ${toRoman(
+    edYear && edYear >= 2026 ? edYear - 2025 : 1,
+  )} · No. ${data.editionNo ?? 1}`;
+
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
@@ -97,30 +104,26 @@ export async function EditorialContent({
         </header>
 
         <div className="border-t border-ink/80" />
+        {/* The share control replaces "Priceless" inline in the dateline (no
+            full-width row) — the editorial owns its share affordance, compact in
+            the masthead. Real editorials + curated samples both get it. */}
         <EditionLine
-          left="Vol. I · No. 1"
+          left={editionLeft}
           center={editionCenter(data)}
-          right="Priceless"
-        />
-        <div className="border-t-[3px] border-ink" />
-
-        {/* Share this story — the editorial's OWN designed place (no external
-            bar). Sits in the masthead furniture, just under the dateline, and
-            renders for real editorials and curated samples alike. */}
-        {effectiveShare ? (
-          <div className="border-b border-ink/10 py-3 text-center">
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-ink/45">
-              Share this story
-            </p>
-            <div className="mt-2 flex justify-center">
+          right={
+            effectiveShare ? (
               <ShareButtons
+                compact
                 url={effectiveShare.url}
                 title={effectiveShare.title}
                 image={effectiveShare.image}
               />
-            </div>
-          </div>
-        ) : null}
+            ) : (
+              'Priceless'
+            )
+          }
+        />
+        <div className="border-t-[3px] border-ink" />
 
         {/* Lead headline + deck + byline -------------------------------------- */}
         <section className="py-5 text-center sm:py-6">
@@ -283,7 +286,7 @@ function EditionLine({
 }: {
   left: string;
   center: string;
-  right: string;
+  right: ReactNode;
 }): ReactElement {
   return (
     <div className="flex flex-col items-center gap-1 py-2 text-center font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65 sm:flex-row sm:justify-between sm:text-left">
@@ -740,6 +743,25 @@ function Colophon({ names, city }: { names: string; city: string | null }): Reac
 }
 
 // ── tiny presentational helpers ───────────────────────────────────────────────
+
+// Volume number as a masthead Roman numeral (1 → I, 2 → II, …). Falls back to
+// the Arabic number above the small-numeral table for far-future volumes.
+function toRoman(n: number): string {
+  if (!Number.isFinite(n) || n < 1) return 'I';
+  const table: Array<[number, string]> = [
+    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'],
+    [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let out = '';
+  let v = Math.floor(n);
+  for (const [val, sym] of table) {
+    while (v >= val) {
+      out += sym;
+      v -= val;
+    }
+  }
+  return out;
+}
 
 function nameplate(displayName: string): string {
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();

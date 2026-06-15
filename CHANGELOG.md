@@ -18,6 +18,27 @@ The `/for-vendors` deep-dive comparison matrix is a fixed 5-column grid (Capabil
 No price/feature/copy changes — every tier value is identical to before; this is presentation only. `tsc` + `next lint` + `lint:retired` + `lint:botnav` clean; production build green.
 
 SPEC IMPACT: None (presentation-only responsive fix; pricing + feature matrix unchanged). UX decision (mobile pricing pattern = tier switcher) logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(editorial): masthead Vol./No. are real — Volume = year, No. = wedding's number that year
+
+Owner: *"Vol. 1 · No. 1 will be our weddings. Volume 1 is 2026, Volume 2 is 2027. No. 1 is the wedding number for the year."* The dateline's `Vol. I · No. 1` was hardcoded — now it's computed:
+
+- **Volume = the wedding's year** as a Roman numeral, anchored at **Vol. I = 2026** (`year − 2025`; Vol. II = 2027…). New `toRoman()` in `editorial-content.tsx`; `EditionLine` left slot now takes the computed string.
+- **No. = the wedding's number within its year** — the Nth Setnayan wedding of that year, by date. `EditorialData.editionNo`: the real loader (`loadEditorialData`) counts `event_type='wedding'` rows in the same year with `event_date <=` this wedding's (best-effort → null falls back to No. 1); the 5 samples are stamped chronologically for 2026 (Maria & Juan 1, John & Jane 2, Jack & Jill 3, Jack & Rose 4, Peter & Mary 5).
+
+Verified: Jack & Jill → `Vol. I · No. 3`, Peter & Mary → `Vol. I · No. 5`. `tsc` + `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — the editorial masthead dateline encodes the platform's wedding edition (Volume = year from 2026, No. = wedding-of-the-year). Logged to corpus `DECISION_LOG.md`.
+
+## 2026-06-15 · fix(editorial): share goes inline in the dateline (replaces "Priceless"), not a full row
+
+Owner: *"we don't want the share button to take up a whole row — place it on the part of 'Priceless' and replace Priceless."* (Format: `SHARE` (f) (p) (⛓).)
+
+- **`app/realstories/_components/share-buttons.tsx`** — added a `compact` variant: a small `SHARE` mono label + three icon-only buttons (Facebook, Pinterest, copy-link chain), no pills/labels, sized for the masthead dateline.
+- **`app/[slug]/_components/editorial/editorial-content.tsx`** — removed the full-width "Share this story" strip; the `EditionLine` right slot (where **Priceless** was) now renders `<ShareButtons compact … />` for real editorials + samples, falling back to `Priceless` when there's no share target. `EditionLine.right` widened from `string` to `ReactNode`.
+
+Net: the dateline reads `Vol. I · No. 1` · `City · Date` · `Share (f)(p)(⛓)` — no extra row. `tsc` + `next lint` clean; verified on the Maria & Juan sample.
+
+SPEC IMPACT: iteration 0046 — the editorial share control is inline in the dateline (replaces the price slot), supersedes the 2026-06-15 full-row masthead strip. Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · feat(editorial): consolidated editorial editor — words, features, and inputs in one page
 

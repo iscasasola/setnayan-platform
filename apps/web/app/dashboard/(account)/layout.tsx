@@ -128,6 +128,7 @@ export default async function AccountDashboardLayout({
                 monogram_frame_key: primary.monogram_frame_key,
                 monogram_font_key: primary.monogram_font_key,
                 monogram_style: primary.monogram_style,
+                monogram_custom_svg: primary.monogram_uploaded_svg ?? primary.monogram_custom_svg,
               }
             : null
         }
@@ -141,6 +142,7 @@ export default async function AccountDashboardLayout({
           monogram_frame_key: e.monogram_frame_key,
           monogram_font_key: e.monogram_font_key,
           monogram_style: e.monogram_style,
+          monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
         }))}
         hasVendorAccess={roles.hasVendorAccess}
         hasAdminAccess={roles.hasAdminAccess}

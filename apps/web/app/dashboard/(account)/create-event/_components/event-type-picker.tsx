@@ -27,7 +27,9 @@ type ConciergeChoice = 'diy';
  * wedding-specific columns.
  *
  * The old per-surface WeddingTypePicker / wedding_type_launch_status path was
- * already dead (Wedding showed a "Continue →" card, never this form) — removed.
+ * already dead (Wedding showed a "Continue →" card, never this form). The orphaned
+ * wedding-type-picker.tsx component was deleted 2026-06-15 — the tailored
+ * /onboarding/wedding flow is the one and only wedding onboarding now.
  */
 export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
   const router = useRouter();
@@ -41,7 +43,11 @@ export function EventTypePicker({ types }: { types: EventTypeRow[] }) {
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
     if (type.onboardingHref) {
-      router.push(type.onboardingHref);
+      // REPLACE (not push) so this legacy event-type picker never lingers in history
+      // as a Back target behind the tailored onboarding — backing out of onboarding at
+      // its first screen returns to the dashboard, never "the old onboarding page".
+      // (owner bug 2026-06-15)
+      router.replace(type.onboardingHref);
       return;
     }
     setSelectedKey(type.key);

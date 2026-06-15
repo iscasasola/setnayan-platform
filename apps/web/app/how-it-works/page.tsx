@@ -11,7 +11,6 @@ import {
   Clock,
   Apple,
 } from 'lucide-react';
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { Logo } from '@/app/_components/logo';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -206,7 +205,6 @@ export default async function HowItWorksPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOW_IT_WORKS_JSONLD) }}
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
-        <Nav />
 
         {/* Hero */}
         <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">

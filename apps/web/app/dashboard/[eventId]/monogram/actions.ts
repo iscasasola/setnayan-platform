@@ -1,9 +1,11 @@
 'use server';
 
+import sharp from 'sharp';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveMonogramMotion } from '@/lib/monogram-motion';
+import { sanitizeBespokeSvg } from '@/lib/bespoke-monogram-engine';
 
 /**
  * saveMonogram — persists the couple's monogram from the standalone Monogram
@@ -103,4 +105,108 @@ export async function saveMonogram(formData: FormData): Promise<void> {
   // header) refreshes, mirroring the onboarding/updateEventDate convention.
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);
+}
+
+/* ── Upload your own monogram (owner rule 2026-06-15) ─────────────────────────
+   A couple uploads THEIR OWN mark; it OVERRULES every Setnayan mark (the
+   Cipher/Bespoke `monogram_custom_svg` AND the lettered lockup). Stored on
+   `events.monogram_uploaded_svg` as render-ready, inert SVG markup so it shows
+   inline everywhere the custom mark already does (chrome icon, website hero,
+   maker preview) — the app resolves precedence as
+   `monogram_uploaded_svg ?? monogram_custom_svg`, so there is never a second
+   monogram, only one active mark.
+
+   • SVG upload → sanitizeBespokeSvg() (the bespoke allowlist: no
+     scripts/handlers/foreignObject/href/data:). Rejected (not repaired) → error.
+   • Raster (PNG/JPG/WEBP) → sharp downscale to a 512px transparent webp, wrapped
+     in `<svg><image href="data:image/webp;base64,…"/></svg>`. Machine-built from
+     sharp output (trusted), inert (it renders via a data-URI <img> everywhere). */
+const MAX_MONOGRAM_UPLOAD_BYTES = 4 * 1024 * 1024; // 4 MB raw file cap
+const ACCEPTED_MONOGRAM_TYPES = new Set([
+  'image/svg+xml',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+]);
+// Final stored markup cap — a 512px webp base64 is comfortably under this; the
+// SVG path already self-caps at 400 KB inside sanitizeBespokeSvg.
+const MAX_STORED_MARK_BYTES = 380_000;
+
+export async function uploadMonogram(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) throw new Error('Missing event_id');
+
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/dashboard/${eventId}/monogram?upload=empty`);
+  }
+  if (file.size > MAX_MONOGRAM_UPLOAD_BYTES) {
+    redirect(`/dashboard/${eventId}/monogram?upload=too_big`);
+  }
+  const type = file.type || '';
+  if (!ACCEPTED_MONOGRAM_TYPES.has(type)) {
+    redirect(`/dashboard/${eventId}/monogram?upload=bad_type`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  let markSvg: string | null = null;
+  if (type === 'image/svg+xml') {
+    markSvg = sanitizeBespokeSvg(await file.text());
+    if (!markSvg) redirect(`/dashboard/${eventId}/monogram?upload=bad_svg`);
+  } else {
+    let webp: Buffer;
+    try {
+      webp = await sharp(Buffer.from(await file.arrayBuffer()))
+        .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .webp({ quality: 82 })
+        .toBuffer();
+    } catch {
+      redirect(`/dashboard/${eventId}/monogram?upload=bad_image`);
+    }
+    markSvg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">` +
+      `<image width="512" height="512" href="data:image/webp;base64,${webp.toString('base64')}"/></svg>`;
+  }
+
+  if (!markSvg || markSvg.length > MAX_STORED_MARK_BYTES) {
+    redirect(`/dashboard/${eventId}/monogram?upload=too_big`);
+  }
+
+  const { error } = await supabase
+    .from('events')
+    .update({ monogram_uploaded_svg: markSvg })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/monogram`);
+  redirect(`/dashboard/${eventId}/monogram?upload=ok`);
+}
+
+export async function removeUploadedMonogram(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  if (!eventId) throw new Error('Missing event_id');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Clearing the upload falls back to the bespoke/cipher mark, then the lettered
+  // lockup — one active mark, never a duplicate.
+  const { error } = await supabase
+    .from('events')
+    .update({ monogram_uploaded_svg: null })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/monogram`);
+  redirect(`/dashboard/${eventId}/monogram?upload=removed`);
 }

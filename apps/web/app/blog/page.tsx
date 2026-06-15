@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Newspaper, ArrowRight, ArrowUpRight } from 'lucide-react';
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
   ALL_BLOG_ARTICLES,
@@ -208,7 +207,6 @@ export default async function BlogIndexPage({ searchParams }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <Nav />
 
       {/* ===== Cover (unfiltered only) ===== */}
       {featured ? (

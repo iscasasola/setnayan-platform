@@ -32,7 +32,6 @@
  * touched COPY only, not button positions.
  */
 
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { VendorHero } from './_components/vendor-hero';
 import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
@@ -250,7 +249,6 @@ export default async function ForVendorsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
       />
       <main className="m-surface min-h-dvh">
-        <Nav />
         <VendorHero />
         {/*
           VendorVision · the "why" spine (owner brief 2026-06-15). The narrative

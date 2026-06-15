@@ -15,6 +15,108 @@ Owner: *"build and merge to the website."* Lands the single-source-of-truth rout
 Both registries are additive and **unimported** — zero runtime/behavior change beyond the one nav glyph. `tsc --noEmit` + `next lint` green. Next (separately gated): codemod-migrate callers onto the registry + route-integrity guards (fs↔registry, no-raw-strings, every-nav-route-has-an-icon).
 
 SPEC IMPACT: None for the registries (internal foundation). Minor: customer nav 'Setnayan' menu glyph is now the brand mark (iteration 0021).
+## 2026-06-15 · feat(realstories): a wall of living front pages — dedup sections, search, live ping-pong video
+
+Owner: *"this needs to be visually powerful. each editorial is already a front-page look. showcase Featured, most-viewed, new editorials, and a search — a systematic way to flex all our editorials. if an editorial is featured AND most-viewed it shows in only one. and run the 5-second hero clip live, looping forward and reverse so the shot doesn't feel cut."*
+
+`/realstories` was a single sample card on a flat page. Rebuilt as a **gallery of magazine covers** organised by one **dedup cascade** (each story claimed by its highest bucket, never repeated) + search, applying the locked "living Daily-Prophet front page" editorial DNA at the index level.
+
+- **`apps/web/app/realstories/_components/gallery.tsx`** (new, client island) — `RealStoriesGallery`:
+  - **Cascade:** `The cover` (lowest `featureRank` = admin-pinned hero, 1 story) → `Most loved` (next editor-ranked picks — the **editors'-pick stand-in for "most viewed"** until view tracking exists; no fabricated counts shown) → `Just published` (newest of what's left) → `The archive` (everything still unseen). A `Set` of shown hrefs guarantees no story appears twice. Empty sections self-hide → looks right with 1 story or 50.
+  - **Search** — a live-filtered bar (couple · city · ceremony · venue · theme); non-empty query collapses the sections into one results grid with a count + clear.
+  - **`BoomerangVideo`** — plays a 5s hero clip forward natively, then reverse-scrubs `currentTime` to 0 via rAF (negative `playbackRate` is unreliable in Chrome/Safari), then forward again → seamless ping-pong, no felt cut. **Viewport-gated** (IntersectionObserver), **≤3 concurrent** (global slot scheduler — the Daily-Prophet rule), muted/playsInline, poster still, and **honors `prefers-reduced-motion`** (poster only).
+- **`apps/web/lib/real-weddings.ts`** — `RealWedding` gains `heroImageUrl`, `heroVideoUrl`, `featureRank`. **Seeded 5 new clearly-labelled `Sample` editorials** (Bea & Niko · Cebu beach; Andrea & Paolo · Manila rooftop; Sofia & Liam · Baguio forest; Camille & Rey · Tagaytay estate; Mira & Caleb · Laguna lakeside) with full story/team content, plus hero media on Maria & Juan — so all four sections populate now. Each carries a visible **Sample** badge (no story is presented as a real client).
+- **`apps/web/lib/showcase-db.ts`** — `ShowcaseEntry` gains `heroImageUrl`/`heroVideoUrl`/`featureRank`; `loadPublishedShowcases` now resolves `events.landing_page_hero_image_url` → display URL and carries `showcase_feature_rank`, so **real consent-gated editorials get the identical treatment** automatically when they publish (~Dec 2026).
+- **`apps/web/app/realstories/page.tsx`** — normalizes samples OR DB showcases into one `GalleryItem[]` and renders the gallery (JSON-LD/SEO + CTA unchanged).
+- **`apps/web/app/realstories/[slug]/page.tsx`** — the new samples (no editorial fixture) now render a proper **front-page editorial** (`SampleEditorial`: hero image/video + pull-quote + story + palette + team) instead of a bare card.
+- **`apps/web/public/realstories/*`** (new assets) — 6 editorial hero stills (Recraft, ~2 MB total) + 2 real 5-second hero clips (Higgsfield Kling 3.0, viewport-gated). No identifiable real people are presented as clients; assets are marketing samples.
+
+Validation: `tsc --noEmit` green; `next lint` clean on changed files (only the repo-standard `<img>` LCP warning). Production build gates auto-merge.
+
+SPEC IMPACT: iteration 0046 Real Weddings showcase — the index becomes a dedup-cascaded gallery (Cover / Most loved / Just published / Archive) with search + live ping-pong hero video; "most viewed" ships as an editors'-pick stand-in pending view tracking. Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(monogram): upload your own monogram — it overrules every Setnayan mark
+
+Owner rule: when a couple uploads THEIR OWN monogram in the Monogram Maker, it must **overrule** every Setnayan mark — the Cipher / Bespoke-AI `monogram_custom_svg` AND the lettered lockup — everywhere, with no second monogram stored.
+
+- **Migration `20261228000213_add_monogram_uploaded_svg_column.sql`** — one nullable `events.monogram_uploaded_svg` column, holding the uploaded mark as render-ready **inline SVG markup** (same storage model as `monogram_custom_svg`, so it renders inline everywhere with zero presigned-URL plumbing). **Applied to prod.**
+- **Upload + remove server actions** (`monogram/actions.ts`) — `uploadMonogram` accepts PNG/JPG/WEBP/SVG (≤4 MB): an **SVG** is run through `sanitizeBespokeSvg` (the bespoke allowlist — no scripts/handlers/href/data:); a **raster** is `sharp`-downscaled to a 512px transparent webp and wrapped in `<svg><image href="data:image/webp;base64,…"/></svg>` (machine-built, inert, renders via the existing data-URI `<img>` path). `removeUploadedMonogram` clears it → falls back to the bespoke/cipher mark, then the lettered lockup. RLS-scoped to the couple (mirrors `saveMonogram`).
+- **Upload card UI** (`monogram/upload-card.tsx`) — a "Upload your own" card at the **top** of the Maker (it overrides everything below): file picker + live preview + active/remove states + status notices.
+- **Precedence — uploaded wins everywhere it shows.** Resolved at the data layer as `monogram_uploaded_svg ?? monogram_custom_svg` fed into the **existing** custom-mark slot, so the surfaces that already render the custom mark show the upload with no component changes: the **chrome icon** (`EventMonogram`, via all four chrome layouts + `fetchUserEvents`), the **website hero** (`[slug]/page.tsx` `bespokeSvg`), and the **Maker preview**. All three render via the inert data-URI `<img>` path, which handles the raster-wrapped SVG.
+
+Scope note: QR centers stay typographic (legibility, unchanged), and the PDF/social-card builders keep their current mark — embedding a raster-wrapped SVG there needs a raster-capable path (follow-up). `tsc --noEmit` green; `next lint` clean on changed files. PR pending (branch `claude/monogram-upload`, auto-merge). Verify on the Vercel preview: upload a PNG/SVG in the Maker → it shows in the dashboard chrome icon + the website hero; Remove → falls back.
+
+SPEC IMPACT: iteration 0037 (monogram) — new top-priority uploaded-monogram source overruling the AI/Cipher + lettered marks. Logged to corpus `DECISION_LOG.md`.
+
+## 2026-06-15 · fix(nav): ONE persistent top nav for the whole site (stop the per-page remount)
+
+Owner: *"why is it when we press a menu on the top nav of the website, the top nav also resets? we already said the top nav stays and the body should only change. we do not need one top nav for each. we want one top nav to navigate the whole website."*
+
+Root cause: every marketing page rendered its **own** `<Nav>` inside its `page.tsx`. In the App Router a `page` is unmounted and rebuilt on every navigation, so each nav click tore down the old nav and mounted a fresh one — the "reset"/flash, and (since #1475) the hide-on-scroll state reset too. A nav rendered in a **layout** is preserved across navigations; only the body re-renders.
+
+- **`apps/web/app/_components/marketing/site-chrome.tsx`** (new) — `SiteChrome`, a thin client gate. Reads `usePathname()` and renders the shared `<Nav>` only on the explicit set of public marketing routes (exact-match = behavior-preserving), `null` everywhere else. `/explore` gets `sticky={false}` (its own search bar pins). Canonical post-redirect paths handled: `/vendors`→`/explore`, `/weddings`→`/realstories`.
+- **`apps/web/app/layout.tsx`** — mounts `<SiteChrome />` **once**, inside `<Providers>` as a sibling of `{children}`. The root layout is the only shared ancestor of the flat public pages, so a single Nav instance now survives every navigation; only the page body swaps.
+- **Removed the per-page `<Nav>` (import + render) from all 12 pages** that had it: `page.tsx` (home), `about`, `how-it-works`, `pricing`, `for-vendors`, `our-story`, `blog`, `realstories`, `features/_PageBody`, `explore`, `tl/about`, `tl/how-it-works`. No page gains/loses the nav — it's the same set, just hoisted.
+
+Untouched: the legacy `SiteHeader` on `/waitlist` + `/download` (separate component), guest-landing / vendor-profile / venue pages (their own `NavLinksRow` chrome), and all authed consoles (own chrome; `SiteChrome` returns null there). To extend the nav to more public routes later, add the path to `NAV_ROUTES`.
+
+Validation: local `tsc` blocked by the same worktree pnpm-symlink resolution issue as #1475 (blanket "Cannot find module 'react'" — toolchain, not code). Verified no dangling `Nav` references remain in the 12 pages (grep), import paths resolve, and the gate routes match the real redirected pathnames. Required CI (typecheck + lint + production build) gates the auto-merge.
+
+SPEC IMPACT: chrome architecture — the marketing top nav becomes a single persistent layout-level instance (iteration 0000 shell / 0015 main website). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(monogram): one monogram everywhere — long-press chrome icon to edit + custom-SVG shows in chrome
+
+Owner directive: the event monogram must be a single source of truth — the chrome icon links to the Maker, the Maker pre-loads the current mark, editing it changes the default everywhere, and **no second monogram** is ever stored. Investigation confirmed the lettered model was *already* single-source (onboarding ↔ Maker ↔ chrome all read/write the same `monogram_style/_font_key/_frame_key` columns; the Maker already pre-loads + `saveMonogram` revalidates the chrome). Two gaps remained, resolved per owner's answers:
+
+- **Q1 — long-press to edit (`event-switcher.tsx`).** The chrome monogram chip stays a **picker** (tap now opens the event switcher); a **long-press** raises a portaled confirm — *"Do you want to edit your monogram? [No] [Let's edit]"* — and "Let's edit" routes to `/dashboard/[eventId]/monogram` (the Maker). Esc / backdrop dismiss. The empty "+" anchor has no monogram so it's exempt (long-press no-ops; tap still links to create-event). Reassigns the chip's old tap→Home / long-press→switcher behavior (the adjacent caret still opens the switcher too).
+- **Q2 — custom SVG shows everywhere (`event-monogram.tsx` + chrome plumbing).** When a couple makes a Cipher/Bespoke-AI mark (`monogram_custom_svg`), `EventMonogram` now renders it (inert `<img>` data-URI, object-contain in the round chip) as the **top-priority** branch, so the small dashboard/switcher icon matches the website hero/QR — genuinely one mark, no letters-in-chrome / SVG-on-hero split. Plumbed `monogram_custom_svg` through `lib/events.ts` (`fetchUserEvents` select + `EventRow`), the `SwitcherEvent` type + `currentMonogramCustomSvg` prop, and all four chrome layouts (couple `[eventId]`, account, admin, vendor) + `OuterDashboardHeader`.
+
+No schema change — every column already exists. `saveMonogram` and the precedence model are unchanged (custom mark outranks lettering, exactly as the hero already did). `tsc --noEmit` green; `next lint` clean on changed files. PR pending (branch `claude/monogram-single-source`, auto-merge). Verify on the Vercel preview: long-press the header monogram → edit confirm → Maker; a couple with a Cipher/Bespoke mark sees it in the chrome icon.
+
+SPEC IMPACT: behavior on iterations 0000 (event-switcher chrome — monogram chip tap=picker, long-press=edit) + 0037 (bespoke/cipher monogram now renders in chrome). Logged to corpus `DECISION_LOG.md`.
+
+## 2026-06-15 · fix(onboarding): system Back walks the wedding-onboarding steps (no escape to the old picker)
+
+Owner bug: *"the onboarding when back is pressed doesn't go back from the previous onboarding — it went back to the old onboarding, which is wrong. The only onboarding should be the new one."* The new `/onboarding/wedding` flow drives its 15+ screens with pure React state (`go(d)`), so the on-screen "‹" button worked — but the **device hardware Back button, the browser Back button, and the mobile swipe-back gesture were never intercepted**. They popped the whole page out of onboarding, landing the couple on whatever loaded before it. For the dashboard / `create-event` entry path that previous page was the legacy `/dashboard/create-event` event-type picker = the "old onboarding" the owner kept hitting.
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — added a mount-once history **sentinel trap**: keep exactly one extra history entry on top while the shell is mounted; each Back press pops it → `go(-1)` (which already handles the refine / style sub-steps) → re-arm a fresh sentinel (same URL, so the address bar never changes). On the first screen (`welcome`) the pop is allowed through so the couple still leaves onboarding cleanly. Forward nav stays pure state (no `pushState`), so the sentinel always sits on top. `go` + a `canGoBack` flag are read through refs so the listener stays stable (no re-arm per step). An `exitingOnbRef` flips true when the final commit→dashboard nav begins so a teardown `popstate` can't re-step the flow. **The on-screen "‹" button is untouched** — it already worked. Now every form of Back behaves identically and walks the steps.
+- **`apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx`** — the Wedding tile now `router.replace()`s into `/onboarding/wedding` instead of `router.push()`, so the legacy picker can never linger in history as a Back target behind the tailored onboarding. Backing out at the first onboarding screen returns to the dashboard, never the old picker page.
+- **Deleted `apps/web/app/dashboard/(account)/create-event/_components/wedding-type-picker.tsx`** (347 lines) — the orphaned legacy wedding form (`WeddingTypePicker`), already dead code (rendered nowhere; only a self-reference + a stale comment). Gone for good: `/onboarding/wedding` is the one and only wedding onboarding now.
+
+Validation: `tsc --noEmit` green; `next lint` clean on the changed files (only pre-existing repo-wide warnings remain). PR pending (branch `claude/onboarding-back-fix`, auto-merge). Verify on the Vercel preview: enter onboarding, advance a few screens, press the **browser/device Back** (and swipe-back on mobile) — it should step back one screen at a time, not jump to the picker.
+
+SPEC IMPACT: behavior fix on iteration 0016 (Setnayan AI / wedding onboarding) — system-Back now walks the flow; legacy `WeddingTypePicker` retired. Logged to corpus `DECISION_LOG.md`.
+
+## 2026-06-15 · feat(nav): universal top-nav hide-on-scroll-down / reveal-on-scroll-up
+
+Owner: *"we want to apply this as a universal rule on top navs. whether on website or on dashboards."* The marketing site nav already auto-hid on scroll-down (owner 2026-06-14, for the full-screen hero scrub); this promotes that to a platform-wide rule so every top nav behaves the same — marketing pages AND the couple / vendor / admin dashboards.
+
+- **`apps/web/app/_components/nav/use-hide-on-scroll.ts`** (new) — single canonical hook. Lifts the exact scroll math out of `site-nav.tsx` (window `scrollY`; always-visible 64px top band; ±4px deadzone; `requestAnimationFrame`-throttled passive listener) and returns `hidden`. `enabled` arg (default true) lets a caller opt out without breaking rules-of-hooks. The caller owns the visual treatment, so each surface keeps its own palette/transition.
+- **`apps/web/app/_components/nav/hide-on-scroll-header.tsx`** (new) — thin client `<header>` wrapper around the hook, so **server**-component surfaces (e.g. `OuterDashboardHeader`) can adopt the rule without becoming client components themselves.
+- **`apps/web/app/_components/nav/sidebar-shell.tsx`** — the sticky `topBar` slot now applies the transform (`-translate-y-full` ↔ `translate-y-0`, 300ms ease, `motion-reduce`-aware) driven by `useHideOnScroll(Boolean(topBar))`. **One change here covers all three dashboards** (couple `dashboard/[eventId]`, `vendor-dashboard`, `admin`) since each injects only the inner row into this shared slot. The desktop LEFT sidebar is a side nav, not a top nav, so it stays put.
+- **`apps/web/app/_components/marketing/site-nav.tsx`** — refactored to consume the shared hook (deleted its inline `useState`/`useEffect` copy). Behavior identical; now a single source of truth.
+- **`apps/web/app/dashboard/_components/outer-dashboard-header.tsx`** — account-routes mobile sticky header swapped to `<HideOnScrollHeader>`.
+
+Left intentionally untouched: the **Explore/marketplace search bar** (a search affordance deliberately pinned so it never scrolls away — not a nav) and all **bottom navs** (owner said *top* navs; bottom-nav canonical lock).
+
+Validation: local `tsc --noEmit` couldn't run cleanly in the worktree (pnpm symlink resolution across the worktree boundary reports a blanket "Cannot find module 'react'" for every file — toolchain, not code). The hook body is lifted verbatim from the already-CI-green `site-nav.tsx`; required CI (typecheck + lint + production build) gates the auto-merge.
+
+SPEC IMPACT: chrome-behavior rule — `site-nav.tsx` hide-on-scroll generalized to every top nav (iteration 0000 shell + 0021/0022/0023 dashboards). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(for-vendors): hero right-rail — a real thriving vendor instead of the abstract dashboard mock
+
+Owner: "is this the correct first widget? … use an actual person progressively successful and happy on the results of the business with setnayan." The hero's right rail was an abstract dark "9 ACTIVE LEADS · Pipeline" dashboard card — product-y but cold. Swapped it for a real, happy, successful vendor — the success payoff that pairs with the tired-florist "problem" band.
+
+- **New `public/for-vendors/vendor-success.avif`** (56 KB, generated on-brand via Recraft, 3 options) — a confident, joyful Filipino wedding florist in her sunlit studio surrounded by fresh bouquets, clearly thriving and in control.
+- **`vendor-hero.tsx`** — replaced the pipeline mock with the photo + a small frosted **real results chip** ("Booked this week · 2 bookings confirmed · Paid straight to you · Setnayan never holds your money") so we keep the proof the dashboard carried, now humanized. `priority` image (LCP). The left column, headline, CTAs, and stats line are **untouched** (button-preservation lock — only the right-rail widget changed, per owner direction).
+
+`tsc --noEmit` green. SPEC IMPACT: None — hero imagery. Logged to corpus `DECISION_LOG.md`.
+
+## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
+
+Owner: "make the imagery more relatable — we want them to feel 'yes, that is my problem.'" The `EditorialBand` showed a styled candlelit reception table — the aspirational *output*, which reads as the dream, not the pain. The whole repo image library (836 assets) is polished output; nothing depicts a vendor's daily grind.
+
+- **New asset `public/for-vendors/vendor-late-night.avif`** (56 KB, generated on-brand via Recraft) — a tired Filipino wedding florist alone at her worktable late at night, reading an endless stream of phone messages while bouquets + an open laptop wait. The vendor's *reality*.
+- **`editorial-band.tsx` rebuilt** — swapped the reception photo for the new image; recognition-hook copy that names the pain and pivots to the fix: eyebrow "Sound familiar?" → headline "The inquiries never stop — and most were never going to book you." → "That's the part we fix. You focus on the craft — we bring you the couples who actually fit." (mirrors the owner's own "95% of inquiries never book me"). Left-weighted dark wash keeps the copy legible while her face stays clear.
+
+`tsc --noEmit` green. SPEC IMPACT: None — marketing imagery/copy. Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · style(login): brand panel is logo-only ("keep it clean and simple")
 

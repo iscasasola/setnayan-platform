@@ -25,8 +25,8 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { MobileMenu } from './_nav-mobile';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -83,27 +83,9 @@ export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
   // scroll into it, and gives every other page more room while scrolling down;
   // the nav slides back the instant you scroll up (to reach for it) or return
   // to the top. Non-sticky pages (e.g. /vendors) scroll the nav away naturally,
-  // so the effect no-ops there.
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    if (!sticky) return;
-    let lastY = window.scrollY;
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const y = window.scrollY;
-        if (y < 64) setHidden(false); // always visible near the very top
-        else if (y > lastY + 4) setHidden(true); // scrolling down → hide
-        else if (y < lastY - 4) setHidden(false); // scrolling up → reveal
-        lastY = y;
-        ticking = false;
-      });
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [sticky]);
+  // so the effect no-ops there. Shared with every dashboard top bar via the
+  // canonical useHideOnScroll hook (owner 2026-06-15 universal-rule directive).
+  const hidden = useHideOnScroll(sticky);
 
   return (
     <nav

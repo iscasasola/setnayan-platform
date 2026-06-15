@@ -62,7 +62,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -227,8 +226,9 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
  * SIX fixed top-level menus. A menu WITH children extracts the accordion
  * in place; a menu WITHOUT children navigates straight. Two modes:
  *   - PRIMARY  : the six menus, evenly distributed (slot i = menu i).
- *   - SECTION  : an open menu's accordion. Slot 0 = the back-hinge (the
- *                tapped menu, leading icon swapped to a left-chevron), slots
+ *   - SECTION  : an open menu's accordion. Slot 0 = the hinge (the tapped menu,
+ *                KEEPS its own glyph — e.g. the Setnayan logo — and toggles the
+ *                section closed on tap; owner 2026-06-15 "the logo stays"), slots
  *                1..n = its children.
  *
  * The locked machinery is REUSED verbatim: the traveling dark pill, the
@@ -492,8 +492,9 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
       });
     });
   } else if (openMenu) {
-    // SECTION MODE — back-hinge at slot 0, children at slots 1..n.
-    // The hinge is the open menu (leading icon → left-chevron).
+    // SECTION MODE — hinge at slot 0, children at slots 1..n.
+    // The hinge is the open menu and KEEPS its own glyph (the logo); tapping it
+    // collapses the section (owner 2026-06-15 "the logo stays, not a back button").
     //
     // 🔑 STABLE KEY (FIX 2026-06-15). The hinge reuses the open menu's primary
     // key `m-${openMenu.key}` (NOT a fresh `hinge-*` key), so it is the SAME
@@ -817,8 +818,9 @@ function BottomNavTab({
  * a menu WITH children + the back-hinge render as a <button> (open/close the
  * section). All share the locked icon-grow-on-press + the gold active icon.
  *
- * The hinge swaps its leading icon to a left-chevron + carries the menu's
- * own icon as a secondary cue, so the "way back" is unmistakable (spec §5.2).
+ * The hinge KEEPS the open menu's own glyph (e.g. the Setnayan logo) rather than
+ * swapping to a back-chevron, and tapping it collapses the section back to the
+ * six menus (owner 2026-06-15 "the logo stays, not a back button").
  */
 function AccordionCell({
   item,
@@ -858,30 +860,27 @@ function AccordionCell({
   const inner = (
     <>
       <span className="relative inline-flex">
-        {role === 'hinge' ? (
-          // Back-chevron is the unmistakable "way back" affordance (spec §5.2).
-          <ChevronLeft
-            aria-hidden
-            className="h-[22px] w-[22px]"
-            strokeWidth={2}
-            style={{
-              color: active ? 'var(--m-orange)' : 'var(--m-ink)',
-              transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
-              transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          />
-        ) : (
-          <Icon
-            aria-hidden
-            className="h-[22px] w-[22px]"
-            strokeWidth={1.75}
-            style={{
-              color: active ? 'var(--m-orange)' : 'var(--m-slate)',
-              transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
-              transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          />
-        )}
+        {/* The hinge keeps its OWN glyph (e.g. the Setnayan logo) — NOT a
+            back-chevron (owner 2026-06-15: "the logo stays, not a back button").
+            It still toggles the section closed on tap; rendered in ink so it
+            reads as the section anchor while a child holds the active pill. */}
+        <Icon
+          aria-hidden
+          className="h-[22px] w-[22px]"
+          strokeWidth={role === 'hinge' ? 2 : 1.75}
+          style={{
+            color:
+              role === 'hinge'
+                ? active
+                  ? 'var(--m-orange)'
+                  : 'var(--m-ink)'
+                : active
+                  ? 'var(--m-orange)'
+                  : 'var(--m-slate)',
+            transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
+            transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+        />
         {item.badge && item.badge.count > 0 ? (
           <BadgeDot
             tone={item.badge.tone}
@@ -951,9 +950,13 @@ function AccordionCell({
       ) : (
         <button
           type="button"
-          aria-expanded={role === 'menu' ? false : undefined}
+          aria-expanded={
+            role === 'menu' ? false : role === 'hinge' ? true : undefined
+          }
           aria-label={
-            role === 'hinge' ? `Back · ${item.label}` : `Open ${item.label}`
+            role === 'hinge'
+              ? `Collapse ${item.label} menu`
+              : `Open ${item.label}`
           }
           aria-hidden={!interactive}
           tabIndex={interactive ? undefined : -1}

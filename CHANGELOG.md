@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): customer bottom nav → flat 6-tab bar (Home · Guests · Explore · Studio · Design · Budget)
+
+Owner-locked 2026-06-16, resolving a long "how do I fit all 6 menus so it's *all there*" exploration (accordion → mother/osmosis → settled on structure over animation). With six real destinations there's nothing to reveal in the bar — each tab navigates to its page, and the page surfaces its own sub-features as cards. No accordion, no "More", no overlay.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — replaced the journey-group accordion (`<BottomNav menus={…}>`) with six flat tabs via the canonical flat `items` path: **Home** (the Setnayan brand mark IS this tab · exact-match on the event root), **Guests** (+ seating/event-qr/hosts light it), **Explore** (`/vendors`), **Studio** (`/add-ons` — Papic/Panood/Patiktok/… hub), **Design** (new hub), **Budget** (+ disputes). Each tab's `activeMatch` enumerates its child routes so the right tab stays lit on any sub-page. Reuses the locked pill/press-light/icon-grow treatment verbatim.
+- **`apps/web/app/dashboard/[eventId]/design/page.tsx`** (new) — the **Design hub**: cards out to Website (`/site-editor`), Mood Board (`/add-ons/mood-board`), and Monogram (`/monogram`), which were otherwise scattered with no single home. Same launcher pattern as the Studio/add-ons hub.
+
+The accordion machinery in the shared `bottom-nav.tsx` primitive is left in place (now unused by any doorway) for a later cleanup. Desktop sidebar + mobile-landing still render the legacy journey groups — aligning them to these six is the fast follow. `lint:botnav` + `next lint` + typecheck green.
+
+SPEC IMPACT: customer mobile primary nav restructured to 6 flat tabs (iteration 0021); new `/dashboard/[eventId]/design` hub route. Supersedes the journey-group accordion + the mother/osmosis explorations.
+
 ## 2026-06-15 · fix(nav): accordion bottom-nav stays open on tap + hinge keeps its logo (no back-chevron)
 
 Owner: *"when I click on a button I don't want my bottom nav to reset. I want it to stay where the icon is pressed"* and *"if I click on Setnayan, the logo stays and not a back button — then the icons get pushed out while the submenu is pushed in."* Two coupled accordion fixes.

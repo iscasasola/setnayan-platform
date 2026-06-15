@@ -5,16 +5,21 @@
  *
  * Presents the COMPLETE taxonomy for the event (folders → all ~53 tiles), faith +
  * event-type scoped upstream by `buildShortlistFolders` (lib/shortlist-taxonomy.ts).
- * Layout per owner: a SINGLE-OPEN vertical accordion of categories (tiles) grouped
- * under folder headers — opening one category collapses the others "to keep them
- * focused" — and each open category shows its considered vendors as a CAROUSEL
- * (horizontal scroll-snap rail) plus a "Find" card into the marketplace tile.
  *
- * This is the BENCH: browse every category, see what's shortlisted, jump to find
- * more. Lock / Build / Compare live on their own takeover tabs, so this surface
- * is deliberately read-only about picks (tap a card → vendor detail) and carries
- * none of the plan-group lock/build machinery. Pill / rounded / frosted language
- * matches the app nav + sn-seg menus (owner "keep that style of the navs intact").
+ * NAVIGATION (owner 2026-06-16 "make it easier to understand and navigate"): a
+ * TWO-LEVEL single-open accordion so the default view is ~10 calm folder rows, not
+ * 53. Tap a folder → it reveals its categories; tap a category → its considered
+ * vendors as a horizontal CAROUSEL plus "Find" + "Add manually". One folder open
+ * at a time, one category open at a time ("when one opens, the others collapse").
+ * Plain height/opacity expand — no sticky-header overlap (the bug in the legacy
+ * accordion). No "NOT STARTED" noise: a folder shows "N considering" only once you
+ * have picks there (else a quiet category count), a category shows a count badge
+ * only when it has picks — calm by default, informative where it matters.
+ *
+ * This is the BENCH: browse every category, see what's shortlisted, find more.
+ * Lock / Build / Compare live on their own tabs, so this surface is read-only about
+ * picks (tap a card → detail) and carries none of the plan-group lock/build
+ * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
 import { useState } from 'react';
@@ -36,32 +41,42 @@ const SLCAT_CSS = `
   --ease:cubic-bezier(.22,.61,.36,1);
   color:var(--ink);font-family:var(--sans)}
 .slcat *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-.slcat .fold{margin:0 0 18px}
-.slcat .fold-h{display:flex;align-items:baseline;gap:9px;padding:0 4px 8px}
-.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:21px;font-weight:600;color:var(--ink);line-height:1}
-.slcat .fold-ct{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
-/* category (tile) accordion row — rounded pill-card, single-open */
-.slcat .cat{margin:0 0 8px;background:var(--card);border:0.5px solid var(--line);border-radius:16px;overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
-.slcat .cat.open{box-shadow:0 8px 22px -14px rgba(30,34,41,.4);border-color:rgba(30,34,41,.16)}
-.slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:13px 16px;font:inherit;text-align:left;min-height:48px}
-.slcat .cat-head .lh{display:flex;align-items:center;gap:9px;min-width:0}
-.slcat .cat-nm{font-family:var(--serif);font-style:italic;font-size:16.5px;font-weight:600;color:var(--ink);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Level 1 · folder card (collapsible) ── */
+.slcat .fold{margin:0 0 10px;background:var(--card);border:0.5px solid var(--line);border-radius:18px;overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
+.slcat .fold.open{box-shadow:0 10px 26px -16px rgba(30,34,41,.4);border-color:rgba(30,34,41,.16)}
+.slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:16px 18px;font:inherit;text-align:left;min-height:56px}
+.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:21px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.01em}
+.slcat .fold.open .fold-nm{color:var(--mulberry)}
+.slcat .fold-rt{display:flex;align-items:center;gap:11px;flex:0 0 auto}
+.slcat .fold-meta{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .fold-meta.has{color:var(--gold-deep)}
+.slcat .fold-chev{color:var(--ink-soft);transition:transform .28s var(--ease);flex:0 0 auto}
+.slcat .fold.open .fold-chev{transform:rotate(180deg);color:var(--mulberry)}
+
+/* ── Level 2 · category rows inside an open folder (connecting rail) ── */
+.slcat .fold-body{position:relative;padding:0 0 8px;animation:slcat-rise .26s var(--ease) both}
+.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(92,37,66,.16);border-radius:2px;pointer-events:none}
+@keyframes slcat-rise{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.slcat .fold-body{animation:none}}
+.slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
+.slcat .fold-body .cat:first-child{border-top:0}
+.slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:12px 4px;font:inherit;text-align:left;min-height:46px}
+.slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14.5px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
-.slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
-.slcat .cat-empty{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
-.slcat .cat-chev{color:var(--ink-soft);transition:transform .25s var(--ease);flex:0 0 auto}
+.slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius:999px;padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
+.slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
-.slcat .cat-body{padding:2px 0 12px;animation:slcat-rise .26s var(--ease) both}
-@keyframes slcat-rise{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.slcat .cat-body{animation:none}}
-/* carousel rail */
-.slcat .rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px max(16px, calc(50% - 140px)) 4px 16px;scrollbar-width:none}
+.slcat .cat-body{padding:2px 0 12px;animation:slcat-rise .22s var(--ease) both}
+
+/* ── Level 3 · vendor carousel + find / add-manually ── */
+.slcat .rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 4px 0;scrollbar-width:none}
 .slcat .rail::-webkit-scrollbar{display:none}
-.slcat .vc{position:relative;flex:0 0 min(232px, calc(100vw - 108px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
+.slcat .vc{position:relative;flex:0 0 min(224px, calc(100vw - 128px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
 .slcat .vc:active{transform:scale(.98)}
 .slcat .vc:hover{box-shadow:0 10px 28px -18px rgba(0,0,0,.4)}
-.slcat .vc .img{height:124px;flex:0 0 124px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
+.slcat .vc .img{height:120px;flex:0 0 120px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
 .slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:4px 8px}
@@ -74,32 +89,27 @@ const SLCAT_CSS = `
 .slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
-/* find card (always present — the marketplace jump for this tile) */
-.slcat .find{flex:0 0 132px;scroll-snap-align:start;display:flex;text-decoration:none}
-.slcat .find .inner{flex:1;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:16px;color:var(--mulberry);transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
-.slcat .find:active .inner{transform:scale(.97)}
-.slcat .find .fi{font-size:20px;line-height:1}
-.slcat .find .ft{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
-/* empty body — single full-width find row */
-.slcat .find-row{display:flex;align-items:center;gap:10px;margin:2px 16px 2px;padding:12px 14px;border:1.5px dashed rgba(92,37,66,.32);border-radius:13px;background:rgba(92,37,66,.03);text-decoration:none;color:inherit}
-.slcat .find-row:active{transform:scale(.99)}
-.slcat .find-row .fr-i{display:inline-flex;color:var(--mulberry)}
-.slcat .find-row .fr-t{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--mulberry)}
-.slcat .find-row .fr-h{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
-/* empty body — Find + Add-manually share the row, wrap on narrow screens */
-.slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;margin:2px 16px}
-.slcat .find-set .find-row{margin:0;flex:1 1 150px}
-.slcat .find-set .find-row .fr-h{display:none}
-.slcat button.find-row{appearance:none;-webkit-appearance:none;font:inherit;cursor:pointer;text-align:left}
-.slcat button.find-row:active{transform:scale(.99)}
-/* add-manually rail card — mirrors .find, ✎ glyph reads a touch smaller */
-.slcat .add-manual{flex:0 0 132px;scroll-snap-align:start;display:flex}
-.slcat .add-manual button{flex:1;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;background:rgba(30,34,41,.03);border:1.5px dashed var(--line);border-radius:16px;color:var(--ink-soft);font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
-.slcat .add-manual button:active{transform:scale(.97)}
-.slcat .add-manual .ft{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
+/* dashed action cards (in the rail, after the vendors) */
+.slcat .act{flex:0 0 128px;scroll-snap-align:start;display:flex}
+.slcat .act>*{flex:1;min-height:198px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius:16px;text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.slcat .act>*:active{transform:scale(.97)}
+.slcat .act.find>*{background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);color:var(--mulberry)}
+.slcat .act.manual>*{background:rgba(30,34,41,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
+.slcat .act .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
+/* empty category — Find + Add-manually share a row */
+.slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 2px 0}
+.slcat .fr{display:flex;align-items:center;gap:9px;flex:1 1 150px;padding:12px 14px;border-radius:13px;text-decoration:none;color:inherit;font:inherit;cursor:pointer;text-align:left;appearance:none;-webkit-appearance:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
+.slcat .fr:active{transform:scale(.99)}
+.slcat .fr.find{border:1.5px dashed rgba(92,37,66,.32);background:rgba(92,37,66,.03)}
+.slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,34,41,.025)}
+.slcat .fr .fr-i{display:inline-flex;flex:0 0 auto}
+.slcat .fr.find .fr-i,.slcat .fr.find .fr-t{color:var(--mulberry)}
+.slcat .fr.manual .fr-i,.slcat .fr.manual .fr-t{color:var(--ink-soft)}
+.slcat .fr .fr-t{font-family:var(--sans);font-size:13px;font-weight:600}
 .slcat a:focus-visible,.slcat button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
 html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
-html.dark .slcat .cat.open .cat-nm,html.dark .slcat .find .inner,html.dark .slcat .find-row .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
+html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 `;
 
 function initials(name: string): string {
@@ -164,98 +174,112 @@ export function ShortlistCategories({
   eventId: string;
 }) {
   const router = useRouter();
-  // Single-open across ALL categories (owner: "when a category is picked, the
-  // others collapse to keep them focused"). Key = tile id (unique app-wide).
-  const [open, setOpen] = useState<string | null>(null);
-  // The category whose "Add manually" modal is open (owner: every category
-  // shows a Find AND an Add-manually). category = the VendorCategory to store under.
+  // Level 1: which folder is open (first by default so the nesting is obvious).
+  const [openFolder, setOpenFolder] = useState<string | null>(folders[0]?.folder ?? null);
+  // Level 2: which category (tile) is open. Single-open across the whole list.
+  const [openTile, setOpenTile] = useState<string | null>(null);
+  // The category whose "Add manually" modal is open (every category has Find + Add).
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
 
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
-      {folders.map((folder) => (
-        <section key={folder.folder} className="fold">
-          <div className="fold-h">
-            <span className="fold-nm">{folder.label}</span>
-            {folder.pickCount > 0 ? (
-              <span className="fold-ct">
-                {folder.pickCount} considering
+      {folders.map((folder) => {
+        const folderOpen = openFolder === folder.folder;
+        return (
+          <section key={folder.folder} className={`fold${folderOpen ? ' open' : ''}`}>
+            <button
+              type="button"
+              className="fold-head"
+              aria-expanded={folderOpen}
+              onClick={() => {
+                setOpenFolder(folderOpen ? null : folder.folder);
+                setOpenTile(null);
+              }}
+            >
+              <span className="fold-nm">{folder.label}</span>
+              <span className="fold-rt">
+                <span className={`fold-meta${folder.pickCount > 0 ? ' has' : ''}`}>
+                  {folder.pickCount > 0
+                    ? `${folder.pickCount} considering`
+                    : `${folder.tiles.length} categories`}
+                </span>
+                <ChevronDown className="fold-chev" size={19} strokeWidth={1.75} aria-hidden />
               </span>
-            ) : null}
-          </div>
-          {folder.tiles.map((t) => {
-            const isOpen = open === t.tile;
-            return (
-              <div key={t.tile} className={`cat${isOpen ? ' open' : ''}`}>
-                <button
-                  type="button"
-                  className="cat-head"
-                  aria-expanded={isOpen}
-                  onClick={() => setOpen(isOpen ? null : t.tile)}
-                >
-                  <span className="lh">
-                    <span className="cat-nm">{t.label}</span>
-                  </span>
-                  <span className="cat-rt">
-                    {t.vendors.length > 0 ? (
-                      <span className="cat-count">{t.vendors.length}</span>
-                    ) : (
-                      <span className="cat-empty">Browse</span>
-                    )}
-                    <ChevronDown className="cat-chev" size={18} strokeWidth={1.75} aria-hidden />
-                  </span>
-                </button>
-                {isOpen ? (
-                  <div className="cat-body">
-                    {t.vendors.length > 0 ? (
-                      <div className="rail">
-                        {t.vendors.map((v) => (
-                          <VendorCard key={v.vendorId} v={v} />
-                        ))}
-                        <Link href={t.exploreHref} className="find" prefetch={false}>
-                          <span className="inner">
-                            <Search className="fi" size={20} strokeWidth={1.75} aria-hidden />
-                            <span className="ft">Find more {t.label}</span>
-                          </span>
-                        </Link>
-                        <span className="add-manual">
-                          <button
-                            type="button"
-                            onClick={() => setManual({ category: t.category, label: t.label })}
-                          >
-                            <Pencil size={18} strokeWidth={1.75} aria-hidden />
-                            <span className="ft">Add manually</span>
-                          </button>
+            </button>
+            {folderOpen ? (
+              <div className="fold-body">
+                {folder.tiles.map((t) => {
+                  const tileOpen = openTile === t.tile;
+                  return (
+                    <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
+                      <button
+                        type="button"
+                        className="cat-head"
+                        aria-expanded={tileOpen}
+                        onClick={() => setOpenTile(tileOpen ? null : t.tile)}
+                      >
+                        <span className="cat-nm">{t.label}</span>
+                        <span className="cat-rt">
+                          {t.vendors.length > 0 ? (
+                            <span className="cat-count">{t.vendors.length}</span>
+                          ) : null}
+                          <ChevronDown className="cat-chev" size={17} strokeWidth={1.75} aria-hidden />
                         </span>
-                      </div>
-                    ) : (
-                      <div className="find-set">
-                        <Link href={t.exploreHref} className="find-row" prefetch={false}>
-                          <span className="fr-i">
-                            <Search size={16} strokeWidth={1.75} aria-hidden />
-                          </span>
-                          <span className="fr-t">Find {t.label}</span>
-                        </Link>
-                        <button
-                          type="button"
-                          className="find-row"
-                          onClick={() => setManual({ category: t.category, label: t.label })}
-                        >
-                          <span className="fr-i">
-                            <Pencil size={16} strokeWidth={1.75} aria-hidden />
-                          </span>
-                          <span className="fr-t">Add manually</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
+                      </button>
+                      {tileOpen ? (
+                        <div className="cat-body">
+                          {t.vendors.length > 0 ? (
+                            <div className="rail">
+                              {t.vendors.map((v) => (
+                                <VendorCard key={v.vendorId} v={v} />
+                              ))}
+                              <span className="act find">
+                                <Link href={t.exploreHref} prefetch={false}>
+                                  <Search size={20} strokeWidth={1.75} aria-hidden />
+                                  <span className="at">Find more</span>
+                                </Link>
+                              </span>
+                              <span className="act manual">
+                                <button
+                                  type="button"
+                                  onClick={() => setManual({ category: t.category, label: t.label })}
+                                >
+                                  <Pencil size={18} strokeWidth={1.75} aria-hidden />
+                                  <span className="at">Add manually</span>
+                                </button>
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="find-set">
+                              <Link href={t.exploreHref} className="fr find" prefetch={false}>
+                                <span className="fr-i">
+                                  <Search size={16} strokeWidth={1.75} aria-hidden />
+                                </span>
+                                <span className="fr-t">Find {t.label}</span>
+                              </Link>
+                              <button
+                                type="button"
+                                className="fr manual"
+                                onClick={() => setManual({ category: t.category, label: t.label })}
+                              >
+                                <span className="fr-i">
+                                  <Pencil size={16} strokeWidth={1.75} aria-hidden />
+                                </span>
+                                <span className="fr-t">Add manually</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </section>
-      ))}
+            ) : null}
+          </section>
+        );
+      })}
       {manual ? (
         <NewManualVendorModal
           eventId={eventId}

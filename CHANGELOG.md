@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(ai): plain-English "why" alongside the % match
+
+Adds a short human-readable reason line next to the existing "{score}% match" pill on the AI-mode vendor cards, without touching the number or the score math.
+
+- **`apps/web/lib/compat-score.ts`** — new exported pure helper `explainCompatScore(input)` returning an ORDERED array of up to 3 short reason strings, drawn ONLY from dimensions that are a real positive signal (input present AND scores strictly above its neutral baseline, using the SAME sub-functions the score uses). Admit-unknown is preserved: a missing/neutral dimension is omitted, never phrased — so today's host-search inputs naturally yield only distance/reviews/verified and never print "Matches your style" or "Free on your dates" while those dims sit at neutral. Returns `[]` when nothing qualifies.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx`** — VendorCardAtom renders `explainCompatScore(...)` as a small `.whyline` subline under the distance line (mono, gold-deep token), shown only in AI mode and only when ≥1 reason qualifies. The `{match.score}% match` pill is untouched.
+
+Additive; no schema/enum/migration; fail-soft (no qualifying reason → renders nothing). The % number is kept exactly where it renders.
+
+SPEC IMPACT: None — additive couple-side UI on top of the existing GATE+SCORE compatibility layer; no spec corpus change.
+
 ## 2026-06-16 · feat(ai): Setnayan AI paywall gating (flag-dark) + last-minute empty-state unlock CTA
 
 Two host-search improvements, both **dark by default** — they share the `/add-ons/setnayan-ai` destination. With the `SETNAYAN_AI_PAYWALL_ENABLED` flag OFF (its default) **and** no `last_minute_start` rows seeded (current prod state), there is **zero visible or behavioral change** — every new branch is a no-op until a deliberate owner action (flip the flag and/or seed last-minute data).

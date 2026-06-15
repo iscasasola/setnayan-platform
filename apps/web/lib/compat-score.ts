@@ -134,3 +134,63 @@ export function computeCompatScore(input: CompatInputs): { score: number; tier: 
   const tier: CompatTier = score >= 80 ? 'strong' : score >= 60 ? 'good' : 'fair';
   return { score, tier };
 }
+
+/**
+ * Plain-English "WHY this %" — an ORDERED list of up to 3 short reason strings
+ * for surfacing NEXT TO the % match (never replacing the number). It is the
+ * human-readable companion to `computeCompatScore`: same inputs, same neutral
+ * baselines, same admit-unknown rule.
+ *
+ * A dimension only earns a phrase when its input is BOTH present AND scores
+ * strictly ABOVE its neutral baseline — i.e. it's a real positive signal. A
+ * missing / neutral dimension is OMITTED (never phrased), so we never invent a
+ * reason we can't back. With today's host-search inputs (refinement +
+ * dateHeadroom unresolved → neutral) this naturally yields only the live
+ * signals — distance / reviews / verified — and will surface "Matches your
+ * style" / "Free on your dates" on its own once 0044 populates those dims.
+ *
+ * Returns [] when nothing qualifies → the caller renders nothing.
+ */
+export function explainCompatScore(input: CompatInputs): string[] {
+  const reasons: string[] = [];
+
+  // refinement (.30) — strongest "is this what I want" signal. Above neutral
+  // only when the couple's style/song overlap is genuinely high.
+  if (input.songOverlapRatio != null && clamp01(input.songOverlapRatio) > NEUTRAL) {
+    reasons.push('Matches your style');
+  }
+
+  // distance (.25) — "close" means the decay scores above neutral, which the
+  // gate already guarantees is reachable.
+  if (
+    input.distanceKm != null &&
+    distanceSub(input.distanceKm, input.travelRadiusKm) > NEUTRAL
+  ) {
+    reasons.push('Nearest to your venue');
+  }
+
+  // reviews (.20) — the Bayesian sub scores above the prior. Show the concrete
+  // rating ("4.8★") only when it's genuinely flattering (≥ 4.0); a thinner-but-
+  // still-above-baseline rating gets the generic phrase rather than parading a
+  // middling number as a selling point. The include/omit decision stays gated
+  // on the SAME `> NEUTRAL` threshold the score uses — only the wording differs.
+  if (reviewsSub(input.avgRating, input.reviewCount) > NEUTRAL) {
+    reasons.push(
+      typeof input.avgRating === 'number' && input.avgRating >= 4
+        ? `${input.avgRating.toFixed(1)}★`
+        : 'Highly rated',
+    );
+  }
+
+  // dateHeadroom (.15) — free on most candidate dates.
+  if (input.dateHeadroomRatio != null && clamp01(input.dateHeadroomRatio) > NEUTRAL) {
+    reasons.push('Free on your dates');
+  }
+
+  // trust (.10) — verified pushes trust above neutral; unverified sits below it.
+  if (trustSub(input.verified, input.boosted) > NEUTRAL) {
+    reasons.push('Verified');
+  }
+
+  return reasons.slice(0, 3);
+}

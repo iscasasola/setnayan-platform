@@ -3,7 +3,51 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { fetchThreadById } from '@/lib/chat';
 import { isFollowingVendor } from '@/lib/follow';
+
+/**
+ * Withdraw a couple-side inquiry (inquiry-followthrough 2026-06-16). Mirrors the
+ * couple-own `deleteVendor` remove path (vendors/actions.ts): validate → auth →
+ * scope-check → hard delete the row, all gated by the couple's own RLS. The
+ * `chat_threads_member_write` policy is FOR ALL and the couple passes it via
+ * `current_couple_event_ids()`, so this delete is RLS-safe; `chat_messages` +
+ * `chat_thread_reads` carry ON DELETE CASCADE so dependents clean up with the
+ * thread. We re-check `thread.event_id === eventId` as defense-in-depth so a
+ * thread can only be withdrawn from its own event surface. No schema change —
+ * there is no 'withdrawn' inquiry_status, so a withdraw is a remove, matching
+ * how a couple removes a vendor pick. Fail-soft: a missing thread (already gone)
+ * just redirects back to the list.
+ */
+export async function withdrawInquiry(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const threadId = formData.get('thread_id');
+  if (typeof eventId !== 'string' || typeof threadId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Scope-check: the thread must exist (RLS-visible to this couple) and belong
+  // to this event. A null thread means it's already gone — fall through to the
+  // list rather than erroring.
+  const thread = await fetchThreadById(supabase, threadId);
+  if (thread && thread.event_id === eventId) {
+    const { error } = await supabase
+      .from('chat_threads')
+      .delete()
+      .eq('thread_id', threadId)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/messages`);
+  redirect(`/dashboard/${eventId}/messages`);
+}
 
 export async function startThreadByVendorEmail(formData: FormData) {
   const eventId = formData.get('event_id');

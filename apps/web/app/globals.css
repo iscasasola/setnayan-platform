@@ -336,6 +336,24 @@
   }
 }
 
+/*
+ * Bottom-clearance for a docked <SubNav>. When <GuestsSectionSubnav> (or any
+ * future section shelf) is on screen it flags <html class="guests-subnav-docked">,
+ * and the floating pill sits ~76px–132px above the viewport bottom — above the
+ * layout's own pb-20 (80px) for the bottom nav. Without extra room the last
+ * ~50px of scrolling content would hide behind the pill, so give the shell-main
+ * column enough bottom padding to clear it. Mobile-only — the pill is lg:hidden,
+ * so cancel the padding on desktop where it would just be dead space.
+ */
+html.guests-subnav-docked [data-shell-main] {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
+}
+@media (min-width: 1024px) {
+  html.guests-subnav-docked [data-shell-main] {
+    padding-bottom: 0;
+  }
+}
+
 @layer components {
   /*
    * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.

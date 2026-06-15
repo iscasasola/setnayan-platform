@@ -15,6 +15,7 @@ import { ProfileMenu } from '@/app/_components/profile-menu';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
+import { GuestsSectionSubnav } from './_components/guests-section-subnav';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 type Props = {
@@ -359,8 +360,12 @@ export default async function EventLayout({ children, params }: Props) {
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-20 lg:pb-0">
+            sidebar offset via its lg:pl-[var(--shell-main-offset)] math.
+            `data-shell-main` is the hook globals.css uses to add EXTRA bottom
+            room on Guests-cluster routes, where <GuestsSectionSubnav> docks a
+            second floating pill above the bottom nav (see globals.css
+            `html.guests-subnav-docked`). */}
+        <div data-shell-main className="pb-20 lg:pb-0">
           <main className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </main>
@@ -370,6 +375,12 @@ export default async function EventLayout({ children, params }: Props) {
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <CustomerBottomNav eventId={eventId} />
+      {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile)
+          and lights the active sub-section while the path is inside the Guests
+          cluster (/guests · /seating · /event-qr · /hosts). Self-gates to null
+          everywhere else, so it's safe to mount once here for every event
+          route — same place + pattern as <CustomerBottomNav>. */}
+      <GuestsSectionSubnav eventId={eventId} />
     </>
   );
 }

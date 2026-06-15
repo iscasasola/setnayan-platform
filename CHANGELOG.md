@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(event-types): add "Gala Night" to the event-type roster
+
+Owner: *"also add Gala Night."* `event_type_vocab` is the single source for the event-type roster (migration `20261205000000`), so one seed row flows to every consumer — the create-event picker, vendor "event types you serve", the marketplace `?event_type=` filter, and the `/admin/taxonomy` event-applicability checkboxes — with no TS change (`EVENT_TYPES_FALLBACK` is fail-open fallback only; new types are NOT added there by design).
+
+- **`supabase/migrations/20261229000000_event_type_vocab_add_gala_night.sql`** (new) — inserts `('gala_night', 'Gala Night', 13)` with `status='active'`, **`enabled=FALSE`**, emoji `🌟`, description. `enabled=FALSE` means it joins the ACTIVE roster (vendors can pre-tag coverage, the taxonomy can scope categories to it) but does NOT yet show in the couple-side create-event picker — matching how anniversary / graduation / reunion were staged. Flip `enabled=TRUE` from `/admin/event-types` when launching it to couples. Idempotent (`ON CONFLICT DO NOTHING`).
+
+Ledger was clean (in sync through `20261228000213`); applied to prod via `supabase db push` (single pending migration).
+
+SPEC IMPACT: event-type roster gains a 13th type, **Gala Night** (`gala_night`), `enabled=FALSE` until launch. Now selectable as an `applicable_event_types` scope in the admin taxonomy. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(explore): Shortlist tab → full-taxonomy category browser (faith + event-type scoped)
 
 Owner: *"analyze shortlist and fix its UI/UX … present the different categories completely … show all the categories from taxonomy"* + *"full taxonomy for the event's type. if it covers a religion, show whichever taxonomy it is compatible to"* + *"vertical accordion that collapses; when a category is picked the others collapse … services show as a carousel."*

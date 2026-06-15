@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(editorial): the Share button lives ON the editorial (its own masthead spot)
+
+Owner: *"when we open the editorial, the share button will not be outside the editorial — we place it on the editorial itself; it will have its personal place."*
+
+- **`app/[slug]/_components/editorial/editorial-content.tsx`** — moved sharing into the masthead furniture: a designed **"Share this story"** strip sits just under the dateline (Vol · city · date · Priceless), above the lead headline, framed with a hairline — reads as part of the newspaper, not a floating bar. The old top-right floated `<ShareButtons>` is gone. `EditorialContent` now takes an optional `share={{ url, title, image }}`; it falls back to the couple's own `/[slug]` target for real editorials (unchanged), and the sample detail passes its `/realstories/[slug]` target — so the in-editorial share now renders for **samples too** (previously real-only).
+- **`app/realstories/[slug]/page.tsx`** — dropped the external slim-bar `<ShareButtons>` (the bar keeps only the "← Real weddings" back-link + the sample label) and passes the share target into `<EditorialContent share=… />`. Removed the now-unused import.
+
+No double share button anywhere; the editorial owns its share affordance. `tsc` + `next lint` clean; verified visually on the Maria & Juan sample.
+
+SPEC IMPACT: iteration 0046 — the editorial's share control is part of the editorial layout (masthead), not an external bar. Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-15 · feat(website): Living Hero Studio — couples bake a boomerang hero in the browser
 
 Owner mechanic: *"the boomerang is created upon the couple picking their 5 seconds. If they upload a longer video they pick their 5s; they pick a freeze frame for the PDF/print; and if the net is too slow we convert to just photos."* Built it — **in the couple's browser** (owner-chosen), no server video pipeline.

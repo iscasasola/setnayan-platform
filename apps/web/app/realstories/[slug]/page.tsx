@@ -10,7 +10,6 @@ import {
   weddingTitle,
   type RealWedding,
 } from '@/lib/real-weddings';
-import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 
 // Front-page editorial layout for a SAMPLE with no editorial fixture — built
 // from the curated RealWedding fields (hero, quote, story, palette, team) so
@@ -284,7 +283,6 @@ export default async function WeddingShowcasePage({ params }: Props) {
             Real weddings
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <ShareButtons url={canonicalUrl} title={shareTitle} image={ogImage} />
             {wedding.isSample ? (
               <span className="rounded-full border border-ink/15 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/55">
                 Sample showcase
@@ -305,7 +303,10 @@ export default async function WeddingShowcasePage({ params }: Props) {
       {editorialEventId ? (
         // The real editorial recap, fed the sample fixture. Same component as a
         // live wedding's /[slug] editorial → the sample always tracks it.
-        <EditorialContent eventId={editorialEventId} />
+        <EditorialContent
+          eventId={editorialEventId}
+          share={{ url: canonicalUrl, title: shareTitle, image: ogImage }}
+        />
       ) : (
         <SampleEditorial wedding={wedding} />
       )}

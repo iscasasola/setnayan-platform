@@ -173,6 +173,10 @@ export type EditorialData = {
   slug: string | null;
   eventDate: string | null; // ISO
   eventDateFormatted: string | null; // en-PH long form
+  // Masthead dateline: this wedding's number within its year (the Nth Setnayan
+  // wedding of that year, by date). Volume is derived from the year at render
+  // (Vol. I = 2026). Null when it can't be counted → falls back to No. 1.
+  editionNo: number | null;
   venueName: string | null;
   venueCity: string | null;
   venueAddress: string | null;
@@ -367,6 +371,26 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
 
   const displayName = asString(event.display_name) ?? 'The Wedding';
   const eventDate = asString(event.event_date);
+
+  // Edition No. — this wedding's number within its year (the Nth Setnayan
+  // wedding of that year, by date). Volume is derived from the year at render.
+  // Best-effort: a missing date / failed count → null → masthead shows No. 1.
+  let editionNo: number | null = null;
+  if (eventDate) {
+    try {
+      const year = eventDate.slice(0, 4);
+      const { count } = await admin
+        .from('events')
+        .select('event_id', { count: 'exact', head: true })
+        .eq('event_type', 'wedding')
+        .gte('event_date', `${year}-01-01`)
+        .lte('event_date', eventDate);
+      if (typeof count === 'number' && count > 0) editionNo = count;
+    } catch {
+      editionNo = null;
+    }
+  }
+
   const venueName = asString(event.venue_name);
   const venueAddress = asString(event.venue_address);
   const venueCity = deriveCity(venueName, venueAddress);
@@ -682,6 +706,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     slug: asString(event.slug),
     eventDate,
     eventDateFormatted: formatPhDate(eventDate),
+    editionNo,
     venueName,
     venueCity,
     venueAddress,
@@ -810,6 +835,7 @@ function mariaAndJuan(): EditorialData {
     slug: null, // sample has no real event row → editorial render skips the share bar (the /realstories/[slug] detail page owns it)
     eventDate: '2026-02-14',
     eventDateFormatted: formatPhDate('2026-02-14'),
+    editionNo: 1,
     venueName: 'a garden estate overlooking Taal',
     venueCity: 'Tagaytay',
     venueAddress: 'Tagaytay, Cavite',
@@ -884,6 +910,7 @@ function jackAndJill(): EditorialData {
     slug: null,
     eventDate: '2026-04-18',
     eventDateFormatted: formatPhDate('2026-04-18'),
+    editionNo: 3,
     venueName: 'a west-facing cove on the Cebu coast',
     venueCity: 'Cebu',
     venueAddress: 'Cebu',
@@ -952,6 +979,7 @@ function johnAndJane(): EditorialData {
     slug: null,
     eventDate: '2026-03-07',
     eventDateFormatted: formatPhDate('2026-03-07'),
+    editionNo: 2,
     venueName: 'a rooftop terrace above the Manila skyline',
     venueCity: 'Manila',
     venueAddress: 'Makati, Metro Manila',
@@ -1020,6 +1048,7 @@ function peterAndMary(): EditorialData {
     slug: null,
     eventDate: '2026-05-23',
     eventDateFormatted: formatPhDate('2026-05-23'),
+    editionNo: 5,
     venueName: 'a ridge-top estate garden in Tagaytay',
     venueCity: 'Tagaytay',
     venueAddress: 'Tagaytay, Cavite',
@@ -1089,6 +1118,7 @@ function jackAndRose(): EditorialData {
     slug: null,
     eventDate: '2026-05-09',
     eventDateFormatted: formatPhDate('2026-05-09'),
+    editionNo: 4,
     venueName: 'a pine-forest clearing in the Cordilleras',
     venueCity: 'Baguio',
     venueAddress: 'Baguio, Benguet',

@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(editorial): masthead Vol./No. are real — Volume = year, No. = wedding's number that year
+
+Owner: *"Vol. 1 · No. 1 will be our weddings. Volume 1 is 2026, Volume 2 is 2027. No. 1 is the wedding number for the year."* The dateline's `Vol. I · No. 1` was hardcoded — now it's computed:
+
+- **Volume = the wedding's year** as a Roman numeral, anchored at **Vol. I = 2026** (`year − 2025`; Vol. II = 2027…). New `toRoman()` in `editorial-content.tsx`; `EditionLine` left slot now takes the computed string.
+- **No. = the wedding's number within its year** — the Nth Setnayan wedding of that year, by date. `EditorialData.editionNo`: the real loader (`loadEditorialData`) counts `event_type='wedding'` rows in the same year with `event_date <=` this wedding's (best-effort → null falls back to No. 1); the 5 samples are stamped chronologically for 2026 (Maria & Juan 1, John & Jane 2, Jack & Jill 3, Jack & Rose 4, Peter & Mary 5).
+
+Verified: Jack & Jill → `Vol. I · No. 3`, Peter & Mary → `Vol. I · No. 5`. `tsc` + `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — the editorial masthead dateline encodes the platform's wedding edition (Volume = year from 2026, No. = wedding-of-the-year). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(editorial): share goes inline in the dateline (replaces "Priceless"), not a full row
 
 Owner: *"we don't want the share button to take up a whole row — place it on the part of 'Priceless' and replace Priceless."* (Format: `SHARE` (f) (p) (⛓).)

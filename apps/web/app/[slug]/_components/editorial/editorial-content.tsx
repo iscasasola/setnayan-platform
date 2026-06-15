@@ -77,6 +77,13 @@ export async function EditorialContent({
   // A block shows unless the couple turned it off in the editorial editor.
   const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
 
+  // Masthead dateline numbers — Volume = the wedding's year (Vol. I = 2026,
+  // Vol. II = 2027…); No. = its number within that year.
+  const edYear = data.eventDate ? Number(data.eventDate.slice(0, 4)) : null;
+  const editionLeft = `Vol. ${toRoman(
+    edYear && edYear >= 2026 ? edYear - 2025 : 1,
+  )} · No. ${data.editionNo ?? 1}`;
+
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
@@ -101,7 +108,7 @@ export async function EditorialContent({
             full-width row) — the editorial owns its share affordance, compact in
             the masthead. Real editorials + curated samples both get it. */}
         <EditionLine
-          left="Vol. I · No. 1"
+          left={editionLeft}
           center={editionCenter(data)}
           right={
             effectiveShare ? (
@@ -736,6 +743,25 @@ function Colophon({ names, city }: { names: string; city: string | null }): Reac
 }
 
 // ── tiny presentational helpers ───────────────────────────────────────────────
+
+// Volume number as a masthead Roman numeral (1 → I, 2 → II, …). Falls back to
+// the Arabic number above the small-numeral table for far-future volumes.
+function toRoman(n: number): string {
+  if (!Number.isFinite(n) || n < 1) return 'I';
+  const table: Array<[number, string]> = [
+    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'],
+    [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let out = '';
+  let v = Math.floor(n);
+  for (const [val, sym] of table) {
+    while (v >= val) {
+      out += sym;
+      v -= val;
+    }
+  }
+  return out;
+}
 
 function nameplate(displayName: string): string {
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();

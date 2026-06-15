@@ -128,6 +128,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       venue_address: string | null;
       monogram_color: string | null;
       landing_page_hero_image_url?: string | null;
+      landing_page_hero_video_r2_key?: string | null;
       showcase_featured_at?: string | null;
       showcase_feature_rank?: number | null;
     };
@@ -135,7 +136,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     const featuredAware = await admin
       .from('events')
       .select(
-        'slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, showcase_featured_at, showcase_feature_rank',
+        'slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
       )
       .eq('event_type', 'wedding')
       .in('event_id', eventIds)
@@ -151,7 +152,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       // Pre-migration fallback — drop the featuring columns + ordering.
       const legacy = await admin
         .from('events')
-        .select('slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url')
+        .select('slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key')
         .eq('event_type', 'wedding')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
@@ -175,8 +176,11 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         heroImageUrl: e.landing_page_hero_image_url
           ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
           : null,
-        // Clip-as-hero is opt-in and not yet selectable on the DB path.
-        heroVideoUrl: null,
+        // The couple's baked "living hero" boomerang (Living Hero Studio), if set
+        // — plays forward→reverse on the realstories card with the still as poster.
+        heroVideoUrl: e.landing_page_hero_video_r2_key
+          ? await displayUrlForStoredAsset(e.landing_page_hero_video_r2_key)
+          : null,
       })),
     );
   } catch {

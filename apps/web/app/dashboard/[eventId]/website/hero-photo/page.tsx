@@ -77,6 +77,20 @@ export default async function HeroPhotoEditorPage({
         </p>
       </header>
 
+      {/* Living hero cross-link */}
+      <Link
+        href={`/dashboard/${eventId}/website/living-hero`}
+        className="mb-8 flex items-center justify-between gap-4 rounded-2xl border border-burgundy/20 bg-burgundy/5 p-4 transition-colors hover:bg-burgundy/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:p-5"
+      >
+        <div>
+          <p className="font-display text-lg italic text-ink">Make it move →</p>
+          <p className="mt-0.5 text-sm text-ink/65">
+            Turn a few seconds of video into a gentle, looping hero — it plays
+            forward then reverses. We keep a still for print + slow connections.
+          </p>
+        </div>
+      </Link>
+
       {/* Current photo preview */}
       {currentPhotoUrl ? (
         <section

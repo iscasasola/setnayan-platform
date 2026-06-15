@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(website): Living Hero Studio — couples bake a boomerang hero in the browser
+
+Owner mechanic: *"the boomerang is created upon the couple picking their 5 seconds. If they upload a longer video they pick their 5s; they pick a freeze frame for the PDF/print; and if the net is too slow we convert to just photos."* Built it — **in the couple's browser** (owner-chosen), no server video pipeline.
+
+- **`apps/web/lib/boomerang-encoder.ts`** (new) — `bakeBoomerang()` extracts the trimmed ≤5s window, encodes it forward then reversed (duplicate turnaround frames dropped) into one ~10s MP4 via **WebCodecs `VideoEncoder` + `mp4-muxer`** (no ffmpeg.wasm, no SharedArrayBuffer, no CSP changes), and captures the chosen freeze frame as a JPEG. `captureFreezeFrame()` is the still-only path. Throws `EncoderUnsupportedError` where WebCodecs is absent. Verified in Chromium: a real ~1.8 MB boomerang + 124 KB still, plays continuously. New dep: `mp4-muxer`.
+- **`app/dashboard/[eventId]/website/living-hero/`** (new) — page + `LivingHeroStudio` client component: pick video → **trim bar (5s window)** → **freeze-frame scrubber** → "Make it move" (bake, with progress) → preview → presigned-PUT the clip + still to R2 → `saveLivingHero` action. **Photo-first:** a "Use a photo instead" button (and an automatic fallback on unsupported devices / slow uploads) saves just the still. Linked from the hero-photo editor ("Make it move →").
+- **No migration, no render change.** It reuses the existing `events.landing_page_hero_video_r2_key` (the loop) + `landing_page_hero_image_url` (the still = poster + print + slow-net fallback), and the public `/[slug]` hero (`HeroBackgroundMedia`) already autoplays the video looped with the still as poster — so a baked boomerang plays forward↔reverse continuously with zero changes.
+- **`lib/showcase-db.ts`** — `loadPublishedShowcases` now resolves `heroVideoUrl` from `landing_page_hero_video_r2_key`, so a real couple's living hero appears on their `/realstories` card too.
+- **`app/realstories/_components/gallery.tsx`** — the viewer now also drops to the poster on **data-saver / 2g** connections (the "if net is too slow, just photos" path at viewing time), alongside the existing reduced-motion fallback.
+
+The freeze frame is one pick doing four jobs: the print/PDF still, the video poster, the social-share image, and the slow-network/unsupported fallback. Verified end-to-end (Playwright: upload → trim → bake → preview). `tsc` + `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — couples create a forward↔reverse "living hero" from a ≤5s moment entirely in-browser (WebCodecs), photo-first; reuses the existing hero-video columns + render. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(realstories): real continuous forward↔reverse loop (pre-baked boomerang clips)
 
 Owner: *"make the loop like a forward and reverse continuously."* The first cut drove the reverse leg by scrubbing `video.currentTime` backward via rAF — which stutters badly on compressed H.264 (seeking between sparse keyframes), so in practice it read as a forward jump-cut, not a smooth back-and-forth.

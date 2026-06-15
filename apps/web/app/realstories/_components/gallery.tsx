@@ -96,6 +96,13 @@ function BoomerangVideo({
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return; // poster only — never autoplay under reduced motion.
 
+    // Slow connection / data-saver → the still poster only (the "if net is too
+    // slow, just photos" path). The poster already renders; we just never fetch
+    // the clip. navigator.connection is Chromium-only — absent elsewhere = play.
+    const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } })
+      .connection;
+    if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType ?? ''))) return;
+
     // The clip is a pre-baked boomerang, so native loop carries the continuous
     // forward→reverse cycle — we only start/stop it.
     const startPlaying = () => video.play().catch(() => {});

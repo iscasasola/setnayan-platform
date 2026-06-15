@@ -20,6 +20,7 @@ import {
   Type,
   Camera,
   Tv,
+  Gem,
   Sparkles,
   Video,
   Film,
@@ -110,7 +111,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
     key: 'setnayan-ai',
     label: 'Setnayan AI',
-    Icon: Sparkles,
+    Icon: Gem,
     iteration: '0016',
     status: 'live',
     category: 'tool',

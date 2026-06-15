@@ -20,7 +20,7 @@
  */
 
 import Link from 'next/link';
-import { Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Gem, CheckCircle2, AlertCircle } from 'lucide-react';
 import {
   CONCIERGE_ENABLED,
   type ConciergeEnforcementLevel,
@@ -99,7 +99,7 @@ function DiyBanner() {
     <section className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-4 sm:p-5">
       <header className="flex items-start gap-3">
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-terracotta">
-          <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">

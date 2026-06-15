@@ -106,7 +106,8 @@ export function EditorialEditor({
       <section className={card}>
         <h2 className="font-display text-lg italic text-ink">The words</h2>
         <p className="mt-0.5 text-sm text-ink/60">
-          Leave any field blank and we&rsquo;ll write a polished default for you.
+          These are written from your wedding details. Edit anything — or clear a field to let us
+          rewrite it for you.
         </p>
         <div className="mt-4 space-y-4">
           <Field label="Eyebrow" help="The small line above the headline.">

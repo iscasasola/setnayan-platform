@@ -300,16 +300,16 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  // `entering` = true for the FIRST paint after a mode change so the incoming
-  // cells start parked behind the corner anchor (left:0, opacity:0) and then
-  // transition out to their slots — that's what makes the children "slide
-  // out from behind the corner" (spec §3 beat 2) rather than fade in place.
+  // `entering` = true for the FIRST paint after a mode change so the FRESHLY-
+  // MOUNTED CHILD cells start parked behind the corner anchor (left:0,
+  // opacity:0) and then transition out to their slots — that's what makes the
+  // children "slide out from behind the corner" (spec §3 beat 2) rather than
+  // fade in place. The top-menu cells (primary slots + hinge + parked) are NOT
+  // parked by `entering`: they carry a STABLE `m-${key}` key across modes, so
+  // they persist and glide from their real current positions on their own —
+  // parking them would re-snap them and reintroduce the jump this fix removed.
   // Flipped to false on the next animation frame so the CSS transition runs.
   const [entering, setEntering] = useState(false);
-  // The menu that was open just before a collapse — drives the slide-back
-  // direction of the primary-mode menus (those left of it re-enter from the
-  // left edge, those right of it from the right edge, mirroring their exit).
-  const lastOpenRef = useRef<number | null>(null);
 
   // Press feedback — shared with the flat path's machinery. `pressed` drives
   // the icon-grow; `flash` drives the one-shot white press-light bloom. Both
@@ -415,7 +415,6 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
   const expand = useCallback(
     (menuIndex: number) => {
       if (animating) return;
-      lastOpenRef.current = menuIndex;
       beginAnim();
       setOpen(menuIndex);
     },
@@ -424,12 +423,13 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
 
   const collapse = useCallback(() => {
     if (animating) return;
-    // Remember which menu we're closing so the primary menus re-enter from
-    // the matching edges. (`open` is the source of truth here.)
-    lastOpenRef.current = open;
+    // The persisted parked menu cells (stable `m-${key}`) already sit off-edge
+    // in section mode, so flipping back to primary mode lets them glide from
+    // their off-edge positions to `i*colW` — the collapse reverses naturally
+    // without tracking which menu was open.
     beginAnim();
     setOpen(null);
-  }, [animating, beginAnim, open]);
+  }, [animating, beginAnim]);
 
   // ── Build the absolutely-positioned cell list for the CURRENT mode ──────
   // Each top menu AND each child of the open menu gets a cell. Cells the
@@ -453,10 +453,18 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
   const cells: Cell[] = [];
 
   if (open === null) {
-    // PRIMARY MODE — six menus in their slots. On a fresh collapse the
-    // `entering` frame parks them at the edges they exited toward so they
-    // slide back in (reverse of the expand "clear" beat).
-    const closedFrom = lastOpenRef.current;
+    // PRIMARY MODE — six menus in their slots, each at its REAL position.
+    //
+    // 🔑 STABLE KEY + NO ENTERING PARK (FIX 2026-06-15). Every top menu `i`
+    // uses the SAME `m-${m.key}` key it carries in section mode (as the hinge
+    // or a parked cell), so React PERSISTS the element across the mode flip
+    // instead of unmounting + remounting it at its destination. Because the
+    // element persists, simply rendering its real `left`/`width`/`opacity`
+    // here lets the CSS transition GLIDE it from wherever it was (off-edge
+    // when collapsing back from a section) to `i*colW`. We do NOT apply the
+    // `entering` park to these menu cells — they must start from their real
+    // current positions for the transition to run (parking them would re-snap
+    // them off-edge for a frame and reintroduce the very jump we're killing).
     topMenus.forEach((m, i) => {
       cells.push({
         nodeKey: `m-${m.key}`,
@@ -464,28 +472,25 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
         slot: i,
         role: 'menu',
         menuIndex: i,
-        transform:
-          entering && closedFrom !== null && i !== closedFrom
-            ? {
-                // re-enter from the edge it exited toward
-                left: i < closedFrom ? -colW : 100,
-                width: colW,
-                opacity: 0,
-                delay: 0,
-              }
-            : {
-                left: i * colW,
-                width: colW,
-                opacity: 1,
-                delay: 0,
-              },
+        transform: {
+          left: i * colW,
+          width: colW,
+          opacity: 1,
+          delay: 0,
+        },
       });
     });
   } else if (openMenu) {
     // SECTION MODE — back-hinge at slot 0, children at slots 1..n.
     // The hinge is the open menu (leading icon → left-chevron).
+    //
+    // 🔑 STABLE KEY (FIX 2026-06-15). The hinge reuses the open menu's primary
+    // key `m-${openMenu.key}` (NOT a fresh `hinge-*` key), so it is the SAME
+    // element that sat at slot `open` in primary mode — it persists and
+    // transitions `open*colW` → 0 (glides to the corner) instead of snapping.
+    // No `entering` park here for the same reason as the primary menus.
     cells.push({
-      nodeKey: `hinge-${openMenu.key}`,
+      nodeKey: `m-${openMenu.key}`,
       item: openMenu,
       slot: 0,
       role: 'hinge',
@@ -498,6 +503,9 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
         item: c,
         slot,
         role: 'child',
+        // Children are FRESHLY MOUNTED on expand, so the `entering` park is
+        // kept ONLY for them — they start parked behind the hinge corner
+        // (slot 0, invisible) and slide OUT to their slots (spec §3 beat 2).
         transform: entering
           ? // Beat 2 start: parked behind the hinge corner (slot 0), invisible.
             { left: 0, width: colW, opacity: 0, delay: 0 }
@@ -511,13 +519,15 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
             },
       });
     });
-    // Park the OTHER top menus off-edge so they exist in the DOM during the
-    // first paint after a collapse (so they slide back IN rather than pop).
-    // They're invisible + non-interactive in section mode.
+    // Park the OTHER top menus off-edge. They keep their STABLE `m-${m.key}`
+    // key so they are the SAME elements that sat at `i*colW` in primary mode:
+    // on expand they persist and transition `i*colW` → off-edge (left of the
+    // open menu slide off the left, right slide off the right). They're
+    // invisible + non-interactive while parked.
     topMenus.forEach((m, i) => {
       if (i === open) return; // the hinge already represents the open menu
       cells.push({
-        nodeKey: `parked-${m.key}`,
+        nodeKey: `m-${m.key}`,
         item: m,
         slot: -1,
         role: 'menu',

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(build): one-tap log a vendor quote into the build (with couple confirmation)
+
+Vendor-authored quote bridge (host-search improvement #1) — a vendor's quoted ₱ now flows into the couple's Build with one tap + an editable confirm modal, instead of the couple hand-typing it. Additive, no schema; reuses the existing `updateVendorCosts` writer.
+
+- **`apps/web/lib/quote-detection.ts`** (new) — pure, fail-soft detection: a tolerant ₱/PHP/P regex (`detectAmountsInText`), a vendor-only newest-first scanner (`detectAmountsFromVendorMessages`), a calm never-nag-once-matched gate (`shouldOfferQuoteLog`), and a proposal-total→service/transport/food splitter (`splitProposalToCosting`). Advisory only — returns candidates in pesos; never writes.
+- **`…/workspace/_components/quote-bridge.tsx`** (new, client) — the affordance + the money-safety gate: a chat-quote chip and a "Log as service price" proposal action, both opening ONE editable confirm modal. Transport/food pre-fill from the couple's CURRENT stored values (never zeroed); confirm posts to `updateVendorCosts`.
+- **`…/workspace/page.tsx`** — server-side: scans the vendor's recent `chat_messages` (vendor `sender_role` only) + visible `vendor_proposals` (sent/viewed/accepted) for amounts, computes the chip gate, renders `<QuoteBridge>` in the external-vendor Costing section. Every fetch is best-effort (no thread / pre-migration table → no affordance).
+- **`apps/web/lib/quote-detection.test.ts`** (new) — 17 tests: regex tolerance + noise rejection, vendor-only scanning, the never-nag rule, and the split invariant (service + transport + food === total). 17/17 pass.
+
+Money guards: never writes silently (editable modal gate on every path), pre-fills are editable, transport/food seed from current values, detector is advisory. `tsc --noEmit` + `next lint` green; 17/17 unit tests pass. No migration.
+
+SPEC IMPACT: None — additive couple-side UX over existing tables (`event_vendors`, `chat_messages`, `vendor_proposals`) and the existing `updateVendorCosts` writer.
+
 ## 2026-06-16 · feat(checklist): the full 18-month wedding checklist — ~90 tasks, a browsable /checklist page, top-up seeding
 
 Turned the static 18-month wedding planner into a live, **free** in-app checklist. The `event_checklist_items` table + computed-offset model (`due_date = wedding_date − offset`, so the whole countdown shifts when the date changes) already shipped (migration `20261224000000`, on prod); this fills it in and gives it a real home.

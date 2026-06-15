@@ -375,12 +375,13 @@ export default async function EventLayout({ children, params }: Props) {
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <CustomerBottomNav eventId={eventId} />
-      {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile)
-          and lights the active sub-section while the path is inside the Guests
-          cluster (/guests · /seating · /event-qr · /hosts). Self-gates to null
-          everywhere else, so it's safe to mount once here for every event
-          route — same place + pattern as <CustomerBottomNav>. */}
-      <GuestsSectionSubnav eventId={eventId} />
+      {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile) and
+          lights the active stage of the guest journey (Build · Invite · Confirm ·
+          Seat · Day-of) while the path is inside the journey (/guests* or
+          /seating*). Self-gates to null everywhere else, so it's safe to mount
+          once here for every event route — same place + pattern as
+          <CustomerBottomNav>. eventDate drives the Day-of time-gate. */}
+      <GuestsSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} />
     </>
   );
 }

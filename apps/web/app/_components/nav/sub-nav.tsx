@@ -31,6 +31,12 @@ export type SubNavItem = {
   key: string;
   label: string;
   icon: LucideIcon;
+  /**
+   * Render the item dimmed — a "not yet" state for a tab that's present but not
+   * actionable right now (e.g. a time-gated Day-of stage before the event). It
+   * stays tappable; only its opacity drops. The active item is never muted.
+   */
+  muted?: boolean;
 };
 
 /* ── docked-state store ──────────────────────────────────────────────────
@@ -108,6 +114,9 @@ export function SubNav({
       {items.map((it) => {
         const Icon = it.icon;
         const on = it.key === activeKey;
+        // A muted (e.g. time-gated) item reads as "not yet": dimmed, but only
+        // while it isn't the active tab — selecting it still lights it fully.
+        const dim = it.muted && !on;
         return (
           <button
             key={it.key}
@@ -118,6 +127,7 @@ export function SubNav({
             className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5"
             style={{
               color: on ? 'var(--m-ink)' : 'var(--m-slate)',
+              opacity: dim ? 0.45 : 1,
               // Active = the bottom-nav pill's translucent-grey fill (not the
               // white sn-seg pill) so the docked shelf matches the adjacent bar.
               background: on

@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(editorial): share goes inline in the dateline (replaces "Priceless"), not a full row
+
+Owner: *"we don't want the share button to take up a whole row — place it on the part of 'Priceless' and replace Priceless."* (Format: `SHARE` (f) (p) (⛓).)
+
+- **`app/realstories/_components/share-buttons.tsx`** — added a `compact` variant: a small `SHARE` mono label + three icon-only buttons (Facebook, Pinterest, copy-link chain), no pills/labels, sized for the masthead dateline.
+- **`app/[slug]/_components/editorial/editorial-content.tsx`** — removed the full-width "Share this story" strip; the `EditionLine` right slot (where **Priceless** was) now renders `<ShareButtons compact … />` for real editorials + samples, falling back to `Priceless` when there's no share target. `EditionLine.right` widened from `string` to `ReactNode`.
+
+Net: the dateline reads `Vol. I · No. 1` · `City · Date` · `Share (f)(p)(⛓)` — no extra row. `tsc` + `next lint` clean; verified on the Maria & Juan sample.
+
+SPEC IMPACT: iteration 0046 — the editorial share control is inline in the dateline (replaces the price slot), supersedes the 2026-06-15 full-row masthead strip. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · feat(editorial): consolidated editorial editor — words, features, and inputs in one page
 
 Owner: *"the editorial editor will be a page where all of these can be input — the content, choosing of photos, choosing the features they want to show on the editorial."* Confirmed scope: **full story-text control** + **every optional section toggleable**.

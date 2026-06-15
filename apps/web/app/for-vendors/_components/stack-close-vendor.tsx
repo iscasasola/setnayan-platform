@@ -206,11 +206,10 @@ export async function StackCloseVendor() {
         >
           Most vendors run their business on a Frankenstein stack — a Kasal
           listing here, a Pixieset there, a calendar somewhere else.
-          Setnayan&apos;s free tier replaces every tool below.{' '}
+          Setnayan&apos;s free tier replaces every tool below —{' '}
           <strong style={{ color: 'var(--m-ink)' }}>
-            Average PH vendor saves ₱18,400/year
-          </strong>{' '}
-          on subscriptions alone.
+            one login, free to start.
+          </strong>
         </p>
       </div>
 
@@ -270,7 +269,7 @@ export async function StackCloseVendor() {
             }}
           >
             <span>
-              {VENDOR_STACK.length} tools · ~₱18,400/yr in subs
+              {VENDOR_STACK.length} tools · separate logins, separate bills
             </span>
             <span style={{ color: 'var(--m-blush-deep)' }}>
               1 missed lead = 1 lost wedding
@@ -411,13 +410,13 @@ export async function StackCloseVendor() {
                   className="m-display"
                   style={{ fontSize: 28, color: 'var(--m-orange-3)' }}
                 >
-                  ₱18.4K
+                  1 login
                 </div>
                 <div
                   className="m-mono"
                   style={{ fontSize: 10, color: 'var(--m-slate-4)' }}
                 >
-                  saved / year
+                  for everything
                 </div>
               </div>
               <div>
@@ -450,7 +449,7 @@ export async function StackCloseVendor() {
           letterSpacing: '0.04em',
         }}
       >
-        Estimated tool-subscription savings · your current stack may vary
+        One dashboard instead of the stack below
       </div>
 
       {/* Responsive overrides */}

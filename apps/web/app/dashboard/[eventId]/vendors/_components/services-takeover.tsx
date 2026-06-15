@@ -136,27 +136,36 @@ export function ServicesTakeover({
           padding above is kept because the top bar stays hidden on mobile.) */}
 
       {/* Desktop tab strip — pill segmented control (sn-seg). Mobile uses the
-          sticky-top pill nav below. */}
-      <div role="tablist" aria-label="Services sections" className="sn-seg mb-4 hidden lg:flex">
-        {BUDGET_BUILD_TABS.map((key) => {
-          const { label, icon: Icon } = TAB_META[key];
-          const on = key === tab;
-          return (
-            <button
-              key={`${key}-${tab}`}
-              type="button"
-              role="tab"
-              id={`bbtab-d-${key}`}
-              aria-selected={on}
-              aria-controls="budget-build-panel"
-              onClick={() => selectTab(key)}
-              className={`sn-seg-item${on ? ' sn-bounce' : ''}`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {label}
-            </button>
-          );
-        })}
+          sticky-top pill nav below. The show/hide (`hidden lg:block`) MUST live
+          on a plain wrapper, NOT on the `.sn-seg` element itself:
+          `.sn-seg { display: flex }` in globals.css has the same specificity as
+          Tailwind's `.hidden` (`display: none`) but wins on source order, so
+          `sn-seg ... hidden` never hides — it leaked the desktop strip onto
+          mobile, stacking a second (full-label, overflowing) tab bar above the
+          sticky mobile pill. Wrapping keeps the responsive toggle off `.sn-seg`,
+          mirroring the mobile strip below. */}
+      <div className="mb-4 hidden lg:block">
+        <div role="tablist" aria-label="Services sections" className="sn-seg">
+          {BUDGET_BUILD_TABS.map((key) => {
+            const { label, icon: Icon } = TAB_META[key];
+            const on = key === tab;
+            return (
+              <button
+                key={`${key}-${tab}`}
+                type="button"
+                role="tab"
+                id={`bbtab-d-${key}`}
+                aria-selected={on}
+                aria-controls="budget-build-panel"
+                onClick={() => selectTab(key)}
+                className={`sn-seg-item${on ? ' sn-bounce' : ''}`}
+              >
+                <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Mobile section nav — sticky-header pill segmented control (sn-seg).

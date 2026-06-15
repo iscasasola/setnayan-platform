@@ -17,7 +17,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type ReactElement } from 'react';
+import { type ReactElement, type ReactNode } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -97,30 +97,26 @@ export async function EditorialContent({
         </header>
 
         <div className="border-t border-ink/80" />
+        {/* The share control replaces "Priceless" inline in the dateline (no
+            full-width row) — the editorial owns its share affordance, compact in
+            the masthead. Real editorials + curated samples both get it. */}
         <EditionLine
           left="Vol. I · No. 1"
           center={editionCenter(data)}
-          right="Priceless"
-        />
-        <div className="border-t-[3px] border-ink" />
-
-        {/* Share this story — the editorial's OWN designed place (no external
-            bar). Sits in the masthead furniture, just under the dateline, and
-            renders for real editorials and curated samples alike. */}
-        {effectiveShare ? (
-          <div className="border-b border-ink/10 py-3 text-center">
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-ink/45">
-              Share this story
-            </p>
-            <div className="mt-2 flex justify-center">
+          right={
+            effectiveShare ? (
               <ShareButtons
+                compact
                 url={effectiveShare.url}
                 title={effectiveShare.title}
                 image={effectiveShare.image}
               />
-            </div>
-          </div>
-        ) : null}
+            ) : (
+              'Priceless'
+            )
+          }
+        />
+        <div className="border-t-[3px] border-ink" />
 
         {/* Lead headline + deck + byline -------------------------------------- */}
         <section className="py-5 text-center sm:py-6">
@@ -283,7 +279,7 @@ function EditionLine({
 }: {
   left: string;
   center: string;
-  right: string;
+  right: ReactNode;
 }): ReactElement {
   return (
     <div className="flex flex-col items-center gap-1 py-2 text-center font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65 sm:flex-row sm:justify-between sm:text-left">

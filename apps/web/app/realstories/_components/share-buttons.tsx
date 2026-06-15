@@ -24,6 +24,7 @@ export function ShareButtons({
   url,
   title,
   image,
+  compact = false,
 }: {
   /** Absolute canonical URL of the editorial — what gets shared + crawled. */
   url: string;
@@ -31,6 +32,9 @@ export function ShareButtons({
   title: string;
   /** Absolute og:image URL — Pinterest pins this directly. */
   image?: string;
+  /** Inline icon-only variant — sized to sit in the editorial dateline (where
+   *  "Priceless" was) instead of a full row of labelled pills. */
+  compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -53,6 +57,49 @@ export function ShareButtons({
       // Clipboard blocked (insecure context / permission) — no-op; the FB +
       // Pinterest paths still work.
     }
+  }
+
+  // Compact dateline variant — a small "Share" word + three icon-only buttons,
+  // matching the masthead's mono dateline so it can replace "Priceless".
+  if (compact) {
+    const iconBtn =
+      'inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-terracotta';
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-ink/45">
+          Share
+        </span>
+        <button
+          type="button"
+          onClick={() => openShare(fbHref)}
+          aria-label="Share this story on Facebook"
+          className={iconBtn}
+        >
+          <FacebookGlyph />
+        </button>
+        <button
+          type="button"
+          onClick={() => openShare(pinHref)}
+          aria-label="Save this story to Pinterest"
+          className={iconBtn}
+        >
+          <PinterestGlyph />
+        </button>
+        <button
+          type="button"
+          onClick={copyLink}
+          aria-label="Copy link to this story"
+          aria-live="polite"
+          className={iconBtn}
+        >
+          {copied ? (
+            <Check aria-hidden className="h-3 w-3 text-emerald-600" strokeWidth={2} />
+          ) : (
+            <Link2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          )}
+        </button>
+      </span>
+    );
   }
 
   const pill =

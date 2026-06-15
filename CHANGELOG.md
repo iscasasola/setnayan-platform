@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(for-vendors): mobile tier-switcher for the 4-tier pricing matrix
+
+Owner: *"the price table doesn't work well on mobile. what can we do?"* — and picked the **tier switcher** option.
+
+The `/for-vendors` deep-dive comparison matrix is a fixed 5-column grid (Capability + Free + Verified + Pro + Enterprise) across 8 sections / ~35 feature rows. Its only small-screen handling was `overflow-x: auto` + `min-width: 760px`, so on a ~380px phone it became a **760px-wide sideways scroll**: Pro/Enterprise (the columns we sell) sat off-screen and the price header scrolled away after a few rows. The section also hardcoded `padding: '120px 56px'` with no mobile override.
+
+- **`app/for-vendors/_components/vendor-pricing-matrix.tsx`** (new, client island) — owns the matrix data + `MatrixCell` (moved out of the server component). Renders **two layouts, toggled purely by CSS `display`** (no JS-breakpoint hydration mismatch):
+  - **Desktop (≥1024px):** the original 5-column grid, **markup unchanged** — no visual change.
+  - **Mobile (<1024px):** a **sticky segmented control** (Free / ✓ Verified / ★ Pro / ⬢ Enterprise, default Pro) + a single 2-column layout (feature label + the selected tier's value). A sticky price banner (dark when Pro is selected, mirroring the desktop highlight) keeps tier + price pinned while scanning the full list. **Zero horizontal scroll.** The sticky control pins below the sticky `VendorNav` (`top: 64px`, `72px` ≥640px). Only client state is the selected tier.
+- **`app/for-vendors/_components/for-vendors-deep-dive.tsx`** — replaced the ~240-line inline matrix block with `<VendorPricingMatrix prices={p} />`; prices still resolved server-side via `getVendorPrices()` and passed in. Removed the now-obsolete `.m-matrix-container`/`.m-matrix-row` mobile CSS. Section padding moved to the repo convention `clamp(64px, 11vw, 120px) clamp(20px, 5vw, 56px)` so it breathes on phones.
+
+No price/feature/copy changes — every tier value is identical to before; this is presentation only. `tsc` + `next lint` + `lint:retired` + `lint:botnav` clean; production build green.
+
+SPEC IMPACT: None (presentation-only responsive fix; pricing + feature matrix unchanged). UX decision (mobile pricing pattern = tier switcher) logged to corpus `DECISION_LOG.md`.
 ## 2026-06-15 · feat(editorial): masthead Vol./No. are real — Volume = year, No. = wedding's number that year
 
 Owner: *"Vol. 1 · No. 1 will be our weddings. Volume 1 is 2026, Volume 2 is 2027. No. 1 is the wedding number for the year."* The dateline's `Vol. I · No. 1` was hardcoded — now it's computed:

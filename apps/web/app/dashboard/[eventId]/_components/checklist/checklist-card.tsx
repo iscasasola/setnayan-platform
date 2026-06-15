@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Circle, CheckCircle2, ArrowRight } from 'lucide-react';
 import {
   CHECKLIST_CATEGORY_LABELS,
+  checklistItemHref,
   type ChecklistItemView,
 } from '@/lib/checklist';
 import { toggleChecklistItem } from '../../checklist-actions';
@@ -24,35 +25,6 @@ type Props = {
   totalCount: number;
   doneCount: number;
 };
-
-/** Deep-link a checklist item to the surface where it gets done, when obvious. */
-function hrefForTemplateKey(eventId: string, key: string | null): string | null {
-  if (!key) return null;
-  const map: Record<string, string> = {
-    set_budget: `/dashboard/${eventId}/budget`,
-    book_venue: `/dashboard/${eventId}/vendors`,
-    book_caterer: `/dashboard/${eventId}/vendors`,
-    book_photo: `/dashboard/${eventId}/vendors`,
-    book_hmua: `/dashboard/${eventId}/vendors`,
-    book_coordinator: `/dashboard/${eventId}/vendors`,
-    menu_tasting: `/dashboard/${eventId}/vendors`,
-    final_payments: `/dashboard/${eventId}/budget`,
-    final_headcount: `/dashboard/${eventId}/guests`,
-    guest_list: `/dashboard/${eventId}/guests`,
-    guest_estimate: `/dashboard/${eventId}/guests`,
-    sponsors: `/dashboard/${eventId}/guests`,
-    rsvp_followup: `/dashboard/${eventId}/guests`,
-    invitations: `/dashboard/${eventId}/invitation`,
-    mood_board: `/dashboard/${eventId}/mood-board`,
-    monogram: `/dashboard/${eventId}/monogram`,
-    schedule: `/dashboard/${eventId}/schedule`,
-    emcee_script: `/dashboard/${eventId}/schedule`,
-    confirm_vendors: `/dashboard/${eventId}/schedule`,
-    rehearsal: `/dashboard/${eventId}/schedule`,
-    seating: `/dashboard/${eventId}/seating`,
-  };
-  return map[key] ?? null;
-}
 
 /** Soft urgency tint from days-until-due: overdue/this-week reads warm. */
 function dueTag(item: ChecklistItemView): { label: string; tint: string } {
@@ -98,7 +70,7 @@ export function ChecklistCard({ eventId, items, totalCount, doneCount }: Props) 
         <ul className="space-y-2">
           {items.map((item) => {
             const tag = dueTag(item);
-            const href = hrefForTemplateKey(eventId, item.template_key);
+            const href = checklistItemHref(eventId, item.template_key);
             return (
               <li
                 key={item.item_id}
@@ -143,6 +115,13 @@ export function ChecklistCard({ eventId, items, totalCount, doneCount }: Props) 
           })}
         </ul>
       )}
+
+      <Link
+        href={`/dashboard/${eventId}/checklist`}
+        className="inline-flex items-center gap-1 text-xs font-medium text-terracotta-700 transition hover:text-terracotta-800"
+      >
+        View full checklist ({totalCount}) <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+      </Link>
     </section>
   );
 }

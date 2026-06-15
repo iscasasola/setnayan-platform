@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(checklist): the full 18-month wedding checklist — ~90 tasks, a browsable /checklist page, top-up seeding
+
+Turned the static 18-month wedding planner into a live, **free** in-app checklist. The `event_checklist_items` table + computed-offset model (`due_date = wedding_date − offset`, so the whole countdown shifts when the date changes) already shipped (migration `20261224000000`, on prod); this fills it in and gives it a real home.
+
+- **`apps/web/lib/checklist.ts`** — expanded `CHECKLIST_TEMPLATE` from 28 → 91 tasks across the full arc (18 months out → the day of & after; offsets now exceed 365 and go negative for post-wedding tasks). The original 28 keys/offsets are preserved verbatim (no churn for already-seeded couples). Added a `CHECKLIST_PHASES` model + `phaseForOffset()` + `groupChecklistByPhase()` (9 countdown phases, done-items-sink ordering), a shared `checklistItemHref()` deep-link map, and **deterministic ceremony tailoring** via `appliesTo`/`isChurchCeremony` — Catholic-only steps (banns, canonical interview, Pre-Cana, church fee…) are dropped for a civil wedding, kept when ceremony is unset.
+- **`…/[eventId]/checklist-actions.ts`** — `ensureChecklistSeeded` is now a **TOP-UP**: it inserts only the template keys an event is MISSING (diff on `template_key`), tailored to the event's `ceremony_type`. Brand-new events get the whole list; couples seeded under the old 28-item template gain the new tasks on next render without touching their progress or custom rows.
+- **`…/[eventId]/checklist/page.tsx` + `…/_components/checklist/checklist-full.tsx`** (new) — the browsable full checklist: every task grouped by countdown phase, with a progress bar, computed due dates, a one-tap toggle (server action, no client JS), per-task deep-links, and an "add your wedding date" hint when no date is set. Done items sink (stay visible, dimmed).
+- **`…/_components/checklist/checklist-card.tsx`** — the home "Up next" card now links to the full list ("View full checklist (N)") and shares the `checklistItemHref` map (deleted its local copy).
+- **`…/_components/customer-nav-config.ts`** — added **Checklist** as the first item in the Plan journey group (desktop sidebar + mobile bottom-nav accordion).
+- **`apps/web/lib/checklist.test.ts`** — +6 tests (phase mapping, ceremony filtering, done-sink grouping, contiguous phase coverage, every-template-item-maps-to-a-phase). 13/13 pass.
+
+Positioning (owner-flagged): the checklist is **FREE and ungated** — a deterministic, zero-marginal-cost core planning tool, NOT behind the paid Setnayan AI SKU. "Setnayan AI" is the free deterministic personalization (tailors WHICH tasks appear by ceremony); the paid AI later adds proactive nudging/auto-advance. **No migration** (table already on prod). `tsc --noEmit` + `next lint` + production build all green; 13/13 unit tests pass.
+
+SPEC IMPACT: New free couple-facing surface + a free-vs-paid positioning call. Logged in corpus `DECISION_LOG.md` (iteration 0016/0021). Free-vs-paid flagged for owner sign-off in the PR.
 ## 2026-06-16 · feat(explore): disclose paid placement + explain anonymized vendor names
 
 The couple-facing category-search overlay floated boosted vendors (`ad_rank` desc) above the review-ranked tier under a bare **"Featured"** badge with no disclosure — couples could read paid placement as a Setnayan/AI recommendation. And Free/Verified vendors render an anonymized placeholder name until their first reply (`name_revealed_at IS NULL`) with no explanation, so the listing read as fake. Both additions are UI-only / additive.

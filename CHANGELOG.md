@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): extract a reusable `SubNav` (icon-over-text) + collapse the bottom nav to icons-only while it's docked
+
+Owner follow-ups to the dock-lift below: (1) sub-nav labels go UNDER the icon, not beside; (2) make it a reusable thing — *"we will call this sub nav and make sure this subnav can be created on other pages"*; (3) *"when sub nav shows, the bottom nav shrink and becomes icons only"* → (4) clarified: *"it shrinks in size because the text is lost only. do not shrink the icon."*
+
+- **`apps/web/app/_components/nav/sub-nav.tsx`** (new) — the reusable `SubNav` companion to `BottomNav`. Renders a floating frosted pill docked above the bottom nav (geometry mirrors `NavShell` one size down), **icon-over-text** items, lift reveal (`.subnav-lift`). API: `<SubNav items={{key,label,icon}[]} activeKey onSelect ariaLabel />` — any page whose primary tab owns sub-sections can mount it. Exposes `useSubNavDocked()` backed by a tiny module-level store (count of mounted `SubNav`s) — race-free vs. a fire-and-forget event, so mount order with `BottomNav` doesn't matter.
+- **`apps/web/app/_components/nav/bottom-nav.tsx`** — `BottomNavFlat` reads `useSubNavDocked()`; when a sub-nav is docked, `BottomNavTab` enters **compact** mode: the label row collapses (max-height + fade) and the cell min-height drops ~10px, so the bar gets shorter *because the text is gone* — **the 22px icon is unchanged**. Transitioned, and restores its labels when the sub-nav unmounts. The locked pill / press-light / icon-grow / four `--bn-*` knobs are untouched (the `lint:botnav` template-integrity guard stays green).
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`** — the inline docked `<nav>` is replaced by `<SubNav items={…} activeKey={tab} onSelect={selectTab} />`. Mounting it on `/vendors` is what flips the bottom nav to icons-only. Desktop top strip + panel clearance unchanged.
+- **`apps/web/app/globals.css`** — renamed the keyframe/class `bb-subnav-*` → generic `subnav-lift` (it's now owned by the shared component), `prefers-reduced-motion` opt-out kept.
+
+Compact-mode is wired into the FLAT nav path (customer/vendor/admin); the accordion path is unused by any live doorway (flat 6-tab nav, #1500) so it's left untouched. `next lint`, `tsc --noEmit`, `lint:botnav` all green. Dock offset (76px above the now-compact nav) + the shrink amount are geometry-derived — eyeball on the PR's Vercel preview.
+
+SPEC IMPACT: None on data/pricing/SKUs. Introduces a reusable `SubNav` nav primitive + a coordinated icons-only mode on the canonical `BottomNav` (extends iteration 0021 nav chrome). Update [[project_setnayan_bottom_nav_canonical]].
+
 ## 2026-06-16 · feat(explore): dock the mobile section nav above the bottom nav as a sub-nav, with a "lift" reveal
 
 Owner direction (follow-up to the de-dupe below): *"the blue one will be pinned on top of the bottom nav as its sub nav"* → after comparing reveal styles, owner picked **Lift**. The Explore (Services "Build" takeover) section nav — Summary · Shortlist · Build · Compare · Lock — was a sticky pill at the **top** of the page body on mobile. It now docks at the **bottom**, directly above the global bottom-nav pill, as that tab's contextual sub-nav.

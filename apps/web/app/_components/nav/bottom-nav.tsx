@@ -71,6 +71,7 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
+import { useSubNavDocked } from './sub-nav';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -140,6 +141,13 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
   const pathname = usePathname() ?? '';
   const isActive = useIsActive(pathname);
 
+  // Icons-only when a <SubNav> is docked (owner 2026-06-16): the bar drops its
+  // LABEL row only — the icon never shrinks — so it gets a touch shorter and
+  // the docked sub-nav stacks above it without crowding. Restores its labels
+  // when the sub-nav unmounts. The locked pill / press-light / icon-grow feel
+  // is untouched; only the per-cell label + min-height respond to `compact`.
+  const compact = useSubNavDocked();
+
   // Which tab is being physically pressed right now (pointerdown → up).
   // Drives the white press-light + the icon grow. Cleared on release,
   // pointer-leave, cancel, and any window-level pointerup (release outside
@@ -207,6 +215,7 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
               item={item}
               active={i === activeIndex}
               pressed={pressed === i}
+              compact={compact}
               onPressStart={() => {
                 setPressed(i);
                 setFlash((f) => ({ index: i, id: f ? f.id + 1 : 1 }));
@@ -756,12 +765,16 @@ function BottomNavTab({
   item,
   active,
   pressed,
+  compact,
   onPressStart,
   onPressEnd,
 }: {
   item: BottomNavItem;
   active: boolean;
   pressed: boolean;
+  /** Icons-only mode — a <SubNav> is docked, so collapse the label row. The
+   *  icon size is unchanged (owner 2026-06-16: "do not shrink the icon"). */
+  compact: boolean;
   onPressStart: () => void;
   onPressEnd: () => void;
 }) {
@@ -782,6 +795,11 @@ function BottomNavTab({
           outlineColor: 'var(--m-orange)',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
+          // Compact: drop the cell's min-height so losing the label row makes
+          // the bar shorter (inline wins over the min-h-[…] classes). Stays a
+          // ≥44px tap target. Transitioned so the collapse reads as motion.
+          minHeight: compact ? 48 : undefined,
+          transition: 'min-height 200ms ease',
         }}
       >
         <span className="relative inline-flex">
@@ -799,9 +817,18 @@ function BottomNavTab({
             <BadgeDot tone={item.badge.tone} count={item.badge.count} label={item.badge.label} />
           ) : null}
         </span>
+        {/* Label collapses to nothing in compact mode (height + fade) — only the
+            text is lost, the icon above is untouched. Kept in the DOM (not
+            unmounted) so the accessible name survives and the transition runs. */}
         <span
           className="whitespace-nowrap text-[10px] tracking-wide"
-          style={{ fontWeight: active ? 600 : 400 }}
+          style={{
+            fontWeight: active ? 600 : 400,
+            maxHeight: compact ? 0 : 16,
+            opacity: compact ? 0 : 1,
+            overflow: 'hidden',
+            transition: 'max-height 200ms ease, opacity 150ms ease',
+          }}
         >
           {item.label}
         </span>

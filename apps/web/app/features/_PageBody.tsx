@@ -1,4 +1,3 @@
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { FeaturesHero } from './_sections/_Hero';
 import { FeaturesAnchorNav } from './_sections/_AnchorNav';
 import { PlanningToolkit } from './_sections/_PlanningToolkit';
@@ -76,7 +75,6 @@ export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(featuresJsonLd(locale)) }}
       />
       <main className="min-h-dvh">
-        <Nav />
         <FeaturesHero locale={locale} />
         <FeaturesAnchorNav locale={locale} />
         <PlanningToolkit locale={locale} />

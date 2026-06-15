@@ -5,10 +5,11 @@
  * is published, falling back to the default keynote hero otherwise — see
  * lib/hero-video.ts + _sections.tsx Hero().
  *
- * COMPOSITION:
- *   1. Nav            — sticky nav with brand + CTA + mobile menu
- *   2. Hero           — full-screen scroll-scrub video → end-of-scroll CTA
- *   3. PostHeroReveal — gates the content below: at the hero end the page LOCKS
+ * COMPOSITION (the top Nav is NOT here — it's the ONE persistent site-wide
+ * nav mounted in the root layout via SiteChrome, so it survives navigations;
+ * see _components/marketing/site-chrome.tsx):
+ *   1. Hero           — full-screen scroll-scrub video → end-of-scroll CTA
+ *   2. PostHeroReveal — gates the content below: at the hero end the page LOCKS
  *                       (the collapsed content makes the hero end the page
  *                       bottom), a "Tap to learn more ↓" pill fades in, and a
  *                       tap expands + scrolls into:
@@ -30,7 +31,6 @@
  * per request.
  */
 
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { Hero } from '@/app/_components/marketing/_sections';
 import { PostHeroReveal } from '@/app/_components/marketing/PostHeroReveal';
 import { WhatYouGet } from '@/app/_components/marketing/WhatYouGet';
@@ -150,7 +150,6 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-        <Nav />
         <Hero />
         <PostHeroReveal>
           <WhatYouGet />

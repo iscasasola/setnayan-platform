@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(nav): ONE persistent top nav for the whole site (stop the per-page remount)
+
+Owner: *"why is it when we press a menu on the top nav of the website, the top nav also resets? we already said the top nav stays and the body should only change. we do not need one top nav for each. we want one top nav to navigate the whole website."*
+
+Root cause: every marketing page rendered its **own** `<Nav>` inside its `page.tsx`. In the App Router a `page` is unmounted and rebuilt on every navigation, so each nav click tore down the old nav and mounted a fresh one — the "reset"/flash, and (since #1475) the hide-on-scroll state reset too. A nav rendered in a **layout** is preserved across navigations; only the body re-renders.
+
+- **`apps/web/app/_components/marketing/site-chrome.tsx`** (new) — `SiteChrome`, a thin client gate. Reads `usePathname()` and renders the shared `<Nav>` only on the explicit set of public marketing routes (exact-match = behavior-preserving), `null` everywhere else. `/explore` gets `sticky={false}` (its own search bar pins). Canonical post-redirect paths handled: `/vendors`→`/explore`, `/weddings`→`/realstories`.
+- **`apps/web/app/layout.tsx`** — mounts `<SiteChrome />` **once**, inside `<Providers>` as a sibling of `{children}`. The root layout is the only shared ancestor of the flat public pages, so a single Nav instance now survives every navigation; only the page body swaps.
+- **Removed the per-page `<Nav>` (import + render) from all 12 pages** that had it: `page.tsx` (home), `about`, `how-it-works`, `pricing`, `for-vendors`, `our-story`, `blog`, `realstories`, `features/_PageBody`, `explore`, `tl/about`, `tl/how-it-works`. No page gains/loses the nav — it's the same set, just hoisted.
+
+Untouched: the legacy `SiteHeader` on `/waitlist` + `/download` (separate component), guest-landing / vendor-profile / venue pages (their own `NavLinksRow` chrome), and all authed consoles (own chrome; `SiteChrome` returns null there). To extend the nav to more public routes later, add the path to `NAV_ROUTES`.
+
+Validation: local `tsc` blocked by the same worktree pnpm-symlink resolution issue as #1475 (blanket "Cannot find module 'react'" — toolchain, not code). Verified no dangling `Nav` references remain in the 12 pages (grep), import paths resolve, and the gate routes match the real redirected pathnames. Required CI (typecheck + lint + production build) gates the auto-merge.
+
+SPEC IMPACT: chrome architecture — the marketing top nav becomes a single persistent layout-level instance (iteration 0000 shell / 0015 main website). Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(onboarding): system Back walks the wedding-onboarding steps (no escape to the old picker)
 
 Owner bug: *"the onboarding when back is pressed doesn't go back from the previous onboarding — it went back to the old onboarding, which is wrong. The only onboarding should be the new one."* The new `/onboarding/wedding` flow drives its 15+ screens with pure React state (`go(d)`), so the on-screen "‹" button worked — but the **device hardware Back button, the browser Back button, and the mobile swipe-back gesture were never intercepted**. They popped the whole page out of onboarding, landing the couple on whatever loaded before it. For the dashboard / `create-event` entry path that previous page was the legacy `/dashboard/create-event` event-type picker = the "old onboarding" the owner kept hitting.

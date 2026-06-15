@@ -115,7 +115,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     monogram_frame_key: e.monogram_frame_key,
     monogram_font_key: e.monogram_font_key,
     monogram_style: e.monogram_style,
-    monogram_custom_svg: e.monogram_custom_svg,
+    monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
   }));
 
   const badge = profile?.is_internal
@@ -148,7 +148,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
         currentMonogramFontKey={primaryEvent?.monogram_font_key}
         currentMonogramStyle={primaryEvent?.monogram_style}
-        currentMonogramCustomSvg={primaryEvent?.monogram_custom_svg}
+        currentMonogramCustomSvg={primaryEvent?.monogram_uploaded_svg ?? primaryEvent?.monogram_custom_svg}
         events={switcherEvents}
         hasCustomerAccess={roles.hasCustomerAccess}
         hasVendorAccess={roles.hasVendorAccess}

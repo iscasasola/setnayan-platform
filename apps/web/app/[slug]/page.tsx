@@ -128,7 +128,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -240,10 +240,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // typographic circle on the hero. ANIMATED_MONOGRAM owners get a gentle
   // bloom-in entrance (glyph-level Motion Library signatures need letterform
   // strokes, so the bespoke mark uses the container-level entrance instead).
+  // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
+  // which outranks the lettered lockup — one effective mark feeds the hero.
   const bespokeSvg =
-    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
+    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? event.monogram_uploaded_svg
+      : null) ??
+    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
       ? event.monogram_custom_svg
-      : null;
+      : null);
 
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie

@@ -9,7 +9,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { isSetnayanAiActive, shouldOfferSetnayanAiPurchase } from '@/lib/setnayan-ai';
 import { searchCategoryVendors } from './_actions/category-search';
 import { attachMarketplaceVendorToCategory } from './actions';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -17,7 +17,12 @@ import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 export type FlagActionResult = { ok: true } | { ok: false; error: string };
 export type GenerateResult =
   | { ok: true; added: number; skipped: number }
-  | { ok: false; error: string };
+  // `shouldPurchase` is only ever set when the SETNAYAN_AI_PAYWALL_ENABLED flag
+  // is ON and the event hasn't bought the entitlement — the client then routes
+  // to the /add-ons/setnayan-ai buy page instead of just showing the error. With
+  // the flag OFF (default) this key is never present, so the result shape +
+  // behavior are byte-identical to before this change.
+  | { ok: false; error: string; shouldPurchase?: boolean };
 
 export async function flagCategory(input: {
   eventId: string;
@@ -82,10 +87,25 @@ export async function generateFlaggedVendors(input: {
     .select('planning_mode, setnayan_ai_active')
     .eq('event_id', input.eventId)
     .maybeSingle();
-  const aiOn = isSetnayanAiActive(
-    (ev ?? null) as { planning_mode?: string | null; setnayan_ai_active?: boolean | null } | null,
-  );
+  const evGate = (ev ?? null) as
+    | { planning_mode?: string | null; setnayan_ai_active?: boolean | null }
+    | null;
+  const aiOn = isSetnayanAiActive(evGate);
   if (!aiOn) {
+    // When the paywall is ON and this event hasn't purchased Setnayan AI, the
+    // auto-fill is a paid capability → tell the client to route to the buy page
+    // (/add-ons/setnayan-ai) rather than just surfacing an error. A couple who
+    // OWNS it but toggled Manual is NOT offered a second purchase
+    // (shouldOfferSetnayanAiPurchase is false there — double-charge guard). With
+    // the paywall OFF (default) this is always false → the exact same
+    // `{ ok: false, error }` as before, no behavior change.
+    if (shouldOfferSetnayanAiPurchase(evGate)) {
+      return {
+        ok: false,
+        error: 'Unlock Setnayan AI to auto-fill flagged categories.',
+        shouldPurchase: true,
+      };
+    }
     return { ok: false, error: 'Turn on Setnayan AI to auto-fill flagged categories.' };
   }
 

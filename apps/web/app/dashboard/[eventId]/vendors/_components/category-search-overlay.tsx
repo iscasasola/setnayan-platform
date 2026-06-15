@@ -78,6 +78,13 @@ const CSS = `
 .csov .r .addbtn:disabled{opacity:.6}
 .csov .r .addbtn.done{border-color:var(--gold);background:transparent;color:var(--gold-deep)}
 .csov .empty{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--ink-soft);text-align:center;padding:40px 20px}
+/* Last-minute unlock CTA — capability framing, calm opportunity tone (NOT an
+   alarm / "locked" treatment). Only renders on the §4 edge-#2 empty state. */
+.csov .lm-cta{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:40px 22px}
+.csov .lm-cta .lead{font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.2;color:var(--ink)}
+.csov .lm-cta .sub{font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--ink-soft);max-width:30ch}
+.csov .lm-cta a{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius:999px;padding:11px 20px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
+.csov .lm-cta a:active{transform:scale(.96)}
 .csov .loading{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding:30px 20px}
 .csov .foot{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--paper)}
 .csov .searchwrap{flex:1 1 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;background:#fff;padding:0 14px;min-height:44px}
@@ -133,6 +140,10 @@ export function CategorySearchOverlay({
   const [maxKm, setMaxKm] = useState<number | null>(null);
   const [results, setResults] = useState<CategoryVendorResult[]>([]);
   const [hasCoords, setHasCoords] = useState(false);
+  // §4 edge-#2 empty state (dormant unless an admin seeded last_minute_start):
+  // the group is fully in its last-minute zone and Setnayan AI is off, so generic
+  // search is empty — swap the bare copy for a capability-framed unlock CTA.
+  const [lastMinuteLocked, setLastMinuteLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   // "Show vendors farther away" expander — the out-of-range vendors, fetched
   // lazily on demand so the default view stays in-range (the radius reach gate).
@@ -165,6 +176,7 @@ export function CategorySearchOverlay({
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
+        setLastMinuteLocked(res.isLastMinuteLocked === true);
         // New search → collapse any expanded "farther away" set.
         setFarther([]);
         setFartherShown(false);
@@ -394,6 +406,20 @@ export function CategorySearchOverlay({
       <div className="results">
         {loading && results.length === 0 ? (
           <div className="loading">Finding {label.toLowerCase()} vendors…</div>
+        ) : results.length === 0 && lastMinuteLocked ? (
+          // §4 edge-#2: the date is close and generic search is empty, but
+          // last-minute vendors could still take it with Setnayan AI on. Calm,
+          // capability-framed unlock — never "locked"/"hidden inventory".
+          <div className="lm-cta">
+            <p className="lead">Vendors can still take your date</p>
+            <p className="sub">
+              Your wedding is close, so {label.toLowerCase()} vendors who book
+              last-minute appear with Setnayan AI on.
+            </p>
+            <a href={`/dashboard/${eventId}/add-ons/setnayan-ai`}>
+              Unlock with Setnayan AI
+            </a>
+          </div>
         ) : results.length === 0 ? (
           <div className="empty">
             No {label.toLowerCase()} vendors match yet. Try a different search,

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(explore): duplicate Services tab strip on mobile (Summary · Shortlist · Build · Compare · Lock rendered twice)
+
+Owner screenshot (Explore page): the 5-tab section nav rendered **twice** on phones — a full-label bar that overflowed the viewport (clipping "Lock") stacked directly above the truncated sticky pill ("Su…", "Sho…", "Co…").
+
+Root cause: a CSS specificity collision. `.sn-seg { display: flex }` (globals.css) and Tailwind's `.hidden` (`display: none`) are both single-class selectors (equal specificity), so `.sn-seg` wins on source order. The **desktop** tab strip in `services-takeover.tsx` put the responsive toggle directly on the `.sn-seg` element (`className="sn-seg mb-4 hidden lg:flex"`), so `hidden` never actually hid it — the desktop strip leaked onto mobile, stacking under the sticky mobile pill (whose `lg:hidden` correctly sits on a plain wrapper, not on `.sn-seg`).
+
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`** — wrapped the desktop `.sn-seg` strip in a plain `<div className="mb-4 hidden lg:block">` so the show/hide toggle no longer lives on the `.sn-seg` element. Mirrors the working mobile-strip pattern below it. Now exactly one section nav renders per breakpoint (sticky pill < 1024px, top strip ≥ 1024px). No other surface hit the collision — the only other `sn-seg*` + responsive-utility combo (`schedule-mode-toggle.tsx`) uses `flex-*`/padding utilities, not a `display` toggle.
+
+This is a live-prod bug: the Services "Build" takeover is on by default (`BUDGET_BUILD_ENABLED`), so every couple saw the doubled bar on mobile. `next lint` + `tsc --noEmit` green.
+
+SPEC IMPACT: None — pure layout/CSS bug fix; no behavior, route, pricing, or SKU change.
+
 ## 2026-06-16 · feat(nav): customer bottom nav → flat 6-tab bar (Home · Guests · Explore · Studio · Design · Budget)
 
 Owner-locked 2026-06-16, resolving a long "how do I fit all 6 menus so it's *all there*" exploration (accordion → mother/osmosis → settled on structure over animation). With six real destinations there's nothing to reveal in the bar — each tab navigates to its page, and the page surfaces its own sub-features as cards. No accordion, no "More", no overlay.

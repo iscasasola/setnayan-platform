@@ -19,8 +19,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, ChevronDown, Star, MapPin, BadgeCheck, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, ChevronDown, Star, MapPin, BadgeCheck, Sparkles, Pencil } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
+import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 
 const SLCAT_CSS = `
@@ -84,6 +86,17 @@ const SLCAT_CSS = `
 .slcat .find-row .fr-i{display:inline-flex;color:var(--mulberry)}
 .slcat .find-row .fr-t{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--mulberry)}
 .slcat .find-row .fr-h{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
+/* empty body — Find + Add-manually share the row, wrap on narrow screens */
+.slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;margin:2px 16px}
+.slcat .find-set .find-row{margin:0;flex:1 1 150px}
+.slcat .find-set .find-row .fr-h{display:none}
+.slcat button.find-row{appearance:none;-webkit-appearance:none;font:inherit;cursor:pointer;text-align:left}
+.slcat button.find-row:active{transform:scale(.99)}
+/* add-manually rail card — mirrors .find, ✎ glyph reads a touch smaller */
+.slcat .add-manual{flex:0 0 132px;scroll-snap-align:start;display:flex}
+.slcat .add-manual button{flex:1;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;background:rgba(30,34,41,.03);border:1.5px dashed var(--line);border-radius:16px;color:var(--ink-soft);font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.slcat .add-manual button:active{transform:scale(.97)}
+.slcat .add-manual .ft{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
 .slcat a:focus-visible,.slcat button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
 html.dark .slcat .cat.open .cat-nm,html.dark .slcat .find .inner,html.dark .slcat .find-row .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
@@ -143,10 +156,20 @@ function VendorCard({ v }: { v: ShortlistVendor }) {
   );
 }
 
-export function ShortlistCategories({ folders }: { folders: ShortlistFolder[] }) {
+export function ShortlistCategories({
+  folders,
+  eventId,
+}: {
+  folders: ShortlistFolder[];
+  eventId: string;
+}) {
+  const router = useRouter();
   // Single-open across ALL categories (owner: "when a category is picked, the
   // others collapse to keep them focused"). Key = tile id (unique app-wide).
   const [open, setOpen] = useState<string | null>(null);
+  // The category whose "Add manually" modal is open (owner: every category
+  // shows a Find AND an Add-manually). category = the VendorCategory to store under.
+  const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
 
   return (
     <div className="slcat">
@@ -196,15 +219,35 @@ export function ShortlistCategories({ folders }: { folders: ShortlistFolder[] })
                             <span className="ft">Find more {t.label}</span>
                           </span>
                         </Link>
+                        <span className="add-manual">
+                          <button
+                            type="button"
+                            onClick={() => setManual({ category: t.category, label: t.label })}
+                          >
+                            <Pencil size={18} strokeWidth={1.75} aria-hidden />
+                            <span className="ft">Add manually</span>
+                          </button>
+                        </span>
                       </div>
                     ) : (
-                      <Link href={t.exploreHref} className="find-row" prefetch={false}>
-                        <span className="fr-i">
-                          <Search size={16} strokeWidth={1.75} aria-hidden />
-                        </span>
-                        <span className="fr-t">Find {t.label}</span>
-                        <span className="fr-h">Explore →</span>
-                      </Link>
+                      <div className="find-set">
+                        <Link href={t.exploreHref} className="find-row" prefetch={false}>
+                          <span className="fr-i">
+                            <Search size={16} strokeWidth={1.75} aria-hidden />
+                          </span>
+                          <span className="fr-t">Find {t.label}</span>
+                        </Link>
+                        <button
+                          type="button"
+                          className="find-row"
+                          onClick={() => setManual({ category: t.category, label: t.label })}
+                        >
+                          <span className="fr-i">
+                            <Pencil size={16} strokeWidth={1.75} aria-hidden />
+                          </span>
+                          <span className="fr-t">Add manually</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 ) : null}
@@ -213,6 +256,18 @@ export function ShortlistCategories({ folders }: { folders: ShortlistFolder[] })
           })}
         </section>
       ))}
+      {manual ? (
+        <NewManualVendorModal
+          eventId={eventId}
+          category={manual.category}
+          categoryLabel={manual.label}
+          onClose={() => setManual(null)}
+          onCreated={() => {
+            setManual(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

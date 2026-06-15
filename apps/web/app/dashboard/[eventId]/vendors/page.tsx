@@ -518,7 +518,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const shortlistContent = (
     <>
       {aiOfferBanner}
-      <ShortlistCategories folders={shortlistFolders} />
+      <ShortlistCategories folders={shortlistFolders} eventId={eventId} />
     </>
   );
 

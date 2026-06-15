@@ -80,6 +80,25 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
   return CATEGORY_TO_TILE[category] ?? null;
 }
 
+/**
+ * Inverse bridge: a tile → a representative `VendorCategory` to store a
+ * MANUALLY-added vendor under (the "Add manually" affordance writes
+ * event_vendors.category). First category that maps to the tile wins; tiles
+ * with no backing enum value (finer than the 28-value enum) fall back to 'misc'
+ * — the couple's typed record is preserved either way.
+ */
+const TILE_TO_CATEGORY: Partial<Record<WeddingTile, VendorCategory>> = (() => {
+  const m: Partial<Record<WeddingTile, VendorCategory>> = {};
+  for (const [cat, tile] of Object.entries(CATEGORY_TO_TILE)) {
+    if (tile && !(tile in m)) m[tile] = cat as VendorCategory;
+  }
+  return m;
+})();
+
+export function categoryForTile(tile: WeddingTile): VendorCategory {
+  return TILE_TO_CATEGORY[tile] ?? ('misc' as VendorCategory);
+}
+
 /** One considered vendor in a tile's carousel (read-only — view, don't lock). */
 export type ShortlistVendor = {
   vendorId: string;
@@ -105,6 +124,8 @@ export type ShortlistTile = {
   vendors: ShortlistVendor[];
   /** Marketplace jump for this tile (the "Find" card / empty-state CTA). */
   exploreHref: string;
+  /** VendorCategory to store an "Add manually" vendor under for this tile. */
+  category: string;
 };
 
 /** One folder section: its sticky head + the tiles under it. */
@@ -211,6 +232,7 @@ export function buildShortlistFolders(args: {
         slug,
         vendors,
         exploreHref: `/explore?tile=${encodeURIComponent(slug)}`,
+        category: categoryForTile(tile),
       });
     }
     if (tiles.length === 0) continue;

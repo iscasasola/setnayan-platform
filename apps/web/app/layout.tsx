@@ -26,6 +26,7 @@ import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
 import { AppInitSplash } from './_components/app-init-splash';
+import { SiteChrome } from './_components/marketing/site-chrome';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 import {
@@ -519,7 +520,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <DemoModeBanner />
         </Suspense>
-        <Providers brandMarkUrl={brandMarkUrl}>{children}</Providers>
+        {/* SiteChrome = the ONE persistent marketing top nav, mounted once
+            here so it survives page navigations (the body swaps, the nav
+            stays). It self-gates to public marketing routes and renders null
+            everywhere else (dashboards/admin/auth own their chrome). Sits
+            inside <Providers> so it shares the same theme/brand context the
+            per-page navs had. Owner 2026-06-15 "one top nav for the whole
+            website". */}
+        <Providers brandMarkUrl={brandMarkUrl}>
+          <SiteChrome />
+          {children}
+        </Providers>
         <ClientTypeDetector />
         <NativeBridge />
         {/*

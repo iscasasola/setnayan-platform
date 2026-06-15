@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
   ALL_REAL_WEDDINGS,
@@ -203,7 +202,6 @@ export default async function WeddingsIndexPage() {
 
   return (
     <>
-      <Nav />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}

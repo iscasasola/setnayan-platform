@@ -4,6 +4,15 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(for-vendors): relatable imagery — show the vendor's problem, not the dream
+
+Owner: "make the imagery more relatable — we want them to feel 'yes, that is my problem.'" The `EditorialBand` showed a styled candlelit reception table — the aspirational *output*, which reads as the dream, not the pain. The whole repo image library (836 assets) is polished output; nothing depicts a vendor's daily grind.
+
+- **New asset `public/for-vendors/vendor-late-night.avif`** (56 KB, generated on-brand via Recraft) — a tired Filipino wedding florist alone at her worktable late at night, reading an endless stream of phone messages while bouquets + an open laptop wait. The vendor's *reality*.
+- **`editorial-band.tsx` rebuilt** — swapped the reception photo for the new image; recognition-hook copy that names the pain and pivots to the fix: eyebrow "Sound familiar?" → headline "The inquiries never stop — and most were never going to book you." → "That's the part we fix. You focus on the craft — we bring you the couples who actually fit." (mirrors the owner's own "95% of inquiries never book me"). Left-weighted dark wash keeps the copy legible while her face stays clear.
+
+`tsc --noEmit` green. SPEC IMPACT: None — marketing imagery/copy. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · style(login): brand panel is logo-only ("keep it clean and simple")
 
 Owner: *"remove this and just leave the logo on top. keep it clean and simple."* Stripped the `/login` brand rail down to just the Wordmark.

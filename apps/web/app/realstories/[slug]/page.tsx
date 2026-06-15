@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { EditorialContent } from '@/app/[slug]/_components/editorial/editorial-content';
-import { SAMPLE_EDITORIAL_EVENT_ID } from '@/app/[slug]/_components/editorial/data';
+import { SAMPLE_EDITORIAL_IDS } from '@/app/[slug]/_components/editorial/data';
 import {
   ALL_REAL_WEDDINGS,
   findRealWedding,
@@ -173,12 +173,10 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-// slug → editorial fixture id. The sentinel(s) live in editorial/data.ts (the
-// single source); add one row here per curated sample. Real editorials never
-// pass through this map — they render from their own event row at /[slug].
-const SAMPLE_EDITORIALS: Record<string, string> = {
-  'maria-and-juan-tagaytay-garden-wedding': SAMPLE_EDITORIAL_EVENT_ID,
-};
+// slug → editorial fixture id lives in editorial/data.ts (SAMPLE_EDITORIAL_IDS,
+// the single source). Every curated sample maps to a fixture there and renders
+// through the real EditorialContent engine. Real editorials never pass through
+// this map — they render from their own event row at /[slug].
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -225,7 +223,7 @@ export default async function WeddingShowcasePage({ params }: Props) {
   const wedding = findRealWedding(slug);
   if (!wedding) notFound();
   const title = weddingTitle(wedding);
-  const editorialEventId = SAMPLE_EDITORIALS[wedding.slug] ?? null;
+  const editorialEventId = SAMPLE_EDITORIAL_IDS[wedding.slug] ?? null;
   const canonicalUrl = `${SITE_URL}/realstories/${wedding.slug}`;
   const ogImage = `${SITE_URL}/api/og/realstory/${wedding.slug}`;
   const shareTitle = `${wedding.coupleNames} — a Setnayan Real Story`;

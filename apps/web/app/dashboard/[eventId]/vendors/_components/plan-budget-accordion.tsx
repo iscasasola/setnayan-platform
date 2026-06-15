@@ -50,7 +50,7 @@ import { useRouter } from 'next/navigation';
 import { LoadingStatus } from '@/components/loading-status';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
-import { computeCompatScore } from '@/lib/compat-score';
+import { computeCompatScore, explainCompatScore } from '@/lib/compat-score';
 import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
@@ -373,6 +373,7 @@ const PBA_CSS = `
 .pbacc .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .pbacc .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .pbacc .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
+.pbacc .v .whyline{font-family:var(--mono);font-size:9px;letter-spacing:.05em;color:var(--gold-deep);margin-top:3px;line-height:1.35}
 .pbacc .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
 .pbacc .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
 .pbacc .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
@@ -1443,15 +1444,21 @@ function VendorCardAtom({
   // market). The scorer admits-unknown: distance + reviews + verification drive
   // it today; refinement + date-headroom sit at a neutral baseline until 0044
   // per-service detail data lands, then the spread sharpens on its own.
+  const compatInputs = {
+    distanceKm,
+    avgRating: rating,
+    reviewCount,
+    verified,
+  };
   const match =
     personalizationEnabled && pick.marketplace_business_name && !setnayan
-      ? computeCompatScore({
-          distanceKm,
-          avgRating: rating,
-          reviewCount,
-          verified,
-        })
+      ? computeCompatScore(compatInputs)
       : null;
+  // Plain-English "why this %" — the same inputs, only the dimensions that are a
+  // real positive signal (present + above neutral). Admit-unknown: neutral/
+  // missing dims (refinement, date-headroom today) produce no phrase. Empty
+  // when nothing qualifies → the subline renders nothing. Never replaces the %.
+  const matchWhy = match ? explainCompatScore(compatInputs) : [];
   const recommendedReason =
     typeof pick.recommended_reason === 'string' && pick.recommended_reason
       ? pick.recommended_reason
@@ -1538,6 +1545,11 @@ function VendorCardAtom({
         <div className="meta">
           <div className="vn">{displayName}</div>
           {distLine && <div className="dist">{distLine}</div>}
+          {match && matchWhy.length > 0 && (
+            <div className="whyline" title={`Why ${match.score}% match`}>
+              {matchWhy.join(' · ')}
+            </div>
+          )}
 
           {stars && (
             <div className="stars" aria-label={`${rating} stars`}>

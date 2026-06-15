@@ -23,6 +23,18 @@ Owner: *"this needs to be visually powerful. each editorial is already a front-p
 Validation: `tsc --noEmit` green; `next lint` clean on changed files (only the repo-standard `<img>` LCP warning). Production build gates auto-merge.
 
 SPEC IMPACT: iteration 0046 Real Weddings showcase — the index becomes a dedup-cascaded gallery (Cover / Most loved / Just published / Archive) with search + live ping-pong hero video; "most viewed" ships as an editors'-pick stand-in pending view tracking. Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(monogram): upload your own monogram — it overrules every Setnayan mark
+
+Owner rule: when a couple uploads THEIR OWN monogram in the Monogram Maker, it must **overrule** every Setnayan mark — the Cipher / Bespoke-AI `monogram_custom_svg` AND the lettered lockup — everywhere, with no second monogram stored.
+
+- **Migration `20261228000213_add_monogram_uploaded_svg_column.sql`** — one nullable `events.monogram_uploaded_svg` column, holding the uploaded mark as render-ready **inline SVG markup** (same storage model as `monogram_custom_svg`, so it renders inline everywhere with zero presigned-URL plumbing). **Applied to prod.**
+- **Upload + remove server actions** (`monogram/actions.ts`) — `uploadMonogram` accepts PNG/JPG/WEBP/SVG (≤4 MB): an **SVG** is run through `sanitizeBespokeSvg` (the bespoke allowlist — no scripts/handlers/href/data:); a **raster** is `sharp`-downscaled to a 512px transparent webp and wrapped in `<svg><image href="data:image/webp;base64,…"/></svg>` (machine-built, inert, renders via the existing data-URI `<img>` path). `removeUploadedMonogram` clears it → falls back to the bespoke/cipher mark, then the lettered lockup. RLS-scoped to the couple (mirrors `saveMonogram`).
+- **Upload card UI** (`monogram/upload-card.tsx`) — a "Upload your own" card at the **top** of the Maker (it overrides everything below): file picker + live preview + active/remove states + status notices.
+- **Precedence — uploaded wins everywhere it shows.** Resolved at the data layer as `monogram_uploaded_svg ?? monogram_custom_svg` fed into the **existing** custom-mark slot, so the surfaces that already render the custom mark show the upload with no component changes: the **chrome icon** (`EventMonogram`, via all four chrome layouts + `fetchUserEvents`), the **website hero** (`[slug]/page.tsx` `bespokeSvg`), and the **Maker preview**. All three render via the inert data-URI `<img>` path, which handles the raster-wrapped SVG.
+
+Scope note: QR centers stay typographic (legibility, unchanged), and the PDF/social-card builders keep their current mark — embedding a raster-wrapped SVG there needs a raster-capable path (follow-up). `tsc --noEmit` green; `next lint` clean on changed files. PR pending (branch `claude/monogram-upload`, auto-merge). Verify on the Vercel preview: upload a PNG/SVG in the Maker → it shows in the dashboard chrome icon + the website hero; Remove → falls back.
+
+SPEC IMPACT: iteration 0037 (monogram) — new top-priority uploaded-monogram source overruling the AI/Cipher + lettered marks. Logged to corpus `DECISION_LOG.md`.
 
 ## 2026-06-15 · fix(nav): ONE persistent top nav for the whole site (stop the per-page remount)
 

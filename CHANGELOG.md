@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(icons): Setnayan AI gets its own glyph (Gem) — resolves the shared-Sparkles clash with Studio
+
+Owner: *"setnayan ai gem."* Setnayan AI and Studio (`/add-ons`) were both rendering Lucide `Sparkles`, and Setnayan AI is itself a card *inside* Studio — so parent + child wore the identical icon. Setnayan AI now uses `Gem` everywhere it shows its identity mark; **Studio keeps `Sparkles`.**
+
+- **`apps/web/lib/route-meta.ts`** — `addOns.setnayanAi` icon `Sparkles → Gem` (route-header / breadcrumb registry).
+- **`apps/web/lib/add-ons-catalog.ts`** — the `setnayan-ai` Studio-grid card `Icon: Sparkles → Gem` (the card that sat next to Studio). LED Background card keeps `Sparkles`.
+- **`apps/web/app/dashboard/[eventId]/_components/concierge-banner.tsx`** — DIY banner identity badge → `Gem`.
+- **`apps/web/app/dashboard/(account)/profile/concierge/page.tsx`** — settings page hero + DIY section header + "See pricing" CTA → `Gem`.
+- **`apps/web/app/dashboard/(account)/profile/page.tsx`** — profile "Setnayan AI" link glyph → `Gem`.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/summary-ai-toggle.tsx`** — "Setnayan AI is on/off" toggle glyph → `Gem`.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/category-flags.tsx`** — inline "Setnayan AI will…" mark → `Gem`.
+
+Deliberately left as `Sparkles` (not Setnayan-AI identity marks): the pricing "Live" build-status chip, the "All locked" completion pill, and the "pricing loads — refresh" fallback hint. Admin "Setnayan AI brain/abuse" surfaces already use `Brain`/`Flag` (untouched).
+
+Verification: `node_modules` not installed in the fresh worktree, so `tsc`/`next lint` were not run locally — confirmed `Gem` is a valid `lucide-react@1.14.0` export and grep-verified zero dangling `Sparkles` references + every `Gem` user imports it. CI typecheck + lint gate the merge.
+
+SPEC IMPACT: None — cosmetic icon swap. Notable brand decision (Setnayan AI mark = Gem) logged in `DECISION_LOG.md`.
+
 ## 2026-06-16 · fix(explore): Shortlist parents now collapse + default to a collapsed overview
 
 Owner: *"we want the parent categories to collapse so we can find the other services faster."* Root cause: the two-level folder→category redesign was built but **never reached `main`** — PR #1504 merged at the FIRST version (folders were always-open headers, so all ~53 categories rendered in one long scroll). The later two-level + size-balance commits landed on the already-merged branch and were orphaned. This lands that redesign (recovered from the orphaned commit) **plus** collapse-by-default.

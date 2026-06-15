@@ -14,7 +14,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Flag, Lock, Loader2, Sparkles, Search, Wand2 } from 'lucide-react';
+import { Flag, Lock, Loader2, Gem, Search, Wand2 } from 'lucide-react';
 import { flagCategory, unflagCategory, generateFlaggedVendors } from '../build-flags-actions';
 
 type Cat = { groupId: string; label: string };
@@ -123,7 +123,7 @@ export function CategoryFlags({
                   <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-terracotta">
                     {aiOn ? (
                       <>
-                        <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden /> Setnayan AI will
+                        <Gem className="h-3 w-3" strokeWidth={2} aria-hidden /> Setnayan AI will
                         match this
                       </>
                     ) : (

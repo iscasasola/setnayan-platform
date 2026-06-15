@@ -335,6 +335,7 @@ export default async function EventLayout({ children, params }: Props) {
           email={user.email ?? ''}
           photoUrl={profilePhotoUrl}
           ariaLabel={tr('common.profile')}
+          eventId={eventId}
         />
       </div>
     </div>

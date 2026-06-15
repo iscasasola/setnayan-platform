@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   EDITORIAL_SECTION_KEYS,
+  loadEditorialData,
   type EditorialSections,
 } from '@/app/[slug]/_components/editorial/data';
+import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { EditorialEditor } from './_components/editorial-editor';
 import type { EditorialEditorInput } from './actions';
 
@@ -70,13 +72,30 @@ export default async function EditorialEditorPage({
     ? (draft.lead_paragraphs as unknown[]).map(str).filter(Boolean)
     : [];
 
+  // Compose the couple's CURRENT editorial copy — their own draft_json overrides
+  // ON TOP of the onboarding-derived defaults (names → headline, archetype →
+  // eyebrow, years-together + date + venue + tone → sub-headline, guest message →
+  // pull-quote). So the editor opens PRE-FILLED with their own content, ready to
+  // edit; clearing a field on save reverts it to the auto-written default.
+  // Best-effort: if it can't be composed, fall back to the raw draft values.
+  let composed: ReturnType<typeof composeCopy> | null = null;
+  try {
+    const edData = await loadEditorialData(eventId);
+    if (edData) composed = composeCopy(edData);
+  } catch {
+    composed = null;
+  }
+
   const initial: EditorialEditorInput = {
-    headline: str(draft.headline),
-    deck: str(draft.deck),
-    superKicker: str(draft.super) || str(draft.kicker),
-    byline: str(draft.byline),
+    headline: composed?.headline || str(draft.headline),
+    deck: composed?.deck || str(draft.deck),
+    superKicker: composed?.superKicker || str(draft.super) || str(draft.kicker),
+    byline: composed?.byline || str(draft.byline),
+    // "Your story" stays the couple's own — the editorial body intentionally
+    // drops the auto love-narrative (it lives on the run-up paths), so we never
+    // pre-fill it with the composed lede.
     leadParagraphs: leadArr.join('\n\n'),
-    pullQuote: str(draft.pull_quote) || str(draft.pullQuote),
+    pullQuote: composed?.pullQuote || str(draft.pull_quote) || str(draft.pullQuote),
     sections,
     publish: status === 'published',
   };
@@ -94,9 +113,9 @@ export default async function EditorialEditorPage({
       <header className="mb-8 space-y-2">
         <h1 className="font-display text-3xl italic text-ink sm:text-4xl">Editorial</h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Your wedding&rsquo;s front-page story — published after the day. Write the words, choose your
-          photos and hero, and pick which features show. We write polished defaults for anything you leave
-          blank, so it always reads beautifully.
+          Your wedding&rsquo;s front-page story — published after the day. It starts written from your
+          wedding details; edit the words, choose your photos and hero, and pick which features show.
+          Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
         </p>
       </header>
 

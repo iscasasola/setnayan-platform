@@ -49,6 +49,18 @@ Make the couple SEE where each vendor inquiry stands without opening every threa
 - **`apps/web/lib/notification-emit.ts`** — add `inquiry_accepted` to `PUSH_ENABLED_TYPES`.
 
 SPEC IMPACT: None (additive read-only surfacing + a push-channel allowlist add; no schema/enum/migration). The waiting strip links to the Messages list (the page joins threads by `vendor_profile_id`, not a per-vendor `thread_id`).
+## 2026-06-16 · feat(vendors): show pax surcharge on cards + headcount at inquiry time
+
+Removed two pre-quote blindsides in the Adaptive Pax Pricing flow — both read-only, no schema. (1) **Pax surcharge footnote**: the vendor-confirmed `event_vendors.pax_surcharge_php` (migration `20261211000000`) is already baked into `total_cost_php` but was never shown, so couples locked at a base price then saw a +₱ jump in Costing. Threaded `pax_surcharge_php` / `pax_quote_base` / `cost_basis_pax` through `fetchEventVendors` → `EventVendorRowInput` → `PlanCardPick` → `AccordionPick` and render a quiet "+₱X for Y guests over the Z-guest package" footnote on the vendor card, only when a surcharge applies (all fields nullable → nothing renders otherwise). (2) **Headcount-at-inquiry pill**: `startServiceInquiry` silently snapshots live pax onto `chat_threads.pax_at_inquiry`, but the public-profile `InquiryComposer` never showed it, so a stale estimate could reach the vendor. Resolve `resolveLivePax` server-side (only when the composer shows) and render a read-only "Headcount for this inquiry: N" pill with an Edit link to the guest list. UI-only — the binding snapshot logic in `inquiry-actions.ts` is unchanged (it still re-resolves at submit time).
+
+- **`apps/web/lib/vendors.ts`** — added the 3 pax columns to the `fetchEventVendors` SELECT + `EventVendorRow` type (optional/nullable).
+- **`apps/web/lib/wedding-plan-groups.ts`** — added the 3 fields to `EventVendorRowInput` + `PlanCardPick` + the bucketer's pick build (via `toNum`).
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — mapped the fields into `vendorRows`.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx`** — compute + render the `.paxnote` card footnote.
+- **`apps/web/app/v/[slug]/page.tsx`** — resolve `inquiryLivePax` (composer-gated) + pass `inquiryPax` / `guestEditHref` to the composer.
+- **`apps/web/app/v/[slug]/_components/inquiry-composer.tsx`** — render the read-only headcount pill + Edit link.
+
+SPEC IMPACT: None (read-only surfacing of already-stored Adaptive Pax Pricing data; no schema/enum/migration change).
 
 ---
 

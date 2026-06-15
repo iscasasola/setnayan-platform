@@ -347,6 +347,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         photoMaps.servicePhotoByVendor.get(v.vendor_id) ?? null,
       manual_vendor_photo_url:
         photoMaps.manualPhotoByVendor.get(v.vendor_id) ?? null,
+      // Adaptive Pax Pricing (migration 20261211000000) — the vendor-confirmed
+      // per-pax surcharge baked into total_cost_php + the counts that explain
+      // it, so the accordion card can footnote "+₱X for Y guests over the
+      // Z-guest package". All nullable → no footnote on the common (no-rate) row.
+      pax_surcharge_php: v.pax_surcharge_php ?? null,
+      pax_quote_base: v.pax_quote_base ?? null,
+      cost_basis_pax: v.cost_basis_pax ?? null,
     };
   });
 

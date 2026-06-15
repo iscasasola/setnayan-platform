@@ -876,7 +876,13 @@ function mariaAndJuan(): EditorialData {
       'Thank you for being here with us today. Set na ’yan — and we could never have set it without every one of you.',
     togetherSince: '2019-08-01',
     tone: 'warm',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'Under a sky that cleared just in time, Maria and Juan were married on a garden lawn high above Taal, the lake holding the afternoon light like a held breath. One hundred and twenty guests rose as she came down a path lined with white blooms; by the time she reached him, neither was bothering to hide the tears.',
+        'The ceremony was short and unhurried — vows traded in a near-whisper, a kiss the front rows swore they could hear. At the reception that followed, long tables ran the length of the lawn beneath strings of warm light, and the kitchen sent out course after course while the toasts ran long and the laughter ran longer.',
+        'They danced their first dance to the kundiman that has followed them since a despedida in Quezon City, and closed the night the way they began — side by side, in no hurry for the day to end.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/maria-juan-tagaytay.jpg',
     metrics: {
@@ -903,7 +909,11 @@ function mariaAndJuan(): EditorialData {
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream', 'Pakanta'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/maria-juan-g1.jpg',
+      '/realstories/maria-juan-g2.jpg',
+      '/realstories/maria-juan-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
   };
@@ -946,7 +956,13 @@ function jackAndJill(): EditorialData {
       'Salamat for trekking all the way out here with us. The tide waited; so did we — thank you for being here.',
     togetherSince: '2020-01-01',
     tone: 'playful',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'Barefoot on warm sand, Jack and Jill were married as the tide pulled back to make room for the aisle. Eighty guests kicked off their shoes at the tree line and walked down to the water, and the cove obliged with the kind of sunset that looks staged.',
+        'There were no chairs to speak of and no one minded. The couple traded vows ankle-deep in the shallows — a callback to the proposal Jack swears he pulled off without dropping the ring — then waded back up to a reception of long communal tables, fresh kinilaw, and a playlist that opened with their road-trip anthem and never quite stopped.',
+        'By the time the bonfire was lit, half the party was back in the water. The other half was already plotting next year’s boat ride out.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/jack-jill-cebu.jpg',
     metrics: {
@@ -972,7 +988,11 @@ function jackAndJill(): EditorialData {
       { author: 'Kuya Ramon', role: 'guest', quote: 'Worth the boat ride. The timeline ran like clockwork even on the sand.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/jack-jill-g1.jpg',
+      '/realstories/jack-jill-g2.jpg',
+      '/realstories/jack-jill-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
   };
@@ -1015,7 +1035,13 @@ function johnAndJane(): EditorialData {
       'Thank you for choosing a weeknight rooftop over a long weekend away to be with us. It meant everything.',
     togetherSince: '2019-02-01',
     tone: 'formal',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'On a clear weeknight evening, John and Jane were married on a Makati rooftop with the whole city laid out behind them. Sixty guests took their seats as the skyline switched on, tower by tower, and the ceremony began precisely on the hour.',
+        'It was, by every account, a study in restraint and good timing — short readings, a steady exchange of vows, and a dinner that moved at exactly the pace it was meant to. The supper club plated each course as the light over the bay deepened from gold to a settled blue.',
+        'There were three toasts, one slow dance, and a final round of coffee taken at the rail — the couple and their guests looking out over a city that, for one night, seemed arranged entirely for them.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/john-jane-manila.jpg',
     metrics: {
@@ -1041,7 +1067,11 @@ function johnAndJane(): EditorialData {
       { author: 'Atty. Cruz', role: 'guest', quote: 'The most precisely run sixty-person dinner I have attended.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/john-jane-g1.jpg',
+      '/realstories/john-jane-g2.jpg',
+      '/realstories/john-jane-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
   };
@@ -1084,7 +1114,13 @@ function peterAndMary(): EditorialData {
       'To all 150 of you who filled this garden — salamat. A full table was the whole point, and you made it overflow.',
     togetherSince: '2018-06-01',
     tone: 'warm',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'It took a ridge-top garden to hold them all. One hundred and fifty guests filled an estate lawn in Tagaytay as Peter and Mary were married beneath an arch of petals and lanterns, two large families finally folded into one very long table.',
+        'The day was, fittingly, a feast. Lechon held court at the center of a reception that spilled across the garden, and the toasts came from every direction — parents, ninongs, cousins who had known one or the other since childhood. No one was a stranger by dessert.',
+        'Late in the evening both sets of parents were coaxed onto the dance floor to their old favorite, and for a few minutes the whole garden simply watched. A full table was always the point; on this day, it overflowed.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/peter-mary-tagaytay.jpg',
     metrics: {
@@ -1111,7 +1147,11 @@ function peterAndMary(): EditorialData {
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/peter-mary-g1.jpg',
+      '/realstories/peter-mary-g2.jpg',
+      '/realstories/peter-mary-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
   };
@@ -1154,7 +1194,13 @@ function jackAndRose(): EditorialData {
       'Thank you for climbing all the way up into the fog with us. The mountain kept our secret; now it is yours too.',
     togetherSince: '2019-07-01',
     tone: 'warm',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'Fog moved through the pines like a fourth guest of honor as Jack and Rose were married in a forest clearing above Baguio. One hundred guests climbed into the cool and the mist, and the mountain answered with a hush you could almost hear.',
+        'The ceremony was small and close — vows exchanged under the trees, breath visible in the cold, the only music the wind in the branches until the strings came in. Afterward, guests warmed their hands around hot food and strawberry taho while the clearing glowed against the grey.',
+        'As the afternoon dimmed the fog rolled back in and seemed to close the clearing off from the rest of the world, leaving just the hundred of them, the pines, and a secret the mountain had agreed to keep.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/jack-rose-baguio.jpg',
     metrics: {
@@ -1181,7 +1227,11 @@ function jackAndRose(): EditorialData {
       { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Pakanta'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/jack-rose-g1.jpg',
+      '/realstories/jack-rose-g2.jpg',
+      '/realstories/jack-rose-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
   };

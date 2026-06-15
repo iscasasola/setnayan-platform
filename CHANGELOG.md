@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(realstories): the 5 sample editorials are now complete — day-recap write-up + photo gallery on each
+
+Owner: *"the editorials of the samples are all incomplete. there is no write up, photos, services that play?"* The 5 `/realstories` sample editorials (Maria & Juan, Jack & Jill, John & Jane, Peter & Mary, Jack & Rose) rendered their masthead, headline, hero, By-the-Numbers, reviews and Powered-by strip — but had a **blank body** (`draft: {}` → no `leadParagraphs`) and an **empty "From the Day" gallery** (`galleryPhotos: []`), so they looked half-finished.
+
+- **`…/editorial/data.ts`** — each of the 5 fixtures now carries a **2–3-paragraph DAY-RECAP write-up** (`draft.leadParagraphs`) and **3 gallery photos** (`galleryPhotos`). The bodies are newspaper-style coverage of the *wedding day itself* — ceremony, reception, the moments — voiced per the couple's `tone` (warm / playful / formal). They deliberately **do not** retell the love story: the editorial body intentionally drops the auto love-narrative (it lives on the run-up paths), so the samples model the same lock — front-page *day* coverage, written through the couple-editable `draft.leadParagraphs` path.
+- **`public/realstories/{couple}-g{1,2,3}.jpg`** — 15 new wedding photos (Recraft-generated, per-couple themed: garden/Taal, Cebu cove, Manila rooftop, Tagaytay estate, Baguio pines), optimized to ~300–500 KB each (1100 px, q80 JPEG). Wired as each fixture's `galleryPhotos`; the existing `isOn('gallery')` gate + `PhotoGallery` spread (1 lead frame + tight grid) render them under "From the Day".
+
+Verified end-to-end on the Jack & Jill sample (dev server + Playwright, scrolled to trigger lazy-load): the full editorial now reads masthead → headline → hero → **drop-cap day-recap body (2 columns)** → By the Numbers → vendor team → From the Couple → **From the Day photo gallery (3 frames)** → reviews → Powered by Setnayan. `tsc` green; `next lint` clean (no new warnings). Samples flow through the identical `EditorialContent` engine as real couples, so they track the live format.
+
+SPEC IMPACT: iteration 0046 — sample editorials carry a day-recap body + photo gallery (modeling the love-narrative-free editorial body). Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-15 · fix(theme): `burgundy` was an undefined color — primary buttons rendered invisible on 9 surfaces
 
 Owner: *"the editor is fixed?"* — investigating turned up a real, pre-existing bug. After the Clean Editorial rebrand (CTAs → **mulberry**), the old `burgundy` color was **removed from `tailwind.config.ts` and `globals.css` but never deleted from the components**. So `bg-burgundy` / `text-burgundy` / `border-burgundy` were **dead classes** that resolved to nothing — primary buttons rendered with a transparent background (invisible / white-on-white).

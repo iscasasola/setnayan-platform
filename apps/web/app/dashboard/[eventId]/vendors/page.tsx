@@ -44,6 +44,9 @@ import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
+import { ShortlistCategories } from './_components/shortlist-categories';
+import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
+import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BuildPins } from './_components/build-pins';
 import type { AnchorData } from './_components/build-anchors';
@@ -81,6 +84,9 @@ type EventBudgetRow = {
   mood_board_updated_at: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
+  /** event_type_vocab key (DB-driven, defaults to 'wedding') — scopes the
+   *  Shortlist's taxonomy categories + guards faith filtering. */
+  event_type: string | null;
   ceremony_type: string | null;
   secondary_ceremony_type: string | null;
   venue_setting: string | null;
@@ -124,7 +130,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
+        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -466,23 +472,53 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // banner today). Links to the /add-ons/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
   const aiOffer = shouldOfferSetnayanAiPurchase(ev);
+  const aiOfferBanner = aiOffer ? (
+    <Link
+      href={`/dashboard/${eventId}/add-ons/setnayan-ai`}
+      className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
+    >
+      <span className="text-sm text-ink/80">
+        <span className="font-medium text-mulberry">See your ranked shortlist.</span>{' '}
+        Setnayan AI sorts every vendor by how well they fit your date, budget &amp; guest count.
+      </span>
+      <span className="shrink-0 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream">
+        Unlock
+      </span>
+    </Link>
+  ) : null;
+  // `services` = the legacy plan-group accordion. Still the KILL-SWITCH fallback
+  // (BUDGET_BUILD_ENABLED=false → `return services`) and the Summary/Build/Lock
+  // tabs keep the plan-group `model`. The takeover's Shortlist tab uses the new
+  // taxonomy browser below instead.
   const services = (
     <>
-      {aiOffer ? (
-        <Link
-          href={`/dashboard/${eventId}/add-ons/setnayan-ai`}
-          className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
-        >
-          <span className="text-sm text-ink/80">
-            <span className="font-medium text-mulberry">See your ranked shortlist.</span>{' '}
-            Setnayan AI sorts every vendor by how well they fit your date, budget &amp; guest count.
-          </span>
-          <span className="shrink-0 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream">
-            Unlock
-          </span>
-        </Link>
-      ) : null}
+      {aiOfferBanner}
       <PlanBudgetAccordion model={model} eventId={eventId} />
+    </>
+  );
+
+  // Shortlist tab (Explore takeover) — the COMPLETE taxonomy for the event,
+  // faith + event-type scoped (owner 2026-06-16: "full taxonomy for the event's
+  // type … show whichever taxonomy it is compatible to"). A single-open,
+  // tile-driven category browser with a carousel of considered vendors per tile;
+  // decoupled from the plan-group lock/build model so it can't destabilize the
+  // other tabs. Faith set unions the primary + secondary rite (mixed weddings).
+  const shortlistFolders = buildShortlistFolders({
+    vendorRows,
+    enrichmentByVendorId,
+    eventType: ev?.event_type ?? null,
+    faithSet: buildCoupleFaithSet({
+      eventType: ev?.event_type ?? null,
+      ceremonyType: ev?.ceremony_type ?? null,
+      secondaryCeremonyType: ev?.secondary_ceremony_type ?? null,
+    }),
+    taxonomy,
+    eventId,
+  });
+  const shortlistContent = (
+    <>
+      {aiOfferBanner}
+      <ShortlistCategories folders={shortlistFolders} />
     </>
   );
 
@@ -707,7 +743,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         eventId={eventId}
         initialTab={initialTab}
         summarySlot={<BuildSummary model={model} eventId={eventId} buildsCount={savedBuilds.length} />}
-        shortlistSlot={services}
+        shortlistSlot={shortlistContent}
         buildSlot={buildSlot}
         compareSlot={
           <BuildCompare

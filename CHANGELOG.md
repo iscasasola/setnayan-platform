@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(explore): Shortlist tab → full-taxonomy category browser (faith + event-type scoped)
+
+Owner: *"analyze shortlist and fix its UI/UX … present the different categories completely … show all the categories from taxonomy"* + *"full taxonomy for the event's type. if it covers a religion, show whichever taxonomy it is compatible to"* + *"vertical accordion that collapses; when a category is picked the others collapse … services show as a carousel."*
+
+The Shortlist tab rendered the whole legacy plan-and-budget surface (cover + deadlines + recap + a single-open accordion of the **22 curated planning buckets**, with Officiant + Accommodation silently dropped). It now presents the **complete taxonomy** — all 10 folders → ~53 tiles, the same set the Explore marketplace shows — as a focused category browser.
+
+- **`apps/web/lib/shortlist-taxonomy.ts`** (new, pure) — `buildShortlistFolders()` returns folders → tiles, scoped by **event type** (`passesEventTypeFilter` on the tile's `applicable_event_types`) and **faith** (a tile hides only if every canonical under it is faith-tagged-incompatible — include-only, untagged always shows; unions primary + secondary rite for mixed weddings). Reuses the shared `lib/taxonomy-filters.ts` predicates so the Shortlist, marketplace, and category search can't disagree. An exhaustive `VendorCategory → tile` bridge (from `PLAN_GROUPS.catalogTile` + a supplement for the few multi-tile groups) attaches the couple's considered vendors to their tile — no pick is ever lost.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx`** (new) — a **single-open vertical accordion** of categories grouped under folder heads (opening one category collapses the others "to keep them focused"); each open category shows its considered vendors as a **horizontal scroll-snap carousel** (read-only cards → vendor detail) plus a "Find" jump into the marketplace tile. Empty categories show a full-width "Find {category}" row, so every taxonomy category is browsable. Pill / rounded / frosted language matches the app nav + `sn-seg` menus; dark-mode + reduced-motion handled.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — the takeover's `shortlistSlot` now renders the taxonomy browser (with the existing Setnayan-AI offer banner above it). Selects `events.event_type`; builds the couple faith set from `ceremony_type` + `secondary_ceremony_type`.
+
+ISOLATION: the Shortlist is now **decoupled from the plan-group lock/build model**. Summary / Build / Compare / Lock keep the unchanged `buildPlanBudgetModel` (plan groups, deadlines, hard-single), and `BUDGET_BUILD_ENABLED=false` still falls back to the legacy `PlanBudgetAccordion` (kill-switch intact). Lock/Build live on their own tabs, so the Shortlist carries none of that machinery — it can't destabilize them.
+
+`next lint` + `tsc --noEmit` green. Best eyeballed on the PR's Vercel preview.
+
+SPEC IMPACT: Surfaces a deliberate reversal to flag — the Shortlist tab now shows the **full taxonomy tiles** rather than the **22 planning buckets** (2026-05-22 directive), and the per-tab deadline/tier planning guidance now lives on Build/Lock only. Faith scoping is the existing include-only filter (not a hard "hide" reversal). Iteration 0021 / Budget-Build takeover.
+
 ## 2026-06-16 · feat(nav): extract a reusable `SubNav` (icon-over-text) + collapse the bottom nav to icons-only while it's docked
 
 Owner follow-ups to the dock-lift below: (1) sub-nav labels go UNDER the icon, not beside; (2) make it a reusable thing — *"we will call this sub nav and make sure this subnav can be created on other pages"*; (3) *"when sub nav shows, the bottom nav shrink and becomes icons only"* → (4) clarified: *"it shrinks in size because the text is lost only. do not shrink the icon."*

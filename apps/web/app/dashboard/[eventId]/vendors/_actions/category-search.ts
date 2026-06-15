@@ -107,6 +107,13 @@ export type CategorySearchResult = {
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
   hasReceptionCoords: boolean;
+  /** TRUE only on the §4 edge-#2 empty state: Setnayan AI is OFF and the WHOLE
+   *  group is already in (or past) its last-minute zone, so generic search
+   *  shows nothing — yet last-minute vendors COULD still take the date with AI
+   *  on. The overlay swaps its bare "no vendors" copy for a calm, capability-
+   *  framed unlock CTA. Optional + defaults false → only ever set when an admin
+   *  has seeded `last_minute_start` (none in prod), so this stays dormant. */
+  isLastMinuteLocked?: boolean;
 };
 
 const EMPTY: CategorySearchResult = {
@@ -288,7 +295,11 @@ export async function searchCategoryVendors(input: {
       groupStartMonths: groupEffectiveStart,
     })
   ) {
-    return { ...EMPTY, hasReceptionCoords: hasCoords };
+    // §4 edge #2: AI off + whole group already in its last-minute zone → generic
+    // search is empty, but last-minute vendors could still take the date with AI
+    // on. Flag it so the overlay shows a capability-framed unlock CTA instead of
+    // the bare "no vendors" copy. Only reachable once an admin seeds a START.
+    return { ...EMPTY, hasReceptionCoords: hasCoords, isLastMinuteLocked: true };
   }
 
   // Vendors already in this event's picks (RLS-bounded to the user's events)

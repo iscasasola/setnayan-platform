@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(ai): Setnayan AI paywall gating (flag-dark) + last-minute empty-state unlock CTA
+
+Two host-search improvements, both **dark by default** — they share the `/add-ons/setnayan-ai` destination. With the `SETNAYAN_AI_PAYWALL_ENABLED` flag OFF (its default) **and** no `last_minute_start` rows seeded (current prod state), there is **zero visible or behavioral change** — every new branch is a no-op until a deliberate owner action (flip the flag and/or seed last-minute data).
+
+- **`…/vendors/_actions/category-search.ts`** — added an optional `isLastMinuteLocked?: boolean` to `CategorySearchResult`, set `true` ONLY in the existing `categoryEmptyForGenericSearch` (§4 edge-#2) branch. That branch already requires a configured `last_minute_start` START + AI-off + a locked-and-close date, so it stays dormant until an admin seeds last-minute config (none in prod).
+- **`…/vendors/_components/category-search-overlay.tsx`** — when that empty state is last-minute-locked, the overlay renders a calm, capability-framed unlock CTA ("Vendors can still take your date — Unlock with Setnayan AI", linking to `/add-ons/setnayan-ai`) instead of the bare "no vendors" copy. Capability framing, never "locked"/"hidden inventory". State defaults false → original copy unchanged.
+- **`…/vendors/build-flags-actions.ts`** — `generateFlaggedVendors` now returns a discriminated `{ ok:false, shouldPurchase:true }` when the paywall is ON and the event hasn't purchased Setnayan AI (via the existing `shouldOfferSetnayanAiPurchase` predicate — owns-but-manual is never re-charged). Flag OFF → returns the exact same `{ ok:false, error }` as before; the `shouldPurchase` key is never present.
+- **`…/vendors/_components/category-flags.tsx`** — routes the client to `/add-ons/setnayan-ai` when `res.shouldPurchase`; otherwise the error-message path is unchanged.
+
+Reuses the existing `SETNAYAN_AI_PAYWALL_ENABLED` flag + `lib/setnayan-ai.ts` helpers + the `/add-ons/setnayan-ai` buy route. The `assistOff` short-circuit of `computeCompatScore` (Part B-a) already existed and is flag-independent — left untouched to preserve the flag-off invariant. Additive; no schema/enum/migration; fail-soft. `tsc --noEmit` + `next lint` green.
+
+SPEC IMPACT: None (flag-dark) — additive couple-side gating behind `SETNAYAN_AI_PAYWALL_ENABLED` (default off) and dormant last-minute data; no spec corpus change.
+
 ## 2026-06-16 · feat(build): one-tap log a vendor quote into the build (with couple confirmation)
 
 Vendor-authored quote bridge (host-search improvement #1) — a vendor's quoted ₱ now flows into the couple's Build with one tap + an editable confirm modal, instead of the couple hand-typing it. Additive, no schema; reuses the existing `updateVendorCosts` writer.

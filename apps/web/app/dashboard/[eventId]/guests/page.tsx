@@ -380,22 +380,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
        scoped to this page via the injected <style> tag — the nav returns
        the moment the host navigates away. -mt-6 cancels the <main py-6>
        top-padding so the page content sits flush under the bottom-nav. */
-    <section className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+3.25rem)] lg:pt-0">
+    <section className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0">
       <style>{`.shell-topbar{display:none}`}</style>
 
-      {/* Focus-mode exit (mobile only) — owner directive 2026-06-03. On the
-          Guests page the global bottom nav is replaced by the carousel's own
-          menu, so this floating X is the single way back to event home. Fixed
-          top-left, safe-area-aware, z-50 above the scrolling list; the section
-          pt above clears the first row so the X never sits on a guest. Desktop
-          keeps the sidebar, so it's lg:hidden. */}
-      <Link
-        href={`/dashboard/${eventId}`}
-        aria-label="Back to dashboard home"
-        className="fixed left-3 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 inline-flex h-9 w-9 items-center justify-center rounded-full bg-cream/95 text-ink/70 shadow-[0_4px_14px_-6px_rgba(30,34,41,0.5)] ring-1 ring-ink/10 backdrop-blur transition-colors hover:bg-cream hover:text-ink lg:hidden"
-      >
-        <X className="h-5 w-5" strokeWidth={2} aria-hidden />
-      </Link>
+      {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
+          (nav-surfaces follow-up to #1470): the global journey bottom nav is now
+          ALWAYS present on this surface — the Guests sub-views moved to top-of-
+          page `.sn-seg` tabs (MobileGuestCarousel) rather than a second bottom
+          bar — so a dedicated "back to home" affordance is vestigial. The safe-
+          area top padding is kept (the top bar is still hidden on mobile via the
+          <style> above) but no longer reserves the extra 3.25rem the X needed. */}
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}
@@ -518,10 +512,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* Active filters — mobile sticky strip (lg:hidden). The always-visible
           twin of the desktop chip row + the carousel's filter dot, so a couple
           can SEE and drop individual filters without opening the filter sheet
-          (2026-06-13). Gated on hasAnyFilter so it never shows as an empty bar;
-          pl-11 clears the fixed back-X at top-left. */}
+          (2026-06-13). Gated on hasAnyFilter so it never shows as an empty bar.
+          (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
+          gone, so the strip uses symmetric padding.) */}
       {hasAnyFilter ? (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/10 bg-cream/95 py-2 pl-11 pr-3 backdrop-blur lg:hidden">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/10 bg-cream/95 px-3 py-2 backdrop-blur lg:hidden">
           <ActiveFilters
             eventId={eventId}
             search={search}

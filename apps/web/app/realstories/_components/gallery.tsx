@@ -15,8 +15,10 @@
 //
 // A search box collapses the sections into one filtered grid across ALL stories.
 //
-// Live video: a card whose hero is a 5-second clip plays it on a seamless
-// forward→reverse (ping-pong) loop via <BoomerangVideo> — viewport-gated, max 3
+// Live video: a card whose hero is a clip plays it on a seamless, continuous
+// forward→reverse (ping-pong) loop via <BoomerangVideo>. The clip file is a
+// PRE-BAKED boomerang (forward + reversed, concatenated), so native loop alone
+// gives a smooth back-and-forth with no per-frame seeking. Viewport-gated, max 3
 // playing at once, muted, with the still as poster + a reduced-motion fallback.
 // (The locked "Daily-Prophet" editorial rule, applied at the index level.)
 // ============================================================================
@@ -43,10 +45,12 @@ export type GalleryItem = {
 };
 
 // ── Boomerang (ping-pong) video player ──────────────────────────────────────
-// Plays forward natively (smooth decode), then reverse-scrubs back to 0 via
-// rAF, then forward again — so the clip never visibly cuts. Concurrency is
-// capped globally at 3 to protect mobile battery/decoders (the Daily-Prophet
-// "≤3 concurrent" rule); extra cards just hold on the poster until a slot frees.
+// The source is a pre-baked boomerang (forward + reversed frames concatenated),
+// so a plain native `loop` gives a seamless, continuous forward→reverse cycle —
+// no jump-cut, no per-frame currentTime seeking (which stutters on compressed
+// video). This component just gates playback: it plays only while the card is in
+// view, and caps concurrency globally at 3 to protect mobile battery/decoders
+// (the Daily-Prophet "≤3 concurrent" rule); extra cards hold on the poster.
 
 const MAX_CONCURRENT = 3;
 let liveCount = 0;
@@ -79,7 +83,6 @@ function BoomerangVideo({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const reverseRaf = useRef<number | null>(null);
   const hasSlot = useRef(false);
   const inView = useRef(false);
 
@@ -93,47 +96,10 @@ function BoomerangVideo({
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return; // poster only — never autoplay under reduced motion.
 
-    const stopReverse = () => {
-      if (reverseRaf.current != null) cancelAnimationFrame(reverseRaf.current);
-      reverseRaf.current = null;
-    };
-
-    // Reverse leg: scrub currentTime down to 0 at real-time speed, then forward.
-    const playReverse = () => {
-      let last = performance.now();
-      const step = (now: number) => {
-        const dt = (now - last) / 1000;
-        last = now;
-        const ct = Math.max(0, video.currentTime - dt);
-        try {
-          video.currentTime = ct;
-        } catch {
-          /* seeking can throw mid-teardown */
-        }
-        if (ct <= 0.04) {
-          stopReverse();
-          video.play().catch(() => {});
-          return;
-        }
-        reverseRaf.current = requestAnimationFrame(step);
-      };
-      reverseRaf.current = requestAnimationFrame(step);
-    };
-
-    const onEnded = () => {
-      if (!inView.current || !hasSlot.current) return;
-      playReverse();
-    };
-    video.addEventListener('ended', onEnded);
-
-    const startPlaying = () => {
-      stopReverse();
-      video.play().catch(() => {});
-    };
-    const stopPlaying = () => {
-      stopReverse();
-      video.pause();
-    };
+    // The clip is a pre-baked boomerang, so native loop carries the continuous
+    // forward→reverse cycle — we only start/stop it.
+    const startPlaying = () => video.play().catch(() => {});
+    const stopPlaying = () => video.pause();
 
     const grant = () => {
       // Only claim the slot if we still need it; otherwise hand it straight
@@ -169,8 +135,7 @@ function BoomerangVideo({
 
     return () => {
       io.disconnect();
-      video.removeEventListener('ended', onEnded);
-      stopReverse();
+      stopPlaying();
       if (hasSlot.current) {
         hasSlot.current = false;
         releaseSlot();
@@ -187,7 +152,7 @@ function BoomerangVideo({
         poster={poster ?? undefined}
         muted
         playsInline
-        loop={false}
+        loop
         preload="none"
         aria-label={alt}
       />

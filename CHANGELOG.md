@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(realstories): real continuous forward↔reverse loop (pre-baked boomerang clips)
+
+Owner: *"make the loop like a forward and reverse continuously."* The first cut drove the reverse leg by scrubbing `video.currentTime` backward via rAF — which stutters badly on compressed H.264 (seeking between sparse keyframes), so in practice it read as a forward jump-cut, not a smooth back-and-forth.
+
+Fixed by **pre-baking the boomerang into the clip file** and letting the browser loop it natively (no per-frame seeking):
+
+- **`public/realstories/maria-juan-tagaytay.mp4` + `jack-jill-cebu.mp4`** re-encoded as forward + reversed-frames concatenated (`[fwd][rev]concat`, one duplicate turnaround frame trimmed), 5s → a 10s seamless cycle. Side benefit: re-compressed from ~8–9 Mbps to CRF 27 → **732 KB / 805 KB (was ~5–6 MB each, ~7× smaller)**; vertical clip scaled to 600px wide for the small tile. Verified the loop returns to origin (frame@0.5s ≡ frame@9.5s, distinct from the @5s turnaround).
+- **`app/realstories/_components/gallery.tsx`** — `BoomerangVideo` simplified to native `loop` (removed the rAF reverse-scrub: `reverseRaf`, `playReverse`, the `ended` listener, `stopReverse`). It now only viewport-gates playback + keeps the ≤3-concurrent slot scheduler + `prefers-reduced-motion` poster fallback. `loop={false}` → `loop`.
+
+`tsc` + `next lint` clean. The clip on the cover and the Jack & Jill tile now glide forward then reverse continuously, with no felt cut.
+
+SPEC IMPACT: iteration 0046 — the live editorial loop is a pre-baked boomerang + native loop (supersedes the rAF reverse-scrub noted in the prior two entries / `DECISION_LOG.md`).
+
 ## 2026-06-15 · feat(nav): route-registry foundation (`routes.ts` + `route-meta.ts`) + Setnayan-logo nav glyph
 
 Owner: *"build and merge to the website."* Lands the single-source-of-truth route foundation (additive, nothing imports it yet) plus the customer-nav Setnayan-logo icon.

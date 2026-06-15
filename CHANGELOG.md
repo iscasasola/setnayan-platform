@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(nav): route-registry foundation (`routes.ts` + `route-meta.ts`) + Setnayan-logo nav glyph
+
+Owner: *"build and merge to the website."* Lands the single-source-of-truth route foundation (additive, nothing imports it yet) plus the customer-nav Setnayan-logo icon.
+
+- **`apps/web/lib/routes.ts`** (new) — THE path registry: typed builders for all **327** app routes (`routes.dashboard.guests.detail(eventId, guestId)` → `/dashboard/${eventId}/guests/${guestId}`), generated from the live route tree, 0 collisions. Inert until callers migrate to it; a future rename then becomes a one-line edit here + a folder move, and every caller follows.
+- **`apps/web/lib/route-meta.ts`** (new) — the icon+label SIBLING of `routes.ts`, keyed in the SAME nested shape (`routeMeta.dashboard.guests.index`). Built from a whole-app icon↔route audit (172 canonical bindings across customer/vendor/admin/guest/public; directional-affordance glyphs + dynamic-catalog placeholders excluded). Single source for a route's identity icon.
+- **`apps/web/app/_components/setnayan-mark-icon.tsx`** (new) + **`customer-nav-config.ts`** — the "Setnayan" journey menu now uses the actual brand mark (filled, `currentColor`) as its glyph, so it tints slate↔gold with the other tabs instead of fixed gold.
+
+Both registries are additive and **unimported** — zero runtime/behavior change beyond the one nav glyph. `tsc --noEmit` + `next lint` green. Next (separately gated): codemod-migrate callers onto the registry + route-integrity guards (fs↔registry, no-raw-strings, every-nav-route-has-an-icon).
+
+SPEC IMPACT: None for the registries (internal foundation). Minor: customer nav 'Setnayan' menu glyph is now the brand mark (iteration 0021).
+
 ## 2026-06-15 · style(login): brand panel is logo-only ("keep it clean and simple")
 
 Owner: *"remove this and just leave the logo on top. keep it clean and simple."* Stripped the `/login` brand rail down to just the Wordmark.

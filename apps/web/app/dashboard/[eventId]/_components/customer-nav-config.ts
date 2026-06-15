@@ -73,7 +73,9 @@ import {
   Activity,
   Shield,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
+import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 
 /**
  * Builds the canonical customer NavGroup[] for the given eventId — the six
@@ -91,7 +93,13 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       // (tap Setnayan → Home), per the journey-group model.
       key: 'main',
       label: 'Setnayan',
-      icon: Home,
+      // The actual Setnayan brand mark IS the menu glyph (owner 2026-06-15) —
+      // the real filled logo, but painted in currentColor so it carries the
+      // SAME color as the lucide tabs (slate↔orange on active), not fixed gold.
+      // SetnayanMark sizes via className (h-/w-[22px]) just like a Lucide glyph;
+      // the cast is a structural-compat white lie (it renders the same
+      // className/style/aria props the accordion passes every icon).
+      icon: SetnayanMark as unknown as LucideIcon,
       defaultOpen: true,
       items: [
         {

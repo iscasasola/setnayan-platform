@@ -35,19 +35,20 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
-    # Apple Developer ID signing + notarization (macOS). When these repo secrets
-    # are set, `tauri build` signs the .app/.dmg with Developer ID + hardened
-    # runtime and notarizes via Apple's notarytool, then staples the ticket —
-    # so a downloaded .dmg opens with no Gatekeeper warning. When they're empty
-    # (forks, or before secrets are added) the macOS leg falls back to the
-    # ad-hoc signing step below, unchanged. Windows ignores them.
-    env:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    # macOS leg builds UNSIGNED (ad-hoc) for now — no Apple Developer ID cert is
+    # configured yet, and the desktop .dmg is not a launch blocker (web-first V1).
+    #
+    # ⚠ The APPLE_* signing env was REMOVED 2026-06-15. GitHub resolves a MISSING
+    # secret to an EMPTY STRING, and `tauri build` treats an empty APPLE_CERTIFICATE
+    # as "a cert is present" → runs `security import` on nothing → fails the whole
+    # macOS build. With these vars UNSET (not empty-string), tauri skips cert import
+    # and the ad-hoc signing step below takes over, producing an unsigned .app/.dmg.
+    #
+    # To ship a REAL signed + notarized build later, re-add the job-level env here —
+    # but ONLY once the secrets actually exist, and NEVER as empty values:
+    #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+    #   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
+    # (gate them behind `if: secrets.APPLE_CERTIFICATE != ''` or set them per-step).
 
     steps:
       - uses: actions/checkout@v4

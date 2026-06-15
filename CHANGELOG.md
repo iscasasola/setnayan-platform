@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(ci): macOS desktop build was red on every PR — empty APPLE_* env broke `tauri build`
+
+The `build (macos-latest)` desktop job had been failing every PR (non-required, so merges still went through). Root cause: the job set `APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}`, and with no such secret GitHub resolves it to an **empty string** — which `tauri build` treats as "a cert is present" and runs `security import` on nothing → `failed to import keychain certificate`. (A malformed `APPLE_CERTIFICATE` secret set 2026-06-14 was deleted first; the empty-string fallback then surfaced this second failure.)
+
+- **`.github/workflows/build-desktop.yml`** — removed the job-level `APPLE_*` signing `env:` block so the vars are **unset** (not empty). `tauri build` now skips cert import and the existing ad-hoc signing step produces an unsigned `.app`/`.dmg` → green. Documented how to re-add the env (gated on the secret existing, never empty) when a real Developer ID cert is configured for signed/notarized distribution.
+
+Context: owner has no Apple Developer ID cert installed (`security find-identity` → 0 identities) and the desktop app is not a launch blocker (web-first V1). Signed Mac distribution is deferred.
+
+SPEC IMPACT: None (CI infrastructure only).
+
 ## 2026-06-15 · fix(for-vendors): vendor prices were rendering without the ₱ sign (missing peso glyph)
 
 Found while verifying the mobile tier-switcher (previous entry) on prod: the live `/for-vendors` matrix showed Pro/Enterprise as "**6,000 / 28d**" / "**10,000 / 28d**" — no peso sign — while Free/Verified showed "₱0". The new mobile price banner made it glaring.

@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · feat(realstories): a wall of living front pages — dedup sections, search, live ping-pong video
+
+Owner: *"this needs to be visually powerful. each editorial is already a front-page look. showcase Featured, most-viewed, new editorials, and a search — a systematic way to flex all our editorials. if an editorial is featured AND most-viewed it shows in only one. and run the 5-second hero clip live, looping forward and reverse so the shot doesn't feel cut."*
+
+`/realstories` was a single sample card on a flat page. Rebuilt as a **gallery of magazine covers** organised by one **dedup cascade** (each story claimed by its highest bucket, never repeated) + search, applying the locked "living Daily-Prophet front page" editorial DNA at the index level.
+
+- **`apps/web/app/realstories/_components/gallery.tsx`** (new, client island) — `RealStoriesGallery`:
+  - **Cascade:** `The cover` (lowest `featureRank` = admin-pinned hero, 1 story) → `Most loved` (next editor-ranked picks — the **editors'-pick stand-in for "most viewed"** until view tracking exists; no fabricated counts shown) → `Just published` (newest of what's left) → `The archive` (everything still unseen). A `Set` of shown hrefs guarantees no story appears twice. Empty sections self-hide → looks right with 1 story or 50.
+  - **Search** — a live-filtered bar (couple · city · ceremony · venue · theme); non-empty query collapses the sections into one results grid with a count + clear.
+  - **`BoomerangVideo`** — plays a 5s hero clip forward natively, then reverse-scrubs `currentTime` to 0 via rAF (negative `playbackRate` is unreliable in Chrome/Safari), then forward again → seamless ping-pong, no felt cut. **Viewport-gated** (IntersectionObserver), **≤3 concurrent** (global slot scheduler — the Daily-Prophet rule), muted/playsInline, poster still, and **honors `prefers-reduced-motion`** (poster only).
+- **`apps/web/lib/real-weddings.ts`** — `RealWedding` gains `heroImageUrl`, `heroVideoUrl`, `featureRank`. **Seeded 5 new clearly-labelled `Sample` editorials** (Bea & Niko · Cebu beach; Andrea & Paolo · Manila rooftop; Sofia & Liam · Baguio forest; Camille & Rey · Tagaytay estate; Mira & Caleb · Laguna lakeside) with full story/team content, plus hero media on Maria & Juan — so all four sections populate now. Each carries a visible **Sample** badge (no story is presented as a real client).
+- **`apps/web/lib/showcase-db.ts`** — `ShowcaseEntry` gains `heroImageUrl`/`heroVideoUrl`/`featureRank`; `loadPublishedShowcases` now resolves `events.landing_page_hero_image_url` → display URL and carries `showcase_feature_rank`, so **real consent-gated editorials get the identical treatment** automatically when they publish (~Dec 2026).
+- **`apps/web/app/realstories/page.tsx`** — normalizes samples OR DB showcases into one `GalleryItem[]` and renders the gallery (JSON-LD/SEO + CTA unchanged).
+- **`apps/web/app/realstories/[slug]/page.tsx`** — the new samples (no editorial fixture) now render a proper **front-page editorial** (`SampleEditorial`: hero image/video + pull-quote + story + palette + team) instead of a bare card.
+- **`apps/web/public/realstories/*`** (new assets) — 6 editorial hero stills (Recraft, ~2 MB total) + 2 real 5-second hero clips (Higgsfield Kling 3.0, viewport-gated). No identifiable real people are presented as clients; assets are marketing samples.
+
+Validation: `tsc --noEmit` green; `next lint` clean on changed files (only the repo-standard `<img>` LCP warning). Production build gates auto-merge.
+
+SPEC IMPACT: iteration 0046 Real Weddings showcase — the index becomes a dedup-cascaded gallery (Cover / Most loved / Just published / Archive) with search + live ping-pong hero video; "most viewed" ships as an editors'-pick stand-in pending view tracking. Logged to corpus `DECISION_LOG.md`.
+
 ## 2026-06-15 · fix(nav): ONE persistent top nav for the whole site (stop the per-page remount)
 
 Owner: *"why is it when we press a menu on the top nav of the website, the top nav also resets? we already said the top nav stays and the body should only change. we do not need one top nav for each. we want one top nav to navigate the whole website."*

@@ -1,21 +1,23 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
-import {
-  ALL_REAL_WEDDINGS,
-  weddingTitle,
-  type RealWedding,
-} from '@/lib/real-weddings';
-import { loadPublishedShowcases, type ShowcaseEntry } from '@/lib/showcase-db';
+import { ALL_REAL_WEDDINGS } from '@/lib/real-weddings';
+import { loadPublishedShowcases } from '@/lib/showcase-db';
+import { RealStoriesGallery, type GalleryItem } from './_components/gallery';
 
 // /realstories — public Real Weddings showcase index (iteration 0046).
+//
+// A "wall of living front pages": every published editorial is a magazine
+// cover, organised by a dedup cascade (Cover → Most loved → Just published →
+// Archive, no repeats) with search, and a 5-second hero clip plays live on a
+// ping-pong loop where a couple chose one. See _components/gallery.tsx.
 //
 // Real, consent-gated editorials (loadPublishedShowcases — couples who opted in,
 // past the T+30d grace window) take priority and link to each couple's own
 // canonical editorial at /[slug] (0002 Phase 4 — never duplicated here). Until
 // any real wedding qualifies (first = the founder's Dec 2026 wedding), the page
-// falls back to the curated, clearly-labelled SAMPLE (lib/real-weddings.ts) so
-// the surface is live and gives SEO a real page. DB-backed → ISR, not static.
+// falls back to curated, clearly-labelled SAMPLES (lib/real-weddings.ts) so the
+// surface is live and gives SEO a real page. DB-backed → ISR, not static.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -46,136 +48,50 @@ export const metadata: Metadata = {
 // sample, so the page always renders even without DB access.
 export const revalidate = 3600;
 
-// Sample card (RealWedding) — links to its editorial preview at /realstories/[slug].
-function SampleCard({ wedding }: { wedding: RealWedding }) {
-  return (
-    <Link
-      href={`/realstories/${wedding.slug}`}
-      className="group flex flex-col rounded-2xl border border-ink/10 bg-white/50 p-5 transition hover:border-terracotta/40 hover:bg-white sm:p-6"
-    >
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          {wedding.ceremonyType} &middot; {wedding.venueSetting}
-        </span>
-        {wedding.isSample ? (
-          <span className="rounded-full border border-ink/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/50">
-            Sample
-          </span>
-        ) : null}
-      </div>
-      <h3 className="mt-3 text-lg font-semibold leading-snug tracking-tight text-ink group-hover:underline">
-        {wedding.coupleNames}
-      </h3>
-      <p className="mt-0.5 text-sm text-ink/55">
-        {wedding.city} &middot; {wedding.eventDateLabel}
-      </p>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-ink/65">
-        {wedding.excerpt}
-      </p>
-      <div className="mt-4 flex gap-1.5" aria-hidden>
-        {wedding.palette.map((hex) => (
-          <span
-            key={hex}
-            className="h-4 w-4 rounded-full ring-1 ring-ink/10"
-            style={{ backgroundColor: hex }}
-          />
-        ))}
-      </div>
-    </Link>
-  );
-}
-
-// Featured real showcase — the admin-pinned hero slot (PR D · Real Stories
-// featuring). Mirrors the sample featured-hero treatment, but links to the
-// couple's own canonical /[slug] editorial and carries no "Sample" label
-// (it's a real, consented wedding).
-function RealHero({ entry }: { entry: ShowcaseEntry }) {
-  const meta = [entry.city, entry.dateLabel].filter(Boolean).join(' · ');
-  return (
-    <Link
-      href={entry.href}
-      className="group mt-10 block overflow-hidden rounded-3xl border border-ink/10 bg-white/60 transition hover:border-terracotta/40 hover:bg-white"
-    >
-      {entry.monogramColor ? (
-        <div
-          className="h-24 w-full sm:h-32"
-          style={{ backgroundColor: entry.monogramColor }}
-          aria-hidden
-        />
-      ) : null}
-      <div className="p-6 sm:p-9">
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Featured · Real wedding
-        </span>
-        <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink group-hover:underline sm:text-3xl">
-          {entry.coupleNames}
-          {entry.city ? <> &middot; {entry.city}</> : null}
-        </h2>
-        {meta ? <p className="mt-2 text-base text-ink/65">{meta}</p> : null}
-        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta">
-          Read the story →
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-// Real wedding card (ShowcaseEntry) — links to the couple's canonical /[slug].
-function RealCard({ entry }: { entry: ShowcaseEntry }) {
-  const meta = [entry.city, entry.dateLabel].filter(Boolean).join(' · ');
-  return (
-    <Link
-      href={entry.href}
-      className="group flex flex-col rounded-2xl border border-ink/10 bg-white/50 p-5 transition hover:border-terracotta/40 hover:bg-white sm:p-6"
-    >
-      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-        Real wedding
-      </span>
-      <h3 className="mt-3 text-lg font-semibold leading-snug tracking-tight text-ink group-hover:underline">
-        {entry.coupleNames}
-      </h3>
-      {meta ? <p className="mt-0.5 text-sm text-ink/55">{meta}</p> : null}
-      {entry.monogramColor ? (
-        <div
-          className="mt-4 h-4 w-12 rounded-full ring-1 ring-ink/10"
-          style={{ backgroundColor: entry.monogramColor }}
-          aria-hidden
-        />
-      ) : null}
-      <span className="mt-4 inline-flex flex-1 items-end text-sm font-semibold text-terracotta">
-        Read the story →
-      </span>
-    </Link>
-  );
-}
-
 export default async function WeddingsIndexPage() {
-  // Real consent-gated showcases take priority; the sample is the fallback shown
-  // ONLY until a real wedding is uploaded (owner-locked behaviour).
+  // Real consent-gated showcases take priority; the samples are the fallback
+  // shown ONLY until a real wedding is uploaded (owner-locked behaviour).
   const showcases = await loadPublishedShowcases();
   const showingSamples = showcases.length === 0;
-  const samples = ALL_REAL_WEDDINGS;
-  const featured = samples.find((w) => w.featured) ?? samples[0];
 
-  // Admin-featured hero (PR D · Real Stories featuring). loadPublishedShowcases
-  // returns featured-first, so the leading entry — only when it's actually
-  // pinned — fills the hero slot; otherwise every showcase renders in the grid.
-  const realHero = showcases[0]?.featured ? showcases[0] : null;
-  const realRest = realHero ? showcases.slice(1) : showcases;
-
-  const itemListElements = showingSamples
-    ? samples.map((w, i) => ({
-        '@type': 'ListItem' as const,
-        position: i + 1,
-        url: `${SITE_URL}/realstories/${w.slug}`,
-        name: weddingTitle(w),
+  const items: GalleryItem[] = showingSamples
+    ? ALL_REAL_WEDDINGS.map((w) => ({
+        href: `/realstories/${w.slug}`,
+        coupleNames: w.coupleNames,
+        metaLine: [w.ceremonyType, w.city].filter(Boolean).join(' · '),
+        ceremonyType: w.ceremonyType,
+        venueSetting: w.venueSetting,
+        theme: w.theme,
+        city: w.city,
+        palette: [...w.palette],
+        heroImageUrl: w.heroImageUrl ?? null,
+        heroVideoUrl: w.heroVideoUrl ?? null,
+        featureRank: w.featureRank ?? null,
+        publishedSort: w.publishedAt,
+        isSample: true,
+        searchText:
+          `${w.coupleNames} ${w.city} ${w.ceremonyType} ${w.venueSetting} ${w.theme} ${w.excerpt}`.toLowerCase(),
       }))
-    : showcases.map((s, i) => ({
-        '@type': 'ListItem' as const,
-        position: i + 1,
-        url: `${SITE_URL}${s.href}`,
-        name: s.city ? `${s.coupleNames} · ${s.city}` : s.coupleNames,
+    : showcases.map((s) => ({
+        href: s.href,
+        coupleNames: s.coupleNames,
+        metaLine: [s.city, s.dateLabel].filter(Boolean).join(' · ') || 'Real wedding',
+        city: s.city,
+        palette: s.monogramColor ? [s.monogramColor] : ['#6B4E3D'],
+        heroImageUrl: s.heroImageUrl,
+        heroVideoUrl: s.heroVideoUrl,
+        featureRank: s.featureRank,
+        publishedSort: s.eventDate ?? '',
+        isSample: false,
+        searchText: `${s.coupleNames} ${s.city ?? ''} ${s.dateLabel ?? ''}`.toLowerCase(),
       }));
+
+  const itemListElements = items.map((it, i) => ({
+    '@type': 'ListItem' as const,
+    position: i + 1,
+    url: it.href.startsWith('http') ? it.href : `${SITE_URL}${it.href}`,
+    name: it.city ? `${it.coupleNames} · ${it.city}` : it.coupleNames,
+  }));
 
   const collectionJsonLd = {
     '@context': 'https://schema.org',
@@ -213,7 +129,7 @@ export default async function WeddingsIndexPage() {
       <main className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <div className="max-w-2xl space-y-3">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Real weddings
+            Real stories
           </p>
           <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Real Filipino weddings, told by the couples who lived them.
@@ -223,7 +139,8 @@ export default async function WeddingsIndexPage() {
               <>
                 Real couple editorials begin December 2026 — published from each
                 couple&rsquo;s own wedding page, with their consent. Here&rsquo;s a
-                sample to show how a wedding looks once it&rsquo;s told on Setnayan.
+                set of samples to show how a wedding looks once it&rsquo;s told on
+                Setnayan.
               </>
             ) : (
               <>
@@ -235,69 +152,7 @@ export default async function WeddingsIndexPage() {
           </p>
         </div>
 
-        {showingSamples ? (
-          <>
-            {featured ? (
-              <Link
-                href={`/realstories/${featured.slug}`}
-                className="group mt-10 block overflow-hidden rounded-3xl border border-ink/10 bg-white/60 transition hover:border-terracotta/40 hover:bg-white"
-              >
-                <div className="flex h-24 w-full sm:h-32" aria-hidden>
-                  {featured.palette.map((hex) => (
-                    <span key={hex} className="flex-1" style={{ backgroundColor: hex }} />
-                  ))}
-                </div>
-                <div className="p-6 sm:p-9">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                      Featured &middot; {featured.ceremonyType} &middot; {featured.venueSetting}
-                    </span>
-                    {featured.isSample ? (
-                      <span className="rounded-full border border-ink/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/50">
-                        Sample showcase
-                      </span>
-                    ) : null}
-                  </div>
-                  <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink group-hover:underline sm:text-3xl">
-                    {featured.coupleNames} &middot; {featured.city}
-                  </h2>
-                  <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink/70">
-                    {featured.excerpt}
-                  </p>
-                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta">
-                    Read the showcase →
-                  </span>
-                </div>
-              </Link>
-            ) : null}
-
-            {samples.length > 1 ? (
-              <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {samples
-                  .filter((w) => w.slug !== featured?.slug)
-                  .map((w) => (
-                    <SampleCard key={w.slug} wedding={w} />
-                  ))}
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <>
-            {/* Admin-featured hero (PR D · Real Stories featuring): showcases
-                are returned featured-first, so the leading entry — when it's
-                pinned — fills the hero slot, mirroring the sample treatment.
-                The remaining entries fall to the grid below. With no featured
-                pick, every showcase renders as an even grid. */}
-            {realHero ? <RealHero entry={realHero} /> : null}
-            {realRest.length > 0 ? (
-              <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {realRest.map((s) => (
-                  <RealCard key={s.href} entry={s} />
-                ))}
-              </div>
-            ) : null}
-          </>
-        )}
+        <RealStoriesGallery items={items} />
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

@@ -7,14 +7,15 @@
  * Mirrors the Guests focus-mode shell (`guests/page.tsx`):
  *   - a `<style>` hides the global top bar on MOBILE only (desktop keeps it for
  *     the EventSwitcher + notifications; the takeover is full-screen on mobile).
- *   - a fixed floating X (top-left, `lg:hidden`) is the single exit → event Home;
- *     desktop keeps the sidebar.
  *   - the global 5-tab bottom nav stays VISIBLE at the screen bottom
  *     (nav-everywhere 2026-06-13). This surface's own 5-tab section nav
  *     (Summary · Shortlist · Build · Compare · Lock) is a STICKY HEADER at the
- *     top of the page body — above the panel, below the floating X — so it
- *     never double-stacks the global nav. On desktop the tabs render as a top
- *     strip instead.
+ *     top of the page body — above the panel — so it never double-stacks the
+ *     global nav. On desktop the tabs render as a top strip instead.
+ *
+ * The old floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
+ * (nav-surfaces follow-up to #1470): the global journey bottom nav is always
+ * present here, so a dedicated "back to home" affordance is vestigial.
  *
  * Phase 1 (this PR): the SHELL only. Shortlist renders today's Services
  * experience (the `PlanBudgetAccordion`, passed as `shortlistSlot`); the other
@@ -23,8 +24,7 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import Link from 'next/link';
-import { X, Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
+import { Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
 import { BUDGET_BUILD_TABS, type BudgetBuildTab } from '@/lib/budget-build';
 
 /** Cross-tab navigation: any slot can `window.dispatchEvent(new CustomEvent(
@@ -67,7 +67,9 @@ const TAB_META: Record<BudgetBuildTab, { label: string; icon: LucideIcon; blurb:
 };
 
 export function ServicesTakeover({
-  eventId,
+  // `eventId` stays in the props contract (the page passes it) but is no longer
+  // read in the body since the floating "back X" that used it was removed
+  // 2026-06-15. Not destructured → no unused-var lint, caller API unchanged.
   summarySlot,
   shortlistSlot,
   buildSlot,
@@ -120,7 +122,7 @@ export function ServicesTakeover({
 
   return (
     <section
-      className="-mt-6 pt-[calc(env(safe-area-inset-top)+3.25rem)] lg:pt-0"
+      className="-mt-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0"
       data-budget-build-takeover=""
     >
       {/* Hide the global top bar on MOBILE only — the takeover is full-screen
@@ -129,15 +131,9 @@ export function ServicesTakeover({
           strip lives in the content area and won't collide. (Review 2026-06-09.) */}
       <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
 
-      {/* Floating exit (mobile only) — the single way back to event home;
-          desktop keeps the sidebar. */}
-      <Link
-        href={`/dashboard/${eventId}`}
-        aria-label="Back to dashboard home"
-        className="fixed left-3 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 inline-flex h-9 w-9 items-center justify-center rounded-full bg-cream/95 text-ink/70 shadow-[0_4px_14px_-6px_rgba(30,34,41,0.5)] ring-1 ring-ink/10 backdrop-blur transition-colors hover:bg-cream hover:text-ink lg:hidden"
-      >
-        <X className="h-5 w-5" strokeWidth={2} aria-hidden />
-      </Link>
+      {/* (The floating focus-mode "back X" was removed 2026-06-15 — the global
+          bottom nav is always present, so it's vestigial. The safe-area top
+          padding above is kept because the top bar stays hidden on mobile.) */}
 
       {/* Desktop tab strip — pill segmented control (sn-seg). Mobile uses the
           sticky-top pill nav below. */}

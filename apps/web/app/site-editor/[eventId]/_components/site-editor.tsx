@@ -81,10 +81,12 @@ import {
  * the 0010/0002 lock — that's why the live preview iframe renders the couple's
  * palette, not the dashboard chrome.
  *
- * LAYOUT: mobile = column (preview on top ~44vh, tab nav pinned to the
- * bottom, swipe carousel above it). Desktop = row (preview on the left,
- * tab nav on top of the right panel, carousel below). Responsive via Tailwind
- * `lg:` — no device toggle (that was a review-only prototype affordance).
+ * LAYOUT: mobile = column (preview on top ~44vh, then the section tab nav, then
+ * the swipe carousel below it). Desktop = row (preview on the left, tab nav on
+ * top of the right panel, carousel below). The section nav is TOP-OF-PANEL pill
+ * tabs (`.sn-seg`) on both breakpoints (2026-06-15 — was a bottom-docked grid on
+ * mobile). Responsive via Tailwind `lg:` — no device toggle (that was a
+ * review-only prototype affordance).
  *
  * PR #1 (foundation) scope: the Reels shell + QR display + every other tool
  * card deep-linking to its existing editor surface. Preview shows the live
@@ -176,6 +178,13 @@ export function SiteEditor(props: SiteEditorProps) {
   // (/dashboard/[eventId]/website). The hub lives inside the dashboard layout,
   // so the couple lands back on the chrome'd surface (top bar + global bottom
   // nav) that launched the editor — not the bare dashboard home.
+  //
+  // KEPT DELIBERATELY (nav-surfaces review 2026-06-15): the vestigial focus-mode
+  // "back X" was removed from Guests + Explore because the global bottom nav is
+  // always present there. This editor is a TOP-LEVEL route OUTSIDE EventLayout
+  // (see the docstring above — it must escape the dashboard chrome), so it has
+  // NO global bottom nav. This ✕ is the only exit — removing it would trap the
+  // user. So it stays.
   const backHref = `/dashboard/${eventId}/website`;
 
   return (
@@ -225,9 +234,48 @@ export function SiteEditor(props: SiteEditorProps) {
 
       {/* ── PANEL (tab nav + carousel) ── */}
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* Editor area — order-first on mobile (above the bottom tab bar),
-            order-last on desktop (below the top tab bar). */}
-        <div className="order-1 flex min-h-0 flex-1 flex-col lg:order-2">
+        {/* Section nav — TOP-OF-PANEL `.sn-seg` pill tabs (2026-06-15 nav-surfaces
+            follow-up to #1470). Was a bottom-docked 4-col grid on mobile (a
+            second bottom bar); the canonical in-page menu is now top-of-page pill
+            tabs (Settings · RSVP · Event · Editorial), the same `.sn-seg` pattern
+            the Guests / Explore / Schedule surfaces use. Tabs ride at the top on
+            BOTH mobile and desktop — no more order-flip — so the editor content
+            sits directly below them. Each tab switches the same panel it did
+            before; nothing else changed. */}
+        <nav role="tablist" aria-label="Website sections" className="shrink-0 px-4 pt-3">
+          <ul className="sn-seg w-full">
+            {(
+              [
+                { key: 'settings', label: 'Settings', Icon: Settings },
+                { key: 'rsvp', label: 'RSVP', Icon: MailCheck },
+                { key: 'event', label: 'Event', Icon: PartyPopper },
+                { key: 'editorial', label: 'Editorial', Icon: Newspaper },
+              ] as const
+            ).map(({ key, label, Icon }) => {
+              const on = tab === key;
+              return (
+                <li key={key} className="contents">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    aria-current={on ? 'page' : undefined}
+                    onClick={() => setTab(key)}
+                    className={`sn-seg-item flex-col gap-0.5 px-1 ${on ? 'is-active' : ''}`}
+                  >
+                    <Icon aria-hidden strokeWidth={1.75} className="h-[20px] w-[20px]" />
+                    <span className={`text-[10px] tracking-wide ${on ? 'font-semibold' : ''}`}>
+                      {label}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Editor area — directly below the top tabs now (no order-flip). */}
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-baseline justify-between px-4 pb-1 pt-3">
             <span className="font-serif text-xl italic">{TAB_TITLE[tab]}</span>
             <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink/40">
@@ -243,14 +291,6 @@ export function SiteEditor(props: SiteEditorProps) {
           )}
           {tab === 'editorial' && <Carousel cards={editorialCards()} />}
         </div>
-
-        {/* Tab nav — bottom on mobile, top on desktop. */}
-        <nav className="order-2 grid shrink-0 grid-cols-4 border-t border-ink/10 bg-surface lg:order-1 lg:border-b lg:border-t-0">
-          <TabButton active={tab === 'settings'} onClick={() => setTab('settings')} label="Settings" icon={<Settings aria-hidden />} />
-          <TabButton active={tab === 'rsvp'} onClick={() => setTab('rsvp')} label="RSVP" icon={<MailCheck aria-hidden />} />
-          <TabButton active={tab === 'event'} onClick={() => setTab('event')} label="Event" icon={<PartyPopper aria-hidden />} />
-          <TabButton active={tab === 'editorial'} onClick={() => setTab('editorial')} label="Editorial" icon={<Newspaper aria-hidden />} />
-        </nav>
       </div>
 
       {/* ── INLINE EDIT SHEET (PR #1) — bottom sheet on mobile, right panel on
@@ -281,33 +321,9 @@ export function SiteEditor(props: SiteEditorProps) {
   );
 }
 
-/* ─────────────────────────── tab nav ─────────────────────────── */
-
-function TabButton({
-  active,
-  onClick,
-  label,
-  icon,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  icon: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`flex min-h-[56px] min-h-[44pt] flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold transition-colors [&_svg]:h-[22px] [&_svg]:w-[22px] ${
-        active ? 'text-terracotta' : 'text-ink/40'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
+/* (TabButton removed 2026-06-15 — the section nav moved to inline top-of-panel
+   `.sn-seg` pill tabs in the main component; this bespoke bottom-grid button is
+   no longer rendered.) */
 
 /* ─────────────────────────── carousel ─────────────────────────── */
 

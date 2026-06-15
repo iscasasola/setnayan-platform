@@ -13,6 +13,20 @@ Owner: *"also add Gala Night."* `event_type_vocab` is the single source for the 
 Ledger was clean (in sync through `20261228000213`); applied to prod via `supabase db push` (single pending migration).
 
 SPEC IMPACT: event-type roster gains a 13th type, **Gala Night** (`gala_night`), `enabled=FALSE` until launch. Now selectable as an `applicable_event_types` scope in the admin taxonomy. Logged to corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(guests): Guests sub-nav becomes the JOURNEY (Build · Invite · Confirm · Seat · Day-of)
+
+Owner direction: the Guests area is a journey, not a pile of tools — and "most is already built, it's a matter of how it's executed." Re-points the (just-shipped) mobile Guests shelf from the four surfaces (`Guests · Seating · Event QR · Hosts`) to the five journey stages, sequencing surfaces that already exist. The desktop "lifecycle ribbon" was already this journey; this brings mobile in line and gives the one missing stage (Invite) a real home.
+
+- **`apps/web/lib/guest-journey.ts`** (new) — single source of truth for the five stages (label · icon · route · active-match): Build→`/guests`, Invite→`/guests/invite`, Confirm→`/guests/claims`, Seat→`/seating`, Day-of→`/guests/checkin`. Plus `activeJourneyKey` (longest-prefix match), `isGuestJourneyPath` (nav visibility), and `isDayOfOpen(eventDate, now)` (the eve→day-after window). Neutral module so the desktop ribbon and the mobile shelf both import it and can't drift.
+- **`apps/web/app/dashboard/[eventId]/guests/invite/page.tsx`** (+ `_components/invite-link.tsx`) (new) — the **Invite** stage's home, which didn't exist (it was only a "Share" dropdown on the list header). One join link + QR (`qrcode` lib, same as event-qr) + copy island + a "requests waiting to confirm" forward-nudge. Couple-only. Join-link shape matches the list page's `fetchJoinUrl`.
+- **`apps/web/app/dashboard/[eventId]/_components/guests-section-subnav.tsx`** — rewritten to render the journey from `lib/guest-journey` instead of the four surfaces; visibility gated to `/guests*` + `/seating*` (so **Event QR** — a crew-pairing tool — and **Hosts** — a team surface — leave the guest nav; both stay reachable from the Home tiles grid). **Day-of is time-gated**: rendered muted until the event window, computed in an effect so SSR/client agree (no hydration flash).
+- **`apps/web/app/_components/nav/sub-nav.tsx`** — additive: `SubNavItem.muted?` renders a dimmed "not yet" item (stays tappable; active item never dims). Backward-compatible — Explore's items don't set it. `lint:botnav` unaffected (keys on `*bottom-nav*` filenames).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — passes `eventDate` to the shelf for the Day-of gate.
+- **`apps/web/app/dashboard/[eventId]/guests/_components/lifecycle-ribbon.tsx`** — desktop ribbon's **Invite** step now points at `/guests/invite` (was the Confirm/claims surface).
+
+`tsc --noEmit`, `next lint`, `lint:botnav` all green. **Deferred to a follow-up:** desktop journey strip on every journey surface (today the ribbon shows on `/guests` only) + live badges in the mobile shelf + aligning the ribbon's Invite "to send" badge to the single-link model. PR pending (branch `claude/guests-journey-nav`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Reshapes the iteration 0021 customer Guests nav from surfaces → a guided journey, with a new dedicated Invite surface (sequences 0001 guest list, 0002 QR invites/claims, 0008 seating, 0031 day-of check-in). Update [[project_setnayan_bottom_nav_canonical]] + DECISION_LOG.
 
 ## 2026-06-16 · feat(explore): Shortlist tab → full-taxonomy category browser (faith + event-type scoped)
 

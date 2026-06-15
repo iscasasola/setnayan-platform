@@ -67,9 +67,11 @@ export function LifecycleRibbon({
   }[] = [
     { key: 'build', label: 'Build', href: `/dashboard/${eventId}/guests` },
     {
+      // Invite has its own home now (2026-06-16) — the single join link + QR —
+      // rather than sharing the Confirm/claims surface as it did before.
       key: 'invite',
       label: 'Invite',
-      href: `/dashboard/${eventId}/guests/claims`,
+      href: `/dashboard/${eventId}/guests/invite`,
       badge: unsent,
       badgeWord: 'to send',
       badgeTitle: `${unsent} ${unsent === 1 ? 'invitation' : 'invitations'} not yet sent`,

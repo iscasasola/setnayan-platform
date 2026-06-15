@@ -1,78 +1,67 @@
 'use client';
 
 /**
- * GuestsSectionSubnav — the docked SECTION sub-nav for the customer "Guests" tab.
+ * GuestsSectionSubnav — the docked JOURNEY sub-nav for the customer "Guests" tab.
  *
- * The flat 6-tab bottom nav (customer-bottom-nav.tsx, owner-locked 2026-06-16)
- * collapses the whole people-and-day-of cluster behind a single "Guests" tab,
- * whose `activeMatch` enumerates the four sibling surfaces that belong to it:
- *   /guests · /seating · /event-qr · /hosts.
+ * Owner direction 2026-06-16: the Guests area is a JOURNEY, not a pile of tools.
+ * This shelf is the subordinate companion to the flat 6-tab bottom nav (the same
+ * <SubNav> treatment the Explore/Services tab got, #1503) and surfaces the five
+ * stages — Build · Invite · Confirm · Seat · Day-of — so a couple can move through
+ * the flow without bouncing through the bottom nav. The stages (label · icon ·
+ * route · active-match) come from the single source of truth in lib/guest-journey
+ * so this mobile shelf and the desktop ribbon (lifecycle-ribbon.tsx) can't drift.
  *
- * This component is the subordinate shelf for that tab — the same treatment the
- * Explore/Services tab got via <SubNav> (be634b04 / #1503, owner 2026-06-16
- * "pin it on top of the bottom nav as its sub nav"). It surfaces those four
- * sub-sections as an icon-over-text pill docked just above the bottom nav so a
- * couple can hop Guests ↔ Seating ↔ Event QR ↔ Hosts without first returning to
- * a parent. Mounting <SubNav> also tells the bottom nav to drop to icons-only
- * (useSubNavDocked), so the two bars stack without crowding.
+ * (Superseded 2026-06-16 the surface-based shelf — Guests · Seating · Event QR ·
+ * Hosts. Event QR is a crew-pairing tool and Hosts is a team surface, neither a
+ * journey stage; both stay reachable from the Home tiles grid.)
  *
- * UNLIKE the Services takeover (one page, in-page panels switched via onSelect),
- * the Guests cluster is FOUR SEPARATE ROUTES — so this wires <SubNav> to the
- * router: onSelect → router.push, activeKey ← usePathname. It is mounted ONCE in
- * the event layout (next to <CustomerBottomNav>) and self-gates: it renders the
- * shelf only while the path is inside the Guests cluster, and null everywhere
- * else (so it never double-stacks on /vendors, /budget, …). Child routes of the
- * list (/guests/quick, /guests/import, /guests/claims, /guests/checkin,
- * /guests/new, /guests/[guestId]) light the "Guests" item via prefix match, so
- * the shelf rides along on the guest sub-tools too and offers a path back.
+ * The five stages are SEPARATE ROUTES, so this wires <SubNav> to the router:
+ * onSelect → router.push, activeKey ← usePathname (longest-prefix match). Mounted
+ * ONCE in the event layout (next to <CustomerBottomNav>) and self-gates: it
+ * renders only while the path is inside the journey (/guests* or /seating*), null
+ * elsewhere (so it never double-stacks on /vendors, /budget, …). Mounting it stays
+ * stable across stage switches, so the lift reveal plays on section ENTRY only.
  *
- * Mobile-only — <SubNav> is `lg:hidden`; on desktop the CustomerSidebar already
- * lists all four surfaces. While docked it adds `guests-subnav-docked` to <html>
- * so globals.css can give the page extra bottom room (the floating pill would
- * otherwise cover the last ~50px of scrolling content).
+ * Day-of is TIME-GATED: shown muted ("not yet") until the event window, then it
+ * un-mutes. The gate is computed in an effect (default closed) so SSR and client
+ * agree on first paint — no hydration flash. Mobile-only (<SubNav> is `lg:hidden`;
+ * desktop uses the sidebar + the on-page ribbon). While docked it flags
+ * `guests-subnav-docked` on <html> so globals.css pads the page bottom clear of
+ * the floating pill.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Users, LayoutGrid, QrCode, UserPlus, type LucideIcon } from 'lucide-react';
 import { SubNav } from '@/app/_components/nav/sub-nav';
+import {
+  buildGuestJourney,
+  activeJourneyKey,
+  isGuestJourneyPath,
+  isDayOfOpen,
+} from '@/lib/guest-journey';
 
-type GuestsSubnavItem = {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  href: string;
-  /** Active-state prefix. The four prefixes are mutually exclusive (none is a
-   *  prefix of another), so at most one matches any path. */
-  match: string;
-};
-
-function buildItems(eventId: string): GuestsSubnavItem[] {
-  const base = `/dashboard/${eventId}`;
-  // Mirrors the Guests bottom-nav tab's `activeMatch` set verbatim — the
-  // canonical "what belongs to Guests" decision already lives there, so this
-  // shelf stays a single source of truth with the bar above it.
-  return [
-    { key: 'guests', label: 'Guests', icon: Users, href: `${base}/guests`, match: `${base}/guests` },
-    { key: 'seating', label: 'Seating', icon: LayoutGrid, href: `${base}/seating`, match: `${base}/seating` },
-    { key: 'event-qr', label: 'Event QR', icon: QrCode, href: `${base}/event-qr`, match: `${base}/event-qr` },
-    { key: 'hosts', label: 'Hosts', icon: UserPlus, href: `${base}/hosts`, match: `${base}/hosts` },
-  ];
-}
-
-export function GuestsSectionSubnav({ eventId }: { eventId: string }) {
+export function GuestsSectionSubnav({
+  eventId,
+  eventDate,
+}: {
+  eventId: string;
+  eventDate: string | null;
+}) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
 
-  const items = buildItems(eventId);
-  const active = items.find(
-    (it) => pathname === it.match || pathname.startsWith(`${it.match}/`),
-  );
-  const inSection = Boolean(active);
+  const inSection = isGuestJourneyPath(pathname, eventId);
+
+  // Defer the Day-of gate to the client so the muted state matches between SSR
+  // (always closed) and the first client paint, then opens on the event day.
+  const [dayOfOpen, setDayOfOpen] = useState(false);
+  useEffect(() => {
+    setDayOfOpen(isDayOfOpen(eventDate, new Date()));
+  }, [eventDate]);
 
   // While the shelf is docked, flag <html> so globals.css pads the page bottom
-  // clear of the floating pill (mobile). Toggled in an effect (never during
-  // render) so it stays SSR-safe and reverses on leaving the cluster.
+  // clear of the floating pill. Toggled in an effect (never during render) so it
+  // stays SSR-safe and reverses on leaving the journey.
   useEffect(() => {
     if (!inSection) return;
     const el = document.documentElement;
@@ -80,17 +69,20 @@ export function GuestsSectionSubnav({ eventId }: { eventId: string }) {
     return () => el.classList.remove('guests-subnav-docked');
   }, [inSection]);
 
-  if (!active) return null;
+  if (!inSection) return null;
+
+  const stages = buildGuestJourney(eventId, { dayOfOpen });
+  const activeKey = activeJourneyKey(pathname, stages) ?? 'build';
 
   return (
     <SubNav
-      items={items.map(({ key, label, icon }) => ({ key, label, icon }))}
-      activeKey={active.key}
+      items={stages.map(({ key, label, icon, muted }) => ({ key, label, icon, muted }))}
+      activeKey={activeKey}
       onSelect={(key) => {
-        const next = items.find((it) => it.key === key);
-        if (next && next.key !== active.key) router.push(next.href);
+        const next = stages.find((s) => s.key === key);
+        if (next && next.key !== activeKey) router.push(next.href);
       }}
-      ariaLabel="Guest sections"
+      ariaLabel="Guest journey"
     />
   );
 }

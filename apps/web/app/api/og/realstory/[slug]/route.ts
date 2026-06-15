@@ -41,6 +41,15 @@ export async function GET(
 
   const descriptor = `A ${wedding.ceremonyType.toLowerCase()} ${wedding.venueSetting.toLowerCase()} wedding · ${wedding.city}`;
 
+  // Crawlers fetch this server-side with no base — make the hero photo absolute
+  // so the photo-background OG variant renders (else it falls back to branded).
+  const SITE_URL = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const heroPhotoUrl = wedding.heroImageUrl
+    ? `${SITE_URL}${wedding.heroImageUrl}`
+    : null;
+
   try {
     const jpeg = await renderRealStoryOgJpeg({
       coupleNames: wedding.coupleNames,
@@ -48,7 +57,7 @@ export async function GET(
       dateLabel: wedding.eventDateLabel,
       palette: wedding.palette,
       isSample: wedding.isSample,
-      heroPhotoUrl: null,
+      heroPhotoUrl,
     });
     return jpegResponse(jpeg);
   } catch {

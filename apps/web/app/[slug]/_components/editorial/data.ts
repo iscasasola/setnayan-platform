@@ -314,7 +314,8 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // fixture renders through THIS exact component (via the /realstories sample page),
   // so the sample always tracks the live editorial format. Returns without
   // touching the DB; real event ids fall straight through to the loader below.
-  if (eventId === SAMPLE_EDITORIAL_EVENT_ID) return sampleEditorialData();
+  const sampleFixture = SAMPLE_EDITORIALS[eventId];
+  if (sampleFixture) return sampleFixture();
 
   let admin: ReturnType<typeof createAdminClient>;
   try {
@@ -739,9 +740,31 @@ function deriveMonogramFallback(displayName: string): string {
 // Fictional + clearly labelled "Sample showcase" on the page; carries no real
 // PII. When real consent-gated editorials ship (0002/0046 Phase 4, Dec 2026),
 // they render through the identical path from live `events` data.
+// Sentinel id → curated fixture. Each /realstories/[slug] sample detail maps to
+// one of these (via SAMPLE_EDITORIAL_IDS) and renders through the real
+// EditorialContent engine, so a sample looks EXACTLY like a real couple's
+// website editorial — including their own hero photo.
+const SAMPLE_EDITORIALS: Record<string, () => EditorialData> = {
+  'sample-maria-and-juan': mariaAndJuan,
+  'sample-jack-and-jill': jackAndJill,
+  'sample-john-and-jane': johnAndJane,
+  'sample-peter-and-mary': peterAndMary,
+  'sample-jack-and-rose': jackAndRose,
+};
+
+// /realstories wedding slug → sample sentinel id. Drives the detail page.
+export const SAMPLE_EDITORIAL_IDS: Record<string, string> = {
+  'maria-and-juan-tagaytay-garden-wedding': 'sample-maria-and-juan',
+  'jack-and-jill-cebu-beach-wedding': 'sample-jack-and-jill',
+  'john-and-jane-manila-rooftop-wedding': 'sample-john-and-jane',
+  'peter-and-mary-tagaytay-estate-wedding': 'sample-peter-and-mary',
+  'jack-and-rose-baguio-forest-wedding': 'sample-jack-and-rose',
+};
+
+// Back-compat: original single-sample export still points at Maria & Juan.
 export const SAMPLE_EDITORIAL_EVENT_ID = 'sample-maria-and-juan';
 
-export function sampleEditorialData(): EditorialData {
+function mariaAndJuan(): EditorialData {
   const guests = 120;
   return {
     displayName: 'Maria & Juan',
@@ -784,7 +807,7 @@ export function sampleEditorialData(): EditorialData {
     tone: 'warm',
     draft: {},
     published: true,
-    heroPhotoUrl: null,
+    heroPhotoUrl: '/realstories/maria-juan-tagaytay.jpg',
     metrics: {
       servicesSetnayan: 5,
       servicesTotalDenominator: null,
@@ -809,6 +832,280 @@ export function sampleEditorialData(): EditorialData {
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream', 'Pakanta'],
+    galleryPhotos: [],
+    photoWallPhotos: [],
+    photoWallActive: false,
+  };
+}
+
+function jackAndJill(): EditorialData {
+  const guests = 80;
+  return {
+    displayName: 'Jack & Jill',
+    firstNames: 'Jack & Jill',
+    slug: null,
+    eventDate: '2026-04-18',
+    eventDateFormatted: formatPhDate('2026-04-18'),
+    venueName: 'a west-facing cove on the Cebu coast',
+    venueCity: 'Cebu',
+    venueAddress: 'Cebu',
+    monogramText: 'J & J',
+    monogramColor: '#D85A30',
+    loveStory: {
+      how_we_met:
+        'they met on a sunrise hike that turned into a dare to swim before breakfast — Jill won',
+      met_year: '2020',
+      together_since: '2020',
+      proposal:
+        'Jack proposed waist-deep at low tide, hiding the ring in a sealed shell so he would not drop it',
+      proposal_setting: 'a quiet Cebu cove at sunset',
+      proposal_year: '2025',
+      spark: 'they never said no to a body of water',
+      spark_why: 'every plan they ever made somehow ended at the sea',
+      milestones: [
+        { year: '2020', title: 'First met', note: 'A sunrise hike in Cebu' },
+        { year: '2022', title: 'First dive trip', note: 'Moalboal, the sardine run' },
+        { year: '2025', title: 'The proposal', note: 'A cove at sunset' },
+        { year: '2026', title: 'The wedding', note: 'Barefoot on the sand' },
+      ],
+      anchors: { song: 'their road-trip anthem', place: 'the sea', injoke: 'race you', food: 'fresh kinilaw' },
+    },
+    specialMessage:
+      'Salamat for trekking all the way out here with us. The tide waited; so did we — thank you for being here.',
+    togetherSince: '2020-01-01',
+    tone: 'playful',
+    draft: {},
+    published: true,
+    heroPhotoUrl: '/realstories/jack-jill-cebu.jpg',
+    metrics: {
+      servicesSetnayan: 4,
+      servicesTotalDenominator: null,
+      firstPickNum: 3,
+      firstPickDen: 5,
+      hoursSaved: TIME_SAVED_PER_VENDOR_HOURS * 5 + TIME_SAVED_BASE_HOURS,
+      guests,
+      attending: 74,
+      replied: 78,
+      rsvpPct: 98,
+      photos: null,
+    },
+    archetype: computeArchetype(guests, null),
+    vendors: [
+      { name: 'Saltwater Stories', category: 'Photography & Video', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Coast Kitchen', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Driftwood & Bloom', category: 'Florals & Styling', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
+    ],
+    reviews: [
+      { author: 'Jack & Jill', role: 'couple', quote: 'We planned a whole beach wedding from two phones. By sunset, everything was just set.', stars: 5 },
+      { author: 'Kuya Ramon', role: 'guest', quote: 'Worth the boat ride. The timeline ran like clockwork even on the sand.', stars: 5 },
+    ],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic'],
+    galleryPhotos: [],
+    photoWallPhotos: [],
+    photoWallActive: false,
+  };
+}
+
+function johnAndJane(): EditorialData {
+  const guests = 60;
+  return {
+    displayName: 'John & Jane',
+    firstNames: 'John & Jane',
+    slug: null,
+    eventDate: '2026-03-07',
+    eventDateFormatted: formatPhDate('2026-03-07'),
+    venueName: 'a rooftop terrace above the Manila skyline',
+    venueCity: 'Manila',
+    venueAddress: 'Makati, Metro Manila',
+    monogramText: 'J & J',
+    monogramColor: '#1E2A44',
+    loveStory: {
+      how_we_met:
+        'they were put on the same project their first week at work and spent it disagreeing politely in meetings',
+      met_year: '2018',
+      together_since: '2019',
+      proposal:
+        'John proposed on the office rooftop after hours, with the city lights doing the staging',
+      proposal_setting: 'a rooftop over Makati at blue hour',
+      proposal_year: '2025',
+      spark: 'the way a quick coffee always turned into a two-hour conversation',
+      spark_why: 'they were better at everything together',
+      milestones: [
+        { year: '2018', title: 'First met', note: 'Same project, first week' },
+        { year: '2019', title: 'First date', note: 'A long coffee that ran late' },
+        { year: '2025', title: 'The proposal', note: 'A rooftop over the city' },
+        { year: '2026', title: 'The wedding', note: 'Sixty guests, one skyline' },
+      ],
+      anchors: { song: 'their slow song', place: 'the rooftop', injoke: 'one more slide', food: 'late-night ramen' },
+    },
+    specialMessage:
+      'Thank you for choosing a weeknight rooftop over a long weekend away to be with us. It meant everything.',
+    togetherSince: '2019-02-01',
+    tone: 'formal',
+    draft: {},
+    published: true,
+    heroPhotoUrl: '/realstories/john-jane-manila.jpg',
+    metrics: {
+      servicesSetnayan: 3,
+      servicesTotalDenominator: null,
+      firstPickNum: 3,
+      firstPickDen: 4,
+      hoursSaved: TIME_SAVED_PER_VENDOR_HOURS * 4 + TIME_SAVED_BASE_HOURS,
+      guests,
+      attending: 56,
+      replied: 59,
+      rsvpPct: 98,
+      photos: null,
+    },
+    archetype: computeArchetype(guests, null),
+    vendors: [
+      { name: 'Skyline & Co.', category: 'Photography & Video', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'The Supper Club', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Brass & Ember Events', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+    ],
+    reviews: [
+      { author: 'John & Jane', role: 'couple', quote: 'Small wedding, zero chaos. Everyone knew the plan because the plan lived in one place.', stars: 5 },
+      { author: 'Atty. Cruz', role: 'guest', quote: 'The most precisely run sixty-person dinner I have attended.', stars: 5 },
+    ],
+    servicesAvailed: ['Setnayan AI', 'Event Website'],
+    galleryPhotos: [],
+    photoWallPhotos: [],
+    photoWallActive: false,
+  };
+}
+
+function peterAndMary(): EditorialData {
+  const guests = 150;
+  return {
+    displayName: 'Peter & Mary',
+    firstNames: 'Peter & Mary',
+    slug: null,
+    eventDate: '2026-05-23',
+    eventDateFormatted: formatPhDate('2026-05-23'),
+    venueName: 'a ridge-top estate garden in Tagaytay',
+    venueCity: 'Tagaytay',
+    venueAddress: 'Tagaytay, Cavite',
+    monogramText: 'P & M',
+    monogramColor: '#B89B72',
+    loveStory: {
+      how_we_met:
+        'they met at a friend’s baptism and realised they had been at the same fiestas for years without ever meeting',
+      met_year: '2017',
+      together_since: '2018',
+      proposal:
+        'Peter asked over Sunday lunch with both families already (secretly) in on it',
+      proposal_setting: 'the family table after Mass',
+      proposal_year: '2024',
+      spark: 'how easily their families became one big noisy table',
+      spark_why: 'they wanted that table for the rest of their lives',
+      milestones: [
+        { year: '2017', title: 'First met', note: 'A baptism in Cavite' },
+        { year: '2018', title: 'Made it official', note: 'After one long fiesta season' },
+        { year: '2024', title: 'The proposal', note: 'Sunday lunch, both families in' },
+        { year: '2026', title: 'The wedding', note: 'A ridge-top estate in bloom' },
+      ],
+      anchors: { song: 'their parents’ favourite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
+    },
+    specialMessage:
+      'To all 150 of you who filled this garden — salamat. A full table was the whole point, and you made it overflow.',
+    togetherSince: '2018-06-01',
+    tone: 'warm',
+    draft: {},
+    published: true,
+    heroPhotoUrl: '/realstories/peter-mary-tagaytay.jpg',
+    metrics: {
+      servicesSetnayan: 6,
+      servicesTotalDenominator: null,
+      firstPickNum: 5,
+      firstPickDen: 8,
+      hoursSaved: TIME_SAVED_PER_VENDOR_HOURS * 8 + TIME_SAVED_BASE_HOURS,
+      guests,
+      attending: 138,
+      replied: 146,
+      rsvpPct: 97,
+      photos: null,
+    },
+    archetype: computeArchetype(guests, null),
+    vendors: [
+      { name: 'Heirloom Photo + Film', category: 'Photography & Video', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Grand Table Catering', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Petal & Lantern', category: 'Florals & Styling', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Ridge Coordination', category: 'Coordination', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
+    ],
+    reviews: [
+      { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
+      { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
+    ],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream'],
+    galleryPhotos: [],
+    photoWallPhotos: [],
+    photoWallActive: false,
+  };
+}
+
+function jackAndRose(): EditorialData {
+  const guests = 100;
+  return {
+    displayName: 'Jack & Rose',
+    firstNames: 'Jack & Rose',
+    slug: null,
+    eventDate: '2026-05-09',
+    eventDateFormatted: formatPhDate('2026-05-09'),
+    venueName: 'a pine-forest clearing in the Cordilleras',
+    venueCity: 'Baguio',
+    venueAddress: 'Baguio, Benguet',
+    monogramText: 'J & R',
+    monogramColor: '#2F4538',
+    loveStory: {
+      how_we_met:
+        'they shared an umbrella running from the same sudden Baguio downpour and never quite gave it back',
+      met_year: '2019',
+      together_since: '2019',
+      proposal:
+        'Jack proposed on a foggy morning walk, the question almost lost to the mist until Rose said yes first',
+      proposal_setting: 'a pine trail at dawn',
+      proposal_year: '2025',
+      spark: 'how the cold made everything feel like a secret only they were in on',
+      spark_why: 'they always felt like the only two people on the mountain',
+      milestones: [
+        { year: '2019', title: 'First met', note: 'One umbrella, one downpour' },
+        { year: '2021', title: 'Moved up north', note: 'A cabin with a wood stove' },
+        { year: '2025', title: 'The proposal', note: 'A foggy pine trail at dawn' },
+        { year: '2026', title: 'The wedding', note: 'A clearing in the pines' },
+      ],
+      anchors: { song: 'their rainy-day record', place: 'the pines', injoke: 'never gave it back', food: 'strawberry taho' },
+    },
+    specialMessage:
+      'Thank you for climbing all the way up into the fog with us. The mountain kept our secret; now it is yours too.',
+    togetherSince: '2019-07-01',
+    tone: 'warm',
+    draft: {},
+    published: true,
+    heroPhotoUrl: '/realstories/jack-rose-baguio.jpg',
+    metrics: {
+      servicesSetnayan: 5,
+      servicesTotalDenominator: null,
+      firstPickNum: 4,
+      firstPickDen: 6,
+      hoursSaved: TIME_SAVED_PER_VENDOR_HOURS * 6 + TIME_SAVED_BASE_HOURS,
+      guests,
+      attending: 92,
+      replied: 97,
+      rsvpPct: 97,
+      photos: null,
+    },
+    archetype: computeArchetype(guests, null),
+    vendors: [
+      { name: 'Highland Frames', category: 'Photography & Video', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Pinecrest Catering', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Fern & Fog Styling', category: 'Florals & Styling', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
+      { name: 'Summit Day-of', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
+    ],
+    reviews: [
+      { author: 'Jack & Rose', role: 'couple', quote: 'Planning an out-of-town wedding from the lowlands was the easy part. One workspace held it all.', stars: 5 },
+      { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },
+    ],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Pakanta'],
     galleryPhotos: [],
     photoWallPhotos: [],
     photoWallActive: false,

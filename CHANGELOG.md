@@ -23,6 +23,16 @@ Owner: *"this needs to be visually powerful. each editorial is already a front-p
 Validation: `tsc --noEmit` green; `next lint` clean on changed files (only the repo-standard `<img>` LCP warning). Production build gates auto-merge.
 
 SPEC IMPACT: iteration 0046 Real Weddings showcase — the index becomes a dedup-cascaded gallery (Cover / Most loved / Just published / Archive) with search + live ping-pong hero video; "most viewed" ships as an editors'-pick stand-in pending view tracking. Logged to corpus `DECISION_LOG.md`.
+
+**Follow-up (same PR) — 5 named sample editorials + main photo on the editorial.** Owner: *"use their main photo on the editorial. Can we make 5 different sample websites? maria and juan, jack and jill, john and jane, peter and mary, jack and rose — so we can see how they look?"*
+
+- **Sample roster → the owner's 5 named couples** (`lib/real-weddings.ts`): Maria & Juan (Tagaytay garden) · Jack & Jill (Cebu beach) · John & Jane (Manila rooftop) · Peter & Mary (Tagaytay estate) · Jack & Rose (Baguio forest). Assets renamed to match (`public/realstories/*`); Maria & Juan + Jack & Jill carry the live 5s clips.
+- **Each sample now renders through the REAL editorial engine with its main photo** (`app/[slug]/_components/editorial/data.ts`). Replaced the single `SAMPLE_EDITORIAL_EVENT_ID` fixture with a 5-entry registry (`SAMPLE_EDITORIALS` + exported `SAMPLE_EDITORIAL_IDS`); every fixture sets `heroPhotoUrl` to the couple's photo (Maria & Juan's was `null` — that's the "no main photo" gap, now fixed), with distinct love story / milestones / metrics / vendors / reviews per couple. So clicking any sample shows a full front-page editorial led by the main photo — exactly how a real couple's website editorial will look.
+- `app/realstories/[slug]/page.tsx` maps all 5 slugs via `SAMPLE_EDITORIAL_IDS` (the hand-rolled `SampleEditorial` stays only as a defensive fallback for an unmapped slug).
+- `app/api/og/realstory/[slug]/route.ts` now feeds the couple's absolute hero-photo URL to the OG card → the photo-background share variant lights up (was branded-only).
+
+Validation: `tsc` green; `next lint` clean (repo-standard `<img>` warning only); production build re-run green. Lands in the same PR (#1480).
+
 ## 2026-06-15 · feat(monogram): upload your own monogram — it overrules every Setnayan mark
 
 Owner rule: when a couple uploads THEIR OWN monogram in the Monogram Maker, it must **overrule** every Setnayan mark — the Cipher / Bespoke-AI `monogram_custom_svg` AND the lettered lockup — everywhere, with no second monogram stored.

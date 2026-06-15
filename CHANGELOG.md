@@ -4,6 +4,13 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-15 · fix(editorial): mobile dateline — Share flanks Vol·No, date centered (no orphaned Share row)
+
+Owner (mobile screenshot): *"fix placements on mobile version."* On phones the masthead `EditionLine` collapsed `flex-col items-center`, so its three parts stacked into three centered lines — `Vol. I · No. 3`, then `City · Date`, then **Share on its own full row** — re-introducing exactly the "share takes a whole row" the inline-share change removed on desktop.
+
+- **`editorial-content.tsx` `EditionLine`** — split into two responsive layouts: desktop (`sm+`) keeps the single `Vol·No · City·Date · Share` row; mobile (`< sm`) puts **`Vol·No` (left) and `Share` (right) on one flanking row** with the **date centered just below**. So Share stays compact in the dateline furniture and the date reads as the prominent line. Verified on a 390px viewport (Jack & Jill sample).
+
+SPEC IMPACT: None (responsive layout fix). Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-15 · feat(editorial): the editor opens PRE-FILLED with the couple's onboarding-derived content
 
 Owner: *"the editorial is dependent on the information placed in the editor; the initial information there is the onboarding information gathered; but they can still change it."* A 3-agent trace confirmed the dependency exists (the editorial auto-composes from onboarding — names → headline, archetype → eyebrow, years/date/venue/tone → sub-headline, guest message → pull-quote — and the editor's `draft_json` overrides + section toggles drive the render) **but** found the gap: the editor page read **only `draft_json`**, so its fields were **blank** until the couple typed — it never *showed* them their onboarding content to edit.

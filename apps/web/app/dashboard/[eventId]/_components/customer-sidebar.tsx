@@ -142,13 +142,6 @@ export { buildCustomerNavGroups };
  * absent here (e.g. the "Checklist" auto-step) have no registry slot yet and
  * pass through with their hardcoded label/icon. GROUP heading labels are a
  * deferred follow-up (no group slots yet).
- *
- * applyRegistry only walks TOP-LEVEL group.items, so a key here only takes
- * effect for an item that's still a top-level row. The "Seating" item was
- * folded into the Guests journey as the nested "Seat" child (#1595), so it has
- * no top-level row to match — its old `seating` entry was removed to keep this
- * map honest. (Wiring registry overrides for nested journey children is a
- * nav-registry follow-up; it must land on the mobile shelf too to avoid drift.)
  */
 const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   home: 'customer.sidebar.home',
@@ -169,10 +162,24 @@ const SIDEBAR_SLOT_KEYS: Record<string, string> = {
 };
 
 /**
- * Overlays admin registry label + icon onto each item (fallback = the item's
- * hardcoded default). A slot marked hidden drops the item. href/activeMatch +
- * group structure stay in code. No-op when navSlots is absent (fails open to
- * the built-in nav).
+ * Maps nested child item keys → their registry slot keys. Currently covers the
+ * five guest-journey stages that live under the "Guests" parent item. "seat"
+ * reuses the pre-existing `customer.sidebar.seating` slot so admins who already
+ * customised it see their changes reflected here too.
+ */
+const CHILD_SLOT_KEYS: Record<string, string> = {
+  build: 'customer.sidebar.guests.build',
+  invite: 'customer.sidebar.guests.invite',
+  confirm: 'customer.sidebar.guests.confirm',
+  seat: 'customer.sidebar.seating',
+  dayof: 'customer.sidebar.guests.dayof',
+};
+
+/**
+ * Overlays admin registry label + icon onto each item and its children
+ * (fallback = the item's hardcoded default). A slot marked hidden drops the
+ * item. href/activeMatch + group structure stay in code. No-op when navSlots is
+ * absent (fails open to the built-in nav).
  */
 function applyRegistry(
   groups: NavGroup[],
@@ -184,9 +191,19 @@ function applyRegistry(
     items: group.items.flatMap((item) => {
       const slotKey = SIDEBAR_SLOT_KEYS[item.key];
       const slot = slotKey ? navSlots[slotKey] : undefined;
-      if (!slot) return [item];
-      if (slot.isHidden) return [];
-      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+      if (slot?.isHidden) return [];
+      const resolved = slot
+        ? { ...item, label: slot.label, icon: navIconComponent(slot.icon) }
+        : item;
+      if (!resolved.children?.length) return [resolved];
+      const children = resolved.children.flatMap((child) => {
+        const childSlotKey = CHILD_SLOT_KEYS[child.key];
+        const childSlot = childSlotKey ? navSlots[childSlotKey] : undefined;
+        if (childSlot?.isHidden) return [];
+        if (!childSlot) return [child];
+        return [{ ...child, label: childSlot.label, icon: navIconComponent(childSlot.icon) }];
+      });
+      return [{ ...resolved, children }];
     }),
   }));
 }

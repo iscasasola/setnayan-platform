@@ -67,7 +67,7 @@ import {
   resolveStepStatuses,
   type StepStatus,
 } from '@/lib/planner';
-import { isInDayOfWindow } from '@/lib/day-of-mode';
+import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
@@ -419,7 +419,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state, planning_mode, setnayan_ai_active, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1350,7 +1350,12 @@ export default async function EventHomePage({
   // event date, fetch the schedule + seating data needed to render the live
   // grid above the rest of the dashboard. Outside the window we render
   // nothing extra and skip the queries entirely.
-  const dayOfActive = event.event_date ? isInDayOfWindow(event.event_date) : false;
+  const dayOfActive = event.event_date
+    ? getLifecyclePhase(
+        event.event_date,
+        (event as { cleared_at?: string | null }).cleared_at ?? null,
+      ) === 'dayof'
+    : false;
   let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
   let dayOfHeadTable: EventTableRow | null = null;
   let dayOfNearbyTables: EventTableRow[] = [];

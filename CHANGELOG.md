@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR3 — Wrap-up / clearance gate (Day-of → After)
+
+Third PR. Introduces the **event-level clearance** that flips the lifecycle phase Day-of → After (§6.2, distinct from the per-vendor handshake in PR4), plus the derived `after` phase the menu hangs off.
+
+- **`supabase/migrations/20261231020000_event_clearance.sql`** (new · **applied to prod**) — `events.cleared_at` + `cleared_by_user_id` (audit-only; events RLS unchanged).
+- **`apps/web/lib/day-of-mode.ts`** — `getLifecyclePhase(eventDate, clearedAt): 'plan' | 'dayof' | 'after'`. `after` = explicitly cleared OR past T+24h (**auto-clear evaluated read-side**, no cron — per the locked cron-free rule); `dayof` = `isEventDayActive` (live ‖ post) and not cleared; else `plan`.
+- **`apps/web/app/dashboard/[eventId]/clearance/{page,actions}.tsx`** (new) — the `/clearance` close-out: a checklist (stop the livestream · freeze the wall into the recap · close check-in — links to wind each down) + a single **"Close out the day"** action that stamps `cleared_at`/`cleared_by_user_id`. Couple OR delegated coordinator; the write goes through the admin client **after** a membership check + is idempotent (`.is('cleared_at', null)`).
+- **`customer-bottom-nav.tsx` + `layout.tsx`** — the bottom-nav prop becomes `phase` (was `isDayOf`); the layout computes `getLifecyclePhase(event_date, cleared_at)` server-side and threads it (Planning escape now shows on `dayof`). `cleared_at` added to the layout event select. The `after` roster lands in PR4; until then `after` shows the Plan bar.
+- **`page.tsx`** (event home) — the day-of grid gate moves from `isInDayOfWindow` → the lifecycle phase (`=== 'dayof'`), so an **evening reception** (which lands in `post`) finally gets the day-of grid (guardrail §11.1), and the grid hides once the day is cleared. **`grid.tsx`** gains a "When the day winds down, close it out" CTA → `/clearance`.
+
+`tsc`, `next lint`, `lint:botnav`, migration-timestamp guard all green. Migration **applied to prod** before merge (no-drift `db push`, only this migration pending). PR pending (branch `claude/lifecycle-pr3-clearance`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §5/§10 (PR3) + honors guardrails §11.1 (`isEventDayActive` gate) + §11.5 (read-side time-flip, no cron). Adds `events.cleared_at` — note in iteration 0031 (day-of) if the corpus is reconciled.
+
 ## 2026-06-16 · feat(nav): Event Lifecycle Menu PR2 — Day-of Services launch hub + Get-help card
 
 Second PR of the Event Lifecycle Menu. The Day-of "Services" tab now points at a real **unified launch hub**, and the day-of grid gains a **Get-help** escalation card.

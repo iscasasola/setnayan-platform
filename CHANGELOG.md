@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(build): event_category_build_state table (Phase 3d schema — dark)
+
+The 3-State Solver's foundation (`Build_3State_Solver_2026-06-16.md`, PR 3d-0). New couple-own table `event_category_build_state(event_id, plan_group_id, state ∈ locked|auto|excluded, pinned_vendor_id, set_by)` — one tri-state row per category, consolidating `budget_category_flags` (the Flag marker) + `event_build_picks` (the pinned vendor) into one control. `pinned_vendor_id` holds the Locked taxonomy pick (NULL for the Date/Budget/Location dimension rows, whose value lives on `events`).
+
+Additive + **DARK**: nothing reads it until `BUILD_3STATE_ENABLED` is flipped, so it's a no-op for the live Build. The old tables are NOT dropped — they're retired in a later migration after the flag flip. **Applied to prod via `supabase db push`** (ledger up to date); RLS = 4 couple-own policies (`member_type='couple'`), mirroring `event_build_picks`.
+
+- **`supabase/migrations/20261230000000_event_category_build_state.sql`** — table + index + RLS.
+
+SPEC IMPACT: None new (the corpus already tracks Phase 3d — `Build_3State_Solver_2026-06-16.md` §10/§12 + DECISION_LOG 2026-06-16).
+
+---
+
 ## 2026-06-16 · feat(ai): plain-English "why" alongside the % match
 
 Adds a short human-readable reason line next to the existing "{score}% match" pill on the AI-mode vendor cards, without touching the number or the score math.

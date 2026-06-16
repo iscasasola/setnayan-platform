@@ -10,7 +10,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { isMultiPickGroup } from '@/lib/wedding-plan-groups';
+import { pinBuildPickRow, removeBuildPickRow } from '@/lib/build-pick-write';
 
 export type BuildPickResult = { ok: true } | { ok: false; error: string };
 
@@ -36,43 +36,31 @@ export async function setBuildPick(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
-  // Single-pick: clear the category's other picks first so this becomes THE pick
-  // (the PK is now (event, group, vendor), so an upsert alone would no longer
-  // displace a different vendor). Multi-pick: skip the delete — keep them all.
-  if (!isMultiPickGroup(input.planGroupId)) {
-    const { error: delErr } = await supabase
-      .from('event_build_picks')
-      .delete()
-      .eq('event_id', input.eventId)
-      .eq('plan_group_id', input.planGroupId)
-      .neq('vendor_id', input.vendorId);
-    if (delErr) return { ok: false, error: delErr.message };
-  }
-
-  const { error } = await supabase.from('event_build_picks').upsert(
-    {
-      event_id: input.eventId,
-      plan_group_id: input.planGroupId,
-      vendor_id: input.vendorId,
-      picked_by: user.id,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id,plan_group_id,vendor_id' },
-  );
-  if (error) return { ok: false, error: error.message };
+  // The multi-pick data-loss guard lives in pinBuildPickRow (the single,
+  // unit-tested source of truth): single-pick categories replace the prior
+  // pick; multi-pick categories (Look / Booths / Prints) keep every pick.
+  const errMsg = await pinBuildPickRow(supabase, {
+    eventId: input.eventId,
+    planGroupId: input.planGroupId,
+    vendorId: input.vendorId,
+    pickedBy: user.id,
+    now: new Date().toISOString(),
+  });
+  if (errMsg) return { ok: false, error: errMsg };
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }
 
 /**
- * Take a pick back off the build (does not touch the shortlist). With `vendorId`
- * → removes that ONE vendor (needed for multi-pick categories); without it →
- * removes EVERY pick in the category (single-pick "remove" + back-compat).
+ * Take ONE vendor's pick back off the build (does not touch the shortlist).
+ * `vendorId` is REQUIRED: a multi-pick category (Look / Booths / Prints) holds
+ * several picks, so a vendorless clear would silently destroy the couple's other
+ * picks. Whole-build reset is the separate, explicit `clearBuildPicks` action.
  */
 export async function removeBuildPick(input: {
   eventId: string;
   planGroupId: string;
-  vendorId?: string;
+  vendorId: string;
 }): Promise<BuildPickResult> {
   const supabase = await createClient();
   const {
@@ -80,14 +68,12 @@ export async function removeBuildPick(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
-  let q = supabase
-    .from('event_build_picks')
-    .delete()
-    .eq('event_id', input.eventId)
-    .eq('plan_group_id', input.planGroupId);
-  if (input.vendorId) q = q.eq('vendor_id', input.vendorId);
-  const { error } = await q;
-  if (error) return { ok: false, error: error.message };
+  const errMsg = await removeBuildPickRow(supabase, {
+    eventId: input.eventId,
+    planGroupId: input.planGroupId,
+    vendorId: input.vendorId,
+  });
+  if (errMsg) return { ok: false, error: errMsg };
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }

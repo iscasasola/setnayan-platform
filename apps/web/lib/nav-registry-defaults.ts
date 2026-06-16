@@ -262,7 +262,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 3,
   },
   {
-    key: "customer.sidebar.guests.build",
+    key: "customer.sidebar.guests-build",
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/guests",
@@ -274,7 +274,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 31,
   },
   {
-    key: "customer.sidebar.guests.invite",
+    key: "customer.sidebar.guests-invite",
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/guests/invite",
@@ -286,7 +286,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 32,
   },
   {
-    key: "customer.sidebar.guests.confirm",
+    key: "customer.sidebar.guests-confirm",
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/guests/claims",
@@ -312,7 +312,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 34,
   },
   {
-    key: "customer.sidebar.guests.dayof",
+    key: "customer.sidebar.guests-dayof",
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/guests/checkin",
@@ -1071,7 +1071,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // redesign 2026-06-17). The mobile <SubNav> overlays these admin overrides on
   // its code defaults (lib/customer-menu.ts child.slotKey).
   {
-    key: "customer.studio-subnav.setnayan_ai",
+    key: "customer.studio-subnav.setnayan-ai",
     scope: "customer",
     area: "studio-subnav",
     route: "/dashboard/[eventId]/add-ons#studio-ai",

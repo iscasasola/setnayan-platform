@@ -184,7 +184,7 @@ export function buildCustomerMenuTree(
       sectionMatchExact: true,
       subnavLabel: 'Studio sections',
       children: [
-        { key: 'setnayan_ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai', slotKey: 'customer.studio-subnav.setnayan_ai' },
+        { key: 'setnayan-ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai', slotKey: 'customer.studio-subnav.setnayan-ai' },
         { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' },
         { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture', slotKey: 'customer.studio-subnav.capture' },
         { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding', slotKey: 'customer.studio-subnav.branding' },

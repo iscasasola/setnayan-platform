@@ -168,11 +168,11 @@ const SIDEBAR_SLOT_KEYS: Record<string, string> = {
  * customised it see their changes reflected here too.
  */
 const CHILD_SLOT_KEYS: Record<string, string> = {
-  build: 'customer.sidebar.guests.build',
-  invite: 'customer.sidebar.guests.invite',
-  confirm: 'customer.sidebar.guests.confirm',
+  build: 'customer.sidebar.guests-build',
+  invite: 'customer.sidebar.guests-invite',
+  confirm: 'customer.sidebar.guests-confirm',
   seat: 'customer.sidebar.seating',
-  dayof: 'customer.sidebar.guests.dayof',
+  dayof: 'customer.sidebar.guests-dayof',
 };
 
 /**

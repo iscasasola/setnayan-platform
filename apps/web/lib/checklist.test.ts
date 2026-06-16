@@ -14,6 +14,7 @@ import {
   phaseForOffset,
   groupChecklistByPhase,
   isChurchCeremony,
+  checklistItemHref,
   CHECKLIST_TEMPLATE,
   CHECKLIST_PHASES,
   type ChecklistItemRow,
@@ -176,4 +177,23 @@ test('CHECKLIST_PHASES: contiguous, non-overlapping coverage', () => {
   for (let i = 1; i < CHECKLIST_PHASES.length; i++) {
     assert.equal(CHECKLIST_PHASES[i]!.maxDays, CHECKLIST_PHASES[i - 1]!.minDays - 1);
   }
+});
+
+test('checklistItemHref: booking tasks deep-link to their vendor category', () => {
+  assert.equal(
+    checklistItemHref('e1', 'book_caterer'),
+    '/dashboard/e1/vendors?tab=shortlist&open=catering',
+  );
+  assert.equal(
+    checklistItemHref('e1', 'book_photo'),
+    '/dashboard/e1/vendors?tab=shortlist&open=photo_video',
+  );
+  // A vendor task with no specific tile falls back to the plain vendors surface.
+  assert.equal(checklistItemHref('e1', 'menu_tasting'), '/dashboard/e1/vendors');
+  // Non-vendor tasks keep their own destinations.
+  assert.equal(checklistItemHref('e1', 'set_budget'), '/dashboard/e1/budget');
+  assert.equal(checklistItemHref('e1', 'seating'), '/dashboard/e1/seating');
+  // Tasks with no destination return null (no jump arrow).
+  assert.equal(checklistItemHref('e1', 'write_vows'), null);
+  assert.equal(checklistItemHref('e1', null), null);
 });

@@ -26,18 +26,24 @@ type Props = {
 
 const SCRUB_END = 0.82; // frames play over the first 82% of scroll; CTA reveals after
 
-// How tall the pinned scroll-track is, in viewport heights. The scrub + CTA reveal play
-// across (TRACK_VH − 100)vh of scrolling, so a LARGER value = a LONGER, SLOWER scrub that
-// a fast swipe can't blow through in one flick. (Was 300 → 200vh of runway; 700 → 600vh.)
-// This is the dial for overall scrub duration — lower it if it ever feels too long.
+// How tall the pinned scroll-track is, in viewport heights. This is the runway a
+// DELIBERATE (slow) scrubber scrolls through at their own pace. (Was 300 → 200vh of
+// runway; 700 → 600vh.) Lower it if the page feels too long to scroll.
 const TRACK_VH = 700;
 
-// Frame-glide smoothing. Instead of snapping the frame to the exact scroll position, the
-// rendered progress EASES toward the scroll-derived target a fraction each animation frame
-// — so even a hard/fast swipe plays the animation through smoothly and slowly (it "catches
-// up" rather than jumping to the end), then settles exactly on the scroll position so it
-// stays correct. Lower = silkier, slower catch-up; 0 would restore instant 1:1 scrubbing.
-const EASE = 0.085;
+// Minimum play-through TIME, in seconds. The animation chases the scroll position but is
+// never allowed to advance faster than this — so a full play-through ALWAYS takes at least
+// MIN_PLAY_SECONDS. A fast swipe can't finish it in one flick; it keeps gliding slowly,
+// even after the finger stops, until it's done. (This is the DURATION dial — it has nothing
+// to do with how many frames were extracted; set it near your source clip's real length for
+// a natural 1× feel.) Frame COUNT (uploader FPS) only changes how SMOOTH these seconds look.
+const MIN_PLAY_SECONDS = 5;
+const MAX_RATE = 1 / MIN_PLAY_SECONDS; // max progress (0..1) per second — the speed cap
+
+// Ease-out softness as the animation nears the scroll target (progress/sec per unit of
+// remaining distance). The MAX_RATE cap dominates while far from target; this just softens
+// the final settle so it doesn't stop abruptly. Higher = snappier settle.
+const EASE_PER_SEC = 6;
 
 // Shared style for the two scroll-synced story captions: bold near-black serif with a
 // crisp white outline + halo so it stays readable over BOTH the bright field and the
@@ -207,14 +213,22 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       return;
     }
 
-    // Smoothed scrub: the visible progress (`eased`) GLIDES toward the scroll-derived
-    // target a fraction (EASE) each animation frame rather than snapping to it. A fast
-    // swipe therefore can't blow the animation to the end — it eases through slowly and
-    // always settles exactly on the scroll position, so it stays correct. The rAF loop
-    // self-halts once converged and re-arms on the next scroll/resize, so it costs nothing
-    // while the page is still.
+    // Time-paced scrub: the visible progress (`eased`) chases the scroll-derived target,
+    // but its SPEED is capped (MAX_RATE = 1 / MIN_PLAY_SECONDS progress-per-second). So a
+    // fast swipe can't finish the animation in one flick — it keeps gliding at the capped
+    // rate, even after the finger stops, until the full play-through has taken its set
+    // number of seconds. A slow, deliberate scrub stays UNDER the cap, so it still tracks
+    // the scroll position 1:1. Driven by delta-time off the rAF timestamp so the duration
+    // is wall-clock (frame-rate independent). The loop self-halts once it reaches the
+    // target and re-arms on the next scroll/resize, so it costs nothing while idle.
+    //
+    // This finishing-after-you-stop behaviour is safe because the content below the hero is
+    // collapsed to zero height until tapped (see PostHeroReveal) — a hard fling LANDS at the
+    // hero's end and stays pinned there, so the animation always plays out on-screen rather
+    // than scrolling away mid-play.
     let raf = 0;
     let eased = -1; // -1 = uninitialised → snap to the first target instead of gliding up from 0
+    let lastT = 0; // ms timestamp of the previous tick, for delta-time pacing
 
     const targetProgress = () => {
       const wrap = wrapRef.current;
@@ -230,7 +244,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       apply(idx, c, p);
     };
 
-    const tick = () => {
+    const tick = (now: number) => {
       raf = 0;
       const target = targetProgress();
       // Veil fade keys off the RAW scroll target (not the eased value) so the first
@@ -238,16 +252,28 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       if (readyRef.current && armedRef.current && target > 0.004 && loaderRef.current && loaderRef.current.style.opacity !== '0') {
         loaderRef.current.style.opacity = '0';
       }
-      if (eased < 0) eased = target; // first paint: land on the current frame, no glide-in
+      if (eased < 0) {
+        // First paint: land exactly on the current frame, no glide-in.
+        eased = target;
+        lastT = now;
+        render(eased);
+        return;
+      }
+      const dt = Math.min((now - lastT) / 1000, 0.05); // seconds; clamp tab-away / first-resume gaps
+      lastT = now;
       const diff = target - eased;
-      if (Math.abs(diff) < 0.0004) {
+      if (Math.abs(diff) < 0.0006) {
         if (eased !== target) {
           eased = target;
           render(eased); // settle exactly on the target frame
         }
         return; // converged → stop until the next scroll/resize re-arms the loop
       }
-      eased += diff * EASE;
+      // Velocity = proportional ease-out, but SPEED-CAPPED so a full play-through can't
+      // happen faster than MIN_PLAY_SECONDS no matter how fast the visitor swiped.
+      const want = diff * EASE_PER_SEC; // desired progress/sec (softens near the target)
+      const vel = Math.max(-MAX_RATE, Math.min(MAX_RATE, want));
+      eased += vel * dt;
       render(eased);
       raf = requestAnimationFrame(tick); // keep gliding toward the target
     };

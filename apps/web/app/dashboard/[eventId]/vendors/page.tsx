@@ -594,7 +594,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (isBudgetBuildEnabled()) {
     const { data: savedBuildRows } = await supabase
       .from('budget_builds')
-      .select('build_id, label, title, budget_php, total_php, snapshot')
+      // created_at feeds the named-builds (BUILD_3STATE_ENABLED) column ordering;
+      // the .order('label') below keeps the legacy A/B/C order untouched (named
+      // rows have label NULL → sorted client-side by sortSavedBuilds).
+      .select('build_id, label, title, budget_php, total_php, snapshot, created_at')
       .eq('event_id', eventId)
       .order('label');
     const savedBuilds = (savedBuildRows ?? []) as SavedPlanBuild[];
@@ -872,6 +875,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             currentPlan={currentPlan}
             savedBuilds={savedBuilds}
             availability={compareAvailability}
+            // BUILD_3STATE_ENABLED (default OFF): named Save-As → Compare. OFF →
+            // the A/B/C slot save bar + titling stay byte-identical to today.
+            named={isBuild3StateEnabled()}
           />
         }
         lockSlot={

@@ -7,6 +7,7 @@ import type {
   NavAccountScope,
   NavIconDescriptor,
   NavSlotDefault,
+  NavSlotLite,
   NavSlotOverrideRow,
   ResolvedNavSlot,
 } from './nav-registry-types';
@@ -135,4 +136,18 @@ export async function getNavSlot(key: string): Promise<ResolvedNavSlot | null> {
   const overrides = await loadOverrides();
   const d = NAV_SLOT_DEFAULTS.find((s) => s.key === key);
   return d ? resolveOne(d, overrides[d.key]) : null;
+}
+
+/**
+ * Serializable slot_key → {label, icon, isHidden} map for passing from a server
+ * component into client nav renderers (which look up their slots by key + keep
+ * href/activeMatch in code). Cached via the same NAV_REGISTRY_TAG path.
+ */
+export async function getNavSlotMap(): Promise<Record<string, NavSlotLite>> {
+  const slots = await getResolvedNavSlots();
+  const map: Record<string, NavSlotLite> = {};
+  for (const s of slots) {
+    map[s.key] = { label: s.label, icon: s.icon, isHidden: s.isHidden };
+  }
+  return map;
 }

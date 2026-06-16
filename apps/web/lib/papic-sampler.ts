@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 
 // Free Papic sampler — the locked "connect Drive OR upgrade = permanent" rule
 // (owner 2026-06-16; migration 20270103000000 lines 6-8). Sampler captures carry
@@ -36,26 +37,33 @@ export async function makeSamplerPermanent(eventId: string): Promise<number> {
 /**
  * Has this event already "converted" at sampler-capture time — i.e. should new
  * sampler shots be born PERMANENT instead of carrying the 30-day stamp? True
- * when an active Google Drive grant exists for the event (the connect-Drive-
- * THEN-sample ordering). Paid-Papic owners never reach the free sampler (the
- * crew page serves it only to non-owners), so the Drive grant is the realistic
- * signal. Uses the service-role client because the paparazzo-claimer's own
- * session can't read oauth_grants under RLS. Best-effort: any error → false, so
- * the photo just gets the safe 30-day stamp (which makeSamplerPermanent flips
- * the moment the couple converts anyway).
+ * when the event has converted by EITHER path: an active Google Drive grant
+ * (the couple has their own copy) OR paid Papic ownership (the upgrade). Both are
+ * checked here — not just the Drive grant — because this is also the keep-check
+ * the retention sweep uses as its backstop, so it must self-heal a paid event
+ * even if the PAPIC_SEATS activation hook's best-effort clear was missed. Uses
+ * the service-role client (the paparazzo-claimer's own session can't read
+ * oauth_grants / orders under RLS). Best-effort: any error → false, so the photo
+ * just gets the safe 30-day stamp (which makeSamplerPermanent flips the moment
+ * the couple converts anyway).
  */
 export async function eventSamplerIsKept(eventId: string): Promise<boolean> {
   if (!eventId) return false;
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+    // (1) Active Google Drive grant — the couple has their own permanent copy.
+    const { data: grant } = await admin
       .from('oauth_grants')
       .select('grant_id')
       .eq('event_id', eventId)
       .eq('provider', 'drive')
       .is('revoked_at', null)
       .maybeSingle();
-    return Boolean(data);
+    if (grant) return true;
+    // (2) Owns paid Papic — the upgrade path. Checked HERE (not only at the
+    // PAPIC_SEATS activation hook) so the sweep self-heals a paid event even if
+    // that hook's best-effort expires_at clear was missed.
+    return await eventOwnsPapicSeats(admin, eventId);
   } catch {
     return false;
   }

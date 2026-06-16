@@ -181,6 +181,25 @@ jobs:
       - name: Lint entitlement gates
         run: node apps/web/scripts/lint-entitlement-gates.mjs
 
+  lint-papic-keep-permanent:
+    name: lint papic keep-permanent
+    runs-on: ubuntu-latest
+    # Failproofs the free-Papic-sampler "connect Drive OR upgrade = kept forever"
+    # promise. The promise lives in several best-effort sites (the 3 convert
+    # hooks, the capture-time stamp, and the retention sweep's self-heal
+    # backstop); if a refactor silently drops one, couples who CONVERT lose their
+    # photos at day 30 with no error. This guard fails the moment any link is
+    # un-wired. See apps/web/scripts/lint-papic-keep-permanent.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint papic keep-permanent
+        run: node apps/web/scripts/lint-papic-keep-permanent.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

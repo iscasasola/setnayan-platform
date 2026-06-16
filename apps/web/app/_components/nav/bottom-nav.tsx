@@ -71,7 +71,6 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
-import { useSubNavDocked } from './sub-nav';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -141,12 +140,13 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
   const pathname = usePathname() ?? '';
   const isActive = useIsActive(pathname);
 
-  // Icons-only when a <SubNav> is docked (owner 2026-06-16): the bar drops its
-  // LABEL row only — the icon never shrinks — so it gets a touch shorter and
-  // the docked sub-nav stacks above it without crowding. Restores its labels
-  // when the sub-nav unmounts. The locked pill / press-light / icon-grow feel
-  // is untouched; only the per-cell label + min-height respond to `compact`.
-  const compact = useSubNavDocked();
+  // Owner REVERTED the 2026-06-16 "icons-only when a <SubNav> is docked" shrink
+  // (2026-06-17): the bottom nav now keeps its LABELS and its full height
+  // whether or not a sub-nav is docked. `compact` is hard-false so the per-cell
+  // min-height + label stay constant; the SubNav re-tuned its dock offset to
+  // clear the (now taller) bar. The useSubNavDocked store in sub-nav.tsx is left
+  // in place but no longer read here — re-import + call it to restore the shrink.
+  const compact = false;
 
   // Which tab is being physically pressed right now (pointerdown → up).
   // Drives the white press-light + the icon grow. Cleared on release,

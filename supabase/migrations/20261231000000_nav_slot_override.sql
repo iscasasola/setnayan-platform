@@ -28,11 +28,17 @@ CREATE TABLE IF NOT EXISTS public.nav_slot_override (
 
 ALTER TABLE public.nav_slot_override ENABLE ROW LEVEL SECURITY;
 
+-- Idempotent re-apply: Postgres has no CREATE POLICY IF NOT EXISTS, so drop first.
+DROP POLICY IF EXISTS nav_slot_override_read ON public.nav_slot_override;
+DROP POLICY IF EXISTS nav_slot_override_write ON public.nav_slot_override;
+
 -- Nav chrome renders everywhere (incl. logged-out marketing) → anyone may read.
 CREATE POLICY nav_slot_override_read ON public.nav_slot_override
   FOR SELECT USING (TRUE);
 
 -- Single-admin write (governance: single-admin + audit, owner 2026-06-16).
+-- NOTE: lucide_name is validated app-side against the curated allowlist
+-- (lib/nav-icons.ts) — no DB CHECK, since that allowlist lives in code.
 CREATE POLICY nav_slot_override_write ON public.nav_slot_override
   FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 

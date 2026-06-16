@@ -130,23 +130,36 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
   const [labelDraft, setLabelDraft] = useState(slot.label);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [iconQuery, setIconQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredIcons = useMemo(() => {
+  const allMatching = useMemo(() => {
     const q = iconQuery.trim().toLowerCase();
-    const list = q ? iconNames.filter((n) => n.toLowerCase().includes(q)) : iconNames;
-    return list.slice(0, 160);
+    return q ? iconNames.filter((n) => n.toLowerCase().includes(q)) : iconNames;
   }, [iconNames, iconQuery]);
+  const filteredIcons = allMatching.slice(0, 160);
+  const truncatedBy = allMatching.length - filteredIcons.length;
+
+  function run(fn: () => Promise<void>) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await fn();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Something went wrong');
+      }
+    });
+  }
 
   function saveLabel() {
     const v = labelDraft;
-    startTransition(async () => {
+    run(async () => {
       await setSlotLabel(slot.key, v);
       setEditing(false);
     });
   }
 
   function pickIcon(name: string) {
-    startTransition(async () => {
+    run(async () => {
       await setSlotLucideIcon(slot.key, name);
       setPickerOpen(false);
       setIconQuery('');
@@ -237,7 +250,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
           <button
             type="button"
             title={slot.isHidden ? 'Show in menu' : 'Hide from menu'}
-            onClick={() => startTransition(async () => void (await setSlotHidden(slot.key, !slot.isHidden)))}
+            onClick={() => run(() => setSlotHidden(slot.key, !slot.isHidden))}
             className="rounded-md p-1.5 text-ink/45 hover:bg-ink/5 hover:text-ink"
           >
             {slot.isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -246,7 +259,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
             <button
               type="button"
               title="Reset to default"
-              onClick={() => startTransition(async () => void (await resetSlot(slot.key)))}
+              onClick={() => run(() => resetSlot(slot.key))}
               className="rounded-md p-1.5 text-ink/45 hover:bg-ink/5 hover:text-ink"
             >
               <RotateCcw className="h-4 w-4" />
@@ -254,6 +267,8 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
           ) : null}
         </div>
       </div>
+
+      {error ? <p className="mt-1.5 text-xs text-terracotta-700">{error}</p> : null}
 
       {pickerOpen ? (
         <div className="mt-3 rounded-lg border border-ink/10 bg-white p-3">
@@ -267,7 +282,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
             />
             <button
               type="button"
-              onClick={() => startTransition(async () => void (await setSlotNoIcon(slot.key)))}
+              onClick={() => run(() => setSlotNoIcon(slot.key))}
               className="shrink-0 rounded-md border border-ink/15 px-2 py-1 text-xs text-ink/60 hover:bg-ink/5"
             >
               No icon
@@ -307,9 +322,23 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
               );
             })}
           </div>
+          {truncatedBy > 0 ? (
+            <p className="mt-1 text-[10px] text-ink/40">
+              +{truncatedBy} more — refine your search.
+            </p>
+          ) : null}
 
           <form
-            action={uploadSlotIcon}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const fd = new FormData(form);
+              run(async () => {
+                await uploadSlotIcon(fd);
+                form.reset();
+                setPickerOpen(false);
+              });
+            }}
             className="mt-3 flex items-center gap-2 border-t border-ink/10 pt-3"
           >
             <input type="hidden" name="slot_key" value={slot.key} />
@@ -323,7 +352,8 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
             />
             <button
               type="submit"
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5"
+              disabled={pending}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
             >
               <Upload className="h-3.5 w-3.5" /> Upload
             </button>

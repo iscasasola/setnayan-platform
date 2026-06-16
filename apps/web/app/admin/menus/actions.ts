@@ -29,6 +29,31 @@ const UPLOAD_EXT: Record<string, string> = {
 };
 const MAX_ICON_BYTES = 512 * 1024;
 
+// Dangerous SVG constructs — scripts, event handlers, embedded HTML, external
+// fetches, XXE. SVG rendered via <img> doesn't execute these, but an uploaded
+// file is also reachable by direct URL, so we reject unsafe markup at upload
+// (defense in depth; admin-only path).
+const UNSAFE_SVG = [
+  /<\s*script/i,
+  /<\s*foreignObject/i,
+  /\son\w+\s*=/i, // onload=, onclick=, …
+  /javascript:/i,
+  /<!DOCTYPE/i,
+  /<!ENTITY/i,
+  /<\s*(iframe|embed|object|audio|video|animate|set)\b/i,
+  /(?:href|xlink:href|src)\s*=\s*["']?\s*(?:https?:|\/\/|data:text\/html)/i,
+];
+
+function assertSafeSvg(svgText: string) {
+  if (svgText.length > MAX_ICON_BYTES) throw new Error('SVG too large');
+  if (!/<svg[\s>]/i.test(svgText)) throw new Error('File is not a valid SVG');
+  for (const re of UNSAFE_SVG) {
+    if (re.test(svgText)) {
+      throw new Error('SVG contains scripts or external references and was rejected');
+    }
+  }
+}
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -174,6 +199,7 @@ export async function uploadSlotIcon(formData: FormData) {
   if (file.size > MAX_ICON_BYTES) throw new Error('Icon too large (max 512 KB)');
 
   const bytes = new Uint8Array(await file.arrayBuffer());
+  if (ext === 'svg') assertSafeSvg(new TextDecoder().decode(bytes));
   const safe = slotKey.replace(/[^a-z0-9._-]/gi, '_');
   const key = `nav-icons/${safe}-${randomUUID()}.${ext}`;
   const url = await r2Upload({ bucket: R2_BUCKETS.media, key, body: bytes, contentType: file.type });

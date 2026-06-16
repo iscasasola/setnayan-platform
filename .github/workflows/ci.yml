@@ -142,6 +142,26 @@ jobs:
       - name: Lint bottom-nav template
         run: node apps/web/scripts/lint-bottom-nav.mjs
 
+  lint-nav-icon-source:
+    name: lint nav icon source
+    runs-on: ubuntu-latest
+    # Locks the nav/icon/menu-registry single-source invariant (Phase 9 ·
+    # project_setnayan_nav_icon_menu_registry). Fails if a nav-chrome chokepoint
+    # (customer/vendor/admin sidebar + bottom-nav, public marketing site-nav)
+    # stops sourcing its menu labels/icons from the registry, OR if the registry
+    # plumbing (resolver/defaults/icon converter) loses a required export.
+    # Positive delegation guard — NOT a lucide ban. See
+    # apps/web/scripts/lint-nav-icon-source.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint nav icon source
+        run: node apps/web/scripts/lint-nav-icon-source.mjs
+
   lint-email-links:
     name: lint email template links
     runs-on: ubuntu-latest

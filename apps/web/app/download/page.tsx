@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
 import { SiteHeader } from '@/app/_components/site-header';
+import { getNavSlotMap } from '@/lib/nav-registry';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -35,8 +36,20 @@ function formatMb(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function DownloadPage() {
+export default async function DownloadPage() {
   const mac = DESKTOP_RELEASE.mac.aarch64;
+
+  // Nav/icon/menu-registry overlay for the "Download for Mac" CTA label
+  // (public.download.mac-api) — applied to both buttons + the step-1 instruction.
+  // Label-only + fails open: this is a server component, so it can't call the
+  // client-only navIconComponent — the Download/Apple icons stay hardcoded in
+  // code; only the button text is admin-renamable from /admin/menus. href + size
+  // suffix stay in code too. NOTE: this page is ISR (revalidate=3600), so an
+  // admin label edit propagates within the 1hr revalidation window (the registry
+  // data cache busts instantly via NAV_REGISTRY_TAG, but the page's prerendered
+  // HTML refreshes on the next ISR pass), not on the next request.
+  const navSlots = await getNavSlotMap();
+  const macDownloadLabel = navSlots['public.download.mac-api']?.label ?? 'Download for Mac';
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -64,7 +77,7 @@ export default function DownloadPage() {
                 className="button-primary inline-flex items-center gap-2"
               >
                 <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Download for Mac &middot; {formatMb(mac.sizeBytes)}
+                {macDownloadLabel} &middot; {formatMb(mac.sizeBytes)}
               </a>
               <Link
                 href="https://setnayan.com"
@@ -81,7 +94,7 @@ export default function DownloadPage() {
             </p>
           </div>
 
-          <DownloadCard filename={mac.filename} sizeBytes={mac.sizeBytes} />
+          <DownloadCard filename={mac.filename} sizeBytes={mac.sizeBytes} label={macDownloadLabel} />
         </div>
       </section>
 
@@ -102,7 +115,7 @@ export default function DownloadPage() {
               title="Download"
               body={
                 <>
-                  Click <span className="font-medium">Download for Mac</span> above.
+                  Click <span className="font-medium">{macDownloadLabel}</span> above.
                   Your browser saves it to your Downloads folder.
                 </>
               }
@@ -212,9 +225,11 @@ export default function DownloadPage() {
 function DownloadCard({
   filename,
   sizeBytes,
+  label,
 }: {
   filename: string;
   sizeBytes: number;
+  label: string;
 }) {
   return (
     <div className="mx-auto w-full max-w-md self-center rounded-3xl border border-ink/10 bg-cream p-6 shadow-[0_30px_80px_-40px_rgba(26,26,26,0.25)]">
@@ -250,7 +265,7 @@ function DownloadCard({
         className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
       >
         <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Download for Mac
+        {label}
       </a>
     </div>
   );

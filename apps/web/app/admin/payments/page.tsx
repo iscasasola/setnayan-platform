@@ -52,6 +52,9 @@ type PaymentJoined = {
     requested_total_php: number;
     confirmed_total_php: number | null;
     status: OrderStatus;
+    // Originating platform — web | ios | android (migration 20270102000000).
+    // Null on pre-migration rows / pre-stamp orders → shown as "web".
+    platform: string | null;
   } | null;
   user: { email: string | null; public_id: string } | null;
 };
@@ -98,7 +101,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     let paymentsQuery = admin
       .from('payments')
       .select(
-        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status), user:users!payments_user_id_fkey(email, public_id)',
+        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform), user:users!payments_user_id_fkey(email, public_id)',
       )
       .order('created_at', { ascending: false })
       .limit(100);
@@ -276,9 +279,19 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               <Stat label="Amount" value={formatPhp(p.amount_php)} />
               <Stat label="Channel" value={p.channel} />
+              <Stat
+                label="Platform"
+                value={
+                  p.order?.platform === 'ios'
+                    ? 'iOS app'
+                    : p.order?.platform === 'android'
+                      ? 'Android app'
+                      : 'Web'
+                }
+              />
               <Stat label="Reference" value={p.reference_number ?? '—'} mono />
               <Stat label="Paid" value={p.paid_at} mono />
             </div>

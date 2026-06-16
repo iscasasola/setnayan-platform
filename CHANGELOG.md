@@ -14,6 +14,22 @@ The last two open conversion-UX findings from the #1577 sampler audit (the rest 
 Verified: `tsc --noEmit` 0 · `next lint` clean (6 files) · the email template rendered through `tsx` (2614 bytes, wordmark + CTA + correct escaping). Emails stay dormant until `RESEND_API_KEY` is set; the chip is live immediately.
 
 SPEC IMPACT: iteration 0012 sampler — the free sampler is now discoverable from the Studio grid, and its expiry reminders are branded HTML (0028 gains a reusable branded-email layout). No SKU / schema / pricing change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): failproof the scan-to-tag leg — adversarial review pass on #1588
+
+Owner: "failproof?" A 3-lens adversarial review (SQL/security · parser/classification · client/integration+downstream) of the just-merged #1588. **Verdicts: SQL = ship** (logic, security, event-scope, cap-truncation, idempotency all *cleared* as correct); **parsers + client = ship-with-fixes.** Two reviewer "fixes" were **rejected after scrutiny** (see below). Landed the real, scoped ones:
+
+- **Parser null-safety.** `parsePapicTagScan(raw)` now coerces `raw ?? ''` before calling the reused `parseGuestQrPayload` (which does a bare `raw.trim()`), so it can't throw on a stray null — honoring `tagSeatCapture`'s "never throws" contract by construction.
+- **Transient-failure retry (lost-tag fix).** The scan loop set `lastScanRef = raw` *before* the await and never cleared it on failure, so a code held under the lens that hit a transient `tag_failed` was silently stuck until the next capture. Now a `tag_failed` clears the debounce so the same code self-heals on the next tick; deterministic outcomes (unrecognized / not-found / cap / unavailable) stay debounced so a held code can't spam the RPC.
+- **A11y.** Added a persistent visually-hidden `aria-live="polite"` region announcing tag notices + the running `n/10` count (the scan-to-tag flow was sighted-only); the visual notice stays conditional so the layout is unchanged.
+- **8 new parser tests** (16 total) locking down the adversarial cases: null/undefined input, dual-param precedence (guest-first, order-independent), a guest token smuggled into `?t=` (stays a server-rejectable table ref), `#?t=` fragment ignored, newline-appended URLs, lowercase `public_id` in `?t=`, Crockford length boundaries, and `?invite=present-but-invalid` not falling through to `?g=`.
+
+**Rejected (would have been wrong):**
+- *"Loosen the guest live gallery's `moderation_state='clean'` filter so freshly-tagged photos always show."* That filter is a **deliberate NSFW allowlist** on a guest-facing surface (the file documents it) — loosening it would surface un-screened photos to guests, violating the corpus "NSFW filter on by default, cannot be disabled." The real issue (the NSFW screen is fail-open with no re-screen/backfill, so a dropped screen leaves a row stuck `unscreened` and invisible on allowlist surfaces) is a **pre-existing screening-pipeline reliability gap**, not the tag leg. Flagged for owner; **not** fixed by weakening safety. The couple gallery (private, exclusion-based filter) still shows everything.
+- *"Hard-enforce the 10-tag cap with a DB trigger on `photo_tags`."* A blanket trigger would also cap `auto_face` tags, whose intended cap behavior is unspecified — a load-bearing cross-feature decision. **Surfaced for owner sign-off**, not silently baked in. The cap stays advisory in the RPC (single-claimer/single-phone serializes scans, so overflow is bounded to a contrived double-tap — the reviewer rated it low).
+
+Verified: `tsc` 0 · `test:unit` papic-tag 16/16 · `next lint` clean · production build green.
+
+SPEC IMPACT: None (correctness + test/a11y hardening on #1588; no SKU/schema/pricing/public-surface change). Two items surfaced for owner: the screening-pipeline fail-open re-screen gap, and whether to DB-enforce the 10-tag cap across all tag sources. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(papic): scan-to-tag — wire the QR tag leg on the seat capture surface
 

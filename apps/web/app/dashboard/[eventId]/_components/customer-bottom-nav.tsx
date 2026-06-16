@@ -31,6 +31,7 @@ import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { LucideIcon } from 'lucide-react';
 import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import type { LifecyclePhase } from '@/lib/day-of-mode';
 
 /**
  * Builds the flat 6-tab roster for the given eventId. Each tab is a real
@@ -161,19 +162,22 @@ export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
  * roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
  * customer surface (owner directive 2026-06-13 "global nav everywhere").
  *
- * `isDayOf` swaps the whole roster to the day-of command center while the event
- * is live (Event Lifecycle Menu). It is computed SERVER-SIDE in the layout via
- * `isEventDayActive(event_date)` (live ‖ post — NOT `isInDayOfWindow`, so an
- * evening reception, which lands in `post`, still gets the Day-of bar) and passed
- * down, so there's no client `Date.now()` and no hydration flash.
+ * `phase` swaps the whole roster by lifecycle phase (Event Lifecycle Menu): the
+ * day-of command center while the event is live, the planning roster otherwise.
+ * Computed SERVER-SIDE in the layout via `getLifecyclePhase(event_date,
+ * cleared_at)` (which uses `isEventDayActive` — live ‖ post, so an evening
+ * reception in `post` still gets the Day-of bar — and the `cleared_at` close-out)
+ * and passed down, so there's no client `Date.now()` and no hydration flash. The
+ * `after` roster (Review · Editorial · Galleries) lands in PR4; until then `after`
+ * falls back to the planning roster.
  */
 export function CustomerBottomNav({
   eventId,
-  isDayOf = false,
+  phase = 'plan',
 }: {
   eventId: string;
-  isDayOf?: boolean;
+  phase?: LifecyclePhase;
 }) {
-  const items = isDayOf ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId);
+  const items = phase === 'dayof' ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId);
   return <BottomNav items={items} />;
 }

@@ -100,9 +100,15 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     readyRef.current = false;
     let done = 0;
     let leadDone = 0;
-    // Release once the OPENING frames are in (these get fetchPriority high below),
-    // not after all N — the rest keep loading in the background.
-    const LEAD = Math.min(n, 24);
+    // Release once the OPENING frames are in (these get fetchPriority high below), not
+    // after all N — the rest keep loading in the background. Buffer ~1 SECOND of playback,
+    // not a fixed frame count: the time-paced playhead consumes at most n/MIN_PLAY_SECONDS
+    // frames per second, so that many opening frames = ~1s of runway, after which the
+    // guaranteed-slow playback + sequential streaming keep the load front ahead of the
+    // playhead. This keeps the upfront wait CONSISTENT (~1s) whether the upload extracted
+    // 40 frames or 140 — a fixed "24" over-waited on sparse clips and under-buffered dense
+    // ones. Floor 8 so a tiny clip still buffers a beat.
+    const LEAD = Math.min(n, Math.max(8, Math.round(n / MIN_PLAY_SECONDS)));
     const reduce =
       typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -142,7 +148,7 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
     const imgs = frameUrls.map((u, i) => {
       const im = new window.Image();
       im.decoding = 'async';
-      if (i < 24) (im as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high'; // opening frames first
+      if (i < LEAD) (im as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high'; // the exact frames the veil waits on load first
       const onDone = () => {
         if (loaded[i]) return;
         loaded[i] = 1;

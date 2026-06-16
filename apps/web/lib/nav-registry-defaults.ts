@@ -1726,6 +1726,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 9,
   },
   {
+    key: "admin.sidebar.completions",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/completions",
+    label: "Completions",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Handshake",
+    customRef: null,
+    sortOrder: 9,
+  },
+  {
     key: "admin.sidebar.reviews",
     scope: "admin",
     area: "admin-sidebar",

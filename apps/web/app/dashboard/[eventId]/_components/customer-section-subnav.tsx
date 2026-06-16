@@ -65,6 +65,7 @@ export function CustomerSectionSubnav({
   const children = activeMenu?.children ?? [];
   const inSection = children.length > 0;
   const hasTabChildren = children.some((c) => c.kind === 'tab');
+  const hasAnchorChildren = children.some((c) => c.kind === 'anchor');
 
   // Tab state — only meaningful when the active menu uses tab children. Seeds
   // from the live ?tab= on entry (covers cold load + the takeover writing it via
@@ -90,6 +91,40 @@ export function CustomerSectionSubnav({
     return () => window.removeEventListener(BB_TAB_EVENT, onTab);
   }, [hasTabChildren]);
 
+  // Anchor state — for single-page menus whose children are scroll sections
+  // (Budget). Default to the first section on entry; a scroll-spy lights whichever
+  // section sits in the active band as the page scrolls. DOM is read/observed only
+  // in this client effect.
+  const [activeAnchor, setActiveAnchor] = useState<string>('');
+  useEffect(() => {
+    if (!inSection || !hasAnchorChildren) return;
+    const anchors = children.filter((c) => c.kind === 'anchor');
+    setActiveAnchor((prev) =>
+      anchors.some((c) => c.key === prev) ? prev : (anchors[0]?.key ?? ''),
+    );
+    const visibleIds = new Set<string>();
+    const els = anchors
+      .map((c) => (c.hash ? document.getElementById(c.hash) : null))
+      .filter((el): el is HTMLElement => el !== null);
+    if (els.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visibleIds.add(e.target.id);
+          else visibleIds.delete(e.target.id);
+        }
+        // Topmost (document-order) section in the active band wins.
+        const first = anchors.find((c) => c.hash && visibleIds.has(c.hash));
+        if (first) setActiveAnchor(first.key);
+      },
+      { rootMargin: '-30% 0px -60% 0px', threshold: 0 },
+    );
+    for (const el of els) io.observe(el);
+    return () => io.disconnect();
+    // children is rederived each render; pathname is the real entry signal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inSection, hasAnchorChildren, pathname]);
+
   // While docked, flag <html> so globals.css pads the page bottom clear of the
   // floating pill (shared `subnav-docked` class). Reverses on leaving the section.
   useEffect(() => {
@@ -101,14 +136,20 @@ export function CustomerSectionSubnav({
 
   if (!inSection) return null;
 
-  // Active key: a route child wins by longest-prefix; otherwise the tab child
-  // whose tab === activeTab; otherwise the first child.
+  // Active key: a route child wins by longest-prefix; else the tab child whose
+  // tab === activeTab; else the anchor section in view. NO first-child fallback —
+  // a launcher hub (e.g. /design itself, where no child route matches) shows the
+  // dock with NOTHING highlighted (`''`), which is correct.
   const routeKey = activeRouteChildKey(pathname, children);
   const tabKey = hasTabChildren
     ? (children.find((c) => c.kind === 'tab' && c.tab === activeTab)?.key ??
        children.find((c) => c.kind === 'tab')?.key)
     : null;
-  const activeKey = routeKey ?? tabKey ?? children[0]?.key ?? '';
+  const anchorKey = hasAnchorChildren
+    ? (children.find((c) => c.kind === 'anchor' && c.key === activeAnchor)?.key ??
+       children.find((c) => c.kind === 'anchor')?.key)
+    : null;
+  const activeKey = routeKey ?? tabKey ?? anchorKey ?? '';
 
   return (
     <SubNav
@@ -119,7 +160,7 @@ export function CustomerSectionSubnav({
         if (!child) return;
         if (child.kind === 'route') {
           if (child.href && key !== activeKey) router.push(child.href);
-        } else if (child.tab) {
+        } else if (child.kind === 'tab' && child.tab) {
           setActiveTab(child.tab);
           // Mirror into ?tab= so refresh / deep link lands on the same section
           // (replaceState — flipping sections shouldn't pollute the back stack).
@@ -132,6 +173,12 @@ export function CustomerSectionSubnav({
           }
           // Switch the takeover's panel without a server round-trip.
           goToBuildTab(child.tab as BudgetBuildTab);
+        } else if (child.kind === 'anchor' && child.hash) {
+          // Scroll the on-page section into view; the scroll-spy then lights it.
+          setActiveAnchor(child.key);
+          document
+            .getElementById(child.hash)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }}
       ariaLabel={activeMenu?.subnavLabel ?? 'Section navigation'}

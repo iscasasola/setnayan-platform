@@ -77,6 +77,18 @@ Two Papic moderation/tagging hardening fixes the prior reviews surfaced and left
 tsc 0 · `next lint` clean · timestamp guard 387 unique. Migration applies cleanly now that `db push` is unjammed (#1596). PR pending (branch `claude/papic-moderation-hardening`, auto-merge).
 
 SPEC IMPACT: iteration 0012 — the 10-tag cap is now a DB invariant across all tag sources (was RPC-only/advisory; owner-locked 2026-06-17), and the NSFW screen now self-heals dropped screenings. No SKU/pricing change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-17 · feat(nav): Design + Budget child sub-navs (customer-menu redesign PR2/6)
+
+Two more of the six menus gain children in the canonical tree (plan `adaptive-forging-lobster.md`). PR2 introduces a third child flavor — **`anchor`** (on-page scroll sections) — alongside the existing `route` (separate pages) + `tab` (in-page panels), so a menu whose sub-sections aren't separate routes can still surface a sub-nav.
+
+- **`lib/customer-menu.ts`** — `MenuChildKind` gains `'anchor'` (+ `hash` field). **Design** children (route launcher): Website (`/site-editor`) · Mood Board (`/add-ons/mood-board`) · Monogram (`/monogram`); `sectionMatch` = `/design`+`/monogram` (the dock shows on the hub with nothing highlighted, and on `/monogram` with Monogram lit — Website opens the full-screen editor that escapes the layout, Mood Board lives in Studio's subtree). **Budget** children (anchor): Overview · Allocate · Payments → scroll to `#budget-overview`/`#budget-allocate`/`#budget-payments`; `sectionMatch` = exact `/budget` (Disputes is a separate post-event surface, intentionally not a budget section).
+- **`customer-section-subnav.tsx`** — handles the `anchor` kind: an `activeAnchor` state seeded to the first section, a lightweight `IntersectionObserver` scroll-spy (`rootMargin -30%/-60%`) that lights whichever section is in the active band, and onSelect → `scrollIntoView({behavior:'smooth'})`. The `activeKey` fallback **drops the first-child default** (`?? ''`) so a launcher hub like `/design` shows the dock with nothing falsely highlighted; routed/tab/anchor active-resolution is unchanged.
+- **`budget/page.tsx`** — adds `id` + `scroll-mt-24` to the three existing section wrappers (no layout/structure change). Guests + Explore behave exactly as in PR1; the bottom nav, sidebar, and every other page are untouched.
+
+Verified in the worktree: `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. Authed surface needs prod env → owner confirms on the Vercel preview (Design hub launcher + Budget scroll-spy).
+
+SPEC IMPACT: minor — extends the canonical customer-menu hierarchy (now 4 of 6 menus carry children) + adds the `anchor` sub-nav flavor; no SKU/schema/pricing/public change. Logged in corpus `DECISION_LOG.md` (0021/0010/0007). Open refinement: Design's launcher children leave the section on tap (Website→full-screen editor, Mood Board→Studio subtree) — acceptable hub behavior, flagged for the owner. Next: PR3 Home + Studio · PR4 sidebar unify · PR5 phase fold-in · PR6 registry parent-link.
+
 ## 2026-06-17 · refactor(nav): customer-menu SSOT tree + ONE generalized section sub-nav (redesign PR1/6)
 
 Owner: *"sub nav are child menus of the 6 menus … we are redesigning how the customer menu is"* → all 6 menus get child sub-navs, unified into one hierarchy (plan `adaptive-forging-lobster.md`). **PR1 is the foundation, behavior-preserving:** it introduces the canonical tree and collapses the two bespoke section docks into one config-driven component. Stacks on the sub-nav-first PR (#1593).

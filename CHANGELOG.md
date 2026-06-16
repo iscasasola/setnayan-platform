@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
+
+Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.
+
+**The real lever is a minimum play TIME, not scroll distance.** Owner's sharper framing: a fast swipe should still take the clip's *set* number of seconds to finish (the animation keeps playing slowly after the finger stops) — and frame count is a *smoothness* lever, not a *duration* lever.
+
+- **`apps/web/app/_components/marketing/HeroVideoScrub.tsx`** — the frame is no longer a pure function of scroll position. The rendered progress now *chases* the scroll target through a **delta-time, speed-capped** rAF loop:
+  1. **`MIN_PLAY_SECONDS` (new, 5) + `MAX_RATE = 1/MIN_PLAY_SECONDS`** — the animation can advance at most `MAX_RATE` progress-per-second, so a full play-through **always takes ≥ MIN_PLAY_SECONDS no matter how fast you swipe**. A fling can't finish it in one flick; it keeps gliding at the capped rate, even after the finger stops, until done. A slow, deliberate scrub stays *under* the cap so it still tracks scroll 1:1 (`EASE_PER_SEC` softens the final settle). This is robust because `PostHeroReveal` collapses the content below the hero to zero height — a hard fling *lands* at the hero's end and stays pinned, so the animation finishes on-screen instead of scrolling away. Veil-fade still keys off **raw** scroll; reduced-motion + hold-nearest-loaded-frame unchanged.
+  2. **`TRACK_VH` 300 → 700** — kept as the runway a *deliberate* (slow) scrubber scrolls through at their own pace.
+- **`apps/web/app/admin/hero-video/hero-uploader.tsx`** — frame density **8fps → 24fps** (`MIN_FRAMES` 36→72, `MAX_FRAMES` 150→360). ⚠ **Load-bearing reversal flagged for owner:** with a seconds-long play-through, too few frames look like a stepped slideshow — this addresses the owner's "they extract only a few frames per second" hunch and partly reverses the earlier "keep it ~40 frames" perf trim. Frame count = *smoothness*, **independent** of the duration set by `MIN_PLAY_SECONDS`. Safe because frames preload behind the veil and stream progressively (the scrub releases after the opening frames), so a ~5–6s clip → ~120–144 frames ≈ 5–6MB of *streamed* bytes, **not** a front-door freeze. The currently-published live hero already has ~1,019 frames → slow + smooth with **no re-upload**; the bump only affects the *next* upload.
+
+`tsc --noEmit` green on both files (lint runs in CI). Verify on the PR's Vercel preview (the scrub only renders when a hero video is published). PR pending (branch `claude/hero-scrub-slower`, auto-merge).
+
+SPEC IMPACT: None on schema/SKU. Tuning of the homepage hero scroll-scrub (iteration 0015 main website). Logged in corpus `DECISION_LOG.md` (2026-06-16). The frame-density bump is the one decision to confirm. `MIN_PLAY_SECONDS` (duration) and the uploader FPS (smoothness) are independent dials.
 ## 2026-06-16 · chore(std-reveal): rewire every Save-the-Date surface off the retired video, onto the reveal (PR3d)
 
 Owner: *"yes adjust everything that is wired to make this our new save the date."* Swept every code reference to the old ₱99 video product and pointed it at the free page-opening reveal. The `save_the_date_video` **SKU code stays everywhere it's a DB key** (historical-order fetches, receipt labels, persisted wizard task-id, v2 SKU map) so old buyers' orders never break — only *labels, copy, and the catalog's active flag* changed.

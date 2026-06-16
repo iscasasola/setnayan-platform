@@ -62,7 +62,6 @@ import {
   Sparkles,
   Compass,
   Users,
-  LayoutGrid,
   CalendarClock,
   Wallet,
   MessageSquare,
@@ -75,8 +74,9 @@ import {
   Shield,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { NavGroup } from '@/app/_components/nav/types';
+import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import { buildGuestJourney } from '@/lib/guest-journey';
 
 /**
  * Builds the canonical customer NavGroup[] for the given eventId — the six
@@ -84,9 +84,41 @@ import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
  * and its `items` (the children that expand). Single source of truth for both
  * the desktop sidebar (collapsible sections) and the mobile accordion bottom
  * nav (via buildCustomerNavMenus, which mirrors this roster 1:1).
+ *
+ * GUESTS = A JOURNEY (owner 2026-06-17): the Plan group's "Guests" item carries
+ * `children` = the five guest-journey stages (Build · Invite · Confirm · Seat ·
+ * Day-of) from lib/guest-journey — the DESKTOP-sidebar home of the mobile
+ * <SubNav> pill ("let the subnav expand from the side nav"). Because the journey
+ * already owns Seating as its "Seat" stage, the previously-standalone "Seating"
+ * Plan item is GONE (it now lives under Guests) — owner-picked "drop the Seating
+ * sibling". The bottom-nav builders don't read `item.children`, so this is a
+ * desktop-sidebar-only expansion; the mobile bottom nav's Guests tab still lights
+ * on /seating via its activeMatch and the mobile <SubNav> still shows all five
+ * stages.
+ *
+ * `opts.dayOfOpen` un-mutes the time-gated Day-of stage once the live window is
+ * open; the (client) sidebar computes it from the event date and passes it in.
+ * Defaults to false (Day-of muted) — safe for any caller that doesn't compute it.
  */
-export function buildCustomerNavGroups(eventId: string): NavGroup[] {
+export function buildCustomerNavGroups(
+  eventId: string,
+  opts?: { dayOfOpen?: boolean },
+): NavGroup[] {
   const base = `/dashboard/${eventId}`;
+
+  // The guest-journey stages, mapped from the lib/guest-journey SSOT into the
+  // sidebar NavItem shape (its `match` becomes our `matchPrefix`). One source
+  // of truth so the sidebar journey and the mobile <SubNav> can never drift.
+  const guestJourneyChildren: NavItem[] = buildGuestJourney(eventId, {
+    dayOfOpen: opts?.dayOfOpen ?? false,
+  }).map((stage) => ({
+    key: stage.key,
+    label: stage.label,
+    href: stage.href,
+    icon: stage.icon,
+    matchPrefix: stage.match,
+    muted: stage.muted,
+  }));
 
   return [
     {
@@ -143,19 +175,18 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           matchPrefix: `${base}/checklist`,
         },
         {
+          // Guests is the JOURNEY parent — expands (on desktop) to the five
+          // stages. matchPrefix stays `/guests` (its own first stage); the
+          // "Seat" child claims `/seating`, so the section also expands there.
           key: 'guests',
           label: 'Guests',
           href: `${base}/guests`,
           icon: Users,
           matchPrefix: `${base}/guests`,
+          children: guestJourneyChildren,
         },
-        {
-          key: 'seating',
-          label: 'Seating',
-          href: `${base}/seating`,
-          icon: LayoutGrid,
-          matchPrefix: `${base}/seating`,
-        },
+        // (The standalone "Seating" item moved UNDER Guests as the journey's
+        // "Seat" stage — owner 2026-06-17 "drop the Seating sibling".)
         {
           key: 'schedule',
           label: 'Schedule',

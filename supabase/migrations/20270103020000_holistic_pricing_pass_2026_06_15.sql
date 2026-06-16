@@ -1,4 +1,4 @@
--- 20261230000000_holistic_pricing_pass_2026_06_15.sql
+-- 20270103020000_holistic_pricing_pass_2026_06_15.sql
 --
 -- WHY: executes the VERIFIED, unambiguous parts of the holistic pricing pass
 -- (`Pricing_Holistic_Pass_2026-06-15.md`) — owner "do it now" 2026-06-15. Only

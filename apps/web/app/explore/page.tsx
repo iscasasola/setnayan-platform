@@ -41,9 +41,6 @@ import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
 import type { FilterDrawerProps } from './_components/filter-drawer';
-import { PairedVenuePanel } from './_components/paired-venue-panel';
-import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
-import { ReceptionVenuesSection } from './_components/reception-venues-section';
 import {
   TAXONOMY_MAP,
   WEDDING_FOLDER_LABEL,
@@ -989,7 +986,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // every vendor card. Populated by saveVendorToPicks when the couple saves
   // a category='venue' vendor with coords. NULL = no anchor → no chips.
   let venueAnchor: { lat: number; lng: number } | null = null;
-  let venueAnchorName: string | null = null;
   // Task #45 (2026-05-22) — host's event_date + precision drive the
   // marketplace candidate-window. Read alongside the existing event fields
   // in the same select so the intersection filter doesn't add a roundtrip.
@@ -1030,7 +1026,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           lat: Number(ev.venue_latitude),
           lng: Number(ev.venue_longitude),
         };
-        venueAnchorName = (ev?.venue_name as string | null) ?? null;
       }
       // Iteration 0043 — ceremony × venue compat fields are wedding-only
       // (NULL for non-wedding events per migration 20260521080000), so the
@@ -1160,16 +1155,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           matchEvent={filters.matchEvent}
           coupleFaith={coupleFaith}
           venueAnchor={venueAnchor}
-          venueAnchorName={venueAnchorName}
-          coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
           coupleEventType={coupleEventType}
           currentEventId={coupleEventId}
           isAuthenticated={user !== null}
           noticeKey={noticeKey}
           scopedFolder={filters.folder}
-          hostVenueSetting={hostVenueSetting}
-          venueFilterActive={venueFilterActive}
-          venueFacet={filters.venueFacet}
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
@@ -2805,28 +2795,17 @@ const CATALOG_LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
   'V1.1.6',
 ]);
 
-// Reception facet definitions moved into apps/web/app/explore/_components/
-// reception-venues-section.tsx as part of the 2026-05-22 evening "Pull V1.2
-// venue directory forward" PR. The new <ReceptionVenuesSection> owns BOTH
-// the chip filter bar AND the venue card grid; this file no longer needs
-// the constant.
-
 async function CatalogView({
   admin,
   matchableEvent,
   matchEvent,
   coupleFaith,
   venueAnchor,
-  venueAnchorName,
-  coupleCeremonyType,
   coupleEventType,
   currentEventId,
   isAuthenticated,
   noticeKey,
   scopedFolder,
-  hostVenueSetting,
-  venueFilterActive,
-  venueFacet,
   inDemoMode,
   focusedMode,
   faithFilter,
@@ -2841,8 +2820,6 @@ async function CatalogView({
   matchEvent: boolean;
   coupleFaith: CoupleFaith;
   venueAnchor: { lat: number; lng: number } | null;
-  venueAnchorName: string | null;
-  coupleCeremonyType: string | null;
   /** events.event_type — drives the tile-level multi-event applicability gate. */
   coupleEventType: string | null;
   currentEventId: string | null;
@@ -2862,21 +2839,6 @@ async function CatalogView({
    *  user came in via the universal Browse path (top-nav, sitemap, direct
    *  visit) — full 12-folder catalog renders as before. */
   scopedFolder: WeddingFolder | null;
-  /** Task #48 — host's events.venue_setting (snake_case enum). Null on
-   *  anonymous browse OR for hosts who haven't picked one yet. Drives the
-   *  VenueFilterBanner / VenuePickerHint surface in the Reception folder
-   *  section, plus the per-facet "your setting" highlight on the chips. */
-  hostVenueSetting: string | null;
-  /** Task #48 — true when the venue default-on filter is currently
-   *  active (host has a setting + ?venue is NOT 0). Drives the banner
-   *  surface AND the auto-applied venue param on Reception facet drill-
-   *  ins so the host stays scoped. */
-  venueFilterActive: boolean;
-  /** 2026-05-22 evening — explicit `?venue=<facet>` pick from the URL.
-   *  Null when the URL uses the on/off toggle form. When set, the
-   *  Reception folder's FacetFilterBar renders this chip as the active
-   *  one + the card grid narrows to that facet's venue_type. */
-  venueFacet: string | null;
   /** 2026-05-22 evening — admin demo mode. When true, the Reception card
    *  grid includes `is_demo=TRUE` venue_directory rows + each card
    *  surfaces a DEMO chip overlay on its hero photo. */
@@ -3325,38 +3287,20 @@ async function CatalogView({
           <ScopedFolderBanner folder={scopedFolder} />
         ) : null}
 
-        {/* PairedVenuePanel surfaces ceremony venue cards (churches /
-            mosques / civil registrars). It belongs to the Ceremony folder
-            conceptually. When the catalog is scoped to a non-ceremony
-            folder via ?folder=… (e.g. Reception), suppress it so the
-            scoped view stays single-folder per the owner directive. */}
-        {venueAnchor && (scopedFolder === null || scopedFolder === 'venue') ? (
-          <PairedVenuePanel
-            anchor={{
-              lat: venueAnchor.lat,
-              lng: venueAnchor.lng,
-              name: venueAnchorName,
-            }}
-            coupleCeremonyType={coupleCeremonyType}
-            currentEventId={currentEventId}
-          />
-        ) : null}
-
         {WEDDING_FOLDER_ORDER.map((folder) => {
           // Task #47 — when the catalog is scoped to a single parent, skip
           // every other parent section so couples landing on one parent
           // (e.g. Venue) don't also see the rest.
           if (scopedFolder !== null && folder !== scopedFolder) return null;
 
-          // VENUE parent — Reception + Ceremony are venue_directory /
-          // venue_setting backed, NOT category cards. Render the two venue
-          // pickers (Ceremony venue panel + cards, Reception facet picker +
-          // cards). Officiants auto-resolve from the ceremony venue (Card 04,
-          // 2026-05-29); pre-marriage paperwork lives in the Setnayan AI
-          // wizard. The PairedVenuePanel (church/mosque/civil cards near the
-          // host's venue) renders above this loop. Sub-block ids match
-          // WEDDING_TILE_SLUG so dashboard venue [Search] deep-links anchor
-          // to the right picker (?folder=venue#reception / #ceremony-venue).
+          // VENUE parent — venues are NOT modeled as bookable vendor_profiles
+          // in V1, so this folder shows ceremony GUIDANCE only (how to handle
+          // your ceremony venue + officiant + pre-marriage paperwork). The
+          // seeded venue_directory listings (CeremonyVenuesSection / Reception
+          // facet cards / PairedVenuePanel) were removed 2026-06-16 per owner
+          // "we only place live vendors here — remove all the fake venues".
+          // The venue_directory table + admin curation UI stay dormant for a
+          // future bookable-venue iteration.
           if (folder === 'venue') {
             return (
               <section
@@ -3377,35 +3321,11 @@ async function CatalogView({
                   </span>
                 </header>
 
-                <div className="mb-10 scroll-mt-24" id={WEDDING_TILE_SLUG.ceremony_venue}>
+                <div className="scroll-mt-24" id={WEDDING_TILE_SLUG.ceremony_venue}>
                   <h3 className="mb-3 text-base font-semibold tracking-tight text-ink">
                     {WEDDING_TILE_LABEL.ceremony_venue}
                   </h3>
                   <CeremonyVenuePanel />
-                  <CeremonyVenuesSection
-                    coupleCeremonyType={coupleCeremonyType}
-                    venueAnchor={venueAnchor}
-                    currentEventId={currentEventId}
-                  />
-                </div>
-
-                <div className="scroll-mt-24" id={WEDDING_TILE_SLUG.reception}>
-                  <div className="mb-3 flex items-baseline justify-between gap-3">
-                    <h3 className="text-base font-semibold tracking-tight text-ink">
-                      {WEDDING_TILE_LABEL.reception}
-                    </h3>
-                    <span className="font-mono text-xs text-ink/55">
-                      6 venue settings
-                    </span>
-                  </div>
-                  <ReceptionVenuesSection
-                    hostVenueSetting={hostVenueSetting}
-                    venueFilterActive={venueFilterActive}
-                    activeFacet={venueFacet}
-                    venueAnchor={venueAnchor}
-                    currentEventId={currentEventId}
-                    isDemoMode={inDemoMode}
-                  />
                 </div>
               </section>
             );
@@ -3623,14 +3543,8 @@ function CeremonyVenuePanel() {
           <span className="font-medium text-ink">
             At your reception venue (combined)
           </span>{' '}
-          — pick a garden / beach / destination / heritage / outdoor venue from{' '}
-          <a
-            href={`#${WEDDING_TILE_SLUG.reception}`}
-            className="font-medium text-terracotta underline-offset-4 hover:underline"
-          >
-            Reception
-          </a>{' '}
-          that&rsquo;s tagged &ldquo;also hosts ceremony&rdquo;.
+          — many garden / beach / destination / heritage / outdoor venues also
+          host the ceremony; arrange it directly with the venue.
         </li>
       </ul>
     </div>

@@ -10,6 +10,7 @@
     "lint:retired": "node scripts/lint-retired-strings.mjs",
     "lint:botnav": "node scripts/lint-bottom-nav.mjs",
     "lint:email-links": "node scripts/lint-email-links.mjs",
+    "lint:entitlement-gates": "node scripts/lint-entitlement-gates.mjs",
     "bundle-size-check": "node scripts/check-bundle-size.mjs",
     "check:no-demo-in-prod": "node scripts/check-no-demo-in-prod.mjs",
     "brand:icons": "node scripts/regen-brand-rasters.mjs",

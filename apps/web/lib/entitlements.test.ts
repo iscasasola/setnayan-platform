@@ -221,3 +221,41 @@ test('BUNDLE_CHILD_SKUS: media children are in MEDIA_PACK; both bundles share Es
     assert.ok(BUNDLE_CHILD_SKUS.MEDIA_PACK.includes(shared), `MEDIA_PACK should include ${shared}`);
   }
 });
+
+// ── PR4b: the Essentials-tier digital children whose gates were left on the
+// bare checkOrderOwnership() reader after PR4. A bundle buyer (single
+// bundle-keyed order, no child decomposition) MUST own each of these via
+// eventOwnsSku — the exact regression that denied them the feature / showed a
+// double-buy CTA. These lock the gate helpers (animated-monogram.ts,
+// custom-qr-guest gates, the setnayan-ai add-on `owns` check) to the
+// bundle-aware reader. SETNAYAN_AI also needs the activateBundleChildren()
+// hook in sku-activation.ts to stamp events.setnayan_ai_active for the feature
+// gates that read the stored boolean (not unit-testable here — it imports
+// next/cache via the concierge action).
+for (const sku of ['ANIMATED_MONOGRAM', 'CUSTOM_QR_GUEST', 'SETNAYAN_AI']) {
+  test(`eventOwnsSku: a GUIDED_PACK (Essentials) buyer owns ${sku}`, async () => {
+    const supabase = makeOwnedSupabase(new Set(['GUIDED_PACK']));
+    assert.equal(await eventOwnsSku(supabase, 'evt_1', sku), true);
+  });
+  test(`eventOwnsSku: a MEDIA_PACK (Complete) buyer owns ${sku}`, async () => {
+    const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
+    assert.equal(await eventOwnsSku(supabase, 'evt_1', sku), true);
+  });
+}
+
+// Recursion-safety invariant the bundle activation fan-out
+// (activateBundleChildren in lib/sku-activation.ts) depends on: a bundle code
+// must NEVER appear as a CHILD of any bundle, or the fan-out (which calls each
+// child's activation hook, and bundle codes have hooks) would recurse forever.
+// Also enforced cross-file by lint-entitlement-gates GUARD 2; asserted here so
+// the contract lives next to the data it constrains.
+test('BUNDLE_CHILD_SKUS: no bundle code is itself a child (activation fan-out cannot recurse)', () => {
+  for (const bundleKey of ['GUIDED_PACK', 'MEDIA_PACK'] as const) {
+    for (const code of ['GUIDED_PACK', 'MEDIA_PACK']) {
+      assert.ok(
+        !BUNDLE_CHILD_SKUS[bundleKey].includes(code),
+        `${bundleKey} must not list the bundle code ${code} as a child`,
+      );
+    }
+  }
+});

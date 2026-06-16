@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/pro-website.ts
@@ -39,13 +39,20 @@ export const PRO_WEBSITE_SERVICE_KEY = 'PRO_WEBSITE';
 /**
  * Does this event own the paid Pro Website upgrade?
  *
- * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
- * refund-aware, graceful-degrade on a missing orders table (42P01/42703) so the
- * Website tab shows the upgrade CTA rather than throwing.
+ * Delegates to the shared bundle-aware eventOwnsSku() reader (lib/entitlements.ts)
+ * — refund-aware, graceful-degrade on a missing orders table (42P01/42703) so
+ * the Website tab shows the upgrade CTA rather than throwing. Bundle-aware so a
+ * GUIDED_PACK/MEDIA_PACK buyer (PRO_WEBSITE is in both) isn't denied — matches
+ * the other couple-SKU gates after the PR4/PR4b dead-unlock repair.
+ *
+ * NOTE: this helper currently has NO live callers (the Website-tab Pro gating
+ * was never wired up, and PRO_WEBSITE is being collapsed into COUPLE_WEBSITE_PRO
+ * — see the PR4b CHANGELOG owner note). Kept bundle-aware so it's correct the
+ * moment it IS wired up; the lint-entitlement-gates GUARD keeps it that way.
  */
 export async function eventOwnsProWebsite(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return checkOrderOwnership(supabase, eventId, PRO_WEBSITE_SERVICE_KEY);
+  return eventOwnsSku(supabase, eventId, PRO_WEBSITE_SERVICE_KEY);
 }

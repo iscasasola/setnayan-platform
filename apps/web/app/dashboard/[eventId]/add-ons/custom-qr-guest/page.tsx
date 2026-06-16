@@ -15,7 +15,7 @@ import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Custom QR per guest · Setnayan' };
@@ -69,13 +69,16 @@ export default async function CustomQrGuestPage({ params }: Props) {
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  // Owned-state via the shared checkOrderOwnership() reader (lib/entitlements.ts).
+  // Owned-state via the shared bundle-aware eventOwnsSku() reader
+  // (lib/entitlements.ts) — so a couple who got CUSTOM_QR_GUEST inside the
+  // Essentials (GUIDED_PACK) or Complete (MEDIA_PACK) bundle (a single
+  // bundle-keyed order, no child CUSTOM_QR_GUEST order) still owns it.
   // Refund-aware: a still-in-reconciliation order locks the page into its
   // post-purchase "owned" state so the couple isn't double-charged; cancelled /
   // refunded / lapsed releases it. Graceful-degrade on a missing/legacy orders
   // table (42P01 / 42703) — pre-bootstrap databases surface the buy CTA rather
   // than crashing, matching the PR #380/#390 hotfix pattern.
-  const owns = await checkOrderOwnership(supabase, eventId, SKU_CODE);
+  const owns = await eventOwnsSku(supabase, eventId, SKU_CODE);
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});

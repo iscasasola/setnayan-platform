@@ -19,6 +19,55 @@ Fixed + failproofed (defense-in-depth so the class can't recur):
 Verified in the worktree: `tsc --noEmit` 0 · `test:unit` 237/237 · `next lint` clean. A 4-lens adversarial review (data-loss completeness · regression-equivalence · test efficacy · schema soundness) returned **ship / no blockers** (one doc-comment nit, fixed).
 
 SPEC IMPACT: None (correctness fix + test/guard hardening; no SKU / schema / pricing / public-surface change). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
+
+After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):
+
+- **GUARD 1 — bundle-aware gate discipline:** `checkOrderOwnership()` (the bare exact-key reader, blind to bundle ownership) may be CALLED only from `lib/entitlements.ts` (where `eventOwnsSku()` delegates to it) or test files, or a call line annotated `entitlement-gate-lint: bare-ok <reason>` for a SKU that's in no bundle. Any new couple-SKU gate using the bare reader fails CI — exactly the check that would have caught PR4b's 3 bugs. Resolved the two pre-existing bare callers: **`pro-website.ts` → `eventOwnsSku`** (PRO_WEBSITE *is* a bundle child; dead code today but now correct-if-revived), and **`indoor-blueprint.ts`** annotated `bare-ok` (INDOOR_BLUEPRINT is in no bundle — bare is correct).
+- **GUARD 2 — bundle-membership single source of truth:** the three mirrors of "which child SKUs each bundle grants" must agree exactly — `BUNDLE_MEMBERS` (onboarding-pricing.ts, the buy surface) ↔ `BUNDLE_CHILD_SKUS` (entitlements.ts, the read gate) ↔ `bundles_granting_sku()` (the DB provisioning SQL). Drift = a bundle buyer denied (or over-granted) a child SKU. Also asserts no bundle code nests as a child (the `activateBundleChildren` recursion-safety invariant).
+- +1 unit test (recursion-safety invariant) → `entitlements.test.ts` 25/25.
+
+Both guards proven non-vacuous: a planted bare call fails GUARD 1; removing one SKU from a mirror fails GUARD 2; clean after revert. `tsc --noEmit` 0; existing lint scripts unaffected.
+
+SPEC IMPACT: None (CI-only guardrail). Logged in `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
+
+Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.
+
+- `apps/web/lib/social/facebook.ts` — new `resolvePageAccessToken(pageId, configuredToken)` calls `GET /{page-id}?fields=access_token` to exchange the System User token for the Page token before publishing. Per-process memo (keyed by source token — a Page token derived from a never-expiring SU token is itself non-expiring), 15s timeout, safe fallback to the configured token on exchange failure (a no-op when the env already holds a real Page token, so the change is correct for either credential type). Diagnosed against the live token: it debugs as `type: SYSTEM_USER` with `pages_read_engagement` + `pages_manage_posts` + `pages_manage_engagement` granted; the exchange yields a `type: PAGE` token for page `1142862912244794`.
+
+Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
+
+SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
+## 2026-06-16 · fix(papic): honor the locked "connect Drive OR upgrade = permanent" sampler promise (CRITICAL)
+
+A 52-agent end-to-end audit of the free Papic sampler found one critical, load-bearing defect (flagged independently by 5 dimensions, adversarially verified): the locked rule "connecting Google Drive OR upgrading to paid Papic makes sampler photos permanent" (migration `20270103000000` lines 6-8) was **entirely unimplemented** — there was no `.update()` on `papic_photos.expires_at` anywhere in the app. So a couple who *converted* (the funnel's whole goal) still had their sampler photos **deleted at day 30** — including from their **paid** gallery — and the reminder email told them "every original is safe" while it happened.
+
+Fix (no migration — all paths are service-role; the promise now lives in one place):
+
+- **`lib/papic-sampler.ts`** (new) — `makeSamplerPermanent(eventId)` clears the 30-day `expires_at` on an event's sampler photos (idempotent, service-role, best-effort/never-throws); `eventSamplerIsKept(eventId)` reports whether an active Drive grant already exists.
+- **Sample-then-convert** (the common path): `makeSamplerPermanent` + `cancelSamplerExpiryWarnings` fire at all three convert moments — the paid-`PAPIC_SEATS` activation hook (`lib/sku-activation.ts`, also reached by MEDIA_PACK bundle buyers via the child fan-out), the Drive OAuth callback (`app/api/oauth/drive/callback/route.ts` — covers both Papic and Photo-Delivery entry points), and the Papic storage→Drive switch (`add-ons/papic/actions.ts`).
+- **Convert-then-sample** (Drive connected before sampling): `recordSeatCapture` now stamps `expires_at = null` when `eventSamplerIsKept` is true, so those shots are born permanent.
+- **Cancel-on-keep** — `cancelSamplerExpiryWarnings(eventId)` (new, in `lib/papic-sampler-emails.ts`) pulls the two scheduled Resend T-7/T-1 emails on conversion via the stored `papic_sampler_email_log` message ids, backed by a new `cancelScheduledEmail(id)` in `lib/email.ts`. Gated on `RESEND_API_KEY` + best-effort, so it's a no-op while Resend is off.
+
+All hooks are non-fatal and idempotent — a failure can never roll back a payment activation or a Drive connect. Once `expires_at` is NULL the existing retention sweep skips the rows and the gallery stops hiding them, so no sweep/gallery changes were needed.
+
+SPEC IMPACT: iteration 0012 sampler — the "keep = permanent" promise is now actually implemented (it was spec-locked but unbuilt). Logged in corpus `DECISION_LOG.md`. The audit's other 29 findings (conversion-UX power-ups, the unwired QR-tag leg, web clips unreachable, abuse posture) are summarized for owner triage, not in this PR.
+
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+
+A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:
+
+- **CUSTOM_QR_GUEST (high severity)** — `eventOwnsSku` at all 3 gates: the add-on page (`add-ons/custom-qr-guest/page.tsx`), the print pack (`print/page.tsx`), and the public branded-QR route (`api/website/qr/guest/[guestId]/route.ts`, try/catch 500-path preserved).
+- **ANIMATED_MONOGRAM** — one-line helper swap in `lib/animated-monogram.ts` (`eventOwnsAnimatedMonogram` → `eventOwnsSku`); fixes all 3 runtime gates (public hero, dashboard monogram, add-on page) that share the helper.
+- **SETNAYAN_AI** — the subtle one: its feature gates read the STORED `events.setnayan_ai_active` boolean (via `isSetnayanAiActive`), NOT a read-time ownership query, so a read-side swap alone would NOT fix the feature. Added `activateBundleChildren()` to `lib/sku-activation.ts` — a `GUIDED_PACK`/`MEDIA_PACK` approval now fans the bundle's children through their own activation hooks (membership from `BUNDLE_CHILD_SKUS`, so it can't drift from the gate; idempotent; only flag-backed children do anything — today just SETNAYAN_AI). Also swapped the add-on page `owns` check to `eventOwnsSku` so a bundle buyer isn't offered a second purchase during the reconciliation window before activation stamps the flag. **Live, not latent** — the owner flipped `SETNAYAN_AI_PAYWALL_ENABLED=true` on prod 2026-06-16, so this denial was active for bundle buyers.
+- `INDOOR_BLUEPRINT` stays on the bare reader — confirmed in NO bundle, so it's correct.
+- +6 regression tests in `lib/entitlements.test.ts` (a GUIDED_PACK and MEDIA_PACK buyer owns each of the 3 SKUs via `eventOwnsSku`). 24/24 pass. `tsc --noEmit` exit 0.
+
+**⚠ Owner note — website cluster left for a follow-up (NOT a live bug):** `PRO_WEBSITE`/`EVENT_WEBSITE`/`PRO_RSVP` are in `BUNDLE_CHILD_SKUS` but were retired by the website collapse into `COUPLE_WEBSITE_PRO` (₱3,999). `eventOwnsProWebsite` has ZERO live callers (dead code), and `COUPLE_WEBSITE_PRO`'s ownership gate + buy surface aren't built yet ("follow-up"). So nobody is denied today. When that gate IS built, `BUNDLE_CHILD_SKUS` must be updated (swap the 3 retired website SKUs → `COUPLE_WEBSITE_PRO`) **and** the owner must decide whether Essentials/Complete include the ₱3,999 website unlock (a pricing call → holistic pass).
+
+SPEC IMPACT: None (mechanical completion of the already-specced PR4 dead-unlock repair, extended to the SKUs PR4 missed). The fix surface — bundle-aware ownership reads + a bundle activation fan-out — matches PR4's design. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
 

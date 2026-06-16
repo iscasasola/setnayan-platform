@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): nav-registry single-source guard + wire the public download CTA (final public pass)
+
+Completes the nav/icon/menu registry rollout: wires the last cleanly-wirable public surface and adds the Phase-9 guardrail that locks the single-source invariant. A discovery workflow (6 readers + synth) mapped the four remaining `public.*` slot groups and the lint-guard infra; the finding inverted the naive plan — most "remaining" slots have no live nav surface, and a blanket "no lucide in nav files" rule would fail CI day one (5 chokepoints intentionally import lucide as *fallback* icons).
+
+- **Guard — `apps/web/scripts/lint-nav-icon-source.mjs` (NEW)** + CI job `lint-nav-icon-source` in `ci.yml` + `lint:navicon` package script. Mirrors `lint-bottom-nav.mjs` (standalone node `.mjs`, the repo's owner-blessed guard style — NOT an ESLint rule). It's a **positive delegation guard**: each of the 7 nav-chrome chokepoints (customer/vendor/admin sidebar + bottom-nav, marketing site-nav) MUST consume the registry (`navSlots`/`getNavSlotMap`/`NAV_SLOT_*`/registry icon resolver), and the registry plumbing (`getNavSlotMap`+`NAV_REGISTRY_TAG`, `NAV_SLOT_DEFAULTS`, `navIconComponent`) must keep its required exports. Verified locally: green on all 7 chokepoints; correctly does NOT match the deliberately-excluded non-consumers (`profile-menu`, `_overview-tile`). NOT a lucide ban — the no-direct-lucide hard rule is a future Phase 2 gated behind migrating the fallback icons.
+- **Wire `public.download.mac-api`** — `app/download/page.tsx` (server component) resolves `getNavSlotMap()` and overlays the registry label onto both "Download for Mac" buttons (hero + `DownloadCard`). Label-only + fail-open: it's a server component so it can't call the client-only `navIconComponent`; the Download/Apple icons + href + size suffix stay in code, and `isHidden` is intentionally not honored (a download page with no download button is self-defeating).
+
+**Excluded (verified not wirable; surfaced for owner):** `public.vendor-nav.*` (target `VendorNav` is dead code — `/for-vendors` uses the already-wired shared marketing nav; needs a separate dead-code cleanup PR), `public.guest.*` + `public.papic.guest` (per-couple guest-microsite CTAs, not nav, outside `SiteChrome`'s allowlist; default `/guests/*` routes don't exist), `public.marketing.home` (brand logo — must never be admin-swappable/hideable), `public.download.page` (no on-page link), `public.download.qr-png` (points at a non-existent route `/api/website/qr/detail`; real affordance is couple-scoped). These rows stay seeded-but-inert (href always lives in code, so they're harmless); owner to decide on retiring/relocating the orphans + the dead-`VendorNav` cleanup.
+
+**Follow-ups for owner:** (1) add `lint-nav-icon-source` to branch-protection required checks so auto-merge enforces it; (2) Phase-9 part 3 (seed-vs-DB drift test) is still unbuilt; (3) several customer/vendor/admin defaults inconsistencies were flagged out-of-scope (i18nKey labels that render raw, duplicate-destination labels, a sortOrder collision, `token-purchases` key drift).
+
+SPEC IMPACT: None (additive guard + behavior-preserving label overlay; no SKU/pricing/schema/route change — the download CTA reads identically until an admin edits `/admin/menus`).
+
 ## 2026-06-16 · feat(nav): wire the public marketing nav to the registry (consumption PR 5 — last doorway)
 
 Wires the public marketing top nav (`app/_components/marketing/site-nav.tsx`) to the nav/icon/menu registry — the final doorway after customer (#1530/#1540), vendor (#1544), and admin (#1549). The marketing nav is **label-only** (no icons by design), so this overlays just the `public.site-nav.*` labels; href + order stay in code (the registry never owns routing).

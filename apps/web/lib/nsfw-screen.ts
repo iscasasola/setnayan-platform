@@ -277,6 +277,56 @@ export async function screenCapture(opts: {
   }
 }
 
+// Re-screen grace + bound. The grace keeps a freshly-captured row (whose
+// first screenCapture may still be in flight) out of the sweep; the limit
+// keeps each opportunistic pass cheap.
+const RESCREEN_GRACE_MS = 15 * 60_000; // 15 min
+const RESCREEN_LIMIT = 10; // per table, per sweep
+
+/**
+ * Heal captures stuck in 'unscreened'. screenCapture() runs fail-open AND
+ * fire-and-forget from the capture after() hook — so if it drops (an R2 hiccup,
+ * a cold lambda, a killed request) the row stays 'unscreened' FOREVER. That row
+ * is then permanently invisible on every guest-facing allowlist surface
+ * (guest-live-gallery + the Live Wall show only moderation_state='clean') even
+ * though the couple's own private gallery still shows it — a silent screening
+ * gap, not just a tag-leg issue. This bounded, never-throwing, cron-free sweep
+ * re-runs the screen on rows 'unscreened' past the grace window, across BOTH
+ * capture tables. screenCapture re-fetches the bytes from R2, re-decides, and
+ * writes ONLY where still 'unscreened' — fully idempotent + safe to re-run.
+ * Fire from after() on a Papic surface. Returns how many rows it re-screened.
+ */
+export async function reScreenStuckCaptures(eventId: string): Promise<number> {
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const admin = createAdminClient();
+    const cutoff = new Date(Date.now() - RESCREEN_GRACE_MS).toISOString();
+    const tables: ScreenCaptureTable[] = ['papic_photos', 'papic_guest_captures'];
+    let healed = 0;
+    for (const table of tables) {
+      const { data: stuck, error } = await admin
+        .from(table)
+        .select('r2_object_key')
+        .eq('event_id', eventId)
+        .eq('moderation_state', 'unscreened')
+        .lt('created_at', cutoff)
+        .limit(RESCREEN_LIMIT);
+      // Pre-migration (missing column → 42703) or any read error → skip this
+      // table, never the whole sweep.
+      if (error || !stuck || stuck.length === 0) continue;
+      for (const row of stuck) {
+        const key = (row as { r2_object_key: string | null }).r2_object_key;
+        if (!key) continue;
+        await screenCapture({ table, r2ObjectKey: key });
+        healed += 1;
+      }
+    }
+    return healed;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Screen one editorial_vendor_media row (the "From Your Vendors" submissions)
  * and persist the verdict. Mirrors screenCapture() but for the editorial table,

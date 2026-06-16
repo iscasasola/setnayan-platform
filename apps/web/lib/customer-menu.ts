@@ -66,6 +66,10 @@ export type CustomerMenuChild = {
   hash?: string;
   /** Rendered dimmed-but-tappable ("not yet", e.g. Day-of before its window). */
   muted?: boolean;
+  /** Nav-registry slot key. When set, the docked sub-nav overlays the admin
+   *  override (label · icon · hidden) from `/admin/menus` on top of these code
+   *  defaults — so every sub-nav child is editable from the registry SSOT. */
+  slotKey?: string;
 };
 
 export type CustomerMenu = {
@@ -137,6 +141,7 @@ export function buildCustomerMenuTree(
         href: s.href,
         match: s.match,
         muted: s.muted,
+        slotKey: `customer.guest-journey.${s.key}`,
       })),
     },
     {
@@ -157,6 +162,9 @@ export function buildCustomerMenuTree(
         icon: TAB_META[t].icon,
         kind: 'tab' as const,
         tab: t,
+        // Legacy area name `budget-subnav` = the Explore takeover tabs (the
+        // feature shipped as "Budget Build"); the slots already exist.
+        slotKey: `customer.budget-subnav.${t}`,
       })),
     },
     {
@@ -176,10 +184,10 @@ export function buildCustomerMenuTree(
       sectionMatchExact: true,
       subnavLabel: 'Studio sections',
       children: [
-        { key: 'setnayan_ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai' },
-        { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website' },
-        { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture' },
-        { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding' },
+        { key: 'setnayan-ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai', slotKey: 'customer.studio-subnav.setnayan-ai' },
+        { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' },
+        { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture', slotKey: 'customer.studio-subnav.capture' },
+        { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding', slotKey: 'customer.studio-subnav.branding' },
       ],
     },
     {
@@ -196,9 +204,9 @@ export function buildCustomerMenuTree(
       sectionMatchExact: true,
       subnavLabel: 'Budget',
       children: [
-        { key: 'overview', label: 'Overview', icon: Gauge, kind: 'anchor' as const, hash: 'budget-overview' },
-        { key: 'allocate', label: 'Allocate', icon: PieChart, kind: 'anchor' as const, hash: 'budget-allocate' },
-        { key: 'payments', label: 'Payments', icon: Receipt, kind: 'anchor' as const, hash: 'budget-payments' },
+        { key: 'overview', label: 'Overview', icon: Gauge, kind: 'anchor' as const, hash: 'budget-overview', slotKey: 'customer.budget-anchors.overview' },
+        { key: 'allocate', label: 'Allocate', icon: PieChart, kind: 'anchor' as const, hash: 'budget-allocate', slotKey: 'customer.budget-anchors.allocate' },
+        { key: 'payments', label: 'Payments', icon: Receipt, kind: 'anchor' as const, hash: 'budget-payments', slotKey: 'customer.budget-anchors.payments' },
       ],
     },
   ];

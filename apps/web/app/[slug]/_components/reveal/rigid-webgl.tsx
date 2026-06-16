@@ -26,6 +26,7 @@
 
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { loadSurfaceMaps, type SurfaceMaps } from './reveal-textures';
 
 export type RigidWebGLVariant =
   | 'four-flap'
@@ -96,6 +97,7 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
     renderer.domElement.style.display = 'block';
     mount.appendChild(renderer.domElement);
 
+    let cancelled = false; // guards async texture loads against unmount
     const reduced =
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -147,6 +149,32 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
     const linerMat = new THREE.MeshStandardMaterial({ color: linerCol, roughness: 0.78, metalness: 0, side: THREE.DoubleSide });
     const doorLinerMat = new THREE.MeshStandardMaterial({ color: doorLiner, roughness: 0.7, metalness: 0, side: THREE.DoubleSide });
     const disposables: Array<{ dispose: () => void }> = [paperMat, frontMat, linerMat, doorLinerMat, paper.geometry];
+
+    // ── photoreal PBR maps (§1a TRUE TEXTURE · PR3b) — loaded async + recoloured
+    //    from the moodboard, applied when ready so the scene upgrades from flat
+    //    colour to textured. Door wood is PR3c; doors use the paper map meanwhile. ──
+    const aniso = renderer.capabilities.getMaxAnisotropy();
+    const applyMaps = (mats: THREE.MeshStandardMaterial[], m: SurfaceMaps) => {
+      for (const mat of mats) {
+        mat.map = m.map;
+        mat.normalMap = m.normalMap;
+        mat.roughnessMap = m.roughnessMap;
+        mat.roughness = 1; // let the roughness map drive it
+        mat.needsUpdate = true;
+      }
+      disposables.push(m.map, m.normalMap, m.roughnessMap);
+    };
+    const disposeMaps = (m: SurfaceMaps | null) => {
+      if (m) [m.map, m.normalMap, m.roughnessMap].forEach((t) => t.dispose());
+    };
+    loadSurfaceMaps('paper', paperCol, 1.6, aniso).then((m) => {
+      if (cancelled) return disposeMaps(m);
+      if (m) applyMaps([paperMat, frontMat], m);
+    });
+    loadSurfaceMaps('liner', linerCol, 2.4, aniso).then((m) => {
+      if (cancelled) return disposeMaps(m);
+      if (m) applyMaps([linerMat], m);
+    });
 
     /** A two-sided flap inside a hinge group pivoted at (px,py). geom origin must
      *  put the hinge edge at (0,0). */
@@ -273,6 +301,7 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
 
     const el = renderer.domElement;
     return () => {
+      cancelled = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('deviceorientation', onTilt);

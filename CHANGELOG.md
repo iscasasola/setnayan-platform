@@ -34,6 +34,15 @@ The lifecycle bottom-nav gains its third roster — the **After** menu, shown on
 `tsc --noEmit` + `next lint` + bottom-nav template guard all green.
 
 SPEC IMPACT: completes the After-menu roster from `Event_Lifecycle_Menu_Design_2026-06-16.md` §6 + §10 PR4 ("buildAfterNavTabs, per-source galleries"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle pieces: admin force-complete surface + "Move to memories" archive (both net-new §8), PR5 (same-day Get-help), PR6 (recommend-your-vendors).
+## 2026-06-16 · fix(build-3state): remove duplicate "Your anchors" block on the 3-State Build tab
+
+Live verification on a preview (flag on, headless browser logged in as the test couple) showed the Build tab rendering **two** "Your anchors" sections stacked: the new tri-state Date/Budget/Location toggles, then the **legacy** `BuildAnchors` Pin/Flag module immediately below — because `Build3StateControl` reused `<BuildAnchors>` purely as a value editor, but that component drags in its own header + Pin/Flag toggles + "Set" buttons. The result read as broken/doubled (this is what "still not there" was actually showing).
+
+- **Folded value editing into the new `DimensionRow`.** Each Date/Budget/Location row now reveals an inline value editor *only when Locked* (auto-opens when Locked-without-value, per §4), persisting onto the `events` columns via the same `setAnchor` action. Dropped the `<BuildAnchors>` reuse entirely → one unified row per anchor, no duplicate "Your anchors" block. Legacy (flag-off) `BuildAnchors` path is untouched and byte-identical.
+- **Removed the dead `_dim_*` `sr-only` span** (it was `aria-hidden` + `sr-only` = invisible to everyone, but leaked the reserved dimension key as scraped text).
+- Change is entirely within the flag-gated `build-3state-control.tsx`; production (flag off) is byte-identical.
+
+SPEC IMPACT: None — implements `Build_3State_Solver_2026-06-16.md` §4 (Locked dimension resolves to a value) more faithfully than the duplicated-module build; no spec text changes.
 
 ## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 

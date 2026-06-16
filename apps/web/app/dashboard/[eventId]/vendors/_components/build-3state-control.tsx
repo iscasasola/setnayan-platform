@@ -11,8 +11,8 @@
  * writing via `setCategoryBuildState`. Locked REQUIRES a concrete pick:
  *   • a taxonomy row → a small picker of that category's QUOTED inquiries
  *     (event_vendors with total_cost_php != null) → pinned_vendor_id.
- *   • a dimension row (Date/Budget/Location) → the existing anchor value editors
- *     (BuildAnchors), whose value persists on `events`.
+ *   • a dimension row (Date/Budget/Location) → an inline value editor that
+ *     reveals when Locked and persists onto the `events` columns via setAnchor.
  *
  * The bottom bar is [Reset] (→ all Excluded) + [Build] (resolve Auto rows). Save
  * As is a follow-on flagged PR, intentionally absent here.
@@ -49,7 +49,8 @@ import {
   type BuildFallbackSuggestion,
 } from '../build-3state-fallback-actions';
 import { attachMarketplaceVendorToCategory } from '../actions';
-import { BuildAnchors, type AnchorData } from './build-anchors';
+import { setAnchor } from '../build-anchors-actions';
+import type { AnchorData } from './build-anchors';
 
 /** The "show 5 more" page step for the marketplace fallback list. */
 const FALLBACK_EXPAND_STEP = 5;
@@ -151,36 +152,50 @@ export function Build3StateControl({
         </p>
       </div>
 
-      {/* Dimension rows — Date / Budget / Location. Locked value persists on the
-          event via the existing anchor editors, so the trio here writes the
-          state and BuildAnchors edits the value. */}
+      {/* Dimension rows — Date / Budget / Location. The trio writes the
+          Locked/Auto/Hidden state; when Locked, the row reveals an inline value
+          editor that persists onto the existing `events` columns via setAnchor.
+          One unified row per anchor (no separate legacy anchors module). */}
       <div className="space-y-2">
         <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
           Your anchors
         </div>
         <DimensionRow
-          rowKey={DIM_DATE}
+          eventId={eventId}
+          anchor="date"
           label="Wedding date"
           state={dimensionStates[DIM_DATE] ?? 'excluded'}
           busy={busyRow === DIM_DATE && pending}
           onState={(s) => applyState(DIM_DATE, s)}
+          valueText={anchors.date.label}
+          editorType="date"
+          editorDefault={anchors.date.iso ?? ''}
+          editorPlaceholder=""
         />
         <DimensionRow
-          rowKey={DIM_BUDGET}
+          eventId={eventId}
+          anchor="budget"
           label="Total budget"
           state={dimensionStates[DIM_BUDGET] ?? 'excluded'}
           busy={busyRow === DIM_BUDGET && pending}
           onState={(s) => applyState(DIM_BUDGET, s)}
+          valueText={anchors.budget.php != null ? peso(anchors.budget.php) : null}
+          editorType="number"
+          editorDefault={anchors.budget.php != null ? String(anchors.budget.php) : ''}
+          editorPlaceholder="360000"
         />
         <DimensionRow
-          rowKey={DIM_LOCATION}
+          eventId={eventId}
+          anchor="location"
           label="Location"
           state={dimensionStates[DIM_LOCATION] ?? 'excluded'}
           busy={busyRow === DIM_LOCATION && pending}
           onState={(s) => applyState(DIM_LOCATION, s)}
+          valueText={anchors.location.region}
+          editorType="text"
+          editorDefault={anchors.location.region ?? ''}
+          editorPlaceholder="e.g. Tagaytay"
         />
-        {/* The value editors for the three anchors (reused verbatim). */}
-        <BuildAnchors eventId={eventId} data={anchors} />
       </div>
 
       {/* Taxonomy rows — one per category with ≥1 quoted inquiry. */}
@@ -460,34 +475,131 @@ function StateTrio({
 }
 
 function DimensionRow({
-  rowKey,
+  eventId,
+  anchor,
   label,
   state,
   busy,
   onState,
+  valueText,
+  editorType,
+  editorDefault,
+  editorPlaceholder,
 }: {
-  rowKey: string;
+  eventId: string;
+  anchor: 'date' | 'budget' | 'location';
   label: string;
   state: BuildState;
   busy: boolean;
   onState: (s: BuildState) => void;
+  /** The current persisted value (already formatted), or null when unset. */
+  valueText: string | null;
+  editorType: 'date' | 'number' | 'text';
+  editorDefault: string;
+  editorPlaceholder: string;
 }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  // Auto-open the editor when Locked with no value yet (§4: Locked must resolve).
+  const [editing, setEditing] = useState(false);
+  const locked = state === 'locked';
+  const hasValue = valueText != null && valueText !== '';
+  const needsValue = locked && !hasValue;
+  const editorOpen = editing || needsValue;
+
+  function save(value: string) {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('anchor', anchor);
+    fd.set('value', value);
+    startTransition(async () => {
+      await setAnchor(fd);
+      setEditing(false);
+      router.refresh();
+    });
+  }
+
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-ink/10 bg-paper px-3 py-2.5">
-      <StateTrio state={state} busy={busy} onSelect={onState} />
-      <div className="min-w-0 flex-1">
-        <div className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink/45">{label}</div>
-        <div className="text-xs italic text-ink/50">
-          {state === 'locked'
-            ? 'Set the value below.'
-            : state === 'auto'
-              ? 'Setnayan suggests this.'
-              : 'Not part of the build.'}
+    <div
+      className={`rounded-xl border px-3 py-2.5 ${
+        locked ? 'border-mulberry/30 bg-mulberry/[0.04]' : 'border-ink/10 bg-paper'
+      }`}
+    >
+      <div className="flex items-center gap-2.5">
+        <StateTrio state={state} busy={busy} onSelect={onState} />
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink/45">{label}</div>
+          {locked && hasValue ? (
+            <div className="truncate text-sm font-semibold text-ink">{valueText}</div>
+          ) : (
+            <div className="truncate text-xs italic text-ink/50">
+              {locked
+                ? 'Set the value below.'
+                : state === 'auto'
+                  ? 'Setnayan suggests this.'
+                  : 'Not part of the build.'}
+            </div>
+          )}
         </div>
+        {locked ? (
+          <button
+            type="button"
+            onClick={() => setEditing((o) => !o)}
+            disabled={pending}
+            className="shrink-0 rounded-lg border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/[0.03] disabled:opacity-50"
+          >
+            {editorOpen ? 'Close' : hasValue ? 'Edit' : 'Set'}
+          </button>
+        ) : null}
       </div>
-      <span aria-hidden className="sr-only">
-        {rowKey}
-      </span>
+
+      {locked && editorOpen ? (
+        <div className="mt-2.5 border-t border-ink/8 pt-2.5">
+          <InlineValueEditor
+            type={editorType}
+            defaultValue={editorDefault}
+            placeholder={editorPlaceholder}
+            pending={pending}
+            onSave={save}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Inline value editor for a Locked dimension row (date / budget / location). */
+function InlineValueEditor({
+  type,
+  defaultValue,
+  placeholder,
+  pending,
+  onSave,
+}: {
+  type: 'date' | 'number' | 'text';
+  defaultValue: string;
+  placeholder: string;
+  pending: boolean;
+  onSave: (value: string) => void;
+}) {
+  const [val, setVal] = useState(defaultValue);
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type={type}
+        value={val}
+        placeholder={placeholder}
+        onChange={(e) => setVal(e.target.value)}
+        className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-mulberry/50"
+      />
+      <button
+        type="button"
+        onClick={() => onSave(val)}
+        disabled={pending || val.trim().length === 0}
+        className="shrink-0 rounded-lg bg-mulberry px-3.5 py-2 text-sm font-semibold text-paper disabled:opacity-50"
+      >
+        Save
+      </button>
     </div>
   );
 }

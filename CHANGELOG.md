@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): NSFW re-screen self-heal + DB-enforced 10-tag cap (the last two #1577/#1588 review items)
+
+Two Papic moderation/tagging hardening fixes the prior reviews surfaced and left for owner sign-off (owner: "yes on 2"):
+
+- **NSFW re-screen self-heal (B).** `screenCapture()` is fail-open AND fire-and-forget from the capture `after()` hook — so if it drops (an R2 hiccup, a cold lambda, a killed request) the row stays `moderation_state='unscreened'` **forever**, and is then permanently invisible on every guest-facing allowlist surface (guest-live-gallery + the Live Wall show only `'clean'`) while the couple's own private gallery still shows it — a silent *screening* gap, distinct from the tag-leg one. New `reScreenStuckCaptures(eventId)` in `lib/nsfw-screen.ts`: a bounded (10/table), never-throwing, cron-free sweep that re-runs the screen on rows stuck `'unscreened'` past a 15-min grace window (so an in-flight first screen isn't disturbed), across BOTH capture tables (`papic_photos` + `papic_guest_captures`). `screenCapture` re-fetches the R2 bytes, re-decides, and writes ONLY where still `'unscreened'` → fully idempotent. Fired from `after()` on the couple moderation surface (`/add-ons/papic/moderation`).
+- **DB-enforced 10-tag cap (C).** The "max 10 tags per photo" product lock was enforced only inside the `papic_tag_capture` RPC (QR tags); `auto_face` / `manual_pick` / any future writer of `photo_tags` could exceed it. New migration `20270109000000_photo_tags_cap_trigger.sql` adds a `BEFORE INSERT` trigger (`enforce_photo_tag_cap`, SECURITY DEFINER + pinned `search_path` so the `count(*)` is RLS-accurate) that makes ≤10 tags per photo (`(source_table, source_id)`) a DB invariant across ALL sources. At the cap it `RETURN NULL`s — silently skipping the over-cap row (truncate semantics, matching the spec's table-QR "alphabetize + truncate"), never erroring the insert/batch. The RPC already limits to the remaining cap, so the trigger is a pure backstop for the non-RPC paths.
+
+tsc 0 · `next lint` clean · timestamp guard 386 unique. Migration applies cleanly now that `db push` is unjammed (#1596). PR pending (branch `claude/papic-moderation-hardening`, auto-merge).
+
+SPEC IMPACT: iteration 0012 — the 10-tag cap is now a DB invariant across all tag sources (was RPC-only/advisory; owner-locked 2026-06-17), and the NSFW screen now self-heals dropped screenings. No SKU/pricing change. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · feat(nav): the section sub-nav expands FROM the desktop sidebar (delivers the journey follow-up)
 
 Owner: *"let the subnav expand from the side nav when on desktop. subnav setup is only for mobile. but when there is a sidenav, all will be under the side nav."* The mobile `<SubNav>` floating pill is the **mobile** rendering of a section's sub-stages; on desktop those stages were homeless — the Guests journey only surfaced as an on-page ribbon on the Build page, so once you were on Invite/Confirm/Day-of the desktop journey nav vanished. This closes the gap the prior journey PR explicitly left ("desktop journey strip on every journey surface").

@@ -18,6 +18,7 @@
  * Compare + Lock tabs are unchanged. No schema change here.
  */
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -31,8 +32,15 @@ import {
   type BuildStateMap,
   type QuotedVendor,
 } from '@/lib/build-3state';
+import {
+  buildRequoteNudgeBody,
+  selectNudgesToSend,
+  type NudgeCandidate,
+  type PriorNudge,
+} from '@/lib/build-requote-nudge';
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isMultiPickGroup, PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 
 export type Build3StateResult = { ok: true } | { ok: false; error: string };
@@ -332,7 +340,7 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
       ? Math.round((evRes.data.estimated_budget_centavos as number) / 100)
       : null;
 
-  const { picks, clearGroupIds, unfilledAuto } = resolveBuildPicks({
+  const { picks, clearGroupIds, unfilledAuto, budgetRejected } = resolveBuildPicks({
     states,
     quoted,
     budgetPhp,
@@ -399,6 +407,36 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     label: labelByGroup.get(groupId) ?? groupId,
   }));
 
+  // ── Build 3d-C: the vendor RE-QUOTE NUDGE (fire-and-forget) ────────────────
+  // Each Auto category turned away a QUOTED vendor purely on budget (they passed
+  // date + location — they're a live, non-committed inquiry the couple
+  // solicited). Invite each such vendor (subject to the one-per-(event,vendor,
+  // service) reply-gated throttle) to send a fresh proposition, IN their chat
+  // thread, as a Setnayan system message. Fired via Next's after() so the [Build]
+  // response is already sent — the nudge can NEVER slow or fail the build. The
+  // helper never throws; any error is swallowed + logged. Only marketplace-linked
+  // vendors (with a thread) are reachable — off-platform vendors are skipped.
+  if (budgetRejected.length > 0) {
+    // Map each budget-rejected event_vendor → its marketplace profile id (the
+    // chat thread's vendor key). Off-platform vendors (no marketplace link) have
+    // no thread → dropped here. Snapshot the inputs the after() closure needs so
+    // it never reaches back into request-scoped state.
+    const rejectedForNudge = budgetRejected
+      .map((r) => ({
+        planGroupId: r.planGroupId,
+        vendorProfileId: marketplaceIdByVendor.get(r.vendorId) ?? null,
+      }))
+      .filter(
+        (r): r is { planGroupId: string; vendorProfileId: string } =>
+          r.vendorProfileId !== null,
+      );
+    if (rejectedForNudge.length > 0) {
+      const eventId = input.eventId;
+      const labels = new Map(labelByGroup);
+      after(() => fireRequoteNudges({ eventId, rejected: rejectedForNudge, labelByGroup: labels }));
+    }
+  }
+
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return {
     ok: true,
@@ -406,4 +444,193 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     cleared: clearGroupIds.length,
     unfilled,
   };
+}
+
+/**
+ * Build 3d-C — post the vendor re-quote nudge(s) for one [Build] run. ALWAYS
+ * fire-and-forget (called from Next's after()): it NEVER throws into the build,
+ * is best-effort, and degrades silently if its migration (20270101010000) isn't
+ * applied yet. The flag-dark guard lives upstream (runBuild3State returns before
+ * resolution when BUILD_3STATE_ENABLED is off), so this is unreachable with the
+ * flag OFF.
+ *
+ * Steps (all via the service-role admin client — the couple's JWT can't read the
+ * vendor-side thread rows or write a 'system' message under chat RLS):
+ *   1. Resolve each budget-rejected (vendor, plan_group) to its OPEN chat thread
+ *      (accepted inquiry). No thread → silently skipped (nowhere to post).
+ *   2. Read the throttle ledger (build_requote_nudges) + the per-thread last
+ *      nudge/last vendor reply, then `selectNudgesToSend` decides who's eligible
+ *      under the reply-gated one-per-(event,vendor,service) throttle.
+ *   3. Post the Setnayan system message + upsert the throttle row (refresh
+ *      sent_at) for each eligible nudge.
+ */
+async function fireRequoteNudges(args: {
+  eventId: string;
+  rejected: ReadonlyArray<{ planGroupId: string; vendorProfileId: string }>;
+  labelByGroup: ReadonlyMap<string, string>;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+
+    // 1. Open (accepted) chat threads for the budget-rejected vendors on this
+    //    event. The nudge only goes into a live couple↔vendor channel — a
+    //    pending/declined inquiry has no two-way thread to invite into.
+    const vendorProfileIds = [...new Set(args.rejected.map((r) => r.vendorProfileId))];
+    const { data: threadRows, error: threadErr } = await admin
+      .from('chat_threads')
+      .select('thread_id, vendor_profile_id, inquiry_status')
+      .eq('event_id', args.eventId)
+      .in('vendor_profile_id', vendorProfileIds);
+    if (threadErr) {
+      logQueryError(
+        'fireRequoteNudges:threads',
+        threadErr,
+        { event_id: args.eventId, missing_relation: isMissingRelationError(threadErr) },
+        'graceful_degrade',
+      );
+      return;
+    }
+    const threadByVendor = new Map<string, string>();
+    for (const t of (threadRows ?? []) as Array<{
+      thread_id: string;
+      vendor_profile_id: string;
+      inquiry_status: string;
+    }>) {
+      if (t.inquiry_status !== 'accepted') continue; // only open channels.
+      threadByVendor.set(t.vendor_profile_id, t.thread_id);
+    }
+
+    // Build the gated candidate list (vendors WITH an open thread).
+    const candidates: NudgeCandidate[] = [];
+    for (const r of args.rejected) {
+      const threadId = threadByVendor.get(r.vendorProfileId);
+      if (!threadId) continue; // no open thread → silently skipped.
+      candidates.push({
+        planGroupId: r.planGroupId,
+        vendorProfileId: r.vendorProfileId,
+        threadId,
+      });
+    }
+    if (candidates.length === 0) return;
+
+    // 2. Throttle state. Read prior nudges for these (vendor, plan_group) pairs,
+    //    then check the reply-gate: a vendor message newer than sent_at re-opens
+    //    the service. One batched read of nudges + one of post-nudge vendor
+    //    messages keeps this O(1) round-trips regardless of candidate count.
+    const { data: nudgeRows, error: nudgeErr } = await admin
+      .from('build_requote_nudges')
+      .select('vendor_profile_id, plan_group_id, thread_id, sent_at')
+      .eq('event_id', args.eventId)
+      .in('vendor_profile_id', vendorProfileIds);
+    if (nudgeErr) {
+      // Pre-migration (table absent) or transient → degrade to "no prior nudges"
+      // ONLY if it's a missing-relation; otherwise bail so we never double-nudge.
+      logQueryError(
+        'fireRequoteNudges:nudges',
+        nudgeErr,
+        { event_id: args.eventId, missing_relation: isMissingRelationError(nudgeErr) },
+        'graceful_degrade',
+      );
+      if (!isMissingRelationError(nudgeErr)) return;
+    }
+    type NudgeRow = {
+      vendor_profile_id: string;
+      plan_group_id: string;
+      thread_id: string;
+      sent_at: string;
+    };
+    const priorRows = (nudgeRows ?? []) as NudgeRow[];
+
+    // Reply-gate: for each prior nudge, was there a vendor message after sent_at?
+    // Read the most-recent vendor message per thread once, compare timestamps.
+    const priorThreadIds = [...new Set(priorRows.map((p) => p.thread_id))];
+    const lastVendorReplyAt = new Map<string, string>();
+    if (priorThreadIds.length > 0) {
+      const { data: msgRows } = await admin
+        .from('chat_messages')
+        .select('thread_id, created_at')
+        .in('thread_id', priorThreadIds)
+        .eq('sender_role', 'vendor')
+        .order('created_at', { ascending: false });
+      for (const m of (msgRows ?? []) as Array<{ thread_id: string; created_at: string }>) {
+        if (!lastVendorReplyAt.has(m.thread_id)) lastVendorReplyAt.set(m.thread_id, m.created_at);
+      }
+    }
+    const priorNudges: PriorNudge[] = priorRows.map((p) => {
+      const reply = lastVendorReplyAt.get(p.thread_id);
+      return {
+        vendorProfileId: p.vendor_profile_id,
+        planGroupId: p.plan_group_id,
+        repliedSince: reply != null && new Date(reply) > new Date(p.sent_at),
+      };
+    });
+
+    const toSend = selectNudgesToSend({ candidates, priorNudges });
+    if (toSend.length === 0) return;
+
+    // 3. Couple display name for the copy (already visible to the vendor on the
+    //    thread — no PII leak). Fail soft to a generic label.
+    const { data: ev } = await admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', args.eventId)
+      .maybeSingle();
+    const coupleLabel = (ev?.display_name as string | undefined)?.trim() || 'A couple';
+
+    for (const n of toSend) {
+      const categoryLabel = args.labelByGroup.get(n.planGroupId) ?? 'this service';
+      const body = buildRequoteNudgeBody({ coupleLabel, categoryLabel });
+
+      // Post the Setnayan system message into the thread. sender_role='system'
+      // renders as a centered Setnayan note (not "from the couple") and does NOT
+      // trip the vendor-first-reply name-reveal trigger.
+      const { error: msgErr } = await admin.from('chat_messages').insert({
+        thread_id: n.threadId,
+        event_id: args.eventId,
+        vendor_profile_id: n.vendorProfileId,
+        sender_user_id: null,
+        sender_role: 'system',
+        body,
+      });
+      if (msgErr) {
+        // 22P02 here means the 'system' enum value isn't applied yet → skip this
+        // nudge (and the throttle stamp) so a later run retries cleanly.
+        logQueryError(
+          'fireRequoteNudges:message',
+          msgErr,
+          { thread_id: n.threadId, missing_relation: isMissingRelationError(msgErr) },
+          'graceful_degrade',
+        );
+        continue;
+      }
+
+      // Stamp / refresh the throttle row (one per event,vendor,service).
+      const { error: upErr } = await admin.from('build_requote_nudges').upsert(
+        {
+          event_id: args.eventId,
+          vendor_profile_id: n.vendorProfileId,
+          plan_group_id: n.planGroupId,
+          thread_id: n.threadId,
+          sent_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,vendor_profile_id,plan_group_id' },
+      );
+      if (upErr) {
+        logQueryError(
+          'fireRequoteNudges:throttle',
+          upErr,
+          { event_id: args.eventId, missing_relation: isMissingRelationError(upErr) },
+          'graceful_degrade',
+        );
+      }
+    }
+  } catch (caught) {
+    // The nudge is best-effort; NEVER let it surface from the after() callback.
+    logQueryError(
+      'fireRequoteNudges (threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { event_id: args.eventId },
+      'graceful_degrade',
+    );
+  }
 }

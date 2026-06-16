@@ -129,6 +129,22 @@ export type BuildRankMode = 'cheapest' | 'compat';
 export type ResolvedPick = { planGroupId: string; vendorId: string };
 
 /**
+ * A quoted vendor an Auto row rejected SOLELY because its quote did not fit the
+ * remaining budget (Build 3d-C · the re-quote nudge, §7). It HAS a quote and is
+ * a real (date+location-eligible) inquiry — only the price missed. This is the
+ * exact, deterministic budget-miss signal the wiring layer needs: a vendor in
+ * `budgetRejected` is a candidate to nudge ("your price was a little over their
+ * budget — want to re-propose?"); a vendor that was simply out-ranked (a cheaper
+ * one took the single slot) is NOT here, and neither is a date/location miss
+ * (those never reach the quoted set). `costPhp` is the rolled quote that missed.
+ */
+export type BudgetRejectedVendor = {
+  planGroupId: string;
+  vendorId: string;
+  costPhp: number;
+};
+
+/**
  * The output of resolving the 3-state map against the couple's quoted vendors.
  *   • `picks`           — every (planGroupId, vendorId) to upsert into
  *                         event_build_picks (Locked pins + Auto fills).
@@ -137,11 +153,17 @@ export type ResolvedPick = { planGroupId: string; vendorId: string };
  *   • `unfilledAuto`    — Auto groups with no quoted vendor that fits the
  *                         remaining budget (surfaced to the UI; no fallback
  *                         search in this PR — that's a follow-on flagged PR).
+ *   • `budgetRejected`  — quoted vendors an Auto row left unpicked ONLY because
+ *                         their quote exceeded the remaining budget (Build 3d-C).
+ *                         Drives the vendor re-quote nudge; purely additive (the
+ *                         picks/clear/unfilled outputs are byte-identical to
+ *                         before, so the shipped solver behavior is unchanged).
  */
 export type BuildResolution = {
   picks: ResolvedPick[];
   clearGroupIds: string[];
   unfilledAuto: string[];
+  budgetRejected: BudgetRejectedVendor[];
 };
 
 /**
@@ -170,6 +192,11 @@ export type BuildResolution = {
  * for another group. Deterministic: in compat mode tie-break by cheapest then
  * vendorId; in cheapest mode tie-break by vendorId — so the unit tests are
  * stable in both modes.
+ *
+ * Additionally surfaces `budgetRejected` (Build 3d-C) — quoted vendors an Auto
+ * row turned away ONLY on budget (a genuine budget miss). This is read-only
+ * advisory: it never changes which picks are written, so the shipped resolution
+ * is byte-identical. The wiring layer uses it to fire the re-quote nudge.
  */
 export function resolveBuildPicks(args: {
   states: BuildStateMap;
@@ -213,6 +240,7 @@ export function resolveBuildPicks(args: {
   const picks: ResolvedPick[] = [];
   const clearGroupIds: string[] = [];
   const unfilledAuto: string[] = [];
+  const budgetRejected: BudgetRejectedVendor[] = [];
   const usedVendors = new Set<string>();
 
   // ── Pass 1: LOCKED rows reserve budget first (their cost is committed). ──
@@ -252,16 +280,45 @@ export function resolveBuildPicks(args: {
 
     const multi = isMultiPickGroup(groupId);
     let filledAny = false;
+    // Quoted vendors this group passed over PURELY because they didn't fit the
+    // remaining budget (Build 3d-C). Collected here, then promoted to
+    // `budgetRejected` below once we know the group was a genuine budget miss
+    // (not, e.g., a single-pick group that DID fill — there a pricier passed-over
+    // vendor was out-ranked, not budget-rejected as the build's outcome).
+    const overBudgetHere: BudgetRejectedVendor[] = [];
     for (const cand of candidates) {
       const fits = remaining == null || cand.costPhp <= remaining;
       if (!fits) {
+        // The remaining budget couldn't absorb this quote → a budget miss for
+        // this candidate (the nudge signal). Record it regardless of rank mode.
+        overBudgetHere.push({
+          planGroupId: groupId,
+          vendorId: cand.vendorId,
+          costPhp: cand.costPhp,
+        });
         // In 'cheapest' mode the array is cost-ascending, so once one doesn't
         // fit, none cheaper remain that would → break (the shipped behavior).
         // In 'compat' mode the array is compat-ordered (cost not monotonic), so
         // a pricier high-compat vendor may not fit while a cheaper lower-compat
         // one later does → skip and keep scanning.
-        if (!multi && rankMode === 'cheapest') break;
-        else continue;
+        if (!multi && rankMode === 'cheapest') {
+          // Cost-ascending break: every later candidate is ≥ this cost, so they
+          // all miss the budget too — record them before breaking so the nudge
+          // sees the full over-budget set for this single-pick group.
+          for (const later of candidates) {
+            if (later === cand) continue;
+            const laterCost = later.costPhp;
+            const seen = overBudgetHere.some((o) => o.vendorId === later.vendorId);
+            if (!seen && (remaining == null || laterCost > remaining)) {
+              overBudgetHere.push({
+                planGroupId: groupId,
+                vendorId: later.vendorId,
+                costPhp: laterCost,
+              });
+            }
+          }
+          break;
+        } else continue;
       }
       picks.push({ planGroupId: groupId, vendorId: cand.vendorId });
       usedVendors.add(cand.vendorId);
@@ -270,6 +327,15 @@ export function resolveBuildPicks(args: {
       if (!multi) break; // single-pick: one and done (the top-ranked that fits).
     }
     if (!filledAny) unfilledAuto.push(groupId);
+    // Promote the over-budget passed-over vendors to the nudge signal. A
+    // single-pick group that DID fill has no genuine budget miss as its OUTCOME
+    // (a cheaper vendor served the slot) — the pricier ones were out-ranked, not
+    // turned away on budget — so we only surface them when the group went
+    // UNFILLED. Multi-pick groups can fill SOME slots and still turn others away
+    // purely on budget, so their over-budget set always surfaces.
+    if (multi || !filledAny) {
+      for (const r of overBudgetHere) budgetRejected.push(r);
+    }
   }
 
   // ── Pass 3: EXCLUDED taxonomy rows → clear any stale build pick. ──
@@ -277,5 +343,5 @@ export function resolveBuildPicks(args: {
     if (st.state === 'excluded') clearGroupIds.push(groupId);
   }
 
-  return { picks, clearGroupIds, unfilledAuto };
+  return { picks, clearGroupIds, unfilledAuto, budgetRejected };
 }

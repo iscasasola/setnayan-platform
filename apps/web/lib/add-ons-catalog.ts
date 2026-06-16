@@ -57,20 +57,24 @@ export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
 export type InAppServiceCategory = PlanGroupId | 'digital_services' | 'tool';
 
 /**
- * Which job-to-be-done section this add-on falls under on the couple-side
- * Studio hub (/dashboard/[eventId]/add-ons). Independent of `category` (which
- * drives the Services/vendors-tab placement) — the Studio hub groups by what
- * the couple is *trying to do*, not by vendor taxonomy.
- *   • capture        → make a record of the day (Papic / Panood / Photo / TikTok)
- *   • website_story  → the public-facing event site + branding artifacts
- *   • plan_organize  → planning aids (mood board, wayfinding)
- *   • music_extras   → music + everything else
+ * Which Studio section this add-on falls under on the couple-side Studio hub
+ * (/dashboard/[eventId]/add-ons). Independent of `category` (which drives the
+ * Services/vendors-tab placement). The 4 sections ARE Studio's docked sub-nav
+ * (owner-locked 2026-06-17 customer-menu redesign — Studio absorbed Design):
+ *   • setnayan_ai → info gathered → personalized outputs (AI planner · playlist)
+ *   • website     → the public site: Save the Date · RSVP · Event · Editorial
+ *   • capture     → make a record of the day (Papic / Panood / Photo / TikTok)
+ *   • branding    → the couple's identity: monogram · wax stamp · mood board ·
+ *                   LED background · Pakanta · custom QR · indoor blueprint
+ *   • utility     → NOT a Studio section card (Orders); hidden from the hub.
+ *                   Paprint/Supplies was removed (not a Setnayan service for now).
  */
 export type StudioGroup =
+  | 'setnayan_ai'
+  | 'website'
   | 'capture'
-  | 'website_story'
-  | 'plan_organize'
-  | 'music_extras';
+  | 'branding'
+  | 'utility';
 
 export type AddOnEntry = {
   key: string;
@@ -124,7 +128,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Ranked vendor matches by date, budget, location, guest count & faith — a shortlist made for your wedding, not a directory',
     cta: 'See your matches',
-    studioGroup: 'plan_organize',
+    studioGroup: 'setnayan_ai',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -143,7 +147,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'tool',
     blurb: 'View your in-app purchases · reference codes · payment status',
     cta: 'View orders',
-    studioGroup: 'music_extras',
+    studioGroup: 'utility',
     tier: 'free',
     poster: {
       motion: 'drift',
@@ -164,7 +168,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'The opening reveal for your page · a veil or envelope that lifts to your invitation · free, recolours to your palette',
     cta: 'Choose your reveal',
-    studioGroup: 'website_story',
+    studioGroup: 'website',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -184,7 +188,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Customize the public landing page guests see when they scan your QR or open your link',
     cta: 'Customize',
-    studioGroup: 'website_story',
+    studioGroup: 'website',
     tier: 'free',
     poster: {
       motion: 'drift',
@@ -205,7 +209,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Pick from Setnayan-owned music or generate a custom track for your event reels',
     cta: 'Browse music',
-    studioGroup: 'music_extras',
+    studioGroup: 'branding',
     tier: 'free',
     poster: {
       motion: 'pulse',
@@ -226,7 +230,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       "Pick songs by slot · processional · first dance · dinner · open floor · don't-play list. Synced to your DJ or band the moment you book them.",
     cta: 'Build your lineup',
-    studioGroup: 'music_extras',
+    studioGroup: 'setnayan_ai',
     tier: 'free',
     poster: {
       motion: 'drift',
@@ -249,7 +253,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'digital_services',
     blurb: 'A custom song for your wedding — written from the love story you told us',
     cta: 'Create your song',
-    studioGroup: 'music_extras',
+    studioGroup: 'branding',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -269,7 +273,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Design your wedding monogram · animated SVG trace · custom hero background',
     cta: 'Open studio',
-    studioGroup: 'website_story',
+    studioGroup: 'branding',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -289,7 +293,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'A branded QR for every guest · your monogram + palette colors · print-ready',
     cta: 'Brand my QRs',
-    studioGroup: 'website_story',
+    studioGroup: 'branding',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -387,7 +391,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
     cta: 'Browse Paprint',
-    studioGroup: 'music_extras',
+    studioGroup: 'utility',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -406,7 +410,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'led_background',
     blurb: '8K template render · Photo Pool blend · USB delivery',
     cta: 'Choose template',
-    studioGroup: 'website_story',
+    studioGroup: 'branding',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -426,7 +430,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Your seating chart, turned into wayfinding · each guest finds their table from the entrance',
     cta: 'Map my venue',
-    studioGroup: 'plan_organize',
+    studioGroup: 'branding',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -446,7 +450,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Your event palette · role + venue color stories · curated theme templates',
     cta: 'Open board',
-    studioGroup: 'plan_organize',
+    studioGroup: 'branding',
     tier: 'free',
     poster: {
       motion: 'drift',

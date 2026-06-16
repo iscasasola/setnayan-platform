@@ -37,6 +37,8 @@
 
 import {
   Home, Users, Compass, Sparkles, Palette, Wallet,
+  // Studio children:
+  Gem, Globe, Camera,
   // Budget children:
   Gauge, PieChart, Receipt,
   type LucideIcon,
@@ -94,11 +96,13 @@ export type CustomerMenuCtx = {
 };
 
 /**
- * The canonical 6-menu tree for an event. Children carried so far: Guests
- * (routed, from `guest-journey.ts`) · Explore (tabs, from `budget-build.ts`) ·
- * Budget (anchor scroll-sections). Home / Studio / Design are still parents-
- * without-children — Design is being folded INTO Studio (owner 2026-06-17), so
- * its children land with the Studio restructure, not as a standalone menu.
+ * The canonical customer-menu tree for an event — now **5 top menus** (owner
+ * 2026-06-17 folded Design INTO Studio): Home · Guests · Explore · Studio ·
+ * Budget. Children: Guests (routed, from `guest-journey.ts`) · Explore (tabs,
+ * from `budget-build.ts`) · Studio (anchor sections — Setnayan AI · Website ·
+ * Capture · Branding, scrolling the regrouped /add-ons hub) · Budget (anchor
+ * scroll-sections). Home is the only childless menu. (The `design` key remains
+ * in CustomerMenuKey but no longer renders a menu — /design redirects to Studio.)
  */
 export function buildCustomerMenuTree(
   eventId: string,
@@ -160,18 +164,23 @@ export function buildCustomerMenuTree(
       label: 'Studio',
       icon: Sparkles,
       href: `${base}/add-ons`,
-      activeMatch: `${base}/add-ons`,
-    },
-    {
-      key: 'design',
-      label: 'Design',
-      icon: Palette,
-      href: `${base}/design`,
-      activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
-      // Design's children intentionally NOT defined here: owner 2026-06-17 is
-      // folding Design INTO Studio (Website + Mood Board + Monogram become Studio
-      // sections, beside Save the Date). Until that restructure PR lands, Design
-      // stays a childless parent (no docked sub-nav) — same as before PR2.
+      // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 menus,
+      // no standalone Design tab; /design redirects here). activeMatch covers the
+      // former Design routes too so the Studio tab lights across them.
+      activeMatch: [`${base}/add-ons`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
+      // the regrouped /add-ons hub (lib/add-ons-catalog.ts studioGroup + the
+      // SECTIONS ids). Exact /add-ons only: the anchors live on the hub; add-on
+      // detail pages (/add-ons/papic …) are their own surfaces.
+      sectionMatch: `${base}/add-ons`,
+      sectionMatchExact: true,
+      subnavLabel: 'Studio sections',
+      children: [
+        { key: 'setnayan_ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai' },
+        { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website' },
+        { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture' },
+        { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding' },
+      ],
     },
     {
       key: 'budget',

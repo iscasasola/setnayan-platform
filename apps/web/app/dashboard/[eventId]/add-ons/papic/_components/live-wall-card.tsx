@@ -1,6 +1,7 @@
 import { MonitorPlay } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
 
 /**
@@ -9,17 +10,20 @@ import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-w
  * LIVE_WALL SKU; fetches screen codes + the latest wall tiles under the
  * couple's own RLS session (P0 policies), then hands interactivity to the
  * client controls (generate/revoke codes · hide/unhide tiles).
+ *
+ * Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
+ * repair, 2026-06-15) — the SAME mechanism every other couple SKU uses, and
+ * bundle-aware so a Media Pack buyer (whose order is keyed MEDIA_PACK, not
+ * LIVE_WALL) also unlocks the wall. The old event_software_activations_v2 read
+ * had no payment-path writer (its only writer, the DB fn
+ * verify_and_activate_manual_payment, has zero callers), so paying never lit
+ * this card.
  */
 export async function LiveWallCard({ eventId }: { eventId: string }) {
   const supabase = await createClient();
 
-  const { data: activation } = await supabase
-    .from('event_software_activations_v2')
-    .select('service_code')
-    .eq('event_id', eventId)
-    .eq('service_code', 'LIVE_WALL')
-    .maybeSingle();
-  if (!activation) return null;
+  const owns = await eventOwnsSku(supabase, eventId, 'LIVE_WALL');
+  if (!owns) return null;
 
   const [{ data: sessions }, { data: feed }] = await Promise.all([
     supabase

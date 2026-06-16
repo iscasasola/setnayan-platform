@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -53,15 +53,17 @@ export const GUEST_CAPTURE_CREDITS = 150;
 /**
  * Does this event own the paid Premium Guest Camera Pack?
  *
- * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
- * refund-aware, graceful-degrade on a missing orders table so the gated surface
- * shows the upgrade CTA / "no guest cameras" state rather than throwing.
+ * Delegates to the bundle-aware eventOwnsSku() reader (lib/entitlements.ts) —
+ * refund-aware, graceful-degrade on a missing orders table, AND counts a
+ * GUIDED_PACK or MEDIA_PACK bundle (both include PAPIC_GUEST) as owning the
+ * guest-camera pack. Kept in lockstep with the DB RPC papic_event_owns_service
+ * (migration 20270103010000) so the gate and the provisioning RPC agree.
  */
 export async function eventOwnsPapicGuest(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return checkOrderOwnership(supabase, eventId, PAPIC_GUEST_SERVICE_KEY);
+  return eventOwnsSku(supabase, eventId, PAPIC_GUEST_SERVICE_KEY);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

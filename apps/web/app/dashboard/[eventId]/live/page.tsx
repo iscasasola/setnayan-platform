@@ -13,6 +13,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase } from '@/lib/day-of-mode';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { resolveWallMode, type WallMode } from '@/lib/live-wall-logic';
 import {
   LiveWallControls,
@@ -54,14 +55,13 @@ export default async function LiveWallConsolePage({
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: activation } = await supabase
-    .from('event_software_activations_v2')
-    .select('service_code')
-    .eq('event_id', eventId)
-    .eq('service_code', 'LIVE_WALL')
-    .maybeSingle();
+  // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
+  // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer reaches the
+  // console too. Replaces the event_software_activations_v2 read whose only
+  // writer (verify_and_activate_manual_payment) had zero app callers.
+  const owns = await eventOwnsSku(supabase, eventId, 'LIVE_WALL');
 
-  if (!activation) {
+  if (!owns) {
     // Not purchased — a quiet doorway to the add-on, not a dead end. Price
     // copy intentionally absent (read at purchase surfaces from the catalog).
     return (

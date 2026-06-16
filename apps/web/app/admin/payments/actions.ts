@@ -230,23 +230,34 @@ export async function approvePayment(formData: FormData) {
     } catch (e) {
       console.error('vendor payout scheduling failed (non-fatal):', e);
     }
+  }
 
-    // Per-SKU activation dispatcher (PR3 hardening). The order is now 'paid';
-    // some SKUs need a side effect to unlock the capability (concierge state
-    // machine, Setnayan AI boolean, vendor branch flag). Non-fatal by
-    // contract — activateOrderSku never throws, so a failed activation leaves
-    // a recoverable state (admin re-runs / flips the row manually) but never
-    // rolls back the already-approved payment. Hooks are idempotent. PR4
-    // registers PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
-    if (order) {
-      await activateOrderSku({
-        admin,
-        orderId: payment.order_id,
-        eventId: order.event_id ?? null,
-        serviceKey: order.service_key ?? '',
-        actorUserId: userId,
-      });
-    }
+  // Per-SKU activation dispatcher (PR3 hardening; PR4 dead-unlock repair
+  // 2026-06-15: moved OUT of the `if (promoteOrder)` block so it runs on EVERY
+  // approval). WHY: ownership reads off orders.status via checkOrderOwnership(),
+  // which already counts a 'submitted' order as OWNED — so the moment a payment
+  // is matched the capability is owned, whether or not the admin ticked
+  // "promote to paid". Previously activation lived inside the promote block, so
+  // approving WITHOUT promote matched the payment but never ran the side-effect
+  // provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch
+  // flag), leaving the capability owned-but-unprovisioned. Running it
+  // unconditionally aligns provisioning with ownership.
+  //
+  // Some SKUs need a side effect to unlock the capability; MOST are pure no-ops
+  // (ownership alone suffices). Non-fatal by contract — activateOrderSku never
+  // throws, so a failed activation leaves a recoverable state (admin re-runs /
+  // flips the row manually) but never rolls back the already-approved payment.
+  // Hooks are idempotent, so the promote-on path (which falls through to here
+  // exactly once) and a later re-approval are both safe. PR4 registers
+  // PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
+  if (order) {
+    await activateOrderSku({
+      admin,
+      orderId: payment.order_id,
+      eventId: order.event_id ?? null,
+      serviceKey: order.service_key ?? '',
+      actorUserId: userId,
+    });
   }
 
   revalidatePath('/admin/payments');
@@ -439,9 +450,43 @@ export async function rejectPayment(formData: FormData) {
 
   const { data: order } = await admin
     .from('orders')
-    .select('event_id')
+    .select('event_id, status')
     .eq('order_id', payment.order_id)
     .maybeSingle();
+
+  // PR4 dead-unlock repair (2026-06-15): a permanent rejection must REVOKE
+  // access. checkOrderOwnership() treats any order whose status is NOT in
+  // {cancelled, refunded, lapsed} as OWNED — so leaving the order at
+  // 'submitted' after rejecting its only payment let the couple keep the
+  // unlocked SKU ("pay nothing, keep everything"). Move the order out of the
+  // owned set by flipping it to 'cancelled'. This is the HARD-reject path; the
+  // separate requestPaymentResubmit() action keeps the order alive on purpose
+  // (the couple re-uploads against the same order_id), so it must NOT cancel.
+  //
+  // Only flip orders that are still in a pre-fulfillment, non-terminal state —
+  // never stomp a 'paid'/'fulfilled' order (e.g. a later payment already
+  // settled it) or one already 'cancelled'/'refunded'/'lapsed'. The .in()
+  // WHERE makes this idempotent + race-safe.
+  const { data: cancelledOrder, error: cancelErr } = await admin
+    .from('orders')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('order_id', payment.order_id)
+    .in('status', ['draft', 'submitted', 'awaiting_payment'])
+    .select('order_id')
+    .maybeSingle();
+  if (cancelErr) {
+    // Non-fatal: the payment is already rejected + the couple is notified
+    // below. A failed cancel leaves a recoverable state (admin re-runs /
+    // flips the row manually) rather than blocking the rejection. Log it so
+    // the order-status drift is visible.
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Reject payment — cancel order to revoke access',
+      file_path: 'app/admin/payments/actions.ts',
+      error_message: cancelErr.message,
+      payload_snapshot: { paymentId, orderId: payment.order_id, priorStatus: order?.status ?? null },
+    });
+  }
 
   // Day 3 voucher sprint: ledger write for the payment_rejected transition.
   // Snapshot the rejected amount + admin reasoning.
@@ -452,7 +497,13 @@ export async function rejectPayment(formData: FormData) {
     actor_role: 'admin',
     amount_centavos: Math.round(Number(payment.amount_php) * 100),
     payment_id: paymentId,
-    metadata: { admin_notes: adminNotes },
+    metadata: {
+      admin_notes: adminNotes,
+      // Record whether the reject also cancelled the order (it's a no-op when
+      // the order had already settled to paid/fulfilled by another payment).
+      order_cancelled: Boolean(cancelledOrder),
+      prior_order_status: order?.status ?? null,
+    },
   });
 
   await emitNotification({
@@ -466,6 +517,10 @@ export async function rejectPayment(formData: FormData) {
   });
 
   revalidatePath('/admin/payments');
+  // PR4: the reject may have cancelled the order (revoking a SKU), so force the
+  // couple's gated surfaces to re-render locked — mirrors the layout-level
+  // revalidate approvePayment + refundOrder use for the access flip.
+  revalidatePath('/dashboard', 'layout');
 }
 
 // ============================================================================

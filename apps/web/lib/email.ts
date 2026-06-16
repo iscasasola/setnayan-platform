@@ -70,6 +70,26 @@ export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
 
+/**
+ * Cancel a previously-scheduled (future-dated) Resend email by id. Used to pull
+ * back the Papic sampler T-7/T-1 expiry warnings once the couple converts — their
+ * photos became permanent, so the "your free photos roll off" reminder would be
+ * wrong. Gated on the key and best-effort; returns whether the cancel succeeded.
+ */
+export async function cancelScheduledEmail(id: string): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !id) return false;
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(apiKey);
+    await resend.emails.cancel(id);
+    return true;
+  } catch (e) {
+    console.error('[email] resend cancel failed:', e);
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Vendor invite — couple-initiated claim invite (iterations 0006 + 0022,
 // locked 2026-05-19). Plain-text body with the claim link. HTML template

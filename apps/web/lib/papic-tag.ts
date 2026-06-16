@@ -57,9 +57,13 @@ export type PapicTagScan =
  * so the two never collide on a real printed code.
  */
 export function parsePapicTagScan(raw: string): PapicTagScan | null {
-  const guest = parseGuestQrPayload(raw);
+  // Null-safe: parseGuestQrPayload calls raw.trim() with no guard, so a stray
+  // null/undefined from a future caller would throw — but the tag action's
+  // contract is "never throws". Coerce here so this stays true by construction.
+  const safe = raw ?? '';
+  const guest = parseGuestQrPayload(safe);
   if (guest) return { kind: 'guest', token: guest };
-  const table = parseTableQrPayload(raw);
+  const table = parseTableQrPayload(safe);
   if (table) return { kind: 'table', ref: table };
   return null;
 }

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(papic): dashboard sampler-retention card + sampler-aware gallery nudge — close 2 of the #1577 audit's conversion-UX findings
+
+From the same "make the sampler powerful" push. The #1577 52-agent audit confirmed two conversion-UX gaps it left for owner triage — **"gallery not sampler-aware"** and **"banner informational-not-converting."** This closes both on the couple's Papic add-on dashboard (`/dashboard/[eventId]/add-ons/papic`) — the surface where the real convert actions already live (the Drive-connect inside the storage card + the crew-pack `InlineCheckoutDrawer`).
+
+- **New on-page `SamplerRetentionCard` — "Keep your free photos forever."** Gated on `!ownsPapicSeats && samplerExpiringCount > 0`; it reads the soonest non-expired `papic_photos.expires_at` (mirroring the `/crew` banner's countdown so both surfaces agree). **Two co-equal CTAs** (owner pick 2026-06-16: equal weight, no visual primary): **"Keep your own copy — Google Drive"** and **"Upgrade to full Papic · ₱…"**.
+- **Free-first + 503-safe by design.** The Drive CTA **anchors DOWN to the storage card** (`#papic-storage`) rather than deep-linking `/api/oauth/drive/start` (which 503s when `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is unset). The storage card owns the connect button + its own "coming soon — admin setup pending" gate, so the 503 route is never surfaced from a CTA. The upgrade CTA reuses the crew pack's `InlineCheckoutDrawer` and renders only when platform settings are present (the drawer needs the BDO/GCash QR refs); the free Drive path renders regardless.
+- **`GalleryPreviewCard` is now sampler-aware.** A slim "Your N free sampler photos expire in X days — keep them" nudge sits above the grid (where the couple actually sees the photos) and links up to `#papic-keep`.
+
+Single file (`app/dashboard/[eventId]/add-ons/papic/page.tsx`), additive — no new deps, no migration, reuses the existing `PAPIC_SEATS` SKU + the #1577 keep-permanent mechanic. tsc 0 · `next lint` clean. PR pending (branch `claude/papic-sampler-retention`, auto-merge).
+
+SPEC IMPACT: iteration 0012 — the couple-side Papic add-on page now **converts** the free sampler (was informational only); closes the #1577 audit's "gallery not sampler-aware" + "banner informational-not-converting" findings. No SKU / schema / pricing / public-surface change. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
 
 A **second, distinct** multi-pick data-loss bug (separate from the #1512 compute-path fix): the Build "Your build" Remove (X) button called `removeBuildPick({ eventId, planGroupId })` **without a `vendorId`**, and `removeBuildPick`'s vendorless branch deletes EVERY pick in the category. So removing one vendor from a multi-pick category (Look / Booths / Prints) silently wiped the couple's **other** picks in that category. Found while auditing whether the original (#1512) bug was truly closed — it was; this is a different write path.

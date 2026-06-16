@@ -31,6 +31,7 @@
 
 import { usePathname } from 'next/navigation';
 import { Nav } from './site-nav';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const NAV_ROUTES = new Set<string>([
   '/',
@@ -52,8 +53,8 @@ const NAV_ROUTES = new Set<string>([
 // pinning — preserves the prior per-page `<Nav sticky={false} />`.
 const NON_STICKY_ROUTES = new Set<string>(['/explore']);
 
-export function SiteChrome() {
+export function SiteChrome({ navSlots }: { navSlots?: Record<string, NavSlotLite> }) {
   const pathname = usePathname();
   if (!pathname || !NAV_ROUTES.has(pathname)) return null;
-  return <Nav sticky={!NON_STICKY_ROUTES.has(pathname)} />;
+  return <Nav sticky={!NON_STICKY_ROUTES.has(pathname)} navSlots={navSlots} />;
 }

@@ -27,6 +27,7 @@ import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
+import { getNavSlotMap } from '@/lib/nav-registry';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 import {
@@ -422,6 +423,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
 
+  // Nav registry: admin-managed menu labels for the public marketing nav,
+  // resolved server-side (cached via NAV_REGISTRY_TAG, fails open to defaults)
+  // and handed to the one persistent SiteChrome nav below.
+  const navSlots = await getNavSlotMap();
+
   // Admin-controlled brand mark for the in-app <Logo>/<LogoMark> (owner
   // 2026-06-10). Cached read (deduped with generateMetadata's call) → null when
   // no admin icon is set, so BrandProvider uses the built-in gold default.
@@ -528,7 +534,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
         <Providers brandMarkUrl={brandMarkUrl}>
-          <SiteChrome />
+          <SiteChrome navSlots={navSlots} />
           {children}
         </Providers>
         <ClientTypeDetector />

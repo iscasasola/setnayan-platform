@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { MobileMenu } from './_nav-mobile';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 // ─────────────────────────────────────────────────────────────────────
 // 1. Promo bar — pilot stage default per template homepage-top.jsx
@@ -54,7 +55,10 @@ export function PromoBar() {
 //    their own sticky-top bar (e.g. the /vendors marketplace search header)
 //    so two sticky bars don't stack/overlap on scroll.
 // ─────────────────────────────────────────────────────────────────────
-export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
+export function Nav({
+  sticky = true,
+  navSlots,
+}: { sticky?: boolean; navSlots?: Record<string, NavSlotLite> } = {}) {
   // Simple site nav (owner 2026-06-13/14): Home (the video scrub, = the logo) ·
   // Explore (search anything across all services) · For vendors · Our story ·
   // Journal · Real Stories. "What you get" was REMOVED from the nav 2026-06-14 —
@@ -70,13 +74,23 @@ export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
   // "Real Stories" → /weddings: the real-wedding showcase (iteration 0046,
   // seeded with the Maria & Juan sample editorial) IS the destination — a
   // separate surface from the Journal (real weddings vs planning guides).
-  const links: Array<{ label: string; href: string }> = [
-    { label: 'Explore', href: '/vendors' },
-    { label: 'For vendors', href: '/for-vendors' },
-    { label: 'Our story', href: '/our-story' },
-    { label: 'Journal', href: '/blog' },
-    { label: 'Real Stories', href: '/weddings' },
-  ];
+  // Labels come from the admin nav registry (public.site-nav.* slots) when
+  // present, else the hardcoded default; a hidden slot drops the link. Public
+  // marketing nav is label-only — no icons. Feeds both the desktop row and the
+  // MobileMenu below (same `links`).
+  const links: Array<{ label: string; href: string }> = (
+    [
+      { slot: 'public.site-nav.explore', label: 'Explore', href: '/vendors' },
+      { slot: 'public.site-nav.for-vendors', label: 'For vendors', href: '/for-vendors' },
+      { slot: 'public.site-nav.our-story', label: 'Our story', href: '/our-story' },
+      { slot: 'public.site-nav.journal', label: 'Journal', href: '/blog' },
+      { slot: 'public.site-nav.real-stories', label: 'Real Stories', href: '/weddings' },
+    ] as const
+  ).flatMap((l) => {
+    const s = navSlots?.[l.slot];
+    if (s?.isHidden) return [];
+    return [{ label: s?.label ?? l.label, href: l.href }];
+  });
 
   // Auto-hide on scroll-down, reveal on scroll-up — only when sticky. Lets the
   // homepage hero scrub fill the screen ("pure scrubbing") the moment you

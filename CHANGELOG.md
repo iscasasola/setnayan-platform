@@ -4,7 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-16 · feat(nav): wire the ADMIN doorway to the registry (consumption PR 4)
+## 2026-06-16 · feat(nav): wire the PUBLIC marketing nav to the registry (consumption PR 5 — completes the doorways)
+
+Fifth and final doorway consumption — the **public marketing top nav** now sources its menu **labels from the admin registry** (`public.site-nav.*` slots), falling back to the hardcoded defaults. Label-only (the public nav has no icons). **Visually identical today** (all 5 slot defaults match the code exactly: Explore · For vendors · Our story · Journal · Real Stories). With this, **every menu across all four surfaces — customer · vendor · admin · public — is registry-driven.**
+
+Single clean chokepoint (the marketing nav renders once via `RootLayout → SiteChrome → Nav`; the `[slug]`/`v/[slug]`/`venue/[slug]` public pages use `NavLinksRow` directions, not this nav):
+
+- **`apps/web/app/_components/marketing/site-nav.tsx`** — `Nav` takes an optional `navSlots`; each of the 5 links overlays its label from `public.site-nav.<key>` (fallback = default; a hidden slot drops the link). Feeds both the desktop row and the `MobileMenu` (same `links`).
+- **`apps/web/app/_components/marketing/site-chrome.tsx`** — `SiteChrome` passes `navSlots` through to `Nav`.
+- **`apps/web/app/layout.tsx`** — `RootLayout` resolves `getNavSlotMap()` once (cached, fails open) and hands it to the persistent `SiteChrome`.
+
+`pnpm typecheck` + `pnpm lint` green. Deferred (cleanup follow-ups): group-heading slots, the `_overview-tile.tsx` ICONS map, vendor.topbar/payment-options + customer day-of roster slots, and the ESLint guard (blocked until nav configs drop their Lucide fallback imports). The legacy `SiteHeader` (waitlist/download) has a different, slot-less link set — left as-is.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
 
 Fourth consumption of the nav/icon/menu registry — the **admin doorway** (sidebar ~55 items + 6-tab bottom nav) now sources each item's **label + icon from the admin registry** (`admin.sidebar.*` + `admin.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified every admin sidebar item + bottom tab matches its registry default, all 54 admin icons in the curated allowlist). Admin nav has no role-gating, so the overlay applies directly.
 

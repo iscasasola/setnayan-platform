@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
+
+Owner: *"all icons and namings are there … these will set the source for all the icons and menus on setnayan for all accounts."* Foundation PR for the admin-managed registry that owns the **name (label) + icon** of every menu/route across Setnayan, all account types. Triggered by the Setnayan-AI-vs-Studio shared-`Sparkles` clash. Discovery workflow mapped **176 deduped slots** → `Nav_Icon_Menu_Registry_Design_2026-06-16.md`.
+
+Architecture: **code defaults + sparse DB overrides + resolver.** This PR is **additive — it changes no live behavior** (the existing nav still hardcodes its own icons; `route-meta.ts` was imported nowhere). The live-nav wiring lands in follow-up PRs.
+
+- **`supabase/migrations/20261231000000_nav_slot_override.sql`** (new) — `nav_slot_override` table: `slot_key` PK, `label`, `icon_kind` (lucide|custom|none), `lucide_name`, `custom_url`, `is_hidden`, `updated_at/by`. RLS at create time: **public SELECT** (nav renders everywhere incl. logged-out), **single-admin write** via `is_admin()` (governance: single-admin + audit, owner-locked 2026-06-16). CHECK constraints tie icon_kind→its value. **Must be applied** (`supabase db push`) before edits persist; until then the page renders defaults (resolver fails open).
+- **`apps/web/lib/nav-registry-defaults.ts`** (new, generated) — the **187 slot defaults** (key · scope · area · route · label · icon), the route-meta successor and single in-code source the overrides layer on top of.
+- **`apps/web/lib/nav-registry-types.ts`** (new) — shared types (server + client safe).
+- **`apps/web/lib/nav-registry.ts`** (new, server-only) — resolver: merges defaults + overrides (`COALESCE`), service-role read cached via `unstable_cache` + `NAV_REGISTRY_TAG`, fails open to defaults. `getResolvedNavSlots` / `getNavArea` / `getNavSlot`.
+- **`apps/web/lib/nav-icons.ts`** (new, generated) — curated **257-icon** Lucide allowlist (explicit imports → tree-shaken, instant render, no flash) covering all 94 default icons + a generous picker set, validated against `lucide-react`. Powers both `<DynamicIcon>` and the picker.
+- **`apps/web/app/_components/nav/dynamic-icon.tsx`** (new) — renders a slot's icon descriptor: Lucide glyph · inline custom mark (`SetnayanMark`, currentColor) · uploaded image · none.
+- **`apps/web/app/admin/menus/`** (new) — the `/admin/menus` page + server actions (`setSlotLabel` · `setSlotLucideIcon` · `setSlotNoIcon` · `setSlotHidden` · `resetSlot` · `uploadSlotIcon`→R2) + the grouped editor (scope tabs · search · inline rename · searchable Lucide picker · custom upload · hide · reset). Every write: `requireAdmin` + validated + `admin_audit_log` + `revalidateTag`.
+- **`apps/web/app/admin/_components/admin-sidebar.tsx`** — adds "Menus & icons" (Shapes) to the Platform group.
+
+`pnpm typecheck` + `pnpm lint` green.
+
+SPEC IMPACT: Logged in `DECISION_LOG.md` (2026-06-16 registry program row) + design doc `Nav_Icon_Menu_Registry_Design_2026-06-16.md` + memory `project_setnayan_nav_icon_menu_registry`. No locked-SKU/schema-rename impact (additive infra).
+
 ## 2026-06-16 · feat(build): event_category_build_state table (Phase 3d schema — dark)
 
 The 3-State Solver's foundation (`Build_3State_Solver_2026-06-16.md`, PR 3d-0). New couple-own table `event_category_build_state(event_id, plan_group_id, state ∈ locked|auto|excluded, pinned_vendor_id, set_by)` — one tri-state row per category, consolidating `budget_category_flags` (the Flag marker) + `event_build_picks` (the pinned vendor) into one control. `pinned_vendor_id` holds the Locked taxonomy pick (NULL for the Date/Budget/Location dimension rows, whose value lives on `events`).

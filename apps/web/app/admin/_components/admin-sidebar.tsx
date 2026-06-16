@@ -86,6 +86,7 @@ import {
   CreditCard,
   Brain,
   Palette,
+  Shapes,
   Tag,
   Globe,
   Megaphone,
@@ -435,6 +436,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // /admin/settings/payment-methods lives under Money & Catalog —
         // exclude it so that entry stays lit when viewing payment methods.
         matchPrefix: '/admin/settings',
+      },
+      {
+        // Nav/icon/menu registry — the single source for the name + icon of
+        // every menu across all account types (foundation 2026-06-16).
+        key: 'menus',
+        label: 'Menus & icons',
+        href: '/admin/menus',
+        icon: Shapes,
       },
       {
         // Onboarding-flow config (background music + future per-flow knobs),

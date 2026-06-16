@@ -3,67 +3,71 @@
 /**
  * Rigid-panel reveals (envelope family · templates 2–4 of 7).
  *
- * The same pure-CSS-3D engine as the four-flap envelope, parameterised over the
- * three remaining rigid openings:
+ * The same scroll-scrubbed, swipe-the-seal engine as the four-flap envelope
+ * (RigidStage), parameterised over the three remaining rigid openings:
  *   - two-flap-vertical    — splits left | right, the two flaps swing open
  *   - two-flap-horizontal  — splits top | bottom, the two flaps swing open
  *   - church-doors         — two grand arched doors swing wide
  *
- * No WebGL dependency, so these stay inside the guest-site bundle / Lighthouse
- * budget (the veils carry the only three.js cost, code-split behind the same
- * flag). Each flap is two-sided — paper on the front, the liner accent on the
- * back — so as it swings past upright you glimpse the inner colour, exactly like
- * a real envelope. Everything is styled with the moodboard-recoloured Tailwind
- * tokens (cream / terracotta / mulberry / ink) that app/[slug] already overrides
- * per event via buildSitePaletteVars, so it recolours automatically, ₱0.
+ * The flaps SCRUB open with scroll (progress 0→1) — not a tap — after the
+ * couple's monogram wax seal is swiped off the paper (§1a). No WebGL dependency,
+ * so these stay inside the guest-site bundle / Lighthouse budget. Each flap is
+ * two-sided — paper on the front, the liner accent on the back — so as it swings
+ * past upright you glimpse the inner colour, exactly like a real envelope.
+ * Everything uses the moodboard-recoloured Tailwind tokens (cream / terracotta /
+ * mulberry / ink) app/[slug] overrides per event, so it recolours, ₱0.
  */
 
 import type { CSSProperties, ReactNode } from 'react';
+import { RigidStage } from './rigid-stage';
 
 export type RigidVariant = 'two-flap-vertical' | 'two-flap-horizontal' | 'church-doors';
 
 type Props = {
-  /** Which rigid opening to render. */
   variant: RigidVariant;
-  /** Short couple monogram shown on the seal, e.g. "A & J". */
+  /** The couple's monogram SVG markup (uploaded/custom). Null → lettered seal. */
+  markSvg: string | null;
+  /** Lettered fallback for the seal, e.g. "A & J". */
   monogram: string;
-  /** Once true, the flaps swing open and the overlay fades out. */
-  open: boolean;
-  /** Fired when the guest triggers the open (tap). */
-  onOpen: () => void;
+  /** Wax seal colour (hex) — the moodboard deep accent. */
+  waxColor: string;
+  /** Fired once the flaps have scrubbed fully open. */
+  onOpened: () => void;
 };
 
-const FOLD =
-  'absolute transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] will-change-transform [transform-style:preserve-3d]';
+const FOLD = 'absolute will-change-transform [transform-style:preserve-3d]';
 
 /**
- * One two-sided rigid flap. `openTransform` is applied while open; `backRotate`
- * flips the liner face 180° about the flap's own hinge axis so it shows once the
- * flap turns past upright.
+ * One two-sided rigid flap, rotated by `progress` toward `maxDeg` about `axis`.
+ * `backRotate` flips the liner face 180° about the flap's own hinge so it shows
+ * once the flap turns past upright.
  */
 function Flap({
   className,
-  style,
   faceClass = 'bg-cream',
   backClass = 'bg-terracotta',
   faceStyle,
-  openTransform,
+  backStyle,
+  axis,
+  maxDeg,
   backRotate,
-  open,
+  progress,
   children,
 }: {
   className: string;
-  style?: CSSProperties;
   faceClass?: string;
   backClass?: string;
   faceStyle?: CSSProperties;
-  openTransform: string;
+  backStyle?: CSSProperties;
+  axis: 'X' | 'Y';
+  maxDeg: number;
   backRotate: string;
-  open: boolean;
+  progress: number;
   children?: ReactNode;
 }) {
+  const transform = `rotate${axis}(${maxDeg * progress}deg)`;
   return (
-    <div className={`${FOLD} ${className}`} style={{ ...style, transform: open ? openTransform : 'none' }}>
+    <div className={`${FOLD} ${className}`} style={{ transform }}>
       {/* front (paper) */}
       <div
         className={`absolute inset-0 overflow-hidden [backface-visibility:hidden] ${faceClass}`}
@@ -73,8 +77,8 @@ function Flap({
       </div>
       {/* back (liner accent) */}
       <div
-        className={`absolute inset-0 [backface-visibility:hidden] ${backClass}`}
-        style={{ transform: backRotate }}
+        className={`absolute inset-0 overflow-hidden [backface-visibility:hidden] ${backClass}`}
+        style={{ transform: backRotate, ...backStyle }}
       />
     </div>
   );
@@ -96,92 +100,61 @@ function DoorPanels({ trim }: { trim: 'left' | 'right' }) {
   );
 }
 
-export function RigidReveal({ variant, monogram, open, onOpen }: Props) {
+function flaps(variant: RigidVariant, p: number): ReactNode {
+  if (variant === 'two-flap-vertical') {
+    return (
+      <>
+        <Flap className="left-0 top-0 h-full w-1/2 origin-left" axis="Y" maxDeg={-122} backRotate="rotateY(180deg)" progress={p} />
+        <Flap className="right-0 top-0 h-full w-1/2 origin-right" axis="Y" maxDeg={122} backRotate="rotateY(180deg)" progress={p} />
+      </>
+    );
+  }
+  if (variant === 'two-flap-horizontal') {
+    return (
+      <>
+        <Flap className="left-0 top-0 h-1/2 w-full origin-top" axis="X" maxDeg={122} backRotate="rotateX(180deg)" progress={p} />
+        <Flap className="left-0 bottom-0 h-1/2 w-full origin-bottom" axis="X" maxDeg={-122} backRotate="rotateX(180deg)" progress={p} />
+      </>
+    );
+  }
   return (
-    <div
-      className={`absolute inset-0 transition-opacity duration-700 ${
-        open ? 'pointer-events-none opacity-0' : 'opacity-100'
-      }`}
-    >
-      {/* soft stage behind the flaps so the seam / arch surround reads */}
-      <div className="absolute inset-0 bg-ink" />
+    <>
+      <Flap
+        className="left-0 top-0 h-full w-1/2 origin-left"
+        axis="Y"
+        maxDeg={-138}
+        backRotate="rotateY(180deg)"
+        backClass="bg-mulberry"
+        faceStyle={{ borderTopRightRadius: '42%' }}
+        backStyle={{ borderTopRightRadius: '42%' }}
+        progress={p}
+      >
+        <DoorPanels trim="left" />
+      </Flap>
+      <Flap
+        className="right-0 top-0 h-full w-1/2 origin-right"
+        axis="Y"
+        maxDeg={138}
+        backRotate="rotateY(180deg)"
+        backClass="bg-mulberry"
+        faceStyle={{ borderTopLeftRadius: '42%' }}
+        backStyle={{ borderTopLeftRadius: '42%' }}
+        progress={p}
+      >
+        <DoorPanels trim="right" />
+      </Flap>
+    </>
+  );
+}
 
-      {/* the 3D stage holding the flaps */}
-      <div className="absolute inset-0" style={{ perspective: '2000px' }}>
-        {variant === 'two-flap-vertical' ? (
-          <>
-            <Flap
-              className="left-0 top-0 h-full w-1/2 origin-left"
-              openTransform="rotateY(-122deg)"
-              backRotate="rotateY(180deg)"
-              open={open}
-            />
-            <Flap
-              className="right-0 top-0 h-full w-1/2 origin-right"
-              openTransform="rotateY(122deg)"
-              backRotate="rotateY(180deg)"
-              open={open}
-            />
-          </>
-        ) : variant === 'two-flap-horizontal' ? (
-          <>
-            <Flap
-              className="left-0 top-0 h-1/2 w-full origin-top"
-              openTransform="rotateX(122deg)"
-              backRotate="rotateX(180deg)"
-              open={open}
-            />
-            <Flap
-              className="left-0 bottom-0 h-1/2 w-full origin-bottom"
-              openTransform="rotateX(-122deg)"
-              backRotate="rotateX(180deg)"
-              open={open}
-            />
-          </>
-        ) : (
-          <>
-            <Flap
-              className="left-0 top-0 h-full w-1/2 origin-left"
-              openTransform="rotateY(-138deg)"
-              backRotate="rotateY(180deg)"
-              backClass="bg-mulberry"
-              faceStyle={{ borderTopRightRadius: '42%' }}
-              open={open}
-            >
-              <DoorPanels trim="left" />
-            </Flap>
-            <Flap
-              className="right-0 top-0 h-full w-1/2 origin-right"
-              openTransform="rotateY(138deg)"
-              backRotate="rotateY(180deg)"
-              backClass="bg-mulberry"
-              faceStyle={{ borderTopLeftRadius: '42%' }}
-              open={open}
-            >
-              <DoorPanels trim="right" />
-            </Flap>
-          </>
-        )}
-      </div>
-
-      {/* wax seal + cue where the panels meet */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label="Open the invitation"
-          className={`group flex flex-col items-center gap-3 transition-opacity duration-500 ${
-            open ? 'opacity-0' : 'opacity-100'
-          }`}
-        >
-          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-mulberry text-cream shadow-2xl ring-4 ring-cream/30 transition-transform group-hover:scale-105 group-active:scale-95">
-            <span className="font-display text-lg italic">{monogram}</span>
-          </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/85">
-            Tap to open
-          </span>
-        </button>
-      </div>
-    </div>
+export function RigidReveal({ variant, markSvg, monogram, waxColor, onOpened }: Props) {
+  return (
+    <RigidStage
+      markSvg={markSvg}
+      monogramText={monogram}
+      waxColor={waxColor}
+      onOpened={onOpened}
+      renderFlaps={(p) => flaps(variant, p)}
+    />
   );
 }

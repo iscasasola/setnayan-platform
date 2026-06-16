@@ -39,6 +39,7 @@ export function SelfieCapture() {
   const [r2Ref, setR2Ref] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [gate, setGate] = useState<FaceGateResult | null>(null);
+  const [selfieVector, setSelfieVector] = useState<number[] | null>(null);
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -76,6 +77,7 @@ export function SelfieCapture() {
   const retake = useCallback(() => {
     setR2Ref(null);
     setGate(null);
+    setSelfieVector(null);
     setPreviewUrl(null);
     setError(null);
     void startCamera();
@@ -117,6 +119,18 @@ export function SelfieCapture() {
       setGate(await runFaceGate(canvas));
     } catch {
       setGate(null);
+    }
+
+    // On-device face fingerprint (dlib via face-api.js) — best-effort, DORMANT
+    // until a model is hosted. The 128-d descriptor is the guest's enrollment
+    // fingerprint for gallery auto-tagging; the lazy import keeps face-api/TF.js
+    // off the bundle until a guest actually takes a selfie. Never blocks the RSVP.
+    try {
+      const { embedSingleFace } = await import('@/lib/face-embed');
+      const r = await embedSingleFace(canvas);
+      setSelfieVector(r ? r.vector : null);
+    } catch {
+      setSelfieVector(null);
     }
 
     // Upload the full-res JPEG (the face-rec enrollment asset) to R2.
@@ -177,6 +191,13 @@ export function SelfieCapture() {
           type="hidden"
           name="selfie_quality"
           value={JSON.stringify({ score: gate.score, ...gate.meta })}
+        />
+      ) : null}
+      {r2Ref && selfieVector ? (
+        <input
+          type="hidden"
+          name="selfie_vector"
+          value={JSON.stringify(selfieVector)}
         />
       ) : null}
 

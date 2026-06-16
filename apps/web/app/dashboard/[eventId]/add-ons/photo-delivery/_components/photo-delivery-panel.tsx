@@ -14,6 +14,7 @@ import {
   releasePhotoDelivery,
 } from '../actions';
 import { ReleaseProgressPoller } from './release-progress-poller';
+import { DriveConnectCard, DriveReconnectBanner } from './drive-connect-card';
 
 // 0009 Photo Delivery panel — wired to real OAuth + release flow.
 //
@@ -73,6 +74,10 @@ type Props = {
   // letting the couple click through to a JSON error page from the
   // /api/oauth/photo-delivery/start route.
   oauthReady: boolean;
+  // True when Google rejected the stored refresh_token (oauth_grants
+  // .connection_health === 'needs_reauth'). Surfaces the calm reconnect banner
+  // on the connected panel instead of a stale "Connected" while uploads stall.
+  needsReauth: boolean;
 };
 
 export function PhotoDeliveryPanel({
@@ -93,6 +98,7 @@ export function PhotoDeliveryPanel({
   disconnectedFlash,
   job,
   oauthReady,
+  needsReauth,
 }: Props) {
   const folderNamePreview = buildFolderNamePreview(eventName, eventDate);
 
@@ -100,7 +106,6 @@ export function PhotoDeliveryPanel({
     return (
       <IdleState
         eventId={eventId}
-        folderNamePreview={folderNamePreview}
         disconnectedFlash={disconnectedFlash}
         oauthReady={oauthReady}
       />
@@ -122,6 +127,7 @@ export function PhotoDeliveryPanel({
       releaseStartedFlash={releaseStartedFlash}
       alreadyComplete={alreadyComplete}
       job={job}
+      needsReauth={needsReauth}
     />
   );
 }
@@ -143,12 +149,10 @@ function buildFolderNamePreview(
 
 function IdleState({
   eventId,
-  folderNamePreview,
   disconnectedFlash,
   oauthReady,
 }: {
   eventId: string;
-  folderNamePreview: string;
   disconnectedFlash: boolean;
   oauthReady: boolean;
 }) {
@@ -164,48 +168,21 @@ function IdleState({
         </p>
       ) : null}
 
-      <section className="rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
-        <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="space-y-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-              Step 1 of 3 — Connect
-            </p>
-            <h2 className="text-2xl font-semibold tracking-tight">
-              Link your Google Drive
-            </h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              Setnayan creates one folder in your Drive — named{' '}
-              <span className="font-mono text-ink">{folderNamePreview}</span> — and
-              pushes every photographer and videographer&rsquo;s finished
-              deliverables there. We use the{' '}
-              <span className="font-mono">drive.file</span> scope, which means
-              Setnayan can only see and write the files it creates inside that
-              folder. Nothing else in your Drive is touched.
-            </p>
-          </div>
-
-          {oauthReady ? (
-            <Link
-              href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600 sm:w-auto"
-            >
-              <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Connect Google Drive
-            </Link>
-          ) : (
-            <div className="inline-flex w-full max-w-sm flex-col items-start gap-1 rounded-md border border-ink/15 bg-ink/[0.03] px-4 py-3 text-xs text-ink/65 sm:w-auto">
-              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                <CloudUpload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Drive setup pending
-              </span>
-              <span className="leading-snug">
-                Setnayan&rsquo;s admin is finishing the Google Cloud verified-app review.
-                The Connect button lights up here the moment that clears.
-              </span>
-            </div>
-          )}
-        </div>
-      </section>
+      <DriveConnectCard
+        connectHref={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
+        oauthReady={oauthReady}
+        headline="Keep your own copy in Google Drive"
+        body={
+          <>
+            Your photos already live here in Setnayan — nothing to set up,
+            they&rsquo;re always yours to view. Connect your Google Drive and
+            we&rsquo;ll <em>also</em> drop every finished photo and clip into one
+            folder you own, yours to keep forever, long after the wedding.
+          </>
+        }
+        deferHref={`/dashboard/${eventId}/add-ons`}
+        deferLabel="Not now — keep my photos in Setnayan"
+      />
 
       <ol className="grid gap-3 sm:grid-cols-3">
         {[
@@ -259,6 +236,7 @@ function ConnectedState({
   releaseStartedFlash,
   alreadyComplete,
   job,
+  needsReauth,
 }: {
   eventId: string;
   syncMode: 'manual_release' | 'auto_sync';
@@ -273,6 +251,7 @@ function ConnectedState({
   releaseStartedFlash: boolean;
   alreadyComplete: boolean;
   job: JobRollup | null;
+  needsReauth: boolean;
 }) {
   const isUploading = status === 'releasing' || status === 'uploading';
   const isComplete = status === 'complete';
@@ -285,6 +264,12 @@ function ConnectedState({
 
   return (
     <div className="space-y-5">
+      {needsReauth ? (
+        <DriveReconnectBanner
+          reconnectHref={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
+        />
+      ) : null}
+
       {releaseError ? (
         <p
           role="alert"

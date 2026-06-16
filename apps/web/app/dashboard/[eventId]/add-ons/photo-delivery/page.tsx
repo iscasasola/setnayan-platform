@@ -60,6 +60,19 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // Connection health for the reconnect banner. Photo Delivery + Papic share
+  // ONE per-event grant (provider='drive'); 'needs_reauth' is set by the lazy
+  // token refreshers when Google rejects the stored refresh_token. RLS scopes
+  // this read to the couple (same pattern the Papic add-on page uses).
+  const { data: driveGrant } = await supabase
+    .from('oauth_grants')
+    .select('connection_health')
+    .eq('event_id', eventId)
+    .eq('provider', 'drive')
+    .is('revoked_at', null)
+    .maybeSingle();
+  const needsReauth = driveGrant?.connection_health === 'needs_reauth';
+
   const syncMode: SyncMode =
     (event?.photo_delivery_sync_mode as SyncMode | null) ?? 'manual_release';
   const syncModeJustSet =
@@ -164,6 +177,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         alreadyComplete={alreadyCompleteFlash}
         disconnectedFlash={disconnectedFlash}
         oauthReady={getPhotoDeliveryOAuthConfig().ready}
+        needsReauth={needsReauth}
         job={
           latestJob
             ? {

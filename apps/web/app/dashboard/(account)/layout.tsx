@@ -1,12 +1,10 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
-import { fetchUserRoleSummary } from '@/lib/roles';
-import { countUnread } from '@/lib/notifications';
-import { logQueryError } from '@/lib/supabase/error-detect';
+import { sortEventsForSwitcher } from '@/lib/events';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getDashboardShell } from '@/lib/dashboard-shell';
 import { OuterDashboardHeader } from '@/app/dashboard/_components/outer-dashboard-header';
 
 /**
@@ -39,45 +37,14 @@ export default async function AccountDashboardLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/dashboard'));
+  // getDashboardShell fetches events + roles + unreadCount in one cached
+  // Promise.all. React cache() deduplicates this call across layouts that
+  // share the same render tree — any page or layout that also calls
+  // getDashboardShell(user.id) in this request gets the already-resolved
+  // result at zero DB cost.
   const supabase = await createClient();
-
-  // Resolve the switcher chrome data once. Each fetcher is individually
-  // `.catch()`-wrapped with safe defaults so a single throw can't reject the
-  // whole `Promise.all` and crash the layout (5th-hotfix defensive pattern,
-  // preserved verbatim from the prior parent layout).
-  const [events, roles, unreadCount, profilePhotoUrl] = await Promise.all([
-    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
-      logQueryError(
-        'AccountDashboardLayout (fetchUserEvents threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
-    }),
-    fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'AccountDashboardLayout (fetchUserRoleSummary threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return {
-        hasCustomerAccess: true,
-        hasVendorAccess: false,
-        hasAdminAccess: false,
-        vendorProfiles: [],
-      } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
-    }),
-    countUnread(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'AccountDashboardLayout (countUnread threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return 0;
-    }),
+  const [{ events, roles, unreadCount }, profilePhotoUrl] = await Promise.all([
+    getDashboardShell(user.id),
     // Account profile photo for the (I) avatar (owner directive 2026-06-12:
     // avatar = ACCOUNT photo, never the event logo). Presigned display URL;
     // degrades to null (initial fallback) on any error.

@@ -141,6 +141,16 @@ export type VendorCardData = {
    *  real business_name) + the review-display gate (stars / comments).
    *  Optional + `?? null` → free → hidden when absent. */
   tier_state?: string | null;
+  /**
+   * Relationship depth between this couple's active event and the vendor (0–3).
+   * Computed from event_vendors + vendor_event_unlocks when the viewer is
+   * authenticated and has an active event. 0 (or absent) = no relationship.
+   *   3 → "Your vendor"           (deposit paid or complete)
+   *   2 → "You're in conversation" (vendor_event_unlocks row exists)
+   *   1 → "In your shortlist"     (any non-declined event_vendors row)
+   *   0 → no badge
+   */
+  relationship_depth?: 0 | 1 | 2 | 3;
 };
 
 type Props = {
@@ -324,6 +334,30 @@ export function VendorCard({
             </div>
           ) : null}
       </div>
+
+      {/* Relationship-depth badge — only when logged in + has active event
+          (page.tsx only sets relationship_depth when both conditions are true).
+          Depth-1 vendors also get an "Add to inquiry" CTA that opens their
+          workspace thread for this event. */}
+      {(vendor.relationship_depth ?? 0) >= 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] ${
+              vendor.relationship_depth === 3
+                ? 'bg-ink text-cream'
+                : vendor.relationship_depth === 2
+                  ? 'bg-mulberry/10 text-mulberry ring-1 ring-mulberry/25'
+                  : 'bg-terracotta/15 text-terracotta ring-1 ring-terracotta/30'
+            }`}
+          >
+            {vendor.relationship_depth === 3
+              ? 'Your vendor'
+              : vendor.relationship_depth === 2
+                ? "You're in conversation"
+                : 'In your shortlist'}
+          </span>
+        </div>
+      ) : null}
 
       {vendor.tagline ? (
         <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>

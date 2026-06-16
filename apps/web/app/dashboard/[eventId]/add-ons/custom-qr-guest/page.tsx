@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Download, Palette, QrCode, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import {
@@ -78,7 +79,13 @@ export default async function CustomQrGuestPage({ params }: Props) {
   // refunded / lapsed releases it. Graceful-degrade on a missing/legacy orders
   // table (42P01 / 42703) — pre-bootstrap databases surface the buy CTA rather
   // than crashing, matching the PR #380/#390 hotfix pattern.
-  const owns = await eventOwnsSku(supabase, eventId, SKU_CODE);
+  //
+  // Read with the ADMIN client (PR4d): the !event redirect above is the
+  // membership gate (the event read is RLS-scoped to members), and ownership is
+  // an EVENT-level fact — but orders RLS is purchaser-scoped (user_id =
+  // auth.uid()), so the user client would deny a co-host member who didn't
+  // personally place the order and wrongly show them the buy CTA.
+  const owns = await eventOwnsSku(createAdminClient(), eventId, SKU_CODE);
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});

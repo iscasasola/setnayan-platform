@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
+
+The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.
+
+- **migration `20270106000000`** (applied to prod) — `papic_sampler_email_log` (event_id PK = once-per-event lock; t7/t1 message ids for an optional future cancel; admin-only RLS).
+- **`lib/email.ts`** — `SendEmailArgs.scheduledAt?` passed through to Resend (`resend@6.12.3` supports it). Immediate send unchanged.
+- **`lib/papic-sampler-emails.ts`** (new) — `scheduleSamplerExpiryWarnings(eventId, expiresAt)`: resolves the couple's email, PK-locks once per event, schedules the two emails. Copy is worded so it's correct whether or not they later keep the photos ("ignore this if you've already connected Drive or upgraded") — so no cancel-on-keep hook is required. Never throws.
+- **`papic/actions.ts`** — `recordSeatCapture` `after()` calls it for sampler captures (lazy import, best-effort).
+- Dormant until `RESEND_API_KEY` is set (same gate as every other email). `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — sampler expiry emails (cron-free, provider-scheduled). Closes the last sampler follow-up. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
 
 Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.

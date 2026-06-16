@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import type { EventTableRow } from '@/lib/seating';
 import { DayOfModeBanner } from './banner';
 import { WhatsHappeningCard } from './whats-happening-card';
@@ -8,6 +10,7 @@ import { LivePhotoWallCard } from './live-photo-wall-card';
 import { VideoGuestbookCard } from './video-guestbook-card';
 import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
+import { GetHelpCard } from './get-help-card';
 
 type Block = {
   block_id: string;
@@ -48,7 +51,22 @@ export function DayOfModeGrid({
         <VideoGuestbookCard />
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
         <CoordinatorBroadcastCard />
+        <GetHelpCard />
       </div>
+
+      {/* Wrap-up entry point (Event Lifecycle Menu PR3) — when the celebration
+          winds down, close out the day to move the app into After mode. */}
+      <Link
+        href={`/dashboard/${eventId}/clearance`}
+        className="group flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] px-4 py-2.5 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:bg-terracotta/10"
+      >
+        When the day winds down, close it out
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+          strokeWidth={1.75}
+        />
+      </Link>
     </section>
   );
 }

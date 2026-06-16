@@ -66,9 +66,11 @@
 
 import { Home, Briefcase, CalendarDays, MessageSquare, Globe, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -191,12 +193,30 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
  * over). Per [[feedback_setnayan_orphan_prevention]] each tab's destination
  * route is verified to exist on the codebase.
  */
-export function VendorBottomNav({ role }: { role: VendorTeamRole | null }) {
+export function VendorBottomNav({
+  role,
+  navSlots,
+}: {
+  role: VendorTeamRole | null;
+  navSlots?: Record<string, NavSlotLite>;
+}) {
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
   // per-service data scoping lands.
-  const items = canManageVendor(role)
+  const base = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
     : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));
+  // Nav registry overlay: label + icon per tab from its vendor.bottom-nav.<key>
+  // slot (the Home tab keeps key 'profile' for localStorage continuity but maps
+  // to the 'home' slot). Fallback = the hardcoded default; hidden slot drops the
+  // tab; href/activeMatch stay in code. No-op when navSlots is absent.
+  const items = navSlots
+    ? base.flatMap((item) => {
+        const slot = navSlots[`vendor.bottom-nav.${item.key === 'profile' ? 'home' : item.key}`];
+        if (!slot) return [item];
+        if (slot.isHidden) return [];
+        return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+      })
+    : base;
   return <BottomNav items={items} />;
 }

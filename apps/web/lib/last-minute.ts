@@ -1,20 +1,23 @@
 /**
  * Last-minute mechanic — the §4 net-new layer of Setnayan AI
  * (What_Is_Setnayan_AI_2026-06-08.md). PURE + integration-agnostic, like
- * lib/compat-score.ts: it takes primitives (months-to-wedding, the platform's
- * per-leaf START, the vendor's per-service END + surcharge, and whether
- * Setnayan AI is active) and returns a zone / visibility / surcharged price.
- * The caller (category-search.ts) resolves the DB values; this module owns the
- * rules so they stay trivially reviewable and have one source of truth.
+ * lib/compat-score.ts: it takes primitives (months-to-wedding, the START, the
+ * vendor's per-service END + surcharge, and whether Setnayan AI is active) and
+ * returns a zone / visibility / surcharged price. The caller (category-search.ts)
+ * resolves the DB values; this module owns the rules so they stay trivially
+ * reviewable and have one source of truth.
  *
- * The model (owner-locked 2026-06-08, §4):
- *   • Last-minute START — set by the PLATFORM, per taxonomy leaf. The designed
- *     month when "last-minute" begins for a category (a cake, a stylist, a
- *     venue each need different lead times). Lives in `planning_deadlines`
- *     (kind='last_minute_start', category default + leaf override).
- *   • Last-minute END (floor) — set by the VENDOR, per service. "I'll still
- *     accept a booking until this month before the wedding." Blank → 0 = until
- *     the night before. Lives on `vendor_services.last_minute_end_months`.
+ * The model (owner-locked 2026-06-08 · START made VENDOR-OWNED 2026-06-16, §4):
+ *   • Last-minute START — the VENDOR's per-service RECOMMENDED LEAD TIME: the
+ *     normal/comfortable lead for regular effort ("book by here, no rush").
+ *     Lives on `vendor_services.recommended_lead_time_months` (NEW 2026-06-16).
+ *     The platform per-leaf `planning_deadlines` (kind='last_minute_start')
+ *     value is now only a SOFT FALLBACK the caller applies when the vendor's
+ *     value is null — it no longer drives the START. This module stays agnostic:
+ *     it just takes the resolved `startMonths`.
+ *   • Last-minute END (floor / hard cutoff) — set by the VENDOR, per service.
+ *     "I'll still accept a booking until this month before the wedding." Blank →
+ *     0 = until the night before. Lives on `vendor_services.last_minute_end_months`.
  *   • Last-minute = the range [START → END], measured in months remaining.
  *
  * Three zones, by R = months remaining to the wedding:
@@ -27,13 +30,15 @@
  *   2. When AI is OFF and a category is already in its last-minute zone
  *      (R ≤ START), the standard search shows NOTHING in that category —
  *      last-minute vendors surface only with Setnayan AI on (the sharpest
- *      pull to purchase). See categoryEmptyForGenericSearch().
+ *      pull to purchase). See categoryEmptyForGenericSearch(). NOTE: the caller
+ *      drives this edge from the PLATFORM group START only (not vendor lead
+ *      times) — one vendor's lead time must never black out a whole category.
  *
- * DORMANT BY DEFAULT: START is null until an admin sets it per category/leaf
- * (no seed). With no START, every zone resolves to 'normal' → no filtering, no
- * badge, no behavior change. This mirrors the PR-1/PR-2 "build behind safe
- * defaults, flip deliberately" discipline and avoids inventing the per-leaf
- * START months (a load-bearing platform-design value the owner sets).
+ * DORMANT BY DEFAULT: a service has no recommended lead time and no platform
+ * fallback START → `startMonths` is null → every zone resolves to 'normal' → no
+ * filtering, no badge, no behavior change. This mirrors the "build behind safe
+ * defaults, flip deliberately" discipline; the START is now a vendor-owned
+ * value the vendor sets per service (not invented here).
  */
 
 export type LastMinuteZone = 'normal' | 'last_minute' | 'expired';
@@ -63,8 +68,9 @@ export function monthsToWedding(
  * Which zone a (leaf, vendor-service) sits in right now.
  *
  * - `monthsRemaining` null (no locked date) OR `startMonths` null/undefined
- *   (admin hasn't configured last-minute for this leaf) → always 'normal'
- *   (dormant — nothing is ever last-minute or expired).
+ *   (the vendor hasn't set a recommended lead time and there's no platform
+ *   fallback START) → always 'normal' (dormant — nothing is ever last-minute or
+ *   expired).
  * - `endMonths` null/undefined → 0 (vendor accepts until the night before).
  * - Misconfig guard: an END above START leaves an empty last-minute window, so
  *   a category can only be 'normal' or 'expired' there — never a phantom
@@ -82,6 +88,26 @@ export function lastMinuteZone(args: {
   if (r > start) return 'normal';
   if (r < end) return 'expired';
   return 'last_minute'; // end ≤ r ≤ start
+}
+
+/**
+ * Resolve the last-minute START for one vendor service (vendor-owned model,
+ * 2026-06-16). The START is the vendor's per-service RECOMMENDED LEAD TIME; the
+ * platform per-leaf START (planning_deadlines kind='last_minute_start') is only
+ * a SOFT FALLBACK when the vendor hasn't set one.
+ *
+ * DARK BY DATA: with no recommended lead AND no platform fallback (today's prod
+ * state — nothing seeded) this returns null → `lastMinuteZone` yields 'normal' →
+ * no zone, the service is always bookable whenever the schedule permits. A 0
+ * recommended lead is honored (an explicit "no lead, but I declared it"), only
+ * null/undefined falls through to the platform fallback.
+ */
+export function resolveLastMinuteStart(args: {
+  recommendedLeadMonths: number | null | undefined;
+  platformFallbackMonths?: number | null | undefined;
+}): number | null {
+  if (args.recommendedLeadMonths != null) return args.recommendedLeadMonths;
+  return args.platformFallbackMonths ?? null;
 }
 
 /**

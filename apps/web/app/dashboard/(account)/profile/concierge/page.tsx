@@ -23,7 +23,7 @@
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Sparkles, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Gem, Clock, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserEvents } from '@/lib/events';
@@ -66,7 +66,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
           Back to profile
         </Link>
         <section className="mt-6 rounded-2xl border border-ink/10 bg-cream p-8 text-center">
-          <Sparkles aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
+          <Gem aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
             Setnayan AI
           </h1>
@@ -285,7 +285,7 @@ function StatusPanel({
   return (
     <section className="rounded-2xl border border-ink/10 bg-cream p-6">
       <header className="mb-3 flex items-center gap-2">
-        <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        <Gem aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
           Currently · DIY
         </p>
@@ -298,7 +298,7 @@ function StatusPanel({
       </p>
       <div className="mt-4">
         <Link href="/pricing" className="button-primary inline-flex items-center gap-2">
-          <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           See pricing
         </Link>
       </div>

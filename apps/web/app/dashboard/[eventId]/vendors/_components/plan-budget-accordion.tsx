@@ -50,7 +50,7 @@ import { useRouter } from 'next/navigation';
 import { LoadingStatus } from '@/components/loading-status';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
-import { computeCompatScore } from '@/lib/compat-score';
+import { computeCompatScore, explainCompatScore } from '@/lib/compat-score';
 import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
@@ -373,6 +373,7 @@ const PBA_CSS = `
 .pbacc .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .pbacc .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .pbacc .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
+.pbacc .v .whyline{font-family:var(--mono);font-size:9px;letter-spacing:.05em;color:var(--gold-deep);margin-top:3px;line-height:1.35}
 .pbacc .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
 .pbacc .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
 .pbacc .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
@@ -390,6 +391,11 @@ const PBA_CSS = `
    gold (not the overdue/danger red it used to share) so it reads as gentle
    social proof, never alarming. Aggregate-only + never fabricated (model §6a). */
 .pbacc .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius:6px;padding:3px 7px;display:inline-block}
+/* "+₱X for Y guests over the Z-guest package" — the pax surcharge already
+   baked into the price, surfaced so the couple isn't blindsided later in
+   Costing. Quiet mono footnote (no alarm tint), shown only when a surcharge
+   actually applies. */
+.pbacc .v .paxnote{margin-top:7px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--ink-soft);line-height:1.4}
 /* chosen state — gold border + glow + corner badge */
 .pbacc .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
 .pbacc .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
@@ -1389,6 +1395,31 @@ function VendorCardAtom({
   const price =
     pick.rolled_cost_php !== null ? formatPhp(pick.rolled_cost_php) : null;
 
+  // Pre-quote blindside #1 (Adaptive Pax Pricing): a vendor-confirmed per-pax
+  // surcharge is already baked into the price, but the couple never saw it
+  // until Costing. Footnote it on the card — only when one actually applies.
+  // Fail-soft: every field is optional/nullable; absent → nothing renders.
+  const paxSurcharge =
+    typeof pick.pax_surcharge_php === 'number' && pick.pax_surcharge_php > 0
+      ? pick.pax_surcharge_php
+      : null;
+  const paxFor =
+    typeof pick.cost_basis_pax === 'number' && pick.cost_basis_pax > 0
+      ? pick.cost_basis_pax
+      : null;
+  const paxBase =
+    typeof pick.pax_quote_base === 'number' && pick.pax_quote_base > 0
+      ? pick.pax_quote_base
+      : null;
+  // "+₱X for Y guests over the Z-guest package". Drop the trailing clause when
+  // either count is missing so we never print "over the -guest package".
+  const paxNote =
+    paxSurcharge !== null
+      ? paxBase !== null && paxFor !== null
+        ? `+${formatPhp(paxSurcharge)} for ${paxFor} guests over the ${paxBase}-guest package`
+        : `+${formatPhp(paxSurcharge)} added-guest surcharge`
+      : null;
+
   // Optional enrichment — render only what the model actually carries.
   const rating =
     typeof pick.rating === 'number' && pick.rating > 0 ? pick.rating : null;
@@ -1413,15 +1444,21 @@ function VendorCardAtom({
   // market). The scorer admits-unknown: distance + reviews + verification drive
   // it today; refinement + date-headroom sit at a neutral baseline until 0044
   // per-service detail data lands, then the spread sharpens on its own.
+  const compatInputs = {
+    distanceKm,
+    avgRating: rating,
+    reviewCount,
+    verified,
+  };
   const match =
     personalizationEnabled && pick.marketplace_business_name && !setnayan
-      ? computeCompatScore({
-          distanceKm,
-          avgRating: rating,
-          reviewCount,
-          verified,
-        })
+      ? computeCompatScore(compatInputs)
       : null;
+  // Plain-English "why this %" — the same inputs, only the dimensions that are a
+  // real positive signal (present + above neutral). Admit-unknown: neutral/
+  // missing dims (refinement, date-headroom today) produce no phrase. Empty
+  // when nothing qualifies → the subline renders nothing. Never replaces the %.
+  const matchWhy = match ? explainCompatScore(compatInputs) : [];
   const recommendedReason =
     typeof pick.recommended_reason === 'string' && pick.recommended_reason
       ? pick.recommended_reason
@@ -1508,6 +1545,11 @@ function VendorCardAtom({
         <div className="meta">
           <div className="vn">{displayName}</div>
           {distLine && <div className="dist">{distLine}</div>}
+          {match && matchWhy.length > 0 && (
+            <div className="whyline" title={`Why ${match.score}% match`}>
+              {matchWhy.join(' · ')}
+            </div>
+          )}
 
           {stars && (
             <div className="stars" aria-label={`${rating} stars`}>
@@ -1534,6 +1576,8 @@ function VendorCardAtom({
           ) : (
             !price && <div className="price">Price on inquiry</div>
           )}
+
+          {paxNote && <div className="paxnote">{paxNote}</div>}
 
           {pick.eyeing > 0 && (
             <div className="eyeing">👀 {pick.eyeing} also eyeing your date</div>

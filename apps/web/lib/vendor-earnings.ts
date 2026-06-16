@@ -12,6 +12,36 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const SETNAYAN_PAY_FEE_PCT = 5.0;
 
 /**
+ * Resolve the effective Setnayan Pay convenience-fee percentage, reading the
+ * admin-set `platform_settings.setnayan_pay_fee_pct` (the /admin/pricing
+ * "Platform fee" editor) and falling back to `SETNAYAN_PAY_FEE_PCT` (5.0%) when
+ * the column is unset, the row is missing, or the read fails. Behavior is
+ * byte-identical to the constant whenever the column is NULL.
+ *
+ * Takes the admin client from the caller so this module stays client-agnostic.
+ */
+export async function getSetnayanFeePct(
+  adminClient: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await adminClient
+      .from('platform_settings')
+      .select('setnayan_pay_fee_pct')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error || !data) return SETNAYAN_PAY_FEE_PCT;
+    const pct = (data as { setnayan_pay_fee_pct?: number | null })
+      .setnayan_pay_fee_pct;
+    if (pct == null || !Number.isFinite(Number(pct))) {
+      return SETNAYAN_PAY_FEE_PCT;
+    }
+    return Number(pct);
+  } catch {
+    return SETNAYAN_PAY_FEE_PCT;
+  }
+}
+
+/**
  * Minimum Setnayan Pay convenience-fee floor — ₱50 (locked CLAUDE.md
  * decision-log 2026-05-17 ninth row). Crossover at ₱1,000 gross
  * (5.0% × ₱1,000 = ₱50). Below ₱1,000 the floor wins; at or above, the
@@ -187,8 +217,11 @@ export function computeMonthlySubtotals(
  * in `setnayan_pay_methods`. The canonical centavos-typed compute lives in
  * `apps/web/lib/payouts.ts::computePayoutBreakdown`.
  */
-export function convenienceFeePhp(grossPhp: number): number {
+export function convenienceFeePhp(
+  grossPhp: number,
+  feePct: number = SETNAYAN_PAY_FEE_PCT,
+): number {
   if (grossPhp <= 0) return 0;
-  const percentFee = Math.round((grossPhp * SETNAYAN_PAY_FEE_PCT) / 100);
+  const percentFee = Math.round((grossPhp * feePct) / 100);
   return Math.max(percentFee, SETNAYAN_PAY_MIN_FEE_PHP);
 }

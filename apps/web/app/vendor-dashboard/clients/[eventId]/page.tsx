@@ -4,7 +4,9 @@ import {
   ArrowLeft,
   CalendarDays,
   CalendarPlus,
+  CheckCircle2,
   Church,
+  Clock3,
   LayoutGrid,
   Martini,
   MessageSquarePlus,
@@ -17,7 +19,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { findRecommendedEventVendorId } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
-import { suggestScheduleChange } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { suggestScheduleChange, vendorMarkServiceComplete } from './actions';
 
 export const metadata = { title: 'Event Brief · Vendor' };
 
@@ -190,6 +193,26 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
     profile.vendor_profile_id,
   );
 
+  // Completion handshake state (Event Lifecycle Menu §6.1) — admin read; the
+  // vendor is already booked-gated by the RPC above.
+  const { data: completionRow } = await createAdminClient()
+    .from('event_vendors')
+    .select('completion_status, service_marked_complete_at, customer_confirmed_received_at')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const completion = (completionRow ?? null) as {
+    completion_status: string | null;
+    service_marked_complete_at: string | null;
+    customer_confirmed_received_at: string | null;
+  } | null;
+  const isCompleteConfirmed =
+    completion?.completion_status === 'confirmed' ||
+    completion?.completion_status === 'auto_confirmed' ||
+    Boolean(completion?.customer_confirmed_received_at);
+  const isDisputed = completion?.completion_status === 'disputed';
+  const isVendorMarked = Boolean(completion?.service_marked_complete_at) && !isCompleteConfirmed && !isDisputed;
+
   // Cocktail-area editability probe: the RPC raises unless this vendor is booked
   // in an eligible category AND the couple has enabled the room + left vendor
   // editing on. A clean result means we can show the "arrange it" entry point.
@@ -310,6 +333,49 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
           <span className="shrink-0 text-sm font-semibold text-terracotta">Open →</span>
         </Link>
       ) : null}
+
+      {/* Completion handshake (Event Lifecycle Menu §6.1) — the vendor marks the
+          service complete → the couple confirms receipt (unlocks their review). */}
+      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        {isCompleteConfirmed ? (
+          <div className="flex items-center gap-3 text-sm">
+            <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={1.75} />
+            <span className="text-ink/75">
+              <span className="font-medium text-ink">Service complete.</span> The couple confirmed they
+              received everything.
+            </span>
+          </div>
+        ) : isDisputed ? (
+          <div className="flex items-center gap-3 text-sm">
+            <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-amber-600" strokeWidth={1.75} />
+            <span className="text-ink/75">
+              <span className="font-medium text-ink">The couple reported a problem</span> with the
+              delivery. Reach out via your thread to sort it out.
+            </span>
+          </div>
+        ) : isVendorMarked ? (
+          <div className="flex items-center gap-3 text-sm">
+            <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-ink/40" strokeWidth={1.75} />
+            <span className="text-ink/75">
+              <span className="font-medium text-ink">Marked complete.</span> Waiting on the couple to
+              confirm they received everything (auto-confirms after 7 days).
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-ink/70">
+              <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your service
+              complete — the couple confirms they got everything, then their review opens.
+            </div>
+            <form action={vendorMarkServiceComplete}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <SubmitButton className="button-primary shrink-0" pendingLabel="Marking…">
+                Mark service complete
+              </SubmitButton>
+            </form>
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Pax */}

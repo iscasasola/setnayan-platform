@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
 import { BUDGET_BUILD_TABS, type BudgetBuildTab } from '@/lib/budget-build';
+import { SubNav } from '@/app/_components/nav/sub-nav';
 
 /** Cross-tab navigation: any slot can `window.dispatchEvent(new CustomEvent(
  *  'bb:tab', { detail: 'build' }))` to switch the takeover's active tab without a
@@ -136,37 +137,16 @@ export function ServicesTakeover({
           padding above is kept because the top bar stays hidden on mobile.) */}
 
       {/* Desktop tab strip — pill segmented control (sn-seg). Mobile uses the
-          sticky-top pill nav below. */}
-      <div role="tablist" aria-label="Services sections" className="sn-seg mb-4 hidden lg:flex">
-        {BUDGET_BUILD_TABS.map((key) => {
-          const { label, icon: Icon } = TAB_META[key];
-          const on = key === tab;
-          return (
-            <button
-              key={`${key}-${tab}`}
-              type="button"
-              role="tab"
-              id={`bbtab-d-${key}`}
-              aria-selected={on}
-              aria-controls="budget-build-panel"
-              onClick={() => selectTab(key)}
-              className={`sn-seg-item${on ? ' sn-bounce' : ''}`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Mobile section nav — sticky-header pill segmented control (sn-seg).
-          Desktop uses the top strip above. The global bottom nav now owns the
-          very bottom of the screen, so this surface's own section nav rides at
-          the top of the page body as a pill track instead of stacking a second
-          bottom bar. The sticky wrapper keeps a soft backdrop pad behind the
-          pill; the rectangular border-b framing is gone. */}
-      <div className="sticky top-0 z-10 -mx-2 mb-2 bg-cream/95 px-2 py-2 backdrop-blur lg:hidden">
-        <nav role="tablist" aria-label="Services sections" className="sn-seg">
+          sticky-top pill nav below. The show/hide (`hidden lg:block`) MUST live
+          on a plain wrapper, NOT on the `.sn-seg` element itself:
+          `.sn-seg { display: flex }` in globals.css has the same specificity as
+          Tailwind's `.hidden` (`display: none`) but wins on source order, so
+          `sn-seg ... hidden` never hides — it leaked the desktop strip onto
+          mobile, stacking a second (full-label, overflowing) tab bar above the
+          sticky mobile pill. Wrapping keeps the responsive toggle off `.sn-seg`,
+          mirroring the mobile strip below. */}
+      <div className="mb-4 hidden lg:block">
+        <div role="tablist" aria-label="Services sections" className="sn-seg">
           {BUDGET_BUILD_TABS.map((key) => {
             const { label, icon: Icon } = TAB_META[key];
             const on = key === tab;
@@ -175,27 +155,47 @@ export function ServicesTakeover({
                 key={`${key}-${tab}`}
                 type="button"
                 role="tab"
-                id={`bbtab-m-${key}`}
+                id={`bbtab-d-${key}`}
                 aria-selected={on}
                 aria-controls="budget-build-panel"
                 onClick={() => selectTab(key)}
-                className={`sn-seg-item min-w-0 px-1.5 text-[11px]${on ? ' sn-bounce' : ''}`}
+                className={`sn-seg-item${on ? ' sn-bounce' : ''}`}
               >
-                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-                <span className="min-w-0 truncate">{label}</span>
+                <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                {label}
               </button>
             );
           })}
-        </nav>
+        </div>
       </div>
 
-      {/* Active tab content */}
+      {/* Mobile section nav — the reusable <SubNav> docked above the global
+          bottom nav (owner 2026-06-16 "pin it on top of the bottom nav as its
+          sub nav" · icon-over-text · the bottom nav goes icons-only while it's
+          docked). It lifts in on section entry, and mounting <SubNav> here is
+          what tells the bottom nav to collapse its labels. Desktop (lg+) uses
+          the top strip above; <SubNav> is mobile-only. */}
+      <SubNav
+        items={BUDGET_BUILD_TABS.map((key) => ({
+          key,
+          label: TAB_META[key].label,
+          icon: TAB_META[key].icon,
+        }))}
+        activeKey={tab}
+        onSelect={(key) => selectTab(key as BudgetBuildTab)}
+        ariaLabel="Services sections"
+      />
+
+      {/* Active tab content. On mobile the docked sub-nav (above) + the global
+          bottom nav both float over this, so reserve bottom space for both:
+          safe-area + 40px clears the docked pill (whose top sits ~safe+125px)
+          on top of the layout's own pb-20. Desktop has no docked pill → pb-0. */}
       <div
         id="budget-build-panel"
         role="tabpanel"
         tabIndex={0}
         aria-label={TAB_META[tab].label}
-        className="min-w-0"
+        className="min-w-0 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:pb-0"
       >
         {active ?? <TabStub tab={tab} />}
       </div>

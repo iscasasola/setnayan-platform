@@ -182,6 +182,201 @@ export async function updateRetailSku(formData: FormData) {
   redirect('/admin/pricing');
 }
 
+// ─── updateVendorSku ──────────────────────────────────────────────────
+//
+// Edit a row in vendor_billing_catalog (vendor subscriptions + token packs).
+// Mirrors updateRetailSku EXACTLY — same validation, same audit + console.warn
+// two-admin gate, same revalidate kick — against the vendor catalog table.
+//
+// Form fields:
+//   - sku_code (hidden · PK · cannot be edited)
+//   - price_php (required · NUMERIC(10,2) · in pesos · CHECK price_php > 0)
+//   - is_active (checkbox · TRUE if present)
+//
+// We only let the admin move price + active state. title / offering_type /
+// token_grant_count / tier caps are structural (they wire the purchase + tier
+// gate) and stay migration-owned — same posture as updateRetailSku leaving
+// service_code / is_token_able alone.
+//
+// On success: revalidatePath the marketing surfaces that read getVendorPrices()
+// (/for-vendors + /pricing) + the admin surface itself, write admin_audit_log,
+// redirect back to /admin/pricing.
+//
+// NOTE: vendor_billing_catalog has NO updated_by_admin_id column and NO
+// updated_at trigger (unlike platform_retail_catalog_v2). We stamp updated_at
+// explicitly here (matches the platform_settings write pattern) and capture the
+// acting admin in the audit row instead.
+//
+export async function updateVendorSku(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+
+  const skuCode = formData.get('sku_code');
+  const priceRaw = formData.get('price_php');
+  const isActiveRaw = formData.get('is_active');
+
+  if (typeof skuCode !== 'string' || !skuCode) {
+    throw new Error('Missing sku_code');
+  }
+  if (typeof priceRaw !== 'string') {
+    throw new Error('Missing price_php');
+  }
+
+  const price = Number(priceRaw);
+  // vendor_billing_catalog has a CHECK (price_php > 0) — a vendor SKU must
+  // carry a positive price (there is no FREE vendor SKU). Validate to a
+  // friendly error instead of bubbling the raw constraint violation.
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error('price_php must be a positive number');
+  }
+  // Round to 2 decimals to match NUMERIC(10,2) schema.
+  const priceRounded = Math.round(price * 100) / 100;
+
+  const isActive = isActiveRaw === 'on' || isActiveRaw === 'true';
+
+  const admin = createAdminClient();
+
+  // Snapshot the prior row for the audit diff. Best-effort.
+  const { data: prior } = await admin
+    .from('vendor_billing_catalog')
+    .select('title, price_php, offering_type, is_active')
+    .eq('sku_code', skuCode)
+    .maybeSingle();
+
+  // Two-admin gate check (deferred V1.x · log only for now) — mirror of the
+  // updateRetailSku >₱500-delta console.warn. CLAUDE.md 2026-05-12 § 9.1.
+  if (prior && Math.abs(Number(prior.price_php) - priceRounded) > 500) {
+    console.warn(
+      `[updateVendorSku] Price delta > ₱500 on ${skuCode}: ` +
+        `₱${prior.price_php} → ₱${priceRounded} · ` +
+        `two-admin gate deferred V1.x · single-admin proceeding.`,
+    );
+  }
+
+  const { error } = await admin
+    .from('vendor_billing_catalog')
+    .update({
+      price_php: priceRounded,
+      is_active: isActive,
+      // No updated_at trigger on this table — stamp it explicitly.
+      updated_at: new Date().toISOString(),
+    })
+    .eq('sku_code', skuCode);
+  if (error) throw new Error(error.message);
+
+  // Audit row per § 9.1. Best-effort.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'v2_vendor_sku_edit',
+    target_id: skuCode,
+    actor_user_id: adminUserId,
+    metadata: {
+      table: 'vendor_billing_catalog',
+      sku_code: skuCode,
+      before: prior ?? null,
+      after: {
+        price_php: priceRounded,
+        is_active: isActive,
+      },
+    },
+  });
+  if (auditErr) {
+    console.error('[updateVendorSku] audit log insert failed', auditErr.message);
+  }
+
+  // Kick the surfaces that read getVendorPrices() so vendor price changes
+  // propagate immediately to the marketing pages.
+  revalidatePath('/for-vendors');
+  revalidatePath('/pricing');
+  revalidatePath('/admin/pricing');
+
+  redirect('/admin/pricing');
+}
+
+// ─── updatePlatformFee ────────────────────────────────────────────────
+//
+// Edit the Setnayan Pay convenience-fee percentage. Stored on the
+// platform_settings singleton (id = 1) in the setnayan_pay_fee_pct column
+// (migration 20261225000000). lib/payouts.ts + lib/vendor-earnings.ts read
+// this column with the code constants (5.0% / 500 bps) as the fallback, so an
+// unset column = byte-identical current behavior.
+//
+// Form fields:
+//   - setnayan_pay_fee_pct (required · NUMERIC(5,2) · whole-or-fractional %)
+//
+// requireAdmin-gated · writes admin_audit_log · revalidates the surfaces that
+// render the fee. Mirrors the updateRetailSku audit + >₱-delta gate shape;
+// the "delta" here is a percentage-point delta, gated at >2.0 pp so a large
+// fee swing still trips the same console.warn discipline.
+//
+export async function updatePlatformFee(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+
+  const feeRaw = formData.get('setnayan_pay_fee_pct');
+  if (typeof feeRaw !== 'string') {
+    throw new Error('Missing setnayan_pay_fee_pct');
+  }
+
+  const fee = Number(feeRaw);
+  // Fee is a percentage. Clamp to a sane 0–100 band (a 0% fee is a valid
+  // owner choice — e.g. a promo period). Reject negatives / non-numbers.
+  if (!Number.isFinite(fee) || fee < 0 || fee > 100) {
+    throw new Error('setnayan_pay_fee_pct must be between 0 and 100');
+  }
+  const feeRounded = Math.round(fee * 100) / 100;
+
+  const admin = createAdminClient();
+
+  const { data: prior } = await admin
+    .from('platform_settings')
+    .select('setnayan_pay_fee_pct')
+    .eq('id', 1)
+    .maybeSingle();
+
+  // Two-admin gate parallel — log a >2.0 percentage-point swing. CLAUDE.md
+  // 2026-05-12 § 9.1.
+  const priorFee =
+    prior && prior.setnayan_pay_fee_pct != null
+      ? Number(prior.setnayan_pay_fee_pct)
+      : null;
+  if (priorFee != null && Math.abs(priorFee - feeRounded) > 2) {
+    console.warn(
+      `[updatePlatformFee] Setnayan Pay fee delta > 2.0 pp: ` +
+        `${priorFee}% → ${feeRounded}% · ` +
+        `two-admin gate deferred V1.x · single-admin proceeding.`,
+    );
+  }
+
+  const { error } = await admin
+    .from('platform_settings')
+    .update({
+      setnayan_pay_fee_pct: feeRounded,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  if (error) throw new Error(error.message);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'platform_fee_edit',
+    target_id: 'setnayan_pay_fee_pct',
+    actor_user_id: adminUserId,
+    metadata: {
+      table: 'platform_settings',
+      field: 'setnayan_pay_fee_pct',
+      before: priorFee,
+      after: feeRounded,
+    },
+  });
+  if (auditErr) {
+    console.error('[updatePlatformFee] audit log insert failed', auditErr.message);
+  }
+
+  // The fee appears on vendor earnings + checkout + admin payment surfaces.
+  revalidatePath('/admin/pricing');
+  revalidatePath('/admin/payments');
+  revalidatePath('/vendor-dashboard', 'layout');
+
+  redirect('/admin/pricing');
+}
+
 // ─── updateBundleSku ──────────────────────────────────────────────────
 //
 // Edit a row in platform_package_catalog. Same shape + semantics as

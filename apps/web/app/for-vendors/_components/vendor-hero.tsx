@@ -49,8 +49,8 @@ export async function VendorHero() {
         className="m-vendor-hero-grid"
         style={{
           display: 'grid',
-          gap: 64,
-          alignItems: 'center',
+          gap: 'clamp(32px, 4vw, 56px)',
+          alignItems: 'stretch',
           position: 'relative',
         }}
       >
@@ -131,65 +131,31 @@ export async function VendorHero() {
               flexWrap: 'wrap',
             }}
           >
-            <span>42 verified vendors live</span>
-            <span aria-hidden>·</span>
-            <span>23 in verification</span>
-            <span aria-hidden>·</span>
+            {/* Factual claims only — the prior "42 verified vendors / 23 in
+                verification" counts were fabricated (founder-only marketplace);
+                removed 2026-06-15 per owner "use factual numbers only". */}
             <span>0% commission, ever</span>
+            <span aria-hidden>·</span>
+            <span>Paid straight to you</span>
+            <span aria-hidden>·</span>
+            <span>Free during launch</span>
           </div>
         </div>
 
-        {/* Right rail — a real vendor, thriving on the results (owner 2026-06-15:
-            "use an actual person progressively successful and happy on the
-            results of the business with setnayan"). Replaces the abstract
-            pipeline mock; keeps a small real results chip so the proof stays.
-            The left column + CTAs are untouched (button-preservation lock). */}
-        <div
-          className="m-card"
-          style={{
-            position: 'relative',
-            padding: 0,
-            overflow: 'hidden',
-            border: 'none',
-            boxShadow: 'var(--m-shadow-lg)',
-            aspectRatio: '4 / 5',
-          }}
-        >
+        {/* Right rail — a FULL-BLEED photo of a vendor thriving (owner 2026-06-15:
+            "i want a full bleed photo"). Bleeds to the viewport right edge and
+            fills the row height; no card chrome, no overlay chip. The left
+            column, headline, and CTAs are untouched (button-preservation lock).
+            Bleed + height handled in the responsive <style> via .m-hero-photo. */}
+        <div className="m-hero-photo" style={{ position: 'relative', overflow: 'hidden', minHeight: 'clamp(360px, 50vh, 560px)' }}>
           <Image
             src="/for-vendors/vendor-success.avif"
-            alt="A happy, confident Filipino wedding florist smiling in her sunlit studio surrounded by fresh bouquets — a vendor thriving with Setnayan"
+            alt="A happy, confident Filipino wedding florist laughing in her sunlit studio surrounded by fresh flowers — a vendor thriving with Setnayan"
             fill
             priority
-            sizes="(max-width: 1023px) 100vw, 44vw"
-            style={{ objectFit: 'cover', objectPosition: 'center' }}
+            sizes="(max-width: 1023px) 100vw, 46vw"
+            style={{ objectFit: 'cover', objectPosition: 'center 32%' }}
           />
-          {/* Real results chip — keeps the proof the old dashboard carried */}
-          <div
-            style={{
-              position: 'absolute',
-              left: 16,
-              right: 16,
-              bottom: 16,
-              padding: '14px 16px',
-              borderRadius: 10,
-              background: 'rgba(15,16,18,0.78)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
-            }}
-          >
-            <div className="m-label-mono" style={{ color: 'var(--m-orange-3)' }}>
-              Booked this week
-            </div>
-            <div className="m-display" style={{ fontSize: 24, color: 'var(--m-paper)', marginTop: 2 }}>
-              2 bookings confirmed
-            </div>
-            {/* No payout/BIR-receipt claims — Setnayan never holds vendor money
-                (couples pay vendors directly) per the standing payment-disclosure
-                rule + the 2026-06-13 public-claims purge (#1316). */}
-            <div className="m-mono" style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}>
-              Paid straight to you · Setnayan never holds your money
-            </div>
-          </div>
         </div>
       </div>
 
@@ -236,12 +202,26 @@ export async function VendorHero() {
       <style>{`
         @media (min-width: 1024px) {
           .m-vendor-hero-grid {
-            grid-template-columns: 1.15fr 1fr;
+            grid-template-columns: 1.05fr 1fr;
+          }
+          /* Bleed the hero photo to the viewport right edge + fill the row height.
+             Bleed assumes this section spans the full viewport width — do NOT wrap
+             the hero in a max-width container or the negative margin won't reach the
+             edge. min-height scales with viewport width so the 3:4 portrait never
+             crops to a thin landscape slit on ultrawide. */
+          .m-hero-photo {
+            margin-right: calc(-1 * clamp(20px, 5vw, 56px));
+            align-self: stretch;
+            min-height: clamp(420px, 42vw, 680px);
           }
         }
         @media (max-width: 1023px) {
           .m-vendor-hero-grid {
             grid-template-columns: 1fr;
+          }
+          /* On mobile the photo becomes a full-bleed band under the copy. */
+          .m-hero-photo {
+            margin: 4px calc(-1 * clamp(20px, 5vw, 56px)) 0;
           }
         }
       `}</style>

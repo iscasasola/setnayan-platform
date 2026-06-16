@@ -186,6 +186,37 @@ export async function provisionPapicSeats(formData: FormData) {
 }
 
 /**
+ * Materialize the 3 FREE SAMPLER seats so a couple can TRY Papic before buying.
+ * Couple-gated + idempotent + one-per-event — the papic_provision_sampler() RPC
+ * re-checks auth.uid() is a couple and won't re-provision an event that already
+ * has sampler seats. No paid ownership needed (it's free); the sampler seats sit
+ * in their own seat_index range so they never collide with a later paid pass.
+ */
+export async function provisionPapicSampler(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('papic_provision_sampler', {
+    p_event_id: eventId,
+  });
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/add-ons/papic/crew?seat_error=${encodeURIComponent(
+        error.message.slice(0, 80),
+      )}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/add-ons/papic/crew`);
+  redirect(`/dashboard/${eventId}/add-ons/papic/crew?seat_set=sampler`);
+}
+
+/**
  * Reissue one seat: clear the claimer + claimed_at, lift any revoke, and mint
  * a fresh claim_qr_token so the old link/QR stops working and the couple can
  * hand the seat to someone new. The couple's paparazzi_seats_couple_full RLS

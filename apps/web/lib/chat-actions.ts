@@ -123,25 +123,38 @@ export async function sendChatMessage(formData: FormData) {
   // see a "new inquiry" alert instead of the generic "new message" one.
   const admin = createAdminClient();
   let isFirstMessage = false;
+  // Existing message count on this thread BEFORE this insert. While the thread
+  // is pending only the couple can post (the vendor is accept-gated below), so
+  // this count == the number of couple messages so far. Used both for the
+  // "first message = inquiry" notification swap AND the one-follow-up gate.
+  let priorMessageCount = 0;
   if (senderRole === 'couple') {
     const { count } = await admin
       .from('chat_messages')
       .select('*', { count: 'exact', head: true })
       .eq('thread_id', thread.thread_id);
-    isFirstMessage = (count ?? 0) === 0;
+    priorMessageCount = count ?? 0;
+    isFirstMessage = priorMessageCount === 0;
   }
 
   // Accept-gate (CLAUDE.md 2026-06-02) — a couple→vendor chat only opens both
   // ways once the vendor accepts. The couple may post their FIRST message (the
-  // inquiry) into a pending thread; everything after waits for acceptance. The
-  // vendor cannot post until they have accepted. Defense-in-depth — the UI
-  // hides the composer in these states; this also guards the no-JS form path.
+  // inquiry) into a pending thread, PLUS exactly ONE follow-up nudge while they
+  // wait (inquiry-followthrough 2026-06-16) — so the couple can add a detail or
+  // gently bump a quiet vendor without forcing the chat open. Everything after
+  // that waits for acceptance. The vendor still cannot post until they have
+  // accepted (accept-gate semantics unchanged). Defense-in-depth — the UI hides
+  // the composer past the follow-up; this also guards the no-JS form path.
   if (senderRole === 'couple') {
     if (thread.inquiry_status === 'declined') {
       throw new Error('This vendor declined the inquiry — browse similar vendors instead.');
     }
-    if (thread.inquiry_status === 'pending' && !isFirstMessage) {
-      throw new Error('Inquiry sent — waiting for the vendor to accept before you can chat.');
+    // Allow the inquiry (priorMessageCount 0) and ONE follow-up (count 1).
+    // A second follow-up (count ≥ 2) re-disables until the vendor accepts.
+    if (thread.inquiry_status === 'pending' && priorMessageCount >= 2) {
+      throw new Error(
+        'You’ve sent a follow-up — waiting for the vendor to accept before you can keep chatting.',
+      );
     }
   } else if (thread.inquiry_status !== 'accepted') {
     throw new Error('Accept the inquiry first to reply.');

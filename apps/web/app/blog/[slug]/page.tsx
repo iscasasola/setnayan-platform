@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { ChevronLeft, ArrowRight, ArrowUpRight, Download } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
@@ -156,6 +156,20 @@ function Block({ block, lead }: { block: BlogBlock; lead?: boolean }) {
             {block.label}
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
+        </div>
+      );
+    case 'download':
+      return (
+        <div className="my-8 rounded-2xl border border-mulberry/20 bg-accent-soft p-5 sm:p-6">
+          <p className="text-base leading-relaxed text-ink/80">{block.text}</p>
+          <a
+            href={block.href}
+            download
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+          >
+            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {block.label}
+          </a>
         </div>
       );
     default:

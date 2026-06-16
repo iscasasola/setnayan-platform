@@ -1,5 +1,8 @@
+import Link from 'next/link';
+import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -15,6 +18,8 @@ import { ProfileMenu } from '@/app/_components/profile-menu';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
+import { GuestsSectionSubnav } from './_components/guests-section-subnav';
+import { getNavSlotMap } from '@/lib/nav-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 type Props = {
@@ -136,7 +141,7 @@ export default async function EventLayout({ children, params }: Props) {
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg';
+          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -254,6 +259,17 @@ export default async function EventLayout({ children, params }: Props) {
   const event = eventRes.data;
   if (!event) notFound();
 
+  // Event Lifecycle Menu (2026-06-16): the bottom-nav roster swaps by lifecycle
+  // phase (Plan → Day-of → After). Computed SERVER-SIDE so there's no client
+  // Date.now() / hydration flash. `getLifecyclePhase` uses isEventDayActive
+  // (live ‖ post) so an EVENING reception — which lands in `post` — still gets
+  // the Day-of bar, and the `cleared_at` close-out (PR3) flips it to `after`.
+  // (The `after` roster lands in PR4; until then `after` shows the Plan bar.)
+  const phase = getLifecyclePhase(
+    event.event_date as string | null,
+    (event as { cleared_at?: string | null }).cleared_at ?? null,
+  );
+
   const tr = makeT(locale);
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
@@ -300,6 +316,20 @@ export default async function EventLayout({ children, params }: Props) {
         eventTypes={creatableEventTypes}
       />
       <div className="flex items-center gap-2">
+        {/* Planning escape (Event Lifecycle Menu) — while the bottom nav is the
+            day-of command center, this is the one way back to the planning
+            menu (Guests/Budget/…), kept OUTSIDE the bar so it never collides
+            with the "Now" tab. Links to /more, the existing planning launcher.
+            Day-of only; hidden on lg (desktop uses the sidebar). */}
+        {phase === 'dayof' ? (
+          <Link
+            href={`/dashboard/${eventId}/more`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
+          >
+            <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Planning
+          </Link>
+        ) : null}
         {/* Marketplace (Store) link + mobile Switch View pill REMOVED from
             the event-scoped top nav per owner directive 2026-06-03 (circled
             both icons on the mobile top strip; "remove these 2 on top nav").
@@ -351,16 +381,24 @@ export default async function EventLayout({ children, params }: Props) {
   // This is the structural half of removing the old-cream-flash on
   // event-route navigations.
 
+  // Nav registry: resolve the admin-managed name+icon overrides server-side and
+  // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
+  const navSlots = await getNavSlotMap();
+
   return (
     <>
       <SidebarShell
-        sidebar={<CustomerSidebar eventId={eventId} />}
+        sidebar={<CustomerSidebar eventId={eventId} navSlots={navSlots} />}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-20 lg:pb-0">
+            sidebar offset via its lg:pl-[var(--shell-main-offset)] math.
+            `data-shell-main` is the hook globals.css uses to add EXTRA bottom
+            room on Guests-cluster routes, where <GuestsSectionSubnav> docks a
+            second floating pill above the bottom nav (see globals.css
+            `html.guests-subnav-docked`). */}
+        <div data-shell-main className="pb-20 lg:pb-0">
           <main className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </main>
@@ -369,7 +407,14 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} />
+      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} />
+      {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile) and
+          lights the active stage of the guest journey (Build · Invite · Confirm ·
+          Seat · Day-of) while the path is inside the journey (/guests* or
+          /seating*). Self-gates to null everywhere else, so it's safe to mount
+          once here for every event route — same place + pattern as
+          <CustomerBottomNav>. eventDate drives the Day-of time-gate. */}
+      <GuestsSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} />
     </>
   );
 }

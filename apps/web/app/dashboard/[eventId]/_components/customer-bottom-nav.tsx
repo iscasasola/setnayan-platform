@@ -1,138 +1,220 @@
 'use client';
 
 /**
- * CustomerBottomNav — customer mobile primary nav (JOURNEY-GROUP ACCORDION).
+ * CustomerBottomNav — customer mobile primary nav (FLAT 6-TAB BAR).
  *
- * SIX FIXED JOURNEY MENUS · ALL EXPAND (re-pointed from the destination-menu
- * structure shipped in PR #1465 back to the journey-group IA the owner wants):
- *   1. Setnayan — Home · Studio · Explore
- *   2. Plan     — Guests · Seating · Schedule · Budget
- *   3. Book     — Messages · Contracts
- *   4. Design   — Website · Mood Board · Monogram
- *   5. Day-of   — Live Wall · Event QR
- *   6. After    — Activity · Disputes
+ * Owner-locked 2026-06-16: six flat tabs — Home · Guests · Explore · Studio ·
+ * Design · Budget. This SUPERSEDES the journey-group accordion (and the
+ * mother/osmosis explorations): with six real destinations there's nothing to
+ * reveal in the bar — each tab navigates to its page, and that page surfaces its
+ * own handful of sub-features as cards. No accordion, no "More", no overlay.
  *
- * EVERY menu has children → EVERY menu extracts an inline accordion on tap
- * (the menu glides to the far-left corner = back-hinge, its children cascade
- * out). NONE navigate directly — there is no childless "navigates straight"
- * menu anymore. Home is a CHILD of Setnayan (tap Setnayan → Home), by design.
- * NO "More" overflow, NO horizontal scroll. Account/settings live under the
- * profile avatar (top-right ProfileMenu → Profile / Settings / Sign out ·
- * front door to iteration 0025) — the nav carries no Settings group.
+ *   1. Home    — /dashboard/[id]                (the Setnayan brand mark IS this tab)
+ *   2. Guests  — /guests   (+ seating · event-qr · hosts light this tab)
+ *   3. Explore — /vendors  (the marketplace)
+ *   4. Studio  — /add-ons  (Papic · Panood · Patiktok · save-the-date · … hub)
+ *   5. Design  — /design   (Website · Mood Board · Monogram hub)
+ *   6. Budget  — /budget   (+ disputes light this tab)
  *
- * SINGLE SOURCE OF TRUTH: this builder no longer hand-rolls its own roster.
- * It derives the accordion menus directly from buildCustomerNavGroups
- * (customer-nav-config.ts) — the SAME six journey groups the desktop sidebar
- * renders. Each NavGroup → a BottomNavMenu { key, label, icon: group.icon,
- * children: group.items }. Each NavItem → a BottomNavItem (the item's
- * `matchPrefix` becomes the menu/child `activeMatch`; sentinel matchPrefixes
- * like `__home__` map to an exact-match on the item's own href so Home only
- * lights on the exact event-home route, never on every `${base}/*` child).
+ * Each tab's `activeMatch` enumerates the routes that belong to it, so the right
+ * tab stays lit on any of its child pages (e.g. /seating lights Guests). Home is
+ * an EXACT match on the event root so it doesn't claim every `${base}/*` route.
  *
- * The shared <BottomNav> renders the accordion when given the `menus` prop.
- * The four locked motion knobs + the traveling pill + press-light + icon-grow
- * are reused verbatim from the canonical primitive
- * (project_setnayan_bottom_nav_canonical). The accordion machinery in
- * bottom-nav.tsx already (a) lights a parent menu when ANY of its children
- * matches the route, and (b) never navigates a parent that HAS children —
- * tapping always expands. Since all six journey menus have children, no
- * special-casing is required. Vendor + admin doorways keep the flat `items`
- * path unchanged (customer-first rollout · spec §8).
+ * NAV REGISTRY (2026-06-16): the tab LABEL + ICON come from the admin-managed
+ * registry (`customer.bottom-nav.<key>` slots) via `navSlots`, falling back to
+ * the hardcoded defaults below if a slot is missing — so the bar is unchanged
+ * until an admin edits it on /admin/menus. href + activeMatch stay in code
+ * (routing, not naming). A slot marked hidden drops its tab.
  *
- * CLIENT BOUNDARY: 'use client' required because BottomNavMenu[] carries
- * LucideIcon refs (forwardRef objects) — passing them from a Server Component
- * to the Client BottomNav trips Next.js serialization. buildCustomerNavGroups
- * itself lives in a neutral module so Server Components can also call it.
+ * Renders via the shared <BottomNav> FLAT `items` path (the same canonical
+ * primitive vendor + admin use) — the locked pill / traveling-pill / press-light
+ * / icon-grow treatment is reused verbatim; registry icons are resolved to
+ * stable components by navIconComponent so the bar itself is untouched.
+ * Mobile-only (`lg:hidden`); the desktop sidebar renders separately.
  */
 
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
-import type {
-  BottomNavItem,
-  BottomNavMenu,
-  NavGroup,
-  NavItem,
-} from '@/app/_components/nav/types';
-import { Home } from 'lucide-react';
-import { buildCustomerNavGroups } from './customer-nav-config';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import type { BottomNavItem } from '@/app/_components/nav/types';
+import type { LucideIcon } from 'lucide-react';
+import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock } from 'lucide-react';
+import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { LifecyclePhase } from '@/lib/day-of-mode';
+
+type TabSpec = {
+  key: string;
+  fallbackLabel: string;
+  fallbackIcon: LucideIcon;
+  href: string;
+  activeMatch: string | string[];
+  activeMatchExact?: boolean;
+};
 
 /**
- * Maps a NavItem (sidebar/destination shape) onto a BottomNavItem
- * (accordion shape). The NavItem's `matchPrefix` (defaults to `href`) carries
- * active-detection. A SENTINEL matchPrefix (`__…__` — used by Home so the
- * strict-prefix branch never fires in the sidebar) can't be matched against a
- * real path, so for the bottom nav we instead exact-match the item's own
- * `href` (the actual route). All other items use prefix-match on
- * `matchPrefix ?? href`.
+ * Builds the flat 6-tab roster for the given eventId. Each tab is a real
+ * destination; `activeMatch` carries the routes that should keep the tab lit.
+ * `navSlots` (when provided) supplies the registry label + icon per tab.
  */
-function navItemToBottomNavItem(item: NavItem): BottomNavItem {
-  const isSentinel =
-    typeof item.matchPrefix === 'string' &&
-    item.matchPrefix.startsWith('__') &&
-    item.matchPrefix.endsWith('__');
+export function buildCustomerNavTabs(
+  eventId: string,
+  navSlots?: Record<string, NavSlotLite>,
+): BottomNavItem[] {
+  const base = `/dashboard/${eventId}`;
+  const specs: TabSpec[] = [
+    {
+      key: 'home',
+      fallbackLabel: 'Home',
+      // The Setnayan brand mark IS the Home tab (owner 2026-06-16). Cast:
+      // SetnayanMark renders the same className/style/aria props the bar passes.
+      fallbackIcon: SetnayanMark as unknown as LucideIcon,
+      href: base,
+      // Exact-match the event root only — otherwise it would prefix-match every
+      // `${base}/*` route and stay perpetually active.
+      activeMatch: base,
+      activeMatchExact: true,
+    },
+    {
+      key: 'guests',
+      fallbackLabel: 'Guests',
+      fallbackIcon: Users,
+      href: `${base}/guests`,
+      activeMatch: [`${base}/guests`, `${base}/seating`, `${base}/event-qr`, `${base}/hosts`],
+    },
+    {
+      key: 'explore',
+      fallbackLabel: 'Explore',
+      fallbackIcon: Compass,
+      href: `${base}/vendors`,
+      activeMatch: `${base}/vendors`,
+    },
+    {
+      key: 'studio',
+      fallbackLabel: 'Studio',
+      fallbackIcon: Sparkles,
+      href: `${base}/add-ons`,
+      // The whole add-ons subtree (Papic/Panood/Patiktok/mood-board/…) lives
+      // under /add-ons, so a prefix match lights Studio across all of it.
+      activeMatch: `${base}/add-ons`,
+    },
+    {
+      key: 'design',
+      fallbackLabel: 'Design',
+      fallbackIcon: Palette,
+      href: `${base}/design`,
+      // Design's surfaces are scattered: the new hub + the standalone Website
+      // editor + the standalone Monogram studio. (Mood Board sits physically
+      // under /add-ons, so it lights Studio — the Design hub still links to it.)
+      activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+    },
+    {
+      key: 'budget',
+      fallbackLabel: 'Budget',
+      fallbackIcon: Wallet,
+      href: `${base}/budget`,
+      activeMatch: [`${base}/budget`, `${base}/disputes`],
+    },
+  ];
 
-  return {
-    key: item.key,
-    label: item.label,
-    href: item.href,
-    icon: item.icon,
-    badge: item.badge,
-    // Sentinel → exact-match the real href; otherwise prefix-match
-    // matchPrefix (falls back to href). The shared matchesPath() uses
-    // `pathname === prefix || pathname.startsWith(prefix + '/')`.
-    activeMatch: isSentinel ? item.href : (item.matchPrefix ?? item.href),
-    activeMatchExact: isSentinel ? true : undefined,
-  };
+  const tabs: BottomNavItem[] = [];
+  for (const spec of specs) {
+    const slot = navSlots?.[`customer.bottom-nav.${spec.key}`];
+    if (slot?.isHidden) continue; // admin can drop a tab without a code change
+    tabs.push({
+      key: spec.key,
+      label: slot?.label ?? spec.fallbackLabel,
+      href: spec.href,
+      icon: slot ? navIconComponent(slot.icon) : spec.fallbackIcon,
+      activeMatch: spec.activeMatch,
+      ...(spec.activeMatchExact ? { activeMatchExact: true } : {}),
+    });
+  }
+  return tabs;
 }
 
 /**
- * Maps a NavGroup (journey group) onto a BottomNavMenu — a top-level
- * accordion menu that EXPANDS to its children. `href` is a non-JS / keyboard
- * fallback only (a menu with children opens the section on tap); point it at
- * the first child so it still resolves. `activeMatch` is the union of the
- * children's prefixes so the menu lights when any child route is active (the
- * accordion's own activeMenuIndex also checks children, so this is belt-and-
- * suspenders + keeps a sane fallback if the group ever had zero children).
+ * Builds the DAY-OF roster — the menu the couple/coordinator operate the wedding
+ * day with (Event Lifecycle Menu, 2026-06-16). While the event is live, the Plan
+ * tabs step aside and the bar becomes the day-of command center. Five operable
+ * destinations that all already exist; the unified "Services" launch hub is built
+ * in a follow-up (PR2) — until then Services points at the owned-services hub
+ * (/add-ons). Slot 1 stays the Setnayan mark (the home root, which already
+ * becomes the live "Now" command-center view), relabelled "Now"; the **Planning
+ * escape lives OUTSIDE the bar** (a top-bar link, see layout.tsx) so there's no
+ * second tab pointing at `base` (which would collide on active state).
  */
-function navGroupToBottomNavMenu(group: NavGroup): BottomNavMenu {
-  const children = group.items.map(navItemToBottomNavItem);
-  const firstChild = children[0];
-
-  return {
-    key: group.key,
-    label: group.label,
-    // Per the NavGroup→accordion contract the top-level menu always carries a
-    // glyph; fall back to Home only if a group somehow omitted its icon.
-    icon: group.icon ?? Home,
-    // Fallback href (menus with children expand, they don't navigate).
-    href: firstChild?.href ?? '#',
-    // Union of child prefixes — lights the menu when any child is active.
-    activeMatch: children.flatMap((c) =>
-      Array.isArray(c.activeMatch) ? c.activeMatch : [c.activeMatch],
-    ),
-    children,
-  };
+export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
+  const base = `/dashboard/${eventId}`;
+  return [
+    {
+      key: 'now',
+      label: 'Now',
+      href: base,
+      icon: SetnayanMark as unknown as LucideIcon,
+      activeMatch: base,
+      activeMatchExact: true,
+    },
+    {
+      key: 'checkin',
+      label: 'Check-in',
+      href: `${base}/guests/checkin`,
+      icon: QrCode,
+      activeMatch: `${base}/guests/checkin`,
+    },
+    {
+      key: 'seats',
+      label: 'Seats',
+      href: `${base}/seating`,
+      icon: LayoutGrid,
+      activeMatch: `${base}/seating`,
+    },
+    {
+      // The unified day-of launch hub (PR2): one place to start every owned
+      // live service — Panood "Go live" · Live Wall "Open the wall" · Papic
+      // "Hand out seats" — with an upsell for anything not yet owned.
+      key: 'services',
+      label: 'Services',
+      href: `${base}/launch`,
+      icon: Rocket,
+      activeMatch: `${base}/launch`,
+    },
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      href: `${base}/schedule`,
+      icon: CalendarClock,
+      activeMatch: `${base}/schedule`,
+    },
+  ];
 }
 
 /**
- * Builds the 6-menu journey accordion config for the given eventId, derived
- * from the SAME buildCustomerNavGroups the desktop sidebar consumes — one
- * roster, two renderings.
- */
-export function buildCustomerNavMenus(eventId: string): BottomNavMenu[] {
-  return buildCustomerNavGroups(eventId).map(navGroupToBottomNavMenu);
-}
-
-/**
- * CustomerBottomNav — wraps the shared BottomNav primitive with the
- * customer-doorway 6-menu journey accordion config. Renders nothing on lg+
- * (the sidebar takes over). Per [[feedback_setnayan_orphan_prevention]] every
- * menu/child destination route exists (the roster is the same one the sidebar
- * ships, whose hrefs all resolve to real route folders under
- * apps/web/app/dashboard/[eventId]/ + /site-editor/[eventId]).
+ * CustomerBottomNav — wraps the shared BottomNav primitive with the customer
+ * roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
+ * customer surface (owner directive 2026-06-13 "global nav everywhere").
  *
- * The global nav shows on EVERY customer surface (owner directive
- * 2026-06-13 "global nav everywhere").
+ * `phase` swaps the whole roster by lifecycle phase (Event Lifecycle Menu): the
+ * day-of command center while the event is live, the planning roster otherwise.
+ * Computed SERVER-SIDE in the layout via `getLifecyclePhase(event_date,
+ * cleared_at)` (which uses `isEventDayActive` — live ‖ post, so an evening
+ * reception in `post` still gets the Day-of bar — and the `cleared_at` close-out)
+ * and passed down, so there's no client `Date.now()` and no hydration flash. The
+ * `after` roster (Review · Editorial · Galleries) lands in PR4; until then `after`
+ * falls back to the planning roster.
+ *
+ * `navSlots` is the admin nav-registry slot map (label + icon overrides) resolved
+ * server-side in the layout; it feeds the planning roster (the day-of roster's
+ * registry slots land in a follow-up).
  */
-export function CustomerBottomNav({ eventId }: { eventId: string }) {
-  return <BottomNav menus={buildCustomerNavMenus(eventId)} />;
+export function CustomerBottomNav({
+  eventId,
+  phase = 'plan',
+  navSlots,
+}: {
+  eventId: string;
+  phase?: LifecyclePhase;
+  navSlots?: Record<string, NavSlotLite>;
+}) {
+  const items = phase === 'dayof' ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId, navSlots);
+  return <BottomNav items={items} />;
 }

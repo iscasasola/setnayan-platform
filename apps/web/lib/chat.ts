@@ -1,7 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 
-export type ChatSenderRole = 'couple' | 'vendor' | 'coordinator';
+/**
+ * `'system'` is an AUTOMATED Setnayan message in the thread (e.g. the Build 3d-C
+ * re-quote nudge) — rendered as a centered Setnayan note, never "from the
+ * couple" or "from the vendor". It is inserted server-side via the service-role
+ * admin client (migration 20270101010000 adds the enum value), so it bypasses
+ * the couple/vendor RLS INSERT policy, and it deliberately does NOT trip the
+ * `sender_role='vendor'` name-reveal trigger.
+ */
+export type ChatSenderRole = 'couple' | 'vendor' | 'coordinator' | 'system';
 
 /**
  * Accept-gate state per CLAUDE.md 2026-06-02 ("the chat will only reveal when

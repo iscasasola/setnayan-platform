@@ -4,6 +4,55 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(editorial): vendor day-of media WRITE PATH — submit UI + NSFW screen + migration [Increment 2]
+
+Builds on Increment 1 (the display). The couple's **recommended vendor** can now actually submit day-of media; it auto-shows on the editorial once it clears the NSFW screen.
+
+- **Migration `20270102000000_editorial_vendor_media.sql`** (applied to prod) — new event-scoped, vendor-authored table mirroring `event_preparation_items`: `media_type` (photo/clip), `boomerang_r2_key` (clip = baked boomerang, enforced by a CHECK), `still_r2_key` (photo, or clip poster + NSFW proxy), `moderation_state`, `hidden_by_couple`, `event_vendor_id` (the recommended-pick plan row). RLS-at-create: couple SELECT+UPDATE (hide), vendor SELECT/INSERT/UPDATE/DELETE own (accepted-thread baseline), admin ALL. *(Applied via `db query`/pg per the ledger-drift workaround — `db push` was blocked by parallel-session drift; the file's original `20261229000000` collided with a parallel migration so it was renamed to `20270102000000` and the ledger row recorded.)*
+- **`lib/editorial-vendor-media.ts`** — the eligibility gate `findRecommendedEventVendorId()`: resolves `event_vendors(selection_match_rank=1).service_id → vendor_services.vendor_profile_id`, so only the couple's recommended pick qualifies. Plus `MAX_PER_TYPE=3` + `SubmitMediaItem` (kept out of the `'use server'` file).
+- **`…/clients/[eventId]/editorial-media/{page.tsx,actions.ts,_components/editorial-media-studio.tsx}`** — the vendor submit surface: gated to the recommended pick, add up to 3 photos + 3 clips; **clips trim to ≤5s and bake to a boomerang IN THE BROWSER** (same encoder as the couple's Living Hero). The action re-checks the gate + the 3-each cap server-side, inserts via the admin client, and fires the NSFW screen. Existing submissions show a live status (Checking… / Live / Hidden) with withdraw.
+- **`lib/nsfw-screen.ts`** — `screenEditorialVendorMedia()` reuses the `classifyImageBytes` + `decideNsfw` primitives; screens the still JPEG (the proxy for both photos and clips). Public editorial **fails closed** for vendor media (only `clean` shows).
+- **`editorial/data.ts`** — the real-event loader now reads `editorial_vendor_media` (clean + not-hidden + recommended-pick re-checked LIVE so swapping the vendor drops their media) into `vendorMedia`.
+- **`…/clients/[eventId]/page.tsx`** — an "Add to their editorial" entry card on the Event Brief, shown only to the recommended pick.
+
+Verified: migration live on prod (15 cols, RLS on, 7 policies, CHECK present); `tsc` green; `next lint` clean; the new vendor route compiles (307 → login, not 500) and the sample editorial + new DB-loader path render without error.
+
+> **Follow-ups (schema/RLS already support both):** a couple per-item hide control (the `hidden_by_couple` column + couple-UPDATE policy are in place; today they hide the whole strip via the section toggle) and a dedicated admin takedown surface (admin-ALL policy is in place).
+
+SPEC IMPACT: iteration 0046 — the editorial gains a vendor-submitted day-of media block (gate = `selection_match_rank=1`, auto-show after NSFW, clips always boomerang). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(editorial): "From Your Vendors" strip — the couple's recommended vendor's day-of media (clips boomerang) [Increment 1: display]
+
+Owner: *"if the vendor submits up to 3 photo / 5-second video of their day-of service to that event, it can show on the editorial of the couple (gated if they are recommended or not). Our rule in editorial should always boomerang."* Owner locked the two pivotal decisions: **eligible = the couple's recommended / first-pick vendor** (`event_vendors.selection_match_rank = 1`), and **auto-show after NSFW moderation** (couple can hide). This is **Increment 1 — the couple-facing display + a visible demo on the samples.** The vendor write path (table + submit UI + NSFW + admin) is Increment 2.
+
+- **`editorial/data.ts`** — new `VendorMediaItem` type + `vendorMedia: VendorMediaItem[]` on `EditorialData`; new `fromVendors` section key (so the couple can toggle it). Real events resolve to `[]` for now (the DB-backed loader lands with the write path).
+- **`editorial-content.tsx` `VendorMediaStrip`** — a credited grid placed after "From the Day": photos render as stills; **clips render as muted, looping, GIF-like boomerangs** (the editorial video rule — every clip is pre-baked forward+reverse) with the still as poster and a "◆ loop" tag + vendor credit per frame.
+- **`editorial-editor.tsx`** — "From your vendors" added to the section toggles.
+- **5 samples seeded** — each carries a vendor boomerang clip + a photo credited to its first-pick photographer, backed by 10 newly-generated vendor photos (Recraft, distinct from the gallery) + 5 freshly-baked vendor boomerang clips (`zoompan` sine ping-pong, ~190–320 KB).
+
+Verified (Playwright DOM, dev server): on all samples the "From Your Vendors" strip renders, the vendor clip is `muted/loop/playsInline` and **plays in real-time when scrolled into view** (`paused:false`, `currentTime` advancing) — Chrome idles it offscreen, which is correct. `tsc` green; `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — editorial gains a "From your vendors" block fed by the couple's recommended vendor's day-of media (clips always boomerang); gate = `selection_match_rank = 1`, auto-show after NSFW. Increment 2 (write path) pending. Logged to corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(editorial): the hero now plays its boomerang as a continuously-looping GIF (root cause: the editorial had no `<video>` at all)
+
+Owner: *"why does the video not autoplay? or how can we make the video run like a gif that continuously plays?"* — on the editorial. A 5-reader code trace found the **root cause: the editorial rendered ZERO `<video>` elements.** The hero was an image-only `HeroPhoto` (`<img>`), and the data layer *actively dropped* clip-type heroes (`ptype !== 'clip'` guard), so there was literally nothing to autoplay. The boomerang machinery already worked on the public couple page `/[slug]` — it was just never wired into the editorial.
+
+- **`editorial/data.ts`** — added `heroVideoUrl` to `EditorialData`; the real-event loader now resolves the couple's Living-Hero boomerang (`events.landing_page_hero_video_r2_key`, already baked forward+reverse by the Living Hero Studio) into it. Additive: null → the hero stays the still photo.
+- **`editorial-content.tsx` `HeroPhoto`** — renders a `<video autoPlay muted loop playsInline poster={still}>` when `heroVideoUrl` is present, else the `<img>`. That four-attribute set (`autoplay`+`muted`+`loop`+`playsInline`) is the exact contract a browser needs to run a video like a continuously-playing GIF with no user tap (`muted` is mandatory — browsers block sound-on autoplay; `playsInline` stops iOS fullscreen-hijack). The still is the `poster`, so there's no black flash. **Editorial rule enforced:** any editorial video is a *baked forward+reverse boomerang*, so the loop is seamless (no felt cut) — never a one-shot clip.
+- **5 sample editorials + `/realstories` cards** — all 5 now carry a `heroVideoUrl`. Maria & Juan and Jack & Jill use their existing scene-motion boomerangs; the other three got freshly-baked seamless **ping-pong** loops (`zoompan` sine zoom 1.0→1.09→1.0 → start frame = end frame, 5 s · 24 fps · H.264, ~500–600 KB each) so all five move.
+
+Verified (Playwright DOM, dev server): the editorial hero `<video>` reports `autoplay/muted/loop/playsInline` = true, `currentSrc` = the boomerang `.mp4`, `paused:false`, and `currentTime` advances in real-time on all 5 samples (incl. the 3 newly-baked clips). `tsc` green; `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — the editorial hero plays the couple's baked boomerang as a muted/looping GIF-like banner; "editorial video is always a boomerang" is now the rule. Logged to corpus `DECISION_LOG.md`. (Companion: vendor day-of media on the editorial — gated on recommendation — is designed and pending owner sign-off; not in this PR.)
+## 2026-06-15 · feat(realstories): the 5 sample editorials are now complete — day-recap write-up + photo gallery on each
+
+Owner: *"the editorials of the samples are all incomplete. there is no write up, photos, services that play?"* The 5 `/realstories` sample editorials (Maria & Juan, Jack & Jill, John & Jane, Peter & Mary, Jack & Rose) rendered their masthead, headline, hero, By-the-Numbers, reviews and Powered-by strip — but had a **blank body** (`draft: {}` → no `leadParagraphs`) and an **empty "From the Day" gallery** (`galleryPhotos: []`), so they looked half-finished.
+
+- **`…/editorial/data.ts`** — each of the 5 fixtures now carries a **2–3-paragraph DAY-RECAP write-up** (`draft.leadParagraphs`) and **3 gallery photos** (`galleryPhotos`). The bodies are newspaper-style coverage of the *wedding day itself* — ceremony, reception, the moments — voiced per the couple's `tone` (warm / playful / formal). They deliberately **do not** retell the love story: the editorial body intentionally drops the auto love-narrative (it lives on the run-up paths), so the samples model the same lock — front-page *day* coverage, written through the couple-editable `draft.leadParagraphs` path.
+- **`public/realstories/{couple}-g{1,2,3}.jpg`** — 15 new wedding photos (Recraft-generated, per-couple themed: garden/Taal, Cebu cove, Manila rooftop, Tagaytay estate, Baguio pines), optimized to ~300–500 KB each (1100 px, q80 JPEG). Wired as each fixture's `galleryPhotos`; the existing `isOn('gallery')` gate + `PhotoGallery` spread (1 lead frame + tight grid) render them under "From the Day".
+
+Verified end-to-end on the Jack & Jill sample (dev server + Playwright, scrolled to trigger lazy-load): the full editorial now reads masthead → headline → hero → **drop-cap day-recap body (2 columns)** → By the Numbers → vendor team → From the Couple → **From the Day photo gallery (3 frames)** → reviews → Powered by Setnayan. `tsc` green; `next lint` clean (no new warnings). Samples flow through the identical `EditorialContent` engine as real couples, so they track the live format.
+
+SPEC IMPACT: iteration 0046 — sample editorials carry a day-recap body + photo gallery (modeling the love-narrative-free editorial body). Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-17 · feat(nav): the section sub-nav expands FROM the desktop sidebar (delivers the journey follow-up)
 
 Owner: *"let the subnav expand from the side nav when on desktop. subnav setup is only for mobile. but when there is a sidenav, all will be under the side nav."* The mobile `<SubNav>` floating pill is the **mobile** rendering of a section's sub-stages; on desktop those stages were homeless — the Guests journey only surfaced as an on-page ribbon on the Build page, so once you were on Invite/Confirm/Day-of the desktop journey nav vanished. This closes the gap the prior journey PR explicitly left ("desktop journey strip on every journey surface").

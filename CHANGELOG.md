@@ -4,7 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-16 · feat(nav): wire the VENDOR doorway to the registry (consumption PR 3)
+## 2026-06-16 · feat(nav): wire the ADMIN doorway to the registry (consumption PR 4)
+
+Fourth consumption of the nav/icon/menu registry — the **admin doorway** (sidebar ~55 items + 6-tab bottom nav) now sources each item's **label + icon from the admin registry** (`admin.sidebar.*` + `admin.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified every admin sidebar item + bottom tab matches its registry default, all 54 admin icons in the curated allowlist). Admin nav has no role-gating, so the overlay applies directly.
+
+- **`apps/web/lib/nav-registry-defaults.ts`** — two coverage fixes so all 55 sidebar items have a slot: renamed `admin.sidebar.token-sales` → `admin.sidebar.token-purchases` (the actual item key) and added `admin.sidebar.menus` (the "Menus & icons" entry added with the foundation PR; Shapes icon).
+- **`apps/web/app/admin/_components/admin-sidebar.tsx`** — `applyAdminRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via `admin.sidebar.<key>`; hidden slot drops the item; neutral `ADMIN_NAV_GROUPS` + shared SidebarSection/SidebarItem untouched.
+- **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** — same overlay over the 6 tabs (keys match slot suffixes 1:1).
+- **`apps/web/app/admin/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both.
+
+`pnpm typecheck` + `pnpm lint` green. All three dashboards (customer · vendor · admin) are now registry-driven. Deferred: `_overview-tile.tsx` ICONS map (admin landing tiles — a separate tile-icon system). NEXT: PUBLIC marketing nav (label-only), then group-heading slots + the ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
 
 Third consumption of the nav/icon/menu registry — the **vendor doorway** (sidebar + bottom nav) now sources each item's **label + icon from the admin registry** (`vendor.sidebar.*` + `vendor.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified all 36 vendor slot defaults match the code labels+icons exactly, and all 24 vendor icons are in the curated allowlist).
 

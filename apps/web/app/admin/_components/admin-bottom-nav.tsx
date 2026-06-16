@@ -53,7 +53,9 @@
 
 import { Home, ListChecks, Users, DollarSign, BarChart3, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -177,6 +179,21 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   },
 ];
 
-export function AdminBottomNav() {
-  return <BottomNav items={ADMIN_BOTTOM_NAV_ITEMS} />;
+export function AdminBottomNav({
+  navSlots,
+}: {
+  navSlots?: Record<string, NavSlotLite>;
+}) {
+  // Nav registry overlay: label + icon per tab from its admin.bottom-nav.<key>
+  // slot (keys match the slot suffix 1:1). Fallback = the hardcoded default;
+  // hidden slot drops the tab; href/activeMatch stay in code. No-op when absent.
+  const items = navSlots
+    ? ADMIN_BOTTOM_NAV_ITEMS.flatMap((item) => {
+        const slot = navSlots[`admin.bottom-nav.${item.key}`];
+        if (!slot) return [item];
+        if (slot.isHidden) return [];
+        return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+      })
+    : ADMIN_BOTTOM_NAV_ITEMS;
+  return <BottomNav items={items} />;
 }

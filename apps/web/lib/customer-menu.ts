@@ -35,13 +35,20 @@
  * differ on purpose, so the dock keeps today's exact visibility.
  */
 
-import { Home, Users, Compass, Sparkles, Palette, Wallet, type LucideIcon } from 'lucide-react';
+import {
+  Home, Users, Compass, Sparkles, Palette, Wallet,
+  // Studio children:
+  Gem, Globe, Camera,
+  // Budget children:
+  Gauge, PieChart, Receipt,
+  type LucideIcon,
+} from 'lucide-react';
 import { buildGuestJourney } from './guest-journey';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
 
 export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget';
 
-export type MenuChildKind = 'route' | 'tab';
+export type MenuChildKind = 'route' | 'tab' | 'anchor';
 
 export type CustomerMenuChild = {
   key: string;
@@ -53,6 +60,10 @@ export type CustomerMenuChild = {
   match?: string;
   /** kind='tab' — the `?tab=` value driven over the BB_TAB_EVENT bus. */
   tab?: string;
+  /** kind='anchor' — the id of an on-page section the dock scrolls to (and a
+   *  scroll-spy lights as it enters view). For single-page menus whose children
+   *  are scroll sections, not separate routes (e.g. Budget). */
+  hash?: string;
   /** Rendered dimmed-but-tappable ("not yet", e.g. Day-of before its window). */
   muted?: boolean;
 };
@@ -85,10 +96,13 @@ export type CustomerMenuCtx = {
 };
 
 /**
- * The canonical 6-menu tree for an event. In PR1 only Guests + Explore carry
- * `children` (sourced from the existing single-sources `guest-journey.ts` +
- * `budget-build.ts` so nothing drifts); the other four are parents-without-
- * children until their PRs land.
+ * The canonical customer-menu tree for an event — now **5 top menus** (owner
+ * 2026-06-17 folded Design INTO Studio): Home · Guests · Explore · Studio ·
+ * Budget. Children: Guests (routed, from `guest-journey.ts`) · Explore (tabs,
+ * from `budget-build.ts`) · Studio (anchor sections — Setnayan AI · Website ·
+ * Capture · Branding, scrolling the regrouped /add-ons hub) · Budget (anchor
+ * scroll-sections). Home is the only childless menu. (The `design` key remains
+ * in CustomerMenuKey but no longer renders a menu — /design redirects to Studio.)
  */
 export function buildCustomerMenuTree(
   eventId: string,
@@ -150,14 +164,23 @@ export function buildCustomerMenuTree(
       label: 'Studio',
       icon: Sparkles,
       href: `${base}/add-ons`,
-      activeMatch: `${base}/add-ons`,
-    },
-    {
-      key: 'design',
-      label: 'Design',
-      icon: Palette,
-      href: `${base}/design`,
-      activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 menus,
+      // no standalone Design tab; /design redirects here). activeMatch covers the
+      // former Design routes too so the Studio tab lights across them.
+      activeMatch: [`${base}/add-ons`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
+      // the regrouped /add-ons hub (lib/add-ons-catalog.ts studioGroup + the
+      // SECTIONS ids). Exact /add-ons only: the anchors live on the hub; add-on
+      // detail pages (/add-ons/papic …) are their own surfaces.
+      sectionMatch: `${base}/add-ons`,
+      sectionMatchExact: true,
+      subnavLabel: 'Studio sections',
+      children: [
+        { key: 'setnayan_ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai' },
+        { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website' },
+        { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture' },
+        { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding' },
+      ],
     },
     {
       key: 'budget',
@@ -165,6 +188,18 @@ export function buildCustomerMenuTree(
       icon: Wallet,
       href: `${base}/budget`,
       activeMatch: [`${base}/budget`, `${base}/disputes`],
+      // Single scrolling page — children are on-page sections the dock scrolls to
+      // (scroll-spy lights the one in view). Exact /budget only (the takeover-style
+      // exact match): /disputes is its own post-event surface, not a budget section,
+      // so it's intentionally NOT a child here.
+      sectionMatch: `${base}/budget`,
+      sectionMatchExact: true,
+      subnavLabel: 'Budget',
+      children: [
+        { key: 'overview', label: 'Overview', icon: Gauge, kind: 'anchor' as const, hash: 'budget-overview' },
+        { key: 'allocate', label: 'Allocate', icon: PieChart, kind: 'anchor' as const, hash: 'budget-allocate' },
+        { key: 'payments', label: 'Payments', icon: Receipt, kind: 'anchor' as const, hash: 'budget-payments' },
+      ],
     },
   ];
 }

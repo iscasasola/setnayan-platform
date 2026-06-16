@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(journal): free printable wedding-checklist article + downloadable planner PDF (top-of-funnel)
+
+Owner directive: publish a Journal article that gives DIY / physical-checklist couples a printable wedding checklist, offers it as a download, and promotes the free in-app living checklist as the guided alternative.
+
+- **`apps/web/lib/blog.ts`** — new featured article **"A free, printable wedding checklist for Filipino couples"** (`/blog/free-printable-wedding-checklist-philippines`, category `planning`). Explains why a checklist is the DIY couple's backbone, makes the case for a printable one, lays out a (non-overlapping) 18-month→day-of countdown, and promotes the **free** in-app living checklist as "the paper planner, kept current for you" (recomputes deadlines from the date, auto-ticks as you book, jumps to the right vendor). Pinned as the index hero (the prior featured planning article was un-featured — one-line revert). Deliberately does NOT mention paid Setnayan AI — sells the free funnel without muddying the paywall.
+- **New `download` BlogBlock variant** (lib/blog.ts) + renderer (`app/blog/[slug]/page.tsx`) — a proper download button (`<a download>`, mulberry brand button, `Download` glyph) for static `/public` assets; reusable beyond this article.
+- **Assets** — `public/blog/checklist-cover.webp` (Recraft-generated editorial flat-lay, 249 KB, on-brand) + `public/blog/setnayan-wedding-checklist.pdf` (the 15-page designed printable planner, 226 KB).
+- **Adversarial review (8-agent workflow) → 2 confirmed fixed / 3 refuted:** (MED) overlapping timeline buckets (12/9/6/4/2 appeared in two stages each) → made non-overlapping; (LOW) three stacked terminal CTAs → moved the marketplace CTA up, dropped the duplicate, article now ends on the "Set na 'yan." sign-off with the free-checklist promo as the climax. Refuted (correctly): the PDF already carries a 2025–2026 market-estimate disclaimer (no Setnayan SKU prices — public-hygiene clean), the 18-vs-12-month framing is compatible with the sibling article, and the excerpt renders clean under the meta cap (trimmed anyway for card consistency).
+- `tsc` + `next lint` + retired-string guard + production build all green; article in the blog sitemap.
+
+SPEC IMPACT: iteration 0038 (Editorial/Journal) — new planning article + a reusable download block. Free-downloadable-checklist + free-vs-paid-guidance positioning logged in corpus `DECISION_LOG.md`.
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
 
 Owner-locked (2026-06-16): let a couple TRY Papic free so they experience the claim→shoot→tag→gallery loop, then convert to the paid pass. Built as a thin entitlement on the EXISTING Papic web pipeline (seat claim + web capture + QR tagging all already shipped) — no rebuild.

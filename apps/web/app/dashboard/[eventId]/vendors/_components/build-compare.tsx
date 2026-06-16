@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { Bookmark, ChevronDown, Loader2, Lock, Pencil, Trash2 } from 'lucide-react';
 import {
   savePlanBuild,
+  savePlanBuildNamed,
   deleteBudgetBuild,
   type SavedPlanBuild,
   type PlanBuildSnapshot,
@@ -29,6 +30,7 @@ import {
 import { applyBuildToWorking } from '../build-pick-actions';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
+import { sortSavedBuilds, displayBuildTitle } from '@/lib/named-builds';
 
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
@@ -62,27 +64,48 @@ export function BuildCompare({
   currentPlan,
   savedBuilds,
   availability = null,
+  named = false,
 }: {
   eventId: string;
   budgetPhp: number | null;
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
   availability?: CompareAvailability | null;
+  /**
+   * BUILD_3STATE_ENABLED (default OFF). When true, the fixed A/B/C 3-slot save
+   * bar swaps for the free-form NAMED Save-As flow (type a name → new build, OR
+   * pick an existing build to overwrite). When false, the A/B/C slot picker +
+   * `b.title ?? "Plan {label}"` column titling stay byte-identical to today.
+   */
+  named?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const takenSlots = useMemo(() => new Set(savedBuilds.map((b) => b.label)), [savedBuilds]);
-  const [slot, setSlot] = useState<BuildSlot>(SLOTS.find((s) => !takenSlots.has(s)) ?? 'A');
+  const [slot, setSlot] = useState<BuildSlot>(
+    SLOTS.find((s) => !takenSlots.has(s as BuildSlot)) ?? 'A',
+  );
   const [name, setName] = useState('');
+  // Named (flag-on) Save-As: '' = create a new named build; a build_id = overwrite.
+  const [overwriteId, setOverwriteId] = useState<string>('');
   const [err, setErr] = useState<string | null>(null);
   // Per-cell inclusion expand state, keyed `${columnKey}::${groupId}`.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
+  // Flag-on: stable column order (A/B/C lead, then named oldest-first).
+  // Flag-off: preserve the existing server order exactly (no behavior change).
+  const orderedBuilds = useMemo(
+    () => (named ? sortSavedBuilds(savedBuilds) : savedBuilds),
+    [named, savedBuilds],
+  );
+
   // Columns = saved builds, then the live "Current" plan last.
   const columns = useMemo(() => {
-    const cols = savedBuilds.map((b) => ({
+    const cols = orderedBuilds.map((b, i) => ({
       key: b.build_id,
-      title: b.title ?? `Plan ${b.label}`,
+      // Flag-on uses the named-builds display title ("Build N" fallback for an
+      // untitled named row); flag-off keeps the legacy "Plan {label}" wording.
+      title: named ? displayBuildTitle(b, i) : (b.title ?? `Plan ${b.label}`),
       total: b.total_php,
       picks: new Map(b.snapshot.picks.map((p) => [p.groupId, p])),
       isCurrent: false,
@@ -99,7 +122,7 @@ export function BuildCompare({
       snapshot: currentPlan,
     });
     return cols;
-  }, [savedBuilds, currentPlan]);
+  }, [orderedBuilds, named, currentPlan]);
 
   function toggleCell(cellKey: string) {
     setExpanded((prev) => {
@@ -151,6 +174,29 @@ export function BuildCompare({
     });
   }
 
+  // Flag-on Save-As: create a NEW named build, or overwrite the chosen one.
+  function onSaveNamed() {
+    setErr(null);
+    if (currentPlan.picks.length === 0) {
+      setErr('Add some vendors to your plan first — shortlist on the Build tab, then save.');
+      return;
+    }
+    startTransition(async () => {
+      const res = await savePlanBuildNamed({
+        eventId,
+        rawName: name,
+        overwriteBuildId: overwriteId || null,
+        snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
+      });
+      if (!res.ok) setErr(res.error);
+      else {
+        setName('');
+        setOverwriteId('');
+        router.refresh();
+      }
+    });
+  }
+
   function onDelete(buildId: string) {
     setErr(null);
     startTransition(async () => {
@@ -188,44 +234,91 @@ export function BuildCompare({
         </p>
       </div>
 
-      {/* Save current plan into a named slot */}
-      <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
-          <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
-          Save your current plan as
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={`Plan ${slot}`}
-            className="min-w-[7rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
-            aria-label="Build name"
-          />
-          into
-          <select
-            value={slot}
-            onChange={(e) => setSlot(e.target.value as BuildSlot)}
-            className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-            aria-label="Slot to save into"
-          >
-            {SLOTS.map((s) => (
-              <option key={s} value={s}>
-                Slot {s}
-                {takenSlots.has(s) ? ' (replace)' : ''}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-            Save
-          </button>
+      {/* Save current plan — named Save-As (flag-on) or A/B/C slots (flag-off). */}
+      {named ? (
+        <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
+            <Bookmark
+              className="h-4 w-4 shrink-0 text-terracotta"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            Save your current plan as
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Garden wedding"
+              className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
+              aria-label="Build name"
+            />
+            <select
+              value={overwriteId}
+              onChange={(e) => setOverwriteId(e.target.value)}
+              className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
+              aria-label="Save as a new build or overwrite an existing one"
+            >
+              <option value="">as a new build</option>
+              {orderedBuilds.map((b, i) => (
+                <option key={b.build_id} value={b.build_id}>
+                  overwrite “{displayBuildTitle(b, i)}”
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={onSaveNamed}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+              {overwriteId ? 'Save' : 'Save As'}
+            </button>
+          </div>
+          {err ? <p className="text-xs text-rose-700">{err}</p> : null}
         </div>
-        {err ? <p className="text-xs text-rose-700">{err}</p> : null}
-      </div>
+      ) : (
+        <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
+            <Bookmark
+              className="h-4 w-4 shrink-0 text-terracotta"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            Save your current plan as
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={`Plan ${slot}`}
+              className="min-w-[7rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
+              aria-label="Build name"
+            />
+            into
+            <select
+              value={slot}
+              onChange={(e) => setSlot(e.target.value as BuildSlot)}
+              className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
+              aria-label="Slot to save into"
+            >
+              {SLOTS.map((s) => (
+                <option key={s} value={s}>
+                  Slot {s}
+                  {takenSlots.has(s) ? ' (replace)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+              Save
+            </button>
+          </div>
+          {err ? <p className="text-xs text-rose-700">{err}</p> : null}
+        </div>
+      )}
 
       {/* Side-by-side comparison */}
       {rows.length === 0 ? (
@@ -405,9 +498,11 @@ export function BuildCompare({
       )}
 
       <p className="text-xs text-ink/45">
-        <span className="text-terracotta">Current</span> is your live plan. Save it into a slot to
-        bank a version, then change your picks and save another to compare. Use{' '}
-        <span className="text-ink/70">Modify</span> to load a saved plan back into your working
+        <span className="text-terracotta">Current</span> is your live plan.{' '}
+        {named
+          ? 'Save it as a new named build to bank a version, then change your picks and save another to compare.'
+          : 'Save it into a slot to bank a version, then change your picks and save another to compare.'}{' '}
+        Use <span className="text-ink/70">Modify</span> to load a saved plan back into your working
         build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to
         finalize those vendors.
       </p>

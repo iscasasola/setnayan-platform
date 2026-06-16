@@ -27,6 +27,22 @@ First PR of the Event Lifecycle Menu (`Event_Lifecycle_Menu_Design_2026-06-16.md
 Mobile-only (the bar is `lg:hidden`; desktop uses the sidebar). `tsc`, `next lint`, `lint:botnav` all green. **Reuses** the canonical `BottomNav` (auto-scales 5/6 tabs identically) + the shipped `isEventDayActive` + `/more` — no new primitives, no migration. PR pending (branch `claude/lifecycle-pr1-menu-swap`, auto-merge).
 
 SPEC IMPACT: None on data/pricing/SKUs. Implements §2/§4/§10 (PR1) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the phase-dispatch primitive every later phase (Wrap-up, After) hangs its menu off. Honors guardrail §11.1 (gate on `isEventDayActive`).
+## 2026-06-16 · feat(build): named Save-As builds → Compare (flag-dark, relax-migration)
+
+Adds free-form **NAMED** saved builds to the 3-state Build's Compare tab, replacing the fixed A/B/C 3-slot cap. Everything is gated by `BUILD_3STATE_ENABLED` (default OFF): with the flag off, the Compare save bar is the existing A/B/C slot picker + `Plan {label}` titling — **byte-identical to today** — and the new named action fails soft (it also self-guards on the flag). A build becomes identified by `build_id` + a free-form `title`; the couple types a name to save a **new** build, or picks an existing one to **overwrite**. New pure logic (`normalizeBuildTitle`/`displayBuildTitle`/`sortSavedBuilds`/`planSaveAs`) is unit-tested; a stale overwrite target fails soft to create so a save is never dropped.
+
+- **`supabase/migrations/20261231010000_budget_builds_named.sql`** (new — **NOT applied**; operator applies after review) — RELAX-ONLY/additive: drops `budget_builds.label` NOT NULL + the `('A'|'B'|'C')` CHECK, and replaces the full `(event_id,label)` UNIQUE index with a **partial** unique index scoped to `label IS NOT NULL` (legacy A/B/C `onConflict event_id,label` upserts keep working; named rows with `label NULL` are uncapped). Adds `(event_id, created_at)` ordering index. Existing rows untouched.
+- **`apps/web/lib/named-builds.ts`** (new) — pure helpers (title normalize/cap, display title with `Build N` fallback, A/B/C-then-named sort, create-vs-overwrite decision).
+- **`apps/web/lib/named-builds.test.ts`** (new) — 13 unit tests.
+- **`apps/web/app/dashboard/[eventId]/vendors/build-actions.ts`** — adds `savePlanBuildNamed` (flag-guarded; create new `label NULL` row OR overwrite by `build_id`); widens `SavedPlanBuild.label` to `BuildSlot | null` + optional `created_at`.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx`** — `named` prop; flag-on renders the Save-As name input + overwrite selector and sorts/titles columns via the pure helpers; flag-off path unchanged.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — passes `named={isBuild3StateEnabled()}`; adds `created_at` to the builds SELECT.
+
+`pnpm typecheck` (0 errors) + `pnpm lint` green; 174 unit tests pass (13 new).
+
+SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md).
+
+---
 
 ## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
 

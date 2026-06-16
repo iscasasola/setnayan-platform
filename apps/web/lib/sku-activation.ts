@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+import { BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -73,7 +74,38 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   },
 
   // PR4 will register: PAPIC_SEATS: async (ctx) => { /* seat-pass provisioning */ },
+
+  // Bundle activation (bundle-buyer dead-flag repair) — fan the bundle's
+  // children through their own hooks. See activateBundleChildren below.
+  GUIDED_PACK: (ctx) => activateBundleChildren(ctx),
+  MEDIA_PACK: (ctx) => activateBundleChildren(ctx),
 });
+
+/**
+ * Fan a freshly-approved BUNDLE order (GUIDED_PACK / MEDIA_PACK) through each of
+ * its child SKUs' activation hooks. WHY: a bundle purchase lands as a SINGLE
+ * orders row keyed by the bundle code — it never decomposes into per-child
+ * orders (app/dashboard/[eventId]/add-ons/bundle/page.tsx). activateOrderSku
+ * dispatches on the literal service_key, so a child whose capability depends on
+ * a STORED side-effect flag (today only SETNAYAN_AI → events.setnayan_ai_active)
+ * would never activate for a bundle buyer. Children whose ownership is read
+ * straight off orders.status (monogram, custom-QR, papic, …) need no hook here —
+ * their gates already read the bundle order via eventOwnsSku(). Membership comes
+ * from BUNDLE_CHILD_SKUS (the read-side mirror) so this can't drift from the
+ * gate. Idempotent (child hooks are idempotent); a child with no hook is
+ * skipped; bundle codes are never children, so there is no recursion.
+ */
+async function activateBundleChildren(ctx: ActivationContext): Promise<void> {
+  const children =
+    BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS];
+  if (!children) return;
+  for (const child of children) {
+    const childHook = EXACT_HOOKS[child];
+    if (childHook) {
+      await childHook({ ...ctx, serviceKey: child });
+    }
+  }
+}
 
 // Prefix/predicate hooks for dynamic-suffix service_keys (e.g. branch ids).
 const PREFIX_HOOKS: ReadonlyArray<{

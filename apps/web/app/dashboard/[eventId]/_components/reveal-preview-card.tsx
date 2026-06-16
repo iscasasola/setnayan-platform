@@ -3,25 +3,33 @@
 /**
  * "Opening reveal" card for the website editor (the couple's studio).
  *
- * Lets the couple PREVIEW how their wedding page opens — the envelope or the
- * bridal veil — without needing a published slug or production URL gymnastics.
- * Clicking a Preview plays the reveal full-screen over a sample of their own
- * Save-the-Date card; lifting/opening it uncovers the card, then Replay / Close.
+ * Lets the couple PREVIEW how their wedding page opens — any of the reveal
+ * library templates (envelopes · church doors · bridal veils) — without needing
+ * a published slug or production URL gymnastics. Clicking a template plays the
+ * reveal full-screen over a sample of their own Save-the-Date card; lifting /
+ * opening it uncovers the card, then Replay / Close.
  *
  * Reuses the exact reveal components that render on the live `[slug]` page, so
- * what they preview here is what guests get. three.js (the veil) is lazy-loaded.
+ * what they preview here is what guests get. three.js (the veils) is lazy-loaded.
  */
 
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { RotateCcw, Sparkles, X } from 'lucide-react';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
+import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
+import {
+  isVeilTemplate,
+  REVEAL_LIBRARY,
+  type RevealTemplate,
+} from '@/app/[slug]/_components/reveal/reveal-templates';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
 });
-
-type Tpl = 'veil' | 'four-flap';
+const VeilCrown = dynamic(() => import('@/app/[slug]/_components/reveal/veil-crown'), {
+  ssr: false,
+});
 
 function monogram(name: string): string {
   const p = name
@@ -42,7 +50,7 @@ type Props = {
 };
 
 export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' }: Props) {
-  const [tpl, setTpl] = useState<Tpl | null>(null);
+  const [tpl, setTpl] = useState<RevealTemplate | null>(null);
   const [open, setOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
@@ -51,7 +59,7 @@ export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' 
     ? new Date(dateIso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
 
-  const launch = (t: Tpl) => {
+  const launch = (t: RevealTemplate) => {
     setTpl(t);
     setOpen(false);
     setRevealed(false);
@@ -60,6 +68,24 @@ export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' 
     setTpl(null);
     setOpen(false);
     setRevealed(false);
+  };
+
+  // Render the live reveal component for a template. Veils lift/fold themselves
+  // clear (drag-driven → onRevealed); rigid templates swing open on tap, then
+  // hand off to `revealed` after the fold beat.
+  const openRigid = () => {
+    setOpen(true);
+    window.setTimeout(() => setRevealed(true), 1200);
+  };
+  const renderReveal = (t: RevealTemplate) => {
+    if (isVeilTemplate(t)) {
+      const Veil = t === 'veil-crown' ? VeilCrown : VeilReveal;
+      return <Veil veilColor={veilColor} onRevealed={() => setRevealed(true)} />;
+    }
+    if (t === 'two-flap-vertical' || t === 'two-flap-horizontal' || t === 'church-doors') {
+      return <RigidReveal variant={t} monogram={mono} open={open} onOpen={openRigid} />;
+    }
+    return <FourFlapEnvelope monogram={mono} open={open} onOpen={openRigid} />;
   };
 
   return (
@@ -73,24 +99,24 @@ export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' 
           <h2 className="font-serif text-xl italic">How your page opens</h2>
           <p className="max-w-prose text-sm text-ink/70">
             When a guest opens your invitation it begins with a reveal that uncovers your Save the
-            Date. Preview the options — they recolour to your Mood Board.
+            Date. Preview the openings — they recolour to your Mood Board.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => launch('veil')}
-            className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-          >
-            Preview the veil
-          </button>
-          <button
-            type="button"
-            onClick={() => launch('four-flap')}
-            className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md border border-ink/20 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-          >
-            Preview the envelope
-          </button>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {REVEAL_LIBRARY.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => launch(t.id)}
+              className={`inline-flex min-h-[44pt] items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                t.family === 'veil'
+                  ? 'bg-mulberry text-cream hover:bg-mulberry-600 focus-visible:outline-mulberry'
+                  : 'border border-ink/20 bg-cream text-ink hover:border-ink/40 focus-visible:outline-ink'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -107,22 +133,9 @@ export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' 
           </div>
 
           {/* The reveal itself. */}
-          {!revealed ? (
-            tpl === 'veil' ? (
-              <VeilReveal veilColor={veilColor} onRevealed={() => setRevealed(true)} />
-            ) : (
-              <FourFlapEnvelope
-                monogram={mono}
-                open={open}
-                onOpen={() => {
-                  setOpen(true);
-                  window.setTimeout(() => setRevealed(true), 1200);
-                }}
-              />
-            )
-          ) : null}
+          {!revealed ? renderReveal(tpl) : null}
 
-          {tpl === 'veil' && !revealed ? (
+          {isVeilTemplate(tpl) && !revealed ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-10 text-center">
               <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
                 Lift the veil ↑

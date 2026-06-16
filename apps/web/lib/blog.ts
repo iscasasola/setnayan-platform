@@ -48,7 +48,11 @@ export type BlogBlock =
   | { type: 'image'; src: string; alt: string; caption?: string }
   // Internal-link call-out — hub-and-spoke linking to the rest of the site
   // (SEO playbook §13: no orphan pages). Always an internal href.
-  | { type: 'cta'; text: string; href: string; label: string };
+  | { type: 'cta'; text: string; href: string; label: string }
+  // Downloadable asset (e.g. the printable checklist PDF in /public/blog). Renders
+  // a prominent download button; `href` is a static /public path, `download`
+  // forces save-as. Carries `.text` so blogPlainText's fallback stays type-safe.
+  | { type: 'download'; text: string; href: string; label: string };
 
 export type BlogArticle = {
   slug: string;
@@ -74,6 +78,112 @@ export type BlogArticle = {
 
 export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
   {
+    slug: 'free-printable-wedding-checklist-philippines',
+    cover: '/blog/checklist-cover.webp',
+    coverAlt:
+      'An open wedding planner with a checklist, a gold pen, a sprig of eucalyptus and a cup of coffee on a soft, sunlit table',
+    title: 'A free, printable wedding checklist for Filipino couples',
+    excerpt:
+      'A printable wedding checklist for Filipino couples — plus the free in-app version that updates every deadline around your date.',
+    category: 'planning',
+    author: 'Setnayan Editorial',
+    publishedAt: '2026-06-16',
+    featured: true,
+    blocks: [
+      {
+        type: 'p',
+        text: 'A wedding is a hundred small decisions made in the right order. A good checklist is what keeps those decisions from arriving all at once. It is the single most useful tool a couple can have — and for couples planning without a full-time coordinator, it is essential. Here is why a checklist matters so much, a printable one you can start using today, and a free in-app version that keeps itself up to date as you plan.',
+      },
+      {
+        type: 'h2',
+        text: 'Why a checklist is the DIY couple’s best friend',
+      },
+      {
+        type: 'p',
+        text: 'When you plan your own wedding, you are the coordinator. There is no one whose job is to remember that the marriage licence has to be filed months ahead, or that the caterer needs a final headcount two weeks out. A checklist holds all of that for you, so the only thing you have to do is work through it at your own pace.',
+      },
+      {
+        type: 'ul',
+        items: [
+          'It turns one overwhelming project into a short list of what to do next.',
+          'It protects the deadlines that are easy to miss — especially the Philippine legal timeline, which does not bend.',
+          'It keeps both partners, and the family helping out, looking at the same plan.',
+          'It tells you, at a glance, whether you are on track or falling behind.',
+        ],
+      },
+      {
+        type: 'quote',
+        text: 'The hardest part of planning is not doing the tasks — it is knowing what you have forgotten. A checklist answers that.',
+      },
+      {
+        type: 'h2',
+        text: 'Why some couples still want it on paper',
+      },
+      {
+        type: 'p',
+        text: 'There is a reason the paper checklist never goes away. You can pin it to the fridge, bring it to a supplier meeting, scribble a note in the margin, and hand it to your mother to help with. It works at a venue with no signal, and it costs nothing to print. For many couples, writing a task down and crossing it off is its own small satisfaction.',
+      },
+      {
+        type: 'download',
+        text: 'We made a printable wedding planner you can fill in by hand — a full countdown from eighteen months out to the day itself, with space for your budget, vendors, guest list, and the Philippine legal requirements. It is free, no sign-up needed.',
+        href: '/blog/setnayan-wedding-checklist.pdf',
+        label: 'Download the free planner (PDF)',
+      },
+      {
+        type: 'h2',
+        text: 'The countdown, at a glance',
+      },
+      {
+        type: 'p',
+        text: 'Here is the shape of a Filipino wedding timeline. The printable planner breaks each stage into specific tasks with realistic budgets beside them; this is the bird’s-eye view.',
+      },
+      {
+        type: 'ul',
+        items: [
+          '18–13 months: agree on your budget and guest-count range, then book the things that run out first — your date, ceremony and reception venues, caterer, and photo-and-video team.',
+          '12–10 months: lock your look and the suppliers who shape it — stylist, florist, host, music, hair and makeup.',
+          '9–7 months: send save-the-dates, order attire, and confirm your principal sponsors (ninong and ninang).',
+          '6–5 months: design invitations, finalise your mood board, and begin the church requirements.',
+          '4–3 months: the legal stretch — apply for your marriage licence, send invitations, and settle the paperwork.',
+          '2 months to the week of: confirm every supplier, lock the final headcount, finalise seating, and walk the day-of timeline.',
+          'The day, and after: be present — then claim your PSA marriage certificate and begin any name-change documents.',
+        ],
+      },
+      {
+        type: 'quote',
+        text: 'A Philippine marriage licence is valid for 120 days, with a 10-day posting period before release. Time it so it is live on your wedding day — not expired, not issued too late.',
+      },
+      {
+        type: 'cta',
+        text: 'Ready to start booking? Browse verified Filipino wedding suppliers by city, category, and the styles they specialise in.',
+        href: '/explore',
+        label: 'Explore the vendor marketplace',
+      },
+      {
+        type: 'h2',
+        text: 'When you want the checklist to keep up with you',
+      },
+      {
+        type: 'p',
+        text: 'Paper is wonderful, until your date moves. Push the wedding by a month and every deadline on the page is suddenly wrong. Book your caterer, and you still have to remember to cross it off. This is where a living checklist earns its place.',
+      },
+      {
+        type: 'p',
+        text: 'Every Setnayan account comes with the same checklist built in, free — but it does the bookkeeping for you. It works out every due date from your wedding date, so the whole countdown shifts the moment your date changes. It ticks tasks off on its own as you book vendors and settle details in the app. And when a task says “book your caterer”, it takes you straight to caterers. It is the paper planner, kept current for you.',
+      },
+      {
+        type: 'cta',
+        text: 'Keep your checklist, guest list, budget, and seating in one place — free with every Setnayan account.',
+        href: '/signup',
+        label: 'Start planning free',
+      },
+      {
+        type: 'p',
+        text: 'However you plan — on paper, in the app, or a little of both — the point is the same: a clear list, in the right order, so nothing important sneaks up on you. Download the planner, print it, and start ticking. Set na ’yan.',
+      },
+    ],
+  },
+  {
     slug: 'what-to-do-12-months-before-your-philippine-wedding',
     cover: '/blog/hero.webp',
     coverAlt: 'A Filipino couple walking hand in hand through a garden at golden hour',
@@ -83,7 +193,6 @@ export const BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-05-20',
-    featured: true,
     blocks: [
       {
         type: 'p',

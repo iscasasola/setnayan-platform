@@ -599,6 +599,29 @@
 /* ── Your Plan v2: inquiry stepper + in-app services (screens 15–16) (owner 2026-06-05) ──
    New surfaces — mirror into Onboarding_Wedding_Flow_2026-06-01.html (corpus). */
 .onbw .optcard-col{flex-direction:column;align-items:stretch;gap:0;}
+.onbw .aikeep{background:var(--surface);border:1.5px solid var(--mulberry);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 6px 18px rgba(92,37,66,.10);}
+.onbw .aikeep-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.onbw .aikeep-mark{color:var(--gold-deep);font-size:15px;}
+.onbw .aikeep-name{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--ink);}
+.onbw .aikeep-tag{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mulberry);background:var(--mulberry-wash);padding:3px 8px;border-radius:999px;}
+.onbw .aikeep-lede{font-size:13px;color:var(--ink);line-height:1.5;margin-bottom:11px;}
+.onbw .aikeep-lede b{font-weight:700;color:var(--mulberry);}
+.onbw .aikeep-bens{list-style:none;display:flex;flex-direction:column;gap:9px;margin:0 0 12px;}
+.onbw .aikeep-bens li{display:flex;gap:10px;align-items:flex-start;}
+.onbw .aikeep-bens .ic{flex:0 0 26px;width:26px;height:26px;border-radius:8px;background:var(--gold-wash);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-size:13px;}
+.onbw .aikeep-bens li span:last-child{font-size:12px;color:var(--ink-soft);line-height:1.4;}
+.onbw .aikeep-bens li b{font-weight:700;color:var(--ink);}
+.onbw .aikeep-price{display:flex;align-items:baseline;gap:8px;padding-top:11px;border-top:1px solid var(--line);}
+.onbw .aikeep-now{font-family:var(--serif);font-size:24px;font-weight:600;color:var(--mulberry);}
+.onbw .aikeep-unit{font-size:12px;color:var(--ink-soft);}
+.onbw .aikeep-anchor{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);text-decoration:line-through;text-decoration-color:var(--gold);}
+.onbw .aikeep-cta{width:100%;margin-top:11px;background:var(--mulberry);color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;box-shadow:0 7px 20px rgba(92,37,66,.26);}
+.onbw .aikeep-cta:hover{background:var(--mulberry-deep);}
+.onbw .aikeep-cta:active{transform:translateY(1px);}
+.onbw .aikeep-cta:disabled{opacity:.6;cursor:default;}
+.onbw .aikeep-later{text-align:center;margin-top:9px;font-size:12px;color:var(--ink-faint);}
+.onbw .aikeep-later u{cursor:pointer;text-underline-offset:3px;text-decoration-color:var(--line-2);}
+.onbw .aikeep-later u:hover{color:var(--ink-soft);}
 .onbw .opt-row{display:flex;align-items:flex-start;gap:12px;}
 .onbw .opt-step{display:flex;align-items:center;gap:11px;margin-top:11px;background:var(--gold-wash);border-radius:11px;padding:8px 11px;}
 .onbw .opt-step-l{font-size:11.5px;color:var(--ink-soft);flex:1;}

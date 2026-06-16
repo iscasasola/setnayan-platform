@@ -182,6 +182,10 @@ export type OnboardingPricing = {
     essentials: OnboardingBundleVM | null;
     complete: OnboardingBundleVM | null;
   };
+  /** Setnayan AI (the planner / first paywall) — read straight from the catalog
+   *  by service_code, since it isn't one of the onboarding "pick" keys. Null when
+   *  the row is missing/inactive. Powers the "Your Plan" keep-card. */
+  setnayanAi: { price: number; label: string } | null;
   /** Onboarding promo fraction (business rule, not a catalog value). */
   promo: number;
 };
@@ -263,12 +267,21 @@ export function buildOnboardingPricing(
     };
   };
 
+  // Setnayan AI price straight from the live catalog (it's not an onboarding
+  // "pick" key, so it isn't in `svc`). Null when missing/inactive → the keep-card
+  // falls back to its own copy without crashing.
+  const aiSku = byCode.get('SETNAYAN_AI');
+  const setnayanAi = aiSku
+    ? { price: aiSku.retail_price_php, label: formatSkuPriceLabel(aiSku, null) }
+    : null;
+
   return {
     svc,
     bundles: {
       essentials: bundleVM('GUIDED_PACK', BUNDLE_MEMBERS.essentials),
       complete: bundleVM('MEDIA_PACK', BUNDLE_MEMBERS.complete),
     },
+    setnayanAi,
     promo: ONBOARDING_PROMO,
   };
 }

@@ -13,6 +13,21 @@ Facebook auto-publish was failing every dispatch with `(#200) … requires both 
 Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
 
 SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
+## 2026-06-16 · fix(papic): honor the locked "connect Drive OR upgrade = permanent" sampler promise (CRITICAL)
+
+A 52-agent end-to-end audit of the free Papic sampler found one critical, load-bearing defect (flagged independently by 5 dimensions, adversarially verified): the locked rule "connecting Google Drive OR upgrading to paid Papic makes sampler photos permanent" (migration `20270103000000` lines 6-8) was **entirely unimplemented** — there was no `.update()` on `papic_photos.expires_at` anywhere in the app. So a couple who *converted* (the funnel's whole goal) still had their sampler photos **deleted at day 30** — including from their **paid** gallery — and the reminder email told them "every original is safe" while it happened.
+
+Fix (no migration — all paths are service-role; the promise now lives in one place):
+
+- **`lib/papic-sampler.ts`** (new) — `makeSamplerPermanent(eventId)` clears the 30-day `expires_at` on an event's sampler photos (idempotent, service-role, best-effort/never-throws); `eventSamplerIsKept(eventId)` reports whether an active Drive grant already exists.
+- **Sample-then-convert** (the common path): `makeSamplerPermanent` + `cancelSamplerExpiryWarnings` fire at all three convert moments — the paid-`PAPIC_SEATS` activation hook (`lib/sku-activation.ts`, also reached by MEDIA_PACK bundle buyers via the child fan-out), the Drive OAuth callback (`app/api/oauth/drive/callback/route.ts` — covers both Papic and Photo-Delivery entry points), and the Papic storage→Drive switch (`add-ons/papic/actions.ts`).
+- **Convert-then-sample** (Drive connected before sampling): `recordSeatCapture` now stamps `expires_at = null` when `eventSamplerIsKept` is true, so those shots are born permanent.
+- **Cancel-on-keep** — `cancelSamplerExpiryWarnings(eventId)` (new, in `lib/papic-sampler-emails.ts`) pulls the two scheduled Resend T-7/T-1 emails on conversion via the stored `papic_sampler_email_log` message ids, backed by a new `cancelScheduledEmail(id)` in `lib/email.ts`. Gated on `RESEND_API_KEY` + best-effort, so it's a no-op while Resend is off.
+
+All hooks are non-fatal and idempotent — a failure can never roll back a payment activation or a Drive connect. Once `expires_at` is NULL the existing retention sweep skips the rows and the gallery stops hiding them, so no sweep/gallery changes were needed.
+
+SPEC IMPACT: iteration 0012 sampler — the "keep = permanent" promise is now actually implemented (it was spec-locked but unbuilt). Logged in corpus `DECISION_LOG.md`. The audit's other 29 findings (conversion-UX power-ups, the unwired QR-tag leg, web clips unreachable, abuse posture) are summarized for owner triage, not in this PR.
+
 ## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
 
 A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
+import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import {
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
@@ -147,9 +148,15 @@ export async function recordSeatCapture(
     if ((usedOfKind ?? 0) >= cap) {
       return { ok: false, error: kind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap' };
     }
-    expiresAt = new Date(
-      Date.now() + PAPIC_SAMPLER_RETENTION_DAYS * 86_400_000,
-    ).toISOString();
+    // "connect Drive OR upgrade = permanent": if the couple has ALREADY converted
+    // (active Drive grant) these shots are born permanent (expires_at stays null);
+    // otherwise they roll off in 30 days. The sample-THEN-convert ordering is
+    // handled separately by makeSamplerPermanent() at the convert moment.
+    expiresAt = (await eventSamplerIsKept(seat.event_id))
+      ? null
+      : new Date(
+          Date.now() + PAPIC_SAMPLER_RETENTION_DAYS * 86_400_000,
+        ).toISOString();
   }
 
   const insertWithoutPoster = () =>

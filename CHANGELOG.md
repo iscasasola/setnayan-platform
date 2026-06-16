@@ -16,6 +16,19 @@ This lands **only** the migration file (byte-identical to #1532's branch copy + 
 Timestamp guard ✓ (385 unique; `20270102000000` is unique on `main` — the colliding `orders_platform` was long since renamed to `20270103040000`).
 
 SPEC IMPACT: None (DB bookkeeping — restores ledger/file/prod consistency; no schema, SKU, or pricing change). Logged in corpus `DECISION_LOG.md`, with the process note (applying an in-flight branch's migration to prod ahead of merge jams the pipeline).
+## 2026-06-17 · fix(std-reveal): rigid reveals → scroll-driven + swipe-the-seal + real monogram wax seal (faithful-rebuild PR1/4)
+
+Owner reported the Save-the-Date reveal templates "are all not working properly" and, on inspection of the locked plan (`0024_ADDENDUM_envelope_open_experience_2026-06-14.md` §1a/§3), the shipped build had deviated on the **two** things they flagged: (1) the 3 envelopes + church doors opened by **tap**, not the locked **scroll-driven** model; (2) the seal was a **hardcoded mulberry text circle**, not the couple's real monogram pressed into a Mood-Board-coloured wax seal. Owner chose the **full faithful rebuild**; this is PR1 of 4 — the interaction + the real seal (PR2 candle-stamp maker · PR3 WebGL 3D + photoreal textures · PR4 scroll-scrub content timeline + editor to follow).
+
+- **New `RigidStage`** (`reveal/rigid-stage.tsx`) — the shared engine for the rigid family, implementing the §1a interaction: (a) the wax seal rests on the paper; **pick it up + swipe it across & off a screen edge** to gate (it slides the way you flick it — never "falls"; a weak release springs it back and stays sealed); (b) once gone, **scroll / drag scrubs the flaps open** (progress 0→1, rAF-lerped) — no tap. Keyboard fallback (Enter on the seal opens). Mirrors the veil family's scroll/drag-to-lift so the whole library feels consistent.
+- **New `WaxSeal`** (`reveal/wax-seal.tsx`) — the couple's real monogram (`events.monogram_uploaded_svg ?? monogram_custom_svg`, the 0037/Cipher mark) rendered as an **embossed relief** (three CSS-masked wax-tone copies → pressed-in look) on a waxy disc; **no drop shadow** (owner-explicit §1a). Colour = the Mood-Board deep accent. Lettered fallback ("A & J") when the couple has no mark yet.
+- **`four-flap` + `rigid-reveal` rewritten** to be **progress-driven** (scrubbed, not booleans) and consume `RigidStage` via a `renderFlaps(progress)` prop; two-sided flaps (paper front / liner back) kept, church-doors liner arch retained.
+- **Colour wiring** — `lib/site-palette.ts` gains `sealColorFromPalette()` (deep accent → wax) + `veilColorFromPalette()` (sheer hue-carrying tint). Threaded through `RevealOverlay` (both live `[slug]` mounts now pass the real mark + wax + veil colours) and the dashboard **preview card** + its page (fetches `monogram_*_svg` + `role_palette`). `RevealOverlay` now also honors `prefers-reduced-motion` (skips the reveal).
+- Veils confirmed already scroll/drag-driven (no change needed).
+
+Flag-gated unchanged: `NEXT_PUBLIC_STD_REVEAL` default OFF → zero live impact; previewable via `?reveal=four-flap|two-flap-vertical|two-flap-horizontal|church-doors|veil|crown` on a wedding slug in the Save-the-Date phase, and in the dashboard Save-the-Date chooser. Verified: `tsc` 0 · `next lint` clean (local preview server unavailable in sandbox → gesture/visual validation on the Vercel preview).
+
+SPEC IMPACT: **Closes drift** — the shipped reveal now matches `0024_ADDENDUM §1a` (scroll-driven open + swipe-the-seal gate) and `§3` (monogram wax seal recoloured from the Mood Board). No SKU/schema/pricing/public-surface change. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(papic): surface the free sampler on the add-ons grid + branded sampler expiry emails
 

@@ -94,8 +94,7 @@ export function Voices() {
             maxWidth: 480,
           }}
         >
-          Eighty-four weddings in. Real names, real venues, real numbers. We
-          invited every couple and every vendor on the platform to talk to you —
+          We invited the couples and vendors on the platform to talk to you —
           these are the ones who said yes.
         </p>
       </div>

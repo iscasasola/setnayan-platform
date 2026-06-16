@@ -15,6 +15,23 @@ Additive + **DARK**: nothing reads it until `BUILD_3STATE_ENABLED` is flipped, s
 SPEC IMPACT: None new (the corpus already tracks Phase 3d — `Build_3State_Solver_2026-06-16.md` §10/§12 + DECISION_LOG 2026-06-16).
 
 ---
+## 2026-06-16 · feat(build): 3-state control (Locked/Auto/Excluded) + Reset + Build, behind BUILD_3STATE_ENABLED
+
+The CORE of the Phase-3d Build solver, **flag-dark** (default OFF). Each Build row gets a leftmost tri-state — 🔒 Locked · ⚡ Auto · 👁️ Excluded — replacing the legacy 2-state Flag/Unflag; a bottom bar adds [Reset] (→ all Excluded) and [Build] (resolve every Auto row). Rows = taxonomy categories with ≥1 QUOTED inquiry (`event_vendors.total_cost_php != null`) plus the three always-present dimension rows (Date · Budget · Location). Locked requires a concrete pick — a taxonomy row picks one of its quoted inquiries; the dimension rows reuse the existing anchor value editors. [Build] writes resolved picks to the EXISTING `event_build_picks` table, so Compare/Lock are unchanged.
+
+**Flag-dark invariant:** with `BUILD_3STATE_ENABLED` unset/`false` (default), the new state-table read, toggle UI, Reset, and Build-resolution are ALL unreachable — the page keeps the current `<BuildPins>` slot (2-state `CategoryFlags` + `openCats` sourcing + `computeBuildFromShortlist`) byte-identical. The only production-path edit in `page.tsx` is `const buildSlot` → `let buildSlot`; the entire 3-state branch sits inside `if (isBuild3StateEnabled())`, which short-circuits to a no-op when off (the state query never even runs).
+
+ADDITIVE — no migration. The `event_category_build_state` table already exists in prod (migration `20261230000000`); this PR reads/writes it. Resolved picks go to the existing `event_build_picks`. Honors `isMultiPickGroup` so multi-pick groups (Look/Booths/Prints) keep several picks and single-pick groups never clobber the couple's other picks. Fail-soft (state read → empty map = all Excluded). The pure state→picks resolver `resolveBuildPicks` is unit-tested (11 cases); full `test:unit` 161/161, `tsc --noEmit` + `next lint` green.
+
+- **`apps/web/lib/build-3state.ts`** (new) — the flag (`isBuild3StateEnabled`, default OFF, env-read mirroring `lib/setnayan-ai.ts`), the reserved dimension keys (`_dim_date`/`_dim_budget`/`_dim_location`), the `BuildState` type, and the PURE `resolveBuildPicks(states, quoted, budgetPhp)` resolver (Locked verbatim + cost-reserving · Auto cheapest-quote-that-fits, reusing the OFF-solver logic · Excluded → clear · multi-pick aware · no vendor reuse).
+- **`apps/web/lib/build-3state.test.ts`** (new) — 11 unit cases over `resolveBuildPicks`.
+- **`apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts`** (new) — server actions `getCategoryBuildStates`, `setCategoryBuildState` (upsert, `set_by`=auth uid, Locked-requires-pick guard), `resetBuildStates` (delete all → all Excluded), `runBuild3State` (read states+quotes+budget → `resolveBuildPicks` → reconcile `event_build_picks`, multi-pick-safe). Each re-checks the flag and refuses when off.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-3state-control.tsx`** (new) — the trio control (Lock/Zap/EyeOff Lucide icons), the Locked taxonomy picker (that category's quotes), the dimension rows wired to the reused `BuildAnchors` value editors, and the [Reset]/[Build] bar. Save-As is deferred (follow-on flagged PR).
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — derives the 3-state `buildSlot` from the already-fetched model ONLY inside the `isBuild3StateEnabled()` branch; flag-off path untouched.
+
+Deferred to follow-on flagged PRs (NOT in this PR): the Auto-ON `compat-score` ranking engine, the marketplace fallback search (top-10/+5, hidden-%), the vendor re-quote nudge, and named Save-As builds.
+
+SPEC IMPACT: None (flag-dark; spec = Build_3State_Solver_2026-06-16.md).
 
 ## 2026-06-16 · feat(ai): plain-English "why" alongside the % match
 

@@ -92,6 +92,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/user-reports',
       '/admin/approvals',
       '/admin/social-queue',
+      '/admin/pakanta',
       '/admin/help',
     ],
   },
@@ -161,6 +162,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // Platform group (note: /admin/settings also covers
       // /admin/settings/payment-methods + /admin/settings/demo-mode)
       '/admin/settings',
+      '/admin/menus',
       '/admin/onboarding',
       '/admin/taxonomy',
       '/admin/event-types',
@@ -168,6 +170,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/website',
       '/admin/hero-video',
       '/admin/real-stories',
+      '/admin/recaps',
       '/admin/ads',
       '/admin/brain',
       '/admin/moodboard-library',

@@ -12,6 +12,7 @@ Fourth consumption of the nav/icon/menu registry — the **admin doorway** (side
 - **`apps/web/app/admin/_components/admin-sidebar.tsx`** — `applyAdminRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via `admin.sidebar.<key>`; hidden slot drops the item; neutral `ADMIN_NAV_GROUPS` + shared SidebarSection/SidebarItem untouched.
 - **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** — same overlay over the 6 tabs (keys match slot suffixes 1:1).
 - **`apps/web/app/admin/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both.
+- **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** (bonus, from the review) — closed 3 pre-existing mobile active-tab gaps (orphan-prevention): added `/admin/pakanta` to the Work tab and `/admin/menus` + `/admin/recaps` to the More tab so those routes light the right tab on mobile. (`demo-mode` is already covered by the `/admin/settings` prefix; `my-account` → `/dashboard/profile` is outside the admin doorway.)
 
 `pnpm typecheck` + `pnpm lint` green. All three dashboards (customer · vendor · admin) are now registry-driven. Deferred: `_overview-tile.tsx` ICONS map (admin landing tiles — a separate tile-icon system). NEXT: PUBLIC marketing nav (label-only), then group-heading slots + the ESLint guard.
 

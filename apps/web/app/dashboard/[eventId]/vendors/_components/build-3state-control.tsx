@@ -1,10 +1,8 @@
 'use client';
 
 /**
- * Build3StateControl — the 3-State Build control (Phase 3d-A ·
- * Build_3State_Solver_2026-06-16.md). Behind `BUILD_3STATE_ENABLED` (default
- * OFF): the page only mounts this when the flag is on, and the legacy
- * CategoryFlags + Compute path stays the production Build until then.
+ * Build3StateControl — the 3-State Build control (Phase 3d ·
+ * Build_3State_Solver_2026-06-16.md). This is the Build tab.
  *
  * Each row carries a leftmost tri-state segmented control —
  *   🔒 Lock (Locked) · ⚡ Zap (Auto) · 👁️ EyeOff (Excluded) —
@@ -14,8 +12,8 @@
  *   • a dimension row (Date/Budget/Location) → an inline value editor that
  *     reveals when Locked and persists onto the `events` columns via setAnchor.
  *
- * The bottom bar is [Reset] (→ all Excluded) + [Build] (resolve Auto rows). Save
- * As is a follow-on flagged PR, intentionally absent here.
+ * The bottom bar is [Reset] (→ all Excluded) + [Build] (resolve Auto rows).
+ * Save-As lives on the Compare tab, not here.
  *
  * Calm, not loud — reuses the surrounding theme tokens (ink / cream / paper /
  * terracotta / mulberry) and Lucide icons already in the Build surface.
@@ -50,7 +48,13 @@ import {
 } from '../build-3state-fallback-actions';
 import { attachMarketplaceVendorToCategory } from '../actions';
 import { setAnchor } from '../build-anchors-actions';
-import type { AnchorData } from './build-anchors';
+
+/** The Build tab's three anchor values (Date / Budget / Location). */
+export type AnchorData = {
+  date: { iso: string | null; label: string | null; candidateCount: number };
+  budget: { php: number | null };
+  location: { region: string | null };
+};
 
 /** The "show 5 more" page step for the marketplace fallback list. */
 const FALLBACK_EXPAND_STEP = 5;

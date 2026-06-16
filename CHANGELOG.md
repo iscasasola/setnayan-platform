@@ -16,6 +16,16 @@ Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "st
 **Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
 
 SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
+## 2026-06-16 · feat(compare): confirm before Modify overwrites the working build
+
+Owner spec for the Compare tab: "the role of compare is to compare the saved builds on build. we can choose to delete, modify or lock. modify will jump that build back to build and erase whatever build is on build. notify the user first before commencing this action."
+
+- **Modify now confirms first.** Clicking *modify* on a saved build runs `applyBuildToWorking`, which OVERWRITES the live working build with that saved build's picks. `onApply` now awaits the shared `useConfirm()` dialog ("Replace your current build?" · "Replace & modify" / "Keep current" · destructive tint) before applying — but only when the working build actually has picks to lose (an empty working build → no prompt). The saved build's title is shown in the body.
+- Wires the existing on-brand `app/_components/confirm-dialog.tsx` (HTML5 `<dialog>`, focus-trap + ESC), not a `window.confirm`.
+- **Note for owner:** *Lock* uses the same `applyBuildToWorking` and therefore also overwrites the working build (before routing to the Lock tab). Only Modify was named, so Lock is left unguarded pending your call.
+
+SPEC IMPACT: 0016 Plan Builder / Compare tab — Modify is a confirm-first destructive action. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
 
 The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.
@@ -27,6 +37,17 @@ The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. 
 - Dormant until `RESEND_API_KEY` is set (same gate as every other email). `tsc` + `next lint` green.
 
 SPEC IMPACT: iteration 0012 — sampler expiry emails (cron-free, provider-scheduled). Closes the last sampler follow-up. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · chore(build): retire the legacy Pin/Flag Build + the BUILD_3STATE_ENABLED flag (3-State is now the only path)
+
+The 3-State Build (Locked/Auto/Excluded) went live on production earlier today; the feature flag is no longer a rollback switch worth keeping (owner: "clean it all now"). This removes the flag and every legacy code path it gated, so there's a single Build implementation to maintain.
+
+- **Flag removed.** Deleted `isBuild3StateEnabled()` from `lib/build-3state.ts` and every guard/branch: `page.tsx` now mounts `Build3StateControl` unconditionally; the four server actions (`getCategoryBuildStates` / `setCategoryBuildState` / `resetBuildStates` / `runBuild3State`), the fallback action, and `savePlanBuildNamed` drop their flag re-checks.
+- **Legacy Build-tab files deleted** (only reachable via the old flag-off path): `_components/build-pins.tsx` (BuildPins), `_components/build-anchors.tsx` (BuildAnchors component — its `AnchorData` type moved into `build-3state-control.tsx`; the `setAnchor` action in `build-anchors-actions.ts` is KEPT, the new DimensionRow uses it), `_components/category-flags.tsx`, `_components/build-compute.tsx`, and `build-flags-actions.ts` (the `budget_category_flags` writes).
+- **Compare locked to named builds.** `build-compare.tsx` drops the `named` prop and the A/B/C slot save bar + `slot`/`SLOTS`/`takenSlots` machinery; `savePlanBuild` (the A/B/C upsert action) is deleted. Save-As is now the only save path. `deleteBudgetBuild` + `BuildSlot` (read type for legacy `'A'|'B'|'C'` labels still on old rows) are kept.
+- **Kept as-is:** the `budget_category_flags` table itself (no longer written, but not dropped here — a table-drop migration is a separate, audited step to avoid data loss). Stale "default OFF / flag-gated / A/B/C is live" docstrings updated to match.
+- Net: 5 files deleted, 9 modified; no DB change.
+
+SPEC IMPACT: `Build_3State_Solver_2026-06-16.md` is the live + only Build (the flag/rollback framing is retired). Logged in `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
 

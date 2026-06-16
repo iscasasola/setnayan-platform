@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -225,6 +226,22 @@ export async function r2Upload(args: {
     }),
   );
   return publicUrlFor(args.bucket, args.key);
+}
+
+/**
+ * Deletes one object from R2 via a single DELETE. Best-effort by contract —
+ * callers MUST wrap it: a failed delete leaves an orphaned object (cleaned later
+ * by an R2 lifecycle rule), never lost data, and must not break the calling flow.
+ * Throws only if R2 isn't configured.
+ */
+export async function r2Delete(args: {
+  bucket: R2BucketName;
+  key: string;
+}): Promise<void> {
+  const client = requireR2Client();
+  await client.send(
+    new DeleteObjectCommand({ Bucket: args.bucket, Key: args.key }),
+  );
 }
 
 /**

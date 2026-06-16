@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(std-reveal): the trademark bridal-veil reveal — WebGL cloth, code-split behind the flag (PR2/3)
+
+Adds the hero reveal to the Save-the-Date opening: the **Setnayan bridal veil** as a real cloth simulation. Follows PR1 (#1525, the flag + overlay foundation).
+
+- **`apps/web/app/[slug]/_components/reveal/veil-reveal.tsx`** (new) — `VeilReveal`, a sheer tulle veil (three.js Verlet cloth) on a **transparent** full-screen canvas over the invitation, so the page content shows softly through while it's up. Scalloped **filigree-lace hem** (outline star-flowers + picots) + the **gold Setnayan mark** woven in (stays gold while the tulle recolours), fresnel fold-whitening, wind sway. **Drag / scroll up to lift it off** → past a third of the way it completes and fires `onRevealed`; the overlay then removes itself. No-WebGL → reveals immediately (never a gate).
+- **`three` + `@types/three`** added (`package.json` + `pnpm-lock.yaml`). Loaded only inside `VeilReveal`, which `RevealOverlay` pulls via `next/dynamic(ssr:false)` → three.js lands in a **code-split chunk fetched only when the veil mounts**; the main couple-site bundle is untouched.
+- **`reveal-overlay.tsx`** — template registry now switches envelope ↔ veil. Activation: global flag `NEXT_PUBLIC_STD_REVEAL=1` (default off) **or** a per-visit URL override **`?reveal=veil`** (reads `window.location.search` client-side) so the veil can be **previewed on a Vercel preview** without flipping the global flag. `veilColor` prop flows the tulle colour in.
+- **`page.tsx`** — passes `enabled` (= Save-the-Date phase active) + `veilColor`; the overlay decides flag/param/template.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally — worktree has node_modules this time).
+
+Next: PR3 — dashboard template chooser + content editor; + wire `veilColor` from the couple's Mood Board palette (currently ivory default) and add the crown + curtain veil modes.
+
+SPEC IMPACT: 0024 Save the Date — reveal experience design-locked in `0024_ADDENDUM` §1a; this lands the WebGL veil build behind the flag/preview-param. Corpus `DECISION_LOG.md` row appended.
+
 ## 2026-06-16 · feat(checklist): sync the wedding checklist to our services — jump-to-category + auto-complete from real state
 
 Made the in-app checklist *do* something (owner: "Book your caterer will make them jump to find caterer" → "Both — jump + auto-complete"). Two halves, no migration.

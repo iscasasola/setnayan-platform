@@ -73,7 +73,10 @@ export async function scheduleSamplerExpiryWarnings(
     if (lockErr) return;
 
     const link = `${APP_URL}/dashboard/${eventId}/add-ons/papic`;
-    const subject = 'Your free Papic photos — keep them before they roll off';
+    // Distinct subjects per send so the urgent T-1 doesn't collapse under the
+    // T-7 in the couple's inbox thread (Gmail threads on subject).
+    const subjectT7 = 'Your free Papic photos — keep them before they roll off';
+    const subjectT1 = 'Last day — your free Papic photos roll off tomorrow';
     const body = (whenPhrase: string) =>
       `${name ? `Hi ${name},\n\n` : ''}Heads up — your free Papic sampler photos roll off Setnayan's free storage ${whenPhrase}.\n\n` +
       `Already connected Google Drive or upgraded to full Papic? You're all set — every original is safe, so you can ignore this.\n\n` +
@@ -84,7 +87,7 @@ export async function scheduleSamplerExpiryWarnings(
     if (t7 > now + 60_000) {
       const r = await sendEmail({
         to,
-        subject,
+        subject: subjectT7,
         text: body('in about a week'),
         scheduledAt: new Date(t7).toISOString(),
       });
@@ -93,7 +96,7 @@ export async function scheduleSamplerExpiryWarnings(
     if (t1 > now + 60_000) {
       const r = await sendEmail({
         to,
-        subject,
+        subject: subjectT1,
         text: body('tomorrow'),
         scheduledAt: new Date(t1).toISOString(),
       });

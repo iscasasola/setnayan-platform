@@ -44,7 +44,12 @@ export default async function AdminPapicSamplerPage() {
   const [eventRes, coupleRes, photoRes] = await Promise.all([
     admin.from('events').select('event_id, display_name, created_at').in('event_id', eventIds),
     admin.from('event_members').select('event_id, user_id').eq('member_type', 'couple').in('event_id', eventIds),
-    admin.from('papic_photos').select('event_id').not('expires_at', 'is', null).in('event_id', eventIds),
+    admin
+      .from('papic_photos')
+      .select('event_id')
+      .not('expires_at', 'is', null)
+      .gt('expires_at', new Date().toISOString())
+      .in('event_id', eventIds),
   ]);
 
   const eventInfo = new Map<string, { name: string; created: string | null }>();

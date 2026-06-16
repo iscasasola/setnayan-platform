@@ -50,6 +50,15 @@ From the sampler power-audit (owner picked "build clips" + the conversion power-
 Component prop change: `initialCount` → `initialPhotos` + `initialClips` + `photoCap`/`clipCap`; the only caller (the seat page) is updated in the same PR.
 
 SPEC IMPACT: iteration 0012 — the web Papic capture slice now does clips (was "photos only, clips a documented follow-up"); the sampler "2 clips each" promise is now real. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): three free-sampler correctness fixes — live count, Drive backlog flush, distinct reminder subject
+
+Three independent, additive/best-effort fixes from a Papic free-sampler audit (no migration; none change existing happy-path behavior):
+
+- **Admin sampler count counted already-expired (and now kept) rows** — `apps/web/app/admin/papic-sampler/page.tsx` counted `papic_photos` filtered only by `expires_at IS NOT NULL`, so it included rows whose expiry had already passed but the opportunistic sweep hadn't deleted yet. (After the keep-permanent fix #1577, made-permanent photos correctly have `expires_at = NULL` and drop out.) Added `.gt('expires_at', new Date().toISOString())` to the count query so it reflects only currently-LIVE sampler photos.
+- **Drive-copy backlog never flushed on connect** — `apps/web/app/api/oauth/drive/callback/route.ts` made sampler photos permanent on a successful Drive connect (#1577) but never flushed pending `drive_copy_artifacts` rows (including captures taken BEFORE the connect), so the couple's "own copy in Drive" could fail to land. Added a best-effort background `after(() => runDriveCopyBatch({ eventId }).catch(() => {}))` after the keep-permanent path, just before the redirect. Imported `after` from `next/server` and `runDriveCopyBatch` from `@/lib/drive-copy`.
+- **T-7 and T-1 reminder emails shared one subject** — `apps/web/lib/papic-sampler-emails.ts` sent both scheduled expiry warnings with the same `subject`, so in Gmail the urgent T-1 collapsed under the T-7 thread. The T-7 send keeps `Your free Papic photos — keep them before they roll off`; the T-1 send now uses `Last day — your free Papic photos roll off tomorrow`. Scheduling logic, the once-per-event lock, and the #1572/#1577 guards are untouched; body/personalization unchanged.
+
+SPEC IMPACT: None — correctness/polish on iteration 0012 sampler.
 
 ## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
 

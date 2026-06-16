@@ -100,11 +100,14 @@ export function SubNav({
       aria-label={ariaLabel}
       // Geometry mirrors <BottomNav> → NavShell so the two bars read as one
       // system: inset 14px, frosted --m-paper-2 @ 92% + the same soft shadow,
-      // fully rounded. Docks ABOVE the (now compact) bottom nav: bottom =
-      // safe-area + 12px (nav offset) + ~56px (icons-only nav height) + 8px gap
-      // ≈ safe-area + 76px. `z-20` (just under the nav's z-30) so it appears to
-      // rise out of the dock. `.subnav-lift` plays the reveal once on mount.
-      className="subnav-lift fixed inset-x-[14px] bottom-[calc(env(safe-area-inset-bottom)+76px)] z-20 flex select-none gap-1 rounded-full border p-1 backdrop-blur lg:hidden"
+      // fully rounded. Docks ABOVE the full-height bottom nav: bottom =
+      // safe-area + 12px (nav offset) + ~64px (full-height nav w/ labels) + 8px
+      // gap ≈ safe-area + 84px. (Was +76px when the nav shrank to icons-only
+      // under a docked sub-nav; that shrink was reverted 2026-06-17 so the bar
+      // stays full-height and the offset grew ~8px to keep the gap.) `z-20`
+      // (just under the nav's z-30) so it appears to rise out of the dock.
+      // `.subnav-lift` plays the reveal once on mount.
+      className="subnav-lift fixed inset-x-[14px] bottom-[calc(env(safe-area-inset-bottom)+84px)] z-20 flex select-none gap-1 rounded-full border p-1 backdrop-blur lg:hidden"
       style={{
         background: 'rgba(248, 246, 240, 0.92)',
         borderColor: 'var(--m-line)',

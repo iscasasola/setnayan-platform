@@ -400,7 +400,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} />
     </>
   );
 }

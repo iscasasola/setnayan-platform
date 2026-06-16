@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(nav): docked sub-nav children are now admin-editable via the registry (customer-menu redesign PR6/6)
+
+Closes the registry-SSOT gap the #1595 review flagged: the mobile docked sub-nav's CHILDREN (Guests journey · Explore takeover tabs · Studio sections · Budget anchors) rendered from code only — so `/admin/menus` couldn't rename/re-icon/hide them, unlike the top-level menus. Now every sub-nav child overlays its admin override.
+
+- **`lib/customer-menu.ts`** — `CustomerMenuChild` gains `slotKey?`; `buildCustomerMenuTree` stamps each child with its registry key: `customer.guest-journey.*` · `customer.budget-subnav.*` (the Explore tabs, legacy name) · `customer.studio-subnav.*` · `customer.budget-anchors.*`.
+- **`lib/nav-registry-defaults.ts`** — added the 7 missing slots (hand-edited per the file's "DO hand-edit to add NEW slots" contract): `studio-subnav` ×4 (Setnayan AI · Website · Capture · Branding) + `budget-anchors-subnav` ×3 (Overview · Allocate · Payments). The guest-journey + Explore-tab slots already existed.
+- **`customer-section-subnav.tsx`** — the dock now takes `navSlots` and overlays each child's admin override (label · icon via `navIconComponent` · hidden→drop) on the code default. Only NAME + ICON are admin-editable; `kind`/`href`/`tab`/`hash`/`match` stay code-owned, so routing + the anchor scroll-spy are untouched.
+- **`layout.tsx`** — passes the already-fetched `navSlots` to the dock (it already feeds the bottom nav + sidebar).
+
+So an admin editing e.g. "Branding" or "Confirm" at `/admin/menus` now changes the live mobile sub-nav. `tsc` 0 · `next lint` clean (changed files) · bottom-nav guard ✓ · nav-icon-source guard ✓. No migration (registry defaults are in-code; the `nav_slot_override` table already exists).
+
+SPEC IMPACT: nav-registry — the customer docked sub-nav children join the admin-editable SSOT (7 new default slots). No SKU/pricing/schema change. Logged in corpus `DECISION_LOG.md`. **This completes the customer-menu redesign's registry track.** Remaining from the 6-PR plan: the desktop sidebar's NESTED children (a small follow-up, same `slotKey` overlay) + PR5 = the separate "event lifecycle menu" initiative (phase-aware nav).
+
 ## 2026-06-17 · chore(db): failproof migration timestamps — force the allocator + activate the dormant guard
 
 Owner: "fail proof it." A 2026-06-17 session hit the dup-timestamp collision **twice in one sitting** (each needing manual ledger surgery) despite the repo already having an allocator + a CI guard + a pre-push hook. Root cause wasn't a missing guard — it was **bypassed/unused** ones. Two holes, both closed:

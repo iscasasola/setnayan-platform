@@ -41,13 +41,20 @@ import {
 } from '@/lib/customer-menu';
 import { isDayOfOpen } from '@/lib/guest-journey';
 import { goToBuildTab, BB_TAB_EVENT, type BudgetBuildTab } from '@/lib/budget-build';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 export function CustomerSectionSubnav({
   eventId,
   eventDate,
+  navSlots,
 }: {
   eventId: string;
   eventDate: string | null;
+  /** Resolved nav-registry overrides (label · icon · hidden), keyed by slot.
+   *  When a child carries a `slotKey`, its admin override is overlaid on the
+   *  code default — so every sub-nav child is editable from /admin/menus. */
+  navSlots?: Record<string, NavSlotLite>;
 }) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -62,7 +69,17 @@ export function CustomerSectionSubnav({
 
   const tree = buildCustomerMenuTree(eventId, { dayOfOpen });
   const activeMenu = tree.find((m) => matchesMenuSection(pathname, m)) ?? null;
-  const children = activeMenu?.children ?? [];
+  // Overlay the nav-registry admin override (label · icon · hidden) onto each
+  // child by its slotKey — the registry SSOT now drives the sub-nav children,
+  // not just the top-level menus. kind/href/tab/hash/match are untouched (only
+  // NAME + ICON are admin-editable), so the routing + scroll-spy logic below is
+  // unaffected; a hidden slot drops the child entirely.
+  const children = (activeMenu?.children ?? []).flatMap((c) => {
+    const slot = c.slotKey ? navSlots?.[c.slotKey] : undefined;
+    if (!slot) return [c];
+    if (slot.isHidden) return [];
+    return [{ ...c, label: slot.label, icon: navIconComponent(slot.icon) }];
+  });
   const inSection = children.length > 0;
   const hasTabChildren = children.some((c) => c.kind === 'tab');
   const hasAnchorChildren = children.some((c) => c.kind === 'anchor');

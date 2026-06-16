@@ -21,6 +21,16 @@ export function isVeilTemplate(t: RevealTemplate): boolean {
 }
 
 /**
+ * Rigid swing duration. The CSS transition on the flaps runs for RIGID_FOLD_MS;
+ * the overlay (and the studio preview) wait RIGID_REVEAL_MS — a touch longer — to
+ * remove the overlay so the swing finishes before the page beneath takes over.
+ * NOTE: the Tailwind class on the flaps is the literal `duration-[1100ms]` (JIT
+ * needs a static value) — keep it in sync with RIGID_FOLD_MS by hand.
+ */
+export const RIGID_FOLD_MS = 1100;
+export const RIGID_REVEAL_MS = RIGID_FOLD_MS + 100;
+
+/**
  * `?reveal=` query-param aliases → template id. Lets a Vercel preview demo any
  * template without flipping the global flag. Back-compat aliases kept: `veil`
  * (→ sheer) and `envelope` (→ four-flap) shipped in earlier PRs.

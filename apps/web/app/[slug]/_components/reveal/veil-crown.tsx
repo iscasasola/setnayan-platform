@@ -161,7 +161,11 @@ export default function VeilCrown({ veilColor, onRevealed }: Props) {
       // crown rises only late (quadratic) so the gather pulls up with the fold;
       // the hem swings up well above the crown and back behind it.
       const crownRise = lift * lift * 2.2;
-      const hemRise = lift * (clothH + 3.4);
+      // Overshoot the hem to MORE than a cloth-length above the crown at full fold,
+      // so the two pin rows pull the drape taut and lift its slack belly clear of
+      // the frame — otherwise the catenary sags back across the invitation in the
+      // last beat before the overlay opacity fade completes.
+      const hemRise = lift * (clothH * 2 + 4);
       for (let k = 0; k < N; k++) {
         if (pinTop(k)) {
           const ix = k;

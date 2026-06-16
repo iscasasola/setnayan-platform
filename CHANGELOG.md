@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · chore(nav): remove dead VendorNav + its 3 orphaned registry slots
+
+Dead-code cleanup surfaced during the nav/icon/menu registry public-surface pass. `apps/web/app/for-vendors/_components/vendor-nav.tsx` (the bespoke `VendorNav`) has been unused since commit 238ae4d1 (2026-06-14, "nav: shared <Nav> on Explore + For vendors") — `/for-vendors` renders the shared marketing `<Nav>` (mounted site-wide via `SiteChrome`), which is already registry-wired on `public.site-nav.*`. Confirmed nothing renders it (`grep "<VendorNav\|VendorNav("` → only its own definition) before deleting.
+
+- Deleted `vendor-nav.tsx`.
+- Removed the three orphaned `public.vendor-nav.*` default rows (`for-couples`/`pricing`/`help`, area `for-vendors-header-nav`) from `lib/nav-registry-defaults.ts` — they described the retired bespoke nav and are consumed by NO component (verified: no reference to the area or keys outside the defaults file). **Verified safe before deleting:** queried the prod `nav_slot_override` table — `WHERE slot_key LIKE 'public.vendor-nav.%'` returned 0 rows, so no admin-persisted override is orphaned by the removal.
+- Scrubbed two now-stale comments naming the dead nav (`for-vendors/page.tsx` header + `vendor-pricing-matrix.tsx` sticky-offset note).
+
+typecheck + lint green. No consumer impact — `href`/routing always lived in code, and the slots fed nothing.
+
+SPEC IMPACT: None (removal of dead code + inert, unconsumed registry defaults; no SKU/pricing/schema/route/behavior change).
+
 ## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
 
 Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.

@@ -71,6 +71,7 @@ import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
+import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
 import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
@@ -1359,12 +1360,22 @@ export default async function EventHomePage({
   let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
   let dayOfHeadTable: EventTableRow | null = null;
   let dayOfNearbyTables: EventTableRow[] = [];
+  let dayOfSameDayVendors: SameDayVendor[] = [];
   if (dayOfActive) {
-    const [blocksRes, tablesRes] = await Promise.all([
+    const [blocksRes, tablesRes, sameDayRes] = await Promise.all([
       fetchScheduleBlocks(supabase, eventId).catch(() => []),
       fetchTables(supabase, eventId).catch(() => [] as EventTableRow[]),
+      // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified
+      // + paid vendors who opted into same-day work, nearest the venue first.
+      // Best-effort: a query error just leaves the escalation-only floor.
+      findSameDayVendors(supabase, {
+        lat: (event as { venue_latitude?: number | null }).venue_latitude ?? null,
+        lng: (event as { venue_longitude?: number | null }).venue_longitude ?? null,
+        region: (event as { region?: string | null }).region ?? null,
+      }).catch(() => [] as SameDayVendor[]),
     ]);
     dayOfBlocks = blocksRes;
+    dayOfSameDayVendors = sameDayRes;
     const tables = tablesRes;
     // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
     // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
@@ -1594,6 +1605,7 @@ export default async function EventHomePage({
           }))}
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
+          sameDayVendors={dayOfSameDayVendors}
         />
       ) : null}
 

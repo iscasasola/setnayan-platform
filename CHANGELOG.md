@@ -47,6 +47,73 @@ Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be 
 `tsc --noEmit` 0 errors · `next lint` clean (verified locally).
 
 SPEC IMPACT: 0024 Save the Date — reveal preview relocated to the Save-the-Date add-on surface (the owner-specified link).
+## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
+
+Three follow-ups on the free Papic sampler (#1547), one PR:
+
+- **In-app expiry banner** (`add-ons/papic/crew/page.tsx`) — the sampler banner now shows a live countdown ("your N free photos expire in X days") computed from the soonest non-expired `papic_photos.expires_at` (couple RLS), falling back to the static "kept for 30 days" when no photos exist yet. Connect-Drive/upgrade CTA unchanged. (The scheduled T-7/T-1 *emails* still need a daily scheduler — deferred, outside the cron-free path.)
+- **Admin sampler-usage view** (`/admin/papic-sampler` + a Tile on the admin home) — read-only: every event with a free sampler, the couple (email/name from `public.users`), seats claimed, sampler photos, and a ⚠ flag on any couple running 2+ sampler events (the real cross-event abuse vector, since 1/event is already enforced by the RPC). Added a `camera` icon to the admin Tile.
+- **Own R2 key prefix for sampler captures** (`papic/seat/[token]` capture + page) — sampler captures now upload under `papic-sampler/…` (paid stays `papic/…`) so an R2 object-lifecycle rule can expire ONLY sampler bytes. `PapicSeatCapture` gained an `isFreeSampler` prop; the seat page reads `paparazzi_seats.is_free_sampler`. `OWNER_ACTIONS.md` documents the optional Cloudflare lifecycle rule.
+
+No migration. `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — free-sampler polish (expiry visibility + admin abuse watch + storage-lifecycle prefix). Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
+
+Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. The couple's gallery now shows their **real** captures (crew + guest), the payoff that makes the free Papic sampler (and paid Papic) feel real.
+
+- **`lib/papic-gallery.ts`** (new) — `fetchPapicGallery(supabase, eventId)` reads `papic_photos` (crew) + `papic_guest_captures` (guest) under the couple's RLS, merges + sorts by `captured_at`, and presigns thumbnails via `displayUrlForStoredAsset` (clips use their `poster_r2_key`). Filters OUT: NSFW-blocked (`moderation_state`), couple-hidden (`hidden_at`), and **expired free-sampler** photos (`expires_at` in the past — the read-time half of the 30-day sampler retention). Tags resolved from `photo_tags` (best-effort; missing/unreadable → everything shows untagged, honouring untagged-still-delivered). Graceful-degrade to `[]` on a missing table/column.
+- **`add-ons/papic/_components/papic-gallery-grid.tsx`** (new, client) — the grid with working filter chips (All · Photos of us · Untagged · Videos), clip play-badges, and per-tile tag dots (auto-face green / QR-or-manual terracotta / untagged grey).
+- **`add-ons/papic/page.tsx`** — `GalleryPreviewCard` is now an async server component that fetches real photos + renders the grid, or an empty state ("your gallery fills up as your crew shoots → Set up your crew") when there are none. Removed the mock `MOCK_PHOTOS` / `MockPhoto` / `PhotoTile` / preview `FILTERS` and their now-unused icon imports.
+- No migration — reads existing columns (incl. the sampler's `expires_at`, already on prod). `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — the couple-facing Papic gallery is now real (was a documented mock). Benefits both the free sampler and paid PAPIC_SEATS. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(day-of): same-day "Get help" — verified-paid vendor shortlist + escalation (Event Lifecycle Menu PR5)
+
+The Day-of "Get help" card grows a second layer. If something goes wrong on the wedding day (a no-show, a last-minute gap), the couple now sees a shortlist of **verified, paid vendors who opted into same-day work, nearest the venue first** — above the existing escalate-to-support floor. V1 is filter + escalation only; real same-day *booking* is V1.5.
+
+- **Migration `20270104000000_vendor_same_day_available.sql`** — `vendor_profiles.same_day_available BOOLEAN NOT NULL DEFAULT FALSE` + a partial index `WHERE same_day_available`. No RLS change (plain column on an existing table; the public read of verified profiles already exposes it). **Applied to prod** (ledger drift from parallel sessions → applied via `db query` + manual ledger row, per the established pattern).
+- **`apps/web/lib/same-day-vendors.ts`** (new) — `findSameDayVendors(supabase, venue)`: filters `public_visibility='verified'` AND `tier_state <> 'free'` AND `same_day_available=TRUE`, then ranks — venue geo present → `haversineKm` ascending (geo-less vendors trail); venue geo absent → same-`hq_region` first, then alphabetical (**never empty**, so an off-platform venue with no lat/long still gets a list). Caps at 5; graceful-degrade to `[]` pre-migration.
+- **`get-help-card.tsx`** — renders the shortlist (name · first service · distance/city · link to `/v/[slug]`) above the escalation CTA; falls back to the escalation-only copy when no one opted in. Threaded server-side: `day-of page → DayOfModeGrid → GetHelpCard` (computed only while `dayOfActive`, best-effort).
+- **Vendor opt-in** — `vendor-dashboard/profile`: a new "I can take same-day & day-of jobs" checkbox (soft-probed read mirroring `social_feature_opt_out`; written in `saveVendorProfile`'s payload). Default off.
+
+Why the tier gate (`tier_state <> 'free'`): only paid vendors surface — their names are always visible (free+verified names stay masked until first chat reply per the hybrid-anonymity doctrine) and they have skin in the game.
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard all green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §4 ("Get help") + §10 PR5. Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle work: PR6 (recommend-your-vendors + anti-fake stack), admin force-complete + "Move to memories" archive.
+
+## 2026-06-15 · feat(alaala): onboarding "promise" beat — name Alaala at the emotional peak (Lane 1 complete)
+
+Completes **Lane 1** (the narrative spine). Right after the couple commits their love story in onboarding (after `love_preview`, before the practical region/pax/budget questions — the emotional peak), a one-screen brand moment names the pillar and states the guardrail.
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — new `alaala_promise` screen inserted in `FLOW_IDS` between `love_preview` and `region`; label added to the exhaustive `NEXT_LABEL_BY_ID`; `canContinue` defaults true (a 1-tap brand moment, not a gate). Copy: *"Your day, kept alive."* — "we keep it as your *Alaala*: the moments you'll be too busy to see, the people who can't be there, the stories your guests tell. A living memory, not a frozen album. And we stay out of the way — the day is yours to live; we just quietly remember it."
+
+SPEC IMPACT: None on schema/SKU (onboarding copy + one screen). **Lane 1 (spine) now complete** (Studio hub band + `/our-story` naming + onboarding promise); Lane 2 (a dedicated in-app Alaala hub) next.
+## 2026-06-16 · feat(nav): After-phase menu roster + per-source Galleries hub (Event Lifecycle Menu PR4c)
+
+The lifecycle bottom-nav gains its third roster — the **After** menu, shown once the wedding is closed out (`events.cleared_at` set, or read-side T+24h auto-clear). PR1 shipped Plan↔Day-of; PR4 (4a/4b) shipped the completion handshake; this is the menu that lands the couple in the *memories* phase. Until now `phase === 'after'` fell back to the Plan bar.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildAfterNavTabs(eventId)` in the SAME file (the lint guard forbids a fork): **Home · Review · Editorial · Galleries**. Home is the Setnayan-mark anchor on the event root (exact match, so the dashboard stays alive as the event's reference home — planning demoted, never deleted; no separate escape needed since Home *is* the dashboard). Review → `/vendors` (the completion-gated per-vendor review tracker shipped in PR4b), Editorial → `/website/editorial` (the living recap), Galleries → the new hub below. `CustomerBottomNav` dispatch now three-way: `dayof → buildDayOfNavTabs`, `after → buildAfterNavTabs`, else the Plan roster.
+- **`apps/web/app/dashboard/[eventId]/galleries/page.tsx`** (new) — the After **Galleries** hub. Does NOT re-implement photo grids: it gathers the owned media sources, each with a **"collecting → ready"** badge (deliveries land over days), and links to the existing per-source surface. Sources: Papic (owned via `eventOwnsPapicSeats`; ready when `papic_photos` + `papic_guest_captures` count > 0 → `/add-ons/papic/recap`, else "collecting" → `/add-ons/papic`), Panood (owned via `resolveAddOnState === 'launch'` → broadcast recording), and the couple's own `events.our_photos` (always shown, never gated → `/website/our-photos`). Couple **or** delegated coordinator; graceful-degrade to 0 on a legacy/missing table.
+- Reuse over reinvent: ownership checks + `resolveAddOnState` + `eventOwnsPapicSeats` + `countEventGuestCaptures` are the same canonical helpers the Day-of launch hub uses. Desktop sidebar stays phase-agnostic (the lifecycle menu is the mobile bottom-nav, matching PR1–PR3).
+
+⚠ **Galleries are PER-PAPIC-SOURCE, not per-vendor** (spec §6/§9.6): `papic_photos` links to a Papic *seat*, not a vendor, and 0009 photo-delivery is event-level — there's no photo→vendor join yet. Per-vendor galleries (release on the completion handshake) wait on that attribution; PR6's anti-fake stack hits the same gap. Kept per-source on purpose.
+
+`tsc --noEmit` + `next lint` + bottom-nav template guard all green.
+
+SPEC IMPACT: completes the After-menu roster from `Event_Lifecycle_Menu_Design_2026-06-16.md` §6 + §10 PR4 ("buildAfterNavTabs, per-source galleries"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle pieces: admin force-complete surface + "Move to memories" archive (both net-new §8), PR5 (same-day Get-help), PR6 (recommend-your-vendors).
+## 2026-06-16 · fix(build-3state): remove duplicate "Your anchors" block on the 3-State Build tab
+
+Live verification on a preview (flag on, headless browser logged in as the test couple) showed the Build tab rendering **two** "Your anchors" sections stacked: the new tri-state Date/Budget/Location toggles, then the **legacy** `BuildAnchors` Pin/Flag module immediately below — because `Build3StateControl` reused `<BuildAnchors>` purely as a value editor, but that component drags in its own header + Pin/Flag toggles + "Set" buttons. The result read as broken/doubled (this is what "still not there" was actually showing).
+
+- **Folded value editing into the new `DimensionRow`.** Each Date/Budget/Location row now reveals an inline value editor *only when Locked* (auto-opens when Locked-without-value, per §4), persisting onto the `events` columns via the same `setAnchor` action. Dropped the `<BuildAnchors>` reuse entirely → one unified row per anchor, no duplicate "Your anchors" block. Legacy (flag-off) `BuildAnchors` path is untouched and byte-identical.
+- **Removed the dead `_dim_*` `sr-only` span** (it was `aria-hidden` + `sr-only` = invisible to everyone, but leaked the reserved dimension key as scraped text).
+- Change is entirely within the flag-gated `build-3state-control.tsx`; production (flag off) is byte-identical.
+
+SPEC IMPACT: None — implements `Build_3State_Solver_2026-06-16.md` §4 (Locked dimension resolves to a value) more faithfully than the duplicated-module build; no spec text changes.
+
 ## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 
 Owner reassessment of the onboarding plan screen ("define Setnayan AI here … show how much to keep this") plus a corrected free-from-the-start list. The screen was giving the *paid* AI layer away as free and never naming or pricing Setnayan AI.

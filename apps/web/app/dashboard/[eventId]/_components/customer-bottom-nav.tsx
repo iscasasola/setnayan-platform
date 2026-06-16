@@ -37,7 +37,7 @@ import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { LucideIcon } from 'lucide-react';
-import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock } from 'lucide-react';
+import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock, Star, Newspaper, Images } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { LifecyclePhase } from '@/lib/day-of-mode';
@@ -189,22 +189,72 @@ export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
 }
 
 /**
+ * Builds the AFTER roster — the menu once the wedding is over and the day has
+ * been closed out (Event Lifecycle Menu §6, 2026-06-16). Planning is no longer
+ * the point; what you keep is. Four tabs: the Home anchor (the dashboard stays
+ * alive as the event's reference home) plus the three memory-forward
+ * destinations — **Review · Editorial · Galleries**:
+ *   - Review    → /vendors          (the completion-gated per-vendor review tracker)
+ *   - Editorial → /website/editorial (the living recap / front-page story)
+ *   - Galleries → /galleries         (the collected photos, "collecting → ready")
+ *
+ * Slot 1 stays the Setnayan mark on the event root (exact match, so it doesn't
+ * claim every child route) — same home-anchor pattern as the Plan/Day-of
+ * rosters. There's no separate "Planning escape": in After the Home tab IS the
+ * dashboard, so planning is reachable (demoted, never deleted) without a second
+ * affordance.
+ */
+export function buildAfterNavTabs(eventId: string): BottomNavItem[] {
+  const base = `/dashboard/${eventId}`;
+  return [
+    {
+      key: 'home',
+      label: 'Home',
+      href: base,
+      icon: SetnayanMark as unknown as LucideIcon,
+      activeMatch: base,
+      activeMatchExact: true,
+    },
+    {
+      key: 'review',
+      label: 'Review',
+      href: `${base}/vendors`,
+      icon: Star,
+      activeMatch: `${base}/vendors`,
+    },
+    {
+      key: 'editorial',
+      label: 'Editorial',
+      href: `${base}/website/editorial`,
+      icon: Newspaper,
+      activeMatch: `${base}/website/editorial`,
+    },
+    {
+      key: 'galleries',
+      label: 'Galleries',
+      href: `${base}/galleries`,
+      icon: Images,
+      activeMatch: `${base}/galleries`,
+    },
+  ];
+}
+
+/**
  * CustomerBottomNav — wraps the shared BottomNav primitive with the customer
  * roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
  * customer surface (owner directive 2026-06-13 "global nav everywhere").
  *
- * `phase` swaps the whole roster by lifecycle phase (Event Lifecycle Menu): the
- * day-of command center while the event is live, the planning roster otherwise.
- * Computed SERVER-SIDE in the layout via `getLifecyclePhase(event_date,
- * cleared_at)` (which uses `isEventDayActive` — live ‖ post, so an evening
- * reception in `post` still gets the Day-of bar — and the `cleared_at` close-out)
- * and passed down, so there's no client `Date.now()` and no hydration flash. The
- * `after` roster (Review · Editorial · Galleries) lands in PR4; until then `after`
- * falls back to the planning roster.
+ * `phase` swaps the whole roster by lifecycle phase (Event Lifecycle Menu):
+ * the planning menu before the day, the day-of command center while the event
+ * is live, and the After memories menu once it's closed out. Computed
+ * SERVER-SIDE in the layout via `getLifecyclePhase(event_date, cleared_at)`
+ * (which uses `isEventDayActive` — live ‖ post, so an evening reception in
+ * `post` still gets the Day-of bar — and the `cleared_at` close-out → `after`)
+ * and passed down, so there's no client `Date.now()` and no hydration flash.
  *
  * `navSlots` is the admin nav-registry slot map (label + icon overrides) resolved
- * server-side in the layout; it feeds the planning roster (the day-of roster's
- * registry slots land in a follow-up).
+ * server-side in the layout; it feeds the planning roster (the day-of + after
+ * rosters' registry slots land in a follow-up).
  */
 export function CustomerBottomNav({
   eventId,
@@ -215,6 +265,11 @@ export function CustomerBottomNav({
   phase?: LifecyclePhase;
   navSlots?: Record<string, NavSlotLite>;
 }) {
-  const items = phase === 'dayof' ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId, navSlots);
+  const items =
+    phase === 'dayof'
+      ? buildDayOfNavTabs(eventId)
+      : phase === 'after'
+        ? buildAfterNavTabs(eventId)
+        : buildCustomerNavTabs(eventId, navSlots);
   return <BottomNav items={items} />;
 }

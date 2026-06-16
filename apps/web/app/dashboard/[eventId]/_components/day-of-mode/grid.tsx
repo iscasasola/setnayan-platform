@@ -11,6 +11,7 @@ import { VideoGuestbookCard } from './video-guestbook-card';
 import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
 import { GetHelpCard } from './get-help-card';
+import type { SameDayVendor } from '@/lib/same-day-vendors';
 
 type Block = {
   block_id: string;
@@ -25,6 +26,7 @@ type Props = {
   blocks: Block[];
   headTable: EventTableRow | null;
   nearbyTables: EventTableRow[];
+  sameDayVendors?: SameDayVendor[];
 };
 
 export function DayOfModeGrid({
@@ -32,6 +34,7 @@ export function DayOfModeGrid({
   blocks,
   headTable,
   nearbyTables,
+  sameDayVendors = [],
 }: Props) {
   return (
     <section
@@ -51,7 +54,7 @@ export function DayOfModeGrid({
         <VideoGuestbookCard />
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
         <CoordinatorBroadcastCard />
-        <GetHelpCard />
+        <GetHelpCard sameDayVendors={sameDayVendors} />
       </div>
 
       {/* Wrap-up entry point (Event Lifecycle Menu PR3) — when the celebration

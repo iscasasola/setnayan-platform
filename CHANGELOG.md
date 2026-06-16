@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · docs(nav): backfill changelog for the registry final-public-pass + cleanup (#1583, #1581)
+
+Backfill — the changelog entries for #1583 and #1581 were intentionally dropped from those PRs to clear a parallel-session changelog-conflict deadlock (every concurrent PR appends here, so the entries kept bumping the PRs to DIRTY and pausing auto-merge). The code merged cleanly; this records the history after the fact.
+
+**#1583 · feat(nav): final public pass — marketing nav + nav-icon-source guard + download CTA** (merged 2026-06-16). Completes the nav/icon/menu registry rollout. (a) Public marketing top-nav (`site-nav.tsx`/`site-chrome.tsx`/`layout.tsx`) now consumes the registry — root layout resolves `getNavSlotMap()` once, threads it through `SiteChrome → Nav`, overlays the 5 `public.site-nav.*` labels (label-only; href/order stay in code; fails open). The last doorway after customer/vendor/admin. (b) **`lint-nav-icon-source` guard** — `apps/web/scripts/lint-nav-icon-source.mjs` + CI job + `lint:navicon` script; a standalone node guard (mirrors `lint-bottom-nav.mjs`, not ESLint) asserting the 7 nav-chrome chokepoints each consume the registry + the plumbing keeps its exports. **Positive delegation guard, deliberately NOT a lucide ban** (chokepoints intentionally import lucide fallbacks). (c) Wired `public.download.mac-api` label onto `app/download/page.tsx` (both buttons + step-1 copy; label-only/fail-open; 1-hr ISR propagation noted in-code). Passed a 3-lens adversarial review (SHIP, 0 must-fix). Superseded duplicate PRs #1574 (mine) and #1551 (stale parallel), both closed. Remaining `public.*` slots verified not-wirable and left seeded-but-inert (`vendor-nav.*` dead, guest/papic CTAs, `marketing.home` logo, `download.page`/`.qr-png` no-link/broken-route).
+
+**#1581 · chore(nav): remove dead VendorNav + its 3 orphaned registry slots** (merged 2026-06-16). Deleted the unused `apps/web/app/for-vendors/_components/vendor-nav.tsx` (dead since commit 238ae4d1 — `/for-vendors` uses the shared marketing `<Nav>`), removed the 3 orphaned `public.vendor-nav.*` default rows from `lib/nav-registry-defaults.ts`, and scrubbed 2 stale comments. Verified safe first: prod `nav_slot_override` had 0 rows `LIKE 'public.vendor-nav.%'`.
+
+Owner follow-ups (carried from #1583): add `lint nav icon source` to branch-protection required checks (advisory until then); Phase-9 seed-vs-DB drift test still unbuilt; misc `nav-registry-defaults.ts` inconsistencies flagged out-of-scope.
+
+SPEC IMPACT: None (additive guard + behavior-preserving label overlays + dead-code/inert-defaults removal; no SKU/pricing/schema/route change).
+
 ## 2026-06-17 · feat(papic): NSFW re-screen self-heal + DB-enforced 10-tag cap (the last two #1577/#1588 review items)
 
 Two Papic moderation/tagging hardening fixes the prior reviews surfaced and left for owner sign-off (owner: "yes on 2"):

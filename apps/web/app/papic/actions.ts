@@ -7,6 +7,7 @@ import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
 import { eventSamplerIsKept } from '@/lib/papic-sampler';
+import { parsePapicTagScan } from '@/lib/papic-tag';
 import {
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
@@ -84,7 +85,7 @@ export async function claimPapicSeat(formData: FormData) {
 }
 
 export type RecordSeatCaptureResult =
-  | { ok: true; count: number }
+  | { ok: true; count: number; photoId: string | null }
   | { ok: false; error: string };
 
 /**
@@ -264,5 +265,87 @@ export async function recordSeatCapture(
     .select('photo_id', { count: 'exact', head: true })
     .eq('paparazzi_seat_id', seat.seat_id);
 
-  return { ok: true, count: count ?? 0 };
+  // photoId rides back so the capture UI can offer "tag who's in it" on the
+  // shot just saved (tagSeatCapture below). Null only in the degraded path
+  // where the insert returned no id — tagging is simply unavailable then.
+  return { ok: true, count: count ?? 0, photoId: insertedPhotoId };
+}
+
+export type TagSeatCaptureResult =
+  | {
+      ok: true;
+      kind: 'guest' | 'table';
+      /** How many NEW tags this scan added (0 on a re-scan of the same code). */
+      added: number;
+      /** Display names of the guest(s) this scan tagged. */
+      names: string[];
+      /** Running total tags on the photo (cap 10). */
+      tagCount: number;
+      capReached: boolean;
+      /** Table fan-out only: more seated guests existed than the cap could fit. */
+      truncated?: boolean;
+      totalAtTable?: number;
+      tableLabel?: string;
+      /** Individual QR re-scan of a guest already on the photo. */
+      already?: boolean;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Tag a just-captured photo with whoever a scanned QR points at — one guest
+ * (place-card / invitation QR) or a whole table (seating-sign QR, fanned out to
+ * the seated guests, alphabetized, capped at 10/photo).
+ *
+ * The write itself happens in the SECURITY DEFINER papic_tag_capture RPC
+ * (migration 20270108000000): photo_tags has no user-facing write policy, so a
+ * direct insert under the claimer's session is RLS-blocked. The RPC re-checks
+ * seat ownership (claimer + token) and photo ownership before writing, and
+ * resolves the guest/table only within the seat's event. Never throws — a tag
+ * miss must never break the camera; an un-tagged photo still reaches the gallery.
+ */
+export async function tagSeatCapture(
+  token: string,
+  photoId: string,
+  scanned: string,
+): Promise<TagSeatCaptureResult> {
+  const parsed = parsePapicTagScan(scanned ?? '');
+  if (!parsed) return { ok: false, error: 'unrecognized' };
+  const cleanPhotoId = photoId?.trim();
+  if (!cleanPhotoId) return { ok: false, error: 'missing_input' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'unauthenticated' };
+
+  const { data, error } = await supabase.rpc('papic_tag_capture', {
+    p_token: token?.trim() ?? '',
+    p_photo_id: cleanPhotoId,
+    p_guest_token: parsed.kind === 'guest' ? parsed.token : null,
+    p_table_ref: parsed.kind === 'table' ? parsed.ref : null,
+  });
+
+  if (error) {
+    // Missing RPC (pre-migration · 42883) → soft "unavailable" the UI can show
+    // without crashing the camera.
+    if (error.code === '42883') return { ok: false, error: 'unavailable' };
+    return { ok: false, error: 'tag_failed' };
+  }
+
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (!r.ok) return { ok: false, error: String(r.error ?? 'tag_failed') };
+
+  return {
+    ok: true,
+    kind: r.kind === 'table' ? 'table' : 'guest',
+    added: Number(r.added ?? 0),
+    names: Array.isArray(r.names) ? (r.names as string[]) : [],
+    tagCount: Number(r.tag_count ?? 0),
+    capReached: Boolean(r.cap_reached),
+    truncated: Boolean(r.truncated),
+    totalAtTable: r.total_at_table != null ? Number(r.total_at_table) : undefined,
+    tableLabel: typeof r.table_label === 'string' ? r.table_label : undefined,
+    already: Boolean(r.already),
+  };
 }

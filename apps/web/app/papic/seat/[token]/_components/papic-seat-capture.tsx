@@ -10,8 +10,11 @@ import {
   Video,
   Square,
   PartyPopper,
+  Users,
+  ScanLine,
 } from 'lucide-react';
-import { recordSeatCapture } from '@/app/papic/actions';
+import { recordSeatCapture, tagSeatCapture } from '@/app/papic/actions';
+import { makeQrDetector } from '@/lib/qr-scan';
 
 // Papic · paparazzo capture (client)
 //
@@ -26,6 +29,26 @@ import { recordSeatCapture } from '@/app/papic/actions';
 // controls.
 
 const CLIP_MAX_MS = 5_000; // 5-second hard cap (corpus constraint · not configurable)
+const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+
+/** Friendly, paparazzo-facing copy for a tag failure. The camera never breaks
+ *  on a tag miss — these just steer the next scan. */
+function tagErrorMessage(error: string): string {
+  switch (error) {
+    case 'unrecognized':
+      return 'That’s not a guest or table QR — point at a place card or table sign.';
+    case 'guest_not_found':
+      return 'That guest QR isn’t on this wedding’s list.';
+    case 'table_not_found':
+      return 'That table QR isn’t on this wedding’s seating plan.';
+    case 'cap_reached':
+      return `This photo already has all ${TAG_CAP} tags.`;
+    case 'unavailable':
+      return 'Tagging isn’t ready yet — your photo’s saved either way.';
+    default:
+      return 'That tag didn’t save — try the scan again.';
+  }
+}
 
 type Props = {
   token: string;
@@ -80,6 +103,18 @@ export function PapicSeatCapture({
   const [clips, setClips] = useState(initialClips);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // ---- tagging (scan-to-tag) ----------------------------------------------
+  // After a capture lands we keep its photo_id so the paparazzo can scan guest /
+  // table QRs to record who's in it. Tagging reuses the SAME live stream (no
+  // second getUserMedia — iOS-safe), running a QR decode loop while open.
+  const [lastPhotoId, setLastPhotoId] = useState<string | null>(null);
+  const [tagging, setTagging] = useState(false);
+  const [tagCount, setTagCount] = useState(0);
+  const [taggedNames, setTaggedNames] = useState<string[]>([]);
+  const [tagNotice, setTagNotice] = useState<string | null>(null);
+  const tagBusyRef = useRef(false);
+  const lastScanRef = useRef<string>('');
 
   const photoFull = photoCap != null && photos >= photoCap;
   const clipFull = clipCap != null && clips >= clipCap;
@@ -185,6 +220,17 @@ export function PapicSeatCapture({
     setTimeout(() => setJustSaved(false), 900);
   }, []);
 
+  // Point the tag flow at a freshly-captured photo (resets the running count +
+  // scan debounce). photoId can be null in the degraded insert path — then the
+  // "Tag people" affordance simply doesn't appear for that shot.
+  const armTagging = useCallback((photoId: string | null) => {
+    setLastPhotoId(photoId);
+    setTagCount(0);
+    setTaggedNames([]);
+    setTagNotice(null);
+    lastScanRef.current = '';
+  }, []);
+
   const capturePhoto = useCallback(async () => {
     if (busy || recording || !ready || photoFull) return;
     setBusy(true);
@@ -205,12 +251,13 @@ export function PapicSeatCapture({
       }
       setPhotos((n) => n + 1);
       flash();
+      armTagging(result.photoId);
     } catch {
       setSaveError("That shot didn't save — check your signal and try again.");
     } finally {
       setBusy(false);
     }
-  }, [busy, recording, ready, photoFull, grabFrame, uploadBlob, token, photoCap, photos, flash]);
+  }, [busy, recording, ready, photoFull, grabFrame, uploadBlob, token, photoCap, photos, flash, armTagging]);
 
   const finishClip = useCallback(
     async (clipBlob: Blob, mime: string) => {
@@ -238,13 +285,14 @@ export function PapicSeatCapture({
         }
         setClips((n) => n + 1);
         flash();
+        armTagging(result.photoId);
       } catch {
         setSaveError("That clip didn't save — check your signal and try again.");
       } finally {
         setBusy(false);
       }
     },
-    [grabFrame, uploadBlob, token, clipCap, clips, flash],
+    [grabFrame, uploadBlob, token, clipCap, clips, flash, armTagging],
   );
 
   const stopClip = useCallback(() => {
@@ -290,6 +338,94 @@ export function PapicSeatCapture({
     // Hard 5-second cap — auto-stop. Not configurable (corpus constraint).
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
   }, [busy, recording, ready, clipFull, finishClip, stopClip]);
+
+  // ---- tagging -------------------------------------------------------------
+
+  const startTagging = useCallback(() => {
+    if (!lastPhotoId) return;
+    lastScanRef.current = '';
+    tagBusyRef.current = false;
+    setTagNotice(null);
+    setTagging(true);
+  }, [lastPhotoId]);
+
+  const stopTagging = useCallback(() => {
+    setTagging(false);
+  }, []);
+
+  // Act on one decoded QR payload: hand it to the server (which classifies it as
+  // a guest or table code, resolves within this event, and writes the tag). The
+  // camera keeps running regardless — a miss only steers the next scan.
+  const handleScan = useCallback(
+    async (raw: string) => {
+      if (!lastPhotoId) return;
+      const result = await tagSeatCapture(token, lastPhotoId, raw);
+      if (!result.ok) {
+        setTagNotice(tagErrorMessage(result.error));
+        return;
+      }
+      if (typeof navigator !== 'undefined') navigator.vibrate?.(60);
+      setTagCount(result.tagCount);
+      if (result.added > 0) {
+        setTaggedNames((prev) =>
+          Array.from(new Set([...prev, ...result.names])),
+        );
+      }
+      if (result.kind === 'table') {
+        if (result.added === 0 && (result.totalAtTable ?? 0) === 0) {
+          setTagNotice(`No one’s seated at ${result.tableLabel ?? 'that table'} yet.`);
+        } else if (result.truncated) {
+          setTagNotice(
+            `${result.tableLabel ?? 'Table'}: added ${result.added}, but this photo hit the ${TAG_CAP}-tag limit.`,
+          );
+        } else if (result.added === 0) {
+          setTagNotice(`Everyone at ${result.tableLabel ?? 'that table'} is already tagged.`);
+        } else {
+          setTagNotice(null);
+        }
+      } else {
+        setTagNotice(
+          result.already ? `${result.names[0] ?? 'They’re'} already tagged.` : null,
+        );
+      }
+    },
+    [lastPhotoId, token],
+  );
+
+  // Decode loop — runs only while the tag sheet is open, on the EXISTING live
+  // stream. Serial (awaits each decode before the next) + debounced on the raw
+  // payload so a code held under the lens fires once, not every frame.
+  useEffect(() => {
+    if (!tagging) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    (async () => {
+      const detect = await makeQrDetector();
+      if (!active) return;
+      const loop = async () => {
+        if (!active) return;
+        const video = videoRef.current;
+        if (video && !tagBusyRef.current) {
+          const raw = await detect(video).catch(() => null);
+          if (active && raw && raw !== lastScanRef.current) {
+            lastScanRef.current = raw;
+            tagBusyRef.current = true;
+            try {
+              await handleScan(raw);
+            } finally {
+              tagBusyRef.current = false;
+            }
+          }
+        }
+        if (active) timer = setTimeout(loop, 200);
+      };
+      void loop();
+    })();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [tagging, handleScan]);
 
   if (camError) {
     return (
@@ -366,9 +502,62 @@ export function PapicSeatCapture({
             </span>
           </div>
         )}
+        {tagging && (
+          <>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="flex h-48 w-48 items-center justify-center rounded-3xl border-2 border-cream/80 shadow-[0_0_0_2000px_rgba(30,34,41,0.35)]">
+                <ScanLine aria-hidden className="h-7 w-7 animate-pulse text-cream/80" strokeWidth={1.75} />
+              </div>
+            </div>
+            <div className="absolute left-1/2 top-4 -translate-x-1/2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-semibold text-cream">
+                Scanning · {tagCount}/{TAG_CAP} tagged
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="space-y-3 px-4 pb-8 pt-4">
+        {tagging ? (
+          /* Tag sheet — scan guest / table QRs to record who's in the last shot. */
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-cream">Tag who&rsquo;s in this shot</p>
+              <span className="rounded-full bg-cream/10 px-2.5 py-1 text-xs font-medium text-cream/80">
+                {tagCount}/{TAG_CAP}
+              </span>
+            </div>
+            {taggedNames.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {taggedNames.map((n) => (
+                  <span
+                    key={n}
+                    className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs text-cream"
+                  >
+                    <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} /> {n}
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-center text-xs text-cream/60">
+              {tagCount >= TAG_CAP
+                ? `This photo has all ${TAG_CAP} tags.`
+                : 'Point at a guest’s place-card QR — or a table sign to tag the whole table.'}
+            </p>
+            {tagNotice && (
+              <p className="text-center text-xs text-cream/80">{tagNotice}</p>
+            )}
+            <button
+              type="button"
+              onClick={stopTagging}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-cream px-4 py-3 text-sm font-semibold text-ink transition active:scale-95"
+            >
+              <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} /> Done tagging
+            </button>
+          </div>
+        ) : (
+          <>
         {/* Photo / Clip mode toggle — only when clips are allowed for this seat. */}
         {clipsAllowed && (
           <div className="mx-auto flex w-full max-w-[14rem] items-center rounded-full bg-cream/10 p-1">
@@ -466,6 +655,21 @@ export function PapicSeatCapture({
                 ? 'Up to 5 seconds. Every clip lands in the couple’s gallery.'
                 : 'Every photo lands in the couple’s gallery in real time.'}
             </p>
+          </>
+        )}
+
+        {/* After a capture: offer to tag who's in it (skippable — untagged
+            photos still land in the gallery). */}
+        {lastPhotoId && !recording && !busy && (
+          <button
+            type="button"
+            onClick={startTagging}
+            className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full border border-cream/25 bg-cream/5 px-4 py-2 text-xs font-medium text-cream transition hover:bg-cream/10"
+          >
+            <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {tagCount > 0 ? `Tagged ${tagCount} · tag more` : 'Tag who’s in it'}
+          </button>
+        )}
           </>
         )}
       </div>

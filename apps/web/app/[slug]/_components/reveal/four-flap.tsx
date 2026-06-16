@@ -16,6 +16,7 @@
 
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
+import { RigidFlaps } from './rigid-flaps';
 
 type Props = {
   /** The couple's monogram SVG markup (uploaded/custom). Null → lettered seal. */
@@ -52,7 +53,7 @@ export function FourFlapEnvelope({
       onOpened={onOpened}
       renderFlaps={(p) => {
         const off = 101 * p;
-        return (
+        const css = (
           <>
             {/* top */}
             <div
@@ -80,6 +81,7 @@ export function FourFlapEnvelope({
             />
           </>
         );
+        return <RigidFlaps variant="four-flap" progress={p} cssFallback={css} />;
       }}
     />
   );

@@ -21,6 +21,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
+import { RigidFlaps } from './rigid-flaps';
 
 export type RigidVariant = 'two-flap-vertical' | 'two-flap-horizontal' | 'church-doors';
 
@@ -169,7 +170,9 @@ export function RigidReveal({
       config={config}
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
-      renderFlaps={(p) => flaps(variant, p)}
+      renderFlaps={(p) => (
+        <RigidFlaps variant={variant} progress={p} cssFallback={flaps(variant, p)} />
+      )}
     />
   );
 }

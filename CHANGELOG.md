@@ -53,6 +53,16 @@ Owner reported the Save-the-Date reveal templates "are all not working properly"
 Flag-gated unchanged: `NEXT_PUBLIC_STD_REVEAL` default OFF → zero live impact; previewable via `?reveal=four-flap|two-flap-vertical|two-flap-horizontal|church-doors|veil|crown` on a wedding slug in the Save-the-Date phase, and in the dashboard Save-the-Date chooser. Verified: `tsc` 0 · `next lint` clean (local preview server unavailable in sandbox → gesture/visual validation on the Vercel preview).
 
 SPEC IMPACT: **Closes drift** — the shipped reveal now matches `0024_ADDENDUM §1a` (scroll-driven open + swipe-the-seal gate) and `§3` (monogram wax seal recoloured from the Mood Board). No SKU/schema/pricing/public-surface change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-17 · feat(papic): face auto-tagging — Phase 1, the pure matcher core (+ tests)
+
+Owner picked "build web face auto-tagging now" (self-hosted, on-device). Architecture: browser-on-device embedding (MobileFaceNet from R2) + server-side cosine matching — honors the locked on-device-face preference, the ₱0 marginal-cost model, and the spec's "self-hosted, no paid cloud" line. This is **Phase 1**: the pure, architecture-agnostic policy core, with nothing wired yet (no behavior change).
+
+- **`lib/face-match-core.ts`** (new, pure — no `server-only`/DB/model runtime): `cosineSimilarity()` + `planAutoTags()`. Encodes the locked policy exactly — confidence **≥0.85 → auto-tag**, **0.65–0.85 → suggest**, **<0.65 → untagged**; the **10-tag-per-photo cap combined with existing tags** (auto-tags take remaining slots by confidence, never exceed it); dedupe of one guest matched by two faces (keeps higher confidence); never re-tags an already-tagged guest.
+- **`lib/face-match-core.test.ts`** (new, `node:test`, runs in CI `test:unit`): the cosine basics (identical/orthogonal/opposite/invalid), each confidence band, two-faces-one-guest dedupe, already-tagged exclusion, and the cap truncation. Test vectors numerically verified to land in the asserted bands.
+
+Next phases (not in this PR): Phase 2 browser embed module + fill `guest_face_enrollments.face_vector` (columns already reserved) + backfill existing selfies; Phase 3 per-capture embed → match → write `auto_face` tags (consent-gated; opt-outs already blurred by FaceBlock) + the 0.65–0.85 suggested-tag UI.
+
+SPEC IMPACT: iteration 0012 — face auto-tagging moves from reference-only to in-progress; the spec's ≥0.85/0.65–0.85 thresholds + 10-tag cap are now codified + tested. (Note: marketing/help copy already claims face auto-tagging — it stays partially-unfulfilled until Phase 3 lands.) Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(papic): surface the free sampler on the add-ons grid + branded sampler expiry emails
 

@@ -212,6 +212,11 @@ export function sealColorFromPalette(palette: RolePalette | null | undefined): s
   return toHex(pick);
 }
 
+/** The de-duped Mood-Board swatches as `#rrggbb` hexes (for the wax-colour picker). */
+export function paletteSwatches(palette: RolePalette | null | undefined): string[] {
+  return palettePool(palette).map(toHex);
+}
+
 /**
  * Veil tulle colour — the most colourful swatch lightened toward ivory so the
  * sheer fabric carries a whisper of the palette's hue (legible content shows

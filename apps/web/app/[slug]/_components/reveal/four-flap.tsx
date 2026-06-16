@@ -14,6 +14,7 @@
  * recolours automatically, ₱0. The wax seal carries the deep-accent colour.
  */
 
+import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
 
 type Props = {
@@ -23,18 +24,31 @@ type Props = {
   monogram: string;
   /** Wax seal colour (hex) — the moodboard deep accent. */
   waxColor: string;
+  /** The minted wax-seal recipe (null → default levers seeded by fallbackSeed). */
+  config?: WaxSealConfig | null;
+  /** Stable seed for an un-minted seal (public_id-derived). */
+  fallbackSeed?: number;
   /** Fired once the flaps have scrubbed fully open. */
   onOpened: () => void;
 };
 
 const flap = 'absolute inset-0 bg-cream will-change-transform';
 
-export function FourFlapEnvelope({ markSvg, monogram, waxColor, onOpened }: Props) {
+export function FourFlapEnvelope({
+  markSvg,
+  monogram,
+  waxColor,
+  config = null,
+  fallbackSeed,
+  onOpened,
+}: Props) {
   return (
     <RigidStage
       markSvg={markSvg}
       monogramText={monogram}
       waxColor={waxColor}
+      config={config}
+      fallbackSeed={fallbackSeed}
       onOpened={onOpened}
       renderFlaps={(p) => {
         const off = 101 * p;

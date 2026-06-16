@@ -11,6 +11,25 @@
 
 ---
 
+## 2026-06-16 · OPTIONAL — Free Papic sampler: R2 lifecycle auto-cleanup
+
+Free-sampler photos now upload under their own R2 key prefix `papic-sampler/`
+(paid Papic photos stay under `papic/`). The app already deletes expired sampler
+photos opportunistically when a couple revisits the Papic page, and filters them
+out of the gallery after 30 days — so couples never see expired photos regardless.
+This optional step cleans the *bytes* for couples who try the sampler and never
+return:
+
+1. Cloudflare dashboard → **R2** → the `setnayan-media` bucket → **Settings →
+   Object lifecycle rules → Add rule**.
+2. Prefix: `papic-sampler/` · Action: **Delete objects** · Age: **30 days**.
+3. Save. Only sampler bytes expire; paid photos (under `papic/`) are never touched.
+
+Not urgent — the in-app sweep already bounds storage for active couples; this is
+long-tail tidiness only.
+
+---
+
 ## Post 2026-05-22 sprint punch list (read this FIRST)
 
 > 17 PRs shipped autonomously overnight on 2026-05-22 while you were offline.

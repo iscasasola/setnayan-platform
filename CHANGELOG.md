@@ -1074,6 +1074,20 @@ App-store submission prep. The owner is registering a Google Play (Personal) dev
 Upload keystore was generated out-of-repo at `/Users/Shared/setnayan-keys/` (alias `setnayan`, RSA 2048, 10000-day validity); `.gitignore` already blocks `*.jks` / `keystore.properties`. Full owner runbook (registration steps, listing copy, Google Data Safety answers, Apple privacy labels, iOS Xcode steps, Guideline 4.2 risk note) in the spec corpus: `0052_native_apps_delivery/App_Store_Submission_Runbook_2026-06-15.md`.
 
 SPEC IMPACT: None (CI infra + owner-action docs; no schema/SKU/feature change). The runbook is a new corpus delivery doc, not an iteration-spec edit.
+## 2026-06-15 · feat(admin): editable vendor pricing + Setnayan Pay fee at /admin/pricing (PR 3 of the pricing/payments plumbing fix)
+
+Before this, `/admin/pricing` only let the owner edit the **customer** catalog (`platform_retail_catalog_v2` + `platform_package_catalog`). Vendor subscriptions / token packs (`vendor_billing_catalog`) and the Setnayan Pay convenience fee were **migration-only** — to change a vendor price or the fee you had to write SQL. This closes that gap.
+
+- **`apps/web/app/admin/pricing/actions.ts`** — two new `requireAdmin`-gated server actions, each mirroring the existing `updateRetailSku` shape EXACTLY (validation → snapshot prior → >₱500 (or >2.0pp) `console.warn` two-admin gate → `UPDATE` → `admin_audit_log` insert → `revalidatePath` → `redirect`):
+  - **`updateVendorSku`** writes `vendor_billing_catalog.price_php` + `is_active` (positive-price validated against the table's `CHECK price_php > 0`; stamps `updated_at` explicitly since this table has no updated_at trigger / `updated_by_admin_id` column). Revalidates `/for-vendors` + `/pricing` (both read `getVendorPrices()`) + `/admin/pricing`. Audit action `v2_vendor_sku_edit`.
+  - **`updatePlatformFee`** writes `platform_settings.setnayan_pay_fee_pct` (0–100 clamp). Audit action `platform_fee_edit`. Revalidates `/admin/pricing` + `/admin/payments` + `/vendor-dashboard`.
+- **`apps/web/app/admin/pricing/page.tsx`** — adds a **"Vendor pricing"** section (every `vendor_billing_catalog` row, read in full incl. inactive so a retirement can be reversed, with the same `?edit=<sku_code>` single-row form UX) and a **"Platform fee"** editor (single-row form via the `__platform_fee__` sentinel; shows a "Code default" badge until the column is first saved).
+- **`apps/web/lib/payouts.ts`** (`getSetnayanFeeBps`) + **`apps/web/lib/vendor-earnings.ts`** (`getSetnayanFeePct`) — read the fee from `platform_settings` with the existing code constants (5.0% / 500 bps) as fallback, so an unset column is byte-identical to current behavior. **`app/admin/payments/actions.ts`** payout breakdown now uses the admin-set fee when an order carries no per-order `setnayan_fee_bps` snapshot (historical orders keep their own).
+- **Migration `supabase/migrations/20261225000000_platform_settings_setnayan_pay_fee.sql`** — idempotent `ADD COLUMN IF NOT EXISTS setnayan_pay_fee_pct NUMERIC(5,2) NOT NULL DEFAULT 5.00` (= the current code value · no re-price) + a 0–100 CHECK + column comment. **NOT applied — owner runs `supabase db push`.**
+
+No price VALUE changed in any seed/migration — this adds the ability to EDIT, not a re-price. tsc + lint green. Closes PR 3 of the 4-PR plumbing fix (PR 4 = payment activation repair still queued). **Owner action:** `supabase db push` to land the fee column (until then the fee falls back to the 5.0% constant and the editor shows "Code default").
+
+SPEC IMPACT: None on locked SKU values or schema canon (adds an admin-edit affordance + one settings column defaulted to the existing fee). Vendor-price + fee editability is now a live admin capability — note for the corpus `0023_admin_console` / `Pricing.md` (admin-managed-prices rule).
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 

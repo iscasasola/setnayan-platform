@@ -18,6 +18,16 @@ Does NOT flip the global `SETNAYAN_AI_PAYWALL_ENABLED` flag — AI stays free-to
 
 SPEC IMPACT: onboarding plan-screen now presents Setnayan AI as the ₱3,999 paid keep (per 2026-06-07 pricing lock + 2026-06-08 AI definition) and corrects the free-tier value list (adds the free Papic sampler concept). Logged in corpus `DECISION_LOG.md`. The free Papic sampler **entitlement + 3-seat/8-photo+2-clip caps + 30-day retention** is a separate follow-up PR (PR2).
 
+## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
+
+Second consumption of the nav/icon/menu registry. The customer **desktop sidebar** (the 6 journey groups → items) now sources each item's **label + icon from the admin registry** (`customer.sidebar.*` slots), falling back to the hardcoded default. **Visually identical today** (override table empty → every slot resolves to its code default — verified all 16 items' default label+icon match the config exactly, and all 16 icons are in the curated allowlist).
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-sidebar.tsx`** — `applyRegistry(groups, navSlots)` overlays registry label + `navIconComponent(icon)` per item via a `SIDEBAR_SLOT_KEYS` map (item key → `customer.sidebar.*`); a hidden slot drops the item. The neutral `buildCustomerNavGroups` builder stays untouched + server-safe (overrides applied in the client sidebar). Items with no slot yet (the "Checklist" auto-step) pass through unchanged. GROUP heading labels + the day-of roster slots remain deferred follow-ups.
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — passes the already-resolved `navSlots` to `<CustomerSidebar>` (reuses the same `getNavSlotMap()` the bottom nav uses).
+
+Reuses the bottom-nav pattern (`navIconComponent` → stable component; the shared SidebarSection/SidebarItem primitives untouched). `pnpm typecheck` + `pnpm lint` green. NEXT: vendor → admin → public, then group-heading slots + the ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
 ## 2026-06-16 · feat(checklist): sync the wedding checklist to our services — jump-to-category + auto-complete from real state
 
 Made the in-app checklist *do* something (owner: "Book your caterer will make them jump to find caterer" → "Both — jump + auto-complete"). Two halves, no migration.

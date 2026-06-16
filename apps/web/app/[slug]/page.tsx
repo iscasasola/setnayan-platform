@@ -40,6 +40,11 @@ import {
   sealColorFromPalette,
   veilColorFromPalette,
 } from '@/lib/site-palette';
+import {
+  fallbackSeedFromPublicId,
+  sanitizeWaxSealConfig,
+  type WaxSealConfig,
+} from '@/lib/wax-seal/types';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
@@ -134,7 +139,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -234,6 +239,11 @@ function revealMarkSvg(event: EventRow): string | null {
       ? event.monogram_custom_svg
       : null;
   return uploaded ?? custom;
+}
+
+/** The couple's minted wax-seal recipe for the reveal (null → default levers). */
+function revealSealConfig(event: EventRow): WaxSealConfig | null {
+  return sanitizeWaxSealConfig(event.wax_seal_config);
 }
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
@@ -776,6 +786,9 @@ type EventRow = {
   // the Save-the-Date reveal's wax seal (0024 §3). Sanitized at generation time.
   monogram_custom_svg?: string | null;
   monogram_uploaded_svg?: string | null;
+  // The couple-minted wax-seal recipe (candle-stamp maker, 0024 §3) — deterministic
+  // config rendered client-side by paintWaxSeal. Unknown + sanitized at use.
+  wax_seal_config?: unknown;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1130,6 +1143,8 @@ function PublicLanding({
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
         waxColor={revealWaxColor(event.role_palette)}
+        sealConfig={revealSealConfig(event)}
+        sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
@@ -1586,6 +1601,8 @@ function InvitationSite({
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
         waxColor={revealWaxColor(event.role_palette)}
+        sealConfig={revealSealConfig(event)}
+        sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}

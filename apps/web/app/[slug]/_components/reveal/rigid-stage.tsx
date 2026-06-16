@@ -21,12 +21,17 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxSeal } from './wax-seal';
 
 type Props = {
   markSvg: string | null;
   monogramText: string;
   waxColor: string;
+  /** The minted wax-seal recipe (null → default levers seeded by fallbackSeed). */
+  config?: WaxSealConfig | null;
+  /** Stable seed for an un-minted seal (public_id-derived). */
+  fallbackSeed?: number;
   /** Fired once the flaps have scrubbed fully open. */
   onOpened: () => void;
   /** Render the template's flaps for a given open progress (0 = shut, 1 = clear). */
@@ -41,7 +46,15 @@ const FRICTION = 0.96; // per-frame velocity decay during the fling
 const FLING_SPEED = 9; // px/frame release speed that counts as a deliberate flick
 const FLING_DIST_FRAC = 0.16; // OR drag this fraction of the short screen edge
 
-export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFlaps }: Props) {
+export function RigidStage({
+  markSvg,
+  monogramText,
+  waxColor,
+  config = null,
+  fallbackSeed,
+  onOpened,
+  renderFlaps,
+}: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
 
@@ -334,7 +347,13 @@ export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFl
             className="pointer-events-auto cursor-grab touch-none rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream/70 active:cursor-grabbing"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            <WaxSeal markSvg={markSvg} monogramText={monogramText} waxColor={waxColor} />
+            <WaxSeal
+              markSvg={markSvg}
+              monogramText={monogramText}
+              waxColor={waxColor}
+              config={config}
+              fallbackSeed={fallbackSeed}
+            />
           </button>
           <span
             className={`pointer-events-none font-mono text-[11px] uppercase tracking-[0.28em] text-cream/85 transition-opacity duration-300 ${

@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { isSetnayanAiActive, isSetnayanAiPaywallEnabled } from '@/lib/setnayan-ai';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
@@ -75,14 +75,16 @@ export default async function SetnayanAiPage({ params }: Props) {
   const active = isSetnayanAiActive(event);
   const paywallOn = isSetnayanAiPaywallEnabled();
 
-  // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order is in flight
-  // (submitted / awaiting / paid · not cancelled/refunded/lapsed). The order
-  // check keeps a couple from being offered a SECOND purchase while their
-  // payment is still in reconciliation. Graceful-degrades on a legacy orders
-  // table (checkOrderOwnership swallows 42P01/42703).
+  // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order (à-la-carte OR a
+  // GUIDED_PACK/MEDIA_PACK bundle that includes it) is in flight (submitted /
+  // awaiting / paid · not cancelled/refunded/lapsed). The bundle-aware
+  // eventOwnsSku() keeps a bundle buyer from being offered a SECOND purchase in
+  // the reconciliation window BEFORE activateBundleChildren() stamps
+  // setnayan_ai_active. Graceful-degrades on a legacy orders table (eventOwnsSku
+  // → checkOrderOwnership swallows 42P01/42703).
   const owns =
     event.setnayan_ai_active === true ||
-    (await checkOrderOwnership(supabase, eventId, SKU_CODE));
+    (await eventOwnsSku(supabase, eventId, SKU_CODE));
 
   // Pricing from the live V2 catalog (single source of truth). null when the
   // row is unreadable (e.g. no service-role key in CI / pre-seed) → the buy

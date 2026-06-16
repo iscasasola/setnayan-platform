@@ -1,5 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ADD_ON_SKU_MAP } from './add-on-stats';
+import { BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
+
+// Canonical V2 SKU that a bundle (GUIDED_PACK / MEDIA_PACK) grants for each
+// add-on FEATURE, used by the bundle-aware launch check below. Only features a
+// bundle actually includes need an entry (mirrors V1_TO_V2_SKU_MAP, e.g.
+// panood_daily_broadcast → PANOOD_SYSTEM). PR4d: a Complete (MEDIA_PACK) buyer
+// gets ONE bundle-keyed order, not an à-la-carte SKU order, so without this the
+// couple-facing Panood surfaces (add-on page / galleries / launch hub) never
+// flip to 'launch' and the couple can't start a livestream they paid for.
+const FEATURE_BUNDLE_SKU: Readonly<Record<string, string>> = {
+  panood: 'PANOOD_SYSTEM',
+};
 
 // Resolves the App Store-style hero CTA state for an add-on detail page.
 // One of:
@@ -86,6 +98,21 @@ export async function resolveAddOnState(
 ): Promise<AddOnStateContext> {
   const skus = ADD_ON_SKU_MAP[featureKey] ?? [];
 
+  // Bundle-aware ownership (PR4d): add the bundle code(s) that grant this
+  // feature's canonical SKU so a bundle buyer's single bundle-keyed order is
+  // matched too. Only the bundles that ACTUALLY include it — Panood is in
+  // MEDIA_PACK but NOT GUIDED_PACK, so an Essentials buyer is never over-granted
+  // Panood. The existing paid/fulfilled vs submitted gating then treats a bundle
+  // exactly like an à-la-carte order: paid bundle → launch, submitted bundle →
+  // request_sent, refunded/cancelled bundle → re-locks (out of paid/fulfilled).
+  const bundleSku = FEATURE_BUNDLE_SKU[featureKey];
+  const grantingBundles = bundleSku
+    ? (Object.keys(BUNDLE_CHILD_SKUS) as Array<keyof typeof BUNDLE_CHILD_SKUS>).filter((b) =>
+        BUNDLE_CHILD_SKUS[b].includes(bundleSku),
+      )
+    : [];
+  const ownershipSkus = [...skus, ...grantingBundles];
+
   const eventQuery = supabase
     .from('events')
     .select('event_date, archived')
@@ -108,13 +135,13 @@ export async function resolveAddOnState(
     .maybeSingle();
 
   const ordersQuery =
-    skus.length === 0
+    ownershipSkus.length === 0
       ? Promise.resolve({ data: [] as OrderRow[], error: null })
       : supabase
           .from('orders')
           .select('status, public_id, service_key')
           .eq('event_id', eventId)
-          .in('service_key', skus)
+          .in('service_key', ownershipSkus)
           .order('created_at', { ascending: false })
           .limit(20);
 

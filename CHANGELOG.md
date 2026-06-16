@@ -15,6 +15,23 @@ From the same "make the sampler powerful" push. The #1577 52-agent audit confirm
 Single file (`app/dashboard/[eventId]/add-ons/papic/page.tsx`), additive — no new deps, no migration, reuses the existing `PAPIC_SEATS` SKU + the #1577 keep-permanent mechanic. tsc 0 · `next lint` clean. PR pending (branch `claude/papic-sampler-retention`, auto-merge).
 
 SPEC IMPACT: iteration 0012 — the couple-side Papic add-on page now **converts** the free sampler (was informational only); closes the #1577 audit's "gallery not sampler-aware" + "banner informational-not-converting" findings. No SKU / schema / pricing / public-surface change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(payments): red-team hardening of the bundle-entitlement fixes (PR4d)
+
+A 14-agent adversarial red-team (workflow `entitlement-redteam`) tried to break the merged PR4/PR4b fixes across 5 angles and found 8 confirmed holes (1 candidate refuted). Fixed the confirmed ones:
+
+- **Complete buyer couldn't launch Panood (high)** — the couple-facing Panood gates (add-on page, galleries, launch hub "Go live") resolve via `resolveAddOnState()`, which matched only à-la-carte SKU orders, not the bundle code. A MEDIA_PACK buyer's single `MEDIA_PACK` order matched nothing → stuck on "add". Fix: `resolveAddOnState` now adds the *granting* bundle code(s) for the feature's canonical SKU to its ownership query — Panood→`PANOOD_SYSTEM` is in **MEDIA_PACK only**, so Essentials buyers are NOT over-granted, and the existing paid/fulfilled-vs-submitted gating treats a bundle exactly like an à-la-carte order (paid→launch, submitted→request_sent, refunded→re-locks). (Guest watch-live was already bundle-aware; this closes the couple side.)
+- **Refunded/cancelled Setnayan AI stayed ON forever (high)** — the feature reads the stored `events.setnayan_ai_active` boolean, which activation stamps true but nothing ever cleared, so a full refund left the paid AI live ("refund the money, keep the AI"). Added `deactivateOrderSku()` in `lib/sku-activation.ts` (symmetric to `activateOrderSku`), called from `refundOrder` + `rejectPayment` after the status flip. It **re-derives** ownership via `eventOwnsSku` (bundle-aware, refund-aware, admin client) and clears the flag *only* when the event no longer owns AI by any other live order/bundle — so a couple who owns AI twice (à-la-carte + bundle) keeps it on a single refund. `PAPIC_SEATS` sampler-permanence is deliberately NOT reversed (owner-locked "upgrade = permanent").
+- **AI activation hook swallowed its DB error (med)** — now surfaces it so the dispatcher's outer catch logs it (silent un-provisioning had no retry signal).
+- **Bundle fan-out had no per-child fault isolation (was latent, now real)** — PR #1577 added a 2nd child hook (`PAPIC_SEATS`), so a `SETNAYAN_AI` write error could starve `PAPIC_SEATS`. Each child call is now try/caught (honors the file's "every hook non-fatal" contract).
+- **Branded-QR + custom-qr gates were purchaser-scoped (high)** — the ownership read ran under the user's RLS client, but `orders` RLS is `user_id = auth.uid()`, so a co-host event member who didn't personally place the order was denied a SKU the event paid for. The guest/event reads ARE the membership gate; ownership is an event-level fact → now read with the admin client (post-authorization) in the public QR route + the custom-qr detail & print pages.
+
+Refuted: "checkOrderOwnership omits 'draft'" — by design (a `draft` order isn't a committed purchase).
+
+**⚠ OWNER NOTE — systemic, NOT fixed here:** `orders` RLS is purchaser-scoped (`USING (user_id = auth.uid())`, migration `20260513150000`), never broadened to event members. So **every** couple-SKU gate that reads `orders` under a user-scoped client denies a co-host (non-purchaser) member — PR4d fixed the specific surfaces above, but the general fix is an **RLS migration** giving event members SELECT on their event's orders (e.g. `event_id IN (SELECT current_event_ids())`). That needs owner sign-off: (a) a co-host would then see the event's order amounts (privacy), and (b) it's a migration (currently `db push` is blocked by the orphan `20270102000000` ledger row). Until then, `resolveAddOnState`'s à-la-carte path and any other user-client gate still deny co-hosts.
+
+Verified: `tsc --noEmit` 0 · `lint entitlement gates` clean (all new reads use `eventOwnsSku`) · 25/25 unit tests · existing lints pass.
+
+SPEC IMPACT: None (correctness hardening of the already-specced apply-then-pay entitlement flow). Logged in `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
 

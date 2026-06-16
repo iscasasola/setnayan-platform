@@ -59,6 +59,23 @@ function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null 
   return n;
 }
 
+/**
+ * Recommended lead time in months (Setnayan AI §4, vendor-owned 2026-06-16): a
+ * non-negative number, fractional allowed (0.5 ≈ 2 weeks). Blank → null = no
+ * recommended lead → no last-minute range → always bookable. The START of this
+ * service's last-minute range.
+ */
+function parseLeadTimeMonthsOrNull(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  if (t.length === 0) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error('Recommended lead time must be a non-negative number of months.');
+  }
+  return n;
+}
+
 async function ensureProfile() {
   const supabase = await createClient();
   const {
@@ -124,6 +141,7 @@ export async function createVendorService(formData: FormData) {
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
   let crew_size: number | null;
+  let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
   try {
@@ -132,6 +150,10 @@ export async function createVendorService(formData: FormData) {
     // Optional per-added-guest surcharge (Adaptive Pax Pricing); blank = none.
     added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
     crew_size = parseInt0OrNull(formData.get('crew_size'));
+    // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
+    recommended_lead_time_months = parseLeadTimeMonthsOrNull(
+      formData.get('recommended_lead_time_months'),
+    );
     last_minute_end_months = parseInt0OrNull(formData.get('last_minute_end_months'));
     last_minute_surcharge_pct = parseSurchargePctOrNull(
       formData.get('last_minute_surcharge_pct'),
@@ -228,6 +250,7 @@ export async function createVendorService(formData: FormData) {
     crew_size,
     crew_meal_required,
     branch_id,
+    recommended_lead_time_months,
     last_minute_end_months,
     last_minute_surcharge_pct,
     daily_capacity,
@@ -288,12 +311,17 @@ export async function updateVendorService(formData: FormData) {
   let starting_price_php: number | null;
   let added_pax_price_php: number | null;
   let crew_size: number | null;
+  let recommended_lead_time_months: number | null;
   let last_minute_end_months: number | null;
   let last_minute_surcharge_pct: number | null;
   try {
     starting_price_php = parseInt0OrNull(formData.get('starting_price_php'));
     added_pax_price_php = parseInt0OrNull(formData.get('added_pax_price_php'));
     crew_size = parseInt0OrNull(formData.get('crew_size'));
+    // §4 last-minute START (vendor-owned 2026-06-16): recommended lead time.
+    recommended_lead_time_months = parseLeadTimeMonthsOrNull(
+      formData.get('recommended_lead_time_months'),
+    );
     last_minute_end_months = parseInt0OrNull(formData.get('last_minute_end_months'));
     last_minute_surcharge_pct = parseSurchargePctOrNull(
       formData.get('last_minute_surcharge_pct'),
@@ -337,6 +365,7 @@ export async function updateVendorService(formData: FormData) {
       crew_size,
       crew_meal_required,
       branch_id,
+      recommended_lead_time_months,
       last_minute_end_months,
       last_minute_surcharge_pct,
       daily_capacity,

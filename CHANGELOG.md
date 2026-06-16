@@ -22,6 +22,22 @@ Architecture: **code defaults + sparse DB overrides + resolver.** This PR is **a
 `pnpm typecheck` + `pnpm lint` green.
 
 SPEC IMPACT: Logged in `DECISION_LOG.md` (2026-06-16 registry program row) + design doc `Nav_Icon_Menu_Registry_Design_2026-06-16.md` + memory `project_setnayan_nav_icon_menu_registry`. No locked-SKU/schema-rename impact (additive infra).
+## 2026-06-16 · feat(vendor): per-service recommended lead time — last-minute START becomes vendor-owned
+
+Owner refinement 2026-06-16 (revises `What_Is_Setnayan_AI_2026-06-08.md` §4): a service's last-minute START is no longer a platform per-leaf guess (`planning_deadlines kind='last_minute_start'`) — it's the **vendor's own per-service RECOMMENDED LEAD TIME** (the normal/comfortable lead for regular effort). The last-minute range is now `[recommended_lead_time → latest-accept cutoff]`, both vendor-declared per service; the existing hard cutoff (`last_minute_end_months`) + optional 0–100% surcharge + AI-only visibility are unchanged. A service with no recommended lead time → no last-minute range → always bookable whenever the schedule permits.
+
+**Dark-by-data:** NULL recommended lead time on every existing row + nothing platform-seeded = today's state → every zone resolves `'normal'` → zero behavior change until a vendor fills one in. The category-wide AI-off-empty rule deliberately stays on the *platform* group START so one vendor's lead time can never black out a whole category.
+
+- **`supabase/migrations/20261231000100_vendor_recommended_lead_time.sql`** — additive nullable `vendor_services.recommended_lead_time_months NUMERIC` (CHECK ≥ 0). **Applied to prod** via `supabase db push`.
+- **`apps/web/lib/last-minute.ts`** — new `resolveLastMinuteStart()` (vendor-first → platform-fallback → null); zone math unchanged.
+- **`apps/web/lib/vendor-services.ts`** — select + type the new column.
+- **`apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — START sourced per-service from the vendor's recommended lead time.
+- **`apps/web/app/vendor-dashboard/services/{page.tsx,actions.ts}`** — vendor "Recommended lead time" field + the "honor bookings up to your accept-until date" commitment nudge.
+- **`apps/web/lib/last-minute.test.ts`** — 13 cases incl. dark-by-data.
+
+SPEC IMPACT: revises `What_Is_Setnayan_AI_2026-06-08.md` §4 (platform-START → vendor-owned) — corpus updated + DECISION_LOG row (2026-06-16).
+
+---
 
 ## 2026-06-16 · feat(build): event_category_build_state table (Phase 3d schema — dark)
 

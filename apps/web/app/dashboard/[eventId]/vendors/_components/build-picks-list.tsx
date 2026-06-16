@@ -181,7 +181,9 @@ function BuildPickRow({ eventId, item }: { eventId: string; item: BuildPickItem 
   const remove = () => {
     haptic('tick');
     start(async () => {
-      await removeBuildPick({ eventId, planGroupId: item.groupId });
+      // Pass vendorId so a multi-pick category (Look/Booths/Prints) drops only
+      // THIS pick, not every vendor in the category.
+      await removeBuildPick({ eventId, planGroupId: item.groupId, vendorId: item.vendorId });
     });
   };
   return (

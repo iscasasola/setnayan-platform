@@ -22,6 +22,21 @@ Verified: `tsc --noEmit` 0 · `lint entitlement gates` clean (all new reads use 
 
 SPEC IMPACT: None (correctness hardening of the already-specced apply-then-pay entitlement flow). Logged in `DECISION_LOG.md`.
 
+## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
+
+A **second, distinct** multi-pick data-loss bug (separate from the #1512 compute-path fix): the Build "Your build" Remove (X) button called `removeBuildPick({ eventId, planGroupId })` **without a `vendorId`**, and `removeBuildPick`'s vendorless branch deletes EVERY pick in the category. So removing one vendor from a multi-pick category (Look / Booths / Prints) silently wiped the couple's **other** picks in that category. Found while auditing whether the original (#1512) bug was truly closed — it was; this is a different write path.
+
+Fixed + failproofed (defense-in-depth so the class can't recur):
+
+- **Live fix** — `app/dashboard/[eventId]/vendors/_components/build-picks-list.tsx` now passes `vendorId: item.vendorId`, so Remove drops only that one pick.
+- **Foolproof API** — `removeBuildPick`'s `vendorId` is now **REQUIRED**; the silent "omit → wipe whole category" path is gone (whole-build reset stays the explicit `clearBuildPicks`). `tsc` proves no caller relied on the old optional form.
+- **Single source of truth** — new `lib/build-pick-rules.ts` `replacesSiblingsOnPin()` (= `!isMultiPickGroup`); both `setBuildPick` and `runBuild3State` route their sibling-clearing decision through it, so the guard can't be half-applied or quietly dropped in a refactor (it was nearly lost once in the #1568 Build refactor that deleted `build-flags-actions.ts`).
+- **Testable write cores** — new `lib/build-pick-write.ts` `pinBuildPickRow`/`removeBuildPickRow` are the only add/pin/remove mutators of `event_build_picks`; they enforce the guard. (The deliberate whole-build resets `applyBuildToWorking`/`clearBuildPicks` stay open-coded.)
+- **Regression tests** — `lib/build-pick-rules.test.ts` (decision over every `PLAN_GROUP`) + `lib/build-pick-write.test.ts` (fake recorder client asserting a multi-pick pin issues **NO** delete, a single-pick pin scopes its `.neq`, and remove targets exactly one vendor). 11 new tests; the suite fails loudly if the guard ever regresses.
+
+Verified in the worktree: `tsc --noEmit` 0 · `test:unit` 237/237 · `next lint` clean. A 4-lens adversarial review (data-loss completeness · regression-equivalence · test efficacy · schema soundness) returned **ship / no blockers** (one doc-comment nit, fixed).
+
+SPEC IMPACT: None (correctness fix + test/guard hardening; no SKU / schema / pricing / public-surface change). Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
 
 After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):

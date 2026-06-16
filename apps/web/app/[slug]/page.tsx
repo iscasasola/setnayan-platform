@@ -35,7 +35,11 @@ import { SaveTheDateView } from './_components/save-the-date';
 import { RevealOverlay } from './_components/reveal/reveal-overlay';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import {
+  buildSitePaletteVars,
+  sealColorFromPalette,
+  veilColorFromPalette,
+} from '@/lib/site-palette';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
@@ -204,6 +208,32 @@ function revealMonogram(name: string): string {
   const b = parts[1] ?? '';
   if (a && b) return `${a.charAt(0)} & ${b.charAt(0)}`.toUpperCase();
   return (name.trim().charAt(0) || '✦').toUpperCase();
+}
+
+/** Wax-seal colour for the reveal — the moodboard deep accent (§4). */
+function revealWaxColor(palette: unknown): string {
+  return sealColorFromPalette(sanitizeRolePalette(palette));
+}
+
+/** Veil tulle colour for the reveal — a sheer moodboard tint (§4). */
+function revealVeilColor(palette: unknown): string {
+  return veilColorFromPalette(sanitizeRolePalette(palette));
+}
+
+/**
+ * The couple's monogram mark for the wax seal — their own upload outranks the
+ * AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
+ */
+function revealMarkSvg(event: EventRow): string | null {
+  const uploaded =
+    typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? event.monogram_uploaded_svg
+      : null;
+  const custom =
+    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? event.monogram_custom_svg
+      : null;
+  return uploaded ?? custom;
 }
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
@@ -742,6 +772,10 @@ type EventRow = {
   monogram_style?: string | null;
   monogram_font_key?: string | null;
   monogram_frame_key?: string | null;
+  // The couple's bespoke mark SVG (uploaded outranks AI/Cipher) — pressed into
+  // the Save-the-Date reveal's wax seal (0024 §3). Sanitized at generation time.
+  monogram_custom_svg?: string | null;
+  monogram_uploaded_svg?: string | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1094,7 +1128,9 @@ function PublicLanding({
       <RevealOverlay
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
-        veilColor="#f3ece1"
+        markSvg={revealMarkSvg(event)}
+        waxColor={revealWaxColor(event.role_palette)}
+        veilColor={revealVeilColor(event.role_palette)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -1548,7 +1584,9 @@ function InvitationSite({
       <RevealOverlay
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
-        veilColor="#f3ece1"
+        markSvg={revealMarkSvg(event)}
+        waxColor={revealWaxColor(event.role_palette)}
+        veilColor={revealVeilColor(event.role_palette)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">

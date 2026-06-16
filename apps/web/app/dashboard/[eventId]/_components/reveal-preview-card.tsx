@@ -6,8 +6,9 @@
  * Lets the couple PREVIEW how their wedding page opens — any of the reveal
  * library templates (envelopes · church doors · bridal veils) — without needing
  * a published slug or production URL gymnastics. Clicking a template plays the
- * reveal full-screen over a sample of their own Save-the-Date card; lifting /
- * opening it uncovers the card, then Replay / Close.
+ * reveal full-screen over a sample of their own Save-the-Date card: rigid
+ * templates show the couple's monogram wax seal (swipe it off, then scroll to
+ * open); veils lift on drag/scroll. Then Replay / Close.
  *
  * Reuses the exact reveal components that render on the live `[slug]` page, so
  * what they preview here is what guests get. three.js (the veils) is lazy-loaded.
@@ -45,13 +46,22 @@ function monogram(name: string): string {
 type Props = {
   displayName: string;
   dateIso: string | null;
+  /** The couple's monogram SVG markup — pressed into the wax seal. */
+  markSvg?: string | null;
+  /** Wax seal colour — Mood-Board deep accent (mulberry fallback). */
+  waxColor?: string;
   /** Veil tulle colour — Mood-Board driven (ivory fallback). */
   veilColor?: string;
 };
 
-export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' }: Props) {
+export function RevealPreviewCard({
+  displayName,
+  dateIso,
+  markSvg = null,
+  waxColor = '#5c2542',
+  veilColor = '#f3ece1',
+}: Props) {
   const [tpl, setTpl] = useState<RevealTemplate | null>(null);
-  const [open, setOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
   const mono = monogram(displayName || 'A & J');
@@ -61,31 +71,40 @@ export function RevealPreviewCard({ displayName, dateIso, veilColor = '#f3ece1' 
 
   const launch = (t: RevealTemplate) => {
     setTpl(t);
-    setOpen(false);
     setRevealed(false);
   };
   const close = () => {
     setTpl(null);
-    setOpen(false);
     setRevealed(false);
   };
 
   // Render the live reveal component for a template. Veils lift/fold themselves
-  // clear (drag-driven → onRevealed); rigid templates swing open on tap, then
-  // hand off to `revealed` after the fold beat.
-  const openRigid = () => {
-    setOpen(true);
-    window.setTimeout(() => setRevealed(true), 1200);
-  };
+  // clear (drag-driven → onRevealed); rigid templates gate on a seal-swipe then
+  // scrub open with scroll, firing onOpened when fully clear (RigidStage).
   const renderReveal = (t: RevealTemplate) => {
     if (isVeilTemplate(t)) {
       const Veil = t === 'veil-crown' ? VeilCrown : VeilReveal;
       return <Veil veilColor={veilColor} onRevealed={() => setRevealed(true)} />;
     }
     if (t === 'two-flap-vertical' || t === 'two-flap-horizontal' || t === 'church-doors') {
-      return <RigidReveal variant={t} monogram={mono} open={open} onOpen={openRigid} />;
+      return (
+        <RigidReveal
+          variant={t}
+          markSvg={markSvg}
+          monogram={mono}
+          waxColor={waxColor}
+          onOpened={() => setRevealed(true)}
+        />
+      );
     }
-    return <FourFlapEnvelope monogram={mono} open={open} onOpen={openRigid} />;
+    return (
+      <FourFlapEnvelope
+        markSvg={markSvg}
+        monogram={mono}
+        waxColor={waxColor}
+        onOpened={() => setRevealed(true)}
+      />
+    );
   };
 
   return (

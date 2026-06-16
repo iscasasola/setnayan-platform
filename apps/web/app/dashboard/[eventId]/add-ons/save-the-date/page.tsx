@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 
 // 2026-06-16 — owner "replace": this page IS now the Save-the-Date *reveal*
@@ -26,9 +28,23 @@ export default async function SaveTheDatePage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, monogram_custom_svg, monogram_uploaded_svg, role_palette')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // The couple's real monogram mark for the wax seal — their own upload outranks
+  // the AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
+  const markSvg =
+    (typeof event?.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? event.monogram_uploaded_svg
+      : null) ??
+    (typeof event?.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? event.monogram_custom_svg
+      : null);
+
+  const palette = sanitizeRolePalette(event?.role_palette);
+  const waxColor = sealColorFromPalette(palette);
+  const veilColor = veilColorFromPalette(palette);
 
   return (
     <section className="space-y-6">
@@ -52,6 +68,9 @@ export default async function SaveTheDatePage({ params }: Props) {
       <RevealPreviewCard
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
+        markSvg={markSvg}
+        waxColor={waxColor}
+        veilColor={veilColor}
       />
     </section>
   );

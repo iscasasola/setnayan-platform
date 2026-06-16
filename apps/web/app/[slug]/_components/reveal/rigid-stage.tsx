@@ -38,8 +38,12 @@ type Props = {
   renderFlaps: (progress: number) => ReactNode;
 };
 
-const SCRUB_WHEEL = 0.0016; // wheel delta → progress
-const SCRUB_DRAG = 0.0042; // pointer/touch drag px → progress
+// Open is TRIGGERED (commit on a swipe up) then auto-plays at a fixed pace — the
+// locked ~6.0s full open (owner 2026-06-17), NOT scrubbed by swipe distance/speed
+// (a fast swipe no longer rushes the last flap). Swipe down draws it back.
+const OPEN_VEL = 1 / (6 * 60); // progress per frame ≈ 6.0s at 60fps
+const CLOSE_VEL = 1 / (1.5 * 60); // quicker to close
+const COMMIT_DRAG_PX = 24; // upward drag that commits to opening
 
 // Seal-throw physics.
 const FRICTION = 0.96; // per-frame velocity decay during the fling
@@ -255,48 +259,46 @@ export function RigidStage({
     const el = stageRef.current;
     if (!el) return;
 
-    const bump = (delta: number) => {
-      targetRef.current = Math.max(0, Math.min(1, targetRef.current + delta));
-    };
-
+    // A swipe up COMMITS the open; it then plays out at OPEN_VEL no matter how hard
+    // you swipe. Swipe down draws it back. (Two-finger swipe up = wheel deltaY > 0.)
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      bump(e.deltaY * SCRUB_WHEEL);
+      if (e.deltaY > 2) targetRef.current = 1;
+      else if (e.deltaY < -2) targetRef.current = 0;
     };
-
-    // Pointer / touch drag — dragging UP (or scrolling down) opens.
-    let dragging = false;
-    let lastY = 0;
+    let downY = 0;
+    let fired = 0;
     const onDown = (e: PointerEvent) => {
-      dragging = true;
-      lastY = e.clientY;
+      downY = e.clientY;
+      fired = 0;
     };
     const onMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      bump((lastY - e.clientY) * SCRUB_DRAG);
-      lastY = e.clientY;
-    };
-    const onUp = () => {
-      dragging = false;
-      // Forgiving auto-complete: a committed gesture finishes the open.
-      if (targetRef.current > 0.42) targetRef.current = 1;
+      const dy = downY - e.clientY;
+      if (dy > COMMIT_DRAG_PX && fired !== 1) {
+        targetRef.current = 1;
+        fired = 1;
+      } else if (dy < -COMMIT_DRAG_PX && fired !== -1) {
+        targetRef.current = 0;
+        fired = -1;
+      }
     };
     const onTouchMove = (e: TouchEvent) => {
-      // Prevent the page behind from scrolling while we scrub the open.
+      // Prevent the page behind from scrolling while we open.
       if (e.cancelable) e.preventDefault();
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
     el.addEventListener('touchmove', onTouchMove, { passive: false });
 
     let raf = 0;
     const tick = () => {
       setProgress((p) => {
         const t = targetRef.current;
-        const np = Math.abs(t - p) < 0.001 ? t : p + (t - p) * 0.14;
+        let np = p;
+        if (t > p) np = Math.min(t, p + OPEN_VEL);
+        else if (t < p) np = Math.max(t, p - CLOSE_VEL);
         if (np >= 0.985 && !openedRef.current) {
           openedRef.current = true;
           onOpenedRef.current();
@@ -312,7 +314,6 @@ export function RigidStage({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       el.removeEventListener('touchmove', onTouchMove);
     };
   }, [sealGone]);
@@ -373,7 +374,7 @@ export function RigidStage({
           }`}
         >
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
-            Scroll to open ↑
+            Swipe up to open ↑
           </p>
         </div>
       ) : null}

@@ -2,26 +2,27 @@
 
 /**
  * RigidWebGL — the real-time three.js scene for the rigid Save-the-Date reveals
- * (0024 addendum §1a · PR3a). Replaces the flat CSS-3D flaps with an actual 3D
- * scene: a back invitation PAPER plane, real flap MESHES (two-sided: paper front,
- * liner back), and ONE soft centre light casting renderer-computed VSM shadows —
- * so the three §1a shadow types (form shading · flap-cast-on-paper · seam
- * occlusion) fall out of geometry + light, not hand-faking.
+ * (0024 addendum §1a · faithful-rebuild Port A). A back invitation PAPER plane,
+ * real flap MESHES, and ONE soft overhead light casting renderer-computed VSM
+ * shadows. Driven by a single `progress` scalar (0 = sealed/flat, 1 = fully open)
+ * read live via a ref so palette/progress changes never tear down the GL context.
  *
- * Driven by a single `progress` scalar (0 = sealed/flat, 1 = folded fully clear);
- * read live via a ref so palette/progress changes never tear down the GL context
- * (the veil convention). Parallax moves ONLY the light (paper + flaps locked), so
- * shadows slide for depth — honored, and off under prefers-reduced-motion.
+ * Port A locks (see 0024_Reveal_Tuning_and_Door_Spec_2026-06-17):
+ *  - Overhead "softbox" light, owner-set DIAMETER 6 / DIFFUSION 100 / BRIGHTNESS 40,
+ *    parallax on the light only (shadows slide for depth; off under reduced-motion).
+ *  - Church doors: photo-accurate gothic plank doors (thick, iron-studded, ring
+ *    pull, curved brace) in a carved stone gothic surround with a rose window; the
+ *    couple's monogram carved into the wood, SPLIT across the seam; opening reveals
+ *    the church interior — a red-carpet aisle (carpet colour customisable). Doors
+ *    are 80% of screen height, sit 5% off the floor, swing SIMULTANEOUSLY with a
+ *    slow-in "creak".
+ *  - Envelope flap tips are ROUNDED (not sharp).
  *
- * Colours come from the couple's Mood Board: the same `--color-cream` (paper) /
- * `--color-terracotta` (liner) CSS vars buildSitePaletteVars already overrides
- * per event, read at mount — so it recolours at ₱0, no new threading. Photoreal
- * PBR texture maps (§1a TRUE TEXTURE) slot into the same MeshStandardMaterials in
- * PR3b with zero structural change.
+ * Effects (falling petals / butterflies) are Port B. Real photoreal assets replace
+ * the procedural textures here in a later pass; the motion/physics are final.
  *
  * Lazy-loaded via next/dynamic(ssr:false) so three.js stays code-split. On any
- * WebGL failure it calls onUnsupported() and the caller renders the CSS flaps —
- * the reveal is never gated.
+ * WebGL failure it calls onUnsupported() and the caller renders the CSS flaps.
  */
 
 import { useEffect, useRef } from 'react';
@@ -36,24 +37,31 @@ export type RigidWebGLVariant =
 
 type Props = {
   variant: RigidWebGLVariant;
-  /** Open amount 0..1 (from RigidStage's scroll-scrub). */
+  /** Open amount 0..1 (from RigidStage). */
   progress: number;
+  /** Couple's lettered monogram (e.g. "A & J") — carved into the cathedral doors. */
+  monogramText?: string;
   /** Called once if WebGL can't initialise → caller falls back to CSS flaps. */
   onUnsupported: () => void;
 };
 
-// LOCKED light values (§1a — owner-set DIAMETER 5 / DIFFUSION 100 / BRIGHTNESS 50).
+// LOCKED light values (owner-set 2026-06-17 — DIAMETER 6 / DIFFUSION 100 / BRIGHTNESS 40).
 const LIGHT_LOCK = {
-  SHADOW_RADIUS: 5,
-  SHADOW_BLUR_SAMPLES: 12,
-  SPOT_PENUMBRA: 1.0,
-  SPOT_INTENSITY: 1.4,
-  HEMI_INTENSITY: 1.1,
+  SHADOW_RADIUS: 6,
+  SHADOW_BLUR_SAMPLES: 18,
+  SPOT_PENUMBRA: 1.0, // diffusion 100
+  SPOT_INTENSITY: 0.6 + (40 / 100) * 1.8, // brightness 40 → 1.32
+  HEMI_INTENSITY: 0.4 + (100 / 100) * 0.9, // diffusion 100 → 1.3
 } as const;
 
-const Z_FLAP = 0.06; // flaps sit just in front of the paper so shadows read
-const PARALLAX_RADIUS = 0.18;
-const smooth = (t: number) => t * t * (3 - 2 * t);
+const Z_FLAP = 0.06;
+const PARALLAX_RADIUS = 0.6;
+const LIGHT_ANCHOR = new THREE.Vector3(0, 0.82, 2.3); // overhead softbox
+const smooth = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t));
+const eased = (t: number, slowIn: boolean) => {
+  const s = smooth(t);
+  return slowIn ? Math.pow(s, 1.5) : s;
+};
 
 /** Read a `--color-*` space-separated-RGB var into a THREE.Color (moodboard). */
 function cssColor(probe: HTMLElement, varName: string, fallback: string): THREE.Color {
@@ -65,13 +73,324 @@ function cssColor(probe: HTMLElement, varName: string, fallback: string): THREE.
   return c;
 }
 
-/** One template's flaps: hinge groups + the per-progress angle for each. */
-type Flap = { group: THREE.Group; axis: 'x' | 'y'; maxDeg: number; start: number; end: number };
+// ── procedural texture helpers (real photoreal assets land in a later pass) ──
+function mkCanvas(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+}
+const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
-export default function RigidWebGL({ variant, progress, onUnsupported }: Props) {
+/** Tangent-space normal map from a grayscale height canvas (wrap-safe Sobel). */
+function heightToNormal(hc: HTMLCanvasElement, strength: number): THREE.CanvasTexture {
+  const S = hc.width;
+  const hd = hc.getContext('2d')!.getImageData(0, 0, S, S).data;
+  const nc = mkCanvas(S, S);
+  const nx = nc.getContext('2d')!;
+  const ni = nx.createImageData(S, S);
+  const nd = ni.data;
+  const at = (px: number, py: number) => hd[(((py + S) % S) * S + ((px + S) % S)) * 4]! / 255;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const gx = (at(x + 1, y) - at(x - 1, y)) * strength;
+      const gy = (at(x, y + 1) - at(x, y - 1)) * strength;
+      let vx = -gx;
+      let vy = -gy;
+      const vz = 1;
+      const L = Math.hypot(vx, vy, vz) || 1;
+      vx /= L;
+      vy /= L;
+      const i = (y * S + x) * 4;
+      nd[i] = (vx * 0.5 + 0.5) * 255;
+      nd[i + 1] = (vy * 0.5 + 0.5) * 255;
+      nd[i + 2] = (1 / L) * 255;
+      nd[i + 3] = 255;
+    }
+  nx.putImageData(ni, 0, 0);
+  const t = new THREE.CanvasTexture(nc);
+  t.colorSpace = THREE.NoColorSpace;
+  return t;
+}
+
+/** Honey-oak planks with iron studs, a curved brace and a ring pull (per photo). */
+function paintDoor(x: CanvasRenderingContext2D, S: number, mode: 'color' | 'height', mirror: boolean) {
+  if (mode === 'height') {
+    x.fillStyle = '#7a7a7a';
+    x.fillRect(0, 0, S, S);
+  } else {
+    x.fillStyle = '#a8855e';
+    x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 90; i++) {
+      x.strokeStyle = `rgba(${Math.floor(rnd(60, 106))},${Math.floor(rnd(40, 74))},24,${rnd(0.05, 0.17)})`;
+      x.lineWidth = rnd(1, 4);
+      x.beginPath();
+      const gx = rnd(0, S);
+      x.moveTo(gx, 0);
+      x.bezierCurveTo(gx + rnd(-12, 12), S * 0.4, gx + rnd(-12, 12), S * 0.72, gx + rnd(-10, 10), S);
+      x.stroke();
+    }
+  }
+  // vertical plank seams
+  x.strokeStyle = mode === 'height' ? '#444' : 'rgba(40,26,14,0.5)';
+  x.lineWidth = mode === 'height' ? 6 : 3;
+  for (let k = 1; k < 4; k++) {
+    x.beginPath();
+    x.moveTo((k / 4) * S, 0);
+    x.lineTo((k / 4) * S, S);
+    x.stroke();
+  }
+  // curved brace (sweeping up toward the seam side) + a horizontal rail
+  const seamX = mirror ? S * 0.08 : S * 0.92;
+  x.strokeStyle = mode === 'height' ? '#d0d0d0' : 'rgba(70,46,28,0.55)';
+  x.lineWidth = mode === 'height' ? 14 : 10;
+  x.beginPath();
+  x.moveTo(mirror ? S * 0.92 : S * 0.08, S * 0.86);
+  x.quadraticCurveTo(S * 0.5, S * 0.5, seamX, S * 0.18);
+  x.stroke();
+  x.beginPath();
+  x.moveTo(S * 0.06, S * 0.5);
+  x.lineTo(S * 0.94, S * 0.5);
+  x.stroke();
+  // iron studs along borders + brace
+  const stud = (cx: number, cy: number, r: number) => {
+    if (mode === 'height') {
+      const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(1, '#7a7a7a');
+      x.fillStyle = g;
+    } else {
+      const g = x.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 0, cx, cy, r);
+      g.addColorStop(0, '#5a5046');
+      g.addColorStop(1, '#161210');
+      x.fillStyle = g;
+    }
+    x.beginPath();
+    x.arc(cx, cy, r, 0, 6.2832);
+    x.fill();
+  };
+  const sr = S * 0.018;
+  for (let i = 0; i <= 12; i++) {
+    stud(S * 0.06, (i / 12) * S, sr);
+    stud(S * 0.94, (i / 12) * S, sr);
+    stud((i / 12) * S, S * 0.06, sr);
+  }
+  for (let i = 0; i <= 8; i++) {
+    const tt = i / 8;
+    const bx = (mirror ? S * 0.92 : S * 0.08) * (1 - tt) + seamX * tt;
+    const by = S * 0.86 * (1 - tt) + S * 0.18 * tt;
+    stud(bx, by, sr * 0.8);
+  }
+  // ring pull near the seam
+  const rx = mirror ? S * 0.16 : S * 0.84;
+  x.strokeStyle = mode === 'height' ? '#202020' : '#0e0b09';
+  x.lineWidth = S * 0.03;
+  x.beginPath();
+  x.arc(rx, S * 0.52, S * 0.06, 0, 6.2832);
+  x.stroke();
+}
+function doorTex(mirror: boolean): { color: THREE.CanvasTexture; normal: THREE.CanvasTexture } {
+  const S = 512;
+  const cc = mkCanvas(S, S);
+  paintDoor(cc.getContext('2d')!, S, 'color', mirror);
+  const color = new THREE.CanvasTexture(cc);
+  color.colorSpace = THREE.SRGBColorSpace;
+  const hc = mkCanvas(S, S);
+  paintDoor(hc.getContext('2d')!, S, 'height', mirror);
+  return { color, normal: heightToNormal(hc, 2.6) };
+}
+
+function stoneTex(): THREE.CanvasTexture {
+  const S = 256;
+  const c = mkCanvas(S, S);
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#5f5b52';
+  x.fillRect(0, 0, S, S);
+  const rows = 8;
+  const rh = S / rows;
+  const cols = 4;
+  const cw = S / cols;
+  for (let r = 0; r < rows; r++) {
+    const off = (r % 2) * 0.5;
+    for (let cI = -1; cI < cols + 1; cI++) {
+      const bx = (cI + off) * cw;
+      const tn = rnd(-16, 12);
+      x.fillStyle = `rgb(${150 + tn},${142 + tn},${130 + tn})`;
+      x.fillRect(bx + 2, r * rh + 2, cw - 4, rh - 4);
+    }
+  }
+  for (let i = 0; i < 6500; i++) {
+    x.fillStyle = `rgba(0,0,0,${rnd(0.01, 0.045)})`;
+    x.fillRect(rnd(0, S), rnd(0, S), 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(3, 5);
+  return t;
+}
+
+function roseTex(): THREE.CanvasTexture {
+  const S = 256;
+  const c = mkCanvas(S, S);
+  const x = c.getContext('2d')!;
+  const cx = S / 2;
+  const cy = S / 2;
+  const gl = x.createRadialGradient(cx, cy, 0, cx, cy, S * 0.46);
+  gl.addColorStop(0, 'rgba(230,180,120,0.95)');
+  gl.addColorStop(0.5, 'rgba(150,90,120,0.85)');
+  gl.addColorStop(1, 'rgba(70,50,90,0.6)');
+  x.fillStyle = gl;
+  x.beginPath();
+  x.arc(cx, cy, S * 0.46, 0, 6.2832);
+  x.fill();
+  x.strokeStyle = 'rgba(40,34,30,0.9)';
+  x.lineWidth = S * 0.026;
+  x.beginPath();
+  x.arc(cx, cy, S * 0.21, 0, 6.2832);
+  x.stroke();
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * 6.2832;
+    x.lineWidth = S * 0.02;
+    x.beginPath();
+    x.moveTo(cx, cy);
+    x.lineTo(cx + Math.cos(a) * S * 0.46, cy + Math.sin(a) * S * 0.46);
+    x.stroke();
+  }
+  for (let p = 0; p < 8; p++) {
+    const pa = (p / 8) * 6.2832;
+    x.beginPath();
+    x.arc(cx + Math.cos(pa) * S * 0.3, cy + Math.sin(pa) * S * 0.3, S * 0.07, 0, 6.2832);
+    x.stroke();
+  }
+  x.lineWidth = S * 0.05;
+  x.beginPath();
+  x.arc(cx, cy, S * 0.46, 0, 6.2832);
+  x.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Church interior down the aisle: dark nave + a red carpet runner in perspective. */
+function interiorTex(carpet: THREE.Color): THREE.CanvasTexture {
+  const W = 256;
+  const Hc = 512;
+  const c = mkCanvas(W, Hc);
+  const x = c.getContext('2d')!;
+  const sky = x.createLinearGradient(0, 0, 0, Hc);
+  sky.addColorStop(0, '#1a1712');
+  sky.addColorStop(0.55, '#2a2018');
+  sky.addColorStop(1, '#3a2c20');
+  x.fillStyle = sky;
+  x.fillRect(0, 0, W, Hc);
+  // distant warm glow (altar / window at the far end)
+  const gl = x.createRadialGradient(W * 0.5, Hc * 0.34, 0, W * 0.5, Hc * 0.34, Hc * 0.28);
+  gl.addColorStop(0, 'rgba(240,210,150,0.55)');
+  gl.addColorStop(1, 'rgba(240,210,150,0)');
+  x.fillStyle = gl;
+  x.fillRect(0, 0, W, Hc);
+  // red carpet aisle — wide at the threshold (bottom), narrowing to the vanishing point
+  const hex = `#${carpet.getHexString()}`;
+  x.fillStyle = hex;
+  x.beginPath();
+  x.moveTo(W * 0.5 - 14, Hc * 0.4);
+  x.lineTo(W * 0.5 + 14, Hc * 0.4);
+  x.lineTo(W * 0.86, Hc);
+  x.lineTo(W * 0.14, Hc);
+  x.closePath();
+  x.fill();
+  // carpet sheen + edge
+  const cg = x.createLinearGradient(W * 0.5, Hc * 0.4, W * 0.5, Hc);
+  cg.addColorStop(0, 'rgba(255,255,255,0.10)');
+  cg.addColorStop(0.5, 'rgba(0,0,0,0)');
+  cg.addColorStop(1, 'rgba(0,0,0,0.18)');
+  x.fillStyle = cg;
+  x.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Plush red carpet threshold (the floor strip below the doors). */
+function carpetTex(carpet: THREE.Color): THREE.CanvasTexture {
+  const S = 128;
+  const c = mkCanvas(S, S);
+  const x = c.getContext('2d')!;
+  x.fillStyle = `#${carpet.getHexString()}`;
+  x.fillRect(0, 0, S, S);
+  for (let i = 0; i < 1600; i++) {
+    x.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+    x.fillRect(rnd(0, S), rnd(0, S), rnd(1, 2), rnd(2, 5));
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(4, 1);
+  return t;
+}
+
+/** Couple's monogram crest (ring + initials) — painted whole, split L/R by UV. */
+function paintMono(x: CanvasRenderingContext2D, S: number, mode: 'color' | 'height', text: string) {
+  const ink = mode === 'height' ? '#dcdcdc' : 'rgba(70,46,30,0.95)';
+  if (mode === 'height') {
+    x.fillStyle = '#7a7a7a';
+    x.fillRect(0, 0, S, S);
+  } else {
+    x.clearRect(0, 0, S, S);
+  }
+  x.strokeStyle = ink;
+  x.fillStyle = ink;
+  x.lineCap = 'round';
+  x.lineWidth = S * 0.02;
+  x.beginPath();
+  x.arc(S / 2, S / 2, S * 0.42, 0, 6.2832);
+  x.stroke();
+  x.lineWidth = S * 0.012;
+  x.beginPath();
+  x.arc(S / 2, S / 2, S * 0.375, 0, 6.2832);
+  x.stroke();
+  // initials from the monogram text (e.g. "A & J" → A, J)
+  const letters = (text || 'S').replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || 'S';
+  x.font = `italic ${Math.floor(S * 0.44)}px Georgia, serif`;
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  if (letters.length >= 2) {
+    x.fillText(letters[0]!, S * 0.39, S * 0.46);
+    x.fillText(letters[1]!, S * 0.61, S * 0.49);
+    x.font = `italic ${Math.floor(S * 0.15)}px Georgia, serif`;
+    x.fillText('&', S * 0.5, S * 0.73);
+  } else {
+    x.fillText(letters[0]!, S * 0.5, S * 0.48);
+  }
+}
+function monoTex(text: string): { color: THREE.CanvasTexture; normal: THREE.CanvasTexture } {
+  const S = 384;
+  const cc = mkCanvas(S, S);
+  paintMono(cc.getContext('2d')!, S, 'color', text);
+  const color = new THREE.CanvasTexture(cc);
+  color.colorSpace = THREE.SRGBColorSpace;
+  const hc = mkCanvas(S, S);
+  paintMono(hc.getContext('2d')!, S, 'height', text);
+  return { color, normal: heightToNormal(hc, 3.4) };
+}
+
+/** One template's flaps: hinge groups + the per-progress angle for each. */
+type Flap = {
+  group: THREE.Group;
+  axis: 'x' | 'y';
+  maxDeg: number;
+  start: number;
+  end: number;
+  slowIn?: boolean;
+};
+
+export default function RigidWebGL({ variant, progress, monogramText, onUnsupported }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(progress);
   progressRef.current = progress;
+  const monoRef = useRef(monogramText);
+  monoRef.current = monogramText;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -97,69 +416,69 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
     renderer.domElement.style.display = 'block';
     mount.appendChild(renderer.domElement);
 
-    let cancelled = false; // guards async texture loads against unmount
-    const reduced =
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let cancelled = false;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
     // moodboard colours (read once at mount)
     const paperCol = cssColor(mount, '--color-cream', '#f4efe6');
     const linerCol = cssColor(mount, '--color-terracotta', '#c5a059');
-    const doorLiner = cssColor(mount, '--color-mulberry', '#5c2542');
+    const carpetCol = cssColor(mount, '--color-carpet', '#6e1f2a'); // red carpet (customisable)
+    const isDoors = variant === 'church-doors';
 
     const scene = new THREE.Scene();
-
-    // ── orthographic, head-on (flat envelope; symmetric flaps + shadows) ──
     let aspect = W / H;
     const halfH = 1;
     let halfW = halfH * aspect;
     const cam = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.01, 12);
     cam.position.set(0, 0, 5);
     cam.lookAt(0, 0, 0);
-    // Paper + flaps are built once at this half-width; on resize we rescale the
-    // whole scene in x to keep the paper full-bleed + hinges on the frame edges.
     const baseHalfW = halfW;
 
-    // ── the back invitation paper (full-bleed, always present, receives shadow) ──
-    const paperMat = new THREE.MeshStandardMaterial({ color: paperCol, roughness: 0.93, metalness: 0 });
-    const paper = new THREE.Mesh(new THREE.PlaneGeometry(2 * halfW, 2 * halfH), paperMat);
+    const disposables: Array<{ dispose: () => void }> = [];
+    const track = <Tt extends { dispose: () => void }>(o: Tt): Tt => {
+      disposables.push(o);
+      return o;
+    };
+
+    // ── back plane: invitation paper (envelopes) or stone cathedral wall (doors) ──
+    let baseMat: THREE.MeshStandardMaterial;
+    if (isDoors) {
+      const stone = track(stoneTex());
+      baseMat = track(new THREE.MeshStandardMaterial({ color: 0xffffff, map: stone, roughness: 0.96, metalness: 0 }));
+    } else {
+      baseMat = track(new THREE.MeshStandardMaterial({ color: paperCol, roughness: 0.93, metalness: 0 }));
+    }
+    const paper = new THREE.Mesh(track(new THREE.PlaneGeometry(2 * halfW, 2 * halfH)), baseMat);
     paper.receiveShadow = true;
     scene.add(paper);
 
-    // ── ONE centre light + a hemisphere fill (the locked §1a rig) ──
-    const REST = new THREE.Vector3(0, 0, 2.4);
-    const spot = new THREE.SpotLight(0xfff7ec, LIGHT_LOCK.SPOT_INTENSITY, 0, Math.PI / 4.5, LIGHT_LOCK.SPOT_PENUMBRA, 0);
-    spot.position.copy(REST);
+    // ── overhead softbox light + hemisphere fill ──
+    const spot = new THREE.SpotLight(0xfff7ec, LIGHT_LOCK.SPOT_INTENSITY, 0, Math.PI / 4, LIGHT_LOCK.SPOT_PENUMBRA, 0);
+    spot.position.copy(LIGHT_ANCHOR);
     spot.target.position.set(0, 0, 0);
     spot.castShadow = true;
-    spot.shadow.mapSize.set(mobile ? 512 : 1024, mobile ? 512 : 1024);
+    spot.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
     spot.shadow.radius = LIGHT_LOCK.SHADOW_RADIUS;
     spot.shadow.blurSamples = LIGHT_LOCK.SHADOW_BLUR_SAMPLES;
     spot.shadow.bias = -0.0004;
     spot.shadow.normalBias = 0.02;
     spot.shadow.camera.near = 0.3;
-    spot.shadow.camera.far = 8;
+    spot.shadow.camera.far = 9;
     scene.add(spot, spot.target);
     scene.add(new THREE.HemisphereLight(0xffffff, 0xe9e2d6, LIGHT_LOCK.HEMI_INTENSITY));
 
-    // ── flap materials. Two-sided look via two stacked DOUBLE-sided meshes (paper
-    //    in front, liner offset just behind): the depth test shows paper while the
-    //    flap faces the camera and the liner once it folds past upright — robust
-    //    regardless of triangle winding. ──
-    const frontMat = new THREE.MeshStandardMaterial({ color: paperCol, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
-    const linerMat = new THREE.MeshStandardMaterial({ color: linerCol, roughness: 0.78, metalness: 0, side: THREE.DoubleSide });
-    const doorLinerMat = new THREE.MeshStandardMaterial({ color: doorLiner, roughness: 0.7, metalness: 0, side: THREE.DoubleSide });
-    const disposables: Array<{ dispose: () => void }> = [paperMat, frontMat, linerMat, doorLinerMat, paper.geometry];
+    // ── flap materials ──
+    const frontMat = track(new THREE.MeshStandardMaterial({ color: paperCol, roughness: 0.9, metalness: 0, side: THREE.DoubleSide }));
+    const linerMat = track(new THREE.MeshStandardMaterial({ color: linerCol, roughness: 0.78, metalness: 0, side: THREE.DoubleSide }));
 
-    // ── photoreal PBR maps (§1a TRUE TEXTURE · PR3b) — loaded async + recoloured
-    //    from the moodboard, applied when ready so the scene upgrades from flat
-    //    colour to textured. Door wood is PR3c; doors use the paper map meanwhile. ──
+    // photoreal paper/liner maps (recoloured from the moodboard) for the envelopes
     const aniso = renderer.capabilities.getMaxAnisotropy();
     const applyMaps = (mats: THREE.MeshStandardMaterial[], m: SurfaceMaps) => {
       for (const mat of mats) {
         mat.map = m.map;
         mat.normalMap = m.normalMap;
         mat.roughnessMap = m.roughnessMap;
-        mat.roughness = 1; // let the roughness map drive it
+        mat.roughness = 1;
         mat.needsUpdate = true;
       }
       disposables.push(m.map, m.normalMap, m.roughnessMap);
@@ -167,17 +486,17 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
     const disposeMaps = (m: SurfaceMaps | null) => {
       if (m) [m.map, m.normalMap, m.roughnessMap].forEach((t) => t.dispose());
     };
-    loadSurfaceMaps('paper', paperCol, 1.6, aniso).then((m) => {
-      if (cancelled) return disposeMaps(m);
-      if (m) applyMaps([paperMat, frontMat], m);
-    });
-    loadSurfaceMaps('liner', linerCol, 2.4, aniso).then((m) => {
-      if (cancelled) return disposeMaps(m);
-      if (m) applyMaps([linerMat], m);
-    });
+    if (!isDoors) {
+      loadSurfaceMaps('paper', paperCol, 1.6, aniso).then((m) => {
+        if (cancelled) return disposeMaps(m);
+        if (m) applyMaps([frontMat], m);
+      });
+      loadSurfaceMaps('liner', linerCol, 2.4, aniso).then((m) => {
+        if (cancelled) return disposeMaps(m);
+        if (m) applyMaps([linerMat], m);
+      });
+    }
 
-    /** A two-sided flap inside a hinge group pivoted at (px,py). geom origin must
-     *  put the hinge edge at (0,0). */
     function makeFlap(geom: THREE.BufferGeometry, px: number, py: number, pz: number, back: THREE.Material): THREE.Group {
       const g = new THREE.Group();
       g.position.set(px, py, pz);
@@ -185,19 +504,31 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       front.castShadow = true;
       front.receiveShadow = true;
       const rear = new THREE.Mesh(geom, back);
-      rear.position.z = -0.006; // local: liner sits just behind the paper face
+      rear.position.z = -0.006;
       rear.castShadow = true;
       rear.receiveShadow = true;
       g.add(front, rear);
       disposables.push(geom);
       return g;
     }
-
-    /** Rectangle whose hinge edge is at local x/y = 0. dir: which way it extends. */
-    function rectGeom(w: number, h: number, originX: number, originY: number): THREE.PlaneGeometry {
+    function rectGeom(w: number, h: number, ox: number, oy: number): THREE.PlaneGeometry {
       const geo = new THREE.PlaneGeometry(w, h);
-      geo.translate(originX, originY, 0);
+      geo.translate(ox, oy, 0);
       return geo;
+    }
+    /** Triangle with a ROUNDED apex (c). a,b are the hinge-edge ends. */
+    function roundedTri(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, r: number): THREE.ShapeGeometry {
+      const ua = new THREE.Vector2(ax - cx, ay - cy).normalize();
+      const ub = new THREE.Vector2(bx - cx, by - cy).normalize();
+      const pa = new THREE.Vector2(cx + ua.x * r, cy + ua.y * r);
+      const pb = new THREE.Vector2(cx + ub.x * r, cy + ub.y * r);
+      const s = new THREE.Shape();
+      s.moveTo(ax, ay);
+      s.lineTo(pb.x, pb.y);
+      s.quadraticCurveTo(cx, cy, pa.x, pa.y);
+      s.lineTo(bx, by);
+      s.lineTo(ax, ay);
+      return new THREE.ShapeGeometry(s);
     }
 
     const flaps: Flap[] = [];
@@ -212,135 +543,139 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       const h = halfH;
       flaps.push({ group: makeFlap(rectGeom(w, h, 0, -h / 2), 0, halfH, Z_FLAP, linerMat), axis: 'x', maxDeg: -158, start: 0, end: 0.62 });
       flaps.push({ group: makeFlap(rectGeom(w, h, 0, h / 2), 0, -halfH, Z_FLAP, linerMat), axis: 'x', maxDeg: 158, start: 0.06, end: 0.7 });
-    } else if (variant === 'church-doors') {
-      // ── Geometry constants ────────────────────────────────────────────────
-      const DOOR_DEPTH  = 0.05;  // door panel thickness (visible on open edge)
-      const STONE_DEPTH = 0.08;  // stone arch surround depth
-      // Spring height: arch leaves the outer/hinge edge here and curves to the peak.
-      // 0.38*halfH ≈ 69 % up the door, matching the reference photo proportion.
-      const SPRING_Y = halfH * 0.38;
+    } else if (isDoors) {
+      buildChurchDoors();
+    } else {
+      // four-flap with ROUNDED tips at the centre apex, z-staggered cascade.
+      const R = 0.1 * halfH;
+      flaps.push({ group: makeFlap(roundedTri(-halfW, 0, halfW, 0, 0, -halfH, R), 0, halfH, Z_FLAP + 0.003, linerMat), axis: 'x', maxDeg: -160, start: 0.0, end: 0.5 });
+      flaps.push({ group: makeFlap(roundedTri(-halfW, 0, halfW, 0, 0, halfH, R), 0, -halfH, Z_FLAP + 0.001, linerMat), axis: 'x', maxDeg: 160, start: 0.2, end: 0.65 });
+      flaps.push({ group: makeFlap(roundedTri(0, -halfH, 0, halfH, halfW, 0, R), -halfW, 0, Z_FLAP, linerMat), axis: 'y', maxDeg: -160, start: 0.3, end: 0.75 });
+      flaps.push({ group: makeFlap(roundedTri(0, -halfH, 0, halfH, -halfW, 0, R), halfW, 0, Z_FLAP + 0.002, linerMat), axis: 'y', maxDeg: 160, start: 0.1, end: 0.55 });
+    }
 
-      // ── Correct pointed-gothic door shape ────────────────────────────────
-      // Coordinate system: hinge edge at local x=0 (outer wall), centre seam at
-      // local x=sgn*halfW.  The arch PEAKS at the centre-seam top (world x=0) and
-      // curves outward+downward to SPRING_Y on the hinge edge — the previous code
-      // had this backwards (peak was on the hinge side).
-      // Vertical tangents at both ends: cp1 directly below peak → sharp point;
-      // cp2 directly above spring → smooth entry into the straight side rail.
-      const doorShape = (mirror: boolean): THREE.Shape => {
-        const sgn = mirror ? -1 : 1;
-        const w   = halfW;
-        const s   = new THREE.Shape();
-        s.moveTo(0, -halfH);            // hinge bottom
-        s.lineTo(sgn * w, -halfH);      // centre seam bottom
-        s.lineTo(sgn * w, halfH);       // centre seam straight up → ARCH PEAK
-        s.bezierCurveTo(
-          sgn * w, halfH * 0.65,        // cp1 — below peak, vertical departure
-          0,       halfH * 0.60,        // cp2 — above spring, vertical arrival
-          0,       SPRING_Y,            // spring point on outer edge
-        );
-        s.lineTo(0, -halfH);            // outer edge straight down
+    /** Photo-accurate cathedral doors: gothic plank doors, carved monogram split,
+     *  stone surround, rose window, red-carpet interior + threshold. */
+    function buildChurchDoors() {
+      const dB = -0.9 * halfH; // bottom 5% off the floor
+      const dT = 0.7 * halfH; // 80% tall
+      const yS = 0.32 * halfH; // arch spring line
+      const mid = yS + (dT - yS) * 0.45;
+      const Wd = halfW;
+
+      // rose window above the doorway
+      const rose = new THREE.Mesh(
+        track(new THREE.PlaneGeometry(0.4 * halfW, 0.4 * halfW)),
+        track(new THREE.MeshBasicMaterial({ map: track(roseTex()), transparent: true })),
+      );
+      rose.position.set(0, dT + 0.16, 0.02);
+      scene.add(rose);
+
+      // interior reveal (red-carpet aisle) filling the gothic doorway, behind the doors
+      const hs = new THREE.Shape();
+      hs.moveTo(-Wd, dB);
+      hs.lineTo(Wd, dB);
+      hs.lineTo(Wd, yS);
+      hs.quadraticCurveTo(0, mid, 0, dT);
+      hs.quadraticCurveTo(0, mid, -Wd, yS);
+      hs.lineTo(-Wd, dB);
+      const hg = new THREE.ShapeGeometry(hs);
+      hg.computeBoundingBox();
+      const bb = hg.boundingBox!;
+      const iw = 1 / (bb.max.x - bb.min.x);
+      const ih = 1 / (bb.max.y - bb.min.y);
+      const uvAttr = hg.attributes.uv as THREE.BufferAttribute;
+      const posAttr = hg.attributes.position as THREE.BufferAttribute;
+      for (let vi = 0; vi < uvAttr.count; vi++) {
+        uvAttr.setXY(vi, (posAttr.getX(vi) - bb.min.x) * iw, (posAttr.getY(vi) - bb.min.y) * ih);
+      }
+      uvAttr.needsUpdate = true;
+      const hole = new THREE.Mesh(hg, track(new THREE.MeshBasicMaterial({ map: track(interiorTex(carpetCol)) })));
+      hole.position.z = 0.01;
+      scene.add(hole);
+      disposables.push(hg);
+
+      // red-carpet threshold strip (the floor in front of / below the doors)
+      const carpet = new THREE.Mesh(
+        track(rectGeom(2 * halfW * 0.6, halfH * 0.12, 0, 0)),
+        track(new THREE.MeshStandardMaterial({ color: 0xffffff, map: track(carpetTex(carpetCol)), roughness: 0.95 })),
+      );
+      carpet.position.set(0, dB - 0.04, 0.03);
+      carpet.receiveShadow = true;
+      scene.add(carpet);
+
+      // wood door materials (planks + studs + ring + brace baked in)
+      const edgeMat = track(new THREE.MeshStandardMaterial({ color: 0x4a3322, roughness: 0.8, side: THREE.DoubleSide }));
+      const mono = monoTex(monoRef.current || 'S');
+      disposables.push(mono.color, mono.normal);
+
+      const doorShape = (mirror: boolean) => {
+        const ov = 0.015 * halfW;
+        const w = halfW + ov;
+        const sg = mirror ? -1 : 1;
+        const s = new THREE.Shape();
+        s.moveTo(0, dB);
+        s.lineTo(sg * w, dB);
+        s.lineTo(sg * w, dT);
+        s.quadraticCurveTo(sg * w, mid, 0, yS);
+        s.lineTo(0, dB);
         return s;
       };
-
-      // ── Extruded door panels (gives visible thickness on open edge) ───────
-      const doorWoodMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#8b5e3c'),
-        roughness: 0.82,
-        metalness: 0,
-      });
-      disposables.push(doorWoodMat);
-
-      const makeDoorGroup = (mirror: boolean, hx: number): THREE.Group => {
-        const g   = new THREE.Group();
-        g.position.set(hx, 0, Z_FLAP);
-        const geo = new THREE.ExtrudeGeometry(doorShape(mirror), {
-          depth: DOOR_DEPTH,
-          bevelEnabled: false,
-        });
-        geo.translate(0, 0, -DOOR_DEPTH); // front face sits at local z=0
-        const mesh = new THREE.Mesh(geo, doorWoodMat);
-        mesh.castShadow    = true;
-        mesh.receiveShadow = true;
-        g.add(mesh);
-        disposables.push(geo);
+      const doorGeom = (mirror: boolean) => {
+        const TH = 0.08;
+        const g = new THREE.ExtrudeGeometry(doorShape(mirror), { depth: TH, bevelEnabled: false });
+        g.translate(0, 0, -TH / 2);
         return g;
       };
-
-      flaps.push({ group: makeDoorGroup(false, -halfW), axis: 'y', maxDeg: -138, start: 0,    end: 0.72 });
-      flaps.push({ group: makeDoorGroup(true,   halfW), axis: 'y', maxDeg:  138, start: 0.04, end: 0.76 });
-
-      // ── Stone arch surround (static — never rotates) ──────────────────────
-      // Rectangular stone wall with a pointed arch hole whose bezier CPs are the
-      // world-space reversal of the door arch beziers, so both silhouettes align.
-      const STONE_W      = halfW * 1.45; // pilasters extend beyond the door opening
-      const stoneOutline = new THREE.Shape();
-      stoneOutline.moveTo(-STONE_W, -halfH);
-      stoneOutline.lineTo( STONE_W, -halfH);
-      stoneOutline.lineTo( STONE_W,  halfH);
-      stoneOutline.lineTo(-STONE_W,  halfH);
-      stoneOutline.lineTo(-STONE_W, -halfH);
-
-      // Arch hole — world coords.
-      // Left half:  left spring (−halfW, SPRING_Y) → peak (0, halfH).
-      // Right half: peak (0, halfH) → right spring (+halfW, SPRING_Y).
-      // CPs are the world-space reversal of the door arch CPs (left door offset −halfW).
-      const archHole = new THREE.Path();
-      archHole.moveTo(-halfW, -halfH);
-      archHole.lineTo(-halfW, SPRING_Y);
-      archHole.bezierCurveTo(
-        -halfW, halfH * 0.60,   // reversed door cp2 → world
-         0,     halfH * 0.65,   // reversed door cp1 → world
-         0,     halfH,          // peak
-      );
-      archHole.bezierCurveTo(
-         0,    halfH * 0.65,    // mirror
-         halfW, halfH * 0.60,
-         halfW, SPRING_Y,       // right spring
-      );
-      archHole.lineTo( halfW, -halfH);
-      archHole.lineTo(-halfW, -halfH);
-      stoneOutline.holes.push(archHole);
-
-      const stoneMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#c0b5a5'),
-        roughness: 0.92,
-        metalness: 0,
-      });
-      const stoneGeo = new THREE.ExtrudeGeometry(stoneOutline, {
-        depth: STONE_DEPTH,
-        bevelEnabled: false,
-      });
-      stoneGeo.translate(0, 0, -STONE_DEPTH); // front face at z=0
-      const stoneMesh = new THREE.Mesh(stoneGeo, stoneMat);
-      stoneMesh.position.z = Z_FLAP + DOOR_DEPTH + 0.008; // in front of closed door face
-      stoneMesh.castShadow    = true;
-      stoneMesh.receiveShadow = true;
-      scene.add(stoneMesh);
-      disposables.push(stoneMat, stoneGeo);
-    } else {
-      // four-flap: 4 triangles whose apex meets at centre, hinged on each edge,
-      // folding back over their edge in sequence (top first), z-staggered.
-      const tri = (a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2) => {
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.Float32BufferAttribute([a.x, a.y, 0, b.x, b.y, 0, c.x, c.y, 0], 3));
-        g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.5, 1], 2));
-        g.computeVertexNormals();
+      // split monogram decal: left door shows left half, right door right half
+      const decal = (right: boolean) => {
+        const w = 0.46 * halfW;
+        const h = 0.92 * halfW;
+        const g = new THREE.PlaneGeometry(w, h);
+        const uv = g.attributes.uv as THREE.BufferAttribute;
+        const xs = right ? [0.5, 1, 0.5, 1] : [0, 0.5, 0, 0.5];
+        for (let i = 0; i < 4; i++) uv.setX(i, xs[i]!);
+        uv.needsUpdate = true;
+        const dm = track(
+          new THREE.MeshStandardMaterial({
+            map: mono.color,
+            normalMap: mono.normal,
+            transparent: true,
+            roughness: 0.66,
+            metalness: 0.05,
+            side: THREE.DoubleSide,
+          }),
+        );
+        dm.normalScale = new THREE.Vector2(1.3, 1.3);
+        return { mesh: new THREE.Mesh(track(g), dm), w };
+      };
+      const makeDoor = (mirror: boolean) => {
+        const g = new THREE.Group();
+        g.position.set(mirror ? halfW : -halfW, 0, mirror ? Z_FLAP + 0.012 : Z_FLAP);
+        const dt = doorTex(mirror);
+        disposables.push(dt.color, dt.normal);
+        const face = track(
+          new THREE.MeshStandardMaterial({ color: 0xffffff, map: dt.color, normalMap: dt.normal, roughness: 0.78, side: THREE.DoubleSide }),
+        );
+        face.normalScale = new THREE.Vector2(0.7, 0.7);
+        const slab = new THREE.Mesh(track(doorGeom(mirror)), [face, edgeMat]);
+        slab.castShadow = true;
+        slab.receiveShadow = true;
+        g.add(slab);
+        const d = decal(mirror);
+        const ov = 0.015 * halfW;
+        const w = halfW + ov;
+        d.mesh.position.set(mirror ? -w + d.w / 2 : w - d.w / 2, -0.02, 0.043);
+        g.add(d.mesh);
         return g;
       };
-      const V = THREE.Vector2;
-      // each triangle's verts are in HINGE-GROUP-LOCAL space (hinge edge at y=0 or x=0)
-      // top (opens first), bottom, left, right — apexes meet at centre, each
-      // folds back over its own edge; z-staggered so the top flap leads.
-      flaps.push({ group: makeFlap(tri(new V(-halfW, 0), new V(halfW, 0), new V(0, -halfH)), 0, halfH, Z_FLAP + 0.003, linerMat), axis: 'x', maxDeg: -160, start: 0.0, end: 0.5 });
-      flaps.push({ group: makeFlap(tri(new V(-halfW, 0), new V(halfW, 0), new V(0, halfH)), 0, -halfH, Z_FLAP + 0.001, linerMat), axis: 'x', maxDeg: 160, start: 0.2, end: 0.65 });
-      flaps.push({ group: makeFlap(tri(new V(0, -halfH), new V(0, halfH), new V(halfW, 0)), -halfW, 0, Z_FLAP, linerMat), axis: 'y', maxDeg: -160, start: 0.3, end: 0.75 });
-      flaps.push({ group: makeFlap(tri(new V(0, -halfH), new V(0, halfH), new V(-halfW, 0)), halfW, 0, Z_FLAP + 0.002, linerMat), axis: 'y', maxDeg: 160, start: 0.1, end: 0.55 });
+      flaps.push({ group: makeDoor(false), axis: 'y', maxDeg: -138, start: 0, end: 1.0, slowIn: true });
+      flaps.push({ group: makeDoor(true), axis: 'y', maxDeg: 138, start: 0, end: 1.0, slowIn: true });
     }
 
     for (const f of flaps) scene.add(f.group);
 
-    // ── parallax: move ONLY the light (paper + flaps locked) ──
+    // ── parallax: move ONLY the light around its overhead anchor ──
     const aim = { x: 0, y: 0 };
     const onPointer = (e: PointerEvent) => {
       if (reduced) return;
@@ -365,7 +700,7 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       cam.top = halfH;
       cam.bottom = -halfH;
       cam.updateProjectionMatrix();
-      scene.scale.x = halfW / baseHalfW; // keep paper full-bleed + hinges on edges
+      scene.scale.x = halfW / baseHalfW;
       renderer.setSize(W, H);
     };
     window.addEventListener('resize', onResize);
@@ -375,15 +710,13 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       const p = progressRef.current;
       for (const f of flaps) {
         const t = THREE.MathUtils.clamp((p - f.start) / (f.end - f.start), 0, 1);
-        const ang = THREE.MathUtils.degToRad(f.maxDeg) * smooth(t);
+        const ang = THREE.MathUtils.degToRad(f.maxDeg) * eased(t, !!f.slowIn);
         if (f.axis === 'y') f.group.rotation.y = ang;
         else f.group.rotation.x = ang;
       }
-      // best light at full open: gentle exposure bloom over the last beat
-      renderer.toneMappingExposure = 1.0 + Math.max(0, p - 0.9) * 1.4;
-      // ease the light toward its parallax aim; returns to dead-centre at rest
-      spot.position.x += (REST.x + aim.x * PARALLAX_RADIUS - spot.position.x) * 0.08;
-      spot.position.y += (REST.y + aim.y * PARALLAX_RADIUS - spot.position.y) * 0.08;
+      renderer.toneMappingExposure = 1.0 + smooth(p) * 0.28 + Math.max(0, p - 0.9) * 1.3;
+      spot.position.x += (LIGHT_ANCHOR.x + aim.x * PARALLAX_RADIUS - spot.position.x) * 0.1;
+      spot.position.y += (LIGHT_ANCHOR.y + aim.y * (PARALLAX_RADIUS * 0.5) - spot.position.y) * 0.1;
       renderer.render(scene, cam);
       raf = requestAnimationFrame(loop);
     };
@@ -400,7 +733,6 @@ export default function RigidWebGL({ variant, progress, onUnsupported }: Props) 
       renderer.dispose();
       if (el.parentNode) el.parentNode.removeChild(el);
     };
-    // Scene rebuilds only on variant change; progress/colours are read live.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 

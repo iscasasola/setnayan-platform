@@ -22,10 +22,12 @@ const RigidWebGL = dynamic(() => import('./rigid-webgl'), { ssr: false });
 type Props = {
   variant: RigidWebGLVariant;
   progress: number;
+  /** Couple's lettered monogram — carved into the cathedral doors (church-doors). */
+  monogramText?: string;
   cssFallback: ReactNode;
 };
 
-export function RigidFlaps({ variant, progress, cssFallback }: Props) {
+export function RigidFlaps({ variant, progress, monogramText, cssFallback }: Props) {
   const [webglOk, setWebglOk] = useState(true);
   const [forceCss, setForceCss] = useState(false);
 
@@ -39,5 +41,5 @@ export function RigidFlaps({ variant, progress, cssFallback }: Props) {
   }, []);
 
   if (forceCss || !webglOk) return <>{cssFallback}</>;
-  return <RigidWebGL variant={variant} progress={progress} onUnsupported={() => setWebglOk(false)} />;
+  return <RigidWebGL variant={variant} progress={progress} monogramText={monogramText} onUnsupported={() => setWebglOk(false)} />;
 }

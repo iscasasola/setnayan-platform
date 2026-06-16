@@ -44,6 +44,22 @@ Owner renewed Apple Developer + created a real **Developer ID Application** cert
 Windows signing still pending (separate item). SPEC IMPACT: None — CI/release plumbing only.
 
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+## 2026-06-17 · feat(std-reveal): cathedral-doors overhaul + carved split monogram + overhead-softbox light (faithful-rebuild Port A)
+
+Ports the locked Save-the-Date reveal design (tuned via the interactive 3D-preview loop; spec `0024_save_the_date/0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md`) into the live three.js scene. Visual shell only — falling-petal/butterfly effects are Port B.
+
+- **`rigid-webgl.tsx`** — rewritten:
+  - **Overhead "softbox" light** anchored above the piece (was head-on), owner-locked DIAMETER 6 / DIFFUSION 100 / BRIGHTNESS 40; parallax moves the light around that anchor.
+  - **Church doors** are now photo-accurate (per the owner reference): gothic plank doors (honey-oak + iron studs + ring pull + curved brace, baked into procedural colour+normal maps), thick extruded slabs, a carved stone gothic surround, a rose window, and the couple's **monogram carved into the wood and SPLIT across the seam** (rendered from `monogramText`). Doors are 80% screen height, sit 5% off the floor, and swing SIMULTANEOUSLY with a slow-in "creak". Opening reveals the **church interior — a red-carpet aisle** (carpet colour customisable via `--color-carpet`, deep-red default) plus a red-carpet threshold strip.
+  - **Four-flap envelope tips are ROUNDED** (was a sharp apex).
+- **`rigid-stage.tsx`** — the open is now **triggered + auto-played at a fixed ~6.0s** (a swipe up commits; not scrubbed by swipe distance/speed, so a hard swipe no longer rushes the last flap). Swipe down draws it back. Cue → "Swipe up to open ↑".
+- **`rigid-flaps.tsx` / `rigid-reveal.tsx`** — thread `monogramText` through to the doors.
+
+Procedural textures are stand-ins for the *motion/composition* only; real photoreal assets (oak, ashlar stone, stained-glass rose, a real engraving of the couple's mark, a church-interior backdrop) swap in later with no structural change. `tsc` 0 · `next lint` clean (changed files). No migration, no schema/SKU change.
+
+SPEC IMPACT: Save-the-Date reveal (0024) — implements the 2026-06-17 tuning spec (door style per owner photo, light 6/100/40, 6.0s open, rounded tips, carved split monogram, red-carpet interior). Carpet colour is the one new couple-facing customisation hook (`--color-carpet`). Logged in corpus spec doc + `DECISION_LOG.md`.
+
+## 2026-06-17 · feat(nav): docked sub-nav children are now admin-editable via the registry (customer-menu redesign PR6/6)
 
 Lane 2 of the Alaala embed: the Studio hub (`/add-ons`) is the *store*; this is the *story*. A new couple surface lays out the arc of the day so the couple sees their wedding as one living memory being assembled, not a flat grid of SKUs.
 

@@ -78,6 +78,17 @@ This lands **only** the migration file (byte-identical to #1532's branch copy + 
 Timestamp guard ✓ (385 unique; `20270102000000` is unique on `main` — the colliding `orders_platform` was long since renamed to `20270103040000`).
 
 SPEC IMPACT: None (DB bookkeeping — restores ledger/file/prod consistency; no schema, SKU, or pricing change). Logged in corpus `DECISION_LOG.md`, with the process note (applying an in-flight branch's migration to prod ahead of merge jams the pipeline).
+## 2026-06-17 · feat(papic): face auto-tagging Phase 2a — pure embedding helpers (geometry + L2-normalize) + tests
+
+Phase 2a of the face auto-tagging program (after #1594's matcher core). The pure, verifiable pre/post-processing the on-device embedder will use — kept separate from the (browser-only, ONNX) inference so it can be unit-tested.
+
+- **`lib/face-embed-core.ts`** (new, pure — no `server-only`/model runtime): `squareCropBox()` (expand a face detection box to a margin'd square crop, clamped fully inside the image — the model takes a square input), `l2normalize()` (unit-length embeddings so cosine = dot product), the model contract constants (`VECTOR_MODEL='mobilefacenet@1'`, `FACE_EMBED_INPUT_SIZE=112`, `FACE_CROP_MARGIN`), and `isFaceModelConfigured()` — the **dormant gate**: until `NEXT_PUBLIC_FACE_MODEL_URL` (a self-hosted MobileFaceNet on R2) is set, the embedder is a clean no-op and enrollment is image-only exactly as today.
+- **`lib/face-embed-core.test.ts`** (new, `node:test`, CI `test:unit`): L2-normalize (unit-length + zero-vector), and squareCropBox (centered, edge-clamped, capped-to-image, non-square uses larger side, non-positive → null). Crop math numerically verified.
+
+**Deliberately NOT in this PR (the validation-gated step):** the browser ONNX embedder (`onnxruntime-web` + the MobileFaceNet model from R2) and its RSVP wiring. That's biometric ML that can't be run/validated in CI, and wrong preprocessing silently yields garbage embeddings — so it needs the hosted model + a real-device validation pass (same-person vs different-person cosine separation) before it touches the live enrollment path. Owner action for that step: source + host a MobileFaceNet ONNX on R2 + set `NEXT_PUBLIC_FACE_MODEL_URL`.
+
+SPEC IMPACT: iteration 0012 — the deterministic half of face embedding is codified + tested; the inference half remains gated on model hosting + validation. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · fix(std-reveal): rigid reveals → scroll-driven + swipe-the-seal + real monogram wax seal (faithful-rebuild PR1/4)
 
 Owner reported the Save-the-Date reveal templates "are all not working properly" and, on inspection of the locked plan (`0024_ADDENDUM_envelope_open_experience_2026-06-14.md` §1a/§3), the shipped build had deviated on the **two** things they flagged: (1) the 3 envelopes + church doors opened by **tap**, not the locked **scroll-driven** model; (2) the seal was a **hardcoded mulberry text circle**, not the couple's real monogram pressed into a Mood-Board-coloured wax seal. Owner chose the **full faithful rebuild**; this is PR1 of 4 — the interaction + the real seal (PR2 candle-stamp maker · PR3 WebGL 3D + photoreal textures · PR4 scroll-scrub content timeline + editor to follow).

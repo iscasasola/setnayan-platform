@@ -17,6 +17,20 @@ First wiring of the nav/icon/menu registry into live chrome. The customer mobile
 Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · fix(reviews)+feat: Event Lifecycle Menu PR4a — completion-handshake schema + review-gate bug fix
+
+The data + RLS core of the After-phase completion handshake (§6.1), and a fix for a **pre-existing review-gate bug**. Migration-only (the vendor mark-complete + couple confirm/dispute UI + the After menu land in PR4b).
+
+- **`supabase/migrations/20270101000000_vendor_completion_handshake.sql`** (new · **applied to prod**):
+  - **BUG FIX (security/correctness):** `vendor_reviews_couple_insert`'s `EXISTS` was **not correlated to the vendor being reviewed** — so the moment *any one* vendor on an event was `delivered`/`complete`, the couple could review *every* vendor. The rewrite correlates on `ev.marketplace_vendor_id = vendor_reviews.vendor_profile_id`.
+  - **Handshake schema** on `event_vendors`: `service_marked_complete_at` (vendor), `customer_confirmed_received_at` (couple), `completion_disputed_at`, `completion_status` (`awaiting_vendor` → `vendor_marked` → `confirmed`/`auto_confirmed`/`disputed`, CHECK-constrained).
+  - **Hybrid gate (read-side, no cron · guardrail §11.5):** a review unlocks on explicit confirm OR **M=7d** customer auto-confirm after the vendor marks complete OR **N=30d** vendor auto-complete after the event (anti-gaming) OR the legacy `delivered`/`complete` path. An open **dispute** (`completion_status='disputed'`) freezes the gate.
+  - **Backfill:** legacy `delivered`/`complete` rows → `completion_status='confirmed'` so live events don't regress (their reviews stay unlocked, now per-vendor-correct).
+
+**No regression:** the existing couple-`delivered` flip (`updateVendorStatus`) still unlocks reviews via the legacy branch — now correctly vendor-scoped. Migration **applied to prod before merge** (no-drift `db push`). Migration-timestamp guard green.
+
+SPEC IMPACT: None on pricing/SKUs. Implements §6.1 data + guardrails §11.3 (vendor-scoped review) + §11.5 (read-side timers) of `Event_Lifecycle_Menu_Design_2026-06-16.md`. Adds `event_vendors` completion columns. PR pending (branch `claude/lifecycle-pr4a-handshake`, auto-merge).
+
 ## 2026-06-16 · feat(nav): Event Lifecycle Menu PR3 — Wrap-up / clearance gate (Day-of → After)
 
 Third PR. Introduces the **event-level clearance** that flips the lifecycle phase Day-of → After (§6.2, distinct from the per-vendor handshake in PR4), plus the derived `after` phase the menu hangs off.

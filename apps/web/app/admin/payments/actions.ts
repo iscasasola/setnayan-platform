@@ -35,7 +35,7 @@ import { appendLedger } from '@/lib/ledger';
 // registers `concierge_complete`, `SETNAYAN_AI`, and the branch-prefix hook —
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
-import { activateOrderSku } from '@/lib/sku-activation';
+import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -450,7 +450,7 @@ export async function rejectPayment(formData: FormData) {
 
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, status')
+    .select('event_id, status, service_key')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -485,6 +485,23 @@ export async function rejectPayment(formData: FormData) {
       file_path: 'app/admin/payments/actions.ts',
       error_message: cancelErr.message,
       payload_snapshot: { paymentId, orderId: payment.order_id, priorStatus: order?.status ?? null },
+    });
+  }
+
+  // If the reject actually cancelled the order, revoke any flag-backed
+  // entitlement it granted (today: SETNAYAN_AI). deactivateOrderSku re-derives
+  // ownership from the post-cancel state and clears events.setnayan_ai_active
+  // iff the event no longer owns AI by any other live order/bundle — symmetric
+  // to refundOrder. (In practice reject only cancels pre-paid orders, which
+  // never stamped the flag, so this is defensive symmetry; the re-derive makes
+  // it safe either way — it never clears a flag the couple still owns.)
+  if (cancelledOrder) {
+    await deactivateOrderSku({
+      admin,
+      orderId: payment.order_id,
+      eventId: order?.event_id ?? null,
+      serviceKey: order?.service_key ?? '',
+      actorUserId: userId,
     });
   }
 
@@ -744,7 +761,7 @@ export async function refundOrder(formData: FormData) {
   const { data: orderBefore, error: readErr } = await admin
     .from('orders')
     .select(
-      'order_id, user_id, event_id, public_id, status, requested_total_php, confirmed_total_php',
+      'order_id, user_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
     )
     .eq('order_id', orderId)
     .maybeSingle();
@@ -790,6 +807,22 @@ export async function refundOrder(formData: FormData) {
       `Order ${orderBefore.public_id} was refunded by another admin or has moved out of paid/fulfilled. Refresh the page.`,
     );
   }
+
+  // Revoke flag-backed entitlements (today: SETNAYAN_AI's stored
+  // events.setnayan_ai_active). The order is now 'refunded' and out of the owned
+  // set, so deactivateOrderSku re-derives ownership and clears the AI flag iff
+  // the event no longer owns it via any other live order/bundle. Without this
+  // the paid AI capability would survive a full refund ("refund the money, keep
+  // the AI"). Non-fatal + idempotent; runs AFTER the flip so the re-derive sees
+  // the refunded state. Orders-backed gates (monogram/QR/papic/website) re-lock
+  // for free, so they need nothing here.
+  await deactivateOrderSku({
+    admin,
+    orderId,
+    eventId: orderBefore.event_id ?? null,
+    serviceKey: orderBefore.service_key ?? '',
+    actorUserId: adminUserId,
+  });
 
   // Step 3: insert the order_refunds audit row. The UNIQUE(order_id) index
   // is the belt-and-suspenders idempotency guard — a 23505 unique-violation

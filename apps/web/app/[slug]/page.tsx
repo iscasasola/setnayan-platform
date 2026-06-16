@@ -31,6 +31,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
+import { RevealOverlay } from './_components/reveal/reveal-overlay';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
@@ -190,6 +191,18 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
     },
     twitter: { card: 'summary_large_image' as const },
   };
+}
+
+/** Derive a short couple monogram for the reveal seal, e.g. "A & J". */
+function revealMonogram(name: string): string {
+  const parts = name
+    .split(/\s*&\s*|\s+and\s+/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const a = parts[0] ?? '';
+  const b = parts[1] ?? '';
+  if (a && b) return `${a.charAt(0)} & ${b.charAt(0)}`.toUpperCase();
+  return (name.trim().charAt(0) || '✦').toUpperCase();
 }
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
@@ -1083,6 +1096,10 @@ function PublicLanding({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
+      <RevealOverlay
+        enabled={showSaveTheDate && process.env.NEXT_PUBLIC_STD_REVEAL === '1'}
+        monogram={revealMonogram(event.display_name)}
+      />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
           Otherwise fall back to the centered text-only treatment. */}
@@ -1532,6 +1549,10 @@ function InvitationSite({
   return (
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
+      <RevealOverlay
+        enabled={showSaveTheDate && process.env.NEXT_PUBLIC_STD_REVEAL === '1'}
+        monogram={revealMonogram(event.display_name)}
+      />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">
         {isLive ? (

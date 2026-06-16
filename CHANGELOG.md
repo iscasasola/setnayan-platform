@@ -17,6 +17,31 @@ First wiring of the nav/icon/menu registry into live chrome. The customer mobile
 Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat(std-reveal): Save-the-Date reveal foundation — flag-gated four-flap envelope on the couple website (PR1 of 3)
+
+Build foundation for the Save-the-Date "reveal" experience (the opening animation that uncovers the couple's invitation). Design-locked across `0024_ADDENDUM_envelope_open_experience_2026-06-14.md` (7-template library · trademark veil RSVP · craft constants · colour-only customization). This PR lands the integration scaffold + the first template, **flag-off**.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (new) — `RevealOverlay`, the opening layer mounted over the Save-the-Date lifecycle phase. **Progressive enhancement:** renders nothing on the server / before mount, so a guest without JS (or pre-hydration) sees the content directly — the reveal is a delight layer, never a gate. Once opened it removes itself so the page underneath is fully interactive. Template registry is a switch so the WebGL veils + curtain drop in behind the same contract.
+- **`apps/web/app/[slug]/_components/reveal/four-flap.tsx`** (new) — first template: the rigid **four-flap envelope**, pure CSS 3D (four edge-pinned triangular flaps fold open to the corners; wax-seal "tap to open" cue). **No WebGL dependency** → stays inside the guest-site bundle / Lighthouse budget. Styled entirely with the moodboard-recoloured Tailwind tokens (`cream/mulberry/terracotta/ink`) that `app/[slug]` already overrides per event via `buildSitePaletteVars`, so it recolours automatically at ₱0.
+- **`apps/web/app/[slug]/page.tsx`** — mounts `<RevealOverlay>` in both the anonymous (PublicLanding) and signed-in (InvitationSite) paths, gated by **`NEXT_PUBLIC_STD_REVEAL` (default off)** — zero effect on the live site until the full library + chooser ship. Adds a `revealMonogram()` helper (couple initials for the seal).
+
+Next: PR2 adds the WebGL veils + curtain lazy-loaded behind the same flag (code-split so the main bundle stays clean); PR3 the dashboard template chooser + content editor.
+
+Verification: typecheck/lint deferred to CI — the fresh worktree's `pnpm install` was not run this pass (borrowed `node_modules` from the base checkout didn't resolve under pnpm's layout). Required CI checks gate the auto-merge.
+
+SPEC IMPACT: 0024 Save the Date. The reveal experience is design-locked in the corpus (`0024_ADDENDUM` §1a). This is the build foundation behind a flag; corpus `DECISION_LOG.md` row appended noting build-PR1 landed.
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR1 — phase-aware bottom-nav swap (Plan ↔ Day-of)
+
+First PR of the Event Lifecycle Menu (`Event_Lifecycle_Menu_Design_2026-06-16.md`): the customer bottom nav swaps its whole roster while the event is live. The Plan tabs (Home · Guests · Explore · Studio · Design · Budget) step aside for the **day-of command center** — **Now · Check-in · Seats · Services · Schedule**.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildDayOfNavTabs(eventId)` (5 operable destinations, all already existing: Now=event root, Check-in=`/guests/checkin`, Seats=`/seating`, Services=`/add-ons` *interim until PR2's unified launch hub*, Schedule=`/schedule`). `CustomerBottomNav` gains an `isDayOf` prop and dispatches between the Plan roster and the Day-of roster. Slot 1 stays the Setnayan mark (the event root already becomes the live "Now" view), relabelled "Now". Lives in the same file (lint guard `lint:botnav` requires delegation to the canonical `<BottomNav>` — green).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — computes the phase **server-side** via `isEventDayActive(event.event_date)` (live ‖ post, **NOT** `isInDayOfWindow` — an evening reception lands in `post` and must still get the Day-of bar) and passes `isDayOf` down (no client `Date.now()`, no hydration flash). Adds the **Planning escape** — a day-of-only top-bar link to `/more` (the existing planning launcher), kept *outside* the bar so it never collides with the "Now" tab on the active-state.
+
+Mobile-only (the bar is `lg:hidden`; desktop uses the sidebar). `tsc`, `next lint`, `lint:botnav` all green. **Reuses** the canonical `BottomNav` (auto-scales 5/6 tabs identically) + the shipped `isEventDayActive` + `/more` — no new primitives, no migration. PR pending (branch `claude/lifecycle-pr1-menu-swap`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §2/§4/§10 (PR1) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the phase-dispatch primitive every later phase (Wrap-up, After) hangs its menu off. Honors guardrail §11.1 (gate on `isEventDayActive`).
+
+## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
 
 Owner: *"all icons and namings are there … these will set the source for all the icons and menus on setnayan for all accounts."* Foundation PR for the admin-managed registry that owns the **name (label) + icon** of every menu/route across Setnayan, all account types. Triggered by the Setnayan-AI-vs-Studio shared-`Sparkles` clash. Discovery workflow mapped **176 deduped slots** → `Nav_Icon_Menu_Registry_Design_2026-06-16.md`.
 

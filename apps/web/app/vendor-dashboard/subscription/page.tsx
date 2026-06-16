@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
-import { Check, Crown } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { SubmitButton } from '@/app/_components/submit-button';
 import {
   TIER_PRICE_PHP,
   TIER_SUBSCRIPTION_BUNDLE_TOKENS,
@@ -12,8 +11,11 @@ import {
   asVendorTier,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
-import { startSubscriptionPurchase } from './actions';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
+import {
+  SubscriptionCards,
+  type SubscriptionCardData,
+} from './_components/subscription-cards';
 
 /**
  * /vendor-dashboard/subscription — self-serve Pro / Enterprise upgrade
@@ -189,75 +191,30 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       {/* Monthly / annual toggle (client component · updates ?cycle=) */}
       <SubscriptionCycleToggle cycle={cycle} />
 
-      <div className="mt-5 grid gap-4 sm:gap-6 lg:grid-cols-2">
-        {PAID_TIERS.map((tier) => {
-          const sku = skuFor(tier, cycle);
-          // Catalog price first; fall back to the code matrix only if the DB
-          // read failed (e.g. CI with no service-role key).
-          const price = priceBySku.get(sku) ?? TIER_PRICE_PHP[tier][cycle];
-          const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier][cycle];
-          const isCurrent = currentTier === tier && currentCycle === cycle;
-          return (
-            <section
-              key={tier}
-              className="m-card flex flex-col p-6"
-              style={tier === 'enterprise' ? { borderColor: 'var(--m-orange)' } : undefined}
-            >
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="m-label-mono">
-                  {tier === 'pro' ? 'Pro' : 'Enterprise'}
-                </p>
-                {isCurrent && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
-                    Current
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-ink/65">{TIER_PITCH[tier]}</p>
-
-              <p className="mt-4">
-                <span className="text-3xl font-semibold text-ink">
-                  ₱{NUMBER.format(price)}
-                </span>
-                <span className="text-sm text-ink/55">
-                  {' '}
-                  / {cycle === 'monthly' ? '28 days' : 'year'}
-                </span>
-              </p>
-              <p className="mt-1 text-xs text-ink/55">
-                Includes {NUMBER.format(bundle)} free tokens{' '}
-                {cycle === 'monthly' ? 'each period' : 'on activation'}.
-              </p>
-
-              <ul className="mt-4 space-y-2">
-                {keyCapLines(tier).map((line) => (
-                  <li key={line} className="flex items-start gap-2 text-sm text-ink/75">
-                    <Check
-                      className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"
-                      strokeWidth={2.25}
-                      aria-hidden
-                    />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <form action={startSubscriptionPurchase} className="mt-5">
-                <input type="hidden" name="sku_code" value={sku} />
-                <SubmitButton
-                  className="button-primary w-full"
-                  pendingLabel="Starting…"
-                >
-                  {isPaid
-                    ? isCurrent
-                      ? 'Renew this plan'
-                      : `Switch to ${tier === 'pro' ? 'Pro' : 'Enterprise'}`
-                    : `Upgrade to ${tier === 'pro' ? 'Pro' : 'Enterprise'}`}
-                </SubmitButton>
-              </form>
-            </section>
-          );
-        })}
+      {/* Plan cards + mobile "Buy on web" nudge (client component for isNativeApp detection) */}
+      <div className="mt-5">
+        <SubscriptionCards
+          cycle={cycle}
+          cards={PAID_TIERS.map((tier) => {
+            const sku = skuFor(tier, cycle);
+            // Catalog price first; fall back to the code matrix only if the DB
+            // read failed (e.g. CI with no service-role key).
+            const price = priceBySku.get(sku) ?? TIER_PRICE_PHP[tier][cycle];
+            const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier][cycle];
+            const isCurrent = currentTier === tier && currentCycle === cycle;
+            return {
+              tier,
+              sku,
+              pitch: TIER_PITCH[tier],
+              price,
+              cycle,
+              bundleTokens: bundle,
+              capLines: keyCapLines(tier),
+              isCurrent,
+              isPaid,
+            } satisfies SubscriptionCardData;
+          })}
+        />
       </div>
 
       {/* Apply-then-pay payment instructions when an order was just started */}

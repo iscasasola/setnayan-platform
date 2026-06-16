@@ -4,6 +4,14 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · chore(nav): drop the orphaned `seating` sidebar slot-key (adversarial-review follow-up to #1595)
+
+A 20-agent adversarial review of #1595 (the desktop sub-nav → sidebar change) confirmed the functional logic is correct and **Seating is not orphaned** (still reachable via the Home plan tile, the auto-expanding Guests journey, the mobile bottom nav, and the mobile `<SubNav>`). One clean piece of tech debt it surfaced: `SIDEBAR_SLOT_KEYS['seating']` in `customer-sidebar.tsx` was left behind after the standalone "Seating" Plan item moved under Guests as the nested "Seat" child — and `applyRegistry` only walks top-level `group.items`, so the entry is unreachable. Removed it (+ documented why nested children don't get registry overrides yet). Pure dead-code removal; no behavior change. `tsc --noEmit` 0.
+
+Surfaced for owner (NOT changed here): (1) the muted "not yet" Day-of state dims via opacity below WCAG AA — a **cross-component** design call (the mobile `<SubNav>` uses the same 0.45 pattern), better solved with a "soon" cue than low contrast; (2) the `customer.guest-journey.*` nav-registry slots are consumed by **neither** the sidebar nor the mobile shelf — wiring them is a nav-registry-workstream follow-up that must land on **both** surfaces to avoid drift.
+
+SPEC IMPACT: None (dead-code cleanup; no SKU/pricing/schema/public-surface change). → corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · feat(nav): the section sub-nav expands FROM the desktop sidebar (delivers the journey follow-up)
 
 Owner: *"let the subnav expand from the side nav when on desktop. subnav setup is only for mobile. but when there is a sidenav, all will be under the side nav."* The mobile `<SubNav>` floating pill is the **mobile** rendering of a section's sub-stages; on desktop those stages were homeless — the Guests journey only surfaced as an on-page ribbon on the Build page, so once you were on Invite/Confirm/Day-of the desktop journey nav vanished. This closes the gap the prior journey PR explicitly left ("desktop journey strip on every journey surface").

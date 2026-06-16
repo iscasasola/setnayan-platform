@@ -33,6 +33,12 @@ type Props = {
   comingSoon?: boolean;
   /** True → show a subtle "Free" chip (genuinely-free items only). */
   free?: boolean;
+  /**
+   * For a paid tool with a no-card free trial — a short chip label (e.g.
+   * "Free to try") so couples can discover the trial from the grid. Ignored
+   * when `free` or `comingSoon` is set.
+   */
+  freeTrial?: string;
 };
 
 export function StudioCard({
@@ -42,6 +48,7 @@ export function StudioCard({
   href,
   comingSoon = false,
   free = false,
+  freeTrial,
 }: Props) {
   const available = !comingSoon && Boolean(href);
 
@@ -72,6 +79,13 @@ export function StudioCard({
             style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
           >
             Free
+          </span>
+        ) : freeTrial ? (
+          <span
+            className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em]"
+            style={{ background: 'var(--m-mulberry-4)', color: 'var(--m-mulberry)' }}
+          >
+            {freeTrial}
           </span>
         ) : null}
       </div>

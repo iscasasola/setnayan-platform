@@ -142,6 +142,7 @@ export default async function StudioPage({ params }: Props) {
                     href={comingSoon ? null : addOnHref(addon.key, eventId)}
                     comingSoon={comingSoon}
                     free={addon.tier === 'free'}
+                    freeTrial={addon.freeTrial}
                   />
                 );
               })}

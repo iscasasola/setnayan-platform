@@ -94,6 +94,13 @@ export type AddOnEntry = {
    * the feature's own page shows the real price + handles purchase.
    */
   tier?: 'free';
+  /**
+   * For a PAID add-on that offers a no-card free trial (e.g. Papic's 3-seat
+   * free sampler), a short chip label surfaced on the Studio card so couples
+   * can discover the trial from the grid. Never a price source — the feature
+   * page still owns the real price + purchase.
+   */
+  freeTrial?: string;
 };
 
 /**
@@ -302,6 +309,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Candid capture · gesture shutter · QR tagging · personal reels',
     cta: 'Set up',
     studioGroup: 'capture',
+    freeTrial: 'Free to try',
     poster: {
       motion: 'pulse',
       baseBackground:

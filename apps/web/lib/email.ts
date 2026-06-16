@@ -3,8 +3,14 @@ import 'server-only';
 export type SendEmailArgs = {
   to: string;
   subject: string;
-  /** Plain-text body. HTML rendering is a follow-on. */
+  /** Plain-text body — the fallback + canonical content. Always required. */
   text: string;
+  /**
+   * Optional branded HTML body. When set, Resend sends multipart — HTML-capable
+   * clients render the branded version, the rest fall back to `text`. Build via
+   * `lib/email-template.ts` → renderBrandedEmail().
+   */
+  html?: string;
   replyTo?: string;
   /**
    * Optional future send time (ISO 8601). Resend holds the email and delivers
@@ -52,6 +58,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
       to: [args.to],
       subject: args.subject,
       text: args.text,
+      ...(args.html ? { html: args.html } : {}),
       replyTo: args.replyTo,
       ...(args.scheduledAt ? { scheduledAt: args.scheduledAt } : {}),
     });

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+
+First wiring of the nav/icon/menu registry into live chrome. The customer mobile bottom nav (the flat 6-tab bar: Home · Guests · Explore · Studio · Design · Budget) now sources its **label + icon per tab from the admin registry**, falling back to the prior hardcoded values. **Visually identical today** (the override table is empty → every slot resolves to its code default); editing a `customer.bottom-nav.*` slot on `/admin/menus` now changes the live bar.
+
+- **`apps/web/lib/nav-registry-defaults.ts`** — added the 4 missing bottom-nav slots (`customer.bottom-nav.{guests,explore,studio,budget}`, icons Users/Compass/Sparkles/Wallet) so all 6 tabs have a slot; bumped `design`'s sortOrder so the admin area lists in tab order.
+- **`apps/web/lib/nav-registry-types.ts` + `nav-registry.ts`** — `NavSlotLite` + `getNavSlotMap()`: a serializable `slot_key → {label, icon, isHidden}` map for passing server→client (cached via NAV_REGISTRY_TAG, fails open to defaults).
+- **`apps/web/app/_components/nav/nav-icon-component.tsx`** (new) — `navIconComponent(descriptor)` resolves a registry icon to a STABLE component (lucide name → component · SetnayanMark → inline mark · uploaded image → cached `<img>` wrapper). This is why **`BottomNav` itself is untouched** (the lint-enforced, "unbreakable" primitive) — it still renders `<Icon className strokeWidth style aria-hidden />` exactly as before; the press-grow `transform` even applies to custom images.
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — tabs now take `navSlots`; each tab looks up `customer.bottom-nav.<key>` for its label+icon (fallback = prior hardcoded), and a hidden slot drops its tab. `href` + `activeMatch` stay in code (routing, not naming).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes it to `<CustomerBottomNav>`.
+
+Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
 ## 2026-06-16 · fix(reviews)+feat: Event Lifecycle Menu PR4a — completion-handshake schema + review-gate bug fix
 
 The data + RLS core of the After-phase completion handshake (§6.1), and a fix for a **pre-existing review-gate bug**. Migration-only (the vendor mark-complete + couple confirm/dispute UI + the After menu land in PR4b).

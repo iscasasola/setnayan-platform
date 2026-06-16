@@ -44,6 +44,7 @@ import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import {
   monthsToWedding,
   lastMinuteZone,
+  resolveLastMinuteStart,
   isLastMinuteSearchable,
   categoryEmptyForGenericSearch,
   type LastMinuteZone,
@@ -269,12 +270,16 @@ export async function searchCategoryVendors(input: {
     }
   }
 
-  // Dormant when no START row exists for this group/leaves — then we skip the
-  // vendor_services read entirely, so production is unaffected (and safe even
-  // before this PR's migration lands: the new columns are only ever touched
-  // once an admin configures a START). Activates with the follow-up admin editor.
-  const lastMinuteConfigured =
-    groupStartMonths !== null || leafStartByCanonical.size > 0;
+  // §4 START is now VENDOR-OWNED per service (recommended_lead_time_months,
+  // 2026-06-16) — the platform planning_deadlines START is only a soft fallback
+  // when a vendor's recommended lead time is null. So we read vendor_services
+  // whenever there's a LOCKED DATE (monthsRemaining != null): without a date
+  // nothing can ever be last-minute (lastMinuteZone returns 'normal' for null R),
+  // so the read — and the whole mechanic — stays dormant. DARK BY DATA: with a
+  // date but no recommended lead times set on any service AND no platform START
+  // (today's prod state), every service resolves to start=null → zone 'normal' →
+  // no filter, no badge — identical to today.
+  const lastMinuteActive = monthsRemaining != null;
 
   // Edge #2 — AI-off-empty rule. When AI is off and the WHOLE group is already
   // in (or past) its last-minute zone, the standard search shows NOTHING. The
@@ -402,37 +407,42 @@ export async function searchCategoryVendors(input: {
     });
   }
 
-  // Per-vendor last-minute zone (§4): combine the platform leaf START with the
-  // vendor's own per-service END + surcharge from vendor_services. Pick each
-  // vendor's MOST-AVAILABLE in-scope service (normal ≻ last_minute ≻ expired)
-  // so a vendor still 'normal' on one of its services stays searchable. Dormant
-  // (START unset) → 'normal' for everyone (no filter, no badge).
+  // Per-vendor last-minute zone (§4, vendor-owned START 2026-06-16): the START
+  // is the vendor's own per-service RECOMMENDED LEAD TIME
+  // (recommended_lead_time_months); the platform leaf/group START is only a soft
+  // fallback when that is null. END + surcharge stay per-service. Pick each
+  // vendor's MOST-AVAILABLE in-scope service (normal ≻ last_minute ≻ expired) so
+  // a vendor still 'normal' on one of its services stays searchable. With no
+  // recommended lead AND no platform START → start=null → 'normal' for everyone
+  // (no filter, no badge) — the dark-by-data default.
   const lmByVendor = new Map<
     string,
     { zone: LastMinuteZone; surchargePct: number | null }
   >();
-  if (lastMinuteConfigured) {
+  if (lastMinuteActive) {
     const { data: svcRows } = await admin
       .from('vendor_services')
       .select(
-        'vendor_profile_id, category, last_minute_end_months, last_minute_surcharge_pct',
+        'vendor_profile_id, category, recommended_lead_time_months, last_minute_end_months, last_minute_surcharge_pct',
       )
       .in('vendor_profile_id', ids)
       .in('category', canonicals);
     const svcByVendor = new Map<
       string,
-      Array<{ category: string; end: number | null; pct: number | null }>
+      Array<{ category: string; lead: number | null; end: number | null; pct: number | null }>
     >();
     for (const s of svcRows ?? []) {
       const row = s as {
         vendor_profile_id: string;
         category: string;
+        recommended_lead_time_months: number | null;
         last_minute_end_months: number | null;
         last_minute_surcharge_pct: number | null;
       };
       const list = svcByVendor.get(row.vendor_profile_id) ?? [];
       list.push({
         category: row.category,
+        lead: row.recommended_lead_time_months,
         end: row.last_minute_end_months,
         pct: row.last_minute_surcharge_pct,
       });
@@ -445,14 +455,23 @@ export async function searchCategoryVendors(input: {
     };
     for (const id of ids) {
       // Matched via vendor_profiles.services but no in-scope vendor_services row
-      // → one synthetic service (group START, END=0 = until the night before).
-      const svcs = svcByVendor.get(id) ?? [{ category: '', end: null, pct: null }];
+      // → one synthetic service (no recommended lead → platform-START fallback,
+      // END=0 = until the night before).
+      const svcs =
+        svcByVendor.get(id) ?? [{ category: '', lead: null, end: null, pct: null }];
       let best: { zone: LastMinuteZone; surchargePct: number | null } | null = null;
       for (const c of svcs) {
-        const start =
+        // START = vendor's recommended lead time first; platform leaf/group START
+        // is only a soft fallback when the vendor hasn't set one (resolveLastMinuteStart
+        // owns the dark-by-data rule: both null → null → 'normal').
+        const platformStart =
           c.category && leafStartByCanonical.has(c.category)
             ? leafStartByCanonical.get(c.category)!
             : groupStartMonths;
+        const start = resolveLastMinuteStart({
+          recommendedLeadMonths: c.lead,
+          platformFallbackMonths: platformStart,
+        });
         const zone = lastMinuteZone({
           monthsRemaining,
           startMonths: start,

@@ -1,5 +1,8 @@
+import Link from 'next/link';
+import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isEventDayActive } from '@/lib/day-of-mode';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -255,6 +258,14 @@ export default async function EventLayout({ children, params }: Props) {
   const event = eventRes.data;
   if (!event) notFound();
 
+  // Event Lifecycle Menu (2026-06-16): while the event is live, the bottom-nav
+  // roster swaps to the day-of command center. Computed SERVER-SIDE so there's
+  // no client Date.now() / hydration flash, and gated on isEventDayActive
+  // (live ‖ post) so an EVENING reception — which lands in `post` — still gets
+  // the Day-of bar. (Wrap-up/After phases land in PR3/PR4; this PR1 ships the
+  // Plan ↔ Day-of swap.)
+  const isDayOf = event.event_date ? isEventDayActive(event.event_date as string) : false;
+
   const tr = makeT(locale);
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
@@ -301,6 +312,20 @@ export default async function EventLayout({ children, params }: Props) {
         eventTypes={creatableEventTypes}
       />
       <div className="flex items-center gap-2">
+        {/* Planning escape (Event Lifecycle Menu) — while the bottom nav is the
+            day-of command center, this is the one way back to the planning
+            menu (Guests/Budget/…), kept OUTSIDE the bar so it never collides
+            with the "Now" tab. Links to /more, the existing planning launcher.
+            Day-of only; hidden on lg (desktop uses the sidebar). */}
+        {isDayOf ? (
+          <Link
+            href={`/dashboard/${eventId}/more`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
+          >
+            <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Planning
+          </Link>
+        ) : null}
         {/* Marketplace (Store) link + mobile Switch View pill REMOVED from
             the event-scoped top nav per owner directive 2026-06-03 (circled
             both icons on the mobile top strip; "remove these 2 on top nav").
@@ -374,7 +399,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} />
+      <CustomerBottomNav eventId={eventId} isDayOf={isDayOf} />
       {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile) and
           lights the active stage of the guest journey (Build · Invite · Confirm ·
           Seat · Day-of) while the path is inside the journey (/guests* or

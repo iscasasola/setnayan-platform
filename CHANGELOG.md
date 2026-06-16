@@ -19,6 +19,64 @@ Made the in-app checklist *do* something (owner: "Book your caterer will make th
 - **Tests:** +9 (auto-complete mapping incl. the band/DJ narrowing + the deep-link href). 22/22 pass · `tsc` + `next lint` + bottom-nav/retired guards + production build all green.
 
 SPEC IMPACT: deepens the checklist↔marketplace + checklist↔planning connections (architect mandate). Logged in corpus `DECISION_LOG.md` (iteration 0016/0021/0006).
+## 2026-06-16 · feat(std-reveal): Save-the-Date reveal foundation — flag-gated four-flap envelope on the couple website (PR1 of 3)
+
+Build foundation for the Save-the-Date "reveal" experience (the opening animation that uncovers the couple's invitation). Design-locked across `0024_ADDENDUM_envelope_open_experience_2026-06-14.md` (7-template library · trademark veil RSVP · craft constants · colour-only customization). This PR lands the integration scaffold + the first template, **flag-off**.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (new) — `RevealOverlay`, the opening layer mounted over the Save-the-Date lifecycle phase. **Progressive enhancement:** renders nothing on the server / before mount, so a guest without JS (or pre-hydration) sees the content directly — the reveal is a delight layer, never a gate. Once opened it removes itself so the page underneath is fully interactive. Template registry is a switch so the WebGL veils + curtain drop in behind the same contract.
+- **`apps/web/app/[slug]/_components/reveal/four-flap.tsx`** (new) — first template: the rigid **four-flap envelope**, pure CSS 3D (four edge-pinned triangular flaps fold open to the corners; wax-seal "tap to open" cue). **No WebGL dependency** → stays inside the guest-site bundle / Lighthouse budget. Styled entirely with the moodboard-recoloured Tailwind tokens (`cream/mulberry/terracotta/ink`) that `app/[slug]` already overrides per event via `buildSitePaletteVars`, so it recolours automatically at ₱0.
+- **`apps/web/app/[slug]/page.tsx`** — mounts `<RevealOverlay>` in both the anonymous (PublicLanding) and signed-in (InvitationSite) paths, gated by **`NEXT_PUBLIC_STD_REVEAL` (default off)** — zero effect on the live site until the full library + chooser ship. Adds a `revealMonogram()` helper (couple initials for the seal).
+
+Next: PR2 adds the WebGL veils + curtain lazy-loaded behind the same flag (code-split so the main bundle stays clean); PR3 the dashboard template chooser + content editor.
+
+Verification: typecheck/lint deferred to CI — the fresh worktree's `pnpm install` was not run this pass (borrowed `node_modules` from the base checkout didn't resolve under pnpm's layout). Required CI checks gate the auto-merge.
+
+SPEC IMPACT: 0024 Save the Date. The reveal experience is design-locked in the corpus (`0024_ADDENDUM` §1a). This is the build foundation behind a flag; corpus `DECISION_LOG.md` row appended noting build-PR1 landed.
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR1 — phase-aware bottom-nav swap (Plan ↔ Day-of)
+
+First PR of the Event Lifecycle Menu (`Event_Lifecycle_Menu_Design_2026-06-16.md`): the customer bottom nav swaps its whole roster while the event is live. The Plan tabs (Home · Guests · Explore · Studio · Design · Budget) step aside for the **day-of command center** — **Now · Check-in · Seats · Services · Schedule**.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildDayOfNavTabs(eventId)` (5 operable destinations, all already existing: Now=event root, Check-in=`/guests/checkin`, Seats=`/seating`, Services=`/add-ons` *interim until PR2's unified launch hub*, Schedule=`/schedule`). `CustomerBottomNav` gains an `isDayOf` prop and dispatches between the Plan roster and the Day-of roster. Slot 1 stays the Setnayan mark (the event root already becomes the live "Now" view), relabelled "Now". Lives in the same file (lint guard `lint:botnav` requires delegation to the canonical `<BottomNav>` — green).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — computes the phase **server-side** via `isEventDayActive(event.event_date)` (live ‖ post, **NOT** `isInDayOfWindow` — an evening reception lands in `post` and must still get the Day-of bar) and passes `isDayOf` down (no client `Date.now()`, no hydration flash). Adds the **Planning escape** — a day-of-only top-bar link to `/more` (the existing planning launcher), kept *outside* the bar so it never collides with the "Now" tab on the active-state.
+
+Mobile-only (the bar is `lg:hidden`; desktop uses the sidebar). `tsc`, `next lint`, `lint:botnav` all green. **Reuses** the canonical `BottomNav` (auto-scales 5/6 tabs identically) + the shipped `isEventDayActive` + `/more` — no new primitives, no migration. PR pending (branch `claude/lifecycle-pr1-menu-swap`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §2/§4/§10 (PR1) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the phase-dispatch primitive every later phase (Wrap-up, After) hangs its menu off. Honors guardrail §11.1 (gate on `isEventDayActive`).
+
+## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
+
+Owner: *"all icons and namings are there … these will set the source for all the icons and menus on setnayan for all accounts."* Foundation PR for the admin-managed registry that owns the **name (label) + icon** of every menu/route across Setnayan, all account types. Triggered by the Setnayan-AI-vs-Studio shared-`Sparkles` clash. Discovery workflow mapped **176 deduped slots** → `Nav_Icon_Menu_Registry_Design_2026-06-16.md`.
+
+Architecture: **code defaults + sparse DB overrides + resolver.** This PR is **additive — it changes no live behavior** (the existing nav still hardcodes its own icons; `route-meta.ts` was imported nowhere). The live-nav wiring lands in follow-up PRs.
+
+- **`supabase/migrations/20261231000000_nav_slot_override.sql`** (new) — `nav_slot_override` table: `slot_key` PK, `label`, `icon_kind` (lucide|custom|none), `lucide_name`, `custom_url`, `is_hidden`, `updated_at/by`. RLS at create time: **public SELECT** (nav renders everywhere incl. logged-out), **single-admin write** via `is_admin()` (governance: single-admin + audit, owner-locked 2026-06-16). CHECK constraints tie icon_kind→its value. **Must be applied** (`supabase db push`) before edits persist; until then the page renders defaults (resolver fails open).
+- **`apps/web/lib/nav-registry-defaults.ts`** (new, generated) — the **187 slot defaults** (key · scope · area · route · label · icon), the route-meta successor and single in-code source the overrides layer on top of.
+- **`apps/web/lib/nav-registry-types.ts`** (new) — shared types (server + client safe).
+- **`apps/web/lib/nav-registry.ts`** (new, server-only) — resolver: merges defaults + overrides (`COALESCE`), service-role read cached via `unstable_cache` + `NAV_REGISTRY_TAG`, fails open to defaults. `getResolvedNavSlots` / `getNavArea` / `getNavSlot`.
+- **`apps/web/lib/nav-icons.ts`** (new, generated) — curated **257-icon** Lucide allowlist (explicit imports → tree-shaken, instant render, no flash) covering all 94 default icons + a generous picker set, validated against `lucide-react`. Powers both `<DynamicIcon>` and the picker.
+- **`apps/web/app/_components/nav/dynamic-icon.tsx`** (new) — renders a slot's icon descriptor: Lucide glyph · inline custom mark (`SetnayanMark`, currentColor) · uploaded image · none.
+- **`apps/web/app/admin/menus/`** (new) — the `/admin/menus` page + server actions (`setSlotLabel` · `setSlotLucideIcon` · `setSlotNoIcon` · `setSlotHidden` · `resetSlot` · `uploadSlotIcon`→R2) + the grouped editor (scope tabs · search · inline rename · searchable Lucide picker · custom upload · hide · reset). Every write: `requireAdmin` + validated + `admin_audit_log` + `revalidateTag`.
+- **`apps/web/app/admin/_components/admin-sidebar.tsx`** — adds "Menus & icons" (Shapes) to the Platform group.
+
+`pnpm typecheck` + `pnpm lint` green.
+
+SPEC IMPACT: Logged in `DECISION_LOG.md` (2026-06-16 registry program row) + design doc `Nav_Icon_Menu_Registry_Design_2026-06-16.md` + memory `project_setnayan_nav_icon_menu_registry`. No locked-SKU/schema-rename impact (additive infra).
+## 2026-06-16 · feat(vendor): per-service recommended lead time — last-minute START becomes vendor-owned
+
+Owner refinement 2026-06-16 (revises `What_Is_Setnayan_AI_2026-06-08.md` §4): a service's last-minute START is no longer a platform per-leaf guess (`planning_deadlines kind='last_minute_start'`) — it's the **vendor's own per-service RECOMMENDED LEAD TIME** (the normal/comfortable lead for regular effort). The last-minute range is now `[recommended_lead_time → latest-accept cutoff]`, both vendor-declared per service; the existing hard cutoff (`last_minute_end_months`) + optional 0–100% surcharge + AI-only visibility are unchanged. A service with no recommended lead time → no last-minute range → always bookable whenever the schedule permits.
+
+**Dark-by-data:** NULL recommended lead time on every existing row + nothing platform-seeded = today's state → every zone resolves `'normal'` → zero behavior change until a vendor fills one in. The category-wide AI-off-empty rule deliberately stays on the *platform* group START so one vendor's lead time can never black out a whole category.
+
+- **`supabase/migrations/20261231000100_vendor_recommended_lead_time.sql`** — additive nullable `vendor_services.recommended_lead_time_months NUMERIC` (CHECK ≥ 0). **Applied to prod** via `supabase db push`.
+- **`apps/web/lib/last-minute.ts`** — new `resolveLastMinuteStart()` (vendor-first → platform-fallback → null); zone math unchanged.
+- **`apps/web/lib/vendor-services.ts`** — select + type the new column.
+- **`apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts`** — START sourced per-service from the vendor's recommended lead time.
+- **`apps/web/app/vendor-dashboard/services/{page.tsx,actions.ts}`** — vendor "Recommended lead time" field + the "honor bookings up to your accept-until date" commitment nudge.
+- **`apps/web/lib/last-minute.test.ts`** — 13 cases incl. dark-by-data.
+
+SPEC IMPACT: revises `What_Is_Setnayan_AI_2026-06-08.md` §4 (platform-START → vendor-owned) — corpus updated + DECISION_LOG row (2026-06-16).
+
+---
 
 ## 2026-06-16 · feat(build): event_category_build_state table (Phase 3d schema — dark)
 
@@ -31,6 +89,23 @@ Additive + **DARK**: nothing reads it until `BUILD_3STATE_ENABLED` is flipped, s
 SPEC IMPACT: None new (the corpus already tracks Phase 3d — `Build_3State_Solver_2026-06-16.md` §10/§12 + DECISION_LOG 2026-06-16).
 
 ---
+## 2026-06-16 · feat(build): 3-state control (Locked/Auto/Excluded) + Reset + Build, behind BUILD_3STATE_ENABLED
+
+The CORE of the Phase-3d Build solver, **flag-dark** (default OFF). Each Build row gets a leftmost tri-state — 🔒 Locked · ⚡ Auto · 👁️ Excluded — replacing the legacy 2-state Flag/Unflag; a bottom bar adds [Reset] (→ all Excluded) and [Build] (resolve every Auto row). Rows = taxonomy categories with ≥1 QUOTED inquiry (`event_vendors.total_cost_php != null`) plus the three always-present dimension rows (Date · Budget · Location). Locked requires a concrete pick — a taxonomy row picks one of its quoted inquiries; the dimension rows reuse the existing anchor value editors. [Build] writes resolved picks to the EXISTING `event_build_picks` table, so Compare/Lock are unchanged.
+
+**Flag-dark invariant:** with `BUILD_3STATE_ENABLED` unset/`false` (default), the new state-table read, toggle UI, Reset, and Build-resolution are ALL unreachable — the page keeps the current `<BuildPins>` slot (2-state `CategoryFlags` + `openCats` sourcing + `computeBuildFromShortlist`) byte-identical. The only production-path edit in `page.tsx` is `const buildSlot` → `let buildSlot`; the entire 3-state branch sits inside `if (isBuild3StateEnabled())`, which short-circuits to a no-op when off (the state query never even runs).
+
+ADDITIVE — no migration. The `event_category_build_state` table already exists in prod (migration `20261230000000`); this PR reads/writes it. Resolved picks go to the existing `event_build_picks`. Honors `isMultiPickGroup` so multi-pick groups (Look/Booths/Prints) keep several picks and single-pick groups never clobber the couple's other picks. Fail-soft (state read → empty map = all Excluded). The pure state→picks resolver `resolveBuildPicks` is unit-tested (11 cases); full `test:unit` 161/161, `tsc --noEmit` + `next lint` green.
+
+- **`apps/web/lib/build-3state.ts`** (new) — the flag (`isBuild3StateEnabled`, default OFF, env-read mirroring `lib/setnayan-ai.ts`), the reserved dimension keys (`_dim_date`/`_dim_budget`/`_dim_location`), the `BuildState` type, and the PURE `resolveBuildPicks(states, quoted, budgetPhp)` resolver (Locked verbatim + cost-reserving · Auto cheapest-quote-that-fits, reusing the OFF-solver logic · Excluded → clear · multi-pick aware · no vendor reuse).
+- **`apps/web/lib/build-3state.test.ts`** (new) — 11 unit cases over `resolveBuildPicks`.
+- **`apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts`** (new) — server actions `getCategoryBuildStates`, `setCategoryBuildState` (upsert, `set_by`=auth uid, Locked-requires-pick guard), `resetBuildStates` (delete all → all Excluded), `runBuild3State` (read states+quotes+budget → `resolveBuildPicks` → reconcile `event_build_picks`, multi-pick-safe). Each re-checks the flag and refuses when off.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-3state-control.tsx`** (new) — the trio control (Lock/Zap/EyeOff Lucide icons), the Locked taxonomy picker (that category's quotes), the dimension rows wired to the reused `BuildAnchors` value editors, and the [Reset]/[Build] bar. Save-As is deferred (follow-on flagged PR).
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — derives the 3-state `buildSlot` from the already-fetched model ONLY inside the `isBuild3StateEnabled()` branch; flag-off path untouched.
+
+Deferred to follow-on flagged PRs (NOT in this PR): the Auto-ON `compat-score` ranking engine, the marketplace fallback search (top-10/+5, hidden-%), the vendor re-quote nudge, and named Save-As builds.
+
+SPEC IMPACT: None (flag-dark; spec = Build_3State_Solver_2026-06-16.md).
 
 ## 2026-06-16 · feat(ai): plain-English "why" alongside the % match
 

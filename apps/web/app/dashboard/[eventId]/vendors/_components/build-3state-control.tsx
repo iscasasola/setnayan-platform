@@ -1,0 +1,411 @@
+'use client';
+
+/**
+ * Build3StateControl — the 3-State Build control (Phase 3d-A ·
+ * Build_3State_Solver_2026-06-16.md). Behind `BUILD_3STATE_ENABLED` (default
+ * OFF): the page only mounts this when the flag is on, and the legacy
+ * CategoryFlags + Compute path stays the production Build until then.
+ *
+ * Each row carries a leftmost tri-state segmented control —
+ *   🔒 Lock (Locked) · ⚡ Zap (Auto) · 👁️ EyeOff (Excluded) —
+ * writing via `setCategoryBuildState`. Locked REQUIRES a concrete pick:
+ *   • a taxonomy row → a small picker of that category's QUOTED inquiries
+ *     (event_vendors with total_cost_php != null) → pinned_vendor_id.
+ *   • a dimension row (Date/Budget/Location) → the existing anchor value editors
+ *     (BuildAnchors), whose value persists on `events`.
+ *
+ * The bottom bar is [Reset] (→ all Excluded) + [Build] (resolve Auto rows). Save
+ * As is a follow-on flagged PR, intentionally absent here.
+ *
+ * Calm, not loud — reuses the surrounding theme tokens (ink / cream / paper /
+ * terracotta / mulberry) and Lucide icons already in the Build surface.
+ */
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { Lock, Zap, EyeOff, Loader2, ChevronDown, Check, RotateCcw, Hammer } from 'lucide-react';
+import type { BuildState } from '@/lib/build-3state';
+import { DIM_DATE, DIM_BUDGET, DIM_LOCATION } from '@/lib/build-3state';
+import {
+  setCategoryBuildState,
+  resetBuildStates,
+  runBuild3State,
+} from '../build-3state-actions';
+import { BuildAnchors, type AnchorData } from './build-anchors';
+
+/** One quoted vendor option for a taxonomy row's Locked picker. */
+export type QuotedOption = { vendorId: string; name: string; pricePhp: number | null };
+
+/** A taxonomy row: a plan group with ≥1 quoted inquiry. */
+export type TaxonomyRow = {
+  groupId: string;
+  label: string;
+  state: BuildState;
+  pinnedVendorId: string | null;
+  /** That category's quoted inquiries (total_cost_php != null). */
+  options: QuotedOption[];
+};
+
+const peso = (php: number | null) =>
+  php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
+
+const STATE_META: Record<BuildState, { label: string; icon: typeof Lock; hint: string }> = {
+  locked: { label: 'Locked', icon: Lock, hint: 'Fixed to your pick.' },
+  auto: { label: 'Auto', icon: Zap, hint: 'Build fills this for you.' },
+  excluded: { label: 'Hidden', icon: EyeOff, hint: 'Left out of the build.' },
+};
+const STATE_ORDER: BuildState[] = ['locked', 'auto', 'excluded'];
+
+export function Build3StateControl({
+  eventId,
+  anchors,
+  dimensionStates,
+  taxonomyRows,
+}: {
+  eventId: string;
+  anchors: AnchorData;
+  /** State of the three dimension rows (Date/Budget/Location), keyed by DIM_* . */
+  dimensionStates: Record<string, BuildState>;
+  taxonomyRows: TaxonomyRow[];
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [busyRow, setBusyRow] = useState<string | null>(null);
+  const [buildMsg, setBuildMsg] = useState<string | null>(null);
+  const [unfilled, setUnfilled] = useState<{ groupId: string; label: string }[]>([]);
+
+  function applyState(
+    planGroupId: string,
+    state: BuildState,
+    pinnedVendorId?: string | null,
+  ) {
+    setBusyRow(planGroupId);
+    startTransition(async () => {
+      const res = await setCategoryBuildState({ eventId, planGroupId, state, pinnedVendorId });
+      setBusyRow(null);
+      if (res.ok) router.refresh();
+      else setBuildMsg(res.error);
+    });
+  }
+
+  function reset() {
+    setBuildMsg(null);
+    setUnfilled([]);
+    startTransition(async () => {
+      const res = await resetBuildStates({ eventId });
+      if (res.ok) router.refresh();
+      else setBuildMsg(res.error);
+    });
+  }
+
+  function build() {
+    setBuildMsg(null);
+    setUnfilled([]);
+    startTransition(async () => {
+      const res = await runBuild3State({ eventId });
+      if (!res.ok) {
+        setBuildMsg(res.error);
+        return;
+      }
+      setUnfilled(res.unfilled);
+      setBuildMsg(
+        res.filled > 0
+          ? `Built ${res.filled} pick${res.filled === 1 ? '' : 's'} from your quotes.`
+          : res.unfilled.length > 0
+            ? null
+            : 'Nothing to build — set a category to Auto or Lock first.',
+      );
+      router.refresh();
+    });
+  }
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+      <div className="space-y-1">
+        <h2 className="font-display text-xl italic text-ink/85">Build your plan</h2>
+        <p className="text-sm text-ink/60">
+          <span className="font-medium text-ink/75">Lock</span> what&rsquo;s decided ·{' '}
+          <span className="font-medium text-ink/75">Auto</span> to fill for you ·{' '}
+          <span className="font-medium text-ink/75">Hidden</span> to leave out. Then Build.
+        </p>
+      </div>
+
+      {/* Dimension rows — Date / Budget / Location. Locked value persists on the
+          event via the existing anchor editors, so the trio here writes the
+          state and BuildAnchors edits the value. */}
+      <div className="space-y-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+          Your anchors
+        </div>
+        <DimensionRow
+          rowKey={DIM_DATE}
+          label="Wedding date"
+          state={dimensionStates[DIM_DATE] ?? 'excluded'}
+          busy={busyRow === DIM_DATE && pending}
+          onState={(s) => applyState(DIM_DATE, s)}
+        />
+        <DimensionRow
+          rowKey={DIM_BUDGET}
+          label="Total budget"
+          state={dimensionStates[DIM_BUDGET] ?? 'excluded'}
+          busy={busyRow === DIM_BUDGET && pending}
+          onState={(s) => applyState(DIM_BUDGET, s)}
+        />
+        <DimensionRow
+          rowKey={DIM_LOCATION}
+          label="Location"
+          state={dimensionStates[DIM_LOCATION] ?? 'excluded'}
+          busy={busyRow === DIM_LOCATION && pending}
+          onState={(s) => applyState(DIM_LOCATION, s)}
+        />
+        {/* The value editors for the three anchors (reused verbatim). */}
+        <BuildAnchors eventId={eventId} data={anchors} />
+      </div>
+
+      {/* Taxonomy rows — one per category with ≥1 quoted inquiry. */}
+      <div className="space-y-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+          Quoted categories
+        </div>
+        {taxonomyRows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-ink/15 bg-paper px-4 py-3 text-sm text-ink/55">
+            No quoted services yet. Once a vendor sends a price, that category shows up here to
+            build with.
+          </p>
+        ) : (
+          taxonomyRows.map((row) => (
+            <TaxonomyRowControl
+              key={row.groupId}
+              row={row}
+              busy={busyRow === row.groupId && pending}
+              onState={(s, pin) => applyState(row.groupId, s, pin)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Bottom bar — Reset + Build (Save As is a follow-on flagged PR). */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-ink/8 pt-3">
+        <button
+          type="button"
+          onClick={reset}
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 px-3.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/[0.03] disabled:opacity-50"
+        >
+          <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+          Reset
+        </button>
+        <button
+          type="button"
+          onClick={build}
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <Hammer className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          )}
+          Build
+        </button>
+        {buildMsg ? <span className="text-xs text-ink/60">{buildMsg}</span> : null}
+      </div>
+
+      {unfilled.length > 0 ? (
+        <p className="text-xs text-ink/55">
+          Couldn&rsquo;t fill {unfilled.map((u) => u.label).join(', ')} from your quotes within
+          budget. Lock a pick, raise the budget, or hide the category.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/** The leftmost tri-state segmented control — shared by both row kinds. */
+function StateTrio({
+  state,
+  busy,
+  onSelect,
+}: {
+  state: BuildState;
+  busy: boolean;
+  onSelect: (s: BuildState) => void;
+}) {
+  return (
+    <div className="flex shrink-0 gap-1" role="group" aria-label="Build state">
+      {STATE_ORDER.map((s) => {
+        const { label, icon: Icon } = STATE_META[s];
+        const on = state === s;
+        const tone =
+          s === 'locked'
+            ? 'border-mulberry/50 bg-mulberry/10 text-mulberry'
+            : s === 'auto'
+              ? 'border-terracotta/50 bg-terracotta/10 text-terracotta'
+              : 'border-ink/25 bg-ink/[0.04] text-ink/65';
+        return (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onSelect(s)}
+            disabled={busy}
+            aria-pressed={on}
+            title={`${label} — ${STATE_META[s].hint}`}
+            className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${
+              on ? tone : 'border-ink/15 text-ink/35 hover:text-ink/60'
+            }`}
+          >
+            {busy && on ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Icon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function DimensionRow({
+  rowKey,
+  label,
+  state,
+  busy,
+  onState,
+}: {
+  rowKey: string;
+  label: string;
+  state: BuildState;
+  busy: boolean;
+  onState: (s: BuildState) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-ink/10 bg-paper px-3 py-2.5">
+      <StateTrio state={state} busy={busy} onSelect={onState} />
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink/45">{label}</div>
+        <div className="text-xs italic text-ink/50">
+          {state === 'locked'
+            ? 'Set the value below.'
+            : state === 'auto'
+              ? 'Setnayan suggests this.'
+              : 'Not part of the build.'}
+        </div>
+      </div>
+      <span aria-hidden className="sr-only">
+        {rowKey}
+      </span>
+    </div>
+  );
+}
+
+function TaxonomyRowControl({
+  row,
+  busy,
+  onState,
+}: {
+  row: TaxonomyRow;
+  busy: boolean;
+  onState: (s: BuildState, pinnedVendorId?: string | null) => void;
+}) {
+  // Open the picker automatically when Locked has no concrete pick yet (§4: a
+  // Locked row MUST resolve to a value).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pinnedName =
+    row.pinnedVendorId != null
+      ? row.options.find((o) => o.vendorId === row.pinnedVendorId)?.name ?? null
+      : null;
+  const needsPick = row.state === 'locked' && !row.pinnedVendorId;
+
+  function selectState(s: BuildState) {
+    if (s === 'locked') {
+      // Lock requires a pick. If there's exactly one quote, lock it directly;
+      // otherwise open the picker and let the host choose.
+      if (row.options.length === 1) {
+        onState('locked', row.options[0]!.vendorId);
+        return;
+      }
+      setPickerOpen(true);
+      // Don't write 'locked' yet — wait for a concrete pick to keep state valid.
+      return;
+    }
+    setPickerOpen(false);
+    onState(s);
+  }
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2.5 ${
+        row.state === 'locked'
+          ? 'border-mulberry/30 bg-mulberry/[0.04]'
+          : row.state === 'auto'
+            ? 'border-terracotta/30 bg-terracotta/[0.04]'
+            : 'border-ink/10 bg-paper'
+      }`}
+    >
+      <div className="flex items-center gap-2.5">
+        <StateTrio state={row.state} busy={busy} onSelect={selectState} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-ink">{row.label}</div>
+          <div className="truncate text-xs text-ink/55">
+            {row.state === 'locked' && pinnedName ? (
+              <span className="text-mulberry">{pinnedName}</span>
+            ) : row.state === 'auto' ? (
+              <span className="italic">
+                {row.options.length} quote{row.options.length === 1 ? '' : 's'} — Build picks the
+                cheapest that fits
+              </span>
+            ) : (
+              <span className="italic">Not part of the build.</span>
+            )}
+          </div>
+        </div>
+        {(row.state === 'locked' || pickerOpen) && row.options.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => setPickerOpen((o) => !o)}
+            className="shrink-0 rounded-lg border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/[0.03]"
+          >
+            {pickerOpen ? 'Close' : pinnedName ? 'Change' : 'Choose'}
+            <ChevronDown className="ml-1 inline h-3 w-3" strokeWidth={2} aria-hidden />
+          </button>
+        ) : null}
+      </div>
+
+      {needsPick && !pickerOpen ? (
+        <p className="mt-1.5 text-[11px] text-mulberry">Choose which quote to lock.</p>
+      ) : null}
+
+      {pickerOpen && row.options.length > 0 ? (
+        <ul className="mt-2.5 space-y-1 border-t border-ink/8 pt-2.5">
+          {row.options.map((opt) => {
+            const chosen = opt.vendorId === row.pinnedVendorId;
+            return (
+              <li key={opt.vendorId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onState('locked', opt.vendorId);
+                    setPickerOpen(false);
+                  }}
+                  disabled={busy}
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50 ${
+                    chosen
+                      ? 'border-mulberry/50 bg-mulberry/10 text-mulberry'
+                      : 'border-ink/12 bg-paper text-ink hover:bg-ink/[0.03]'
+                  }`}
+                >
+                  <span className="min-w-0 truncate">{opt.name}</span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <span className="font-mono text-xs">{peso(opt.pricePhp)}</span>
+                    {chosen ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden /> : null}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}

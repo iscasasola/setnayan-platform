@@ -51,6 +51,18 @@ import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BuildPins } from './_components/build-pins';
 import type { AnchorData } from './_components/build-anchors';
+import {
+  Build3StateControl,
+  type TaxonomyRow as Build3StateTaxonomyRow,
+} from './_components/build-3state-control';
+import {
+  isBuild3StateEnabled,
+  DIM_DATE,
+  DIM_BUDGET,
+  DIM_LOCATION,
+  type BuildState,
+} from '@/lib/build-3state';
+import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -767,7 +779,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }),
       ),
     );
-    const buildSlot = (
+    // The LIVE Build (2-state Flag/Compute + openCats sourcing). This stays the
+    // production experience verbatim — the 3-state control below only replaces it
+    // when BUILD_3STATE_ENABLED is on (default OFF → this exact slot ships).
+    let buildSlot = (
       <BuildPins
         eventId={eventId}
         anchors={buildAnchors}
@@ -787,6 +802,62 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }}
       />
     );
+
+    // ── 3-State Build control (Phase 3d-A · BUILD_3STATE_ENABLED, default OFF).
+    // When ON, the Build tab swaps to the Locked/Auto/Excluded control + Reset +
+    // Build. Rows = taxonomy categories with >=1 QUOTED inquiry (total_cost_php
+    // != null) + the 3 dimension rows. Resolved picks still write to
+    // event_build_picks so Compare/Lock are unchanged. The state read is gated
+    // here so it never runs while the flag is off (byte-identical otherwise).
+    // Spec: Build_3State_Solver_2026-06-16.md §2–5.
+    if (isBuild3StateEnabled()) {
+      const buildStates = await getCategoryBuildStates(eventId);
+      const stateOf = (key: string): BuildState => buildStates.get(key)?.state ?? 'excluded';
+
+      // Taxonomy rows: every plan group that has >=1 quoted inquiry. Quoted =
+      // a pick with total_cost_php != null (the §3 quoted-inquiry gate, lifted
+      // from compute-time to row visibility). Options are that category's quotes.
+      const taxonomyRows: Build3StateTaxonomyRow[] = buildChildren
+        .map((c) => {
+          const options = c.picks
+            .filter((p) => p.total_cost_php != null)
+            .map((p) => ({
+              vendorId: p.vendor_id,
+              name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+              pricePhp: p.rolled_cost_php ?? p.total_cost_php ?? null,
+            }));
+          return { child: c, options };
+        })
+        .filter(({ options }) => options.length > 0)
+        .map(({ child, options }) => {
+          const st = buildStates.get(child.groupId as string);
+          return {
+            groupId: child.groupId as string,
+            label: child.label,
+            state: st?.state ?? 'excluded',
+            // Only honor a pin that's still one of this category's quotes.
+            pinnedVendorId:
+              st?.pinnedVendorId &&
+              options.some((o) => o.vendorId === st.pinnedVendorId)
+                ? st.pinnedVendorId
+                : null,
+            options,
+          };
+        });
+
+      buildSlot = (
+        <Build3StateControl
+          eventId={eventId}
+          anchors={buildAnchors}
+          dimensionStates={{
+            [DIM_DATE]: stateOf(DIM_DATE),
+            [DIM_BUDGET]: stateOf(DIM_BUDGET),
+            [DIM_LOCATION]: stateOf(DIM_LOCATION),
+          }}
+          taxonomyRows={taxonomyRows}
+        />
+      );
+    }
     return (
       <ServicesTakeover
         eventId={eventId}

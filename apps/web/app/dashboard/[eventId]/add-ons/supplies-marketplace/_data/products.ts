@@ -289,7 +289,7 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
     vendor: 'Manila Print Co.',
     takeRatePct: 10,
     blurb:
-      'Printed mailers paired with your Save-the-Date video QR. Includes envelopes + return-address printing.',
+      'Printed mailers paired with your Save-the-Date page QR. Includes envelopes + return-address printing.',
   },
 ] as const;
 

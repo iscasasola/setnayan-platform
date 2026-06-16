@@ -199,7 +199,7 @@ export const routeMeta = {
       patiktok: { icon: Film, label: 'Patiktok' },
       photoDelivery: { icon: ImageDown, label: 'Photo Delivery' },
       playlist: { icon: Music, label: 'Playlist' },
-      saveTheDate: { icon: Video, label: 'Save the Date Video' },
+      saveTheDate: { icon: Sparkles, label: 'Save the Date' },
       setnayanAi: { icon: Gem, label: 'Setnayan AI' },
       suppliesMarketplace: { icon: Printer, label: 'Paprint' },
     },

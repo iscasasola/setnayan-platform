@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
-import { Star, Reply } from 'lucide-react';
+import { Star, Reply, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
 import {
   averageByAxis,
   fetchReviewsForVendorWithCouple,
@@ -37,9 +38,12 @@ export default async function VendorReviewsPage() {
     );
   }
 
-  const [stats, reviews] = await Promise.all([
+  const [stats, reviews, recommendingCouples] = await Promise.all([
     fetchReviewStats(supabase, profile.vendor_profile_id),
     fetchReviewsForVendorWithCouple(supabase, profile.vendor_profile_id, { limit: 200 }),
+    // "Recommended by N couples" (Event Lifecycle Menu §6.3) — the proof-backed
+    // trust signal couples build for you post-event; also shows on your profile.
+    countVendorRecommendingCouples(supabase, profile.vendor_profile_id),
   ]);
 
   const axisAverages = averageByAxis(reviews);
@@ -53,6 +57,12 @@ export default async function VendorReviewsPage() {
           Vendor Agreement &sect;&nbsp;3.10 — they can&rsquo;t be hidden, but you can
           publicly reply once per review.
         </p>
+        {recommendingCouples > 0 ? (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-3 py-1 text-xs font-medium text-mulberry">
+            <Heart aria-hidden className="h-3.5 w-3.5 fill-mulberry/80" strokeWidth={2} />
+            Recommended by {recommendingCouples} couple{recommendingCouples === 1 ? '' : 's'}
+          </p>
+        ) : null}
       </header>
 
       <StatsOverview stats={stats} axisAverages={axisAverages} />

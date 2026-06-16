@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveBrandedQrColors } from '@/lib/qr';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 /**
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
@@ -67,15 +68,18 @@ export async function GET(
     return new NextResponse('Event not found.', { status: 404 });
   }
 
-  // Ownership gate — the branded PNG is a paid feature. Delegates to the shared
-  // checkOrderOwnership() reader (lib/entitlements.ts): refund-aware, graceful-
-  // degrade on a missing orders table (42P01 / 42703 → not-owned). The helper
-  // THROWS on any other DB error, so we wrap it to preserve this route's
-  // existing 500 response for a genuine read failure (rather than an uncaught
-  // throw) — behavior parity with the prior inline gate.
+  // Ownership gate — the branded PNG is a paid feature. The guest + event reads
+  // above (under the user's RLS) ARE the authorization: a non-member can't see
+  // the guest row → 404, so by here the caller is an authorized event member.
+  // Ownership is an EVENT-level fact, but orders RLS is purchaser-scoped
+  // (user_id = auth.uid()), so reading it with the user client would deny a
+  // co-host member who didn't personally place the order (PR4d). Read it with
+  // the admin client instead — event-scoped, post-authorization, safe.
+  // eventOwnsSku is bundle-aware + refund-aware; it THROWS on a non-graceful DB
+  // error, so we wrap it to keep this route's existing 500 (not an uncaught throw).
   let owns = false;
   try {
-    owns = await checkOrderOwnership(supabase, guest.event_id, 'CUSTOM_QR_GUEST');
+    owns = await eventOwnsSku(createAdminClient(), guest.event_id, 'CUSTOM_QR_GUEST');
   } catch {
     return new NextResponse('Could not verify your upgrade.', { status: 500 });
   }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Download, Palette, QrCode, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import {
@@ -15,7 +16,7 @@ import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Custom QR per guest · Setnayan' };
@@ -69,13 +70,22 @@ export default async function CustomQrGuestPage({ params }: Props) {
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  // Owned-state via the shared checkOrderOwnership() reader (lib/entitlements.ts).
+  // Owned-state via the shared bundle-aware eventOwnsSku() reader
+  // (lib/entitlements.ts) — so a couple who got CUSTOM_QR_GUEST inside the
+  // Essentials (GUIDED_PACK) or Complete (MEDIA_PACK) bundle (a single
+  // bundle-keyed order, no child CUSTOM_QR_GUEST order) still owns it.
   // Refund-aware: a still-in-reconciliation order locks the page into its
   // post-purchase "owned" state so the couple isn't double-charged; cancelled /
   // refunded / lapsed releases it. Graceful-degrade on a missing/legacy orders
   // table (42P01 / 42703) — pre-bootstrap databases surface the buy CTA rather
   // than crashing, matching the PR #380/#390 hotfix pattern.
-  const owns = await checkOrderOwnership(supabase, eventId, SKU_CODE);
+  //
+  // Read with the ADMIN client (PR4d): the !event redirect above is the
+  // membership gate (the event read is RLS-scoped to members), and ownership is
+  // an EVENT-level fact — but orders RLS is purchaser-scoped (user_id =
+  // auth.uid()), so the user client would deny a co-host member who didn't
+  // personally place the order and wrongly show them the buy CTA.
+  const owns = await eventOwnsSku(createAdminClient(), eventId, SKU_CODE);
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});

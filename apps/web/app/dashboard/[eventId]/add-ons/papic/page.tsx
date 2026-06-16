@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -5,21 +6,18 @@ import {
   ArrowLeft,
   Camera,
   Aperture,
-  Scan,
   BatteryWarning,
   Hand,
   Share2,
   Sparkles,
-  Tag,
   Info,
   ChevronUp,
   ChevronRight,
   HardDrive,
   Smartphone,
-  ImageIcon,
-  Film,
   CircleHelp,
   CheckCircle2,
+  Clock,
   Cloud,
   ExternalLink,
   FolderTree,
@@ -39,7 +37,10 @@ import {
   PAPIC_SAMPLER_SEAT_COUNT,
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
+  PAPIC_SAMPLER_RETENTION_DAYS,
 } from '@/lib/papic-seats';
+import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -153,34 +154,6 @@ const GESTURES: ReadonlyArray<Gesture> = [
   },
 ];
 
-type MockPhoto = {
-  id: string;
-  kind: 'photo' | 'video';
-  tagSource: 'auto_face' | 'qr_scan' | 'untagged';
-  hue: number;
-};
-
-const MOCK_PHOTOS: ReadonlyArray<MockPhoto> = [
-  { id: 'p-01', kind: 'photo', tagSource: 'auto_face', hue: 12 },
-  { id: 'p-02', kind: 'photo', tagSource: 'qr_scan', hue: 38 },
-  { id: 'p-03', kind: 'video', tagSource: 'auto_face', hue: 152 },
-  { id: 'p-04', kind: 'photo', tagSource: 'untagged', hue: 200 },
-  { id: 'p-05', kind: 'photo', tagSource: 'auto_face', hue: 24 },
-  { id: 'p-06', kind: 'photo', tagSource: 'qr_scan', hue: 280 },
-  { id: 'p-07', kind: 'video', tagSource: 'qr_scan', hue: 340 },
-  { id: 'p-08', kind: 'photo', tagSource: 'auto_face', hue: 56 },
-  { id: 'p-09', kind: 'photo', tagSource: 'auto_face', hue: 90 },
-  { id: 'p-10', kind: 'photo', tagSource: 'untagged', hue: 220 },
-  { id: 'p-11', kind: 'video', tagSource: 'auto_face', hue: 4 },
-  { id: 'p-12', kind: 'photo', tagSource: 'qr_scan', hue: 168 },
-];
-
-const FILTERS = [
-  { id: 'chronological', label: 'Chronological' },
-  { id: 'photos-of-us', label: 'Photos of us' },
-  { id: 'untagged', label: 'Untagged' },
-  { id: 'type', label: 'Photo · Video' },
-] as const;
 
 const SDK_MATRIX = [
   { brand: 'Canon', sdk: 'EOS Camera Connect SDK', bodies: '11 V1 bodies (R-series mirrorless)' },
@@ -284,6 +257,30 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const unclaimedSeats = totalSeats - claimedSeats;
   const bridgeSeats = MOCK_SEATS.filter((s) => s.proBridge !== null).length;
 
+  // Free-sampler retention signal — drives the on-page "keep your free photos"
+  // card and the gallery nudge. Only the free sampler has expiring photos (paid
+  // captures store expires_at IS NULL), so we skip the read once the pack is
+  // owned. Mirrors the /crew banner's countdown so both surfaces agree.
+  let samplerExpiringCount = 0;
+  let samplerDaysLeft: number | null = null;
+  if (!ownsPapicSeats) {
+    const { data: expiring } = await supabase
+      .from('papic_photos')
+      .select('expires_at')
+      .eq('event_id', eventId)
+      .not('expires_at', 'is', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('expires_at', { ascending: true });
+    samplerExpiringCount = expiring?.length ?? 0;
+    const soonest = expiring?.[0]?.expires_at as string | undefined;
+    if (soonest) {
+      samplerDaysLeft = Math.max(
+        0,
+        Math.ceil((new Date(soonest).getTime() - Date.now()) / 86_400_000),
+      );
+    }
+  }
+
   return (
     <section className="space-y-8 pb-12">
       <Link
@@ -368,6 +365,27 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           </div>
         )}
       </section>
+
+      {/* ----------------------------------------------------------------
+          Free-sampler retention — "keep your free photos" (2026-06-16)
+          ----------------------------------------------------------------
+          Shown only on the free sampler once there are photos that will
+          expire. Two co-equal, free-first CTAs that live exactly where the
+          real actions are: "keep your own copy" anchors DOWN to the storage
+          card (which honors the Drive OAuth coming-soon gate itself — we
+          never deep-link /api/oauth/drive/start, which 503s when env is
+          unset), and "upgrade to full Papic" reuses the same InlineCheckout
+          drawer the crew pack uses. */}
+      {!ownsPapicSeats && samplerExpiringCount > 0 && (
+        <SamplerRetentionCard
+          expiringCount={samplerExpiringCount}
+          daysLeft={samplerDaysLeft}
+          eventId={eventId}
+          pricePhp={papicSeatsPricePhp}
+          eventDisplayName={event.display_name ?? null}
+          settings={platformSettings}
+        />
+      )}
 
       {/* ----------------------------------------------------------------
           Photo moderation (Apple 1.2 / Google Play UGC)
@@ -463,9 +481,93 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       <GestureReferenceCard />
 
-      <GalleryPreviewCard />
+      <GalleryPreviewCard
+        eventId={eventId}
+        samplerExpiringCount={samplerExpiringCount}
+        samplerDaysLeft={samplerDaysLeft}
+      />
 
       <SettingsCard />
+    </section>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Free-sampler retention card — "keep your free photos forever"
+// -----------------------------------------------------------------------------
+// Rendered only on the free sampler once captures exist that will expire.
+// Two co-equal CTAs (equal weight, no visual primary — owner pick 2026-06-16):
+//   • "Keep your own copy — Google Drive" anchors to #papic-storage. We do NOT
+//     deep-link /api/oauth/drive/start (it 503s when GOOGLE_DRIVE_OAUTH_CLIENT_ID
+//     is unset). The storage card owns the connect button + its coming-soon gate.
+//   • "Upgrade to full Papic" reuses the crew pack's InlineCheckoutDrawer.
+// Drive (free) renders even when platform settings are unavailable; the upgrade
+// CTA only renders when settings are present (the drawer needs the QR refs).
+function SamplerRetentionCard({
+  eventId,
+  expiringCount,
+  daysLeft,
+  pricePhp,
+  eventDisplayName,
+  settings,
+}: {
+  eventId: string;
+  expiringCount: number;
+  daysLeft: number | null;
+  pricePhp: number;
+  eventDisplayName: string | null;
+  settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'] | null;
+}) {
+  const ctaClass =
+    'inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-70';
+  const noun = expiringCount === 1 ? 'photo' : 'photos';
+  const verb = expiringCount === 1 ? 'expires' : 'expire';
+
+  return (
+    <section
+      id="papic-keep"
+      className="scroll-mt-20 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-5 sm:p-6"
+    >
+      <div className="space-y-1.5">
+        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+          <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Free sampler
+        </p>
+        <h2 className="text-xl font-semibold tracking-tight text-ink">
+          Keep your free photos forever
+        </h2>
+        <p className="max-w-prose text-sm text-ink/70">
+          <b className="font-medium text-ink">
+            Your {expiringCount === 1 ? '' : `${expiringCount} `}free sampler {noun}{' '}
+            {daysLeft === null
+              ? `${verb} soon`
+              : daysLeft === 0
+                ? `${verb} today`
+                : `${verb} in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
+            .
+          </b>{' '}
+          Save your own copy to Google Drive, or upgrade to full Papic to keep
+          every shot forever — and unlock all five seats with unlimited photos.
+        </p>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <Link href="#papic-storage" className={ctaClass}>
+          <HardDrive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Keep your own copy — Google Drive
+        </Link>
+        {settings ? (
+          <InlineCheckoutDrawer
+            eventId={eventId}
+            serviceKey={PAPIC_SEATS_SERVICE_KEY}
+            displayName={`Papic · 5 Seats${eventDisplayName ? ` · ${eventDisplayName}` : ''}`}
+            originalPriceCentavos={String(Math.round(pricePhp * 100))}
+            settings={settings}
+            triggerLabel={`Upgrade to full Papic · ${formatPhp(pricePhp)}`}
+            triggerClassName={ctaClass}
+          />
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -587,7 +689,10 @@ function StorageChoiceCard({
   const driveSelected = storageTarget === 'google_drive_only';
 
   return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+    <article
+      id="papic-storage"
+      className="scroll-mt-20 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+    >
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Section 1 · where your photos go
@@ -1151,18 +1256,30 @@ function GestureReferenceCard() {
   );
 }
 
-function GalleryPreviewCard() {
-  // TODO(0012): wire to real Photo / Clip rows once R2 upload + tag
-  // fan-out land. Mock photos here so couples can see the gallery
-  // shape and four-filter chip set before captures exist.
+async function GalleryPreviewCard({
+  eventId,
+  samplerExpiringCount,
+  samplerDaysLeft,
+}: {
+  eventId: string;
+  samplerExpiringCount: number;
+  samplerDaysLeft: number | null;
+}) {
+  // Real gallery — the couple's actual crew + guest captures with presigned
+  // thumbnails. NSFW-blocked / hidden / expired-sampler photos are filtered out
+  // in fetchPapicGallery; untagged photos still show (untagged-still-delivered).
+  const supabase = await createClient();
+  const photos = await fetchPapicGallery(supabase, eventId);
+  const hasPhotos = photos.length > 0;
+
   return (
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 5 · gallery preview
+          Your gallery
         </p>
         <h2 className="text-xl font-semibold tracking-tight">
-          What your gallery looks like
+          {hasPhotos ? 'Every photo your crew shoots' : 'What your gallery looks like'}
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Auto-face tags fire at ≥ 0.85 cosine confidence. Guests who
@@ -1172,35 +1289,50 @@ function GalleryPreviewCard() {
         </p>
       </div>
 
-      <ul className="flex flex-wrap gap-2" role="list" aria-label="Gallery filters (preview)">
-        {FILTERS.map((f, idx) => (
-          <li key={f.id}>
-            {/* TODO(0012): wire chip filters once gallery is real.
-                idx === 0 visually anchored as the default for now. */}
-            <span
-              className={
-                idx === 0
-                  ? 'inline-flex items-center gap-1 rounded-full bg-terracotta px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-cream'
-                  : 'inline-flex items-center gap-1 rounded-full bg-ink/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60'
-              }
-              aria-current={idx === 0 ? 'true' : undefined}
+      {samplerExpiringCount > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
+          <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+          <span>
+            <b className="font-medium">
+              {samplerExpiringCount === 1
+                ? 'Your free sampler photo '
+                : `Your ${samplerExpiringCount} free sampler photos `}
+              {samplerDaysLeft === null
+                ? `are kept for ${PAPIC_SAMPLER_RETENTION_DAYS} days`
+                : samplerDaysLeft === 0
+                  ? `${samplerExpiringCount === 1 ? 'expires' : 'expire'} today`
+                  : `${samplerExpiringCount === 1 ? 'expires' : 'expire'} in ${samplerDaysLeft} ${samplerDaysLeft === 1 ? 'day' : 'days'}`}
+              .
+            </b>{' '}
+            Keep them forever —{' '}
+            <Link
+              href="#papic-keep"
+              className="font-medium text-terracotta underline-offset-2 hover:underline"
             >
-              {f.label}
-            </span>
-          </li>
-        ))}
-      </ul>
+              save your own copy or upgrade
+            </Link>
+            .
+          </span>
+        </div>
+      )}
 
-      <ul
-        className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
-        aria-label="Gallery preview (mock photos)"
-      >
-        {MOCK_PHOTOS.map((photo) => (
-          <li key={photo.id}>
-            <PhotoTile photo={photo} />
-          </li>
-        ))}
-      </ul>
+      {hasPhotos ? (
+        <PapicGalleryGrid photos={photos} />
+      ) : (
+        <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
+          <p className="text-sm text-ink/65">
+            Your gallery fills up as your crew shoots. Share a seat link and the
+            first photos land here in real time.
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/add-ons/papic/crew`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
+          >
+            Set up your crew
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-ink/65">
         <LegendDot color="bg-emerald-500" label="Auto-face tag" />
@@ -1208,58 +1340,6 @@ function GalleryPreviewCard() {
         <LegendDot color="bg-ink/30" label="Untagged" />
       </div>
     </article>
-  );
-}
-
-function PhotoTile({ photo }: { photo: MockPhoto }) {
-  // Mock-only tile — solid hue + tag indicator + media-type chip.
-  // Real thumbnails will load from R2 once the upload pipeline ships.
-  const tagDot =
-    photo.tagSource === 'auto_face'
-      ? 'bg-emerald-500'
-      : photo.tagSource === 'qr_scan'
-        ? 'bg-terracotta'
-        : 'bg-ink/30';
-  const tagLabel =
-    photo.tagSource === 'auto_face'
-      ? 'Auto-tagged via face match'
-      : photo.tagSource === 'qr_scan'
-        ? 'Tagged via QR scan'
-        : 'Untagged';
-
-  return (
-    <div
-      className="group relative aspect-square overflow-hidden rounded-lg border border-ink/10"
-      style={{ backgroundColor: `hsl(${photo.hue} 55% 80%)` }}
-      aria-label={`${photo.kind === 'video' ? '5-second clip' : 'Photo'} · ${tagLabel}`}
-    >
-      <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-cream/85 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.15em] text-ink">
-        {photo.kind === 'video' ? (
-          <>
-            <Film aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-            5s
-          </>
-        ) : (
-          <>
-            <ImageIcon aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-            Photo
-          </>
-        )}
-      </span>
-      <span
-        className={`absolute right-1.5 top-1.5 inline-flex h-2.5 w-2.5 rounded-full ${tagDot}`}
-        title={tagLabel}
-      />
-      {photo.tagSource === 'qr_scan' ? (
-        <span className="absolute bottom-1.5 right-1.5 inline-flex items-center justify-center rounded-full bg-cream/85 p-1 text-ink">
-          <Scan aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        </span>
-      ) : photo.tagSource === 'auto_face' ? (
-        <span className="absolute bottom-1.5 right-1.5 inline-flex items-center justify-center rounded-full bg-cream/85 p-1 text-ink">
-          <Tag aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        </span>
-      ) : null}
-    </div>
   );
 }
 

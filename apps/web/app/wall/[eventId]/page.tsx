@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventOwnsSku } from '@/lib/entitlements';
 import {
   getWallSnapshot,
   isWallSessionLive,
@@ -28,17 +29,15 @@ type Props = { params: Promise<{ eventId: string }> };
 export default async function WallPage({ params }: Props) {
   const { eventId } = await params;
 
-  // G0 at the door: no LIVE_WALL activation → a quiet dead end (no oracle
-  // about whether the event exists).
+  // G0 at the door: no LIVE_WALL ownership → a quiet dead end (no oracle
+  // about whether the event exists). Ownership reads off orders.status via
+  // eventOwnsSku() (PR4 dead-unlock repair, 2026-06-15) — bundle-aware, so a
+  // Media Pack buyer's venue screen lights up too. The old
+  // event_software_activations_v2 read had no payment-path writer.
   const admin = createAdminClient();
-  const { data: activation } = await admin
-    .from('event_software_activations_v2')
-    .select('service_code')
-    .eq('event_id', eventId)
-    .eq('service_code', 'LIVE_WALL')
-    .maybeSingle();
+  const owns = await eventOwnsSku(admin, eventId, 'LIVE_WALL');
 
-  if (!activation) {
+  if (!owns) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
         <p className="text-sm text-cream/50">This wall isn&rsquo;t lit. Check the link with the couple.</p>

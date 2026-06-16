@@ -3,9 +3,21 @@ import 'server-only';
 export type SendEmailArgs = {
   to: string;
   subject: string;
-  /** Plain-text body. HTML rendering is a follow-on. */
+  /** Plain-text body — the fallback + canonical content. Always required. */
   text: string;
+  /**
+   * Optional branded HTML body. When set, Resend sends multipart — HTML-capable
+   * clients render the branded version, the rest fall back to `text`. Build via
+   * `lib/email-template.ts` → renderBrandedEmail().
+   */
+  html?: string;
   replyTo?: string;
+  /**
+   * Optional future send time (ISO 8601). Resend holds the email and delivers
+   * it at this moment — up to 30 days out — so timed notifications need no cron
+   * on our side. Omit for immediate send.
+   */
+  scheduledAt?: string;
 };
 
 export type SendEmailResult =
@@ -46,7 +58,9 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
       to: [args.to],
       subject: args.subject,
       text: args.text,
+      ...(args.html ? { html: args.html } : {}),
       replyTo: args.replyTo,
+      ...(args.scheduledAt ? { scheduledAt: args.scheduledAt } : {}),
     });
     if (error || !data) {
       console.error('[email] resend send failed:', error);
@@ -61,6 +75,26 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
 
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
+}
+
+/**
+ * Cancel a previously-scheduled (future-dated) Resend email by id. Used to pull
+ * back the Papic sampler T-7/T-1 expiry warnings once the couple converts — their
+ * photos became permanent, so the "your free photos roll off" reminder would be
+ * wrong. Gated on the key and best-effort; returns whether the cancel succeeded.
+ */
+export async function cancelScheduledEmail(id: string): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !id) return false;
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(apiKey);
+    await resend.emails.cancel(id);
+    return true;
+  } catch (e) {
+    console.error('[email] resend cancel failed:', e);
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 
 export const metadata = { title: 'Launch your services' };
@@ -21,7 +22,8 @@ type Props = { params: Promise<{ eventId: string }> };
  * tab points at a real hub instead of one bare console.
  *
  * Ownership is read with the canonical per-service checks (reuse, not reinvent):
- * Live Wall = `event_software_activations_v2` (the /live page's own gate), Papic
+ * Live Wall = `eventOwnsSku('LIVE_WALL')` (orders-backed + bundle-aware — the
+ * /live page's own gate after the PR4 dead-unlock repair), Papic
  * = `eventOwnsPapicSeats()`, Panood = `resolveAddOnState().state === 'launch'`.
  * Couple OR delegated coordinator (mirrors /live + /guests/checkin).
  */
@@ -42,13 +44,8 @@ export default async function LaunchHubPage({ params }: Props) {
   }
 
   const base = `/dashboard/${eventId}`;
-  const [liveWallAct, panoodState, ownsPapic] = await Promise.all([
-    supabase
-      .from('event_software_activations_v2')
-      .select('service_code')
-      .eq('event_id', eventId)
-      .eq('service_code', 'LIVE_WALL')
-      .maybeSingle(),
+  const [ownsLiveWall, panoodState, ownsPapic] = await Promise.all([
+    eventOwnsSku(supabase, eventId, 'LIVE_WALL'),
     resolveAddOnState(supabase, eventId, 'panood', 'couple'),
     eventOwnsPapicSeats(supabase, eventId),
   ]);
@@ -79,7 +76,7 @@ export default async function LaunchHubPage({ params }: Props) {
       key: 'livewall',
       name: 'Live Photo Wall',
       blurb: 'Project guest photos at the venue in real time.',
-      owned: Boolean(liveWallAct.data),
+      owned: ownsLiveWall,
       launchLabel: 'Open the wall',
       launchHref: `${base}/live`,
       addHref: `${base}/add-ons`,

@@ -9,11 +9,6 @@
  * Couple-own RLS (the migration's policies scope every read/write to the
  * couple's own event + stamp `set_by = auth.uid()`).
  *
- * ── FLAG-DARK ───────────────────────────────────────────────────────────────
- * Every action re-checks `isBuild3StateEnabled()` and refuses when the flag is
- * OFF (default). The legacy Flag/Compute path (build-flags-actions.ts) is the
- * live Build until the flag is flipped, so these actions are unreachable today.
- *
  * Resolved picks STILL write to the existing `event_build_picks` table so the
  * Compare + Lock tabs are unchanged. No schema change here.
  */
@@ -23,7 +18,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  isBuild3StateEnabled,
   isBuildState,
   isDimensionKey,
   resolveBuildPicks,
@@ -41,17 +35,15 @@ import {
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
-import { isMultiPickGroup, PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { replacesSiblingsOnPin } from '@/lib/build-pick-rules';
 
 export type Build3StateResult = { ok: true } | { ok: false; error: string };
 export type RunBuildResult =
   | { ok: true; filled: number; cleared: number; unfilled: { groupId: string; label: string }[] }
   | { ok: false; error: string };
 
-const FLAG_OFF_ERROR = 'The 3-state Build is not available.';
-
-// Statuses that mean a vendor is already committed/locked — never recomputed,
-// mirrors COMPUTE_LOCKED in build-flags-actions.ts.
+// Statuses that mean a vendor is already committed/locked — never recomputed.
 const COMMITTED_STATUSES = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
 /** Haversine great-circle distance in km (reception anchor → vendor HQ), used
@@ -76,7 +68,6 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
  */
 export async function getCategoryBuildStates(eventId: string): Promise<BuildStateMap> {
   const out: BuildStateMap = new Map();
-  if (!isBuild3StateEnabled()) return out;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('event_category_build_state')
@@ -109,7 +100,6 @@ export async function setCategoryBuildState(input: {
   state: BuildState;
   pinnedVendorId?: string | null;
 }): Promise<Build3StateResult> {
-  if (!isBuild3StateEnabled()) return { ok: false, error: FLAG_OFF_ERROR };
   if (!isBuildState(input.state)) return { ok: false, error: 'Unknown state.' };
 
   const supabase = await createClient();
@@ -150,7 +140,6 @@ export async function setCategoryBuildState(input: {
  * locked vendors; the next [Build] reconciles picks from the (now-empty) states.
  */
 export async function resetBuildStates(input: { eventId: string }): Promise<Build3StateResult> {
-  if (!isBuild3StateEnabled()) return { ok: false, error: FLAG_OFF_ERROR };
   const supabase = await createClient();
   const {
     data: { user },
@@ -180,7 +169,6 @@ export async function resetBuildStates(input: { eventId: string }): Promise<Buil
  * group's other picks are never clobbered (the live data-loss guard).
  */
 export async function runBuild3State(input: { eventId: string }): Promise<RunBuildResult> {
-  if (!isBuild3StateEnabled()) return { ok: false, error: FLAG_OFF_ERROR };
   const supabase = await createClient();
   const {
     data: { user },
@@ -370,7 +358,7 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     else resolvedVendorsByGroup.set(p.planGroupId, new Set([p.vendorId]));
   }
   for (const [groupId, vendorSet] of resolvedVendorsByGroup) {
-    if (isMultiPickGroup(groupId)) continue; // multi-pick: leave others in place.
+    if (!replacesSiblingsOnPin(groupId)) continue; // multi-pick: leave others in place.
     // Single-pick groups resolve to exactly ONE vendor (resolveBuildPicks breaks
     // after the first fit), so clear the group's OTHER picks with `.neq` —
     // identical to the shipped single-pick replacement in build-pick-actions.ts.

@@ -64,6 +64,7 @@ import {
   Compass,
   Shield,
   AlertOctagon,
+  Handshake,
   Star,
   LifeBuoy,
   Flag,
@@ -213,6 +214,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/force-majeure',
         icon: AlertOctagon,
         matchPrefix: '/admin/force-majeure',
+      },
+      {
+        key: 'completions',
+        label: 'Completions',
+        href: '/admin/completions',
+        icon: Handshake,
+        matchPrefix: '/admin/completions',
       },
       {
         key: 'reviews',

@@ -61,3 +61,118 @@ export async function checkOrderOwnership(
     (row) => !RELINQUISHED_STATUSES.has((row.status as string | null) ?? ''),
   );
 }
+
+/**
+ * Bundle composition — which child SKUs each package bundle grants.
+ *
+ * WHY (PR4 dead-unlock repair, 2026-06-15): a bundle purchase lands as a SINGLE
+ * orders row keyed service_key='GUIDED_PACK' | 'MEDIA_PACK' (see
+ * app/dashboard/[eventId]/add-ons/bundle/page.tsx — "no member-SKU
+ * decomposition"). So checkOrderOwnership(eventId, 'PANOOD_SYSTEM') is FALSE for
+ * a couple who bought the Media Pack, even though the bundle includes it. The
+ * old fan-out lived only in the DEAD DB fn verify_and_activate_manual_payment()
+ * (migration 20260903000000 · zero app callers), so a bundle child SKU could
+ * never unlock by paying. eventOwnsSku() below closes that on the READ side: it
+ * grants a child SKU when the event owns a bundle that contains it. No
+ * migration — ownership still IS orders.status, read one extra way.
+ *
+ * Canonical source of the membership list: BUNDLE_MEMBERS in
+ * app/onboarding/wedding/_components/onboarding-pricing.ts (the bundle "what's
+ * included" surface the customer actually buys). This map is the entitlement-
+ * layer mirror of that fact, kept here so the read-side gate has no app→lib
+ * import inversion. KEEP IN SYNC if BUNDLE_MEMBERS changes.
+ *
+ * Keyed by BUNDLE service_key → the child catalog service_codes it grants.
+ */
+export const BUNDLE_CHILD_SKUS: Readonly<{
+  GUIDED_PACK: ReadonlyArray<string>;
+  MEDIA_PACK: ReadonlyArray<string>;
+}> = Object.freeze({
+  // Essentials — owner's 7 (onboarding-pricing.ts BUNDLE_MEMBERS.essentials).
+  GUIDED_PACK: Object.freeze([
+    'SETNAYAN_AI',
+    'ANIMATED_MONOGRAM',
+    'CUSTOM_QR_GUEST',
+    'PRO_RSVP',
+    'PAPIC_GUEST',
+    'EVENT_WEBSITE',
+    'PRO_WEBSITE',
+  ]),
+  // Complete — the canonical 18 paid SKUs (BUNDLE_MEMBERS.complete). Includes
+  // every crew-delivered media child (LIVE_WALL, PANOOD_SYSTEM, SDE, …) that
+  // the dead verify_and_activate_manual_payment() MEDIA_PACK branch used to
+  // fan out.
+  MEDIA_PACK: Object.freeze([
+    'SETNAYAN_AI',
+    'ANIMATED_MONOGRAM',
+    'CUSTOM_QR_GUEST',
+    'PRO_RSVP',
+    'EVENT_WEBSITE',
+    'PRO_WEBSITE',
+    'PAPIC_GUEST',
+    'PAPIC_ADDON_STORIES',
+    'PAPIC_SEATS',
+    'CAMERA_BRIDGE',
+    'PABATI',
+    'PATIKTOK_COMPILER',
+    'PAPIC_ADDON_THANK_YOU',
+    'SDE',
+    'LIVE_WALL',
+    'LIVE_BACKGROUND',
+    'PANOOD_SYSTEM',
+    'PAKANTA',
+  ]),
+});
+
+/**
+ * Reverse index: child service_code → the bundle service_keys that grant it.
+ * Built once at module load from BUNDLE_CHILD_SKUS.
+ */
+const BUNDLES_GRANTING_SKU: ReadonlyMap<string, ReadonlyArray<string>> = (() => {
+  const m = new Map<string, string[]>();
+  for (const [bundleKey, children] of Object.entries(BUNDLE_CHILD_SKUS)) {
+    for (const child of children) {
+      const list = m.get(child) ?? [];
+      list.push(bundleKey);
+      m.set(child, list);
+    }
+  }
+  return m;
+})();
+
+/**
+ * Bundle-aware ownership: does this event own `serviceKey` — either by a direct
+ * order for it, OR by owning a bundle (GUIDED_PACK / MEDIA_PACK) that includes
+ * it? This is the canonical gate every couple-SKU surface should call (it
+ * supersedes a bare checkOrderOwnership() for any SKU that can be bundled).
+ *
+ * Correctness for BOTH purchase shapes:
+ *   • Direct child purchase  → checkOrderOwnership(eventId, childKey) = true.
+ *   • Bundle purchase        → no child order exists, but the bundle order does,
+ *                              so the bundle pass below returns true.
+ *
+ * Refund-aware end to end: a refunded/cancelled/lapsed bundle order stops
+ * conferring the children (checkOrderOwnership already filters those statuses),
+ * so revoking the bundle revokes its children too.
+ *
+ * Same graceful-degrade + throw-on-unknown-error contract as checkOrderOwnership
+ * (it delegates to it). Passing a bundle code itself still works via the direct
+ * check.
+ */
+export async function eventOwnsSku(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  // 1. Direct order for the SKU (covers à-la-carte purchase AND a bundle code
+  //    passed directly).
+  if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
+
+  // 2. Any bundle that includes this child SKU, owned by the event.
+  const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
+  if (!grantingBundles || grantingBundles.length === 0) return false;
+  for (const bundleKey of grantingBundles) {
+    if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
+  }
+  return false;
+}

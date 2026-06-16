@@ -298,3 +298,118 @@ export async function coupleReportNonDelivery(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);
 }
+
+/**
+ * Recommend-your-vendors (Event Lifecycle Menu §6.3). Separate from the review:
+ * a per-vendor, opt-in, reversible "I'd recommend them" that builds the couple's
+ * Recommended list. Writes through the USER's client so the RLS INSERT gate
+ * enforces the anti-fake completion requirement (layers 1+2) — a couple can only
+ * recommend a vendor whose service ran the full lifecycle to completion for this
+ * event. Upsert on the unique (vendor_profile_id, event_id, recommended_by_user_id)
+ * key so re-submitting edits the one-line endorsement instead of erroring.
+ */
+export async function recommendVendor(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const vendorProfileId = formData.get('vendor_profile_id');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof vendorProfileId !== 'string'
+  ) {
+    throw new Error('Invalid input');
+  }
+  const endorsementRaw = formData.get('endorsement');
+  let endorsement: string | null = null;
+  if (typeof endorsementRaw === 'string') {
+    const trimmed = endorsementRaw.trim();
+    if (trimmed.length > 280) throw new Error('Endorsement must be 280 characters or fewer.');
+    endorsement = trimmed.length > 0 ? trimmed : null;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase.from('vendor_recommendations').upsert(
+    {
+      vendor_profile_id: vendorProfileId,
+      event_id: eventId,
+      recommended_by_user_id: user.id,
+      endorsement,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'vendor_profile_id,event_id,recommended_by_user_id' },
+  );
+  // RLS rejects when the completion gate isn't met — route back with a flag so
+  // the page can explain why (rather than a generic crash).
+  if (error) {
+    redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=blocked`);
+  }
+
+  // review_received-style signal → vendor (best-effort, fail-soft). The couple
+  // can't read the vendor's user_id by RLS, so use the admin client.
+  try {
+    const adminClient = createAdminClient();
+    const [{ data: profileRow }, { data: eventRow }] = await Promise.all([
+      adminClient
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle(),
+      adminClient.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const vendorUserId = (profileRow as { user_id: string | null } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      const eventDisplay =
+        (eventRow as { display_name: string } | null)?.display_name ?? 'A couple';
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'review_received',
+        title: 'A couple recommended you',
+        body: `${eventDisplay} added you to their recommended vendors. It now shows on your marketplace profile and their event page.`,
+        relatedUrl: '/vendor-dashboard/reviews',
+      });
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[recommendVendor] notify failed for vendor_profile_id=${vendorProfileId} event_id=${eventId}:`,
+      e,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
+  redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=on`);
+}
+
+/** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. */
+export async function withdrawRecommendation(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const vendorProfileId = formData.get('vendor_profile_id');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof vendorProfileId !== 'string'
+  ) {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await supabase
+    .from('vendor_recommendations')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('recommended_by_user_id', user.id);
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
+  redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=off`);
+}

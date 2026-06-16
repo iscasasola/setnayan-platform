@@ -1,5 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest, after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { makeSamplerPermanent } from '@/lib/papic-sampler';
+import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
+import { runDriveCopyBatch } from '@/lib/drive-copy';
 import {
   bootstrapPapicDriveFolders,
   exchangeDriveCodeForToken,
@@ -225,6 +228,19 @@ export async function GET(req: NextRequest) {
       photo_delivery_status: 'connected',
     })
     .eq('event_id', eventId);
+
+  // Free Papic sampler — "connect Drive = permanent". A single Drive connect
+  // (reached from Papic OR Photo Delivery) makes any already-captured sampler
+  // photos permanent and cancels the now-wrong T-7/T-1 expiry-warning emails.
+  // Both are best-effort and never throw, so they can't break the connect flow.
+  await makeSamplerPermanent(eventId);
+  await cancelSamplerExpiryWarnings(eventId);
+
+  // Drive just connected — flush any pending drive_copy_artifacts (including
+  // sampler captures taken BEFORE this connect) into the couple's Drive in the
+  // background so their "own copy in Drive" lands. Best-effort: never blocks the
+  // redirect and swallows its own errors.
+  after(() => runDriveCopyBatch({ eventId }).catch(() => {}));
 
   const target = new URL(pagePath(returnTo, eventId), url);
   target.searchParams.set(

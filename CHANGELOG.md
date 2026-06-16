@@ -53,6 +53,469 @@ Owner: *"the editorials of the samples are all incomplete. there is no write up,
 Verified end-to-end on the Jack & Jill sample (dev server + Playwright, scrolled to trigger lazy-load): the full editorial now reads masthead → headline → hero → **drop-cap day-recap body (2 columns)** → By the Numbers → vendor team → From the Couple → **From the Day photo gallery (3 frames)** → reviews → Powered by Setnayan. `tsc` green; `next lint` clean (no new warnings). Samples flow through the identical `EditorialContent` engine as real couples, so they track the live format.
 
 SPEC IMPACT: iteration 0046 — sample editorials carry a day-recap body + photo gallery (modeling the love-narrative-free editorial body). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-17 · chore(db): land the editorial_vendor_media migration onto main to unjam `supabase db push`
+
+Migration-pipeline hygiene — no app code. **Root cause of the QR-RPC silent drop (#1588) traced here.** The prod migration ledger had `20270102000000` (`editorial_vendor_media`, iteration 0046) recorded as applied — its table + 7 RLS policies exist in prod — but the **file was not on `main`**: it lives only on the still-open, 100-commits-behind PR #1532 (`claude/editorial-vendor-media`), whose migration was applied to prod *ahead of its merge*. A ledger version with no local file **jams `supabase db push`**, so every migration merged after it had to be hand-applied — and `20270108000000`'s `papic_tag_capture` RPC was silently dropped that way (the #1588 scan-to-tag feature was 42883-degrading on prod until it was applied manually this session).
+
+This lands **only** the migration file (byte-identical to #1532's branch copy + the git-history original), decoupled from #1532's feature code (which has real conflicts with the already-merged "Vendors we loved" editorial work — that rebase belongs to the editorial session, not here):
+- `main`'s migration files now match the ledger → `db push` is unjammed → future migrations apply normally instead of being silently dropped.
+- The table already exists in prod + the migration is idempotent (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`/`CREATE POLICY`), so `db push` will not re-apply it (it's in the ledger); a fresh rebuild recreates it in order.
+- When #1532 eventually merges, the file is already present and identical → no conflict.
+
+Timestamp guard ✓ (385 unique; `20270102000000` is unique on `main` — the colliding `orders_platform` was long since renamed to `20270103040000`).
+
+SPEC IMPACT: None (DB bookkeeping — restores ledger/file/prod consistency; no schema, SKU, or pricing change). Logged in corpus `DECISION_LOG.md`, with the process note (applying an in-flight branch's migration to prod ahead of merge jams the pipeline).
+## 2026-06-17 · fix(std-reveal): rigid reveals → scroll-driven + swipe-the-seal + real monogram wax seal (faithful-rebuild PR1/4)
+
+Owner reported the Save-the-Date reveal templates "are all not working properly" and, on inspection of the locked plan (`0024_ADDENDUM_envelope_open_experience_2026-06-14.md` §1a/§3), the shipped build had deviated on the **two** things they flagged: (1) the 3 envelopes + church doors opened by **tap**, not the locked **scroll-driven** model; (2) the seal was a **hardcoded mulberry text circle**, not the couple's real monogram pressed into a Mood-Board-coloured wax seal. Owner chose the **full faithful rebuild**; this is PR1 of 4 — the interaction + the real seal (PR2 candle-stamp maker · PR3 WebGL 3D + photoreal textures · PR4 scroll-scrub content timeline + editor to follow).
+
+- **New `RigidStage`** (`reveal/rigid-stage.tsx`) — the shared engine for the rigid family, implementing the §1a interaction: (a) the wax seal rests on the paper; **pick it up + swipe it across & off a screen edge** to gate (it slides the way you flick it — never "falls"; a weak release springs it back and stays sealed); (b) once gone, **scroll / drag scrubs the flaps open** (progress 0→1, rAF-lerped) — no tap. Keyboard fallback (Enter on the seal opens). Mirrors the veil family's scroll/drag-to-lift so the whole library feels consistent.
+- **New `WaxSeal`** (`reveal/wax-seal.tsx`) — the couple's real monogram (`events.monogram_uploaded_svg ?? monogram_custom_svg`, the 0037/Cipher mark) rendered as an **embossed relief** (three CSS-masked wax-tone copies → pressed-in look) on a waxy disc; **no drop shadow** (owner-explicit §1a). Colour = the Mood-Board deep accent. Lettered fallback ("A & J") when the couple has no mark yet.
+- **`four-flap` + `rigid-reveal` rewritten** to be **progress-driven** (scrubbed, not booleans) and consume `RigidStage` via a `renderFlaps(progress)` prop; two-sided flaps (paper front / liner back) kept, church-doors liner arch retained.
+- **Colour wiring** — `lib/site-palette.ts` gains `sealColorFromPalette()` (deep accent → wax) + `veilColorFromPalette()` (sheer hue-carrying tint). Threaded through `RevealOverlay` (both live `[slug]` mounts now pass the real mark + wax + veil colours) and the dashboard **preview card** + its page (fetches `monogram_*_svg` + `role_palette`). `RevealOverlay` now also honors `prefers-reduced-motion` (skips the reveal).
+- Veils confirmed already scroll/drag-driven (no change needed).
+
+Flag-gated unchanged: `NEXT_PUBLIC_STD_REVEAL` default OFF → zero live impact; previewable via `?reveal=four-flap|two-flap-vertical|two-flap-horizontal|church-doors|veil|crown` on a wedding slug in the Save-the-Date phase, and in the dashboard Save-the-Date chooser. Verified: `tsc` 0 · `next lint` clean (local preview server unavailable in sandbox → gesture/visual validation on the Vercel preview).
+
+SPEC IMPACT: **Closes drift** — the shipped reveal now matches `0024_ADDENDUM §1a` (scroll-driven open + swipe-the-seal gate) and `§3` (monogram wax seal recoloured from the Mood Board). No SKU/schema/pricing/public-surface change. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(papic): surface the free sampler on the add-ons grid + branded sampler expiry emails
+
+The last two open conversion-UX findings from the #1577 sampler audit (the rest shipped across #1582/#1585/#1588). A re-audit against current `main` first confirmed the other audit items were already closed — the admin double-count, Drive backlog flush, and reminder-subject collision all landed in the "three free-sampler correctness fixes" PR; the QR-tag leg landed in #1588; the cap-TOCTOU and email-timing items are documented-as-benign in shipped code (one phone per seat; T-7/T-1 anchored to earliest roll-off). What remained:
+
+- **B1 — discoverability.** A couple browsing the Studio add-ons grid (`/dashboard/[eventId]/add-ons`) had no signal that Papic has a **free** sampler — the tile read as a paid capture add-on. Added an optional `freeTrial?: string` to `AddOnEntry` + `StudioCard` (a distinct mulberry chip, separate from the orange genuinely-free "Free" chip and the "Soon" chip), and set `freeTrial: 'Free to try'` on the Papic entry. Never a price source (the comment makes that explicit); the feature page still owns price + purchase.
+- **B2 — branded expiry emails.** The T-7/T-1 sampler-expiry reminders were **plain text** (`sendEmail` was text-only — "HTML rendering is a follow-on"). Added an optional `html?` body to `SendEmailArgs` (Resend sends multipart; HTML-capable clients render it, the rest fall back to `text`) + a new dependency-free **`lib/email-template.ts` `renderBrandedEmail()`** — inline-hex mirror of the `--m-*` paper palette on table layout (the only thing that renders across Gmail/Apple Mail/Outlook), with the SETNAYAN wordmark, a gold rule, and a single mulberry CTA. `papic-sampler-emails.ts` now sends both halves for T-7 and T-1. Reusable by 0028's other 9 templates later.
+
+Verified: `tsc --noEmit` 0 · `next lint` clean (6 files) · the email template rendered through `tsx` (2614 bytes, wordmark + CTA + correct escaping). Emails stay dormant until `RESEND_API_KEY` is set; the chip is live immediately.
+
+SPEC IMPACT: iteration 0012 sampler — the free sampler is now discoverable from the Studio grid, and its expiry reminders are branded HTML (0028 gains a reusable branded-email layout). No SKU / schema / pricing change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): failproof the scan-to-tag leg — adversarial review pass on #1588
+
+Owner: "failproof?" A 3-lens adversarial review (SQL/security · parser/classification · client/integration+downstream) of the just-merged #1588. **Verdicts: SQL = ship** (logic, security, event-scope, cap-truncation, idempotency all *cleared* as correct); **parsers + client = ship-with-fixes.** Two reviewer "fixes" were **rejected after scrutiny** (see below). Landed the real, scoped ones:
+
+- **Parser null-safety.** `parsePapicTagScan(raw)` now coerces `raw ?? ''` before calling the reused `parseGuestQrPayload` (which does a bare `raw.trim()`), so it can't throw on a stray null — honoring `tagSeatCapture`'s "never throws" contract by construction.
+- **Transient-failure retry (lost-tag fix).** The scan loop set `lastScanRef = raw` *before* the await and never cleared it on failure, so a code held under the lens that hit a transient `tag_failed` was silently stuck until the next capture. Now a `tag_failed` clears the debounce so the same code self-heals on the next tick; deterministic outcomes (unrecognized / not-found / cap / unavailable) stay debounced so a held code can't spam the RPC.
+- **A11y.** Added a persistent visually-hidden `aria-live="polite"` region announcing tag notices + the running `n/10` count (the scan-to-tag flow was sighted-only); the visual notice stays conditional so the layout is unchanged.
+- **8 new parser tests** (16 total) locking down the adversarial cases: null/undefined input, dual-param precedence (guest-first, order-independent), a guest token smuggled into `?t=` (stays a server-rejectable table ref), `#?t=` fragment ignored, newline-appended URLs, lowercase `public_id` in `?t=`, Crockford length boundaries, and `?invite=present-but-invalid` not falling through to `?g=`.
+
+**Rejected (would have been wrong):**
+- *"Loosen the guest live gallery's `moderation_state='clean'` filter so freshly-tagged photos always show."* That filter is a **deliberate NSFW allowlist** on a guest-facing surface (the file documents it) — loosening it would surface un-screened photos to guests, violating the corpus "NSFW filter on by default, cannot be disabled." The real issue (the NSFW screen is fail-open with no re-screen/backfill, so a dropped screen leaves a row stuck `unscreened` and invisible on allowlist surfaces) is a **pre-existing screening-pipeline reliability gap**, not the tag leg. Flagged for owner; **not** fixed by weakening safety. The couple gallery (private, exclusion-based filter) still shows everything.
+- *"Hard-enforce the 10-tag cap with a DB trigger on `photo_tags`."* A blanket trigger would also cap `auto_face` tags, whose intended cap behavior is unspecified — a load-bearing cross-feature decision. **Surfaced for owner sign-off**, not silently baked in. The cap stays advisory in the RPC (single-claimer/single-phone serializes scans, so overflow is bounded to a contrived double-tap — the reviewer rated it low).
+
+Verified: `tsc` 0 · `test:unit` papic-tag 16/16 · `next lint` clean · production build green.
+
+SPEC IMPACT: None (correctness + test/a11y hardening on #1588; no SKU/schema/pricing/public-surface change). Two items surfaced for owner: the screening-pipeline fail-open re-screen gap, and whether to DB-enforce the 10-tag cap across all tag sources. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(papic): scan-to-tag — wire the QR tag leg on the seat capture surface
+
+The last unwired leg of the Papic capture pipeline. A claimed paparazzo could shoot photos + clips, but there was no way to record **who's in a shot** — so the couple-gallery tag chips (`lib/papic-gallery.ts`) and each guest's live "photos of you" feed (`lib/guest-live-gallery.ts`), both of which already read `photo_tags`, had nothing to read. This stacks on the #1585 clip work (same `papic-seat-capture.tsx` + `recordSeatCapture`) and closes the loop.
+
+- **DB write boundary (new RPC).** `photo_tags` shipped with the Live Photo Wall (`20261104000959`) with reads for couple/coordinator/admin and **writes intentionally locked to service-role / DEFINER RPC** — a paparazzo is neither, so a direct insert is (correctly) RLS-blocked. New migration `20270108000000_papic_qr_tagging.sql` adds `papic_tag_capture(p_token, p_photo_id, p_guest_token, p_table_ref)` (SECURITY DEFINER): re-checks **seat ownership** (`claimer_user_id = auth.uid()` + claim token + not revoked) and **photo ownership** (the photo belongs to that seat) before any write, and resolves the guest/table **only within the seat's event** (wedding-scoped — a QR from another wedding never resolves). Individual QR → 1 guest (`source='individual_qr'`); table QR → fan-out to every seated guest (`event_seat_assignments`), alphabetized, `source='table_qr'`. **10-tag/photo cap** (corpus hard constraint) with alphabetized truncation + a `truncated` flag the UI surfaces (corpus pitfall #3). Idempotent re-scan. `GRANT EXECUTE … TO authenticated` only.
+- **Payload parsers (pure + tested).** `lib/papic-tag.ts` — reuses the shipped `parseGuestQrPayload` (handles the `?invite=` / `?g=` / bare-hex guest formats) and adds `parseTableQrPayload` for the seating-sign QR (`?t=<S89T-…>` public_id, the qr_token inside `?t=`, or a bare `S89T-…`). `parsePapicTagScan` classifies a scan as guest | table | null. 14 unit tests (`lib/papic-tag.test.ts`). Resolving the table by **either public_id or qr_token** means signs already at a venue work regardless of which the seating print pack encoded.
+- **Live decoder.** `lib/qr-scan.ts` — `makeQrDetector()` prefers the native **BarcodeDetector** (hardware-accelerated) and **falls back to jsQR** (already a dep, used by the check-in desk) on browsers without it. Browser-only, lazy-imported.
+- **Capture UI.** `papic-seat-capture.tsx` — after a capture lands, a "Tag who's in it" pill opens a tag sheet that runs the decode loop on the **existing** live stream (no second `getUserMedia` — the iOS-safe shape), shows a scan reticle + a running `n/10` + chips of tagged names, warns on cap-truncation / unrecognized / off-event codes, and is fully **skippable** (untagged photos still reach the gallery — corpus guarantee). `recordSeatCapture` now also returns the inserted `photoId` so the just-captured shot is the tag target.
+
+⚠ **Owner flag (DB):** the `papic_tag_capture` RPC requires migration `20270108000000` applied to prod (`supabase db push --db-url "$SUPABASE_DB_URL"`). Until then the UI degrades gracefully — tagging shows "isn't ready yet — your photo's saved either way" (the `42883` missing-RPC path). Reconciliation note: the seating print pack's table sign currently encodes `?t=<public_id>` while the `20261101000000` publish-QR migration reserved `event_tables.qr_token` for this fan-out; the RPC accepts both, so no reprint is needed.
+
+Verified in the worktree: `tsc --noEmit` 0 · `test:unit` (papic-tag 14/14, checkin 14/14) · `next lint` clean (new files emit nothing) · migration-timestamp guard ✓ (384 unique). Browser camera/QR flow needs a claimed seat + printed QRs — owner to verify on the Vercel preview.
+
+SPEC IMPACT: iteration 0012 — the QR-tagging leg of the capture pipeline is now built (was the documented "unwired tag leg"). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · chore(papic): failproof the sampler "keep = permanent" promise — paid-ownership backstop + CI regression guard
+
+Owner: "failproof it." The "connect Drive OR upgrade to paid Papic = photos kept forever" promise is now enforced across several best-effort sites (3 convert hooks #1577 · capture-time stamp · the retention-sweep self-heal #1586). Two ways it could still silently regress — both closed here.
+
+- **Residual code hole — the sweep backstop only recognized Drive grants.** `eventSamplerIsKept` (the keep-check the sweep self-heals on) checked only for an active Drive grant. So a couple who *upgraded to paid Papic* but whose `PAPIC_SEATS` activation hook's best-effort `expires_at` clear silently failed would NOT be caught by the sweep — their photos would still be deleted. `eventSamplerIsKept` now also returns true for **paid Papic ownership** (`eventOwnsPapicSeats`, service-role), so the sweep self-heals **both** convert paths regardless of which hook missed. (Harmless at the capture site — paid owners don't reach the free sampler.)
+- **CI regression guard** (`scripts/lint-papic-keep-permanent.mjs` + `lint:papic-keep` + new CI job, matching `lint-entitlement-gates`). Presence-checks the whole chain stays wired: paid-upgrade hook → `makeSamplerPermanent`; Drive callback → `makeSamplerPermanent`; storage→Drive switch → `makeSamplerPermanent`; sweep → `eventSamplerIsKept` + `makeSamplerPermanent`; capture → `is_free_sampler` + `eventSamplerIsKept`; and the keep-check itself references BOTH `oauth_grants` and `eventOwnsPapicSeats`. If any link is un-wired by a future refactor, CI **fails loudly and names the cut wire** instead of couples silently losing photos at day 30. Verified locally: passes intact, fails (exit 1) when a wire is cut, passes again when restored.
+
+No migration. The locked `expires_at IS NULL = permanent / 5-year` rule is untouched.
+
+SPEC IMPACT: iteration 0012 sampler — the keep-permanent backstop now covers paid upgrades too, and is regression-proofed at PR-merge time. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(papic): dashboard sampler-retention card + sampler-aware gallery nudge — close 2 of the #1577 audit's conversion-UX findings
+
+From the same "make the sampler powerful" push. The #1577 52-agent audit confirmed two conversion-UX gaps it left for owner triage — **"gallery not sampler-aware"** and **"banner informational-not-converting."** This closes both on the couple's Papic add-on dashboard (`/dashboard/[eventId]/add-ons/papic`) — the surface where the real convert actions already live (the Drive-connect inside the storage card + the crew-pack `InlineCheckoutDrawer`).
+
+- **New on-page `SamplerRetentionCard` — "Keep your free photos forever."** Gated on `!ownsPapicSeats && samplerExpiringCount > 0`; it reads the soonest non-expired `papic_photos.expires_at` (mirroring the `/crew` banner's countdown so both surfaces agree). **Two co-equal CTAs** (owner pick 2026-06-16: equal weight, no visual primary): **"Keep your own copy — Google Drive"** and **"Upgrade to full Papic · ₱…"**.
+- **Free-first + 503-safe by design.** The Drive CTA **anchors DOWN to the storage card** (`#papic-storage`) rather than deep-linking `/api/oauth/drive/start` (which 503s when `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is unset). The storage card owns the connect button + its own "coming soon — admin setup pending" gate, so the 503 route is never surfaced from a CTA. The upgrade CTA reuses the crew pack's `InlineCheckoutDrawer` and renders only when platform settings are present (the drawer needs the BDO/GCash QR refs); the free Drive path renders regardless.
+- **`GalleryPreviewCard` is now sampler-aware.** A slim "Your N free sampler photos expire in X days — keep them" nudge sits above the grid (where the couple actually sees the photos) and links up to `#papic-keep`.
+
+Single file (`app/dashboard/[eventId]/add-ons/papic/page.tsx`), additive — no new deps, no migration, reuses the existing `PAPIC_SEATS` SKU + the #1577 keep-permanent mechanic. tsc 0 · `next lint` clean. PR pending (branch `claude/papic-sampler-retention`, auto-merge).
+
+SPEC IMPACT: iteration 0012 — the couple-side Papic add-on page now **converts** the free sampler (was informational only); closes the #1577 audit's "gallery not sampler-aware" + "banner informational-not-converting" findings. No SKU / schema / pricing / public-surface change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(payments): red-team hardening of the bundle-entitlement fixes (PR4d)
+
+A 14-agent adversarial red-team (workflow `entitlement-redteam`) tried to break the merged PR4/PR4b fixes across 5 angles and found 8 confirmed holes (1 candidate refuted). Fixed the confirmed ones:
+
+- **Complete buyer couldn't launch Panood (high)** — the couple-facing Panood gates (add-on page, galleries, launch hub "Go live") resolve via `resolveAddOnState()`, which matched only à-la-carte SKU orders, not the bundle code. A MEDIA_PACK buyer's single `MEDIA_PACK` order matched nothing → stuck on "add". Fix: `resolveAddOnState` now adds the *granting* bundle code(s) for the feature's canonical SKU to its ownership query — Panood→`PANOOD_SYSTEM` is in **MEDIA_PACK only**, so Essentials buyers are NOT over-granted, and the existing paid/fulfilled-vs-submitted gating treats a bundle exactly like an à-la-carte order (paid→launch, submitted→request_sent, refunded→re-locks). (Guest watch-live was already bundle-aware; this closes the couple side.)
+- **Refunded/cancelled Setnayan AI stayed ON forever (high)** — the feature reads the stored `events.setnayan_ai_active` boolean, which activation stamps true but nothing ever cleared, so a full refund left the paid AI live ("refund the money, keep the AI"). Added `deactivateOrderSku()` in `lib/sku-activation.ts` (symmetric to `activateOrderSku`), called from `refundOrder` + `rejectPayment` after the status flip. It **re-derives** ownership via `eventOwnsSku` (bundle-aware, refund-aware, admin client) and clears the flag *only* when the event no longer owns AI by any other live order/bundle — so a couple who owns AI twice (à-la-carte + bundle) keeps it on a single refund. `PAPIC_SEATS` sampler-permanence is deliberately NOT reversed (owner-locked "upgrade = permanent").
+- **AI activation hook swallowed its DB error (med)** — now surfaces it so the dispatcher's outer catch logs it (silent un-provisioning had no retry signal).
+- **Bundle fan-out had no per-child fault isolation (was latent, now real)** — PR #1577 added a 2nd child hook (`PAPIC_SEATS`), so a `SETNAYAN_AI` write error could starve `PAPIC_SEATS`. Each child call is now try/caught (honors the file's "every hook non-fatal" contract).
+- **Branded-QR + custom-qr gates were purchaser-scoped (high)** — the ownership read ran under the user's RLS client, but `orders` RLS is `user_id = auth.uid()`, so a co-host event member who didn't personally place the order was denied a SKU the event paid for. The guest/event reads ARE the membership gate; ownership is an event-level fact → now read with the admin client (post-authorization) in the public QR route + the custom-qr detail & print pages.
+
+Refuted: "checkOrderOwnership omits 'draft'" — by design (a `draft` order isn't a committed purchase).
+
+**⚠ OWNER NOTE — systemic, NOT fixed here:** `orders` RLS is purchaser-scoped (`USING (user_id = auth.uid())`, migration `20260513150000`), never broadened to event members. So **every** couple-SKU gate that reads `orders` under a user-scoped client denies a co-host (non-purchaser) member — PR4d fixed the specific surfaces above, but the general fix is an **RLS migration** giving event members SELECT on their event's orders (e.g. `event_id IN (SELECT current_event_ids())`). That needs owner sign-off: (a) a co-host would then see the event's order amounts (privacy), and (b) it's a migration (currently `db push` is blocked by the orphan `20270102000000` ledger row). Until then, `resolveAddOnState`'s à-la-carte path and any other user-client gate still deny co-hosts.
+
+Verified: `tsc --noEmit` 0 · `lint entitlement gates` clean (all new reads use `eventOwnsSku`) · 25/25 unit tests · existing lints pass.
+
+SPEC IMPACT: None (correctness hardening of the already-specced apply-then-pay entitlement flow). Logged in `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): sampler retention sweep now respects "keep = permanent" (defense-in-depth + tests)
+
+Follow-up hardening on #1577. #1577 cleared `papic_photos.expires_at` at the three convert moments (paid `PAPIC_SEATS` activation, Drive OAuth callback, Papic storage→Drive switch) + a capture-time check — but those clears are **best-effort**, so a silent miss or a connect-then-sample row could still leave a converted event with expiring sampler photos that `sweepExpiredSamplerPhotos` would then delete. The sweep itself had no guard.
+
+- **`lib/papic-retention.ts`** — before deleting anything, the sweep now asks `eventSamplerIsKept(eventId)` (active Drive grant). For a **converted** event it **self-heals** — `makeSamplerPermanent(eventId)` flips the rows' `expires_at → NULL` — and deletes nothing. Self-heal (not just skip) is deliberate: the couple gallery hides any row whose expiry is already past, so skipping alone would keep the bytes but still vanish the photos from the couple's view. After the heal the rows are permanent (`expires_at IS NULL`) and the sweep — which only ever selects non-null, past expiries — can never see them again, preserving the locked "`expires_at IS NULL` = permanent" rule.
+- The orchestration moved to a **pure `lib/papic-retention-core.ts`** (no `server-only`; type-only `R2BucketName` import) that takes injected seams (`SweepDeps`: `isKept`/`makePermanent`/`fetchExpired`/`deleteRows`/`deleteObject`); `papic-retention.ts` is now a thin server-only wrapper supplying the real seams. This matches the repo's testable-engine pattern — a `'server-only'` module can't be imported under `tsx --test`, so the test targets the pure core.
+- **`lib/papic-retention-core.test.ts`** (new) — `node:test` suite (runs in CI via `test:unit`): converted event self-heals + deletes nothing; un-converted event with expired rows deletes the right R2 refs + row ids and returns the count (also asserts the `r2://bucket/key` parse + that a null poster is skipped); empty + read-error (pre-migration column) → no-op, never deletes; a failing R2 object delete never aborts the row cleanup.
+
+Paid-upgrade's own `expires_at` clear (the other half of "most robust") already shipped in #1577's `PAPIC_SEATS` hook. The locked 5-year/permanent retention (`expires_at IS NULL` rows) is untouched — the sweep never fetches them.
+
+SPEC IMPACT: iteration 0012 sampler — the retention sweep is now the last line of defense for "connect Drive / upgrade = permanent." Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
+
+A **second, distinct** multi-pick data-loss bug (separate from the #1512 compute-path fix): the Build "Your build" Remove (X) button called `removeBuildPick({ eventId, planGroupId })` **without a `vendorId`**, and `removeBuildPick`'s vendorless branch deletes EVERY pick in the category. So removing one vendor from a multi-pick category (Look / Booths / Prints) silently wiped the couple's **other** picks in that category. Found while auditing whether the original (#1512) bug was truly closed — it was; this is a different write path.
+
+Fixed + failproofed (defense-in-depth so the class can't recur):
+
+- **Live fix** — `app/dashboard/[eventId]/vendors/_components/build-picks-list.tsx` now passes `vendorId: item.vendorId`, so Remove drops only that one pick.
+- **Foolproof API** — `removeBuildPick`'s `vendorId` is now **REQUIRED**; the silent "omit → wipe whole category" path is gone (whole-build reset stays the explicit `clearBuildPicks`). `tsc` proves no caller relied on the old optional form.
+- **Single source of truth** — new `lib/build-pick-rules.ts` `replacesSiblingsOnPin()` (= `!isMultiPickGroup`); both `setBuildPick` and `runBuild3State` route their sibling-clearing decision through it, so the guard can't be half-applied or quietly dropped in a refactor (it was nearly lost once in the #1568 Build refactor that deleted `build-flags-actions.ts`).
+- **Testable write cores** — new `lib/build-pick-write.ts` `pinBuildPickRow`/`removeBuildPickRow` are the only add/pin/remove mutators of `event_build_picks`; they enforce the guard. (The deliberate whole-build resets `applyBuildToWorking`/`clearBuildPicks` stay open-coded.)
+- **Regression tests** — `lib/build-pick-rules.test.ts` (decision over every `PLAN_GROUP`) + `lib/build-pick-write.test.ts` (fake recorder client asserting a multi-pick pin issues **NO** delete, a single-pick pin scopes its `.neq`, and remove targets exactly one vendor). 11 new tests; the suite fails loudly if the guard ever regresses.
+
+Verified in the worktree: `tsc --noEmit` 0 · `test:unit` 237/237 · `next lint` clean. A 4-lens adversarial review (data-loss completeness · regression-equivalence · test efficacy · schema soundness) returned **ship / no blockers** (one doc-comment nit, fixed).
+
+SPEC IMPACT: None (correctness fix + test/guard hardening; no SKU / schema / pricing / public-surface change). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(papic): web 5-second clip capture + sampler-aware counter & cap-hit on the seat surface
+
+From the sampler power-audit (owner picked "build clips" + the conversion power-ups). Three things on the friend's `/papic/seat/[token]` capture surface:
+
+- **Real 5-second clips on the web.** The capture component gains a Photo/Clip toggle and a `MediaRecorder` clip mode: records the live session stream, **hard-stops at 5 000 ms** (the corpus clip cap — not configurable), grabs a poster frame, presigns + PUTs both the video and poster to R2, and records via `recordSeatCapture(token, ref, 'clip', posterRef)`. The server side was already ready — `/api/upload` allows `video/mp4|webm|quicktime` and `recordSeatCapture` already handles `kind='clip'` + poster + the 2-clip sampler cap; only the client UI was missing. This makes the long-standing "2 clips each" sampler copy **true** (resolves the audit's "clips unreachable / over-promise" finding by building, not softening). Clips work for paid seats too (uncapped).
+  - **iOS-safe audio:** one `getUserMedia` for the whole session, requesting audio up front so clips have sound, falling back to **video-only if the mic is denied** (the camera never breaks). No second `getUserMedia` mid-record, which is what drops the camera on iOS Safari.
+  - Browser-portable container via `MediaRecorder.isTypeSupported` (Safari→mp4, Chrome/Firefox→webm); the poster is best-effort (clip still lands without it).
+- **Sampler-aware shots counter.** The header pill now reads `N/8 photos` / `M/2 clips` for a free-sampler seat (mode-aware) and `N shots` for an uncapped paid seat — the friend can see the cap coming. Per-kind counts are loaded in the seat page and the caps (`PAPIC_SAMPLER_PHOTO_CAP`/`CLIP_CAP`) passed as props.
+- **Correct cap-hit moment.** Hitting a cap previously surfaced a factually-wrong "didn't save — check your signal" error. It now shows a celebratory "that's all your free photos/clips — every one's in the couple's gallery," with a one-tap nudge to the other mode if it still has room. (`recordSeatCapture`'s `sampler_*_cap` results are treated as a full-state, not an error.)
+
+Component prop change: `initialCount` → `initialPhotos` + `initialClips` + `photoCap`/`clipCap`; the only caller (the seat page) is updated in the same PR.
+
+SPEC IMPACT: iteration 0012 — the web Papic capture slice now does clips (was "photos only, clips a documented follow-up"); the sampler "2 clips each" promise is now real. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): three free-sampler correctness fixes — live count, Drive backlog flush, distinct reminder subject
+
+Three independent, additive/best-effort fixes from a Papic free-sampler audit (no migration; none change existing happy-path behavior):
+
+- **Admin sampler count counted already-expired (and now kept) rows** — `apps/web/app/admin/papic-sampler/page.tsx` counted `papic_photos` filtered only by `expires_at IS NOT NULL`, so it included rows whose expiry had already passed but the opportunistic sweep hadn't deleted yet. (After the keep-permanent fix #1577, made-permanent photos correctly have `expires_at = NULL` and drop out.) Added `.gt('expires_at', new Date().toISOString())` to the count query so it reflects only currently-LIVE sampler photos.
+- **Drive-copy backlog never flushed on connect** — `apps/web/app/api/oauth/drive/callback/route.ts` made sampler photos permanent on a successful Drive connect (#1577) but never flushed pending `drive_copy_artifacts` rows (including captures taken BEFORE the connect), so the couple's "own copy in Drive" could fail to land. Added a best-effort background `after(() => runDriveCopyBatch({ eventId }).catch(() => {}))` after the keep-permanent path, just before the redirect. Imported `after` from `next/server` and `runDriveCopyBatch` from `@/lib/drive-copy`.
+- **T-7 and T-1 reminder emails shared one subject** — `apps/web/lib/papic-sampler-emails.ts` sent both scheduled expiry warnings with the same `subject`, so in Gmail the urgent T-1 collapsed under the T-7 thread. The T-7 send keeps `Your free Papic photos — keep them before they roll off`; the T-1 send now uses `Last day — your free Papic photos roll off tomorrow`. Scheduling logic, the once-per-event lock, and the #1572/#1577 guards are untouched; body/personalization unchanged.
+
+SPEC IMPACT: None — correctness/polish on iteration 0012 sampler.
+
+## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
+
+After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):
+
+- **GUARD 1 — bundle-aware gate discipline:** `checkOrderOwnership()` (the bare exact-key reader, blind to bundle ownership) may be CALLED only from `lib/entitlements.ts` (where `eventOwnsSku()` delegates to it) or test files, or a call line annotated `entitlement-gate-lint: bare-ok <reason>` for a SKU that's in no bundle. Any new couple-SKU gate using the bare reader fails CI — exactly the check that would have caught PR4b's 3 bugs. Resolved the two pre-existing bare callers: **`pro-website.ts` → `eventOwnsSku`** (PRO_WEBSITE *is* a bundle child; dead code today but now correct-if-revived), and **`indoor-blueprint.ts`** annotated `bare-ok` (INDOOR_BLUEPRINT is in no bundle — bare is correct).
+- **GUARD 2 — bundle-membership single source of truth:** the three mirrors of "which child SKUs each bundle grants" must agree exactly — `BUNDLE_MEMBERS` (onboarding-pricing.ts, the buy surface) ↔ `BUNDLE_CHILD_SKUS` (entitlements.ts, the read gate) ↔ `bundles_granting_sku()` (the DB provisioning SQL). Drift = a bundle buyer denied (or over-granted) a child SKU. Also asserts no bundle code nests as a child (the `activateBundleChildren` recursion-safety invariant).
+- +1 unit test (recursion-safety invariant) → `entitlements.test.ts` 25/25.
+
+Both guards proven non-vacuous: a planted bare call fails GUARD 1; removing one SKU from a mirror fails GUARD 2; clean after revert. `tsc --noEmit` 0; existing lint scripts unaffected.
+
+SPEC IMPACT: None (CI-only guardrail). Logged in `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
+
+Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.
+
+- `apps/web/lib/social/facebook.ts` — new `resolvePageAccessToken(pageId, configuredToken)` calls `GET /{page-id}?fields=access_token` to exchange the System User token for the Page token before publishing. Per-process memo (keyed by source token — a Page token derived from a never-expiring SU token is itself non-expiring), 15s timeout, safe fallback to the configured token on exchange failure (a no-op when the env already holds a real Page token, so the change is correct for either credential type). Diagnosed against the live token: it debugs as `type: SYSTEM_USER` with `pages_read_engagement` + `pages_manage_posts` + `pages_manage_engagement` granted; the exchange yields a `type: PAGE` token for page `1142862912244794`.
+
+Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
+
+SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
+## 2026-06-16 · fix(papic): honor the locked "connect Drive OR upgrade = permanent" sampler promise (CRITICAL)
+
+A 52-agent end-to-end audit of the free Papic sampler found one critical, load-bearing defect (flagged independently by 5 dimensions, adversarially verified): the locked rule "connecting Google Drive OR upgrading to paid Papic makes sampler photos permanent" (migration `20270103000000` lines 6-8) was **entirely unimplemented** — there was no `.update()` on `papic_photos.expires_at` anywhere in the app. So a couple who *converted* (the funnel's whole goal) still had their sampler photos **deleted at day 30** — including from their **paid** gallery — and the reminder email told them "every original is safe" while it happened.
+
+Fix (no migration — all paths are service-role; the promise now lives in one place):
+
+- **`lib/papic-sampler.ts`** (new) — `makeSamplerPermanent(eventId)` clears the 30-day `expires_at` on an event's sampler photos (idempotent, service-role, best-effort/never-throws); `eventSamplerIsKept(eventId)` reports whether an active Drive grant already exists.
+- **Sample-then-convert** (the common path): `makeSamplerPermanent` + `cancelSamplerExpiryWarnings` fire at all three convert moments — the paid-`PAPIC_SEATS` activation hook (`lib/sku-activation.ts`, also reached by MEDIA_PACK bundle buyers via the child fan-out), the Drive OAuth callback (`app/api/oauth/drive/callback/route.ts` — covers both Papic and Photo-Delivery entry points), and the Papic storage→Drive switch (`add-ons/papic/actions.ts`).
+- **Convert-then-sample** (Drive connected before sampling): `recordSeatCapture` now stamps `expires_at = null` when `eventSamplerIsKept` is true, so those shots are born permanent.
+- **Cancel-on-keep** — `cancelSamplerExpiryWarnings(eventId)` (new, in `lib/papic-sampler-emails.ts`) pulls the two scheduled Resend T-7/T-1 emails on conversion via the stored `papic_sampler_email_log` message ids, backed by a new `cancelScheduledEmail(id)` in `lib/email.ts`. Gated on `RESEND_API_KEY` + best-effort, so it's a no-op while Resend is off.
+
+All hooks are non-fatal and idempotent — a failure can never roll back a payment activation or a Drive connect. Once `expires_at` is NULL the existing retention sweep skips the rows and the gallery stops hiding them, so no sweep/gallery changes were needed.
+
+SPEC IMPACT: iteration 0012 sampler — the "keep = permanent" promise is now actually implemented (it was spec-locked but unbuilt). Logged in corpus `DECISION_LOG.md`. The audit's other 29 findings (conversion-UX power-ups, the unwired QR-tag leg, web clips unreachable, abuse posture) are summarized for owner triage, not in this PR.
+
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+
+A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:
+
+- **CUSTOM_QR_GUEST (high severity)** — `eventOwnsSku` at all 3 gates: the add-on page (`add-ons/custom-qr-guest/page.tsx`), the print pack (`print/page.tsx`), and the public branded-QR route (`api/website/qr/guest/[guestId]/route.ts`, try/catch 500-path preserved).
+- **ANIMATED_MONOGRAM** — one-line helper swap in `lib/animated-monogram.ts` (`eventOwnsAnimatedMonogram` → `eventOwnsSku`); fixes all 3 runtime gates (public hero, dashboard monogram, add-on page) that share the helper.
+- **SETNAYAN_AI** — the subtle one: its feature gates read the STORED `events.setnayan_ai_active` boolean (via `isSetnayanAiActive`), NOT a read-time ownership query, so a read-side swap alone would NOT fix the feature. Added `activateBundleChildren()` to `lib/sku-activation.ts` — a `GUIDED_PACK`/`MEDIA_PACK` approval now fans the bundle's children through their own activation hooks (membership from `BUNDLE_CHILD_SKUS`, so it can't drift from the gate; idempotent; only flag-backed children do anything — today just SETNAYAN_AI). Also swapped the add-on page `owns` check to `eventOwnsSku` so a bundle buyer isn't offered a second purchase during the reconciliation window before activation stamps the flag. **Live, not latent** — the owner flipped `SETNAYAN_AI_PAYWALL_ENABLED=true` on prod 2026-06-16, so this denial was active for bundle buyers.
+- `INDOOR_BLUEPRINT` stays on the bare reader — confirmed in NO bundle, so it's correct.
+- +6 regression tests in `lib/entitlements.test.ts` (a GUIDED_PACK and MEDIA_PACK buyer owns each of the 3 SKUs via `eventOwnsSku`). 24/24 pass. `tsc --noEmit` exit 0.
+
+**⚠ Owner note — website cluster left for a follow-up (NOT a live bug):** `PRO_WEBSITE`/`EVENT_WEBSITE`/`PRO_RSVP` are in `BUNDLE_CHILD_SKUS` but were retired by the website collapse into `COUPLE_WEBSITE_PRO` (₱3,999). `eventOwnsProWebsite` has ZERO live callers (dead code), and `COUPLE_WEBSITE_PRO`'s ownership gate + buy surface aren't built yet ("follow-up"). So nobody is denied today. When that gate IS built, `BUNDLE_CHILD_SKUS` must be updated (swap the 3 retired website SKUs → `COUPLE_WEBSITE_PRO`) **and** the owner must decide whether Essentials/Complete include the ₱3,999 website unlock (a pricing call → holistic pass).
+
+SPEC IMPACT: None (mechanical completion of the already-specced PR4 dead-unlock repair, extended to the SKUs PR4 missed). The fix surface — bundle-aware ownership reads + a bundle activation fan-out — matches PR4's design. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
+
+Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total: 4 rigid envelopes + 2 veils + 1 curtain). PR1–PR3 shipped the four-flap envelope + the sheer veil + the in-dashboard preview/rewire; this lands the **4 remaining** openings, all behind the same `NEXT_PUBLIC_STD_REVEAL` flag (default OFF → zero live impact):
+
+- **`rigid-reveal.tsx`** (new) — three rigid envelopes on the four-flap pure-CSS-3D engine (no WebGL dep → inside the guest-site Lighthouse budget), via a `variant` prop: **two-flap-vertical** (splits left | right, swings open), **two-flap-horizontal** (top | bottom), **church-doors** (two arched doors swing wide, 2-panel inset + gold trim). Each flap is two-sided — paper front, liner-accent back — so you glimpse the inner colour as it swings past upright. Recolours via the per-event moodboard Tailwind tokens (cream / terracotta / mulberry / ink), ₱0.
+- **`veil-crown.tsx`** (new) — bridal veil V2 "crown-pinned · folding": a three.js Verlet cloth gathered narrow at the crown, fanning into deep folds to the hem; drag / scroll lifts the **hem up & back over the crown**. Code-split via `next/dynamic(ssr:false)` like the sheer veil — main bundle untouched.
+- **`veil-shared.ts`** (new) — extracted the gold Setnayan mark + procedural tulle-net / filigree-lace-hem texture + recolourable fresnel material out of `veil-reveal.tsx`, now shared by both veils (the "shared net body + lace hem" the design calls for). `veil-reveal.tsx` refactored to consume it (−211 lines, behaviour identical).
+- **`reveal-templates.ts`** (new) — tiny pure registry (template type · `?reveal=` aliases · ordered library) shared by the overlay and the studio chooser at zero bundle cost.
+- **`reveal-overlay.tsx`** — the switch now routes all six; `?reveal=` accepts every id (e.g. `?reveal=church-doors`, `?reveal=two-flap-horizontal`, `?reveal=crown`) plus the back-compat `veil` / `envelope` aliases, so any template is previewable on a Vercel preview without flipping the global flag.
+- **`reveal-preview-card.tsx`** — the studio "Opening reveal" chooser now offers all six (preview-only; per-event persistence + a content editor remain a separate, owner-deferred step).
+
+Six of seven templates now built; the **curtain (Veil C)** is the only one outstanding (its own follow-up). `tsc --noEmit` 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
+
+SPEC IMPACT: 0024 Save the Date — completes the §1a reveal library minus the curtain; design-locked in the corpus, lands behind the existing flag. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(payments): merge-forward PR4 (dead-unlock repair) onto current main + close a freshly-reintroduced dead-path gate
+
+PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 commits behind `main`) with only a failed Vercel deploy blocking its auto-merge. Merged current `origin/main` into the branch to bring it up to date and re-trigger a fresh deploy. The merge was mechanical: one trivial import-union conflict in `app/[slug]/_components/editorial/data.ts` (kept BOTH `eventOwnsSku` and main's new `fetchEventRecommendations`); `admin/payments/actions.ts` auto-merged (main's `getSetnayanFeeBps` and PR4's reject-cancel/approve-activate live in different functions); CHANGELOG union.
+
+- **New dead-path gate closed (in-scope extension):** the merge surfaced `app/dashboard/[eventId]/launch/page.tsx` — the day-of Services LAUNCH hub, added on main by the Event Lifecycle Menu work — gating the Live Photo Wall "Open the wall" launch button on the dead `event_software_activations_v2` table (the exact bug PR4 fixes everywhere else). A LIVE_WALL / Media-Pack buyer whose ownership lives in `orders` would have wrongly seen the upsell instead of the launch button on their wedding day. Rewired to `eventOwnsSku(supabase, eventId, 'LIVE_WALL')` — orders-backed + bundle-aware — identical to the sibling `/live` gate. Now the ONLY remaining `event_software_activations_v2` reads in the repo are the manpower-telemetry routes (`api/v1/manpower/*`), which are not couple-SKU payment gates.
+- Verified locally: 18/18 `lib/entitlements.test.ts` pass (covers `checkOrderOwnership` + `eventOwnsSku` + `BUNDLE_CHILD_SKUS`). Full `typecheck + lint` / `production build` delegated to required CI on push.
+
+SPEC IMPACT: None (mechanical merge-forward + one additional site of the same already-specced dead-unlock repair). The PR4 behavior — ownership reads off `orders.status`, reject-revokes, approve-always-activates, bundle-aware — is unchanged.
+## 2026-06-16 · fix(papic): don't burn the sampler-email lock when Resend is unconfigured
+
+Hardening on the cron-free sampler expiry emails shipped in #1566. `scheduleSamplerExpiryWarnings` claimed the once-per-event `papic_sampler_email_log` PK lock **before** attempting the Resend sends. Because `RESEND_API_KEY` is still unset in prod (OWNER_ACTIONS Phase 2 deferred), every first sampler capture today writes the lock row and sends nothing — so the day the owner keys Resend, those events are *permanently* locked out of their T-7/T-1 reminders (the next capture's insert hits 23505 and bails).
+
+- **Top guard** — `if (!isEmailConfigured()) return;` runs *before* the lock insert, so a keyless capture schedules nothing **and** claims nothing; a later capture (once the key is live) still gets to schedule. Mirrors the file's existing "resolve couple email first so we don't burn the lock on an unreachable couple" rationale.
+- **Release-on-failure** — if the key *is* present but both sends fail (transient Resend error), the lock row we claimed is deleted so a later capture retries. With no message ids there's nothing to double-cancel, and a possible duplicate reminder beats zero reminders. The normal success path is unchanged (ids stored, lock kept).
+- No migration; no behavior change while Resend stays off except that the lock is no longer burned. Code-only, single file.
+
+Note for the owner: the feature itself was already built+merged (#1566) and its migration `20270107000000` is applied to prod — but **no sampler emails will send until `RESEND_API_KEY` is set in Vercel** (OWNER_ACTIONS Phase 2). Couples who sampled *before* that flip won't be back-scheduled (the reminders schedule on first capture); the in-app expiry banner from #1558 backstops them.
+
+SPEC IMPACT: iteration 0012 sampler — reminder scheduling is now safe across the Resend-off→on transition. Logged in corpus `DECISION_LOG.md` (which was also missing the #1566 landing).
+
+## 2026-06-16 · feat(compare): Lock now confirms too (same overwrite as Modify)
+
+Owner go-ahead. Compare's *Lock* runs the same `applyBuildToWorking` as Modify, so it also overwrites the live working build (before routing to the Lock tab) — it now goes through the same confirm dialog. `onApply` confirms for BOTH destinations when the working build has picks to lose; the confirm button reads **Lock** vs **Replace** by action. Also unified the dialog body to "This replaces your current build with “{name}”…" (drops the Modify-only "Build tab" phrasing so it reads right for both).
+
+SPEC IMPACT: 0016 Compare — Modify AND Lock are both confirm-first destructive actions.
+
+## 2026-06-16 · chore(compare): simpler Modify-confirm wording
+
+Owner: "fix the wordings and make it simpler." Tightened the Modify confirm dialog — body is now "This replaces what's on your Build tab with “{name}”. Save your current plan first if you want to keep it." and the buttons are **Replace** / **Cancel** (were "Replace & modify" / "Keep current"). Copy-only; no behavior change.
+
+SPEC IMPACT: None (UI copy).
+
+## 2026-06-16 · feat(social): Journal → Facebook bridge — auto-syndicate every blog article as a teaser post
+
+Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "start information" teasers that hook readers to the full article — and every future daily article to ride the same rails automatically. The social autopilot (`lib/social/flush.ts`) already composes/schedules/dispatches FB posts cron-free with a rate governor + admin queue, but it only knew about new couples + verified vendors. This adds the blog as a content source.
+
+- **`lib/social/flush.ts`** — new `sweepJournalArticles()` (Phase-1 compose sweep): every **published** `BLOG_ARTICLES` entry without a post yet → a `social_posts` row. Body = a curiosity-hook caption; `link_url` = the article URL so Facebook attaches its **native link card** (the article's OG cover + title + description) and stays clickable. (The on-the-fly card URL has no image extension, so dispatch already takes the `/feed` link-post branch — a photo post would drop the link.)
+- Rides `source_type='announcement'` with a deterministic `journal:{slug}` ref — **no migration** (the existing `source_type` CHECK has no `journal_article`, and `supabase db push` is currently blocked by the orphan `20270102000000` ledger row). The partial-unique index `(source_type, source_ref)` gives compose-once / never-repost for free; a pulled teaser won't resurrect. Shows in `/admin/social-queue` as "Journal · {title}".
+- **`lib/social/journal-hooks.ts`** (new) — 10 hand-written, benefit-led, price-free hook captions keyed by slug; an article with no hook falls back to its `excerpt`, so a future daily article posts fine before a bespoke hook exists.
+- Drip behavior: no hold window → each article takes the next governor slot (FB ≤3/day · ≥3h apart), so the 10-article backlog spreads over ~4 days instead of flooding. Future-dated articles (`publishedAt` gate) stay out until their day — the mechanism a daily drip will use.
+
+**Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
+
+SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
+## 2026-06-16 · feat(compare): confirm before Modify overwrites the working build
+
+Owner spec for the Compare tab: "the role of compare is to compare the saved builds on build. we can choose to delete, modify or lock. modify will jump that build back to build and erase whatever build is on build. notify the user first before commencing this action."
+
+- **Modify now confirms first.** Clicking *modify* on a saved build runs `applyBuildToWorking`, which OVERWRITES the live working build with that saved build's picks. `onApply` now awaits the shared `useConfirm()` dialog ("Replace your current build?" · "Replace & modify" / "Keep current" · destructive tint) before applying — but only when the working build actually has picks to lose (an empty working build → no prompt). The saved build's title is shown in the body.
+- Wires the existing on-brand `app/_components/confirm-dialog.tsx` (HTML5 `<dialog>`, focus-trap + ESC), not a `window.confirm`.
+- **Note for owner:** *Lock* uses the same `applyBuildToWorking` and therefore also overwrites the working build (before routing to the Lock tab). Only Modify was named, so Lock is left unguarded pending your call.
+
+SPEC IMPACT: 0016 Plan Builder / Compare tab — Modify is a confirm-first destructive action. Logged in `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
+
+The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.
+
+- **migration `20270107000000`** (applied to prod) — `papic_sampler_email_log` (event_id PK = once-per-event lock; t7/t1 message ids for an optional future cancel; admin-only RLS).
+- **`lib/email.ts`** — `SendEmailArgs.scheduledAt?` passed through to Resend (`resend@6.12.3` supports it). Immediate send unchanged.
+- **`lib/papic-sampler-emails.ts`** (new) — `scheduleSamplerExpiryWarnings(eventId, expiresAt)`: resolves the couple's email, PK-locks once per event, schedules the two emails. Copy is worded so it's correct whether or not they later keep the photos ("ignore this if you've already connected Drive or upgraded") — so no cancel-on-keep hook is required. Never throws.
+- **`papic/actions.ts`** — `recordSeatCapture` `after()` calls it for sampler captures (lazy import, best-effort).
+- Dormant until `RESEND_API_KEY` is set (same gate as every other email). `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — sampler expiry emails (cron-free, provider-scheduled). Closes the last sampler follow-up. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · chore(build): retire the legacy Pin/Flag Build + the BUILD_3STATE_ENABLED flag (3-State is now the only path)
+
+The 3-State Build (Locked/Auto/Excluded) went live on production earlier today; the feature flag is no longer a rollback switch worth keeping (owner: "clean it all now"). This removes the flag and every legacy code path it gated, so there's a single Build implementation to maintain.
+
+- **Flag removed.** Deleted `isBuild3StateEnabled()` from `lib/build-3state.ts` and every guard/branch: `page.tsx` now mounts `Build3StateControl` unconditionally; the four server actions (`getCategoryBuildStates` / `setCategoryBuildState` / `resetBuildStates` / `runBuild3State`), the fallback action, and `savePlanBuildNamed` drop their flag re-checks.
+- **Legacy Build-tab files deleted** (only reachable via the old flag-off path): `_components/build-pins.tsx` (BuildPins), `_components/build-anchors.tsx` (BuildAnchors component — its `AnchorData` type moved into `build-3state-control.tsx`; the `setAnchor` action in `build-anchors-actions.ts` is KEPT, the new DimensionRow uses it), `_components/category-flags.tsx`, `_components/build-compute.tsx`, and `build-flags-actions.ts` (the `budget_category_flags` writes).
+- **Compare locked to named builds.** `build-compare.tsx` drops the `named` prop and the A/B/C slot save bar + `slot`/`SLOTS`/`takenSlots` machinery; `savePlanBuild` (the A/B/C upsert action) is deleted. Save-As is now the only save path. `deleteBudgetBuild` + `BuildSlot` (read type for legacy `'A'|'B'|'C'` labels still on old rows) are kept.
+- **Kept as-is:** the `budget_category_flags` table itself (no longer written, but not dropped here — a table-drop migration is a separate, audited step to avoid data loss). Stale "default OFF / flag-gated / A/B/C is live" docstrings updated to match.
+- Net: 5 files deleted, 9 modified; no DB change.
+
+SPEC IMPACT: `Build_3State_Solver_2026-06-16.md` is the live + only Build (the flag/rollback framing is retired). Logged in `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
+
+Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.
+
+**The real lever is a minimum play TIME, not scroll distance.** Owner's sharper framing: a fast swipe should still take the clip's *set* number of seconds to finish (the animation keeps playing slowly after the finger stops) — and frame count is a *smoothness* lever, not a *duration* lever.
+
+- **`apps/web/app/_components/marketing/HeroVideoScrub.tsx`** — the frame is no longer a pure function of scroll position. The rendered progress now *chases* the scroll target through a **delta-time, speed-capped** rAF loop:
+  1. **`MIN_PLAY_SECONDS` (new, 5) + `MAX_RATE = 1/MIN_PLAY_SECONDS`** — the animation can advance at most `MAX_RATE` progress-per-second, so a full play-through **always takes ≥ MIN_PLAY_SECONDS no matter how fast you swipe**. A fling can't finish it in one flick; it keeps gliding at the capped rate, even after the finger stops, until done. A slow, deliberate scrub stays *under* the cap so it still tracks scroll 1:1 (`EASE_PER_SEC` softens the final settle). This is robust because `PostHeroReveal` collapses the content below the hero to zero height — a hard fling *lands* at the hero's end and stays pinned, so the animation finishes on-screen instead of scrolling away. Veil-fade still keys off **raw** scroll; reduced-motion + hold-nearest-loaded-frame unchanged.
+  2. **`TRACK_VH` 300 → 700** — kept as the runway a *deliberate* (slow) scrubber scrolls through at their own pace.
+  3. **Strategic preload (`LEAD` now rate-aware).** The loading veil still gates only on the *opening* frames (the rest stream in the background, `render()` holds the nearest loaded frame), so the frame bump did **not** lengthen the upfront wait. But the release threshold was a magic `24` — exactly 1s of buffer for a 120-frame/5s hero, yet 3s for a sparse 40-frame clip. Now `LEAD = round(N / MIN_PLAY_SECONDS)` (floor 8) buffers a consistent **~1 second of playback** regardless of frame count, and `fetchPriority: high` is aligned to exactly those frames. The time-paced playback *helps* here: a guaranteed-slow playhead (≤ N/MIN_PLAY_SECONDS frames/sec) gives the background stream far more runway to stay ahead, so stalls are rarer.
+- **`apps/web/app/admin/hero-video/hero-uploader.tsx`** — frame density **8fps → 24fps** (`MIN_FRAMES` 36→72, `MAX_FRAMES` 150→360). ⚠ **Load-bearing reversal flagged for owner:** with a seconds-long play-through, too few frames look like a stepped slideshow — this addresses the owner's "they extract only a few frames per second" hunch and partly reverses the earlier "keep it ~40 frames" perf trim. Frame count = *smoothness*, **independent** of the duration set by `MIN_PLAY_SECONDS`. Safe because frames preload behind the veil and stream progressively (the scrub releases after the opening frames), so a ~5–6s clip → ~120–144 frames ≈ 5–6MB of *streamed* bytes, **not** a front-door freeze. The currently-published live hero already has ~1,019 frames → slow + smooth with **no re-upload**; the bump only affects the *next* upload.
+
+`tsc --noEmit` green on both files (lint runs in CI). Verify on the PR's Vercel preview (the scrub only renders when a hero video is published). PR pending (branch `claude/hero-scrub-slower`, auto-merge).
+
+SPEC IMPACT: None on schema/SKU. Tuning of the homepage hero scroll-scrub (iteration 0015 main website). Logged in corpus `DECISION_LOG.md` (2026-06-16). The frame-density bump is the one decision to confirm. `MIN_PLAY_SECONDS` (duration) and the uploader FPS (smoothness) are independent dials.
+## 2026-06-16 · chore(std-reveal): rewire every Save-the-Date surface off the retired video, onto the reveal (PR3d)
+
+Owner: *"yes adjust everything that is wired to make this our new save the date."* Swept every code reference to the old ₱99 video product and pointed it at the free page-opening reveal. The `save_the_date_video` **SKU code stays everywhere it's a DB key** (historical-order fetches, receipt labels, persisted wizard task-id, v2 SKU map) so old buyers' orders never break — only *labels, copy, and the catalog's active flag* changed.
+
+- **`lib/sku-catalog.ts`** — `save_the_date_video` set `isActive: false`, dropped from `LAUNCH_PROMO_SKU_CODES` (7→6 active), added to `RETIRED_SKU_CODES` (it was already `is_active=FALSE` in prod since 2026-05-28).
+- **User-facing labels → "Save the Date" + `Sparkles` icon:** `lib/add-ons-catalog.ts` (label + icon + blurb "the opening reveal for your page… free, recolours to your palette" + CTA "Choose your reveal", dropped the now-unused `Video` import), `lib/route-meta.ts`, `lib/nav-registry-defaults.ts`.
+- **Copy fixes:** `lib/social-sharing.ts` ("rendered"→"made on Setnayan"), `lib/wizard.ts` prenup card ("feeds your save-the-date video"→"share as your save-the-date"), `supplies-marketplace` mailer blurb ("video QR"→"page QR"), `documents/page.tsx` (dropped the "Draft a Save-the-Date video" CTA clause), `admin/users/page.tsx` (comp-grant placeholders off the retired example), `your-plan-section.tsx` (`hasSaveTheDateOrder` reframed as historical-only).
+- **`lib/add-on-stats.ts`** — `'save-the-date': []` (no SKU; the reveal is free).
+- **`lib/save-the-date.ts` deleted** — orphaned video template library (`git rm`).
+- **LEFT intact (DB keys / receipts / tests):** `documents` creation-SKU set + receipt label map ("Save-the-Date Video" for old orders), `dashboard/page.tsx` historical-order fetch, `stress-test-lock-unlock.ts` fixture, `wizard.ts` task-id `'save_the_date_video'` (schema stability for `events.wizard_state`).
+
+`tsc --noEmit` 0 errors · `next lint` clean · `lint:retired` 0 retired strings (all verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the video render add-on is retired from every couple-facing surface; the Save-the-Date product is now the free page-opening reveal end-to-end. SKU bookkeeping in `service_catalog` already reflected the retirement; corpus DECISION_LOG row appended.
+
+## 2026-06-16 · feat(std-reveal): the Save-the-Date page IS the reveal now — replaced the video gallery (PR3c)
+
+Owner: *"replace."* `/dashboard/[eventId]/add-ons/save-the-date` is now the Save-the-Date **reveal** (the website opening), not the old ₱99 Save-the-Date **video** render.
+
+- Rewrote the page: reframed header ("how your wedding page opens for guests"), the `RevealPreviewCard` as the body; removed the video template gallery + how-it-works + Feature-Us + custom-request + the local `TemplateCard`/`Preview` components and their imports/queries.
+- **Video infra left intact (not deleted):** the `save_the_date_video` SKU, `@/lib/save-the-date` template library, `InlineCheckoutDrawer`, `FeatureUsCard` — existing orders + the catalog are unaffected, fully reversible. The page just no longer surfaces them.
+
+⚠ **Loose ends flagged for owner (not done here):** the `save_the_date_video` SKU still lives in the catalog + `/pricing`; if the video product is to be fully retired, that's a separate migration + pricing/copy pass. The plan-section + site-editor tiles link here under the generic "Save the Date" label (fits the reveal — no change needed).
+
+Next: reveal chooser **persistence** (which template the couple picked, so the live page uses it) + the content/upload editor.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the Save-the-Date surface is now the reveal experience (owner "replace"); the video render add-on retained in code, dropped from the page.
+
+## 2026-06-16 · fix(std-reveal): move the opening-reveal preview onto the Save-the-Date page (PR3b)
+
+Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be the link where it should be… the website shows the old save the date."* Relocated the reveal preview from the website editor (PR3a) to the **Save-the-Date add-on page**, where the couple looks for it.
+
+- Moved `reveal-preview-card.tsx` → `app/dashboard/[eventId]/_components/` (shared, `git mv`).
+- Renders the **"Opening reveal"** preview at the **top** of `add-ons/save-the-date`, above the existing video gallery, with a divider that separates the two: the **free** website-opening reveal vs the **₱99 Save-the-Date video** render.
+- Reverted the PR3a website-editor placement (import + render + the `event_date` select add).
+
+⚠ **NAMING OVERLAP flagged for owner:** this page is titled "Save the Date" and is the *paid video* product; the *reveal* is the *free website opening*. They now coexist on one page — owner to decide whether to consolidate / rename (e.g. "Save the Date" = the page-opening, "Save-the-Date Video" = the render add-on).
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — reveal preview relocated to the Save-the-Date add-on surface (the owner-specified link).
+## 2026-06-16 · feat(admin): /admin/completions — force-complete + uphold-non-delivery backstop (Event Lifecycle Menu §6.1)
+
+The human backstop for the per-vendor completion handshake (PR #1537). When a handshake can't self-resolve, an admin now has a surface to break the tie:
+
+- **Migration `20270106000000`** — `event_vendors.completion_resolved_at` + `completion_resolution_note` (admin-only metadata; no RLS change — couple/vendor surfaces react to `completion_status` alone) + a partial index for the unresolved queue. **Applied to prod**.
+- **`/admin/completions`** (new) — lists `event_vendors` needing attention: open **disputes** (always), `awaiting_vendor` rows whose event is >14d past (vendor never marked complete), and `vendor_marked` rows unconfirmed >5d. The "stuck" cut is computed in JS (PostgREST can't do `now() - interval`); resolved rows are excluded by the query. Mirrors the `/admin/disputes` skeleton (server component, admin-client reads, per-row `<details>` action forms, fail-soft reads). Disputes sort first.
+- **Two outcomes** (`completions/actions.ts`, each `requireAdmin()`-gated, service-role writes): **force-complete** → `completion_status='confirmed'` (+ stamps `customer_confirmed_received_at`) so the review/recommendation unlocks; **uphold non-delivery** (disputed rows only, note required) → keeps `completion_status='disputed'` (review STAYS frozen — correct) but stamps the row resolved so it leaves the queue. Both notify the couple(s) (reuse `booking_confirmed` / `dispute_filed` — no new notification enum) and the vendor (guarded null for off-platform), and write an `admin_audit_log` row (best-effort). Idempotent.
+- **Nav** — Work-group sidebar item (`Handshake` icon) + bottom-nav Work-tab activeMatch + `nav-registry-defaults` slot (`admin.sidebar.completions`).
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.1 ("Admin force-complete is the human backstop — needs a new /admin completion surface") + §7 (Admin actor). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes one of the two deferred §8 net-new items flagged when PR4 shipped (the other — "Move to memories" archive — remains open).
+## 2026-06-16 · feat(editorial): "Vendors we loved" block — the recommendation referral loop on the public wedding page (Event Lifecycle Menu §6.3)
+
+The couple's opt-in vendor recommendations (PR #1559) now surface on their public Editorial page — guests + visitors (= future couples) see who the couple loved, in the couple's own words. This is the organic referral loop §6.3 describes.
+
+- **`lib/vendor-recommendations.ts`** — new `fetchEventRecommendations(supabase, eventId)`: joins `vendor_recommendations` → `vendor_profiles` (business_name · business_slug · logo_url · public_visibility), dedupes per vendor (the UNIQUE key is per-recommender, so both partners → one card, preferring the one with an endorsement), resolves logos via `displayLogoUrl`, and gates on `isPubliclyVisible` (hidden/archived dropped). `recommended_by_user_id` is never selected (no PII). Server-only; graceful-degrade to `[]`.
+- **Editorial composer** (`app/[slug]/_components/editorial/`) — `EditorialData.vendorsWeLoved` + the `vendorsWeLoved` key added to `EditorialSections` + `EDITORIAL_SECTION_KEYS` (so the couple's toggle persists). `loadEditorialData` fetches it best-effort via the admin client; all 5 sample fixtures populated (the flagship sample carries demo cards). New `VendorsWeLoved` render component — endorsement blockquote led, logo + name (→ `/v/[slug]` when slugged), editorial design tokens (terracotta rule, font-serif italic, font-mono eyebrow). Gated `isOn('vendorsWeLoved') && data.vendorsWeLoved.length` (default-on, content-gated — hidden for couples who recommended no one). No `page.tsx` change (both public mount points pick it up).
+- **Dashboard editor** — a "Vendors we loved" section toggle row (`website/editorial`).
+
+No migration (reads the existing `vendor_recommendations` table; the `sections` map is jsonb). `tsc --noEmit` + `next lint` green. **Adversarially reviewed** (3-lens + verify workflow): no blocker/high findings; the public-visibility JS filter was confirmed load-bearing (admin client bypasses RLS) and annotated as such; no PII leak, XSS-safe (React-escaped endorsement), dedup + null-safety + graceful-degrade all verified.
+
+⚠ **Owner sign-off flag (hybrid-anonymity):** the block names `business_name` + links directly, with NO tier gate — matching spec §6.3 (name + link, referral loop), since the couple explicitly, publicly endorses a vendor they actually hired (completion-gated). This means a free-tier **verified** vendor's name shows on the public editorial, which has mild tension with the "free+verified names masked until first chat reply" doctrine. Shipped spec-faithful; flag if you'd prefer to tier-gate the name/link.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 ("Couple's Editorial page — a 'vendors we loved' block"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes the deferred Editorial-block follow-up from PR6. Remaining §6.3 surfaces: auto-favorite to all hosts' future shortlist (needs a per-user saved-vendors store) + photo-evidence anti-fake layers 3-4 (need photo→vendor attribution).
+
+## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
+
+Three follow-ups on the free Papic sampler (#1547), one PR:
+
+- **In-app expiry banner** (`add-ons/papic/crew/page.tsx`) — the sampler banner now shows a live countdown ("your N free photos expire in X days") computed from the soonest non-expired `papic_photos.expires_at` (couple RLS), falling back to the static "kept for 30 days" when no photos exist yet. Connect-Drive/upgrade CTA unchanged. (The scheduled T-7/T-1 *emails* still need a daily scheduler — deferred, outside the cron-free path.)
+- **Admin sampler-usage view** (`/admin/papic-sampler` + a Tile on the admin home) — read-only: every event with a free sampler, the couple (email/name from `public.users`), seats claimed, sampler photos, and a ⚠ flag on any couple running 2+ sampler events (the real cross-event abuse vector, since 1/event is already enforced by the RPC). Added a `camera` icon to the admin Tile.
+- **Own R2 key prefix for sampler captures** (`papic/seat/[token]` capture + page) — sampler captures now upload under `papic-sampler/…` (paid stays `papic/…`) so an R2 object-lifecycle rule can expire ONLY sampler bytes. `PapicSeatCapture` gained an `isFreeSampler` prop; the seat page reads `paparazzi_seats.is_free_sampler`. `OWNER_ACTIONS.md` documents the optional Cloudflare lifecycle rule.
+
+No migration. `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — free-sampler polish (expiry visibility + admin abuse watch + storage-lifecycle prefix). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(recommend): Recommend-your-vendors — completion-gated Recommended list + marketplace signal (Event Lifecycle Menu PR6)
+
+The After phase's referral loop: alongside the per-vendor review, the couple can **recommend** the vendors they loved. A recommendation is *separate* from a review (a review can be a fair 3★; a recommendation is an explicit, opt-in "I'd recommend them"), per-vendor opt-in, reversible, and carries a **higher anti-fake bar** because it publicly boosts the vendor.
+
+- **Migration `20270105000000_vendor_recommendations.sql`** — `vendor_recommendations` (vendor_profile_id · event_id · recommended_by_user_id · endorsement, unique per triple), mirroring `vendor_reviews`. **Applied to prod** (ledger drift → `db query` + manual ledger row). RLS: public-read (powers the marketplace signal); couple-insert **gated by the SAME completion OR-chain as the review** (correlated by `marketplace_vendor_id`, dispute-freeze, M=7d/N=30d/legacy) — this enforces **anti-fake layers 1+2** (a real inquiry that ran the full lifecycle to completion); couple-update (edit endorsement) + couple-delete (withdraw).
+- **`recommendVendor` / `withdrawRecommendation`** actions (review/actions.ts) — upsert through the USER's client so RLS enforces the gate; a blocked insert routes back with `?recommend=blocked` (explained, not crashed); best-effort vendor notification.
+- **`RecommendVendorCard`** — shown on the After review page in both the review-form and already-reviewed states (only reachable past the completion gate). Opt-in + optional one-line endorsement + withdraw.
+- **`lib/vendor-recommendations.ts`** — `countVendorRecommendingCouples` (DISTINCT events; bounded set, no materialized view).
+- **Marketplace signal** — "Recommended by N couples" on `/v/[slug]` (Reviews section header) + a matching badge on the vendor's `/vendor-dashboard/reviews`. Proof-backed, stronger than a star average.
+
+**Deferred (infra-blocked — documented, per spec §6.3 "V1 = automated signals + admin backstop"):** the **photo-evidence layers 3-4** (photos of the service + cross-service photo consistency) need photo→vendor attribution that doesn't exist yet (same gap as per-vendor galleries) → an **admin-review backstop**, not a hard gate. The **auto-favorite to all event hosts' future shortlist** needs a per-user saved-vendors store (today the "shortlist" is event-scoped `event_vendors`), and the **Editorial "vendors we loved" block** is a follow-up render. None block the core recommend → marketplace-proof loop shipped here.
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 + §10 PR6 (recommend loop + anti-fake layers 1-2 + marketplace signal). Logged in corpus `DECISION_LOG.md` (2026-06-16). This closes the Lifecycle-menu build (PR1–PR6); remaining net-new (§8): admin force-complete surface, "Move to memories" archive, Editorial "vendors we loved" block, photo→vendor attribution (unblocks galleries + recommend layers 3-4 + auto-favorite).
+
+## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
+
+Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. The couple's gallery now shows their **real** captures (crew + guest), the payoff that makes the free Papic sampler (and paid Papic) feel real.
+
+- **`lib/papic-gallery.ts`** (new) — `fetchPapicGallery(supabase, eventId)` reads `papic_photos` (crew) + `papic_guest_captures` (guest) under the couple's RLS, merges + sorts by `captured_at`, and presigns thumbnails via `displayUrlForStoredAsset` (clips use their `poster_r2_key`). Filters OUT: NSFW-blocked (`moderation_state`), couple-hidden (`hidden_at`), and **expired free-sampler** photos (`expires_at` in the past — the read-time half of the 30-day sampler retention). Tags resolved from `photo_tags` (best-effort; missing/unreadable → everything shows untagged, honouring untagged-still-delivered). Graceful-degrade to `[]` on a missing table/column.
+- **`add-ons/papic/_components/papic-gallery-grid.tsx`** (new, client) — the grid with working filter chips (All · Photos of us · Untagged · Videos), clip play-badges, and per-tile tag dots (auto-face green / QR-or-manual terracotta / untagged grey).
+- **`add-ons/papic/page.tsx`** — `GalleryPreviewCard` is now an async server component that fetches real photos + renders the grid, or an empty state ("your gallery fills up as your crew shoots → Set up your crew") when there are none. Removed the mock `MOCK_PHOTOS` / `MockPhoto` / `PhotoTile` / preview `FILTERS` and their now-unused icon imports.
+- No migration — reads existing columns (incl. the sampler's `expires_at`, already on prod). `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — the couple-facing Papic gallery is now real (was a documented mock). Benefits both the free sampler and paid PAPIC_SEATS. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(day-of): same-day "Get help" — verified-paid vendor shortlist + escalation (Event Lifecycle Menu PR5)
+
+The Day-of "Get help" card grows a second layer. If something goes wrong on the wedding day (a no-show, a last-minute gap), the couple now sees a shortlist of **verified, paid vendors who opted into same-day work, nearest the venue first** — above the existing escalate-to-support floor. V1 is filter + escalation only; real same-day *booking* is V1.5.
+
+- **Migration `20270104000000_vendor_same_day_available.sql`** — `vendor_profiles.same_day_available BOOLEAN NOT NULL DEFAULT FALSE` + a partial index `WHERE same_day_available`. No RLS change (plain column on an existing table; the public read of verified profiles already exposes it). **Applied to prod** (ledger drift from parallel sessions → applied via `db query` + manual ledger row, per the established pattern).
+- **`apps/web/lib/same-day-vendors.ts`** (new) — `findSameDayVendors(supabase, venue)`: filters `public_visibility='verified'` AND `tier_state <> 'free'` AND `same_day_available=TRUE`, then ranks — venue geo present → `haversineKm` ascending (geo-less vendors trail); venue geo absent → same-`hq_region` first, then alphabetical (**never empty**, so an off-platform venue with no lat/long still gets a list). Caps at 5; graceful-degrade to `[]` pre-migration.
+- **`get-help-card.tsx`** — renders the shortlist (name · first service · distance/city · link to `/v/[slug]`) above the escalation CTA; falls back to the escalation-only copy when no one opted in. Threaded server-side: `day-of page → DayOfModeGrid → GetHelpCard` (computed only while `dayOfActive`, best-effort).
+- **Vendor opt-in** — `vendor-dashboard/profile`: a new "I can take same-day & day-of jobs" checkbox (soft-probed read mirroring `social_feature_opt_out`; written in `saveVendorProfile`'s payload). Default off.
+
+Why the tier gate (`tier_state <> 'free'`): only paid vendors surface — their names are always visible (free+verified names stay masked until first chat reply per the hybrid-anonymity doctrine) and they have skin in the game.
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard all green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §4 ("Get help") + §10 PR5. Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle work: PR6 (recommend-your-vendors + anti-fake stack), admin force-complete + "Move to memories" archive.
+
+## 2026-06-15 · feat(alaala): onboarding "promise" beat — name Alaala at the emotional peak (Lane 1 complete)
+
+Completes **Lane 1** (the narrative spine). Right after the couple commits their love story in onboarding (after `love_preview`, before the practical region/pax/budget questions — the emotional peak), a one-screen brand moment names the pillar and states the guardrail.
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — new `alaala_promise` screen inserted in `FLOW_IDS` between `love_preview` and `region`; label added to the exhaustive `NEXT_LABEL_BY_ID`; `canContinue` defaults true (a 1-tap brand moment, not a gate). Copy: *"Your day, kept alive."* — "we keep it as your *Alaala*: the moments you'll be too busy to see, the people who can't be there, the stories your guests tell. A living memory, not a frozen album. And we stay out of the way — the day is yours to live; we just quietly remember it."
+
+SPEC IMPACT: None on schema/SKU (onboarding copy + one screen). **Lane 1 (spine) now complete** (Studio hub band + `/our-story` naming + onboarding promise); Lane 2 (a dedicated in-app Alaala hub) next.
+## 2026-06-16 · feat(nav): After-phase menu roster + per-source Galleries hub (Event Lifecycle Menu PR4c)
+
+The lifecycle bottom-nav gains its third roster — the **After** menu, shown once the wedding is closed out (`events.cleared_at` set, or read-side T+24h auto-clear). PR1 shipped Plan↔Day-of; PR4 (4a/4b) shipped the completion handshake; this is the menu that lands the couple in the *memories* phase. Until now `phase === 'after'` fell back to the Plan bar.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildAfterNavTabs(eventId)` in the SAME file (the lint guard forbids a fork): **Home · Review · Editorial · Galleries**. Home is the Setnayan-mark anchor on the event root (exact match, so the dashboard stays alive as the event's reference home — planning demoted, never deleted; no separate escape needed since Home *is* the dashboard). Review → `/vendors` (the completion-gated per-vendor review tracker shipped in PR4b), Editorial → `/website/editorial` (the living recap), Galleries → the new hub below. `CustomerBottomNav` dispatch now three-way: `dayof → buildDayOfNavTabs`, `after → buildAfterNavTabs`, else the Plan roster.
+- **`apps/web/app/dashboard/[eventId]/galleries/page.tsx`** (new) — the After **Galleries** hub. Does NOT re-implement photo grids: it gathers the owned media sources, each with a **"collecting → ready"** badge (deliveries land over days), and links to the existing per-source surface. Sources: Papic (owned via `eventOwnsPapicSeats`; ready when `papic_photos` + `papic_guest_captures` count > 0 → `/add-ons/papic/recap`, else "collecting" → `/add-ons/papic`), Panood (owned via `resolveAddOnState === 'launch'` → broadcast recording), and the couple's own `events.our_photos` (always shown, never gated → `/website/our-photos`). Couple **or** delegated coordinator; graceful-degrade to 0 on a legacy/missing table.
+- Reuse over reinvent: ownership checks + `resolveAddOnState` + `eventOwnsPapicSeats` + `countEventGuestCaptures` are the same canonical helpers the Day-of launch hub uses. Desktop sidebar stays phase-agnostic (the lifecycle menu is the mobile bottom-nav, matching PR1–PR3).
+
+⚠ **Galleries are PER-PAPIC-SOURCE, not per-vendor** (spec §6/§9.6): `papic_photos` links to a Papic *seat*, not a vendor, and 0009 photo-delivery is event-level — there's no photo→vendor join yet. Per-vendor galleries (release on the completion handshake) wait on that attribution; PR6's anti-fake stack hits the same gap. Kept per-source on purpose.
+
+`tsc --noEmit` + `next lint` + bottom-nav template guard all green.
+
+SPEC IMPACT: completes the After-menu roster from `Event_Lifecycle_Menu_Design_2026-06-16.md` §6 + §10 PR4 ("buildAfterNavTabs, per-source galleries"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle pieces: admin force-complete surface + "Move to memories" archive (both net-new §8), PR5 (same-day Get-help), PR6 (recommend-your-vendors).
+## 2026-06-16 · fix(build-3state): remove duplicate "Your anchors" block on the 3-State Build tab
+
+Live verification on a preview (flag on, headless browser logged in as the test couple) showed the Build tab rendering **two** "Your anchors" sections stacked: the new tri-state Date/Budget/Location toggles, then the **legacy** `BuildAnchors` Pin/Flag module immediately below — because `Build3StateControl` reused `<BuildAnchors>` purely as a value editor, but that component drags in its own header + Pin/Flag toggles + "Set" buttons. The result read as broken/doubled (this is what "still not there" was actually showing).
+
+- **Folded value editing into the new `DimensionRow`.** Each Date/Budget/Location row now reveals an inline value editor *only when Locked* (auto-opens when Locked-without-value, per §4), persisting onto the `events` columns via the same `setAnchor` action. Dropped the `<BuildAnchors>` reuse entirely → one unified row per anchor, no duplicate "Your anchors" block. Legacy (flag-off) `BuildAnchors` path is untouched and byte-identical.
+- **Removed the dead `_dim_*` `sr-only` span** (it was `aria-hidden` + `sr-only` = invisible to everyone, but leaked the reserved dimension key as scraped text).
+- Change is entirely within the flag-gated `build-3state-control.tsx`; production (flag off) is byte-identical.
+
+SPEC IMPACT: None — implements `Build_3State_Solver_2026-06-16.md` §4 (Locked dimension resolves to a value) more faithfully than the duplicated-module build; no spec text changes.
+
 ## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 
 Owner reassessment of the onboarding plan screen ("define Setnayan AI here … show how much to keep this") plus a corrected free-from-the-start list. The screen was giving the *paid* AI layer away as free and never naming or pricing Setnayan AI.
@@ -1149,6 +1612,15 @@ Follow-up to the `VendorVision` spine ([#1437](https://github.com/iscasasola/set
 OPEN (flagged to owner, NOT changed here): **`File sharing with couples`** is still gated to Pro+ in the same section — the one row that reads as core-collaboration rather than growth. Moving it to Free/Verified is a real product/pricing decision, so it's surfaced rather than silently changed.
 
 SPEC IMPACT: None on schema / SKU / price / tier capabilities. Public-copy framing only (iteration 0015/0022); logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · fix(payments): Papic seat/guest provisioning is now bundle-aware at the DB level (PR #1447 follow-up)
+
+Closes the residual gap flagged in PR #1447. That PR made the app-side ownership READ bundle-aware (`eventOwnsSku` + `BUNDLE_CHILD_SKUS`), so a `MEDIA_PACK` buyer owns the child SKUs — but the DB RPC `papic_provision_seats()` gated via `papic_event_owns_service(event, key)` which matched the **exact** `service_key` only. So a Media-Pack buyer who clicked "provision seats" hit the RPC's exact-key check (`'PAPIC_SEATS'` → no direct order) and the seats never materialized. (Same for the `'PAPIC_GUEST'` path.)
+
+- **DB (new migration `20261228000000_papic_ownership_bundle_aware.sql`):** new `public.bundles_granting_sku(child) → text[]` helper (the SQL mirror of `BUNDLE_CHILD_SKUS`), and `papic_event_owns_service` now matches the exact key **OR** any owned bundle that includes it. Exact-key branch + status filter preserved verbatim → no change for à-la-carte buyers. Idempotent. **NOT applied — owner runs `supabase db push`.**
+- **App (parity):** `lib/papic-seats.ts:eventOwnsPapicSeats` and `lib/papic-guest.ts:eventOwnsPapicGuest` switched from the exact-key `checkOrderOwnership` to bundle-aware `eventOwnsSku`, so the add-on **page** gate and the DB **RPC** now agree — a Media-Pack buyer both SEES the provision UI and can materialize the seats / guest quota.
+- **Sync note:** bundle membership now lives in THREE mirrors — `BUNDLE_MEMBERS` (onboarding, canonical) → `BUNDLE_CHILD_SKUS` (`lib/entitlements.ts`) → `bundles_granting_sku` (SQL). Keep in sync if composition changes.
+
+Stacks on PR #1447 (depends on its `eventOwnsSku`/`BUNDLE_CHILD_SKUS`). `tsc` + `pnpm test:unit` (135/135) green. SPEC IMPACT: None (mechanics; no price/SKU change).
 
 ## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
 
@@ -1186,6 +1658,19 @@ App-store submission prep. The owner is registering a Google Play (Personal) dev
 Upload keystore was generated out-of-repo at `/Users/Shared/setnayan-keys/` (alias `setnayan`, RSA 2048, 10000-day validity); `.gitignore` already blocks `*.jks` / `keystore.properties`. Full owner runbook (registration steps, listing copy, Google Data Safety answers, Apple privacy labels, iOS Xcode steps, Guideline 4.2 risk note) in the spec corpus: `0052_native_apps_delivery/App_Store_Submission_Runbook_2026-06-15.md`.
 
 SPEC IMPACT: None (CI infra + owner-action docs; no schema/SKU/feature change). The runbook is a new corpus delivery doc, not an iteration-spec edit.
+## 2026-06-15 · fix(payments): repair the dead unlock path + revoke-on-reject + activate-on-approve (PR 4 of the pricing/payments plumbing fix)
+
+The highest-risk PR in the pricing/payments series — three money-path bugs on the SKU activation chain, all read-side (no migration).
+
+- **Bug 1 — dead unlock pathway (the big one).** Several couple surfaces gated "is this SKU unlocked?" by READING `event_software_activations_v2`, but the ONLY writer of that table on the payment path is the DB fn `verify_and_activate_manual_payment()` (migration `20260903000000`), which has **zero app callers**. Net: any SKU gated this way could **never unlock by paying** ("pay and get nothing"). Rewired every such read to the canonical orders.status reader. New `eventOwnsSku()` + `BUNDLE_CHILD_SKUS` in **`apps/web/lib/entitlements.ts`**: owns a SKU when there's a live direct order for it **OR** a live order for a bundle (`GUIDED_PACK`/`MEDIA_PACK`) that includes it — closing the bundle→child gap (a Media Pack order is one row keyed `MEDIA_PACK`, never per-child). Read sites rewired (all from `.from('event_software_activations_v2')` → `eventOwnsSku()`): `app/dashboard/[eventId]/add-ons/papic/_components/live-wall-card.tsx` (LIVE_WALL), `app/dashboard/[eventId]/live/page.tsx` (LIVE_WALL), `app/wall/[eventId]/page.tsx` (LIVE_WALL), `app/[slug]/page.tsx` (LIVE_WALL **+** PANOOD_SYSTEM day-of blocks), `app/[slug]/live-wall/route.ts` (LIVE_WALL feed), `app/[slug]/_components/editorial/data.ts` (LIVE_WALL editorial section), `lib/face-blur.ts` (LIVE_WALL bake gate, dynamic import). The two **manpower** API routes (`sync-device`, `verify-telemetry`) keep using the table — they're vendor-side reward-telemetry writers, NOT couple-payment gates.
+- **Bug 2 — rejected payment didn't revoke access.** `rejectPayment` (`app/admin/payments/actions.ts`) set `payments.status='rejected'` but left `orders.status='submitted'`, which the orders reader still counts as OWNED — couple kept the SKU after a hard reject. Now also flips the order to `'cancelled'` (only when still `draft`/`submitted`/`awaiting_payment` — race-safe `.in()` WHERE, idempotent, non-fatal + fault-logged on failure) so it leaves the owned set; the order is now in `RELINQUISHED_STATUSES`. **Resubmit path untouched** (it deliberately keeps the order alive). Adds a `/dashboard` layout revalidate so gated surfaces re-render locked.
+- **Bug 3 — approve-without-promote skipped activation.** `activateOrderSku` lived inside `approvePayment`'s `if (promoteOrder)` block, so approving with the promote checkbox off matched the payment but never ran SKU side-effect provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch flag). Moved the dispatcher call OUT of the promote block so it runs on **every** approval, exactly once (idempotent hooks; receipt/payout/analytics stay promote-gated). Aligns provisioning with ownership (a matched/`submitted` order is already OWNED).
+
+Verification: `pnpm typecheck` clean; `pnpm test:unit` 135/135 (added 8 `eventOwnsSku`/bundle cases; the 10 existing `checkOrderOwnership` invariants kept green — that helper is unchanged). No price changed, no migration applied.
+
+**Surfaced for owner:** (a) `BUNDLE_CHILD_SKUS` is the entitlement-layer mirror of `BUNDLE_MEMBERS` in `app/onboarding/wedding/_components/onboarding-pricing.ts` — keep the two in sync if bundle composition changes. (b) The couple-initiated `papic_provision_seats` RPC (migration `20260718000000`) gates by exact `service_key` only, so a Media-Pack buyer passes the app-side PAPIC_SEATS page gate but the RPC would refuse to materialize seats — a follow-up (bundle-aware DB gate, or write child ownership on bundle approve) is flagged, not fixed here.
+
+SPEC IMPACT: None on prices / SKUs / schema. Behavior fix only: bundled + directly-purchased SKUs gated on `event_software_activations_v2` now actually unlock on payment; rejected payments revoke; approvals always activate.
 ## 2026-06-15 · feat(admin): editable vendor pricing + Setnayan Pay fee at /admin/pricing (PR 3 of the pricing/payments plumbing fix)
 
 Before this, `/admin/pricing` only let the owner edit the **customer** catalog (`platform_retail_catalog_v2` + `platform_package_catalog`). Vendor subscriptions / token packs (`vendor_billing_catalog`) and the Setnayan Pay convenience fee were **migration-only** — to change a vendor price or the fee you had to write SQL. This closes that gap.

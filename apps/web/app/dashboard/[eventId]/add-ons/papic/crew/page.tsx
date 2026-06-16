@@ -91,6 +91,28 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
     ? await fetchPapicSeats(supabase, eventId)
     : await fetchPapicSamplerSeats(supabase, eventId);
 
+  // Live expiry countdown for the sampler banner — the soonest non-expired
+  // sampler photo (couple RLS reads their own papic_photos). 0 = none yet.
+  let samplerExpiringCount = 0;
+  let samplerDaysLeft: number | null = null;
+  if (isSampler) {
+    const { data: expiring } = await supabase
+      .from('papic_photos')
+      .select('expires_at')
+      .eq('event_id', eventId)
+      .not('expires_at', 'is', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('expires_at', { ascending: true });
+    samplerExpiringCount = expiring?.length ?? 0;
+    const soonest = expiring?.[0]?.expires_at as string | undefined;
+    if (soonest) {
+      samplerDaysLeft = Math.max(
+        0,
+        Math.ceil((new Date(soonest).getTime() - Date.now()) / 86_400_000),
+      );
+    }
+  }
+
   // ---- Free sampler, not started yet → offer it (+ a pointer to the full pack) ----
   if (isSampler && seats.length === 0) {
     return (
@@ -200,7 +222,20 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
         <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
           <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
           <span>
-            Free sampler photos are kept for {PAPIC_SAMPLER_RETENTION_DAYS} days.
+            {samplerExpiringCount > 0 && samplerDaysLeft !== null ? (
+              <>
+                <b className="font-medium">
+                  Your {samplerExpiringCount} free{' '}
+                  {samplerExpiringCount === 1 ? 'photo' : 'photos'}{' '}
+                  {samplerDaysLeft === 0
+                    ? 'expire today'
+                    : `expire in ${samplerDaysLeft} ${samplerDaysLeft === 1 ? 'day' : 'days'}`}
+                  .
+                </b>{' '}
+              </>
+            ) : (
+              <>Free sampler photos are kept for {PAPIC_SAMPLER_RETENTION_DAYS} days. </>
+            )}
             Connect Google Drive (your own copy) or upgrade to full Papic to keep
             them forever — and unlock all five seats with unlimited shots.{' '}
             <Link href={backLink} className="font-medium text-terracotta underline-offset-2 hover:underline">

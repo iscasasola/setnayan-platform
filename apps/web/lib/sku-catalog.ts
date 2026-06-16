@@ -72,10 +72,11 @@ export const LAUNCH_PROMO_UNTIL = new Date('2027-01-30T23:59:59+08:00');
  * Verification are also EXCLUDED — those have real labor/API cost.
  */
 export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
-  // Couple-side (7 active — panood_camera_sync + panood_annual_streaming_plus
-  // were retired 2026-05-17 when Panood pivoted to always-multicam baseline).
+  // Couple-side (6 active — panood_camera_sync + panood_annual_streaming_plus
+  // were retired 2026-05-17 when Panood pivoted to always-multicam baseline;
+  // save_the_date_video retired 2026-06-16 → the Save-the-Date surface is now
+  // the FREE page-opening reveal, no SKU).
   'pro_widget_schedule',
-  'save_the_date_video',
   'panood_daily_broadcast',
   'panood_annual_streaming',
   'patiktok_setnayan_tiktok',
@@ -107,7 +108,10 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    // RETIRED 2026-06-16 (already is_active=FALSE in prod since 2026-05-28).
+    // The /add-ons/save-the-date surface is now the FREE page-opening reveal;
+    // the paid video render is dropped. Record kept for historical-order typing.
+    isActive: false,
   },
   {
     skuCode: 'monogram_hero_upgrade',
@@ -667,6 +671,7 @@ export function formatCentavosPhp(centavos: number): string {
 
 export const RETIRED_SKU_CODES = [
   'save_the_date_render',            // -> save_the_date_video
+  'save_the_date_video',             // retired 2026-06-16 → Save-the-Date is now the free page-opening reveal
   'daily_co_video_meeting',          // Daily.co retired 2026-05-16
   'video_meeting_addon',             // Daily.co retired 2026-05-16
   'patiktok_booth_5hr',              // -> patiktok_setnayan_tiktok + _personal_tiktok

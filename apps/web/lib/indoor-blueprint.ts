@@ -43,6 +43,10 @@ export async function eventOwnsIndoorBlueprint(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
+  // entitlement-gate-lint: bare-ok (INDOOR_BLUEPRINT is in NO bundle — it is
+  // never granted by GUIDED_PACK/MEDIA_PACK, so the bare exact-key reader is
+  // correct here and eventOwnsSku would be misleading. Verified against
+  // BUNDLE_CHILD_SKUS.)
   return checkOrderOwnership(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY);
 }
 

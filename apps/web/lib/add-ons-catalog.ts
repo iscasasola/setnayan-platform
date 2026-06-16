@@ -22,7 +22,6 @@ import {
   Tv,
   Gem,
   Sparkles,
-  Video,
   Film,
   Printer,
   ImageDown,
@@ -95,6 +94,13 @@ export type AddOnEntry = {
    * the feature's own page shows the real price + handles purchase.
    */
   tier?: 'free';
+  /**
+   * For a PAID add-on that offers a no-card free trial (e.g. Papic's 3-seat
+   * free sampler), a short chip label surfaced on the Studio card so couples
+   * can discover the trial from the grid. Never a price source — the feature
+   * page still owns the real price + purchase.
+   */
+  freeTrial?: string;
 };
 
 /**
@@ -150,14 +156,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'save-the-date',
-    label: 'Save the Date Video',
-    Icon: Video,
+    label: 'Save the Date',
+    Icon: Sparkles,
     iteration: '0024',
     status: 'live',
     category: 'photography',
     blurb:
-      '12-template gallery · 60s video · vertical + square + horizontal · ₱99 per render',
-    cta: 'Browse templates',
+      'The opening reveal for your page · a veil or envelope that lifts to your invitation · free, recolours to your palette',
+    cta: 'Choose your reveal',
     studioGroup: 'website_story',
     poster: {
       motion: 'scan',
@@ -303,6 +309,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Candid capture · gesture shutter · QR tagging · personal reels',
     cta: 'Set up',
     studioGroup: 'capture',
+    freeTrial: 'Free to try',
     poster: {
       motion: 'pulse',
       baseBackground:

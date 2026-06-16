@@ -76,7 +76,11 @@ export type YourPlanSectionStats = {
   paperworkInProgressCount: number;
   /** Visible contracts on this event (non-draft). */
   contractCount: number;
-  /** Save-the-Date video render orders (paid OR pending). */
+  /**
+   * Whether this event has any historical Save-the-Date order (the retired
+   * ₱99 video SKU · paid OR pending). The product is now the free page-opening
+   * reveal, so this only lights up for couples who bought the old video.
+   */
   hasSaveTheDateOrder: boolean;
   /** Bespoke Monogram / Monogram Hero upgrade orders (paid OR pending). */
   hasMonogramOrder: boolean;
@@ -137,8 +141,7 @@ function subtitleFor(key: ToolKey, stats: YourPlanSectionStats): string {
       return 'Government, vendors, receipts';
     }
     case 'save_the_date':
-      if (stats.hasSaveTheDateOrder) return 'Saved to your event';
-      return 'Draft yours';
+      return stats.hasSaveTheDateOrder ? 'Reveal ready' : 'Choose your reveal';
     case 'monogram':
       if (stats.hasMonogramOrder) return 'Saved to your event';
       return 'Generate yours';

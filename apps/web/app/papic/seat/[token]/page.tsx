@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import {
+  PAPIC_SAMPLER_PHOTO_CAP,
+  PAPIC_SAMPLER_CLIP_CAP,
+} from '@/lib/papic-seats';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 
@@ -41,7 +45,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // null and is bounced to the claim page.
   const { data: seat, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id')
+    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id, is_free_sampler')
     .eq('claim_qr_token', token)
     .maybeSingle();
 
@@ -70,17 +74,34 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     );
   }
 
-  const { count } = await supabase
-    .from('papic_photos')
-    .select('photo_id', { count: 'exact', head: true })
-    .eq('paparazzi_seat_id', seat.seat_id);
+  // Per-kind counts so the capture UI can show "N/8 photos" + "M/2 clips" and
+  // enforce the free-sampler caps client-side (the server re-checks in
+  // recordSeatCapture). Paid seats are uncapped (caps passed as null below).
+  const [{ count: photoCount }, { count: clipCount }] = await Promise.all([
+    supabase
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('paparazzi_seat_id', seat.seat_id)
+      .eq('photo_type', 'photo'),
+    supabase
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('paparazzi_seat_id', seat.seat_id)
+      .eq('photo_type', 'clip'),
+  ]);
+
+  const isSampler = Boolean(seat.is_free_sampler);
 
   return (
     <>
       <PapicSeatCapture
         token={token}
         seatIndex={seat.seat_index as number}
-        initialCount={count ?? 0}
+        isFreeSampler={isSampler}
+        initialPhotos={photoCount ?? 0}
+        initialClips={clipCount ?? 0}
+        photoCap={isSampler ? PAPIC_SAMPLER_PHOTO_CAP : null}
+        clipCap={isSampler ? PAPIC_SAMPLER_CLIP_CAP : null}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

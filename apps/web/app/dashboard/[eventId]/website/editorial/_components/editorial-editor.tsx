@@ -22,6 +22,7 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'poweredBy', label: 'Powered by Setnayan', help: 'The Setnayan services you used.' },
   { key: 'liveWall', label: 'Live Photo Wall', help: 'The day’s candid photo wall, if you have it.' },
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },
+  { key: 'vendorsWeLoved', label: 'Vendors we loved', help: 'The vendors you recommended — your endorsements, shown to future couples.' },
 ];
 
 type FieldProps = {

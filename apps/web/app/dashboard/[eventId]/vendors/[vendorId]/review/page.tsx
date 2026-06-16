@@ -16,6 +16,7 @@ import {
 } from '@/lib/self-review-gate';
 import { submitCoupleReview, submitReviewAppeal, coupleConfirmReceived, coupleReportNonDelivery } from './actions';
 import { reviewState, type CompletionFields } from '@/lib/completion-handshake';
+import { RecommendVendorCard } from './_components/recommend-vendor-card';
 
 function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   if (!raw) return null;
@@ -37,7 +38,7 @@ const AXES: ReadonlyArray<ReviewAxis> = [
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
-  searchParams: Promise<{ blocked?: string; appeal_filed?: string }>;
+  searchParams: Promise<{ blocked?: string; appeal_filed?: string; recommend?: string }>;
 };
 
 type EventVendorLookup = {
@@ -141,6 +142,30 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     );
   }
 
+  // Recommend-your-vendors (Event Lifecycle Menu §6.3). Only reachable here once
+  // completion is confirmed (past the handshake gate above) — exactly the gate a
+  // recommendation needs — so the card is built once and shown in both the
+  // review-form state and the already-reviewed state. The RLS insert re-enforces
+  // the completion gate, so this is a display-time read, not the security check.
+  const { data: recRow } = await supabase
+    .from('vendor_recommendations')
+    .select('endorsement')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfile.vendor_profile_id)
+    .eq('recommended_by_user_id', user.id)
+    .maybeSingle();
+  const recommendCard = (
+    <RecommendVendorCard
+      eventId={eventId}
+      vendorId={eventVendor.vendor_id}
+      vendorProfileId={vendorProfile.vendor_profile_id}
+      vendorName={vendorProfile.business_name || eventVendor.vendor_name}
+      recommended={Boolean(recRow)}
+      endorsement={(recRow as { endorsement?: string | null } | null)?.endorsement ?? null}
+      blocked={search.recommend === 'blocked'}
+    />
+  );
+
   const existing = await fetchOwnReviewForVendor(
     supabase,
     vendorProfile.vendor_profile_id,
@@ -154,6 +179,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
         eventId={eventId}
         vendorName={vendorProfile.business_name || eventVendor.vendor_name}
         slug={vendorProfile.business_slug ?? null}
+        recommendCard={recommendCard}
       />
     );
   }
@@ -260,6 +286,8 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
           </SubmitButton>
         </div>
       </form>
+
+      {recommendCard}
     </section>
   );
 }
@@ -564,10 +592,12 @@ function AlreadyReviewedState({
   eventId,
   vendorName,
   slug,
+  recommendCard,
 }: {
   eventId: string;
   vendorName: string;
   slug: string | null;
+  recommendCard?: React.ReactNode;
 }) {
   return (
     <section className="space-y-4">
@@ -589,6 +619,8 @@ function AlreadyReviewedState({
           Open vendor profile
         </Link>
       ) : null}
+
+      {recommendCard}
     </section>
   );
 }

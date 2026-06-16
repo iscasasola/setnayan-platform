@@ -252,6 +252,10 @@ export async function saveVendorProfile(formData: FormData) {
     // celebration post on Setnayan's Facebook page (unticked = featured;
     // Free unnamed · Pro+ named per the hybrid-anonymity doctrine).
     social_feature_opt_out: formData.get('social_feature_opt_out') === 'on',
+    // Same-day "Get help" opt-in (Event Lifecycle Menu PR5, 20270104000000) —
+    // willing to take same-day / day-of jobs → surfaces in the couple's Day-of
+    // Get-help shortlist (verified + paid tier only). Default off.
+    same_day_available: formData.get('same_day_available') === 'on',
     updated_at: new Date().toISOString(),
   };
 

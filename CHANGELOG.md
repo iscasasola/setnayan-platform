@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
+
+After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):
+
+- **GUARD 1 — bundle-aware gate discipline:** `checkOrderOwnership()` (the bare exact-key reader, blind to bundle ownership) may be CALLED only from `lib/entitlements.ts` (where `eventOwnsSku()` delegates to it) or test files, or a call line annotated `entitlement-gate-lint: bare-ok <reason>` for a SKU that's in no bundle. Any new couple-SKU gate using the bare reader fails CI — exactly the check that would have caught PR4b's 3 bugs. Resolved the two pre-existing bare callers: **`pro-website.ts` → `eventOwnsSku`** (PRO_WEBSITE *is* a bundle child; dead code today but now correct-if-revived), and **`indoor-blueprint.ts`** annotated `bare-ok` (INDOOR_BLUEPRINT is in no bundle — bare is correct).
+- **GUARD 2 — bundle-membership single source of truth:** the three mirrors of "which child SKUs each bundle grants" must agree exactly — `BUNDLE_MEMBERS` (onboarding-pricing.ts, the buy surface) ↔ `BUNDLE_CHILD_SKUS` (entitlements.ts, the read gate) ↔ `bundles_granting_sku()` (the DB provisioning SQL). Drift = a bundle buyer denied (or over-granted) a child SKU. Also asserts no bundle code nests as a child (the `activateBundleChildren` recursion-safety invariant).
+- +1 unit test (recursion-safety invariant) → `entitlements.test.ts` 25/25.
+
+Both guards proven non-vacuous: a planted bare call fails GUARD 1; removing one SKU from a mirror fails GUARD 2; clean after revert. `tsc --noEmit` 0; existing lint scripts unaffected.
+
+SPEC IMPACT: None (CI-only guardrail). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
 
 Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.

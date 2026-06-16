@@ -69,6 +69,18 @@ tsc 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
 SPEC IMPACT: 0024 Save the Date — no scope change; correctness/a11y/colour-wiring fixes on the flag-gated reveal. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+## 2026-06-16 · fix(build): stop intermittent Vercel OOM (Sentry source-map waste) + plug two turbo.json env leaks
+
+Diagnosed a recurring deploy failure: ~20% of recent Vercel builds (preview AND production) were erroring with the #1258 signature — `Out of Memory` SIGKILL → `.next/routes-manifest.json` couldn't be found → deploy fails. Production stays up (last good deploy keeps the alias), but the latest changes silently don't ship until a build happens to fit under the 8GB ceiling.
+
+- **`apps/web/next.config.ts`** — the Sentry wrapper was generating full source maps every `next build` and then logging "No project provided. Will not upload source maps" (no `SENTRY_AUTH_TOKEN` provisioned yet), so the entire generation pass was wasted memory + CPU on top of an app already building right at Vercel's 8GB limit. Added `sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true }` — skips generation while there's no token, re-enables itself automatically once the owner sets it, and (when uploading) deletes maps post-upload so they're never served to users. FREE, OUTPUT-NEUTRAL; exactly the two options the Sentry build warning recommends.
+- **`turbo.json`** — added `BUILD_3STATE_ENABLED` + `SETNAYAN_AI_PAYWALL_ENABLED` to `build.env`. Both are read via `process.env` (`lib/build-3state.ts`, `lib/setnayan-ai.ts`) and were set as Vercel project env vars but missing from turbo's allowlist, so Turbo stripped them from the build (Vercel was warning "WILL NOT be available to your application"). Until now, flipping either flag on Vercel did nothing at build time. Matches the existing `WEBSITE_PHASES_ENABLED` precedent.
+
+No migration, no schema, no runtime behavior change. Build-config only; real proof is the Vercel build on this PR succeeding.
+
+SPEC IMPACT: None (infra/build config). Notable for the decision log: the recurring #1258 OOM is now addressed at the source-map layer, not just by skipping type-check/lint.
+
+## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
 
 Owner ask: *"we also want to do the customization of this template from the admin"* + *"where we can activate and deactivate features of the template?"* — owner picked **Full template studio** (toggles **and** a live slider panel). Today the reveal was gated only by the `NEXT_PUBLIC_STD_REVEAL` env flag with all settings baked as constants; this makes it admin-managed end-to-end, following the `platform_settings` / `homepage_hero_config` recipe.
 

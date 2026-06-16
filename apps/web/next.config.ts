@@ -324,4 +324,19 @@ export default withSentryConfig(nextConfig, {
   disableLogger: true,
   // Vercel cron monitors are off — we'll opt in per-cron later if needed.
   automaticVercelMonitors: false,
+  // Source maps: only generate them when we can actually upload them
+  // (SENTRY_AUTH_TOKEN provisioned). Until then it's pure waste — the plugin
+  // built full source maps every `next build` and then logged "No project
+  // provided. Will not upload source maps", so all that memory + CPU went
+  // nowhere. That generation pass sits on top of an app that already builds
+  // right at Vercel's 8GB ceiling (#1258), and was tipping it into
+  // intermittent OOM (no routes-manifest.json → deploy errors). Disabling it
+  // when there's no token is FREE and OUTPUT-NEUTRAL, and it re-enables itself
+  // the moment the owner sets the token. When upload IS active, delete the
+  // maps after upload so they're never served to end users or left in the
+  // deploy. (Both options are exactly what the Sentry build warning recommends.)
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+    deleteSourcemapsAfterUpload: true,
+  },
 });

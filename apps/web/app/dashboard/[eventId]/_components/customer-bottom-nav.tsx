@@ -29,7 +29,7 @@
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { LucideIcon } from 'lucide-react';
-import { Users, Compass, Sparkles, Palette, Wallet } from 'lucide-react';
+import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 
 /**
@@ -101,10 +101,78 @@ export function buildCustomerNavTabs(eventId: string): BottomNavItem[] {
 }
 
 /**
- * CustomerBottomNav — wraps the shared BottomNav primitive with the customer
- * 6-tab roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
- * customer surface (owner directive 2026-06-13 "global nav everywhere").
+ * Builds the DAY-OF roster — the menu the couple/coordinator operate the wedding
+ * day with (Event Lifecycle Menu, 2026-06-16). While the event is live, the Plan
+ * tabs step aside and the bar becomes the day-of command center. Five operable
+ * destinations that all already exist; the unified "Services" launch hub is built
+ * in a follow-up (PR2) — until then Services points at the owned-services hub
+ * (/add-ons). Slot 1 stays the Setnayan mark (the home root, which already
+ * becomes the live "Now" command-center view), relabelled "Now"; the **Planning
+ * escape lives OUTSIDE the bar** (a top-bar link, see layout.tsx) so there's no
+ * second tab pointing at `base` (which would collide on active state).
  */
-export function CustomerBottomNav({ eventId }: { eventId: string }) {
-  return <BottomNav items={buildCustomerNavTabs(eventId)} />;
+export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
+  const base = `/dashboard/${eventId}`;
+  return [
+    {
+      key: 'now',
+      label: 'Now',
+      href: base,
+      icon: SetnayanMark as unknown as LucideIcon,
+      activeMatch: base,
+      activeMatchExact: true,
+    },
+    {
+      key: 'checkin',
+      label: 'Check-in',
+      href: `${base}/guests/checkin`,
+      icon: QrCode,
+      activeMatch: `${base}/guests/checkin`,
+    },
+    {
+      key: 'seats',
+      label: 'Seats',
+      href: `${base}/seating`,
+      icon: LayoutGrid,
+      activeMatch: `${base}/seating`,
+    },
+    {
+      // Interim target: the owned-services hub. PR2 replaces this with the
+      // unified day-of launch hub (Panood Go-live · Live Wall Open · Papic seats).
+      key: 'services',
+      label: 'Services',
+      href: `${base}/add-ons`,
+      icon: Rocket,
+      activeMatch: `${base}/add-ons`,
+    },
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      href: `${base}/schedule`,
+      icon: CalendarClock,
+      activeMatch: `${base}/schedule`,
+    },
+  ];
+}
+
+/**
+ * CustomerBottomNav — wraps the shared BottomNav primitive with the customer
+ * roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
+ * customer surface (owner directive 2026-06-13 "global nav everywhere").
+ *
+ * `isDayOf` swaps the whole roster to the day-of command center while the event
+ * is live (Event Lifecycle Menu). It is computed SERVER-SIDE in the layout via
+ * `isEventDayActive(event_date)` (live ‖ post — NOT `isInDayOfWindow`, so an
+ * evening reception, which lands in `post`, still gets the Day-of bar) and passed
+ * down, so there's no client `Date.now()` and no hydration flash.
+ */
+export function CustomerBottomNav({
+  eventId,
+  isDayOf = false,
+}: {
+  eventId: string;
+  isDayOf?: boolean;
+}) {
+  const items = isDayOf ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId);
+  return <BottomNav items={items} />;
 }

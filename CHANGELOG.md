@@ -17,6 +17,16 @@ Next: PR2 adds the WebGL veils + curtain lazy-loaded behind the same flag (code-
 Verification: typecheck/lint deferred to CI — the fresh worktree's `pnpm install` was not run this pass (borrowed `node_modules` from the base checkout didn't resolve under pnpm's layout). Required CI checks gate the auto-merge.
 
 SPEC IMPACT: 0024 Save the Date. The reveal experience is design-locked in the corpus (`0024_ADDENDUM` §1a). This is the build foundation behind a flag; corpus `DECISION_LOG.md` row appended noting build-PR1 landed.
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR1 — phase-aware bottom-nav swap (Plan ↔ Day-of)
+
+First PR of the Event Lifecycle Menu (`Event_Lifecycle_Menu_Design_2026-06-16.md`): the customer bottom nav swaps its whole roster while the event is live. The Plan tabs (Home · Guests · Explore · Studio · Design · Budget) step aside for the **day-of command center** — **Now · Check-in · Seats · Services · Schedule**.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildDayOfNavTabs(eventId)` (5 operable destinations, all already existing: Now=event root, Check-in=`/guests/checkin`, Seats=`/seating`, Services=`/add-ons` *interim until PR2's unified launch hub*, Schedule=`/schedule`). `CustomerBottomNav` gains an `isDayOf` prop and dispatches between the Plan roster and the Day-of roster. Slot 1 stays the Setnayan mark (the event root already becomes the live "Now" view), relabelled "Now". Lives in the same file (lint guard `lint:botnav` requires delegation to the canonical `<BottomNav>` — green).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — computes the phase **server-side** via `isEventDayActive(event.event_date)` (live ‖ post, **NOT** `isInDayOfWindow` — an evening reception lands in `post` and must still get the Day-of bar) and passes `isDayOf` down (no client `Date.now()`, no hydration flash). Adds the **Planning escape** — a day-of-only top-bar link to `/more` (the existing planning launcher), kept *outside* the bar so it never collides with the "Now" tab on the active-state.
+
+Mobile-only (the bar is `lg:hidden`; desktop uses the sidebar). `tsc`, `next lint`, `lint:botnav` all green. **Reuses** the canonical `BottomNav` (auto-scales 5/6 tabs identically) + the shipped `isEventDayActive` + `/more` — no new primitives, no migration. PR pending (branch `claude/lifecycle-pr1-menu-swap`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §2/§4/§10 (PR1) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the phase-dispatch primitive every later phase (Wrap-up, After) hangs its menu off. Honors guardrail §11.1 (gate on `isEventDayActive`).
 
 ## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
 

@@ -184,13 +184,13 @@ export function BuildCompare({
         title: 'Replace your current build?',
         body: (
           <>
-            Modifying loads <span className="font-medium text-ink">“{title}”</span> onto the Build
-            tab and replaces whatever you have there now. Save your current plan as a build first if
+            This replaces what&rsquo;s on your Build tab with{' '}
+            <span className="font-medium text-ink">“{title}”</span>. Save your current plan first if
             you want to keep it.
           </>
         ),
-        confirmLabel: 'Replace & modify',
-        cancelLabel: 'Keep current',
+        confirmLabel: 'Replace',
+        cancelLabel: 'Cancel',
         destructive: true,
       });
       if (!ok) return;

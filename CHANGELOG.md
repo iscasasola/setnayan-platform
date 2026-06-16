@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): NSFW re-screen self-heal + DB-enforced 10-tag cap (the last two #1577/#1588 review items)
+
+Two Papic moderation/tagging hardening fixes the prior reviews surfaced and left for owner sign-off (owner: "yes on 2"):
+
+- **NSFW re-screen self-heal (B).** `screenCapture()` is fail-open AND fire-and-forget from the capture `after()` hook — so if it drops (an R2 hiccup, a cold lambda, a killed request) the row stays `moderation_state='unscreened'` **forever**, and is then permanently invisible on every guest-facing allowlist surface (guest-live-gallery + the Live Wall show only `'clean'`) while the couple's own private gallery still shows it — a silent *screening* gap, distinct from the tag-leg one. New `reScreenStuckCaptures(eventId)` in `lib/nsfw-screen.ts`: a bounded (10/table), never-throwing, cron-free sweep that re-runs the screen on rows stuck `'unscreened'` past a 15-min grace window (so an in-flight first screen isn't disturbed), across BOTH capture tables (`papic_photos` + `papic_guest_captures`). `screenCapture` re-fetches the R2 bytes, re-decides, and writes ONLY where still `'unscreened'` → fully idempotent. Fired from `after()` on the couple moderation surface (`/add-ons/papic/moderation`).
+- **DB-enforced 10-tag cap (C).** The "max 10 tags per photo" product lock was enforced only inside the `papic_tag_capture` RPC (QR tags); `auto_face` / `manual_pick` / any future writer of `photo_tags` could exceed it. New migration `20270110120000_photo_tags_cap_trigger.sql` adds a `BEFORE INSERT` trigger (`enforce_photo_tag_cap`, SECURITY DEFINER + pinned `search_path` so the `count(*)` is RLS-accurate) that makes ≤10 tags per photo (`(source_table, source_id)`) a DB invariant across ALL sources. At the cap it `RETURN NULL`s — silently skipping the over-cap row (truncate semantics, matching the spec's table-QR "alphabetize + truncate"), never erroring the insert/batch. The RPC already limits to the remaining cap, so the trigger is a pure backstop for the non-RPC paths.
+
+tsc 0 · `next lint` clean · timestamp guard 387 unique. Migration applies cleanly now that `db push` is unjammed (#1596). PR pending (branch `claude/papic-moderation-hardening`, auto-merge).
+
+SPEC IMPACT: iteration 0012 — the 10-tag cap is now a DB invariant across all tag sources (was RPC-only/advisory; owner-locked 2026-06-17), and the NSFW screen now self-heals dropped screenings. No SKU/pricing change. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-17 · refactor(nav): customer-menu SSOT tree + ONE generalized section sub-nav (redesign PR1/6)
 
 Owner: *"sub nav are child menus of the 6 menus … we are redesigning how the customer menu is"* → all 6 menus get child sub-navs, unified into one hierarchy (plan `adaptive-forging-lobster.md`). **PR1 is the foundation, behavior-preserving:** it introduces the canonical tree and collapses the two bespoke section docks into one config-driven component. Stacks on the sub-nav-first PR (#1593).
@@ -44,7 +54,7 @@ Owner: "go." Stacked onto the same PR #1597. The three surfaces the first slice 
 - **Recap nudge** (`add-ons/papic/recap/page.tsx` + new client `_components/recap-drive-nudge.tsx`): a calm, dismissible champagne-gold "Love this? Save the originals to your Drive" card at the strongest emotional point of need. Server-gated on **recap-has-content AND no live grant AND OAuth-ready**; dismissal is event-scoped in localStorage (a clean opt-out, never a re-show-every-visit nag).
 - **Multi-account** (handled at the page level — **zero changes to the shared OAuth callback**): each connected panel (Papic + Photo Delivery) already knows both the login email (`user.email`) and the grant email; when they differ it shows a calm "Not your sign-in — use a different account" link (couples often connect a shared `ourwedding@gmail.com` on purpose, so this surfaces, never blocks). The "use a different account" path adds `?switch=1` to the start routes → new `forceAccountChooser` option on `buildDriveAuthorizeUrl` sets `prompt='select_account consent'` so Google's chooser actually appears (without it Google silently reuses the last session).
 
-Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (no new-file warnings). Full-env render → Vercel preview (local OAuth env unset). No new migration (reuses `20270109000000` from the first slice).
+Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (no new-file warnings). Full-env render → Vercel preview (local OAuth env unset). No new migration (reuses `20270110000000` from the first slice).
 
 SPEC IMPACT: extends the 0009/0012 point-of-need connect to all three planned couple surfaces; no SKU/pricing/schema change beyond the already-added `connection_health` column. Logged in corpus `DECISION_LOG.md`.
 
@@ -60,7 +70,7 @@ Ground-truth pass against `origin/main` first (the design research read stale `~
 
 Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (only pre-existing warnings, none in new files). Full-env render deferred to the Vercel preview (local OAuth env is unset → card shows the "setup pending" placeholder). Migration NOT yet applied to prod — see OWNER ACTION below.
 
-OWNER ACTION: apply migration `20270109000000` via `supabase db push --db-url "$SUPABASE_DB_URL"` (or it ships with the next batch). Until applied, the `connection_health` reads/writes target a missing column — the page read fails soft (banner just never shows); the refresher writes would error in their catch. Low blast radius (Drive OAuth is still admin-gated off in prod), but apply before relying on the reconnect banner.
+OWNER ACTION: apply migration `20270110000000` via `supabase db push --db-url "$SUPABASE_DB_URL"` (or it ships with the next batch). Until applied, the `connection_health` reads/writes target a missing column — the page read fails soft (banner just never shows); the refresher writes would error in their catch. Low blast radius (Drive OAuth is still admin-gated off in prod), but apply before relying on the reconnect banner.
 
 SPEC IMPACT: iteration 0009 connect-panel copy is replaced with the safety-led point-of-need card, and a new `needs_reauth` reconnect state is added (0009 + 0012 share it). No SKU / pricing change; one additive nullable-default column. Logged in corpus `DECISION_LOG.md`. Surfaced for owner: dead `/api/oauth/photo-delivery/callback` route; the two deferred connect surfaces (Papic radio, Recap nudge) + multi-account confirm; and the two product decisions (per-surface sync-mode default, disconnect→nudge resurfacing) defaulted to auto-sync-from-Papic / review-from-Photo-Delivery and a near-wedding re-surface.
 ## 2026-06-17 · fix(copy): stop claiming face auto-tagging is live (it isn't yet)

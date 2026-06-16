@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(papic): surface the free sampler on the add-ons grid + branded sampler expiry emails
+
+The last two open conversion-UX findings from the #1577 sampler audit (the rest shipped across #1582/#1585/#1588). A re-audit against current `main` first confirmed the other audit items were already closed — the admin double-count, Drive backlog flush, and reminder-subject collision all landed in the "three free-sampler correctness fixes" PR; the QR-tag leg landed in #1588; the cap-TOCTOU and email-timing items are documented-as-benign in shipped code (one phone per seat; T-7/T-1 anchored to earliest roll-off). What remained:
+
+- **B1 — discoverability.** A couple browsing the Studio add-ons grid (`/dashboard/[eventId]/add-ons`) had no signal that Papic has a **free** sampler — the tile read as a paid capture add-on. Added an optional `freeTrial?: string` to `AddOnEntry` + `StudioCard` (a distinct mulberry chip, separate from the orange genuinely-free "Free" chip and the "Soon" chip), and set `freeTrial: 'Free to try'` on the Papic entry. Never a price source (the comment makes that explicit); the feature page still owns price + purchase.
+- **B2 — branded expiry emails.** The T-7/T-1 sampler-expiry reminders were **plain text** (`sendEmail` was text-only — "HTML rendering is a follow-on"). Added an optional `html?` body to `SendEmailArgs` (Resend sends multipart; HTML-capable clients render it, the rest fall back to `text`) + a new dependency-free **`lib/email-template.ts` `renderBrandedEmail()`** — inline-hex mirror of the `--m-*` paper palette on table layout (the only thing that renders across Gmail/Apple Mail/Outlook), with the SETNAYAN wordmark, a gold rule, and a single mulberry CTA. `papic-sampler-emails.ts` now sends both halves for T-7 and T-1. Reusable by 0028's other 9 templates later.
+
+Verified: `tsc --noEmit` 0 · `next lint` clean (6 files) · the email template rendered through `tsx` (2614 bytes, wordmark + CTA + correct escaping). Emails stay dormant until `RESEND_API_KEY` is set; the chip is live immediately.
+
+SPEC IMPACT: iteration 0012 sampler — the free sampler is now discoverable from the Studio grid, and its expiry reminders are branded HTML (0028 gains a reusable branded-email layout). No SKU / schema / pricing change. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(papic): scan-to-tag — wire the QR tag leg on the seat capture surface
 
 The last unwired leg of the Papic capture pipeline. A claimed paparazzo could shoot photos + clips, but there was no way to record **who's in a shot** — so the couple-gallery tag chips (`lib/papic-gallery.ts`) and each guest's live "photos of you" feed (`lib/guest-live-gallery.ts`), both of which already read `photo_tags`, had nothing to read. This stacks on the #1585 clip work (same `papic-seat-capture.tsx` + `recordSeatCapture`) and closes the loop.

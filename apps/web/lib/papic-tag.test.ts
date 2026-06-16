@@ -79,3 +79,67 @@ test('returns null for codes that are neither a guest nor a table', () => {
   assert.equal(parsePapicTagScan(''), null);
   assert.equal(parsePapicTagScan('not a url and not a token'), null);
 });
+
+// ---- failproof edge cases (adversarial review hardening) -------------------
+
+test('null / undefined never throws — returns null (action contract: never throws)', () => {
+  assert.equal(parsePapicTagScan(null as unknown as string), null);
+  assert.equal(parsePapicTagScan(undefined as unknown as string), null);
+  assert.equal(parseTableQrPayload(null as unknown as string), null);
+});
+
+test('dual-param URL resolves to GUEST, order-independent (locked precedence)', () => {
+  // No real printed QR carries two params; this pins the guest-first precedence
+  // so a future refactor can't silently flip it. Still event-scoped server-side.
+  assert.deepEqual(
+    parsePapicTagScan(`https://www.setnayan.com/x?g=${GUEST}&t=${TABLE_PUBLIC}`),
+    { kind: 'guest', token: GUEST },
+  );
+  assert.deepEqual(
+    parsePapicTagScan(`https://www.setnayan.com/x?t=${TABLE_PUBLIC}&g=${GUEST}`),
+    { kind: 'guest', token: GUEST },
+  );
+});
+
+test('a guest token smuggled into ?t= stays a table REF (server fails closed)', () => {
+  // It classifies as a table ref but resolves to no table in the seat's event,
+  // so the RPC returns table_not_found — documented, fail-closed behavior.
+  assert.deepEqual(parsePapicTagScan(`https://www.setnayan.com/x?t=${GUEST}`), {
+    kind: 'table',
+    ref: GUEST,
+  });
+});
+
+test('query-in-fragment (#?t= / #?g=) is ignored — never a tag', () => {
+  assert.equal(parsePapicTagScan(`https://www.setnayan.com/x#?t=${TABLE_PUBLIC}`), null);
+  assert.equal(parsePapicTagScan(`https://www.setnayan.com/x#?g=${GUEST}`), null);
+});
+
+test('a scanner-appended newline on a URL still parses', () => {
+  assert.deepEqual(parsePapicTagScan(`https://www.setnayan.com/x?t=${TABLE_PUBLIC}\n`), {
+    kind: 'table',
+    ref: TABLE_PUBLIC,
+  });
+  assert.deepEqual(parsePapicTagScan(`https://www.setnayan.com/x?g=${GUEST}\r\n`), {
+    kind: 'guest',
+    token: GUEST,
+  });
+});
+
+test('lowercase table public_id inside ?t= normalizes to upper', () => {
+  assert.equal(
+    parseTableQrPayload(`https://www.setnayan.com/x?t=${TABLE_PUBLIC.toLowerCase()}`),
+    TABLE_PUBLIC,
+  );
+});
+
+test('Crockford length boundaries — no off-by-one', () => {
+  assert.equal(parseTableQrPayload('S89T-7H2K9MNP3'), null); // 9 chars
+  assert.equal(parseTableQrPayload('S89T-7H2K9MNP3QQ'), null); // 11 chars
+});
+
+test('?invite= present-but-invalid does NOT fall through to ?g= (fails closed)', () => {
+  // Pre-existing parseGuestQrPayload behavior (?? only falls through on absent
+  // invite). Pinned so the fail-closed outcome is intentional, not accidental.
+  assert.equal(parsePapicTagScan(`https://www.setnayan.com/x?invite=junk&g=${GUEST}`), null);
+});

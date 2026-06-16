@@ -362,6 +362,12 @@ export function PapicSeatCapture({
       const result = await tagSeatCapture(token, lastPhotoId, raw);
       if (!result.ok) {
         setTagNotice(tagErrorMessage(result.error));
+        // A transient/server error ('tag_failed') is worth retrying — clear the
+        // scan debounce so the SAME code held under the lens self-heals on the
+        // next tick instead of being silently stuck until the next capture.
+        // Deterministic outcomes (unrecognized / not-found / cap / unavailable)
+        // stay debounced so a held code can't spam the RPC.
+        if (result.error === 'tag_failed') lastScanRef.current = '';
         return;
       }
       if (typeof navigator !== 'undefined') navigator.vibrate?.(60);
@@ -548,6 +554,11 @@ export function PapicSeatCapture({
             {tagNotice && (
               <p className="text-center text-xs text-cream/80">{tagNotice}</p>
             )}
+            {/* Persistent live region — announces notices + the running tag
+                count to screen readers without affecting the visual layout. */}
+            <span aria-live="polite" role="status" className="sr-only">
+              {tagNotice ?? `${tagCount} of ${TAG_CAP} tagged`}
+            </span>
             <button
               type="button"
               onClick={stopTagging}

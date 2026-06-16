@@ -1,4 +1,4 @@
--- 20270109000000_photo_tags_cap_trigger.sql
+-- 20270110000000_photo_tags_cap_trigger.sql
 --
 -- WHY: the "max 10 tags per photo" hard constraint (CLAUDE.md product lock) was
 -- enforced ONLY inside the papic_tag_capture RPC (QR tags). Any OTHER writer of

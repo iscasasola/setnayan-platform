@@ -136,7 +136,10 @@ export default async function BudgetPage({ params }: Props) {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
+          children: Overview · Allocate · Payments). scroll-mt keeps the section
+          title clear of the top edge on smooth-scroll. */}
+      <header id="budget-overview" className="flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Budget</h1>
           <p className="max-w-prose text-base text-ink/65">
@@ -173,7 +176,7 @@ export default async function BudgetPage({ params }: Props) {
        *  range per leaf) BEFORE the couple contracts anyone, complementing
        *  the per-vendor TRACKING below. The pure engine runs client-side for
        *  instant tilt feedback; inputs were resolved server-side above. */}
-      <div className="space-y-4 border-t border-ink/10 pt-6">
+      <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
         <div className="space-y-2">
           <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
             Suggested budget split
@@ -197,7 +200,7 @@ export default async function BudgetPage({ params }: Props) {
       {/* Existing per-vendor itemization + payment log — unchanged
        *  surface from before this PR. Heading added so the visual break
        *  from the setter form above is clear. */}
-      <div className="space-y-4 border-t border-ink/10 pt-6">
+      <div id="budget-payments" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
         <div className="space-y-2">
           <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
             Per-vendor itemization

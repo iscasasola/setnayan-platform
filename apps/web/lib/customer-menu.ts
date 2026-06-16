@@ -35,13 +35,20 @@
  * differ on purpose, so the dock keeps today's exact visibility.
  */
 
-import { Home, Users, Compass, Sparkles, Palette, Wallet, type LucideIcon } from 'lucide-react';
+import {
+  Home, Users, Compass, Sparkles, Palette, Wallet,
+  // Design children:
+  Globe, Image as ImageIcon, PenTool,
+  // Budget children:
+  Gauge, PieChart, Receipt,
+  type LucideIcon,
+} from 'lucide-react';
 import { buildGuestJourney } from './guest-journey';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
 
 export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget';
 
-export type MenuChildKind = 'route' | 'tab';
+export type MenuChildKind = 'route' | 'tab' | 'anchor';
 
 export type CustomerMenuChild = {
   key: string;
@@ -53,6 +60,10 @@ export type CustomerMenuChild = {
   match?: string;
   /** kind='tab' — the `?tab=` value driven over the BB_TAB_EVENT bus. */
   tab?: string;
+  /** kind='anchor' — the id of an on-page section the dock scrolls to (and a
+   *  scroll-spy lights as it enters view). For single-page menus whose children
+   *  are scroll sections, not separate routes (e.g. Budget). */
+  hash?: string;
   /** Rendered dimmed-but-tappable ("not yet", e.g. Day-of before its window). */
   muted?: boolean;
 };
@@ -85,10 +96,10 @@ export type CustomerMenuCtx = {
 };
 
 /**
- * The canonical 6-menu tree for an event. In PR1 only Guests + Explore carry
- * `children` (sourced from the existing single-sources `guest-journey.ts` +
- * `budget-build.ts` so nothing drifts); the other four are parents-without-
- * children until their PRs land.
+ * The canonical 6-menu tree for an event. Children carried so far: Guests
+ * (routed, from `guest-journey.ts`) · Explore (tabs, from `budget-build.ts`) ·
+ * Design (route launcher) · Budget (anchor scroll-sections). Home + Studio are
+ * still parents-without-children until PR3.
  */
 export function buildCustomerMenuTree(
   eventId: string,
@@ -158,6 +169,38 @@ export function buildCustomerMenuTree(
       icon: Palette,
       href: `${base}/design`,
       activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // Launcher hub: the dock shows on /design (no child active there) + /monogram
+      // (Monogram active). Website opens the full-screen /site-editor, which escapes
+      // the dashboard layout (no dock); Mood Board lives under /add-ons (Studio's
+      // territory), so the dock doesn't follow there — children are route launchers.
+      sectionMatch: [`${base}/design`, `${base}/monogram`],
+      subnavLabel: 'Design',
+      children: [
+        {
+          key: 'website',
+          label: 'Website',
+          icon: Globe,
+          kind: 'route' as const,
+          href: `/site-editor/${eventId}`,
+          match: `/site-editor/${eventId}`,
+        },
+        {
+          key: 'mood-board',
+          label: 'Mood Board',
+          icon: ImageIcon,
+          kind: 'route' as const,
+          href: `${base}/add-ons/mood-board`,
+          match: `${base}/add-ons/mood-board`,
+        },
+        {
+          key: 'monogram',
+          label: 'Monogram',
+          icon: PenTool,
+          kind: 'route' as const,
+          href: `${base}/monogram`,
+          match: `${base}/monogram`,
+        },
+      ],
     },
     {
       key: 'budget',
@@ -165,6 +208,18 @@ export function buildCustomerMenuTree(
       icon: Wallet,
       href: `${base}/budget`,
       activeMatch: [`${base}/budget`, `${base}/disputes`],
+      // Single scrolling page — children are on-page sections the dock scrolls to
+      // (scroll-spy lights the one in view). Exact /budget only (the takeover-style
+      // exact match): /disputes is its own post-event surface, not a budget section,
+      // so it's intentionally NOT a child here.
+      sectionMatch: `${base}/budget`,
+      sectionMatchExact: true,
+      subnavLabel: 'Budget',
+      children: [
+        { key: 'overview', label: 'Overview', icon: Gauge, kind: 'anchor' as const, hash: 'budget-overview' },
+        { key: 'allocate', label: 'Allocate', icon: PieChart, kind: 'anchor' as const, hash: 'budget-allocate' },
+        { key: 'payments', label: 'Payments', icon: Receipt, kind: 'anchor' as const, hash: 'budget-payments' },
+      ],
     },
   ];
 }

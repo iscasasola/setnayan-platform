@@ -18,6 +18,20 @@ A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's b
 
 SPEC IMPACT: None (mechanical completion of the already-specced PR4 dead-unlock repair, extended to the SKUs PR4 missed). The fix surface — bundle-aware ownership reads + a bundle activation fan-out — matches PR4's design. Logged in corpus `DECISION_LOG.md`.
 
+## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
+
+Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total: 4 rigid envelopes + 2 veils + 1 curtain). PR1–PR3 shipped the four-flap envelope + the sheer veil + the in-dashboard preview/rewire; this lands the **4 remaining** openings, all behind the same `NEXT_PUBLIC_STD_REVEAL` flag (default OFF → zero live impact):
+
+- **`rigid-reveal.tsx`** (new) — three rigid envelopes on the four-flap pure-CSS-3D engine (no WebGL dep → inside the guest-site Lighthouse budget), via a `variant` prop: **two-flap-vertical** (splits left | right, swings open), **two-flap-horizontal** (top | bottom), **church-doors** (two arched doors swing wide, 2-panel inset + gold trim). Each flap is two-sided — paper front, liner-accent back — so you glimpse the inner colour as it swings past upright. Recolours via the per-event moodboard Tailwind tokens (cream / terracotta / mulberry / ink), ₱0.
+- **`veil-crown.tsx`** (new) — bridal veil V2 "crown-pinned · folding": a three.js Verlet cloth gathered narrow at the crown, fanning into deep folds to the hem; drag / scroll lifts the **hem up & back over the crown**. Code-split via `next/dynamic(ssr:false)` like the sheer veil — main bundle untouched.
+- **`veil-shared.ts`** (new) — extracted the gold Setnayan mark + procedural tulle-net / filigree-lace-hem texture + recolourable fresnel material out of `veil-reveal.tsx`, now shared by both veils (the "shared net body + lace hem" the design calls for). `veil-reveal.tsx` refactored to consume it (−211 lines, behaviour identical).
+- **`reveal-templates.ts`** (new) — tiny pure registry (template type · `?reveal=` aliases · ordered library) shared by the overlay and the studio chooser at zero bundle cost.
+- **`reveal-overlay.tsx`** — the switch now routes all six; `?reveal=` accepts every id (e.g. `?reveal=church-doors`, `?reveal=two-flap-horizontal`, `?reveal=crown`) plus the back-compat `veil` / `envelope` aliases, so any template is previewable on a Vercel preview without flipping the global flag.
+- **`reveal-preview-card.tsx`** — the studio "Opening reveal" chooser now offers all six (preview-only; per-event persistence + a content editor remain a separate, owner-deferred step).
+
+Six of seven templates now built; the **curtain (Veil C)** is the only one outstanding (its own follow-up). `tsc --noEmit` 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
+
+SPEC IMPACT: 0024 Save the Date — completes the §1a reveal library minus the curtain; design-locked in the corpus, lands behind the existing flag. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-16 · fix(payments): merge-forward PR4 (dead-unlock repair) onto current main + close a freshly-reintroduced dead-path gate
 
 PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 commits behind `main`) with only a failed Vercel deploy blocking its auto-merge. Merged current `origin/main` into the branch to bring it up to date and re-trigger a fresh deploy. The merge was mechanical: one trivial import-union conflict in `app/[slug]/_components/editorial/data.ts` (kept BOTH `eventOwnsSku` and main's new `fetchEventRecommendations`); `admin/payments/actions.ts` auto-merged (main's `getSetnayanFeeBps` and PR4's reject-cancel/approve-activate live in different functions); CHANGELOG union.
@@ -26,6 +40,17 @@ PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 com
 - Verified locally: 18/18 `lib/entitlements.test.ts` pass (covers `checkOrderOwnership` + `eventOwnsSku` + `BUNDLE_CHILD_SKUS`). Full `typecheck + lint` / `production build` delegated to required CI on push.
 
 SPEC IMPACT: None (mechanical merge-forward + one additional site of the same already-specced dead-unlock repair). The PR4 behavior — ownership reads off `orders.status`, reject-revokes, approve-always-activates, bundle-aware — is unchanged.
+## 2026-06-16 · fix(papic): don't burn the sampler-email lock when Resend is unconfigured
+
+Hardening on the cron-free sampler expiry emails shipped in #1566. `scheduleSamplerExpiryWarnings` claimed the once-per-event `papic_sampler_email_log` PK lock **before** attempting the Resend sends. Because `RESEND_API_KEY` is still unset in prod (OWNER_ACTIONS Phase 2 deferred), every first sampler capture today writes the lock row and sends nothing — so the day the owner keys Resend, those events are *permanently* locked out of their T-7/T-1 reminders (the next capture's insert hits 23505 and bails).
+
+- **Top guard** — `if (!isEmailConfigured()) return;` runs *before* the lock insert, so a keyless capture schedules nothing **and** claims nothing; a later capture (once the key is live) still gets to schedule. Mirrors the file's existing "resolve couple email first so we don't burn the lock on an unreachable couple" rationale.
+- **Release-on-failure** — if the key *is* present but both sends fail (transient Resend error), the lock row we claimed is deleted so a later capture retries. With no message ids there's nothing to double-cancel, and a possible duplicate reminder beats zero reminders. The normal success path is unchanged (ids stored, lock kept).
+- No migration; no behavior change while Resend stays off except that the lock is no longer burned. Code-only, single file.
+
+Note for the owner: the feature itself was already built+merged (#1566) and its migration `20270107000000` is applied to prod — but **no sampler emails will send until `RESEND_API_KEY` is set in Vercel** (OWNER_ACTIONS Phase 2). Couples who sampled *before* that flip won't be back-scheduled (the reminders schedule on first capture); the in-app expiry banner from #1558 backstops them.
+
+SPEC IMPACT: iteration 0012 sampler — reminder scheduling is now safe across the Resend-off→on transition. Logged in corpus `DECISION_LOG.md` (which was also missing the #1566 landing).
 
 ## 2026-06-16 · feat(compare): Lock now confirms too (same overwrite as Modify)
 

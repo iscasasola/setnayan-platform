@@ -35,20 +35,15 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
-    # macOS leg builds UNSIGNED (ad-hoc) for now — no Apple Developer ID cert is
-    # configured yet, and the desktop .dmg is not a launch blocker (web-first V1).
-    #
-    # ⚠ The APPLE_* signing env was REMOVED 2026-06-15. GitHub resolves a MISSING
-    # secret to an EMPTY STRING, and `tauri build` treats an empty APPLE_CERTIFICATE
-    # as "a cert is present" → runs `security import` on nothing → fails the whole
-    # macOS build. With these vars UNSET (not empty-string), tauri skips cert import
-    # and the ad-hoc signing step below takes over, producing an unsigned .app/.dmg.
-    #
-    # To ship a REAL signed + notarized build later, re-add the job-level env here —
-    # but ONLY once the secrets actually exist, and NEVER as empty values:
-    #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
-    #   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
-    # (gate them behind `if: secrets.APPLE_CERTIFICATE != ''` or set them per-step).
+    # macOS signing is now GATED (re-added 2026-06-16, fixing the 2026-06-15
+    # empty-string bug). The "Configure macOS signing" step below exports the
+    # APPLE_* vars to $GITHUB_ENV ONLY when the APPLE_CERTIFICATE secret is
+    # non-empty. This is the safe shape: a MISSING secret is never exported as an
+    # empty string (an empty APPLE_CERTIFICATE makes `tauri build` attempt a cert
+    # import on nothing and fail the whole macOS build — the 2026-06-15 break).
+    #   - cert secrets present  → tauri Developer-ID-signs + notarizes; verify step runs.
+    #   - cert secrets absent   → nothing exported; ad-hoc fallback step runs (unsigned).
+    # So forks / pre-secrets builds still succeed unsigned, exactly as before.
 
     steps:
       - uses: actions/checkout@v4
@@ -83,6 +78,36 @@ jobs:
 
       - name: Generate Tauri icons (from icon.svg)
         run: tauri icon src-tauri/icons/icon.svg
+
+      - name: Configure macOS signing (only when the cert secret exists)
+        if: matrix.platform == 'macos-latest'
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          A_ID: ${{ secrets.APPLE_ID }}
+          A_PW: ${{ secrets.APPLE_PASSWORD }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$CERT" ]; then
+            echo "No APPLE_CERTIFICATE secret — macOS build will be UNSIGNED (ad-hoc)."
+            exit 0
+          fi
+          # A real Developer ID cert is present: export the signing vars so the
+          # next step's `tauri build` signs + notarizes. Written here (not as
+          # job-level env) so an ABSENT secret is never exported as an empty
+          # string — empty APPLE_CERTIFICATE fails the whole build (2026-06-15).
+          {
+            echo "APPLE_CERTIFICATE<<__P12__"
+            echo "$CERT"
+            echo "__P12__"
+            echo "APPLE_CERTIFICATE_PASSWORD=$CERT_PW"
+            echo "APPLE_SIGNING_IDENTITY=$IDENTITY"
+            echo "APPLE_ID=$A_ID"
+            echo "APPLE_PASSWORD=$A_PW"
+            echo "APPLE_TEAM_ID=$TEAM"
+          } >> "$GITHUB_ENV"
+          echo "Developer ID cert present — macOS build will be SIGNED + NOTARIZED."
 
       - name: Build desktop bundle
         run: tauri build --target ${{ matrix.target }}

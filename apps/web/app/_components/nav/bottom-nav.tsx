@@ -646,8 +646,31 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
  *  the --bn-* knobs stay a single source of truth (lint guard markers live
  *  here). */
 function NavShell({ children }: { children: ReactNode }) {
+  // Publish the pill's REAL rendered height to a CSS var (--sn-bottomnav-h) so
+  // anything that stacks above the bar — the docked <SubNav> — can sit a fixed
+  // gap above it WITHOUT hardcoding the bar's height. Fail-proof: a
+  // ResizeObserver keeps the var in sync with whatever the bar actually renders
+  // (label changes, tab count, font scaling, safe-area), so the sub-nav gap can
+  // never drift or overlap. Falls back to the 64px design height until measured
+  // (SSR / pre-hydration), so the default position is already correct.
+  const shellRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const publish = () =>
+      document.documentElement.style.setProperty(
+        '--sn-bottomnav-h',
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <nav
+      ref={shellRef}
       aria-label="Primary navigation"
       className="fixed left-[14px] right-[14px] bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 overflow-hidden rounded-full border backdrop-blur lg:hidden"
       style={

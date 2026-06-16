@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · fix(oauth): drop the unused YouTube scopes — drive.file-only needs no Google verification
+
+While prepping a Google OAuth sensitive-scope verification (for Papic's Drive + Panood's YouTube), a code trace found the **YouTube scopes are never exercised**. Shipped Panood goes live by the couple **pasting their own YouTube watch URL**, which Setnayan embeds (`lib/panood-watch.ts`) — it makes **zero** YouTube Data API calls (no `liveBroadcasts`, no `liveStreams`, no upload anywhere in the tree). The `youtube` + `youtube.upload` scopes were dormant scaffold for an unbuilt programmatic-broadcast feature (`youtube.upload`'s own comment says "future").
+
+Consequences surfaced to owner: (1) those two **sensitive** scopes were the *sole* reason the project required verification + carried the 100-user OAuth cap + showed the "unverified app" warning; (2) Papic's real, shipped feature uses only `drive.file` — **non-sensitive, needs no verification, ever**; (3) a verification submitted now would be rejected anyway (Google requires the demo to show each scope in use). **Decision: remove the YouTube scopes from the OAuth consent screen** (owner, console) → the project becomes `drive.file`-only → no verification, no cap, no warning, Papic/Drive live for everyone. Re-add the YouTube scopes and verify later, once the broadcast API integration is actually built.
+
+Code changes this PR:
+- **`panood/setup/page.tsx`** — gated the dormant YouTube OAuth connect behind a new `PANOOD_OAUTH_BROADCAST_ENABLED = false` flag so no "Connect YouTube" button requests the now-removed scopes (it holds the existing graceful "coming soon" state). The real paste-the-watch-URL flow (`YouTubeDelivery`) is untouched. Flip the flag + re-add scopes when the broadcast lifecycle ships.
+- **`privacy/page.tsx`** (hygiene, correct regardless of verification) — fixed the `Setnayan AI AI` typo, added **Google LLC (US)** to the cross-border-transfer enumeration (it was in Subprocessors but missing here), and bumped the header to `Effective 2026-05-13 · last updated 2026-06-17`. The Drive/YouTube disclosure sections + Limited Use + YouTube ToS links were already present and compliant.
+
+NOT shipped (deliberately): the homepage hero "purpose" line + Terms YouTube clause prepped for the verification — reverted/held, since dropping the YouTube scopes removes the verification (and thus the home-page-purpose requirement) entirely.
+
+SPEC IMPACT: Panood's verification/launch posture — V1 ships via paste-and-embed (no Google scopes); programmatic YouTube broadcasting + its OAuth verification are deferred until that feature is built. `drive.file` confirmed non-sensitive (no verification). Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · docs(nav): backfill changelog for the registry final-public-pass + cleanup (#1583, #1581)
 
 Backfill — the changelog entries for #1583 and #1581 were intentionally dropped from those PRs to clear a parallel-session changelog-conflict deadlock (every concurrent PR appends here, so the entries kept bumping the PRs to DIRTY and pausing auto-merge). The code merged cleanly; this records the history after the fact.

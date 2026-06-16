@@ -146,10 +146,21 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
 
   // --- Graceful-fallback flag ---
   // When YOUTUBE_OAUTH_CLIENT_ID is unset the Connect CTA renders as a
-  // disabled "coming soon" placeholder. This lets the page ship safely
-  // before the owner finishes Google Cloud verified-app review (1-4wk).
+  // disabled "coming soon" placeholder. This lets the page ship safely.
   const oauthConfig = getYoutubeOAuthConfig();
-  const oauthReady = oauthConfig.ready;
+  // 2026-06-17: the programmatic YouTube-broadcast feature this OAuth connect was
+  // built for is NOT implemented — shipped Panood goes live via the paste-your-
+  // watch-URL flow (YouTubeDelivery below), which needs no Google scopes. The
+  // youtube + youtube.upload scopes were removed from the OAuth consent screen:
+  // they were dragging the WHOLE project into sensitive-scope verification + the
+  // 100-user cap + the "unverified app" warning, for a feature nothing exercised
+  // (the real, non-sensitive drive.file Papic/Drive flow lives elsewhere). Hold
+  // this connect in its graceful "coming soon" state so no button requests the
+  // now-removed scopes. Flip PANOOD_OAUTH_BROADCAST_ENABLED to true when the
+  // YouTube Data API broadcast lifecycle is actually built — then re-add the
+  // scopes to the consent screen and submit for verification with a working demo.
+  const PANOOD_OAUTH_BROADCAST_ENABLED = false;
+  const oauthReady = PANOOD_OAUTH_BROADCAST_ENABLED && oauthConfig.ready;
 
   const setup = mockPanoodSetup();
 

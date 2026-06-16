@@ -18,6 +18,17 @@ The last unwired leg of the Papic capture pipeline. A claimed paparazzo could sh
 Verified in the worktree: `tsc --noEmit` 0 · `test:unit` (papic-tag 14/14, checkin 14/14) · `next lint` clean (new files emit nothing) · migration-timestamp guard ✓ (384 unique). Browser camera/QR flow needs a claimed seat + printed QRs — owner to verify on the Vercel preview.
 
 SPEC IMPACT: iteration 0012 — the QR-tagging leg of the capture pipeline is now built (was the documented "unwired tag leg"). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · chore(papic): failproof the sampler "keep = permanent" promise — paid-ownership backstop + CI regression guard
+
+Owner: "failproof it." The "connect Drive OR upgrade to paid Papic = photos kept forever" promise is now enforced across several best-effort sites (3 convert hooks #1577 · capture-time stamp · the retention-sweep self-heal #1586). Two ways it could still silently regress — both closed here.
+
+- **Residual code hole — the sweep backstop only recognized Drive grants.** `eventSamplerIsKept` (the keep-check the sweep self-heals on) checked only for an active Drive grant. So a couple who *upgraded to paid Papic* but whose `PAPIC_SEATS` activation hook's best-effort `expires_at` clear silently failed would NOT be caught by the sweep — their photos would still be deleted. `eventSamplerIsKept` now also returns true for **paid Papic ownership** (`eventOwnsPapicSeats`, service-role), so the sweep self-heals **both** convert paths regardless of which hook missed. (Harmless at the capture site — paid owners don't reach the free sampler.)
+- **CI regression guard** (`scripts/lint-papic-keep-permanent.mjs` + `lint:papic-keep` + new CI job, matching `lint-entitlement-gates`). Presence-checks the whole chain stays wired: paid-upgrade hook → `makeSamplerPermanent`; Drive callback → `makeSamplerPermanent`; storage→Drive switch → `makeSamplerPermanent`; sweep → `eventSamplerIsKept` + `makeSamplerPermanent`; capture → `is_free_sampler` + `eventSamplerIsKept`; and the keep-check itself references BOTH `oauth_grants` and `eventOwnsPapicSeats`. If any link is un-wired by a future refactor, CI **fails loudly and names the cut wire** instead of couples silently losing photos at day 30. Verified locally: passes intact, fails (exit 1) when a wire is cut, passes again when restored.
+
+No migration. The locked `expires_at IS NULL = permanent / 5-year` rule is untouched.
+
+SPEC IMPACT: iteration 0012 sampler — the keep-permanent backstop now covers paid upgrades too, and is regression-proofed at PR-merge time. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(papic): dashboard sampler-retention card + sampler-aware gallery nudge — close 2 of the #1577 audit's conversion-UX findings
 
 From the same "make the sampler powerful" push. The #1577 52-agent audit confirmed two conversion-UX gaps it left for owner triage — **"gallery not sampler-aware"** and **"banner informational-not-converting."** This closes both on the couple's Papic add-on dashboard (`/dashboard/[eventId]/add-ons/papic`) — the surface where the real convert actions already live (the Drive-connect inside the storage card + the crew-pack `InlineCheckoutDrawer`).

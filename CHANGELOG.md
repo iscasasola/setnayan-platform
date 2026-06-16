@@ -4,7 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
+
+Second consumption of the nav/icon/menu registry. The customer **desktop sidebar** (the 6 journey groups → items) now sources each item's **label + icon from the admin registry** (`customer.sidebar.*` slots), falling back to the hardcoded default. **Visually identical today** (override table empty → every slot resolves to its code default — verified all 16 items' default label+icon match the config exactly, and all 16 icons are in the curated allowlist).
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-sidebar.tsx`** — `applyRegistry(groups, navSlots)` overlays registry label + `navIconComponent(icon)` per item via a `SIDEBAR_SLOT_KEYS` map (item key → `customer.sidebar.*`); a hidden slot drops the item. The neutral `buildCustomerNavGroups` builder stays untouched + server-safe (overrides applied in the client sidebar). Items with no slot yet (the "Checklist" auto-step) pass through unchanged. GROUP heading labels + the day-of roster slots remain deferred follow-ups.
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — passes the already-resolved `navSlots` to `<CustomerSidebar>` (reuses the same `getNavSlotMap()` the bottom nav uses).
+
+Reuses the bottom-nav pattern (`navIconComponent` → stable component; the shared SidebarSection/SidebarItem primitives untouched). `pnpm typecheck` + `pnpm lint` green. NEXT: vendor → admin → public, then group-heading slots + the ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
 
 First wiring of the nav/icon/menu registry into live chrome. The customer mobile bottom nav (the flat 6-tab bar: Home · Guests · Explore · Studio · Design · Budget) now sources its **label + icon per tab from the admin registry**, falling back to the prior hardcoded values. **Visually identical today** (the override table is empty → every slot resolves to its code default); editing a `customer.bottom-nav.*` slot on `/admin/menus` now changes the live bar.
 

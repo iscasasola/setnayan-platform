@@ -12,6 +12,7 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import {
   resolveMonogramMotion,
@@ -524,27 +525,21 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   let watchLive: WatchLiveData | null = null;
   if (dayOfPhase === 'live') {
     try {
-      const [{ data: wallActivation }, { data: panoodActivation }, watchRowRes] =
-        await Promise.all([
-          admin
-            .from('event_software_activations_v2')
-            .select('service_code')
-            .eq('event_id', event.event_id)
-            .eq('service_code', 'LIVE_WALL')
-            .maybeSingle(),
-          admin
-            .from('event_software_activations_v2')
-            .select('service_code')
-            .eq('event_id', event.event_id)
-            .eq('service_code', 'PANOOD_SYSTEM')
-            .maybeSingle(),
-          admin
-            .from('events')
-            .select('panood_watch_url')
-            .eq('event_id', event.event_id)
-            .maybeSingle(),
-        ]);
-      if (wallActivation) {
+      // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
+      // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's day-of page
+      // surfaces both the wall mirror AND the Panood watch-live block. The old
+      // event_software_activations_v2 reads had no payment-path writer (their
+      // only writer, verify_and_activate_manual_payment, has zero callers).
+      const [ownsWall, ownsPanood, watchRowRes] = await Promise.all([
+        eventOwnsSku(admin, event.event_id, 'LIVE_WALL'),
+        eventOwnsSku(admin, event.event_id, 'PANOOD_SYSTEM'),
+        admin
+          .from('events')
+          .select('panood_watch_url')
+          .eq('event_id', event.event_id)
+          .maybeSingle(),
+      ]);
+      if (ownsWall) {
         const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
         liveWall = {
           tiles: snap.tiles,
@@ -558,7 +553,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ? null
         : ((watchRowRes.data as { panood_watch_url?: string | null } | null)
             ?.panood_watch_url ?? null);
-      if (panoodActivation && watchUrl) {
+      if (ownsPanood && watchUrl) {
         const videoId = parseYouTubeVideoId(watchUrl);
         if (videoId) {
           watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };

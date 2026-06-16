@@ -18,6 +18,14 @@ Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total
 Six of seven templates now built; the **curtain (Veil C)** is the only one outstanding (its own follow-up). `tsc --noEmit` 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
 
 SPEC IMPACT: 0024 Save the Date — completes the §1a reveal library minus the curtain; design-locked in the corpus, lands behind the existing flag. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(payments): merge-forward PR4 (dead-unlock repair) onto current main + close a freshly-reintroduced dead-path gate
+
+PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 commits behind `main`) with only a failed Vercel deploy blocking its auto-merge. Merged current `origin/main` into the branch to bring it up to date and re-trigger a fresh deploy. The merge was mechanical: one trivial import-union conflict in `app/[slug]/_components/editorial/data.ts` (kept BOTH `eventOwnsSku` and main's new `fetchEventRecommendations`); `admin/payments/actions.ts` auto-merged (main's `getSetnayanFeeBps` and PR4's reject-cancel/approve-activate live in different functions); CHANGELOG union.
+
+- **New dead-path gate closed (in-scope extension):** the merge surfaced `app/dashboard/[eventId]/launch/page.tsx` — the day-of Services LAUNCH hub, added on main by the Event Lifecycle Menu work — gating the Live Photo Wall "Open the wall" launch button on the dead `event_software_activations_v2` table (the exact bug PR4 fixes everywhere else). A LIVE_WALL / Media-Pack buyer whose ownership lives in `orders` would have wrongly seen the upsell instead of the launch button on their wedding day. Rewired to `eventOwnsSku(supabase, eventId, 'LIVE_WALL')` — orders-backed + bundle-aware — identical to the sibling `/live` gate. Now the ONLY remaining `event_software_activations_v2` reads in the repo are the manpower-telemetry routes (`api/v1/manpower/*`), which are not couple-SKU payment gates.
+- Verified locally: 18/18 `lib/entitlements.test.ts` pass (covers `checkOrderOwnership` + `eventOwnsSku` + `BUNDLE_CHILD_SKUS`). Full `typecheck + lint` / `production build` delegated to required CI on push.
+
+SPEC IMPACT: None (mechanical merge-forward + one additional site of the same already-specced dead-unlock repair). The PR4 behavior — ownership reads off `orders.status`, reject-revokes, approve-always-activates, bundle-aware — is unchanged.
 
 ## 2026-06-16 · feat(compare): Lock now confirms too (same overwrite as Modify)
 
@@ -1338,6 +1346,15 @@ Follow-up to the `VendorVision` spine ([#1437](https://github.com/iscasasola/set
 OPEN (flagged to owner, NOT changed here): **`File sharing with couples`** is still gated to Pro+ in the same section — the one row that reads as core-collaboration rather than growth. Moving it to Free/Verified is a real product/pricing decision, so it's surfaced rather than silently changed.
 
 SPEC IMPACT: None on schema / SKU / price / tier capabilities. Public-copy framing only (iteration 0015/0022); logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · fix(payments): Papic seat/guest provisioning is now bundle-aware at the DB level (PR #1447 follow-up)
+
+Closes the residual gap flagged in PR #1447. That PR made the app-side ownership READ bundle-aware (`eventOwnsSku` + `BUNDLE_CHILD_SKUS`), so a `MEDIA_PACK` buyer owns the child SKUs — but the DB RPC `papic_provision_seats()` gated via `papic_event_owns_service(event, key)` which matched the **exact** `service_key` only. So a Media-Pack buyer who clicked "provision seats" hit the RPC's exact-key check (`'PAPIC_SEATS'` → no direct order) and the seats never materialized. (Same for the `'PAPIC_GUEST'` path.)
+
+- **DB (new migration `20261228000000_papic_ownership_bundle_aware.sql`):** new `public.bundles_granting_sku(child) → text[]` helper (the SQL mirror of `BUNDLE_CHILD_SKUS`), and `papic_event_owns_service` now matches the exact key **OR** any owned bundle that includes it. Exact-key branch + status filter preserved verbatim → no change for à-la-carte buyers. Idempotent. **NOT applied — owner runs `supabase db push`.**
+- **App (parity):** `lib/papic-seats.ts:eventOwnsPapicSeats` and `lib/papic-guest.ts:eventOwnsPapicGuest` switched from the exact-key `checkOrderOwnership` to bundle-aware `eventOwnsSku`, so the add-on **page** gate and the DB **RPC** now agree — a Media-Pack buyer both SEES the provision UI and can materialize the seats / guest quota.
+- **Sync note:** bundle membership now lives in THREE mirrors — `BUNDLE_MEMBERS` (onboarding, canonical) → `BUNDLE_CHILD_SKUS` (`lib/entitlements.ts`) → `bundles_granting_sku` (SQL). Keep in sync if composition changes.
+
+Stacks on PR #1447 (depends on its `eventOwnsSku`/`BUNDLE_CHILD_SKUS`). `tsc` + `pnpm test:unit` (135/135) green. SPEC IMPACT: None (mechanics; no price/SKU change).
 
 ## 2026-06-15 · ci(desktop): Developer-ID signing + Apple notarization for the macOS build
 
@@ -1375,6 +1392,19 @@ App-store submission prep. The owner is registering a Google Play (Personal) dev
 Upload keystore was generated out-of-repo at `/Users/Shared/setnayan-keys/` (alias `setnayan`, RSA 2048, 10000-day validity); `.gitignore` already blocks `*.jks` / `keystore.properties`. Full owner runbook (registration steps, listing copy, Google Data Safety answers, Apple privacy labels, iOS Xcode steps, Guideline 4.2 risk note) in the spec corpus: `0052_native_apps_delivery/App_Store_Submission_Runbook_2026-06-15.md`.
 
 SPEC IMPACT: None (CI infra + owner-action docs; no schema/SKU/feature change). The runbook is a new corpus delivery doc, not an iteration-spec edit.
+## 2026-06-15 · fix(payments): repair the dead unlock path + revoke-on-reject + activate-on-approve (PR 4 of the pricing/payments plumbing fix)
+
+The highest-risk PR in the pricing/payments series — three money-path bugs on the SKU activation chain, all read-side (no migration).
+
+- **Bug 1 — dead unlock pathway (the big one).** Several couple surfaces gated "is this SKU unlocked?" by READING `event_software_activations_v2`, but the ONLY writer of that table on the payment path is the DB fn `verify_and_activate_manual_payment()` (migration `20260903000000`), which has **zero app callers**. Net: any SKU gated this way could **never unlock by paying** ("pay and get nothing"). Rewired every such read to the canonical orders.status reader. New `eventOwnsSku()` + `BUNDLE_CHILD_SKUS` in **`apps/web/lib/entitlements.ts`**: owns a SKU when there's a live direct order for it **OR** a live order for a bundle (`GUIDED_PACK`/`MEDIA_PACK`) that includes it — closing the bundle→child gap (a Media Pack order is one row keyed `MEDIA_PACK`, never per-child). Read sites rewired (all from `.from('event_software_activations_v2')` → `eventOwnsSku()`): `app/dashboard/[eventId]/add-ons/papic/_components/live-wall-card.tsx` (LIVE_WALL), `app/dashboard/[eventId]/live/page.tsx` (LIVE_WALL), `app/wall/[eventId]/page.tsx` (LIVE_WALL), `app/[slug]/page.tsx` (LIVE_WALL **+** PANOOD_SYSTEM day-of blocks), `app/[slug]/live-wall/route.ts` (LIVE_WALL feed), `app/[slug]/_components/editorial/data.ts` (LIVE_WALL editorial section), `lib/face-blur.ts` (LIVE_WALL bake gate, dynamic import). The two **manpower** API routes (`sync-device`, `verify-telemetry`) keep using the table — they're vendor-side reward-telemetry writers, NOT couple-payment gates.
+- **Bug 2 — rejected payment didn't revoke access.** `rejectPayment` (`app/admin/payments/actions.ts`) set `payments.status='rejected'` but left `orders.status='submitted'`, which the orders reader still counts as OWNED — couple kept the SKU after a hard reject. Now also flips the order to `'cancelled'` (only when still `draft`/`submitted`/`awaiting_payment` — race-safe `.in()` WHERE, idempotent, non-fatal + fault-logged on failure) so it leaves the owned set; the order is now in `RELINQUISHED_STATUSES`. **Resubmit path untouched** (it deliberately keeps the order alive). Adds a `/dashboard` layout revalidate so gated surfaces re-render locked.
+- **Bug 3 — approve-without-promote skipped activation.** `activateOrderSku` lived inside `approvePayment`'s `if (promoteOrder)` block, so approving with the promote checkbox off matched the payment but never ran SKU side-effect provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch flag). Moved the dispatcher call OUT of the promote block so it runs on **every** approval, exactly once (idempotent hooks; receipt/payout/analytics stay promote-gated). Aligns provisioning with ownership (a matched/`submitted` order is already OWNED).
+
+Verification: `pnpm typecheck` clean; `pnpm test:unit` 135/135 (added 8 `eventOwnsSku`/bundle cases; the 10 existing `checkOrderOwnership` invariants kept green — that helper is unchanged). No price changed, no migration applied.
+
+**Surfaced for owner:** (a) `BUNDLE_CHILD_SKUS` is the entitlement-layer mirror of `BUNDLE_MEMBERS` in `app/onboarding/wedding/_components/onboarding-pricing.ts` — keep the two in sync if bundle composition changes. (b) The couple-initiated `papic_provision_seats` RPC (migration `20260718000000`) gates by exact `service_key` only, so a Media-Pack buyer passes the app-side PAPIC_SEATS page gate but the RPC would refuse to materialize seats — a follow-up (bundle-aware DB gate, or write child ownership on bundle approve) is flagged, not fixed here.
+
+SPEC IMPACT: None on prices / SKUs / schema. Behavior fix only: bundled + directly-purchased SKUs gated on `event_software_activations_v2` now actually unlock on payment; rejected payments revoke; approvals always activate.
 ## 2026-06-15 · feat(admin): editable vendor pricing + Setnayan Pay fee at /admin/pricing (PR 3 of the pricing/payments plumbing fix)
 
 Before this, `/admin/pricing` only let the owner edit the **customer** catalog (`platform_retail_catalog_v2` + `platform_package_catalog`). Vendor subscriptions / token packs (`vendor_billing_catalog`) and the Setnayan Pay convenience fee were **migration-only** — to change a vendor price or the fee you had to write SQL. This closes that gap.

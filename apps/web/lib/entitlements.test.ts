@@ -14,7 +14,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { checkOrderOwnership, RELINQUISHED_STATUSES } from './entitlements';
+import {
+  checkOrderOwnership,
+  eventOwnsSku,
+  BUNDLE_CHILD_SKUS,
+  RELINQUISHED_STATUSES,
+} from './entitlements';
 
 type QueryResult = { data: { status: string }[] | null; error: { code?: string; message: string } | null };
 
@@ -118,4 +123,101 @@ test('RELINQUISHED_STATUSES is the canonical exported set', () => {
   assert.equal(RELINQUISHED_STATUSES.has('lapsed'), true);
   assert.equal(RELINQUISHED_STATUSES.has('paid'), false);
   assert.equal(RELINQUISHED_STATUSES.size, 3);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// eventOwnsSku — bundle-aware ownership (PR4 dead-unlock repair).
+//
+// eventOwnsSku issues up to two sequential checkOrderOwnership() queries (the
+// child SKU, then each granting bundle), so the stub below resolves PER
+// service_key — it records the second .eq('service_key', X) arg and returns the
+// caller-configured row set for X (default: no rows = not owned).
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Supabase stub whose result depends on the `service_key` filter value.
+ * `owned` is the set of service_keys that should resolve to a live 'paid' row;
+ * everything else resolves to zero rows.
+ */
+function makeOwnedSupabase(owned: Set<string>) {
+  let currentServiceKey: string | null = null;
+  const builder: Record<string, unknown> = {
+    from() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
+    eq(col: string, val: string) {
+      if (col === 'service_key') currentServiceKey = val;
+      return builder;
+    },
+    not() {
+      return builder;
+    },
+    then(resolve: (value: QueryResult) => unknown) {
+      const data = currentServiceKey && owned.has(currentServiceKey)
+        ? [{ status: 'paid' }]
+        : [];
+      // Reset for the next chained query (each checkOrderOwnership rebuilds).
+      currentServiceKey = null;
+      return Promise.resolve({ data, error: null } as QueryResult).then(resolve);
+    },
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('eventOwnsSku: direct à-la-carte order confers ownership (LIVE_WALL)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['LIVE_WALL']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('eventOwnsSku: MEDIA_PACK bundle grants a media child (PANOOD_SYSTEM)', async () => {
+  // No direct PANOOD_SYSTEM order — only the MEDIA_PACK bundle order exists.
+  const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
+});
+
+test('eventOwnsSku: MEDIA_PACK bundle grants LIVE_WALL', async () => {
+  const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), true);
+});
+
+test('eventOwnsSku: GUIDED_PACK bundle grants its member but NOT a media-only child', async () => {
+  const supabase = makeOwnedSupabase(new Set(['GUIDED_PACK']));
+  // PRO_WEBSITE is in GUIDED_PACK → owned.
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PRO_WEBSITE'), true);
+  // PANOOD_SYSTEM is NOT in GUIDED_PACK (media-only, MEDIA_PACK) → not owned.
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), false);
+});
+
+test('eventOwnsSku: no direct order and no owned bundle → not owned', async () => {
+  const supabase = makeOwnedSupabase(new Set()); // owns nothing
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'LIVE_WALL'), false);
+});
+
+test('eventOwnsSku: a non-bundleable SKU with no direct order → not owned (no bundle fallback)', async () => {
+  const supabase = makeOwnedSupabase(new Set()); // owns nothing
+  // TODAYS_FOCUS is not a member of any bundle map → only the direct check runs.
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'TODAYS_FOCUS'), false);
+});
+
+test('eventOwnsSku: passing a bundle code directly works via the direct check', async () => {
+  const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'MEDIA_PACK'), true);
+});
+
+test('BUNDLE_CHILD_SKUS: media children are in MEDIA_PACK; both bundles share Essentials members', () => {
+  // The crew-delivered media children the dead DB fan-out used to grant.
+  for (const child of ['LIVE_WALL', 'PANOOD_SYSTEM', 'SDE', 'PAPIC_SEATS', 'CAMERA_BRIDGE', 'PABATI', 'PAKANTA']) {
+    assert.ok(
+      BUNDLE_CHILD_SKUS.MEDIA_PACK.includes(child),
+      `MEDIA_PACK should include ${child}`,
+    );
+  }
+  // Essentials members appear in both bundles (Complete is a superset for these).
+  for (const shared of ['SETNAYAN_AI', 'ANIMATED_MONOGRAM', 'CUSTOM_QR_GUEST', 'PRO_RSVP', 'PAPIC_GUEST', 'EVENT_WEBSITE', 'PRO_WEBSITE']) {
+    assert.ok(BUNDLE_CHILD_SKUS.GUIDED_PACK.includes(shared), `GUIDED_PACK should include ${shared}`);
+    assert.ok(BUNDLE_CHILD_SKUS.MEDIA_PACK.includes(shared), `MEDIA_PACK should include ${shared}`);
+  }
 });

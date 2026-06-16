@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · chore(db): land the editorial_vendor_media migration onto main to unjam `supabase db push`
+
+Migration-pipeline hygiene — no app code. **Root cause of the QR-RPC silent drop (#1588) traced here.** The prod migration ledger had `20270102000000` (`editorial_vendor_media`, iteration 0046) recorded as applied — its table + 7 RLS policies exist in prod — but the **file was not on `main`**: it lives only on the still-open, 100-commits-behind PR #1532 (`claude/editorial-vendor-media`), whose migration was applied to prod *ahead of its merge*. A ledger version with no local file **jams `supabase db push`**, so every migration merged after it had to be hand-applied — and `20270108000000`'s `papic_tag_capture` RPC was silently dropped that way (the #1588 scan-to-tag feature was 42883-degrading on prod until it was applied manually this session).
+
+This lands **only** the migration file (byte-identical to #1532's branch copy + the git-history original), decoupled from #1532's feature code (which has real conflicts with the already-merged "Vendors we loved" editorial work — that rebase belongs to the editorial session, not here):
+- `main`'s migration files now match the ledger → `db push` is unjammed → future migrations apply normally instead of being silently dropped.
+- The table already exists in prod + the migration is idempotent (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`/`CREATE POLICY`), so `db push` will not re-apply it (it's in the ledger); a fresh rebuild recreates it in order.
+- When #1532 eventually merges, the file is already present and identical → no conflict.
+
+Timestamp guard ✓ (385 unique; `20270102000000` is unique on `main` — the colliding `orders_platform` was long since renamed to `20270103040000`).
+
+SPEC IMPACT: None (DB bookkeeping — restores ledger/file/prod consistency; no schema, SKU, or pricing change). Logged in corpus `DECISION_LOG.md`, with the process note (applying an in-flight branch's migration to prod ahead of merge jams the pipeline).
 ## 2026-06-17 · fix(std-reveal): rigid reveals → scroll-driven + swipe-the-seal + real monogram wax seal (faithful-rebuild PR1/4)
 
 Owner reported the Save-the-Date reveal templates "are all not working properly" and, on inspection of the locked plan (`0024_ADDENDUM_envelope_open_experience_2026-06-14.md` §1a/§3), the shipped build had deviated on the **two** things they flagged: (1) the 3 envelopes + church doors opened by **tap**, not the locked **scroll-driven** model; (2) the seal was a **hardcoded mulberry text circle**, not the couple's real monogram pressed into a Mood-Board-coloured wax seal. Owner chose the **full faithful rebuild**; this is PR1 of 4 — the interaction + the real seal (PR2 candle-stamp maker · PR3 WebGL 3D + photoreal textures · PR4 scroll-scrub content timeline + editor to follow).

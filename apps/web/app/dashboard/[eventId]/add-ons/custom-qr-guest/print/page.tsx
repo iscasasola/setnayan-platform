@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import { renderBrandedInvitationQrSvg, resolveBrandedQrColors } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
@@ -44,8 +45,10 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
   // (lib/entitlements.ts) — same refund-aware read as the detail page, and
   // bundle-aware so a GUIDED_PACK/MEDIA_PACK buyer reaches the print pack.
   // Graceful-degrade on a missing orders table by treating it as not-owned
-  // (→ redirect to buy).
-  const owns = await eventOwnsSku(supabase, eventId, 'CUSTOM_QR_GUEST');
+  // (→ redirect to buy). Read with the ADMIN client (PR4d): the !event gate
+  // above authorizes the member, ownership is event-level, and orders RLS is
+  // purchaser-scoped — so the user client would deny a co-host the print pack.
+  const owns = await eventOwnsSku(createAdminClient(), eventId, 'CUSTOM_QR_GUEST');
   if (!owns) {
     redirect(`/dashboard/${eventId}/add-ons/custom-qr-guest`);
   }

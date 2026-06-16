@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
+
+Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total: 4 rigid envelopes + 2 veils + 1 curtain). PR1–PR3 shipped the four-flap envelope + the sheer veil + the in-dashboard preview/rewire; this lands the **4 remaining** openings, all behind the same `NEXT_PUBLIC_STD_REVEAL` flag (default OFF → zero live impact):
+
+- **`rigid-reveal.tsx`** (new) — three rigid envelopes on the four-flap pure-CSS-3D engine (no WebGL dep → inside the guest-site Lighthouse budget), via a `variant` prop: **two-flap-vertical** (splits left | right, swings open), **two-flap-horizontal** (top | bottom), **church-doors** (two arched doors swing wide, 2-panel inset + gold trim). Each flap is two-sided — paper front, liner-accent back — so you glimpse the inner colour as it swings past upright. Recolours via the per-event moodboard Tailwind tokens (cream / terracotta / mulberry / ink), ₱0.
+- **`veil-crown.tsx`** (new) — bridal veil V2 "crown-pinned · folding": a three.js Verlet cloth gathered narrow at the crown, fanning into deep folds to the hem; drag / scroll lifts the **hem up & back over the crown**. Code-split via `next/dynamic(ssr:false)` like the sheer veil — main bundle untouched.
+- **`veil-shared.ts`** (new) — extracted the gold Setnayan mark + procedural tulle-net / filigree-lace-hem texture + recolourable fresnel material out of `veil-reveal.tsx`, now shared by both veils (the "shared net body + lace hem" the design calls for). `veil-reveal.tsx` refactored to consume it (−211 lines, behaviour identical).
+- **`reveal-templates.ts`** (new) — tiny pure registry (template type · `?reveal=` aliases · ordered library) shared by the overlay and the studio chooser at zero bundle cost.
+- **`reveal-overlay.tsx`** — the switch now routes all six; `?reveal=` accepts every id (e.g. `?reveal=church-doors`, `?reveal=two-flap-horizontal`, `?reveal=crown`) plus the back-compat `veil` / `envelope` aliases, so any template is previewable on a Vercel preview without flipping the global flag.
+- **`reveal-preview-card.tsx`** — the studio "Opening reveal" chooser now offers all six (preview-only; per-event persistence + a content editor remain a separate, owner-deferred step).
+
+Six of seven templates now built; the **curtain (Veil C)** is the only one outstanding (its own follow-up). `tsc --noEmit` 0 · `next lint` clean · `lint:retired` 0 (verified in worktree).
+
+SPEC IMPACT: 0024 Save the Date — completes the §1a reveal library minus the curtain; design-locked in the corpus, lands behind the existing flag. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-16 · fix(payments): merge-forward PR4 (dead-unlock repair) onto current main + close a freshly-reintroduced dead-path gate
 
 PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 commits behind `main`) with only a failed Vercel deploy blocking its auto-merge. Merged current `origin/main` into the branch to bring it up to date and re-trigger a fresh deploy. The merge was mechanical: one trivial import-union conflict in `app/[slug]/_components/editorial/data.ts` (kept BOTH `eventOwnsSku` and main's new `fetchEventRecommendations`); `admin/payments/actions.ts` auto-merged (main's `getSetnayanFeeBps` and PR4's reject-cancel/approve-activate live in different functions); CHANGELOG union.

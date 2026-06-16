@@ -67,6 +67,10 @@ const CSS = `
 .csov .r .badge.lm .pct{font-weight:700;margin-left:2px}
 .csov .r .badge.near{color:#2f7d4f;background:rgba(47,125,79,.12)}
 .csov .r .badge.far{color:#9a6a00;background:rgba(197,160,89,.16)}
+/* Relationship-depth badges */
+.csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
+.csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(92,37,66,.12);border:1px solid rgba(92,37,66,.25)}
+.csov .r .badge.rel-1{font-weight:600;color:var(--gold-deep);background:rgba(197,160,89,.18);border:1px solid rgba(197,160,89,.35)}
 .csov .r .sub .faraway{color:#9a6a00}
 .csov .farther-btn{display:block;width:100%;margin:2px 0 14px;border:1px dashed var(--line);border-radius:14px;background:transparent;color:var(--ink-soft);padding:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;transition:border-color .2s,color .2s}
 .csov .farther-btn:active{border-color:var(--gold);color:var(--gold-deep)}
@@ -316,6 +320,23 @@ export function CategorySearchOverlay({
         <div className="meta">
           <div className="vn">{r.name}</div>
           <div className="sub">
+            {r.relationshipDepth >= 1 ? (
+              <span
+                className={`badge ${
+                  r.relationshipDepth === 3
+                    ? 'rel-3'
+                    : r.relationshipDepth === 2
+                      ? 'rel-2'
+                      : 'rel-1'
+                }`}
+              >
+                {r.relationshipDepth === 3
+                  ? 'Your vendor'
+                  : r.relationshipDepth === 2
+                    ? "You're in conversation"
+                    : 'In your shortlist'}
+              </span>
+            ) : null}
             {hasCoords && r.distanceKm !== null ? (
               r.withinRadius ? (
                 <span className="badge near">✓ Serves your area</span>

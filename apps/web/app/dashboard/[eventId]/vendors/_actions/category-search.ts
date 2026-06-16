@@ -92,6 +92,15 @@ export type CategoryVendorResult = {
   lastMinuteSurchargePct: number | null;
   /** Already in this event's picks → render "✓ Added", not an Add button. */
   alreadyAdded: boolean;
+  /**
+   * Relationship depth between this couple's event and the vendor (0–3).
+   *   3 = deposit_paid or completed  → "Your vendor"
+   *   2 = vendor_event_unlocks row   → "You're in conversation"
+   *   1 = event_vendors row (any non-declined, non-withdrawn status) → "In your shortlist"
+   *   0 = no relationship
+   * Used to float known vendors to the top and render a contextual badge.
+   */
+  relationshipDepth: 0 | 1 | 2 | 3;
   /** Service-radius coverage (vendor-tier-caps · serviceRadiusKm vs the
    *  reception anchor). TRUE = the vendor's tier radius reaches this reception
    *  ("✓ Serves your area"); FALSE = out of range ("travel fee likely"). Always
@@ -320,6 +329,50 @@ export async function searchCategoryVendors(input: {
       .filter((v): v is string => typeof v === 'string'),
   );
 
+  // ── Relationship depth (for the contextual badge + top-of-results float) ──
+  // Two lightweight reads: event_vendors (shortlisted/contracted/etc.) and
+  // vendor_event_unlocks (vendor opened the inquiry = "in conversation").
+  // Both are scoped to this event and keyed on marketplace_vendor_id /
+  // vendor_profile_id respectively. The admin client is used so RLS doesn't
+  // restrict the read (couple RLS already gates the outer `ev` check above).
+  const [evRows, unlockRows] = await Promise.all([
+    admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id, status')
+      .eq('event_id', eventId)
+      .not('marketplace_vendor_id', 'is', null),
+    admin
+      .from('vendor_event_unlocks')
+      .select('vendor_profile_id')
+      .eq('event_id', eventId),
+  ]);
+
+  // Build a depth map keyed by vendor_profile_id.
+  // Depth 3: deposit_paid / complete (aliases: 'delivered', 'contracted' are depth-1
+  // variants but task spec says depth 3 = deposit_paid or completed — keep spec exact).
+  const depthMap = new Map<string, 0 | 1 | 2 | 3>();
+  for (const row of evRows.data ?? []) {
+    const r = row as { marketplace_vendor_id: string | null; status: string | null };
+    if (!r.marketplace_vendor_id) continue;
+    const s = r.status ?? '';
+    const d: 0 | 1 | 2 | 3 =
+      s === 'deposit_paid' || s === 'complete'
+        ? 3
+        : s === 'declined' || s === 'withdrawn'
+          ? 0
+          : 1;
+    // Keep the highest depth seen for this vendor.
+    const prev = depthMap.get(r.marketplace_vendor_id) ?? 0;
+    if (d > prev) depthMap.set(r.marketplace_vendor_id, d);
+  }
+  // Depth 2: vendor_event_unlocks row exists (vendor opened the inquiry).
+  // Only upgrade from 1→2; 3 already beats it.
+  for (const row of unlockRows.data ?? []) {
+    const r = row as { vendor_profile_id: string };
+    const prev = depthMap.get(r.vendor_profile_id) ?? 0;
+    if (prev < 2) depthMap.set(r.vendor_profile_id, 2);
+  }
+
   // Ranked category query (boosted → review_count → rating) + live search.
   // (`admin` is created above for the last-minute config read.)
 
@@ -489,6 +542,7 @@ export async function searchCategoryVendors(input: {
     _adRank: number;
     _reviews: number;
     _rating: number;
+    _depth: 0 | 1 | 2 | 3;
     /** Survives the last-minute filter (expired → never · last_minute → AI only). */
     _searchable: boolean;
   };
@@ -558,11 +612,13 @@ export async function searchCategoryVendors(input: {
       lastMinuteAvailable: lm.zone === 'last_minute' && searchable,
       lastMinuteSurchargePct: lm.zone === 'last_minute' ? lm.surchargePct : null,
       alreadyAdded: addedIds.has(r.vendor_profile_id),
+      relationshipDepth: depthMap.get(r.vendor_profile_id) ?? 0,
       withinRadius,
       serviceRadiusKm,
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
       _rating: r.avg_rating_overall ?? 0,
+      _depth: depthMap.get(r.vendor_profile_id) ?? 0,
       _searchable: searchable,
     };
   });
@@ -572,12 +628,29 @@ export async function searchCategoryVendors(input: {
   // stay coherent. Dormant categories leave every vendor _searchable=true.
   const searchableShaped = shaped.filter((s) => s._searchable);
 
+  // Relationship-depth tier: vendors this couple already knows float above
+  // everything else, sorted depth-DESC then by the normal ad/review order.
+  // Depth 0 vendors fall through to the original tier ladder below unchanged.
+  const withRelationship = searchableShaped
+    .filter((s) => s._depth > 0)
+    .sort(
+      (a, b) =>
+        b._depth - a._depth ||
+        b._adRank - a._adRank ||
+        b._reviews - a._reviews ||
+        b._rating - a._rating,
+    );
+  const withRelationshipIds = new Set(withRelationship.map((s) => s.vendorProfileId));
+  const noRelationshipShaped = searchableShaped.filter(
+    (s) => !withRelationshipIds.has(s.vendorProfileId),
+  );
+
   // Tier 1 favorites: empty until the cross-event favorites table ships (V1.x).
-  // Tier 2 boosted: ad_rank desc.
-  const boosted = searchableShaped
+  // Tier 2 boosted: ad_rank desc (within the no-relationship pool).
+  const boosted = noRelationshipShaped
     .filter((s) => s.boosted)
     .sort((a, b) => b._adRank - a._adRank);
-  const rest0 = searchableShaped.filter((s) => !s.boosted);
+  const rest0 = noRelationshipShaped.filter((s) => !s.boosted);
   // Tier 3 top-10 by review_count then rating.
   const byReview = [...rest0].sort(
     (a, b) => b._reviews - a._reviews || b._rating - a._rating,
@@ -598,7 +671,7 @@ export async function searchCategoryVendors(input: {
     return b._reviews - a._reviews || b._rating - a._rating;
   });
 
-  let ordered = [...boosted, ...top10, ...tail];
+  let ordered = [...withRelationship, ...boosted, ...top10, ...tail];
 
   // Show-farther expander: the default fetch already shows the in-range set, so
   // return ONLY the out-of-range vendors here (nearest-first), tagged for the
@@ -639,6 +712,7 @@ export async function searchCategoryVendors(input: {
     lastMinuteAvailable: s.lastMinuteAvailable,
     lastMinuteSurchargePct: s.lastMinuteSurchargePct,
     alreadyAdded: s.alreadyAdded,
+    relationshipDepth: s.relationshipDepth,
     withinRadius: s.withinRadius,
     serviceRadiusKm: s.serviceRadiusKm,
   }));

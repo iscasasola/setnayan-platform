@@ -15,6 +15,19 @@ Owner directive: publish a Journal article that gives DIY / physical-checklist c
 - `tsc` + `next lint` + retired-string guard + production build all green; article in the blog sitemap.
 
 SPEC IMPACT: iteration 0038 (Editorial/Journal) — new planning article + a reusable download block. Free-downloadable-checklist + free-vs-paid-guidance positioning logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+
+Owner-locked (2026-06-16): let a couple TRY Papic free so they experience the claim→shoot→tag→gallery loop, then convert to the paid pass. Built as a thin entitlement on the EXISTING Papic web pipeline (seat claim + web capture + QR tagging all already shipped) — no rebuild.
+
+- **Migration `20270103000000_papic_free_sampler.sql` (APPLIED TO PROD, ledger recorded — statement-by-statement, not a blind `db push`, vs the in-flight 20270102000000 collision).** `paparazzi_seats.is_free_sampler BOOLEAN` + `papic_photos.expires_at TIMESTAMPTZ` (NULL = permanent; partial index) + RPC `papic_provision_sampler(event_id)` — couple/admin-gated, idempotent, ONE sampler per event, 3 seats at seat_index 101–103 (own range, never collides with the paid pass's 1–5).
+- **Caps + retention in `recordSeatCapture`** (`app/papic/actions.ts`): sampler seats enforce 8 photos + 2 clips per seat (5-sec clip cap unchanged) and stamp `expires_at = NOW()+30d`. Sampler captures SKIP wall ingest + FaceBlock (it's a private try, not the day-of wall); NSFW screen still always runs.
+- **Cron-free retention** (`lib/papic-retention.ts` + `r2Delete` in `lib/r2.ts`): a bounded (25), event-scoped, best-effort sweep deletes expired sampler R2 bytes + rows in `after()` on the crew page. Can never touch paid photos (filters on a non-null past `expires_at`). An R2 lifecycle rule on the media bucket is the optional long-tail byte hardening (owner infra).
+- **Couple surface:** crew page (`…/add-ons/papic/crew`) now serves the sampler when the event has no paid pass — provision CTA, the 3 claim links + QR, per-seat caps, and the "kept 30 days · connect Drive or upgrade to keep forever" framing. Papic page gained a "Try Papic free first" link for non-owners. `provisionPapicSampler` action mirrors `provisionPapicSeats`. **Never Drive-gated** — capture works without Drive; connecting Drive (existing storage_target/oauth path) is the "keep forever" escape.
+- `lib/papic-seats.ts`: `PAPIC_SAMPLER_*` constants + `fetchPapicSamplerSeats` (and `fetchPapicSeats` now scopes to paid seats only). `tsc --noEmit` green.
+
+Free entitlement only — NEVER zeroes the paid PAPIC_SEATS ₱2,999. Known follow-ups (deferred): T-7/T-1 expiry warning emails (need a scheduled trigger — out of the cron-free path), an admin cross-event abuse surface (1/event is enforced per-event by the RPC), and wiring real sampler photos into the couple gallery grid (still mock — sampler shots show on the capture surface today).
+
+SPEC IMPACT: new free Papic sampler in iteration 0012 (Papic) + the free-tier (couple website / Papic taste) in Pricing.md. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(std-reveal): preview the opening reveal in the website editor — the "studio" surface (PR3a)
 

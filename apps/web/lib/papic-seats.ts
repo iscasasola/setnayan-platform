@@ -60,6 +60,20 @@ export async function eventOwnsPapicSeats(
   return checkOrderOwnership(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
 }
 
+// ── Free Papic sampler (owner-locked 2026-06-16) ─────────────────────────────
+// A couple can TRY Papic free so they experience the tag→gallery loop: 3 seats,
+// 8 photos + 2 clips EACH (the 5-sec clip cap still applies), kept 30 days unless
+// they connect Drive (their own copy) or upgrade to paid Papic. Reuses the whole
+// seat→claim→capture→tag pipeline; sampler seats carry is_free_sampler = TRUE and
+// live in their own seat_index range (101..103) so they never collide with the
+// paid pass's 1..5. Provisioned by papic_provision_sampler() (migration
+// 20270103000000). FREE entitlement — never zeroes the paid PAPIC_SEATS ₱2,999.
+export const PAPIC_SAMPLER_SERVICE_KEY = 'PAPIC_SEATS_FREE';
+export const PAPIC_SAMPLER_SEAT_COUNT = 3;
+export const PAPIC_SAMPLER_PHOTO_CAP = 8; // per seat
+export const PAPIC_SAMPLER_CLIP_CAP = 2; // per seat
+export const PAPIC_SAMPLER_RETENTION_DAYS = 30;
+
 // ─────────────────────────────────────────────────────────────────────────
 // Seat rows — the read shape + provisioning helpers. The paparazzi_seats
 // table (migration 20260520015000) is RLS couple-only for direct reads, so
@@ -75,6 +89,7 @@ export type PapicSeatRow = {
   claimer_user_id: string | null;
   claimed_at: string | null;
   revoked_at: string | null;
+  is_free_sampler: boolean;
 };
 
 /**
@@ -87,10 +102,31 @@ export async function fetchPapicSeats(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicSeatRow[]> {
+  return fetchSeatRows(supabase, eventId, false);
+}
+
+/**
+ * Fetch this event's FREE SAMPLER seats (is_free_sampler = TRUE). Same graceful-
+ * degrade as fetchPapicSeats so a pre-migration DB shows the "start sampler"
+ * prompt instead of crashing.
+ */
+export async function fetchPapicSamplerSeats(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicSeatRow[]> {
+  return fetchSeatRows(supabase, eventId, true);
+}
+
+async function fetchSeatRows(
+  supabase: SupabaseClient,
+  eventId: string,
+  sampler: boolean,
+): Promise<PapicSeatRow[]> {
   const { data, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, seat_index, claim_qr_token, claimer_user_id, claimed_at, revoked_at')
+    .select('seat_id, seat_index, claim_qr_token, claimer_user_id, claimed_at, revoked_at, is_free_sampler')
     .eq('event_id', eventId)
+    .eq('is_free_sampler', sampler)
     .order('seat_index', { ascending: true });
 
   if (error) {

@@ -4,6 +4,12 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(compare): Lock now confirms too (same overwrite as Modify)
+
+Owner go-ahead. Compare's *Lock* runs the same `applyBuildToWorking` as Modify, so it also overwrites the live working build (before routing to the Lock tab) — it now goes through the same confirm dialog. `onApply` confirms for BOTH destinations when the working build has picks to lose; the confirm button reads **Lock** vs **Replace** by action. Also unified the dialog body to "This replaces your current build with “{name}”…" (drops the Modify-only "Build tab" phrasing so it reads right for both).
+
+SPEC IMPACT: 0016 Compare — Modify AND Lock are both confirm-first destructive actions.
+
 ## 2026-06-16 · chore(compare): simpler Modify-confirm wording
 
 Owner: "fix the wordings and make it simpler." Tightened the Modify confirm dialog — body is now "This replaces what's on your Build tab with “{name}”. Save your current plan first if you want to keep it." and the buttons are **Replace** / **Cancel** (were "Replace & modify" / "Keep current"). Copy-only; no behavior change.

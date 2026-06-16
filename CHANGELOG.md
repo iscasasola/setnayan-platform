@@ -16,6 +16,32 @@ Owner: *"when we open explore, the first that should load is the sub nav before 
 Verified in the worktree: `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. The authenticated `/vendors` surface needs prod env (absent in a fresh worktree) + the "sub-nav-first" beat is timing-dependent locally; the layout-persistence guarantees the order regardless — owner to confirm the entry feel on the Vercel preview (per the verification-economy preference).
 
 SPEC IMPACT: minor — the Explore/Services takeover's section sub-nav is now mounted in the event layout (ahead of the server panel) rather than inside the takeover; consistent with the `<SubNav>` canonical pattern. Logged in corpus `DECISION_LOG.md` (iterations 0021/0022).
+## 2026-06-16 · feat(papic): surface the free sampler on the add-ons grid + branded sampler expiry emails
+
+The last two open conversion-UX findings from the #1577 sampler audit (the rest shipped across #1582/#1585/#1588). A re-audit against current `main` first confirmed the other audit items were already closed — the admin double-count, Drive backlog flush, and reminder-subject collision all landed in the "three free-sampler correctness fixes" PR; the QR-tag leg landed in #1588; the cap-TOCTOU and email-timing items are documented-as-benign in shipped code (one phone per seat; T-7/T-1 anchored to earliest roll-off). What remained:
+
+- **B1 — discoverability.** A couple browsing the Studio add-ons grid (`/dashboard/[eventId]/add-ons`) had no signal that Papic has a **free** sampler — the tile read as a paid capture add-on. Added an optional `freeTrial?: string` to `AddOnEntry` + `StudioCard` (a distinct mulberry chip, separate from the orange genuinely-free "Free" chip and the "Soon" chip), and set `freeTrial: 'Free to try'` on the Papic entry. Never a price source (the comment makes that explicit); the feature page still owns price + purchase.
+- **B2 — branded expiry emails.** The T-7/T-1 sampler-expiry reminders were **plain text** (`sendEmail` was text-only — "HTML rendering is a follow-on"). Added an optional `html?` body to `SendEmailArgs` (Resend sends multipart; HTML-capable clients render it, the rest fall back to `text`) + a new dependency-free **`lib/email-template.ts` `renderBrandedEmail()`** — inline-hex mirror of the `--m-*` paper palette on table layout (the only thing that renders across Gmail/Apple Mail/Outlook), with the SETNAYAN wordmark, a gold rule, and a single mulberry CTA. `papic-sampler-emails.ts` now sends both halves for T-7 and T-1. Reusable by 0028's other 9 templates later.
+
+Verified: `tsc --noEmit` 0 · `next lint` clean (6 files) · the email template rendered through `tsx` (2614 bytes, wordmark + CTA + correct escaping). Emails stay dormant until `RESEND_API_KEY` is set; the chip is live immediately.
+
+SPEC IMPACT: iteration 0012 sampler — the free sampler is now discoverable from the Studio grid, and its expiry reminders are branded HTML (0028 gains a reusable branded-email layout). No SKU / schema / pricing change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): failproof the scan-to-tag leg — adversarial review pass on #1588
+
+Owner: "failproof?" A 3-lens adversarial review (SQL/security · parser/classification · client/integration+downstream) of the just-merged #1588. **Verdicts: SQL = ship** (logic, security, event-scope, cap-truncation, idempotency all *cleared* as correct); **parsers + client = ship-with-fixes.** Two reviewer "fixes" were **rejected after scrutiny** (see below). Landed the real, scoped ones:
+
+- **Parser null-safety.** `parsePapicTagScan(raw)` now coerces `raw ?? ''` before calling the reused `parseGuestQrPayload` (which does a bare `raw.trim()`), so it can't throw on a stray null — honoring `tagSeatCapture`'s "never throws" contract by construction.
+- **Transient-failure retry (lost-tag fix).** The scan loop set `lastScanRef = raw` *before* the await and never cleared it on failure, so a code held under the lens that hit a transient `tag_failed` was silently stuck until the next capture. Now a `tag_failed` clears the debounce so the same code self-heals on the next tick; deterministic outcomes (unrecognized / not-found / cap / unavailable) stay debounced so a held code can't spam the RPC.
+- **A11y.** Added a persistent visually-hidden `aria-live="polite"` region announcing tag notices + the running `n/10` count (the scan-to-tag flow was sighted-only); the visual notice stays conditional so the layout is unchanged.
+- **8 new parser tests** (16 total) locking down the adversarial cases: null/undefined input, dual-param precedence (guest-first, order-independent), a guest token smuggled into `?t=` (stays a server-rejectable table ref), `#?t=` fragment ignored, newline-appended URLs, lowercase `public_id` in `?t=`, Crockford length boundaries, and `?invite=present-but-invalid` not falling through to `?g=`.
+
+**Rejected (would have been wrong):**
+- *"Loosen the guest live gallery's `moderation_state='clean'` filter so freshly-tagged photos always show."* That filter is a **deliberate NSFW allowlist** on a guest-facing surface (the file documents it) — loosening it would surface un-screened photos to guests, violating the corpus "NSFW filter on by default, cannot be disabled." The real issue (the NSFW screen is fail-open with no re-screen/backfill, so a dropped screen leaves a row stuck `unscreened` and invisible on allowlist surfaces) is a **pre-existing screening-pipeline reliability gap**, not the tag leg. Flagged for owner; **not** fixed by weakening safety. The couple gallery (private, exclusion-based filter) still shows everything.
+- *"Hard-enforce the 10-tag cap with a DB trigger on `photo_tags`."* A blanket trigger would also cap `auto_face` tags, whose intended cap behavior is unspecified — a load-bearing cross-feature decision. **Surfaced for owner sign-off**, not silently baked in. The cap stays advisory in the RPC (single-claimer/single-phone serializes scans, so overflow is bounded to a contrived double-tap — the reviewer rated it low).
+
+Verified: `tsc` 0 · `test:unit` papic-tag 16/16 · `next lint` clean · production build green.
+
+SPEC IMPACT: None (correctness + test/a11y hardening on #1588; no SKU/schema/pricing/public-surface change). Two items surfaced for owner: the screening-pipeline fail-open re-screen gap, and whether to DB-enforce the 10-tag cap across all tag sources. Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(papic): scan-to-tag — wire the QR tag leg on the seat capture surface
 

@@ -142,13 +142,19 @@ export { buildCustomerNavGroups };
  * absent here (e.g. the "Checklist" auto-step) have no registry slot yet and
  * pass through with their hardcoded label/icon. GROUP heading labels are a
  * deferred follow-up (no group slots yet).
+ *
+ * applyRegistry only walks TOP-LEVEL group.items, so a key here only takes
+ * effect for an item that's still a top-level row. The "Seating" item was
+ * folded into the Guests journey as the nested "Seat" child (#1595), so it has
+ * no top-level row to match — its old `seating` entry was removed to keep this
+ * map honest. (Wiring registry overrides for nested journey children is a
+ * nav-registry follow-up; it must land on the mobile shelf too to avoid drift.)
  */
 const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   home: 'customer.sidebar.home',
   'add-ons': 'customer.sidebar.studio',
   vendors: 'customer.sidebar.explore',
   guests: 'customer.sidebar.guests',
-  seating: 'customer.sidebar.seating',
   schedule: 'customer.sidebar.schedule',
   budget: 'customer.sidebar.budget',
   messages: 'customer.sidebar.messages',

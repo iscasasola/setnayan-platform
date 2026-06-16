@@ -88,6 +88,9 @@ export async function GET(req: NextRequest) {
     clientId: config.clientId,
     redirectUri: config.redirectUri,
     state,
+    // ?switch=1 → the couple is changing which Google account holds the Drive
+    // copy; force the account chooser so they can actually pick a different one.
+    forceAccountChooser: req.nextUrl.searchParams.get('switch') === '1',
   });
 
   return NextResponse.redirect(authorizeUrl);

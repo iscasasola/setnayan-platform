@@ -13,7 +13,9 @@ import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { loadRecapCoupleSummary } from '@/lib/auto-recap';
+import { getDriveOAuthConfig } from '@/lib/papic-drive';
 import { publishRecap, unpublishRecap } from './actions';
+import { RecapDriveNudge } from './_components/recap-drive-nudge';
 
 // Iteration 0012 Papic — Auto-Recap (couple-side management surface).
 //
@@ -56,6 +58,22 @@ export default async function CoupleRecapPage({
   const isPublished = summary.status === 'published';
   const publicUrl = summary.slug ? `${SITE_URL}/${summary.slug}/recap` : null;
   const shareImage = summary.slug ? `${SITE_URL}/api/og/recap/${summary.slug}` : undefined;
+
+  // "Save the originals to Drive" nudge — only when the recap has real content,
+  // no Drive is connected yet, and Drive OAuth is live. The recap is the
+  // strongest emotional point of need; connecting here writes the one per-event
+  // grant (provider='drive') that also covers Photo Delivery + Papic storage.
+  const recapHasContent =
+    summary.privatePhotos > 0 || summary.approvedKwentos > 0;
+  const { data: recapDriveGrant } = await supabase
+    .from('oauth_grants')
+    .select('grant_id')
+    .eq('event_id', eventId)
+    .eq('provider', 'drive')
+    .is('revoked_at', null)
+    .maybeSingle();
+  const showDriveNudge =
+    recapHasContent && !recapDriveGrant && getDriveOAuthConfig().ready;
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
@@ -159,6 +177,13 @@ export default async function CoupleRecapPage({
           </div>
         </div>
       </section>
+
+      {showDriveNudge ? (
+        <RecapDriveNudge
+          eventId={eventId}
+          connectHref={`/api/oauth/drive/start?event_id=${eventId}`}
+        />
+      ) : null}
 
       {/* Privacy explainer — plain English */}
       <section className="rounded-2xl border border-gold/30 bg-gold/5 p-5 sm:p-6">

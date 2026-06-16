@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · chore(ci): scaffold auto-apply-migrations-on-merge — armed but dormant until the secrets are set
+
+The structural fix for the migration-pain ROOT cause (companion to the timestamp-failproof #1617). Applying migrations to prod **manually, ahead of the PR merge** is what caused this repo's worst incidents — the `db push` jam, the silent QR-RPC drop, and the dup-collision ledger surgery (all 2026-06-17). Auto-apply-on-merge means migrations apply ONLY post-merge, under finalized timestamps, applied==recorded — the whole class disappears.
+
+The workflow already existed (`.github/workflows/supabase-migrations.yml`) but its `push:` trigger was commented out (2026-05-24 pilot-safety disable) and its secret-check **hard-failed** when secrets were absent — so simply arming it would have spammed a red failure on every migration merge. This makes it **safe to arm**:
+
+- **Push trigger un-commented** (runs on a merge to main that touches `supabase/migrations/**`).
+- **New `gate` step makes it DORMANT until configured:** it green no-ops (with a `::notice::`) while `SUPABASE_ACCESS_TOKEN` / `SUPABASE_DB_PASSWORD` (secrets) + `SUPABASE_PROJECT_REF` (variable) are unset; every real step (`checkout`/`link`/`db push`/`migration list`) is gated on `steps.gate.outputs.enabled == 'true'`. So arming it costs nothing today, and the 2026-05-24 "don't auto-apply during pilot" concern is preserved — **nothing applies until the owner sets the secrets.**
+- **"Flip on" = set the 3** (no further code change). Header updated with the rationale + steps.
+
+It triggers on push to **main** (not on PRs), so it never blocks a PR check. YAML validated (triggers: push + workflow_dispatch).
+
+SPEC IMPACT: None (CI scaffolding; inert until the owner sets the secrets). **⚠ OWNER:** this arms (dormant) the workflow you deliberately disabled 2026-05-24 — it stays a green no-op until you set the 3 secrets, at which point migration merges self-apply to prod. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-17 · feat(std-reveal): photoreal paper + liner textures on the 3D rigid scene (faithful-rebuild PR3b/4)
 
 Stacks on PR3a (the WebGL scene). Realises the §1a **TRUE TEXTURE** requirement for the two surfaces a guest stares at — the invitation **paper** (back plane + flap fronts) and the **liner** (flap backs) — as real PBR material maps. Church-door wood is the heavier unique surface and defers to **PR3c**.

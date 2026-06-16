@@ -16,6 +16,15 @@ Both guards proven non-vacuous: a planted bare call fails GUARD 1; removing one 
 
 SPEC IMPACT: None (CI-only guardrail). Logged in `DECISION_LOG.md`.
 
+## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
+
+Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.
+
+- `apps/web/lib/social/facebook.ts` — new `resolvePageAccessToken(pageId, configuredToken)` calls `GET /{page-id}?fields=access_token` to exchange the System User token for the Page token before publishing. Per-process memo (keyed by source token — a Page token derived from a never-expiring SU token is itself non-expiring), 15s timeout, safe fallback to the configured token on exchange failure (a no-op when the env already holds a real Page token, so the change is correct for either credential type). Diagnosed against the live token: it debugs as `type: SYSTEM_USER` with `pages_read_engagement` + `pages_manage_posts` + `pages_manage_engagement` granted; the exchange yields a `type: PAGE` token for page `1142862912244794`.
+
+Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
+
+SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
 ## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
 
 A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:

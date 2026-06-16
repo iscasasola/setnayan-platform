@@ -86,6 +86,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/disputes',
       '/admin/pax-changes',
       '/admin/force-majeure',
+      '/admin/completions',
       '/admin/reviews',
       '/admin/concierge-abuse',
       '/admin/account-deletions',

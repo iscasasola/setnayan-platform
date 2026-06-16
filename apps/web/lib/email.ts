@@ -6,6 +6,12 @@ export type SendEmailArgs = {
   /** Plain-text body. HTML rendering is a follow-on. */
   text: string;
   replyTo?: string;
+  /**
+   * Optional future send time (ISO 8601). Resend holds the email and delivers
+   * it at this moment — up to 30 days out — so timed notifications need no cron
+   * on our side. Omit for immediate send.
+   */
+  scheduledAt?: string;
 };
 
 export type SendEmailResult =
@@ -47,6 +53,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
       subject: args.subject,
       text: args.text,
       replyTo: args.replyTo,
+      ...(args.scheduledAt ? { scheduledAt: args.scheduledAt } : {}),
     });
     if (error || !data) {
       console.error('[email] resend send failed:', error);

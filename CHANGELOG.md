@@ -16,6 +16,89 @@ Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "st
 **Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
 
 SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
+## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
+
+The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.
+
+- **migration `20270107000000`** (applied to prod) — `papic_sampler_email_log` (event_id PK = once-per-event lock; t7/t1 message ids for an optional future cancel; admin-only RLS).
+- **`lib/email.ts`** — `SendEmailArgs.scheduledAt?` passed through to Resend (`resend@6.12.3` supports it). Immediate send unchanged.
+- **`lib/papic-sampler-emails.ts`** (new) — `scheduleSamplerExpiryWarnings(eventId, expiresAt)`: resolves the couple's email, PK-locks once per event, schedules the two emails. Copy is worded so it's correct whether or not they later keep the photos ("ignore this if you've already connected Drive or upgraded") — so no cancel-on-keep hook is required. Never throws.
+- **`papic/actions.ts`** — `recordSeatCapture` `after()` calls it for sampler captures (lazy import, best-effort).
+- Dormant until `RESEND_API_KEY` is set (same gate as every other email). `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — sampler expiry emails (cron-free, provider-scheduled). Closes the last sampler follow-up. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
+
+Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.
+
+**The real lever is a minimum play TIME, not scroll distance.** Owner's sharper framing: a fast swipe should still take the clip's *set* number of seconds to finish (the animation keeps playing slowly after the finger stops) — and frame count is a *smoothness* lever, not a *duration* lever.
+
+- **`apps/web/app/_components/marketing/HeroVideoScrub.tsx`** — the frame is no longer a pure function of scroll position. The rendered progress now *chases* the scroll target through a **delta-time, speed-capped** rAF loop:
+  1. **`MIN_PLAY_SECONDS` (new, 5) + `MAX_RATE = 1/MIN_PLAY_SECONDS`** — the animation can advance at most `MAX_RATE` progress-per-second, so a full play-through **always takes ≥ MIN_PLAY_SECONDS no matter how fast you swipe**. A fling can't finish it in one flick; it keeps gliding at the capped rate, even after the finger stops, until done. A slow, deliberate scrub stays *under* the cap so it still tracks scroll 1:1 (`EASE_PER_SEC` softens the final settle). This is robust because `PostHeroReveal` collapses the content below the hero to zero height — a hard fling *lands* at the hero's end and stays pinned, so the animation finishes on-screen instead of scrolling away. Veil-fade still keys off **raw** scroll; reduced-motion + hold-nearest-loaded-frame unchanged.
+  2. **`TRACK_VH` 300 → 700** — kept as the runway a *deliberate* (slow) scrubber scrolls through at their own pace.
+  3. **Strategic preload (`LEAD` now rate-aware).** The loading veil still gates only on the *opening* frames (the rest stream in the background, `render()` holds the nearest loaded frame), so the frame bump did **not** lengthen the upfront wait. But the release threshold was a magic `24` — exactly 1s of buffer for a 120-frame/5s hero, yet 3s for a sparse 40-frame clip. Now `LEAD = round(N / MIN_PLAY_SECONDS)` (floor 8) buffers a consistent **~1 second of playback** regardless of frame count, and `fetchPriority: high` is aligned to exactly those frames. The time-paced playback *helps* here: a guaranteed-slow playhead (≤ N/MIN_PLAY_SECONDS frames/sec) gives the background stream far more runway to stay ahead, so stalls are rarer.
+- **`apps/web/app/admin/hero-video/hero-uploader.tsx`** — frame density **8fps → 24fps** (`MIN_FRAMES` 36→72, `MAX_FRAMES` 150→360). ⚠ **Load-bearing reversal flagged for owner:** with a seconds-long play-through, too few frames look like a stepped slideshow — this addresses the owner's "they extract only a few frames per second" hunch and partly reverses the earlier "keep it ~40 frames" perf trim. Frame count = *smoothness*, **independent** of the duration set by `MIN_PLAY_SECONDS`. Safe because frames preload behind the veil and stream progressively (the scrub releases after the opening frames), so a ~5–6s clip → ~120–144 frames ≈ 5–6MB of *streamed* bytes, **not** a front-door freeze. The currently-published live hero already has ~1,019 frames → slow + smooth with **no re-upload**; the bump only affects the *next* upload.
+
+`tsc --noEmit` green on both files (lint runs in CI). Verify on the PR's Vercel preview (the scrub only renders when a hero video is published). PR pending (branch `claude/hero-scrub-slower`, auto-merge).
+
+SPEC IMPACT: None on schema/SKU. Tuning of the homepage hero scroll-scrub (iteration 0015 main website). Logged in corpus `DECISION_LOG.md` (2026-06-16). The frame-density bump is the one decision to confirm. `MIN_PLAY_SECONDS` (duration) and the uploader FPS (smoothness) are independent dials.
+## 2026-06-16 · chore(std-reveal): rewire every Save-the-Date surface off the retired video, onto the reveal (PR3d)
+
+Owner: *"yes adjust everything that is wired to make this our new save the date."* Swept every code reference to the old ₱99 video product and pointed it at the free page-opening reveal. The `save_the_date_video` **SKU code stays everywhere it's a DB key** (historical-order fetches, receipt labels, persisted wizard task-id, v2 SKU map) so old buyers' orders never break — only *labels, copy, and the catalog's active flag* changed.
+
+- **`lib/sku-catalog.ts`** — `save_the_date_video` set `isActive: false`, dropped from `LAUNCH_PROMO_SKU_CODES` (7→6 active), added to `RETIRED_SKU_CODES` (it was already `is_active=FALSE` in prod since 2026-05-28).
+- **User-facing labels → "Save the Date" + `Sparkles` icon:** `lib/add-ons-catalog.ts` (label + icon + blurb "the opening reveal for your page… free, recolours to your palette" + CTA "Choose your reveal", dropped the now-unused `Video` import), `lib/route-meta.ts`, `lib/nav-registry-defaults.ts`.
+- **Copy fixes:** `lib/social-sharing.ts` ("rendered"→"made on Setnayan"), `lib/wizard.ts` prenup card ("feeds your save-the-date video"→"share as your save-the-date"), `supplies-marketplace` mailer blurb ("video QR"→"page QR"), `documents/page.tsx` (dropped the "Draft a Save-the-Date video" CTA clause), `admin/users/page.tsx` (comp-grant placeholders off the retired example), `your-plan-section.tsx` (`hasSaveTheDateOrder` reframed as historical-only).
+- **`lib/add-on-stats.ts`** — `'save-the-date': []` (no SKU; the reveal is free).
+- **`lib/save-the-date.ts` deleted** — orphaned video template library (`git rm`).
+- **LEFT intact (DB keys / receipts / tests):** `documents` creation-SKU set + receipt label map ("Save-the-Date Video" for old orders), `dashboard/page.tsx` historical-order fetch, `stress-test-lock-unlock.ts` fixture, `wizard.ts` task-id `'save_the_date_video'` (schema stability for `events.wizard_state`).
+
+`tsc --noEmit` 0 errors · `next lint` clean · `lint:retired` 0 retired strings (all verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the video render add-on is retired from every couple-facing surface; the Save-the-Date product is now the free page-opening reveal end-to-end. SKU bookkeeping in `service_catalog` already reflected the retirement; corpus DECISION_LOG row appended.
+
+## 2026-06-16 · feat(std-reveal): the Save-the-Date page IS the reveal now — replaced the video gallery (PR3c)
+
+Owner: *"replace."* `/dashboard/[eventId]/add-ons/save-the-date` is now the Save-the-Date **reveal** (the website opening), not the old ₱99 Save-the-Date **video** render.
+
+- Rewrote the page: reframed header ("how your wedding page opens for guests"), the `RevealPreviewCard` as the body; removed the video template gallery + how-it-works + Feature-Us + custom-request + the local `TemplateCard`/`Preview` components and their imports/queries.
+- **Video infra left intact (not deleted):** the `save_the_date_video` SKU, `@/lib/save-the-date` template library, `InlineCheckoutDrawer`, `FeatureUsCard` — existing orders + the catalog are unaffected, fully reversible. The page just no longer surfaces them.
+
+⚠ **Loose ends flagged for owner (not done here):** the `save_the_date_video` SKU still lives in the catalog + `/pricing`; if the video product is to be fully retired, that's a separate migration + pricing/copy pass. The plan-section + site-editor tiles link here under the generic "Save the Date" label (fits the reveal — no change needed).
+
+Next: reveal chooser **persistence** (which template the couple picked, so the live page uses it) + the content/upload editor.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the Save-the-Date surface is now the reveal experience (owner "replace"); the video render add-on retained in code, dropped from the page.
+
+## 2026-06-16 · fix(std-reveal): move the opening-reveal preview onto the Save-the-Date page (PR3b)
+
+Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be the link where it should be… the website shows the old save the date."* Relocated the reveal preview from the website editor (PR3a) to the **Save-the-Date add-on page**, where the couple looks for it.
+
+- Moved `reveal-preview-card.tsx` → `app/dashboard/[eventId]/_components/` (shared, `git mv`).
+- Renders the **"Opening reveal"** preview at the **top** of `add-ons/save-the-date`, above the existing video gallery, with a divider that separates the two: the **free** website-opening reveal vs the **₱99 Save-the-Date video** render.
+- Reverted the PR3a website-editor placement (import + render + the `event_date` select add).
+
+⚠ **NAMING OVERLAP flagged for owner:** this page is titled "Save the Date" and is the *paid video* product; the *reveal* is the *free website opening*. They now coexist on one page — owner to decide whether to consolidate / rename (e.g. "Save the Date" = the page-opening, "Save-the-Date Video" = the render add-on).
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — reveal preview relocated to the Save-the-Date add-on surface (the owner-specified link).
+## 2026-06-16 · feat(admin): /admin/completions — force-complete + uphold-non-delivery backstop (Event Lifecycle Menu §6.1)
+
+The human backstop for the per-vendor completion handshake (PR #1537). When a handshake can't self-resolve, an admin now has a surface to break the tie:
+
+- **Migration `20270106000000`** — `event_vendors.completion_resolved_at` + `completion_resolution_note` (admin-only metadata; no RLS change — couple/vendor surfaces react to `completion_status` alone) + a partial index for the unresolved queue. **Applied to prod**.
+- **`/admin/completions`** (new) — lists `event_vendors` needing attention: open **disputes** (always), `awaiting_vendor` rows whose event is >14d past (vendor never marked complete), and `vendor_marked` rows unconfirmed >5d. The "stuck" cut is computed in JS (PostgREST can't do `now() - interval`); resolved rows are excluded by the query. Mirrors the `/admin/disputes` skeleton (server component, admin-client reads, per-row `<details>` action forms, fail-soft reads). Disputes sort first.
+- **Two outcomes** (`completions/actions.ts`, each `requireAdmin()`-gated, service-role writes): **force-complete** → `completion_status='confirmed'` (+ stamps `customer_confirmed_received_at`) so the review/recommendation unlocks; **uphold non-delivery** (disputed rows only, note required) → keeps `completion_status='disputed'` (review STAYS frozen — correct) but stamps the row resolved so it leaves the queue. Both notify the couple(s) (reuse `booking_confirmed` / `dispute_filed` — no new notification enum) and the vendor (guarded null for off-platform), and write an `admin_audit_log` row (best-effort). Idempotent.
+- **Nav** — Work-group sidebar item (`Handshake` icon) + bottom-nav Work-tab activeMatch + `nav-registry-defaults` slot (`admin.sidebar.completions`).
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.1 ("Admin force-complete is the human backstop — needs a new /admin completion surface") + §7 (Admin actor). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes one of the two deferred §8 net-new items flagged when PR4 shipped (the other — "Move to memories" archive — remains open).
+
 ## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
 
 Three follow-ups on the free Papic sampler (#1547), one PR:
@@ -27,6 +110,21 @@ Three follow-ups on the free Papic sampler (#1547), one PR:
 No migration. `tsc` + `next lint` green.
 
 SPEC IMPACT: iteration 0012 — free-sampler polish (expiry visibility + admin abuse watch + storage-lifecycle prefix). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(recommend): Recommend-your-vendors — completion-gated Recommended list + marketplace signal (Event Lifecycle Menu PR6)
+
+The After phase's referral loop: alongside the per-vendor review, the couple can **recommend** the vendors they loved. A recommendation is *separate* from a review (a review can be a fair 3★; a recommendation is an explicit, opt-in "I'd recommend them"), per-vendor opt-in, reversible, and carries a **higher anti-fake bar** because it publicly boosts the vendor.
+
+- **Migration `20270105000000_vendor_recommendations.sql`** — `vendor_recommendations` (vendor_profile_id · event_id · recommended_by_user_id · endorsement, unique per triple), mirroring `vendor_reviews`. **Applied to prod** (ledger drift → `db query` + manual ledger row). RLS: public-read (powers the marketplace signal); couple-insert **gated by the SAME completion OR-chain as the review** (correlated by `marketplace_vendor_id`, dispute-freeze, M=7d/N=30d/legacy) — this enforces **anti-fake layers 1+2** (a real inquiry that ran the full lifecycle to completion); couple-update (edit endorsement) + couple-delete (withdraw).
+- **`recommendVendor` / `withdrawRecommendation`** actions (review/actions.ts) — upsert through the USER's client so RLS enforces the gate; a blocked insert routes back with `?recommend=blocked` (explained, not crashed); best-effort vendor notification.
+- **`RecommendVendorCard`** — shown on the After review page in both the review-form and already-reviewed states (only reachable past the completion gate). Opt-in + optional one-line endorsement + withdraw.
+- **`lib/vendor-recommendations.ts`** — `countVendorRecommendingCouples` (DISTINCT events; bounded set, no materialized view).
+- **Marketplace signal** — "Recommended by N couples" on `/v/[slug]` (Reviews section header) + a matching badge on the vendor's `/vendor-dashboard/reviews`. Proof-backed, stronger than a star average.
+
+**Deferred (infra-blocked — documented, per spec §6.3 "V1 = automated signals + admin backstop"):** the **photo-evidence layers 3-4** (photos of the service + cross-service photo consistency) need photo→vendor attribution that doesn't exist yet (same gap as per-vendor galleries) → an **admin-review backstop**, not a hard gate. The **auto-favorite to all event hosts' future shortlist** needs a per-user saved-vendors store (today the "shortlist" is event-scoped `event_vendors`), and the **Editorial "vendors we loved" block** is a follow-up render. None block the core recommend → marketplace-proof loop shipped here.
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 + §10 PR6 (recommend loop + anti-fake layers 1-2 + marketplace signal). Logged in corpus `DECISION_LOG.md` (2026-06-16). This closes the Lifecycle-menu build (PR1–PR6); remaining net-new (§8): admin force-complete surface, "Move to memories" archive, Editorial "vendors we loved" block, photo→vendor attribution (unblocks galleries + recommend layers 3-4 + auto-favorite).
 
 ## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
 

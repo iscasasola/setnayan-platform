@@ -48,22 +48,30 @@ name: supabase-migrations
 # prefixes ARE the version identifier — duplicate timestamps cause CLI
 # errors (caught here at apply time, not at runtime).
 
-# Auto-trigger on push to main is DISABLED 2026-05-24 per owner directive.
-# Migrations push manually from ~/setnayan-db-push via `supabase db push --linked`
-# (see CLAUDE.md 2026-05-22 row 8 + 2026-05-23 row 3 + 2026-05-24 migration
-# list row). The 3 required repo secrets (SUPABASE_ACCESS_TOKEN ·
-# SUPABASE_DB_PASSWORD · SUPABASE_PROJECT_REF) are not configured and won't be
-# during the pilot window — the blast radius of an auto-applied bad migration
-# 7 days from launch is higher than the cost of one manual push per merge.
+# STATE (2026-06-17): the push trigger is ARMED but the workflow is DORMANT —
+# the `gate` step green no-ops on every migration merge until the 3 secrets are
+# set, so arming it costs nothing today. This supersedes the 2026-05-24
+# commented-out disable (its concern — "don't auto-apply a bad migration during
+# the pilot" — is preserved: nothing applies until the owner sets the secrets).
 #
-# To run on demand: Actions → supabase-migrations → Run workflow → main.
-# Re-enable auto-trigger post-pilot by un-commenting the `push:` block below
-# AND configuring the 3 secrets first.
+# WHY enable it (eventually): applying migrations to prod manually, AHEAD of the
+# PR merge, is the root cause of this repo's worst migration incidents — the
+# `db push` jam, the silent QR-RPC drop, and the dup-collision ledger surgery
+# (all 2026-06-17). Auto-apply-on-merge means migrations apply ONLY post-merge,
+# under finalized timestamps, with applied==recorded — the whole class disappears.
+#
+# FLIP ON = just set the 3 (header) and the next migration merge self-applies.
+# Until then: manual `supabase db push --db-url "$SUPABASE_DB_URL"` post-merge,
+# or Actions → supabase-migrations → Run workflow (also no-ops without secrets).
 on:
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - 'supabase/migrations/**'
+  # ARMED 2026-06-17 but DORMANT until the 3 secrets are set (the `gate` step
+  # below green no-ops while they're unset, so this never spams red on a normal
+  # migration merge). Setting the secrets is the single "flip on" action —
+  # supersedes the 2026-05-24 commented-out disable.
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
   workflow_dispatch:
 
 # Serialize applies across overlapping main pushes. `cancel-in-progress`
@@ -83,40 +91,48 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
+      # Dormant-until-configured gate. With the push trigger ARMED, this runs on
+      # every migration merge to main — but it must NOT spam a red failure while
+      # the 3 secrets are unset (the pre-launch default). So it GREEN no-ops
+      # until all three are present; the owner "flips it on" purely by setting
+      # the secrets (see the header). Then every migration merge self-applies —
+      # which removes the apply-ahead-of-merge anti-pattern that caused the
+      # `db push` jam + the silent QR-RPC drop + the dup-collision ledger surgery.
+      - name: Gate — is auto-apply configured?
+        id: gate
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ] && [ -n "$SUPABASE_PROJECT_REF" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "✅ All 3 secrets present — auto-apply ARMED; applying pending migrations."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Auto-apply dormant::Scaffolded but OFF — set SUPABASE_ACCESS_TOKEN + SUPABASE_DB_PASSWORD (secrets) and the SUPABASE_PROJECT_REF variable to enable (header has the steps). No migrations were applied."
+          fi
+
       - name: Checkout
+        if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Install Supabase CLI
+        if: steps.gate.outputs.enabled == 'true'
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Sanity-check that required secrets are present
-        run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
-            echo "::error::SUPABASE_ACCESS_TOKEN is not set. See workflow file header for setup steps."
-            exit 1
-          fi
-          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
-            echo "::error::SUPABASE_DB_PASSWORD is not set. See workflow file header for setup steps."
-            exit 1
-          fi
-          if [ -z "$SUPABASE_PROJECT_REF" ]; then
-            echo "::error::SUPABASE_PROJECT_REF variable is not set. See workflow file header for setup steps."
-            exit 1
-          fi
-
       - name: Link to Supabase project
+        if: steps.gate.outputs.enabled == 'true'
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: List local migrations
+        if: steps.gate.outputs.enabled == 'true'
         run: |
           echo "Local migration files in this commit:"
           ls -1 supabase/migrations/ | grep -E '^[0-9]+_' || echo "(none)"
 
       - name: Apply pending migrations
+        if: steps.gate.outputs.enabled == 'true'
         run: supabase db push --yes
 
       - name: Show migration history after apply
-        if: always()
+        if: always() && steps.gate.outputs.enabled == 'true'
         run: supabase migration list

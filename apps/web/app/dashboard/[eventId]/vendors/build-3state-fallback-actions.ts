@@ -13,11 +13,6 @@
  * `searchCategoryVendors` (the same engine that backs the Category Search
  * overlay + `generateFlaggedVendors`).
  *
- * ── FLAG-DARK ───────────────────────────────────────────────────────────────
- * Re-checks `isBuild3StateEnabled()` and refuses when OFF (default). The 3-state
- * Build surface is the only caller, and it only mounts behind the flag, so this
- * is unreachable in production today. Behavior with the flag OFF is unchanged.
- *
  * ── ORDERING ────────────────────────────────────────────────────────────────
  * Results are ordered by a HIDDEN compatibility % — `searchCategoryVendors`
  * already computes `compatScore` per result (reception-anchored distance +
@@ -32,7 +27,6 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { isBuild3StateEnabled } from '@/lib/build-3state';
 import { searchCategoryVendors } from './_actions/category-search';
 
 /** One fallback suggestion the couple can tap to add to the shortlist. The
@@ -88,8 +82,6 @@ export async function findBuildFallbackSuggestions(input: {
   groupId: string;
   limit?: number;
 }): Promise<BuildFallbackResult> {
-  if (!isBuild3StateEnabled()) return { ok: false, error: 'The 3-state Build is not available.' };
-
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   if (!eventId || !groupId) return { ok: false, error: 'Missing event or category.' };

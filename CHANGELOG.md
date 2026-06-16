@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · chore(build): retire the legacy Pin/Flag Build + the BUILD_3STATE_ENABLED flag (3-State is now the only path)
+
+The 3-State Build (Locked/Auto/Excluded) went live on production earlier today; the feature flag is no longer a rollback switch worth keeping (owner: "clean it all now"). This removes the flag and every legacy code path it gated, so there's a single Build implementation to maintain.
+
+- **Flag removed.** Deleted `isBuild3StateEnabled()` from `lib/build-3state.ts` and every guard/branch: `page.tsx` now mounts `Build3StateControl` unconditionally; the four server actions (`getCategoryBuildStates` / `setCategoryBuildState` / `resetBuildStates` / `runBuild3State`), the fallback action, and `savePlanBuildNamed` drop their flag re-checks.
+- **Legacy Build-tab files deleted** (only reachable via the old flag-off path): `_components/build-pins.tsx` (BuildPins), `_components/build-anchors.tsx` (BuildAnchors component — its `AnchorData` type moved into `build-3state-control.tsx`; the `setAnchor` action in `build-anchors-actions.ts` is KEPT, the new DimensionRow uses it), `_components/category-flags.tsx`, `_components/build-compute.tsx`, and `build-flags-actions.ts` (the `budget_category_flags` writes).
+- **Compare locked to named builds.** `build-compare.tsx` drops the `named` prop and the A/B/C slot save bar + `slot`/`SLOTS`/`takenSlots` machinery; `savePlanBuild` (the A/B/C upsert action) is deleted. Save-As is now the only save path. `deleteBudgetBuild` + `BuildSlot` (read type for legacy `'A'|'B'|'C'` labels still on old rows) are kept.
+- **Kept as-is:** the `budget_category_flags` table itself (no longer written, but not dropped here — a table-drop migration is a separate, audited step to avoid data loss). Stale "default OFF / flag-gated / A/B/C is live" docstrings updated to match.
+- Net: 5 files deleted, 9 modified; no DB change.
+
+SPEC IMPACT: `Build_3State_Solver_2026-06-16.md` is the live + only Build (the flag/rollback framing is retired). Logged in `DECISION_LOG.md`.
+
 ## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
 
 Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.

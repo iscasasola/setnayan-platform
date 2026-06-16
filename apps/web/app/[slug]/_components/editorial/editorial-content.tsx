@@ -142,10 +142,15 @@ export async function EditorialContent({
           </p>
         </section>
 
-        {/* Full-width hero — the cover photo spans the whole row. */}
-        {data.heroPhotoUrl ? (
+        {/* Full-width hero — the cover spans the whole row. A baked boomerang
+            (Living Hero) plays as a looping GIF-like banner; else the still. */}
+        {data.heroPhotoUrl || data.heroVideoUrl ? (
           <div className="pt-2">
-            <HeroPhoto url={data.heroPhotoUrl} names={data.firstNames} />
+            <HeroPhoto
+              url={data.heroPhotoUrl}
+              videoUrl={data.heroVideoUrl}
+              names={data.firstNames}
+            />
           </div>
         ) : null}
 
@@ -189,6 +194,15 @@ export async function EditorialContent({
           <>
             <SectionRule title="From the Day" />
             <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+          </>
+        ) : null}
+
+        {/* From your vendors — day-of media submitted by the couple's
+            recommended vendor. Clips are baked boomerangs (editorial rule). --- */}
+        {isOn('fromVendors') && data.vendorMedia.length ? (
+          <>
+            <SectionRule title="From Your Vendors" />
+            <VendorMediaStrip items={data.vendorMedia} />
           </>
         ) : null}
 
@@ -315,20 +329,47 @@ function EditionLine({
   );
 }
 
-function HeroPhoto({ url, names }: { url: string; names: string }): ReactElement {
+function HeroPhoto({
+  url,
+  videoUrl,
+  names,
+}: {
+  url: string | null;
+  videoUrl?: string | null;
+  names: string;
+}): ReactElement {
   return (
     <figure className="relative aspect-[16/9] w-full overflow-hidden rounded-sm bg-ink/10">
-      {/* Raw <img>: presigned R2 URLs expire; next/image would cache stale.
-          Full-width cinematic banner at the photo's native 16:9 → zero crop
-          (a fixed pixel height + object-cover used to crop the couple out). */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt={`${names}, from the wedding`}
-        className="h-full w-full object-cover"
-        loading="lazy"
-        decoding="async"
-      />
+      {/* Editorial rule: any hero VIDEO is a pre-baked forward+reverse boomerang
+          (Living Hero Studio), so it loops seamlessly. It autoplays muted +
+          inline + looping — the exact attribute set a browser needs to run a
+          video like a continuously-playing GIF with no user tap. The still
+          (url) is the poster, so there's no black flash before frame one. Raw
+          <video>/<img>: presigned R2 URLs expire; next/* would cache stale.
+          Full-width cinematic banner at 16:9 → zero crop. */}
+      {videoUrl ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={url ?? undefined}
+          aria-label={`${names}, a moving moment from the wedding`}
+          className="h-full w-full object-cover"
+        >
+          <source src={videoUrl} />
+        </video>
+      ) : url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={`${names}, from the wedding`}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
       <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-[9px] uppercase tracking-[0.08em] text-cream">
         {names}, from the celebration — captured on the day.
       </figcaption>
@@ -689,6 +730,73 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * "From Your Vendors" — day-of media the couple's RECOMMENDED vendor
+ * (event_vendors.selection_match_rank = 1) submitted for this event. A credited
+ * grid: photos render as stills; clips render as muted, looping, GIF-like
+ * BOOMERANGS (the editorial video rule — every clip is pre-baked forward+reverse,
+ * so the loop never cuts). Each frame credits the vendor. The still is the clip's
+ * poster, so there's no black flash before frame one.
+ */
+function VendorMediaStrip({ items }: { items: EditorialData['vendorMedia'] }): ReactElement {
+  return (
+    <div className="mt-4 space-y-3">
+      <p className="text-center font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+        Captured by the couple&rsquo;s vendors
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {items.slice(0, 6).map((m, i) => (
+          <figure
+            key={`${i}-${m.stillUrl.slice(0, 24)}`}
+            className="relative aspect-[4/5] overflow-hidden rounded-sm bg-ink/10"
+          >
+            {m.type === 'clip' && m.boomerangUrl ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                poster={m.stillUrl}
+                aria-label={m.caption ?? `${m.vendorName} — a moment from the day`}
+                className="h-full w-full object-cover"
+              >
+                <source src={m.boomerangUrl} />
+              </video>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={m.stillUrl}
+                alt={m.caption ?? `${m.vendorName} — a moment from the day`}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+            <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/75 to-transparent px-2.5 pb-1.5 pt-6">
+              <span className="min-w-0">
+                <span className="block truncate font-mono text-[8px] uppercase tracking-[0.08em] text-cream/90">
+                  {m.vendorName}
+                </span>
+                {m.category ? (
+                  <span className="block truncate font-mono text-[7px] uppercase tracking-[0.06em] text-cream/55">
+                    {m.category}
+                  </span>
+                ) : null}
+              </span>
+              {m.type === 'clip' ? (
+                <span className="flex-none font-mono text-[7px] uppercase tracking-[0.08em] text-cream/70">
+                  ◆ loop
+                </span>
+              ) : null}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   );
 }

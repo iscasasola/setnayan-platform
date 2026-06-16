@@ -48,6 +48,10 @@ import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
+import {
+  DriveSafetyPanel,
+  DriveReconnectBanner,
+} from '@/app/_components/drive-connect-card';
 
 // Iteration 0012 — Papic (V1 setup surface)
 //
@@ -175,6 +179,7 @@ type DriveGrant = {
   grant_id: string;
   external_account_display: string | null;
   granted_at: string;
+  connection_health: 'ok' | 'needs_reauth' | null;
   metadata: {
     drive_folder_name?: string;
     drive_subfolders?: Array<{ name: string; id: string }>;
@@ -228,7 +233,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       // current_event_ids(), so the anon client is fine (no service role).
       supabase
         .from('oauth_grants')
-        .select('grant_id, external_account_display, granted_at, metadata')
+        .select('grant_id, external_account_display, granted_at, connection_health, metadata')
         .eq('event_id', eventId)
         .eq('provider', 'drive')
         .is('revoked_at', null)
@@ -456,6 +461,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         storageTarget={storageTarget}
         driveOAuthReady={driveOAuthReady}
         driveGrant={driveGrant}
+        loginEmail={user.email ?? null}
       />
 
       <SeatStatusCard
@@ -679,11 +685,13 @@ function StorageChoiceCard({
   storageTarget,
   driveOAuthReady,
   driveGrant,
+  loginEmail,
 }: {
   eventId: string;
   storageTarget: StorageTarget;
   driveOAuthReady: boolean;
   driveGrant: DriveGrant | null;
+  loginEmail: string | null;
 }) {
   const r2Selected = storageTarget === 'setnayan_r2';
   const driveSelected = storageTarget === 'google_drive_only';
@@ -723,6 +731,7 @@ function StorageChoiceCard({
             selected={driveSelected}
             driveOAuthReady={driveOAuthReady}
             driveGrant={driveGrant}
+            loginEmail={loginEmail}
           />
         </li>
       </ul>
@@ -783,11 +792,13 @@ function StorageOptionDrive({
   selected,
   driveOAuthReady,
   driveGrant,
+  loginEmail,
 }: {
   eventId: string;
   selected: boolean;
   driveOAuthReady: boolean;
   driveGrant: DriveGrant | null;
+  loginEmail: string | null;
 }) {
   const connected = !!driveGrant;
   const disabled = !driveOAuthReady;
@@ -852,7 +863,11 @@ function StorageOptionDrive({
             Drive is ready.
           </p>
         ) : connected ? (
-          <DriveConnectedPanel eventId={eventId} grant={driveGrant!} />
+          <DriveConnectedPanel
+            eventId={eventId}
+            grant={driveGrant!}
+            loginEmail={loginEmail}
+          />
         ) : (
           <DriveConnectCTA eventId={eventId} />
         )}
@@ -894,7 +909,8 @@ function RadioDot({
 
 function DriveConnectCTA({ eventId }: { eventId: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <DriveSafetyPanel />
       <Link
         href={`/api/oauth/drive/start?event_id=${eventId}`}
         className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
@@ -903,10 +919,9 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
         Connect Google Drive
       </Link>
       <p className="text-xs text-ink/55">
-        You&rsquo;ll be redirected to Google to grant access, then bounced
-        back here. We request only the <span className="font-mono">drive.file</span>{' '}
-        scope — Setnayan can only see files we create in your Drive, nothing
-        else. Takes about 20 seconds.
+        You&rsquo;ll be redirected to Google, then bounced back here — takes
+        about 20 seconds. Connect once and it covers your recap and
+        photographer hand-off too.
       </p>
     </div>
   );
@@ -915,9 +930,11 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
 function DriveConnectedPanel({
   eventId,
   grant,
+  loginEmail,
 }: {
   eventId: string;
   grant: DriveGrant;
+  loginEmail: string | null;
 }) {
   const accountLabel = grant.external_account_display ?? 'Connected Drive';
   const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
@@ -932,9 +949,24 @@ function DriveConnectedPanel({
     grant.metadata?.drive_subfolders?.map((s) => s.name) ??
     [...PAPIC_DRIVE_SUBFOLDERS];
   const folderName = grant.metadata?.drive_folder_name ?? 'Setnayan';
+  // Surface (never block) a login≠Drive mismatch. Couples often connect a
+  // shared "ourwedding@gmail.com" on purpose — so this is a calm switch
+  // affordance, not a warning. Only when we actually know the Drive email
+  // (it can be null when Google omits userinfo) and it differs from the login.
+  const accountMismatch =
+    !!grant.external_account_display &&
+    !!loginEmail &&
+    grant.external_account_display !== loginEmail;
 
   return (
-    <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+    <div className="space-y-3">
+      {grant.connection_health === 'needs_reauth' ? (
+        <DriveReconnectBanner
+          reconnectHref={`/api/oauth/drive/start?event_id=${eventId}`}
+        />
+      ) : null}
+
+      <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-sm font-semibold text-ink">
@@ -943,6 +975,18 @@ function DriveConnectedPanel({
           <p className="font-mono text-[11px] text-ink/55">
             Connected {grantedDate}
           </p>
+          {accountMismatch ? (
+            <p className="text-[11px] text-ink/60">
+              Not your sign-in ({loginEmail}). That&rsquo;s fine — photos save
+              to {grant.external_account_display}.{' '}
+              <Link
+                href={`/api/oauth/drive/start?event_id=${eventId}&switch=1`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              >
+                Use a different account
+              </Link>
+            </p>
+          ) : null}
         </div>
         <form action="/api/oauth/drive/disconnect" method="post">
           <input type="hidden" name="event_id" value={eventId} />
@@ -971,6 +1015,7 @@ function DriveConnectedPanel({
             <li key={name}>{name}/</li>
           ))}
         </ul>
+      </div>
       </div>
     </div>
   );

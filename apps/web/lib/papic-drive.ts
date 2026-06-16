@@ -114,6 +114,12 @@ export function buildDriveAuthorizeUrl(input: {
   clientId: string;
   redirectUri: string;
   state: string;
+  // When the couple is deliberately switching to a different Google account
+  // (the connected Drive belongs to a different account than their Setnayan
+  // login), force Google's account chooser. Without `select_account` Google
+  // silently reuses the last signed-in session, so the "use a different
+  // account" link would appear to do nothing.
+  forceAccountChooser?: boolean;
 }): string {
   const params = new URLSearchParams({
     client_id: input.clientId,
@@ -121,7 +127,7 @@ export function buildDriveAuthorizeUrl(input: {
     response_type: 'code',
     scope: DRIVE_OAUTH_SCOPES.join(' '),
     access_type: 'offline',
-    prompt: 'consent',
+    prompt: input.forceAccountChooser ? 'select_account consent' : 'consent',
     include_granted_scopes: 'true',
     state: input.state,
   });

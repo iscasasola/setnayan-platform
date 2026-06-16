@@ -474,10 +474,19 @@ async function ensureFreshAccessToken(input: {
         access_token: refreshed.access_token,
         access_token_expires_at: newExpiresAt,
         last_refreshed_at: new Date().toISOString(),
+        // Successful refresh — clear any prior needs_reauth on the shared grant.
+        connection_health: 'ok',
       })
       .eq('grant_id', grant.grant_id);
     return refreshed.access_token;
   } catch {
+    // Google rejected the refresh_token — flag the shared grant so the couple
+    // sees the "needs reconnect" banner. The release job still surfaces as
+    // failed (access_token_unavailable) and resumes once they reconnect.
+    await admin
+      .from('oauth_grants')
+      .update({ connection_health: 'needs_reauth' })
+      .eq('grant_id', grant.grant_id);
     return null;
   }
 }

@@ -194,6 +194,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       'John and Jane kept a tight 60-guest list, budget, and run-of-show in one Setnayan workspace — small by design, coordinated to the minute.',
     featureRank: 3,
     heroImageUrl: '/realstories/john-jane-manila.jpg',
+    heroVideoUrl: '/realstories/john-jane-manila.mp4',
   },
   {
     slug: 'peter-and-mary-tagaytay-estate-wedding',
@@ -233,6 +234,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     setnayanNote:
       'Peter and Mary managed a 150-guest list, seating, and a multi-vendor floral build from one Setnayan workspace, with every call time on a shared timeline.',
     heroImageUrl: '/realstories/peter-mary-tagaytay.jpg',
+    heroVideoUrl: '/realstories/peter-mary-tagaytay.mp4',
   },
   {
     slug: 'jack-and-rose-baguio-forest-wedding',
@@ -271,6 +273,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     setnayanNote:
       'Jack and Rose coordinated an out-of-town wedding — vendors, logistics, and a weather-aware timeline — from one Setnayan workspace.',
     heroImageUrl: '/realstories/jack-rose-baguio.jpg',
+    heroVideoUrl: '/realstories/jack-rose-baguio.mp4',
   },
 ];
 

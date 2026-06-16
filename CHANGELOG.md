@@ -15,6 +15,21 @@ Three follow-ups on the free Papic sampler (#1547), one PR:
 No migration. `tsc` + `next lint` green.
 
 SPEC IMPACT: iteration 0012 — free-sampler polish (expiry visibility + admin abuse watch + storage-lifecycle prefix). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(recommend): Recommend-your-vendors — completion-gated Recommended list + marketplace signal (Event Lifecycle Menu PR6)
+
+The After phase's referral loop: alongside the per-vendor review, the couple can **recommend** the vendors they loved. A recommendation is *separate* from a review (a review can be a fair 3★; a recommendation is an explicit, opt-in "I'd recommend them"), per-vendor opt-in, reversible, and carries a **higher anti-fake bar** because it publicly boosts the vendor.
+
+- **Migration `20270105000000_vendor_recommendations.sql`** — `vendor_recommendations` (vendor_profile_id · event_id · recommended_by_user_id · endorsement, unique per triple), mirroring `vendor_reviews`. **Applied to prod** (ledger drift → `db query` + manual ledger row). RLS: public-read (powers the marketplace signal); couple-insert **gated by the SAME completion OR-chain as the review** (correlated by `marketplace_vendor_id`, dispute-freeze, M=7d/N=30d/legacy) — this enforces **anti-fake layers 1+2** (a real inquiry that ran the full lifecycle to completion); couple-update (edit endorsement) + couple-delete (withdraw).
+- **`recommendVendor` / `withdrawRecommendation`** actions (review/actions.ts) — upsert through the USER's client so RLS enforces the gate; a blocked insert routes back with `?recommend=blocked` (explained, not crashed); best-effort vendor notification.
+- **`RecommendVendorCard`** — shown on the After review page in both the review-form and already-reviewed states (only reachable past the completion gate). Opt-in + optional one-line endorsement + withdraw.
+- **`lib/vendor-recommendations.ts`** — `countVendorRecommendingCouples` (DISTINCT events; bounded set, no materialized view).
+- **Marketplace signal** — "Recommended by N couples" on `/v/[slug]` (Reviews section header) + a matching badge on the vendor's `/vendor-dashboard/reviews`. Proof-backed, stronger than a star average.
+
+**Deferred (infra-blocked — documented, per spec §6.3 "V1 = automated signals + admin backstop"):** the **photo-evidence layers 3-4** (photos of the service + cross-service photo consistency) need photo→vendor attribution that doesn't exist yet (same gap as per-vendor galleries) → an **admin-review backstop**, not a hard gate. The **auto-favorite to all event hosts' future shortlist** needs a per-user saved-vendors store (today the "shortlist" is event-scoped `event_vendors`), and the **Editorial "vendors we loved" block** is a follow-up render. None block the core recommend → marketplace-proof loop shipped here.
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 + §10 PR6 (recommend loop + anti-fake layers 1-2 + marketplace signal). Logged in corpus `DECISION_LOG.md` (2026-06-16). This closes the Lifecycle-menu build (PR1–PR6); remaining net-new (§8): admin force-complete surface, "Move to memories" archive, Editorial "vendors we loved" block, photo→vendor attribution (unblocks galleries + recommend layers 3-4 + auto-favorite).
 
 ## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
 

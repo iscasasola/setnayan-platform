@@ -29,6 +29,7 @@ import { applyBuildToWorking } from '../build-pick-actions';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
 import { sortSavedBuilds, displayBuildTitle } from '@/lib/named-builds';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
@@ -76,6 +77,8 @@ export function BuildCompare({
   const [err, setErr] = useState<string | null>(null);
   // Per-cell inclusion expand state, keyed `${columnKey}::${groupId}`.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // Confirm-first guard for Modify (it overwrites the working build).
+  const { confirm, dialog } = useConfirm();
 
   // Stable column order (named builds oldest-first).
   const orderedBuilds = useMemo(() => sortSavedBuilds(savedBuilds), [savedBuilds]);
@@ -165,8 +168,33 @@ export function BuildCompare({
 
   // Load a saved build's picks into the working build, then jump to a tab. Lock
   // does NOT finalize here — the Lock tab hosts the hardened finalize flow.
-  function onApply(snapshot: PlanBuildSnapshot, destination: 'build' | 'lock') {
+  //
+  // Modify OVERWRITES the live working build with this saved build's picks, so we
+  // confirm first when there's a current build to lose (an empty working build
+  // has nothing to discard → no prompt). The couple's current picks aren't kept
+  // unless they were already saved as their own build.
+  async function onApply(
+    snapshot: PlanBuildSnapshot,
+    destination: 'build' | 'lock',
+    title: string,
+  ) {
     setErr(null);
+    if (destination === 'build' && currentPlan.picks.length > 0) {
+      const ok = await confirm({
+        title: 'Replace your current build?',
+        body: (
+          <>
+            Modifying loads <span className="font-medium text-ink">“{title}”</span> onto the Build
+            tab and replaces whatever you have there now. Save your current plan as a build first if
+            you want to keep it.
+          </>
+        ),
+        confirmLabel: 'Replace & modify',
+        cancelLabel: 'Keep current',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     const picks = snapshot.picks
       .filter((p) => p.vendorId)
       .map((p) => ({ planGroupId: p.groupId, vendorId: p.vendorId! }));
@@ -183,6 +211,7 @@ export function BuildCompare({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-1 py-2">
+      {dialog}
       <div className="space-y-1">
         <h2 className="font-display text-2xl italic text-ink">Compare your plans</h2>
         <p className="text-sm text-ink/60">
@@ -258,7 +287,7 @@ export function BuildCompare({
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => onApply(c.snapshot, 'build')}
+                              onClick={() => onApply(c.snapshot, 'build', c.title)}
                               disabled={pending || !canApply}
                               aria-label={`Modify with ${c.title}`}
                               className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"
@@ -267,7 +296,7 @@ export function BuildCompare({
                             </button>
                             <button
                               type="button"
-                              onClick={() => onApply(c.snapshot, 'lock')}
+                              onClick={() => onApply(c.snapshot, 'lock', c.title)}
                               disabled={pending || !canApply}
                               aria-label={`Lock ${c.title}`}
                               className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"

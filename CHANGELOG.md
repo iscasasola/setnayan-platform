@@ -16,6 +16,16 @@ Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "st
 **Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
 
 SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
+## 2026-06-16 · feat(compare): confirm before Modify overwrites the working build
+
+Owner spec for the Compare tab: "the role of compare is to compare the saved builds on build. we can choose to delete, modify or lock. modify will jump that build back to build and erase whatever build is on build. notify the user first before commencing this action."
+
+- **Modify now confirms first.** Clicking *modify* on a saved build runs `applyBuildToWorking`, which OVERWRITES the live working build with that saved build's picks. `onApply` now awaits the shared `useConfirm()` dialog ("Replace your current build?" · "Replace & modify" / "Keep current" · destructive tint) before applying — but only when the working build actually has picks to lose (an empty working build → no prompt). The saved build's title is shown in the body.
+- Wires the existing on-brand `app/_components/confirm-dialog.tsx` (HTML5 `<dialog>`, focus-trap + ESC), not a `window.confirm`.
+- **Note for owner:** *Lock* uses the same `applyBuildToWorking` and therefore also overwrites the working build (before routing to the Lock tab). Only Modify was named, so Lock is left unguarded pending your call.
+
+SPEC IMPACT: 0016 Plan Builder / Compare tab — Modify is a confirm-first destructive action. Logged in `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
 
 The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.

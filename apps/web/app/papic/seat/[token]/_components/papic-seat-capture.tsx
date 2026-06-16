@@ -19,9 +19,12 @@ type Props = {
   token: string;
   seatIndex: number;
   initialCount: number;
+  /** Free-sampler seat → captures land under their own R2 prefix so an R2
+   *  object-lifecycle rule can expire ONLY sampler bytes (paid stays forever). */
+  isFreeSampler?: boolean;
 };
 
-export function PapicSeatCapture({ token, seatIndex, initialCount }: Props) {
+export function PapicSeatCapture({ token, seatIndex, initialCount, isFreeSampler = false }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -99,7 +102,9 @@ export function PapicSeatCapture({ token, seatIndex, initialCount }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bucket: 'media',
-          pathPrefix: `papic/seat-${seatIndex}`,
+          pathPrefix: isFreeSampler
+            ? `papic-sampler/seat-${seatIndex}`
+            : `papic/seat-${seatIndex}`,
           filename: `papic-${Date.now()}.jpg`,
           contentType: 'image/jpeg',
           sizeBytes: blob.size,
@@ -130,7 +135,7 @@ export function PapicSeatCapture({ token, seatIndex, initialCount }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [busy, ready, seatIndex, token]);
+  }, [busy, ready, seatIndex, token, isFreeSampler]);
 
   if (camError) {
     return (

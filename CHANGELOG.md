@@ -16,6 +16,17 @@ Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "st
 **Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
 
 SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
+## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
+
+Three follow-ups on the free Papic sampler (#1547), one PR:
+
+- **In-app expiry banner** (`add-ons/papic/crew/page.tsx`) — the sampler banner now shows a live countdown ("your N free photos expire in X days") computed from the soonest non-expired `papic_photos.expires_at` (couple RLS), falling back to the static "kept for 30 days" when no photos exist yet. Connect-Drive/upgrade CTA unchanged. (The scheduled T-7/T-1 *emails* still need a daily scheduler — deferred, outside the cron-free path.)
+- **Admin sampler-usage view** (`/admin/papic-sampler` + a Tile on the admin home) — read-only: every event with a free sampler, the couple (email/name from `public.users`), seats claimed, sampler photos, and a ⚠ flag on any couple running 2+ sampler events (the real cross-event abuse vector, since 1/event is already enforced by the RPC). Added a `camera` icon to the admin Tile.
+- **Own R2 key prefix for sampler captures** (`papic/seat/[token]` capture + page) — sampler captures now upload under `papic-sampler/…` (paid stays `papic/…`) so an R2 object-lifecycle rule can expire ONLY sampler bytes. `PapicSeatCapture` gained an `isFreeSampler` prop; the seat page reads `paparazzi_seats.is_free_sampler`. `OWNER_ACTIONS.md` documents the optional Cloudflare lifecycle rule.
+
+No migration. `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — free-sampler polish (expiry visibility + admin abuse watch + storage-lifecycle prefix). Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
 

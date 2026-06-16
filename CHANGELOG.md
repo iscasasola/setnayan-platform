@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(nav): Studio absorbs Design — 5 menus + Studio's 4-section sub-nav (customer-menu redesign PR3/6)
+
+Owner-locked 2026-06-17: *"the design could live inside studio … everything into studio."* Design is folded into Studio → the customer doorway drops to **5 top menus: Home · Guests · Explore · Studio · Budget**. Studio becomes the creative/output hub with a docked 4-section sub-nav.
+
+- **`lib/add-ons-catalog.ts`** — `StudioGroup` retyped to the 4 Studio sections + a hidden `utility`: `setnayan_ai | website | capture | branding | utility`. Every add-on regrouped (owner-decided placements): **Setnayan AI** ← Setnayan AI · Playlist · **Website** ← Save the Date · Landing Page (the RSVP/Event/Editorial site) · **Capture** ← Papic · Panood · Photo Delivery · Patiktok · **Branding** ← Monogram · Mood Board · LED Background · Pakanta · Music Creator · Custom QR · Indoor Blueprint · **utility (hidden)** ← Orders + **Paprint/Supplies** (Paprint removed — *"not our service for now"*; couples use a printer). Photo Delivery clarified as the pro photographer's Drive handoff (≠ Papic), kept in Capture.
+- **`add-ons/page.tsx`** — `SECTIONS` rebuilt to the 4 groups with anchor ids (`#studio-ai/-website/-capture/-branding`) + `scroll-mt`; dropped the `plan_organize` free-tools special-casing (those were cross-links to Guests/Budget/Schedule — redundant now each owns its menu). `utility` group is absent → Orders/Paprint hidden from the hub.
+- **`lib/customer-menu.ts`** — removed the **Design** menu; **Studio** gains 4 **anchor** children (Setnayan AI · Website · Capture · Branding) scrolling the regrouped hub (exact `/add-ons`); Studio's `activeMatch` now also covers the former Design routes (`/design`, `/site-editor`, `/monogram`).
+- **`customer-bottom-nav.tsx`** — dropped the Design tab (→ 5 tabs); Studio's tab lights the former Design routes. **`design/page.tsx`** → now a server `redirect()` to `/add-ons` (route kept only to catch lingering links).
+
+The dock reuses PR2's `anchor` plumbing verbatim (scroll-spy + smooth scroll); Guests/Explore/Budget unchanged. `tsc --noEmit` 0 · `next lint` clean (changed files) · bottom-nav template guard ✓. No migration. Owner to confirm on the Vercel preview (5-tab bar, Studio sub-nav scroll-spy across the 4 sections, /design → Studio redirect).
+
+SPEC IMPACT: nav architecture — 5 top menus; Studio = creative/output hub (Website[Save the Date·RSVP·Event·Editorial] · Capture · Branding · Setnayan AI); Paprint de-listed. No SKU/pricing/schema change (Paprint route dormant, not deleted). Logged in corpus `DECISION_LOG.md` (0021/0010/0024/0036/0018). Next: PR4 desktop sidebar unify to the 5-menu tree · PR5 phase fold-in · PR6 registry parent-link · (+ Home children).
+
 ## 2026-06-17 · feat(nav): Budget child sub-nav + anchor child flavor (customer-menu redesign PR2/6)
 
 Budget gains children in the canonical tree (plan `adaptive-forging-lobster.md`), and PR2 introduces a third child flavor — **`anchor`** (on-page scroll sections) — alongside the existing `route` (separate pages) + `tab` (in-page panels), so a menu whose sub-sections aren't separate routes can still surface a sub-nav. _(Design was originally bundled here too, but the owner decided 2026-06-17 to FOLD DESIGN INTO STUDIO — Website + Mood Board + Monogram become Studio sections beside Save the Date — so Design's children land with the Studio restructure, not as a standalone menu. PR2 is now Budget-only; the `anchor` flavor + the generalized dock plumbing it needs stay.)_

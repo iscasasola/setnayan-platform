@@ -17,6 +17,20 @@ Single clean chokepoint (the marketing nav renders once via `RootLayout → Site
 `pnpm typecheck` + `pnpm lint` green. Deferred (cleanup follow-ups): group-heading slots, the `_overview-tile.tsx` ICONS map, vendor.topbar/payment-options + customer day-of roster slots, and the ESLint guard (blocked until nav configs drop their Lucide fallback imports). The legacy `SiteHeader` (waitlist/download) has a different, slot-less link set — left as-is.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
+
+Owner reassessment of the onboarding plan screen ("define Setnayan AI here … show how much to keep this") plus a corrected free-from-the-start list. The screen was giving the *paid* AI layer away as free and never naming or pricing Setnayan AI.
+
+- **Free list corrected (`FREE_TOOL_DRIVERS`).** Removed `Smart vendor matching` (₱4,999) and `Wedding date aligner` (₱1,499) from the "free forever" tally — both are Setnayan AI per the locked AI definition (ranking/scoring/date-aligner = AI, not the free floor). Marketplace *browse* stays free. Added a free **Papic sampler** entry (3 guest seats to taste candid-capture tagging).
+- **Setnayan AI keep-card** replaces the `Keep guiding me — free` toggle on the `plan` screen: defines the AI, lists 3 benefits (vendor matching · deadline timeline · reach-best-matches), shows the catalog price (`pricing.setnayanAi.label` from `platform_retail_catalog_v2` — never hardcoded; degrades gracefully if the row is missing), anchored vs a ₱30k+ coordinator. Primary CTA commits + routes to the existing `add-ons/setnayan-ai` checkout via a new `addonSlugOverride` path threaded through `handleFinish`→`goToDashboard`; "Maybe later" continues free.
+- **`onboarding-pricing.ts`** — `OnboardingPricing` gains `setnayanAi: {price,label} | null`, read by service_code from the live customer catalog (AI isn't an onboarding "pick" key, so it's not in `svc`).
+- **`onboarding.css`** — `.aikeep*` styles in brand tokens (mulberry CTA, gold accents, serif price).
+- `tsc --noEmit` green.
+
+Does NOT flip the global `SETNAYAN_AI_PAYWALL_ENABLED` flag — AI stays free-to-try until the owner flips it (the "flip-time" go-live). The card + checkout work either way. Known follow-up: the free `Reach my best matches` auto-inquiry card below the keep-card is now redundant and folds into the AI entitlement at flip-time.
+
+SPEC IMPACT: onboarding plan-screen now presents Setnayan AI as the ₱3,999 paid keep (per 2026-06-07 pricing lock + 2026-06-08 AI definition) and corrects the free-tier value list (adds the free Papic sampler concept). Logged in corpus `DECISION_LOG.md`. The free Papic sampler **entitlement + 3-seat/8-photo+2-clip caps + 30-day retention** is a separate follow-up PR (PR2).
+## 2026-06-16 · feat(nav): wire the ADMIN doorway to the registry (consumption PR 4)
 
 Fourth consumption of the nav/icon/menu registry — the **admin doorway** (sidebar ~55 items + 6-tab bottom nav) now sources each item's **label + icon from the admin registry** (`admin.sidebar.*` + `admin.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified every admin sidebar item + bottom tab matches its registry default, all 54 admin icons in the curated allowlist). Admin nav has no role-gating, so the overlay applies directly.
 
@@ -144,6 +158,18 @@ First wiring of the nav/icon/menu registry into live chrome. The customer mobile
 Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat: Event Lifecycle Menu PR4b — completion-handshake UI (vendor mark-complete ↔ couple confirm/dispute)
+
+Makes PR4a's handshake schema usable: the **vendor marks the service complete → the couple confirms received** (unlocking the review) **or reports a problem** (a non-delivery dispute that freezes the gate). No migration — consumes the PR4a columns.
+
+- **`apps/web/lib/completion-handshake.ts`** (new) — `reviewState(completion, eventDate)` → `reviewable | awaiting_confirm | disputed | awaiting_vendor`, mirroring the read-side review-gate RLS (M=7d/N=30d/legacy) so the UI and DB agree. Pure/reusable.
+- **Vendor side** — `vendorMarkServiceComplete` action (`vendor-dashboard/clients/[eventId]/actions.ts`): verifies the caller's profile owns the `event_vendors` row, stamps `service_marked_complete_at` + `completion_status='vendor_marked'` (admin client, idempotent), and notifies the couple (`review_request`). A **completion card** on the vendor event brief shows the state (mark-complete → "waiting on the couple" → "confirmed" / "reported a problem").
+- **Couple side** — `coupleConfirmReceived` + `coupleReportNonDelivery` actions (`review/actions.ts`). The review page now branches on `reviewState`: `awaiting_confirm` → a **"Did you get everything?"** banner (confirm unlocks the review + galleries; report freezes it; auto-confirms after 7 days); `disputed` → an on-hold state; `awaiting_vendor` → the (reworded) not-yet state.
+
+`tsc` + `next lint` green. **Reuses** the existing review page/actions, the vendor brief, `emitNotification`. PR pending (branch `claude/lifecycle-pr4b-handshake-ui`, auto-merge).
+
+SPEC IMPACT: None on pricing/SKUs. Implements §6.1 (the handshake interaction) of `Event_Lifecycle_Menu_Design_2026-06-16.md`. Next: PR4c (the After menu roster + Editorial/Galleries, into the Alaala hub).
+
 ## 2026-06-16 · fix(reviews)+feat: Event Lifecycle Menu PR4a — completion-handshake schema + review-gate bug fix
 
 The data + RLS core of the After-phase completion handshake (§6.1), and a fix for a **pre-existing review-gate bug**. Migration-only (the vendor mark-complete + couple confirm/dispute UI + the After menu land in PR4b).

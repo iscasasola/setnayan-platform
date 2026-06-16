@@ -24,7 +24,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
-import { getOnboardingRefinements } from '@/lib/onboarding-refinements';
+import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
@@ -77,7 +77,7 @@ export default async function OnboardingWeddingPage({
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
@@ -87,10 +87,13 @@ export default async function OnboardingWeddingPage({
     fetchOnboardingBgMusicUrl(),
     // DB-backed refinement catalogue (owner 2026-06-08, items 8 + 9). DB-first,
     // falls back to the static REFINEMENTS_DATA module on any read error/empty.
-    getOnboardingRefinements(),
+    getOnboardingRefinements('wedding'),
     // Available-only picker filter (spec §0): extras cats with no live marketplace
     // supply to hide. [] (never-gut) until the marketplace covers ≥half the cats.
     hiddenOnboardingExtraCats(),
+    // Taxonomy-driven PICK step (2026-06-17): tier-2 tiles scoped to weddings from
+    // service_categories. [] on error → shell falls back to static PICK_GROUPS_FALLBACK.
+    getOnboardingTiles('wedding'),
   ]);
   const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
@@ -109,6 +112,7 @@ export default async function OnboardingWeddingPage({
       bgMusicUrl={bgMusicUrl}
       refinements={refinements}
       hiddenCats={hiddenCats}
+      dynamicTiles={dynamicTiles}
     />
   );
 }

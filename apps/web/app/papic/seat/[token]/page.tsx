@@ -41,7 +41,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // null and is bounced to the claim page.
   const { data: seat, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id')
+    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id, is_free_sampler')
     .eq('claim_qr_token', token)
     .maybeSingle();
 
@@ -81,6 +81,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         token={token}
         seatIndex={seat.seat_index as number}
         initialCount={count ?? 0}
+        isFreeSampler={Boolean(seat.is_free_sampler)}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

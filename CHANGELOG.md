@@ -14,6 +14,21 @@ Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. 
 - No migration — reads existing columns (incl. the sampler's `expires_at`, already on prod). `tsc` + `next lint` green.
 
 SPEC IMPACT: iteration 0012 — the couple-facing Papic gallery is now real (was a documented mock). Benefits both the free sampler and paid PAPIC_SEATS. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(day-of): same-day "Get help" — verified-paid vendor shortlist + escalation (Event Lifecycle Menu PR5)
+
+The Day-of "Get help" card grows a second layer. If something goes wrong on the wedding day (a no-show, a last-minute gap), the couple now sees a shortlist of **verified, paid vendors who opted into same-day work, nearest the venue first** — above the existing escalate-to-support floor. V1 is filter + escalation only; real same-day *booking* is V1.5.
+
+- **Migration `20270104000000_vendor_same_day_available.sql`** — `vendor_profiles.same_day_available BOOLEAN NOT NULL DEFAULT FALSE` + a partial index `WHERE same_day_available`. No RLS change (plain column on an existing table; the public read of verified profiles already exposes it). **Applied to prod** (ledger drift from parallel sessions → applied via `db query` + manual ledger row, per the established pattern).
+- **`apps/web/lib/same-day-vendors.ts`** (new) — `findSameDayVendors(supabase, venue)`: filters `public_visibility='verified'` AND `tier_state <> 'free'` AND `same_day_available=TRUE`, then ranks — venue geo present → `haversineKm` ascending (geo-less vendors trail); venue geo absent → same-`hq_region` first, then alphabetical (**never empty**, so an off-platform venue with no lat/long still gets a list). Caps at 5; graceful-degrade to `[]` pre-migration.
+- **`get-help-card.tsx`** — renders the shortlist (name · first service · distance/city · link to `/v/[slug]`) above the escalation CTA; falls back to the escalation-only copy when no one opted in. Threaded server-side: `day-of page → DayOfModeGrid → GetHelpCard` (computed only while `dayOfActive`, best-effort).
+- **Vendor opt-in** — `vendor-dashboard/profile`: a new "I can take same-day & day-of jobs" checkbox (soft-probed read mirroring `social_feature_opt_out`; written in `saveVendorProfile`'s payload). Default off.
+
+Why the tier gate (`tier_state <> 'free'`): only paid vendors surface — their names are always visible (free+verified names stay masked until first chat reply per the hybrid-anonymity doctrine) and they have skin in the game.
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard all green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §4 ("Get help") + §10 PR5. Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle work: PR6 (recommend-your-vendors + anti-fake stack), admin force-complete + "Move to memories" archive.
+
 ## 2026-06-15 · feat(alaala): onboarding "promise" beat — name Alaala at the emotional peak (Lane 1 complete)
 
 Completes **Lane 1** (the narrative spine). Right after the couple commits their love story in onboarding (after `love_preview`, before the practical region/pax/budget questions — the emotional peak), a one-screen brand moment names the pillar and states the guardrail.

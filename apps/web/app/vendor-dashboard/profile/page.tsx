@@ -223,6 +223,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         portfolioMax: number;
         canCustomSlug: boolean;
         socialFeatureOptOut: boolean;
+        sameDayAvailable: boolean;
       }
     | { ok: false; message: string };
   try {
@@ -253,6 +254,19 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     const socialFeatureOptOut = Boolean(
       (socialRow as { social_feature_opt_out?: boolean | null } | null)
         ?.social_feature_opt_out,
+    );
+
+    // same_day_available (Event Lifecycle Menu PR5 · 20270104000000) — its own
+    // soft-probe for the same reason as social: a pre-migration DB (42703 on the
+    // new column) degrades the toggle to default-off without nuking anything else.
+    const { data: sameDayRow } = await supabase
+      .from('vendor_profiles')
+      .select('same_day_available')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r));
+    const sameDayAvailable = Boolean(
+      (sameDayRow as { same_day_available?: boolean | null } | null)?.same_day_available,
     );
     const portfolioCap = caps.portfolioPhotos;
     const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
@@ -311,6 +325,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       portfolioMax,
       canCustomSlug,
       socialFeatureOptOut,
+      sameDayAvailable,
     };
   } catch (err) {
     // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
@@ -361,6 +376,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     portfolioMax,
     canCustomSlug,
     socialFeatureOptOut,
+    sameDayAvailable,
   } = loaderState;
   const completion = profileCompletion(profile);
   const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
@@ -763,6 +779,36 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               When you pass verification we celebrate it on our social pages — Facebook,
               Instagram &amp; TikTok. Free listings get an unnamed category mention, Pro gets a
               named feature with your logo. Tick to opt out.
+            </span>
+          </span>
+        </label>
+
+        {/*
+          Same-day "Get help" opt-in (Event Lifecycle Menu PR5 · 20270104000000).
+          When a couple hits trouble ON the wedding day, we surface verified,
+          PAID vendors who opted into same-day work — nearest the venue first.
+          Opt-IN (default off); only shown to verified Pro+ profiles in the
+          shortlist (free+verified names stay masked per hybrid-anonymity).
+        */}
+        <label
+          className="flex items-start gap-3 rounded-xl p-4"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <input
+            type="checkbox"
+            name="same_day_available"
+            defaultChecked={sameDayAvailable}
+            className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+          />
+          <span>
+            <span className="block text-sm font-medium text-ink">
+              I can take same-day &amp; day-of jobs
+            </span>
+            <span className="block text-xs text-ink/55">
+              Couples who run into trouble on their wedding day see a shortlist of nearby vendors
+              who can help right away. Tick this if you&rsquo;re open to last-minute, same-day work
+              — you&rsquo;ll appear to couples near you when they need a hand. (Verified Pro vendors
+              only.)
             </span>
           </span>
         </label>

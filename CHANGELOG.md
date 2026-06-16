@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(std-reveal): photoreal paper + liner textures on the 3D rigid scene (faithful-rebuild PR3b/4)
+
+Stacks on PR3a (the WebGL scene). Realises the §1a **TRUE TEXTURE** requirement for the two surfaces a guest stares at — the invitation **paper** (back plane + flap fronts) and the **liner** (flap backs) — as real PBR material maps. Church-door wood is the heavier unique surface and defers to **PR3c**.
+
+- **Assets (made once, reused by every couple, ₱0):** generated two seamless albedo scans via Recraft (cotton-rag wedding paper · kraft liner) — I `Read` both to confirm they look right (a premium linen weave + a kraft speckle). New re-runnable `apps/web/scripts/build-reveal-textures.mjs` (sharp) derives, per surface, the **normal map** (wrap-around Sobel from a luminance height field — verified the output reads as a proper tangent-space normal with the fibre as relief) and a **roughness map** (inverted-luminance, leveled to a matte band), and emits optimised WebP. The large source scans are git-ignored (`*_albedo_src.webp`); the six derived maps (~1.6 MB) are committed under `public/reveal/textures/{paper,liner}/`.
+- **`reveal/reveal-textures.ts` (new):** loads the map set and **recolours the albedo LIVE** toward the couple's Mood-Board role colour with a luminance-preserving Canvas `'color'` blend at 0.22 alpha (§2e "blend, not tint" — fibre/grain survive; only the hue shifts). Normal + roughness are colour-agnostic and shared unchanged. **sRGB on albedo, linear on normal/roughness** (the one PBR bug to never get wrong). Returns null on any failure → the scene keeps its flat Mood-Board colour, never breaks.
+- **`reveal/rigid-webgl.tsx`:** loads paper + liner maps **async** (only when a reveal mounts) and applies them to the materials when ready, so the scene upgrades from flat colour → textured; `roughness=1` so the map drives it; max anisotropy so the grain stays crisp at grazing angles; a `cancelled` guard disposes maps that resolve after unmount. Doors use the paper map as an interim until PR3c wood.
+
+Textures are FETCHED at runtime (static `public/` WebP, CDN-cached, lazy per reveal) — NOT in the JS bundle; three.js stays code-split. Flag-gated unchanged (`NEXT_PUBLIC_STD_REVEAL` default OFF). `tsc` 0 · `next lint` clean. **⚠ Same verification reality as PR3a — the textured LOOK on the lit 3D scene is eyeball-only on a real GPU; I verified the source maps visually but not the final composite. Please review on the Vercel preview** (`?reveal=four-flap…`; `?reveal3d=off` to A/B vs CSS).
+
+SPEC IMPACT: realises `0024_ADDENDUM §1a/§2e` TRUE-TEXTURE photoreal paper + liner (luminance-preserving moodboard recolour, ₱0) for the rigid reveal. No SKU/schema/pricing change. PR3c = church-door wood (CC0/Recraft). Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · feat(std-reveal): rigid family → real three.js 3D scene + one-light VSM shadows (faithful-rebuild PR3a/4)
 
 PR3 of the Save-the-Date faithful rebuild, staged on a 4-agent architecture pass (map seam · three.js conventions · scene design · texture pipeline). **PR3a = the real-time WebGL conversion + the locked §1a lighting/shadow rig**; PR3b (photoreal PBR textures + church-door wood) follows. Replaces the flat CSS-3D rigid flaps (four-flap · two-flap-v/h · church-doors) with an **actual three.js scene** so the three §1a shadow types (form shading · flap-cast-on-paper · seam occlusion) fall out of real geometry + light, not hand-faking.

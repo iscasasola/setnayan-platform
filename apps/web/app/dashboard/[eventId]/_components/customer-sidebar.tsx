@@ -93,6 +93,9 @@ import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import type { NavGroup } from '@/app/_components/nav/types';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 // buildCustomerNavGroups + the lucide icon refs it consumes live in a
 // neutral (non-'use client') module — Server Components (specifically
 // /more/page.tsx) need to be able to import + call this builder, which
@@ -132,9 +135,63 @@ export { buildCustomerNavGroups };
  * different context — the Wordmark eyebrow + 'Event' label is the
  * customer-side variant).
  */
-export function CustomerSidebar({ eventId }: { eventId: string }) {
+/**
+ * Maps each journey-group ITEM key → its admin nav-registry slot key. Items
+ * absent here (e.g. the "Checklist" auto-step) have no registry slot yet and
+ * pass through with their hardcoded label/icon. GROUP heading labels are a
+ * deferred follow-up (no group slots yet).
+ */
+const SIDEBAR_SLOT_KEYS: Record<string, string> = {
+  home: 'customer.sidebar.home',
+  'add-ons': 'customer.sidebar.studio',
+  vendors: 'customer.sidebar.explore',
+  guests: 'customer.sidebar.guests',
+  seating: 'customer.sidebar.seating',
+  schedule: 'customer.sidebar.schedule',
+  budget: 'customer.sidebar.budget',
+  messages: 'customer.sidebar.messages',
+  contracts: 'customer.sidebar.contracts',
+  website: 'customer.sidebar.website',
+  'mood-board': 'customer.sidebar.mood-board',
+  monogram: 'customer.sidebar.monogram',
+  live: 'customer.sidebar.live',
+  'event-qr': 'customer.sidebar.event-qr',
+  activity: 'customer.sidebar.activity',
+  disputes: 'customer.sidebar.disputes',
+};
+
+/**
+ * Overlays admin registry label + icon onto each item (fallback = the item's
+ * hardcoded default). A slot marked hidden drops the item. href/activeMatch +
+ * group structure stay in code. No-op when navSlots is absent (fails open to
+ * the built-in nav).
+ */
+function applyRegistry(
+  groups: NavGroup[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slotKey = SIDEBAR_SLOT_KEYS[item.key];
+      const slot = slotKey ? navSlots[slotKey] : undefined;
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
+}
+
+export function CustomerSidebar({
+  eventId,
+  navSlots,
+}: {
+  eventId: string;
+  navSlots?: Record<string, NavSlotLite>;
+}) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
-  const groups = buildCustomerNavGroups(eventId);
+  const groups = applyRegistry(buildCustomerNavGroups(eventId), navSlots);
 
   return (
     <>

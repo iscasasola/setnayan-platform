@@ -196,3 +196,97 @@ test('A Locked vendor is not reused to fill another Auto group', () => {
     { planGroupId: SINGLE_B, vendorId: 'b-alt' },
   );
 });
+
+// ── AI-ON compat ranking branch (rankMode: 'compat') ─────────────────────────
+
+test('compat mode: Auto picks the TOP-compat vendor that fits, not the cheapest', () => {
+  // The cheapest vendor has a poor compat; a pricier one (still within budget)
+  // ranks higher. AI-ON must prefer the high-compat one (cost only GATES).
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'cheap-weak', planGroupId: SINGLE_A, costPhp: 30_000, compatScore: 40 },
+    { vendorId: 'dear-strong', planGroupId: SINGLE_A, costPhp: 60_000, compatScore: 90 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const compat = resolveBuildPicks({ states: s, quoted, budgetPhp: 70_000, rankMode: 'compat' });
+  assert.deepEqual(compat.picks, [{ planGroupId: SINGLE_A, vendorId: 'dear-strong' }]);
+
+  // Same inputs in the default cheapest mode still pick the cheapest (the
+  // AI-OFF path is unchanged).
+  const cheapest = resolveBuildPicks({ states: s, quoted, budgetPhp: 70_000 });
+  assert.deepEqual(cheapest.picks, [{ planGroupId: SINGLE_A, vendorId: 'cheap-weak' }]);
+});
+
+test('compat mode: a higher-compat vendor that BUSTS budget is skipped for a cheaper one that fits', () => {
+  // Top compat is too expensive for the remaining budget; resolution must NOT
+  // stop at it (compat order is not cost-monotonic) — it falls to the next-best
+  // that fits.
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'best-too-dear', planGroupId: SINGLE_A, costPhp: 200_000, compatScore: 95 },
+    { vendorId: 'good-fits', planGroupId: SINGLE_A, costPhp: 40_000, compatScore: 80 },
+    { vendorId: 'ok-cheapest', planGroupId: SINGLE_A, costPhp: 10_000, compatScore: 55 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 50_000, rankMode: 'compat' });
+  // 'best-too-dear' (200k) busts the 50k budget → skip; 'good-fits' (40k, compat 80)
+  // is the top-compat that fits.
+  assert.deepEqual(res.picks, [{ planGroupId: SINGLE_A, vendorId: 'good-fits' }]);
+});
+
+test('compat mode: scored vendors outrank an unscored (off-platform) vendor', () => {
+  // A quote with no compatScore (off-platform / no market stats) is admit-unknown
+  // — present, but never preferred over a scored vendor that fits.
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'no-score', planGroupId: SINGLE_A, costPhp: 10_000 },
+    { vendorId: 'scored', planGroupId: SINGLE_A, costPhp: 20_000, compatScore: 70 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 100_000, rankMode: 'compat' });
+  assert.deepEqual(res.picks, [{ planGroupId: SINGLE_A, vendorId: 'scored' }]);
+});
+
+test('compat mode: ties on compat fall back to cheapest then vendorId (deterministic)', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'b-dear', planGroupId: SINGLE_A, costPhp: 50_000, compatScore: 75 },
+    { vendorId: 'a-cheap', planGroupId: SINGLE_A, costPhp: 30_000, compatScore: 75 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 100_000, rankMode: 'compat' });
+  // Equal compat → cheaper wins.
+  assert.deepEqual(res.picks, [{ planGroupId: SINGLE_A, vendorId: 'a-cheap' }]);
+});
+
+test('compat mode: multi-pick group keeps every fitting pick in compat order', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'look-weak', planGroupId: MULTI, costPhp: 20_000, compatScore: 50 },
+    { vendorId: 'look-strong', planGroupId: MULTI, costPhp: 30_000, compatScore: 90 },
+    { vendorId: 'look-bust', planGroupId: MULTI, costPhp: 999_999, compatScore: 99 },
+  ];
+  const s: BuildStateMap = new Map([[MULTI, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 100_000, rankMode: 'compat' });
+  const got = res.picks.filter((p) => p.planGroupId === MULTI).map((p) => p.vendorId);
+  // Both affordable picks are kept (multi-pick); the 999,999 one busts budget.
+  assert.deepEqual([...got].sort(), ['look-strong', 'look-weak']);
+});
+
+test('compat mode: Locked + Excluded + dimension rows behave exactly as cheapest mode', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'cat-lock', planGroupId: SINGLE_A, costPhp: 50_000, compatScore: 60 },
+    { vendorId: 'photo-1', planGroupId: SINGLE_B, costPhp: 20_000, compatScore: 88 },
+  ];
+  const s: BuildStateMap = new Map([
+    [SINGLE_A, { state: 'locked', pinnedVendorId: 'cat-lock' }],
+    [SINGLE_B, { state: 'auto', pinnedVendorId: null }],
+    [DIM_BUDGET, { state: 'locked', pinnedVendorId: null }],
+  ]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 100_000, rankMode: 'compat' });
+  // Locked honored verbatim; dimension row never produces a pick; Auto fills.
+  assert.deepEqual(
+    res.picks.find((p) => p.planGroupId === SINGLE_A),
+    { planGroupId: SINGLE_A, vendorId: 'cat-lock' },
+  );
+  assert.deepEqual(
+    res.picks.find((p) => p.planGroupId === SINGLE_B),
+    { planGroupId: SINGLE_B, vendorId: 'photo-1' },
+  );
+  assert.equal(res.unfilledAuto.length, 0);
+});

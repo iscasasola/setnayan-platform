@@ -53,6 +53,16 @@ Adds free-form **NAMED** saved builds to the 3-state Build's Compare tab, replac
 `pnpm typecheck` (0 errors) + `pnpm lint` green; 174 unit tests pass (13 new).
 
 SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md).
+## 2026-06-16 · feat(build): Auto-ON compat-engine ranking + marketplace fallback search (flag-dark)
+
+Extends the 3-state Build solver (PR #1522) with the **Setnayan-AI-ON behavior** and the **marketplace fallback**, entirely behind `BUILD_3STATE_ENABLED` (default OFF) — with the flag off, behavior is byte-identical to today (every new path is unreachable, and `resolveBuildPicks` defaults to the unchanged cheapest-fit). **No migration.** Two parts:
+
+1. **Auto-ON ranking.** When the flag is on AND Setnayan AI is active for the event, an Auto row now resolves by RANKING that category's quoted vendors with `lib/compat-score` (reception-anchored distance + reviews + verification + boost) and picking the TOP-ranked that fits the remaining budget — instead of plain cheapest-fit. Cost still GATES (a pick must fit); compat only re-orders the survivors. AI-OFF (flag on) keeps the shipped cheapest-fit unchanged. The pure resolver gained a `rankMode: 'cheapest' | 'compat'` arg (default `'cheapest'`) + an optional hidden `compatScore` on `QuotedVendor`; the compat scores are computed in `runBuild3State` only when AI is active and are **never returned to the client** (sort-only). 7 new unit tests cover the compat branch.
+2. **Marketplace fallback.** When an Auto row can't be filled from the couple's own quotes, the couple can "Find more options": a new server action falls back to a marketplace search on the requirement (reusing the proven `searchCategoryVendors`), returns the TOP 10 (+ "show 5 more") ordered by a **hidden compatibility %** (sort-only — never displayed), as tap-to-add **suggestions** (NOT auto-added / auto-charged; the add reuses `attachMarketplaceVendorToCategory`). Works without AI (coarser sort); AI makes it richer.
+
+Files: `apps/web/lib/build-3state.ts` (rankMode + compat sort, additive), `apps/web/lib/build-3state.test.ts` (+7 compat tests), `apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts` (AI gate → rank mode + compat-score read), `apps/web/app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts` (new — fallback suggestions), `apps/web/app/dashboard/[eventId]/vendors/_components/build-3state-control.tsx` (FallbackPanel under the unfilled list).
+
+SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md)
 
 ---
 

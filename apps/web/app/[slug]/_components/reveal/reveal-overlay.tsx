@@ -31,11 +31,13 @@ import { useEffect, useState } from 'react';
 import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
 import { isVeilTemplate, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
+import type { WaxSealConfig } from '@/lib/wax-seal/types';
 
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
 const VeilCrown = dynamic(() => import('./veil-crown'), { ssr: false });
 
 export type { RevealTemplate } from './reveal-templates';
+export type { WaxSealConfig } from '@/lib/wax-seal/types';
 
 type Props = {
   /** True when the page is in the Save-the-Date phase (the only place it shows). */
@@ -46,6 +48,10 @@ type Props = {
   markSvg?: string | null;
   /** Wax seal colour (hex) — the Mood Board deep accent. */
   waxColor?: string;
+  /** The minted wax-seal recipe (candle-stamp maker). Null → default levers. */
+  sealConfig?: WaxSealConfig | null;
+  /** Stable seed for an un-minted seal (public_id-derived). */
+  sealFallbackSeed?: number;
   /** Veil tulle colour (hex) from the Mood Board palette. */
   veilColor?: string;
 };
@@ -57,6 +63,8 @@ export function RevealOverlay({
   monogram,
   markSvg = null,
   waxColor = '#5c2542',
+  sealConfig = null,
+  sealFallbackSeed,
   veilColor = '#f3ece1',
 }: Props) {
   const [mounted, setMounted] = useState(false);
@@ -123,10 +131,19 @@ export function RevealOverlay({
           markSvg={markSvg}
           monogram={monogram}
           waxColor={waxColor}
+          config={sealConfig}
+          fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
         />
       ) : (
-        <FourFlapEnvelope markSvg={markSvg} monogram={monogram} waxColor={waxColor} onOpened={onOpened} />
+        <FourFlapEnvelope
+          markSvg={markSvg}
+          monogram={monogram}
+          waxColor={waxColor}
+          config={sealConfig}
+          fallbackSeed={sealFallbackSeed}
+          onOpened={onOpened}
+        />
       )}
     </div>
   );

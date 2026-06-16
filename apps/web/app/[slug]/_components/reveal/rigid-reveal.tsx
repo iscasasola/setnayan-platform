@@ -19,7 +19,9 @@
  */
 
 import type { CSSProperties, ReactNode } from 'react';
+import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
+import { RigidFlaps } from './rigid-flaps';
 
 export type RigidVariant = 'two-flap-vertical' | 'two-flap-horizontal' | 'church-doors';
 
@@ -31,6 +33,10 @@ type Props = {
   monogram: string;
   /** Wax seal colour (hex) — the moodboard deep accent. */
   waxColor: string;
+  /** The minted wax-seal recipe (null → default levers seeded by fallbackSeed). */
+  config?: WaxSealConfig | null;
+  /** Stable seed for an un-minted seal (public_id-derived). */
+  fallbackSeed?: number;
   /** Fired once the flaps have scrubbed fully open. */
   onOpened: () => void;
 };
@@ -147,14 +153,26 @@ function flaps(variant: RigidVariant, p: number): ReactNode {
   );
 }
 
-export function RigidReveal({ variant, markSvg, monogram, waxColor, onOpened }: Props) {
+export function RigidReveal({
+  variant,
+  markSvg,
+  monogram,
+  waxColor,
+  config = null,
+  fallbackSeed,
+  onOpened,
+}: Props) {
   return (
     <RigidStage
       markSvg={markSvg}
       monogramText={monogram}
       waxColor={waxColor}
+      config={config}
+      fallbackSeed={fallbackSeed}
       onOpened={onOpened}
-      renderFlaps={(p) => flaps(variant, p)}
+      renderFlaps={(p) => (
+        <RigidFlaps variant={variant} progress={p} cssFallback={flaps(variant, p)} />
+      )}
     />
   );
 }

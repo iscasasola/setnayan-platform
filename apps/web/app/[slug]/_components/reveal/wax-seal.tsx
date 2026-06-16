@@ -3,30 +3,38 @@
 /**
  * WaxSeal — the couple's monogram pressed into a wax seal (0024 addendum §3).
  *
- * NOT a hardcoded mark: the couple's real monogram (events.monogram_uploaded_svg
- * ?? monogram_custom_svg — the 0037 / Cipher mark) is rendered as an EMBOSSED
- * relief in wax tones, exactly like a stamp pressed into molten wax. Three masked
- * copies of the mark (a lighter highlight offset up-left, a darker shadow offset
- * down-right, and a mid debossed face) build the pressed-in look; the disc itself
- * carries a waxy radial sheen + a bulged rim. Colour = the Mood-Board deep accent
- * (§4), so it recolours with the rest of the couple site at ₱0.
+ * Renders the MINTED recipe (events.wax_seal_config, via the candle-stamp maker)
+ * with the deterministic Canvas-2D painter `paintWaxSeal`, so the seal a guest
+ * sees is byte-identical to what the couple minted — a real self-levelled wax
+ * puddle, the monogram pressed in as a raised emboss, per-pour bulge/bubbles,
+ * matte/glossy sheen. The monogram is the stamp DIE (markSvg); colour is the
+ * Mood-Board deep accent (recolours at ₱0). No drop shadow — material only (§1a).
  *
- * Owner-explicit (§1a): the seal casts/receives NO shadow — only its own surface
- * material (sheen + the embossed relief + edge bulge) reads, never a drop shadow.
- *
- * When the couple has no mark SVG yet, it falls back to their lettered monogram
- * ("A & J") embossed with the same wax-tone relief, so it's never blank.
+ * Progressive enhancement: a CSS-mask static seal renders before hydration / with
+ * no JS, then the canvas paints over it on mount, so it is never blank. When the
+ * couple hasn't minted yet (config null) the painter uses default levers seeded
+ * by `fallbackSeed`, so every couple still gets a bespoke (not generic) seal.
  */
 
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  fallbackSeedFromPublicId,
+  resolveWaxColor,
+  type WaxSealConfig,
+} from '@/lib/wax-seal/types';
+import { buildMarkCanvas, paintWaxSeal } from '@/lib/wax-seal/paint';
 
 type Props = {
-  /** The couple's monogram SVG markup (uploaded/custom). Null → lettered fallback. */
+  /** The couple's monogram SVG markup (uploaded/custom) — the stamp die. Null → lettered. */
   markSvg: string | null;
   /** Lettered fallback, e.g. "A & J". */
   monogramText: string;
-  /** Wax colour (hex) — the Mood-Board deep accent. */
+  /** Mood-Board deep-accent wax colour (hex) — the default when the recipe has no override. */
   waxColor: string;
+  /** The minted recipe. Null → render default levers seeded by `fallbackSeed`. */
+  config?: WaxSealConfig | null;
+  /** Stable seed for an un-minted seal (public_id-derived). */
+  fallbackSeed?: number;
   /** Diameter in px. */
   size?: number;
 };
@@ -44,7 +52,6 @@ function mix(hex: string, target: number, amt: number): string {
 const lighten = (hex: string, amt: number) => mix(hex, 255, amt);
 const darken = (hex: string, amt: number) => mix(hex, 0, amt);
 
-/** A masked relief layer — paints `bg` only through the mark's silhouette. */
 function reliefLayer(maskUrl: string, bg: string, dx: number, dy: number): CSSProperties {
   return {
     position: 'absolute',
@@ -62,44 +69,33 @@ function reliefLayer(maskUrl: string, bg: string, dx: number, dy: number): CSSPr
   };
 }
 
-export function WaxSeal({ markSvg, monogramText, waxColor, size = 84 }: Props) {
-  // Press the mark in as a CSS mask (alpha mask → the painted silhouette shows
-  // in wax tones). This works for the transparent-background VECTOR marks (the
-  // Cipher / bespoke 0037 path), but a RASTER upload is stored as
-  // `<svg><image href="data:…"/></svg>` whose content rect is fully opaque — used
-  // as an alpha mask it would pass the whole rect and render a featureless wax
-  // disc. So a raster-wrapped mark falls back to the lettered emboss instead of
-  // a blank seal. (True raster→wax emboss needs a luminance/threshold source —
-  // handled when the candle-stamp maker mints the seal.)
+/** The pre-hydration / no-JS static seal (CSS mask), kept so it's never blank. */
+function CssFallback({
+  markSvg,
+  monogramText,
+  waxColor,
+  size,
+}: {
+  markSvg: string | null;
+  monogramText: string;
+  waxColor: string;
+  size: number;
+}) {
   const usableMark = markSvg && !/<image[\s/>]/i.test(markSvg) ? markSvg : null;
   const maskUrl = usableMark
     ? `url("data:image/svg+xml;utf8,${encodeURIComponent(usableMark)}")`
     : null;
-
-  // Wax-tone relief stops: a light highlight, the mid debossed face, a dark core.
   const highlight = lighten(waxColor, 0.42);
   const face = darken(waxColor, 0.16);
   const shadow = darken(waxColor, 0.4);
-
   return (
     <span
-      aria-hidden
       style={{
-        position: 'relative',
-        display: 'block',
-        width: size,
-        height: size,
+        position: 'absolute',
+        inset: 0,
         borderRadius: '50%',
-        // Waxy sheen: off-centre soft highlight over the deep accent, with a
-        // bulged rim (inset ring) — material only, NO drop shadow (owner §1a).
-        background: `radial-gradient(40% 38% at 38% 32%, ${lighten(
-          waxColor,
-          0.34,
-        )} 0%, ${waxColor} 46%, ${darken(waxColor, 0.22)} 100%)`,
-        boxShadow: `inset 0 1px 2px ${lighten(waxColor, 0.5)}, inset 0 -2px 5px ${darken(
-          waxColor,
-          0.45,
-        )}`,
+        background: `radial-gradient(40% 38% at 38% 32%, ${lighten(waxColor, 0.34)} 0%, ${waxColor} 46%, ${darken(waxColor, 0.22)} 100%)`,
+        boxShadow: `inset 0 1px 2px ${lighten(waxColor, 0.5)}, inset 0 -2px 5px ${darken(waxColor, 0.45)}`,
       }}
     >
       {maskUrl ? (
@@ -120,14 +116,12 @@ export function WaxSeal({ markSvg, monogramText, waxColor, size = 84 }: Props) {
             fontStyle: 'italic',
             fontSize: size * 0.3,
             color: face,
-            // Letter emboss: light highlight up-left + dark shadow down-right.
             textShadow: `-0.7px -0.7px 0 ${highlight}, 0.7px 0.7px 0 ${shadow}`,
           }}
         >
           {monogramText}
         </span>
       )}
-      {/* top gloss streak — the freshly-pressed wax sheen */}
       <span
         style={{
           position: 'absolute',
@@ -135,7 +129,91 @@ export function WaxSeal({ markSvg, monogramText, waxColor, size = 84 }: Props) {
           borderRadius: '50%',
           background:
             'radial-gradient(60% 22% at 42% 22%, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0) 70%)',
-          pointerEvents: 'none',
+        }}
+      />
+    </span>
+  );
+}
+
+export function WaxSeal({
+  markSvg,
+  monogramText,
+  waxColor,
+  config = null,
+  fallbackSeed,
+  size = 84,
+}: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [painted, setPainted] = useState(false);
+
+  const resolvedColor = resolveWaxColor(config, waxColor);
+  const finish = config?.wax.finish ?? 'matte';
+  const seed = config?.seed ?? fallbackSeed ?? fallbackSeedFromPublicId(monogramText);
+  const configKey = config ? JSON.stringify(config) : '';
+
+  useEffect(() => {
+    let cancelled = false;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const S = Math.round(size * dpr);
+    cv.width = S;
+    cv.height = S;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    (async () => {
+      const mark = await buildMarkCanvas(markSvg);
+      if (cancelled) return;
+      paintWaxSeal(ctx, {
+        config,
+        mark,
+        monogramText,
+        waxColor: resolvedColor,
+        finish,
+        seed,
+        size,
+        dpr,
+      });
+      if (!cancelled) setPainted(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // configKey captures the recipe; resolvedColor/finish/seed are derived from it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markSvg, monogramText, resolvedColor, finish, seed, size, configKey]);
+
+  return (
+    <span
+      aria-hidden
+      style={{ position: 'relative', display: 'block', width: size, height: size }}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: painted ? 0 : 1,
+          transition: 'opacity 200ms ease-out',
+        }}
+      >
+        <CssFallback
+          markSvg={markSvg}
+          monogramText={monogramText}
+          waxColor={resolvedColor}
+          size={size}
+        />
+      </span>
+      <canvas
+        ref={canvasRef}
+        width={size}
+        height={size}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: size,
+          height: size,
+          opacity: painted ? 1 : 0,
+          transition: 'opacity 200ms ease-out',
         }}
       />
     </span>

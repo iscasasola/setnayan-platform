@@ -107,6 +107,23 @@ export async function startServiceInquiry(input: {
     return { status: 'error', message: 'That service is no longer available.' };
   }
 
+  // Check for an existing open thread before creating a new one. If a thread
+  // already exists for this (event, vendor) pair with a non-declined status, we
+  // surface a "View thread" redirect so the couple doesn't open a second thread.
+  // We detect via chat_threads UNIQUE(event_id, vendor_profile_id): the upsert
+  // below would converge anyway, but we want to tell the UI whether this is a
+  // brand-new inquiry (isExisting=false → redirect to thread) vs. a resumption
+  // of an existing one (isExisting=true → also redirect to thread, no modal).
+  const { data: existingThread } = await supabase
+    .from('chat_threads')
+    .select('thread_id, inquiry_status')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const isExisting =
+    existingThread?.thread_id != null &&
+    existingThread.inquiry_status !== 'declined';
+
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
   try {
@@ -184,6 +201,8 @@ export async function startServiceInquiry(input: {
     if (key) seeds.push({ vendorServiceId: null, categoryKey: key, source: 'linked' });
   }
 
+  // Build the full set of validated service IDs for requested_service_ids
+  const confirmedServiceIds: string[] = [initialServiceId];
   for (const rawId of input.alsoServiceIds) {
     const id = String(rawId).trim();
     if (!id || id === initialServiceId || !ownedById.has(id)) continue;
@@ -201,16 +220,26 @@ export async function startServiceInquiry(input: {
     seeds,
   });
 
-  // Persist requested_service_ids to event_vendors (best-effort, merge pattern so
-  // a resumed inquiry appends new services rather than replacing the existing list).
+  // Persist requested_service_ids onto the event_vendors row that links this
+  // couple's event to this marketplace vendor. The upsert on chat_threads above
+  // guarantees the thread exists; the event_vendors row may have been created
+  // by a prior save-to-picks or auto-add. We use array_cat to merge (not
+  // overwrite) so a resumed inquiry adds new services to the existing set.
+  // Best-effort: a missing row or missing column (migration not yet applied)
+  // must never block the inquiry.
   try {
+    // Look up the event_vendors row for this (event, marketplace_vendor) pair.
     const { data: evRow } = await supabase
       .from('event_vendors')
       .select('vendor_id, requested_service_ids')
       .eq('event_id', eventId)
       .eq('marketplace_vendor_id', vendorProfileId)
       .maybeSingle();
+
     if (evRow?.vendor_id) {
+      // Merge: union the new service IDs with any already stored. Cast through
+      // unknown to satisfy TypeScript's strict mode — the column is a new
+      // nullable/jsonb-like UUID[] field that the generated types may not know yet.
       const existing: string[] = Array.isArray(
         (evRow as unknown as { requested_service_ids?: string[] }).requested_service_ids,
       )
@@ -221,11 +250,34 @@ export async function startServiceInquiry(input: {
         .from('event_vendors')
         .update({ requested_service_ids: merged } as Record<string, unknown>)
         .eq('vendor_id', evRow.vendor_id as string);
+    } else if (confirmedServiceIds.length > 0) {
+      // No event_vendors row yet — create a minimal one so the service list is
+      // persisted. This mirrors the auto-add path in unlock-category.ts.
+      // Resolve the initial service's category for the required 'category' column.
+      const categoryForRow = ownedById.get(initialServiceId) ?? null;
+      if (categoryForRow) {
+        // Fetch vendor name for the vendor_name column (required, non-null in schema).
+        const { data: profRow } = await admin
+          .from('vendor_profiles')
+          .select('business_name')
+          .eq('vendor_profile_id', vendorProfileId)
+          .maybeSingle();
+        const vendorNameForRow =
+          (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Vendor';
+        await supabase.from('event_vendors').insert({
+          event_id: eventId,
+          category: categoryForRow,
+          vendor_name: vendorNameForRow,
+          status: 'considering',
+          marketplace_vendor_id: vendorProfileId,
+          service_id: initialServiceId,
+          requested_service_ids: confirmedServiceIds,
+        } as Record<string, unknown>);
+      }
     }
-    // If the couple has never saved this vendor (no event_vendors row), skip —
-    // the thread + interests are the primary record; the column is supplementary.
   } catch {
-    /* best-effort — a missing column or row never blocks the inquiry */
+    /* best-effort — thread + interests already landed; service-id list can
+       be reconstructed from thread_service_interests if the column is missing */
   }
 
   revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);

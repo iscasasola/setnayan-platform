@@ -29,13 +29,26 @@ export type VendorServiceRow = {
   last_minute_surcharge_pct: number | null;
   /** Vendor-declared max bookings/day for this service (#2); null = unset. */
   daily_capacity: number | null;
+  // ── Part A: Discount fields (migration 20270108000200) ──────────────────
+  /** One of: early_booking | off_peak | bundle | promo | returning. null = no discount. */
+  discount_type: 'early_booking' | 'off_peak' | 'bundle' | 'promo' | 'returning' | null;
+  /** Positive numeric discount amount (% or PHP flat depending on type). */
+  discount_value: number | null;
+  /** Expiry timestamp (required for promo; optional/null for all other types). */
+  discount_expires_at: string | null;
+  /** Markdown conditions text for the discount (optional). */
+  discount_conditions_md: string | null;
+  // ── Part B: Setnayan Exclusive perk (v2.1 §7.2) ─────────────────────────
+  /** Never shown publicly. Revealed in-thread when the vendor token-pursues.
+   *  Required to publish (is_active=true). Drafts may be null. */
+  exclusive_perk_text: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,discount_type,discount_value,discount_expires_at,discount_conditions_md,exclusive_perk_text`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -65,6 +78,11 @@ export async function fetchVendorServices(
         | 'last_minute_end_months'
         | 'last_minute_surcharge_pct'
         | 'daily_capacity'
+        | 'discount_type'
+        | 'discount_value'
+        | 'discount_expires_at'
+        | 'discount_conditions_md'
+        | 'exclusive_perk_text'
       >),
       title: null,
       branch_id: null,
@@ -72,6 +90,11 @@ export async function fetchVendorServices(
       last_minute_end_months: null,
       last_minute_surcharge_pct: null,
       daily_capacity: null,
+      discount_type: null,
+      discount_value: null,
+      discount_expires_at: null,
+      discount_conditions_md: null,
+      exclusive_perk_text: null,
     }));
   }
   return (data ?? []) as VendorServiceRow[];

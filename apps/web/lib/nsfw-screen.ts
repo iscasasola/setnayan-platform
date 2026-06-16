@@ -187,7 +187,7 @@ const TABLE_ID_COLUMN: Record<ScreenCaptureTable, string> = {
 };
 
 /** Parse a stored `r2://<bucket>/<key>` ref into bucket + bare key. */
-function parseR2Ref(ref: string): { bucket: string | null; key: string } {
+export function parseR2Ref(ref: string): { bucket: string | null; key: string } {
   const match = /^r2:\/\/([^/]+)\/(.+)$/.exec(ref);
   if (!match) return { bucket: null, key: ref };
   return { bucket: match[1] ?? null, key: match[2] ?? ref };
@@ -324,5 +324,54 @@ export async function reScreenStuckCaptures(eventId: string): Promise<number> {
     return healed;
   } catch {
     return 0;
+  }
+}
+
+/**
+ * Screen one editorial_vendor_media row (the "From Your Vendors" submissions)
+ * and persist the verdict. Mirrors screenCapture() but for the editorial table,
+ * which is keyed by `media_id` and screened by its `still_r2_key` JPEG — the
+ * photo itself OR a clip's freeze-still (nsfwjs is image-only, so the still is
+ * the screening proxy for both photo and clip submissions).
+ *
+ * Same value-set + UPDATE-only-over-'unscreened' guarantee as screenCapture.
+ * FAIL-OPEN: any error leaves the row 'unscreened' (one console.warn). Never
+ * throws — safe to fire-and-forget from after(). The PUBLIC editorial render
+ * excludes 'unscreened' for vendor media (fail-CLOSED on the public surface),
+ * so an unscreened row simply doesn't show until the verdict lands.
+ */
+export async function screenEditorialVendorMedia(opts: {
+  mediaId: string;
+  stillR2Key: string;
+}): Promise<void> {
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const admin = createAdminClient();
+
+    const { data: row, error: rowError } = await admin
+      .from('editorial_vendor_media')
+      .select('media_id, moderation_state')
+      .eq('media_id', opts.mediaId)
+      .maybeSingle();
+    if (rowError || !row) return; // row gone / pre-migration env
+    if ((row as Record<string, unknown>).moderation_state !== 'unscreened') return;
+
+    const { readR2Object } = await import('@/lib/drive-upload');
+    const { R2_BUCKETS } = await import('@/lib/r2');
+    const { bucket, key } = parseR2Ref(opts.stillR2Key);
+    const bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
+
+    const scores = await classifyImageBytes(bytes);
+    const decision = decideNsfw(scores);
+
+    await admin
+      .from('editorial_vendor_media')
+      .update({ moderation_state: decision })
+      .eq('media_id', opts.mediaId)
+      .eq('moderation_state', 'unscreened');
+  } catch (err) {
+    console.warn(
+      `[nsfw-screen] editorial vendor media screening skipped (fail-open) — media_id=${opts.mediaId}: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }

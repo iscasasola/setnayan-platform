@@ -63,10 +63,17 @@ function reliefLayer(maskUrl: string, bg: string, dx: number, dy: number): CSSPr
 }
 
 export function WaxSeal({ markSvg, monogramText, waxColor, size = 84 }: Props) {
-  // Encode the mark as a mask-image data-URI (alpha mask = the mark silhouette,
-  // regardless of the SVG's own fills/strokes — so it presses cleanly into wax).
-  const maskUrl = markSvg
-    ? `url("data:image/svg+xml;utf8,${encodeURIComponent(markSvg)}")`
+  // Press the mark in as a CSS mask (alpha mask → the painted silhouette shows
+  // in wax tones). This works for the transparent-background VECTOR marks (the
+  // Cipher / bespoke 0037 path), but a RASTER upload is stored as
+  // `<svg><image href="data:…"/></svg>` whose content rect is fully opaque — used
+  // as an alpha mask it would pass the whole rect and render a featureless wax
+  // disc. So a raster-wrapped mark falls back to the lettered emboss instead of
+  // a blank seal. (True raster→wax emboss needs a luminance/threshold source —
+  // handled when the candle-stamp maker mints the seal.)
+  const usableMark = markSvg && !/<image[\s/>]/i.test(markSvg) ? markSvg : null;
+  const maskUrl = usableMark
+    ? `url("data:image/svg+xml;utf8,${encodeURIComponent(usableMark)}")`
     : null;
 
   // Wax-tone relief stops: a light highlight, the mid debossed face, a dark core.

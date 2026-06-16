@@ -18,6 +18,45 @@ The last unwired leg of the Papic capture pipeline. A claimed paparazzo could sh
 Verified in the worktree: `tsc --noEmit` 0 · `test:unit` (papic-tag 14/14, checkin 14/14) · `next lint` clean (new files emit nothing) · migration-timestamp guard ✓ (384 unique). Browser camera/QR flow needs a claimed seat + printed QRs — owner to verify on the Vercel preview.
 
 SPEC IMPACT: iteration 0012 — the QR-tagging leg of the capture pipeline is now built (was the documented "unwired tag leg"). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(papic): dashboard sampler-retention card + sampler-aware gallery nudge — close 2 of the #1577 audit's conversion-UX findings
+
+From the same "make the sampler powerful" push. The #1577 52-agent audit confirmed two conversion-UX gaps it left for owner triage — **"gallery not sampler-aware"** and **"banner informational-not-converting."** This closes both on the couple's Papic add-on dashboard (`/dashboard/[eventId]/add-ons/papic`) — the surface where the real convert actions already live (the Drive-connect inside the storage card + the crew-pack `InlineCheckoutDrawer`).
+
+- **New on-page `SamplerRetentionCard` — "Keep your free photos forever."** Gated on `!ownsPapicSeats && samplerExpiringCount > 0`; it reads the soonest non-expired `papic_photos.expires_at` (mirroring the `/crew` banner's countdown so both surfaces agree). **Two co-equal CTAs** (owner pick 2026-06-16: equal weight, no visual primary): **"Keep your own copy — Google Drive"** and **"Upgrade to full Papic · ₱…"**.
+- **Free-first + 503-safe by design.** The Drive CTA **anchors DOWN to the storage card** (`#papic-storage`) rather than deep-linking `/api/oauth/drive/start` (which 503s when `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is unset). The storage card owns the connect button + its own "coming soon — admin setup pending" gate, so the 503 route is never surfaced from a CTA. The upgrade CTA reuses the crew pack's `InlineCheckoutDrawer` and renders only when platform settings are present (the drawer needs the BDO/GCash QR refs); the free Drive path renders regardless.
+- **`GalleryPreviewCard` is now sampler-aware.** A slim "Your N free sampler photos expire in X days — keep them" nudge sits above the grid (where the couple actually sees the photos) and links up to `#papic-keep`.
+
+Single file (`app/dashboard/[eventId]/add-ons/papic/page.tsx`), additive — no new deps, no migration, reuses the existing `PAPIC_SEATS` SKU + the #1577 keep-permanent mechanic. tsc 0 · `next lint` clean. PR pending (branch `claude/papic-sampler-retention`, auto-merge).
+
+SPEC IMPACT: iteration 0012 — the couple-side Papic add-on page now **converts** the free sampler (was informational only); closes the #1577 audit's "gallery not sampler-aware" + "banner informational-not-converting" findings. No SKU / schema / pricing / public-surface change. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(payments): red-team hardening of the bundle-entitlement fixes (PR4d)
+
+A 14-agent adversarial red-team (workflow `entitlement-redteam`) tried to break the merged PR4/PR4b fixes across 5 angles and found 8 confirmed holes (1 candidate refuted). Fixed the confirmed ones:
+
+- **Complete buyer couldn't launch Panood (high)** — the couple-facing Panood gates (add-on page, galleries, launch hub "Go live") resolve via `resolveAddOnState()`, which matched only à-la-carte SKU orders, not the bundle code. A MEDIA_PACK buyer's single `MEDIA_PACK` order matched nothing → stuck on "add". Fix: `resolveAddOnState` now adds the *granting* bundle code(s) for the feature's canonical SKU to its ownership query — Panood→`PANOOD_SYSTEM` is in **MEDIA_PACK only**, so Essentials buyers are NOT over-granted, and the existing paid/fulfilled-vs-submitted gating treats a bundle exactly like an à-la-carte order (paid→launch, submitted→request_sent, refunded→re-locks). (Guest watch-live was already bundle-aware; this closes the couple side.)
+- **Refunded/cancelled Setnayan AI stayed ON forever (high)** — the feature reads the stored `events.setnayan_ai_active` boolean, which activation stamps true but nothing ever cleared, so a full refund left the paid AI live ("refund the money, keep the AI"). Added `deactivateOrderSku()` in `lib/sku-activation.ts` (symmetric to `activateOrderSku`), called from `refundOrder` + `rejectPayment` after the status flip. It **re-derives** ownership via `eventOwnsSku` (bundle-aware, refund-aware, admin client) and clears the flag *only* when the event no longer owns AI by any other live order/bundle — so a couple who owns AI twice (à-la-carte + bundle) keeps it on a single refund. `PAPIC_SEATS` sampler-permanence is deliberately NOT reversed (owner-locked "upgrade = permanent").
+- **AI activation hook swallowed its DB error (med)** — now surfaces it so the dispatcher's outer catch logs it (silent un-provisioning had no retry signal).
+- **Bundle fan-out had no per-child fault isolation (was latent, now real)** — PR #1577 added a 2nd child hook (`PAPIC_SEATS`), so a `SETNAYAN_AI` write error could starve `PAPIC_SEATS`. Each child call is now try/caught (honors the file's "every hook non-fatal" contract).
+- **Branded-QR + custom-qr gates were purchaser-scoped (high)** — the ownership read ran under the user's RLS client, but `orders` RLS is `user_id = auth.uid()`, so a co-host event member who didn't personally place the order was denied a SKU the event paid for. The guest/event reads ARE the membership gate; ownership is an event-level fact → now read with the admin client (post-authorization) in the public QR route + the custom-qr detail & print pages.
+
+Refuted: "checkOrderOwnership omits 'draft'" — by design (a `draft` order isn't a committed purchase).
+
+**⚠ OWNER NOTE — systemic, NOT fixed here:** `orders` RLS is purchaser-scoped (`USING (user_id = auth.uid())`, migration `20260513150000`), never broadened to event members. So **every** couple-SKU gate that reads `orders` under a user-scoped client denies a co-host (non-purchaser) member — PR4d fixed the specific surfaces above, but the general fix is an **RLS migration** giving event members SELECT on their event's orders (e.g. `event_id IN (SELECT current_event_ids())`). That needs owner sign-off: (a) a co-host would then see the event's order amounts (privacy), and (b) it's a migration (currently `db push` is blocked by the orphan `20270102000000` ledger row). Until then, `resolveAddOnState`'s à-la-carte path and any other user-client gate still deny co-hosts.
+
+Verified: `tsc --noEmit` 0 · `lint entitlement gates` clean (all new reads use `eventOwnsSku`) · 25/25 unit tests · existing lints pass.
+
+SPEC IMPACT: None (correctness hardening of the already-specced apply-then-pay entitlement flow). Logged in `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): sampler retention sweep now respects "keep = permanent" (defense-in-depth + tests)
+
+Follow-up hardening on #1577. #1577 cleared `papic_photos.expires_at` at the three convert moments (paid `PAPIC_SEATS` activation, Drive OAuth callback, Papic storage→Drive switch) + a capture-time check — but those clears are **best-effort**, so a silent miss or a connect-then-sample row could still leave a converted event with expiring sampler photos that `sweepExpiredSamplerPhotos` would then delete. The sweep itself had no guard.
+
+- **`lib/papic-retention.ts`** — before deleting anything, the sweep now asks `eventSamplerIsKept(eventId)` (active Drive grant). For a **converted** event it **self-heals** — `makeSamplerPermanent(eventId)` flips the rows' `expires_at → NULL` — and deletes nothing. Self-heal (not just skip) is deliberate: the couple gallery hides any row whose expiry is already past, so skipping alone would keep the bytes but still vanish the photos from the couple's view. After the heal the rows are permanent (`expires_at IS NULL`) and the sweep — which only ever selects non-null, past expiries — can never see them again, preserving the locked "`expires_at IS NULL` = permanent" rule.
+- The orchestration moved to a **pure `lib/papic-retention-core.ts`** (no `server-only`; type-only `R2BucketName` import) that takes injected seams (`SweepDeps`: `isKept`/`makePermanent`/`fetchExpired`/`deleteRows`/`deleteObject`); `papic-retention.ts` is now a thin server-only wrapper supplying the real seams. This matches the repo's testable-engine pattern — a `'server-only'` module can't be imported under `tsx --test`, so the test targets the pure core.
+- **`lib/papic-retention-core.test.ts`** (new) — `node:test` suite (runs in CI via `test:unit`): converted event self-heals + deletes nothing; un-converted event with expired rows deletes the right R2 refs + row ids and returns the count (also asserts the `r2://bucket/key` parse + that a null poster is skipped); empty + read-error (pre-migration column) → no-op, never deletes; a failing R2 object delete never aborts the row cleanup.
+
+Paid-upgrade's own `expires_at` clear (the other half of "most robust") already shipped in #1577's `PAPIC_SEATS` hook. The locked 5-year/permanent retention (`expires_at IS NULL` rows) is untouched — the sweep never fetches them.
+
+SPEC IMPACT: iteration 0012 sampler — the retention sweep is now the last line of defense for "connect Drive / upgrade = permanent." Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
 
@@ -47,6 +86,15 @@ From the sampler power-audit (owner picked "build clips" + the conversion power-
 Component prop change: `initialCount` → `initialPhotos` + `initialClips` + `photoCap`/`clipCap`; the only caller (the seat page) is updated in the same PR.
 
 SPEC IMPACT: iteration 0012 — the web Papic capture slice now does clips (was "photos only, clips a documented follow-up"); the sampler "2 clips each" promise is now real. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): three free-sampler correctness fixes — live count, Drive backlog flush, distinct reminder subject
+
+Three independent, additive/best-effort fixes from a Papic free-sampler audit (no migration; none change existing happy-path behavior):
+
+- **Admin sampler count counted already-expired (and now kept) rows** — `apps/web/app/admin/papic-sampler/page.tsx` counted `papic_photos` filtered only by `expires_at IS NOT NULL`, so it included rows whose expiry had already passed but the opportunistic sweep hadn't deleted yet. (After the keep-permanent fix #1577, made-permanent photos correctly have `expires_at = NULL` and drop out.) Added `.gt('expires_at', new Date().toISOString())` to the count query so it reflects only currently-LIVE sampler photos.
+- **Drive-copy backlog never flushed on connect** — `apps/web/app/api/oauth/drive/callback/route.ts` made sampler photos permanent on a successful Drive connect (#1577) but never flushed pending `drive_copy_artifacts` rows (including captures taken BEFORE the connect), so the couple's "own copy in Drive" could fail to land. Added a best-effort background `after(() => runDriveCopyBatch({ eventId }).catch(() => {}))` after the keep-permanent path, just before the redirect. Imported `after` from `next/server` and `runDriveCopyBatch` from `@/lib/drive-copy`.
+- **T-7 and T-1 reminder emails shared one subject** — `apps/web/lib/papic-sampler-emails.ts` sent both scheduled expiry warnings with the same `subject`, so in Gmail the urgent T-1 collapsed under the T-7 thread. The T-7 send keeps `Your free Papic photos — keep them before they roll off`; the T-1 send now uses `Last day — your free Papic photos roll off tomorrow`. Scheduling logic, the once-per-event lock, and the #1572/#1577 guards are untouched; body/personalization unchanged.
+
+SPEC IMPACT: None — correctness/polish on iteration 0012 sampler.
 
 ## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
 

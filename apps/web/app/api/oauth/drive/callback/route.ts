@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest, after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { makeSamplerPermanent } from '@/lib/papic-sampler';
 import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
+import { runDriveCopyBatch } from '@/lib/drive-copy';
 import {
   bootstrapPapicDriveFolders,
   exchangeDriveCodeForToken,
@@ -234,6 +235,12 @@ export async function GET(req: NextRequest) {
   // Both are best-effort and never throw, so they can't break the connect flow.
   await makeSamplerPermanent(eventId);
   await cancelSamplerExpiryWarnings(eventId);
+
+  // Drive just connected — flush any pending drive_copy_artifacts (including
+  // sampler captures taken BEFORE this connect) into the couple's Drive in the
+  // background so their "own copy in Drive" lands. Best-effort: never blocks the
+  // redirect and swallows its own errors.
+  after(() => runDriveCopyBatch({ eventId }).catch(() => {}));
 
   const target = new URL(pagePath(returnTo, eventId), url);
   target.searchParams.set(

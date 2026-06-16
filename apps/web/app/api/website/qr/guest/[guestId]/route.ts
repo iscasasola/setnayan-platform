@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveBrandedQrColors } from '@/lib/qr';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 /**
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
@@ -68,14 +68,15 @@ export async function GET(
   }
 
   // Ownership gate — the branded PNG is a paid feature. Delegates to the shared
-  // checkOrderOwnership() reader (lib/entitlements.ts): refund-aware, graceful-
-  // degrade on a missing orders table (42P01 / 42703 → not-owned). The helper
-  // THROWS on any other DB error, so we wrap it to preserve this route's
-  // existing 500 response for a genuine read failure (rather than an uncaught
-  // throw) — behavior parity with the prior inline gate.
+  // bundle-aware eventOwnsSku() reader (lib/entitlements.ts): refund-aware,
+  // bundle-aware (a GUIDED_PACK/MEDIA_PACK buyer's guests still get the branded
+  // QR), graceful-degrade on a missing orders table (42P01 / 42703 → not-owned).
+  // The helper THROWS on any other DB error, so we wrap it to preserve this
+  // route's existing 500 response for a genuine read failure (rather than an
+  // uncaught throw) — behavior parity with the prior inline gate.
   let owns = false;
   try {
-    owns = await checkOrderOwnership(supabase, guest.event_id, 'CUSTOM_QR_GUEST');
+    owns = await eventOwnsSku(supabase, guest.event_id, 'CUSTOM_QR_GUEST');
   } catch {
     return new NextResponse('Could not verify your upgrade.', { status: 500 });
   }

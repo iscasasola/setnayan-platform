@@ -4,12 +4,10 @@
  * N free-form NAMED builds: a build is identified by its `build_id` + a free-form
  * `title`, with `label` no longer required (migration 20261231010000 relaxes it).
  *
- * EVERYTHING here is reachable only behind `BUILD_3STATE_ENABLED` (default OFF).
- * When off, the A/B/C `savePlanBuild` (onConflict event_id,label) + slot-picker
- * Compare path stays the production experience verbatim. These functions hold no
- * DB / React — they're the unit-tested core (`named-builds.test.ts`) for title
- * normalization, the display name a column shows, sort order, and the
- * create-new-vs-overwrite decision the Save-As control makes.
+ * These functions hold no DB / React — they're the unit-tested core
+ * (`named-builds.test.ts`) for title normalization, the display name a column
+ * shows, sort order, and the create-new-vs-overwrite decision the Save-As
+ * control makes.
  */
 
 /** Max stored title length — trims runaway input; matches a comfy column header. */

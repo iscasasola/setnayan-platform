@@ -131,6 +131,19 @@ The human backstop for the per-vendor completion handshake (PR #1537). When a ha
 `tsc --noEmit` + `next lint` + migration-timestamp guard green.
 
 SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.1 ("Admin force-complete is the human backstop — needs a new /admin completion surface") + §7 (Admin actor). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes one of the two deferred §8 net-new items flagged when PR4 shipped (the other — "Move to memories" archive — remains open).
+## 2026-06-16 · feat(editorial): "Vendors we loved" block — the recommendation referral loop on the public wedding page (Event Lifecycle Menu §6.3)
+
+The couple's opt-in vendor recommendations (PR #1559) now surface on their public Editorial page — guests + visitors (= future couples) see who the couple loved, in the couple's own words. This is the organic referral loop §6.3 describes.
+
+- **`lib/vendor-recommendations.ts`** — new `fetchEventRecommendations(supabase, eventId)`: joins `vendor_recommendations` → `vendor_profiles` (business_name · business_slug · logo_url · public_visibility), dedupes per vendor (the UNIQUE key is per-recommender, so both partners → one card, preferring the one with an endorsement), resolves logos via `displayLogoUrl`, and gates on `isPubliclyVisible` (hidden/archived dropped). `recommended_by_user_id` is never selected (no PII). Server-only; graceful-degrade to `[]`.
+- **Editorial composer** (`app/[slug]/_components/editorial/`) — `EditorialData.vendorsWeLoved` + the `vendorsWeLoved` key added to `EditorialSections` + `EDITORIAL_SECTION_KEYS` (so the couple's toggle persists). `loadEditorialData` fetches it best-effort via the admin client; all 5 sample fixtures populated (the flagship sample carries demo cards). New `VendorsWeLoved` render component — endorsement blockquote led, logo + name (→ `/v/[slug]` when slugged), editorial design tokens (terracotta rule, font-serif italic, font-mono eyebrow). Gated `isOn('vendorsWeLoved') && data.vendorsWeLoved.length` (default-on, content-gated — hidden for couples who recommended no one). No `page.tsx` change (both public mount points pick it up).
+- **Dashboard editor** — a "Vendors we loved" section toggle row (`website/editorial`).
+
+No migration (reads the existing `vendor_recommendations` table; the `sections` map is jsonb). `tsc --noEmit` + `next lint` green. **Adversarially reviewed** (3-lens + verify workflow): no blocker/high findings; the public-visibility JS filter was confirmed load-bearing (admin client bypasses RLS) and annotated as such; no PII leak, XSS-safe (React-escaped endorsement), dedup + null-safety + graceful-degrade all verified.
+
+⚠ **Owner sign-off flag (hybrid-anonymity):** the block names `business_name` + links directly, with NO tier gate — matching spec §6.3 (name + link, referral loop), since the couple explicitly, publicly endorses a vendor they actually hired (completion-gated). This means a free-tier **verified** vendor's name shows on the public editorial, which has mild tension with the "free+verified names masked until first chat reply" doctrine. Shipped spec-faithful; flag if you'd prefer to tier-gate the name/link.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.3 ("Couple's Editorial page — a 'vendors we loved' block"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes the deferred Editorial-block follow-up from PR6. Remaining §6.3 surfaces: auto-favorite to all hosts' future shortlist (needs a per-user saved-vendors store) + photo-evidence anti-fake layers 3-4 (need photo→vendor attribution).
 
 ## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
 

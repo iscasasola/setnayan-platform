@@ -217,6 +217,14 @@ export async function EditorialContent({
           </>
         ) : null}
 
+        {/* Vendors we loved — the couple's opt-in recommendations (referral loop) */}
+        {isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
+          <>
+            <SectionRule title="Vendors We Loved" />
+            <VendorsWeLoved vendors={data.vendorsWeLoved} />
+          </>
+        ) : null}
+
         {/* Colophon / cross-phase links --------------------------------------- */}
         <Colophon names={data.displayName} city={data.venueCity} />
       </article>
@@ -443,6 +451,56 @@ function TeamBehindTheDay({
           </ul>
         </details>
       ) : null}
+    </div>
+  );
+}
+
+/** "Vendors We Loved" (§6.3 referral loop) — the vendors the couple explicitly
+ *  recommended, led by their own endorsement. Distinct from the auto-generated
+ *  Team credits: here the couple's WORDS are the headline, and a named vendor
+ *  links to their marketplace profile so a reading guest can find them. */
+function VendorsWeLoved({
+  vendors,
+}: {
+  vendors: EditorialData['vendorsWeLoved'];
+}): ReactElement {
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {vendors.map((v, i) => (
+        <figure
+          key={v.vendorProfileId || i}
+          className="m-0 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
+        >
+          {v.endorsement ? (
+            <blockquote className="m-0 font-serif text-base italic leading-snug text-ink/85">
+              &ldquo;{v.endorsement}&rdquo;
+            </blockquote>
+          ) : null}
+          <figcaption className="mt-2 flex items-center gap-2">
+            {v.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={v.logoUrl} alt="" aria-hidden className="h-6 w-6 shrink-0 rounded-sm object-cover" />
+            ) : (
+              <span
+                aria-hidden
+                className="h-6 w-6 shrink-0 rounded-sm bg-gradient-to-br from-terracotta-100 to-terracotta-300"
+              />
+            )}
+            {v.href ? (
+              <a
+                href={v.href}
+                className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink underline-offset-2 hover:underline"
+              >
+                {v.businessName}
+              </a>
+            ) : (
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/70">
+                {v.businessName}
+              </span>
+            )}
+          </figcaption>
+        </figure>
+      ))}
     </div>
   );
 }

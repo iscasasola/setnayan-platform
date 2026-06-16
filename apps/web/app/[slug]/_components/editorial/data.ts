@@ -16,6 +16,10 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  fetchEventRecommendations,
+  type EventRecommendation,
+} from '@/lib/vendor-recommendations';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -151,6 +155,7 @@ export type EditorialSections = {
   poweredBy: boolean;
   liveWall: boolean;
   fromTheCouple: boolean;
+  vendorsWeLoved: boolean;
 };
 
 export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
@@ -161,6 +166,7 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'poweredBy',
   'liveWall',
   'fromTheCouple',
+  'vendorsWeLoved',
 ];
 
 export type EditorialData = {
@@ -201,6 +207,10 @@ export type EditorialData = {
   metrics: ImpactMetrics;
   archetype: Archetype;
   vendors: VendorCredit[];
+  // Vendors the couple explicitly RECOMMENDED post-wedding (vendor_recommendations,
+  // §6.3 referral loop) — distinct from `vendors` (the auto-generated credit list).
+  // Each carries the couple's optional one-line endorsement.
+  vendorsWeLoved: EventRecommendation[];
   // "What They Said" — guest/vendor/couple reviews. Seeded today via
   // event_editorial.draft_json.reviews; the full event-bound review system
   // (spec §3) lands later and will replace this source.
@@ -707,6 +717,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const perGuestSpend = typeof frozen.per_guest_spend === 'number' ? (frozen.per_guest_spend as number) : null;
   const archetype = computeArchetype(metrics.guests, perGuestSpend);
 
+  // Vendors the couple explicitly recommended (vendor_recommendations · §6.3).
+  // Best-effort like every other block — a missing/legacy table degrades to [].
+  let vendorsWeLoved: EventRecommendation[] = [];
+  try {
+    vendorsWeLoved = await fetchEventRecommendations(admin, eventId);
+  } catch {
+    vendorsWeLoved = [];
+  }
+
   return {
     displayName,
     firstNames: deriveFirstNames(displayName),
@@ -736,6 +755,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     metrics,
     archetype,
     vendors,
+    vendorsWeLoved,
     reviews,
     servicesAvailed,
     galleryPhotos,
@@ -898,6 +918,10 @@ function mariaAndJuan(): EditorialData {
       { name: 'Bloom & Vine', category: 'Florals & Styling', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
       { name: 'Day-of by Dana', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
     ],
+    vendorsWeLoved: [
+      { vendorProfileId: 'sample-1', businessName: 'Goldenhour Photo + Film', endorsement: 'They saw moments we missed and gave them back to us forever.', logoUrl: null, href: null },
+      { vendorProfileId: 'sample-2', businessName: 'The Long Table', endorsement: 'Every guest is still talking about the food. Book them.', logoUrl: null, href: null },
+    ],
     reviews: [
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
@@ -967,6 +991,7 @@ function jackAndJill(): EditorialData {
       { name: 'Coast Kitchen', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
       { name: 'Driftwood & Bloom', category: 'Florals & Styling', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
     ],
+    vendorsWeLoved: [],
     reviews: [
       { author: 'Jack & Jill', role: 'couple', quote: 'We planned a whole beach wedding from two phones. By sunset, everything was just set.', stars: 5 },
       { author: 'Kuya Ramon', role: 'guest', quote: 'Worth the boat ride. The timeline ran like clockwork even on the sand.', stars: 5 },
@@ -1036,6 +1061,7 @@ function johnAndJane(): EditorialData {
       { name: 'The Supper Club', category: 'Catering', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
       { name: 'Brass & Ember Events', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
     ],
+    vendorsWeLoved: [],
     reviews: [
       { author: 'John & Jane', role: 'couple', quote: 'Small wedding, zero chaos. Everyone knew the plan because the plan lived in one place.', stars: 5 },
       { author: 'Atty. Cruz', role: 'guest', quote: 'The most precisely run sixty-person dinner I have attended.', stars: 5 },
@@ -1106,6 +1132,7 @@ function peterAndMary(): EditorialData {
       { name: 'Petal & Lantern', category: 'Florals & Styling', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
       { name: 'Ridge Coordination', category: 'Coordination', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
     ],
+    vendorsWeLoved: [],
     reviews: [
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
@@ -1176,6 +1203,7 @@ function jackAndRose(): EditorialData {
       { name: 'Fern & Fog Styling', category: 'Florals & Styling', isFirstPick: false, tier: 'verified', logoUrl: null, slug: null },
       { name: 'Summit Day-of', category: 'Coordination', isFirstPick: true, tier: 'verified', logoUrl: null, slug: null },
     ],
+    vendorsWeLoved: [],
     reviews: [
       { author: 'Jack & Rose', role: 'couple', quote: 'Planning an out-of-town wedding from the lowlands was the easy part. One workspace held it all.', stars: 5 },
       { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },

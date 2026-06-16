@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { buildEventLandingUrl } from '@/lib/qr';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { RevealPreviewCard } from './_components/reveal-preview-card';
 
 export const metadata = { title: 'Wedding website' };
 
@@ -63,7 +64,7 @@ export default async function WebsiteHubPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, slug')
+      .select('event_id, display_name, slug, event_date')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -165,6 +166,8 @@ export default async function WebsiteHubPage({
           </div>
         </div>
       </div>
+
+      <RevealPreviewCard displayName={event.display_name} dateIso={event.event_date} />
 
       {/* Quick links — light hand-offs to the surfaces that pair with the page */}
       <div className="grid gap-4 sm:grid-cols-2">

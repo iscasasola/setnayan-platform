@@ -4,6 +4,12 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · chore(compare): simpler Modify-confirm wording
+
+Owner: "fix the wordings and make it simpler." Tightened the Modify confirm dialog — body is now "This replaces what's on your Build tab with “{name}”. Save your current plan first if you want to keep it." and the buttons are **Replace** / **Cancel** (were "Replace & modify" / "Keep current"). Copy-only; no behavior change.
+
+SPEC IMPACT: None (UI copy).
+
 ## 2026-06-16 · feat(social): Journal → Facebook bridge — auto-syndicate every blog article as a teaser post
 
 Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "start information" teasers that hook readers to the full article — and every future daily article to ride the same rails automatically. The social autopilot (`lib/social/flush.ts`) already composes/schedules/dispatches FB posts cron-free with a rate governor + admin queue, but it only knew about new couples + verified vendors. This adds the blog as a content source.

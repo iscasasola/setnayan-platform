@@ -17,6 +17,18 @@ First wiring of the nav/icon/menu registry into live chrome. The customer mobile
 Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat: Event Lifecycle Menu PR4b — completion-handshake UI (vendor mark-complete ↔ couple confirm/dispute)
+
+Makes PR4a's handshake schema usable: the **vendor marks the service complete → the couple confirms received** (unlocking the review) **or reports a problem** (a non-delivery dispute that freezes the gate). No migration — consumes the PR4a columns.
+
+- **`apps/web/lib/completion-handshake.ts`** (new) — `reviewState(completion, eventDate)` → `reviewable | awaiting_confirm | disputed | awaiting_vendor`, mirroring the read-side review-gate RLS (M=7d/N=30d/legacy) so the UI and DB agree. Pure/reusable.
+- **Vendor side** — `vendorMarkServiceComplete` action (`vendor-dashboard/clients/[eventId]/actions.ts`): verifies the caller's profile owns the `event_vendors` row, stamps `service_marked_complete_at` + `completion_status='vendor_marked'` (admin client, idempotent), and notifies the couple (`review_request`). A **completion card** on the vendor event brief shows the state (mark-complete → "waiting on the couple" → "confirmed" / "reported a problem").
+- **Couple side** — `coupleConfirmReceived` + `coupleReportNonDelivery` actions (`review/actions.ts`). The review page now branches on `reviewState`: `awaiting_confirm` → a **"Did you get everything?"** banner (confirm unlocks the review + galleries; report freezes it; auto-confirms after 7 days); `disputed` → an on-hold state; `awaiting_vendor` → the (reworded) not-yet state.
+
+`tsc` + `next lint` green. **Reuses** the existing review page/actions, the vendor brief, `emitNotification`. PR pending (branch `claude/lifecycle-pr4b-handshake-ui`, auto-merge).
+
+SPEC IMPACT: None on pricing/SKUs. Implements §6.1 (the handshake interaction) of `Event_Lifecycle_Menu_Design_2026-06-16.md`. Next: PR4c (the After menu roster + Editorial/Galleries, into the Alaala hub).
+
 ## 2026-06-16 · fix(reviews)+feat: Event Lifecycle Menu PR4a — completion-handshake schema + review-gate bug fix
 
 The data + RLS core of the After-phase completion handshake (§6.1), and a fix for a **pre-existing review-gate bug**. Migration-only (the vendor mark-complete + couple confirm/dispute UI + the After menu land in PR4b).

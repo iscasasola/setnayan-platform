@@ -53,7 +53,7 @@ type PaymentJoined = {
     requested_total_php: number;
     confirmed_total_php: number | null;
     status: OrderStatus;
-    // Originating platform — web | ios | android (migration 20270102000000).
+    // Originating platform — web | ios | android (migration 20270103040000).
     // Null on pre-migration rows / pre-stamp orders → shown as "web".
     platform: string | null;
   } | null;

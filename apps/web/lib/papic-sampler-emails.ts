@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cancelScheduledEmail, isEmailConfigured, sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
 
 // Free Papic sampler — cron-free expiry-warning emails.
 //
@@ -81,6 +82,21 @@ export async function scheduleSamplerExpiryWarnings(
       `${name ? `Hi ${name},\n\n` : ''}Heads up — your free Papic sampler photos roll off Setnayan's free storage ${whenPhrase}.\n\n` +
       `Already connected Google Drive or upgraded to full Papic? You're all set — every original is safe, so you can ignore this.\n\n` +
       `If not, connect Google Drive (free) or upgrade to keep every photo forever:\n${link}\n\n— Setnayan`;
+    // Branded HTML half — same content as the plain-text `body`, mirrored into
+    // the v2.1 paper palette. sendEmail sends both; HTML-capable clients render
+    // this, the rest fall back to `body`.
+    const htmlBody = (whenPhrase: string) =>
+      renderBrandedEmail({
+        heading: 'Keep your free Papic photos',
+        paragraphs: [
+          `${name ? `Hi ${name} — ` : ''}your free Papic sampler photos roll off Setnayan's free storage ${whenPhrase}.`,
+          `Already connected Google Drive or upgraded to full Papic? You're all set — every original is safe, so you can ignore this.`,
+        ],
+        ctaLabel: 'Keep my photos',
+        ctaHref: link,
+        footnote:
+          'Connect Google Drive (free) or upgrade to full Papic to keep every photo forever.',
+      });
 
     let t7Id: string | null = null;
     let t1Id: string | null = null;
@@ -89,6 +105,7 @@ export async function scheduleSamplerExpiryWarnings(
         to,
         subject: subjectT7,
         text: body('in about a week'),
+        html: htmlBody('in about a week'),
         scheduledAt: new Date(t7).toISOString(),
       });
       if (r.ok) t7Id = r.id;
@@ -98,6 +115,7 @@ export async function scheduleSamplerExpiryWarnings(
         to,
         subject: subjectT1,
         text: body('tomorrow'),
+        html: htmlBody('tomorrow'),
         scheduledAt: new Date(t1).toISOString(),
       });
       if (r.ok) t1Id = r.id;

@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): "Save to phone" — 1-tap save a gallery photo to the camera roll
+
+Owner asked for a save-to-gallery option alongside Google Drive. Added a per-photo **Save** button on the couple's Papic gallery.
+
+- **`lib/save-to-device.ts`** (new) — `saveImageToDevice(url, filename)`: fetches the (full-res, presigned) image and hands it to the OS via the **Web Share API** (`navigator.share({ files })`) → the native share sheet → **"Save to Photos"** (iOS) / **"Save image"** (Android), landing it in the camera roll. Feature-detected per-file with `navigator.canShare({ files })`; **falls back to a plain download** (Files/Downloads) on browsers without file-share (older / most desktop). Best-effort (never throws); a cancelled share sheet counts as success, not failure. (Browsers can't write to the gallery silently — the share sheet is the closest the web allows; a *true* 1-tap silent save is a native-shell capability for later.)
+- **`papic-gallery-grid.tsx`** — a small `SaveButton` overlay on every tile (top-left, opposite the clip badge) with a brief check-mark on success. Saves `p.url`, which is the presigned **original** (R2 doesn't resize), so it's the full-res photo.
+
+Complements Drive: Drive = the couple's permanent *archive*; Save = a *grab-to-my-phone*. Pairs naturally with face auto-tagging (a guest sees *their* photos → taps Save). NOTE: clips currently save their **poster still** (the gallery exposes the poster URL, not a presigned video) — real clip-video save + the guest-gallery wiring + a bulk **"Save all" ZIP** are quick follow-ups.
+
+SPEC IMPACT: iteration 0012 — per-photo save-to-device on the Papic gallery. Logged in corpus DECISION_LOG.md.
+
 ## 2026-06-17 · feat(nav): docked sub-nav children are now admin-editable via the registry (customer-menu redesign PR6/6)
 
 Closes the registry-SSOT gap the #1595 review flagged: the mobile docked sub-nav's CHILDREN (Guests journey · Explore takeover tabs · Studio sections · Budget anchors) rendered from code only — so `/admin/menus` couldn't rename/re-icon/hide them, unlike the top-level menus. Now every sub-nav child overlays its admin override.

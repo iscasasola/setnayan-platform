@@ -4,7 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
+## 2026-06-16 · feat(nav): wire the VENDOR doorway to the registry (consumption PR 3)
+
+Third consumption of the nav/icon/menu registry — the **vendor doorway** (sidebar + bottom nav) now sources each item's **label + icon from the admin registry** (`vendor.sidebar.*` + `vendor.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified all 36 vendor slot defaults match the code labels+icons exactly, and all 24 vendor icons are in the curated allowlist).
+
+- **`apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx`** — `applyVendorRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via its `vendor.sidebar.<key>` slot (item key matches the slot suffix 1:1, no map needed); a hidden slot drops the item. Applied AFTER the role + showRepertoire filters, so role-gating stays in code. The neutral `VENDOR_NAV_GROUPS` const + shared SidebarSection/SidebarItem primitives untouched.
+- **`apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx`** — same overlay over the 6-tab strip; the Home tab keeps `key: 'profile'` (localStorage continuity) but maps to the `vendor.bottom-nav.home` slot. Applied after the role filter.
+- **`apps/web/app/vendor-dashboard/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both `<VendorSidebar>` + `<VendorBottomNav>`.
+
+Reuses the proven pattern (`navIconComponent` → stable component; BottomNav primitive untouched). `pnpm typecheck` + `pnpm lint` green. Deferred: `vendor.topbar.notifications` + `vendor.payment-options.*` slots. NEXT: admin doorway → public, then group-heading slots + ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
 
 Second consumption of the nav/icon/menu registry. The customer **desktop sidebar** (the 6 journey groups → items) now sources each item's **label + icon from the admin registry** (`customer.sidebar.*` slots), falling back to the hardcoded default. **Visually identical today** (override table empty → every slot resolves to its code default — verified all 16 items' default label+icon match the config exactly, and all 16 icons are in the curated allowlist).
 

@@ -16,13 +16,15 @@ Owner follow-ups (carried from #1583): add `lint nav icon source` to branch-prot
 
 SPEC IMPACT: None (additive guard + behavior-preserving label overlays + dead-code/inert-defaults removal; no SKU/pricing/schema/route change).
 ## 2026-06-17 · fix(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds)
+## 2026-06-17 · feat(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds) + server-side matcher
 
 After validating the commercially-clean self-hosted model (dlib face-recognition ResNet via face-api.js — public-domain weights + MIT, 99.38% LFW) on real faces (Obama×2 / Biden×2): same-person euclidean distance **0.40–0.47**, different-person **0.79–0.90** — clean separation. The matcher core (#1594) had shipped with ArcFace-style **cosine ≥0.85** thresholds, which are WRONG for dlib (on cosine, different people score 0.80–0.84, hugging the 0.85 line → false suggestions).
 
 - **`lib/face-match-core.ts`** — `cosineSimilarity` → **`euclideanDistance`**; thresholds now `FACE_AUTO_MAX_DISTANCE = 0.5` / `FACE_SUGGEST_MAX_DISTANCE = 0.6` (face-api's native match line, sitting in the validated gap): distance ≤0.5 → auto-tag, 0.5–0.6 → suggest, >0.6 → untagged. `planAutoTags` picks the CLOSEST (min-distance) enrollment per guest; `FaceMatch.confidence` → `FaceMatch.distance` (lower = better). Dedupe / 10-tag-cap / already-tagged-exclusion logic unchanged.
 - **`lib/face-match-core.test.ts`** — rewritten for euclidean; distances numerically verified (close 0.40 auto · borderline 0.55 suggest · far 0.85 none · dedupe min 0.30 · cap closest-first).
+- **`lib/face-match.ts`** (new, server-only) — `autoTagCapture({eventId, sourceTable, photoId, faceVectors})` = the "match-on-our-server" brain: fetch the event's consented/non-revoked enrollments **that have a vector**, run the pure matcher, write `auto_face` photo_tags. The face IMAGES never touch any recognition service — only the small vectors move, and guest vectors never leave our server. Dedupe via the `(source_table,source_id,guest_id)` unique constraint; the DB 10-tag cap trigger backstops the limit across all writers. Best-effort (never breaks a capture). **Dormant** until enrollments carry vectors (no on-device embedder/model yet) → clean no-op today.
 
-No consumers yet (foundation), so the swap is safe. Final thresholds get tuned on real wedding photos in a pilot.
+The core swap is consumer-safe (foundation). The server matcher is the next piece of the self-hosted pipeline; the on-device embedder + R2 model hosting come next. Final thresholds tuned on real wedding photos in a pilot.
 
 SPEC IMPACT: iteration 0012 — face auto-tag thresholds corrected to the validated self-hosted model (euclidean, not the ArcFace cosine). Logged in corpus DECISION_LOG.md.
 

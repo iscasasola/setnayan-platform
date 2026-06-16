@@ -5,9 +5,12 @@
  * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL".
  * Owner directive: "this is the template we will use". The prior _sections
  * (hero/operating-system/pricing/testimonials/closing-cta/sticky-mobile-cta)
- * are REPLACED. The template composes a custom VendorHero + VendorNav unique
- * to this page, then shares the homepage's StackCloseVendor + ForVendors +
- * Voices + Pricing + FAQ + ClosingCTA + Footer.
+ * are REPLACED. The template composes a custom VendorHero, then shares the
+ * homepage's shared marketing <Nav> (mounted site-wide via SiteChrome) +
+ * StackCloseVendor + ForVendors + Voices + Pricing + FAQ + ClosingCTA + Footer.
+ * (The bespoke per-page VendorNav was retired 2026-06-14 — commit 238ae4d1 —
+ * in favor of the single shared site-wide nav; this page no longer renders its
+ * own top nav.)
  *
  * Parallel-dependency: agent-homepage is porting homepage-* into
  * apps/web/app/_components/marketing/ in parallel. As of branch-cut

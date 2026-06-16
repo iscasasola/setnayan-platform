@@ -35,7 +35,8 @@ import {
 import { computeCompatScore } from '@/lib/compat-score';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
-import { isMultiPickGroup, PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { replacesSiblingsOnPin } from '@/lib/build-pick-rules';
 
 export type Build3StateResult = { ok: true } | { ok: false; error: string };
 export type RunBuildResult =
@@ -357,7 +358,7 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     else resolvedVendorsByGroup.set(p.planGroupId, new Set([p.vendorId]));
   }
   for (const [groupId, vendorSet] of resolvedVendorsByGroup) {
-    if (isMultiPickGroup(groupId)) continue; // multi-pick: leave others in place.
+    if (!replacesSiblingsOnPin(groupId)) continue; // multi-pick: leave others in place.
     // Single-pick groups resolve to exactly ONE vendor (resolveBuildPicks breaks
     // after the first fit), so clear the group's OTHER picks with `.neq` —
     // identical to the shipped single-pick replacement in build-pick-actions.ts.

@@ -673,7 +673,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Activate Papic',
     whyItMatters:
-      "Your guests with phones become paparazzi — Papic auto-tags every photo by face + table QR + scans, and the curated gallery lands T+24hr. Lock the pack at T-3 months so guest enrollment can start with the invitation rollout.",
+      "Your guests with phones become paparazzi — Papic tags photos by personal + table QR so every guest gets theirs, and the curated gallery lands T+24hr. Lock the pack at T-3 months so guest enrollment can start with the invitation rollout.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },

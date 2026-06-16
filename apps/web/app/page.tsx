@@ -113,7 +113,7 @@ const softwareAppJsonLd = {
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
   isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
   description:
-    "The Philippines-first wedding platform. Couples plan free, then add the moments that set the day apart — Papic guest photo-and-video capture with auto-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram. 0% commission on verified vendor bookings.",
+    "The Philippines-first wedding platform. Couples plan free, then add the moments that set the day apart — Papic guest photo-and-video capture with QR-tagged galleries and personal reels, Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram. 0% commission on verified vendor bookings.",
   featureList: [
     // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU —
     // the "Free" prefix stays only on tools the ₱0 tier actually includes.
@@ -122,7 +122,7 @@ const softwareAppJsonLd = {
     'Budget tracker with payment-deadline calendar export (free)',
     'Pakulay mood board (free)',
     'Personal event website with branded QR invitations',
-    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR + face-detection auto-tagged galleries and per-guest personal highlight reels',
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels',
     'Panood — day-of livestream embedded on the event website',
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors',
     'Pakanta — a custom Filipino-style wedding song produced for the couple',

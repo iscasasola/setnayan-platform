@@ -26,6 +26,17 @@ PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 com
 - Verified locally: 18/18 `lib/entitlements.test.ts` pass (covers `checkOrderOwnership` + `eventOwnsSku` + `BUNDLE_CHILD_SKUS`). Full `typecheck + lint` / `production build` delegated to required CI on push.
 
 SPEC IMPACT: None (mechanical merge-forward + one additional site of the same already-specced dead-unlock repair). The PR4 behavior — ownership reads off `orders.status`, reject-revokes, approve-always-activates, bundle-aware — is unchanged.
+## 2026-06-16 · fix(papic): don't burn the sampler-email lock when Resend is unconfigured
+
+Hardening on the cron-free sampler expiry emails shipped in #1566. `scheduleSamplerExpiryWarnings` claimed the once-per-event `papic_sampler_email_log` PK lock **before** attempting the Resend sends. Because `RESEND_API_KEY` is still unset in prod (OWNER_ACTIONS Phase 2 deferred), every first sampler capture today writes the lock row and sends nothing — so the day the owner keys Resend, those events are *permanently* locked out of their T-7/T-1 reminders (the next capture's insert hits 23505 and bails).
+
+- **Top guard** — `if (!isEmailConfigured()) return;` runs *before* the lock insert, so a keyless capture schedules nothing **and** claims nothing; a later capture (once the key is live) still gets to schedule. Mirrors the file's existing "resolve couple email first so we don't burn the lock on an unreachable couple" rationale.
+- **Release-on-failure** — if the key *is* present but both sends fail (transient Resend error), the lock row we claimed is deleted so a later capture retries. With no message ids there's nothing to double-cancel, and a possible duplicate reminder beats zero reminders. The normal success path is unchanged (ids stored, lock kept).
+- No migration; no behavior change while Resend stays off except that the lock is no longer burned. Code-only, single file.
+
+Note for the owner: the feature itself was already built+merged (#1566) and its migration `20270107000000` is applied to prod — but **no sampler emails will send until `RESEND_API_KEY` is set in Vercel** (OWNER_ACTIONS Phase 2). Couples who sampled *before* that flip won't be back-scheduled (the reminders schedule on first capture); the in-app expiry banner from #1558 backstops them.
+
+SPEC IMPACT: iteration 0012 sampler — reminder scheduling is now safe across the Resend-off→on transition. Logged in corpus `DECISION_LOG.md` (which was also missing the #1566 landing).
 
 ## 2026-06-16 · feat(compare): Lock now confirms too (same overwrite as Modify)
 

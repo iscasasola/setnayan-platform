@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendEmail } from '@/lib/email';
+import { isEmailConfigured, sendEmail } from '@/lib/email';
 
 // Free Papic sampler — cron-free expiry-warning emails.
 //
@@ -25,6 +25,14 @@ export async function scheduleSamplerExpiryWarnings(
   expiresAtIso: string,
 ): Promise<void> {
   try {
+    // No Resend key configured → nothing can actually send. Return BEFORE
+    // claiming the once-per-event lock below: otherwise the first sampler
+    // capture made while email is unconfigured would burn the lock with zero
+    // emails, and the day the owner keys Resend those events stay permanently
+    // locked out of their reminders. Skipping here means a later capture (once
+    // the key is live) still schedules them.
+    if (!isEmailConfigured()) return;
+
     const expiresAt = new Date(expiresAtIso).getTime();
     if (!Number.isFinite(expiresAt)) return;
     const now = Date.now();
@@ -95,6 +103,15 @@ export async function scheduleSamplerExpiryWarnings(
       await admin
         .from('papic_sampler_email_log')
         .update({ t7_email_id: t7Id, t1_email_id: t1Id })
+        .eq('event_id', eventId);
+    } else {
+      // Key was present but both sends failed (e.g. a transient Resend error) —
+      // nothing got scheduled, so release the lock we claimed above. A later
+      // capture then retries; with no message ids there's nothing to double-
+      // cancel, and a possible duplicate reminder beats zero reminders.
+      await admin
+        .from('papic_sampler_email_log')
+        .delete()
         .eq('event_id', eventId);
     }
   } catch {

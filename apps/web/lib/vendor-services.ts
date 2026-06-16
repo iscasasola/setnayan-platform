@@ -17,8 +17,13 @@ export type VendorServiceRow = {
   is_active: boolean;
   /** Branch this service belongs to (Branches V1.x); null = main/unassigned. */
   branch_id: string | null;
-  /** Last-minute floor (Setnayan AI §4): still accepts a booking until this many
-   *  months before the wedding. null → 0 = until the night before. */
+  /** Recommended lead time (Setnayan AI §4, vendor-owned 2026-06-16): the
+   *  normal/comfortable lead in months for regular effort — the START of this
+   *  service's last-minute range. null → no recommended lead → no last-minute
+   *  range → always bookable whenever the schedule permits. Fractional allowed. */
+  recommended_lead_time_months: number | null;
+  /** Last-minute floor / hard cutoff (Setnayan AI §4): still accepts a booking
+   *  until this many months before the wedding. null → 0 = until the night before. */
   last_minute_end_months: number | null;
   /** Optional 0–100% last-minute surcharge; null/0 = flat. */
   last_minute_surcharge_pct: number | null;
@@ -30,7 +35,7 @@ export type VendorServiceRow = {
 
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,last_minute_end_months,last_minute_surcharge_pct,daily_capacity`;
+const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -56,12 +61,14 @@ export async function fetchVendorServices(
         VendorServiceRow,
         | 'title'
         | 'branch_id'
+        | 'recommended_lead_time_months'
         | 'last_minute_end_months'
         | 'last_minute_surcharge_pct'
         | 'daily_capacity'
       >),
       title: null,
       branch_id: null,
+      recommended_lead_time_months: null,
       last_minute_end_months: null,
       last_minute_surcharge_pct: null,
       daily_capacity: null,

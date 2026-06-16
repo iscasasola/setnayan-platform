@@ -198,6 +198,12 @@ export type EditorialData = {
   };
   published: boolean;
   heroPhotoUrl: string | null;
+  // The couple's LIVING HERO — a pre-baked forward+reverse boomerang MP4
+  // (events.landing_page_hero_video_r2_key). When present, the editorial hero
+  // plays it as a muted, looping, GIF-like banner with heroPhotoUrl as the
+  // poster/still. Null → the hero is the static photo. Editorial rule: any
+  // video on the editorial is ALWAYS a baked boomerang (never a one-shot clip).
+  heroVideoUrl: string | null;
   metrics: ImpactMetrics;
   archetype: Archetype;
   vendors: VendorCredit[];
@@ -360,7 +366,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos, photo_wall_photos',
+        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -604,6 +610,14 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     );
   }
 
+  // 6a-bis. Living-hero boomerang (events.landing_page_hero_video_r2_key). The
+  // Living Hero Studio already bakes the couple's pick into a forward+reverse
+  // ping-pong MP4; reuse it as the editorial's GIF-like moving hero, posterized
+  // by heroPhotoUrl. Additive: null → the editorial hero stays the still photo.
+  const heroVideoUrl = await displayUrlForStoredAsset(
+    asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+  );
+
   // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes
   // through displayUrlForStoredAsset (presigns r2://, passes plain/relative
   // URLs through). Best-effort.
@@ -733,6 +747,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     },
     published,
     heroPhotoUrl,
+    heroVideoUrl,
     metrics,
     archetype,
     vendors,
@@ -885,6 +900,7 @@ function mariaAndJuan(): EditorialData {
     },
     published: true,
     heroPhotoUrl: '/realstories/maria-juan-tagaytay.jpg',
+    heroVideoUrl: '/realstories/maria-juan-tagaytay.mp4',
     metrics: {
       servicesSetnayan: 5,
       servicesTotalDenominator: null,
@@ -965,6 +981,7 @@ function jackAndJill(): EditorialData {
     },
     published: true,
     heroPhotoUrl: '/realstories/jack-jill-cebu.jpg',
+    heroVideoUrl: '/realstories/jack-jill-cebu.mp4',
     metrics: {
       servicesSetnayan: 4,
       servicesTotalDenominator: null,
@@ -1044,6 +1061,7 @@ function johnAndJane(): EditorialData {
     },
     published: true,
     heroPhotoUrl: '/realstories/john-jane-manila.jpg',
+    heroVideoUrl: '/realstories/john-jane-manila.mp4',
     metrics: {
       servicesSetnayan: 3,
       servicesTotalDenominator: null,
@@ -1123,6 +1141,7 @@ function peterAndMary(): EditorialData {
     },
     published: true,
     heroPhotoUrl: '/realstories/peter-mary-tagaytay.jpg',
+    heroVideoUrl: '/realstories/peter-mary-tagaytay.mp4',
     metrics: {
       servicesSetnayan: 6,
       servicesTotalDenominator: null,
@@ -1203,6 +1222,7 @@ function jackAndRose(): EditorialData {
     },
     published: true,
     heroPhotoUrl: '/realstories/jack-rose-baguio.jpg',
+    heroVideoUrl: '/realstories/jack-rose-baguio.mp4',
     metrics: {
       servicesSetnayan: 5,
       servicesTotalDenominator: null,

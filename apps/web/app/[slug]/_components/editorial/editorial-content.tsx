@@ -142,10 +142,15 @@ export async function EditorialContent({
           </p>
         </section>
 
-        {/* Full-width hero — the cover photo spans the whole row. */}
-        {data.heroPhotoUrl ? (
+        {/* Full-width hero — the cover spans the whole row. A baked boomerang
+            (Living Hero) plays as a looping GIF-like banner; else the still. */}
+        {data.heroPhotoUrl || data.heroVideoUrl ? (
           <div className="pt-2">
-            <HeroPhoto url={data.heroPhotoUrl} names={data.firstNames} />
+            <HeroPhoto
+              url={data.heroPhotoUrl}
+              videoUrl={data.heroVideoUrl}
+              names={data.firstNames}
+            />
           </div>
         ) : null}
 
@@ -307,20 +312,47 @@ function EditionLine({
   );
 }
 
-function HeroPhoto({ url, names }: { url: string; names: string }): ReactElement {
+function HeroPhoto({
+  url,
+  videoUrl,
+  names,
+}: {
+  url: string | null;
+  videoUrl?: string | null;
+  names: string;
+}): ReactElement {
   return (
     <figure className="relative aspect-[16/9] w-full overflow-hidden rounded-sm bg-ink/10">
-      {/* Raw <img>: presigned R2 URLs expire; next/image would cache stale.
-          Full-width cinematic banner at the photo's native 16:9 → zero crop
-          (a fixed pixel height + object-cover used to crop the couple out). */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt={`${names}, from the wedding`}
-        className="h-full w-full object-cover"
-        loading="lazy"
-        decoding="async"
-      />
+      {/* Editorial rule: any hero VIDEO is a pre-baked forward+reverse boomerang
+          (Living Hero Studio), so it loops seamlessly. It autoplays muted +
+          inline + looping — the exact attribute set a browser needs to run a
+          video like a continuously-playing GIF with no user tap. The still
+          (url) is the poster, so there's no black flash before frame one. Raw
+          <video>/<img>: presigned R2 URLs expire; next/* would cache stale.
+          Full-width cinematic banner at 16:9 → zero crop. */}
+      {videoUrl ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={url ?? undefined}
+          aria-label={`${names}, a moving moment from the wedding`}
+          className="h-full w-full object-cover"
+        >
+          <source src={videoUrl} />
+        </video>
+      ) : url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={`${names}, from the wedding`}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
       <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-[9px] uppercase tracking-[0.08em] text-cream">
         {names}, from the celebration — captured on the day.
       </figcaption>

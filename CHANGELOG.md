@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(editorial): the hero now plays its boomerang as a continuously-looping GIF (root cause: the editorial had no `<video>` at all)
+
+Owner: *"why does the video not autoplay? or how can we make the video run like a gif that continuously plays?"* — on the editorial. A 5-reader code trace found the **root cause: the editorial rendered ZERO `<video>` elements.** The hero was an image-only `HeroPhoto` (`<img>`), and the data layer *actively dropped* clip-type heroes (`ptype !== 'clip'` guard), so there was literally nothing to autoplay. The boomerang machinery already worked on the public couple page `/[slug]` — it was just never wired into the editorial.
+
+- **`editorial/data.ts`** — added `heroVideoUrl` to `EditorialData`; the real-event loader now resolves the couple's Living-Hero boomerang (`events.landing_page_hero_video_r2_key`, already baked forward+reverse by the Living Hero Studio) into it. Additive: null → the hero stays the still photo.
+- **`editorial-content.tsx` `HeroPhoto`** — renders a `<video autoPlay muted loop playsInline poster={still}>` when `heroVideoUrl` is present, else the `<img>`. That four-attribute set (`autoplay`+`muted`+`loop`+`playsInline`) is the exact contract a browser needs to run a video like a continuously-playing GIF with no user tap (`muted` is mandatory — browsers block sound-on autoplay; `playsInline` stops iOS fullscreen-hijack). The still is the `poster`, so there's no black flash. **Editorial rule enforced:** any editorial video is a *baked forward+reverse boomerang*, so the loop is seamless (no felt cut) — never a one-shot clip.
+- **5 sample editorials + `/realstories` cards** — all 5 now carry a `heroVideoUrl`. Maria & Juan and Jack & Jill use their existing scene-motion boomerangs; the other three got freshly-baked seamless **ping-pong** loops (`zoompan` sine zoom 1.0→1.09→1.0 → start frame = end frame, 5 s · 24 fps · H.264, ~500–600 KB each) so all five move.
+
+Verified (Playwright DOM, dev server): the editorial hero `<video>` reports `autoplay/muted/loop/playsInline` = true, `currentSrc` = the boomerang `.mp4`, `paused:false`, and `currentTime` advances in real-time on all 5 samples (incl. the 3 newly-baked clips). `tsc` green; `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — the editorial hero plays the couple's baked boomerang as a muted/looping GIF-like banner; "editorial video is always a boomerang" is now the rule. Logged to corpus `DECISION_LOG.md`. (Companion: vendor day-of media on the editorial — gated on recommendation — is designed and pending owner sign-off; not in this PR.)
 ## 2026-06-15 · feat(realstories): the 5 sample editorials are now complete — day-recap write-up + photo gallery on each
 
 Owner: *"the editorials of the samples are all incomplete. there is no write up, photos, services that play?"* The 5 `/realstories` sample editorials (Maria & Juan, Jack & Jill, John & Jane, Peter & Mary, Jack & Rose) rendered their masthead, headline, hero, By-the-Numbers, reviews and Powered-by strip — but had a **blank body** (`draft: {}` → no `leadParagraphs`) and an **empty "From the Day" gallery** (`galleryPhotos: []`), so they looked half-finished.

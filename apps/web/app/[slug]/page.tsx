@@ -1097,8 +1097,9 @@ function PublicLanding({
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
       <RevealOverlay
-        enabled={showSaveTheDate && process.env.NEXT_PUBLIC_STD_REVEAL === '1'}
+        enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
+        veilColor="#f3ece1"
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
@@ -1550,8 +1551,9 @@ function InvitationSite({
     <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
       <GuestPreload eventSlug={event.slug} />
       <RevealOverlay
-        enabled={showSaveTheDate && process.env.NEXT_PUBLIC_STD_REVEAL === '1'}
+        enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
+        veilColor="#f3ece1"
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">

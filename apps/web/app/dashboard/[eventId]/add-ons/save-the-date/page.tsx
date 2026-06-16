@@ -21,6 +21,7 @@ import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
+import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 
 export const metadata = { title: 'Save the Date · Setnayan' };
 
@@ -96,6 +97,21 @@ export default async function SaveTheDateGallery({ params }: Props) {
           12 templates · more curated every month
         </p>
       </header>
+
+      {/* The (free) opening reveal that plays on the couple's wedding website —
+          distinct from the paid Save-the-Date VIDEO render below. Preview it
+          here without a published slug. */}
+      <RevealPreviewCard
+        displayName={event?.display_name ?? ''}
+        dateIso={event?.event_date ?? null}
+      />
+
+      <div className="border-t border-ink/10 pt-2">
+        <h2 className="font-serif text-2xl italic tracking-tight">Save the Date video</h2>
+        <p className="mt-1 max-w-prose text-sm text-ink/60">
+          A separate keepsake — we render your clips into a 60-second film.
+        </p>
+      </div>
 
       <section className="space-y-3 rounded-2xl border border-amber-200/60 bg-amber-50/60 p-4">
         <p className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-900">

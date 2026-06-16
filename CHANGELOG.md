@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
+
+A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:
+
+- **CUSTOM_QR_GUEST (high severity)** — `eventOwnsSku` at all 3 gates: the add-on page (`add-ons/custom-qr-guest/page.tsx`), the print pack (`print/page.tsx`), and the public branded-QR route (`api/website/qr/guest/[guestId]/route.ts`, try/catch 500-path preserved).
+- **ANIMATED_MONOGRAM** — one-line helper swap in `lib/animated-monogram.ts` (`eventOwnsAnimatedMonogram` → `eventOwnsSku`); fixes all 3 runtime gates (public hero, dashboard monogram, add-on page) that share the helper.
+- **SETNAYAN_AI** — the subtle one: its feature gates read the STORED `events.setnayan_ai_active` boolean (via `isSetnayanAiActive`), NOT a read-time ownership query, so a read-side swap alone would NOT fix the feature. Added `activateBundleChildren()` to `lib/sku-activation.ts` — a `GUIDED_PACK`/`MEDIA_PACK` approval now fans the bundle's children through their own activation hooks (membership from `BUNDLE_CHILD_SKUS`, so it can't drift from the gate; idempotent; only flag-backed children do anything — today just SETNAYAN_AI). Also swapped the add-on page `owns` check to `eventOwnsSku` so a bundle buyer isn't offered a second purchase during the reconciliation window before activation stamps the flag. **Live, not latent** — the owner flipped `SETNAYAN_AI_PAYWALL_ENABLED=true` on prod 2026-06-16, so this denial was active for bundle buyers.
+- `INDOOR_BLUEPRINT` stays on the bare reader — confirmed in NO bundle, so it's correct.
+- +6 regression tests in `lib/entitlements.test.ts` (a GUIDED_PACK and MEDIA_PACK buyer owns each of the 3 SKUs via `eventOwnsSku`). 24/24 pass. `tsc --noEmit` exit 0.
+
+**⚠ Owner note — website cluster left for a follow-up (NOT a live bug):** `PRO_WEBSITE`/`EVENT_WEBSITE`/`PRO_RSVP` are in `BUNDLE_CHILD_SKUS` but were retired by the website collapse into `COUPLE_WEBSITE_PRO` (₱3,999). `eventOwnsProWebsite` has ZERO live callers (dead code), and `COUPLE_WEBSITE_PRO`'s ownership gate + buy surface aren't built yet ("follow-up"). So nobody is denied today. When that gate IS built, `BUNDLE_CHILD_SKUS` must be updated (swap the 3 retired website SKUs → `COUPLE_WEBSITE_PRO`) **and** the owner must decide whether Essentials/Complete include the ₱3,999 website unlock (a pricing call → holistic pass).
+
+SPEC IMPACT: None (mechanical completion of the already-specced PR4 dead-unlock repair, extended to the SKUs PR4 missed). The fix surface — bundle-aware ownership reads + a bundle activation fan-out — matches PR4's design. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
 
 Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total: 4 rigid envelopes + 2 veils + 1 curtain). PR1–PR3 shipped the four-flap envelope + the sheer veil + the in-dashboard preview/rewire; this lands the **4 remaining** openings, all behind the same `NEXT_PUBLIC_STD_REVEAL` flag (default OFF → zero live impact):

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { checkOrderOwnership } from '@/lib/entitlements';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/animated-monogram.ts
@@ -57,13 +57,17 @@ export const ANIMATED_MONOGRAM_SERVICE_KEY = 'ANIMATED_MONOGRAM';
 /**
  * Does this event own the paid Animated Monogram upgrade?
  *
- * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
- * refund-aware, graceful-degrade on a missing orders table so callers fall back
- * to the static monogram + the upgrade CTA rather than throwing.
+ * Delegates to the shared bundle-aware eventOwnsSku() reader (lib/entitlements.ts)
+ * — refund-aware, graceful-degrade on a missing orders table so callers fall
+ * back to the static monogram + the upgrade CTA rather than throwing. Bundle-
+ * aware so a couple who bought ANIMATED_MONOGRAM inside the Essentials
+ * (GUIDED_PACK) or Complete (MEDIA_PACK) bundle — which lands as a single
+ * bundle-keyed order, not a child ANIMATED_MONOGRAM order — still unlocks the
+ * animated render (matches the papic-seats / papic-guest gate pattern).
  */
 export async function eventOwnsAnimatedMonogram(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return checkOrderOwnership(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
+  return eventOwnsSku(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
 }

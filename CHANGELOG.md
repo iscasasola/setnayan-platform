@@ -4,6 +4,49 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · chore(std-reveal): rewire every Save-the-Date surface off the retired video, onto the reveal (PR3d)
+
+Owner: *"yes adjust everything that is wired to make this our new save the date."* Swept every code reference to the old ₱99 video product and pointed it at the free page-opening reveal. The `save_the_date_video` **SKU code stays everywhere it's a DB key** (historical-order fetches, receipt labels, persisted wizard task-id, v2 SKU map) so old buyers' orders never break — only *labels, copy, and the catalog's active flag* changed.
+
+- **`lib/sku-catalog.ts`** — `save_the_date_video` set `isActive: false`, dropped from `LAUNCH_PROMO_SKU_CODES` (7→6 active), added to `RETIRED_SKU_CODES` (it was already `is_active=FALSE` in prod since 2026-05-28).
+- **User-facing labels → "Save the Date" + `Sparkles` icon:** `lib/add-ons-catalog.ts` (label + icon + blurb "the opening reveal for your page… free, recolours to your palette" + CTA "Choose your reveal", dropped the now-unused `Video` import), `lib/route-meta.ts`, `lib/nav-registry-defaults.ts`.
+- **Copy fixes:** `lib/social-sharing.ts` ("rendered"→"made on Setnayan"), `lib/wizard.ts` prenup card ("feeds your save-the-date video"→"share as your save-the-date"), `supplies-marketplace` mailer blurb ("video QR"→"page QR"), `documents/page.tsx` (dropped the "Draft a Save-the-Date video" CTA clause), `admin/users/page.tsx` (comp-grant placeholders off the retired example), `your-plan-section.tsx` (`hasSaveTheDateOrder` reframed as historical-only).
+- **`lib/add-on-stats.ts`** — `'save-the-date': []` (no SKU; the reveal is free).
+- **`lib/save-the-date.ts` deleted** — orphaned video template library (`git rm`).
+- **LEFT intact (DB keys / receipts / tests):** `documents` creation-SKU set + receipt label map ("Save-the-Date Video" for old orders), `dashboard/page.tsx` historical-order fetch, `stress-test-lock-unlock.ts` fixture, `wizard.ts` task-id `'save_the_date_video'` (schema stability for `events.wizard_state`).
+
+`tsc --noEmit` 0 errors · `next lint` clean · `lint:retired` 0 retired strings (all verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the video render add-on is retired from every couple-facing surface; the Save-the-Date product is now the free page-opening reveal end-to-end. SKU bookkeeping in `service_catalog` already reflected the retirement; corpus DECISION_LOG row appended.
+
+## 2026-06-16 · feat(std-reveal): the Save-the-Date page IS the reveal now — replaced the video gallery (PR3c)
+
+Owner: *"replace."* `/dashboard/[eventId]/add-ons/save-the-date` is now the Save-the-Date **reveal** (the website opening), not the old ₱99 Save-the-Date **video** render.
+
+- Rewrote the page: reframed header ("how your wedding page opens for guests"), the `RevealPreviewCard` as the body; removed the video template gallery + how-it-works + Feature-Us + custom-request + the local `TemplateCard`/`Preview` components and their imports/queries.
+- **Video infra left intact (not deleted):** the `save_the_date_video` SKU, `@/lib/save-the-date` template library, `InlineCheckoutDrawer`, `FeatureUsCard` — existing orders + the catalog are unaffected, fully reversible. The page just no longer surfaces them.
+
+⚠ **Loose ends flagged for owner (not done here):** the `save_the_date_video` SKU still lives in the catalog + `/pricing`; if the video product is to be fully retired, that's a separate migration + pricing/copy pass. The plan-section + site-editor tiles link here under the generic "Save the Date" label (fits the reveal — no change needed).
+
+Next: reveal chooser **persistence** (which template the couple picked, so the live page uses it) + the content/upload editor.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the Save-the-Date surface is now the reveal experience (owner "replace"); the video render add-on retained in code, dropped from the page.
+
+## 2026-06-16 · fix(std-reveal): move the opening-reveal preview onto the Save-the-Date page (PR3b)
+
+Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be the link where it should be… the website shows the old save the date."* Relocated the reveal preview from the website editor (PR3a) to the **Save-the-Date add-on page**, where the couple looks for it.
+
+- Moved `reveal-preview-card.tsx` → `app/dashboard/[eventId]/_components/` (shared, `git mv`).
+- Renders the **"Opening reveal"** preview at the **top** of `add-ons/save-the-date`, above the existing video gallery, with a divider that separates the two: the **free** website-opening reveal vs the **₱99 Save-the-Date video** render.
+- Reverted the PR3a website-editor placement (import + render + the `event_date` select add).
+
+⚠ **NAMING OVERLAP flagged for owner:** this page is titled "Save the Date" and is the *paid video* product; the *reveal* is the *free website opening*. They now coexist on one page — owner to decide whether to consolidate / rename (e.g. "Save the Date" = the page-opening, "Save-the-Date Video" = the render add-on).
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — reveal preview relocated to the Save-the-Date add-on surface (the owner-specified link).
 ## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
 
 Three follow-ups on the free Papic sampler (#1547), one PR:

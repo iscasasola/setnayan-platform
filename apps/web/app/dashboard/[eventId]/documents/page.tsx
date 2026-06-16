@@ -450,7 +450,7 @@ function CreationsSection({
       />
       {rows.length === 0 ? (
         <SectionEmpty
-          message="No Setnayan creations yet. Draft a Save-the-Date video or design a monogram from the YOUR PLAN section on Home."
+          message="No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Home."
           ctaLabel="Browse add-ons"
           href={`/dashboard/${eventId}/add-ons`}
         />

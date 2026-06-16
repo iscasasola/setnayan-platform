@@ -348,10 +348,22 @@ export async function getEventDriveAccessToken(eventId: string): Promise<string 
         access_token: refreshed.access_token,
         access_token_expires_at: newExpiresAt,
         last_refreshed_at: new Date().toISOString(),
+        // A successful refresh proves the refresh_token is still good — clear any
+        // prior needs_reauth so a recovered connection stops nagging the couple.
+        connection_health: 'ok',
       })
       .eq('grant_id', grant.grant_id);
     return refreshed.access_token;
   } catch {
+    // Google rejected the refresh_token (invalid_grant — revoked in the couple's
+    // Google security settings, or a password reset). Record it so the
+    // couple-facing surfaces can show a "needs reconnect" banner instead of a
+    // stale "Connected" while uploads silently stall. Work stays enqueued and
+    // resumes the moment they reconnect.
+    await admin
+      .from('oauth_grants')
+      .update({ connection_health: 'needs_reauth' })
+      .eq('grant_id', grant.grant_id);
     return null;
   }
 }

@@ -663,7 +663,7 @@ function CompGrantsPanel({
               id={`scoped-${userId}`}
               name="scoped_skus"
               rows={2}
-              placeholder="save_the_date_video, monogram_hero_upgrade, panood_daily_broadcast"
+              placeholder="monogram_hero_upgrade, panood_daily_broadcast, patiktok_setnayan_tiktok"
               className="input-field font-mono text-xs"
             />
             <p className="mt-1 text-xs text-ink/55">
@@ -724,7 +724,7 @@ function CompGrantsPanel({
               rows={3}
               required
               minLength={20}
-              placeholder="Couple was bound to wrong test event during pilot · gifting Save-the-Date Video as remediation."
+              placeholder="Couple was bound to wrong test event during pilot · gifting Animated Monogram as remediation."
               className="input-field"
             />
             <p className="mt-1 text-xs text-ink/55">

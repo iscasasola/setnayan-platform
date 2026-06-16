@@ -79,7 +79,7 @@ export function coupleCreationCaption({
       : 'one of our Setnayan couples';
   const lead: Record<ShareArtifactType, string> = {
     monogram: `This monogram belongs to ${credit} — designed on Setnayan, now part of their story.`,
-    save_the_date: `${credit} said "Save the Date" in style — rendered on Setnayan, straight to every feed.`,
+    save_the_date: `${credit} said "Save the Date" in style — made on Setnayan, straight to every feed.`,
     website: `A wedding website made by ${credit} on Setnayan — every detail, one beautiful page.`,
     reel: `A little reel of love from ${credit}'s big day — made with Setnayan.`,
     led_design: `The LED wall at ${credit}'s celebration — designed on Setnayan, glowing all night.`,

@@ -4,10 +4,8 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { fetchUserEvents } from '@/lib/events';
-import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { countUnread } from '@/lib/notifications';
+import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -137,7 +135,17 @@ export default async function EventLayout({ children, params }: Props) {
   // layout — not the parent /dashboard/layout.tsx that #452 hardened.
   // Each fetcher wrapped in .catch() with safe defaults so one throw
   // can't crash the whole layout tree.
-  const [eventRes, unreadCount, unreadMessages, locale, switcherEvents, roles, profilePhotoUrl] = await Promise.all([
+  // getDashboardShell fetches events + roles + unreadCount via React cache() —
+  // the cache key is userId only, so if (account)/layout or any other layout
+  // in this render tree already resolved it, this call is free (zero DB hits).
+  const [
+    { events: switcherEvents, roles, unreadCount },
+    eventRes,
+    unreadMessages,
+    locale,
+    profilePhotoUrl,
+  ] = await Promise.all([
+    getDashboardShell(user.id),
     (async () => {
       try {
         const fullSelect =
@@ -173,15 +181,6 @@ export default async function EventLayout({ children, params }: Props) {
         return { data: null, error: null };
       }
     })(),
-    countUnread(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'EventLayout (countUnread threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return 0;
-    }),
     // Unread-message count for the Messages-icon badge. countUnreadMessages
     // already graceful-degrades to 0 internally (incl. when the read-marker
     // migration isn't pushed yet); the .catch here is the same belt-and-braces
@@ -196,29 +195,6 @@ export default async function EventLayout({ children, params }: Props) {
       return 0;
     }),
     Promise.resolve(getLocale()).catch(() => 'en' as const),
-    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
-      logQueryError(
-        'EventLayout (fetchUserEvents threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
-    }),
-    fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'EventLayout (fetchUserRoleSummary threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return {
-        hasCustomerAccess: true,
-        hasVendorAccess: false,
-        hasAdminAccess: false,
-        vendorProfiles: [],
-      } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
-    }),
     // Account profile photo for the (I) avatar (owner directive 2026-06-12:
     // the avatar is the ACCOUNT's photo, never the event logo — reverses the
     // 2026-06-03 avatar-IS-event-logo lock). Presigned display URL resolved

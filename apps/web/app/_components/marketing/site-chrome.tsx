@@ -31,6 +31,7 @@
 
 import { usePathname } from 'next/navigation';
 import { Nav } from './site-nav';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const NAV_ROUTES = new Set<string>([
   '/',
@@ -52,8 +53,19 @@ const NAV_ROUTES = new Set<string>([
 // pinning — preserves the prior per-page `<Nav sticky={false} />`.
 const NON_STICKY_ROUTES = new Set<string>(['/explore']);
 
-export function SiteChrome() {
+/**
+ * `navSlots` is the nav/icon/menu-registry slot map (label overrides) resolved
+ * once server-side in the root layout and threaded down here. The marketing nav
+ * is label-only, so the public.site-nav.* labels are the only thing overlaid;
+ * href + order stay in code. Optional + fails open — without it the Nav renders
+ * its code-default labels.
+ */
+export function SiteChrome({
+  navSlots,
+}: {
+  navSlots?: Record<string, NavSlotLite>;
+}) {
   const pathname = usePathname();
   if (!pathname || !NAV_ROUTES.has(pathname)) return null;
-  return <Nav sticky={!NON_STICKY_ROUTES.has(pathname)} />;
+  return <Nav sticky={!NON_STICKY_ROUTES.has(pathname)} navSlots={navSlots} />;
 }

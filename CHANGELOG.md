@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): wire the public marketing nav to the registry (consumption PR 5 — last doorway)
+
+Wires the public marketing top nav (`app/_components/marketing/site-nav.tsx`) to the nav/icon/menu registry — the final doorway after customer (#1530/#1540), vendor (#1544), and admin (#1549). The marketing nav is **label-only** (no icons by design), so this overlays just the `public.site-nav.*` labels; href + order stay in code (the registry never owns routing).
+
+- `app/layout.tsx` (root server layout) resolves `getNavSlotMap()` once — the same cached (`unstable_cache` + `NAV_REGISTRY_TAG`), fail-open read the dashboard layouts use — and threads it into `<SiteChrome navSlots={…}>`.
+- `site-chrome.tsx` passes `navSlots` straight through to `<Nav>`. `site-nav.tsx`'s `Nav` tags each of its 5 in-code links with its slot key (`explore`/`for-vendors`/`our-story`/`journal`/`real-stories`), overlays the registry label when present, and drops a link only if an admin set `isHidden` from `/admin/menus`. `navSlots` is optional and fails open to the code labels, so every existing `<Nav>` call site (and the homepage hero) is unchanged when the map is absent.
+- Behavior-preserving: with no admin overrides the rendered labels are byte-identical to before. `MobileMenu` gets the same resolved `links`, so mobile + desktop stay in sync.
+- typecheck + lint green locally (lint warnings are all pre-existing, in unrelated files).
+
+Not in scope (left for the next session): the other `public.*` slots that are seeded in defaults but belong to non-site-nav public surfaces (`public.vendor-nav.*`, `public.download.*`, `public.guest.*`, `public.papic.guest`) are not yet consumed; and the final **ESLint guard** (forbid nav configs from importing anything but the registry) still needs to land once those are wired or explicitly excluded. The admin `_overview-tile.tsx` ICONS map also remains hardcoded (deferred).
+
+SPEC IMPACT: None (additive nav wiring; no SKU/pricing/schema/route change — labels resolve to the same in-code defaults until an admin edits `/admin/menus`).
+
 ## 2026-06-16 · fix(payments): merge-forward PR4 (dead-unlock repair) onto current main + close a freshly-reintroduced dead-path gate
 
 PR #1447 (the payment-activation repair — revenue-path) had gone stale (81 commits behind `main`) with only a failed Vercel deploy blocking its auto-merge. Merged current `origin/main` into the branch to bring it up to date and re-trigger a fresh deploy. The merge was mechanical: one trivial import-union conflict in `app/[slug]/_components/editorial/data.ts` (kept BOTH `eventOwnsSku` and main's new `fetchEventRecommendations`); `admin/payments/actions.ts` auto-merged (main's `getSetnayanFeeBps` and PR4's reject-cancel/approve-activate live in different functions); CHANGELOG union.

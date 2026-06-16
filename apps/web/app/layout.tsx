@@ -27,6 +27,7 @@ import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
+import { getNavSlotMap } from '@/lib/nav-registry';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 import {
@@ -427,6 +428,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // no admin icon is set, so BrandProvider uses the built-in gold default.
   const brandMarkUrl = resolveBrandMarkUrl(await getBrandSettings());
 
+  // Nav/icon/menu-registry slot map for the public marketing nav (the LAST
+  // doorway to wire — customer/vendor/admin already consume the registry). The
+  // marketing nav is label-only, so SiteChrome overlays public.site-nav.*
+  // labels onto its in-code links. Cached read (unstable_cache + NAV_REGISTRY_TAG)
+  // shared with the dashboard layouts; fails open to code defaults so the public
+  // nav always renders even if the override table is unreachable.
+  const navSlots = await getNavSlotMap();
+
   return (
     <html
       lang="en-PH"
@@ -528,7 +537,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
         <Providers brandMarkUrl={brandMarkUrl}>
-          <SiteChrome />
+          <SiteChrome navSlots={navSlots} />
           {children}
         </Providers>
         <ClientTypeDetector />

@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * VeilReveal — the trademark Setnayan bridal-veil reveal (organic family · V1
- * "sheer · multi-touch").
+ * VeilCrown — the bridal-veil reveal, V2 "crown-pinned · folding" (organic
+ * family · template 6 of 7).
  *
- * A sheer tulle veil with a scalloped filigree-lace hem and a small woven gold
- * Setnayan mark, rendered as a real cloth simulation on a TRANSPARENT full-screen
- * canvas that sits over the invitation. The guest drags / scrolls up to lift the
- * veil off — once it clears, `onRevealed` fires and the overlay removes itself,
- * leaving the page beneath fully interactive. The page content shows softly
- * through the sheer veil while it's up.
+ * Same trademark tulle + filigree-lace + gold Setnayan mark as the sheer veil
+ * (shared from ./veil-shared), but a different drape and a different gesture:
+ * the veil is GATHERED NARROW at the crown (top centre) and FANS WIDE into deep
+ * folds toward the hem. The guest scrolls / drags UP and the HEM lifts up & back
+ * OVER the crown — the veil folds away upward rather than lifting off as one
+ * sheet. Once it clears, `onRevealed` fires and the overlay fades + removes it.
  *
- * three.js is imported here (not in the page bundle); this component is only ever
- * loaded via next/dynamic(ssr:false) from RevealOverlay, so three lands in a
- * code-split chunk fetched only when the reveal actually mounts. The net body,
- * lace hem and recolourable material live in ./veil-shared (the look every
- * organic reveal shares); only the motion is template-specific.
+ * Real cloth simulation (Verlet grid + distance constraints + gravity + wind),
+ * crown row + hem row pinned. three.js is code-split: this is only ever loaded
+ * via next/dynamic(ssr:false) from RevealOverlay, so three lands in its own
+ * chunk fetched only when the reveal mounts.
  *
- * Colour: `veilColor` flows in from the couple's Mood Board palette (the page
- * resolves it). The gold Setnayan mark stays gold; only the tulle recolours.
+ * Craft constants are baked Setnayan-wide (S-fold depth · wind · net gap are not
+ * couple controls) — the only customizable knob is `veilColor`, Mood-Board-driven
+ * (ivory fallback handled by the caller). The gold mark stays gold; tulle recolours.
  */
 
 import { useEffect, useRef } from 'react';
@@ -28,11 +28,11 @@ import { buildVeilTextures, makeVeilMaterial, markUrl } from './veil-shared';
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
   veilColor: string;
-  /** Fired once when the veil has been lifted clear of the invitation. */
+  /** Fired once when the veil has been folded clear of the invitation. */
   onRevealed: () => void;
 };
 
-export default function VeilReveal({ veilColor, onRevealed }: Props) {
+export default function VeilCrown({ veilColor, onRevealed }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef(veilColor);
   colorRef.current = veilColor;
@@ -78,49 +78,70 @@ export default function VeilReveal({ veilColor, onRevealed }: Props) {
     img.onerror = () => applyTextures(null);
     img.src = markUrl();
 
-    // cloth grid (Verlet) — pinned along the top crown line, drapes over the frame
-    const cols = 28;
-    const rows = 40;
+    // cloth grid (Verlet) — gathered narrow at the crown, fanning wide to the hem.
+    const cols = 30;
+    const rows = 44;
     const N = cols * rows;
-    const clothW = 6.4;
-    const clothH = 9.2;
-    const topY = 2.6;
-    const frontZ = 0.6;
-    const dx = clothW / (cols - 1);
-    const dy = clothH / (rows - 1);
+    const crownHalf = 0.55; // narrow gather at the crown (top)
+    const hemHalf = 3.6; // wide spread at the hem (bottom)
+    const topY = 1.5; // crown sits at the top of the frame
+    const clothH = 7.6;
+    const frontZ = 0.5;
+    const dyRow = clothH / (rows - 1);
+    const FOLDS = 3; // deep S folds across the width…
+    const sAmp = 0.6; // …fanning out toward the hem (locked craft constant)
+    const idx = (ix: number, iy: number) => iy * cols + ix;
+
+    // rest shape (the fanned, folded drape every node springs toward)
+    const rx = new Float32Array(N);
+    const ry = new Float32Array(N);
+    const rz = new Float32Array(N);
+    for (let iy = 0; iy < rows; iy++) {
+      const rowT = iy / (rows - 1);
+      const halfW = crownHalf + (hemHalf - crownHalf) * rowT;
+      for (let ix = 0; ix < cols; ix++) {
+        const k = idx(ix, iy);
+        const colT = ix / (cols - 1);
+        rx[k] = -halfW + 2 * halfW * colT;
+        ry[k] = topY - iy * dyRow;
+        rz[k] = frontZ + sAmp * rowT * Math.sin(colT * Math.PI * FOLDS);
+      }
+    }
+
     const px = new Float32Array(N);
     const py = new Float32Array(N);
     const pz = new Float32Array(N);
     const qx = new Float32Array(N);
     const qy = new Float32Array(N);
     const qz = new Float32Array(N);
-    const idx = (ix: number, iy: number) => iy * cols + ix;
+    for (let k = 0; k < N; k++) {
+      px[k] = qx[k] = rx[k]!;
+      py[k] = qy[k] = ry[k]!;
+      pz[k] = qz[k] = rz[k]!;
+    }
+
+    const dist3 = (a: number, b: number) =>
+      Math.hypot(rx[a]! - rx[b]!, ry[a]! - ry[b]!, rz[a]! - rz[b]!);
+    const cons: Array<[number, number, number]> = [];
     for (let iy = 0; iy < rows; iy++) {
       for (let ix = 0; ix < cols; ix++) {
         const k = idx(ix, iy);
-        const X = -clothW / 2 + ix * dx;
-        const Y = topY - iy * dy;
-        px[k] = qx[k] = X;
-        py[k] = qy[k] = Y;
-        pz[k] = qz[k] = frontZ;
-      }
-    }
-    const cons: Array<[number, number, number]> = [];
-    const diag = Math.hypot(dx, dy);
-    for (let iy = 0; iy < rows; iy++) {
-      for (let ix = 0; ix < cols; ix++) {
-        if (ix < cols - 1) cons.push([idx(ix, iy), idx(ix + 1, iy), dx]);
-        if (iy < rows - 1) cons.push([idx(ix, iy), idx(ix, iy + 1), dy]);
-        if (ix < cols - 1 && iy < rows - 1) cons.push([idx(ix, iy), idx(ix + 1, iy + 1), diag]);
+        if (ix < cols - 1) cons.push([k, idx(ix + 1, iy), dist3(k, idx(ix + 1, iy))]);
+        if (iy < rows - 1) cons.push([k, idx(ix, iy + 1), dist3(k, idx(ix, iy + 1))]);
+        if (ix < cols - 1 && iy < rows - 1) cons.push([k, idx(ix + 1, iy + 1), dist3(k, idx(ix + 1, iy + 1))]);
       }
     }
 
-    const geo = new THREE.PlaneGeometry(clothW, clothH, cols - 1, rows - 1);
+    const pinTop = (k: number) => k < cols; // crown row (gathered, stays up)
+    const pinHem = (k: number) => k >= N - cols; // hem row (lifts up & back)
+    const pinned = (k: number) => pinTop(k) || pinHem(k);
+
+    const geo = new THREE.PlaneGeometry(1, 1, cols - 1, rows - 1);
     const veil = new THREE.Mesh(geo, mat);
     scene.add(veil);
     const posAttr = geo.attributes.position as THREE.BufferAttribute;
 
-    // lift: 0 (covering) → 1 (lifted clear). Driven by drag / scroll / wheel.
+    // lift: 0 (covering) → 1 (folded clear). Driven by drag / scroll / wheel.
     let lift = 0;
     let liftTarget = 0;
     let t = 0;
@@ -129,22 +150,34 @@ export default function VeilReveal({ veilColor, onRevealed }: Props) {
       t += dt;
       const drag = 0.97;
       const g = -3.2;
-      const wind = 0.5;
-      const pinY = topY + lift * (clothH + 2.4); // pin line rises as it lifts
+      const wind = 0.4;
+      // crown rises only late (quadratic) so the gather pulls up with the fold;
+      // the hem swings up well above the crown and back behind it.
+      const crownRise = lift * lift * 2.2;
+      const hemRise = lift * (clothH + 3.4);
       for (let k = 0; k < N; k++) {
-        const isTop = k < cols;
-        if (isTop) {
+        if (pinTop(k)) {
           const ix = k;
-          px[k] = -clothW / 2 + ix * dx;
-          py[k] = pinY + 0.04 * Math.sin(t * 1.2 + ix);
-          pz[k] = frontZ + lift * 1.2;
+          px[k] = rx[k]! + 0.03 * Math.sin(t * 1.1 + ix * 0.6);
+          py[k] = ry[k]! + crownRise + 0.02 * Math.sin(t * 1.3 + ix);
+          pz[k] = rz[k]!;
           qx[k] = px[k]!;
           qy[k] = py[k]!;
           qz[k] = pz[k]!;
           continue;
         }
-        const ax = wind * 0.25 * Math.sin(t * 0.9 + py[k]! * 0.5);
-        const az = wind * (0.3 + 0.3 * Math.sin(t * 1.6 + (px[k]! + py[k]!) * 0.7));
+        if (pinHem(k)) {
+          const ix = k - (N - cols);
+          px[k] = rx[k]! * (1 - 0.72 * lift) + 0.02 * Math.sin(t * 1.2 + ix);
+          py[k] = ry[k]! + hemRise;
+          pz[k] = rz[k]! - lift * 2.6; // fold back behind the crown
+          qx[k] = px[k]!;
+          qy[k] = py[k]!;
+          qz[k] = pz[k]!;
+          continue;
+        }
+        const ax = wind * 0.22 * Math.sin(t * 0.9 + py[k]! * 0.5);
+        const az = wind * (0.28 + 0.28 * Math.sin(t * 1.5 + (px[k]! + py[k]!) * 0.7));
         const nx = px[k]! + (px[k]! - qx[k]!) * drag + ax * dt * dt;
         const ny = py[k]! + (py[k]! - qy[k]!) * drag + g * dt * dt;
         const nz = pz[k]! + (pz[k]! - qz[k]!) * drag + az * dt * dt;
@@ -169,14 +202,12 @@ export default function VeilReveal({ veilColor, onRevealed }: Props) {
           const ox = ddx * f;
           const oy = ddy * f;
           const oz = ddz * f;
-          const aTop = A < cols;
-          const bTop = B < cols;
-          if (!aTop) {
+          if (!pinned(A)) {
             px[A] = px[A]! + ox;
             py[A] = py[A]! + oy;
             pz[A] = pz[A]! + oz;
           }
-          if (!bTop) {
+          if (!pinned(B)) {
             px[B] = px[B]! - ox;
             py[B] = py[B]! - oy;
             pz[B] = pz[B]! - oz;
@@ -190,7 +221,7 @@ export default function VeilReveal({ veilColor, onRevealed }: Props) {
     const loop = (now: number) => {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
-      lift += (liftTarget - lift) * 0.07;
+      lift += (liftTarget - lift) * 0.06;
       mat.color.set(colorRef.current || '#f3ece1');
       step(1 / 60);
       for (let k = 0; k < N; k++) posAttr.setXYZ(k, px[k]!, py[k]!, pz[k]!);
@@ -205,7 +236,7 @@ export default function VeilReveal({ veilColor, onRevealed }: Props) {
     };
     raf = requestAnimationFrame(loop);
 
-    // interaction: drag up or scroll up lifts the veil off
+    // interaction: drag up or scroll up folds the veil up & back over the crown
     let acc = 0;
     let dragging = false;
     let startY = 0;
@@ -228,7 +259,7 @@ export default function VeilReveal({ veilColor, onRevealed }: Props) {
     };
     const onUp = () => {
       dragging = false;
-      // snap: past a third of the way → finish the lift; else settle back
+      // snap: past a third of the way → finish the fold; else settle back
       if (acc > 0.34) setLift(1);
       else setLift(0);
     };

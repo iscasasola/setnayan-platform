@@ -15,6 +15,16 @@ Backfill — the changelog entries for #1583 and #1581 were intentionally droppe
 Owner follow-ups (carried from #1583): add `lint nav icon source` to branch-protection required checks (advisory until then); Phase-9 seed-vs-DB drift test still unbuilt; misc `nav-registry-defaults.ts` inconsistencies flagged out-of-scope.
 
 SPEC IMPACT: None (additive guard + behavior-preserving label overlays + dead-code/inert-defaults removal; no SKU/pricing/schema/route change).
+## 2026-06-17 · fix(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds)
+
+After validating the commercially-clean self-hosted model (dlib face-recognition ResNet via face-api.js — public-domain weights + MIT, 99.38% LFW) on real faces (Obama×2 / Biden×2): same-person euclidean distance **0.40–0.47**, different-person **0.79–0.90** — clean separation. The matcher core (#1594) had shipped with ArcFace-style **cosine ≥0.85** thresholds, which are WRONG for dlib (on cosine, different people score 0.80–0.84, hugging the 0.85 line → false suggestions).
+
+- **`lib/face-match-core.ts`** — `cosineSimilarity` → **`euclideanDistance`**; thresholds now `FACE_AUTO_MAX_DISTANCE = 0.5` / `FACE_SUGGEST_MAX_DISTANCE = 0.6` (face-api's native match line, sitting in the validated gap): distance ≤0.5 → auto-tag, 0.5–0.6 → suggest, >0.6 → untagged. `planAutoTags` picks the CLOSEST (min-distance) enrollment per guest; `FaceMatch.confidence` → `FaceMatch.distance` (lower = better). Dedupe / 10-tag-cap / already-tagged-exclusion logic unchanged.
+- **`lib/face-match-core.test.ts`** — rewritten for euclidean; distances numerically verified (close 0.40 auto · borderline 0.55 suggest · far 0.85 none · dedupe min 0.30 · cap closest-first).
+
+No consumers yet (foundation), so the swap is safe. Final thresholds get tuned on real wedding photos in a pilot.
+
+SPEC IMPACT: iteration 0012 — face auto-tag thresholds corrected to the validated self-hosted model (euclidean, not the ArcFace cosine). Logged in corpus DECISION_LOG.md.
 
 ## 2026-06-17 · feat(papic): NSFW re-screen self-heal + DB-enforced 10-tag cap (the last two #1577/#1588 review items)
 

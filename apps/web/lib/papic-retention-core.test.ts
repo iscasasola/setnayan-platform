@@ -1,23 +1,24 @@
 /**
- * Unit suite for the free-Papic-sampler retention sweep (Node built-in test
+ * Unit suite for the free-Papic-sampler retention sweep core (Node built-in test
  * runner, run via tsx — `pnpm test:unit`; CI runs it in the "unit tests" step).
  *
- * The load-bearing invariant: the locked "connect Drive OR upgrade = permanent"
- * rule must hold even if a convert-moment hook missed. sweepExpiredSamplerPhotos
- * is the last line of defense — a CONVERTED event must be SELF-HEALED (its
- * expiry cleared) and never deleted, while an un-converted event's expired
- * sampler rows are cleaned up (R2 bytes + DB rows). Permanent rows
- * (expires_at IS NULL) are never even fetched, so they can't be touched.
+ * Tests the PURE `papic-retention-core` (no 'server-only' / DB / R2 in its import
+ * chain) by injecting fake seams, so the real control flow is exercised end to
+ * end without a live backend.
  *
- * The sweep takes injectable seams (SweepDeps) so we exercise the real control
- * flow with fakes — no live DB / R2.
+ * The load-bearing invariant: the locked "connect Drive OR upgrade = permanent"
+ * rule must hold even if a convert-moment hook missed. The sweep is the last line
+ * of defense — a CONVERTED event must be SELF-HEALED (expiry cleared) and never
+ * deleted, while an un-converted event's expired rows are cleaned up (R2 bytes +
+ * DB rows). Permanent rows (expires_at IS NULL) are never fetched, so untouched.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { sweepExpiredSamplerPhotos } from './papic-retention';
+import { sweepExpiredSamplerPhotosCore } from './papic-retention-core';
 
 const EVENT = 'event-1';
+const noopPermanent = async () => 0;
 
 test('converted event (Drive grant / upgrade): self-heals, deletes nothing', async () => {
   let healed: string | null = null;
@@ -25,7 +26,7 @@ test('converted event (Drive grant / upgrade): self-heals, deletes nothing', asy
   let deletedIds: string[] | null = null;
   let objectsDeleted = 0;
 
-  const removed = await sweepExpiredSamplerPhotos(EVENT, {
+  const removed = await sweepExpiredSamplerPhotosCore(EVENT, {
     isKept: async () => true,
     makePermanent: async (id) => {
       healed = id;
@@ -55,7 +56,7 @@ test('un-converted event with expired rows: deletes bytes + rows, returns the co
   let deletedIds: string[] | null = null;
   let healed = false;
 
-  const removed = await sweepExpiredSamplerPhotos(EVENT, {
+  const removed = await sweepExpiredSamplerPhotosCore(EVENT, {
     isKept: async () => false,
     makePermanent: async () => {
       healed = true;
@@ -97,8 +98,9 @@ test('un-converted event with expired rows: deletes bytes + rows, returns the co
 
 test('un-converted event with no expired rows: no-op', async () => {
   let deletedIds: string[] | null = null;
-  const removed = await sweepExpiredSamplerPhotos(EVENT, {
+  const removed = await sweepExpiredSamplerPhotosCore(EVENT, {
     isKept: async () => false,
+    makePermanent: noopPermanent,
     fetchExpired: async () => ({ rows: [], readError: false }),
     deleteRows: async (ids) => {
       deletedIds = ids;
@@ -111,8 +113,9 @@ test('un-converted event with no expired rows: no-op', async () => {
 
 test('read error (e.g. pre-migration column missing): no-op, never deletes', async () => {
   let deletedIds: string[] | null = null;
-  const removed = await sweepExpiredSamplerPhotos(EVENT, {
+  const removed = await sweepExpiredSamplerPhotosCore(EVENT, {
     isKept: async () => false,
+    makePermanent: noopPermanent,
     fetchExpired: async () => ({ rows: [], readError: true }),
     deleteRows: async (ids) => {
       deletedIds = ids;
@@ -125,8 +128,9 @@ test('read error (e.g. pre-migration column missing): no-op, never deletes', asy
 
 test('a failing R2 object delete never aborts the row cleanup', async () => {
   let deletedIds: string[] | null = null;
-  const removed = await sweepExpiredSamplerPhotos(EVENT, {
+  const removed = await sweepExpiredSamplerPhotosCore(EVENT, {
     isKept: async () => false,
+    makePermanent: noopPermanent,
     fetchExpired: async () => ({
       rows: [{ photo_id: 'p1', r2_object_key: 'r2://media/a.jpg', poster_r2_key: null }],
       readError: false,

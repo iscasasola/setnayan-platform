@@ -31,6 +31,19 @@ Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (only pre-existing warning
 OWNER ACTION: apply migration `20270109000000` via `supabase db push --db-url "$SUPABASE_DB_URL"` (or it ships with the next batch). Until applied, the `connection_health` reads/writes target a missing column — the page read fails soft (banner just never shows); the refresher writes would error in their catch. Low blast radius (Drive OAuth is still admin-gated off in prod), but apply before relying on the reconnect banner.
 
 SPEC IMPACT: iteration 0009 connect-panel copy is replaced with the safety-led point-of-need card, and a new `needs_reauth` reconnect state is added (0009 + 0012 share it). No SKU / pricing change; one additive nullable-default column. Logged in corpus `DECISION_LOG.md`. Surfaced for owner: dead `/api/oauth/photo-delivery/callback` route; the two deferred connect surfaces (Papic radio, Recap nudge) + multi-account confirm; and the two product decisions (per-surface sync-mode default, disconnect→nudge resurfacing) defaulted to auto-sync-from-Papic / review-from-Photo-Delivery and a near-wedding re-surface.
+## 2026-06-17 · fix(copy): stop claiming face auto-tagging is live (it isn't yet)
+
+Honesty pass alongside the face-auto-tag build (Phases 1+2a shipped the foundation; the recognition engine is still validation-gated). User-facing copy claimed face auto-tagging works *today* — it doesn't; tagging is QR-driven. Softened the 7 over-claims to describe the live mechanism (personal/table QR) + the untagged-still-delivered guarantee, dropping the unbuilt face-recognition claims:
+
+- `app/dashboard/[eventId]/add-ons/papic/page.tsx` — removed "Auto-face tags fire at ≥ 0.85 cosine confidence" (a working-feature claim with a number) → leads with QR tagging; dropped "face detection" from the Camera Bridge capability line.
+- `lib/help.ts` (public help) — "auto-tagged via face detection" → "tagged to each guest by QR so everyone gets their own".
+- `lib/wizard.ts` — "auto-tags every photo by face + table QR + scans" → "tags photos by personal + table QR so every guest gets theirs".
+- `app/page.tsx` + `app/layout.tsx` (homepage + site meta / JSON-LD) — "auto-tagged / face-detection auto-tagged galleries" → "QR-tagged galleries".
+
+Left as-is (accurate, not over-claims): the RSVP biometric-consent copy ("your photo is set up for face recognition at this wedding" — the selfie IS enrolled) and internal code comments.
+
+SPEC IMPACT: iteration 0012 — public/dashboard copy no longer promises face auto-tagging before it ships. Logged in corpus DECISION_LOG.md.
+
 ## 2026-06-16 · feat(editorial): vendor day-of media WRITE PATH — submit UI + NSFW screen + migration [Increment 2]
 
 Builds on Increment 1 (the display). The couple's **recommended vendor** can now actually submit day-of media; it auto-shows on the editorial once it clears the NSFW screen.

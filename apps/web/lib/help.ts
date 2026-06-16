@@ -115,7 +115,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (from ₱2,999, scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, auto-tagged via face detection) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (from ₱2,999, scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
       },
       {
         slug: 'what-is-panood',

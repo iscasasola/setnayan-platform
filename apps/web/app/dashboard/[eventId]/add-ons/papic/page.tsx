@@ -1175,8 +1175,8 @@ function ProCameraBridgeCard({
 
       <p className="max-w-prose text-sm text-ink/70">
         Turn one phone seat into a phone + DSLR pair. The phone keeps doing
-        all of the work — gesture shutter, QR tagging, face detection,
-        EXIF stamping, adaptive compression, upload — and the camera body
+        all of the work — gesture shutter, QR tagging, EXIF stamping,
+        adaptive compression, upload — and the camera body
         provides the optical glass. Multi-purchase: one bridge per phone-
         camera pair.
       </p>
@@ -1327,10 +1327,9 @@ async function GalleryPreviewCard({
           {hasPhotos ? 'Every photo your crew shoots' : 'What your gallery looks like'}
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Auto-face tags fire at ≥ 0.85 cosine confidence. Guests who
-          scan a personal or table QR are tagged on the spot. Anything
-          still untagged stays in your gallery — Papic never drops a
-          photo because of a missing tag.
+          Guests who scan a personal or table QR are tagged on the
+          spot. Anything still untagged stays in your gallery — Papic
+          never drops a photo because of a missing tag.
         </p>
       </div>
 

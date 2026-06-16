@@ -169,27 +169,27 @@ export function BuildCompare({
   // Load a saved build's picks into the working build, then jump to a tab. Lock
   // does NOT finalize here — the Lock tab hosts the hardened finalize flow.
   //
-  // Modify OVERWRITES the live working build with this saved build's picks, so we
-  // confirm first when there's a current build to lose (an empty working build
-  // has nothing to discard → no prompt). The couple's current picks aren't kept
-  // unless they were already saved as their own build.
+  // BOTH Modify and Lock OVERWRITE the live working build with this saved
+  // build's picks, so we confirm first when there's a current build to lose (an
+  // empty working build has nothing to discard → no prompt). The couple's
+  // current picks aren't kept unless they were already saved as their own build.
   async function onApply(
     snapshot: PlanBuildSnapshot,
     destination: 'build' | 'lock',
     title: string,
   ) {
     setErr(null);
-    if (destination === 'build' && currentPlan.picks.length > 0) {
+    if (currentPlan.picks.length > 0) {
       const ok = await confirm({
         title: 'Replace your current build?',
         body: (
           <>
-            This replaces what&rsquo;s on your Build tab with{' '}
+            This replaces your current build with{' '}
             <span className="font-medium text-ink">“{title}”</span>. Save your current plan first if
             you want to keep it.
           </>
         ),
-        confirmLabel: 'Replace',
+        confirmLabel: destination === 'lock' ? 'Lock' : 'Replace',
         cancelLabel: 'Cancel',
         destructive: true,
       });

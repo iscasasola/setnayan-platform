@@ -13,7 +13,9 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { findRecommendedEventVendorId } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { suggestScheduleChange } from './actions';
 
@@ -180,6 +182,14 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
   if (error || !data) redirect('/vendor-dashboard/clients');
   const brief = data as Brief;
 
+  // "From your vendors" editorial-media entry — surfaced only to the couple's
+  // RECOMMENDED pick (event_vendors.selection_match_rank = 1) for a category.
+  const recommendedEventVendorId = await findRecommendedEventVendorId(
+    createAdminClient(),
+    eventId,
+    profile.vendor_profile_id,
+  );
+
   // Cocktail-area editability probe: the RPC raises unless this vendor is booked
   // in an eligible category AND the couple has enabled the room + left vendor
   // editing on. A clean result means we can show the "arrange it" entry point.
@@ -282,6 +292,24 @@ export default async function VendorEventBriefPage({ params, searchParams }: Pro
           private.
         </p>
       </header>
+
+      {/* "From your vendors" — recommended pick only. They add day-of photos +
+          boomerang clips to the couple's editorial. */}
+      {recommendedEventVendorId ? (
+        <Link
+          href={`/vendor-dashboard/clients/${eventId}/editorial-media`}
+          className="flex items-center justify-between gap-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-4 transition hover:bg-terracotta/[0.08] sm:p-6"
+        >
+          <span>
+            <span className="block text-lg font-semibold">Add to their editorial ✨</span>
+            <span className="mt-0.5 block text-sm text-ink/65">
+              You&rsquo;re the couple&rsquo;s recommended pick — add up to 3 photos and 3 short clips
+              of your work. They appear, credited to you, on the couple&rsquo;s front-page story.
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-semibold text-terracotta">Open →</span>
+        </Link>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Pax */}

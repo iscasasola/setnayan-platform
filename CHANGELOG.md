@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(editorial): vendor day-of media WRITE PATH — submit UI + NSFW screen + migration [Increment 2]
+
+Builds on Increment 1 (the display). The couple's **recommended vendor** can now actually submit day-of media; it auto-shows on the editorial once it clears the NSFW screen.
+
+- **Migration `20270102000000_editorial_vendor_media.sql`** (applied to prod) — new event-scoped, vendor-authored table mirroring `event_preparation_items`: `media_type` (photo/clip), `boomerang_r2_key` (clip = baked boomerang, enforced by a CHECK), `still_r2_key` (photo, or clip poster + NSFW proxy), `moderation_state`, `hidden_by_couple`, `event_vendor_id` (the recommended-pick plan row). RLS-at-create: couple SELECT+UPDATE (hide), vendor SELECT/INSERT/UPDATE/DELETE own (accepted-thread baseline), admin ALL. *(Applied via `db query`/pg per the ledger-drift workaround — `db push` was blocked by parallel-session drift; the file's original `20261229000000` collided with a parallel migration so it was renamed to `20270102000000` and the ledger row recorded.)*
+- **`lib/editorial-vendor-media.ts`** — the eligibility gate `findRecommendedEventVendorId()`: resolves `event_vendors(selection_match_rank=1).service_id → vendor_services.vendor_profile_id`, so only the couple's recommended pick qualifies. Plus `MAX_PER_TYPE=3` + `SubmitMediaItem` (kept out of the `'use server'` file).
+- **`…/clients/[eventId]/editorial-media/{page.tsx,actions.ts,_components/editorial-media-studio.tsx}`** — the vendor submit surface: gated to the recommended pick, add up to 3 photos + 3 clips; **clips trim to ≤5s and bake to a boomerang IN THE BROWSER** (same encoder as the couple's Living Hero). The action re-checks the gate + the 3-each cap server-side, inserts via the admin client, and fires the NSFW screen. Existing submissions show a live status (Checking… / Live / Hidden) with withdraw.
+- **`lib/nsfw-screen.ts`** — `screenEditorialVendorMedia()` reuses the `classifyImageBytes` + `decideNsfw` primitives; screens the still JPEG (the proxy for both photos and clips). Public editorial **fails closed** for vendor media (only `clean` shows).
+- **`editorial/data.ts`** — the real-event loader now reads `editorial_vendor_media` (clean + not-hidden + recommended-pick re-checked LIVE so swapping the vendor drops their media) into `vendorMedia`.
+- **`…/clients/[eventId]/page.tsx`** — an "Add to their editorial" entry card on the Event Brief, shown only to the recommended pick.
+
+Verified: migration live on prod (15 cols, RLS on, 7 policies, CHECK present); `tsc` green; `next lint` clean; the new vendor route compiles (307 → login, not 500) and the sample editorial + new DB-loader path render without error.
+
+> **Follow-ups (schema/RLS already support both):** a couple per-item hide control (the `hidden_by_couple` column + couple-UPDATE policy are in place; today they hide the whole strip via the section toggle) and a dedicated admin takedown surface (admin-ALL policy is in place).
+
+SPEC IMPACT: iteration 0046 — the editorial gains a vendor-submitted day-of media block (gate = `selection_match_rank=1`, auto-show after NSFW, clips always boomerang). Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-16 · feat(editorial): "From Your Vendors" strip — the couple's recommended vendor's day-of media (clips boomerang) [Increment 1: display]
 
 Owner: *"if the vendor submits up to 3 photo / 5-second video of their day-of service to that event, it can show on the editorial of the couple (gated if they are recommended or not). Our rule in editorial should always boomerang."* Owner locked the two pivotal decisions: **eligible = the couple's recommended / first-pick vendor** (`event_vendors.selection_match_rank = 1`), and **auto-show after NSFW moderation** (couple can hide). This is **Increment 1 — the couple-facing display + a visible demo on the samples.** The vendor write path (table + submit UI + NSFW + admin) is Increment 2.

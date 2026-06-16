@@ -678,6 +678,72 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     }
   }
 
+  // 6d. "From Your Vendors" — day-of media the couple's RECOMMENDED vendor
+  // submitted (editorial_vendor_media). Public surface, so it FAILS CLOSED:
+  // only moderation_state='clean' shows (never 'unscreened' — third-party
+  // content is held until the NSFW screen settles), never couple-hidden, and
+  // the recommended-pick gate is RE-CHECKED LIVE (the row's event_vendor still
+  // has selection_match_rank = 1) so swapping the vendor drops their media.
+  // Best-effort: a missing table (pre-migration) yields [].
+  const vendorMedia: VendorMediaItem[] = [];
+  try {
+    const { data: rows } = await admin
+      .from('editorial_vendor_media')
+      .select(
+        'media_id, event_vendor_id, media_type, boomerang_r2_key, still_r2_key, caption, sort_order',
+      )
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'clean')
+      .eq('hidden_by_couple', false)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    const mediaRows = (rows ?? []) as Array<Record<string, unknown>>;
+    if (mediaRows.length > 0) {
+      // Live recommended-pick re-check: keep only rows whose event_vendor is
+      // still selection_match_rank = 1. Resolve names/categories in one read.
+      const evIds = Array.from(
+        new Set(mediaRows.map((r) => asString(r.event_vendor_id)).filter((v): v is string => !!v)),
+      );
+      const recommended = new Map<string, { name: string | null; category: string | null }>();
+      if (evIds.length > 0) {
+        try {
+          const { data: evRows } = await admin
+            .from('event_vendors')
+            .select('vendor_id, selection_match_rank, vendor_name, category')
+            .in('vendor_id', evIds)
+            .eq('selection_match_rank', 1);
+          for (const ev of (evRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(ev.vendor_id);
+            if (id) recommended.set(id, { name: asString(ev.vendor_name), category: asString(ev.category) });
+          }
+        } catch {
+          // no event_vendors read → nothing is provably recommended → show none
+        }
+      }
+      for (const r of mediaRows) {
+        const evId = asString(r.event_vendor_id);
+        const rec = evId ? recommended.get(evId) : undefined;
+        if (!rec) continue; // not (or no longer) the recommended pick → hide
+        const type = asString(r.media_type) === 'clip' ? 'clip' : 'photo';
+        const still = await displayUrlForStoredAsset(asString(r.still_r2_key));
+        if (!still) continue; // no still → can't render (and it's the NSFW proxy)
+        const boomerang =
+          type === 'clip' ? await displayUrlForStoredAsset(asString(r.boomerang_r2_key)) : null;
+        if (type === 'clip' && !boomerang) continue; // clip with no baked boomerang → skip
+        vendorMedia.push({
+          vendorName: rec.name ?? 'Your vendor',
+          category: rec.category,
+          type,
+          stillUrl: still,
+          boomerangUrl: boomerang,
+          caption: asString(r.caption),
+        });
+      }
+    }
+  } catch {
+    // table absent (pre-migration) or any error → no vendor strip
+  }
+
   // 7. Reviews (best-effort). Seeded via event_editorial.draft_json.reviews
   // until the §3 event-bound review system ships.
   const reviews: Review[] = [];
@@ -778,9 +844,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     galleryPhotos,
     photoWallPhotos,
     photoWallActive,
-    // Real-event vendor media lands with the write path (editorial_vendor_media
-    // table + vendor submit UI + NSFW screen), next increment. Empty for now.
-    vendorMedia: [],
+    vendorMedia,
     sections: readSections(draftJson),
   };
 }

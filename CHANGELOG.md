@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
+
+Facebook auto-publish was failing every dispatch with `(#200) … requires both pages_read_engagement and pages_manage_posts as an admin` even though the configured `META_PAGE_ACCESS_TOKEN` carried all required scopes. Root cause: the env token is a long-lived **System User** token (the Meta-recommended credential for automated posting — never-expiring, asset-scoped), and the Graph page-publish endpoints (`/{page}/feed`, `/{page}/photos`) reject a System User token directly — they require the Page's OWN access token.
+
+- `apps/web/lib/social/facebook.ts` — new `resolvePageAccessToken(pageId, configuredToken)` calls `GET /{page-id}?fields=access_token` to exchange the System User token for the Page token before publishing. Per-process memo (keyed by source token — a Page token derived from a never-expiring SU token is itself non-expiring), 15s timeout, safe fallback to the configured token on exchange failure (a no-op when the env already holds a real Page token, so the change is correct for either credential type). Diagnosed against the live token: it debugs as `type: SYSTEM_USER` with `pages_read_engagement` + `pages_manage_posts` + `pages_manage_engagement` granted; the exchange yields a `type: PAGE` token for page `1142862912244794`.
+
+Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
+
+SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
+
 ## 2026-06-16 · feat(std-reveal): complete the reveal library — 3 envelopes + crown veil (PR4/4 · flag-off)
 
 Finishes the Save-the-Date reveal template set (0024 addendum §1a locks 7 total: 4 rigid envelopes + 2 veils + 1 curtain). PR1–PR3 shipped the four-flap envelope + the sheer veil + the in-dashboard preview/rewire; this lands the **4 remaining** openings, all behind the same `NEXT_PUBLIC_STD_REVEAL` flag (default OFF → zero live impact):

@@ -32,6 +32,17 @@ Refuted: "checkOrderOwnership omits 'draft'" — by design (a `draft` order isn'
 Verified: `tsc --noEmit` 0 · `lint entitlement gates` clean (all new reads use `eventOwnsSku`) · 25/25 unit tests · existing lints pass.
 
 SPEC IMPACT: None (correctness hardening of the already-specced apply-then-pay entitlement flow). Logged in `DECISION_LOG.md`.
+## 2026-06-16 · fix(papic): sampler retention sweep now respects "keep = permanent" (defense-in-depth + tests)
+
+Follow-up hardening on #1577. #1577 cleared `papic_photos.expires_at` at the three convert moments (paid `PAPIC_SEATS` activation, Drive OAuth callback, Papic storage→Drive switch) + a capture-time check — but those clears are **best-effort**, so a silent miss or a connect-then-sample row could still leave a converted event with expiring sampler photos that `sweepExpiredSamplerPhotos` would then delete. The sweep itself had no guard.
+
+- **`lib/papic-retention.ts`** — before deleting anything, the sweep now asks `eventSamplerIsKept(eventId)` (active Drive grant). For a **converted** event it **self-heals** — `makeSamplerPermanent(eventId)` flips the rows' `expires_at → NULL` — and deletes nothing. Self-heal (not just skip) is deliberate: the couple gallery hides any row whose expiry is already past, so skipping alone would keep the bytes but still vanish the photos from the couple's view. After the heal the rows are permanent (`expires_at IS NULL`) and the sweep — which only ever selects non-null, past expiries — can never see them again, preserving the locked "`expires_at IS NULL` = permanent" rule.
+- The orchestration moved to a **pure `lib/papic-retention-core.ts`** (no `server-only`; type-only `R2BucketName` import) that takes injected seams (`SweepDeps`: `isKept`/`makePermanent`/`fetchExpired`/`deleteRows`/`deleteObject`); `papic-retention.ts` is now a thin server-only wrapper supplying the real seams. This matches the repo's testable-engine pattern — a `'server-only'` module can't be imported under `tsx --test`, so the test targets the pure core.
+- **`lib/papic-retention-core.test.ts`** (new) — `node:test` suite (runs in CI via `test:unit`): converted event self-heals + deletes nothing; un-converted event with expired rows deletes the right R2 refs + row ids and returns the count (also asserts the `r2://bucket/key` parse + that a null poster is skipped); empty + read-error (pre-migration column) → no-op, never deletes; a failing R2 object delete never aborts the row cleanup.
+
+Paid-upgrade's own `expires_at` clear (the other half of "most robust") already shipped in #1577's `PAPIC_SEATS` hook. The locked 5-year/permanent retention (`expires_at IS NULL` rows) is untouched — the sweep never fetches them.
+
+SPEC IMPACT: iteration 0012 sampler — the retention sweep is now the last line of defense for "connect Drive / upgrade = permanent." Logged in corpus `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(build): failproof multi-pick build picks — kill a live category-wipe bug + lock the data-loss guard
 

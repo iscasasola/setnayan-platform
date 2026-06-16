@@ -219,3 +219,82 @@ export async function submitReviewAppeal(formData: FormData) {
     `/dashboard/${eventId}/vendors/${eventVendorId}/review?appeal_filed=1`,
   );
 }
+
+/**
+ * Couple-side completion handshake (Event Lifecycle Menu §6.1). After the
+ * vendor marks the service complete, the couple either confirms they received
+ * everything — which unlocks the review + galleries — or reports a problem,
+ * which freezes the gate (a non-delivery dispute) until it resolves. Both
+ * verify couple ownership of the event, then write via the admin client (the
+ * completion columns have no couple-update RLS path) and are idempotent.
+ */
+export async function coupleConfirmReceived(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) redirect(`/dashboard/${eventId}`);
+
+  const admin = createAdminClient();
+  await admin
+    .from('event_vendors')
+    .update({
+      customer_confirmed_received_at: new Date().toISOString(),
+      completion_status: 'confirmed',
+    })
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .not('service_marked_complete_at', 'is', null) // only after the vendor marked complete
+    .is('customer_confirmed_received_at', null); // idempotent
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
+  redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);
+}
+
+export async function coupleReportNonDelivery(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) redirect(`/dashboard/${eventId}`);
+
+  const admin = createAdminClient();
+  await admin
+    .from('event_vendors')
+    .update({
+      completion_status: 'disputed',
+      completion_disputed_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .neq('completion_status', 'confirmed'); // can't dispute an already-confirmed delivery
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
+  redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);
+}

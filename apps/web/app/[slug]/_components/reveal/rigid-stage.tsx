@@ -4,10 +4,13 @@
  * RigidStage — the shared engine for the rigid reveal family (4 envelopes +
  * church doors), implementing the locked 0024 addendum §1a interaction:
  *
- *   1. SWIPE THE SEAL OFF (gate). The couple's monogram wax seal rests on the
- *      paper at dead-centre. You pick it up and SWIPE it across & off a screen
- *      edge — it slides the way you flick it (never "falls"). Release without a
- *      real swipe and it springs back onto the paper and stays sealed.
+ *   1. MOTION-DRAG THE SEAL OFF (gate). The couple's monogram wax seal rests on
+ *      the paper at dead-centre. You pick it up and it follows your finger 1:1;
+ *      on release it carries your throw's MOMENTUM — sliding across the paper in
+ *      the release-velocity direction with friction, and only gathering a little
+ *      gravity + tumble once it's PAST the screen edge (never "falls" on the
+ *      paper, §1a). A weak release (slow + short) springs it back onto the paper
+ *      and the envelope stays sealed — "they have to swipe it away."
  *   2. SCROLL TO OPEN (scrub). Once the seal is gone, SCROLL / drag scrubs the
  *      flaps open (progress 0→1) — NOT a tap. At full open the overlay clears.
  *
@@ -17,7 +20,7 @@
  * library feels consistent.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { WaxSeal } from './wax-seal';
 
 type Props = {
@@ -33,6 +36,11 @@ type Props = {
 const SCRUB_WHEEL = 0.0016; // wheel delta → progress
 const SCRUB_DRAG = 0.0042; // pointer/touch drag px → progress
 
+// Seal-throw physics.
+const FRICTION = 0.96; // per-frame velocity decay during the fling
+const FLING_SPEED = 9; // px/frame release speed that counts as a deliberate flick
+const FLING_DIST_FRAC = 0.16; // OR drag this fraction of the short screen edge
+
 export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFlaps }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
@@ -40,20 +48,55 @@ export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFl
   const [sealGone, setSealGone] = useState(false);
   const [pickedUp, setPickedUp] = useState(false);
   const [progress, setProgress] = useState(0);
+  // After a couple of weak releases (the seal sprang back), escalate the cue so
+  // a guest who hasn't realised it must be DRAGGED off gets a stronger hint.
+  const [cueStrong, setCueStrong] = useState(false);
+  const weakTries = useRef(0);
 
   const targetRef = useRef(0);
   const openedRef = useRef(false);
   const onOpenedRef = useRef(onOpened);
   onOpenedRef.current = onOpened;
 
-  // ── 1. seal swipe-off gate ──────────────────────────────────────────────
-  const drag = useRef({ active: false, startX: 0, startY: 0, dx: 0, dy: 0 });
+  // ── 1. motion-drag the seal off ─────────────────────────────────────────
+  const drag = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    dx: 0,
+    dy: 0,
+    lastX: 0,
+    lastY: 0,
+    lastT: 0,
+    vx: 0,
+    vy: 0,
+  });
+  const flingRaf = useRef(0);
+  const cancelFling = () => {
+    if (flingRaf.current) {
+      cancelAnimationFrame(flingRaf.current);
+      flingRaf.current = 0;
+    }
+  };
 
   const onSealDown = (e: React.PointerEvent) => {
     if (sealGone) return;
     e.preventDefault();
+    cancelFling();
     sealRef.current?.setPointerCapture(e.pointerId);
-    drag.current = { active: true, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0 };
+    const t = performance.now();
+    drag.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      dx: 0,
+      dy: 0,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      lastT: t,
+      vx: 0,
+      vy: 0,
+    };
     setPickedUp(true);
     if (sealRef.current) sealRef.current.style.transition = 'none';
   };
@@ -61,6 +104,16 @@ export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFl
   const onSealMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d.active) return;
+    const now = performance.now();
+    const dt = Math.max(8, now - d.lastT); // clamp tiny/zero dt to avoid spikes
+    // smoothed (EMA) release velocity in px per ~frame (16ms)
+    const instVx = ((e.clientX - d.lastX) / dt) * 16;
+    const instVy = ((e.clientY - d.lastY) / dt) * 16;
+    d.vx = d.vx * 0.6 + instVx * 0.4;
+    d.vy = d.vy * 0.6 + instVy * 0.4;
+    d.lastX = e.clientX;
+    d.lastY = e.clientY;
+    d.lastT = now;
     d.dx = e.clientX - d.startX;
     d.dy = e.clientY - d.startY;
     if (sealRef.current) {
@@ -68,50 +121,120 @@ export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFl
     }
   };
 
-  const finishSeal = useCallback((swipedOff: boolean) => {
+  // Fling the seal in the release-velocity direction with friction; once it
+  // clears the visible edge it gathers a little gravity + tumble, then it's gone.
+  const flingOff = (start: { x: number; y: number; vx: number; vy: number }) => {
     const el = sealRef.current;
-    setPickedUp(false);
-    drag.current.active = false;
     if (!el) {
-      if (swipedOff) setSealGone(true);
+      setSealGone(true);
       return;
     }
-    if (swipedOff) {
-      // Slide it the way it was flicked, across the paper and off the edge.
-      const { dx, dy } = drag.current;
-      const mag = Math.hypot(dx, dy) || 1;
-      const vw = window.innerWidth || 1000;
-      const vh = window.innerHeight || 1000;
-      const reach = 1.4 * Math.max(vw, vh);
-      const ox = (dx / mag) * reach;
-      const oy = (dy / mag) * reach;
-      el.style.transition = 'transform 420ms cubic-bezier(0.4,0,0.7,0.2), opacity 420ms ease-out';
-      el.style.transform = `translate(${ox}px, ${oy}px) scale(0.92)`;
-      el.style.opacity = '0';
-      window.setTimeout(() => setSealGone(true), 360);
+    el.style.transition = 'none';
+    const vw = window.innerWidth || 1000;
+    const vh = window.innerHeight || 1000;
+    const half = 90; // generous seal half-extent (incl. the picked-up scale)
+    let { x, y, vx, vy } = start;
+    // Preserve the THROW DIRECTION (the seal slides the way you flick it, §1a);
+    // only floor the SPEED so it always clears the long screen axis. Fall back
+    // to the displacement direction — or just clear it — when there's no real
+    // release velocity (so an out-and-back flick can never freeze at v=0).
+    const minLaunch = Math.max(vw, vh) / 22;
+    const s = Math.hypot(vx, vy);
+    if (s >= 1.5) {
+      if (s < minLaunch) {
+        const k = minLaunch / s;
+        vx *= k;
+        vy *= k;
+      }
     } else {
-      // Weak gesture → drop back onto the paper with a small bounce; stays sealed.
-      el.style.transition = 'transform 360ms cubic-bezier(0.34,1.56,0.64,1)';
-      el.style.transform = 'translate(0px, 0px) scale(1)';
+      const dm = Math.hypot(x, y);
+      if (dm >= 1) {
+        vx = (x / dm) * minLaunch;
+        vy = (y / dm) * minLaunch;
+      } else {
+        setSealGone(true);
+        return;
+      }
     }
-  }, []);
+    let rot = 0;
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      vx *= FRICTION;
+      vy *= FRICTION;
+      const pastEdge = Math.abs(x) > vw / 2 - half || Math.abs(y) > vh / 2 - half;
+      if (pastEdge) {
+        // Tumble + a pull that always pushes it FURTHER off-screen — never
+        // reversing an upward exit, so it can't fall back onto the paper (§1a:
+        // gravity/tumble only once past the edge, off the paper).
+        if (Math.abs(y) >= Math.abs(x)) {
+          vy += y < 0 ? -0.6 : 0.9; // exiting top/bottom → accelerate outward
+        } else {
+          vy += 0.5; // exiting sideways → a touch of real gravity, it's off-paper
+        }
+        rot += vx >= 0 ? 5 : -5;
+      }
+      x += vx;
+      y += vy;
+      el.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg) scale(1.04)`;
+      const fullyOff = Math.abs(x) > vw / 2 + half * 2 || Math.abs(y) > vh / 2 + half * 2;
+      if (fullyOff || frames > 200) {
+        flingRaf.current = 0;
+        setSealGone(true);
+        return;
+      }
+      flingRaf.current = requestAnimationFrame(tick);
+    };
+    flingRaf.current = requestAnimationFrame(tick);
+  };
+
+  const springBack = () => {
+    const el = sealRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 360ms cubic-bezier(0.34,1.56,0.64,1)';
+    el.style.transform = 'translate(0px, 0px) scale(1)';
+  };
 
   const onSealUp = () => {
     const d = drag.current;
     if (!d.active) return;
+    d.active = false;
+    setPickedUp(false);
+    // Decay stale velocity: if the pointer PAUSED before releasing, no
+    // pointermove fired during the hold so d.vx/d.vy still hold the pre-pause
+    // flick — a deliberate "let go in place" must read as ~0 and stay sealed
+    // (§1a: "release without swiping → drops back, you have to swipe it away").
+    const idle = performance.now() - d.lastT;
+    let vx = d.vx;
+    let vy = d.vy;
+    if (idle > 40) {
+      const k = Math.exp(-(idle - 40) / 90);
+      vx *= k;
+      vy *= k;
+    }
+    const speed = Math.hypot(vx, vy);
     const dist = Math.hypot(d.dx, d.dy);
-    const threshold = 0.16 * Math.min(window.innerWidth || 1000, window.innerHeight || 1000);
-    finishSeal(dist > threshold);
+    const minDim = Math.min(window.innerWidth || 1000, window.innerHeight || 1000);
+    if (speed > FLING_SPEED || dist > FLING_DIST_FRAC * minDim) {
+      flingOff({ x: d.dx, y: d.dy, vx, vy });
+    } else {
+      springBack();
+      weakTries.current += 1;
+      if (weakTries.current >= 2) setCueStrong(true);
+    }
   };
 
   // Keyboard / reduced-dexterity fallback: activating the seal opens directly.
   const onSealKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      cancelFling();
       targetRef.current = 1;
       setSealGone(true);
     }
   };
+
+  useEffect(() => () => cancelFling(), []);
 
   // ── 2. scroll-scrub open (after the seal is gone) ───────────────────────
   useEffect(() => {
@@ -196,13 +319,13 @@ export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFl
         {renderFlaps(progress)}
       </div>
 
-      {/* the seal — pick up & swipe off to gate the reveal */}
+      {/* the seal — pick it up & motion-drag it off to gate the reveal */}
       {!sealGone ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4">
           <button
             ref={sealRef}
             type="button"
-            aria-label="Swipe the seal away to open the invitation"
+            aria-label="Drag the seal away to open the invitation"
             onPointerDown={onSealDown}
             onPointerMove={onSealMove}
             onPointerUp={onSealUp}
@@ -218,7 +341,7 @@ export function RigidStage({ markSvg, monogramText, waxColor, onOpened, renderFl
               pickedUp ? 'opacity-0' : 'opacity-100'
             }`}
           >
-            Swipe the seal away
+            {cueStrong ? 'Flick the seal off the page' : 'Drag the seal away'}
           </span>
         </div>
       ) : null}

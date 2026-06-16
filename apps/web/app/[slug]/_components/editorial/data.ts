@@ -156,6 +156,7 @@ export type EditorialSections = {
   poweredBy: boolean;
   liveWall: boolean;
   fromTheCouple: boolean;
+  fromVendors: boolean;
   vendorsWeLoved: boolean;
 };
 
@@ -167,8 +168,27 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'poweredBy',
   'liveWall',
   'fromTheCouple',
+  'fromVendors',
   'vendorsWeLoved',
 ];
+
+// "From your vendors" — day-of media the couple's RECOMMENDED vendor
+// (event_vendors.selection_match_rank = 1) submitted for this event. Clips are
+// always pre-baked boomerangs (editorial rule), photos render as stills.
+// Auto-shows once the media clears the NSFW screen; the couple can hide any
+// item. The DB-backed write path (editorial_vendor_media table + vendor submit
+// UI + NSFW screen + admin) lands in the next increment; today this is seeded
+// on the samples and resolves to [] for real events.
+export type VendorMediaItem = {
+  vendorName: string;
+  category: string | null;
+  type: 'photo' | 'clip';
+  // Still image (a photo, or the freeze-frame poster of a clip). Always present.
+  stillUrl: string;
+  // The baked forward+reverse boomerang MP4 (clips only). Plays muted/looping.
+  boomerangUrl: string | null;
+  caption: string | null;
+};
 
 export type EditorialData = {
   displayName: string;
@@ -205,6 +225,12 @@ export type EditorialData = {
   };
   published: boolean;
   heroPhotoUrl: string | null;
+  // The couple's LIVING HERO — a pre-baked forward+reverse boomerang MP4
+  // (events.landing_page_hero_video_r2_key). When present, the editorial hero
+  // plays it as a muted, looping, GIF-like banner with heroPhotoUrl as the
+  // poster/still. Null → the hero is the static photo. Editorial rule: any
+  // video on the editorial is ALWAYS a baked boomerang (never a one-shot clip).
+  heroVideoUrl: string | null;
   metrics: ImpactMetrics;
   archetype: Archetype;
   vendors: VendorCredit[];
@@ -226,6 +252,8 @@ export type EditorialData = {
   // Only surfaced when photoWallActive is true (LIVE_WALL SKU activated).
   photoWallPhotos: string[];
   photoWallActive: boolean;
+  // Day-of media from the couple's recommended vendor (see VendorMediaItem).
+  vendorMedia: VendorMediaItem[];
   // Section visibility from the editorial editor. Optional → a block shows
   // unless its key is explicitly false (samples omit it = everything on).
   sections?: Partial<EditorialSections>;
@@ -371,7 +399,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, our_photos, photo_wall_photos',
+        'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -615,6 +643,14 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     );
   }
 
+  // 6a-bis. Living-hero boomerang (events.landing_page_hero_video_r2_key). The
+  // Living Hero Studio already bakes the couple's pick into a forward+reverse
+  // ping-pong MP4; reuse it as the editorial's GIF-like moving hero, posterized
+  // by heroPhotoUrl. Additive: null → the editorial hero stays the still photo.
+  const heroVideoUrl = await displayUrlForStoredAsset(
+    asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+  );
+
   // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes
   // through displayUrlForStoredAsset (presigns r2://, passes plain/relative
   // URLs through). Best-effort.
@@ -649,6 +685,72 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     } catch {
       photoWallActive = false;
     }
+  }
+
+  // 6d. "From Your Vendors" — day-of media the couple's RECOMMENDED vendor
+  // submitted (editorial_vendor_media). Public surface, so it FAILS CLOSED:
+  // only moderation_state='clean' shows (never 'unscreened' — third-party
+  // content is held until the NSFW screen settles), never couple-hidden, and
+  // the recommended-pick gate is RE-CHECKED LIVE (the row's event_vendor still
+  // has selection_match_rank = 1) so swapping the vendor drops their media.
+  // Best-effort: a missing table (pre-migration) yields [].
+  const vendorMedia: VendorMediaItem[] = [];
+  try {
+    const { data: rows } = await admin
+      .from('editorial_vendor_media')
+      .select(
+        'media_id, event_vendor_id, media_type, boomerang_r2_key, still_r2_key, caption, sort_order',
+      )
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'clean')
+      .eq('hidden_by_couple', false)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    const mediaRows = (rows ?? []) as Array<Record<string, unknown>>;
+    if (mediaRows.length > 0) {
+      // Live recommended-pick re-check: keep only rows whose event_vendor is
+      // still selection_match_rank = 1. Resolve names/categories in one read.
+      const evIds = Array.from(
+        new Set(mediaRows.map((r) => asString(r.event_vendor_id)).filter((v): v is string => !!v)),
+      );
+      const recommended = new Map<string, { name: string | null; category: string | null }>();
+      if (evIds.length > 0) {
+        try {
+          const { data: evRows } = await admin
+            .from('event_vendors')
+            .select('vendor_id, selection_match_rank, vendor_name, category')
+            .in('vendor_id', evIds)
+            .eq('selection_match_rank', 1);
+          for (const ev of (evRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(ev.vendor_id);
+            if (id) recommended.set(id, { name: asString(ev.vendor_name), category: asString(ev.category) });
+          }
+        } catch {
+          // no event_vendors read → nothing is provably recommended → show none
+        }
+      }
+      for (const r of mediaRows) {
+        const evId = asString(r.event_vendor_id);
+        const rec = evId ? recommended.get(evId) : undefined;
+        if (!rec) continue; // not (or no longer) the recommended pick → hide
+        const type = asString(r.media_type) === 'clip' ? 'clip' : 'photo';
+        const still = await displayUrlForStoredAsset(asString(r.still_r2_key));
+        if (!still) continue; // no still → can't render (and it's the NSFW proxy)
+        const boomerang =
+          type === 'clip' ? await displayUrlForStoredAsset(asString(r.boomerang_r2_key)) : null;
+        if (type === 'clip' && !boomerang) continue; // clip with no baked boomerang → skip
+        vendorMedia.push({
+          vendorName: rec.name ?? 'Your vendor',
+          category: rec.category,
+          type,
+          stillUrl: still,
+          boomerangUrl: boomerang,
+          caption: asString(r.caption),
+        });
+      }
+    }
+  } catch {
+    // table absent (pre-migration) or any error → no vendor strip
   }
 
   // 7. Reviews (best-effort). Seeded via event_editorial.draft_json.reviews
@@ -751,6 +853,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     },
     published,
     heroPhotoUrl,
+    heroVideoUrl,
     metrics,
     archetype,
     vendors,
@@ -760,6 +863,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     galleryPhotos,
     photoWallPhotos,
     photoWallActive,
+    vendorMedia,
     sections: readSections(draftJson),
   };
 }
@@ -895,9 +999,16 @@ function mariaAndJuan(): EditorialData {
       'Thank you for being here with us today. Set na ’yan — and we could never have set it without every one of you.',
     togetherSince: '2019-08-01',
     tone: 'warm',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'Under a sky that cleared just in time, Maria and Juan were married on a garden lawn high above Taal, the lake holding the afternoon light like a held breath. One hundred and twenty guests rose as she came down a path lined with white blooms; by the time she reached him, neither was bothering to hide the tears.',
+        'The ceremony was short and unhurried — vows traded in a near-whisper, a kiss the front rows swore they could hear. At the reception that followed, long tables ran the length of the lawn beneath strings of warm light, and the kitchen sent out course after course while the toasts ran long and the laughter ran longer.',
+        'They danced their first dance to the kundiman that has followed them since a despedida in Quezon City, and closed the night the way they began — side by side, in no hurry for the day to end.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/maria-juan-tagaytay.jpg',
+    heroVideoUrl: '/realstories/maria-juan-tagaytay.mp4',
     metrics: {
       servicesSetnayan: 5,
       servicesTotalDenominator: null,
@@ -926,9 +1037,17 @@ function mariaAndJuan(): EditorialData {
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream', 'Pakanta'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/maria-juan-g1.jpg',
+      '/realstories/maria-juan-g2.jpg',
+      '/realstories/maria-juan-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/maria-juan-v1.jpg', boomerangUrl: '/realstories/maria-juan-vclip.mp4', caption: 'The rings, in close' },
+      { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
+    ],
   };
 }
 
@@ -969,9 +1088,16 @@ function jackAndJill(): EditorialData {
       'Salamat for trekking all the way out here with us. The tide waited; so did we — thank you for being here.',
     togetherSince: '2020-01-01',
     tone: 'playful',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'Barefoot on warm sand, Jack and Jill were married as the tide pulled back to make room for the aisle. Eighty guests kicked off their shoes at the tree line and walked down to the water, and the cove obliged with the kind of sunset that looks staged.',
+        'There were no chairs to speak of and no one minded. The couple traded vows ankle-deep in the shallows — a callback to the proposal Jack swears he pulled off without dropping the ring — then waded back up to a reception of long communal tables, fresh kinilaw, and a playlist that opened with their road-trip anthem and never quite stopped.',
+        'By the time the bonfire was lit, half the party was back in the water. The other half was already plotting next year’s boat ride out.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/jack-jill-cebu.jpg',
+    heroVideoUrl: '/realstories/jack-jill-cebu.mp4',
     metrics: {
       servicesSetnayan: 4,
       servicesTotalDenominator: null,
@@ -996,9 +1122,17 @@ function jackAndJill(): EditorialData {
       { author: 'Kuya Ramon', role: 'guest', quote: 'Worth the boat ride. The timeline ran like clockwork even on the sand.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/jack-jill-g1.jpg',
+      '/realstories/jack-jill-g2.jpg',
+      '/realstories/jack-jill-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-jill-v1.jpg', boomerangUrl: '/realstories/jack-jill-vclip.mp4', caption: 'Toes in the sand' },
+      { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-jill-v2.jpg', boomerangUrl: null, caption: 'Down the shoreline at sunset' },
+    ],
   };
 }
 
@@ -1039,9 +1173,16 @@ function johnAndJane(): EditorialData {
       'Thank you for choosing a weeknight rooftop over a long weekend away to be with us. It meant everything.',
     togetherSince: '2019-02-01',
     tone: 'formal',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'On a clear weeknight evening, John and Jane were married on a Makati rooftop with the whole city laid out behind them. Sixty guests took their seats as the skyline switched on, tower by tower, and the ceremony began precisely on the hour.',
+        'It was, by every account, a study in restraint and good timing — short readings, a steady exchange of vows, and a dinner that moved at exactly the pace it was meant to. The supper club plated each course as the light over the bay deepened from gold to a settled blue.',
+        'There were three toasts, one slow dance, and a final round of coffee taken at the rail — the couple and their guests looking out over a city that, for one night, seemed arranged entirely for them.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/john-jane-manila.jpg',
+    heroVideoUrl: '/realstories/john-jane-manila.mp4',
     metrics: {
       servicesSetnayan: 3,
       servicesTotalDenominator: null,
@@ -1066,9 +1207,17 @@ function johnAndJane(): EditorialData {
       { author: 'Atty. Cruz', role: 'guest', quote: 'The most precisely run sixty-person dinner I have attended.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/john-jane-g1.jpg',
+      '/realstories/john-jane-g2.jpg',
+      '/realstories/john-jane-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/john-jane-v1.jpg', boomerangUrl: '/realstories/john-jane-vclip.mp4', caption: 'A toast at blue hour' },
+      { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/john-jane-v2.jpg', boomerangUrl: null, caption: 'Their first dance, up high' },
+    ],
   };
 }
 
@@ -1109,9 +1258,16 @@ function peterAndMary(): EditorialData {
       'To all 150 of you who filled this garden — salamat. A full table was the whole point, and you made it overflow.',
     togetherSince: '2018-06-01',
     tone: 'warm',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'It took a ridge-top garden to hold them all. One hundred and fifty guests filled an estate lawn in Tagaytay as Peter and Mary were married beneath an arch of petals and lanterns, two large families finally folded into one very long table.',
+        'The day was, fittingly, a feast. Lechon held court at the center of a reception that spilled across the garden, and the toasts came from every direction — parents, ninongs, cousins who had known one or the other since childhood. No one was a stranger by dessert.',
+        'Late in the evening both sets of parents were coaxed onto the dance floor to their old favorite, and for a few minutes the whole garden simply watched. A full table was always the point; on this day, it overflowed.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/peter-mary-tagaytay.jpg',
+    heroVideoUrl: '/realstories/peter-mary-tagaytay.mp4',
     metrics: {
       servicesSetnayan: 6,
       servicesTotalDenominator: null,
@@ -1137,9 +1293,17 @@ function peterAndMary(): EditorialData {
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/peter-mary-g1.jpg',
+      '/realstories/peter-mary-g2.jpg',
+      '/realstories/peter-mary-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/peter-mary-v1.jpg', boomerangUrl: '/realstories/peter-mary-vclip.mp4', caption: 'The tables in bloom' },
+      { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/peter-mary-v2.jpg', boomerangUrl: null, caption: 'The whole table, raised' },
+    ],
   };
 }
 
@@ -1180,9 +1344,16 @@ function jackAndRose(): EditorialData {
       'Thank you for climbing all the way up into the fog with us. The mountain kept our secret; now it is yours too.',
     togetherSince: '2019-07-01',
     tone: 'warm',
-    draft: {},
+    draft: {
+      leadParagraphs: [
+        'Fog moved through the pines like a fourth guest of honor as Jack and Rose were married in a forest clearing above Baguio. One hundred guests climbed into the cool and the mist, and the mountain answered with a hush you could almost hear.',
+        'The ceremony was small and close — vows exchanged under the trees, breath visible in the cold, the only music the wind in the branches until the strings came in. Afterward, guests warmed their hands around hot food and strawberry taho while the clearing glowed against the grey.',
+        'As the afternoon dimmed the fog rolled back in and seemed to close the clearing off from the rest of the world, leaving just the hundred of them, the pines, and a secret the mountain had agreed to keep.',
+      ],
+    },
     published: true,
     heroPhotoUrl: '/realstories/jack-rose-baguio.jpg',
+    heroVideoUrl: '/realstories/jack-rose-baguio.mp4',
     metrics: {
       servicesSetnayan: 5,
       servicesTotalDenominator: null,
@@ -1208,8 +1379,16 @@ function jackAndRose(): EditorialData {
       { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Pakanta'],
-    galleryPhotos: [],
+    galleryPhotos: [
+      '/realstories/jack-rose-g1.jpg',
+      '/realstories/jack-rose-g2.jpg',
+      '/realstories/jack-rose-g3.jpg',
+    ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-rose-v1.jpg', boomerangUrl: '/realstories/jack-rose-vclip.mp4', caption: 'Greens in the mist' },
+      { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-rose-v2.jpg', boomerangUrl: null, caption: 'Just the two of them, in the fog' },
+    ],
   };
 }

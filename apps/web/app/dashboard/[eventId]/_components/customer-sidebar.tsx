@@ -89,7 +89,9 @@
  * which IS the prefix.
  */
 
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { isDayOfOpen } from '@/lib/guest-journey';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
@@ -186,12 +188,27 @@ function applyRegistry(
 export function CustomerSidebar({
   eventId,
   navSlots,
+  eventDate,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
+  /**
+   * Drives the Guests-journey Day-of stage's time-gate (muted until the live
+   * window). Deferred to a client effect so SSR + first paint agree (both
+   * render Day-of muted) and it un-mutes on the event day — same no-flash
+   * pattern as <GuestsSectionSubnav>.
+   */
+  eventDate?: string | null;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
-  const groups = applyRegistry(buildCustomerNavGroups(eventId), navSlots);
+  const [dayOfOpen, setDayOfOpen] = useState(false);
+  useEffect(() => {
+    setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
+  }, [eventDate]);
+  const groups = applyRegistry(
+    buildCustomerNavGroups(eventId, { dayOfOpen }),
+    navSlots,
+  );
 
   return (
     <>

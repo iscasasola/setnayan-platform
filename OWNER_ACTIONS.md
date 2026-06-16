@@ -1076,6 +1076,35 @@ findings.
 
 ---
 
+## Face auto-tagging — host the model on R2 (DEFERRED, activates the feature)
+
+Face auto-tagging (guests' faces matched to their RSVP selfie so the gallery
+auto-tags them) is **built and validated** but ships **dormant** — it does
+nothing until the model is hosted. Like the Resend key, it's one paste-and-go
+step.
+
+The model is **self-hosted, on-device, ₱0** — dlib face-recognition via
+face-api.js (public-domain weights + MIT, validated on real faces 2026-06-17:
+same-person distance 0.40–0.47 vs different-person 0.79–0.90). **No cloud face
+API, no per-photo fee; faces never leave the guest's phone — only a tiny numeric
+fingerprint reaches our server.**
+
+To turn it on:
+1. Download the 3 face-api.js model sets (detector + landmarks + recognition):
+   `ssd_mobilenetv1`, `face_landmark_68`, `face_recognition` (each a
+   `*-weights_manifest.json` + `*.bin`, ~12 MB total) from the
+   `@vladmandic/face-api` model folder.
+2. Upload that folder to the **public** R2 bucket (e.g. under
+   `face-models/`), so the manifests + `.bin` files are publicly fetchable.
+3. Set **`NEXT_PUBLIC_FACE_MODEL_URL`** in Vercel to that folder URL and redeploy.
+4. **Validate on a real device first** (a few of your own test photos): confirm
+   same-person matches and different-person doesn't, before relying on it for a
+   real wedding — then tune the thresholds in `lib/face-match-core.ts` if needed.
+
+Until step 3, every embed call is a clean no-op and enrollment stays image-only.
+
+---
+
 ## If something breaks
 
 1. Check `/admin/help` first — useful for reproducing issues users report

@@ -4,7 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
+## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
+
+First wiring of the nav/icon/menu registry into live chrome. The customer mobile bottom nav (the flat 6-tab bar: Home · Guests · Explore · Studio · Design · Budget) now sources its **label + icon per tab from the admin registry**, falling back to the prior hardcoded values. **Visually identical today** (the override table is empty → every slot resolves to its code default); editing a `customer.bottom-nav.*` slot on `/admin/menus` now changes the live bar.
+
+- **`apps/web/lib/nav-registry-defaults.ts`** — added the 4 missing bottom-nav slots (`customer.bottom-nav.{guests,explore,studio,budget}`, icons Users/Compass/Sparkles/Wallet) so all 6 tabs have a slot; bumped `design`'s sortOrder so the admin area lists in tab order.
+- **`apps/web/lib/nav-registry-types.ts` + `nav-registry.ts`** — `NavSlotLite` + `getNavSlotMap()`: a serializable `slot_key → {label, icon, isHidden}` map for passing server→client (cached via NAV_REGISTRY_TAG, fails open to defaults).
+- **`apps/web/app/_components/nav/nav-icon-component.tsx`** (new) — `navIconComponent(descriptor)` resolves a registry icon to a STABLE component (lucide name → component · SetnayanMark → inline mark · uploaded image → cached `<img>` wrapper). This is why **`BottomNav` itself is untouched** (the lint-enforced, "unbreakable" primitive) — it still renders `<Icon className strokeWidth style aria-hidden />` exactly as before; the press-grow `transform` even applies to custom images.
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — tabs now take `navSlots`; each tab looks up `customer.bottom-nav.<key>` for its label+icon (fallback = prior hardcoded), and a hidden slot drops its tab. `href` + `activeMatch` stay in code (routing, not naming).
+- **`apps/web/app/dashboard/[eventId]/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes it to `<CustomerBottomNav>`.
+
+Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
 
 Owner: *"all icons and namings are there … these will set the source for all the icons and menus on setnayan for all accounts."* Foundation PR for the admin-managed registry that owns the **name (label) + icon** of every menu/route across Setnayan, all account types. Triggered by the Setnayan-AI-vs-Studio shared-`Sparkles` clash. Discovery workflow mapped **176 deduped slots** → `Nav_Icon_Menu_Registry_Design_2026-06-16.md`.
 

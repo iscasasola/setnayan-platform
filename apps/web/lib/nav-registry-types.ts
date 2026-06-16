@@ -59,3 +59,10 @@ export interface ResolvedNavSlot {
   /** The baked default, for diff display + reset affordances. */
   default: { label: string; icon: NavIconDescriptor };
 }
+
+/** Minimal serializable slot — safe to pass server→client to nav renderers. */
+export interface NavSlotLite {
+  label: string;
+  icon: NavIconDescriptor;
+  isHidden: boolean;
+}

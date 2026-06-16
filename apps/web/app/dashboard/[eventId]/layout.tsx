@@ -16,6 +16,7 @@ import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { GuestsSectionSubnav } from './_components/guests-section-subnav';
+import { getNavSlotMap } from '@/lib/nav-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 
 type Props = {
@@ -352,6 +353,10 @@ export default async function EventLayout({ children, params }: Props) {
   // This is the structural half of removing the old-cream-flash on
   // event-route navigations.
 
+  // Nav registry: resolve the admin-managed name+icon overrides server-side and
+  // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
+  const navSlots = await getNavSlotMap();
+
   return (
     <>
       <SidebarShell
@@ -374,7 +379,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} />
+      <CustomerBottomNav eventId={eventId} navSlots={navSlots} />
       {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile) and
           lights the active stage of the guest journey (Build · Invite · Confirm ·
           Seat · Day-of) while the path is inside the journey (/guests* or

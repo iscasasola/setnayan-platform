@@ -5,19 +5,15 @@ import {
   ArrowLeft,
   Camera,
   Aperture,
-  Scan,
   BatteryWarning,
   Hand,
   Share2,
   Sparkles,
-  Tag,
   Info,
   ChevronUp,
   ChevronRight,
   HardDrive,
   Smartphone,
-  ImageIcon,
-  Film,
   CircleHelp,
   CheckCircle2,
   Cloud,
@@ -40,6 +36,8 @@ import {
   PAPIC_SAMPLER_PHOTO_CAP,
   PAPIC_SAMPLER_CLIP_CAP,
 } from '@/lib/papic-seats';
+import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -153,34 +151,6 @@ const GESTURES: ReadonlyArray<Gesture> = [
   },
 ];
 
-type MockPhoto = {
-  id: string;
-  kind: 'photo' | 'video';
-  tagSource: 'auto_face' | 'qr_scan' | 'untagged';
-  hue: number;
-};
-
-const MOCK_PHOTOS: ReadonlyArray<MockPhoto> = [
-  { id: 'p-01', kind: 'photo', tagSource: 'auto_face', hue: 12 },
-  { id: 'p-02', kind: 'photo', tagSource: 'qr_scan', hue: 38 },
-  { id: 'p-03', kind: 'video', tagSource: 'auto_face', hue: 152 },
-  { id: 'p-04', kind: 'photo', tagSource: 'untagged', hue: 200 },
-  { id: 'p-05', kind: 'photo', tagSource: 'auto_face', hue: 24 },
-  { id: 'p-06', kind: 'photo', tagSource: 'qr_scan', hue: 280 },
-  { id: 'p-07', kind: 'video', tagSource: 'qr_scan', hue: 340 },
-  { id: 'p-08', kind: 'photo', tagSource: 'auto_face', hue: 56 },
-  { id: 'p-09', kind: 'photo', tagSource: 'auto_face', hue: 90 },
-  { id: 'p-10', kind: 'photo', tagSource: 'untagged', hue: 220 },
-  { id: 'p-11', kind: 'video', tagSource: 'auto_face', hue: 4 },
-  { id: 'p-12', kind: 'photo', tagSource: 'qr_scan', hue: 168 },
-];
-
-const FILTERS = [
-  { id: 'chronological', label: 'Chronological' },
-  { id: 'photos-of-us', label: 'Photos of us' },
-  { id: 'untagged', label: 'Untagged' },
-  { id: 'type', label: 'Photo · Video' },
-] as const;
 
 const SDK_MATRIX = [
   { brand: 'Canon', sdk: 'EOS Camera Connect SDK', bodies: '11 V1 bodies (R-series mirrorless)' },
@@ -463,7 +433,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       <GestureReferenceCard />
 
-      <GalleryPreviewCard />
+      <GalleryPreviewCard eventId={eventId} />
 
       <SettingsCard />
     </section>
@@ -1151,18 +1121,22 @@ function GestureReferenceCard() {
   );
 }
 
-function GalleryPreviewCard() {
-  // TODO(0012): wire to real Photo / Clip rows once R2 upload + tag
-  // fan-out land. Mock photos here so couples can see the gallery
-  // shape and four-filter chip set before captures exist.
+async function GalleryPreviewCard({ eventId }: { eventId: string }) {
+  // Real gallery — the couple's actual crew + guest captures with presigned
+  // thumbnails. NSFW-blocked / hidden / expired-sampler photos are filtered out
+  // in fetchPapicGallery; untagged photos still show (untagged-still-delivered).
+  const supabase = await createClient();
+  const photos = await fetchPapicGallery(supabase, eventId);
+  const hasPhotos = photos.length > 0;
+
   return (
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 5 · gallery preview
+          Your gallery
         </p>
         <h2 className="text-xl font-semibold tracking-tight">
-          What your gallery looks like
+          {hasPhotos ? 'Every photo your crew shoots' : 'What your gallery looks like'}
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Auto-face tags fire at ≥ 0.85 cosine confidence. Guests who
@@ -1172,35 +1146,23 @@ function GalleryPreviewCard() {
         </p>
       </div>
 
-      <ul className="flex flex-wrap gap-2" role="list" aria-label="Gallery filters (preview)">
-        {FILTERS.map((f, idx) => (
-          <li key={f.id}>
-            {/* TODO(0012): wire chip filters once gallery is real.
-                idx === 0 visually anchored as the default for now. */}
-            <span
-              className={
-                idx === 0
-                  ? 'inline-flex items-center gap-1 rounded-full bg-terracotta px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-cream'
-                  : 'inline-flex items-center gap-1 rounded-full bg-ink/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60'
-              }
-              aria-current={idx === 0 ? 'true' : undefined}
-            >
-              {f.label}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <ul
-        className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
-        aria-label="Gallery preview (mock photos)"
-      >
-        {MOCK_PHOTOS.map((photo) => (
-          <li key={photo.id}>
-            <PhotoTile photo={photo} />
-          </li>
-        ))}
-      </ul>
+      {hasPhotos ? (
+        <PapicGalleryGrid photos={photos} />
+      ) : (
+        <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
+          <p className="text-sm text-ink/65">
+            Your gallery fills up as your crew shoots. Share a seat link and the
+            first photos land here in real time.
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/add-ons/papic/crew`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
+          >
+            Set up your crew
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-ink/65">
         <LegendDot color="bg-emerald-500" label="Auto-face tag" />
@@ -1208,58 +1170,6 @@ function GalleryPreviewCard() {
         <LegendDot color="bg-ink/30" label="Untagged" />
       </div>
     </article>
-  );
-}
-
-function PhotoTile({ photo }: { photo: MockPhoto }) {
-  // Mock-only tile — solid hue + tag indicator + media-type chip.
-  // Real thumbnails will load from R2 once the upload pipeline ships.
-  const tagDot =
-    photo.tagSource === 'auto_face'
-      ? 'bg-emerald-500'
-      : photo.tagSource === 'qr_scan'
-        ? 'bg-terracotta'
-        : 'bg-ink/30';
-  const tagLabel =
-    photo.tagSource === 'auto_face'
-      ? 'Auto-tagged via face match'
-      : photo.tagSource === 'qr_scan'
-        ? 'Tagged via QR scan'
-        : 'Untagged';
-
-  return (
-    <div
-      className="group relative aspect-square overflow-hidden rounded-lg border border-ink/10"
-      style={{ backgroundColor: `hsl(${photo.hue} 55% 80%)` }}
-      aria-label={`${photo.kind === 'video' ? '5-second clip' : 'Photo'} · ${tagLabel}`}
-    >
-      <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-cream/85 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.15em] text-ink">
-        {photo.kind === 'video' ? (
-          <>
-            <Film aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-            5s
-          </>
-        ) : (
-          <>
-            <ImageIcon aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-            Photo
-          </>
-        )}
-      </span>
-      <span
-        className={`absolute right-1.5 top-1.5 inline-flex h-2.5 w-2.5 rounded-full ${tagDot}`}
-        title={tagLabel}
-      />
-      {photo.tagSource === 'qr_scan' ? (
-        <span className="absolute bottom-1.5 right-1.5 inline-flex items-center justify-center rounded-full bg-cream/85 p-1 text-ink">
-          <Scan aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        </span>
-      ) : photo.tagSource === 'auto_face' ? (
-        <span className="absolute bottom-1.5 right-1.5 inline-flex items-center justify-center rounded-full bg-cream/85 p-1 text-ink">
-          <Tag aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        </span>
-      ) : null}
-    </div>
   );
 }
 

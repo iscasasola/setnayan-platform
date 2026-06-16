@@ -8,12 +8,26 @@
 // Hard rule: this must NEVER throw. A hook-setup hiccup must not break
 // `pnpm install` (CI, Docker, a tarball checkout, a machine without git).
 import { execSync } from 'node:child_process';
-import { existsSync, chmodSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, chmodSync, readdirSync } from 'node:fs';
+import { join, isAbsolute } from 'node:path';
 
 function git(args, root) {
   const cmd = (root ? `git -C "${root}" ` : 'git ') + args;
   return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+}
+
+// A custom hooksPath is only worth preserving if it actually holds a hook. git
+// ships `*.sample` templates that never run, so a dir with only those (or an
+// empty/missing dir) has nothing to lose — we can safely point at `.githooks`.
+// THIS is why the migration guard silently never ran here: core.hooksPath was a
+// leftover `~/.git/hooks` containing only samples.
+function customPathHasRealHooks(current, root) {
+  try {
+    const dir = isAbsolute(current) ? current : join(root, current);
+    return readdirSync(dir).some((f) => !f.endsWith('.sample'));
+  } catch {
+    return false; // missing / unreadable dir → nothing to preserve
+  }
 }
 
 try {
@@ -46,11 +60,21 @@ try {
     process.exit(0); // already wired
   }
   if (current && current !== '.githooks') {
-    // Respect a custom hooks path the developer set on purpose — don't clobber.
-    // (This very repo's primary dev checkout has one, so say so loudly.)
+    if (!customPathHasRealHooks(current, root)) {
+      // Nothing real to preserve (samples-only / empty / missing) — activate the
+      // repo guard. Without this the migration pre-push guard stays silently off.
+      git('config core.hooksPath .githooks', root);
+      heal();
+      console.log(
+        `✓ Git hooks enabled (core.hooksPath was "${current}" with no real hooks → .githooks): migration guard active on push.`,
+      );
+      process.exit(0);
+    }
+    // The custom path has its OWN hooks — respect the developer's choice; don't
+    // clobber. To run BOTH, they can point core.hooksPath at .githooks (and chain).
     console.log('');
-    console.log(`⚠  Migration-timestamp guard is NOT active: git core.hooksPath is set to "${current}".`);
-    console.log('   Enable it once with:   git config core.hooksPath .githooks');
+    console.log(`⚠  Migration-timestamp guard is NOT active: git core.hooksPath is "${current}" (it has its own hooks).`);
+    console.log('   Enable the repo guard with:   git config core.hooksPath .githooks');
     console.log('');
     process.exit(0);
   }

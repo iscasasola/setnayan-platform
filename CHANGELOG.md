@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · chore(db): failproof migration timestamps — force the allocator + activate the dormant guard
+
+Owner: "fail proof it." A 2026-06-17 session hit the dup-timestamp collision **twice in one sitting** (each needing manual ledger surgery) despite the repo already having an allocator + a CI guard + a pre-push hook. Root cause wasn't a missing guard — it was **bypassed/unused** ones. Two holes, both closed:
+
+- **Hand-typing bypassed the allocator.** Migrations were created by hand-typing `YYYYMMDD000000` prefixes instead of `pnpm migration:new`; two branches independently pick the same round date, each passes CI alone, then collide on merge. **`scripts/check-migration-timestamps.mjs` is rewritten** as the single source of truth for two rules: RULE 1 (no duplicate 14-digit prefix — unchanged) and **RULE 2 (a NEW migration — one not yet on origin/main — must NOT use a hand-typed `YYYYMMDD000000` round prefix)**. The allocator never emits a round prefix, so this cleanly forces its use; the 209 existing round migrations are grandfathered (they're on main). Pure rule functions are exported + unit-tested (`scripts/check-migration-timestamps.test.mjs`, 5 cases). The CI "migration timestamp guard" job now runs this script (one source, no drift vs the old inline sh) after fetching origin/main, plus the unit test; the `.githooks/pre-push` hook gains the same RULE 2 in pure sh.
+- **The pre-push guard was silently OFF.** `core.hooksPath` was a leftover `~/.git/hooks` (samples only), and `setup-git-hooks.mjs` *respected* it → the guard never ran locally, so the collision only surfaced in CI **after** the migration had been applied to prod (forcing ledger surgery). `setup-git-hooks.mjs` now **auto-activates** `.githooks` when the custom path holds no real hooks (samples/empty/missing → nothing to preserve), and still respects a path that has real hooks.
+- **Allocator hardened:** `new-migration.mjs` random nudge widened 1e3 → **1e6** (concurrent allocations against the same main now collide ~1-in-a-million, not 1-in-a-thousand) and **guaranteed never to emit a round `…000000` prefix** (so it can never trip RULE 2 itself).
+
+Verified: guard ✓ on the real 387-migration tree, ✓ catches a new hand-typed file (exit 1), ✓ allows an allocator-style file, ✓ safely SKIPS RULE 2 (not 209 false-fails) when origin/main is unavailable; allocator emits a non-round prefix; 5/5 unit tests; hook auto-activated locally (core.hooksPath → .githooks).
+
+SPEC IMPACT: None (dev-tooling/CI hardening; no schema, SKU, or app behavior change). The structural lever for the *other* root cause — applying migrations to prod **ahead of merge** (which jammed `db push` + caused the silent QR-RPC drop) — is re-enabling auto-apply-on-merge; flagged for owner (needs the `SUPABASE_DB_URL` Actions secret). Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-17 · chore(ci): scaffold auto-apply-migrations-on-merge — armed but dormant until the secrets are set
 
 The structural fix for the migration-pain ROOT cause (companion to the timestamp-failproof #1617). Applying migrations to prod **manually, ahead of the PR merge** is what caused this repo's worst incidents — the `db push` jam, the silent QR-RPC drop, and the dup-collision ledger surgery (all 2026-06-17). Auto-apply-on-merge means migrations apply ONLY post-merge, under finalized timestamps, applied==recorded — the whole class disappears.

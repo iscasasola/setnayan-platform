@@ -83,9 +83,24 @@ const nowInt = BigInt(
 // sequence past the max. The random nudge spreads two people who allocate
 // against the SAME main into different slots; the loop then GUARANTEES the
 // prefix is unused by any migration we can see (local ∪ origin/main).
+//
+// Entropy is 1e6 (was 1e3): the only collision the visibility loop can't catch
+// is two people allocating against the same main in the same instant — neither
+// sees the other's file yet — so they must roll different nudges. 1e6 makes that
+// ~1-in-a-million instead of 1-in-a-thousand.
+//
+// The `% 1_000_000n !== 0n` floor GUARANTEES the allocator never emits a
+// `YYYYMMDD000000` round prefix. That's load-bearing: the hand-typed-prefix
+// guard (scripts/check-migration-timestamps.mjs) rejects exactly those round
+// prefixes on new migrations, so the allocator must never produce one itself.
 const base = nowInt > maxExisting ? nowInt : maxExisting + 1n;
-let candidate = base + BigInt(Math.floor(Math.random() * 1000));
-while (prefixSet.has(candidate.toString().padStart(14, '0'))) candidate += 1n;
+let candidate = base + BigInt(Math.floor(Math.random() * 1_000_000));
+while (
+  prefixSet.has(candidate.toString().padStart(14, '0')) ||
+  candidate % 1_000_000n === 0n
+) {
+  candidate += 1n;
+}
 const prefix = candidate.toString().padStart(14, '0');
 
 const file = join(migrationsDir, `${prefix}_${slug}.sql`);

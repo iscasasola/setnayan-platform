@@ -18,8 +18,7 @@ import { ProfileMenu } from '@/app/_components/profile-menu';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
-import { GuestsSectionSubnav } from './_components/guests-section-subnav';
-import { VendorsSectionSubnav } from './_components/vendors-section-subnav';
+import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 
@@ -402,9 +401,8 @@ export default async function EventLayout({ children, params }: Props) {
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math.
             `data-shell-main` is the hook globals.css uses to add EXTRA bottom
-            room on Guests-cluster routes, where <GuestsSectionSubnav> docks a
-            second floating pill above the bottom nav (see globals.css
-            `html.guests-subnav-docked`). */}
+            room on routes where <CustomerSectionSubnav> docks a second floating
+            pill above the bottom nav (see globals.css `html.subnav-docked`). */}
         <div data-shell-main className="pb-20 lg:pb-0">
           <main className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
             {children}
@@ -415,21 +413,18 @@ export default async function EventLayout({ children, params }: Props) {
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} />
-      {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile) and
-          lights the active stage of the guest journey (Build · Invite · Confirm ·
-          Seat · Day-of) while the path is inside the journey (/guests* or
-          /seating*). Self-gates to null everywhere else, so it's safe to mount
-          once here for every event route — same place + pattern as
-          <CustomerBottomNav>. eventDate drives the Day-of time-gate. */}
-      <GuestsSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} />
-      {/* Explore/Services-tab subordinate shelf — docks above the bottom nav
-          (mobile) and lights the active section of the Services takeover
-          (Summary · Shortlist · Build · Compare · Lock) while the path is the
-          takeover root (/vendors). Self-gates to null everywhere else. Mounted
-          here (not inside the takeover) so it paints + responds the instant
-          Explore opens, ahead of the server-built panel — owner 2026-06-16
-          "the sub nav should always respond first". */}
-      <VendorsSectionSubnav eventId={eventId} />
+      {/* ONE docked section sub-nav for all 6 menus (owner 2026-06-17 "sub nav
+          are child menus of the 6 menus"). Reads the canonical tree in
+          lib/customer-menu.ts and renders whichever menu's CHILDREN belong to the
+          current route — the Guests journey (Build·Invite·Confirm·Seat·Day-of,
+          routed) and the Explore takeover (Summary·Shortlist·Build·Compare·Lock,
+          in-page tabs) today; Studio/Design/Budget/Home children land in later
+          PRs. Mounted here (a layout sibling of <CustomerBottomNav>, NOT inside
+          any page) so it paints + responds the instant a section opens, ahead of
+          the server-built panel, and the bottom nav collapses to icons-only while
+          it's docked. Self-gates to null outside any menu's section. eventDate
+          drives the Guests Day-of time-gate. */}
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} />
     </>
   );
 }

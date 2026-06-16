@@ -34,7 +34,7 @@ import {
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META moved to
 // @/lib/budget-build 2026-06-16: the docked mobile section sub-nav is now
-// mounted in the EVENT LAYOUT (vendors-section-subnav.tsx) — not here — so it
+// mounted in the EVENT LAYOUT (customer-section-subnav.tsx) — not here — so it
 // paints and responds BEFORE this server-built panel resolves (owner: "the sub
 // nav should always respond first"). The dock shares the bus + meta from the lib
 // without importing across _components. Re-exported here so the existing

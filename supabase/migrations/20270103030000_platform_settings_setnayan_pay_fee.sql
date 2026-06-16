@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20270103000000_platform_settings_setnayan_pay_fee.sql
+-- 20270103030000_platform_settings_setnayan_pay_fee.sql
 -- Make the Setnayan Pay convenience fee admin-editable.
 --
 -- The convenience-fee percentage was previously a code-only constant

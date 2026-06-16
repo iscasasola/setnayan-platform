@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(std-reveal): the Save-the-Date page IS the reveal now — replaced the video gallery (PR3c)
+
+Owner: *"replace."* `/dashboard/[eventId]/add-ons/save-the-date` is now the Save-the-Date **reveal** (the website opening), not the old ₱99 Save-the-Date **video** render.
+
+- Rewrote the page: reframed header ("how your wedding page opens for guests"), the `RevealPreviewCard` as the body; removed the video template gallery + how-it-works + Feature-Us + custom-request + the local `TemplateCard`/`Preview` components and their imports/queries.
+- **Video infra left intact (not deleted):** the `save_the_date_video` SKU, `@/lib/save-the-date` template library, `InlineCheckoutDrawer`, `FeatureUsCard` — existing orders + the catalog are unaffected, fully reversible. The page just no longer surfaces them.
+
+⚠ **Loose ends flagged for owner (not done here):** the `save_the_date_video` SKU still lives in the catalog + `/pricing`; if the video product is to be fully retired, that's a separate migration + pricing/copy pass. The plan-section + site-editor tiles link here under the generic "Save the Date" label (fits the reveal — no change needed).
+
+Next: reveal chooser **persistence** (which template the couple picked, so the live page uses it) + the content/upload editor.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+SPEC IMPACT: 0024 Save the Date — the Save-the-Date surface is now the reveal experience (owner "replace"); the video render add-on retained in code, dropped from the page.
+
 ## 2026-06-16 · fix(std-reveal): move the opening-reveal preview onto the Save-the-Date page (PR3b)
 
 Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be the link where it should be… the website shows the old save the date."* Relocated the reveal preview from the website editor (PR3a) to the **Save-the-Date add-on page**, where the couple looks for it.

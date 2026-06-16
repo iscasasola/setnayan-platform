@@ -71,6 +71,7 @@ import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
 import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
+import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
 import {
   weaveStory,
   masthead as weaveMasthead,
@@ -333,7 +334,7 @@ const REGLABEL: Record<string, string> = {
 /* ── "What would you love?" picker — 53 services grouped by the 10 taxonomy parents (prototype lines 780-830). Rows = chip rows (solo or pair). `s` = default-selected. ── */
 type PickChip = { cat: string; label: string };
 type PickGroup = { label: string; rows: PickChip[][] };
-const PICK_GROUPS: PickGroup[] = [
+const PICK_GROUPS_FALLBACK: PickGroup[] = [
   { label: 'Venue', rows: [[{ cat: 'reception', label: 'Reception venue' }, { cat: 'ceremony', label: 'Ceremony venue' }]] },
   { label: 'Planning', rows: [[{ cat: 'coordinator', label: 'Coordinator / planner' }]] },
   { label: 'Feast', rows: [[{ cat: 'catering', label: 'Catering' }], [{ cat: 'cake', label: 'Cake' }, { cat: 'stations', label: 'Food stations' }]] },
@@ -513,15 +514,14 @@ const PV_INCLUDED = ['Pre-nup', 'Wedding day', 'Same-day edit', 'Drone', 'Save-t
 const REFINE_BASIC_ORDER: readonly string[] = BASIC_CATS;
 // Exclude reception (captured on reception_setting) AND stylist (captured on the `mood`
 // screen — it IS the stylist refinement now, owner 2026-06-09) so neither is re-asked here.
-const EXTRAS_ORDER: string[] = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat)).filter((c) => c !== 'reception' && c !== 'stylist' && !BASIC_SET.has(c));
 function refineBasicQueueFor(picks: string[]): string[] {
   return REFINE_BASIC_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS_BY_KEY);
 }
-function refineExtrasQueueFor(picks: string[]): string[] {
-  return EXTRAS_ORDER.filter((k) => picks.includes(k) && k in REFINEMENTS_BY_KEY);
+function refineExtrasQueueFor(picks: string[], extrasOrder: string[], refinementKeys: ReadonlySet<string>): string[] {
+  return extrasOrder.filter((k) => picks.includes(k) && refinementKeys.has(k));
 }
-function queueFor(id: ScreenId, picks: string[]): string[] {
-  return id === 'refine_basic' ? refineBasicQueueFor(picks) : refineExtrasQueueFor(picks);
+function queueFor(id: ScreenId, picks: string[], extrasOrder: string[], refinementKeys: ReadonlySet<string>): string[] {
+  return id === 'refine_basic' ? refineBasicQueueFor(picks) : refineExtrasQueueFor(picks, extrasOrder, refinementKeys);
 }
 /* the two refine passes (used by the go() re-entry loop + the render dispatch). */
 const REFINE_SCREENS: ReadonlySet<ScreenId> = new Set(['refine_basic', 'refine_extras']);
@@ -1279,10 +1279,6 @@ function recommendedInappFor(picks: string[]): string[] {
 
 /* Faith key → display label for the congrats recap — lib/faith-registry. */
 const FAITH_LABEL: Record<string, string> = FAITH_LABELS;
-/* Picker cat key → its chip label, for the congrats recap "Services" row. */
-const PICK_LABEL: Record<string, string> = Object.fromEntries(
-  PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => [c.cat, c.label] as const)),
-);
 
 /* Live wedding countdown (owner 2026-06-05 · congrats screen) — anchors on PH-midnight of the
    nearest picked date (same as Home) and ticks HH:MM:SS each second while the screen is active. */
@@ -1496,6 +1492,7 @@ export function OnboardingShell({
   bgMusicUrl = null,
   refinements = REFINEMENTS_DATA,
   hiddenCats = [],
+  dynamicTiles = [],
 }: {
   authed: boolean;
   resume: boolean;
@@ -1528,10 +1525,74 @@ export function OnboardingShell({
    * to the static module so the shell renders without the prop.
    */
   refinements?: RefineLeaf[];
+  /**
+   * Taxonomy-driven picker tiles (2026-06-17) — all active tier-2 service_categories
+   * tiles scoped to weddings, fetched by getOnboardingTiles('wedding') in page.tsx.
+   * Merged with PICK_GROUPS_FALLBACK so new admin-added taxonomy categories
+   * auto-appear in the onboarding PICK step without a deploy. [] / undefined →
+   * shell falls back to the static PICK_GROUPS_FALLBACK unchanged.
+   */
+  dynamicTiles?: OnboardingPickChip[];
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
+
+  /* ── Taxonomy-driven PICK step (2026-06-17) ────────────────────────────────
+     `pickGroups` merges the static PICK_GROUPS_FALLBACK with any NEW tiles from
+     the taxonomy DB (dynamicTiles prop). Existing cats are never duplicated —
+     only tiles whose `cat` key is NOT already in the fallback are appended to
+     their folder's group. New folders get their own group at the end.
+     When dynamicTiles is empty/undefined the fallback is returned as-is (zero
+     overhead — the useMemo short-circuits on the first branch). */
+  const pickGroups = useMemo((): PickGroup[] => {
+    if (!dynamicTiles?.length) return PICK_GROUPS_FALLBACK;
+    const existingCats = new Set(PICK_GROUPS_FALLBACK.flatMap((g) => g.rows.flat().map((c) => c.cat)));
+    const newChips = dynamicTiles.filter((c) => !existingCats.has(c.cat));
+    if (!newChips.length) return PICK_GROUPS_FALLBACK;
+    // Deep-copy so we can safely push without mutating the module-level const.
+    const result: PickGroup[] = PICK_GROUPS_FALLBACK.map((g) => ({ label: g.label, rows: g.rows.map((r) => [...r]) }));
+    // Folder id → group label (mirrors WEDDING_FOLDER_LABEL in lib/taxonomy.ts).
+    const FOLDER_LABEL: Record<string, string> = {
+      venue: 'Venue', planning: 'Planning', feast: 'Feast', design: 'Design',
+      program: 'Program', documentary: 'Documentary', look: 'Look',
+      booths: 'Booths', prints: 'Prints', transport: 'Transport',
+    };
+    for (const chip of newChips) {
+      const groupLabel = FOLDER_LABEL[chip.folder] ?? chip.folder;
+      let group = result.find((g) => g.label === groupLabel);
+      if (!group) { group = { label: groupLabel, rows: [] }; result.push(group); }
+      // Append as its own row (single-chip row) so layout stays clean.
+      group.rows.push([{ cat: chip.cat, label: chip.label }]);
+    }
+    return result;
+  }, [dynamicTiles]);
+
+  /* Flat cat order for the EXTRAS refine pass — same as the old module-level
+     EXTRAS_ORDER, but derived from the dynamic pickGroups so new tiles are
+     included automatically. Excludes reception (captured on reception_setting),
+     stylist (captured on mood screen), and the 4 BASIC_SET cats. */
+  const extrasOrder = useMemo(
+    () => pickGroups.flatMap((g) => g.rows.flat().map((c) => c.cat)).filter((c) => c !== 'reception' && c !== 'stylist' && !BASIC_SET.has(c)),
+    [pickGroups],
+  );
+
+  /* Union of static + dynamic refinement leaf keys — used by refineExtrasQueueFor
+     to gate which picked cats have a style sub-step. Static REFINEMENTS_BY_KEY
+     covers all seed leaves; the `refinements` prop adds any DB-only leaves
+     (admin-added style questions for new taxonomy tiles). */
+  const refinementKeys = useMemo(
+    () => new Set([...Object.keys(REFINEMENTS_BY_KEY), ...refinements.map((l) => l.key)]),
+    [refinements],
+  );
+
+  /* Picker cat key → chip label for recap + basics hero caption.
+     Built from the dynamic pickGroups so new tiles get correct labels. */
+  const PICK_LABEL = useMemo(
+    () => Object.fromEntries(pickGroups.flatMap((g) => g.rows.flat().map((c) => [c.cat, c.label] as const))),
+    [pickGroups],
+  );
+
   // Pure-moment conversational welcome (owner 2026-06-05): the intro plays once on
   // first arrival at step 0, collecting role/kind/faith inline, then hands off to the
   // Name screen. Re-entering step 0 (back-nav) shows the plain hero so it never traps.
@@ -1689,7 +1750,7 @@ export function OnboardingShell({
      order, the extras in flat-taxonomy order; each filtered to picked ∩ has-a-REFINEMENTS-
      entry). activeRefineQueue selects the one the current refine screen walks. */
   const refineBasicQueue = useMemo(() => refineBasicQueueFor(state.picks), [state.picks]);
-  const refineExtrasQueue = useMemo(() => refineExtrasQueueFor(state.picks), [state.picks]);
+  const refineExtrasQueue = useMemo(() => refineExtrasQueueFor(state.picks, extrasOrder, refinementKeys), [state.picks, extrasOrder, refinementKeys]);
   const activeRefineQueue = activeId === 'refine_basic' ? refineBasicQueue : activeId === 'refine_extras' ? refineExtrasQueue : [];
   const refinePosClamped = Math.min(Math.max(0, refineIdx), Math.max(0, activeRefineQueue.length - 1));
   const activeRefineLeaf = activeRefineQueue[refinePosClamped];
@@ -1759,7 +1820,7 @@ export function OnboardingShell({
         const activeIdNow = sq[Math.min(Math.max(0, s.step), sq.length - 1)] ?? 'welcome';
         // ── refine re-entry: walk the queued leaves within the active pass before leaving ──
         if (REFINE_SCREENS.has(activeIdNow) && s.ai === true) {
-          const q = queueFor(activeIdNow, s.picks);
+          const q = queueFor(activeIdNow, s.picks, extrasOrder, refinementKeys);
           if (d > 0 && refineIdx < q.length - 1) { setRefineIdx(refineIdx + 1); return s; } // forward within the pass
           if (d < 0 && refineIdx > 0) { setRefineIdx(refineIdx - 1); return s; }            // backward within the pass
           // else: fall through to leave the pass (generic step below)
@@ -1768,18 +1829,18 @@ export function OnboardingShell({
         const targetId = sq[n] ?? 'welcome';
         // entering a refine pass FORWARD → seed idx 0, or skip past it if the queue is empty
         if (REFINE_SCREENS.has(targetId) && d > 0) {
-          const q = queueFor(targetId, s.picks);
+          const q = queueFor(targetId, s.picks, extrasOrder, refinementKeys);
           if (q.length === 0) { n = Math.min(sq.length - 1, n + 1); } else { setRefineIdx(0); }
         }
         // entering a refine pass BACKWARD → land on its LAST item, or keep stepping back if empty
         if (REFINE_SCREENS.has(targetId) && d < 0) {
-          const q = queueFor(targetId, s.picks);
+          const q = queueFor(targetId, s.picks, extrasOrder, refinementKeys);
           if (q.length === 0) { n = Math.max(0, n - 1); } else { setRefineIdx(q.length - 1); }
         }
         return { ...s, step: n };
       });
     },
-    [authed, refineIdx],
+    [authed, refineIdx, extrasOrder, refinementKeys],
   );
 
   /* Absolute jump to a screen by id (resolves to its index in the filtered seq).
@@ -3867,7 +3928,7 @@ export function OnboardingShell({
               <div className="exscroll">
                 {(() => {
                   const hiddenSet = new Set(hiddenCats);
-                  const extrasGroups = PICK_GROUPS
+                  const extrasGroups = pickGroups
                     .map((g) => ({ label: g.label, leaves: g.rows.flat().filter((c) => c.cat !== 'reception' && !BASIC_SET.has(c.cat) && !hiddenSet.has(c.cat)) }))
                     .filter((g) => g.leaves.length > 0);
                   // default-open the first group with a selection, else the first group

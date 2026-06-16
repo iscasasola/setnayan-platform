@@ -1,6 +1,4 @@
-import { ShoppingBag } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { startTokenPurchase } from '../actions';
+'use client';
 
 /**
  * BuyTokensCta — interactive token-pack purchase card.
@@ -16,7 +14,32 @@ import { startTokenPurchase } from '../actions';
  * apply-then-pay order — the vendor then pays externally and an admin (or a
  * future payment webhook) confirms it. See actions.ts + migration
  * 20260916000000.
+ *
+ * MOBILE CHANNEL PRICING
+ *
+ * When running inside the Capacitor native shell (isNativeApp()), the card
+ * shows SRP prices (1.5× the DB web price, rounded to the nearest ₱50) to
+ * reflect the channel surcharge. A "Buy on web for less" banner guides the
+ * vendor to setnayan.com for the canonical web price.
+ *
+ * The server action always uses the sku_code — the DB RPC re-reads the
+ * authoritative price. The displayed mobile SRP is informational only and
+ * does NOT flow to the DB. The actual QR-code payment amount will match
+ * the DB (web) price. This is intentional: the vendor is being nudged to the
+ * web checkout where the lower price applies; if they order on mobile, they
+ * pay the DB price (which is the same regardless of channel at the DB level).
+ *
+ * TODO (Phase 2): if a true mobile-SRP SKU set is added to the DB catalog,
+ * swap the displayed price to the mobile-specific SKU price so the QR amount
+ * matches what the vendor sees.
  */
+
+import { useEffect, useState } from 'react';
+import { ShoppingBag } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { WebNudgeBanner } from '@/app/vendor-dashboard/_components/web-nudge-banner';
+import { isNativeApp } from '@/lib/capacitor';
+import { startTokenPurchase } from '../actions';
 
 export type TokenPack = {
   sku_code: string;
@@ -26,7 +49,40 @@ export type TokenPack = {
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
+/**
+ * Mobile SRP multiplier: 1.5× the web price.
+ * Pack SRP prices (at ₱100/token web price):
+ *   4-pack  → ₱400 web  → ₱600 mobile
+ *   10-pack → ₱1,000 web → ₱1,500 mobile
+ *   25-pack → ₱2,500 web → ₱3,750 mobile
+ *   50-pack → ₱5,000 web → ₱7,500 mobile
+ *   100-pack→ ₱10,000 web → ₱15,000 mobile
+ *
+ * If the admin changes the base token price, the SRP scales proportionally.
+ */
+const MOBILE_SRP_MULTIPLIER = 1.5;
+
+function mobileSrp(webPrice: number): number {
+  // Round to nearest ₱50 for clean display.
+  return Math.round((webPrice * MOBILE_SRP_MULTIPLIER) / 50) * 50;
+}
+
 export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
+  const [native, setNative] = useState(false);
+
+  useEffect(() => {
+    setNative(isNativeApp());
+  }, []);
+
+  // Web price per token (from the cheapest single-token pack or derived from
+  // smallest pack). Used only for the nudge banner copy.
+  const firstPack = packs[0];
+  const webTokenPrice =
+    firstPack != null
+      ? Math.round(firstPack.price_php / firstPack.token_count)
+      : 100;
+  const mobileTokenPrice = Math.round(webTokenPrice * MOBILE_SRP_MULTIPLIER);
+
   return (
     <div className="m-card p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -48,6 +104,14 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
         </div>
       </div>
 
+      {/* Mobile: show nudge banner above the pack list */}
+      {native && (
+        <WebNudgeBanner
+          savingsCopy={`₱${NUMBER.format(webTokenPrice)}/token (save ₱${NUMBER.format(mobileTokenPrice - webTokenPrice)} each)`}
+          webUrl="https://setnayan.com/vendor-dashboard/tokens"
+        />
+      )}
+
       {packs.length === 0 ? (
         <p className="text-sm text-ink/60">
           Token packs are being set up. Check back shortly.
@@ -55,7 +119,8 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
       ) : (
         <ul className="space-y-2">
           {packs.map((pack) => {
-            const perToken = Math.round(pack.price_php / pack.token_count);
+            const displayPrice = native ? mobileSrp(pack.price_php) : pack.price_php;
+            const displayPerToken = Math.round(displayPrice / pack.token_count);
             return (
               <li
                 key={pack.sku_code}
@@ -67,7 +132,7 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
                     {NUMBER.format(pack.token_count)} tokens
                   </p>
                   <p className="text-[11px] text-ink/50">
-                    ₱{NUMBER.format(pack.price_php)} · ₱{NUMBER.format(perToken)}/token
+                    ₱{NUMBER.format(displayPrice)} · ₱{NUMBER.format(displayPerToken)}/token
                   </p>
                 </div>
                 <form action={startTokenPurchase} className="shrink-0">

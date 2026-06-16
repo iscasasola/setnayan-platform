@@ -38,7 +38,7 @@ const INQUIRY_BODY =
   "what's included?";
 
 export type StartServiceInquiryResult =
-  | { status: 'ok'; threadId: string; eventId: string }
+  | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean }
   | { status: 'not_signed_in' }
   | { status: 'no_event' }
   | { status: 'error'; message: string };
@@ -71,6 +71,18 @@ export async function startServiceInquiry(input: {
   if (!eventId) return { status: 'no_event' };
 
   const admin = createAdminClient();
+
+  // Check for an existing non-declined thread BEFORE touching follow/upsert.
+  // The composer uses this to surface "You already have an inquiry" + "View thread".
+  const { data: existingThread } = await supabase
+    .from('chat_threads')
+    .select('thread_id, inquiry_status')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const isExisting =
+    existingThread?.thread_id != null &&
+    (existingThread as { inquiry_status?: string | null }).inquiry_status !== 'declined';
 
   // Validate the submitted service ids belong to THIS vendor + are active —
   // host-supplied form data, so a stale/forged id should be dropped, not
@@ -153,6 +165,8 @@ export async function startServiceInquiry(input: {
   }
 
   // Build the interest seeds: initial → its linked services → couple_added.
+  // Also track confirmedServiceIds for persisting to event_vendors.
+  const confirmedServiceIds: string[] = [initialServiceId];
   const seeds: InterestSeed[] = [
     {
       vendorServiceId: initialServiceId,
@@ -178,6 +192,7 @@ export async function startServiceInquiry(input: {
       categoryKey: ownedById.get(id) ?? null,
       source: 'couple_added',
     });
+    confirmedServiceIds.push(id);
   }
 
   await recordThreadInterests(supabase, {
@@ -186,6 +201,33 @@ export async function startServiceInquiry(input: {
     seeds,
   });
 
+  // Persist requested_service_ids to event_vendors (best-effort, merge pattern so
+  // a resumed inquiry appends new services rather than replacing the existing list).
+  try {
+    const { data: evRow } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, requested_service_ids')
+      .eq('event_id', eventId)
+      .eq('marketplace_vendor_id', vendorProfileId)
+      .maybeSingle();
+    if (evRow?.vendor_id) {
+      const existing: string[] = Array.isArray(
+        (evRow as unknown as { requested_service_ids?: string[] }).requested_service_ids,
+      )
+        ? ((evRow as unknown as { requested_service_ids: string[] }).requested_service_ids)
+        : [];
+      const merged = Array.from(new Set([...existing, ...confirmedServiceIds]));
+      await supabase
+        .from('event_vendors')
+        .update({ requested_service_ids: merged } as Record<string, unknown>)
+        .eq('vendor_id', evRow.vendor_id as string);
+    }
+    // If the couple has never saved this vendor (no event_vendors row), skip —
+    // the thread + interests are the primary record; the column is supplementary.
+  } catch {
+    /* best-effort — a missing column or row never blocks the inquiry */
+  }
+
   revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);
-  return { status: 'ok', threadId, eventId };
+  return { status: 'ok', threadId, eventId, isExisting };
 }

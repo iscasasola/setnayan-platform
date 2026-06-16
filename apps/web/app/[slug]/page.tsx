@@ -40,6 +40,11 @@ import {
   sealColorFromPalette,
   veilColorFromPalette,
 } from '@/lib/site-palette';
+import {
+  fallbackSeedFromPublicId,
+  sanitizeWaxSealConfig,
+  type WaxSealConfig,
+} from '@/lib/wax-seal/types';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { LiveWallBlock } from './_components/live-wall-block';
@@ -47,6 +52,7 @@ import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
 
 /** Panood Watch-Live data for the day-of page (PANOOD_SYSTEM owners only). */
 type WatchLiveData = { embedUrl: string; watchUrl: string };
@@ -134,7 +140,7 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -234,6 +240,11 @@ function revealMarkSvg(event: EventRow): string | null {
       ? event.monogram_custom_svg
       : null;
   return uploaded ?? custom;
+}
+
+/** The couple's minted wax-seal recipe for the reveal (null → default levers). */
+function revealSealConfig(event: EventRow): WaxSealConfig | null {
+  return sanitizeWaxSealConfig(event.wax_seal_config);
 }
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
@@ -705,6 +716,54 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       ? await getGuestLiveGallery(event.event_id, guest.guest_id)
       : null;
 
+  // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
+  // the hub card needs the table label without loading the full floor plan).
+  // Graceful-degrade: if the join fails or no assignment exists, tableLabel
+  // stays null and the card shows "Not yet assigned" — safe for every event
+  // regardless of whether the seating editor has been used.
+  let guestTableLabel: string | null = null;
+  try {
+    const { data: assignmentRow } = await admin
+      .from('event_seat_assignments')
+      .select('table_id')
+      .eq('event_id', event.event_id)
+      .eq('guest_id', guest.guest_id)
+      .maybeSingle();
+    if (assignmentRow?.table_id) {
+      const { data: tableRow } = await admin
+        .from('event_tables')
+        .select('table_label, link_group_label')
+        .eq('table_id', assignmentRow.table_id)
+        .maybeSingle();
+      if (tableRow) {
+        // Prefer the linked group label (e.g. "VIP Section") over the
+        // individual table label when the table is part of a linked unit.
+        guestTableLabel =
+          (tableRow as { table_label: string; link_group_label?: string | null })
+            .link_group_label ??
+          (tableRow as { table_label: string }).table_label;
+      }
+    }
+  } catch {
+    // Graceful degrade — seating tables may not exist yet on all installs.
+    guestTableLabel = null;
+  }
+
+  const guestHubData: GuestHubData = {
+    firstName: guest.first_name,
+    displayName:
+      (guest.display_name ?? '').trim() ||
+      `${guest.first_name} ${guest.last_name}`.trim(),
+    rsvpStatus: guest.rsvp_status,
+    tableLabel: guestTableLabel,
+    mealPreference: guest.meal_preference,
+    dietaryRestrictions: guest.dietary_restrictions,
+    nextScheduleBlock: pickNextScheduleBlock(scheduleBlocks),
+    slug,
+    isLimitedPlusOne:
+      guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
+  };
+
   return (
     <>
       <InvitationSite
@@ -728,6 +787,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         liveWall={liveWall}
         watchLive={watchLive}
         guestLiveGallery={guestLiveGallery}
+        guestHubData={guestHubData}
       />
       {papicGuestActive && (
         <Link
@@ -776,6 +836,9 @@ type EventRow = {
   // the Save-the-Date reveal's wax seal (0024 §3). Sanitized at generation time.
   monogram_custom_svg?: string | null;
   monogram_uploaded_svg?: string | null;
+  // The couple-minted wax-seal recipe (candle-stamp maker, 0024 §3) — deterministic
+  // config rendered client-side by paintWaxSeal. Unknown + sanitized at use.
+  wax_seal_config?: unknown;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -1130,6 +1193,8 @@ function PublicLanding({
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
         waxColor={revealWaxColor(event.role_palette)}
+        sealConfig={revealSealConfig(event)}
+        sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
@@ -1459,6 +1524,7 @@ function InvitationSite({
   liveWall,
   watchLive,
   guestLiveGallery,
+  guestHubData,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1506,6 +1572,8 @@ function InvitationSite({
   watchLive?: WatchLiveData | null;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery?: GuestLiveGallery | null;
+  /** Pre-assembled data bundle for the persistent GuestHubCard. */
+  guestHubData: GuestHubData;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1586,10 +1654,18 @@ function InvitationSite({
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
         waxColor={revealWaxColor(event.role_palette)}
+        sealConfig={revealSealConfig(event)}
+        sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
       />
       {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">
+        {/* Guest Hub Card — persistent status summary for identified returning
+            guests. Shows RSVP status, seat, meal, and next schedule item at
+            a glance on every return visit. Hidden from anonymous visitors
+            (this branch only runs when a guest session is present). */}
+        <GuestHubCard data={guestHubData} />
+
         {isLive ? (
           <DayOfBanner kind="live" />
         ) : isPost ? (

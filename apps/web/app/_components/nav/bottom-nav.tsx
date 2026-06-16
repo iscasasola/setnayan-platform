@@ -71,7 +71,6 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
-import { useSubNavDocked } from './sub-nav';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -141,12 +140,13 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
   const pathname = usePathname() ?? '';
   const isActive = useIsActive(pathname);
 
-  // Icons-only when a <SubNav> is docked (owner 2026-06-16): the bar drops its
-  // LABEL row only — the icon never shrinks — so it gets a touch shorter and
-  // the docked sub-nav stacks above it without crowding. Restores its labels
-  // when the sub-nav unmounts. The locked pill / press-light / icon-grow feel
-  // is untouched; only the per-cell label + min-height respond to `compact`.
-  const compact = useSubNavDocked();
+  // Owner REVERTED the 2026-06-16 "icons-only when a <SubNav> is docked" shrink
+  // (2026-06-17): the bottom nav now keeps its LABELS and its full height
+  // whether or not a sub-nav is docked. `compact` is hard-false so the per-cell
+  // min-height + label stay constant; the SubNav re-tuned its dock offset to
+  // clear the (now taller) bar. The useSubNavDocked store in sub-nav.tsx is left
+  // in place but no longer read here — re-import + call it to restore the shrink.
+  const compact = false;
 
   // Which tab is being physically pressed right now (pointerdown → up).
   // Drives the white press-light + the icon grow. Cleared on release,
@@ -646,8 +646,31 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
  *  the --bn-* knobs stay a single source of truth (lint guard markers live
  *  here). */
 function NavShell({ children }: { children: ReactNode }) {
+  // Publish the pill's REAL rendered height to a CSS var (--sn-bottomnav-h) so
+  // anything that stacks above the bar — the docked <SubNav> — can sit a fixed
+  // gap above it WITHOUT hardcoding the bar's height. Fail-proof: a
+  // ResizeObserver keeps the var in sync with whatever the bar actually renders
+  // (label changes, tab count, font scaling, safe-area), so the sub-nav gap can
+  // never drift or overlap. Falls back to the 64px design height until measured
+  // (SSR / pre-hydration), so the default position is already correct.
+  const shellRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const publish = () =>
+      document.documentElement.style.setProperty(
+        '--sn-bottomnav-h',
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <nav
+      ref={shellRef}
       aria-label="Primary navigation"
       className="fixed left-[14px] right-[14px] bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 overflow-hidden rounded-full border backdrop-blur lg:hidden"
       style={

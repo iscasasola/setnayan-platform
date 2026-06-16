@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
+import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { RevealPreviewCard } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 
 // 2026-06-16 — owner "replace": this page IS now the Save-the-Date *reveal*
@@ -28,7 +29,9 @@ export default async function SaveTheDatePage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, event_date, monogram_custom_svg, monogram_uploaded_svg, role_palette')
+    .select(
+      'public_id, display_name, event_date, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -45,6 +48,9 @@ export default async function SaveTheDatePage({ params }: Props) {
   const palette = sanitizeRolePalette(event?.role_palette);
   const waxColor = sealColorFromPalette(palette);
   const veilColor = veilColorFromPalette(palette);
+  const sealConfig = sanitizeWaxSealConfig(event?.wax_seal_config);
+  const sealFallbackSeed = fallbackSeedFromPublicId(event?.public_id);
+  const hasMintedSeal = sealConfig !== null;
 
   return (
     <section className="space-y-6">
@@ -56,13 +62,20 @@ export default async function SaveTheDatePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
+      <header className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Save the Date</h1>
         <p className="max-w-prose text-base text-ink/65">
           When a guest opens your invitation link, your wedding page opens with a reveal that
           uncovers your Save the Date. Choose the opening you love — it recolours to your Mood
           Board and plays on your live page automatically. Included with your website, free.
         </p>
+        <Link
+          href={`/dashboard/${eventId}/add-ons/save-the-date/stamp`}
+          className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-mulberry-600"
+        >
+          <Stamp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {hasMintedSeal ? 'Re-make your wax seal' : 'Make your wax seal'}
+        </Link>
       </header>
 
       <RevealPreviewCard
@@ -70,6 +83,8 @@ export default async function SaveTheDatePage({ params }: Props) {
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}
         waxColor={waxColor}
+        sealConfig={sealConfig}
+        sealFallbackSeed={sealFallbackSeed}
         veilColor={veilColor}
       />
     </section>

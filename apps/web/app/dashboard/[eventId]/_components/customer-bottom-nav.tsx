@@ -93,19 +93,11 @@ export function buildCustomerNavTabs(
       fallbackLabel: 'Studio',
       fallbackIcon: Sparkles,
       href: `${base}/add-ons`,
-      // The whole add-ons subtree (Papic/Panood/Patiktok/mood-board/…) lives
-      // under /add-ons, so a prefix match lights Studio across all of it.
-      activeMatch: `${base}/add-ons`,
-    },
-    {
-      key: 'design',
-      fallbackLabel: 'Design',
-      fallbackIcon: Palette,
-      href: `${base}/design`,
-      // Design's surfaces are scattered: the new hub + the standalone Website
-      // editor + the standalone Monogram studio. (Mood Board sits physically
-      // under /add-ons, so it lights Studio — the Design hub still links to it.)
-      activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 tabs,
+      // no standalone Design). The whole add-ons subtree (Papic/Panood/Patiktok/
+      // mood-board/…) lives under /add-ons; the former Design routes (/design
+      // redirects here, the Website editor, the Monogram studio) light Studio too.
+      activeMatch: [`${base}/add-ons`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
     },
     {
       key: 'budget',

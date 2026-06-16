@@ -603,6 +603,12 @@ type VendorCardRow = {
    *  this only when present + the page is in demo mode OR the
    *  vendor opts in (V1 hide-prices lock kept). */
   starting_price_php?: number | null;
+  /**
+   * Relationship depth between this couple's active event and the vendor (0–3).
+   * Set post-query in the enrichment loop from event_vendors + vendor_event_unlocks.
+   * 0 (default) = no relationship / logged-out visitor.
+   */
+  relationship_depth?: 0 | 1 | 2 | 3;
 };
 
 /** Reverse map: tile URL slug (e.g. `photo-video`) → WeddingTile key. */
@@ -1596,7 +1602,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // page load.
   // ---------------------------------------------------------------------
   const visibleVendorIds = visible.map((v) => v.vendor_profile_id);
-  const [verificationByVendorId, servicesByVendorId, bookingCounts, reviewsByVendorId] =
+  const [verificationByVendorId, servicesByVendorId, bookingCounts, reviewsByVendorId, relationshipDepthMap] =
     await Promise.all([
       (async (): Promise<
         Map<
@@ -1725,6 +1731,47 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       })(),
       fetchCompletedBookingCounts(admin, visibleVendorIds),
       fetchLatestReviewsByVendor(admin, visibleVendorIds),
+      // Relationship-depth per vendor for this couple's active event (0–3).
+      // Only fetched when the user is authenticated and has a linked event;
+      // logged-out visitors always get an empty map (depth 0 for all cards).
+      (async (): Promise<Map<string, 0 | 1 | 2 | 3>> => {
+        if (!user || !coupleEventId || visibleVendorIds.length === 0) {
+          return new Map();
+        }
+        const [evResult, unlockResult] = await Promise.all([
+          admin
+            .from('event_vendors')
+            .select('marketplace_vendor_id, status')
+            .eq('event_id', coupleEventId)
+            .not('marketplace_vendor_id', 'is', null),
+          admin
+            .from('vendor_event_unlocks')
+            .select('vendor_profile_id')
+            .eq('event_id', coupleEventId)
+            .in('vendor_profile_id', visibleVendorIds),
+        ]);
+        const out = new Map<string, 0 | 1 | 2 | 3>();
+        for (const row of evResult.data ?? []) {
+          const r = row as { marketplace_vendor_id: string | null; status: string | null };
+          if (!r.marketplace_vendor_id) continue;
+          if (!visibleVendorIds.includes(r.marketplace_vendor_id)) continue;
+          const s = r.status ?? '';
+          const d: 0 | 1 | 2 | 3 =
+            s === 'deposit_paid' || s === 'complete'
+              ? 3
+              : s === 'declined' || s === 'withdrawn'
+                ? 0
+                : 1;
+          const prev = out.get(r.marketplace_vendor_id) ?? 0;
+          if (d > prev) out.set(r.marketplace_vendor_id, d);
+        }
+        for (const row of unlockResult.data ?? []) {
+          const r = row as { vendor_profile_id: string };
+          const prev = out.get(r.vendor_profile_id) ?? 0;
+          if (prev < 2) out.set(r.vendor_profile_id, 2);
+        }
+        return out;
+      })(),
     ]);
 
   // Enrich each visible row with the new optional fields. Real-vendor
@@ -1757,6 +1804,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // keep the price line hidden per hide-prices lock.
     v.starting_price_php =
       v.is_demo === true && svc?.startingPrice ? svc.startingPrice : null;
+    // Relationship depth — 0 for logged-out visitors and vendors with no
+    // relationship to this couple's event.
+    v.relationship_depth = relationshipDepthMap.get(v.vendor_profile_id) ?? 0;
+  }
+
+  // ── Relationship-depth sort (runs before the phase-C rating/review re-sort) ─
+  // Vendors the couple already knows float to the top of any category/search
+  // results page regardless of sort mode (depth wins the first tiebreak).
+  // Within the same depth the existing SQL order / phase-C tiebreaks apply.
+  if (visible.some((v) => (v.relationship_depth ?? 0) > 0)) {
+    visible = [...visible].sort(
+      (a, b) => (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0),
+    );
   }
 
   // ── Phase C sort-leak fix (rating/review sorts) ─────────────────────────

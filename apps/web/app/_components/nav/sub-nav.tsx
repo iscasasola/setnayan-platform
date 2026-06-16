@@ -100,12 +100,17 @@ export function SubNav({
       aria-label={ariaLabel}
       // Geometry mirrors <BottomNav> → NavShell so the two bars read as one
       // system: inset 14px, frosted --m-paper-2 @ 92% + the same soft shadow,
-      // fully rounded. Docks ABOVE the (now compact) bottom nav: bottom =
-      // safe-area + 12px (nav offset) + ~56px (icons-only nav height) + 8px gap
-      // ≈ safe-area + 76px. `z-20` (just under the nav's z-30) so it appears to
-      // rise out of the dock. `.subnav-lift` plays the reveal once on mount.
-      className="subnav-lift fixed inset-x-[14px] bottom-[calc(env(safe-area-inset-bottom)+76px)] z-20 flex select-none gap-1 rounded-full border p-1 backdrop-blur lg:hidden"
+      // fully rounded. Docks a fixed 8px gap ABOVE the bottom nav, derived from
+      // the nav's REAL measured height (--sn-bottomnav-h, published by NavShell's
+      // ResizeObserver) — NO hardcoded height guess, so the gap can't drift or
+      // overlap if the bar's height ever changes (labels, tab count, font).
+      // bottom = safe-area + 12px (the nav's own float offset) + nav height + 8px
+      // gap. Falls back to the 64px design height until JS measures (SSR). `z-20`
+      // (just under the nav's z-30) so it appears to rise out of the dock.
+      // `.subnav-lift` plays the reveal once on mount.
+      className="subnav-lift fixed inset-x-[14px] z-20 flex select-none gap-1 rounded-full border p-1 backdrop-blur lg:hidden"
       style={{
+        bottom: 'calc(env(safe-area-inset-bottom) + var(--sn-bottomnav-h, 64px) + 20px)',
         background: 'rgba(248, 246, 240, 0.92)',
         borderColor: 'var(--m-line)',
         boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',

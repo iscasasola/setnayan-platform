@@ -1,7 +1,6 @@
 import {
   ADD_ONS,
   addOnHref,
-  studioFreeTools,
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
@@ -28,11 +27,15 @@ type Props = { params: Promise<{ eventId: string }> };
  * cards come first and coming-soon cards sink to the bottom.
  */
 
-const SECTIONS: ReadonlyArray<{ group: StudioGroup; label: string; free?: boolean }> = [
-  { group: 'capture', label: 'Capture the day' },
-  { group: 'website_story', label: 'Your website & story' },
-  { group: 'plan_organize', label: 'Plan & organize', free: true },
-  { group: 'music_extras', label: 'Music & extras' },
+// The 4 Studio sections (owner-locked 2026-06-17 customer-menu redesign — Studio
+// absorbed Design). These ARE Studio's docked sub-nav (lib/customer-menu.ts anchor
+// children scroll to `anchor`). The `utility` group (Orders) is intentionally
+// absent → hidden from the hub. Order matches the sub-nav.
+const SECTIONS: ReadonlyArray<{ group: StudioGroup; label: string; anchor: string }> = [
+  { group: 'setnayan_ai', label: 'Setnayan AI', anchor: 'studio-ai' },
+  { group: 'website', label: 'Website', anchor: 'studio-website' },
+  { group: 'capture', label: 'Capture', anchor: 'studio-capture' },
+  { group: 'branding', label: 'Branding', anchor: 'studio-branding' },
 ];
 
 /** Available add-ons first; coming-soon sinks to the bottom (stable order). */
@@ -44,7 +47,6 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
 
 export default async function StudioPage({ params }: Props) {
   const { eventId } = await params;
-  const freeTools = studioFreeTools(eventId);
 
   return (
     <section className="space-y-10">
@@ -91,46 +93,26 @@ export default async function StudioPage({ params }: Props) {
         </p>
       </div>
 
-      {SECTIONS.map(({ group, label, free }) => {
+      {SECTIONS.map(({ group, label, anchor }) => {
         const addOns = ADD_ONS.filter((a) => a.studioGroup === group).slice().sort(
           comingSoonLast,
         );
 
-        // Nothing to show for this group → skip the whole section.
-        if (group !== 'plan_organize' && addOns.length === 0) return null;
+        // Nothing to show for this section → skip it.
+        if (addOns.length === 0) return null;
 
         return (
-          <div key={group} className="space-y-4">
+          // id + scroll-mt: the Studio docked sub-nav (lib/customer-menu.ts) scrolls
+          // here and the scroll-spy lights the section in view.
+          <div key={group} id={anchor} className="scroll-mt-24 space-y-4">
             <h2
               className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
               style={{ color: 'var(--m-slate)' }}
             >
               {label}
-              {free ? (
-                <span
-                  className="ml-1 normal-case tracking-normal"
-                  style={{ color: 'var(--m-slate-3)' }}
-                >
-                  · free
-                </span>
-              ) : null}
             </h2>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Free core planning tools lead the Plan & organize group. */}
-              {group === 'plan_organize'
-                ? freeTools.map((tool) => (
-                    <StudioCard
-                      key={`tool-${tool.key}`}
-                      label={tool.label}
-                      blurb={tool.blurb}
-                      Icon={tool.Icon}
-                      href={tool.href}
-                      free
-                    />
-                  ))
-                : null}
-
               {addOns.map((addon) => {
                 const comingSoon = addon.status === 'coming_soon';
                 return (

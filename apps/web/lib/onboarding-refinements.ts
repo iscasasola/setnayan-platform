@@ -1,5 +1,5 @@
 /**
- * onboarding-refinements.ts — the DB-backed read-through for the onboarding
+ * onboarding-refinements.ts — DB-backed read-through for the onboarding
  * "what kind of X?" refinement catalogue (owner 2026-06-08, items 8 + 9).
  *
  * Reads onboarding_refinements + onboarding_refinement_options (migration
@@ -9,11 +9,21 @@
  * deploy. SAFETY: any error / empty result FALLS BACK to the TS module (the seed
  * source), so behaviour is preserved even if the tables are unseeded. React
  * `cache()` dedupes the read per request (mirrors lib/taxonomy-db).
+ *
+ * getOnboardingTiles (Phase 1 — taxonomy-drives-onboarding, 2026-06-17):
+ * fetches all tier-2 service_categories tiles scoped to an event type so the
+ * onboarding PICK step automatically gains new vendor categories the moment admin
+ * adds them to the taxonomy — no deploy, no manual PICK_GROUPS edit required.
+ * Returns [] on any error → shell falls back to static PICK_GROUPS_FALLBACK.
  */
 import { cache } from 'react';
 
 import { createClient } from './supabase/server';
 import { REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '@/app/onboarding/wedding/_data/refinements';
+
+/** One tile from the service_categories taxonomy — the unit the onboarding
+ *  PICK step ("What would you love?") displays in its picker grid. */
+export type OnboardingPickChip = { cat: string; label: string; folder: string };
 
 type LeafRow = {
   leaf_key: string;
@@ -31,14 +41,49 @@ type OptionRow = {
   photo: string | null;
   sort_order: number;
 };
+type TileRow = {
+  id: string;
+  label_en: string;
+  parent_id: string | null;
+  applicable_event_types: string[] | null;
+};
 
-export const getOnboardingRefinements = cache(async (): Promise<RefineLeaf[]> => {
+/**
+ * Fetch all active tier-2 taxonomy tiles for a given event type.
+ *
+ * applicable_event_types null/[] = universal (always included). Non-empty =
+ * scoped; only tiles that list `eventType` are returned. Falls back to [] on
+ * any read error so the caller degrades to the static PICK_GROUPS_FALLBACK
+ * without breaking the onboarding.
+ */
+export const getOnboardingTiles = cache(async (eventType: string = 'wedding'): Promise<OnboardingPickChip[]> => {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('service_categories')
+      .select('id,label_en,parent_id,applicable_event_types')
+      .eq('tier', 2)
+      .eq('status', 'active')
+      .order('sort_order', { ascending: true });
+    if (error || !data || data.length === 0) return [];
+    return (data as TileRow[])
+      .filter((t) => {
+        const types = t.applicable_event_types;
+        return !types || types.length === 0 || types.includes(eventType);
+      })
+      .map((t) => ({ cat: t.id, label: t.label_en, folder: t.parent_id ?? '' }));
+  } catch {
+    return [];
+  }
+});
+
+export const getOnboardingRefinements = cache(async (eventType: string = 'wedding'): Promise<RefineLeaf[]> => {
   try {
     const supabase = await createClient();
     const [leavesRes, optionsRes] = await Promise.all([
       supabase
         .from('onboarding_refinements')
-        .select('leaf_key,label_en,description_en,main_photo,is_dynamic_ceremony,sort_order')
+        .select('leaf_key,label_en,description_en,main_photo,is_dynamic_ceremony,sort_order,service_categories!tile_id(applicable_event_types)')
         .eq('status', 'active')
         .order('sort_order', { ascending: true }),
       supabase
@@ -47,10 +92,19 @@ export const getOnboardingRefinements = cache(async (): Promise<RefineLeaf[]> =>
         .eq('status', 'active')
         .order('sort_order', { ascending: true }),
     ]);
-    const leaves = leavesRes.data as LeafRow[] | null;
-    if (leavesRes.error || optionsRes.error || !leaves || leaves.length === 0) {
-      return REFINEMENTS_DATA; // unseeded / read error → behaviour-preserving fallback
+    type LeafWithJoin = LeafRow & { service_categories: { applicable_event_types: string[] | null } | null };
+    const rawLeaves = leavesRes.data as LeafWithJoin[] | null;
+    if (leavesRes.error || optionsRes.error || !rawLeaves || rawLeaves.length === 0) {
+      return REFINEMENTS_DATA;
     }
+    // Filter by event type via the tile_id → service_categories join.
+    // null/[] = universal; non-empty = must include eventType.
+    const leaves = rawLeaves.filter((l) => {
+      const types = l.service_categories?.applicable_event_types;
+      return !types || types.length === 0 || types.includes(eventType);
+    });
+    if (leaves.length === 0) return REFINEMENTS_DATA;
+
     const byLeaf = new Map<string, RefineLeaf>();
     for (const l of leaves) {
       byLeaf.set(l.leaf_key, {

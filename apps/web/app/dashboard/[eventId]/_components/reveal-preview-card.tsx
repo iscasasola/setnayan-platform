@@ -24,6 +24,7 @@ import {
   REVEAL_LIBRARY,
   type RevealTemplate,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
+import type { WaxSealConfig } from '@/lib/wax-seal/types';
 
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
@@ -50,6 +51,10 @@ type Props = {
   markSvg?: string | null;
   /** Wax seal colour — Mood-Board deep accent (mulberry fallback). */
   waxColor?: string;
+  /** The minted wax-seal recipe (candle-stamp maker). Null → default levers. */
+  sealConfig?: WaxSealConfig | null;
+  /** Stable seed for an un-minted seal (public_id-derived). */
+  sealFallbackSeed?: number;
   /** Veil tulle colour — Mood-Board driven (ivory fallback). */
   veilColor?: string;
 };
@@ -59,6 +64,8 @@ export function RevealPreviewCard({
   dateIso,
   markSvg = null,
   waxColor = '#5c2542',
+  sealConfig = null,
+  sealFallbackSeed,
   veilColor = '#f3ece1',
 }: Props) {
   const [tpl, setTpl] = useState<RevealTemplate | null>(null);
@@ -93,6 +100,8 @@ export function RevealPreviewCard({
           markSvg={markSvg}
           monogram={mono}
           waxColor={waxColor}
+          config={sealConfig}
+          fallbackSeed={sealFallbackSeed}
           onOpened={() => setRevealed(true)}
         />
       );
@@ -102,6 +111,8 @@ export function RevealPreviewCard({
         markSvg={markSvg}
         monogram={mono}
         waxColor={waxColor}
+        config={sealConfig}
+        fallbackSeed={sealFallbackSeed}
         onOpened={() => setRevealed(true)}
       />
     );

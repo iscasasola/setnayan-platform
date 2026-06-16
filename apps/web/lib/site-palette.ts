@@ -153,3 +153,74 @@ export function buildSitePaletteVars(
     '--color-mulberry-700': channels(darken(cta, 0.28)),
   };
 }
+
+// ── Save-the-Date reveal colours (0024 addendum §4) ───────────────────────────
+// The envelope role-map: wax seal = the DEEP ACCENT, veil tulle = a sheer
+// hue-carrying tint. Both pull from the same Mood-Board pool as the page theme
+// above, so the reveal recolours in lockstep with the rest of the couple site.
+
+/** Walk the role palette into a de-duped RGB pool (richest roles first). */
+function palettePool(palette: RolePalette | null | undefined): RGB[] {
+  if (!palette) return [];
+  const seen = new Set<string>();
+  const pool: RGB[] = [];
+  const push = (hex: string) => {
+    const up = hex.toUpperCase();
+    if (seen.has(up)) return;
+    const rgb = hexToRgb(up);
+    if (rgb) {
+      seen.add(up);
+      pool.push(rgb);
+    }
+  };
+  for (const key of POOL_ORDER) (palette[key] ?? []).forEach(push);
+  for (const key of Object.keys(palette) as PaletteKey[]) {
+    if (!POOL_ORDER.includes(key)) (palette[key] ?? []).forEach(push);
+  }
+  return pool;
+}
+
+function toHex(c: RGB): string {
+  const h = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0');
+  return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
+}
+
+/** Lighten `c` toward white by `amount` (0 = unchanged, 1 = white). */
+function lighten(c: RGB, amount: number): RGB {
+  return {
+    r: c.r + (255 - c.r) * amount,
+    g: c.g + (255 - c.g) * amount,
+    b: c.b + (255 - c.b) * amount,
+  };
+}
+
+/**
+ * Wax-seal colour — the palette's DEEP ACCENT (§4: "Wax seal = the deep accent").
+ * The most colourful swatch that still reads as a deep, light-text-bearing tone;
+ * mulberry fallback when the palette is sparse. Returned as a `#rrggbb` hex.
+ */
+export function sealColorFromPalette(palette: RolePalette | null | undefined): string {
+  const pool = palettePool(palette);
+  const colorful = pool.filter((c) => chroma(c) >= 0.12);
+  // Prefer a colour deep enough to read as wax (carries the pressed monogram);
+  // among those, the most saturated. Fall back to the most saturated overall,
+  // then to brand mulberry.
+  const deep = colorful
+    .filter((c) => luminance(c) <= 0.5)
+    .sort((a, b) => chroma(b) - chroma(a))[0];
+  const pick = deep ?? colorful.sort((a, b) => chroma(b) - chroma(a))[0] ?? DEFAULTS.cta;
+  return toHex(pick);
+}
+
+/**
+ * Veil tulle colour — the most colourful swatch lightened toward ivory so the
+ * sheer fabric carries a whisper of the palette's hue (legible content shows
+ * through). Ivory fallback. Returned as a `#rrggbb` hex.
+ */
+export function veilColorFromPalette(palette: RolePalette | null | undefined): string {
+  const pool = palettePool(palette);
+  const colorful = [...pool].filter((c) => chroma(c) >= 0.08).sort((a, b) => chroma(b) - chroma(a));
+  const base = colorful[0];
+  if (!base) return '#f3ece1';
+  return toHex(lighten(base, 0.6));
+}

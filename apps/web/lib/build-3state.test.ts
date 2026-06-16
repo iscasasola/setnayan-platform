@@ -290,3 +290,78 @@ test('compat mode: Locked + Excluded + dimension rows behave exactly as cheapest
   );
   assert.equal(res.unfilledAuto.length, 0);
 });
+
+// ── budgetRejected — the re-quote nudge signal (Build 3d-C) ───────────────────
+
+test('budgetRejected: an Auto single-pick group with NO fitting vendor surfaces every over-budget quote', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'dear-1', planGroupId: SINGLE_A, costPhp: 120_000 },
+    { vendorId: 'dear-2', planGroupId: SINGLE_A, costPhp: 200_000 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 50_000 });
+  // Nothing fit → the group is unfilled AND both over-budget vendors are nudge
+  // candidates (the build turned BOTH away on budget).
+  assert.equal(res.picks.length, 0);
+  assert.deepEqual(res.unfilledAuto, [SINGLE_A]);
+  assert.deepEqual(
+    res.budgetRejected.map((r) => r.vendorId).sort(),
+    ['dear-1', 'dear-2'],
+  );
+});
+
+test('budgetRejected: a single-pick group that DID fill has NO budget-miss (pricier ones were out-ranked, not turned away)', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'cheap-fits', planGroupId: SINGLE_A, costPhp: 30_000 },
+    { vendorId: 'dear-busts', planGroupId: SINGLE_A, costPhp: 200_000 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 50_000 });
+  // cheap-fits took the slot; dear-busts was out-ranked, not a build-outcome
+  // budget miss → NOT nudged (the couple got someone for this category).
+  assert.deepEqual(res.picks, [{ planGroupId: SINGLE_A, vendorId: 'cheap-fits' }]);
+  assert.equal(res.budgetRejected.length, 0);
+});
+
+test('budgetRejected: a multi-pick group surfaces the over-budget vendor EVEN WHEN it filled other slots', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'look-fits', planGroupId: MULTI, costPhp: 20_000 },
+    { vendorId: 'look-busts', planGroupId: MULTI, costPhp: 999_999 },
+  ];
+  const s: BuildStateMap = new Map([[MULTI, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 100_000 });
+  // The fitting one is picked; the busting one is a genuine budget miss the
+  // couple could close by a re-quote → nudge candidate.
+  assert.deepEqual(
+    res.picks.filter((p) => p.planGroupId === MULTI).map((p) => p.vendorId),
+    ['look-fits'],
+  );
+  assert.deepEqual(
+    res.budgetRejected.map((r) => r.vendorId),
+    ['look-busts'],
+  );
+});
+
+test('budgetRejected: no budget set → no budget miss is ever recorded (everything fits)', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'a', planGroupId: SINGLE_A, costPhp: 5_000_000 },
+  ];
+  const s: BuildStateMap = new Map([[SINGLE_A, { state: 'auto', pinnedVendorId: null }]]);
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: null });
+  assert.deepEqual(res.picks, [{ planGroupId: SINGLE_A, vendorId: 'a' }]);
+  assert.equal(res.budgetRejected.length, 0);
+});
+
+test('budgetRejected: Excluded + Locked rows never contribute a budget miss', () => {
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'excl-dear', planGroupId: SINGLE_A, costPhp: 200_000 },
+    { vendorId: 'lock-v', planGroupId: SINGLE_B, costPhp: 999_999 },
+  ];
+  const s: BuildStateMap = new Map([
+    [SINGLE_A, { state: 'excluded', pinnedVendorId: null }],
+    [SINGLE_B, { state: 'locked', pinnedVendorId: 'lock-v' }],
+  ]);
+  // Tiny budget — but neither row is Auto, so neither produces a budget miss.
+  const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 1_000 });
+  assert.equal(res.budgetRejected.length, 0);
+});

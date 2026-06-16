@@ -14,6 +14,22 @@ Second consumption of the nav/icon/menu registry. The customer **desktop sidebar
 Reuses the bottom-nav pattern (`navIconComponent` → stable component; the shared SidebarSection/SidebarItem primitives untouched). `pnpm typecheck` + `pnpm lint` green. NEXT: vendor → admin → public, then group-heading slots + the ESLint guard.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat(checklist): sync the wedding checklist to our services — jump-to-category + auto-complete from real state
+
+Made the in-app checklist *do* something (owner: "Book your caterer will make them jump to find caterer" → "Both — jump + auto-complete"). Two halves, no migration.
+
+- **Jump-to-category.** `checklistItemHref` (lib/checklist.ts) now sends each booking task to `…/vendors?tab=shortlist&open=<tile>` — the Find tab with that category's folder pre-expanded — instead of the generic collapsed list. Tiles mirror `PLAN_GROUPS` catalogTile (caterer→catering, photo→photo_video, hmua, coordinator, florist, host_mc, live_band, photo_booth, lights_sound, bridal_car, cake, reception). `ShortlistCategories` gained an `initialOpenTile` prop (server-seeds the open folder/tile, falls back to the collapsed default for normal visits); `vendors/page.tsx` threads `searchParams.open`. Vendor tasks with no single tile (tastings, follow-ups) keep the plain `/vendors`.
+- **Auto-complete (two-way sync).** New `lib/checklist-autocomplete.ts` maps structural facts → satisfied `template_key`s (reusing `PLAN_GROUPS` + `CONFIRMED_VENDOR_STATUSES`, the same definition the home Wedding Roadmap uses). `reconcileChecklistCompletion` (checklist-actions.ts) reads event state — confirmed vendors by category, budget, guests, seating tables, schedule blocks, palette, custom monogram, received paperwork — and flips matching **pending** tasks to done. Deterministic, never un-checks, never blocks the render.
+- **Adversarial review (16-agent workflow) → 5 confirmed findings fixed, 6 refuted:**
+  - **(HIGH) auth:** seed + reconcile write via the admin client (RLS-bypassing), but the render fires for *any* event member. Added a **couple-membership gate** (mirrors `couple_writes_checklist`) so only a couple's render mutates the list; guests/vendors/coordinators still READ it via RLS.
+  - **(MED) perf:** reconcile no longer runs on every render — it's gated on there being an open, auto-completable task left, and the UPDATE is narrowed to (satisfied ∩ still-open candidates) so it never issues a no-op write. Once everything's auto-done, the 6 signal reads stop firing.
+  - **(MED) over-mapping:** reception-music narrowed to `band_dj` only (a ceremony string-quartet/choir no longer wrongly completes "Book your reception music"; ceremony musicians stay manual). Regression test added.
+  - **(MED) bridal car:** `transportation` is the only enum value for car/shuttle/misc transport — accepted as working-as-titled ("Book your bridal car / transportation") and documented.
+  - **(LOW) tab-revisit re-spring:** documented + deferred (a persistent-mount fix on the shared takeover isn't worth the regression risk for the nicety).
+- **Tests:** +9 (auto-complete mapping incl. the band/DJ narrowing + the deep-link href). 22/22 pass · `tsc` + `next lint` + bottom-nav/retired guards + production build all green.
+
+SPEC IMPACT: deepens the checklist↔marketplace + checklist↔planning connections (architect mandate). Logged in corpus `DECISION_LOG.md` (iteration 0016/0021/0006).
+## 2026-06-16 · feat(nav): wire the CUSTOMER bottom nav to the registry (first consumption PR)
 
 First wiring of the nav/icon/menu registry into live chrome. The customer mobile bottom nav (the flat 6-tab bar: Home · Guests · Explore · Studio · Design · Budget) now sources its **label + icon per tab from the admin registry**, falling back to the prior hardcoded values. **Visually identical today** (the override table is empty → every slot resolves to its code default); editing a `customer.bottom-nav.*` slot on `/admin/menus` now changes the live bar.
 

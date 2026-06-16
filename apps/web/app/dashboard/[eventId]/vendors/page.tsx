@@ -85,7 +85,9 @@ type Props = {
   // tab (2026-06-12) = the takeover section to open (summary · shortlist ·
   // build · compare · lock) — written by the takeover on every switch so
   // refresh + deep links land on the same section.
-  searchParams: Promise<{ status?: string; tab?: string }>;
+  // open (2026-06-16) = a Shortlist tile key to pre-expand (checklist "Book your
+  // caterer" → ?tab=shortlist&open=catering jumps right to that category).
+  searchParams: Promise<{ status?: string; tab?: string; open?: string }>;
 };
 
 type EventBudgetRow = {
@@ -573,7 +575,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     <>
       {aiOfferBanner}
       <WaitingForQuotes items={waitingForQuotes} />
-      <ShortlistCategories folders={shortlistFolders} eventId={eventId} />
+      <ShortlistCategories
+        folders={shortlistFolders}
+        eventId={eventId}
+        initialOpenTile={sp.open ?? null}
+      />
     </>
   );
 

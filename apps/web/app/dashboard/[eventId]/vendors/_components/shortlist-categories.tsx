@@ -169,18 +169,37 @@ function VendorCard({ v }: { v: ShortlistVendor }) {
 export function ShortlistCategories({
   folders,
   eventId,
+  initialOpenTile = null,
 }: {
   folders: ShortlistFolder[];
   eventId: string;
+  /**
+   * Deep-link target (checklist "Book your caterer" → `?open=catering`). When it
+   * matches a tile in `folders`, that tile's folder + the tile open on first
+   * render so the couple lands right on the category. Unknown/scoped-out tiles
+   * fall back to the collapsed default.
+   */
+  initialOpenTile?: string | null;
 }) {
   const router = useRouter();
+  // The folder that holds the deep-linked tile (if any) — used to pre-open it.
+  // Known minor: the takeover unmounts inactive tab slots, so tabbing away from
+  // Shortlist and back re-seeds this from the (server-fixed) prop and re-opens the
+  // folder even if the couple collapsed it. Acceptable for a deep-link entry; a
+  // persistent-mount fix on the takeover is a deferred follow-up.
+  const deepLinkFolder = initialOpenTile
+    ? (folders.find((f) => f.tiles.some((t) => t.tile === initialOpenTile))?.folder ?? null)
+    : null;
   // Level 1: which folder is open. ALL COLLAPSED by default (owner 2026-06-16
   // "we want the parent categories to collapse so we can find the other services
   // faster") — the surface opens as a tight list of the ~10 parent categories, so
-  // any one is a single tap away instead of starting mid-expansion.
-  const [openFolder, setOpenFolder] = useState<string | null>(null);
+  // any one is a single tap away instead of starting mid-expansion. A deep-link
+  // pre-opens the requested folder.
+  const [openFolder, setOpenFolder] = useState<string | null>(deepLinkFolder);
   // Level 2: which category (tile) is open. Single-open across the whole list.
-  const [openTile, setOpenTile] = useState<string | null>(null);
+  const [openTile, setOpenTile] = useState<string | null>(
+    deepLinkFolder ? initialOpenTile : null,
+  );
   // The category whose "Add manually" modal is open (every category has Find + Add).
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
 

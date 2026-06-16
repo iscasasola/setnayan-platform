@@ -496,6 +496,29 @@ export function groupChecklistByPhase(
 export function checklistItemHref(eventId: string, key: string | null): string | null {
   if (!key) return null;
   const base = `/dashboard/${eventId}`;
+
+  // Booking tasks jump STRAIGHT to that category in the vendor Shortlist
+  // (`?tab=shortlist&open=<tile>` opens the Find tab with the right folder/tile
+  // expanded) instead of the generic collapsed list. Tiles mirror PLAN_GROUPS
+  // catalogTile. Other vendor tasks (tastings, follow-ups) fall through to the
+  // plain vendors surface below.
+  const VENDOR_TILE: Record<string, string> = {
+    shortlist_venues: 'reception',
+    book_venue: 'reception',
+    book_caterer: 'catering',
+    book_photo: 'photo_video',
+    book_hmua: 'hmua',
+    book_coordinator: 'coordinator',
+    book_florist: 'florist',
+    book_host: 'host_mc',
+    book_reception_music: 'live_band',
+    book_photobooth: 'photo_booth',
+    book_lights_sound: 'lights_sound',
+    book_bridal_car: 'bridal_car',
+    order_cake: 'cake',
+  };
+  if (VENDOR_TILE[key]) return `${base}/vendors?tab=shortlist&open=${VENDOR_TILE[key]}`;
+
   const map: Record<string, string> = {
     // Budget & money
     set_budget: `${base}/budget`,

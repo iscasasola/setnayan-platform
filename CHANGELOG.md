@@ -19,6 +19,20 @@ Fixed + failproofed (defense-in-depth so the class can't recur):
 Verified in the worktree: `tsc --noEmit` 0 · `test:unit` 237/237 · `next lint` clean. A 4-lens adversarial review (data-loss completeness · regression-equivalence · test efficacy · schema soundness) returned **ship / no blockers** (one doc-comment nit, fixed).
 
 SPEC IMPACT: None (correctness fix + test/guard hardening; no SKU / schema / pricing / public-surface change). Logged in corpus `DECISION_LOG.md`.
+## 2026-06-16 · feat(papic): web 5-second clip capture + sampler-aware counter & cap-hit on the seat surface
+
+From the sampler power-audit (owner picked "build clips" + the conversion power-ups). Three things on the friend's `/papic/seat/[token]` capture surface:
+
+- **Real 5-second clips on the web.** The capture component gains a Photo/Clip toggle and a `MediaRecorder` clip mode: records the live session stream, **hard-stops at 5 000 ms** (the corpus clip cap — not configurable), grabs a poster frame, presigns + PUTs both the video and poster to R2, and records via `recordSeatCapture(token, ref, 'clip', posterRef)`. The server side was already ready — `/api/upload` allows `video/mp4|webm|quicktime` and `recordSeatCapture` already handles `kind='clip'` + poster + the 2-clip sampler cap; only the client UI was missing. This makes the long-standing "2 clips each" sampler copy **true** (resolves the audit's "clips unreachable / over-promise" finding by building, not softening). Clips work for paid seats too (uncapped).
+  - **iOS-safe audio:** one `getUserMedia` for the whole session, requesting audio up front so clips have sound, falling back to **video-only if the mic is denied** (the camera never breaks). No second `getUserMedia` mid-record, which is what drops the camera on iOS Safari.
+  - Browser-portable container via `MediaRecorder.isTypeSupported` (Safari→mp4, Chrome/Firefox→webm); the poster is best-effort (clip still lands without it).
+- **Sampler-aware shots counter.** The header pill now reads `N/8 photos` / `M/2 clips` for a free-sampler seat (mode-aware) and `N shots` for an uncapped paid seat — the friend can see the cap coming. Per-kind counts are loaded in the seat page and the caps (`PAPIC_SAMPLER_PHOTO_CAP`/`CLIP_CAP`) passed as props.
+- **Correct cap-hit moment.** Hitting a cap previously surfaced a factually-wrong "didn't save — check your signal" error. It now shows a celebratory "that's all your free photos/clips — every one's in the couple's gallery," with a one-tap nudge to the other mode if it still has room. (`recordSeatCapture`'s `sampler_*_cap` results are treated as a full-state, not an error.)
+
+Component prop change: `initialCount` → `initialPhotos` + `initialClips` + `photoCap`/`clipCap`; the only caller (the seat page) is updated in the same PR.
+
+SPEC IMPACT: iteration 0012 — the web Papic capture slice now does clips (was "photos only, clips a documented follow-up"); the sampler "2 clips each" promise is now real. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
 
 After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):

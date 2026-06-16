@@ -40,7 +40,6 @@ import {
   Trash2,
   Tv,
   Users,
-  Video,
   Wand2,
   X,
 } from 'lucide-react';
@@ -717,10 +716,10 @@ function eventCards(
         <LayoutGrid aria-hidden /> Customize widgets
       </CardLink>
     </Card>,
-    <Card key="std" icon={<Video />} title="Save-the-Date video" sub="From the template gallery">
-      <Desc>Pick a template; we render a short save-the-date from your photos.</Desc>
+    <Card key="std" icon={<Wand2 />} title="Save the Date" sub="How your page opens">
+      <Desc>A reveal — envelope or bridal veil — that uncovers your invitation, recoloured from your Mood Board. Free.</Desc>
       <CardLink href={`/dashboard/${p.eventId}/add-ons/save-the-date`} ghost>
-        <ArrowUpRight aria-hidden /> Browse templates
+        <ArrowUpRight aria-hidden /> Choose your reveal
       </CardLink>
     </Card>,
     /* ── On the day — what goes live while guests celebrate. Each service is a

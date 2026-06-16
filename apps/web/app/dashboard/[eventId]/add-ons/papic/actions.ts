@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { makeSamplerPermanent } from '@/lib/papic-sampler';
+import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
 
 // Iteration 0012 Papic — storage-target server actions.
 //
@@ -131,6 +133,13 @@ export async function setPapicStorageDrive(formData: FormData) {
       )}`,
     );
   }
+
+  // Switching Papic storage to Drive also satisfies "connect Drive = permanent":
+  // make any already-captured sampler photos permanent + cancel the expiry
+  // emails. (The OAuth callback usually does this at connect time; this covers a
+  // switch made after the grant already existed.) Best-effort, never throws.
+  await makeSamplerPermanent(eventId);
+  await cancelSamplerExpiryWarnings(eventId);
 
   revalidatePath(`/dashboard/${eventId}/add-ons/papic`);
   redirect(`/dashboard/${eventId}/add-ons/papic?storage_set=drive`);

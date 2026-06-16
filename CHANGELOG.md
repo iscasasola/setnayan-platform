@@ -15,6 +15,17 @@ Dead-code cleanup surfaced during the nav/icon/menu registry public-surface pass
 typecheck + lint green. No consumer impact — `href`/routing always lived in code, and the slots fed nothing.
 
 SPEC IMPACT: None (removal of dead code + inert, unconsumed registry defaults; no SKU/pricing/schema/route/behavior change).
+## 2026-06-16 · chore(ci): failproof the bundle-entitlement fixes — two CI guards against silent regression (PR4c)
+
+After PR4/PR4b fixed the "bundle buyer wrongly denied a paid SKU" bugs, this adds a CI lint that makes the whole bug class non-recurring (`apps/web/scripts/lint-entitlement-gates.mjs`, new CI job `lint entitlement gates`, pure node like the existing `lint-*.mjs`):
+
+- **GUARD 1 — bundle-aware gate discipline:** `checkOrderOwnership()` (the bare exact-key reader, blind to bundle ownership) may be CALLED only from `lib/entitlements.ts` (where `eventOwnsSku()` delegates to it) or test files, or a call line annotated `entitlement-gate-lint: bare-ok <reason>` for a SKU that's in no bundle. Any new couple-SKU gate using the bare reader fails CI — exactly the check that would have caught PR4b's 3 bugs. Resolved the two pre-existing bare callers: **`pro-website.ts` → `eventOwnsSku`** (PRO_WEBSITE *is* a bundle child; dead code today but now correct-if-revived), and **`indoor-blueprint.ts`** annotated `bare-ok` (INDOOR_BLUEPRINT is in no bundle — bare is correct).
+- **GUARD 2 — bundle-membership single source of truth:** the three mirrors of "which child SKUs each bundle grants" must agree exactly — `BUNDLE_MEMBERS` (onboarding-pricing.ts, the buy surface) ↔ `BUNDLE_CHILD_SKUS` (entitlements.ts, the read gate) ↔ `bundles_granting_sku()` (the DB provisioning SQL). Drift = a bundle buyer denied (or over-granted) a child SKU. Also asserts no bundle code nests as a child (the `activateBundleChildren` recursion-safety invariant).
+- +1 unit test (recursion-safety invariant) → `entitlements.test.ts` 25/25.
+
+Both guards proven non-vacuous: a planted bare call fails GUARD 1; removing one SKU from a mirror fails GUARD 2; clean after revert. `tsc --noEmit` 0; existing lint scripts unaffected.
+
+SPEC IMPACT: None (CI-only guardrail). Logged in `DECISION_LOG.md`.
 
 ## 2026-06-16 · fix(social): exchange System User token → Page token before FB publish
 
@@ -25,6 +36,21 @@ Facebook auto-publish was failing every dispatch with `(#200) … requires both 
 Unblocks the social content engine (10 journal teasers queued Jun 16–21; the 1 due teaser + 3 other rows had been burned to `failed` by the pre-fix dispatch). Instagram (`instagram.ts`, currently OFF — no `IG_USER_ID`) will need the same exchange when activated — follow-up.
 
 SPEC IMPACT: None. Pure infra/auth fix to the social pipeline; no schema, pricing, or feature-scope change.
+## 2026-06-16 · fix(papic): honor the locked "connect Drive OR upgrade = permanent" sampler promise (CRITICAL)
+
+A 52-agent end-to-end audit of the free Papic sampler found one critical, load-bearing defect (flagged independently by 5 dimensions, adversarially verified): the locked rule "connecting Google Drive OR upgrading to paid Papic makes sampler photos permanent" (migration `20270103000000` lines 6-8) was **entirely unimplemented** — there was no `.update()` on `papic_photos.expires_at` anywhere in the app. So a couple who *converted* (the funnel's whole goal) still had their sampler photos **deleted at day 30** — including from their **paid** gallery — and the reminder email told them "every original is safe" while it happened.
+
+Fix (no migration — all paths are service-role; the promise now lives in one place):
+
+- **`lib/papic-sampler.ts`** (new) — `makeSamplerPermanent(eventId)` clears the 30-day `expires_at` on an event's sampler photos (idempotent, service-role, best-effort/never-throws); `eventSamplerIsKept(eventId)` reports whether an active Drive grant already exists.
+- **Sample-then-convert** (the common path): `makeSamplerPermanent` + `cancelSamplerExpiryWarnings` fire at all three convert moments — the paid-`PAPIC_SEATS` activation hook (`lib/sku-activation.ts`, also reached by MEDIA_PACK bundle buyers via the child fan-out), the Drive OAuth callback (`app/api/oauth/drive/callback/route.ts` — covers both Papic and Photo-Delivery entry points), and the Papic storage→Drive switch (`add-ons/papic/actions.ts`).
+- **Convert-then-sample** (Drive connected before sampling): `recordSeatCapture` now stamps `expires_at = null` when `eventSamplerIsKept` is true, so those shots are born permanent.
+- **Cancel-on-keep** — `cancelSamplerExpiryWarnings(eventId)` (new, in `lib/papic-sampler-emails.ts`) pulls the two scheduled Resend T-7/T-1 emails on conversion via the stored `papic_sampler_email_log` message ids, backed by a new `cancelScheduledEmail(id)` in `lib/email.ts`. Gated on `RESEND_API_KEY` + best-effort, so it's a no-op while Resend is off.
+
+All hooks are non-fatal and idempotent — a failure can never roll back a payment activation or a Drive connect. Once `expires_at` is NULL the existing retention sweep skips the rows and the gallery stops hiding them, so no sweep/gallery changes were needed.
+
+SPEC IMPACT: iteration 0012 sampler — the "keep = permanent" promise is now actually implemented (it was spec-locked but unbuilt). Logged in corpus `DECISION_LOG.md`. The audit's other 29 findings (conversion-UX power-ups, the unwired QR-tag leg, web clips unreachable, abuse posture) are summarized for owner triage, not in this PR.
+
 ## 2026-06-16 · fix(payments): complete PR4 bundle-awareness — 3 Essentials-tier SKUs a bundle buyer was wrongly denied (PR4b)
 
 A 70-agent adversarial audit (workflow `bundle-entitlement-audit`) found PR4's bundle-awareness was INCOMPLETE. A bundle purchase lands as a SINGLE `orders` row keyed `GUIDED_PACK`/`MEDIA_PACK` — it never decomposes into child orders, and `activateOrderSku` had no bundle hook. PR4 made the media SKUs (LIVE_WALL/PANOOD/PAPIC) bundle-aware via `eventOwnsSku`, but **three Essentials-tier digital children kept BARE `checkOrderOwnership` gates** → a couple who bought Essentials or Complete was told they DON'T own a SKU they paid for (and shown a double-buy CTA). Adversarially confirmed (high confidence, every passing-path refuted) and fixed:

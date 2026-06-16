@@ -3,6 +3,8 @@ import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
+import { makeSamplerPermanent } from '@/lib/papic-sampler';
+import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -73,7 +75,17 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
       .eq('event_id', ctx.eventId);
   },
 
-  // PR4 will register: PAPIC_SEATS: async (ctx) => { /* seat-pass provisioning */ },
+  // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no
+  // stored unlock flag), but the upgrade must honor the locked "upgrade =
+  // permanent" sampler rule: clear the 30-day expiry on any already-captured
+  // free-sampler photos so they're kept forever, and cancel the now-wrong
+  // expiry-warning emails. Also fires for bundle buyers via activateBundleChildren
+  // (Papic is a MEDIA_PACK child). Idempotent (no rows to flip → no-op) + non-fatal.
+  PAPIC_SEATS: async (ctx) => {
+    if (!ctx.eventId) return;
+    await makeSamplerPermanent(ctx.eventId);
+    await cancelSamplerExpiryWarnings(ctx.eventId);
+  },
 
   // Bundle activation (bundle-buyer dead-flag repair) — fan the bundle's
   // children through their own hooks. See activateBundleChildren below.

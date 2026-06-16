@@ -61,6 +61,19 @@ Owner pointed at `/dashboard/[eventId]/add-ons/save-the-date`: *"this should be 
 `tsc --noEmit` 0 errors · `next lint` clean (verified locally).
 
 SPEC IMPACT: 0024 Save the Date — reveal preview relocated to the Save-the-Date add-on surface (the owner-specified link).
+## 2026-06-16 · feat(admin): /admin/completions — force-complete + uphold-non-delivery backstop (Event Lifecycle Menu §6.1)
+
+The human backstop for the per-vendor completion handshake (PR #1537). When a handshake can't self-resolve, an admin now has a surface to break the tie:
+
+- **Migration `20270106000000`** — `event_vendors.completion_resolved_at` + `completion_resolution_note` (admin-only metadata; no RLS change — couple/vendor surfaces react to `completion_status` alone) + a partial index for the unresolved queue. **Applied to prod**.
+- **`/admin/completions`** (new) — lists `event_vendors` needing attention: open **disputes** (always), `awaiting_vendor` rows whose event is >14d past (vendor never marked complete), and `vendor_marked` rows unconfirmed >5d. The "stuck" cut is computed in JS (PostgREST can't do `now() - interval`); resolved rows are excluded by the query. Mirrors the `/admin/disputes` skeleton (server component, admin-client reads, per-row `<details>` action forms, fail-soft reads). Disputes sort first.
+- **Two outcomes** (`completions/actions.ts`, each `requireAdmin()`-gated, service-role writes): **force-complete** → `completion_status='confirmed'` (+ stamps `customer_confirmed_received_at`) so the review/recommendation unlocks; **uphold non-delivery** (disputed rows only, note required) → keeps `completion_status='disputed'` (review STAYS frozen — correct) but stamps the row resolved so it leaves the queue. Both notify the couple(s) (reuse `booking_confirmed` / `dispute_filed` — no new notification enum) and the vendor (guarded null for off-platform), and write an `admin_audit_log` row (best-effort). Idempotent.
+- **Nav** — Work-group sidebar item (`Handshake` icon) + bottom-nav Work-tab activeMatch + `nav-registry-defaults` slot (`admin.sidebar.completions`).
+
+`tsc --noEmit` + `next lint` + migration-timestamp guard green.
+
+SPEC IMPACT: implements `Event_Lifecycle_Menu_Design_2026-06-16.md` §6.1 ("Admin force-complete is the human backstop — needs a new /admin completion surface") + §7 (Admin actor). Logged in corpus `DECISION_LOG.md` (2026-06-16). Closes one of the two deferred §8 net-new items flagged when PR4 shipped (the other — "Move to memories" archive — remains open).
+
 ## 2026-06-16 · feat(papic): free-sampler polish — expiry banner + admin usage view + own R2 prefix
 
 Three follow-ups on the free Papic sampler (#1547), one PR:

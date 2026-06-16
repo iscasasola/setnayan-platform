@@ -92,6 +92,42 @@ export const DEFAULT_DISBURSEMENT_FEE_CENTAVOS = 2000;
 export const DEFAULT_SETNAYAN_FEE_BPS = 500;
 
 /**
+ * Resolve the effective Setnayan Pay convenience-fee rate in basis points,
+ * reading the admin-set `platform_settings.setnayan_pay_fee_pct` (the
+ * /admin/pricing "Platform fee" editor) and falling back to
+ * `DEFAULT_SETNAYAN_FEE_BPS` (5.0% = 500 bps) when the column is unset, the
+ * row is missing, or the read fails.
+ *
+ * Behavior is byte-identical to the pre-settings path whenever the column is
+ * NULL — the fee column ships defaulted to the current 5.0% (migration
+ * 20261225000000) so existing orders keep charging exactly the same fee.
+ *
+ * Takes the admin client from the caller (this module stays client-agnostic so
+ * it can run in both the cart-approval flow and the payout dispatcher).
+ */
+export async function getSetnayanFeeBps(
+  adminClient: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await adminClient
+      .from('platform_settings')
+      .select('setnayan_pay_fee_pct')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error || !data) return DEFAULT_SETNAYAN_FEE_BPS;
+    const pct = (data as { setnayan_pay_fee_pct?: number | null })
+      .setnayan_pay_fee_pct;
+    if (pct == null || !Number.isFinite(Number(pct))) {
+      return DEFAULT_SETNAYAN_FEE_BPS;
+    }
+    // pct is a percentage (e.g. 5.0) → bps (500). Round to the nearest bp.
+    return Math.round(Number(pct) * 100);
+  } catch {
+    return DEFAULT_SETNAYAN_FEE_BPS;
+  }
+}
+
+/**
  * Minimum Setnayan Pay convenience-fee floor — ₱50 = 5,000 centavos (locked
  * CLAUDE.md decision-log 2026-05-17 ninth row). Ensures sub-₱1,000 bookings
  * still clear Setnayan's per-transaction operating cost.

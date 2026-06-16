@@ -51,6 +51,7 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
+import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -403,6 +404,15 @@ export async function submitOrderAction(
   // (PR #594) carries the post-voucher delta. The orders row's
   // confirmed_total_php gets set on admin approval (Day 3) to the
   // voucher-adjusted figure so the BIR receipt shows net paid.
+  // Originating platform (web / ios / android) for /admin/payments visibility.
+  // Prefer an explicit, validated form hint (lets the route-to-web hand-off
+  // carry the app origin through the external browser — PR #1538 follow-up);
+  // otherwise the detected request platform. Defaults to 'web' on any miss.
+  const platformHint = formData.get('platform');
+  const orderPlatform = isRequestPlatform(platformHint)
+    ? platformHint
+    : await getRequestPlatform();
+
   const insertPayload: Record<string, unknown> = {
     event_id: eventId,
     user_id: user.id,
@@ -410,6 +420,7 @@ export async function submitOrderAction(
     description: displayName,
     requested_total_php: originalPriceForOrderTotal,
     reference_code: referenceCode,
+    platform: orderPlatform,
     // Land at 'submitted' which is the existing canonical "queued for admin
     // review" state. The new spec's 'pending_approval' maps semantically;
     // a follow-up migration extends the enum with the new value names but

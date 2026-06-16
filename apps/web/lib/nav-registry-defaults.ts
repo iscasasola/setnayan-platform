@@ -1642,7 +1642,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 3,
   },
   {
-    key: "admin.sidebar.token-sales",
+    key: "admin.sidebar.token-purchases",
     scope: "admin",
     area: "admin-sidebar",
     route: "/admin/token-purchases",
@@ -1652,6 +1652,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "ShoppingBag",
     customRef: null,
     sortOrder: 4,
+  },
+  {
+    key: "admin.sidebar.menus",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/menus",
+    label: "Menus & icons",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Shapes",
+    customRef: null,
+    sortOrder: 55,
   },
   {
     key: "admin.sidebar.subscriptions",

@@ -17,6 +17,30 @@ Owner reassessment of the onboarding plan screen ("define Setnayan AI here … s
 Does NOT flip the global `SETNAYAN_AI_PAYWALL_ENABLED` flag — AI stays free-to-try until the owner flips it (the "flip-time" go-live). The card + checkout work either way. Known follow-up: the free `Reach my best matches` auto-inquiry card below the keep-card is now redundant and folds into the AI entitlement at flip-time.
 
 SPEC IMPACT: onboarding plan-screen now presents Setnayan AI as the ₱3,999 paid keep (per 2026-06-07 pricing lock + 2026-06-08 AI definition) and corrects the free-tier value list (adds the free Papic sampler concept). Logged in corpus `DECISION_LOG.md`. The free Papic sampler **entitlement + 3-seat/8-photo+2-clip caps + 30-day retention** is a separate follow-up PR (PR2).
+## 2026-06-16 · feat(nav): wire the ADMIN doorway to the registry (consumption PR 4)
+
+Fourth consumption of the nav/icon/menu registry — the **admin doorway** (sidebar ~55 items + 6-tab bottom nav) now sources each item's **label + icon from the admin registry** (`admin.sidebar.*` + `admin.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified every admin sidebar item + bottom tab matches its registry default, all 54 admin icons in the curated allowlist). Admin nav has no role-gating, so the overlay applies directly.
+
+- **`apps/web/lib/nav-registry-defaults.ts`** — two coverage fixes so all 55 sidebar items have a slot: renamed `admin.sidebar.token-sales` → `admin.sidebar.token-purchases` (the actual item key) and added `admin.sidebar.menus` (the "Menus & icons" entry added with the foundation PR; Shapes icon).
+- **`apps/web/app/admin/_components/admin-sidebar.tsx`** — `applyAdminRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via `admin.sidebar.<key>`; hidden slot drops the item; neutral `ADMIN_NAV_GROUPS` + shared SidebarSection/SidebarItem untouched.
+- **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** — same overlay over the 6 tabs (keys match slot suffixes 1:1).
+- **`apps/web/app/admin/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both.
+- **`apps/web/app/admin/_components/admin-bottom-nav.tsx`** (bonus, from the review) — closed 3 pre-existing mobile active-tab gaps (orphan-prevention): added `/admin/pakanta` to the Work tab and `/admin/menus` + `/admin/recaps` to the More tab so those routes light the right tab on mobile. (`demo-mode` is already covered by the `/admin/settings` prefix; `my-account` → `/dashboard/profile` is outside the admin doorway.)
+
+`pnpm typecheck` + `pnpm lint` green. All three dashboards (customer · vendor · admin) are now registry-driven. Deferred: `_overview-tile.tsx` ICONS map (admin landing tiles — a separate tile-icon system). NEXT: PUBLIC marketing nav (label-only), then group-heading slots + the ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat(journal): free printable wedding-checklist article + downloadable planner PDF (top-of-funnel)
+
+Owner directive: publish a Journal article that gives DIY / physical-checklist couples a printable wedding checklist, offers it as a download, and promotes the free in-app living checklist as the guided alternative.
+
+- **`apps/web/lib/blog.ts`** — new featured article **"A free, printable wedding checklist for Filipino couples"** (`/blog/free-printable-wedding-checklist-philippines`, category `planning`). Explains why a checklist is the DIY couple's backbone, makes the case for a printable one, lays out a (non-overlapping) 18-month→day-of countdown, and promotes the **free** in-app living checklist as "the paper planner, kept current for you" (recomputes deadlines from the date, auto-ticks as you book, jumps to the right vendor). Pinned as the index hero (the prior featured planning article was un-featured — one-line revert). Deliberately does NOT mention paid Setnayan AI — sells the free funnel without muddying the paywall.
+- **New `download` BlogBlock variant** (lib/blog.ts) + renderer (`app/blog/[slug]/page.tsx`) — a proper download button (`<a download>`, mulberry brand button, `Download` glyph) for static `/public` assets; reusable beyond this article.
+- **Assets** — `public/blog/checklist-cover.webp` (Recraft-generated editorial flat-lay, 249 KB, on-brand) + `public/blog/setnayan-wedding-checklist.pdf` (the 15-page designed printable planner, 226 KB).
+- **Adversarial review (8-agent workflow) → 2 confirmed fixed / 3 refuted:** (MED) overlapping timeline buckets (12/9/6/4/2 appeared in two stages each) → made non-overlapping; (LOW) three stacked terminal CTAs → moved the marketplace CTA up, dropped the duplicate, article now ends on the "Set na 'yan." sign-off with the free-checklist promo as the climax. Refuted (correctly): the PDF already carries a 2025–2026 market-estimate disclaimer (no Setnayan SKU prices — public-hygiene clean), the 18-vs-12-month framing is compatible with the sibling article, and the excerpt renders clean under the meta cap (trimmed anyway for card consistency).
+- `tsc` + `next lint` + retired-string guard + production build all green; article in the blog sitemap.
+
+SPEC IMPACT: iteration 0038 (Editorial/Journal) — new planning article + a reusable download block. Free-downloadable-checklist + free-vs-paid-guidance positioning logged in corpus `DECISION_LOG.md`.
 ## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
 
 Owner-locked (2026-06-16): let a couple TRY Papic free so they experience the claim→shoot→tag→gallery loop, then convert to the paid pass. Built as a thin entitlement on the EXISTING Papic web pipeline (seat claim + web capture + QR tagging all already shipped) — no rebuild.
@@ -69,6 +93,19 @@ Adds the hero reveal to the Save-the-Date opening: the **Setnayan bridal veil** 
 Next: PR3 — dashboard template chooser + content editor; + wire `veilColor` from the couple's Mood Board palette (currently ivory default) and add the crown + curtain veil modes.
 
 SPEC IMPACT: 0024 Save the Date — reveal experience design-locked in `0024_ADDENDUM` §1a; this lands the WebGL veil build behind the flag/preview-param. Corpus `DECISION_LOG.md` row appended.
+## 2026-06-16 · feat(admin): stamp the originating platform on orders + show it in /admin/payments
+
+Owner asked for admin visibility into where a purchase comes from (web vs the native app) — the companion to the route-to-web hand-off (#1538).
+
+- **New migration `20270102000000_orders_platform.sql`** (idempotent, **NOT applied — owner `supabase db push`**): adds `orders.platform TEXT NOT NULL DEFAULT 'web'` + a `web|ios|android` CHECK. Existing rows default to `web`.
+- **New `lib/request-platform.ts`** — `getRequestPlatform()` reads the request UA (`SetnayanApp/ios`|`/android`) + the `setnayan-client-type=capacitor` cookie (the same signals the middleware uses); safe outside request scope → `web`.
+- **Stamp at creation:** `submitOrderAction` writes `platform` on every new order — preferring an explicit, validated form hint (so the route-to-web hand-off can later carry the app origin through the external browser via `?checkout_origin=`) else the detected platform.
+- **Admin display:** `/admin/payments` gains a **Platform** stat per order row (Web / iOS app / Android app), reading `order.platform`.
+- **Admin filter:** a Platform filter row (All / Web / iOS app / Android app) on `/admin/payments`, **orthogonal to the existing status filter** (composes with Pending/All — switching one preserves the other). When active the order embed becomes `!inner` + `.eq('order.platform', …)` so only matching orders show. Hidden on the orders-needing-a-quote view.
+
+`tsc` green. **Note on the route-to-web interaction:** once #1538 ships, native buyers pay in the external browser, so the order is created in a web context and stamps `web` unless the hand-off passes the origin hint — the `platform` form-field plumbing for that is already in place here; wiring the hint into the #1538 hand-off is the small follow-up. Migration → no auto-merge.
+
+SPEC IMPACT: order-origin telemetry (web/ios/android) surfaced in admin; DECISION_LOG.
 
 ## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
 
@@ -990,6 +1027,18 @@ Owner audit ("check what needs to be deleted") → owner selected: remove BIR-re
 - **₱228K mock** — hero pipeline card "Today's earnings · ₱228K · 2 bookings paid" → "Booked this week · 2 bookings confirmed" (kept the truthful "Paid straight to you · Setnayan never holds your money" line).
 
 `tsc --noEmit` green. SPEC IMPACT: None on schema/SKU/price — removes inaccurate/contradictory public claims (aligns with the #1316 public-claims purge). Logged to corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(pricing): wire the holistic pass — website collapse + flat-₱100 vendor tokens (migration)
+
+Executes the **verified, unambiguous** parts of `Pricing_Holistic_Pass_2026-06-15.md` (owner "do it now"). New migration `20261230000000_holistic_pricing_pass_2026_06_15.sql` (idempotent, **NOT applied — owner runs `supabase db push`**):
+
+- **⚠ Website collapse (load-bearing).** New `COUPLE_WEBSITE_PRO` ₱3,999 — the single premium unlock across all 4 website phases (owner ruling 2026-06-14). Retires (is_active=false) the overlapping in-build SKUs it absorbs: `EVENT_WEBSITE` · `PRO_RSVP` · `RSVP_PRO_WEBSITE` · `RSVP_WEBSITE` · `PRO_WEBSITE` (Editorial ₱7,999 — the §5① "absorb" rec, executed per do-it-now). The **free 4-in-1 site + unlimited free RSVP are NOT SKUs** and are untouched; deactivation doesn't revoke existing orders (ownership = `orders.status`). Reader keys updated: `COUPLE_WEBSITE_PRO` added to `V2_SKU_CODES` + `BUILD_STATUS` ('partial' — buy surface is a follow-up).
+- **Vendor token packs → flat ₱100/token** (§4): ₱400/1,000/2,500/5,000/10,000 (was the tiered ₱1,000–18,000 ladder).
+
+**Deliberately NOT touched — flagged for owner confirmation:** the migration history shows `ANIMATED_MONOGRAM` is **₱2,499** and `PAKANTA` is **₱3,499** in the DB (seeds, never repriced) — the collection-doc's "live+DB" figures the §2 doc relied on were wrong. Per the source hierarchy (live site > DB > docs) I did **not** silently cut those; confirm against the live site. Every other §2 à-la-carte value already matches the canonical DB (no-op).
+
+Still queued (need the bundle-membership PRs #1447/#1451 on main first): seed the 5 family bundles into `platform_package_catalog` + membership, multi-bundle cart, pick-one Papic, the `COUPLE_WEBSITE_PRO` buy surface. `tsc` green.
+
+SPEC IMPACT: executes the website collapse + token reprice (corpus `Pricing_Holistic_Pass §1/§4` + DECISION_LOG); à-la-carte resolutions stay provisional pending the 2 flagged confirmations.
 
 ## 2026-06-15 · feat(recap): Auto-Recap — the "living recap" keepsake (Living Memories pillar · produce-the-keepsake)
 
@@ -1076,6 +1125,20 @@ App-store submission prep. The owner is registering a Google Play (Personal) dev
 Upload keystore was generated out-of-repo at `/Users/Shared/setnayan-keys/` (alias `setnayan`, RSA 2048, 10000-day validity); `.gitignore` already blocks `*.jks` / `keystore.properties`. Full owner runbook (registration steps, listing copy, Google Data Safety answers, Apple privacy labels, iOS Xcode steps, Guideline 4.2 risk note) in the spec corpus: `0052_native_apps_delivery/App_Store_Submission_Runbook_2026-06-15.md`.
 
 SPEC IMPACT: None (CI infra + owner-action docs; no schema/SKU/feature change). The runbook is a new corpus delivery doc, not an iteration-spec edit.
+## 2026-06-15 · feat(admin): editable vendor pricing + Setnayan Pay fee at /admin/pricing (PR 3 of the pricing/payments plumbing fix)
+
+Before this, `/admin/pricing` only let the owner edit the **customer** catalog (`platform_retail_catalog_v2` + `platform_package_catalog`). Vendor subscriptions / token packs (`vendor_billing_catalog`) and the Setnayan Pay convenience fee were **migration-only** — to change a vendor price or the fee you had to write SQL. This closes that gap.
+
+- **`apps/web/app/admin/pricing/actions.ts`** — two new `requireAdmin`-gated server actions, each mirroring the existing `updateRetailSku` shape EXACTLY (validation → snapshot prior → >₱500 (or >2.0pp) `console.warn` two-admin gate → `UPDATE` → `admin_audit_log` insert → `revalidatePath` → `redirect`):
+  - **`updateVendorSku`** writes `vendor_billing_catalog.price_php` + `is_active` (positive-price validated against the table's `CHECK price_php > 0`; stamps `updated_at` explicitly since this table has no updated_at trigger / `updated_by_admin_id` column). Revalidates `/for-vendors` + `/pricing` (both read `getVendorPrices()`) + `/admin/pricing`. Audit action `v2_vendor_sku_edit`.
+  - **`updatePlatformFee`** writes `platform_settings.setnayan_pay_fee_pct` (0–100 clamp). Audit action `platform_fee_edit`. Revalidates `/admin/pricing` + `/admin/payments` + `/vendor-dashboard`.
+- **`apps/web/app/admin/pricing/page.tsx`** — adds a **"Vendor pricing"** section (every `vendor_billing_catalog` row, read in full incl. inactive so a retirement can be reversed, with the same `?edit=<sku_code>` single-row form UX) and a **"Platform fee"** editor (single-row form via the `__platform_fee__` sentinel; shows a "Code default" badge until the column is first saved).
+- **`apps/web/lib/payouts.ts`** (`getSetnayanFeeBps`) + **`apps/web/lib/vendor-earnings.ts`** (`getSetnayanFeePct`) — read the fee from `platform_settings` with the existing code constants (5.0% / 500 bps) as fallback, so an unset column is byte-identical to current behavior. **`app/admin/payments/actions.ts`** payout breakdown now uses the admin-set fee when an order carries no per-order `setnayan_fee_bps` snapshot (historical orders keep their own).
+- **Migration `supabase/migrations/20261225000000_platform_settings_setnayan_pay_fee.sql`** — idempotent `ADD COLUMN IF NOT EXISTS setnayan_pay_fee_pct NUMERIC(5,2) NOT NULL DEFAULT 5.00` (= the current code value · no re-price) + a 0–100 CHECK + column comment. **NOT applied — owner runs `supabase db push`.**
+
+No price VALUE changed in any seed/migration — this adds the ability to EDIT, not a re-price. tsc + lint green. Closes PR 3 of the 4-PR plumbing fix (PR 4 = payment activation repair still queued). **Owner action:** `supabase db push` to land the fee column (until then the fee falls back to the 5.0% constant and the editor shows "Code default").
+
+SPEC IMPACT: None on locked SKU values or schema canon (adds an admin-edit affordance + one settings column defaulted to the existing fee). Vendor-price + fee editability is now a live admin capability — note for the corpus `0023_admin_console` / `Pricing.md` (admin-managed-prices rule).
 
 ## 2026-06-15 · feat(alaala): name the memory pillar "Alaala" — Studio hub framing + manifesto naming (Lane 1 of 3)
 

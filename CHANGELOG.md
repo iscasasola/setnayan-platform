@@ -18,6 +18,30 @@ Free entitlement only — NEVER zeroes the paid PAPIC_SEATS ₱2,999. Known foll
 
 SPEC IMPACT: new free Papic sampler in iteration 0012 (Papic) + the free-tier (couple website / Papic taste) in Pricing.md. Logged in corpus `DECISION_LOG.md`.
 
+## 2026-06-16 · feat(std-reveal): preview the opening reveal in the website editor — the "studio" surface (PR3a)
+
+The couple can now **see and pick** their opening reveal from the dashboard — no published-slug / production-URL gymnastics. Follows PR1 (#1525 foundation) + PR2 (#1541 veil). Owner: *"i cannot see our page… this should be on studio?"* — yes; the reveal lives with the wedding website it opens, so its home is the website editor.
+
+- **`apps/web/app/dashboard/[eventId]/website/_components/reveal-preview-card.tsx`** (new) — an **"Opening reveal"** card in the website editor. **Preview the veil** / **Preview the envelope** → plays the real reveal full-screen over a sample of the couple's own Save-the-Date card (their monogram · name · date); lift / open it to uncover the card, then Replay / Close. Reuses the exact `[slug]` reveal components (`FourFlapEnvelope` + lazy `VeilReveal`) — so the preview is exactly what guests get. three.js stays code-split.
+- **`apps/web/app/dashboard/[eventId]/website/page.tsx`** — adds `event_date` to the events select; renders the card beneath the website hero.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+Next: PR3b — persist the couple's chosen template + wire `veilColor` from the Mood Board (ivory default for now); add the crown + curtain veil modes.
+
+SPEC IMPACT: 0024 Save the Date — in-dashboard reveal preview/chooser (the studio surface) for the design-locked reveal. Corpus `DECISION_LOG.md` row appended.
+
+## 2026-06-16 · feat(nav): wire the VENDOR doorway to the registry (consumption PR 3)
+
+Third consumption of the nav/icon/menu registry — the **vendor doorway** (sidebar + bottom nav) now sources each item's **label + icon from the admin registry** (`vendor.sidebar.*` + `vendor.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified all 36 vendor slot defaults match the code labels+icons exactly, and all 24 vendor icons are in the curated allowlist).
+
+- **`apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx`** — `applyVendorRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via its `vendor.sidebar.<key>` slot (item key matches the slot suffix 1:1, no map needed); a hidden slot drops the item. Applied AFTER the role + showRepertoire filters, so role-gating stays in code. The neutral `VENDOR_NAV_GROUPS` const + shared SidebarSection/SidebarItem primitives untouched.
+- **`apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx`** — same overlay over the 6-tab strip; the Home tab keeps `key: 'profile'` (localStorage continuity) but maps to the `vendor.bottom-nav.home` slot. Applied after the role filter.
+- **`apps/web/app/vendor-dashboard/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both `<VendorSidebar>` + `<VendorBottomNav>`.
+
+Reuses the proven pattern (`navIconComponent` → stable component; BottomNav primitive untouched). `pnpm typecheck` + `pnpm lint` green. Deferred: `vendor.topbar.notifications` + `vendor.payment-options.*` slots. NEXT: admin doorway → public, then group-heading slots + ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
 ## 2026-06-16 · feat(std-reveal): the trademark bridal-veil reveal — WebGL cloth, code-split behind the flag (PR2/3)
 
 Adds the hero reveal to the Save-the-Date opening: the **Setnayan bridal veil** as a real cloth simulation. Follows PR1 (#1525, the flag + overlay foundation).

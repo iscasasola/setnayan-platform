@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(social): Journal → Facebook bridge — auto-syndicate every blog article as a teaser post
+
+Owner wants the existing 10 Journal (`/blog`) articles posted to Facebook as "start information" teasers that hook readers to the full article — and every future daily article to ride the same rails automatically. The social autopilot (`lib/social/flush.ts`) already composes/schedules/dispatches FB posts cron-free with a rate governor + admin queue, but it only knew about new couples + verified vendors. This adds the blog as a content source.
+
+- **`lib/social/flush.ts`** — new `sweepJournalArticles()` (Phase-1 compose sweep): every **published** `BLOG_ARTICLES` entry without a post yet → a `social_posts` row. Body = a curiosity-hook caption; `link_url` = the article URL so Facebook attaches its **native link card** (the article's OG cover + title + description) and stays clickable. (The on-the-fly card URL has no image extension, so dispatch already takes the `/feed` link-post branch — a photo post would drop the link.)
+- Rides `source_type='announcement'` with a deterministic `journal:{slug}` ref — **no migration** (the existing `source_type` CHECK has no `journal_article`, and `supabase db push` is currently blocked by the orphan `20270102000000` ledger row). The partial-unique index `(source_type, source_ref)` gives compose-once / never-repost for free; a pulled teaser won't resurrect. Shows in `/admin/social-queue` as "Journal · {title}".
+- **`lib/social/journal-hooks.ts`** (new) — 10 hand-written, benefit-led, price-free hook captions keyed by slug; an article with no hook falls back to its `excerpt`, so a future daily article posts fine before a bespoke hook exists.
+- Drip behavior: no hold window → each article takes the next governor slot (FB ≤3/day · ≥3h apart), so the 10-article backlog spreads over ~4 days instead of flooding. Future-dated articles (`publishedAt` gate) stay out until their day — the mechanism a daily drip will use.
+
+**Dormant until activated:** composes immediately on deploy (queue fills, visible to admin), but **posts nothing** until the owner sets `META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN` and flips `facebook_enabled` + `autopublish_enabled`. `tsc --noEmit` green · `next lint` clean · `lint:retired` 0 · production build green (verified on the identical change set).
+
+SPEC IMPACT: the Journal is now a Facebook content source (extends 0038 Editorial + the Social Sharing Program § 8). Logged in corpus `DECISION_LOG.md`. Groundwork for the hands-off daily-blog engine (owner-chosen 2026-06-16).
 ## 2026-06-16 · feat(papic): cron-free sampler expiry emails (Resend-scheduled T-7/T-1)
 
 The last free-sampler follow-up — timed expiry-warning emails WITHOUT a cron. On the first sampler capture per event, we hand Resend two future-dated emails (`scheduledAt` ≈ T-7d and ≈ T-1d before the 30-day expiry); Resend delivers them at the right time, so there's no scheduler/cron on our side (Resend schedules up to 30 days out — both windows fit). Reaches the couple who never return — exactly who the in-app banner can't.

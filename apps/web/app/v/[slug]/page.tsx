@@ -570,18 +570,31 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   let initialFollowing = false;
   let coupleEventId: string | null = null;
   let isAlreadySaved = false;
+  let existingThreadId: string | null = null;
   if (user) {
     initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
     const events = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = events[0]?.event_id ?? null;
     if (coupleEventId) {
-      const { data: saved } = await supabase
-        .from('event_vendors')
-        .select('vendor_id')
-        .eq('event_id', coupleEventId)
-        .eq('marketplace_vendor_id', vendor.vendor_profile_id)
-        .maybeSingle();
-      isAlreadySaved = Boolean(saved?.vendor_id);
+      const [savedResult, threadResult] = await Promise.all([
+        supabase
+          .from('event_vendors')
+          .select('vendor_id')
+          .eq('event_id', coupleEventId)
+          .eq('marketplace_vendor_id', vendor.vendor_profile_id)
+          .maybeSingle(),
+        supabase
+          .from('chat_threads')
+          .select('thread_id, inquiry_status')
+          .eq('event_id', coupleEventId)
+          .eq('vendor_profile_id', vendor.vendor_profile_id)
+          .maybeSingle(),
+      ]);
+      isAlreadySaved = Boolean(savedResult.data?.vendor_id);
+      const t = threadResult.data as { thread_id: string; inquiry_status: string } | null;
+      if (t?.thread_id && t.inquiry_status !== 'declined') {
+        existingThreadId = t.thread_id;
+      }
     }
   }
 
@@ -1142,6 +1155,12 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               inquiryPax={inquiryLivePax}
               guestEditHref={
                 coupleEventId ? `/dashboard/${coupleEventId}/guests` : null
+              }
+              existingThreadId={existingThreadId}
+              existingThreadHref={
+                existingThreadId && coupleEventId
+                  ? `/dashboard/${coupleEventId}/messages/${existingThreadId}`
+                  : null
               }
             />
           ) : null}

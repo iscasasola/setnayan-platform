@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
+
+Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. The couple's gallery now shows their **real** captures (crew + guest), the payoff that makes the free Papic sampler (and paid Papic) feel real.
+
+- **`lib/papic-gallery.ts`** (new) — `fetchPapicGallery(supabase, eventId)` reads `papic_photos` (crew) + `papic_guest_captures` (guest) under the couple's RLS, merges + sorts by `captured_at`, and presigns thumbnails via `displayUrlForStoredAsset` (clips use their `poster_r2_key`). Filters OUT: NSFW-blocked (`moderation_state`), couple-hidden (`hidden_at`), and **expired free-sampler** photos (`expires_at` in the past — the read-time half of the 30-day sampler retention). Tags resolved from `photo_tags` (best-effort; missing/unreadable → everything shows untagged, honouring untagged-still-delivered). Graceful-degrade to `[]` on a missing table/column.
+- **`add-ons/papic/_components/papic-gallery-grid.tsx`** (new, client) — the grid with working filter chips (All · Photos of us · Untagged · Videos), clip play-badges, and per-tile tag dots (auto-face green / QR-or-manual terracotta / untagged grey).
+- **`add-ons/papic/page.tsx`** — `GalleryPreviewCard` is now an async server component that fetches real photos + renders the grid, or an empty state ("your gallery fills up as your crew shoots → Set up your crew") when there are none. Removed the mock `MOCK_PHOTOS` / `MockPhoto` / `PhotoTile` / preview `FILTERS` and their now-unused icon imports.
+- No migration — reads existing columns (incl. the sampler's `expires_at`, already on prod). `tsc` + `next lint` green.
+
+SPEC IMPACT: iteration 0012 — the couple-facing Papic gallery is now real (was a documented mock). Benefits both the free sampler and paid PAPIC_SEATS. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 
 Owner reassessment of the onboarding plan screen ("define Setnayan AI here … show how much to keep this") plus a corrected free-from-the-start list. The screen was giving the *paid* AI layer away as free and never naming or pricing Setnayan AI.

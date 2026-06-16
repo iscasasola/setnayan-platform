@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { isEventDayActive } from '@/lib/day-of-mode';
+import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -141,7 +141,7 @@ export default async function EventLayout({ children, params }: Props) {
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg';
+          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -259,13 +259,16 @@ export default async function EventLayout({ children, params }: Props) {
   const event = eventRes.data;
   if (!event) notFound();
 
-  // Event Lifecycle Menu (2026-06-16): while the event is live, the bottom-nav
-  // roster swaps to the day-of command center. Computed SERVER-SIDE so there's
-  // no client Date.now() / hydration flash, and gated on isEventDayActive
+  // Event Lifecycle Menu (2026-06-16): the bottom-nav roster swaps by lifecycle
+  // phase (Plan → Day-of → After). Computed SERVER-SIDE so there's no client
+  // Date.now() / hydration flash. `getLifecyclePhase` uses isEventDayActive
   // (live ‖ post) so an EVENING reception — which lands in `post` — still gets
-  // the Day-of bar. (Wrap-up/After phases land in PR3/PR4; this PR1 ships the
-  // Plan ↔ Day-of swap.)
-  const isDayOf = event.event_date ? isEventDayActive(event.event_date as string) : false;
+  // the Day-of bar, and the `cleared_at` close-out (PR3) flips it to `after`.
+  // (The `after` roster lands in PR4; until then `after` shows the Plan bar.)
+  const phase = getLifecyclePhase(
+    event.event_date as string | null,
+    (event as { cleared_at?: string | null }).cleared_at ?? null,
+  );
 
   const tr = makeT(locale);
 
@@ -318,7 +321,7 @@ export default async function EventLayout({ children, params }: Props) {
             menu (Guests/Budget/…), kept OUTSIDE the bar so it never collides
             with the "Now" tab. Links to /more, the existing planning launcher.
             Day-of only; hidden on lg (desktop uses the sidebar). */}
-        {isDayOf ? (
+        {phase === 'dayof' ? (
           <Link
             href={`/dashboard/${eventId}/more`}
             className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
@@ -404,7 +407,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <CustomerBottomNav eventId={eventId} isDayOf={isDayOf} navSlots={navSlots} />
+      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} />
       {/* Guests-tab subordinate shelf — docks above the bottom nav (mobile) and
           lights the active stage of the guest journey (Build · Invite · Confirm ·
           Seat · Day-of) while the path is inside the journey (/guests* or

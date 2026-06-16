@@ -20,15 +20,19 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   isBuild3StateEnabled,
   isBuildState,
   isDimensionKey,
   resolveBuildPicks,
+  type BuildRankMode,
   type BuildState,
   type BuildStateMap,
   type QuotedVendor,
 } from '@/lib/build-3state';
+import { computeCompatScore } from '@/lib/compat-score';
+import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { isMultiPickGroup, PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 
 export type Build3StateResult = { ok: true } | { ok: false; error: string };
@@ -41,6 +45,20 @@ const FLAG_OFF_ERROR = 'The 3-state Build is not available.';
 // Statuses that mean a vendor is already committed/locked — never recomputed,
 // mirrors COMPUTE_LOCKED in build-flags-actions.ts.
 const COMMITTED_STATUSES = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+
+/** Haversine great-circle distance in km (reception anchor → vendor HQ), used
+ *  only for the AI-ON compat ranking. Mirrors category-search.ts's distanceKm. */
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) *
+      Math.cos((bLat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
 
 /**
  * Read the couple's 3-state control rows for an event into a
@@ -161,16 +179,22 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
-  // RLS scopes every read to the couple's own event.
+  // RLS scopes every read to the couple's own event. The AI-gate fields
+  // (planning_mode / setnayan_ai_active) + reception coords are read alongside
+  // the budget so the Auto rank mode can switch to compat when Setnayan AI is on.
   const [evRes, vendorsRes, stateRes] = await Promise.all([
     supabase
       .from('events')
-      .select('estimated_budget_centavos')
+      .select(
+        'estimated_budget_centavos, planning_mode, setnayan_ai_active, venue_latitude, venue_longitude',
+      )
       .eq('event_id', input.eventId)
       .maybeSingle(),
     supabase
       .from('event_vendors')
-      .select('vendor_id, category, status, total_cost_php, transport_php, food_allowance_php')
+      .select(
+        'vendor_id, category, status, total_cost_php, transport_php, food_allowance_php, marketplace_vendor_id',
+      )
       .eq('event_id', input.eventId),
     supabase
       .from('event_category_build_state')
@@ -187,8 +211,20 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     total_cost_php: number | string | null;
     transport_php: number | string | null;
     food_allowance_php: number | string | null;
+    marketplace_vendor_id: string | null;
   };
   const vendors = (vendorsRes.data ?? []) as VRow[];
+
+  // ── Setnayan-AI gate → rank mode. AI ON (flag on + assisted) ranks Auto rows
+  // by compat-score (reception-anchored distance + reviews + verification +
+  // boost); AI OFF keeps the shipped cheapest-fit. The governing gate is the
+  // app-wide lib/setnayan-ai.ts so this surface agrees with every other one.
+  const aiActive = isSetnayanAiActive(
+    evRes.data as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
+  );
+  const rankMode: BuildRankMode = aiActive ? 'compat' : 'cheapest';
+  const evLat = (evRes.data.venue_latitude as number | null) ?? null;
+  const evLng = (evRes.data.venue_longitude as number | null) ?? null;
 
   const num = (v: number | string | null): number => {
     const n = typeof v === 'string' ? Number(v) : (v ?? 0);
@@ -208,6 +244,10 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
   // Quoted-inquiry gate (§3): only vendors with a quote (total_cost_php != null)
   // that aren't already committed/locked are build-eligible.
   const quoted: QuotedVendor[] = [];
+  // event_vendors.vendor_id → its marketplace profile id (compat-score source).
+  // Off-platform / custom vendors have none → they fall back to a neutral compat
+  // (admit-unknown — never down-ranked just for being off-platform).
+  const marketplaceIdByVendor = new Map<string, string>();
   for (const r of vendors) {
     if (r.total_cost_php == null) continue;
     if (r.status && COMMITTED_STATUSES.has(r.status)) continue;
@@ -215,6 +255,66 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     const groupId = groupByCategory.get(r.category);
     if (!groupId) continue;
     quoted.push({ vendorId: r.vendor_id, planGroupId: groupId, costPhp: rolled(r) });
+    if (r.marketplace_vendor_id) {
+      marketplaceIdByVendor.set(r.vendor_id, r.marketplace_vendor_id);
+    }
+  }
+
+  // ── Compat ranking inputs (AI-ON only). Fetch market stats for the quoted
+  // vendors' marketplace profiles, then stamp a HIDDEN compatScore on each
+  // QuotedVendor so resolveBuildPicks(rankMode:'compat') ranks the Auto fill by
+  // reception-anchored compat instead of plain cheapest. AI-OFF skips this read
+  // entirely → behavior byte-identical to today. The score is never returned to
+  // the client (sort-only). Fails soft: any read error leaves scores absent →
+  // resolveBuildPicks treats them as neutral / falls back to cheapest order.
+  if (aiActive && marketplaceIdByVendor.size > 0) {
+    const profileIds = [...new Set(marketplaceIdByVendor.values())];
+    // vendor_market_stats carries the compat inputs (rating / reviews /
+    // visibility / hq coords); the admin client reads it like category-search.
+    const admin = createAdminClient();
+    const { data: statRows } = await admin
+      .from('vendor_market_stats')
+      .select(
+        'vendor_profile_id, avg_rating_overall, review_count, ad_rank, public_visibility, hq_latitude, hq_longitude',
+      )
+      .in('vendor_profile_id', profileIds);
+    type StatRow = {
+      vendor_profile_id: string;
+      avg_rating_overall: number | null;
+      review_count: number | null;
+      ad_rank: number | null;
+      public_visibility: string | null;
+      hq_latitude: number | null;
+      hq_longitude: number | null;
+    };
+    const statById = new Map<string, StatRow>();
+    for (const s of (statRows ?? []) as StatRow[]) {
+      statById.set(s.vendor_profile_id, s);
+    }
+    const hasCoords = evLat !== null && evLng !== null;
+    for (const q of quoted) {
+      const profileId = marketplaceIdByVendor.get(q.vendorId);
+      const stat = profileId ? statById.get(profileId) : undefined;
+      if (!stat) {
+        // Off-platform / no-stats vendor → leave compatScore absent. In compat
+        // mode it sorts after scored vendors but the cost tie-break still places
+        // it sensibly (admit-unknown — present, just not preferred).
+        continue;
+      }
+      const dKm =
+        hasCoords && stat.hq_latitude != null && stat.hq_longitude != null
+          ? haversineKm(evLat as number, evLng as number, stat.hq_latitude, stat.hq_longitude)
+          : null;
+      const adRank = stat.ad_rank ?? 0;
+      const { score } = computeCompatScore({
+        distanceKm: dKm,
+        avgRating: stat.avg_rating_overall,
+        reviewCount: stat.review_count,
+        verified: stat.public_visibility === 'verified',
+        boosted: adRank > 0,
+      });
+      q.compatScore = score;
+    }
   }
 
   const states: BuildStateMap = new Map();
@@ -236,6 +336,7 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     states,
     quoted,
     budgetPhp,
+    rankMode,
   });
 
   // ── Write phase. Clear excluded groups, replace single-pick groups, insert. ──

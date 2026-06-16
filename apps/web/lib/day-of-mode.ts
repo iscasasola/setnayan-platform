@@ -75,6 +75,38 @@ export function isEventDayActive(eventDate: string | Date): boolean {
   return phase === 'live' || phase === 'post';
 }
 
+/** The Event Lifecycle Menu phase — which menu the bottom nav shows. */
+export type LifecyclePhase = 'plan' | 'dayof' | 'after';
+
+/**
+ * The Event Lifecycle Menu phase: **Plan → Day-of → After** (2026-06-16).
+ *
+ * - `after`  — the event was explicitly closed out (`cleared_at` set) OR it is
+ *              past the day-of window (auto-clear at T+24h, evaluated read-side
+ *              here so it needs no cron — per the locked cron-free architecture).
+ * - `dayof`  — the event is live (`isEventDayActive`: live ‖ post — NOT
+ *              `isInDayOfWindow`, so an evening reception in `post` still counts)
+ *              and not yet cleared.
+ * - `plan`   — everything before.
+ *
+ * Pass `cleared_at` from `events`; the column is added by migration
+ * 20261231020000 and read defensively (a missing/null value just means
+ * "not cleared", so this stays safe before the migration is applied).
+ */
+export function getLifecyclePhase(
+  eventDate: string | Date | null | undefined,
+  clearedAt: string | Date | null | undefined,
+): LifecyclePhase {
+  if (clearedAt) return 'after';
+  if (!eventDate) return 'plan';
+  const eventMs = eventDateToEpoch(eventDate);
+  if (!Number.isFinite(eventMs)) return 'plan';
+  if (isEventDayActive(eventDate)) return 'dayof';
+  // Past the day-of window with no explicit close-out → auto-clear to After.
+  if (Date.now() > eventMs + POST_WINDOW_END_MS) return 'after';
+  return 'plan';
+}
+
 /**
  * Returns the current day-of phase for the given event date.
  *

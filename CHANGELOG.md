@@ -17,6 +17,32 @@ First wiring of the nav/icon/menu registry into live chrome. The customer mobile
 Verified all 6 default icons resolve (no silent Circle fallback). `pnpm typecheck` + `pnpm lint` green. NEXT: customer sidebar, then vendor/admin/public.
 
 SPEC IMPACT: None — behavior-preserving wiring. Logged in `DECISION_LOG.md` (registry program) + memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR3 — Wrap-up / clearance gate (Day-of → After)
+
+Third PR. Introduces the **event-level clearance** that flips the lifecycle phase Day-of → After (§6.2, distinct from the per-vendor handshake in PR4), plus the derived `after` phase the menu hangs off.
+
+- **`supabase/migrations/20261231020000_event_clearance.sql`** (new · **applied to prod**) — `events.cleared_at` + `cleared_by_user_id` (audit-only; events RLS unchanged).
+- **`apps/web/lib/day-of-mode.ts`** — `getLifecyclePhase(eventDate, clearedAt): 'plan' | 'dayof' | 'after'`. `after` = explicitly cleared OR past T+24h (**auto-clear evaluated read-side**, no cron — per the locked cron-free rule); `dayof` = `isEventDayActive` (live ‖ post) and not cleared; else `plan`.
+- **`apps/web/app/dashboard/[eventId]/clearance/{page,actions}.tsx`** (new) — the `/clearance` close-out: a checklist (stop the livestream · freeze the wall into the recap · close check-in — links to wind each down) + a single **"Close out the day"** action that stamps `cleared_at`/`cleared_by_user_id`. Couple OR delegated coordinator; the write goes through the admin client **after** a membership check + is idempotent (`.is('cleared_at', null)`).
+- **`customer-bottom-nav.tsx` + `layout.tsx`** — the bottom-nav prop becomes `phase` (was `isDayOf`); the layout computes `getLifecyclePhase(event_date, cleared_at)` server-side and threads it (Planning escape now shows on `dayof`). `cleared_at` added to the layout event select. The `after` roster lands in PR4; until then `after` shows the Plan bar.
+- **`page.tsx`** (event home) — the day-of grid gate moves from `isInDayOfWindow` → the lifecycle phase (`=== 'dayof'`), so an **evening reception** (which lands in `post`) finally gets the day-of grid (guardrail §11.1), and the grid hides once the day is cleared. **`grid.tsx`** gains a "When the day winds down, close it out" CTA → `/clearance`.
+
+`tsc`, `next lint`, `lint:botnav`, migration-timestamp guard all green. Migration **applied to prod** before merge (no-drift `db push`, only this migration pending). PR pending (branch `claude/lifecycle-pr3-clearance`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §5/§10 (PR3) + honors guardrails §11.1 (`isEventDayActive` gate) + §11.5 (read-side time-flip, no cron). Adds `events.cleared_at` — note in iteration 0031 (day-of) if the corpus is reconciled.
+
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR2 — Day-of Services launch hub + Get-help card
+
+Second PR of the Event Lifecycle Menu. The Day-of "Services" tab now points at a real **unified launch hub**, and the day-of grid gains a **Get-help** escalation card.
+
+- **`apps/web/app/dashboard/[eventId]/launch/page.tsx`** (new) — the day-of Services hub: one place to START every owned live service with its day-of verb — **Panood "Go live"** (`/add-ons/panood/broadcast`), **Live Wall "Open the wall"** (`/live`), **Papic "Hand out seats"** (`/add-ons/papic/crew`) — plus a quiet "Add" upsell for anything not yet owned. Ownership read with the **canonical per-service checks** (reuse, not reinvent): `event_software_activations_v2` (`LIVE_WALL`, the /live page's own gate) · `resolveAddOnState().state === 'launch'` (Panood) · `eventOwnsPapicSeats()` (Papic). Couple OR delegated coordinator (mirrors `/live` + `/guests/checkin`).
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — re-points the Day-of **Services** tab from the PR1 interim `/add-ons` to `/launch`.
+- **`apps/web/app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx`** (new) + **`grid.tsx`** — adds a **Get-help** card to the `DayOfModeGrid` (the escalation floor: routes to `/help` if a vendor no-shows or the couple needs a hand). PR5 adds the same-day nearby-vendor shortlist above this escalation. (Broadcast already lives in the grid.)
+
+No migration (all ownership state lives in existing `orders` / `event_software_activations_v2`). `tsc`, `next lint`, `lint:botnav` all green. PR pending (branch `claude/lifecycle-pr2-dayof-contents`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §4/§10 (PR2) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the day-of command-center contents the Plan↔Day-of swap (PR1) reveals.
+
 ## 2026-06-16 · feat(std-reveal): Save-the-Date reveal foundation — flag-gated four-flap envelope on the couple website (PR1 of 3)
 
 Build foundation for the Save-the-Date "reveal" experience (the opening animation that uncovers the couple's invitation). Design-locked across `0024_ADDENDUM_envelope_open_experience_2026-06-14.md` (7-template library · trademark veil RSVP · craft constants · colour-only customization). This PR lands the integration scaffold + the first template, **flag-off**.
@@ -40,6 +66,32 @@ First PR of the Event Lifecycle Menu (`Event_Lifecycle_Menu_Design_2026-06-16.md
 Mobile-only (the bar is `lg:hidden`; desktop uses the sidebar). `tsc`, `next lint`, `lint:botnav` all green. **Reuses** the canonical `BottomNav` (auto-scales 5/6 tabs identically) + the shipped `isEventDayActive` + `/more` — no new primitives, no migration. PR pending (branch `claude/lifecycle-pr1-menu-swap`, auto-merge).
 
 SPEC IMPACT: None on data/pricing/SKUs. Implements §2/§4/§10 (PR1) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the phase-dispatch primitive every later phase (Wrap-up, After) hangs its menu off. Honors guardrail §11.1 (gate on `isEventDayActive`).
+## 2026-06-16 · feat(build): named Save-As builds → Compare (flag-dark, relax-migration)
+
+Adds free-form **NAMED** saved builds to the 3-state Build's Compare tab, replacing the fixed A/B/C 3-slot cap. Everything is gated by `BUILD_3STATE_ENABLED` (default OFF): with the flag off, the Compare save bar is the existing A/B/C slot picker + `Plan {label}` titling — **byte-identical to today** — and the new named action fails soft (it also self-guards on the flag). A build becomes identified by `build_id` + a free-form `title`; the couple types a name to save a **new** build, or picks an existing one to **overwrite**. New pure logic (`normalizeBuildTitle`/`displayBuildTitle`/`sortSavedBuilds`/`planSaveAs`) is unit-tested; a stale overwrite target fails soft to create so a save is never dropped.
+
+- **`supabase/migrations/20261231010000_budget_builds_named.sql`** (new — **NOT applied**; operator applies after review) — RELAX-ONLY/additive: drops `budget_builds.label` NOT NULL + the `('A'|'B'|'C')` CHECK, and replaces the full `(event_id,label)` UNIQUE index with a **partial** unique index scoped to `label IS NOT NULL` (legacy A/B/C `onConflict event_id,label` upserts keep working; named rows with `label NULL` are uncapped). Adds `(event_id, created_at)` ordering index. Existing rows untouched.
+- **`apps/web/lib/named-builds.ts`** (new) — pure helpers (title normalize/cap, display title with `Build N` fallback, A/B/C-then-named sort, create-vs-overwrite decision).
+- **`apps/web/lib/named-builds.test.ts`** (new) — 13 unit tests.
+- **`apps/web/app/dashboard/[eventId]/vendors/build-actions.ts`** — adds `savePlanBuildNamed` (flag-guarded; create new `label NULL` row OR overwrite by `build_id`); widens `SavedPlanBuild.label` to `BuildSlot | null` + optional `created_at`.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx`** — `named` prop; flag-on renders the Save-As name input + overwrite selector and sorts/titles columns via the pure helpers; flag-off path unchanged.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — passes `named={isBuild3StateEnabled()}`; adds `created_at` to the builds SELECT.
+
+`pnpm typecheck` (0 errors) + `pnpm lint` green; 174 unit tests pass (13 new).
+
+SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md).
+## 2026-06-16 · feat(build): Auto-ON compat-engine ranking + marketplace fallback search (flag-dark)
+
+Extends the 3-state Build solver (PR #1522) with the **Setnayan-AI-ON behavior** and the **marketplace fallback**, entirely behind `BUILD_3STATE_ENABLED` (default OFF) — with the flag off, behavior is byte-identical to today (every new path is unreachable, and `resolveBuildPicks` defaults to the unchanged cheapest-fit). **No migration.** Two parts:
+
+1. **Auto-ON ranking.** When the flag is on AND Setnayan AI is active for the event, an Auto row now resolves by RANKING that category's quoted vendors with `lib/compat-score` (reception-anchored distance + reviews + verification + boost) and picking the TOP-ranked that fits the remaining budget — instead of plain cheapest-fit. Cost still GATES (a pick must fit); compat only re-orders the survivors. AI-OFF (flag on) keeps the shipped cheapest-fit unchanged. The pure resolver gained a `rankMode: 'cheapest' | 'compat'` arg (default `'cheapest'`) + an optional hidden `compatScore` on `QuotedVendor`; the compat scores are computed in `runBuild3State` only when AI is active and are **never returned to the client** (sort-only). 7 new unit tests cover the compat branch.
+2. **Marketplace fallback.** When an Auto row can't be filled from the couple's own quotes, the couple can "Find more options": a new server action falls back to a marketplace search on the requirement (reusing the proven `searchCategoryVendors`), returns the TOP 10 (+ "show 5 more") ordered by a **hidden compatibility %** (sort-only — never displayed), as tap-to-add **suggestions** (NOT auto-added / auto-charged; the add reuses `attachMarketplaceVendorToCategory`). Works without AI (coarser sort); AI makes it richer.
+
+Files: `apps/web/lib/build-3state.ts` (rankMode + compat sort, additive), `apps/web/lib/build-3state.test.ts` (+7 compat tests), `apps/web/app/dashboard/[eventId]/vendors/build-3state-actions.ts` (AI gate → rank mode + compat-score read), `apps/web/app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts` (new — fallback suggestions), `apps/web/app/dashboard/[eventId]/vendors/_components/build-3state-control.tsx` (FallbackPanel under the unfilled list).
+
+SPEC IMPACT: None (flag-dark; Build_3State_Solver_2026-06-16.md)
+
+---
 
 ## 2026-06-16 · feat(admin): nav/icon/menu registry — foundation (admin-managed source of truth for every menu name + icon)
 

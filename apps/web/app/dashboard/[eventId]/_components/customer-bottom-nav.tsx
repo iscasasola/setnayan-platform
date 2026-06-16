@@ -40,6 +40,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { LifecyclePhase } from '@/lib/day-of-mode';
 
 type TabSpec = {
   key: string;
@@ -168,13 +169,14 @@ export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
       activeMatch: `${base}/seating`,
     },
     {
-      // Interim target: the owned-services hub. PR2 replaces this with the
-      // unified day-of launch hub (Panood Go-live · Live Wall Open · Papic seats).
+      // The unified day-of launch hub (PR2): one place to start every owned
+      // live service — Panood "Go live" · Live Wall "Open the wall" · Papic
+      // "Hand out seats" — with an upsell for anything not yet owned.
       key: 'services',
       label: 'Services',
-      href: `${base}/add-ons`,
+      href: `${base}/launch`,
       icon: Rocket,
-      activeMatch: `${base}/add-ons`,
+      activeMatch: `${base}/launch`,
     },
     {
       key: 'schedule',
@@ -191,22 +193,28 @@ export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
  * roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
  * customer surface (owner directive 2026-06-13 "global nav everywhere").
  *
- * `isDayOf` swaps the whole roster to the day-of command center while the event
- * is live (Event Lifecycle Menu, computed SERVER-SIDE via isEventDayActive —
- * live ‖ post, so an evening reception still gets the Day-of bar — no client
- * `Date.now()`/hydration flash). `navSlots` is the admin nav-registry slot map
- * (label + icon overrides) resolved server-side in the layout; it feeds the Plan
- * roster (the day-of roster's registry slots land in a follow-up).
+ * `phase` swaps the whole roster by lifecycle phase (Event Lifecycle Menu): the
+ * day-of command center while the event is live, the planning roster otherwise.
+ * Computed SERVER-SIDE in the layout via `getLifecyclePhase(event_date,
+ * cleared_at)` (which uses `isEventDayActive` — live ‖ post, so an evening
+ * reception in `post` still gets the Day-of bar — and the `cleared_at` close-out)
+ * and passed down, so there's no client `Date.now()` and no hydration flash. The
+ * `after` roster (Review · Editorial · Galleries) lands in PR4; until then `after`
+ * falls back to the planning roster.
+ *
+ * `navSlots` is the admin nav-registry slot map (label + icon overrides) resolved
+ * server-side in the layout; it feeds the planning roster (the day-of roster's
+ * registry slots land in a follow-up).
  */
 export function CustomerBottomNav({
   eventId,
-  isDayOf = false,
+  phase = 'plan',
   navSlots,
 }: {
   eventId: string;
-  isDayOf?: boolean;
+  phase?: LifecyclePhase;
   navSlots?: Record<string, NavSlotLite>;
 }) {
-  const items = isDayOf ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId, navSlots);
+  const items = phase === 'dayof' ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId, navSlots);
   return <BottomNav items={items} />;
 }

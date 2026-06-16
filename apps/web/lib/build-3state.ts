@@ -93,13 +93,37 @@ export type BuildStateMap = Map<string, CategoryBuildState>;
  * quote (`total_cost_php != null`) are build-eligible (the § 3 quoted-inquiry
  * gate). `costPhp` is the rolled total (package + transport + crew meal), used
  * for the cheapest-fit pick exactly like `computeBuildFromShortlist`.
+ *
+ * `compatScore` is the OPTIONAL hidden ranking signal (0–100, lib/compat-score)
+ * used ONLY by the Setnayan-AI-ON ranking branch (`rankMode: 'compat'`). It is
+ * absent/null in the OFF path (and never read there), so the cheapest-fit
+ * behavior stays byte-identical. NEVER surfaced to the couple as a number — it
+ * only sorts the Auto candidate order.
  */
 export type QuotedVendor = {
   vendorId: string;
   /** The taxonomy plan group this vendor's quote belongs to. */
   planGroupId: string;
   costPhp: number;
+  /** Hidden compatibility (0–100) for the AI-ON ranking branch. Optional —
+   *  cheapest-fit ignores it. Higher = ranked first when `rankMode='compat'`. */
+  compatScore?: number | null;
 };
+
+/**
+ * How an Auto row chooses among the quoted vendors that fit the remaining
+ * budget.
+ *   • 'cheapest' — the SHIPPED OFF solver: cheapest quoted vendor that fits
+ *     (cheapest-first → most categories filled). The default; AI-off path.
+ *   • 'compat'   — the Setnayan-AI-ON ranking: TOP-ranked by `compatScore`
+ *     (reception-anchored distance + refinements + ladder, computed by the
+ *     caller via lib/compat-score) among the vendors that fit the remaining
+ *     budget. Cost still GATES (a pick must fit) — compat only re-orders the
+ *     fitting set. Falls back to cheapest order when two vendors tie on compat
+ *     (and when no compatScore is present) so it's deterministic + never worse
+ *     than cheapest at filling categories.
+ */
+export type BuildRankMode = 'cheapest' | 'compat';
 
 /** A resolved build pick to upsert into `event_build_picks`. */
 export type ResolvedPick = { planGroupId: string; vendorId: string };
@@ -126,40 +150,64 @@ export type BuildResolution = {
  * Rules (mirroring the shipped OFF solver, `computeBuildFromShortlist`):
  *   • LOCKED taxonomy row → its `pinnedVendorId` is THE pick (host's choice is
  *     honored verbatim, never recomputed). Its cost reserves budget.
- *   • AUTO taxonomy row → fill with the cheapest quoted vendor that fits the
- *     REMAINING budget (cheapest-first → most categories filled). Multi-pick
- *     groups (Look/Booths/Prints, `isMultiPickGroup`) may take SEVERAL picks
- *     (every quoted vendor that still fits); single-pick groups take one.
+ *   • AUTO taxonomy row → fill from the quoted vendors that fit the REMAINING
+ *     budget. WHICH one depends on `rankMode`:
+ *       – 'cheapest' (default, AI-OFF) → the cheapest that fits (cheapest-first
+ *         → most categories filled). Byte-identical to the shipped OFF solver.
+ *       – 'compat' (AI-ON) → the TOP-ranked by `compatScore` among the fitting
+ *         vendors (cost still gates; compat only re-orders the survivors).
+ *     Multi-pick groups (Look/Booths/Prints, `isMultiPickGroup`) may take
+ *     SEVERAL picks (every quoted vendor that still fits, in rank order);
+ *     single-pick groups take one.
  *   • EXCLUDED row (or no row) → produces no pick; the group is listed in
  *     `clearGroupIds` so a stale build pick is removed.
  *   • Dimension rows (`_dim_*`) carry no vendor pick — they're skipped here
  *     (their Locked value lives on `events`).
  *   • `budgetPhp == null` → no budget constraint (fill each Auto group with its
- *     cheapest quoted vendor, mirroring the shipped `remaining == null` branch).
+ *     top-ranked quoted vendor, mirroring the shipped `remaining == null` branch).
  *
  * A vendor already used (a Locked pin or an earlier Auto fill) is never reused
- * for another group. Deterministic: tie-break cheapest, then vendorId, so the
- * unit tests are stable.
+ * for another group. Deterministic: in compat mode tie-break by cheapest then
+ * vendorId; in cheapest mode tie-break by vendorId — so the unit tests are
+ * stable in both modes.
  */
 export function resolveBuildPicks(args: {
   states: BuildStateMap;
   quoted: ReadonlyArray<QuotedVendor>;
   budgetPhp: number | null;
+  /** AI-OFF default 'cheapest' (byte-identical to today); AI-ON 'compat'. */
+  rankMode?: BuildRankMode;
 }): BuildResolution {
   const { states, quoted, budgetPhp } = args;
+  const rankMode: BuildRankMode = args.rankMode ?? 'cheapest';
 
   const costByVendor = new Map<string, number>();
   for (const q of quoted) costByVendor.set(q.vendorId, q.costPhp);
 
-  // Quoted vendors grouped by taxonomy plan group, cheapest-first (vendorId tie-break).
+  // Quoted vendors grouped by taxonomy plan group, then ordered per `rankMode`:
+  //   • 'cheapest' → cheapest-first (vendorId tie-break) — the shipped order.
+  //   • 'compat'   → highest compatScore first, cheapest then vendorId as the
+  //                  deterministic tie-break (a missing score sorts as -1 so an
+  //                  unscored vendor never outranks a scored one).
   const quotedByGroup = new Map<string, QuotedVendor[]>();
   for (const q of quoted) {
     const arr = quotedByGroup.get(q.planGroupId);
     if (arr) arr.push(q);
     else quotedByGroup.set(q.planGroupId, [q]);
   }
+  const scoreOf = (q: QuotedVendor): number =>
+    typeof q.compatScore === 'number' ? q.compatScore : -1;
   for (const arr of quotedByGroup.values()) {
-    arr.sort((a, b) => a.costPhp - b.costPhp || (a.vendorId < b.vendorId ? -1 : 1));
+    if (rankMode === 'compat') {
+      arr.sort(
+        (a, b) =>
+          scoreOf(b) - scoreOf(a) ||
+          a.costPhp - b.costPhp ||
+          (a.vendorId < b.vendorId ? -1 : 1),
+      );
+    } else {
+      arr.sort((a, b) => a.costPhp - b.costPhp || (a.vendorId < b.vendorId ? -1 : 1));
+    }
   }
 
   const picks: ResolvedPick[] = [];
@@ -207,15 +255,19 @@ export function resolveBuildPicks(args: {
     for (const cand of candidates) {
       const fits = remaining == null || cand.costPhp <= remaining;
       if (!fits) {
-        // Cheapest-first: once one doesn't fit, none cheaper remain that would.
-        if (!multi) break;
+        // In 'cheapest' mode the array is cost-ascending, so once one doesn't
+        // fit, none cheaper remain that would → break (the shipped behavior).
+        // In 'compat' mode the array is compat-ordered (cost not monotonic), so
+        // a pricier high-compat vendor may not fit while a cheaper lower-compat
+        // one later does → skip and keep scanning.
+        if (!multi && rankMode === 'cheapest') break;
         else continue;
       }
       picks.push({ planGroupId: groupId, vendorId: cand.vendorId });
       usedVendors.add(cand.vendorId);
       if (remaining != null) remaining -= cand.costPhp;
       filledAny = true;
-      if (!multi) break; // single-pick: one and done.
+      if (!multi) break; // single-pick: one and done (the top-ranked that fits).
     }
     if (!filledAny) unfilledAuto.push(groupId);
   }

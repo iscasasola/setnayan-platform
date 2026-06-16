@@ -14,6 +14,26 @@ Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. 
 - No migration — reads existing columns (incl. the sampler's `expires_at`, already on prod). `tsc` + `next lint` green.
 
 SPEC IMPACT: iteration 0012 — the couple-facing Papic gallery is now real (was a documented mock). Benefits both the free sampler and paid PAPIC_SEATS. Logged in corpus `DECISION_LOG.md`.
+## 2026-06-15 · feat(alaala): onboarding "promise" beat — name Alaala at the emotional peak (Lane 1 complete)
+
+Completes **Lane 1** (the narrative spine). Right after the couple commits their love story in onboarding (after `love_preview`, before the practical region/pax/budget questions — the emotional peak), a one-screen brand moment names the pillar and states the guardrail.
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — new `alaala_promise` screen inserted in `FLOW_IDS` between `love_preview` and `region`; label added to the exhaustive `NEXT_LABEL_BY_ID`; `canContinue` defaults true (a 1-tap brand moment, not a gate). Copy: *"Your day, kept alive."* — "we keep it as your *Alaala*: the moments you'll be too busy to see, the people who can't be there, the stories your guests tell. A living memory, not a frozen album. And we stay out of the way — the day is yours to live; we just quietly remember it."
+
+SPEC IMPACT: None on schema/SKU (onboarding copy + one screen). **Lane 1 (spine) now complete** (Studio hub band + `/our-story` naming + onboarding promise); Lane 2 (a dedicated in-app Alaala hub) next.
+## 2026-06-16 · feat(nav): After-phase menu roster + per-source Galleries hub (Event Lifecycle Menu PR4c)
+
+The lifecycle bottom-nav gains its third roster — the **After** menu, shown once the wedding is closed out (`events.cleared_at` set, or read-side T+24h auto-clear). PR1 shipped Plan↔Day-of; PR4 (4a/4b) shipped the completion handshake; this is the menu that lands the couple in the *memories* phase. Until now `phase === 'after'` fell back to the Plan bar.
+
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — new `buildAfterNavTabs(eventId)` in the SAME file (the lint guard forbids a fork): **Home · Review · Editorial · Galleries**. Home is the Setnayan-mark anchor on the event root (exact match, so the dashboard stays alive as the event's reference home — planning demoted, never deleted; no separate escape needed since Home *is* the dashboard). Review → `/vendors` (the completion-gated per-vendor review tracker shipped in PR4b), Editorial → `/website/editorial` (the living recap), Galleries → the new hub below. `CustomerBottomNav` dispatch now three-way: `dayof → buildDayOfNavTabs`, `after → buildAfterNavTabs`, else the Plan roster.
+- **`apps/web/app/dashboard/[eventId]/galleries/page.tsx`** (new) — the After **Galleries** hub. Does NOT re-implement photo grids: it gathers the owned media sources, each with a **"collecting → ready"** badge (deliveries land over days), and links to the existing per-source surface. Sources: Papic (owned via `eventOwnsPapicSeats`; ready when `papic_photos` + `papic_guest_captures` count > 0 → `/add-ons/papic/recap`, else "collecting" → `/add-ons/papic`), Panood (owned via `resolveAddOnState === 'launch'` → broadcast recording), and the couple's own `events.our_photos` (always shown, never gated → `/website/our-photos`). Couple **or** delegated coordinator; graceful-degrade to 0 on a legacy/missing table.
+- Reuse over reinvent: ownership checks + `resolveAddOnState` + `eventOwnsPapicSeats` + `countEventGuestCaptures` are the same canonical helpers the Day-of launch hub uses. Desktop sidebar stays phase-agnostic (the lifecycle menu is the mobile bottom-nav, matching PR1–PR3).
+
+⚠ **Galleries are PER-PAPIC-SOURCE, not per-vendor** (spec §6/§9.6): `papic_photos` links to a Papic *seat*, not a vendor, and 0009 photo-delivery is event-level — there's no photo→vendor join yet. Per-vendor galleries (release on the completion handshake) wait on that attribution; PR6's anti-fake stack hits the same gap. Kept per-source on purpose.
+
+`tsc --noEmit` + `next lint` + bottom-nav template guard all green.
+
+SPEC IMPACT: completes the After-menu roster from `Event_Lifecycle_Menu_Design_2026-06-16.md` §6 + §10 PR4 ("buildAfterNavTabs, per-source galleries"). Logged in corpus `DECISION_LOG.md` (2026-06-16). Remaining lifecycle pieces: admin force-complete surface + "Move to memories" archive (both net-new §8), PR5 (same-day Get-help), PR6 (recommend-your-vendors).
 
 ## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
 

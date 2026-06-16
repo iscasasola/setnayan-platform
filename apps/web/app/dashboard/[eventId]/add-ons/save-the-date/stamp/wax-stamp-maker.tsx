@@ -78,6 +78,10 @@ export function WaxStampMaker({
   const markRef = useRef<CanvasImageSource | null>(null);
   const rafRef = useRef(0);
   const reduced = useRef(false);
+  // The pour's window-level release backstop (so a release ANYWHERE ends it —
+  // touch implicit-capture can route pointerup to a now-unmounted node).
+  const pourRelease = useRef<((e: Event) => void) | null>(null);
+  const endPourRef = useRef<() => void>(() => {});
 
   // fast-changing animation state (not React state — avoids per-frame re-render)
   const anim = useRef({
@@ -282,34 +286,55 @@ export function WaxStampMaker({
     rafRef.current = requestAnimationFrame(loop);
   }, [doPress, paint]);
 
-  // ── pour beat: hold to grow the puddle (tap = default) ──
+  // ── pour beat: hold to grow the puddle (tap = default puddle) ──
+  const detachPourRelease = useCallback(() => {
+    const r = pourRelease.current;
+    if (r) {
+      window.removeEventListener('pointerup', r);
+      window.removeEventListener('pointercancel', r);
+      pourRelease.current = null;
+    }
+  }, []);
+
+  const endPour = useCallback(() => {
+    const a = anim.current;
+    if (!a.holding) return;
+    a.holding = false;
+    detachPourRelease();
+    // A quick tap (no real hold) pours a default-size puddle — you can't pour wrong.
+    if (performance.now() - a.t0 < 200) a.amount = 0.6;
+    stopRaf();
+    startCool();
+  }, [startCool, detachPourRelease]);
+  endPourRef.current = endPour;
+
   const startPour = useCallback(() => {
     const a = anim.current;
-    a.amount = 0.32;
+    a.amount = 0.5;
     a.bubbles = 0;
     a.irregularity = 0.24 + Math.random() * 0.14;
     a.holding = true;
     a.t0 = performance.now();
     setPhase('pour');
+    // End the pour on release ANYWHERE (the pour button is a persistent node so
+    // its own pointerup fires, but this backstop also covers release off-button
+    // / lost capture) → the pour can never get stuck.
+    detachPourRelease();
+    const release = () => endPourRef.current();
+    pourRelease.current = release;
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
     const loop = () => {
       if (!a.holding) return;
       const held = (performance.now() - a.t0) / 1000;
-      a.amount = Math.min(0.95, 0.32 + held * 0.42);
+      a.amount = Math.min(0.95, 0.5 + held * 0.4);
       if (held > 1.6) a.bubbles = Math.min(0.5, (held - 1.6) * 0.3); // overheat
       paint({ amount: a.amount, irregularity: a.irregularity, bubbles: a.bubbles, crispness: 0.6, depth: 0, offset: [0, 0], skew: 0, pressed: false });
       rafRef.current = requestAnimationFrame(loop);
     };
     stopRaf();
     rafRef.current = requestAnimationFrame(loop);
-  }, [paint]);
-
-  const endPour = useCallback(() => {
-    const a = anim.current;
-    if (!a.holding) return;
-    a.holding = false;
-    stopRaf();
-    startCool();
-  }, [startCool]);
+  }, [paint, detachPourRelease]);
 
   // one-tap perfect seal (accessibility / "I just want a seal")
   const mintClean = useCallback(() => {
@@ -342,7 +367,13 @@ export function WaxStampMaker({
     setPhase('intro');
   }, []);
 
-  useEffect(() => () => stopRaf(), []);
+  useEffect(
+    () => () => {
+      stopRaf();
+      detachPourRelease();
+    },
+    [detachPourRelease],
+  );
 
   const config: WaxSealConfig | null = final
     ? {
@@ -402,34 +433,24 @@ export function WaxStampMaker({
 
         {/* copy + controls per phase */}
         <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
-          {phase === 'intro' ? (
+          {phase === 'intro' || phase === 'pour' ? (
             <>
               <p className="text-sm text-cream/75">
-                This is your stamp. Press it into warm wax to mint your seal — every pour is one of a
-                kind.
+                {phase === 'pour'
+                  ? 'Hold to pour more wax — let go when the puddle looks right.'
+                  : 'This is your stamp. Press it into warm wax to mint your seal — every pour is one of a kind.'}
               </p>
+              {/* ONE persistent button across intro→pour: the same DOM node holds
+                  the pointer capture, so the release that ends the pour always
+                  lands on a handler (touch implicit-capture safe). */}
               <button
                 type="button"
-                onClick={startPour}
                 onPointerDown={startPour}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-cream px-6 text-sm font-semibold text-ink transition hover:bg-cream/90"
-              >
-                Pour the wax
-              </button>
-            </>
-          ) : null}
-
-          {phase === 'pour' ? (
-            <>
-              <p className="text-sm text-cream/75">Hold to pour more wax — let go when the puddle looks right.</p>
-              <button
-                type="button"
                 onPointerUp={endPour}
-                onPointerLeave={endPour}
                 onPointerCancel={endPour}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-cream px-6 text-sm font-semibold text-ink"
+                className="inline-flex min-h-[44px] touch-none select-none items-center gap-2 rounded-full bg-cream px-6 text-sm font-semibold text-ink transition hover:bg-cream/90"
               >
-                Release to set
+                {phase === 'pour' ? 'Release to set' : 'Pour the wax'}
               </button>
             </>
           ) : null}

@@ -151,6 +151,7 @@ export type EditorialSections = {
   poweredBy: boolean;
   liveWall: boolean;
   fromTheCouple: boolean;
+  fromVendors: boolean;
 };
 
 export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
@@ -161,7 +162,26 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'poweredBy',
   'liveWall',
   'fromTheCouple',
+  'fromVendors',
 ];
+
+// "From your vendors" — day-of media the couple's RECOMMENDED vendor
+// (event_vendors.selection_match_rank = 1) submitted for this event. Clips are
+// always pre-baked boomerangs (editorial rule), photos render as stills.
+// Auto-shows once the media clears the NSFW screen; the couple can hide any
+// item. The DB-backed write path (editorial_vendor_media table + vendor submit
+// UI + NSFW screen + admin) lands in the next increment; today this is seeded
+// on the samples and resolves to [] for real events.
+export type VendorMediaItem = {
+  vendorName: string;
+  category: string | null;
+  type: 'photo' | 'clip';
+  // Still image (a photo, or the freeze-frame poster of a clip). Always present.
+  stillUrl: string;
+  // The baked forward+reverse boomerang MP4 (clips only). Plays muted/looping.
+  boomerangUrl: string | null;
+  caption: string | null;
+};
 
 export type EditorialData = {
   displayName: string;
@@ -221,6 +241,8 @@ export type EditorialData = {
   // Only surfaced when photoWallActive is true (LIVE_WALL SKU activated).
   photoWallPhotos: string[];
   photoWallActive: boolean;
+  // Day-of media from the couple's recommended vendor (see VendorMediaItem).
+  vendorMedia: VendorMediaItem[];
   // Section visibility from the editorial editor. Optional → a block shows
   // unless its key is explicitly false (samples omit it = everything on).
   sections?: Partial<EditorialSections>;
@@ -756,6 +778,9 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     galleryPhotos,
     photoWallPhotos,
     photoWallActive,
+    // Real-event vendor media lands with the write path (editorial_vendor_media
+    // table + vendor submit UI + NSFW screen), next increment. Empty for now.
+    vendorMedia: [],
     sections: readSections(draftJson),
   };
 }
@@ -932,6 +957,10 @@ function mariaAndJuan(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/maria-juan-v1.jpg', boomerangUrl: '/realstories/maria-juan-vclip.mp4', caption: 'The rings, in close' },
+      { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
+    ],
   };
 }
 
@@ -1012,6 +1041,10 @@ function jackAndJill(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-jill-v1.jpg', boomerangUrl: '/realstories/jack-jill-vclip.mp4', caption: 'Toes in the sand' },
+      { vendorName: 'Saltwater Stories', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-jill-v2.jpg', boomerangUrl: null, caption: 'Down the shoreline at sunset' },
+    ],
   };
 }
 
@@ -1092,6 +1125,10 @@ function johnAndJane(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/john-jane-v1.jpg', boomerangUrl: '/realstories/john-jane-vclip.mp4', caption: 'A toast at blue hour' },
+      { vendorName: 'Skyline & Co.', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/john-jane-v2.jpg', boomerangUrl: null, caption: 'Their first dance, up high' },
+    ],
   };
 }
 
@@ -1173,6 +1210,10 @@ function peterAndMary(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/peter-mary-v1.jpg', boomerangUrl: '/realstories/peter-mary-vclip.mp4', caption: 'The tables in bloom' },
+      { vendorName: 'Heirloom Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/peter-mary-v2.jpg', boomerangUrl: null, caption: 'The whole table, raised' },
+    ],
   };
 }
 
@@ -1254,5 +1295,9 @@ function jackAndRose(): EditorialData {
     ],
     photoWallPhotos: [],
     photoWallActive: false,
+    vendorMedia: [
+      { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/jack-rose-v1.jpg', boomerangUrl: '/realstories/jack-rose-vclip.mp4', caption: 'Greens in the mist' },
+      { vendorName: 'Highland Frames', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/jack-rose-v2.jpg', boomerangUrl: null, caption: 'Just the two of them, in the fog' },
+    ],
   };
 }

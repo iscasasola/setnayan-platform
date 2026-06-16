@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(editorial): "From Your Vendors" strip — the couple's recommended vendor's day-of media (clips boomerang) [Increment 1: display]
+
+Owner: *"if the vendor submits up to 3 photo / 5-second video of their day-of service to that event, it can show on the editorial of the couple (gated if they are recommended or not). Our rule in editorial should always boomerang."* Owner locked the two pivotal decisions: **eligible = the couple's recommended / first-pick vendor** (`event_vendors.selection_match_rank = 1`), and **auto-show after NSFW moderation** (couple can hide). This is **Increment 1 — the couple-facing display + a visible demo on the samples.** The vendor write path (table + submit UI + NSFW + admin) is Increment 2.
+
+- **`editorial/data.ts`** — new `VendorMediaItem` type + `vendorMedia: VendorMediaItem[]` on `EditorialData`; new `fromVendors` section key (so the couple can toggle it). Real events resolve to `[]` for now (the DB-backed loader lands with the write path).
+- **`editorial-content.tsx` `VendorMediaStrip`** — a credited grid placed after "From the Day": photos render as stills; **clips render as muted, looping, GIF-like boomerangs** (the editorial video rule — every clip is pre-baked forward+reverse) with the still as poster and a "◆ loop" tag + vendor credit per frame.
+- **`editorial-editor.tsx`** — "From your vendors" added to the section toggles.
+- **5 samples seeded** — each carries a vendor boomerang clip + a photo credited to its first-pick photographer, backed by 10 newly-generated vendor photos (Recraft, distinct from the gallery) + 5 freshly-baked vendor boomerang clips (`zoompan` sine ping-pong, ~190–320 KB).
+
+Verified (Playwright DOM, dev server): on all samples the "From Your Vendors" strip renders, the vendor clip is `muted/loop/playsInline` and **plays in real-time when scrolled into view** (`paused:false`, `currentTime` advancing) — Chrome idles it offscreen, which is correct. `tsc` green; `next lint` clean.
+
+SPEC IMPACT: iteration 0046 — editorial gains a "From your vendors" block fed by the couple's recommended vendor's day-of media (clips always boomerang); gate = `selection_match_rank = 1`, auto-show after NSFW. Increment 2 (write path) pending. Logged to corpus `DECISION_LOG.md`.
 ## 2026-06-16 · feat(editorial): the hero now plays its boomerang as a continuously-looping GIF (root cause: the editorial had no `<video>` at all)
 
 Owner: *"why does the video not autoplay? or how can we make the video run like a gif that continuously plays?"* — on the editorial. A 5-reader code trace found the **root cause: the editorial rendered ZERO `<video>` elements.** The hero was an image-only `HeroPhoto` (`<img>`), and the data layer *actively dropped* clip-type heroes (`ptype !== 'clip'` guard), so there was literally nothing to autoplay. The boomerang machinery already worked on the public couple page `/[slug]` — it was just never wired into the editorial.

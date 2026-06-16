@@ -50,7 +50,8 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
-import { resolvePaxPricedOrderCentavos } from '@/lib/v2-catalog';
+import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
+import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -283,9 +284,24 @@ export async function submitOrderAction(
   // never over/under-charge. Only SKUs with NO catalog row (vendor / bundle /
   // legacy · resolved === null) keep the client value.
   // Owner 2026-06-14: "every price is admin-managed · never hardcoded in code."
+  //
+  // NOTE: two catalogs back the charge, checked in order. (1) the retail catalog
+  // above covers the 19 retail SKUs (flat + the pax curve). (2) the 4-tier paywall
+  // BUNDLES (GUIDED_PACK = Essentials · MEDIA_PACK = Complete) live in a SEPARATE
+  // table (platform_package_catalog · keyed by package_code, flat-priced), so the
+  // retail resolve returns null for them and the bundle order would otherwise fall
+  // back to the tamperable client price. resolveBundleChargeCentavos re-resolves
+  // the authoritative bundle price from the admin-set retail_price_php, identical
+  // to how flat retail SKUs are made authoritative. Only SKUs in NEITHER catalog
+  // (vendor / legacy · both resolves null) keep the client value.
   const resolved = await resolvePaxPricedOrderCentavos(eventId, serviceKey);
   if (resolved) {
     originalCentavos = BigInt(resolved.centavos);
+  } else {
+    const bundleCentavos = await resolveBundleChargeCentavos(serviceKey);
+    if (bundleCentavos != null) {
+      originalCentavos = BigInt(bundleCentavos);
+    }
   }
 
   // Re-validate the voucher server-side EVEN THOUGH the apply step already
@@ -388,6 +404,15 @@ export async function submitOrderAction(
   // (PR #594) carries the post-voucher delta. The orders row's
   // confirmed_total_php gets set on admin approval (Day 3) to the
   // voucher-adjusted figure so the BIR receipt shows net paid.
+  // Originating platform (web / ios / android) for /admin/payments visibility.
+  // Prefer an explicit, validated form hint (lets the route-to-web hand-off
+  // carry the app origin through the external browser — PR #1538 follow-up);
+  // otherwise the detected request platform. Defaults to 'web' on any miss.
+  const platformHint = formData.get('platform');
+  const orderPlatform = isRequestPlatform(platformHint)
+    ? platformHint
+    : await getRequestPlatform();
+
   const insertPayload: Record<string, unknown> = {
     event_id: eventId,
     user_id: user.id,
@@ -395,6 +420,7 @@ export async function submitOrderAction(
     description: displayName,
     requested_total_php: originalPriceForOrderTotal,
     reference_code: referenceCode,
+    platform: orderPlatform,
     // Land at 'submitted' which is the existing canonical "queued for admin
     // review" state. The new spec's 'pending_approval' maps semantically;
     // a follow-up migration extends the enum with the new value names but

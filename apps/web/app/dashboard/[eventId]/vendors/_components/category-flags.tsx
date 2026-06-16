@@ -14,7 +14,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Flag, Lock, Loader2, Sparkles, Search, Wand2 } from 'lucide-react';
+import { Flag, Lock, Loader2, Gem, Search, Wand2 } from 'lucide-react';
 import { flagCategory, unflagCategory, generateFlaggedVendors } from '../build-flags-actions';
 
 type Cat = { groupId: string; label: string };
@@ -44,6 +44,14 @@ export function CategoryFlags({
     startTransition(async () => {
       const res = await generateFlaggedVendors({ eventId });
       if (!res.ok) {
+        // Paywall ON + not purchased → route to the buy page instead of just
+        // showing the error. `shouldPurchase` is only ever set when the
+        // SETNAYAN_AI_PAYWALL_ENABLED flag is on (dormant by default), so this
+        // branch is unreachable today and the error-message path is unchanged.
+        if (res.shouldPurchase) {
+          router.push(`/dashboard/${eventId}/add-ons/setnayan-ai`);
+          return;
+        }
         setGenMsg(res.error);
         return;
       }
@@ -123,7 +131,7 @@ export function CategoryFlags({
                   <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-terracotta">
                     {aiOn ? (
                       <>
-                        <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden /> Setnayan AI will
+                        <Gem className="h-3 w-3" strokeWidth={2} aria-hidden /> Setnayan AI will
                         match this
                       </>
                     ) : (

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Globe,
   Lock,
+  Newspaper,
   Pencil,
   Sparkles,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { buildEventLandingUrl } from '@/lib/qr';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { RevealPreviewCard } from './_components/reveal-preview-card';
 
 export const metadata = { title: 'Wedding website' };
 
@@ -62,7 +64,7 @@ export default async function WebsiteHubPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, slug')
+      .select('event_id, display_name, slug, event_date')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -165,6 +167,8 @@ export default async function WebsiteHubPage({
         </div>
       </div>
 
+      <RevealPreviewCard displayName={event.display_name} dateIso={event.event_date} />
+
       {/* Quick links — light hand-offs to the surfaces that pair with the page */}
       <div className="grid gap-4 sm:grid-cols-2">
         <QuickLink
@@ -178,6 +182,12 @@ export default async function WebsiteHubPage({
           icon={<Lock aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Who can view"
           blurb="Choose who reaches your page — anyone with the link, or only your guests."
+        />
+        <QuickLink
+          href={`/dashboard/${eventId}/website/editorial`}
+          icon={<Newspaper aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
+          title="Editorial"
+          blurb="Your front-page story after the day — words, photos, hero, and which features show."
         />
       </div>
 

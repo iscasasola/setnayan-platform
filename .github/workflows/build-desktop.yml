@@ -1,10 +1,13 @@
 name: build-desktop
 
 # Produces buildable .app (macOS) + .exe / .msi (Windows) artifacts on every
-# push to main and on PRs touching the desktop wrapper. Artifacts aren't
-# signed yet — that's a Phase 2 concern. The goal of this workflow is the
-# Sprint 0 "don't go back" insurance: if a web change breaks the Tauri
-# wrapper, CI catches it before the change lands.
+# push to main and on PRs touching the desktop wrapper, and publishes the
+# freshest installers to a rolling `desktop-latest` release.
+#
+# macOS signing: if the APPLE_* repo secrets are present, `tauri build`
+# Developer-ID-signs + notarizes the bundle (no Gatekeeper warning on
+# download); if they're absent it falls back to ad-hoc signing (the old
+# Sprint-0 behavior, so CI never breaks). Windows is still unsigned (Phase 2).
 
 on:
   push:
@@ -31,6 +34,21 @@ jobs:
             artifact-glob: 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
 
     runs-on: ${{ matrix.platform }}
+
+    # macOS leg builds UNSIGNED (ad-hoc) for now — no Apple Developer ID cert is
+    # configured yet, and the desktop .dmg is not a launch blocker (web-first V1).
+    #
+    # ⚠ The APPLE_* signing env was REMOVED 2026-06-15. GitHub resolves a MISSING
+    # secret to an EMPTY STRING, and `tauri build` treats an empty APPLE_CERTIFICATE
+    # as "a cert is present" → runs `security import` on nothing → fails the whole
+    # macOS build. With these vars UNSET (not empty-string), tauri skips cert import
+    # and the ad-hoc signing step below takes over, producing an unsigned .app/.dmg.
+    #
+    # To ship a REAL signed + notarized build later, re-add the job-level env here —
+    # but ONLY once the secrets actually exist, and NEVER as empty values:
+    #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+    #   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
+    # (gate them behind `if: secrets.APPLE_CERTIFICATE != ''` or set them per-step).
 
     steps:
       - uses: actions/checkout@v4
@@ -76,15 +94,34 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://setnayan.com' }}
 
-      - name: Ad-hoc codesign macOS bundle (fixes "is damaged" Gatekeeper error)
-        if: matrix.platform == 'macos-latest'
+      - name: Ad-hoc codesign macOS bundle (fallback — only when no Developer ID cert)
+        # Skipped once APPLE_SIGNING_IDENTITY is set: `tauri build` has already
+        # Developer-ID-signed + notarized the bundle, and re-running an ad-hoc
+        # codesign would strip that real signature.
+        if: matrix.platform == 'macos-latest' && env.APPLE_SIGNING_IDENTITY == ''
         run: |
           APP_PATH="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Setnayan.app"
           DMG_PATH=$(ls src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg | head -1)
           codesign --force --deep --sign - "$APP_PATH"
           xattr -cr "$APP_PATH"
           xattr -cr "$DMG_PATH"
-          echo "Ad-hoc signed: $APP_PATH"
+          echo "Ad-hoc signed (unsigned distribution): $APP_PATH"
+
+      - name: Verify Developer ID signature + notarization (macOS, when signed)
+        # Informational: logs the signing authority, Gatekeeper verdict, and
+        # whether the notarization ticket is stapled. Non-fatal for now so a
+        # transient check can't block the publish; can be hardened to fail-on-
+        # reject once a clean run is confirmed.
+        if: matrix.platform == 'macos-latest' && env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          APP_PATH="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Setnayan.app"
+          DMG_PATH=$(ls src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg | head -1)
+          echo "== codesign authority =="
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -E "Authority|TeamIdentifier|Identifier|flags|Runtime" || true
+          echo "== Gatekeeper assessment (.app) =="
+          spctl -a -vvv -t exec "$APP_PATH" || true
+          echo "== notarization staple (.dmg) =="
+          xcrun stapler validate "$DMG_PATH" || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -142,7 +179,8 @@ jobs:
             - **macOS (Apple Silicon):** `Setnayan_*_aarch64.dmg`
             - **Windows (x64):** `Setnayan_*_x64_en-US.msi`
 
-            ⚠ These builds are **ad-hoc signed, not notarized**. On first launch
-            macOS Gatekeeper will warn — right-click the app → **Open**, or run
-            `xattr -cr /Applications/Setnayan.app`. Apple Silicon only (no Intel
-            build yet). Developer-ID signing + notarization are a Phase 2 item.
+            macOS builds are Developer-ID-signed + notarized when the signing
+            secrets are configured (open normally). If you hit a Gatekeeper
+            warning on an unsigned fallback build, right-click the app →
+            **Open**, or run `xattr -cr /Applications/Setnayan.app`. Apple
+            Silicon only for now (no Intel build yet).

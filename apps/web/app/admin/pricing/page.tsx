@@ -2,7 +2,13 @@ import Link from 'next/link';
 import { Pencil, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { updateRetailSku, updateBundleSku } from './actions';
+import {
+  updateRetailSku,
+  updateBundleSku,
+  updateVendorSku,
+  updatePlatformFee,
+} from './actions';
+import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 
 export const metadata = { title: 'Pricing · Admin' };
 
@@ -57,9 +63,31 @@ type BundleRow = {
   updated_by_admin_id: string | null;
 };
 
+type VendorRow = {
+  sku_code: string;
+  title: string;
+  price_php: number;
+  offering_type: 'subscription_monthly' | 'subscription_annual' | 'token_pack';
+  token_grant_count: number | null;
+  is_active: boolean;
+  display_order: number;
+  updated_at: string;
+};
+
 type Props = {
   searchParams: Promise<{ edit?: string }>;
 };
+
+const VENDOR_OFFERING_LABEL: Record<VendorRow['offering_type'], string> = {
+  subscription_monthly: 'Subscription · monthly',
+  subscription_annual: 'Subscription · annual',
+  token_pack: 'Token pack',
+};
+
+// Sentinel ?edit= value that opens the single-row platform-fee editor. Namespaced
+// with __ so it can never collide with a real service_code / package_code /
+// sku_code (all of which are bare uppercase / lowercase identifiers).
+const PLATFORM_FEE_EDIT_KEY = '__platform_fee__';
 
 function formatPeso(amount: number): string {
   return amount.toLocaleString('en-PH', {
@@ -101,9 +129,11 @@ export default async function AdminPricingPage({ searchParams }: Props) {
 
   const admin = createAdminClient();
 
-  // Load both V2 tables in parallel. Small data volume (~20 retail + 2
-  // bundles · no pagination at V1).
-  const [retailRes, bundleRes] = await Promise.all([
+  // Load all catalog tables + the platform-settings singleton in parallel.
+  // Small data volume (~20 retail + 2 bundles + ~8 vendor SKUs · no pagination
+  // at V1). The vendor catalog is read in FULL (no is_active filter) so admins
+  // can re-activate a retired SKU — same posture as the customer catalog above.
+  const [retailRes, bundleRes, vendorRes, settingsRes] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
       .select(
@@ -117,6 +147,18 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         'package_code,title,retail_price_php,is_active,updated_at,updated_by_admin_id',
       )
       .order('retail_price_php', { ascending: true }),
+    admin
+      .from('vendor_billing_catalog')
+      .select(
+        'sku_code,title,price_php,offering_type,token_grant_count,is_active,display_order,updated_at',
+      )
+      .order('is_active', { ascending: false })
+      .order('display_order', { ascending: true }),
+    admin
+      .from('platform_settings')
+      .select('setnayan_pay_fee_pct')
+      .eq('id', 1)
+      .maybeSingle(),
   ]);
 
   if (retailRes.error) {
@@ -124,6 +166,12 @@ export default async function AdminPricingPage({ searchParams }: Props) {
   }
   if (bundleRes.error) {
     logQueryError('AdminPricingPage (platform_package_catalog)', bundleRes.error);
+  }
+  if (vendorRes.error) {
+    logQueryError('AdminPricingPage (vendor_billing_catalog)', vendorRes.error);
+  }
+  if (settingsRes.error) {
+    logQueryError('AdminPricingPage (platform_settings)', settingsRes.error);
   }
 
   const retailRows = ((retailRes.data ?? []) as RetailRow[]).map((row) => ({
@@ -135,6 +183,23 @@ export default async function AdminPricingPage({ searchParams }: Props) {
     ...row,
     retail_price_php: Number(row.retail_price_php),
   }));
+  const vendorRows = ((vendorRes.data ?? []) as VendorRow[]).map((row) => ({
+    ...row,
+    price_php: Number(row.price_php),
+  }));
+
+  // Current Setnayan Pay fee — the DB value when set, else the code constant
+  // (lib/vendor-earnings.ts) so the editor always shows the live effective fee
+  // even before the column is populated. setnayan_pay_fee_pct may be absent in
+  // a stale env (the column lands in migration 20261225000000) — treat that as
+  // "unset" and fall back to the constant.
+  const settingsFee = (settingsRes.data as { setnayan_pay_fee_pct?: number | null } | null)
+    ?.setnayan_pay_fee_pct;
+  const feePct =
+    settingsFee != null && Number.isFinite(Number(settingsFee))
+      ? Number(settingsFee)
+      : SETNAYAN_PAY_FEE_PCT;
+  const feeIsFromDb = settingsFee != null && Number.isFinite(Number(settingsFee));
 
   // Resolve last-editor display names in one batch.
   const editorIds = new Set<string>();
@@ -274,6 +339,76 @@ export default async function AdminPricingPage({ searchParams }: Props) {
               />
             ))
           )}
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">
+          Vendor pricing ({vendorRows.length})
+        </h2>
+        <p className="mb-3 text-sm text-ink/60">
+          Subscriptions + bidding token packs from{' '}
+          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+            vendor_billing_catalog
+          </code>
+          . Saves propagate to{' '}
+          <Link href="/for-vendors" className="underline">
+            /for-vendors
+          </Link>{' '}
+          and{' '}
+          <Link href="/pricing" className="underline">
+            /pricing
+          </Link>{' '}
+          (which read{' '}
+          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+            getVendorPrices()
+          </code>
+          ). Price + active state are editable; titles, tier caps + token grants
+          stay migration-owned.
+        </p>
+        <div className="overflow-hidden rounded-2xl border border-ink/10">
+          {vendorRows.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-ink/60">
+                No SKUs in vendor_billing_catalog yet.
+              </p>
+            </div>
+          ) : (
+            vendorRows.map((row) => (
+              <VendorRowView
+                key={row.sku_code}
+                row={row}
+                editMode={editTarget === row.sku_code}
+              />
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="mb-1 text-base font-semibold tracking-tight">
+          Platform fee
+        </h2>
+        <p className="mb-3 text-sm text-ink/60">
+          Setnayan Pay convenience-fee percentage added to a customer invoice
+          when they pay a vendor booking through Setnayan. The vendor still
+          receives the full booking amount — the fee is the customer&apos;s
+          cost.{' '}
+          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+            lib/payouts.ts
+          </code>{' '}
+          +{' '}
+          <code className="rounded bg-ink/5 px-1 font-mono text-xs">
+            lib/vendor-earnings.ts
+          </code>{' '}
+          read this with the {SETNAYAN_PAY_FEE_PCT}% code constant as fallback.
+        </p>
+        <div className="overflow-hidden rounded-2xl border border-ink/10">
+          <PlatformFeeView
+            feePct={feePct}
+            feeIsFromDb={feeIsFromDb}
+            editMode={editTarget === PLATFORM_FEE_EDIT_KEY}
+          />
         </div>
       </section>
 
@@ -590,6 +725,225 @@ function BundleRowView({
         </span>
         <Link
           href={`/admin/pricing?edit=${encodeURIComponent(row.package_code)}`}
+          className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
+        >
+          <Pencil className="h-3 w-3" /> Edit
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function VendorRowView({
+  row,
+  editMode,
+}: {
+  row: VendorRow;
+  editMode: boolean;
+}) {
+  if (editMode) {
+    return (
+      <form
+        action={updateVendorSku}
+        className="border-b border-ink/5 bg-cream/50 p-4 last:border-b-0"
+      >
+        <input type="hidden" name="sku_code" value={row.sku_code} />
+        <div className="mb-3 flex items-center justify-between">
+          <code className="font-mono text-xs uppercase tracking-[0.15em] text-ink/60">
+            {row.sku_code}
+          </code>
+          <Link
+            href="/admin/pricing"
+            className="flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
+          >
+            <X className="h-3 w-3" /> Cancel
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Title is structural (wires the tier gate) — read-only here. */}
+          <div className="block">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              SKU
+            </span>
+            <p className="mt-1 text-sm font-medium text-ink">{row.title}</p>
+            <p className="text-xs text-ink/55">
+              {VENDOR_OFFERING_LABEL[row.offering_type]}
+              {row.token_grant_count
+                ? ` · ${row.token_grant_count} tokens`
+                : ''}
+            </p>
+          </div>
+          <label className="block">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              Price (₱ · pesos)
+            </span>
+            <input
+              name="price_php"
+              type="number"
+              step="0.01"
+              min="0.01"
+              defaultValue={row.price_php}
+              required
+              className="input-field mt-1 w-full"
+            />
+          </label>
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              name="is_active"
+              type="checkbox"
+              defaultChecked={row.is_active}
+              className="h-4 w-4 rounded border-ink/30"
+            />
+            <span className="text-sm">Active · visible on public surfaces</span>
+          </label>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="submit"
+            className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+          >
+            Save
+          </button>
+          <Link
+            href="/admin/pricing"
+            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+          >
+            Cancel
+          </Link>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-4 border-b border-ink/5 p-4 last:border-b-0 ${
+        row.is_active ? '' : 'bg-ink/3 opacity-60'
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            {row.sku_code}
+          </code>
+          {!row.is_active && (
+            <span className="rounded bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+              Inactive
+            </span>
+          )}
+          <span className="rounded bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+            {VENDOR_OFFERING_LABEL[row.offering_type]}
+          </span>
+          {row.token_grant_count ? (
+            <span className="rounded bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900">
+              {row.token_grant_count} tokens
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-0.5 truncate text-sm font-medium text-ink">{row.title}</p>
+        <p className="mt-0.5 text-[11px] text-ink/45">
+          Edited {timeAgo(row.updated_at)}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+          ₱{formatPeso(row.price_php)}
+        </span>
+        <Link
+          href={`/admin/pricing?edit=${encodeURIComponent(row.sku_code)}`}
+          className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
+        >
+          <Pencil className="h-3 w-3" /> Edit
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function PlatformFeeView({
+  feePct,
+  feeIsFromDb,
+  editMode,
+}: {
+  feePct: number;
+  feeIsFromDb: boolean;
+  editMode: boolean;
+}) {
+  if (editMode) {
+    return (
+      <form action={updatePlatformFee} className="bg-cream/50 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <code className="font-mono text-xs uppercase tracking-[0.15em] text-ink/60">
+            setnayan_pay_fee_pct
+          </code>
+          <Link
+            href="/admin/pricing"
+            className="flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
+          >
+            <X className="h-3 w-3" /> Cancel
+          </Link>
+        </div>
+        <label className="block max-w-xs">
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Setnayan Pay fee (%)
+          </span>
+          <input
+            name="setnayan_pay_fee_pct"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            defaultValue={feePct}
+            required
+            className="input-field mt-1 w-full"
+          />
+        </label>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="submit"
+            className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+          >
+            Save
+          </button>
+          <Link
+            href="/admin/pricing"
+            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+          >
+            Cancel
+          </Link>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <code className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            setnayan_pay_fee_pct
+          </code>
+          {!feeIsFromDb && (
+            <span className="rounded bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+              Code default
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-sm font-medium text-ink">
+          Setnayan Pay convenience fee
+        </p>
+        <p className="mt-0.5 text-[11px] text-ink/45">
+          {feeIsFromDb
+            ? 'Set in platform_settings.'
+            : 'Falling back to the code constant — save once to persist it in the DB.'}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+          {feePct}%
+        </span>
+        <Link
+          href={`/admin/pricing?edit=${encodeURIComponent(PLATFORM_FEE_EDIT_KEY)}`}
           className="flex items-center gap-1 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
         >
           <Pencil className="h-3 w-3" /> Edit

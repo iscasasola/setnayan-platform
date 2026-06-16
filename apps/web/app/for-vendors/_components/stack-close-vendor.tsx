@@ -24,8 +24,6 @@ const VENDOR_STACK = [
   'Calendly · consults',
   'Google Calendar',
   'WhatsApp groups',
-  'Manual Form 2307s',
-  'Hand-written ORs',
   'Drive folder per couple',
 ];
 
@@ -157,18 +155,6 @@ export async function StackCloseVendor() {
                   We handle everything else.
                 </span>
               </div>
-              <div
-                className="m-mono"
-                style={{
-                  fontSize: 11,
-                  color: 'var(--m-slate-3)',
-                  marginTop: 10,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                What iPhone did for software, Setnayan does for Filipino wedding services
-              </div>
             </div>
           </div>
         </div>
@@ -219,12 +205,11 @@ export async function StackCloseVendor() {
           }}
         >
           Most vendors run their business on a Frankenstein stack — a Kasal
-          listing here, a Pixieset there, an accountant who does the BIR forms
-          by hand. Setnayan&apos;s free tier replaces every tool below.{' '}
+          listing here, a Pixieset there, a calendar somewhere else.
+          Setnayan&apos;s free tier replaces every tool below —{' '}
           <strong style={{ color: 'var(--m-ink)' }}>
-            Average PH vendor saves ₱18,400/year
-          </strong>{' '}
-          on subscriptions alone, plus ₱2-5K per event in BIR receipt prep.
+            one login, free to start.
+          </strong>
         </p>
       </div>
 
@@ -284,7 +269,7 @@ export async function StackCloseVendor() {
             }}
           >
             <span>
-              {VENDOR_STACK.length} tools · ~₱18,400/yr in subs · BIR forms by hand
+              {VENDOR_STACK.length} tools · separate logins, separate bills
             </span>
             <span style={{ color: 'var(--m-blush-deep)' }}>
               1 missed lead = 1 lost wedding
@@ -403,8 +388,8 @@ export async function StackCloseVendor() {
                 lineHeight: 1.55,
               }}
             >
-              Profile, inbox, pipeline, calendar, contracts, payments, BIR
-              receipts, reviews — one login.{' '}
+              Profile, inbox, pipeline, calendar, contracts, payments,
+              reviews — one login.{' '}
               <strong style={{ color: 'var(--m-paper)' }}>
                 Verified is free; Pro at {p.proMonthly}/28d
               </strong>{' '}
@@ -425,13 +410,13 @@ export async function StackCloseVendor() {
                   className="m-display"
                   style={{ fontSize: 28, color: 'var(--m-orange-3)' }}
                 >
-                  ₱18.4K
+                  1 login
                 </div>
                 <div
                   className="m-mono"
                   style={{ fontSize: 10, color: 'var(--m-slate-4)' }}
                 >
-                  saved / year
+                  for everything
                 </div>
               </div>
               <div>
@@ -464,7 +449,7 @@ export async function StackCloseVendor() {
           letterSpacing: '0.04em',
         }}
       >
-        Tool subscriptions only · ₱2-5K per event in BIR receipt prep saved separately
+        One dashboard instead of the stack below
       </div>
 
       {/* Responsive overrides */}

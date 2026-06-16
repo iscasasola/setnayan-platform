@@ -7,13 +7,14 @@
  * 2026-05-30 row § 1(a) Pro 28-day price flip ₱1,999 → ₱2,499:
  *   - 0% commission · we never touch the money (preserved)
  *   - Pro ₱2,499/28d (CLAUDE.md 2026-05-30 § 1(a) cadence + price update)
- *   - 100 free bidding tokens on verification before 31 Jan 2027 (preserved)
+ *   - Founder bonus (100 free tokens before 31 Jan 2027) REMOVED 2026-06-15 (owner)
  *   - "Concierge matchmaking" copy in hero blurb → "Setnayan AI matchmaking"
  *     per V2 retire of Concierge brand
  *
  * Per [[feedback_setnayan_button_preservation]] — CTA placement +
  * interaction concept preserved verbatim from template.
  */
+import Image from 'next/image';
 import Link from 'next/link';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
@@ -48,8 +49,8 @@ export async function VendorHero() {
         className="m-vendor-hero-grid"
         style={{
           display: 'grid',
-          gap: 64,
-          alignItems: 'center',
+          gap: 'clamp(32px, 4vw, 56px)',
+          alignItems: 'stretch',
           position: 'relative',
         }}
       >
@@ -96,11 +97,7 @@ export async function VendorHero() {
             </strong>{' '}
             Pro at <strong style={{ color: 'var(--m-ink)' }}>{p.proMonthly}/28 days</strong>{' '}
             unlocks AI matchmaking, boosted reach, AI proposal
-            drafting, demand pulse. Founder bonus{' '}
-            <strong style={{ color: 'var(--m-ink)' }}>
-              100 free bidding tokens
-            </strong>{' '}
-            on verification before 31 Jan 2027.
+            drafting, and demand pulse.
           </p>
           <div
             style={{
@@ -134,115 +131,31 @@ export async function VendorHero() {
               flexWrap: 'wrap',
             }}
           >
-            <span>42 verified vendors live</span>
-            <span aria-hidden>·</span>
-            <span>23 in verification</span>
-            <span aria-hidden>·</span>
+            {/* Factual claims only — the prior "42 verified vendors / 23 in
+                verification" counts were fabricated (founder-only marketplace);
+                removed 2026-06-15 per owner "use factual numbers only". */}
             <span>0% commission, ever</span>
+            <span aria-hidden>·</span>
+            <span>Paid straight to you</span>
+            <span aria-hidden>·</span>
+            <span>Free during launch</span>
           </div>
         </div>
 
-        {/* Right rail — vendor pipeline card */}
-        <div
-          className="m-card"
-          style={{
-            padding: 22,
-            background: 'var(--m-ink)',
-            color: 'var(--m-paper)',
-            border: 'none',
-            boxShadow: 'var(--m-shadow-lg)',
-          }}
-        >
-          <div
-            className="m-label-mono"
-            style={{ color: 'var(--m-orange-3)' }}
-          >
-            Pipeline · Ato Catering
-          </div>
-          <div
-            className="m-display"
-            style={{ fontSize: 28, color: 'var(--m-paper)', marginTop: 8 }}
-          >
-            9 ACTIVE LEADS
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 8,
-              marginTop: 16,
-            }}
-          >
-            {[
-              { col: 'Bid Requests', n: 3, hot: false },
-              { col: 'Chat', n: 2, hot: false },
-              { col: 'Accepted', n: 3, hot: true },
-              { col: 'Completed', n: 2, hot: false },
-            ].map((s) => (
-              <div
-                key={s.col}
-                style={{
-                  padding: 10,
-                  background: s.hot
-                    ? 'var(--m-orange-4)'
-                    : 'rgba(255,255,255,0.06)',
-                  borderRadius: 6,
-                }}
-              >
-                <div
-                  className="m-mono"
-                  style={{
-                    fontSize: 9,
-                    color: s.hot ? 'var(--m-orange-2)' : 'var(--m-slate-4)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  {s.col}
-                </div>
-                <div
-                  className="m-display"
-                  style={{
-                    fontSize: 24,
-                    color: s.hot ? 'var(--m-orange-2)' : 'var(--m-paper)',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {s.n}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: 14,
-              padding: 12,
-              background: 'rgba(255,255,255,0.06)',
-              borderRadius: 6,
-            }}
-          >
-            <div
-              className="m-label-mono"
-              style={{ color: 'var(--m-orange-3)' }}
-            >
-              Today&apos;s earnings
-            </div>
-            <div
-              className="m-display"
-              style={{ fontSize: 28, color: 'var(--m-paper)', marginTop: 4 }}
-            >
-              ₱228K · 2 bookings paid
-            </div>
-            {/* No payout/BIR-receipt claims here — Setnayan never holds vendor
-                money (couples pay vendors directly) per the standing payment-
-                disclosure rule + the 2026-06-13 public-claims purge (#1316). */}
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, color: 'var(--m-slate-4)', marginTop: 4 }}
-            >
-              Paid straight to you · Setnayan never holds your money
-            </div>
-          </div>
+        {/* Right rail — a FULL-BLEED photo of a vendor thriving (owner 2026-06-15:
+            "i want a full bleed photo"). Bleeds to the viewport right edge and
+            fills the row height; no card chrome, no overlay chip. The left
+            column, headline, and CTAs are untouched (button-preservation lock).
+            Bleed + height handled in the responsive <style> via .m-hero-photo. */}
+        <div className="m-hero-photo" style={{ position: 'relative', overflow: 'hidden', minHeight: 'clamp(360px, 50vh, 560px)' }}>
+          <Image
+            src="/for-vendors/vendor-success.avif"
+            alt="A happy, confident Filipino wedding florist laughing in her sunlit studio surrounded by fresh flowers — a vendor thriving with Setnayan"
+            fill
+            priority
+            sizes="(max-width: 1023px) 100vw, 46vw"
+            style={{ objectFit: 'cover', objectPosition: 'center 32%' }}
+          />
         </div>
       </div>
 
@@ -289,12 +202,26 @@ export async function VendorHero() {
       <style>{`
         @media (min-width: 1024px) {
           .m-vendor-hero-grid {
-            grid-template-columns: 1.15fr 1fr;
+            grid-template-columns: 1.05fr 1fr;
+          }
+          /* Bleed the hero photo to the viewport right edge + fill the row height.
+             Bleed assumes this section spans the full viewport width — do NOT wrap
+             the hero in a max-width container or the negative margin won't reach the
+             edge. min-height scales with viewport width so the 3:4 portrait never
+             crops to a thin landscape slit on ultrawide. */
+          .m-hero-photo {
+            margin-right: calc(-1 * clamp(20px, 5vw, 56px));
+            align-self: stretch;
+            min-height: clamp(420px, 42vw, 680px);
           }
         }
         @media (max-width: 1023px) {
           .m-vendor-hero-grid {
             grid-template-columns: 1fr;
+          }
+          /* On mobile the photo becomes a full-bleed band under the copy. */
+          .m-hero-photo {
+            margin: 4px calc(-1 * clamp(20px, 5vw, 56px)) 0;
           }
         }
       `}</style>

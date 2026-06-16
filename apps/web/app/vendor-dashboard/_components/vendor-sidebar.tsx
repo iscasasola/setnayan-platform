@@ -98,6 +98,7 @@ import {
   MessageSquare,
   Music,
   Palette,
+  Globe,
   ShieldCheck,
   Sparkles,
   Star,
@@ -108,14 +109,17 @@ import {
   Coins,
   Crown,
   Building2,
+  Images,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups } from '@/lib/vendor-role';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 /**
  * Canonical vendor NavGroup[] export. Phases 1-3 of nav refactor each own
@@ -148,6 +152,17 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         href: '/vendor-dashboard/profile',
         icon: User,
         matchPrefix: '/vendor-dashboard/profile',
+      },
+      {
+        // 2026-06-15 nav-tune — live preview of the vendor's public page
+        // (/v/[slug]) "as couples see it" + Edit + Open-live. Desktop parity
+        // for the new Website bottom-nav tab per
+        // [[feedback_setnayan_orphan_prevention]].
+        key: 'website',
+        label: 'Website',
+        href: '/vendor-dashboard/website',
+        icon: Globe,
+        matchPrefix: '/vendor-dashboard/website',
       },
     ],
   },
@@ -196,6 +211,7 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
       { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
       { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
+      { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },
       { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
     ],
   },
@@ -227,12 +243,37 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
  * separate context from customer + admin doorways. Mirrors the
  * customer-sidebar + admin-sidebar header treatment.
  */
+/**
+ * Overlays admin nav-registry label + icon onto each sidebar item via its
+ * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
+ * Fallback = the item's hardcoded default; a hidden slot drops the item; no-op
+ * when navSlots is absent (fails open). href/matchPrefix + group structure +
+ * role/repertoire gating all stay in code.
+ */
+function applyVendorRegistry(
+  groups: NavGroup[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slot = navSlots[`vendor.sidebar.${item.key}`];
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
+}
+
 export function VendorSidebar({
   role,
   showRepertoire = true,
+  navSlots,
 }: {
   role: VendorTeamRole | null;
   showRepertoire?: boolean;
+  navSlots?: Record<string, NavSlotLite>;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
   // Role-aware nav shell — owner/admin see the full tree; agent/viewer see
@@ -241,8 +282,11 @@ export function VendorSidebar({
   // Service-aware: Repertoire is a music-act surface (band · singer ·
   // orchestra · choir · DJ) — hidden for every other category (owner
   // directive 2026-06-13; the page keeps its own isMusicVendor gate).
-  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
-    showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
+  const groups = applyVendorRegistry(
+    filterVendorNavGroups(VENDOR_NAV_GROUPS, role).map((g) =>
+      showRepertoire ? g : { ...g, items: g.items.filter((it) => it.key !== 'repertoire') },
+    ),
+    navSlots,
   );
 
   return (

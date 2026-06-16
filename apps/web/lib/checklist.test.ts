@@ -11,7 +11,12 @@ import {
   daysUntilEvent,
   dueDateForItem,
   buildChecklistSeed,
+  phaseForOffset,
+  groupChecklistByPhase,
+  isChurchCeremony,
+  checklistItemHref,
   CHECKLIST_TEMPLATE,
+  CHECKLIST_PHASES,
   type ChecklistItemRow,
 } from './checklist';
 
@@ -98,4 +103,97 @@ test('buildChecklistSeed: one row per template item, ascending sort_order', () =
   for (let i = 1; i < seed.length; i++) {
     assert.ok(seed[i]!.sort_order > seed[i - 1]!.sort_order);
   }
+});
+
+test('isChurchCeremony: catholic / unset = church path, civil = not', () => {
+  assert.equal(isChurchCeremony('catholic'), true);
+  assert.equal(isChurchCeremony(null), true); // not chosen yet → keep guidance
+  assert.equal(isChurchCeremony(undefined), true);
+  assert.equal(isChurchCeremony('civil'), false);
+});
+
+test('buildChecklistSeed: ceremony tailoring drops church steps for a civil wedding', () => {
+  const all = buildChecklistSeed('e'); // no ceremony → everything
+  const catholic = buildChecklistSeed('e', 'catholic');
+  const civil = buildChecklistSeed('e', 'civil');
+
+  assert.equal(catholic.length, CHECKLIST_TEMPLATE.length);
+  assert.equal(all.length, CHECKLIST_TEMPLATE.length);
+  assert.ok(civil.length < catholic.length, 'civil drops church-only tasks');
+
+  const civilKeys = new Set(civil.map((r) => r.template_key));
+  assert.ok(!civilKeys.has('pre_cana'), 'no Pre-Cana for a civil wedding');
+  assert.ok(!civilKeys.has('canonical_interview'), 'no canonical interview for civil');
+  assert.ok(civilKeys.has('marriage_license'), 'universal license still included');
+  assert.ok(civilKeys.has('guest_list'), 'universal tasks unaffected');
+
+  // sort_order stays stable: a kept task has the same value with or without filtering.
+  const licAll = all.find((r) => r.template_key === 'marriage_license')!;
+  const licCivil = civil.find((r) => r.template_key === 'marriage_license')!;
+  assert.equal(licAll.sort_order, licCivil.sort_order);
+});
+
+test('phaseForOffset: each offset lands in the right countdown phase', () => {
+  assert.equal(phaseForOffset(540)?.id, 'p1'); // 18–12 mo
+  assert.equal(phaseForOffset(365)?.id, 'p2'); // 12–9 mo
+  assert.equal(phaseForOffset(270)?.id, 'p3'); // 9–6 mo
+  assert.equal(phaseForOffset(180)?.id, 'p4'); // 6–4 mo
+  assert.equal(phaseForOffset(120)?.id, 'p5'); // 4–2 mo
+  assert.equal(phaseForOffset(60)?.id, 'p6'); //  2–1 mo
+  assert.equal(phaseForOffset(30)?.id, 'p7'); //  1 mo–2 wk
+  assert.equal(phaseForOffset(14)?.id, 'p8'); //  final 2 wk
+  assert.equal(phaseForOffset(0)?.id, 'p9'); //   day of
+  assert.equal(phaseForOffset(-30)?.id, 'p9'); // after
+  assert.equal(phaseForOffset(null), null); //    undated
+});
+
+test('phaseForOffset: every template item maps to exactly one phase', () => {
+  for (const t of CHECKLIST_TEMPLATE) {
+    const phase = phaseForOffset(t.dueOffsetDays);
+    assert.ok(phase, `no phase for ${t.key} (offset ${t.dueOffsetDays})`);
+  }
+});
+
+test('groupChecklistByPhase: phase order kept, done items sink within a phase', () => {
+  const rows = [
+    item({ item_id: 'late', due_offset_days: 14, sort_order: 200 }), // p8
+    item({ item_id: 'early', due_offset_days: 365, sort_order: 20 }), // p2
+    item({ item_id: 'p2done', due_offset_days: 360, sort_order: 30, status: 'done' }), // p2, done
+    item({ item_id: 'p2open', due_offset_days: 350, sort_order: 40 }), // p2, open
+  ];
+  const groups = groupChecklistByPhase(rows, EVENT_DATE, NOW);
+  // p2 group comes before p8 group.
+  assert.deepEqual(
+    groups.map((g) => g.phase?.id),
+    ['p2', 'p8'],
+  );
+  // Within p2: open items (earliest window first) then the done one sinks last.
+  const p2 = groups.find((g) => g.phase?.id === 'p2')!;
+  assert.deepEqual(p2.items.map((i) => i.item_id), ['early', 'p2open', 'p2done']);
+});
+
+test('CHECKLIST_PHASES: contiguous, non-overlapping coverage', () => {
+  // Each phase's minDays should be exactly one below the next phase's maxDays.
+  for (let i = 1; i < CHECKLIST_PHASES.length; i++) {
+    assert.equal(CHECKLIST_PHASES[i]!.maxDays, CHECKLIST_PHASES[i - 1]!.minDays - 1);
+  }
+});
+
+test('checklistItemHref: booking tasks deep-link to their vendor category', () => {
+  assert.equal(
+    checklistItemHref('e1', 'book_caterer'),
+    '/dashboard/e1/vendors?tab=shortlist&open=catering',
+  );
+  assert.equal(
+    checklistItemHref('e1', 'book_photo'),
+    '/dashboard/e1/vendors?tab=shortlist&open=photo_video',
+  );
+  // A vendor task with no specific tile falls back to the plain vendors surface.
+  assert.equal(checklistItemHref('e1', 'menu_tasting'), '/dashboard/e1/vendors');
+  // Non-vendor tasks keep their own destinations.
+  assert.equal(checklistItemHref('e1', 'set_budget'), '/dashboard/e1/budget');
+  assert.equal(checklistItemHref('e1', 'seating'), '/dashboard/e1/seating');
+  // Tasks with no destination return null (no jump arrow).
+  assert.equal(checklistItemHref('e1', 'write_vows'), null);
+  assert.equal(checklistItemHref('e1', null), null);
 });

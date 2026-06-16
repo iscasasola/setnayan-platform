@@ -304,31 +304,45 @@ export function ChatMessageStream({
           No messages yet — say hi to break the ice.
         </li>
       ) : (
-        messages.map((m) => (
-          <li
-            key={m.message_id}
-            className={`flex ${ownsBubble(m, viewerRole) ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                ownsBubble(m, viewerRole)
-                  ? 'bg-terracotta text-cream'
-                  : 'bg-ink/[0.06] text-ink'
-              }`}
+        messages.map((m) =>
+          // System messages (e.g. the Build re-quote nudge) are automated
+          // Setnayan notes — centered, owned by neither side, labelled
+          // "Setnayan". Never "from the couple"/"from the vendor".
+          m.sender_role === 'system' ? (
+            <li key={m.message_id} className="flex justify-center">
+              <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
+                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
+                  Setnayan · {formatChatTimestamp(m.created_at)}
+                </p>
+              </div>
+            </li>
+          ) : (
+            <li
+              key={m.message_id}
+              className={`flex ${ownsBubble(m, viewerRole) ? 'justify-end' : 'justify-start'}`}
             >
-              <p className="whitespace-pre-wrap break-words">{m.body}</p>
-              <p
-                className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                  ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
+              <div
+                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                  ownsBubble(m, viewerRole)
+                    ? 'bg-terracotta text-cream'
+                    : 'bg-ink/[0.06] text-ink'
                 }`}
               >
-                {ownsBubble(m, viewerRole) ? 'You' : counterpartyLabel}
-                {' · '}
-                {formatChatTimestamp(m.created_at)}
-              </p>
-            </div>
-          </li>
-        ))
+                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                <p
+                  className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
+                  }`}
+                >
+                  {ownsBubble(m, viewerRole) ? 'You' : counterpartyLabel}
+                  {' · '}
+                  {formatChatTimestamp(m.created_at)}
+                </p>
+              </div>
+            </li>
+          ),
+        )
       )}
       {counterpartyTyping ? (
         <li className="flex justify-start" data-testid="typing-indicator">

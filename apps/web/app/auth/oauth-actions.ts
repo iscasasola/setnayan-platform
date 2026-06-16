@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * OAuth sign-in server actions for Google + Facebook.
+ * OAuth sign-in server actions for Google + Apple.
  *
  * WHY a shared module instead of duplicating in /login/actions.ts and
  * /signup/actions.ts: the OAuth flow is identical regardless of whether
@@ -9,7 +9,12 @@
  * creates the `auth.users` row on first OAuth callback if it doesn't
  * exist, and signs the existing one in otherwise. So one signInWithOAuth
  * server action handles both surfaces. The page-level actions.ts files
- * stay focused on email + password / magic-link variants.
+ * stay focused on the email + password variant.
+ *
+ * 2026-06-15 provider-set change (owner directive): the V1 OAuth set is
+ * Google + Apple. Facebook OAuth login was removed and Apple was promoted
+ * out of the V1.1 deferral. (Facebook *sharing* — lib/social/facebook.ts
+ * et al. — is a separate feature and is untouched.)
  *
  * Flow:
  *   1. User clicks "Continue with Google" form button on /login or /signup
@@ -21,27 +26,24 @@
  *   6. The EXISTING /auth/callback/route.ts (unchanged) calls
  *      exchangeCodeForSession and redirects to `next`
  *
- * Apple deferred to V1.1 per owner directive 2026-05-23 — gates on
- * Apple Developer Program enrollment ($99/yr) which sits in the
- * DTI-deferred chain per CLAUDE.md 2026-05-18 row 8 "pilot-before-June-1".
- *
  * Provider config (owner-side, NOT in code):
  *   - Google: Supabase Studio → Auth → Providers → Google → toggle ON +
  *     paste Client ID + Client Secret from Google Cloud Console.
  *     Existing OAuth client from YouTube work can be reused — just need
  *     to add this app's /auth/callback URL to the Authorized redirect
  *     URIs list. See OWNER_ACTIONS.md.
- *   - Facebook: Supabase Studio → Auth → Providers → Facebook → toggle
- *     ON + paste App ID + App Secret from Meta for Developers. Requires
- *     creating a Setnayan App at developers.facebook.com first. Basic
- *     email scope is auto-approved; no Meta App Review needed for V1.
+ *   - Apple: Supabase Studio → Auth → Providers → Apple → toggle ON +
+ *     paste Services ID (client id) + the generated client secret JWT
+ *     from the Apple Developer portal. Gates on Apple Developer Program
+ *     enrollment ($99/yr). Add this app's /auth/callback URL to the
+ *     Return URLs for the Services ID. See OWNER_ACTIONS.md.
  */
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 
-type SupabaseOAuthProvider = 'google' | 'facebook';
+type SupabaseOAuthProvider = 'google' | 'apple';
 
 async function signInWithProvider(
   provider: SupabaseOAuthProvider,
@@ -89,6 +91,6 @@ export async function signInWithGoogle(formData: FormData) {
   return signInWithProvider('google', formData);
 }
 
-export async function signInWithFacebook(formData: FormData) {
-  return signInWithProvider('facebook', formData);
+export async function signInWithApple(formData: FormData) {
+  return signInWithProvider('apple', formData);
 }

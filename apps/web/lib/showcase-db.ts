@@ -23,6 +23,7 @@
 // /[slug] (0002 Phase 4) — never a duplicate copy under /realstories.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page
@@ -35,6 +36,17 @@ export type ShowcaseEntry = {
   // this wedding to /realstories. The list is returned featured-first, so the
   // page can render the leading featured entry as the hero slot.
   featured: boolean;
+  // Editor rank (`events.showcase_feature_rank`) — drives the /realstories
+  // cascade: lowest rank = the Cover, the next ranks = "Most loved" picks.
+  featureRank: number | null;
+  // Hero still for the card's "front page" look — the couple's website hero
+  // (events.landing_page_hero_image_url), resolved to a display URL. Null →
+  // the card falls back to the monogram/palette treatment.
+  heroImageUrl: string | null;
+  // Optional 5-second hero CLIP that plays live (ping-pong) on the card. Null
+  // on the DB path today — a clip-as-hero needs a dedicated pick (the editorial
+  // hero excludes clips); wired here so real editorials can opt in later.
+  heroVideoUrl: string | null;
 };
 
 const GRACE_DAYS = 30;
@@ -115,13 +127,16 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       venue_name: string | null;
       venue_address: string | null;
       monogram_color: string | null;
+      landing_page_hero_image_url?: string | null;
+      landing_page_hero_video_r2_key?: string | null;
       showcase_featured_at?: string | null;
+      showcase_feature_rank?: number | null;
     };
 
     const featuredAware = await admin
       .from('events')
       .select(
-        'slug, display_name, event_date, venue_name, venue_address, monogram_color, showcase_featured_at, showcase_feature_rank',
+        'slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
       )
       .eq('event_type', 'wedding')
       .in('event_id', eventIds)
@@ -137,7 +152,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       // Pre-migration fallback — drop the featuring columns + ordering.
       const legacy = await admin
         .from('events')
-        .select('slug, display_name, event_date, venue_name, venue_address, monogram_color')
+        .select('slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key')
         .eq('event_type', 'wedding')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
@@ -147,15 +162,27 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       events = legacy.data as EventRow[] | null;
     }
 
-    return (events ?? []).map((e) => ({
-      href: `/${e.slug as string}`,
-      coupleNames: e.display_name?.trim() || 'A Setnayan wedding',
-      city: deriveCity(e.venue_name, e.venue_address),
-      dateLabel: monthYear(e.event_date),
-      eventDate: e.event_date ?? null,
-      monogramColor: e.monogram_color ?? null,
-      featured: e.showcase_featured_at != null,
-    }));
+    return await Promise.all(
+      (events ?? []).map(async (e) => ({
+        href: `/${e.slug as string}`,
+        coupleNames: e.display_name?.trim() || 'A Setnayan wedding',
+        city: deriveCity(e.venue_name, e.venue_address),
+        dateLabel: monthYear(e.event_date),
+        eventDate: e.event_date ?? null,
+        monogramColor: e.monogram_color ?? null,
+        featured: e.showcase_featured_at != null,
+        featureRank: e.showcase_feature_rank ?? null,
+        // Resolve r2:// / relative refs to a display URL; plain http passes through.
+        heroImageUrl: e.landing_page_hero_image_url
+          ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
+          : null,
+        // The couple's baked "living hero" boomerang (Living Hero Studio), if set
+        // — plays forward→reverse on the realstories card with the still as poster.
+        heroVideoUrl: e.landing_page_hero_video_r2_key
+          ? await displayUrlForStoredAsset(e.landing_page_hero_video_r2_key)
+          : null,
+      })),
+    );
   } catch {
     return [];
   }

@@ -85,29 +85,3 @@ export async function signInWithPassword(formData: FormData) {
 
   return redirect(next);
 }
-
-export async function signInWithMagicLink(formData: FormData) {
-  const email = String(formData.get('email') ?? '').trim();
-  const next = safeNext(formData.get('next'));
-  if (!email) {
-    return redirect(`/login?error=missing&next=${encodeURIComponent(next)}`);
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
-      shouldCreateUser: false,
-    },
-  });
-
-  if (error) {
-    return redirect(
-      `/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
-    );
-  }
-
-  return redirect(`/login?sent=1&next=${encodeURIComponent(next)}`);
-}

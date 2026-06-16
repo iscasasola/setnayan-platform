@@ -77,6 +77,9 @@ export type SwitcherEvent = {
   // (all frame=null) collapse to whichever shares the font, so the chrome would
   // pick the wrong shape. Optional for backward-compat with pre-style events.
   monogram_style?: string | null;
+  // Cipher / Bespoke-AI custom mark (owner 2026-06-15) — when present it IS the
+  // monogram and EventMonogram renders it over the lettered design.
+  monogram_custom_svg?: string | null;
 };
 
 export type SwitcherVendorTarget = {
@@ -101,6 +104,7 @@ type Props = {
   currentMonogramFrameKey?: string | null;
   currentMonogramFontKey?: string | null;
   currentMonogramStyle?: string | null;
+  currentMonogramCustomSvg?: string | null;
   events: SwitcherEvent[];
   hasCustomerAccess: boolean;
   hasVendorAccess: boolean;
@@ -126,6 +130,7 @@ export function EventSwitcher({
   currentMonogramFrameKey,
   currentMonogramFontKey,
   currentMonogramStyle,
+  currentMonogramCustomSvg,
   events,
   hasCustomerAccess,
   hasVendorAccess,
@@ -137,6 +142,10 @@ export function EventSwitcher({
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>('events');
   const [mounted, setMounted] = useState(false);
+  // Long-press the monogram anchor → "edit your monogram?" confirm (owner
+  // 2026-06-15). The chip itself stays a PICKER (tap opens the switcher); the
+  // edit path is gated behind this confirm so a stray tap never leaves the flow.
+  const [editAsk, setEditAsk] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
@@ -179,14 +188,15 @@ export function EventSwitcher({
     };
   }, [open]);
 
-  // Long-press handling for mobile — fire the switcher when the user
-  // holds the monogram for ≥400ms. Pointer events handle touch + mouse + pen.
+  // Long-press handling — hold the monogram for ≥400ms to raise the "edit your
+  // monogram?" confirm (owner 2026-06-15). Pointer events cover touch+mouse+pen.
+  // Only when there's a current event to edit (the empty "+" anchor has none).
   const startLongPress = () => {
+    if (!currentEventId) return;
     isLongPressFiredRef.current = false;
     longPressTimerRef.current = window.setTimeout(() => {
       isLongPressFiredRef.current = true;
-      setView('events');
-      setOpen(true);
+      setEditAsk(true);
     }, 400);
   };
 
@@ -197,13 +207,29 @@ export function EventSwitcher({
     }
   };
 
-  // If long-press fired we eat the subsequent tap so the link doesn't navigate.
-  const onMonogramClick = (e: React.MouseEvent) => {
+  // Tap = PICKER: open the event switcher (owner 2026-06-15 "the icon … should
+  // only run as a picker"). If a long-press already fired, eat the trailing tap
+  // so the confirm dialog isn't immediately shadowed by the opening switcher.
+  const onMonogramTap = (e: React.MouseEvent) => {
     if (isLongPressFiredRef.current) {
       e.preventDefault();
       isLongPressFiredRef.current = false;
+      return;
     }
+    setView('events');
+    setOpen(true);
   };
+
+  // Esc closes the edit-monogram confirm (the switcher's own Esc handler is
+  // gated on `open`, which is false while only the confirm is up).
+  useEffect(() => {
+    if (!editAsk) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditAsk(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editAsk]);
 
   // "Switch view" targets — every console the account can enter OTHER than
   // the one it's on (currentRole is implied by the surface). Lifted verbatim
@@ -334,6 +360,7 @@ export function EventSwitcher({
                           monogram_frame_key: ev.monogram_frame_key,
                           monogram_font_key: ev.monogram_font_key,
                           monogram_style: ev.monogram_style,
+                          monogram_custom_svg: ev.monogram_custom_svg,
                         }}
                         size="sm"
                       />
@@ -409,21 +436,17 @@ export function EventSwitcher({
           when the account holds zero events. Either way the caret beside it
           opens the same unified menu, so role switching is never lost on
           event-less vendor/admin accounts. */}
-      <Link
-        href={currentEventId ? `/dashboard/${currentEventId}` : '/dashboard/create-event'}
-        className="flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
-        onPointerDown={startLongPress}
-        onPointerUp={cancelLongPress}
-        onPointerLeave={cancelLongPress}
-        onPointerCancel={cancelLongPress}
-        onClick={onMonogramClick}
-        aria-label={
-          currentEventId
-            ? `${currentEventName} dashboard · long-press to switch events`
-            : 'Create your first event · long-press to switch view'
-        }
-      >
-        {currentEventId ? (
+      {currentEventId ? (
+        <button
+          type="button"
+          className="flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+          onPointerDown={startLongPress}
+          onPointerUp={cancelLongPress}
+          onPointerLeave={cancelLongPress}
+          onPointerCancel={cancelLongPress}
+          onClick={onMonogramTap}
+          aria-label={`${currentEventName} · tap to switch events, long-press to edit your monogram`}
+        >
           <EventMonogram
             event={{
               display_name: currentEventName ?? '',
@@ -432,13 +455,20 @@ export function EventSwitcher({
               monogram_frame_key: currentMonogramFrameKey,
               monogram_font_key: currentMonogramFontKey,
               monogram_style: currentMonogramStyle,
+              monogram_custom_svg: currentMonogramCustomSvg,
             }}
             size="md"
           />
-        ) : (
+        </button>
+      ) : (
+        <Link
+          href="/dashboard/create-event"
+          className="flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+          aria-label="Create your first event"
+        >
           <EmptyEventMonogram size="md" />
-        )}
-      </Link>
+        </Link>
+      )}
       <button
         type="button"
         aria-label="Switch event or view"
@@ -513,6 +543,56 @@ export function EventSwitcher({
                 <style>{`@keyframes sn-sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
                 <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-ink/15" />
                 {renderMenu()}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {/* Long-press "edit your monogram?" confirm (owner 2026-06-15). Portaled
+          to body so its fixed overlay ignores any chrome ancestor transform.
+          "Let's edit" → the Monogram Maker (the single source the chrome icon,
+          QR center, and website hero all read). */}
+      {editAsk && mounted && currentEventId && typeof document !== 'undefined'
+        ? createPortal(
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+              <button
+                type="button"
+                aria-label="Cancel"
+                onClick={() => setEditAsk(false)}
+                className="fixed inset-0 bg-ink/40"
+              />
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="sn-mono-edit-title"
+                className="relative z-[61] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-ink/10 bg-cream p-5 text-center shadow-2xl"
+              >
+                <p id="sn-mono-edit-title" className="text-base font-semibold text-ink">
+                  Do you want to edit your monogram?
+                </p>
+                <p className="mt-1 text-sm text-ink/60">
+                  Open the Monogram Maker to change your wedding mark.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditAsk(false)}
+                    className="flex-1 rounded-xl border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditAsk(false);
+                      router.push(`/dashboard/${currentEventId}/monogram`);
+                    }}
+                    className="flex-1 rounded-xl bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-700"
+                  >
+                    Let&rsquo;s edit
+                  </button>
+                </div>
               </div>
             </div>,
             document.body,

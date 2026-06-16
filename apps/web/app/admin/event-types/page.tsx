@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
@@ -60,6 +61,30 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
     .order('event_type', { ascending: true });
   const rows = (data ?? []) as VocabRow[];
 
+  // Taxonomy coverage per type — how many categories (tier-2 tiles) each event
+  // currently offers. A tile with NULL/empty applicable_event_types is universal
+  // (serves every event); else only its listed types. Powers the "Scope
+  // categories" CTA + a "not tailored" hint so a new type's inherited (untailored)
+  // taxonomy is visible at a glance.
+  const { data: tileData } = await admin
+    .from('service_categories')
+    .select('applicable_event_types')
+    .eq('tier', 2);
+  const tiles = (tileData ?? []) as { applicable_event_types: string[] | null }[];
+  const totalTiles = tiles.length;
+  const offeredByType = new Map<string, number>();
+  for (const r of rows) offeredByType.set(r.event_type, 0);
+  for (const t of tiles) {
+    const aet = t.applicable_event_types;
+    if (!aet || aet.length === 0) {
+      for (const r of rows) offeredByType.set(r.event_type, (offeredByType.get(r.event_type) ?? 0) + 1);
+    } else {
+      for (const et of aet) {
+        if (offeredByType.has(et)) offeredByType.set(et, (offeredByType.get(et) ?? 0) + 1);
+      }
+    }
+  }
+
   const liveCount = rows.filter((r) => r.status === 'active' && r.enabled).length;
   const activeCount = rows.filter((r) => r.status === 'active').length;
 
@@ -105,11 +130,11 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
           </p>
         </div>
         <div>
-          <p className="font-medium text-ink">Photo &amp; tagline</p>
+          <p className="font-medium text-ink">Categories it offers</p>
           <p className="mt-1">
-            A new type starts with a tasteful default photo until you paste a hero photo URL here.
-            The tagline is the one-liner on the picker card. Taxonomy applicability checkboxes pick
-            up new types automatically — no extra step.
+            A new type starts offering <em>every</em> category (the wedding-shaped set). Use{' '}
+            <span className="font-medium text-ink">Scope categories</span> on the type to tailor
+            which ones it offers — hide the ones that don’t fit. Until you do, it inherits them all.
           </p>
         </div>
       </section>
@@ -169,6 +194,8 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
         <ul className="space-y-3">
           {rows.map((r) => {
             const retired = r.status === 'retired';
+            const offered = offeredByType.get(r.event_type) ?? 0;
+            const tailored = offered < totalTiles;
             return (
               <li
                 key={r.event_type}
@@ -235,6 +262,28 @@ export default async function AdminEventTypesPage({ searchParams }: { searchPara
                       </ConfirmForm>
                     ) : null}
                   </div>
+                </div>
+
+                {/* Taxonomy coverage + the guided "scope this type's
+                    categories" jump — closes the add-a-type → tailor-its-
+                    taxonomy loop so the two never drift (owner 2026-06-16). */}
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink/8 pt-2 text-[11px]">
+                  <span className="font-mono uppercase tracking-[0.12em] text-ink/45">
+                    Offers {offered} of {totalTiles} categories
+                  </span>
+                  {!retired && !tailored ? (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-700">
+                      Not tailored
+                    </span>
+                  ) : null}
+                  {!retired ? (
+                    <Link
+                      href={`/admin/event-types/${r.event_type}/categories`}
+                      className="font-medium text-terracotta hover:underline"
+                    >
+                      Scope categories →
+                    </Link>
+                  ) : null}
                 </div>
 
                 <details className="mt-3">

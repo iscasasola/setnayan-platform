@@ -281,3 +281,158 @@ export async function unretireEventType(formData: FormData) {
   revalidateRosterSurfaces();
   redirectBack('ok', `${row.label_en} is active again. Flip "Show in picker" when you’re ready to relaunch it.`, key);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Per-event-type CATEGORY SCOPING — the "tailor a type's taxonomy" convenience
+ * (owner 2026-06-16). Adding an event type auto-covers the taxonomy (fail-open:
+ * a category with NULL/empty `applicable_event_types` serves EVERY event), but
+ * does NOT auto-tailor it. These actions back the focused screen at
+ * /admin/event-types/[eventType]/categories where an admin flips each category
+ * (taxonomy tile) Offered / Hidden for ONE event type — no need to hand-edit the
+ * multi-type checkboxes on /admin/taxonomy. Writes the SAME
+ * `service_categories.applicable_event_types` column the marketplace + Shortlist
+ * read, so the change is live everywhere at once.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+function scopedRedirect(eventType: string, kind: 'ok' | 'error', msg: string): never {
+  const p = new URLSearchParams();
+  p.set(kind, msg);
+  redirect(`${BASE}/${eventType}/categories?${p.toString()}`);
+}
+
+/** The active event-type keys — the universe used to (a) normalize "serves all
+ *  active types" back to NULL (universal) and (b) materialize "all except T"
+ *  when hiding a universal tile. Active-only so we never write a retired key
+ *  (the validate_applicable_event_types trigger rejects non-active members). */
+async function activeEventTypeKeys(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string[]> {
+  const { data } = await admin
+    .from('event_type_vocab')
+    .select('event_type')
+    .eq('status', 'active');
+  return ((data ?? []) as { event_type: string }[]).map((r) => r.event_type);
+}
+
+/**
+ * Compute the next `applicable_event_types` for a tile when toggling ONE type's
+ * membership. `applicable_event_types` is an ALLOW-list (NULL/empty = universal,
+ * serves all); there is no "deny" — hiding a universal tile materializes "all
+ * active types except T". Always sanitizes to active keys so the write passes
+ * the validation trigger, and normalizes "covers every active type" → NULL so a
+ * fully-offered tile reverts to the clean universal state.
+ */
+function nextEventTypes(
+  current: string[] | null,
+  type: string,
+  offered: boolean,
+  activeTypes: string[],
+): string[] | null {
+  const activeSet = new Set(activeTypes);
+  const curActive = (current ?? []).filter((t) => activeSet.has(t));
+  const universal = curActive.length === 0;
+
+  if (offered) {
+    if (universal) return null; // already serves all → stays universal
+    const set = new Set(curActive);
+    set.add(type);
+    if (activeTypes.every((t) => set.has(t))) return null; // now covers all → universal
+    return [...set];
+  }
+  // hide T
+  if (universal) return activeTypes.filter((t) => t !== type);
+  const next = curActive.filter((t) => t !== type);
+  // Degenerate: removing T would empty the list (= universal = serves T again).
+  // Materialize "all except T" instead so T stays hidden.
+  return next.length === 0 ? activeTypes.filter((t) => t !== type) : next;
+}
+
+/** Toggle ONE taxonomy tile Offered/Hidden for one event type. */
+export async function setTileEventTypeOffered(formData: FormData) {
+  const user = await requireAdmin();
+  const eventType = String(formData.get('event_type') ?? '').trim();
+  const tileId = String(formData.get('tile_id') ?? '').trim();
+  const offered = String(formData.get('offered') ?? '') === '1';
+  if (!KEY_RE.test(eventType)) redirectBack('error', 'Unknown event type.');
+
+  const admin = createAdminClient();
+  const { data: tile } = await admin
+    .from('service_categories')
+    .select('id, label_en, applicable_event_types')
+    .eq('id', tileId)
+    .eq('tier', 2)
+    .maybeSingle();
+  if (!tile) scopedRedirect(eventType, 'error', 'Category not found.');
+
+  const activeTypes = await activeEventTypeKeys(admin);
+  const before = (tile.applicable_event_types as string[] | null) ?? null;
+  const next = nextEventTypes(before, eventType, offered, activeTypes);
+
+  const { error } = await admin
+    .from('service_categories')
+    .update({ applicable_event_types: next })
+    .eq('id', tileId);
+  if (error) scopedRedirect(eventType, 'error', error.message);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'event_types.scope_tile',
+    target_table: 'service_categories',
+    target_id: tileId,
+    before_json: { applicable_event_types: before },
+    after_json: { applicable_event_types: next, event_type: eventType, offered },
+    actor_user_id: user.id,
+  });
+  revalidateRosterSurfaces();
+  revalidatePath(`${BASE}/${eventType}/categories`);
+  scopedRedirect(
+    eventType,
+    'ok',
+    `${tile.label_en} is now ${offered ? 'offered to' : 'hidden from'} this event.`,
+  );
+}
+
+/** Bulk: Offer-all / Hide-all every tile in a folder for one event type. The
+ *  fast way to narrow a whole section out (e.g. hide all Look tiles from a
+ *  corporate gala). */
+export async function setFolderEventTypeOffered(formData: FormData) {
+  const user = await requireAdmin();
+  const eventType = String(formData.get('event_type') ?? '').trim();
+  const folderId = String(formData.get('folder_id') ?? '').trim();
+  const offered = String(formData.get('offered') ?? '') === '1';
+  if (!KEY_RE.test(eventType)) redirectBack('error', 'Unknown event type.');
+
+  const admin = createAdminClient();
+  const { data: tiles } = await admin
+    .from('service_categories')
+    .select('id, applicable_event_types')
+    .eq('tier', 2)
+    .eq('parent_id', folderId);
+  const rows = (tiles ?? []) as { id: string; applicable_event_types: string[] | null }[];
+  if (rows.length === 0) scopedRedirect(eventType, 'error', 'No categories in that section.');
+
+  const activeTypes = await activeEventTypeKeys(admin);
+  let changed = 0;
+  for (const t of rows) {
+    const next = nextEventTypes(t.applicable_event_types ?? null, eventType, offered, activeTypes);
+    const { error } = await admin
+      .from('service_categories')
+      .update({ applicable_event_types: next })
+      .eq('id', t.id);
+    if (!error) changed += 1;
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'event_types.scope_folder',
+    target_table: 'service_categories',
+    target_id: folderId,
+    after_json: { event_type: eventType, offered, tile_count: rows.length, changed },
+    actor_user_id: user.id,
+  });
+  revalidateRosterSurfaces();
+  revalidatePath(`${BASE}/${eventType}/categories`);
+  scopedRedirect(
+    eventType,
+    'ok',
+    `${changed} ${changed === 1 ? 'category' : 'categories'} ${offered ? 'offered to' : 'hidden from'} this event.`,
+  );
+}

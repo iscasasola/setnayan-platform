@@ -41,10 +41,8 @@ export type HistoryEntry =
 
 const GRANT_SOURCE_LABEL: Record<string, string> = {
   pilot_grant: 'Founder bonus',
-  telemetry_reward: 'Telemetry reward',
   manpower_handshake: 'Manpower handshake',
   admin_grant: 'Issued by Setnayan',
-  referral_reward: 'Referral reward',
 };
 
 // Friendly labels for the V2 service_codes that consume vendor tokens.

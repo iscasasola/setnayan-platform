@@ -25,8 +25,8 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { MobileMenu } from './_nav-mobile';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -57,18 +57,24 @@ export function PromoBar() {
 export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
   // Simple site nav (owner 2026-06-13/14): Home (the video scrub, = the logo) ·
   // Explore (search anything across all services) · For vendors · Our story ·
-  // Real Stories. "What you get" was REMOVED from the nav 2026-06-14 — it now
-  // lives ON the homepage itself: after the hero, "Tap to learn more ↓" reveals
-  // the "A Place for Each" / what-you-get narrative (see PostHeroReveal +
-  // WhatYouGet). Pricing folds into that narrative; Help + legal + planning
-  // guides (/blog) live in the footer. Keeps the top nav clean + strategic.
+  // Journal · Real Stories. "What you get" was REMOVED from the nav 2026-06-14 —
+  // it now lives ON the homepage itself: after the hero, "Tap to learn more ↓"
+  // reveals the "A Place for Each" / what-you-get narrative (see PostHeroReveal +
+  // WhatYouGet). Pricing folds into that narrative; Help + legal stay in the
+  // footer.
   //
+  // "Journal" → /blog: the Setnayan Journal planning-education magazine.
+  // Promoted from footer-only into the top nav 2026-06-15 (owner) after the
+  // magazine redesign (#1439) — premium content earns the reach; reverses the
+  // 2026-06-14 "guides live in the footer" call.
   // "Real Stories" → /weddings: the real-wedding showcase (iteration 0046,
-  // seeded with the Maria & Juan sample editorial) IS the destination.
+  // seeded with the Maria & Juan sample editorial) IS the destination — a
+  // separate surface from the Journal (real weddings vs planning guides).
   const links: Array<{ label: string; href: string }> = [
     { label: 'Explore', href: '/vendors' },
     { label: 'For vendors', href: '/for-vendors' },
     { label: 'Our story', href: '/our-story' },
+    { label: 'Journal', href: '/blog' },
     { label: 'Real Stories', href: '/weddings' },
   ];
 
@@ -77,27 +83,9 @@ export function Nav({ sticky = true }: { sticky?: boolean } = {}) {
   // scroll into it, and gives every other page more room while scrolling down;
   // the nav slides back the instant you scroll up (to reach for it) or return
   // to the top. Non-sticky pages (e.g. /vendors) scroll the nav away naturally,
-  // so the effect no-ops there.
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    if (!sticky) return;
-    let lastY = window.scrollY;
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const y = window.scrollY;
-        if (y < 64) setHidden(false); // always visible near the very top
-        else if (y > lastY + 4) setHidden(true); // scrolling down → hide
-        else if (y < lastY - 4) setHidden(false); // scrolling up → reveal
-        lastY = y;
-        ticking = false;
-      });
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [sticky]);
+  // so the effect no-ops there. Shared with every dashboard top bar via the
+  // canonical useHideOnScroll hook (owner 2026-06-15 universal-rule directive).
+  const hidden = useHideOnScroll(sticky);
 
   return (
     <nav

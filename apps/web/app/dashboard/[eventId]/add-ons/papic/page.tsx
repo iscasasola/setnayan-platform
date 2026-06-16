@@ -36,6 +36,9 @@ import {
   eventOwnsPapicSeats,
   PAPIC_SEATS_PRICE_PHP,
   PAPIC_SEATS_SERVICE_KEY,
+  PAPIC_SAMPLER_SEAT_COUNT,
+  PAPIC_SAMPLER_PHOTO_CAP,
+  PAPIC_SAMPLER_CLIP_CAP,
 } from '@/lib/papic-seats';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -43,6 +46,7 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
+import { RecapCard } from './_components/recap-card';
 
 // Iteration 0012 — Papic (V1 setup surface)
 //
@@ -351,6 +355,18 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             )}
           </div>
         </div>
+        {!ownsPapicSeats && (
+          <div className="mt-4 border-t border-terracotta/15 pt-3">
+            <Link
+              href={`/dashboard/${eventId}/add-ons/papic/crew`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-2 hover:underline"
+            >
+              Try Papic free first — {PAPIC_SAMPLER_SEAT_COUNT} seats,{' '}
+              {PAPIC_SAMPLER_PHOTO_CAP} photos + {PAPIC_SAMPLER_CLIP_CAP} clips each
+              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ----------------------------------------------------------------
@@ -442,6 +458,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <LiveWallCard eventId={eventId} />
 
       <MagazineCard eventId={eventId} />
+
+      <RecapCard eventId={eventId} />
 
       <GestureReferenceCard />
 

@@ -25,6 +25,7 @@ import {
 } from './monogram-maker';
 import { BespokeStudio, type BespokeCandidateView } from './bespoke-studio';
 import { CipherStudio } from './cipher-studio';
+import { MonogramUploadCard } from './upload-card';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
@@ -59,7 +60,19 @@ type Props = {
     bespoke_error?: string;
     cipher?: string;
     cipher_error?: string;
+    upload?: string;
   }>;
+};
+
+// Customer-safe status lines for the "upload your own monogram" flow.
+const UPLOAD_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
+  ok: { tone: 'ok', text: 'Your monogram is uploaded — it’s now your mark everywhere.' },
+  removed: { tone: 'ok', text: 'Removed your upload — back to your Setnayan mark.' },
+  empty: { tone: 'error', text: 'Please choose a file to upload.' },
+  too_big: { tone: 'error', text: 'That file is too large — please use one under 4 MB.' },
+  bad_type: { tone: 'error', text: 'Please upload a PNG, JPG, or SVG image.' },
+  bad_svg: { tone: 'error', text: 'We couldn’t read that SVG — try a PNG/JPG instead.' },
+  bad_image: { tone: 'error', text: 'We couldn’t read that image — please try another file.' },
 };
 
 // Customer-safe status lines for the cipher studio's redirect flags.
@@ -105,7 +118,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_custom_svg, monogram_custom_generation_id, monogram_cipher_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_uploaded_svg, monogram_custom_svg, monogram_custom_generation_id, monogram_cipher_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -171,10 +184,21 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   // Library signatures), so the "How it animates" section must branch on it
   // — otherwise the motion copy/preview would advertise an animation the
   // guest never sees while bespoke is live.
-  const customSvg =
-    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
-      ? event.monogram_custom_svg
+  // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
+  // which outranks the lettered lockup. `customSvg` is the EFFECTIVE custom mark
+  // every downstream surface reads, so the upload wins on the maker preview +
+  // the Feature-Us flow just like it does in the chrome icon + website hero.
+  const uploadedSvg =
+    typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? event.monogram_uploaded_svg
       : null;
+  const customSvg =
+    uploadedSvg ??
+    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
+      ? event.monogram_custom_svg
+      : null);
+  const uploadedDataUri = uploadedSvg ? bespokeSvgToDataUri(uploadedSvg) : null;
+  const uploadNotice = UPLOAD_NOTICES[sp.upload ?? ''] ?? null;
 
   // ── Social Sharing & Featuring Program (migration 20261203000000) — the
   // live (un-revoked) consent row for THIS custom mark, so the Feature-Us
@@ -221,6 +245,22 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           shows on your wedding website, your QR codes, and across your dashboard.
         </p>
       </header>
+
+      {uploadNotice ? (
+        <p
+          role="status"
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            uploadNotice.tone === 'ok'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
+          }`}
+        >
+          {uploadNotice.text}
+        </p>
+      ) : null}
+
+      {/* ── Upload your own (overrides everything below · owner rule 2026-06-15) ── */}
+      <MonogramUploadCard eventId={eventId} activeDataUri={uploadedDataUri} />
 
       {/* ── Cipher studio — design the interlocking mark ── */}
       <CipherStudio

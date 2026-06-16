@@ -5,6 +5,7 @@ import {
   monogramFrameAssetUrl,
   splitInitials,
 } from '@/lib/monogram';
+import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 
 /**
@@ -31,6 +32,11 @@ type Event = {
   // Lockup style (bar · script · duo · framed · infinity) — owner 2026-06-04.
   // Authoritative when present; resolveMonogramDesign falls back to frame+font.
   monogram_style?: string | null;
+  // Cipher / Bespoke-AI custom mark (owner 2026-06-15: "show the custom SVG
+  // everywhere"). When present it IS the couple's monogram and outranks the
+  // lettered design below — so the chrome icon matches the website hero (one
+  // mark everywhere, no letters-in-chrome / SVG-on-hero split).
+  monogram_custom_svg?: string | null;
 };
 
 type Size = 'sm' | 'md' | 'lg';
@@ -67,6 +73,37 @@ export function EventMonogram({
   });
   const ink = design?.color ?? color;
   const { box, text: textSize, px } = SIZE_TOKENS[size];
+
+  // Custom mark (Cipher / Bespoke AI) outranks the lettered design — when one
+  // exists it IS the couple's monogram, so the chrome icon shows the SAME mark
+  // as the website hero / QR center (owner 2026-06-15 "show the custom SVG
+  // everywhere"). Rendered as an inert <img> data-URI (no script context),
+  // object-contain inside the round chip so the full mark reads, never clipped.
+  const customSvg =
+    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? event.monogram_custom_svg
+      : null;
+  if (customSvg) {
+    return (
+      <span
+        aria-hidden
+        className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream ${box} ${
+          className ?? ''
+        }`
+          .replace(/\s+/g, ' ')
+          .trim()}
+        title={text}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={bespokeSvgToDataUri(customSvg)}
+          alt=""
+          className="h-full w-full object-contain p-0.5"
+          draggable={false}
+        />
+      </span>
+    );
+  }
 
   // Type-only lockup (bar · duo · script · infinity) → draw the couple's REAL
   // chosen mark, not just their initials in a font (owner 2026-06-13, reversing

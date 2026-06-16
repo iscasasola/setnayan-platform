@@ -17,7 +17,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type ReactElement } from 'react';
+import { type ReactElement, type ReactNode } from 'react';
 import { loadEditorialData, type EditorialData } from './data';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -26,7 +26,16 @@ const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-export async function EditorialContent({ eventId }: { eventId: string }): Promise<ReactElement> {
+export async function EditorialContent({
+  eventId,
+  share,
+}: {
+  eventId: string;
+  /** Share target for the editorial's own "Share this story" element. Omit for a
+   *  real editorial and it falls back to the couple's own /[slug]; the sample
+   *  detail passes its /realstories/[slug] target. */
+  share?: { url: string; title: string; image: string } | null;
+}): Promise<ReactElement> {
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -53,26 +62,31 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
     };
   }
 
+  // The editorial owns its share affordance (no external bar). Use the passed
+  // target (sample → its /realstories/[slug]) or the couple's own /[slug].
+  const effectiveShare =
+    share ??
+    (data.slug
+      ? {
+          url: `${SHARE_SITE_URL}/${data.slug}`,
+          title: `${data.displayName} — a Setnayan Real Story`,
+          image: `${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`,
+        }
+      : null);
+
+  // A block shows unless the couple turned it off in the editorial editor.
+  const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
+
+  // Masthead dateline numbers — Volume follows the Setnayan awards cycle (the
+  // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
+  // wedding's number within that cycle.
+  const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
+
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
         <PhaseRibbon />
-
-        {/* Share this story — real editorials only (the curated sample has a
-            null slug; its /realstories/[slug] detail page owns the share bar,
-            so this never double-renders on the sample). Couples share out of
-            pride and their booked vendors for social proof — both drive traffic
-            back via the og:image card at /api/og/realstory-slug/[slug]. */}
-        {data.slug ? (
-          <div className="mt-3 flex justify-end">
-            <ShareButtons
-              url={`${SHARE_SITE_URL}/${data.slug}`}
-              title={`${data.displayName} — a Setnayan Real Story`}
-              image={`${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`}
-            />
-          </div>
-        ) : null}
 
         <div className="border-t-[3px] border-double border-ink" />
 
@@ -88,10 +102,24 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
         </header>
 
         <div className="border-t border-ink/80" />
+        {/* The share control replaces "Priceless" inline in the dateline (no
+            full-width row) — the editorial owns its share affordance, compact in
+            the masthead. Real editorials + curated samples both get it. */}
         <EditionLine
-          left="Vol. I · No. 1"
+          left={editionLeft}
           center={editionCenter(data)}
-          right="Priceless"
+          right={
+            effectiveShare ? (
+              <ShareButtons
+                compact
+                url={effectiveShare.url}
+                title={effectiveShare.title}
+                image={effectiveShare.image}
+              />
+            ) : (
+              'Priceless'
+            )
+          }
         />
         <div className="border-t-[3px] border-ink" />
 
@@ -124,22 +152,32 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
         {/* Below the photo: the write-up takes the wide column; the Setnayan
             "By the Numbers" sits in a slim corner sidebar. On mobile both stack
             (story first, numbers as the recap right after). */}
-        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[1.95fr_0.85fr] lg:gap-9">
+        <div
+          className={`mt-5 grid grid-cols-1 gap-6 ${
+            isOn('byTheNumbers') ? 'lg:grid-cols-[1.95fr_0.85fr] lg:gap-9' : ''
+          }`}
+        >
           <div className="min-w-0">
             {/* Editorial = post-event SHOWCASE: the love story now lives on the
                 run-up paths (Save the Date / RSVP / Event), not here. We keep
                 the thank-you pull-quote, drop the love-narrative paragraphs. */}
-            <LeadArticle paragraphs={[]} pullQuote={copy.pullQuote} />
-            {data.vendors.length ? <TeamBehindTheDay vendors={data.vendors} /> : null}
+            {/* Couple-written lead paragraphs only (full editorial control); the
+                auto-composed love narrative stays on the run-up paths. */}
+            <LeadArticle paragraphs={data.draft.leadParagraphs ?? []} pullQuote={copy.pullQuote} />
+            {isOn('team') && data.vendors.length ? (
+              <TeamBehindTheDay vendors={data.vendors} />
+            ) : null}
           </div>
 
-          <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
-            <ByTheNumbers data={data} />
-          </aside>
+          {isOn('byTheNumbers') ? (
+            <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
+              <ByTheNumbers data={data} />
+            </aside>
+          ) : null}
         </div>
 
         {/* From the couple (pull from special_message) ------------------------ */}
-        {data.specialMessage ? (
+        {isOn('fromTheCouple') && data.specialMessage ? (
           <>
             <SectionRule title="From the Couple" />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
@@ -147,7 +185,7 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
         ) : null}
 
         {/* Shared photos from the day ----------------------------------------- */}
-        {data.galleryPhotos.length ? (
+        {isOn('gallery') && data.galleryPhotos.length ? (
           <>
             <SectionRule title="From the Day" />
             <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
@@ -156,7 +194,7 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
 
         {/* Live Photo Wall (LIVE_WALL SKU) — a dense masonry of the day's
             candid photos, surfaced only when the couple availed the wall. ---- */}
-        {data.photoWallActive && data.photoWallPhotos.length ? (
+        {isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
           <>
             <SectionRule title="Live Photo Wall" />
             <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
@@ -164,11 +202,15 @@ export async function EditorialContent({ eventId }: { eventId: string }): Promis
         ) : null}
 
         {/* What they said (reviews from guests / vendors / the couple) -------- */}
-        <SectionRule title="What They Said" />
-        {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+        {isOn('reviews') ? (
+          <>
+            <SectionRule title="What They Said" />
+            {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+          </>
+        ) : null}
 
         {/* The Setnayan experience — in-app services the couple availed ------- */}
-        {data.servicesAvailed.length ? (
+        {isOn('poweredBy') && data.servicesAvailed.length ? (
           <>
             <SectionRule title="Powered by Setnayan" />
             <SetnayanExperience services={data.servicesAvailed} />
@@ -242,13 +284,25 @@ function EditionLine({
 }: {
   left: string;
   center: string;
-  right: string;
+  right: ReactNode;
 }): ReactElement {
   return (
-    <div className="flex flex-col items-center gap-1 py-2 text-center font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65 sm:flex-row sm:justify-between sm:text-left">
-      <span>{left}</span>
-      <span className="tracking-[0.16em]">{center}</span>
-      <span>{right}</span>
+    <div className="py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65">
+      {/* Desktop: one dateline row — Vol·No · City·Date · Share. */}
+      <div className="hidden items-center justify-between text-left sm:flex">
+        <span>{left}</span>
+        <span className="tracking-[0.16em]">{center}</span>
+        <span>{right}</span>
+      </div>
+      {/* Mobile: Vol·No + Share flank a single row, the date sits centered below
+          — so Share never takes a whole row and the dateline stays compact. */}
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <span>{left}</span>
+          <span>{right}</span>
+        </div>
+        <div className="mt-1.5 text-center tracking-[0.16em]">{center}</div>
+      </div>
     </div>
   );
 }
@@ -700,15 +754,56 @@ function Colophon({ names, city }: { names: string; city: string | null }): Reac
 
 // ── tiny presentational helpers ───────────────────────────────────────────────
 
+// Setnayan awards-cycle Volume for a wedding date. The edition year runs
+// Nov 18 → Nov 17 (not Jan–Dec): Vol. I = Nov 18 2026 → Nov 17 2027, Vol. II =
+// Nov 18 2027 → Nov 17 2028, … A December wedding starts a Volume; the following
+// June is still that same Volume. Clamped to ≥ I — the inaugural edition covers
+// anything before the first cycle's Nov-18-2026 start.
+const AWARDS_CUTOFF_MONTH = 11; // November
+const AWARDS_CUTOFF_DAY = 18; // 18th
+function editionVolume(eventDate: string | null): number {
+  if (!eventDate) return 1;
+  const [y, m, d] = eventDate.split('-').map(Number);
+  if (!y || !m || !d) return 1;
+  const onOrAfterCutoff =
+    m > AWARDS_CUTOFF_MONTH || (m === AWARDS_CUTOFF_MONTH && d >= AWARDS_CUTOFF_DAY);
+  const cycleStartYear = onOrAfterCutoff ? y : y - 1;
+  return Math.max(1, cycleStartYear - 2025);
+}
+
+// Volume number as a masthead Roman numeral (1 → I, 2 → II, …). Falls back to
+// the Arabic number above the small-numeral table for far-future volumes.
+function toRoman(n: number): string {
+  if (!Number.isFinite(n) || n < 1) return 'I';
+  const table: Array<[number, string]> = [
+    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'],
+    [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let out = '';
+  let v = Math.floor(n);
+  for (const [val, sym] of table) {
+    while (v >= val) {
+      out += sym;
+      v -= val;
+    }
+  }
+  return out;
+}
+
 function nameplate(displayName: string): string {
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
   return `The ${cleaned} Chronicle`;
 }
 
+// The masthead dateline = venue city · the WEDDING date. Owner rule (2026-06-15):
+// the date on the editorial is the couple's wedding date (events.event_date via
+// eventDateFormatted), NEVER the publish date (event_editorial.published_at /
+// real-weddings publishedAt). Publish dates belong only to JSON-LD/sitemap meta.
+// Do not swap this to a published/generated/created date.
 function editionCenter(data: EditorialData): string {
   const parts: string[] = [];
   if (data.venueCity) parts.push(data.venueCity);
-  if (data.eventDateFormatted) parts.push(data.eventDateFormatted);
+  if (data.eventDateFormatted) parts.push(data.eventDateFormatted); // wedding date
   return parts.join(' · ') || 'Commemorative Edition';
 }
 

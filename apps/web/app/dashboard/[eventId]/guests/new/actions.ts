@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { guestEditsLocked } from '@/lib/pax';
 import {
   INVITED_TO_BLOCKS,
   type GuestGroupCategory,
@@ -137,6 +138,11 @@ export async function createGuest(eventId: string, formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return redirect('/login');
+  // Post-finalize guard (Adaptive Pax Pricing Phase 9) — friendly pre-check; the
+  // guard_guest_edits_when_locked trigger is the backstop for every other path.
+  if (await guestEditsLocked(supabase, eventId)) {
+    return redirect(`/dashboard/${eventId}/guests/new?error=finalized`);
+  }
 
   // Snapshot of the plus-one display name for UI hints on the primary's row.
   const plus_one_name = plus_one_allowed

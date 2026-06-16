@@ -74,6 +74,13 @@ import {
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import { VendorProposalsCard } from './_components/vendor-proposals-card';
+import { QuoteBridge, type QuoteCandidate } from './_components/quote-bridge';
+import {
+  detectAmountsFromVendorMessages,
+  shouldOfferQuoteLog,
+  splitProposalToCosting,
+} from '@/lib/quote-detection';
+import type { ProposalLineItem } from '@/lib/vendor-proposals';
 import {
   CancelBookingButton,
   DisputeLinkButton,
@@ -570,6 +577,78 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const conversationHref = chatThread
     ? `/dashboard/${eventId}/messages/${chatThread.thread_id}`
     : `/dashboard/${eventId}/messages`;
+
+  // --------------------------------------------------------------------------
+  // Vendor-authored quote bridge (host-search improvement #1).
+  //
+  // ADVISORY ONLY. Scan recent VENDOR chat messages + the vendor's structured
+  // proposals for a ₱ figure the couple can log into the Costing form with one
+  // tap + an editable confirm modal. The detector never writes — the modal
+  // posts to the existing updateVendorCosts. Every fetch is best-effort and
+  // null-tolerant: a failure (or no thread / pre-migration table) simply means
+  // no affordance shows.
+  // --------------------------------------------------------------------------
+  let chatQuoteAmounts: number[] = [];
+  if (chatThread) {
+    try {
+      const { data: msgRows } = await supabase
+        .from('chat_messages')
+        .select('sender_role, body, created_at')
+        .eq('thread_id', chatThread.thread_id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      chatQuoteAmounts = detectAmountsFromVendorMessages(
+        (msgRows ?? []) as Array<{
+          sender_role: string | null;
+          body: string | null;
+          created_at: string | null;
+        }>,
+      );
+    } catch {
+      chatQuoteAmounts = [];
+    }
+  }
+  const showChatQuoteChip = shouldOfferQuoteLog(chatQuoteAmounts, serviceCostNum);
+
+  // Structured proposals the couple can SEE (sent/viewed/accepted — drafts
+  // never cross RLS). Mirrors VendorProposalsCard's query so we only ever offer
+  // a "Log as service price" action for a proposal already visible to them.
+  let proposalCandidates: QuoteCandidate[] = [];
+  if (ev.marketplace_vendor_id) {
+    try {
+      const { data: propRows } = await supabase
+        .from('vendor_proposals')
+        .select('proposal_id, title, status, total_centavos, line_items')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .in('status', ['sent', 'viewed', 'accepted'])
+        .order('created_at', { ascending: false })
+        .limit(3);
+      proposalCandidates = ((propRows ?? []) as Array<{
+        proposal_id: string;
+        title: string | null;
+        total_centavos: number | null;
+        line_items: ProposalLineItem[] | null;
+      }>)
+        .map((p) => {
+          const split = splitProposalToCosting(p.total_centavos, p.line_items);
+          return {
+            id: p.proposal_id,
+            label: p.title?.trim() || 'Proposal',
+            source: 'proposal' as const,
+            servicePesos: split.servicePesos,
+            transportPesos: split.transportPesos,
+            foodPesos: split.foodPesos,
+          };
+        })
+        // Only offer proposals that carry a real number to log.
+        .filter(
+          (c) => c.servicePesos + (c.transportPesos ?? 0) + (c.foodPesos ?? 0) > 0,
+        );
+    } catch {
+      proposalCandidates = [];
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -1181,6 +1260,22 @@ export default async function VendorWorkspacePage({ params }: Props) {
           What you&apos;ll budget is the service price + transport + food
           allowance. Leave a line blank to count it as ₱0.
         </p>
+
+        {/* Vendor-authored quote bridge — calm, advisory chips that open an
+            editable confirm modal; nothing saves without the couple's tap. */}
+        <div className="mb-4">
+          <QuoteBridge
+            eventId={eventId}
+            vendorId={ev.vendor_id}
+            chatAmountsPesos={chatQuoteAmounts}
+            proposalCandidates={proposalCandidates}
+            currentServicePesos={serviceCostNum || null}
+            currentTransportPesos={transportNum || null}
+            currentFoodPesos={foodNum || null}
+            showChatChip={showChatQuoteChip}
+          />
+        </div>
+
         <form action={updateVendorCosts} className="space-y-3">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={ev.vendor_id} />

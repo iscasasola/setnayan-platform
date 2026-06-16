@@ -1,0 +1,100 @@
+name: build-android
+
+# Builds the Setnayan Android app bundle (.aab) for Google Play upload.
+#
+# Why CI instead of a local build: the Capacitor shell needs a full Android
+# SDK + JDK 21 toolchain that we don't keep on dev machines. This workflow
+# compiles a SIGNED release .aab in the cloud and uploads it as an artifact
+# you download and hand to the Play Console. It mirrors build-desktop.yml's
+# "CI is the build machine" pattern.
+#
+# REQUIRED SECRETS (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64    base64 of apps/mobile upload keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD  the keystore/key password (same value for both)
+# The key alias is fixed to "setnayan" (matches how the keystore was generated).
+#
+# Run it: Actions tab → build-android → "Run workflow" (workflow_dispatch).
+# Manual-only on purpose — it needs the keystore secrets below to exist first,
+# so we don't want it auto-firing on every mobile change and failing red until
+# they're set. Flip on a push trigger later once secrets are in place.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build signed .aab
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # Capacitor 8 (@capacitor/android ^8.4) compiles its library modules
+          # with Java 21 source/target — JDK 17 fails with "invalid source
+          # release: 21". AGP 8.13 supports 21, so this is the floor.
+          java-version: '21'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      # The mobile package is npm-managed and excluded from the pnpm workspace
+      # (see apps/mobile/README.md "npm, not pnpm"). Install + sync regenerate
+      # the gitignored Capacitor glue (assets/public, capacitor.config.json,
+      # res/xml/config.xml) that a bare gradle build would be missing.
+      - name: Install mobile deps + sync Capacitor
+        working-directory: apps/mobile
+        run: |
+          npm ci
+          npx cap sync android
+
+      # Decode the upload keystore from the secret and write the gitignored
+      # keystore.properties that android/app/build.gradle reads. Nothing
+      # sensitive is ever committed; both live only on the runner.
+      - name: Decode upload keystore
+        working-directory: apps/mobile/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is not set. See build-android.yml header."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 --decode > upload.jks
+          {
+            echo "storeFile=upload.jks"
+            echo "storePassword=$KEYSTORE_PW"
+            echo "keyAlias=setnayan"
+            echo "keyPassword=$KEYSTORE_PW"
+          } > keystore.properties
+
+      - name: Build release bundle
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:bundleRelease --no-daemon
+
+      - name: Verify the bundle is signed
+        working-directory: apps/mobile/android
+        run: |
+          AAB=$(find app/build/outputs/bundle/release -name '*.aab' | head -1)
+          echo "Built: $AAB"
+          test -n "$AAB" || { echo "::error::No .aab produced"; exit 1; }
+
+      - name: Upload .aab artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: setnayan-release-aab
+          path: apps/mobile/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30

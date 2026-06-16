@@ -86,13 +86,13 @@ import {
   CreditCard,
   Brain,
   Palette,
+  Shapes,
   Tag,
   Globe,
   Megaphone,
   Video,
   Music,
   TrendingUp,
-  Activity,
   Bug,
   WifiOff,
   BarChart3,
@@ -107,12 +107,16 @@ import {
   UserX,
   PartyPopper,
   Newspaper,
+  Images,
+  Radar,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup } from '@/app/_components/nav/types';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 /**
  * Canonical admin NavGroup[] export. Mobile-overflow landing pages at
@@ -333,6 +337,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/growth',
       },
       {
+        key: 'intelligence',
+        label: 'Intelligence',
+        href: '/admin/intelligence',
+        icon: Radar,
+        matchPrefix: '/admin/intelligence',
+      },
+      {
         key: 'funnels',
         label: 'Funnels',
         href: '/admin/funnels',
@@ -343,12 +354,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Operations & Hiring',
         href: '/admin/operations-hiring',
         icon: TrendingUp,
-      },
-      {
-        key: 'telemetry',
-        label: 'Telemetry',
-        href: '/admin/telemetry',
-        icon: Activity,
       },
       {
         key: 'connection-logs',
@@ -435,6 +440,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/settings',
       },
       {
+        // Nav/icon/menu registry — the single source for the name + icon of
+        // every menu across all account types (foundation 2026-06-16).
+        key: 'menus',
+        label: 'Menus & icons',
+        href: '/admin/menus',
+        icon: Shapes,
+      },
+      {
         // Onboarding-flow config (background music + future per-flow knobs),
         // grouped by onboarding type. Scales as new event-type onboardings ship.
         key: 'onboarding',
@@ -483,6 +496,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/real-stories',
         icon: Newspaper,
         matchPrefix: '/admin/real-stories',
+      },
+      {
+        // Auto-Recap oversight — every couple-published "living recap" (a
+        // public page of guest photos + words) + the RA 10173 takedown lever.
+        key: 'recaps',
+        label: 'Recaps',
+        href: '/admin/recaps',
+        icon: Images,
+        matchPrefix: '/admin/recaps',
       },
       {
         key: 'ads',
@@ -554,8 +576,32 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
  * (Wordmark) so the admin doorway reads as a separate context from
  * customer + vendor doorways.
  */
-export function AdminSidebar() {
+/**
+ * Overlays admin nav-registry label + icon onto each sidebar item via its
+ * `admin.sidebar.<key>` slot (item key matches the slot suffix 1:1). Fallback =
+ * the item's hardcoded default; a hidden slot drops the item; no-op when
+ * navSlots is absent (fails open). href/matchPrefix + group structure stay in
+ * code. (Admin nav has no role-gating, so no pre-filter step.)
+ */
+function applyAdminRegistry(
+  groups: NavGroup[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slot = navSlots[`admin.sidebar.${item.key}`];
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
+}
+
+export function AdminSidebar({ navSlots }: { navSlots?: Record<string, NavSlotLite> }) {
   const pathname = usePathname() ?? '/admin';
+  const groups = applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots);
 
   return (
     <>
@@ -572,7 +618,7 @@ export function AdminSidebar() {
         </p>
       </header>
 
-      {ADMIN_NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <SidebarSection key={group.key} group={group} pathname={pathname}>
           {group.items.map((item) => (
             <SidebarItem key={item.key} item={item} pathname={pathname} />

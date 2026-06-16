@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins } from 'lucide-react';
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { Logo } from '@/app/_components/logo';
 import {
   fetchV2CustomerCatalog,
@@ -338,7 +337,6 @@ export default async function PricingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
       />
-      <Nav />
 
       {/* Hero */}
       <section className="border-b border-ink/5">

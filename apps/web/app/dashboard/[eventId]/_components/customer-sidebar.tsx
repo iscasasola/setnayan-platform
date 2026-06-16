@@ -23,24 +23,24 @@
  * desktop. The 5-item mobile BottomNav lives in customer-bottom-nav.tsx
  * alongside this file.
  *
- * 7 JOURNEY GROUPS (owner-locked REDESIGN_PLAN · 2026-06-14 — the IA now
- * reads as the couple's planning JOURNEY, and everything past the top +
- * Plan collapses by default). Full WHY + per-item provenance lives in the
- * builder at customer-nav-config.ts:
- *   0. (top · "Setnayan") — Home · Studio · Explore        (open)
- *   1. Plan      — Guests · Seating · Schedule · Budget     (open)
- *   2. Book      — Messages · Contracts                     (collapsed)
- *   3. Design    — Website · Mood Board · Monogram          (collapsed)
- *   4. Day-of    — Live Wall · Event QR                     (collapsed)
- *   5. After     — Activity · Disputes                      (collapsed)
- *   6. Settings  — Personalization · Hosts · Profile · Find your date (collapsed)
+ * 6 JOURNEY GROUPS (owner-locked — the IA reads as the couple's planning
+ * JOURNEY; everything past Setnayan + Plan collapses by default). Re-pointed
+ * from the destination-menu structure shipped in PR #1465 back to this
+ * journey IA. Full WHY + per-item provenance lives in the builder at
+ * customer-nav-config.ts:
+ *   1. Setnayan — Home · Studio · Explore                   (open)
+ *   2. Plan     — Guests · Seating · Schedule · Budget      (open)
+ *   3. Book     — Messages · Contracts                      (collapsed)
+ *   4. Design   — Website · Mood Board · Monogram           (collapsed)
+ *   5. Day-of   — Live Wall · Event QR                      (collapsed)
+ *   6. After    — Activity · Disputes                       (collapsed)
  *
- * Net change from the prior verb-bucket IA: Services→Explore (Compass) and
- * Add-ons→Studio relabels (routes unchanged), Budget folded into Plan,
- * Event QR moved to Day-of, Find your date demoted to Settings, the long
- * tail collapses by default, and Activity gained an explicit matchPrefix.
- * Orders + Receipts stay retired-from-sidebar (reachable via order-
- * confirmation emails + Studio + Budget).
+ * NO Settings group — Personalization (/details) · Hosts (/hosts) · Profile
+ * + all account settings live under the profile avatar (top-right ProfileMenu
+ * → Profile / Settings / Sign out). Those routes still exist and stay
+ * reachable directly + via the Profile/Settings page; they're just off the
+ * primary nav. Orders + Receipts stay retired-from-sidebar (reachable via
+ * order-confirmation emails + Studio + Budget).
  *
  * REMOVED from the brief vs the original ship spec:
  *   - "Privacy" under Settings — /dashboard/profile/privacy doesn't exist
@@ -70,17 +70,13 @@
  *
  * ACTIVE STATE — defers to <SidebarItem>'s default
  * (`pathname === href || pathname.startsWith(matchPrefix + '/')`) for
- * most items. Two exceptions need exact-match:
+ * most items. One exception needs exact-match:
  *   - `Home` (`/dashboard/${eventId}`) — every other event-scoped route
  *     also starts with `/dashboard/${eventId}/`, so a startsWith match
  *     would keep Home perpetually active. We instead set matchPrefix to
  *     an unrouted sentinel `__home__` so the strict-prefix branch never
- *     fires and only the `pathname === href` branch keeps Home lit.
- *   - `Profile` (`/dashboard/profile`) — has a child route at
- *     `/dashboard/profile/concierge` (retired surface per
- *     [[project_setnayan_v2_1_canonical]]) and any future profile child
- *     should not auto-light the top-level Profile entry. Same sentinel
- *     pattern.
+ *     fires and only the `pathname === href` branch keeps Home lit. Home is
+ *     a child of the Setnayan group.
  *
  * GUESTS umbrella — `matchPrefix='/dashboard/${eventId}/guests'` so
  * `/dashboard/${eventId}/guests/[guestId]` keeps Guests lit. Same
@@ -97,6 +93,9 @@ import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import type { NavGroup } from '@/app/_components/nav/types';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 // buildCustomerNavGroups + the lucide icon refs it consumes live in a
 // neutral (non-'use client') module — Server Components (specifically
 // /more/page.tsx) need to be able to import + call this builder, which
@@ -129,16 +128,70 @@ export { buildCustomerNavGroups };
 
 
 /**
- * CustomerSidebar — renders the 7 customer nav groups using the shared
+ * CustomerSidebar — renders the 6 customer journey groups using the shared
  * SidebarSection + SidebarItem primitives. Wraps with a brand header
  * (Wordmark) so the customer doorway reads as a separate context from
  * vendor + admin doorways (each doorway gets the same chrome shape with
  * different context — the Wordmark eyebrow + 'Event' label is the
  * customer-side variant).
  */
-export function CustomerSidebar({ eventId }: { eventId: string }) {
+/**
+ * Maps each journey-group ITEM key → its admin nav-registry slot key. Items
+ * absent here (e.g. the "Checklist" auto-step) have no registry slot yet and
+ * pass through with their hardcoded label/icon. GROUP heading labels are a
+ * deferred follow-up (no group slots yet).
+ */
+const SIDEBAR_SLOT_KEYS: Record<string, string> = {
+  home: 'customer.sidebar.home',
+  'add-ons': 'customer.sidebar.studio',
+  vendors: 'customer.sidebar.explore',
+  guests: 'customer.sidebar.guests',
+  seating: 'customer.sidebar.seating',
+  schedule: 'customer.sidebar.schedule',
+  budget: 'customer.sidebar.budget',
+  messages: 'customer.sidebar.messages',
+  contracts: 'customer.sidebar.contracts',
+  website: 'customer.sidebar.website',
+  'mood-board': 'customer.sidebar.mood-board',
+  monogram: 'customer.sidebar.monogram',
+  live: 'customer.sidebar.live',
+  'event-qr': 'customer.sidebar.event-qr',
+  activity: 'customer.sidebar.activity',
+  disputes: 'customer.sidebar.disputes',
+};
+
+/**
+ * Overlays admin registry label + icon onto each item (fallback = the item's
+ * hardcoded default). A slot marked hidden drops the item. href/activeMatch +
+ * group structure stay in code. No-op when navSlots is absent (fails open to
+ * the built-in nav).
+ */
+function applyRegistry(
+  groups: NavGroup[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slotKey = SIDEBAR_SLOT_KEYS[item.key];
+      const slot = slotKey ? navSlots[slotKey] : undefined;
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
+}
+
+export function CustomerSidebar({
+  eventId,
+  navSlots,
+}: {
+  eventId: string;
+  navSlots?: Record<string, NavSlotLite>;
+}) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
-  const groups = buildCustomerNavGroups(eventId);
+  const groups = applyRegistry(buildCustomerNavGroups(eventId), navSlots);
 
   return (
     <>

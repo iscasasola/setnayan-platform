@@ -4,6 +4,7 @@ import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from '@/
 import type { EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
+import { HideOnScrollHeader } from '@/app/_components/nav/hide-on-scroll-header';
 
 /**
  * Account-route dashboard chrome — iteration 0000 single-strip top-nav
@@ -41,6 +42,7 @@ type PrimaryEventData = {
   monogram_frame_key?: string | null;
   monogram_font_key?: string | null;
   monogram_style?: string | null;
+  monogram_custom_svg?: string | null;
 };
 
 type Props = {
@@ -89,6 +91,7 @@ export function OuterDashboardHeader({
       currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
       currentMonogramFontKey={primaryEvent?.monogram_font_key}
       currentMonogramStyle={primaryEvent?.monogram_style}
+      currentMonogramCustomSvg={primaryEvent?.monogram_custom_svg}
       events={switcherEvents}
       hasCustomerAccess
       hasVendorAccess={hasVendorAccess}
@@ -104,8 +107,10 @@ export function OuterDashboardHeader({
   return (
     <>
       {/* Mobile: sticky top strip (< lg / < 1024px). Hidden on desktop —
-          the sidebar below is the single source of chrome on lg+. */}
-      <header className="sticky top-0 z-10 border-b border-[var(--m-line)] bg-[var(--m-paper)]/95 backdrop-blur lg:hidden">
+          the sidebar below is the single source of chrome on lg+. Hides on
+          scroll-down / reveals on scroll-up per the universal top-nav rule
+          (owner 2026-06-15) via HideOnScrollHeader. */}
+      <HideOnScrollHeader className="sticky top-0 z-10 border-b border-[var(--m-line)] bg-[var(--m-paper)]/95 backdrop-blur lg:hidden">
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           {monogramAffordance}
 
@@ -124,7 +129,7 @@ export function OuterDashboardHeader({
             <ProfileMenu email={email} photoUrl={photoUrl} ariaLabel="Account menu" />
           </div>
         </div>
-      </header>
+      </HideOnScrollHeader>
 
       {/* Desktop: fixed left sidebar (>= lg / >= 1024px). Paper palette
           (--m-paper-2 surface · --m-line border) so it matches the event

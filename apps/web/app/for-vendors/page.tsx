@@ -25,19 +25,19 @@
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
  *   - Verification FREE during launch (₱1,499 one-time fee removed 2026-06-13) + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
- *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
+ *   - Founder bonus (100-token grant before 31 Jan 2027) REMOVED 2026-06-15 (owner)
  *
  * Per [[feedback_setnayan_button_preservation]] — every CTA placement +
  * interaction concept matches the template verbatim. The drift scrubs
  * touched COPY only, not button positions.
  */
 
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { VendorHero } from './_components/vendor-hero';
+import { VendorVision } from './_components/vendor-vision';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
-import { ProductionsCatalog } from './_components/productions-catalog';
-import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
+import { EditorialBand } from './_components/editorial-band';
+import { Voices, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
@@ -54,7 +54,7 @@ export async function generateMetadata() {
   const title = `Setnayan for Vendors — Verified free + Pro · ${p.proMonthly}/28d`;
   return {
     title,
-    description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. 100 free tokens on verification (until 31 Jan 2027).`,
+    description: `Free verified profile + Pro tier ${p.proMonthly}/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews.`,
     alternates: { canonical: '/for-vendors' },
     openGraph: {
       title,
@@ -66,7 +66,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: `0% commission. Verified is free. Pro ${p.proMonthly}/28d. 100 free tokens on verification.`,
+      description: `0% commission. Verified is free. Pro ${p.proMonthly}/28d.`,
     },
   };
 }
@@ -119,7 +119,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#verified-vendor`,
       name: 'Verified Vendor · free verified badge',
       description:
-        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week + 100 free tokens on verification.',
+        'Verification is free (₱0) — DTI · BIR · Mayor’s Permit · sample work checked by hand. Verified badge + ratings on profile + up to 10 free couple unlocks a week.',
       price: '0',
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -137,7 +137,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (28-day prepaid block)',
       description:
-        "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. 28-day prepaid blocks (13 cycles/year).",
+        "3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks. 28-day prepaid blocks (13 cycles/year).",
       price: String(p.num.proMonthly),
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -185,7 +185,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
       name: 'Pro Vendor (annual subscription · save 23%)',
       description:
-        `${p.proAnnual}/year instead of ${p.proMonthly} × 13 cycles · save ${p.proAnnualSave}. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks · 100 free tokens on verification. Single annual payment.`,
+        `${p.proAnnual}/year instead of ${p.proMonthly} × 13 cycles · save ${p.proAnnualSave}. Same Pro tier · 3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · AI Proposal Builder · category benchmarks. Single annual payment.`,
       price: String(p.num.proAnnual),
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -249,23 +249,23 @@ export default async function ForVendorsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
       />
       <main className="m-surface min-h-dvh">
-        <Nav />
         <VendorHero />
+        {/*
+          VendorVision · the "why" spine (owner brief 2026-06-15). The narrative
+          that earns the vendor before the proof: the promise (give back your
+          time), set-price-once, every-inquiry-counts, never-abuse, and how new
+          vendors get discovered. Trimmed in the 2026-06-15 full reflow — the
+          tools/tokens/Pro-Enterprise blocks moved to the what-you-get + pricing
+          sections below to stop the page repeating itself.
+        */}
+        <VendorVision />
+        {/* EditorialBand · one full-bleed photographic breath (owner 2026-06-15
+            "use photos if needed") — bridges the vision into the what-you-get
+            stack with a real on-brand reception photo. */}
+        <EditorialBand />
         <StackCloseVendor />
         <ForVendorsDeepDive />
         <Voices />
-        <Pricing />
-        {/*
-          ProductionsCatalog · added 2026-05-30 per CLAUDE.md row "For Vendors
-          Section 4 · The Complete Offering". Renders the 18 complimentary
-          tools + 21 Productions services live from platform_retail_catalog_v2.
-          Sits between Pricing (vendor tier comparison) and FAQ so vendors who
-          just compared Free/Verified/Pro/Enterprise see what couples actually
-          buy next — and recognise the Token-Worthy items they can recommend
-          for referral tokens. Auto-updates when admin edits a price in
-          /admin/pricing (revalidatePath fired from server action).
-        */}
-        <ProductionsCatalog />
         <FAQ
           vendorPrices={{
             proMonthly: p.proMonthly,

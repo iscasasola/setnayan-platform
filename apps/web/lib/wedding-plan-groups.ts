@@ -965,6 +965,15 @@ export type PlanCardPick = {
    */
   event_vendor_package_id: string | null;
   package_name: string | null;
+  /**
+   * Adaptive Pax Pricing (migration 20261211000000). The vendor-confirmed
+   * per-pax surcharge baked into total_cost_php + the counts that explain it,
+   * for the read-only "+₱X for Y guests over the Z-guest package" card
+   * footnote. NULL/0 surcharge → nothing renders (the common case).
+   */
+  pax_surcharge_php?: number | null;
+  pax_quote_base?: number | null;
+  cost_basis_pax?: number | null;
 };
 
 export type GroupedPicks = {
@@ -1090,6 +1099,15 @@ export type EventVendorRowInput = {
    */
   event_vendor_package_id?: string | null;
   package_name?: string | null;
+  /**
+   * Adaptive Pax Pricing (migration 20261211000000). The vendor-confirmed
+   * per-pax surcharge already baked into total_cost_php + the counts that
+   * explain it. pax_surcharge_php NULL/0 → no surcharge (most rows). Optional;
+   * absent when the caller doesn't select them.
+   */
+  pax_surcharge_php?: number | null;
+  pax_quote_base?: number | null;
+  cost_basis_pax?: number | null;
 };
 
 /**
@@ -1258,6 +1276,9 @@ export function bucketVendorsByGroup(
       source_category: (v.source_category ?? null) as VendorCategory | null,
       event_vendor_package_id: v.event_vendor_package_id ?? null,
       package_name: v.package_name ?? null,
+      pax_surcharge_php: toNum(v.pax_surcharge_php ?? null),
+      pax_quote_base: toNum(v.pax_quote_base ?? null),
+      cost_basis_pax: toNum(v.cost_basis_pax ?? null),
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

@@ -86,6 +86,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
+  COUPLE_WEBSITE_PRO:  'partial',  // the single ₱3,999 website unlock (migration 20270103020000) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · buy surface = follow-up
   SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱3,999 · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
@@ -229,9 +230,14 @@ export const getVendorPrices = cache(async () => {
   const branch = price('vendor_branch_28day');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
   const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 100;
-  const fmt = (n: number | null, fb: string) => (n == null ? fb : formatPeso(n));
+  // formatPeso() returns the number only (no sign) — callers add ₱ themselves.
+  // These display strings are rendered bare by every consumer (matrix, FAQ,
+  // hero, how-it-works) and must include the ₱ to match the fallbacks + the
+  // hardcoded "₱0" Free/Verified prices. (The numeric `num.*` below is what the
+  // schema.org Offers use, so those stay sign-free.)
+  const fmt = (n: number | null, fb: string) => (n == null ? fb : `₱${formatPeso(n)}`);
   const save = (mo: number | null, yr: number | null, fb: string) =>
-    mo != null && yr != null ? formatPeso(mo * 13 - yr) : fb;
+    mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
   return {
     verified: '₱0',
     proMonthly: fmt(proMo, '₱6,000'),
@@ -241,7 +247,7 @@ export const getVendorPrices = cache(async () => {
     enterpriseAnnual: fmt(entYr, '₱100,000'),
     enterpriseAnnualSave: save(entMo, entYr, '₱30,000'),
     branch: fmt(branch, '₱999'),
-    tokenUnit: formatPeso(tokenUnit),
+    tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
       proMonthly: proMo ?? 6000,
@@ -446,4 +452,52 @@ export async function resolvePaxPricedOrderCentavos(
     is_pax_priced: config.is_pax_priced,
     centavos: computePaxPriceCentavos(config, pax),
   };
+}
+
+/**
+ * Server-side AUTHORITATIVE bundle price for an order line, in CENTAVOS.
+ *
+ * The 4-tier paywall bundles (Essentials = GUIDED_PACK · Complete = MEDIA_PACK)
+ * live in `platform_package_catalog` (package_code · title · retail_price_php),
+ * NOT in `platform_retail_catalog_v2`. So `resolvePaxPricedOrderCentavos` returns
+ * null for them and, without this helper, the bundle order would fall back to the
+ * client-supplied `original_centavos` — a tamperable ₱12,999 / ₱27,999.
+ *
+ * This is the bundle analogue of `resolvePaxPricedOrderCentavos`: it re-resolves
+ * the charge from the admin-set `retail_price_php` so the billed amount ALWAYS
+ * equals the catalog bundle price, identical to how flat retail SKUs are made
+ * authoritative. Bundles are flat-priced (no pax curve), so the math is just
+ * `retail_price_php × 100`.
+ *
+ * Returns:
+ *   • centavos — the authoritative bundle charge (retail_price_php × 100).
+ *   • null — package_code not in platform_package_catalog (not a bundle) OR a
+ *     DB error / build-time env → caller keeps the client price, so a transient
+ *     read failure NEVER blocks an order.
+ *
+ * Honors `is_active` (same soft-deactivation semantics as the retail reader):
+ * a retired bundle resolves null here, so the caller never re-prices against a
+ * deactivated row — it simply keeps the client value (the order then lands the
+ * same way a non-catalog SKU would).
+ */
+export async function resolveBundleChargeCentavos(
+  packageCode: string,
+): Promise<number | null> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return null;
+  }
+
+  const { data: pkg, error } = await admin
+    .from('platform_package_catalog')
+    .select('retail_price_php')
+    .eq('package_code', packageCode)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !pkg || pkg.retail_price_php == null) return null;
+
+  return Math.round(Number(pkg.retail_price_php) * 100);
 }

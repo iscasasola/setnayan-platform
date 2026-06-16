@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(nav): desktop sidebar unified to the 5 menus + Messages/Contracts → topbar icons (customer-menu redesign PR4/6)
+
+The desktop sidebar now mirrors the mobile bottom nav: the **5 menus as expandable items** (owner-picked over section-groups), each auto-expanding to its children — completing the "one structure across mobile + desktop" goal. Supersedes the 6 journey-phase sidebar groups.
+
+- **`customer-nav-config.ts`** — `buildCustomerNavGroups` rewritten from 6 journey groups to **ONE header-less group of 5 expandable items**: **Home** (→ Checklist · Schedule · Activity) · **Guests** (→ Build · Invite · Confirm · Seat · Day-of · Event QR) · **Explore** (leaf → the marketplace) · **Studio** (→ Website · Mood Board · Monogram · Live Wall) · **Budget** (→ Disputes). Children are real pages (the sidebar stays richer than the minimal mobile dock; they unify at the top level). Guests journey still sourced from the `lib/guest-journey` SSOT. Unused journey-phase icon imports removed.
+- **Messages + Contracts left the sidebar → upper-right topbar icons** (`[eventId]/layout.tsx`): Messages was already `<UnreadMessagesBadge>`; added a sibling **Contracts** icon-link (FileText → `/contracts`, styled to match). The vendor-relationship pair now lives in the topbar, not the nav.
+- **`sidebar-section.tsx`** — a header-less group (`label === ''`) now skips the section eyebrow + toggle and renders its items always-open, so the 5 menus read as flat expandable rows (not a titled section). Other doorways (vendor/admin) keep their titled sections unchanged.
+- **`customer-sidebar.tsx`** — `SIDEBAR_SLOT_KEYS` reduced to the 5 top-level menu keys (registry overlay walks top-level items only; nested children stay code-driven — a registry follow-up, same as the mobile shelf).
+
+Reuses the `SidebarItem.children` auto-expand from #1595. `tsc` 0 · `next lint` clean (changed files) · bottom-nav guard ✓ · nav-icon-source guard ✓. No migration. Owner to confirm on the Vercel preview (desktop sidebar = 5 expandable rows matching the mobile tabs; Messages + Contracts icons upper-right).
+
+SPEC IMPACT: nav architecture — desktop sidebar unified to the 5 menus; Messages/Contracts relocated to the topbar. No SKU/pricing/schema change. Logged in corpus `DECISION_LOG.md` (0021/0019/0032). Next: PR5 fold phase-awareness into the tree · PR6 nav-registry parent-linkage · (+ Home children once those routes exist).
+
 ## 2026-06-17 · feat(nav): Studio absorbs Design — 5 menus + Studio's 4-section sub-nav (customer-menu redesign PR3/6)
 
 Owner-locked 2026-06-17: *"the design could live inside studio … everything into studio."* Design is folded into Studio → the customer doorway drops to **5 top menus: Home · Guests · Explore · Studio · Budget**. Studio becomes the creative/output hub with a docked 4-section sub-nav.

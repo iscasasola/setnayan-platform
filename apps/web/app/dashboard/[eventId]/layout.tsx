@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, FileText } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
@@ -353,6 +353,17 @@ export default async function EventLayout({ children, params }: Props) {
           initialUnread={unreadMessages}
           href={`/dashboard/${eventId}/messages`}
         />
+        {/* Contracts — moved out of the sidebar to a topbar icon beside Messages
+            (owner 2026-06-17 customer-menu redesign): the vendor-relationship pair
+            (chat + contracts) lives upper-right, not in the nav. Styled to match
+            <UnreadMessagesBadge>/<UnreadBellBadge>. */}
+        <Link
+          href={`/dashboard/${eventId}/contracts`}
+          aria-label="Contracts"
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+        >
+          <FileText className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </Link>
         <UnreadBellBadge
           userId={user.id}
           initialUnread={unreadCount}

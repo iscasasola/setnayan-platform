@@ -150,22 +150,17 @@ export { buildCustomerNavGroups };
  * map honest. (Wiring registry overrides for nested journey children is a
  * nav-registry follow-up; it must land on the mobile shelf too to avoid drift.)
  */
+// The 5 customer menus are now the TOP-LEVEL sidebar items (customer-menu
+// redesign 2026-06-17); applyRegistry only overlays top-level items, so only the
+// five menu keys map here. Their children (Checklist, Schedule, journey stages,
+// Website, etc.) are NESTED and not registry-walked — wiring nested-child
+// overrides is a follow-up that must also land on the mobile shelf to avoid drift.
 const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   home: 'customer.sidebar.home',
-  'add-ons': 'customer.sidebar.studio',
-  vendors: 'customer.sidebar.explore',
   guests: 'customer.sidebar.guests',
-  schedule: 'customer.sidebar.schedule',
+  explore: 'customer.sidebar.explore',
+  studio: 'customer.sidebar.studio',
   budget: 'customer.sidebar.budget',
-  messages: 'customer.sidebar.messages',
-  contracts: 'customer.sidebar.contracts',
-  website: 'customer.sidebar.website',
-  'mood-board': 'customer.sidebar.mood-board',
-  monogram: 'customer.sidebar.monogram',
-  live: 'customer.sidebar.live',
-  'event-qr': 'customer.sidebar.event-qr',
-  activity: 'customer.sidebar.activity',
-  disputes: 'customer.sidebar.disputes',
 };
 
 /**

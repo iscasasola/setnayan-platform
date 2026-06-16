@@ -1,71 +1,48 @@
 /**
- * Customer NavGroup[] builder — JOURNEY-GROUP NAV (0021 ADDENDUM · accordion
- * bottom nav + side nav · owner-locked · re-pointed from the destination-menu
- * structure shipped in PR #1465 back to the journey-group IA the owner wants).
+ * Customer NavGroup[] builder — the 5-MENU sidebar (customer-menu redesign,
+ * owner-locked 2026-06-17). Supersedes the 6 journey-phase groups.
  *
- * ONE config, two renderings. The mobile bottom nav (accordion) and the
- * desktop side nav are driven by the SAME six JOURNEY groups. Every top-level
- * menu is a journey PHASE that EXPANDS to its children — NONE navigate
- * directly (there is no childless "navigates straight" menu anymore):
- *   1. Setnayan — Home · Studio · Explore
- *   2. Plan     — Checklist · Guests · Seating · Schedule · Budget
- *   3. Book     — Messages · Contracts
- *   4. Design   — Website · Mood Board · Monogram
- *   5. Day-of   — Live Wall · Event QR
- *   6. After    — Activity · Disputes
+ * The desktop sidebar mirrors the mobile bottom nav's FIVE menus as a flat list
+ * of EXPANDABLE ITEMS (owner picked "5 expandable items" over section groups):
+ *   Home · Guests · Explore · Studio · Budget
+ * Each item auto-expands to its children when active (the `SidebarItem.children`
+ * pattern from #1595 — the desktop home of the mobile <SubNav> pill). They're
+ * returned inside ONE header-less NavGroup (label ''), so <SidebarSection> draws
+ * no section eyebrow — just the five rows.
  *
- * The bottom nav consumes these SAME groups via buildCustomerNavMenus
- * (customer-bottom-nav.tsx), which maps each NavGroup → a BottomNavMenu
- * { key, label, icon: group.icon, children: group.items }. Because every menu
- * has children, every menu EXPANDS on tap (the accordion machinery in
- * bottom-nav.tsx already lights a parent when any child matches the route and
- * never navigates a parent that has children — no special-casing needed).
- * Home is a CHILD of Setnayan (tap Setnayan → Home), by design.
+ * Children are REAL PAGES (the sidebar is richer than the minimal mobile dock;
+ * they unify at the top level, not child-for-child):
+ *   Home   → Checklist · Schedule · Activity      (tap Home → event overview)
+ *   Guests → Build · Invite · Confirm · Seat · Day-of · Event QR  (journey SSOT)
+ *   Explore→ (leaf → the vendor marketplace; its in-page takeover tabs live there)
+ *   Studio → Website · Mood Board · Monogram · Live Wall  (tap Studio → the hub)
+ *   Budget → Disputes                              (tap Budget → the budget page)
  *
- * This file is the single source of truth; customer-sidebar.tsx renders each
- * group as a collapsible sidebar SECTION (the group = the section heading, its
- * items = the section's rows). "Same model, platform skin" (spec §7).
+ * MESSAGES + CONTRACTS are NOT in the sidebar — they're upper-right TOPBAR icons
+ * (owner 2026-06-17): Messages = the existing <UnreadMessagesBadge>, Contracts =
+ * a sibling icon-link (both in `[eventId]/layout.tsx` topBar).
  *
- * NO "More" overflow (the /more landing is retired → redirect). NO Settings
- * group — Personalization (`/details`) · Hosts (`/hosts`) · Profile · all
- * account settings live under the profile avatar (top-right ProfileMenu →
- * Profile / Settings / Sign out · front door to iteration 0025). The
- * Personalization + Hosts ROUTES still exist and are reachable directly /
- * via the Profile/Settings page; they're just off the primary nav bar.
+ * Server-Component safety (unchanged): NEUTRAL (non-'use client') module so both
+ * the client sidebar and any Server Component can import + call the builder;
+ * lucide icon refs render in both contexts.
  *
- * The per-group `icon` field (added to the NavGroup type) carries the
- * bottom-nav menu glyph. The desktop sidebar renders section headings as text
- * and ignores it.
+ * Stable item `key`s (home · guests · explore · studio · budget for the five
+ * menus; guest-journey + checklist/schedule/activity/website/mood-board/monogram/
+ * live/event-qr/disputes for children) — registry overlay keys live in
+ * customer-sidebar.tsx's SIDEBAR_SLOT_KEYS (top-level items only).
  *
- * Server-Component safety (unchanged): this is a NEUTRAL (non-'use client')
- * module so both the client sidebar (customer-sidebar.tsx) and any Server
- * Component can import + call the builder. Lucide icon refs render in both
- * server + client contexts.
- *
- * Stable group/item `key` values are PRESERVED (main · plan · book · design ·
- * dayof · after for the groups; home · add-ons · vendors · guests · seating ·
- * schedule · budget · messages · contracts · website · mood-board · monogram
- * · live · event-qr · activity · disputes for the items) so the per-section
- * `setnayan.nav.section.<key>.open` localStorage state survives the regroup.
- *
- * NavGroup type is imported from the neutral types module.
+ * NavGroup / NavItem types come from the neutral types module.
  */
 
 import {
   Home,
-  ClipboardList,
   ListChecks,
-  Handshake,
   Palette,
-  PartyPopper,
-  Heart,
   Sparkles,
   Compass,
   Users,
   CalendarClock,
   Wallet,
-  MessageSquare,
-  FileText,
   Globe,
   Type,
   MonitorPlay,
@@ -79,26 +56,10 @@ import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { buildGuestJourney } from '@/lib/guest-journey';
 
 /**
- * Builds the canonical customer NavGroup[] for the given eventId — the six
- * journey groups. Each group carries an `icon` (the bottom-nav menu glyph)
- * and its `items` (the children that expand). Single source of truth for both
- * the desktop sidebar (collapsible sections) and the mobile accordion bottom
- * nav (via buildCustomerNavMenus, which mirrors this roster 1:1).
- *
- * GUESTS = A JOURNEY (owner 2026-06-17): the Plan group's "Guests" item carries
- * `children` = the five guest-journey stages (Build · Invite · Confirm · Seat ·
- * Day-of) from lib/guest-journey — the DESKTOP-sidebar home of the mobile
- * <SubNav> pill ("let the subnav expand from the side nav"). Because the journey
- * already owns Seating as its "Seat" stage, the previously-standalone "Seating"
- * Plan item is GONE (it now lives under Guests) — owner-picked "drop the Seating
- * sibling". The bottom-nav builders don't read `item.children`, so this is a
- * desktop-sidebar-only expansion; the mobile bottom nav's Guests tab still lights
- * on /seating via its activeMatch and the mobile <SubNav> still shows all five
- * stages.
- *
- * `opts.dayOfOpen` un-mutes the time-gated Day-of stage once the live window is
- * open; the (client) sidebar computes it from the event date and passes it in.
- * Defaults to false (Day-of muted) — safe for any caller that doesn't compute it.
+ * Builds the customer sidebar's single NavGroup — five expandable menu items.
+ * `opts.dayOfOpen` un-mutes the time-gated Guests "Day-of" stage once the live
+ * window is open (the client sidebar computes it from the event date and passes
+ * it in). Defaults to false (Day-of muted) — safe for any caller.
  */
 export function buildCustomerNavGroups(
   eventId: string,
@@ -107,8 +68,8 @@ export function buildCustomerNavGroups(
   const base = `/dashboard/${eventId}`;
 
   // The guest-journey stages, mapped from the lib/guest-journey SSOT into the
-  // sidebar NavItem shape (its `match` becomes our `matchPrefix`). One source
-  // of truth so the sidebar journey and the mobile <SubNav> can never drift.
+  // sidebar NavItem shape (its `match` becomes our `matchPrefix`). One source of
+  // truth so the sidebar journey and the mobile <SubNav> can never drift.
   const guestJourneyChildren: NavItem[] = buildGuestJourney(eventId, {
     dayOfOpen: opts?.dayOfOpen ?? false,
   }).map((stage) => ({
@@ -122,16 +83,10 @@ export function buildCustomerNavGroups(
 
   return [
     {
-      // 1 · Setnayan — the home/services/explore cluster. Home is a CHILD
-      // (tap Setnayan → Home), per the journey-group model.
-      key: 'main',
-      label: 'Setnayan',
-      // The actual Setnayan brand mark IS the menu glyph (owner 2026-06-15) —
-      // the real filled logo, but painted in currentColor so it carries the
-      // SAME color as the lucide tabs (slate↔orange on active), not fixed gold.
-      // SetnayanMark sizes via className (h-/w-[22px]) just like a Lucide glyph;
-      // the cast is a structural-compat white lie (it renders the same
-      // className/style/aria props the accordion passes every icon).
+      // ONE header-less group (label '') → <SidebarSection> renders no eyebrow;
+      // its five items are the customer menus, each auto-expanding to children.
+      key: 'menus',
+      label: '',
       icon: SetnayanMark as unknown as LucideIcon,
       defaultOpen: true,
       items: [
@@ -140,59 +95,47 @@ export function buildCustomerNavGroups(
           label: 'Home',
           href: base,
           icon: Home,
-          // Sentinel matchPrefix so the strict-prefix branch never fires —
-          // every other event route shares the `${base}/` prefix.
+          // Sentinel matchPrefix so the strict-prefix branch never fires (every
+          // other event route shares `${base}/`); the parent matches on exact base.
           matchPrefix: '__home__',
+          children: [
+            { key: 'checklist', label: 'Checklist', href: `${base}/checklist`, icon: ListChecks, matchPrefix: `${base}/checklist` },
+            { key: 'schedule', label: 'Schedule', href: `${base}/schedule`, icon: CalendarClock, matchPrefix: `${base}/schedule` },
+            { key: 'activity', label: 'Activity', href: `${base}/activity`, icon: Activity, matchPrefix: `${base}/activity` },
+          ],
         },
         {
-          key: 'add-ons',
-          label: 'Studio',
-          href: `${base}/add-ons`,
-          icon: Sparkles,
-          matchPrefix: `${base}/add-ons`,
-        },
-        {
-          key: 'vendors',
-          label: 'Explore',
-          href: `${base}/vendors`,
-          icon: Compass,
-          matchPrefix: `${base}/vendors`,
-        },
-      ],
-    },
-    {
-      // 2 · Plan — the couple's core planning surfaces.
-      key: 'plan',
-      label: 'Plan',
-      icon: ClipboardList,
-      defaultOpen: true,
-      items: [
-        {
-          key: 'checklist',
-          label: 'Checklist',
-          href: `${base}/checklist`,
-          icon: ListChecks,
-          matchPrefix: `${base}/checklist`,
-        },
-        {
-          // Guests is the JOURNEY parent — expands (on desktop) to the five
-          // stages. matchPrefix stays `/guests` (its own first stage); the
-          // "Seat" child claims `/seating`, so the section also expands there.
           key: 'guests',
           label: 'Guests',
           href: `${base}/guests`,
           icon: Users,
           matchPrefix: `${base}/guests`,
-          children: guestJourneyChildren,
+          children: [
+            ...guestJourneyChildren,
+            { key: 'event-qr', label: 'Event QR', href: `${base}/event-qr`, icon: QrCode, matchPrefix: `${base}/event-qr` },
+          ],
         },
-        // (The standalone "Seating" item moved UNDER Guests as the journey's
-        // "Seat" stage — owner 2026-06-17 "drop the Seating sibling".)
         {
-          key: 'schedule',
-          label: 'Schedule',
-          href: `${base}/schedule`,
-          icon: CalendarClock,
-          matchPrefix: `${base}/schedule`,
+          // Explore is a LEAF → the vendor marketplace. Its in-page takeover tabs
+          // (Summary/Shortlist/Build/Compare/Lock) live on the page itself.
+          key: 'explore',
+          label: 'Explore',
+          href: `${base}/vendors`,
+          icon: Compass,
+          matchPrefix: `${base}/vendors`,
+        },
+        {
+          key: 'studio',
+          label: 'Studio',
+          href: `${base}/add-ons`,
+          icon: Sparkles,
+          matchPrefix: `${base}/add-ons`,
+          children: [
+            { key: 'website', label: 'Website', href: `/site-editor/${eventId}`, icon: Globe, matchPrefix: `/site-editor/${eventId}` },
+            { key: 'mood-board', label: 'Mood Board', href: `${base}/add-ons/mood-board`, icon: Palette, matchPrefix: `${base}/add-ons/mood-board` },
+            { key: 'monogram', label: 'Monogram', href: `${base}/monogram`, icon: Type, matchPrefix: `${base}/monogram` },
+            { key: 'live', label: 'Live Wall', href: `${base}/live`, icon: MonitorPlay, matchPrefix: `${base}/live` },
+          ],
         },
         {
           key: 'budget',
@@ -200,105 +143,9 @@ export function buildCustomerNavGroups(
           href: `${base}/budget`,
           icon: Wallet,
           matchPrefix: `${base}/budget`,
-        },
-      ],
-    },
-    {
-      // 3 · Book — talk to vendors and sign with them.
-      key: 'book',
-      label: 'Book',
-      icon: Handshake,
-      defaultOpen: false,
-      items: [
-        {
-          key: 'messages',
-          label: 'Messages',
-          href: `${base}/messages`,
-          icon: MessageSquare,
-          matchPrefix: `${base}/messages`,
-        },
-        {
-          key: 'contracts',
-          label: 'Contracts',
-          href: `${base}/contracts`,
-          icon: FileText,
-          matchPrefix: `${base}/contracts`,
-        },
-      ],
-    },
-    {
-      // 4 · Design — the look & feel of the wedding.
-      key: 'design',
-      label: 'Design',
-      icon: Palette,
-      defaultOpen: false,
-      items: [
-        {
-          key: 'website',
-          label: 'Website',
-          href: `/site-editor/${eventId}`,
-          icon: Globe,
-          matchPrefix: `/site-editor/${eventId}`,
-        },
-        {
-          key: 'mood-board',
-          label: 'Mood Board',
-          href: `${base}/add-ons/mood-board`,
-          icon: Palette,
-          matchPrefix: `${base}/add-ons/mood-board`,
-        },
-        {
-          key: 'monogram',
-          label: 'Monogram',
-          href: `${base}/monogram`,
-          icon: Type,
-          matchPrefix: `${base}/monogram`,
-        },
-      ],
-    },
-    {
-      // 5 · Day-of — the live event-day surfaces.
-      key: 'dayof',
-      label: 'Day-of',
-      icon: PartyPopper,
-      defaultOpen: false,
-      items: [
-        {
-          key: 'live',
-          label: 'Live Wall',
-          href: `${base}/live`,
-          icon: MonitorPlay,
-          matchPrefix: `${base}/live`,
-        },
-        {
-          key: 'event-qr',
-          label: 'Event QR',
-          href: `${base}/event-qr`,
-          icon: QrCode,
-          matchPrefix: `${base}/event-qr`,
-        },
-      ],
-    },
-    {
-      // 6 · After — post-event activity + dispute resolution.
-      key: 'after',
-      label: 'After',
-      icon: Heart,
-      defaultOpen: false,
-      items: [
-        {
-          key: 'activity',
-          label: 'Activity',
-          href: `${base}/activity`,
-          icon: Activity,
-          matchPrefix: `${base}/activity`,
-        },
-        {
-          key: 'disputes',
-          label: 'Disputes',
-          href: `${base}/disputes`,
-          icon: Shield,
-          matchPrefix: `${base}/disputes`,
+          children: [
+            { key: 'disputes', label: 'Disputes', href: `${base}/disputes`, icon: Shield, matchPrefix: `${base}/disputes` },
+          ],
         },
       ],
     },

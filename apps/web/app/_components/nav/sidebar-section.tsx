@@ -77,33 +77,40 @@ export function SidebarSection({ group, pathname: _pathname, children }: Props) 
 
   const ChevronIcon = open ? ChevronUp : ChevronDown;
 
+  // Header-less group (label === '') — a flat list of top-level expandable items
+  // with NO collapsible section header (owner 2026-06-17 customer-sidebar = "5
+  // expandable items", not section groups). The toggle button is skipped and the
+  // list is always open (each item owns its own expand via <SidebarItem>).
+  const hasHeader = !!group.label && group.label.trim().length > 0;
+  const listOpen = hasHeader ? open : true;
+
   return (
-    <section className="px-2 pb-2" aria-labelledby={`nav-section-${group.key}`}>
+    <section className="px-2 pb-2" aria-labelledby={hasHeader ? `nav-section-${group.key}` : undefined}>
       {/* Heading row — hidden when sidebar is collapsed via parent shell's
-          [data-sidebar-collapsed="1"] attribute. The selector chains on the
-          group ancestor so a future v2.1.x partially-collapsed sidebar
-          (icon-only with hover tooltips) still renders this row at the
-          full layout decision point. */}
-      <button
-        type="button"
-        id={`nav-section-${group.key}`}
-        onClick={toggle}
-        aria-expanded={open}
-        aria-controls={`nav-section-${group.key}-items`}
-        className="m-label-mono flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--m-paper)] [[data-sidebar-collapsed='1']_&]:hidden"
-        style={{ color: 'var(--m-slate-2)' }}
-      >
-        <span>{group.label}</span>
-        <ChevronIcon aria-hidden className="h-3 w-3" strokeWidth={2} />
-      </button>
+          [data-sidebar-collapsed="1"] attribute, and omitted entirely for a
+          header-less group. */}
+      {hasHeader ? (
+        <button
+          type="button"
+          id={`nav-section-${group.key}`}
+          onClick={toggle}
+          aria-expanded={open}
+          aria-controls={`nav-section-${group.key}-items`}
+          className="m-label-mono flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--m-paper)] [[data-sidebar-collapsed='1']_&]:hidden"
+          style={{ color: 'var(--m-slate-2)' }}
+        >
+          <span>{group.label}</span>
+          <ChevronIcon aria-hidden className="h-3 w-3" strokeWidth={2} />
+        </button>
+      ) : null}
 
       {/* Items list — when sidebar is collapsed the items always render
           (icon-only stand-alone tiles). When sidebar is expanded the items
-          honor the section's open/closed state. */}
+          honor the section's open/closed state (always open for header-less). */}
       <ul
         id={`nav-section-${group.key}-items`}
         className={
-          open
+          listOpen
             ? 'mt-1 flex flex-col gap-0.5'
             : 'mt-1 hidden flex-col gap-0.5 [[data-sidebar-collapsed=\'1\']_&]:flex'
         }

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(0009/0012): point-of-need Drive connect — the 3 deferred surfaces (Papic · Recap · multi-account)
+
+Owner: "go." Stacked onto the same PR #1597. The three surfaces the first slice deferred, all reusing the shared `DriveSafetyPanel`/`DriveConnectCard`/`DriveReconnectBanner` (relocated `…/photo-delivery/_components/drive-connect-card.tsx` → `app/_components/drive-connect-card.tsx` since three surfaces now consume them).
+
+- **Papic storage radio** (`add-ons/papic/page.tsx`): the bare "Connect Google Drive" CTA now leads with the `DriveSafetyPanel` (the consent-screen pre-emption) and says "connect once covers your recap and photographer hand-off too." The connected panel gains the reconnect banner (reads the new `connection_health`) and the account-switch affordance. Storage-target semantics (`setnayan_r2` vs `google_drive_only`) left untouched — that drives the capture pipeline.
+- **Recap nudge** (`add-ons/papic/recap/page.tsx` + new client `_components/recap-drive-nudge.tsx`): a calm, dismissible champagne-gold "Love this? Save the originals to your Drive" card at the strongest emotional point of need. Server-gated on **recap-has-content AND no live grant AND OAuth-ready**; dismissal is event-scoped in localStorage (a clean opt-out, never a re-show-every-visit nag).
+- **Multi-account** (handled at the page level — **zero changes to the shared OAuth callback**): each connected panel (Papic + Photo Delivery) already knows both the login email (`user.email`) and the grant email; when they differ it shows a calm "Not your sign-in — use a different account" link (couples often connect a shared `ourwedding@gmail.com` on purpose, so this surfaces, never blocks). The "use a different account" path adds `?switch=1` to the start routes → new `forceAccountChooser` option on `buildDriveAuthorizeUrl` sets `prompt='select_account consent'` so Google's chooser actually appears (without it Google silently reuses the last session).
+
+Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (no new-file warnings). Full-env render → Vercel preview (local OAuth env unset). No new migration (reuses `20270109000000` from the first slice).
+
+SPEC IMPACT: extends the 0009/0012 point-of-need connect to all three planned couple surfaces; no SKU/pricing/schema change beyond the already-added `connection_health` column. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · feat(0009/0012): point-of-need Drive connect — safety-led card + "needs reconnect" state
 
 Owner picked "ask at point of need" over bundling Drive into login, then "build it." First slice = the **Photo Delivery** surface + the reconnect flag (the agreed scope; Papic-radio + Recap nudge + multi-account check are follow-ups, reusing the same components).

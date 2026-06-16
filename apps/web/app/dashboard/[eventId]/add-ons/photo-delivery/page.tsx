@@ -178,6 +178,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         disconnectedFlash={disconnectedFlash}
         oauthReady={getPhotoDeliveryOAuthConfig().ready}
         needsReauth={needsReauth}
+        loginEmail={user.email ?? null}
         job={
           latestJob
             ? {

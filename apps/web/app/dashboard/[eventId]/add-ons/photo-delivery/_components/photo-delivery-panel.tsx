@@ -14,7 +14,10 @@ import {
   releasePhotoDelivery,
 } from '../actions';
 import { ReleaseProgressPoller } from './release-progress-poller';
-import { DriveConnectCard, DriveReconnectBanner } from './drive-connect-card';
+import {
+  DriveConnectCard,
+  DriveReconnectBanner,
+} from '@/app/_components/drive-connect-card';
 
 // 0009 Photo Delivery panel — wired to real OAuth + release flow.
 //
@@ -78,6 +81,9 @@ type Props = {
   // .connection_health === 'needs_reauth'). Surfaces the calm reconnect banner
   // on the connected panel instead of a stale "Connected" while uploads stall.
   needsReauth: boolean;
+  // The signed-in couple's email, to surface (never block) a login≠Drive
+  // account mismatch on the connected panel.
+  loginEmail: string | null;
 };
 
 export function PhotoDeliveryPanel({
@@ -99,6 +105,7 @@ export function PhotoDeliveryPanel({
   job,
   oauthReady,
   needsReauth,
+  loginEmail,
 }: Props) {
   const folderNamePreview = buildFolderNamePreview(eventName, eventDate);
 
@@ -128,6 +135,7 @@ export function PhotoDeliveryPanel({
       alreadyComplete={alreadyComplete}
       job={job}
       needsReauth={needsReauth}
+      loginEmail={loginEmail}
     />
   );
 }
@@ -237,6 +245,7 @@ function ConnectedState({
   alreadyComplete,
   job,
   needsReauth,
+  loginEmail,
 }: {
   eventId: string;
   syncMode: 'manual_release' | 'auto_sync';
@@ -252,7 +261,10 @@ function ConnectedState({
   alreadyComplete: boolean;
   job: JobRollup | null;
   needsReauth: boolean;
+  loginEmail: string | null;
 }) {
+  const accountMismatch =
+    !!accountEmail && !!loginEmail && accountEmail !== loginEmail;
   const isUploading = status === 'releasing' || status === 'uploading';
   const isComplete = status === 'complete';
   const isFailed = status === 'failed';
@@ -310,6 +322,17 @@ function ConnectedState({
               {accountEmail ? (
                 <p className="text-xs text-emerald-900/80">
                   Account: <span className="font-mono">{accountEmail}</span>
+                </p>
+              ) : null}
+              {accountMismatch ? (
+                <p className="text-xs text-emerald-900/80">
+                  Not your sign-in ({loginEmail}) — that&rsquo;s fine.{' '}
+                  <Link
+                    href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}&switch=1`}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    Use a different account
+                  </Link>
                 </p>
               ) : null}
             </div>

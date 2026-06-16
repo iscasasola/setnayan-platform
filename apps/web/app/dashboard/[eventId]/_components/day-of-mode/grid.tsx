@@ -8,6 +8,7 @@ import { LivePhotoWallCard } from './live-photo-wall-card';
 import { VideoGuestbookCard } from './video-guestbook-card';
 import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
+import { GetHelpCard } from './get-help-card';
 
 type Block = {
   block_id: string;
@@ -48,6 +49,7 @@ export function DayOfModeGrid({
         <VideoGuestbookCard />
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
         <CoordinatorBroadcastCard />
+        <GetHelpCard />
       </div>
     </section>
   );

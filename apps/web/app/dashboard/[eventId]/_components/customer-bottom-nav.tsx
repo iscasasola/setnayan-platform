@@ -137,13 +137,14 @@ export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
       activeMatch: `${base}/seating`,
     },
     {
-      // Interim target: the owned-services hub. PR2 replaces this with the
-      // unified day-of launch hub (Panood Go-live · Live Wall Open · Papic seats).
+      // The unified day-of launch hub (PR2): one place to start every owned
+      // live service — Panood "Go live" · Live Wall "Open the wall" · Papic
+      // "Hand out seats" — with an upsell for anything not yet owned.
       key: 'services',
       label: 'Services',
-      href: `${base}/add-ons`,
+      href: `${base}/launch`,
       icon: Rocket,
-      activeMatch: `${base}/add-ons`,
+      activeMatch: `${base}/launch`,
     },
     {
       key: 'schedule',

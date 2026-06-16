@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(nav): Event Lifecycle Menu PR2 — Day-of Services launch hub + Get-help card
+
+Second PR of the Event Lifecycle Menu. The Day-of "Services" tab now points at a real **unified launch hub**, and the day-of grid gains a **Get-help** escalation card.
+
+- **`apps/web/app/dashboard/[eventId]/launch/page.tsx`** (new) — the day-of Services hub: one place to START every owned live service with its day-of verb — **Panood "Go live"** (`/add-ons/panood/broadcast`), **Live Wall "Open the wall"** (`/live`), **Papic "Hand out seats"** (`/add-ons/papic/crew`) — plus a quiet "Add" upsell for anything not yet owned. Ownership read with the **canonical per-service checks** (reuse, not reinvent): `event_software_activations_v2` (`LIVE_WALL`, the /live page's own gate) · `resolveAddOnState().state === 'launch'` (Panood) · `eventOwnsPapicSeats()` (Papic). Couple OR delegated coordinator (mirrors `/live` + `/guests/checkin`).
+- **`apps/web/app/dashboard/[eventId]/_components/customer-bottom-nav.tsx`** — re-points the Day-of **Services** tab from the PR1 interim `/add-ons` to `/launch`.
+- **`apps/web/app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx`** (new) + **`grid.tsx`** — adds a **Get-help** card to the `DayOfModeGrid` (the escalation floor: routes to `/help` if a vendor no-shows or the couple needs a hand). PR5 adds the same-day nearby-vendor shortlist above this escalation. (Broadcast already lives in the grid.)
+
+No migration (all ownership state lives in existing `orders` / `event_software_activations_v2`). `tsc`, `next lint`, `lint:botnav` all green. PR pending (branch `claude/lifecycle-pr2-dayof-contents`, auto-merge).
+
+SPEC IMPACT: None on data/pricing/SKUs. Implements §4/§10 (PR2) of `Event_Lifecycle_Menu_Design_2026-06-16.md` — the day-of command-center contents the Plan↔Day-of swap (PR1) reveals.
+
 ## 2026-06-16 · feat(std-reveal): Save-the-Date reveal foundation — flag-gated four-flap envelope on the couple website (PR1 of 3)
 
 Build foundation for the Save-the-Date "reveal" experience (the opening animation that uncovers the couple's invitation). Design-locked across `0024_ADDENDUM_envelope_open_experience_2026-06-14.md` (7-template library · trademark veil RSVP · craft constants · colour-only customization). This PR lands the integration scaffold + the first template, **flag-off**.

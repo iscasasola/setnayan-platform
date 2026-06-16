@@ -26,6 +26,19 @@ type Props = {
 
 const SCRUB_END = 0.82; // frames play over the first 82% of scroll; CTA reveals after
 
+// How tall the pinned scroll-track is, in viewport heights. The scrub + CTA reveal play
+// across (TRACK_VH − 100)vh of scrolling, so a LARGER value = a LONGER, SLOWER scrub that
+// a fast swipe can't blow through in one flick. (Was 300 → 200vh of runway; 700 → 600vh.)
+// This is the dial for overall scrub duration — lower it if it ever feels too long.
+const TRACK_VH = 700;
+
+// Frame-glide smoothing. Instead of snapping the frame to the exact scroll position, the
+// rendered progress EASES toward the scroll-derived target a fraction each animation frame
+// — so even a hard/fast swipe plays the animation through smoothly and slowly (it "catches
+// up" rather than jumping to the end), then settles exactly on the scroll position so it
+// stays correct. Lower = silkier, slower catch-up; 0 would restore instant 1:1 scrubbing.
+const EASE = 0.085;
+
 // Shared style for the two scroll-synced story captions: bold near-black serif with a
 // crisp white outline + halo so it stays readable over BOTH the bright field and the
 // darker objects (cars), parked in the both-crops safe zone. fontWeight 800 forces a
@@ -194,38 +207,67 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
       return;
     }
 
+    // Smoothed scrub: the visible progress (`eased`) GLIDES toward the scroll-derived
+    // target a fraction (EASE) each animation frame rather than snapping to it. A fast
+    // swipe therefore can't blow the animation to the end — it eases through slowly and
+    // always settles exactly on the scroll position, so it stays correct. The rAF loop
+    // self-halts once converged and re-arms on the next scroll/resize, so it costs nothing
+    // while the page is still.
     let raf = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const wrap = wrapRef.current;
-        if (!wrap) return;
-        const total = wrap.offsetHeight - window.innerHeight;
-        const p = total > 0 ? Math.min(Math.max(-wrap.getBoundingClientRect().top / total, 0), 1) : 0;
-        const w = Math.min(p / SCRUB_END, 1);
-        const idx = Math.round(w * (N - 1));
-        const c = Math.min(Math.max((p - 0.8) / 0.18, 0), 1);
-        // Once everything's loaded AND the visitor makes a deliberate swipe (armed a
-        // beat after ready, so leftover momentum can't), fade the veil away.
-        if (readyRef.current && armedRef.current && p > 0.004 && loaderRef.current && loaderRef.current.style.opacity !== '0') {
-          loaderRef.current.style.opacity = '0';
-        }
-        apply(idx, c, p);
-      });
+    let eased = -1; // -1 = uninitialised → snap to the first target instead of gliding up from 0
+
+    const targetProgress = () => {
+      const wrap = wrapRef.current;
+      if (!wrap) return 0;
+      const total = wrap.offsetHeight - window.innerHeight;
+      return total > 0 ? Math.min(Math.max(-wrap.getBoundingClientRect().top / total, 0), 1) : 0;
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    onScroll();
+
+    const render = (p: number) => {
+      const w = Math.min(p / SCRUB_END, 1);
+      const idx = Math.round(w * (N - 1));
+      const c = Math.min(Math.max((p - 0.8) / 0.18, 0), 1);
+      apply(idx, c, p);
+    };
+
+    const tick = () => {
+      raf = 0;
+      const target = targetProgress();
+      // Veil fade keys off the RAW scroll target (not the eased value) so the first
+      // deliberate swipe dismisses it immediately, without waiting for the glide.
+      if (readyRef.current && armedRef.current && target > 0.004 && loaderRef.current && loaderRef.current.style.opacity !== '0') {
+        loaderRef.current.style.opacity = '0';
+      }
+      if (eased < 0) eased = target; // first paint: land on the current frame, no glide-in
+      const diff = target - eased;
+      if (Math.abs(diff) < 0.0004) {
+        if (eased !== target) {
+          eased = target;
+          render(eased); // settle exactly on the target frame
+        }
+        return; // converged → stop until the next scroll/resize re-arms the loop
+      }
+      eased += diff * EASE;
+      render(eased);
+      raf = requestAnimationFrame(tick); // keep gliding toward the target
+    };
+
+    const kick = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener('scroll', kick, { passive: true });
+    window.addEventListener('resize', kick);
+    kick();
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('scroll', kick);
+      window.removeEventListener('resize', kick);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [N]);
 
   return (
-    <section ref={wrapRef} className="relative" style={{ height: '300vh', background: '#0e0f12' }}>
+    <section ref={wrapRef} className="relative" style={{ height: `${TRACK_VH}vh`, background: '#0e0f12' }}>
       <div className="sticky top-0 overflow-hidden" style={{ height: '100vh', background: '#0e0f12' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {/* Full-bleed: the square (1:1) source COVERS the viewport on desktop and

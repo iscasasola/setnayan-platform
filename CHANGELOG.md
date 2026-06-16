@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · fix(hero): slow the homepage scroll-scrub so a fast swipe can't blow through it
+
+Owner: "the scroll ends too fast — we want it to scroll so that even if they swipe fast, the animation is still correct and moving slowly." The hero scroll-scrub played its entire frame sequence + CTA reveal over just **200vh of scroll** (a `300vh` section minus the `100vh` sticky child), and computed the frame **instantly** from scroll position, so a fast flick snapped straight to the end.
+
+- **`apps/web/app/_components/marketing/HeroVideoScrub.tsx`** — two levers, both tunable constants:
+  1. **`TRACK_VH` 300 → 700** — the pinned track is now ~600vh of scroll runway (3× longer), so the same animation takes 3× more scrolling = slower, and a fast swipe covers far less of it.
+  2. **`EASE` (new, 0.085) — frame-glide smoothing.** Replaced the snap-to-scroll loop with a self-halting rAF loop: the rendered progress *eases* toward the scroll-derived target a fraction each frame instead of jumping, so even a hard/fast swipe plays through smoothly and slowly, then **settles exactly** on the scroll position (stays "correct"). The loop stops once converged and re-arms on the next scroll/resize (zero cost while idle). The "Setting it up…" veil fade still keys off the **raw** scroll target so the first deliberate swipe dismisses it immediately. Reduced-motion + the hold-nearest-loaded-frame logic unchanged.
+- **`apps/web/app/admin/hero-video/hero-uploader.tsx`** — frame density **8fps → 16fps** (`MIN_FRAMES` 36→54, `MAX_FRAMES` 150→300). ⚠ **Load-bearing reversal flagged for owner:** a long *slow* scrub needs more frames or it looks like a stepped slideshow; this partly reverses the earlier "keep it ~40 frames" perf trim. Safe because the hero already preloads behind the veil and streams frames progressively (the scrub releases after the opening frames), so the cost is ~4–5MB of *streamed* bytes on a ~5–6s clip, **not** a front-door freeze. The currently-published live hero already has ~1,019 frames, so it goes slow + smooth with **no re-upload**; the bump only affects the *next* upload.
+
+`tsc --noEmit` + `eslint` green on both files. Verify on the PR's Vercel preview (the scrub only renders when a hero video is published). PR pending (branch `claude/hero-scrub-slower`, auto-merge).
+
+SPEC IMPACT: None on schema/SKU. Tuning of the homepage hero scroll-scrub (iteration 0015 main website). Logged in corpus `DECISION_LOG.md` (2026-06-16). The frame-density bump is the one decision to confirm.
+
 ## 2026-06-16 · feat(papic): real gallery — wire the couple's Papic gallery to actual photos (replaces the mock)
 
 Closed the long-standing `TODO(0012)` mock gallery on the Papic dashboard page. The couple's gallery now shows their **real** captures (crew + guest), the payoff that makes the free Papic sampler (and paid Papic) feel real.

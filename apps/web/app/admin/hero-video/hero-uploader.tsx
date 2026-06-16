@@ -23,7 +23,7 @@
  * source), so it never upscales/pixelates the way the old full-bleed cover did.
  * A 1080p+ source (1440–2160px square ideal) still reads best on large/retina
  * displays. Higher resolution + more frames = a bigger preload, so FPS is kept
- * modest (12) and clips should be short (~4–6s) — also the ideal hero length.
+ * modest (16) and clips should be short (~4–6s) — also the ideal hero length.
  */
 
 import { useState, type ChangeEvent } from 'react';
@@ -31,16 +31,19 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
-// LIGHT extraction (owner 2026-06-14): the homepage hero preloads its frames
-// behind a "Setting it up…" veil, so frame COUNT × frame SIZE IS the visitor's
-// first-load wait. Kept deliberately lean — 8fps glides smoothly enough for a
-// scroll-scrub (apply() rounds to the nearest frame), 960px stays crisp on the
-// CONTAINED hero (capped at min(native, 86vmin), never full-bleed), and q0.82 is
-// indistinguishable on a moving scrub. A ~5s clip → ~40 frames × ~960px → a small
-// preload; the scrub also releases after the opening frames (see HeroVideoScrub).
-const FPS = 8;
-const MAX_FRAMES = 150; // ceiling (~18s @ 8fps); real hero clips are ~4–6s
-const MIN_FRAMES = 36;
+// Frame density (owner 2026-06-16): the homepage hero now plays as a LONG, SLOW
+// scroll-scrub (TRACK_VH in HeroVideoScrub — ~600vh of runway), so it needs ENOUGH
+// frames to stay smooth as you scroll slowly through it; too few = a stepped
+// slideshow. Frames still preload behind the "Setting it up…" veil and STREAM in
+// progressively (the scrub releases after the opening frames), so a denser sequence
+// costs first-load BYTES, not a front-door freeze. 16fps over a ~5–6s clip → ~80–96
+// frames × ~960px (~4–5MB) — smooth on the long track, still lean. 960px stays crisp
+// on the CONTAINED hero (capped at min(native, 86vmin)) and q0.82 is indistinguishable
+// on a moving scrub. Longer source clip = more frames = smoother (and a longer scrub).
+// (Raised from the prior lean 8fps/40-frame trim to suit the longer, slower track.)
+const FPS = 16;
+const MAX_FRAMES = 300; // ceiling (~19s @ 16fps); real hero clips are ~4–6s → ~80–96 frames
+const MIN_FRAMES = 54;
 // Long-edge cap for extracted frames. 960 keeps the contained hero crisp while
 // keeping the preload light; sources smaller than this pass through unchanged
 // (never upscaled).

@@ -37,8 +37,6 @@
 
 import {
   Home, Users, Compass, Sparkles, Palette, Wallet,
-  // Design children:
-  Globe, Image as ImageIcon, PenTool,
   // Budget children:
   Gauge, PieChart, Receipt,
   type LucideIcon,
@@ -98,8 +96,9 @@ export type CustomerMenuCtx = {
 /**
  * The canonical 6-menu tree for an event. Children carried so far: Guests
  * (routed, from `guest-journey.ts`) · Explore (tabs, from `budget-build.ts`) ·
- * Design (route launcher) · Budget (anchor scroll-sections). Home + Studio are
- * still parents-without-children until PR3.
+ * Budget (anchor scroll-sections). Home / Studio / Design are still parents-
+ * without-children — Design is being folded INTO Studio (owner 2026-06-17), so
+ * its children land with the Studio restructure, not as a standalone menu.
  */
 export function buildCustomerMenuTree(
   eventId: string,
@@ -169,38 +168,10 @@ export function buildCustomerMenuTree(
       icon: Palette,
       href: `${base}/design`,
       activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
-      // Launcher hub: the dock shows on /design (no child active there) + /monogram
-      // (Monogram active). Website opens the full-screen /site-editor, which escapes
-      // the dashboard layout (no dock); Mood Board lives under /add-ons (Studio's
-      // territory), so the dock doesn't follow there — children are route launchers.
-      sectionMatch: [`${base}/design`, `${base}/monogram`],
-      subnavLabel: 'Design',
-      children: [
-        {
-          key: 'website',
-          label: 'Website',
-          icon: Globe,
-          kind: 'route' as const,
-          href: `/site-editor/${eventId}`,
-          match: `/site-editor/${eventId}`,
-        },
-        {
-          key: 'mood-board',
-          label: 'Mood Board',
-          icon: ImageIcon,
-          kind: 'route' as const,
-          href: `${base}/add-ons/mood-board`,
-          match: `${base}/add-ons/mood-board`,
-        },
-        {
-          key: 'monogram',
-          label: 'Monogram',
-          icon: PenTool,
-          kind: 'route' as const,
-          href: `${base}/monogram`,
-          match: `${base}/monogram`,
-        },
-      ],
+      // Design's children intentionally NOT defined here: owner 2026-06-17 is
+      // folding Design INTO Studio (Website + Mood Board + Monogram become Studio
+      // sections, beside Save the Date). Until that restructure PR lands, Design
+      // stays a childless parent (no docked sub-nav) — same as before PR2.
     },
     {
       key: 'budget',

@@ -1,24 +1,15 @@
 /**
  * Build — the 3-State Solver core (Phase 3d-A · Build_3State_Solver_2026-06-16.md).
  *
- * Each Build row carries one tri-state control — **Locked / Auto / Excluded** —
- * replacing the legacy 2-state Flag/Unflag (`category-flags.tsx`) + Pin/Flag
- * anchors. The host *constrains* (lock what's decided, exclude what's out, leave
- * the rest on Auto) and [Build] fills every Auto row.
+ * Each Build row carries one tri-state control — **Locked / Auto / Excluded**.
+ * The host *constrains* (lock what's decided, exclude what's out, leave the rest
+ * on Auto) and [Build] fills every Auto row.
  *
  *   • Locked   — fixed to a concrete pick (a quoted vendor for a taxonomy row;
  *                a value on `events` for the Date/Budget/Location dimension rows).
  *   • Auto     — "fill this for me" → [Build] generates it (OFF solver = cheapest
  *                quoted vendor that fits the remaining budget).
  *   • Excluded — left out of the build; the implicit default / empty state.
- *
- * ─── THE FLAG ──────────────────────────────────────────────────────────────
- * EVERYTHING in this surface is gated by `BUILD_3STATE_ENABLED` (default OFF).
- * When off, the Build tab behaves EXACTLY as today: the 2-state `CategoryFlags`
- * control + `openCats` row sourcing + `computeBuildFromShortlist` path stay the
- * production experience. The new toggle UI / state table reads / Reset / Build
- * resolution are all unreachable. Mirrors the `lib/setnayan-ai.ts` env-read
- * pattern — a config flip, not a deploy.
  *
  * Resolved picks STILL land in the existing `event_build_picks` table, so the
  * Compare + Lock tabs (which read it) are unchanged. No schema change — the
@@ -31,16 +22,6 @@
  */
 
 import { isMultiPickGroup } from '@/lib/wedding-plan-groups';
-
-/**
- * Is the 3-state Build control active? Default OFF. Env-driven so the flip is a
- * config change, not a deploy (read server-side, passed to client surfaces as a
- * prop — NOT `NEXT_PUBLIC_*`). When false, NONE of the 3-state surface activates
- * and the live Build is byte-identical to today.
- */
-export function isBuild3StateEnabled(): boolean {
-  return process.env.BUILD_3STATE_ENABLED === 'true';
-}
 
 /** The three control states, in display order (Locked · Auto · Excluded). */
 export const BUILD_STATES = ['locked', 'auto', 'excluded'] as const;

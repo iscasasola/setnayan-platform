@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -52,6 +52,7 @@ import {
   type ReviewWithCouple,
   type ReviewStatsRow,
 } from '@/lib/reviews';
+import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
 import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
@@ -461,7 +462,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews, allServices, vendorPackages] = await Promise.all([
+  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
@@ -471,6 +472,9 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     // (migration unapplied), the catch returns [] and the page renders
     // without the Packages section.
     fetchVendorPackagesWithItems(admin, vendor.vendor_profile_id),
+    // "Recommended by N couples" trust signal (Event Lifecycle Menu §6.3).
+    // Distinct events with a completion-gated recommendation; 0 → not rendered.
+    countVendorRecommendingCouples(admin, vendor.vendor_profile_id),
   ]);
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
@@ -1083,6 +1087,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
              review libs, so the vendor dashboard self-view stays ungated. */
           showStars={viewerTierCaps.reviewStarsCounted}
           showComments={viewerTierCaps.reviewCommentsViewable}
+          recommendingCouples={recommendingCouples}
         />
 
         <section className="space-y-4 py-8">
@@ -1329,6 +1334,7 @@ function ReviewsSection({
   nextPage,
   showStars,
   showComments,
+  recommendingCouples,
 }: {
   slug: string;
   businessName: string;
@@ -1340,6 +1346,8 @@ function ReviewsSection({
   showStars: boolean;
   /** Phase C: Free + Verified hide review bodies + axis stats + replies. */
   showComments: boolean;
+  /** "Recommended by N couples" (Event Lifecycle Menu §6.3) — 0 hides it. */
+  recommendingCouples: number;
 }) {
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -1352,6 +1360,12 @@ function ReviewsSection({
             From verified couples who&rsquo;ve booked {businessName} via Setnayan.
           </p>
         </div>
+        {recommendingCouples > 0 ? (
+          <p className="inline-flex items-center gap-1.5 self-start rounded-full bg-mulberry/10 px-3 py-1 text-xs font-medium text-mulberry sm:self-end">
+            <Heart aria-hidden className="h-3.5 w-3.5 fill-mulberry/80" strokeWidth={2} />
+            Recommended by {recommendingCouples} couple{recommendingCouples === 1 ? '' : 's'}
+          </p>
+        ) : null}
       </header>
 
       {/* Phase C: Free vendors (showStars=false) hide the star metrics

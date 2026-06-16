@@ -9,7 +9,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { isBuild3StateEnabled } from '@/lib/build-3state';
 import { planSaveAs, type NamedBuildRow } from '@/lib/named-builds';
 
 // (2026-06-12 cleanup) The original Lean/Fits/Stretch estimate model —
@@ -17,7 +16,9 @@ import { planSaveAs, type NamedBuildRow } from '@/lib/named-builds';
 // saveBudgetBuild action — is DELETED. PR F (#1185) retired the basket
 // estimator for the named vendor-pick builds below; the old shapes had no
 // remaining callers. `budget_builds.basket` (NOT NULL CHECK) is still
-// satisfied by savePlanBuild's hardcoded 'fits'.
+// satisfied by savePlanBuildNamed's hardcoded 'fits'.
+// BuildSlot is retained only as the read type for legacy 'A'|'B'|'C' labels
+// still present on old `budget_builds` rows (named builds carry label = NULL).
 export type BuildSlot = 'A' | 'B' | 'C';
 
 export type BuildActionResult = { ok: true } | { ok: false; error: string };
@@ -79,44 +80,10 @@ export type SavedPlanBuild = {
   created_at?: string | null;
 };
 
-export async function savePlanBuild(input: {
-  eventId: string;
-  label: BuildSlot;
-  title?: string | null;
-  snapshot: PlanBuildSnapshot;
-}): Promise<BuildActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Please sign in to save a build.' };
-
-  const { error } = await supabase.from('budget_builds').upsert(
-    {
-      event_id: input.eventId,
-      created_by: user.id,
-      label: input.label,
-      title: input.title ?? `Plan ${input.label}`,
-      budget_php: input.snapshot.budgetPhp,
-      basket: 'fits', // forced — not meaningful in the vendor-pick model
-      total_php: input.snapshot.totalPhp,
-      snapshot: input.snapshot,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id,label' },
-  );
-  if (error) return { ok: false, error: error.message };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
-  return { ok: true };
-}
-
-// ── Named Save-As builds (BUILD_3STATE_ENABLED) ─────────────────────────────
-// The fixed A/B/C 3-slot cap is replaced by N free-form NAMED builds: a build is
-// identified by its build_id + free-form title, with `label` now nullable
-// (migration 20261231010000 relaxes the CHECK + the (event_id,label) unique cap).
-// This action is reachable ONLY behind BUILD_3STATE_ENABLED — when the flag is
-// OFF it fails soft (returns an error) and the legacy A/B/C `savePlanBuild`
-// (onConflict event_id,label) path stays the production experience byte-identical.
+// ── Named Save-As builds ────────────────────────────────────────────────────
+// A build is identified by its build_id + free-form title, with `label`
+// nullable (migration 20261231010000 relaxed the CHECK + the (event_id,label)
+// unique cap). Replaces the retired fixed A/B/C 3-slot save.
 //
 //   • CREATE  — insert a NEW row with `label = NULL` + the typed title (or null →
 //               the UI auto-titles "Build N"). No A/B/C cap.
@@ -131,10 +98,6 @@ export async function savePlanBuildNamed(input: {
   overwriteBuildId?: string | null;
   snapshot: PlanBuildSnapshot;
 }): Promise<BuildActionResult> {
-  if (!isBuild3StateEnabled()) {
-    // Flag-dark guard: the named path must be unreachable in production.
-    return { ok: false, error: 'Named builds are not enabled.' };
-  }
   const supabase = await createClient();
   const {
     data: { user },

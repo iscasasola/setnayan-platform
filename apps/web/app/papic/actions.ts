@@ -216,6 +216,14 @@ export async function recordSeatCapture(
       });
       await ingestToWall('papic_photos', insertedPhotoId);
     }
+    if (seat.is_free_sampler && expiresAt) {
+      // Cron-free expiry warnings: schedule (once per event, self-guarded) the
+      // T-7 / T-1 emails with Resend at capture time. Best-effort.
+      const { scheduleSamplerExpiryWarnings } = await import(
+        '@/lib/papic-sampler-emails'
+      );
+      await scheduleSamplerExpiryWarnings(seat.event_id as string, expiresAt);
+    }
   });
 
   // Auto-sync this capture into the couple's Google Drive (Phase 2), cron-free:

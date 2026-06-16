@@ -8,13 +8,9 @@
  * little under your last proposal — want to re-propose?"). It is opportunity-
  * framed, never a rejection, and NEVER prints the couple's budget number.
  *
- * ── THE DEFINING SAFETY RULE ─────────────────────────────────────────────────
- * The nudge fires ONLY from `runBuild3State`, which is gated by
- * `BUILD_3STATE_ENABLED`. With the flag OFF (the default), `runBuild3State`
- * returns before any resolution runs, so NO nudge can ever fire. This module is
- * pure (no DB, no env) — the flag check lives at the single call site. It does
- * NOT depend on Setnayan AI; the nudge fires for both the cheapest-fit (AI-off)
- * and compat (AI-on) Auto paths.
+ * The nudge fires ONLY from `runBuild3State` (the Build resolver). This module is
+ * pure (no DB, no env). It does NOT depend on Setnayan AI; the nudge fires for
+ * both the cheapest-fit (AI-off) and compat (AI-on) Auto paths.
  *
  * ── THE GATE (owner-locked) ──────────────────────────────────────────────────
  * Nudge a quoted vendor ONLY when ALL hold:

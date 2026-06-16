@@ -14,7 +14,9 @@ import {
   SELF_REVIEW_SIGNALS,
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
-import { submitCoupleReview, submitReviewAppeal } from './actions';
+import { submitCoupleReview, submitReviewAppeal, coupleConfirmReceived, coupleReportNonDelivery } from './actions';
+import { reviewState, type CompletionFields } from '@/lib/completion-handshake';
+import { RecommendVendorCard } from './_components/recommend-vendor-card';
 
 function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   if (!raw) return null;
@@ -36,7 +38,7 @@ const AXES: ReadonlyArray<ReviewAxis> = [
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
-  searchParams: Promise<{ blocked?: string; appeal_filed?: string }>;
+  searchParams: Promise<{ blocked?: string; appeal_filed?: string; recommend?: string }>;
 };
 
 type EventVendorLookup = {
@@ -46,6 +48,9 @@ type EventVendorLookup = {
   category: string;
   contact_email: string | null;
   status: string;
+  completion_status: string | null;
+  service_marked_complete_at: string | null;
+  customer_confirmed_received_at: string | null;
 };
 
 export default async function CoupleReviewVendorPage({ params, searchParams }: Props) {
@@ -59,14 +64,44 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
 
   const { data: ev } = await supabase
     .from('event_vendors')
-    .select('vendor_id, event_id, vendor_name, category, contact_email, status')
+    .select(
+      'vendor_id, event_id, vendor_name, category, contact_email, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
+    )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
   const eventVendor = ev as EventVendorLookup | null;
   if (!eventVendor) notFound();
 
-  if (eventVendor.status !== 'delivered' && eventVendor.status !== 'complete') {
+  // Completion handshake (Event Lifecycle Menu §6.1): a review unlocks only
+  // after the vendor marks the service complete AND the couple confirms (or the
+  // M=7d/N=30d/legacy paths). Mirrors the review-gate RLS (migration
+  // 20270101000000) so the page and the DB agree.
+  const { data: evtRow } = await supabase
+    .from('events')
+    .select('event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const eventDate = (evtRow as { event_date?: string | null } | null)?.event_date ?? null;
+  const completion: CompletionFields = {
+    status: eventVendor.status,
+    completion_status: eventVendor.completion_status,
+    service_marked_complete_at: eventVendor.service_marked_complete_at,
+    customer_confirmed_received_at: eventVendor.customer_confirmed_received_at,
+  };
+  const handshake = reviewState(completion, eventDate);
+
+  if (handshake === 'awaiting_confirm') {
+    return (
+      <ConfirmReceiptState eventId={eventId} vendorId={vendorId} vendorName={eventVendor.vendor_name} />
+    );
+  }
+  if (handshake === 'disputed') {
+    return (
+      <DisputedState eventId={eventId} vendorName={eventVendor.vendor_name} />
+    );
+  }
+  if (handshake === 'awaiting_vendor') {
     return (
       <NotEligibleState
         eventId={eventId}
@@ -107,6 +142,30 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     );
   }
 
+  // Recommend-your-vendors (Event Lifecycle Menu §6.3). Only reachable here once
+  // completion is confirmed (past the handshake gate above) — exactly the gate a
+  // recommendation needs — so the card is built once and shown in both the
+  // review-form state and the already-reviewed state. The RLS insert re-enforces
+  // the completion gate, so this is a display-time read, not the security check.
+  const { data: recRow } = await supabase
+    .from('vendor_recommendations')
+    .select('endorsement')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfile.vendor_profile_id)
+    .eq('recommended_by_user_id', user.id)
+    .maybeSingle();
+  const recommendCard = (
+    <RecommendVendorCard
+      eventId={eventId}
+      vendorId={eventVendor.vendor_id}
+      vendorProfileId={vendorProfile.vendor_profile_id}
+      vendorName={vendorProfile.business_name || eventVendor.vendor_name}
+      recommended={Boolean(recRow)}
+      endorsement={(recRow as { endorsement?: string | null } | null)?.endorsement ?? null}
+      blocked={search.recommend === 'blocked'}
+    />
+  );
+
   const existing = await fetchOwnReviewForVendor(
     supabase,
     vendorProfile.vendor_profile_id,
@@ -120,6 +179,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
         eventId={eventId}
         vendorName={vendorProfile.business_name || eventVendor.vendor_name}
         slug={vendorProfile.business_slug ?? null}
+        recommendCard={recommendCard}
       />
     );
   }
@@ -226,6 +286,8 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
           </SubmitButton>
         </div>
       </form>
+
+      {recommendCard}
     </section>
   );
 }
@@ -250,10 +312,84 @@ function NotEligibleState({
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">Not yet ready for a review</h1>
       <p className="max-w-prose text-base text-ink/65">
-        You can review <span className="font-medium text-ink">{vendorName}</span> once the
-        service is marked <em>delivered</em>. Their current status is{' '}
-        <span className="font-mono text-xs uppercase tracking-[0.15em]">{status}</span>.
-        Flip the status from the vendor card on the tracker first.
+        You can review <span className="font-medium text-ink">{vendorName}</span> once they
+        mark the service complete. Their current status is{' '}
+        <span className="font-mono text-xs uppercase tracking-[0.15em]">{status}</span>. Once
+        they do, you&rsquo;ll be asked to confirm you received everything.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Completion handshake (Event Lifecycle Menu §6.1) — the vendor has marked the
+ * service complete; the couple confirms receipt (unlocks the review + galleries)
+ * or reports a problem (a non-delivery dispute that freezes the gate).
+ */
+function ConfirmReceiptState({
+  eventId,
+  vendorId,
+  vendorName,
+}: {
+  eventId: string;
+  vendorId: string;
+  vendorName: string;
+}) {
+  return (
+    <section className="space-y-4">
+      <Link
+        href={`/dashboard/${eventId}/vendors`}
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to vendors
+      </Link>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        Did you get everything from {vendorName}?
+      </h1>
+      <p className="max-w-prose text-base text-ink/65">
+        <span className="font-medium text-ink">{vendorName}</span> marked their service
+        complete. Confirm you received everything to unlock your review and galleries — or, if
+        something is missing, let us know.
+      </p>
+      <div className="flex flex-wrap gap-2 pt-1">
+        <form action={coupleConfirmReceived}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="vendor_id" value={vendorId} />
+          <SubmitButton className="button-primary" pendingLabel="Confirming…">
+            Yes, I got everything
+          </SubmitButton>
+        </form>
+        <form action={coupleReportNonDelivery}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="vendor_id" value={vendorId} />
+          <SubmitButton className="button-secondary" pendingLabel="Reporting…">
+            Something&rsquo;s missing
+          </SubmitButton>
+        </form>
+      </div>
+      <p className="text-xs text-ink/50">
+        If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still go up.
+      </p>
+    </section>
+  );
+}
+
+function DisputedState({ eventId, vendorName }: { eventId: string; vendorName: string }) {
+  return (
+    <section className="space-y-4">
+      <Link
+        href={`/dashboard/${eventId}/vendors`}
+        className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to vendors
+      </Link>
+      <h1 className="text-2xl font-semibold tracking-tight">You reported a problem</h1>
+      <p className="max-w-prose text-base text-ink/65">
+        We&rsquo;ve noted that something was missing from{' '}
+        <span className="font-medium text-ink">{vendorName}</span>. Your review is on hold while
+        this is sorted out — once it&rsquo;s resolved, you&rsquo;ll be able to leave a review.
       </p>
     </section>
   );
@@ -456,10 +592,12 @@ function AlreadyReviewedState({
   eventId,
   vendorName,
   slug,
+  recommendCard,
 }: {
   eventId: string;
   vendorName: string;
   slug: string | null;
+  recommendCard?: React.ReactNode;
 }) {
   return (
     <section className="space-y-4">
@@ -481,6 +619,8 @@ function AlreadyReviewedState({
           Open vendor profile
         </Link>
       ) : null}
+
+      {recommendCard}
     </section>
   );
 }

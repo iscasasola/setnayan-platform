@@ -117,7 +117,7 @@ import { SDLoader } from '@/components/sd-loader';
    anchor to the real wedding year. The old single `love_met` (which crammed the Spark
    AND the Almost onto one page) is split into `love_spark` + `love_almost` so each page
    is ONE clearly-titled story (owner 2026-06-08 — "set each page to be 1 story"). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -158,6 +158,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   love_intro:'Continue', love_spark:'Continue', love_almost:'Continue', love_proposal:'Continue', love_milestones:'Continue',
   love_tone:'See our story', love_preview:'This is us',
   date:'Continue', region:'Continue', pax:'Continue', budget:'Continue',
+  // alaala_promise: a brand moment after the love story (names the pillar +
+  // states the guardrail); chrome Continue advances, canContinue defaults true.
+  alaala_promise:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
   // bundle (owner 2026-06-08): chrome CTA = the "skip the offer, build à la carte" advance to
   // `services`. The two bundle cards carry their OWN "Get {title}" CTAs that route to checkout.
@@ -1346,7 +1349,6 @@ const FREE_TOOL_DRIVERS: ReadonlyArray<{
 }> = [
   { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.', vsRole: 'a hired web developer', money: () => 14999, hours: () => 50 },
   { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.', vsRole: 'a USB-and-delivery service', money: () => 5000, hours: () => 5 },
-  { key: 'filtering', label: 'Smart vendor matching', blurb: 'We filter the whole market down to the vendors that fit your wedding.', vsRole: "a planner's vendor sourcing", money: () => 4999, hours: (c) => 3 * c.categories },
   { key: 'mood', label: 'Mood board', blurb: 'One styled board your vendors actually follow.', vsRole: 'a styling consult', money: () => 3999, hours: () => 5 },
   { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.', vsRole: "a planner's budget service", money: () => 3999, hours: () => 12 },
   { key: 'dashboard', label: 'Your planning dashboard', blurb: 'Checklist, schedule, and every vendor in one hub.', vsRole: 'spreadsheets and group chats', money: () => 3999, hours: (c) => 0.25 * c.runwayDays },
@@ -1356,7 +1358,7 @@ const FREE_TOOL_DRIVERS: ReadonlyArray<{
   { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.', vsRole: 'day-of guest coordination', money: () => 1999, hours: () => 6 },
   { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.', vsRole: 'contract admin', money: () => 1999, hours: () => 3 },
   { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.', vsRole: 'a music planner', money: () => 1499, hours: () => 3 },
-  { key: 'datealigner', label: 'Wedding date aligner', blurb: 'The best date your top vendors can all actually make.', vsRole: 'a date consult', money: () => 1499, hours: () => 3 },
+  { key: 'papic', label: 'Papic sampler', blurb: '3 guest seats to taste candid-capture tagging — every shot lands in your gallery, free.', vsRole: 'a second shooter for an hour', money: () => 0, hours: () => 4 },
   { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.', vsRole: 'a menu planner', money: () => 1499, hours: () => 4 },
   { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
   { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.', vsRole: 'an invitation designer', money: () => 999, hours: () => 2 },
@@ -2764,7 +2766,7 @@ export function OnboardingShell({
     [],
   );
 
-  const handleFinish = useCallback(async (purchase = false, bundleOverride?: 'essentials' | 'complete' | null) => {
+  const handleFinish = useCallback(async (purchase = false, bundleOverride?: 'essentials' | 'complete' | null, addonSlugOverride?: string) => {
     if (committingRef.current) return;
     setCommitError(null);
 
@@ -2793,7 +2795,12 @@ export function OnboardingShell({
       const paySlug = toServices && !bundleVM
         ? state.interestedServices.map((k) => INAPP_TO_ADDON_SLUG[k]).find(Boolean)
         : undefined;
-      const dest = bundleVM
+      // AI keep-card override (Your Plan screen): commit then land straight on the
+      // Setnayan AI checkout card. Highest precedence — takes the couple to pay for
+      // the planner regardless of bundle/pick state.
+      const dest = addonSlugOverride
+        ? `${base}/add-ons/${addonSlugOverride}`
+        : bundleVM
         ? `${base}/add-ons/bundle?code=${encodeURIComponent(bundleVM.code)}`
         : paySlug
           ? `${base}/add-ons/${paySlug}`
@@ -2806,7 +2813,7 @@ export function OnboardingShell({
         router.prefetch(`${base}/vendors`); // Services
         router.prefetch(`${base}/website`); // Website
         router.prefetch(`${base}/more`); // More
-        if (paySlug || bundleVM) router.prefetch(dest); // the checkout card we're landing on
+        if (paySlug || bundleVM || addonSlugOverride) router.prefetch(dest); // the checkout card we're landing on
       } catch {
         /* prefetch is best-effort */
       }
@@ -3585,6 +3592,24 @@ export function OnboardingShell({
             />
           </section>
 
+          {/* ALAALA PROMISE — a brand moment after the love story, before the
+              practical questions: name the pillar + state the guardrail. The
+              chrome Continue advances (canContinue defaults true). */}
+          <section className={`screen${activeId === 'alaala_promise' ? ' active' : ''}`} id="screen-alaala-promise">
+            <div className="viewzone">
+              <div className="eyebrow">Our promise</div>
+              <h1 className="q">Your day, kept alive.</h1>
+              <p className="sub">
+                Everything you just shared {'—'} and everything that happens on the day {'—'} we keep
+                as your <em>Alaala</em>: the moments you{'’'}ll be too busy to see, the people who
+                can{'’'}t be there, the stories your guests tell. A living memory, not a frozen album.
+              </p>
+              <p className="sub" style={{ opacity: 0.72, marginTop: 8 }}>
+                And we stay out of the way. The day is yours to live {'—'} we just quietly remember it.
+              </p>
+            </div>
+          </section>
+
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}
           <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
@@ -4241,13 +4266,28 @@ export function OnboardingShell({
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
             <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
             <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={activeId === 'plan'} />
-            <div className="grouplbl">A little help, if you want it</div>
-            <div className="optcard">
-              <div className="opt-main">
-                <div className="opt-h">Keep guiding me</div>
-                <div className="opt-d">Your personalized deadline timeline and what to do next — free.</div>
+            <div className="grouplbl">The part that did the work</div>
+            <div className="aikeep">
+              <div className="aikeep-top">
+                <span className="aikeep-mark" aria-hidden="true">✦</span>
+                <span className="aikeep-name">Setnayan AI</span>
+                <span className="aikeep-tag">your planning brain</span>
               </div>
-              <button type="button" role="switch" aria-checked={state.guidanceOptIn} aria-label="Keep guiding me, free" className={`opt-sw${state.guidanceOptIn ? ' on' : ''}`} onClick={() => patch({ guidanceOptIn: !state.guidanceOptIn })}><span className="opt-knob" /></button>
+              <div className="aikeep-lede">The <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} we just matched to your date, budget &amp; style? That was <b>Setnayan AI</b>. Keep it for every other vendor.</div>
+              <ul className="aikeep-bens">
+                <li><span className="ic" aria-hidden="true">✓</span><span><b>Matches every vendor to you</b> — region, date, guests, budget, venue &amp; style, checked at once.</span></li>
+                <li><span className="ic" aria-hidden="true">◷</span><span><b>Your deadline timeline</b> — what to lock next, and by when, so nothing slips.</span></li>
+                <li><span className="ic" aria-hidden="true">➤</span><span><b>Reaches your best matches</b> — first inquiries sent for you, plus last-minute access.</span></li>
+              </ul>
+              {pricing.setnayanAi && (
+                <div className="aikeep-price">
+                  <span className="aikeep-now">{pricing.setnayanAi.label}</span>
+                  <span className="aikeep-unit">your whole wedding</span>
+                  <span className="aikeep-anchor">₱30,000+ coordinator</span>
+                </div>
+              )}
+              <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, undefined, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
+              <div className="aikeep-later"><u onClick={() => go(1)}>Maybe later — I&apos;ll browse on my own (free)</u></div>
             </div>
             {matchAvail === true && (
               <div className="optcard optcard-col">

@@ -359,7 +359,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   {
     // 2026-05-24 owner directive: track 3 milestones, not just the
     // shoot date. Filipino prenup pipeline: shoot T-6mo → teaser
-    // (15-30s) T-5mo (used for Save-the-Date video) → full prenup
+    // (15-30s) T-5mo (shareable as a save-the-date teaser) → full prenup
     // video (2-4min) T-3mo (used for website hero + reception roll-in).
     // V1: external_process kind · host marks each milestone as
     // received. V1.x: photographer-side upload triggers auto-receipt.
@@ -369,7 +369,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Schedule your prenup shoot',
     whyItMatters:
-      "Three milestones — the shoot itself at T-6mo, the teaser (15-30s) at T-5mo which feeds your save-the-date video, and the full prenup video (2-4 min) at T-3mo which lands on your website hero + reception roll-in. Lock the shoot date here; mark teaser + full video as received when your photographer delivers.",
+      "Three milestones — the shoot itself at T-6mo, the teaser (15-30s) at T-5mo which you can share as your save-the-date, and the full prenup video (2-4 min) at T-3mo which lands on your website hero + reception roll-in. Lock the shoot date here; mark teaser + full video as received when your photographer delivers.",
     pillLabel: 'Foundation',
     prerequisites: ['photography'],
   },
@@ -507,7 +507,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // 2026-05-24 owner directive (flow diagram) · shifted earlier from
     // order 11 to 4.7 so monogram lands in Foundation tier alongside
     // draft_guest_list. Reasoning: bespoke monogram has 4-6 week design
-    // lead-time, and it's a hard input to Save-the-Date Video (Card 17),
+    // lead-time, and it's a hard input to the Save-the-Date reveal (Card 17),
     // Website (Card 16), Deploy Invitation (Card 21), and LED Background
     // (post-event). Phase label kept as 'style_identity' for tier grouping
     // continuity even though the surface ordering reads Foundation-early.
@@ -631,21 +631,20 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['create_website'],
   },
   {
-    // 2026-05-24 owner directive: card body should let host upload
-    // prenup photos + video → pick template → render → share + auto-
-    // add to wedding website. V1: external_process placeholder · the
-    // /add-ons/save-the-date route at /dashboard/[eventId]/add-ons
-    // surfaces the actual upload/render UI. V1.x: inline-completion
-    // body wires the upload + render + share flow directly into the
-    // card. The auto-add-to-website hook fires on render success ·
-    // updates the create_website hero block.
+    // 2026-06-16: the Save-the-Date surface is now the FREE page-opening
+    // REVEAL — the animation (envelope / bridal veil) that uncovers the
+    // couple's invitation when a guest opens their wedding-page link. It
+    // recolours from the Mood Board and plays automatically; the old paid
+    // ₱199 video-render flow is retired. The /add-ons/save-the-date route
+    // is the chooser/preview. (Task id kept as 'save_the_date_video' for
+    // events.wizard_state schema stability — do not rename.)
     id: 'save_the_date_video',
     order: 17,
     phase: 'programming',
     kind: 'external_process',
-    title: 'Release your save-the-date',
+    title: 'Choose your Save the Date',
     whyItMatters:
-      "Upload your prenup teaser + photos · pick a template · render at ₱199. The result auto-publishes to your wedding website hero AND gives you a shareable MP4 for IG / FB / Viber. Iterate the framing until it feels right · each render is its own purchase.",
+      "Pick how your wedding page opens for guests — a reveal (envelope or bridal veil) that uncovers your Save the Date. It recolours to your Mood Board and plays automatically on your live page. Free, included with your website — preview it and choose the one you love.",
     pillLabel: 'Programming',
     prerequisites: ['engagement_prenup_shoot'],
   },

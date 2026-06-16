@@ -64,6 +64,7 @@ import {
   Compass,
   Shield,
   AlertOctagon,
+  Handshake,
   Star,
   LifeBuoy,
   Flag,
@@ -114,7 +115,9 @@ import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup } from '@/app/_components/nav/types';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 /**
  * Canonical admin NavGroup[] export. Mobile-overflow landing pages at
@@ -211,6 +214,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/force-majeure',
         icon: AlertOctagon,
         matchPrefix: '/admin/force-majeure',
+      },
+      {
+        key: 'completions',
+        label: 'Completions',
+        href: '/admin/completions',
+        icon: Handshake,
+        matchPrefix: '/admin/completions',
       },
       {
         key: 'reviews',
@@ -574,8 +584,32 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
  * (Wordmark) so the admin doorway reads as a separate context from
  * customer + vendor doorways.
  */
-export function AdminSidebar() {
+/**
+ * Overlays admin nav-registry label + icon onto each sidebar item via its
+ * `admin.sidebar.<key>` slot (item key matches the slot suffix 1:1). Fallback =
+ * the item's hardcoded default; a hidden slot drops the item; no-op when
+ * navSlots is absent (fails open). href/matchPrefix + group structure stay in
+ * code. (Admin nav has no role-gating, so no pre-filter step.)
+ */
+function applyAdminRegistry(
+  groups: NavGroup[],
+  navSlots?: Record<string, NavSlotLite>,
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slot = navSlots[`admin.sidebar.${item.key}`];
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
+}
+
+export function AdminSidebar({ navSlots }: { navSlots?: Record<string, NavSlotLite> }) {
   const pathname = usePathname() ?? '/admin';
+  const groups = applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots);
 
   return (
     <>
@@ -592,7 +626,7 @@ export function AdminSidebar() {
         </p>
       </header>
 
-      {ADMIN_NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <SidebarSection key={group.key} group={group} pathname={pathname}>
           {group.items.map((item) => (
             <SidebarItem key={item.key} item={item} pathname={pathname} />

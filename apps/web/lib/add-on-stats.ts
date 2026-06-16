@@ -56,7 +56,7 @@ export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
     // 0012 SKUs slot in here once the iteration's catalog rows land.
   ],
   'mood-board': [],
-  'save-the-date': ['save_the_date_render'],
+  'save-the-date': [], // now the free page-opening reveal (no SKU); video render retired 2026-06-16
   led: [],
   patiktok: [],
   'photo-delivery': [],

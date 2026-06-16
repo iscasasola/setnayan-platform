@@ -15,7 +15,9 @@ import { nextAvailableSlot } from '@/lib/social/governor';
 import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
 import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
-import { socialCardUrl } from '@/lib/social/urls';
+import { siteUrl, socialCardUrl } from '@/lib/social/urls';
+import { BLOG_ARTICLES } from '@/lib/blog';
+import { JOURNAL_SOCIAL_HOOKS } from '@/lib/social/journal-hooks';
 
 /**
  * apps/web/lib/social/flush.ts — THE ENGINE of the social auto-publish
@@ -120,6 +122,7 @@ export async function runSocialFlush(): Promise<void> {
     // even while the master switch is off) ────────────────────────────────
     await sweepCoupleCreations(admin, now);
     await sweepVendorFeatures(admin, now);
+    await sweepJournalArticles(admin, now);
     await sweepMilestones(admin);
     await sweepEvergreenFloor(admin, now);
     await sweepTakedowns(admin, now);
@@ -295,6 +298,56 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
     if (error && error.code !== '23505') {
       logQueryError('runSocialFlush (compose vendor_feature)', error, {
         vendor_profile_id: vendor.vendor_profile_id,
+      });
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sweep b2: Journal articles → posts. Every PUBLISHED /blog article that
+// doesn't have a post yet becomes a Facebook teaser — a curiosity-hook caption
+// (JOURNAL_SOCIAL_HOOKS, else the article excerpt) as the body, the article URL
+// as link_url so Facebook attaches its native LINK CARD (the article's OG cover
+// + title + description). The card URL has no image extension, so dispatch
+// takes the /feed branch and the link card renders + stays clickable (a photo
+// post would drop the link).
+//
+// Rides source_type='announcement' (the generic editorial type — avoids a
+// CHECK-constraint migration) with a DETERMINISTIC 'journal:{slug}' ref, so the
+// partial-unique index makes this compose-once / never-repost (a pulled teaser
+// won't resurrect). No hold window — articles take the next governor slot
+// (§ 8.3b · FB ≤3/day), so a backlog of 10 drips out over ~4 days rather than
+// flooding the page. Future-dated articles (publishedAt gate) stay out until
+// their day, which is how a daily drip will work.
+// ─────────────────────────────────────────────────────────────────────────────
+async function sweepJournalArticles(admin: AdminClient, now: Date): Promise<void> {
+  // PH has no DST — fixed +08:00, same rationale as lib/social/governor.ts.
+  const live = BLOG_ARTICLES.filter(
+    (a) => new Date(`${a.publishedAt}T00:00:00+08:00`).getTime() <= now.getTime(),
+  );
+  if (live.length === 0) return;
+
+  const fresh = await withoutExistingPosts(
+    admin,
+    'announcement',
+    live,
+    (a) => `journal:${a.slug}`,
+  );
+  if (fresh.length === 0) return;
+
+  const origin = siteUrl().replace(/\/$/, '');
+  for (const article of fresh) {
+    const hook = JOURNAL_SOCIAL_HOOKS[article.slug]?.trim() || article.excerpt.trim();
+    const { error } = await admin.from('social_posts').insert({
+      source_type: 'announcement',
+      source_ref: `journal:${article.slug}`,
+      title: `Journal · ${article.title}`,
+      body: `${hook}\n\n#Setnayan #FilipinoWedding`,
+      link_url: `${origin}/blog/${article.slug}`,
+    });
+    if (error && error.code !== '23505') {
+      logQueryError('runSocialFlush (compose journal_article)', error, {
+        slug: article.slug,
       });
     }
   }

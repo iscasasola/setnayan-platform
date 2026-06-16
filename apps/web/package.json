@@ -35,6 +35,7 @@
     "@tensorflow-models/face-detection": "^1.0.3",
     "@tensorflow/tfjs": "^4.22.0",
     "@types/three": "^0.184.1",
+    "@vladmandic/face-api": "^1.7.15",
     "archiver": "^7.0.1",
     "idb-keyval": "^6.2.1",
     "jose": "^6.2.3",

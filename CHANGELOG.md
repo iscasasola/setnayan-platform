@@ -61,6 +61,20 @@ Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files
 SPEC IMPACT: None (code-internal; no behavior/visual change).
 
 ## 2026-06-17 · feat(reveal): port the DESIGN-LOCKED bridal-veil reveal to the Save-the-Date page
+## 2026-06-17 · feat(papic): on-device face embedder (face-api.js/dlib) + enrollment wiring — DORMANT
+
+The on-device half of self-hosted face auto-tagging, on the validated model (dlib ResNet via face-api.js — public-domain + MIT, 99.38% LFW). Ships **dormant**: with no model hosted on R2 (`NEXT_PUBLIC_FACE_MODEL_URL` unset) every call is a clean no-op and enrollment stays image-only — exactly today's behavior.
+
+- **`lib/face-embed.ts`** (new, browser) — `embedSingleFace` (one selfie → 128-d descriptor, for enrollment) + `embedFaces` (a photo → one descriptor per face, for capture). **Lazy-imports** face-api.js so the library + TF.js stay OUT of the main bundle until a face is embedded. The face IMAGE never leaves the device; only the tiny descriptor moves on. Best-effort (null/[] on no model / no face / error) — never blocks a selfie or capture.
+- **Enrollment wiring** — `app/[slug]/_components/selfie-capture.tsx`: after the quality gate, best-effort computes the descriptor (lazy import) → renders a hidden `selfie_vector`; `app/[slug]/actions.ts` parses + validates it and stores `guest_face_enrollments.face_vector` + `vector_model` (columns already existed; reserved-NULL until now). Image-only fallback if absent.
+- **`lib/face-embed-core.ts`** — `VECTOR_MODEL` → `faceapi-dlib@1` (the actual model now). `@vladmandic/face-api@^1.7.15` added (TF.js was already a dep, so low bundle delta; lazy-loaded). Lockfile updated.
+- **`OWNER_ACTIONS.md`** — the one activation step: host the 3 face-api model sets (~12 MB) on the public R2 bucket + set `NEXT_PUBLIC_FACE_MODEL_URL`, then validate on a real device.
+
+Pairs with the server matcher (#1608, `lib/face-match.ts`): phone fingerprints → server matches → `auto_face` tags. Remaining: the capture-side call into the matcher (next PR, needs #1608) + the R2 model hosting (owner). NOTE: the browser embedder can't be run in CI — it's verified on a real device once the model is hosted.
+
+SPEC IMPACT: iteration 0012 — on-device face embedding + enrollment-vector storage built (dormant). Logged in corpus DECISION_LOG.md.
+
+## 2026-06-16 · docs(nav): backfill changelog for the registry final-public-pass + cleanup (#1583, #1581)
 
 **What landed (`apps/web/app/[slug]/_components/reveal/`):**
 - **`veil-reveal.tsx`** — fully rewritten as a faithful port of the owner-approved reference implementation (build `veil_lower_shakes_petals`, the 47th `show_widget` tuning iteration, 2026-06-17). Replaces the old 28×40 / gold-mark / pin-rise placeholder. Now a 66×50 Verlet cloth with: flat-crown→blooming folds, real gravity drop, hem-weighted wind, a **hard 1.2% strain clamp** (inextensible — a tap-pull holds taut, never rubber-stretches), the **sim-driven two-end trailing fold** (hem pulled off-screen past the top, only the valance droop occupies the top ~30%, float keeps it high), and gestures: **swipe-up = reveal · swipe-down = re-cover · double-tap = hands-free auto · grab-and-pull = local inextensible hold · tap = bat a petal away.** The logo is now the **white sparse Setnayan mark** (fixed-pixel tiled, `ResizeObserver` re-fit so rotation adds marks instead of stretching) — no gold, no flower-lace hem. Adds a **100-petal `InstancedMesh`** rose shower with 4 mixed behaviours (cling/feather/rotate/straight), **tap-to-bounce**, **lower-the-veil-shakes-all-petals-loose**, and petals that **start only when the veil first lifts** (none on the covered veil). All locked settings (spec §6) baked as constants; couple-customizable surface = `veilColor` + `petalsColor` only.

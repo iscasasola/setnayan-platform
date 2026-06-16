@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -22,7 +23,7 @@ import {
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; platform?: string }>;
 };
 
 type Filter = 'pending' | 'all' | 'orders_needing_quote';
@@ -52,6 +53,9 @@ type PaymentJoined = {
     requested_total_php: number;
     confirmed_total_php: number | null;
     status: OrderStatus;
+    // Originating platform — web | ios | android (migration 20270103040000).
+    // Null on pre-migration rows / pre-stamp orders → shown as "web".
+    platform: string | null;
   } | null;
   user: { email: string | null; public_id: string } | null;
 };
@@ -72,6 +76,9 @@ type OrderJoined = {
 export default async function AdminPaymentsPage({ searchParams }: Props) {
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as Filter;
+  // Optional platform filter (web | ios | android) — orthogonal to the status
+  // filter, so it composes with it. null = all platforms.
+  const platformFilter = isRequestPlatform(search.platform) ? search.platform : null;
 
   const admin = createAdminClient();
 
@@ -95,14 +102,22 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       .limit(100);
     unquotedOrders = (data ?? []) as unknown as OrderJoined[];
   } else {
+    // When a platform filter is active, the order embed becomes !inner so rows
+    // whose order doesn't match the platform are excluded (a plain left-join
+    // embed would keep them with a null order). Every payment has an order, so
+    // !inner drops nothing else.
+    const orderEmbed = platformFilter
+      ? 'order:orders!inner(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform)'
+      : 'order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform)';
     let paymentsQuery = admin
       .from('payments')
       .select(
-        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status), user:users!payments_user_id_fkey(email, public_id)',
+        `payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_at,created_at, ${orderEmbed}, user:users!payments_user_id_fkey(email, public_id)`,
       )
       .order('created_at', { ascending: false })
       .limit(100);
     if (filter === 'pending') paymentsQuery = paymentsQuery.eq('status', 'pending');
+    if (platformFilter) paymentsQuery = paymentsQuery.eq('order.platform', platformFilter);
     const { data } = await paymentsQuery;
     payments = (data ?? []) as unknown as PaymentJoined[];
   }
@@ -118,15 +133,28 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
         </p>
       </header>
 
-      <nav className="mb-6 flex flex-wrap gap-2">
-        <FilterChip activeFilter={filter} target="pending" label="Pending payments" />
-        <FilterChip activeFilter={filter} target="all" label="All payments" />
+      <nav className="mb-3 flex flex-wrap gap-2">
+        <FilterChip activeFilter={filter} platform={platformFilter} target="pending" label="Pending payments" />
+        <FilterChip activeFilter={filter} platform={platformFilter} target="all" label="All payments" />
         <FilterChip
           activeFilter={filter}
+          platform={platformFilter}
           target="orders_needing_quote"
           label="Orders needing a quote"
         />
       </nav>
+
+      {filter !== 'orders_needing_quote' ? (
+        <nav className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-ink/40">
+            Platform
+          </span>
+          <PlatformChip activePlatform={platformFilter} filter={filter} target={null} label="All" />
+          <PlatformChip activePlatform={platformFilter} filter={filter} target="web" label="Web" />
+          <PlatformChip activePlatform={platformFilter} filter={filter} target="ios" label="iOS app" />
+          <PlatformChip activePlatform={platformFilter} filter={filter} target="android" label="Android app" />
+        </nav>
+      ) : null}
 
       {filter === 'orders_needing_quote' ? (
         <OrdersNeedingQuote orders={unquotedOrders} />
@@ -139,20 +167,51 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
 
 function FilterChip({
   activeFilter,
+  platform,
   target,
   label,
 }: {
   activeFilter: string;
+  platform: string | null;
   target: Filter;
   label: string;
 }) {
   const isActive = activeFilter === target;
+  // Preserve the active platform filter when switching status.
+  const href = `/admin/payments?filter=${target}${platform ? `&platform=${platform}` : ''}`;
   return (
     <a
-      href={`/admin/payments?filter=${target}`}
+      href={href}
       aria-pressed={isActive}
       className={`rounded-full px-3 py-1 text-xs font-medium ${
         isActive ? 'bg-terracotta text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+      }`}
+    >
+      {label}
+    </a>
+  );
+}
+
+function PlatformChip({
+  activePlatform,
+  filter,
+  target,
+  label,
+}: {
+  activePlatform: string | null;
+  filter: string;
+  target: 'web' | 'ios' | 'android' | null;
+  label: string;
+}) {
+  const isActive = activePlatform === target;
+  // Preserve the active status filter when switching platform; target=null = all.
+  const href = `/admin/payments?filter=${filter}${target ? `&platform=${target}` : ''}`;
+  return (
+    <a
+      href={href}
+      aria-pressed={isActive}
+      className={`rounded-full px-3 py-1 text-xs font-medium ${
+        isActive ? 'bg-mulberry text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
       }`}
     >
       {label}
@@ -276,9 +335,19 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               <Stat label="Amount" value={formatPhp(p.amount_php)} />
               <Stat label="Channel" value={p.channel} />
+              <Stat
+                label="Platform"
+                value={
+                  p.order?.platform === 'ios'
+                    ? 'iOS app'
+                    : p.order?.platform === 'android'
+                      ? 'Android app'
+                      : 'Web'
+                }
+              />
               <Stat label="Reference" value={p.reference_number ?? '—'} mono />
               <Stat label="Paid" value={p.paid_at} mono />
             </div>

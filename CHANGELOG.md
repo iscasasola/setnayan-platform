@@ -67,6 +67,19 @@ Adds the hero reveal to the Save-the-Date opening: the **Setnayan bridal veil** 
 Next: PR3 — dashboard template chooser + content editor; + wire `veilColor` from the couple's Mood Board palette (currently ivory default) and add the crown + curtain veil modes.
 
 SPEC IMPACT: 0024 Save the Date — reveal experience design-locked in `0024_ADDENDUM` §1a; this lands the WebGL veil build behind the flag/preview-param. Corpus `DECISION_LOG.md` row appended.
+## 2026-06-16 · feat(admin): stamp the originating platform on orders + show it in /admin/payments
+
+Owner asked for admin visibility into where a purchase comes from (web vs the native app) — the companion to the route-to-web hand-off (#1538).
+
+- **New migration `20270102000000_orders_platform.sql`** (idempotent, **NOT applied — owner `supabase db push`**): adds `orders.platform TEXT NOT NULL DEFAULT 'web'` + a `web|ios|android` CHECK. Existing rows default to `web`.
+- **New `lib/request-platform.ts`** — `getRequestPlatform()` reads the request UA (`SetnayanApp/ios`|`/android`) + the `setnayan-client-type=capacitor` cookie (the same signals the middleware uses); safe outside request scope → `web`.
+- **Stamp at creation:** `submitOrderAction` writes `platform` on every new order — preferring an explicit, validated form hint (so the route-to-web hand-off can later carry the app origin through the external browser via `?checkout_origin=`) else the detected platform.
+- **Admin display:** `/admin/payments` gains a **Platform** stat per order row (Web / iOS app / Android app), reading `order.platform`.
+- **Admin filter:** a Platform filter row (All / Web / iOS app / Android app) on `/admin/payments`, **orthogonal to the existing status filter** (composes with Pending/All — switching one preserves the other). When active the order embed becomes `!inner` + `.eq('order.platform', …)` so only matching orders show. Hidden on the orders-needing-a-quote view.
+
+`tsc` green. **Note on the route-to-web interaction:** once #1538 ships, native buyers pay in the external browser, so the order is created in a web context and stamps `web` unless the hand-off passes the origin hint — the `platform` form-field plumbing for that is already in place here; wiring the hint into the #1538 hand-off is the small follow-up. Migration → no auto-merge.
+
+SPEC IMPACT: order-origin telemetry (web/ios/android) surfaced in admin; DECISION_LOG.
 
 ## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
 

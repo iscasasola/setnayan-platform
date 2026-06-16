@@ -388,7 +388,13 @@ export default async function EventLayout({ children, params }: Props) {
   return (
     <>
       <SidebarShell
-        sidebar={<CustomerSidebar eventId={eventId} navSlots={navSlots} />}
+        sidebar={
+          <CustomerSidebar
+            eventId={eventId}
+            navSlots={navSlots}
+            eventDate={(event.event_date as string | null) ?? null}
+          />
+        }
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last

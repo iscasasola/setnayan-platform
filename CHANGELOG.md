@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(nav): the section sub-nav expands FROM the desktop sidebar (delivers the journey follow-up)
+
+Owner: *"let the subnav expand from the side nav when on desktop. subnav setup is only for mobile. but when there is a sidenav, all will be under the side nav."* The mobile `<SubNav>` floating pill is the **mobile** rendering of a section's sub-stages; on desktop those stages were homeless — the Guests journey only surfaced as an on-page ribbon on the Build page, so once you were on Invite/Confirm/Day-of the desktop journey nav vanished. This closes the gap the prior journey PR explicitly left ("desktop journey strip on every journey surface").
+
+- **General primitive (shared nav).** `NavItem` gains optional `children?: NavItem[]` (+ `muted?`). `<SidebarItem>` renders an item with children as an **expandable parent**: it **auto-expands while the active route is inside the section** (the parent OR any child matches — owner-picked auto-expand-on-active, not a manual toggle) and collapses otherwise. The most-specific (longest-`matchPrefix`) child is the active LEAF and carries the orange accent bar + tint; the parent reads as the active ANCESTOR (orange icon + ink label, no bar) so exactly one row owns the accent. Children render indented + one size down; a `muted` child dims ("not yet"); the whole sub-list hides on the collapsed 64px icon rail. Leaf items (vendor + admin sidebars, every other customer row) are byte-for-byte unchanged — the new path only triggers when `children` is present. The mobile `<SubNav>` is untouched and still `lg:hidden`.
+- **Wired the Guests journey.** `customer-nav-config.ts`'s Plan-group "Guests" item now carries `children` = the five stages from the `lib/guest-journey` SSOT (Build · Invite · Confirm · Seat · Day-of), so the desktop sidebar and the mobile shelf read the **same** source and can't drift. Day-of stays time-gated/muted until the live window (the client sidebar computes `dayOfOpen` from the event date in an effect → no hydration flash; `eventDate` threaded layout → `<CustomerSidebar>`).
+- **Dropped the standalone "Seating" Plan item (owner-picked).** The journey already owns Seating as its "Seat" stage, so the duplicate top-level sibling is gone — Seating now lives under Guests. Desktop-sidebar-only in practice: the mobile bottom nav uses the separate flat `buildCustomerNavTabs` roster (its Guests tab still lights on `/seating`), and the only other `buildCustomerNavGroups` consumer (`CustomerMobileLanding` via the retired `/more`) is no longer rendered.
+
+Scope note: the **Services "Build" takeover** sub-nav is client-tab state (not routes), behind `BUDGET_BUILD_ENABLED` (off in prod), and already has its own desktop top strip — it can't live in a route-based sidebar, so it's out of scope. The on-page `LifecycleRibbon` (desktop Build page) is **kept** — it carries live work-remaining badges the sidebar doesn't; whether to retire it now that the journey lives in the sidebar is flagged for owner.
+
+Verified: `tsc --noEmit` 0 · `next lint` clean (changed files) · `lint:botnav` ✓. No migration. Visual surface = the Vercel PR preview (desktop ≥1024px, any `/dashboard/[id]/guests*` or `/seating` route).
+
+SPEC IMPACT: iteration 0021/0001/0008 — desktop customer sidebar IA: Guests is an expandable journey parent; the standalone Seating sidebar item is retired (moved under Guests as "Seat"). No SKU/pricing/schema/public-surface change. → corpus `DECISION_LOG.md`.
+
 ## 2026-06-16 · fix(papic): failproof the scan-to-tag leg — adversarial review pass on #1588
 
 Owner: "failproof?" A 3-lens adversarial review (SQL/security · parser/classification · client/integration+downstream) of the just-merged #1588. **Verdicts: SQL = ship** (logic, security, event-scope, cap-truncation, idempotency all *cleared* as correct); **parsers + client = ship-with-fixes.** Two reviewer "fixes" were **rejected after scrutiny** (see below). Landed the real, scoped ones:

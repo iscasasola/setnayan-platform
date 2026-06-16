@@ -19,6 +19,7 @@ import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { CustomerSidebar } from './_components/customer-sidebar';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { GuestsSectionSubnav } from './_components/guests-section-subnav';
+import { VendorsSectionSubnav } from './_components/vendors-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 
@@ -415,6 +416,14 @@ export default async function EventLayout({ children, params }: Props) {
           once here for every event route — same place + pattern as
           <CustomerBottomNav>. eventDate drives the Day-of time-gate. */}
       <GuestsSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} />
+      {/* Explore/Services-tab subordinate shelf — docks above the bottom nav
+          (mobile) and lights the active section of the Services takeover
+          (Summary · Shortlist · Build · Compare · Lock) while the path is the
+          takeover root (/vendors). Self-gates to null everywhere else. Mounted
+          here (not inside the takeover) so it paints + responds the instant
+          Explore opens, ahead of the server-built panel — owner 2026-06-16
+          "the sub nav should always respond first". */}
+      <VendorsSectionSubnav eventId={eventId} />
     </>
   );
 }

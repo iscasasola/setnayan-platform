@@ -24,48 +24,23 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
-import { BUDGET_BUILD_TABS, type BudgetBuildTab } from '@/lib/budget-build';
-import { SubNav } from '@/app/_components/nav/sub-nav';
+import {
+  BUDGET_BUILD_TABS,
+  TAB_META,
+  BB_TAB_EVENT,
+  goToBuildTab,
+  type BudgetBuildTab,
+} from '@/lib/budget-build';
 
-/** Cross-tab navigation: any slot can `window.dispatchEvent(new CustomEvent(
- *  'bb:tab', { detail: 'build' }))` to switch the takeover's active tab without a
- *  server round-trip (e.g. Compare "Modify" → Build, Build "Lock your build" →
- *  Lock). Kept here so the server-rendered slots stay decoupled from the tab state. */
-export const BB_TAB_EVENT = 'bb:tab';
-export function goToBuildTab(tab: BudgetBuildTab) {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(BB_TAB_EVENT, { detail: tab }));
-  }
-}
-
-const TAB_META: Record<BudgetBuildTab, { label: string; icon: LucideIcon; blurb: string }> = {
-  summary: {
-    label: 'Summary',
-    icon: Gauge,
-    blurb: 'Your build at a glance — progress, budget used, and what comes next.',
-  },
-  shortlist: {
-    label: 'Shortlist',
-    icon: Bookmark,
-    blurb: 'The bench — every service you are considering.',
-  },
-  build: {
-    label: 'Build',
-    icon: Hammer,
-    blurb: 'Assemble a plan that fits your budget, date and guest count.',
-  },
-  compare: {
-    label: 'Compare',
-    icon: Scale,
-    blurb: 'Put your saved builds side by side — and see which dates work.',
-  },
-  lock: {
-    label: 'Lock',
-    icon: Lock,
-    blurb: 'Finalize the vendors for your wedding.',
-  },
-};
+// The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META moved to
+// @/lib/budget-build 2026-06-16: the docked mobile section sub-nav is now
+// mounted in the EVENT LAYOUT (vendors-section-subnav.tsx) — not here — so it
+// paints and responds BEFORE this server-built panel resolves (owner: "the sub
+// nav should always respond first"). The dock shares the bus + meta from the lib
+// without importing across _components. Re-exported here so the existing
+// imperative consumers (build-compare.tsx, build-picks-list.tsx) keep importing
+// goToBuildTab from './services-takeover' unchanged.
+export { BB_TAB_EVENT, goToBuildTab };
 
 export function ServicesTakeover({
   // `eventId` stays in the props contract (the page passes it) but is no longer
@@ -87,6 +62,20 @@ export function ServicesTakeover({
   initialTab?: BudgetBuildTab;
 }) {
   const [tab, setTab] = useState<BudgetBuildTab>(initialTab);
+
+  // The docked section sub-nav (event layout) writes ?tab= via replaceState and
+  // may do so while THIS page is still loading — before this panel mounts. On
+  // mount, adopt the live ?tab= if it diverged from the server `initialTab`, so
+  // a tab tapped during the load is honored. Deferred to an effect (not a lazy
+  // initializer) so SSR + first client paint both agree on `initialTab` — no
+  // hydration flash; the correction lands one render later. Runs once.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t && (BUDGET_BUILD_TABS as readonly string[]).includes(t) && t !== tab) {
+      setTab(t as BudgetBuildTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Switch sections AND mirror the choice into ?tab= so refresh + deep links
   // land on the same section (2026-06-12). replaceState — flipping sections
@@ -169,22 +158,14 @@ export function ServicesTakeover({
         </div>
       </div>
 
-      {/* Mobile section nav — the reusable <SubNav> docked above the global
-          bottom nav (owner 2026-06-16 "pin it on top of the bottom nav as its
-          sub nav" · icon-over-text · the bottom nav goes icons-only while it's
-          docked). It lifts in on section entry, and mounting <SubNav> here is
-          what tells the bottom nav to collapse its labels. Desktop (lg+) uses
-          the top strip above; <SubNav> is mobile-only. */}
-      <SubNav
-        items={BUDGET_BUILD_TABS.map((key) => ({
-          key,
-          label: TAB_META[key].label,
-          icon: TAB_META[key].icon,
-        }))}
-        activeKey={tab}
-        onSelect={(key) => selectTab(key as BudgetBuildTab)}
-        ariaLabel="Services sections"
-      />
+      {/* Mobile section nav lives in the EVENT LAYOUT now, not here:
+          <VendorsSectionSubnav> (dashboard/[eventId]/_components) mounts the
+          reusable <SubNav> alongside the bottom nav so it paints + responds the
+          instant Explore opens — before this server-built panel resolves (owner
+          2026-06-16 "the sub nav should always respond first"). It self-gates to
+          this route, seeds from ?tab=, and drives section switches over the
+          shared BB_TAB_EVENT bus, which the `selectTab` listener below consumes.
+          Desktop (lg+) still uses the top strip above. */}
 
       {/* Active tab content. On mobile the docked sub-nav (above) + the global
           bottom nav both float over this, so reserve bottom space for both:

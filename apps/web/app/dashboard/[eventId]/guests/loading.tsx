@@ -27,13 +27,14 @@ export default function GuestsLoading() {
     <section
       aria-busy="true"
       aria-live="polite"
-      className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+3.25rem)] lg:pt-0"
+      className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0"
     >
       <span className="sr-only">Loading guests…</span>
       <style>{`.shell-topbar{display:none}`}</style>
 
-      {/* mobile back-X placeholder (fixed, matches the real exit affordance) */}
-      <span className="fixed left-3 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 h-9 w-9 rounded-full bg-ink/[0.06] lg:hidden" />
+      {/* (The mobile back-X placeholder was removed 2026-06-15 to match the real
+          page — the floating focus-mode exit is gone now that the global bottom
+          nav is always present.) */}
 
       {/* Narration strip — tells the couple what's loading (owner 2026-06-05). */}
       <LoadingNarration messages={GUESTS_MESSAGES} />

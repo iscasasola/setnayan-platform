@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Heart, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -19,6 +20,16 @@ import { useEffect, useRef, useState } from 'react';
  *                  /dashboard/settings route exists or is needed).
  *   - Sign out  →  POST /auth/sign-out (form action; preserves
  *                  the existing server-side signOut + redirect flow).
+ *
+ * EVENT SECTION (2026-06-15 · nav patch FIX C). When an `eventId` is in
+ * context (the event-scoped dashboard layout passes it in), the menu adds an
+ * "Event" group above the account rows with two entries the journey-group nav
+ * dropped: Hosts (/dashboard/[eventId]/hosts) and Personalization
+ * (/dashboard/[eventId]/details). These are per-event settings, so the
+ * account-scoped Profile/Settings rows aren't the right home; surfacing them
+ * here keeps both reachable without re-adding a Settings nav group. The
+ * account-only mounts (e.g. the outer `(account)` header) omit `eventId`, so
+ * the Event group simply doesn't render there.
  *
  * 2026-05-30 (CLAUDE.md decision-log): the avatar trigger button is now
  * h-11 w-11 (44×44) instead of h-9 w-9 (36×36). WHY: the global rule in
@@ -51,12 +62,20 @@ type Props = {
   photoUrl?: string | null;
   /** Optional aria-label override. */
   ariaLabel?: string;
+  /**
+   * The current event id when this menu is mounted inside the event-scoped
+   * dashboard (FIX C 2026-06-15). When present, the menu shows an "Event"
+   * group with Hosts + Personalization — the two per-event surfaces the
+   * journey-group nav dropped. Omit it on account-only mounts.
+   */
+  eventId?: string | null;
 };
 
 export function ProfileMenu({
   email,
   photoUrl,
   ariaLabel = 'Account menu',
+  eventId,
 }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -120,6 +139,34 @@ export function ProfileMenu({
           >
             {email || 'Signed in'}
           </p>
+          {/* Event group (FIX C 2026-06-15) — the two per-event surfaces the
+              journey-group nav dropped (Hosts + Personalization). Only when an
+              eventId is in context. */}
+          {eventId ? (
+            <div className="mb-2 border-b border-ink/10 pb-2">
+              <p className="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+                Event
+              </p>
+              <Link
+                role="menuitem"
+                href={`/dashboard/${eventId}/hosts`}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10 hover:text-ink"
+                onClick={() => setOpen(false)}
+              >
+                <Heart aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+                Hosts
+              </Link>
+              <Link
+                role="menuitem"
+                href={`/dashboard/${eventId}/details`}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10 hover:text-ink"
+                onClick={() => setOpen(false)}
+              >
+                <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+                Personalization
+              </Link>
+            </div>
+          ) : null}
           <Link
             role="menuitem"
             href="/dashboard/profile"

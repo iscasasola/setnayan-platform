@@ -40,7 +40,6 @@ import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
-import { Nav } from '@/app/_components/marketing/site-nav';
 import type { FilterDrawerProps } from './_components/filter-drawer';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
 import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
@@ -1827,7 +1826,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           Rendered NON-sticky here because the marketplace search bar
           (StickyMarketplaceHeader) is itself `sm:sticky sm:top-0` — two
           sticky-top bars would stack/overlap on scroll. */}
-      <Nav sticky={false} />
 
       <NoticeBanner noticeKey={noticeKey} />
 

@@ -48,49 +48,68 @@ export function NativeBridge() {
     let backHandle: ListenerHandle | undefined;
     let urlHandle: ListenerHandle | undefined;
 
+    // Capacitor's NATIVE bridge returns a listener handle SYNCHRONOUSLY — it is
+    // NOT a Promise. Chaining `.then()` straight onto `addListener(...)` throws
+    // "addListener(...).then is not a function" on a real device, which crashes
+    // the whole app to the root error boundary on first launch. Normalize every
+    // bridge call through `Promise.resolve` so it behaves whether the call
+    // returns a Promise (web/PWA) or a bare value (native).
+    const track = (
+      r: ListenerHandle | Promise<ListenerHandle> | undefined,
+      assign: (h: ListenerHandle) => void,
+    ) => {
+      Promise.resolve(r)
+        .then((h) => {
+          if (h) assign(h);
+        })
+        .catch(swallow);
+    };
+
     // 1. Hardware BACK button. Capacitor's BridgeActivity default calls
     //    finish() — which EXITS the app from any interior screen. Route it
     //    through the WebView history instead; only exit at the root.
-    App?.addListener('backButton', ({ canGoBack }) => {
-      if (canGoBack) window.history.back();
-      else void App.exitApp();
-    })
-      .then((h) => {
+    track(
+      App?.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) window.history.back();
+        else void App.exitApp();
+      }),
+      (h) => {
         backHandle = h;
-      })
-      .catch(swallow);
+      },
+    );
 
     // 2. Deep links (App Links / setnayan:// — locked linking contract). When a
     //    link opens the app, navigate the WebView to the target path. The shell
     //    already carries the Supabase session cookie, so SSO is preserved.
-    App?.addListener('appUrlOpen', ({ url }) => {
-      if (!url) return;
-      try {
-        const u = new URL(url);
-        // https://www.setnayan.com/<path> → navigate to <path>.
-        // setnayan://<host>/<path>      → treat host+path as the path.
-        const path = u.protocol === 'https:' ? u.pathname + u.search : (u.host ? `/${u.host}` : '') + u.pathname + u.search;
-        if (path && path !== window.location.pathname + window.location.search) {
-          window.location.assign(path);
+    track(
+      App?.addListener('appUrlOpen', ({ url }) => {
+        if (!url) return;
+        try {
+          const u = new URL(url);
+          // https://www.setnayan.com/<path> → navigate to <path>.
+          // setnayan://<host>/<path>      → treat host+path as the path.
+          const path = u.protocol === 'https:' ? u.pathname + u.search : (u.host ? `/${u.host}` : '') + u.pathname + u.search;
+          if (path && path !== window.location.pathname + window.location.search) {
+            window.location.assign(path);
+          }
+        } catch {
+          /* malformed deep link — ignore */
         }
-      } catch {
-        /* malformed deep link — ignore */
-      }
-    })
-      .then((h) => {
+      }),
+      (h) => {
         urlHandle = h;
-      })
-      .catch(swallow);
+      },
+    );
 
     // 3. Hide the native splash once the remote page has painted (this effect
     //    runs after first mount). launchAutoHide in capacitor.config.ts is the
     //    backstop if the page never loads (offline → MainActivity fallback).
-    SplashScreen?.hide({ fadeOutDuration: 200 }).catch(swallow);
+    Promise.resolve(SplashScreen?.hide({ fadeOutDuration: 200 })).catch(swallow);
 
     // 4. Keep the WebView below the status bar so content isn't drawn under the
     //    notch / system clock. (Style/theme tinting is deferred — it depends on
     //    the active app theme and wants on-device tuning.)
-    StatusBar?.setOverlaysWebView({ overlay: false }).catch(swallow);
+    Promise.resolve(StatusBar?.setOverlaysWebView({ overlay: false })).catch(swallow);
 
     return () => {
       backHandle?.remove();

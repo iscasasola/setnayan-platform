@@ -553,6 +553,7 @@ export default async function VendorServicesPage({ searchParams }: Props) {
                     </label>
                     <LastMinuteFields
                       idPrefix={svc.vendor_service_id}
+                      leadDefault={svc.recommended_lead_time_months}
                       endDefault={svc.last_minute_end_months}
                       surchargeDefault={svc.last_minute_surcharge_pct}
                     />
@@ -733,10 +734,12 @@ function RequestStatusBadge({
  */
 function LastMinuteFields({
   idPrefix,
+  leadDefault,
   endDefault,
   surchargeDefault,
 }: {
   idPrefix: string;
+  leadDefault?: number | null;
   endDefault?: number | null;
   surchargeDefault?: number | null;
 }) {
@@ -744,14 +747,31 @@ function LastMinuteFields({
     <div className="space-y-2 rounded-xl border border-ink/10 bg-cream p-3">
       <p className="text-sm font-medium text-ink">Last-minute bookings</p>
       <p className="text-xs text-ink/55">
-        Setnayan AI surfaces you to couples close to their date. Choose how late
-        you&rsquo;ll still take a booking — and an optional surcharge for it.
+        Setnayan AI surfaces you to couples close to their date. Set your
+        comfortable lead time, how late you&rsquo;ll still take a rush booking,
+        and an optional surcharge for it.
       </p>
+      <Field
+        label="Recommended lead time (months)"
+        htmlFor={`${idPrefix}-lm-lead`}
+        help="Book-by-here, no rush. Fractional OK — 0.5 ≈ 2 weeks. Blank = no lead time, always bookable."
+      >
+        <input
+          id={`${idPrefix}-lm-lead`}
+          name="recommended_lead_time_months"
+          type="number"
+          min={0}
+          step="0.5"
+          placeholder="e.g. 3"
+          defaultValue={leadDefault ?? ''}
+          className="input-field"
+        />
+      </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Accept until (months before)"
           htmlFor={`${idPrefix}-lm-end`}
-          help="Blank = up to the night before."
+          help="Latest you&rsquo;ll accept. Blank = up to the night before."
         >
           <input
             id={`${idPrefix}-lm-end`}
@@ -782,6 +802,10 @@ function LastMinuteFields({
           />
         </Field>
       </div>
+      <p className="text-xs text-ink/45">
+        Make sure you can honor bookings all the way up to your &ldquo;accept
+        until&rdquo; point.
+      </p>
     </div>
   );
 }

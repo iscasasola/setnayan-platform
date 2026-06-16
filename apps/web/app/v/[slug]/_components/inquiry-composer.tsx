@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Check, AlertCircle, MessageCircle } from 'lucide-react';
+import { Check, AlertCircle, MessageCircle, Users } from 'lucide-react';
 import { startServiceInquiry, type StartServiceInquiryResult } from '../inquiry-actions';
 
 export type InquiryComposerService = {
@@ -27,6 +28,16 @@ type Props = {
    * checkboxes, recorded source='couple_added' when ticked.
    */
   alsoOptions: InquiryComposerService[];
+  /**
+   * Live headcount (Adaptive Pax Pricing Phase 3) that startServiceInquiry will
+   * snapshot onto chat_threads.pax_at_inquiry — surfaced read-only so the couple
+   * can correct a stale estimate before the vendor quotes against it. null →
+   * no count to anchor on yet, the pill doesn't render. Display-only; the
+   * binding snapshot is still re-resolved server-side at submit time.
+   */
+  inquiryPax?: number | null;
+  /** Link to the guest-count editor (the couple's guest list). null → no Edit link. */
+  guestEditHref?: string | null;
 };
 
 type LocalState =
@@ -40,6 +51,8 @@ export function InquiryComposer({
   initial,
   linked,
   alsoOptions,
+  inquiryPax,
+  guestEditHref,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -106,6 +119,24 @@ export function InquiryComposer({
           <span className="ml-2 font-mono text-xs text-ink/60">{initial.priceLabel}</span>
         </p>
       </div>
+
+      {typeof inquiryPax === 'number' && inquiryPax > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2">
+          <span className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+            <Users aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
+            Headcount for this inquiry:
+            <span className="font-semibold text-ink">{inquiryPax}</span>
+          </span>
+          {guestEditHref ? (
+            <Link
+              href={guestEditHref}
+              className="ml-auto font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-mulberry underline-offset-2 hover:underline"
+            >
+              Edit
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       {linked.length > 0 ? (
         <div className="space-y-1.5">

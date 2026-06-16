@@ -34,39 +34,25 @@ import { LogoMark, Wordmark } from '@/app/_components/brand-marks';
 export function Voices() {
   const featured = {
     quote:
-      'We were the first wedding our caterer ever did through Setnayan. By the end, she was the one telling other vendors about it. We were just trying to get married — we accidentally became a referral program.',
-    who: 'Patricia Cruz',
-    role: 'Bride · 6 Sept 2026 · Tagaytay',
-    detail: 'Wedding #062 · 178 guests · 7 vendors · same-day reel in 31 min',
+      'Three weddings booked through the app in my first month. None of them found me on Instagram. That’s new for me.',
+    who: 'Mika Reyes',
+    role: 'Founder, Bloom & Co. Florals · Tagaytay',
+    detail: 'Vendor · Bloom & Co. Florals · first month on Setnayan',
   };
   const others = [
-    {
-      quote:
-        'I used to spend Tuesdays writing Official Receipts by hand. Setnayan does it the moment a payment clears. My accountant cried a little when I showed her.',
-      who: 'Joey Castro',
-      role: 'Owner, Ato Catering · Quezon City',
-      kind: 'vendor' as const,
-    },
-    {
-      quote:
-        'My mom’s in San Mateo, my Lolo’s in Bacolod, my best friend lives in Sydney. Every one of them sent in their food order through their own phone. It just worked.',
-      who: 'Andrea Sy',
-      role: 'Bride · 22 April 2026 · Cebu',
-      kind: 'couple' as const,
-    },
-    {
-      quote:
-        'Three weddings booked through the app in my first month. None of them found me on Instagram. That’s new for me.',
-      who: 'Mika Reyes',
-      role: 'Founder, Bloom & Co. Florals · Tagaytay',
-      kind: 'vendor' as const,
-    },
     {
       quote:
         'I’m a coordinator. I used to live in five WhatsApp groups per client. Now I live in one dashboard per wedding. I sleep again.',
       who: 'Camille Lao',
       role: 'Lead, Ilaya Coordinators · Cebu',
       kind: 'vendor' as const,
+    },
+    {
+      quote:
+        'We were the first wedding our caterer ever did through Setnayan. By the end, she was the one telling other vendors about it. We accidentally became her referral program.',
+      who: 'Patricia Cruz',
+      role: 'Couple · 6 Sept 2026 · Tagaytay',
+      kind: 'couple' as const,
     },
   ];
   return (
@@ -108,8 +94,7 @@ export function Voices() {
             maxWidth: 480,
           }}
         >
-          Eighty-four weddings in. Real names, real venues, real numbers. We
-          invited every couple and every vendor on the platform to talk to you —
+          We invited the couples and vendors on the platform to talk to you —
           these are the ones who said yes.
         </p>
       </div>
@@ -476,7 +461,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How does Setnayan make money?',
-    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week, and everyone starts with 100 free tokens on verification. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    a: "Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ₱6,000/28d Pro or ₱10,000/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ₱100, and a Pro/Enterprise vendor spends 1–3 tokens (₱100–₱300, banded by the wedding's region) to unlock a couple who was matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',
@@ -500,7 +485,7 @@ export function FAQ({
     item.q === 'How does Setnayan make money?'
       ? {
           ...item,
-          a: `Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ${vendorPrices.proMonthly}/28d Pro or ${vendorPrices.enterpriseMonthly}/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and a Pro/Enterprise vendor spends 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week, and everyone starts with 100 free tokens on verification. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
+          a: `Three ways. (1) Verified is free (₱0) — getting verified costs nothing. Vendors who want extra reach take an optional 28-day prepaid subscription: ${vendorPrices.proMonthly}/28d Pro or ${vendorPrices.enterpriseMonthly}/28d Enterprise (annual prepay saves ~25%). (2) Tokens: a token is ${vendorPrices.tokenUnit}, and a Pro/Enterprise vendor spends 1–3 tokens (banded by the wedding's region) to unlock a couple matched to them — one unlock covers every service they offer for that wedding. Verified vendors get up to 10 free unlocks a week. (3) Setnayan Productions — the in-app services like Editorial Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.`,
         }
       : item,
   );
@@ -809,7 +794,6 @@ export function Footer() {
         <FooterCol
           title="Compliance"
           items={[
-            { label: 'Tax-compliant receipts', href: '/help' },
             { label: 'Data Privacy Act compliant', href: '/privacy' },
           ]}
         />

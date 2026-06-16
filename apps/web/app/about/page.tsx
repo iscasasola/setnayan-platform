@@ -7,7 +7,6 @@ import {
   Sparkles,
   ArrowRight,
 } from 'lucide-react';
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { Footer } from '@/app/_components/marketing/_sections';
 import { HELP_TOPICS } from '@/lib/help';
 
@@ -145,7 +144,6 @@ export default function AboutPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <Nav />
 
       <main className="min-h-dvh bg-cream">
         {/* Hero */}

@@ -15,29 +15,28 @@
  *     panel content rendered as a top strip.
  *   - --m-* CSS variable palette (paper · ink · slate · ivory · orange · line).
  *   - Wordmark from @/app/_components/brand-marks.
- *   - "Pick up where you left off." display heading with italic blush accent.
- *   - .m-mono uppercase eyebrows + .m-serif italic micro-copy.
+ *   - Brand panel is logo-only (owner directive 2026-06-15 "keep it clean and
+ *     simple") — the eyebrow + display heading + micro-copy + footer were
+ *     dropped; only the Wordmark remains on the gradient rail.
  *
  * PRESERVED per [[feedback_setnayan_button_preservation]]:
- *   - Server actions signInWithPassword + signInWithMagicLink from
- *     ./actions.ts (Supabase Auth wiring untouched).
+ *   - Server action signInWithPassword from ./actions.ts (Supabase Auth
+ *     wiring untouched).
  *   - OAuthButtonRow above the email form per industry-standard "OAuth-first"
  *     placement (Stripe / Linear / GitHub / Notion pattern) — locked in
  *     PR #422 (CLAUDE.md 2026-05-23 row 1).
  *   - All form field names + IDs + autoComplete attrs + required flags
  *     match the prior implementation exactly so server actions consume
  *     unchanged.
- *   - searchParams contract (error / sent / check_email / ready / next) +
+ *   - searchParams contract (error / check_email / ready / next) +
  *     safeNext() validator preserved.
  *   - "Forgot password?" + "No account yet · Create one" tail link.
- *   - Magic-link form preserved as secondary auth method (industry-standard
- *     "passwordless" affordance).
  *
- * v2.1 drift scrub (template had Google / Apple / GCash OAuth buttons in
- * a 3-column strip): replaced with the existing OAuthButtonRow which has
- * Google + Facebook per the locked V1 provider set (Apple deferred V1.1
- * per CLAUDE.md 2026-05-23 row 1; GCash auth not in scope · GCash is a
- * payment rail, not an identity provider).
+ * 2026-06-15 provider-set change (owner directive): the only sign-in
+ * methods are email + password and the Google / Apple OAuth buttons
+ * (OAuthButtonRow). The magic-link ("email me a sign-in link") secondary
+ * form was REMOVED, and Facebook OAuth login was dropped in favor of
+ * Apple — see oauth-button-row.tsx + auth/oauth-actions.ts.
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -46,7 +45,7 @@ import { LoginLoadingBridge } from './_components/login-loading-bridge';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
-import { signInWithMagicLink, signInWithPassword } from './actions';
+import { signInWithPassword } from './actions';
 
 export const metadata: Metadata = {
   title: 'Sign in · Setnayan',
@@ -57,7 +56,6 @@ export const metadata: Metadata = {
 
 type SearchParams = Promise<{
   error?: string;
-  sent?: string;
   check_email?: string;
   ready?: string;
   next?: string;
@@ -66,7 +64,6 @@ type SearchParams = Promise<{
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
-  const magicLinkSent = params.sent === '1';
   const justSignedUpEmail = params.check_email
     ? decodeURIComponent(params.check_email)
     : null;
@@ -102,8 +99,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         }}
       >
         {/* Brand panel · stacked on mobile, becomes left column on lg+ via
-            .m-login-card css. Gradient + tagline mirror the template's
-            LoginScreen left rail (1fr column on desktop). */}
+            .m-login-card css. Logo only — owner directive 2026-06-15 "remove
+            this and just leave the logo on top. keep it clean and simple"
+            (dropped the Welcome-back eyebrow + "Pick up where you left off."
+            heading + guest-list micro-copy + setnayan.com footer). Gradient
+            kept so the panel still reads as a distinct brand rail. */}
         <div
           className="m-login-brand"
           style={{
@@ -112,7 +112,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               'linear-gradient(135deg, var(--m-ivory) 0%, var(--m-paper-2) 100%)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 24,
             color: 'var(--m-ink)',
           }}
         >
@@ -123,63 +122,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           >
             <Wordmark size={26} />
           </Link>
-          <div>
-            <div
-              className="m-mono"
-              style={{
-                fontSize: 10,
-                color: 'var(--m-slate)',
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Welcome back
-            </div>
-            <h2
-              className="m-serif"
-              style={{
-                fontSize: 34,
-                lineHeight: 1.04,
-                margin: '12px 0 0',
-                color: 'var(--m-ink)',
-                fontWeight: 400,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Pick up{' '}
-              <em style={{ fontStyle: 'italic', color: 'var(--m-blush-deep)' }}>
-                where you left off.
-              </em>
-            </h2>
-            <p
-              className="m-serif"
-              style={{
-                fontStyle: 'italic',
-                fontSize: 14,
-                color: 'var(--m-slate)',
-                marginTop: 12,
-                lineHeight: 1.55,
-              }}
-            >
-              Your guest list is right where you saved it.
-            </p>
-          </div>
-          <div
-            className="m-mono"
-            style={{
-              fontSize: 10,
-              color: 'var(--m-slate-2)',
-              letterSpacing: '0.06em',
-              marginTop: 'auto',
-            }}
-          >
-            setnayan.com
-          </div>
         </div>
 
-        {/* Form panel · right column on lg+. The email + password + magic-link
-            forms are wired to existing Supabase Auth server actions; only the
-            visual chrome around them is v2.1 template-derived. */}
+        {/* Form panel · right column on lg+. The email + password form is
+            wired to the existing Supabase Auth server action; only the
+            visual chrome around it is v2.1 template-derived. */}
         <div
           style={{
             padding: '36px 32px',
@@ -216,23 +163,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               }}
             >
               {errorMessage}
-            </p>
-          ) : null}
-
-          {magicLinkSent ? (
-            <p
-              role="status"
-              style={{
-                margin: 0,
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: '1px solid var(--m-line)',
-                background: 'var(--m-paper-2)',
-                color: 'var(--m-ink)',
-                fontSize: 13,
-              }}
-            >
-              Magic link sent. Check your email to finish signing in.
             </p>
           ) : null}
 
@@ -399,42 +329,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               pendingLabel="Signing in…"
             >
               Continue
-            </SubmitButton>
-          </form>
-
-          {/* Magic-link form preserved as secondary auth method. Visually
-              tighter than the password form (single field + secondary button)
-              so it reads as the "or just email me a link" affordance. */}
-          <form action={signInWithMagicLink} style={{ display: 'grid', gap: 8 }}>
-            <input type="hidden" name="next" value={next} />
-            <FormField
-              label="Or send a magic link"
-              id="magic-email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder="you@setnayan.com"
-              required
-            />
-            <SubmitButton
-              className="m-btn-ghost"
-              style={{
-                padding: '10px 14px',
-                fontSize: 13,
-                justifyContent: 'center',
-                width: '100%',
-                background: 'transparent',
-                color: 'var(--m-ink)',
-                border: '1px solid var(--m-line)',
-                borderRadius: 999,
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-              pendingLabel="Sending…"
-            >
-              Email me a magic link
             </SubmitButton>
           </form>
 

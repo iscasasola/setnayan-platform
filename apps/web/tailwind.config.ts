@@ -91,6 +91,18 @@ const config: Config = {
           800: '#2a1020',
           900: '#1a0814',
         },
+        // `burgundy` — DEPRECATED pre-rebrand CTA name. It was never redefined
+        // after the Clean Editorial rebrand, so `bg-burgundy` / `text-burgundy`
+        // / `border-burgundy` resolved to NOTHING (transparent) and broke the
+        // primary buttons on several dashboard editors (hero-photo, living-hero,
+        // editorial, mood-board, panood…). Aliased to the canonical Mulberry CTA
+        // so those surfaces render. Prefer `mulberry` in new code — this slot is
+        // back-compat only. (The alpha placeholder covers `burgundy/NN` opacity.)
+        burgundy: {
+          DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',
+          600: 'rgb(var(--color-mulberry-600) / <alpha-value>)',
+          700: 'rgb(var(--color-mulberry-700) / <alpha-value>)',
+        },
         // Canonical semantic tokens for new code. Older code referencing
         // `cream` / `ink` / `terracotta` continues to work via the slots above.
         accent: 'var(--accent)',

@@ -85,6 +85,15 @@ export type NavGroup = {
   label: string;
   items: NavItem[];
   /**
+   * Optional menu icon for the mobile bottom-nav accordion. When the bottom
+   * nav is built FROM NavGroup[] (the customer journey-group model), each
+   * top-level menu carries this icon. The desktop sidebar renders section
+   * HEADINGS as text only, so it ignores this field — it exists purely so the
+   * accordion's top-level menus can show a glyph. (Optional for back-compat
+   * with admin/vendor NavGroup[] that don't drive an accordion.)
+   */
+  icon?: LucideIcon;
+  /**
    * Initial open-state when no localStorage value exists. Defaults to true
    * (sections start expanded). Set false for low-priority groups.
    */
@@ -122,4 +131,34 @@ export type BottomNavItem = {
    */
   activeMatchExact?: boolean;
   badge?: NavBadge;
+};
+
+/**
+ * BottomNavMenu — a top-level bottom-nav menu that may EXTRACT an inline
+ * accordion of children (0021 ADDENDUM · accordion bottom nav · owner-locked
+ * 2026-06-15).
+ *
+ * A `BottomNavMenu` is a `BottomNavItem` (so the canonical flat machinery —
+ * the traveling pill, press-light bloom, icon-grow — applies verbatim) plus
+ * an optional `children` array (≤5):
+ *   - WITH children → tapping the menu EXTRACTS the accordion in place: the
+ *     menu glides to the far-left corner (back-hinge), the other menus clear,
+ *     and the children cascade out from behind the corner. `href` is then a
+ *     fallback only (the menu's primary action is "open the section"; the
+ *     default landing on expand is the FIRST child per the spec §5.5).
+ *   - WITHOUT children → it just navigates to `href` (Home, Budget).
+ *
+ * The accordion is rendered ONLY when <BottomNav menus={...}> is given. The
+ * legacy <BottomNav items={...}> flat path (vendor + admin doorways) is
+ * unchanged — `menus` is a strictly-additive, customer-first opt-in.
+ *
+ * Children cap = 5 (spec §5.4). The bar surfaces a dev warning beyond that.
+ */
+export type BottomNavMenu = BottomNavItem & {
+  /**
+   * Inline accordion children (≤5). When present, the menu extracts the
+   * accordion on tap instead of navigating. When absent/empty, the menu
+   * navigates to its own `href`.
+   */
+  children?: BottomNavItem[];
 };

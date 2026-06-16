@@ -68,6 +68,7 @@ export function CheckinDesk({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const jsqrRef = useRef<typeof import('jsqr').default | null>(null);
   const rafRef = useRef<number>(0);
   const lastDecodeRef = useRef(0);
   const lastHitRef = useRef<string | null>(null);
@@ -108,6 +109,10 @@ export function CheckinDesk({
     [guestByToken],
   );
 
+  // Acquire the decoder + camera, then flip into scanning mode. The stream is
+  // wired into the <video> by the effect below — NOT here — because the
+  // <video> element only mounts once `scanning` is true, so `videoRef.current`
+  // is still null at this point.
   const startScanner = useCallback(async () => {
     setCameraError(null);
     setNotice(null);
@@ -119,48 +124,59 @@ export function CheckinDesk({
           audio: false,
         }),
       ]);
+      jsqrRef.current = jsQR;
       streamRef.current = stream;
       setScanning(true);
-      const video = videoRef.current;
-      if (!video) {
-        stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        setScanning(false);
-        return;
-      }
-      video.srcObject = stream;
-      await video.play();
-
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-      const tick = (now: number) => {
-        if (!streamRef.current) return;
-        // ~5 decodes/sec is plenty for a hand-held code and keeps phones cool.
-        if (now - lastDecodeRef.current > 200 && ctx && video.readyState >= 2) {
-          lastDecodeRef.current = now;
-          const scale = Math.min(1, 640 / (video.videoWidth || 640));
-          canvas.width = Math.round((video.videoWidth || 640) * scale);
-          canvas.height = Math.round((video.videoHeight || 480) * scale);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(image.data, image.width, image.height, {
-            inversionAttempts: 'dontInvert',
-          });
-          if (code?.data) {
-            const token = parseGuestQrPayload(code.data);
-            if (token) onToken(token);
-            else setNotice('That QR isn’t a Setnayan guest code.');
-          }
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
     } catch {
       stopScanner();
       setCameraError('Camera unavailable — check permissions, or search by name below.');
     }
-  }, [onToken, stopScanner]);
+  }, [stopScanner]);
+
+  // Once the <video> has mounted (scanning === true), bind the live stream and
+  // run the decode loop. Runs after commit, so videoRef.current is populated.
+  useEffect(() => {
+    if (!scanning) return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    const jsQR = jsqrRef.current;
+    if (!video || !stream || !jsQR) return;
+
+    let active = true;
+    video.srcObject = stream;
+    void video.play().catch(() => {});
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    const tick = (now: number) => {
+      if (!active || !streamRef.current) return;
+      // ~5 decodes/sec is plenty for a hand-held code and keeps phones cool.
+      if (now - lastDecodeRef.current > 200 && ctx && video.readyState >= 2) {
+        lastDecodeRef.current = now;
+        const scale = Math.min(1, 640 / (video.videoWidth || 640));
+        canvas.width = Math.round((video.videoWidth || 640) * scale);
+        canvas.height = Math.round((video.videoHeight || 480) * scale);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(image.data, image.width, image.height, {
+          inversionAttempts: 'dontInvert',
+        });
+        if (code?.data) {
+          const token = parseGuestQrPayload(code.data);
+          if (token) onToken(token);
+          else setNotice('That QR isn’t a Setnayan guest code.');
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [scanning, onToken]);
 
   useEffect(() => stopScanner, [stopScanner]);
 

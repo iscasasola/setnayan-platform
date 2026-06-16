@@ -35,6 +35,20 @@ export type EventRow = {
   monogram_font_key?: string | null;
   monogram_style?: string | null;
   /**
+   * Cipher / Bespoke-AI custom mark (owner 2026-06-15: "show the custom SVG
+   * everywhere"). When present it IS the couple's monogram — the chrome icon
+   * renders it over the lettered design so there's one mark everywhere, not a
+   * letters-in-chrome / SVG-on-hero split. Optional: most events have none.
+   */
+  monogram_custom_svg?: string | null;
+  /**
+   * Couple-UPLOADED monogram (owner rule 2026-06-15) — their own mark, stored as
+   * render-ready SVG. Top priority: the chrome icon reads
+   * `monogram_uploaded_svg ?? monogram_custom_svg`, so an upload overrules the
+   * AI/Cipher mark AND the lettered lockup. Optional; NULL = no upload.
+   */
+  monogram_uploaded_svg?: string | null;
+  /**
    * Setnayan AI subscription status · production column kept the
    * concierge_status name even after the 2026-05-24 8th-row spec lock
    * specced renaming to todays_focus_status (the rename never shipped
@@ -99,6 +113,8 @@ export const fetchUserEvents = cache(async (
          monogram_frame_key,
          monogram_font_key,
          monogram_style,
+         monogram_custom_svg,
+         monogram_uploaded_svg,
          concierge_status
        )`,
     )

@@ -16,6 +16,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
+import { getNavSlotMap } from '@/lib/nav-registry';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -171,6 +172,7 @@ export default async function VendorDashboardLayout({
     monogram_frame_key: e.monogram_frame_key,
     monogram_font_key: e.monogram_font_key,
     monogram_style: e.monogram_style,
+    monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
   }));
 
   // Top bar — vendor utilities cluster: unified switcher, live unread bell,
@@ -197,6 +199,7 @@ export default async function VendorDashboardLayout({
         currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
         currentMonogramFontKey={primaryEvent?.monogram_font_key}
         currentMonogramStyle={primaryEvent?.monogram_style}
+        currentMonogramCustomSvg={primaryEvent?.monogram_uploaded_svg ?? primaryEvent?.monogram_custom_svg}
         events={switcherEvents}
         hasCustomerAccess={roles.hasCustomerAccess}
         hasVendorAccess={roles.hasVendorAccess}
@@ -227,12 +230,16 @@ export default async function VendorDashboardLayout({
     </div>
   );
 
+  // Nav registry: admin-managed name+icon overrides, resolved server-side and
+  // handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG, fails open.
+  const navSlots = await getNavSlotMap();
+
   return (
     // app-surface → Source Sans backend typeface (globals.css). Plain block
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} />} topBar={topBar}>
+      <SidebarShell sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} navSlots={navSlots} />} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
@@ -241,7 +248,7 @@ export default async function VendorDashboardLayout({
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <VendorBottomNav role={vendorRole} />
+      <VendorBottomNav role={vendorRole} navSlots={navSlots} />
     </div>
   );
 }

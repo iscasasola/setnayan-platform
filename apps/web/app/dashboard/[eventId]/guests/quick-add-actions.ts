@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { guestEditsLocked } from '@/lib/pax';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
@@ -104,6 +105,10 @@ export async function quickAddGuest(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
+  // Post-finalize guard (Adaptive Pax Pricing Phase 9); the DB trigger backs it.
+  if (await guestEditsLocked(supabase, eventId)) {
+    return { ok: false, error: 'Your guest list is finalized — the guest count is locked.' };
+  }
 
   const { data: inserted, error } = await supabase
     .from('guests')

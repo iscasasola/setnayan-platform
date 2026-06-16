@@ -1,40 +1,176 @@
 /**
- * /admin/more — mobile overflow landing for Insights + Money & Catalog +
- * Platform.
+ * /admin/more — mobile overflow landing for the Platform group.
  *
- * WHY: the ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08.md ·
- * owner conditionally signed off) re-cut the mobile strip to 4 tabs (Home ·
- * Work · Directory · More). The three desktop tune-groups that don't own a
- * bottom tab — Insights (key 'funnels') · Money & Catalog (key 'money') ·
- * Platform (key 'content') — compress into this More overflow. The dedicated
- * "Money" tab is gone; its config surfaces live here, its queues moved to
- * Work. Notifications gets a home here (it was an orphan), and Wedding types +
- * traditions moved in from Directory (governance + content, not look-up).
+ * WHY: nav tune 2026-06-15 (owner-approved this session — "6 tabs, keep
+ * 'Work'"). The 2026-06-08 ops redesign had crammed three desktop groups —
+ * Insights · Money & Catalog · Platform — into a single 3-section accordion
+ * here, because the mobile strip was a 4-tab spine. The owner re-promoted
+ * Money + Insights to their own bottom-nav tabs (/admin/money + /admin/
+ * insights), so More now carries ONLY the Platform group — a flat card grid
+ * (same renderer as /admin/directory + /admin/money + /admin/insights), no
+ * accordion. The retired AdminMoreAccordion (more-landing.tsx) is removed.
  *
- * Rendered as a **3-section accordion** (Insights → Money & Catalog →
- * Platform · PR 3 of the redesign §5) — grouped + collapsible, never a flat
- * dump. Sections start expanded; each collapses via its chevron.
+ * Mirrors the desktop sidebar's Platform group (key 'content') 1:1 per
+ * [[feedback_setnayan_orphan_prevention]]; items lifted verbatim from the old
+ * accordion's Platform section (Notifications + My account included so neither
+ * goes orphaned on mobile).
  *
- * RSC BOUNDARY: the accordion renderer is a Client Component (collapse state
- * is interactive), and the section items carry lucide `icon` function refs.
- * Those non-serializable refs must NOT be passed from this Server Component
- * across the Server→Client boundary — doing so throws into the root error
- * boundary (the digest-only error screen). So the icon-carrying data + the
- * accordion render live entirely inside the 'use client' AdminMoreAccordion
- * wrapper; this page passes no props. See more-landing.tsx for the full
- * rationale. (Fix 2026-06-09 — regression from the 2026-06-08 accordion swap.)
- *
- * Kept as a Server Component because it owns the route `metadata` (Client
- * Components can't export metadata).
- *
- * Telemetry + Offline daemon remain FORWARD-REFERENCE entries until their
- * sprints land.
+ * SCOPE: server component. Hidden at lg+ via lg:hidden — desktop reaches
+ * these through the sidebar Platform group.
  */
 
-import { AdminMoreAccordion } from './more-landing';
+import {
+  Settings,
+  Compass,
+  Tag,
+  PartyPopper,
+  Globe,
+  Newspaper,
+  Megaphone,
+  Brain,
+  Palette,
+  Music,
+  Church,
+  BookOpen,
+  Bell,
+  CircleUser,
+} from 'lucide-react';
+import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
 export const metadata = { title: 'More · Admin' };
 
+const PLATFORM_ITEMS: LandingItem[] = [
+  {
+    key: 'settings',
+    label: 'Settings',
+    href: '/admin/settings',
+    icon: Settings,
+    description:
+      'Platform identity, business details, and Sentry smoke-test. Edit gated to internal admins.',
+  },
+  {
+    key: 'onboarding',
+    label: 'Onboarding',
+    href: '/admin/onboarding',
+    icon: Compass,
+    description:
+      'New-account onboarding settings grouped by type — background music and future per-flow knobs.',
+  },
+  {
+    key: 'taxonomy',
+    label: 'Taxonomy',
+    href: '/admin/taxonomy',
+    icon: Tag,
+    description:
+      'Canonical vendor service categories and the sub-category card tree.',
+  },
+  {
+    key: 'event-types',
+    label: 'Event Types',
+    href: '/admin/event-types',
+    icon: PartyPopper,
+    description:
+      'Create, launch, and retire the event types Setnayan plans — pickers and vendor checkboxes follow automatically.',
+  },
+  {
+    key: 'website',
+    label: 'Website',
+    href: '/admin/website',
+    icon: Globe,
+    description:
+      'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
+  },
+  {
+    key: 'real-stories',
+    label: 'Real Stories',
+    href: '/admin/real-stories',
+    icon: Newspaper,
+    description:
+      'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',
+  },
+  {
+    key: 'ads',
+    label: 'Ads',
+    href: '/admin/ads',
+    icon: Megaphone,
+    description:
+      'Boosted Ads + Sponsored Boost activation review. Manage vendor marketing tier eligibility.',
+  },
+  {
+    key: 'brain',
+    label: 'Setnayan AI brain',
+    href: '/admin/brain',
+    icon: Brain,
+    description:
+      'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
+  },
+  {
+    key: 'moodboard-library',
+    label: 'Moodboard library',
+    href: '/admin/moodboard-library',
+    icon: Palette,
+    description:
+      'Curated location and figure imagery for the 3-pillar mood board. Manage palettes and tags.',
+  },
+  {
+    key: 'songs',
+    label: 'Songs',
+    href: '/admin/songs',
+    icon: Music,
+    description:
+      'The owned music-track library that scores rendered videos. Manage tracks and categories.',
+  },
+  {
+    key: 'wedding-types',
+    label: 'Wedding types',
+    href: '/admin/wedding-types',
+    icon: Church,
+    description:
+      'Per-religion launch gate — vendor and venue readiness vs an editable threshold; open, hold, or disable each wedding religion.',
+  },
+  {
+    key: 'wedding-traditions',
+    label: 'Wedding traditions',
+    href: '/admin/wedding-traditions',
+    icon: BookOpen,
+    description:
+      'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
+  },
+  {
+    key: 'notifications',
+    label: 'Notifications',
+    href: '/admin/notifications',
+    icon: Bell,
+    description:
+      'Cross-actor signal reader — customer→vendor and admin signals in one inbox.',
+  },
+  {
+    key: 'demo-mode',
+    label: 'Demo mode',
+    href: '/admin/settings/demo-mode',
+    icon: Settings,
+    description:
+      'Pilot demo-mode toggle. Surfaces seeded showcase data and hides retired SKU surfaces.',
+  },
+  {
+    // Mirrors the desktop sidebar's Platform → My account entry (account-
+    // security suite 2026-06-11) so mobile admins also reach the shared
+    // /dashboard/profile surface for password + session controls.
+    key: 'my-account',
+    label: 'My account',
+    href: '/dashboard/profile',
+    icon: CircleUser,
+    description:
+      'Your personal account — display name, change password, and sign out other devices.',
+  },
+];
+
 export default function AdminMoreLanding() {
-  return <AdminMoreAccordion />;
+  return (
+    <MobileLandingGrid
+      title="More"
+      subtitle="Content, taxonomy, and platform settings."
+      items={PLATFORM_ITEMS}
+    />
+  );
 }

@@ -43,18 +43,40 @@ function createIdbStorage(): Storage {
   // top-level promise initiated below.
   let memory: Record<string, string> = {};
   let primed: Promise<void> | null = null;
+  // Once IndexedDB proves unusable, stop touching it entirely.
+  let idbUsable = true;
+
+  // Run an idb-keyval call so that NEITHER a synchronous throw NOR an async
+  // rejection can ever escape. This matters because `idb-keyval`'s `get/set/del`
+  // lazily call `indexedDB.open()` the first time they run — and a remote-URL
+  // WKWebView (the Capacitor native shell) and Safari Private Browsing both
+  // partition/block IndexedDB and throw a SecurityError *synchronously* on that
+  // access. Since `createIdbStorage()` runs inside a `useState` initializer
+  // during render (see <Providers> below), a synchronous throw here would
+  // bubble straight into React render and trip the root error boundary — which
+  // is exactly the "Something on our end didn't work" crash on first launch in
+  // the iOS/Android shells. A `.catch()` alone does NOT cover the sync throw,
+  // because the promise it would attach to is never created.
+  function safe<T>(op: () => Promise<T>): Promise<T | undefined> {
+    if (!idbUsable) return Promise.resolve(undefined);
+    try {
+      return op().catch(() => {
+        idbUsable = false;
+        return undefined;
+      });
+    } catch {
+      // Synchronous throw — IndexedDB is blocked/partitioned. Fall back to
+      // in-memory only; the app still works, the cache just doesn't persist.
+      idbUsable = false;
+      return Promise.resolve(undefined);
+    }
+  }
 
   function prime(key: string): Promise<void> {
     if (primed) return primed;
-    primed = get<string>(key)
-      .then((value) => {
-        if (typeof value === 'string') memory[key] = value;
-      })
-      .catch(() => {
-        // If IndexedDB is unavailable (private mode, blocked, etc.),
-        // fall back to in-memory only. The cache won't persist across
-        // sessions but the app still works.
-      });
+    primed = safe(() => get<string>(key)).then((value) => {
+      if (typeof value === 'string') memory[key] = value;
+    });
     return primed;
   }
 
@@ -69,17 +91,17 @@ function createIdbStorage(): Storage {
     },
     clear: () => {
       memory = {};
-      void del(PERSIST_KEY).catch(() => {});
+      void safe(() => del(PERSIST_KEY));
     },
     key: (index: number) => Object.keys(memory)[index] ?? null,
     getItem: (key: string) => memory[key] ?? null,
     setItem: (key: string, value: string) => {
       memory[key] = value;
-      void set(key, value).catch(() => {});
+      void safe(() => set(key, value));
     },
     removeItem: (key: string) => {
       delete memory[key];
-      void del(key).catch(() => {});
+      void safe(() => del(key));
     },
   };
 }

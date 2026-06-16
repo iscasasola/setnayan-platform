@@ -307,6 +307,53 @@
   box-shadow: 0 1px 3px rgba(30, 34, 41, 0.12);
 }
 
+/*
+ * .subnav-lift — the "lift" reveal for the reusable <SubNav> (the section
+ * sub-nav docked above the bottom nav · owner-picked 2026-06-16 · component at
+ * app/_components/nav/sub-nav.tsx). Plays ONCE on mount, so it fires when a
+ * tab's page enters (e.g. /vendors → Explore) and NOT when switching between
+ * sub-tabs (those are client-state, no remount). The pill starts tucked 16px
+ * lower (it sits a hair behind the nav at z-20 < nav's z-30, so it appears to
+ * rise out of the dock) and settles into place as it fades in. `both` holds the
+ * end frame. Decelerating ease so it eases into rest, never overshoots.
+ */
+@keyframes subnav-lift {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.subnav-lift {
+  animation: subnav-lift 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .subnav-lift {
+    animation: none;
+  }
+}
+
+/*
+ * Bottom-clearance for a docked <SubNav>. When <GuestsSectionSubnav> (or any
+ * future section shelf) is on screen it flags <html class="guests-subnav-docked">,
+ * and the floating pill sits ~76px–132px above the viewport bottom — above the
+ * layout's own pb-20 (80px) for the bottom nav. Without extra room the last
+ * ~50px of scrolling content would hide behind the pill, so give the shell-main
+ * column enough bottom padding to clear it. Mobile-only — the pill is lg:hidden,
+ * so cancel the padding on desktop where it would just be dead space.
+ */
+html.guests-subnav-docked [data-shell-main] {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
+}
+@media (min-width: 1024px) {
+  html.guests-subnav-docked [data-shell-main] {
+    padding-bottom: 0;
+  }
+}
+
 @layer components {
   /*
    * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.

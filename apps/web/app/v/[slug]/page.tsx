@@ -27,6 +27,7 @@ import {
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import { fetchUserEvents } from '@/lib/events';
+import { resolveLivePax } from '@/lib/pax';
 import { isFollowingVendor } from '@/lib/follow';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
@@ -586,6 +587,17 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const showInquiryComposer =
     bookable && coupleEventId !== null && composerInitial !== null;
 
+  // Pre-quote blindside #2 (Adaptive Pax Pricing Phase 3): startServiceInquiry
+  // silently snapshots this live pax onto chat_threads.pax_at_inquiry, but the
+  // couple never saw it — a stale estimate could reach the vendor. Resolve it
+  // here (only when the composer shows) so the composer can surface a read-only
+  // "Headcount for this inquiry: N" pill with an Edit link. Fail-soft: null →
+  // the pill simply doesn't render (mirrors the action's `livePax != null` gate).
+  const inquiryLivePax =
+    showInquiryComposer && coupleEventId
+      ? await resolveLivePax(supabase, coupleEventId)
+      : null;
+
   // GEO Phase G4 (2026-05-28) — LocalBusiness JSON-LD lets AI answer engines
   // (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
   // via robots.txt per CLAUDE.md 2026-05-14 SEO playbook) extract the
@@ -1119,6 +1131,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 (label) => ({ label }),
               )}
               alsoOptions={composerAlso}
+              // The exact count startServiceInquiry will snapshot onto this
+              // inquiry — surfaced read-only so the couple can fix a stale
+              // estimate before it reaches the vendor.
+              inquiryPax={inquiryLivePax}
+              guestEditHref={
+                coupleEventId ? `/dashboard/${coupleEventId}/guests` : null
+              }
             />
           ) : null}
           <div className="flex flex-wrap gap-3">

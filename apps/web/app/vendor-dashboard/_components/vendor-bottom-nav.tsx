@@ -15,7 +15,7 @@
  * The desktop sidebar (vendor-sidebar.tsx) exposes 4 groups (remapped
  * 2026-06-04 from the original 6): Home · Work (key 'pipeline') · Grow
  * (key 'marketing') · Business (key 'money'). The bottom strip flattens
- * those into 5 tabs:
+ * those into 6 tabs (2026-06-15 nav-tune — Website added · owner-picked):
  *   1. Home (key 'profile') — /vendor-dashboard (exact-match · Overview)
  *   2. Bookings    — Booking pipeline (per-booking workspace · soft-hold
  *                    + downpaid status · cancel + release CTAs)
@@ -23,7 +23,10 @@
  *                    over Earnings; the calendar that stops double-bookings
  *                    is the vendor pitch and shouldn't be buried in /more)
  *   4. Messages    — Chat inbox (per-thread workspace)
- *   5. More        — Everything else (Profile · Clients · Services ·
+ *   5. Website     — Live preview of the public page (/v/[slug]) "as couples
+ *                    see it" + Edit + Open-live (2026-06-15 nav-tune · owner
+ *                    picked it over Services for the 6th slot)
+ *   6. More        — Everything else (Profile · Clients · Services ·
  *                    Contracts · Proposals · Attributes · Repertoire ·
  *                    Subscription · Tokens · Redeem code · Marketing ·
  *                    Verify · Reviews · Moodboard library · Earnings ·
@@ -61,11 +64,13 @@
  * trips Next.js serialization. Symmetric pattern.
  */
 
-import { Home, Briefcase, CalendarDays, MessageSquare, Menu } from 'lucide-react';
+import { Home, Briefcase, CalendarDays, MessageSquare, Globe, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -115,12 +120,24 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: '/vendor-dashboard/messages',
   },
   {
+    // 2026-06-15 nav-tune — Website promoted to bottom nav slot 5 (6-tab
+    // strip). It's a live preview of the vendor's public page (/v/[slug]) —
+    // "what couples see" — with an Edit entry back to the profile editor and
+    // an Open-live link. Owner picked it over Services for the new slot; the
+    // 4th content slot stayed Calendar over Earnings (Earnings still in More).
+    key: 'website',
+    label: 'Website',
+    href: '/vendor-dashboard/website',
+    icon: Globe,
+    activeMatch: '/vendor-dashboard/website',
+  },
+  {
     key: 'more',
     label: 'More',
     href: '/vendor-dashboard/more',
     icon: Menu,
-    // Catch-all for everything not on one of the first 4 tabs (Home ·
-    // Bookings · Calendar · Messages). Enumerated EXHAUSTIVELY per
+    // Catch-all for everything not on one of the first 5 tabs (Home ·
+    // Bookings · Calendar · Messages · Website). Enumerated EXHAUSTIVELY per
     // [[feedback_setnayan_orphan_prevention]] — every vendor route must be
     // reachable AND light its active tab. Any route here that is NOT a
     // dedicated tab MUST appear below, or it goes "unlit" on mobile.
@@ -172,16 +189,34 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 
 /**
  * VendorBottomNav — wraps the shared BottomNav primitive with the
- * vendor-doorway 5-tab config. Renders nothing on lg+ (sidebar takes
+ * vendor-doorway 6-tab config. Renders nothing on lg+ (sidebar takes
  * over). Per [[feedback_setnayan_orphan_prevention]] each tab's destination
  * route is verified to exist on the codebase.
  */
-export function VendorBottomNav({ role }: { role: VendorTeamRole | null }) {
+export function VendorBottomNav({
+  role,
+  navSlots,
+}: {
+  role: VendorTeamRole | null;
+  navSlots?: Record<string, NavSlotLite>;
+}) {
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
   // per-service data scoping lands.
-  const items = canManageVendor(role)
+  const base = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
     : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));
+  // Nav registry overlay: label + icon per tab from its vendor.bottom-nav.<key>
+  // slot (the Home tab keeps key 'profile' for localStorage continuity but maps
+  // to the 'home' slot). Fallback = the hardcoded default; hidden slot drops the
+  // tab; href/activeMatch stay in code. No-op when navSlots is absent.
+  const items = navSlots
+    ? base.flatMap((item) => {
+        const slot = navSlots[`vendor.bottom-nav.${item.key === 'profile' ? 'home' : item.key}`];
+        if (!slot) return [item];
+        if (slot.isHidden) return [];
+        return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+      })
+    : base;
   return <BottomNav items={items} />;
 }

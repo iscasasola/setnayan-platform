@@ -3,8 +3,10 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
+import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
@@ -70,6 +72,36 @@ export default async function CoupleThreadPage({ params }: Props) {
   const livePax = await resolveLivePax(supabase, thread.event_id);
   const headerPax = livePax ?? thread.pax_current;
 
+  // One-follow-up gate (inquiry-followthrough 2026-06-16). While pending, only
+  // the couple can post (the vendor is accept-gated), so the couple-authored
+  // count == total messages here. Allow the composer for the inquiry itself
+  // (0 messages) and exactly ONE follow-up nudge (1 message); past that the
+  // form re-disables until the vendor accepts. Mirrors the server gate in
+  // sendChatMessage so the UI and the no-JS form path agree.
+  const coupleMsgCount = initialMessages.filter(
+    (m) => m.sender_role === 'couple',
+  ).length;
+  const canFollowUpWhilePending = coupleMsgCount <= 1;
+
+  // Decline reason (already on the thread row) — surfaced verbatim in the
+  // declined-state copy when the vendor left one. Anonymity is preserved: the
+  // resolved label is the vendor's screen_name pre-reveal, never a name leak.
+  const declineReason = thread.decline_reason?.trim() || null;
+
+  // "See similar vendors" hand-off (inquiry-followthrough 2026-06-16): deep-link
+  // to the matching plan group on the Services surface so the couple lands in
+  // the right category, not a generic list. The accordion already opens the
+  // folder + leaf for a `#group-<id>` hash (plan-budget-accordion useEffect).
+  // Fail-soft: unknown / unmappable canonical service → plain link, never a
+  // broken anchor.
+  const primaryCanonicalService = vendor?.services?.[0] ?? null;
+  const similarGroupId = primaryCanonicalService
+    ? canonicalServiceToPlanGroupId(primaryCanonicalService)
+    : null;
+  const similarVendorsHref = `/dashboard/${eventId}/vendors${
+    similarGroupId ? `#group-${similarGroupId}` : ''
+  }`;
+
   return (
     <section className="flex h-[calc(100dvh-12rem)] flex-col gap-4">
       <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
@@ -110,28 +142,68 @@ export default async function CoupleThreadPage({ params }: Props) {
       />
 
       {thread.inquiry_status === 'accepted' ||
-      (thread.inquiry_status === 'pending' && initialMessages.length === 0) ? (
-        <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+      (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
+        <div className="space-y-2">
+          {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
+            <p className="text-xs text-ink/55">
+              You can send one follow-up while you wait for {vendorLabel} to
+              accept.
+            </p>
+          ) : null}
+          <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+        </div>
       ) : thread.inquiry_status === 'pending' ? (
-        <div className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+        <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
-            <span className="font-semibold">Inquiry sent.</span> Waiting for{' '}
+            <span className="font-semibold">Follow-up sent.</span> Waiting for{' '}
             {vendorLabel} to accept before your chat opens. We&rsquo;ll notify you
             the moment they reply.
           </p>
+          <form action={withdrawInquiry}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="thread_id" value={threadId} />
+            <button
+              type="submit"
+              className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline"
+            >
+              Withdraw inquiry
+            </button>
+          </form>
         </div>
       ) : (
         <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
           <p className="text-sm text-ink">
-            {vendorLabel} isn&rsquo;t available for your date. Browse similar
-            vendors to keep your options open.
+            {declineReason ? (
+              <>
+                {vendorLabel} declined this inquiry.{' '}
+                <span className="font-semibold">Why:</span> &ldquo;{declineReason}
+                &rdquo; Browse similar vendors to keep your options open.
+              </>
+            ) : (
+              <>
+                {vendorLabel} isn&rsquo;t available for your date. Browse similar
+                vendors to keep your options open.
+              </>
+            )}
           </p>
-          <Link
-            href={`/dashboard/${eventId}/vendors`}
-            className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-          >
-            See similar vendors
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={similarVendorsHref}
+              className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            >
+              See similar vendors
+            </Link>
+            <form action={withdrawInquiry}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="thread_id" value={threadId} />
+              <button
+                type="submit"
+                className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline"
+              >
+                Withdraw inquiry
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </section>

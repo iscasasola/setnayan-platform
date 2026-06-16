@@ -6,8 +6,8 @@ import {
   AlertTriangle,
   Compass,
   KeyRound,
+  Gem,
   MonitorSmartphone,
-  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -826,7 +826,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             href="/dashboard/profile/concierge"
             className="button-secondary inline-flex items-center gap-2"
           >
-            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Setnayan AI
           </Link>
         ) : null}

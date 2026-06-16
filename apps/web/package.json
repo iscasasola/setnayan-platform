@@ -31,10 +31,12 @@
     "@tanstack/react-query-persist-client": "^5.0.0",
     "@tensorflow-models/face-detection": "^1.0.3",
     "@tensorflow/tfjs": "^4.22.0",
+    "@types/three": "^0.184.1",
     "idb-keyval": "^6.2.1",
     "jose": "^6.2.3",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.14.0",
+    "mp4-muxer": "^5.2.2",
     "next": "^15.1.0",
     "nsfwjs": "^4.3.0",
     "opentype.js": "^2.0.0",
@@ -48,6 +50,7 @@
     "resend": "^6.12.3",
     "satori": "^0.26.0",
     "sharp": "^0.34.5",
+    "three": "^0.184.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

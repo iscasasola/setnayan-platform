@@ -15,6 +15,7 @@ import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
+import { getNavSlotMap } from '@/lib/nav-registry';
 
 export const metadata = { title: 'Setnayan HQ' };
 
@@ -115,6 +116,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     monogram_frame_key: e.monogram_frame_key,
     monogram_font_key: e.monogram_font_key,
     monogram_style: e.monogram_style,
+    monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
   }));
 
   const badge = profile?.is_internal
@@ -147,6 +149,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
         currentMonogramFontKey={primaryEvent?.monogram_font_key}
         currentMonogramStyle={primaryEvent?.monogram_style}
+        currentMonogramCustomSvg={primaryEvent?.monogram_uploaded_svg ?? primaryEvent?.monogram_custom_svg}
         events={switcherEvents}
         hasCustomerAccess={roles.hasCustomerAccess}
         hasVendorAccess={roles.hasVendorAccess}
@@ -177,12 +180,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </div>
   );
 
+  // Nav registry: admin-managed name+icon overrides, resolved server-side and
+  // handed to the (client) admin nav. Cached via NAV_REGISTRY_TAG, fails open.
+  const navSlots = await getNavSlotMap();
+
   return (
     // app-surface → Source Sans backend typeface (globals.css). Plain block
     // wrapper: no transform/filter so the BottomNav's fixed positioning and
     // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
-      <SidebarShell sidebar={<AdminSidebar />} topBar={topBar}>
+      <SidebarShell sidebar={<AdminSidebar navSlots={navSlots} />} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
@@ -191,7 +198,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <AdminBottomNav />
+      <AdminBottomNav navSlots={navSlots} />
       {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}

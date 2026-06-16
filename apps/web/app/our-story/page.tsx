@@ -12,7 +12,6 @@
  * product-philosophy page).
  */
 
-import { Nav } from '@/app/_components/marketing/site-nav';
 import { OurStoryManifesto } from '@/app/_components/marketing/OurStory';
 import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 
@@ -86,7 +85,6 @@ export default function OurStoryPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageJsonLd) }}
       />
       <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
-        <Nav />
         <OurStoryManifesto />
         <SiteFooter />
       </main>

@@ -173,6 +173,17 @@ export type EventVendorRow = {
    * Optional — surfaced as undefined by clients that don't SELECT it.
    */
   event_vendor_package_id?: string | null;
+  /**
+   * Adaptive Pax Pricing (migration 20261211000000). A vendor-confirmed
+   * per-pax surcharge already summed into total_cost_php, plus the counts
+   * that explain it: pax_quote_base = the guest count the base price covers,
+   * cost_basis_pax = the live pax the surcharge reflects. All nullable —
+   * pax_surcharge_php NULL/0 means no surcharge applies (most rows). Surfaced
+   * as a read-only "+₱X for Y guests over the Z-guest package" footnote.
+   */
+  pax_surcharge_php?: number | null;
+  pax_quote_base?: number | null;
+  cost_basis_pax?: number | null;
 };
 
 export async function fetchEventVendors(
@@ -182,7 +193,7 @@ export async function fetchEventVendors(
   const { data, error } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id',
+      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });

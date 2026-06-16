@@ -1,175 +1,220 @@
 'use client';
 
 /**
- * CustomerBottomNav — customer mobile primary nav.
+ * CustomerBottomNav — customer mobile primary nav (FLAT 6-TAB BAR).
  *
- * 6 TABS (owner-locked REDESIGN_PLAN · 2026-06-14):
- *   1. Home    — Event-home cockpit: live countdown · Setnayan AI ·
- *                upcoming schedules · activity feed.
- *   2. Guests  — Guest list (+ sponsors + hosts on mobile).
- *   3. Studio  — The in-app Setnayan services hub (/add-ons — Papic ·
- *                Panood · Save-the-Date · etc.). Relabeled from "Add-ons".
- *   4. Budget  — Per-vendor budget + Setnayan add-ons ledger.
- *   5. Wedding — The couple's wedding website / Reels editor
- *                (/site-editor). Relabeled from "Website".
- *   6. More    — Everything else (Explore/vendors · Seating · Schedule ·
- *                Messages · Contracts · Mood Board · Monogram · Live Wall ·
- *                Activity · Disputes · Event QR · Personalization · Hosts ·
- *                Profile · Find your date) via the /more landing page.
+ * Owner-locked 2026-06-16: six flat tabs — Home · Guests · Explore · Studio ·
+ * Design · Budget. This SUPERSEDES the journey-group accordion (and the
+ * mother/osmosis explorations): with six real destinations there's nothing to
+ * reveal in the bar — each tab navigates to its page, and that page surfaces its
+ * own handful of sub-features as cards. No accordion, no "More", no overlay.
  *
- * WHY this set: REDESIGN_PLAN locks the couple bottom nav at
- * Home · Guests · Studio · Budget · Wedding · More. The shared <BottomNav>
- * already supports 6 columns (Math.min(items.length, 6) + dynamic grid).
- * Per [[feedback_setnayan_orphan_prevention]] every route NOT represented
- * by a primary tab is enumerated in More's activeMatch (reachable AND lights
- * up correctly) and the desktop sidebar keeps full access.
+ *   1. Home    — /dashboard/[id]                (the Setnayan brand mark IS this tab)
+ *   2. Guests  — /guests   (+ seating · event-qr · hosts light this tab)
+ *   3. Explore — /vendors  (the marketplace)
+ *   4. Studio  — /add-ons  (Papic · Panood · Patiktok · save-the-date · … hub)
+ *   5. Design  — /design   (Website · Mood Board · Monogram hub)
+ *   6. Budget  — /budget   (+ disputes light this tab)
  *
- * activeMatch RULES:
- *   - Home    — /dashboard/{eventId} EXACT (activeMatchExact:true) —
- *               every other event route shares this prefix.
- *   - Guests  — /dashboard/{eventId}/guests + sponsors + hosts.
- *   - Studio  — /dashboard/{eventId}/add-ons.
- *   - Budget  — /dashboard/{eventId}/budget.
- *   - Wedding — /site-editor/{eventId} + /dashboard/{eventId}/website +
- *               invitation (legacy hub + editor surfaces).
- *   - More    — /dashboard/{eventId}/more OR any surface without a
- *               dedicated tab (enumerated below).
+ * Each tab's `activeMatch` enumerates the routes that belong to it, so the right
+ * tab stays lit on any of its child pages (e.g. /seating lights Guests). Home is
+ * an EXACT match on the event root so it doesn't claim every `${base}/*` route.
  *
- * NOTE on /add-ons/mood-board: it shares the Studio prefix, so the Studio
- * tab claims it (findIndex first-match wins, Studio precedes More). Accepted
- * dual-bucket — mirrors the desktop sidebar where Studio + Mood Board can
- * both highlight on that path. mood-board is still listed in More for
- * orphan-prevention completeness.
+ * NAV REGISTRY (2026-06-16): the tab LABEL + ICON come from the admin-managed
+ * registry (`customer.bottom-nav.<key>` slots) via `navSlots`, falling back to
+ * the hardcoded defaults below if a slot is missing — so the bar is unchanged
+ * until an admin edits it on /admin/menus. href + activeMatch stay in code
+ * (routing, not naming). A slot marked hidden drops its tab.
  *
- * BottomNav primitive auto-hides at lg via lg:hidden — mobile + tablet
- * only. Desktop uses SidebarShell + CustomerSidebar.
- *
- * CLIENT BOUNDARY: 'use client' required because the BottomNavItem[]
- * carries LucideIcon refs (forwardRef objects) — passing them from a
- * Server Component to the Client BottomNav trips Next.js serialization.
+ * Renders via the shared <BottomNav> FLAT `items` path (the same canonical
+ * primitive vendor + admin use) — the locked pill / traveling-pill / press-light
+ * / icon-grow treatment is reused verbatim; registry icons are resolved to
+ * stable components by navIconComponent so the bar itself is untouched.
+ * Mobile-only (`lg:hidden`); the desktop sidebar renders separately.
  */
 
-import { Home, Users, Sparkles, Wallet, Globe, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
+import type { LucideIcon } from 'lucide-react';
+import { Users, Compass, Sparkles, Palette, Wallet, QrCode, LayoutGrid, Rocket, CalendarClock } from 'lucide-react';
+import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { LifecyclePhase } from '@/lib/day-of-mode';
+
+type TabSpec = {
+  key: string;
+  fallbackLabel: string;
+  fallbackIcon: LucideIcon;
+  href: string;
+  activeMatch: string | string[];
+  activeMatchExact?: boolean;
+};
 
 /**
- * Builds the 6-tab BottomNav items array for the given eventId.
+ * Builds the flat 6-tab roster for the given eventId. Each tab is a real
+ * destination; `activeMatch` carries the routes that should keep the tab lit.
+ * `navSlots` (when provided) supplies the registry label + icon per tab.
  */
-export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
+export function buildCustomerNavTabs(
+  eventId: string,
+  navSlots?: Record<string, NavSlotLite>,
+): BottomNavItem[] {
   const base = `/dashboard/${eventId}`;
-
-  return [
+  const specs: TabSpec[] = [
     {
-      // Slot 1 · Home — holds the personalized menu + activity feed inline.
       key: 'home',
-      label: 'Home',
+      fallbackLabel: 'Home',
+      // The Setnayan brand mark IS the Home tab (owner 2026-06-16). Cast:
+      // SetnayanMark renders the same className/style/aria props the bar passes.
+      fallbackIcon: SetnayanMark as unknown as LucideIcon,
       href: base,
-      icon: Home,
-      // Exact-match override — every other event route also begins with
-      // `${base}/`, so a default startsWith match would keep Home active
-      // on every page.
+      // Exact-match the event root only — otherwise it would prefix-match every
+      // `${base}/*` route and stay perpetually active.
       activeMatch: base,
       activeMatchExact: true,
     },
     {
-      // Slot 2 · Guests — people surfaces bucket here on mobile.
       key: 'guests',
-      label: 'Guests',
+      fallbackLabel: 'Guests',
+      fallbackIcon: Users,
       href: `${base}/guests`,
-      icon: Users,
-      activeMatch: [`${base}/guests`, `${base}/sponsors`, `${base}/hosts`],
+      activeMatch: [`${base}/guests`, `${base}/seating`, `${base}/event-qr`, `${base}/hosts`],
     },
     {
-      // Slot 3 · Studio — the in-app Setnayan services hub. Relabeled from
-      // "Add-ons" 2026-06-14; key 'add-ons' + route /add-ons unchanged.
-      key: 'add-ons',
-      label: 'Studio',
+      key: 'explore',
+      fallbackLabel: 'Explore',
+      fallbackIcon: Compass,
+      href: `${base}/vendors`,
+      activeMatch: `${base}/vendors`,
+    },
+    {
+      key: 'studio',
+      fallbackLabel: 'Studio',
+      fallbackIcon: Sparkles,
       href: `${base}/add-ons`,
-      icon: Sparkles,
+      // The whole add-ons subtree (Papic/Panood/Patiktok/mood-board/…) lives
+      // under /add-ons, so a prefix match lights Studio across all of it.
       activeMatch: `${base}/add-ons`,
     },
     {
-      // Slot 4 · Budget — promoted to a primary tab 2026-06-14 (the couple's
-      // most-checked planning surface).
+      key: 'design',
+      fallbackLabel: 'Design',
+      fallbackIcon: Palette,
+      href: `${base}/design`,
+      // Design's surfaces are scattered: the new hub + the standalone Website
+      // editor + the standalone Monogram studio. (Mood Board sits physically
+      // under /add-ons, so it lights Studio — the Design hub still links to it.)
+      activeMatch: [`${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+    },
+    {
       key: 'budget',
-      label: 'Budget',
+      fallbackLabel: 'Budget',
+      fallbackIcon: Wallet,
       href: `${base}/budget`,
-      icon: Wallet,
-      activeMatch: `${base}/budget`,
+      activeMatch: [`${base}/budget`, `${base}/disputes`],
+    },
+  ];
+
+  const tabs: BottomNavItem[] = [];
+  for (const spec of specs) {
+    const slot = navSlots?.[`customer.bottom-nav.${spec.key}`];
+    if (slot?.isHidden) continue; // admin can drop a tab without a code change
+    tabs.push({
+      key: spec.key,
+      label: slot?.label ?? spec.fallbackLabel,
+      href: spec.href,
+      icon: slot ? navIconComponent(slot.icon) : spec.fallbackIcon,
+      activeMatch: spec.activeMatch,
+      ...(spec.activeMatchExact ? { activeMatchExact: true } : {}),
+    });
+  }
+  return tabs;
+}
+
+/**
+ * Builds the DAY-OF roster — the menu the couple/coordinator operate the wedding
+ * day with (Event Lifecycle Menu, 2026-06-16). While the event is live, the Plan
+ * tabs step aside and the bar becomes the day-of command center. Five operable
+ * destinations that all already exist; the unified "Services" launch hub is built
+ * in a follow-up (PR2) — until then Services points at the owned-services hub
+ * (/add-ons). Slot 1 stays the Setnayan mark (the home root, which already
+ * becomes the live "Now" command-center view), relabelled "Now"; the **Planning
+ * escape lives OUTSIDE the bar** (a top-bar link, see layout.tsx) so there's no
+ * second tab pointing at `base` (which would collide on active state).
+ */
+export function buildDayOfNavTabs(eventId: string): BottomNavItem[] {
+  const base = `/dashboard/${eventId}`;
+  return [
+    {
+      key: 'now',
+      label: 'Now',
+      href: base,
+      icon: SetnayanMark as unknown as LucideIcon,
+      activeMatch: base,
+      activeMatchExact: true,
     },
     {
-      // Slot 5 · Wedding — the couple's wedding website. The href opens the
-      // full-screen Reels editor (/site-editor); the legacy /website hub +
-      // the invitation editor also light this tab. Relabeled from "Website"
-      // 2026-06-14.
-      key: 'website',
-      label: 'Wedding',
-      href: `/site-editor/${eventId}`,
-      icon: Globe,
-      activeMatch: [
-        `/site-editor/${eventId}`,
-        `${base}/website`,
-        `${base}/invitation`,
-      ],
+      key: 'checkin',
+      label: 'Check-in',
+      href: `${base}/guests/checkin`,
+      icon: QrCode,
+      activeMatch: `${base}/guests/checkin`,
     },
     {
-      // Slot 6 · More — catch-all for every surface that isn't a dedicated
-      // tab. Enumerated per [[feedback_setnayan_orphan_prevention]].
-      key: 'more',
-      label: 'More',
-      href: `${base}/more`,
-      icon: Menu,
-      activeMatch: [
-        `${base}/more`,
-        // Explore — the vendor marketplace (no longer a primary tab).
-        `${base}/vendors`,
-        // Plan group (non-tab surfaces)
-        `${base}/seating`,
-        `${base}/schedule`,
-        // Book group
-        `${base}/messages`,
-        `${base}/contracts`,
-        // Design group (Website lives on the Wedding tab; mood-board shares
-        // the Studio prefix but is listed here for completeness).
-        `${base}/add-ons/mood-board`,
-        `${base}/monogram`,
-        // Day-of group
-        `${base}/live`,
-        `${base}/event-qr`,
-        // After group
-        `${base}/activity`,
-        `${base}/disputes`,
-        // Settings group
-        `${base}/details`,
-        // Find your date — demoted to Settings, reachable via More.
-        `${base}/find-date`,
-        // Profile lives at /dashboard/profile — app-root scope.
-        '/dashboard/profile',
-        // /receipts is app-root scoped — reaching it from any event route
-        // highlights More.
-        '/receipts',
-        `${base}/orders`,
-        // Legacy event-scoped surfaces that still ship.
-        `${base}/paperwork`,
-        `${base}/documents`,
-        `${base}/date-selection`,
-      ],
+      key: 'seats',
+      label: 'Seats',
+      href: `${base}/seating`,
+      icon: LayoutGrid,
+      activeMatch: `${base}/seating`,
+    },
+    {
+      // The unified day-of launch hub (PR2): one place to start every owned
+      // live service — Panood "Go live" · Live Wall "Open the wall" · Papic
+      // "Hand out seats" — with an upsell for anything not yet owned.
+      key: 'services',
+      label: 'Services',
+      href: `${base}/launch`,
+      icon: Rocket,
+      activeMatch: `${base}/launch`,
+    },
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      href: `${base}/schedule`,
+      icon: CalendarClock,
+      activeMatch: `${base}/schedule`,
     },
   ];
 }
 
 /**
- * CustomerBottomNav — wraps the shared BottomNav primitive with the
- * customer-doorway 6-tab config. Renders nothing on lg+ (sidebar takes
- * over). Per [[feedback_setnayan_orphan_prevention]] each tab's
- * destination route exists.
+ * CustomerBottomNav — wraps the shared BottomNav primitive with the customer
+ * roster. Renders nothing on lg+ (the sidebar takes over). Shows on every
+ * customer surface (owner directive 2026-06-13 "global nav everywhere").
  *
- * The global nav shows on EVERY customer surface (owner directive
- * 2026-06-13 "global nav everywhere"). The Wedding tab points at the
- * full-screen /site-editor (which keeps its own chrome); the former
- * focus-mode suppressions are retired.
+ * `phase` swaps the whole roster by lifecycle phase (Event Lifecycle Menu): the
+ * day-of command center while the event is live, the planning roster otherwise.
+ * Computed SERVER-SIDE in the layout via `getLifecyclePhase(event_date,
+ * cleared_at)` (which uses `isEventDayActive` — live ‖ post, so an evening
+ * reception in `post` still gets the Day-of bar — and the `cleared_at` close-out)
+ * and passed down, so there's no client `Date.now()` and no hydration flash. The
+ * `after` roster (Review · Editorial · Galleries) lands in PR4; until then `after`
+ * falls back to the planning roster.
+ *
+ * `navSlots` is the admin nav-registry slot map (label + icon overrides) resolved
+ * server-side in the layout; it feeds the planning roster (the day-of roster's
+ * registry slots land in a follow-up).
  */
-export function CustomerBottomNav({ eventId }: { eventId: string }) {
-  return <BottomNav items={buildCustomerBottomNav(eventId)} />;
+export function CustomerBottomNav({
+  eventId,
+  phase = 'plan',
+  navSlots,
+}: {
+  eventId: string;
+  phase?: LifecyclePhase;
+  navSlots?: Record<string, NavSlotLite>;
+}) {
+  const items = phase === 'dayof' ? buildDayOfNavTabs(eventId) : buildCustomerNavTabs(eventId, navSlots);
+  return <BottomNav items={items} />;
 }

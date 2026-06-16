@@ -23,8 +23,9 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
+import { isSetnayanAiActive, shouldOfferSetnayanAiPurchase } from '@/lib/setnayan-ai';
 import {
   BUDGET_BUILD_TABS,
   isBudgetBuildEnabled,
@@ -43,9 +44,25 @@ import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
+import { ShortlistCategories } from './_components/shortlist-categories';
+import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
+import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
+import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { BuildPins } from './_components/build-pins';
 import type { AnchorData } from './_components/build-anchors';
+import {
+  Build3StateControl,
+  type TaxonomyRow as Build3StateTaxonomyRow,
+} from './_components/build-3state-control';
+import {
+  isBuild3StateEnabled,
+  DIM_DATE,
+  DIM_BUDGET,
+  DIM_LOCATION,
+  type BuildState,
+} from '@/lib/build-3state';
+import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildSummary } from './_components/build-summary';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -68,7 +85,9 @@ type Props = {
   // tab (2026-06-12) = the takeover section to open (summary · shortlist ·
   // build · compare · lock) — written by the takeover on every switch so
   // refresh + deep links land on the same section.
-  searchParams: Promise<{ status?: string; tab?: string }>;
+  // open (2026-06-16) = a Shortlist tile key to pre-expand (checklist "Book your
+  // caterer" → ?tab=shortlist&open=catering jumps right to that category).
+  searchParams: Promise<{ status?: string; tab?: string; open?: string }>;
 };
 
 type EventBudgetRow = {
@@ -80,6 +99,9 @@ type EventBudgetRow = {
   mood_board_updated_at: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
+  /** event_type_vocab key (DB-driven, defaults to 'wedding') — scopes the
+   *  Shortlist's taxonomy categories + guards faith filtering. */
+  event_type: string | null;
   ceremony_type: string | null;
   secondary_ceremony_type: string | null;
   venue_setting: string | null;
@@ -123,7 +145,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
+        'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -162,6 +184,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     { name: string | null; logo: string | null; city: string | null }
   >();
   const enrichmentByVendorId = new Map<string, VendorEnrichment>();
+  // "Waiting for quotes" strip (inquiry-accepted-visibility 2026-06-16) — the
+  // marketplace picks whose inquiry is still `pending` (couple reached out, no
+  // acceptance/quote yet), built inside the enrichment pass below and rendered
+  // read-only at the TOP of the Shortlist. Oldest-first. Empty → strip hides.
+  const waitingForQuotes: WaitingInquiry[] = [];
 
   if (marketplaceIds.length > 0) {
     const [statsRes, profRes, threadsRes] = await Promise.all([
@@ -182,7 +209,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // event's threads.
       supabase
         .from('chat_threads')
-        .select('vendor_profile_id, inquiry_status')
+        .select('vendor_profile_id, inquiry_status, created_at')
         .eq('event_id', eventId)
         .in('vendor_profile_id', marketplaceIds),
     ]);
@@ -216,10 +243,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       anonByProfile.set(p.vendor_profile_id, p);
     }
     const inquiryByProfile = new Map<string, ChatInquiryStatus>();
+    // Pending-since (inquiry-accepted-visibility 2026-06-16) — when the couple
+    // has reached out but the vendor hasn't accepted/quoted yet, remember WHEN
+    // they reached out so the Shortlist's "Waiting for quotes" strip can show
+    // how long it's been. Only `pending` threads are tracked here.
+    const pendingSinceByProfile = new Map<string, string | null>();
     for (const t of (threadsRes.data as
-      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus }[]
+      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus; created_at: string | null }[]
       | null) ?? []) {
       inquiryByProfile.set(t.vendor_profile_id, t.inquiry_status);
+      if (t.inquiry_status === 'pending') {
+        pendingSinceByProfile.set(t.vendor_profile_id, t.created_at ?? null);
+      }
     }
 
     const venueLat = ev?.venue_latitude ?? null;
@@ -270,7 +305,28 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
+
+      // Waiting-for-quotes row — only when this pick's inquiry is still pending.
+      if (inquiryByProfile.get(pid) === 'pending') {
+        waitingForQuotes.push({
+          vendorId: v.vendor_id,
+          name: resolvedName || v.vendor_name || 'Vendor',
+          city: s.location_city ?? null,
+          waitingSince: pendingSinceByProfile.get(pid) ?? null,
+          href: `/dashboard/${eventId}/messages`,
+        });
+      }
     }
+
+    // Oldest-first (the longest-waiting inquiry leads). Rows with no timestamp
+    // sort last (treated as "just now"). Fail-soft — a bad date never throws.
+    waitingForQuotes.sort((a, b) => {
+      const ta = a.waitingSince ? new Date(a.waitingSince).getTime() : Infinity;
+      const tb = b.waitingSince ? new Date(b.waitingSince).getTime() : Infinity;
+      const va = Number.isFinite(ta) ? ta : Infinity;
+      const vb = Number.isFinite(tb) ? tb : Infinity;
+      return va - vb;
+    });
   }
 
   // Map the fetched event_vendors rows into the canonical bucketer's input
@@ -305,6 +361,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         photoMaps.servicePhotoByVendor.get(v.vendor_id) ?? null,
       manual_vendor_photo_url:
         photoMaps.manualPhotoByVendor.get(v.vendor_id) ?? null,
+      // Adaptive Pax Pricing (migration 20261211000000) — the vendor-confirmed
+      // per-pax surcharge baked into total_cost_php + the counts that explain
+      // it, so the accordion card can footnote "+₱X for Y guests over the
+      // Z-guest package". All nullable → no footnote on the common (no-rate) row.
+      pax_surcharge_php: v.pax_surcharge_php ?? null,
+      pax_quote_base: v.pax_quote_base ?? null,
+      cost_basis_pax: v.cost_basis_pax ?? null,
     };
   });
 
@@ -458,7 +521,67 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a
   // "Tools & extras" strip — the standalone InAppServicesSection launcher grid
   // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
-  const services = <PlanBudgetAccordion model={model} eventId={eventId} />;
+  // Soft paywall (PR #1433 follow-up) — when the AI paywall is ON and the event
+  // hasn't purchased Setnayan AI, prompt the unlock at the TOP of the shortlist,
+  // where the ranked match is felt. Dormant until SETNAYAN_AI_PAYWALL_ENABLED=true
+  // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
+  // banner today). Links to the /add-ons/setnayan-ai buy page (catalog price +
+  // checkout). Renders in both the takeover shortlist slot and the bare return.
+  const aiOffer = shouldOfferSetnayanAiPurchase(ev);
+  const aiOfferBanner = aiOffer ? (
+    <Link
+      href={`/dashboard/${eventId}/add-ons/setnayan-ai`}
+      className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
+    >
+      <span className="text-sm text-ink/80">
+        <span className="font-medium text-mulberry">See your ranked shortlist.</span>{' '}
+        Setnayan AI sorts every vendor by how well they fit your date, budget &amp; guest count.
+      </span>
+      <span className="shrink-0 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream">
+        Unlock
+      </span>
+    </Link>
+  ) : null;
+  // `services` = the legacy plan-group accordion. Still the KILL-SWITCH fallback
+  // (BUDGET_BUILD_ENABLED=false → `return services`) and the Summary/Build/Lock
+  // tabs keep the plan-group `model`. The takeover's Shortlist tab uses the new
+  // taxonomy browser below instead.
+  const services = (
+    <>
+      {aiOfferBanner}
+      <PlanBudgetAccordion model={model} eventId={eventId} />
+    </>
+  );
+
+  // Shortlist tab (Explore takeover) — the COMPLETE taxonomy for the event,
+  // faith + event-type scoped (owner 2026-06-16: "full taxonomy for the event's
+  // type … show whichever taxonomy it is compatible to"). A single-open,
+  // tile-driven category browser with a carousel of considered vendors per tile;
+  // decoupled from the plan-group lock/build model so it can't destabilize the
+  // other tabs. Faith set unions the primary + secondary rite (mixed weddings).
+  const shortlistFolders = buildShortlistFolders({
+    vendorRows,
+    enrichmentByVendorId,
+    eventType: ev?.event_type ?? null,
+    faithSet: buildCoupleFaithSet({
+      eventType: ev?.event_type ?? null,
+      ceremonyType: ev?.ceremony_type ?? null,
+      secondaryCeremonyType: ev?.secondary_ceremony_type ?? null,
+    }),
+    taxonomy,
+    eventId,
+  });
+  const shortlistContent = (
+    <>
+      {aiOfferBanner}
+      <WaitingForQuotes items={waitingForQuotes} />
+      <ShortlistCategories
+        folders={shortlistFolders}
+        eventId={eventId}
+        initialOpenTile={sp.open ?? null}
+      />
+    </>
+  );
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).
   // When on, /vendors becomes a full-screen FOCUS MODE takeover with its own
@@ -471,7 +594,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (isBudgetBuildEnabled()) {
     const { data: savedBuildRows } = await supabase
       .from('budget_builds')
-      .select('build_id, label, title, budget_php, total_php, snapshot')
+      // created_at feeds the named-builds (BUILD_3STATE_ENABLED) column ordering;
+      // the .order('label') below keeps the legacy A/B/C order untouched (named
+      // rows have label NULL → sorted client-side by sortSavedBuilds).
+      .select('build_id, label, title, budget_php, total_php, snapshot, created_at')
       .eq('event_id', eventId)
       .order('label');
     const savedBuilds = (savedBuildRows ?? []) as SavedPlanBuild[];
@@ -656,7 +782,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }),
       ),
     );
-    const buildSlot = (
+    // The LIVE Build (2-state Flag/Compute + openCats sourcing). This stays the
+    // production experience verbatim — the 3-state control below only replaces it
+    // when BUILD_3STATE_ENABLED is on (default OFF → this exact slot ships).
+    let buildSlot = (
       <BuildPins
         eventId={eventId}
         anchors={buildAnchors}
@@ -676,12 +805,68 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }}
       />
     );
+
+    // ── 3-State Build control (Phase 3d-A · BUILD_3STATE_ENABLED, default OFF).
+    // When ON, the Build tab swaps to the Locked/Auto/Excluded control + Reset +
+    // Build. Rows = taxonomy categories with >=1 QUOTED inquiry (total_cost_php
+    // != null) + the 3 dimension rows. Resolved picks still write to
+    // event_build_picks so Compare/Lock are unchanged. The state read is gated
+    // here so it never runs while the flag is off (byte-identical otherwise).
+    // Spec: Build_3State_Solver_2026-06-16.md §2–5.
+    if (isBuild3StateEnabled()) {
+      const buildStates = await getCategoryBuildStates(eventId);
+      const stateOf = (key: string): BuildState => buildStates.get(key)?.state ?? 'excluded';
+
+      // Taxonomy rows: every plan group that has >=1 quoted inquiry. Quoted =
+      // a pick with total_cost_php != null (the §3 quoted-inquiry gate, lifted
+      // from compute-time to row visibility). Options are that category's quotes.
+      const taxonomyRows: Build3StateTaxonomyRow[] = buildChildren
+        .map((c) => {
+          const options = c.picks
+            .filter((p) => p.total_cost_php != null)
+            .map((p) => ({
+              vendorId: p.vendor_id,
+              name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+              pricePhp: p.rolled_cost_php ?? p.total_cost_php ?? null,
+            }));
+          return { child: c, options };
+        })
+        .filter(({ options }) => options.length > 0)
+        .map(({ child, options }) => {
+          const st = buildStates.get(child.groupId as string);
+          return {
+            groupId: child.groupId as string,
+            label: child.label,
+            state: st?.state ?? 'excluded',
+            // Only honor a pin that's still one of this category's quotes.
+            pinnedVendorId:
+              st?.pinnedVendorId &&
+              options.some((o) => o.vendorId === st.pinnedVendorId)
+                ? st.pinnedVendorId
+                : null,
+            options,
+          };
+        });
+
+      buildSlot = (
+        <Build3StateControl
+          eventId={eventId}
+          anchors={buildAnchors}
+          dimensionStates={{
+            [DIM_DATE]: stateOf(DIM_DATE),
+            [DIM_BUDGET]: stateOf(DIM_BUDGET),
+            [DIM_LOCATION]: stateOf(DIM_LOCATION),
+          }}
+          taxonomyRows={taxonomyRows}
+        />
+      );
+    }
     return (
       <ServicesTakeover
         eventId={eventId}
         initialTab={initialTab}
         summarySlot={<BuildSummary model={model} eventId={eventId} buildsCount={savedBuilds.length} />}
-        shortlistSlot={services}
+        shortlistSlot={shortlistContent}
         buildSlot={buildSlot}
         compareSlot={
           <BuildCompare
@@ -690,6 +875,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             currentPlan={currentPlan}
             savedBuilds={savedBuilds}
             availability={compareAvailability}
+            // BUILD_3STATE_ENABLED (default OFF): named Save-As → Compare. OFF →
+            // the A/B/C slot save bar + titling stay byte-identical to today.
+            named={isBuild3StateEnabled()}
           />
         }
         lockSlot={

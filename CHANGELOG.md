@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-16 · feat(onboarding): reframe the "Your Plan" climax — honest free list + Setnayan AI ₱3,999 keep-card
+
+Owner reassessment of the onboarding plan screen ("define Setnayan AI here … show how much to keep this") plus a corrected free-from-the-start list. The screen was giving the *paid* AI layer away as free and never naming or pricing Setnayan AI.
+
+- **Free list corrected (`FREE_TOOL_DRIVERS`).** Removed `Smart vendor matching` (₱4,999) and `Wedding date aligner` (₱1,499) from the "free forever" tally — both are Setnayan AI per the locked AI definition (ranking/scoring/date-aligner = AI, not the free floor). Marketplace *browse* stays free. Added a free **Papic sampler** entry (3 guest seats to taste candid-capture tagging).
+- **Setnayan AI keep-card** replaces the `Keep guiding me — free` toggle on the `plan` screen: defines the AI, lists 3 benefits (vendor matching · deadline timeline · reach-best-matches), shows the catalog price (`pricing.setnayanAi.label` from `platform_retail_catalog_v2` — never hardcoded; degrades gracefully if the row is missing), anchored vs a ₱30k+ coordinator. Primary CTA commits + routes to the existing `add-ons/setnayan-ai` checkout via a new `addonSlugOverride` path threaded through `handleFinish`→`goToDashboard`; "Maybe later" continues free.
+- **`onboarding-pricing.ts`** — `OnboardingPricing` gains `setnayanAi: {price,label} | null`, read by service_code from the live customer catalog (AI isn't an onboarding "pick" key, so it's not in `svc`).
+- **`onboarding.css`** — `.aikeep*` styles in brand tokens (mulberry CTA, gold accents, serif price).
+- `tsc --noEmit` green.
+
+Does NOT flip the global `SETNAYAN_AI_PAYWALL_ENABLED` flag — AI stays free-to-try until the owner flips it (the "flip-time" go-live). The card + checkout work either way. Known follow-up: the free `Reach my best matches` auto-inquiry card below the keep-card is now redundant and folds into the AI entitlement at flip-time.
+
+SPEC IMPACT: onboarding plan-screen now presents Setnayan AI as the ₱3,999 paid keep (per 2026-06-07 pricing lock + 2026-06-08 AI definition) and corrects the free-tier value list (adds the free Papic sampler concept). Logged in corpus `DECISION_LOG.md`. The free Papic sampler **entitlement + 3-seat/8-photo+2-clip caps + 30-day retention** is a separate follow-up PR (PR2).
 ## 2026-06-16 · feat(nav): wire the ADMIN doorway to the registry (consumption PR 4)
 
 Fourth consumption of the nav/icon/menu registry — the **admin doorway** (sidebar ~55 items + 6-tab bottom nav) now sources each item's **label + icon from the admin registry** (`admin.sidebar.*` + `admin.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified every admin sidebar item + bottom tab matches its registry default, all 54 admin icons in the curated allowlist). Admin nav has no role-gating, so the overlay applies directly.

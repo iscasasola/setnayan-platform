@@ -57,7 +57,7 @@ export const GUEST_CAPTURE_CREDITS = 150;
  * refund-aware, graceful-degrade on a missing orders table, AND counts a
  * GUIDED_PACK or MEDIA_PACK bundle (both include PAPIC_GUEST) as owning the
  * guest-camera pack. Kept in lockstep with the DB RPC papic_event_owns_service
- * (migration 20261228000000) so the gate and the provisioning RPC agree.
+ * (migration 20270103010000) so the gate and the provisioning RPC agree.
  */
 export async function eventOwnsPapicGuest(
   supabase: SupabaseClient,

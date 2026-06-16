@@ -53,7 +53,7 @@ export const PAPIC_SEAT_COUNT = 5;
  * refund-aware, graceful-degrade on a missing orders table, AND counts a
  * MEDIA_PACK bundle (which includes PAPIC_SEATS) as owning the seats pass.
  * Kept in lockstep with the DB RPC papic_event_owns_service (migration
- * 20261228000000), so the seats page gate and the provisioning RPC agree — a
+ * 20270103010000), so the seats page gate and the provisioning RPC agree — a
  * Media-Pack buyer both SEES the provision UI and can materialize the 5 seats.
  */
 export async function eventOwnsPapicSeats(

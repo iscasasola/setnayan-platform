@@ -1,4 +1,4 @@
--- 20261228000000_papic_ownership_bundle_aware.sql
+-- 20270103010000_papic_ownership_bundle_aware.sql
 --
 -- WHY (PR #1447 follow-up · 2026-06-15): PR #1447 made the APP-side ownership
 -- read bundle-aware (lib/entitlements.ts eventOwnsSku + BUNDLE_CHILD_SKUS): a

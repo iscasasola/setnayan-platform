@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { ArrowLeft, ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsPapicGuest } from '@/lib/papic-guest';
 import { KwentoQueue } from './_components/kwento-queue';
@@ -59,6 +61,11 @@ export default async function PapicModerationPage({
   if (!membership || membership.member_type !== 'couple') {
     redirect(`/dashboard/${eventId}`);
   }
+
+  // Cron-free self-heal: re-screen any capture stuck in 'unscreened' (a
+  // capture-time screen that dropped fail-open) so it stops being permanently
+  // invisible on the guest allowlist surfaces. Bounded + never throws.
+  after(() => reScreenStuckCaptures(eventId));
 
   const admin = createAdminClient();
 

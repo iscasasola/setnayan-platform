@@ -29,6 +29,40 @@ Verified in the worktree: `tsc --noEmit` 0 · `next lint` clean (changed files) 
 
 SPEC IMPACT: minor — adds the `anchor` sub-nav flavor + Budget children (3 of 6 menus now carry children); no SKU/schema/pricing/public change. Logged in corpus `DECISION_LOG.md` (0021/0007). Next: the Studio restructure (absorbs Design; Studio sub-nav = Setnayan AI · Website[Save the Date·RSVP·Event·Editorial] · Capture · Branding) then Home, sidebar unify, phase fold-in, registry parent-link.
 
+## 2026-06-16 · docs(nav): backfill changelog for the registry final-public-pass + cleanup (#1583, #1581)
+
+Backfill — the changelog entries for #1583 and #1581 were intentionally dropped from those PRs to clear a parallel-session changelog-conflict deadlock (every concurrent PR appends here, so the entries kept bumping the PRs to DIRTY and pausing auto-merge). The code merged cleanly; this records the history after the fact.
+
+**#1583 · feat(nav): final public pass — marketing nav + nav-icon-source guard + download CTA** (merged 2026-06-16). Completes the nav/icon/menu registry rollout. (a) Public marketing top-nav (`site-nav.tsx`/`site-chrome.tsx`/`layout.tsx`) now consumes the registry — root layout resolves `getNavSlotMap()` once, threads it through `SiteChrome → Nav`, overlays the 5 `public.site-nav.*` labels (label-only; href/order stay in code; fails open). The last doorway after customer/vendor/admin. (b) **`lint-nav-icon-source` guard** — `apps/web/scripts/lint-nav-icon-source.mjs` + CI job + `lint:navicon` script; a standalone node guard (mirrors `lint-bottom-nav.mjs`, not ESLint) asserting the 7 nav-chrome chokepoints each consume the registry + the plumbing keeps its exports. **Positive delegation guard, deliberately NOT a lucide ban** (chokepoints intentionally import lucide fallbacks). (c) Wired `public.download.mac-api` label onto `app/download/page.tsx` (both buttons + step-1 copy; label-only/fail-open; 1-hr ISR propagation noted in-code). Passed a 3-lens adversarial review (SHIP, 0 must-fix). Superseded duplicate PRs #1574 (mine) and #1551 (stale parallel), both closed. Remaining `public.*` slots verified not-wirable and left seeded-but-inert (`vendor-nav.*` dead, guest/papic CTAs, `marketing.home` logo, `download.page`/`.qr-png` no-link/broken-route).
+
+**#1581 · chore(nav): remove dead VendorNav + its 3 orphaned registry slots** (merged 2026-06-16). Deleted the unused `apps/web/app/for-vendors/_components/vendor-nav.tsx` (dead since commit 238ae4d1 — `/for-vendors` uses the shared marketing `<Nav>`), removed the 3 orphaned `public.vendor-nav.*` default rows from `lib/nav-registry-defaults.ts`, and scrubbed 2 stale comments. Verified safe first: prod `nav_slot_override` had 0 rows `LIKE 'public.vendor-nav.%'`.
+
+Owner follow-ups (carried from #1583): add `lint nav icon source` to branch-protection required checks (advisory until then); Phase-9 seed-vs-DB drift test still unbuilt; misc `nav-registry-defaults.ts` inconsistencies flagged out-of-scope.
+
+SPEC IMPACT: None (additive guard + behavior-preserving label overlays + dead-code/inert-defaults removal; no SKU/pricing/schema/route change).
+## 2026-06-17 · fix(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds)
+## 2026-06-17 · feat(papic): recalibrate face matcher to EUCLIDEAN (validated dlib thresholds) + server-side matcher
+
+After validating the commercially-clean self-hosted model (dlib face-recognition ResNet via face-api.js — public-domain weights + MIT, 99.38% LFW) on real faces (Obama×2 / Biden×2): same-person euclidean distance **0.40–0.47**, different-person **0.79–0.90** — clean separation. The matcher core (#1594) had shipped with ArcFace-style **cosine ≥0.85** thresholds, which are WRONG for dlib (on cosine, different people score 0.80–0.84, hugging the 0.85 line → false suggestions).
+
+- **`lib/face-match-core.ts`** — `cosineSimilarity` → **`euclideanDistance`**; thresholds now `FACE_AUTO_MAX_DISTANCE = 0.5` / `FACE_SUGGEST_MAX_DISTANCE = 0.6` (face-api's native match line, sitting in the validated gap): distance ≤0.5 → auto-tag, 0.5–0.6 → suggest, >0.6 → untagged. `planAutoTags` picks the CLOSEST (min-distance) enrollment per guest; `FaceMatch.confidence` → `FaceMatch.distance` (lower = better). Dedupe / 10-tag-cap / already-tagged-exclusion logic unchanged.
+- **`lib/face-match-core.test.ts`** — rewritten for euclidean; distances numerically verified (close 0.40 auto · borderline 0.55 suggest · far 0.85 none · dedupe min 0.30 · cap closest-first).
+- **`lib/face-match.ts`** (new, server-only) — `autoTagCapture({eventId, sourceTable, photoId, faceVectors})` = the "match-on-our-server" brain: fetch the event's consented/non-revoked enrollments **that have a vector**, run the pure matcher, write `auto_face` photo_tags. The face IMAGES never touch any recognition service — only the small vectors move, and guest vectors never leave our server. Dedupe via the `(source_table,source_id,guest_id)` unique constraint; the DB 10-tag cap trigger backstops the limit across all writers. Best-effort (never breaks a capture). **Dormant** until enrollments carry vectors (no on-device embedder/model yet) → clean no-op today.
+
+The core swap is consumer-safe (foundation). The server matcher is the next piece of the self-hosted pipeline; the on-device embedder + R2 model hosting come next. Final thresholds tuned on real wedding photos in a pilot.
+
+SPEC IMPACT: iteration 0012 — face auto-tag thresholds corrected to the validated self-hosted model (euclidean, not the ArcFace cosine). Logged in corpus DECISION_LOG.md.
+
+## 2026-06-17 · feat(papic): NSFW re-screen self-heal + DB-enforced 10-tag cap (the last two #1577/#1588 review items)
+
+Two Papic moderation/tagging hardening fixes the prior reviews surfaced and left for owner sign-off (owner: "yes on 2"):
+
+- **NSFW re-screen self-heal (B).** `screenCapture()` is fail-open AND fire-and-forget from the capture `after()` hook — so if it drops (an R2 hiccup, a cold lambda, a killed request) the row stays `moderation_state='unscreened'` **forever**, and is then permanently invisible on every guest-facing allowlist surface (guest-live-gallery + the Live Wall show only `'clean'`) while the couple's own private gallery still shows it — a silent *screening* gap, distinct from the tag-leg one. New `reScreenStuckCaptures(eventId)` in `lib/nsfw-screen.ts`: a bounded (10/table), never-throwing, cron-free sweep that re-runs the screen on rows stuck `'unscreened'` past a 15-min grace window (so an in-flight first screen isn't disturbed), across BOTH capture tables (`papic_photos` + `papic_guest_captures`). `screenCapture` re-fetches the R2 bytes, re-decides, and writes ONLY where still `'unscreened'` → fully idempotent. Fired from `after()` on the couple moderation surface (`/add-ons/papic/moderation`).
+- **DB-enforced 10-tag cap (C).** The "max 10 tags per photo" product lock was enforced only inside the `papic_tag_capture` RPC (QR tags); `auto_face` / `manual_pick` / any future writer of `photo_tags` could exceed it. New migration `20270110120000_photo_tags_cap_trigger.sql` adds a `BEFORE INSERT` trigger (`enforce_photo_tag_cap`, SECURITY DEFINER + pinned `search_path` so the `count(*)` is RLS-accurate) that makes ≤10 tags per photo (`(source_table, source_id)`) a DB invariant across ALL sources. At the cap it `RETURN NULL`s — silently skipping the over-cap row (truncate semantics, matching the spec's table-QR "alphabetize + truncate"), never erroring the insert/batch. The RPC already limits to the remaining cap, so the trigger is a pure backstop for the non-RPC paths.
+
+tsc 0 · `next lint` clean · timestamp guard 387 unique. Migration applies cleanly now that `db push` is unjammed (#1596). PR pending (branch `claude/papic-moderation-hardening`, auto-merge).
+
+SPEC IMPACT: iteration 0012 — the 10-tag cap is now a DB invariant across all tag sources (was RPC-only/advisory; owner-locked 2026-06-17), and the NSFW screen now self-heals dropped screenings. No SKU/pricing change. Logged in corpus `DECISION_LOG.md`.
 ## 2026-06-17 · refactor(nav): customer-menu SSOT tree + ONE generalized section sub-nav (redesign PR1/6)
 
 Owner: *"sub nav are child menus of the 6 menus … we are redesigning how the customer menu is"* → all 6 menus get child sub-navs, unified into one hierarchy (plan `adaptive-forging-lobster.md`). **PR1 is the foundation, behavior-preserving:** it introduces the canonical tree and collapses the two bespoke section docks into one config-driven component. Stacks on the sub-nav-first PR (#1593).
@@ -69,7 +103,7 @@ Owner: "go." Stacked onto the same PR #1597. The three surfaces the first slice 
 - **Recap nudge** (`add-ons/papic/recap/page.tsx` + new client `_components/recap-drive-nudge.tsx`): a calm, dismissible champagne-gold "Love this? Save the originals to your Drive" card at the strongest emotional point of need. Server-gated on **recap-has-content AND no live grant AND OAuth-ready**; dismissal is event-scoped in localStorage (a clean opt-out, never a re-show-every-visit nag).
 - **Multi-account** (handled at the page level — **zero changes to the shared OAuth callback**): each connected panel (Papic + Photo Delivery) already knows both the login email (`user.email`) and the grant email; when they differ it shows a calm "Not your sign-in — use a different account" link (couples often connect a shared `ourwedding@gmail.com` on purpose, so this surfaces, never blocks). The "use a different account" path adds `?switch=1` to the start routes → new `forceAccountChooser` option on `buildDriveAuthorizeUrl` sets `prompt='select_account consent'` so Google's chooser actually appears (without it Google silently reuses the last session).
 
-Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (no new-file warnings). Full-env render → Vercel preview (local OAuth env unset). No new migration (reuses `20270109000000` from the first slice).
+Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (no new-file warnings). Full-env render → Vercel preview (local OAuth env unset). No new migration (reuses `20270110000000` from the first slice).
 
 SPEC IMPACT: extends the 0009/0012 point-of-need connect to all three planned couple surfaces; no SKU/pricing/schema change beyond the already-added `connection_health` column. Logged in corpus `DECISION_LOG.md`.
 
@@ -85,9 +119,22 @@ Ground-truth pass against `origin/main` first (the design research read stale `~
 
 Verified: `tsc --noEmit` EXIT=0 · `next lint` EXIT=0 (only pre-existing warnings, none in new files). Full-env render deferred to the Vercel preview (local OAuth env is unset → card shows the "setup pending" placeholder). Migration NOT yet applied to prod — see OWNER ACTION below.
 
-OWNER ACTION: apply migration `20270109000000` via `supabase db push --db-url "$SUPABASE_DB_URL"` (or it ships with the next batch). Until applied, the `connection_health` reads/writes target a missing column — the page read fails soft (banner just never shows); the refresher writes would error in their catch. Low blast radius (Drive OAuth is still admin-gated off in prod), but apply before relying on the reconnect banner.
+OWNER ACTION: apply migration `20270110000000` via `supabase db push --db-url "$SUPABASE_DB_URL"` (or it ships with the next batch). Until applied, the `connection_health` reads/writes target a missing column — the page read fails soft (banner just never shows); the refresher writes would error in their catch. Low blast radius (Drive OAuth is still admin-gated off in prod), but apply before relying on the reconnect banner.
 
 SPEC IMPACT: iteration 0009 connect-panel copy is replaced with the safety-led point-of-need card, and a new `needs_reauth` reconnect state is added (0009 + 0012 share it). No SKU / pricing change; one additive nullable-default column. Logged in corpus `DECISION_LOG.md`. Surfaced for owner: dead `/api/oauth/photo-delivery/callback` route; the two deferred connect surfaces (Papic radio, Recap nudge) + multi-account confirm; and the two product decisions (per-surface sync-mode default, disconnect→nudge resurfacing) defaulted to auto-sync-from-Papic / review-from-Photo-Delivery and a near-wedding re-surface.
+## 2026-06-17 · fix(copy): stop claiming face auto-tagging is live (it isn't yet)
+
+Honesty pass alongside the face-auto-tag build (Phases 1+2a shipped the foundation; the recognition engine is still validation-gated). User-facing copy claimed face auto-tagging works *today* — it doesn't; tagging is QR-driven. Softened the 7 over-claims to describe the live mechanism (personal/table QR) + the untagged-still-delivered guarantee, dropping the unbuilt face-recognition claims:
+
+- `app/dashboard/[eventId]/add-ons/papic/page.tsx` — removed "Auto-face tags fire at ≥ 0.85 cosine confidence" (a working-feature claim with a number) → leads with QR tagging; dropped "face detection" from the Camera Bridge capability line.
+- `lib/help.ts` (public help) — "auto-tagged via face detection" → "tagged to each guest by QR so everyone gets their own".
+- `lib/wizard.ts` — "auto-tags every photo by face + table QR + scans" → "tags photos by personal + table QR so every guest gets theirs".
+- `app/page.tsx` + `app/layout.tsx` (homepage + site meta / JSON-LD) — "auto-tagged / face-detection auto-tagged galleries" → "QR-tagged galleries".
+
+Left as-is (accurate, not over-claims): the RSVP biometric-consent copy ("your photo is set up for face recognition at this wedding" — the selfie IS enrolled) and internal code comments.
+
+SPEC IMPACT: iteration 0012 — public/dashboard copy no longer promises face auto-tagging before it ships. Logged in corpus DECISION_LOG.md.
+
 ## 2026-06-16 · feat(editorial): vendor day-of media WRITE PATH — submit UI + NSFW screen + migration [Increment 2]
 
 Builds on Increment 1 (the display). The couple's **recommended vendor** can now actually submit day-of media; it auto-shows on the editorial once it clears the NSFW screen.

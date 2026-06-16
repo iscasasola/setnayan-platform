@@ -27,6 +27,7 @@ import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
+import { getNavSlotMap } from '@/lib/nav-registry';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 import {
@@ -358,7 +359,7 @@ const organizationJsonLd = {
   },
   image: 'https://www.setnayan.com/brand/og-card.webp',
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding and life-events software platform. Couples plan free — guest list, RSVP, seating, budget, and a personal event website — then add the moments that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged galleries and personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding and life-events software platform. Couples plan free — guest list, RSVP, seating, budget, and a personal event website — then add the moments that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -426,6 +427,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // 2026-06-10). Cached read (deduped with generateMetadata's call) → null when
   // no admin icon is set, so BrandProvider uses the built-in gold default.
   const brandMarkUrl = resolveBrandMarkUrl(await getBrandSettings());
+
+  // Nav/icon/menu-registry slot map for the public marketing nav (the LAST
+  // doorway to wire — customer/vendor/admin already consume the registry). The
+  // marketing nav is label-only, so SiteChrome overlays public.site-nav.*
+  // labels onto its in-code links. Cached read (unstable_cache + NAV_REGISTRY_TAG)
+  // shared with the dashboard layouts; fails open to code defaults so the public
+  // nav always renders even if the override table is unreachable.
+  const navSlots = await getNavSlotMap();
 
   return (
     <html
@@ -528,7 +537,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
         <Providers brandMarkUrl={brandMarkUrl}>
-          <SiteChrome />
+          <SiteChrome navSlots={navSlots} />
           {children}
         </Providers>
         <ClientTypeDetector />

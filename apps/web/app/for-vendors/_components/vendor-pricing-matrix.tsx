@@ -558,7 +558,7 @@ export function VendorPricingMatrix({
           .m-matrix-mobile { display: block; }
         }
 
-        /* Sticky tier control — pins just below the sticky VendorNav. */
+        /* Sticky tier control — pins just below the sticky site nav. */
         .m-tier-switch {
           position: sticky;
           top: 64px;

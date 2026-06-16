@@ -76,6 +76,26 @@ export type NavItem = {
    * /admin/payments/<orderId> lights it up.
    */
   matchPrefix?: string;
+  /**
+   * Render the row dimmed — a "not yet" state for an item that's present
+   * but not actionable right now (e.g. a time-gated guest-journey Day-of
+   * stage before the event). Stays a live link; only its opacity drops. The
+   * active item is never muted. Mirrors SubNavItem.muted so the desktop
+   * sidebar and the mobile <SubNav> read the same gating.
+   */
+  muted?: boolean;
+  /**
+   * Optional nested sub-items — the DESKTOP-sidebar equivalent of the
+   * mobile <SubNav> pill (owner 2026-06-17 "let the subnav expand from the
+   * side nav … when there is a sidenav, all will be under the side nav").
+   * When present, the item becomes an expandable PARENT: <SidebarItem>
+   * renders the children as an indented sub-list that auto-expands while the
+   * active route is inside the section (the parent OR any child matches).
+   * ONE level only — children's own `children` are not rendered. On mobile
+   * the same sub-section set is rendered by <SubNav> instead; this field is
+   * inert for the bottom-nav / accordion builders (they don't read it).
+   */
+  children?: NavItem[];
 };
 
 export type NavGroup = {

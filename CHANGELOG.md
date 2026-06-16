@@ -17,6 +17,58 @@ Owner reassessment of the onboarding plan screen ("define Setnayan AI here … s
 Does NOT flip the global `SETNAYAN_AI_PAYWALL_ENABLED` flag — AI stays free-to-try until the owner flips it (the "flip-time" go-live). The card + checkout work either way. Known follow-up: the free `Reach my best matches` auto-inquiry card below the keep-card is now redundant and folds into the AI entitlement at flip-time.
 
 SPEC IMPACT: onboarding plan-screen now presents Setnayan AI as the ₱3,999 paid keep (per 2026-06-07 pricing lock + 2026-06-08 AI definition) and corrects the free-tier value list (adds the free Papic sampler concept). Logged in corpus `DECISION_LOG.md`. The free Papic sampler **entitlement + 3-seat/8-photo+2-clip caps + 30-day retention** is a separate follow-up PR (PR2).
+## 2026-06-16 · feat(papic): free Papic sampler — 3 seats, 8 photos + 2 clips each, 30-day retention
+
+Owner-locked (2026-06-16): let a couple TRY Papic free so they experience the claim→shoot→tag→gallery loop, then convert to the paid pass. Built as a thin entitlement on the EXISTING Papic web pipeline (seat claim + web capture + QR tagging all already shipped) — no rebuild.
+
+- **Migration `20270103000000_papic_free_sampler.sql` (APPLIED TO PROD, ledger recorded — statement-by-statement, not a blind `db push`, vs the in-flight 20270102000000 collision).** `paparazzi_seats.is_free_sampler BOOLEAN` + `papic_photos.expires_at TIMESTAMPTZ` (NULL = permanent; partial index) + RPC `papic_provision_sampler(event_id)` — couple/admin-gated, idempotent, ONE sampler per event, 3 seats at seat_index 101–103 (own range, never collides with the paid pass's 1–5).
+- **Caps + retention in `recordSeatCapture`** (`app/papic/actions.ts`): sampler seats enforce 8 photos + 2 clips per seat (5-sec clip cap unchanged) and stamp `expires_at = NOW()+30d`. Sampler captures SKIP wall ingest + FaceBlock (it's a private try, not the day-of wall); NSFW screen still always runs.
+- **Cron-free retention** (`lib/papic-retention.ts` + `r2Delete` in `lib/r2.ts`): a bounded (25), event-scoped, best-effort sweep deletes expired sampler R2 bytes + rows in `after()` on the crew page. Can never touch paid photos (filters on a non-null past `expires_at`). An R2 lifecycle rule on the media bucket is the optional long-tail byte hardening (owner infra).
+- **Couple surface:** crew page (`…/add-ons/papic/crew`) now serves the sampler when the event has no paid pass — provision CTA, the 3 claim links + QR, per-seat caps, and the "kept 30 days · connect Drive or upgrade to keep forever" framing. Papic page gained a "Try Papic free first" link for non-owners. `provisionPapicSampler` action mirrors `provisionPapicSeats`. **Never Drive-gated** — capture works without Drive; connecting Drive (existing storage_target/oauth path) is the "keep forever" escape.
+- `lib/papic-seats.ts`: `PAPIC_SAMPLER_*` constants + `fetchPapicSamplerSeats` (and `fetchPapicSeats` now scopes to paid seats only). `tsc --noEmit` green.
+
+Free entitlement only — NEVER zeroes the paid PAPIC_SEATS ₱2,999. Known follow-ups (deferred): T-7/T-1 expiry warning emails (need a scheduled trigger — out of the cron-free path), an admin cross-event abuse surface (1/event is enforced per-event by the RPC), and wiring real sampler photos into the couple gallery grid (still mock — sampler shots show on the capture surface today).
+
+SPEC IMPACT: new free Papic sampler in iteration 0012 (Papic) + the free-tier (couple website / Papic taste) in Pricing.md. Logged in corpus `DECISION_LOG.md`.
+
+## 2026-06-16 · feat(std-reveal): preview the opening reveal in the website editor — the "studio" surface (PR3a)
+
+The couple can now **see and pick** their opening reveal from the dashboard — no published-slug / production-URL gymnastics. Follows PR1 (#1525 foundation) + PR2 (#1541 veil). Owner: *"i cannot see our page… this should be on studio?"* — yes; the reveal lives with the wedding website it opens, so its home is the website editor.
+
+- **`apps/web/app/dashboard/[eventId]/website/_components/reveal-preview-card.tsx`** (new) — an **"Opening reveal"** card in the website editor. **Preview the veil** / **Preview the envelope** → plays the real reveal full-screen over a sample of the couple's own Save-the-Date card (their monogram · name · date); lift / open it to uncover the card, then Replay / Close. Reuses the exact `[slug]` reveal components (`FourFlapEnvelope` + lazy `VeilReveal`) — so the preview is exactly what guests get. three.js stays code-split.
+- **`apps/web/app/dashboard/[eventId]/website/page.tsx`** — adds `event_date` to the events select; renders the card beneath the website hero.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally).
+
+Next: PR3b — persist the couple's chosen template + wire `veilColor` from the Mood Board (ivory default for now); add the crown + curtain veil modes.
+
+SPEC IMPACT: 0024 Save the Date — in-dashboard reveal preview/chooser (the studio surface) for the design-locked reveal. Corpus `DECISION_LOG.md` row appended.
+
+## 2026-06-16 · feat(nav): wire the VENDOR doorway to the registry (consumption PR 3)
+
+Third consumption of the nav/icon/menu registry — the **vendor doorway** (sidebar + bottom nav) now sources each item's **label + icon from the admin registry** (`vendor.sidebar.*` + `vendor.bottom-nav.*` slots), falling back to the hardcoded defaults. **Visually identical today** (override table empty → defaults; verified all 36 vendor slot defaults match the code labels+icons exactly, and all 24 vendor icons are in the curated allowlist).
+
+- **`apps/web/app/vendor-dashboard/_components/vendor-sidebar.tsx`** — `applyVendorRegistry(groups, navSlots)` overlays label + `navIconComponent(icon)` per item via its `vendor.sidebar.<key>` slot (item key matches the slot suffix 1:1, no map needed); a hidden slot drops the item. Applied AFTER the role + showRepertoire filters, so role-gating stays in code. The neutral `VENDOR_NAV_GROUPS` const + shared SidebarSection/SidebarItem primitives untouched.
+- **`apps/web/app/vendor-dashboard/_components/vendor-bottom-nav.tsx`** — same overlay over the 6-tab strip; the Home tab keeps `key: 'profile'` (localStorage continuity) but maps to the `vendor.bottom-nav.home` slot. Applied after the role filter.
+- **`apps/web/app/vendor-dashboard/layout.tsx`** — resolves `getNavSlotMap()` server-side, passes `navSlots` to both `<VendorSidebar>` + `<VendorBottomNav>`.
+
+Reuses the proven pattern (`navIconComponent` → stable component; BottomNav primitive untouched). `pnpm typecheck` + `pnpm lint` green. Deferred: `vendor.topbar.notifications` + `vendor.payment-options.*` slots. NEXT: admin doorway → public, then group-heading slots + ESLint guard.
+
+SPEC IMPACT: None — behavior-preserving wiring. Logged in memory `project_setnayan_nav_icon_menu_registry`.
+## 2026-06-16 · feat(std-reveal): the trademark bridal-veil reveal — WebGL cloth, code-split behind the flag (PR2/3)
+
+Adds the hero reveal to the Save-the-Date opening: the **Setnayan bridal veil** as a real cloth simulation. Follows PR1 (#1525, the flag + overlay foundation).
+
+- **`apps/web/app/[slug]/_components/reveal/veil-reveal.tsx`** (new) — `VeilReveal`, a sheer tulle veil (three.js Verlet cloth) on a **transparent** full-screen canvas over the invitation, so the page content shows softly through while it's up. Scalloped **filigree-lace hem** (outline star-flowers + picots) + the **gold Setnayan mark** woven in (stays gold while the tulle recolours), fresnel fold-whitening, wind sway. **Drag / scroll up to lift it off** → past a third of the way it completes and fires `onRevealed`; the overlay then removes itself. No-WebGL → reveals immediately (never a gate).
+- **`three` + `@types/three`** added (`package.json` + `pnpm-lock.yaml`). Loaded only inside `VeilReveal`, which `RevealOverlay` pulls via `next/dynamic(ssr:false)` → three.js lands in a **code-split chunk fetched only when the veil mounts**; the main couple-site bundle is untouched.
+- **`reveal-overlay.tsx`** — template registry now switches envelope ↔ veil. Activation: global flag `NEXT_PUBLIC_STD_REVEAL=1` (default off) **or** a per-visit URL override **`?reveal=veil`** (reads `window.location.search` client-side) so the veil can be **previewed on a Vercel preview** without flipping the global flag. `veilColor` prop flows the tulle colour in.
+- **`page.tsx`** — passes `enabled` (= Save-the-Date phase active) + `veilColor`; the overlay decides flag/param/template.
+
+`tsc --noEmit` 0 errors · `next lint` clean (verified locally — worktree has node_modules this time).
+
+Next: PR3 — dashboard template chooser + content editor; + wire `veilColor` from the couple's Mood Board palette (currently ivory default) and add the crown + curtain veil modes.
+
+SPEC IMPACT: 0024 Save the Date — reveal experience design-locked in `0024_ADDENDUM` §1a; this lands the WebGL veil build behind the flag/preview-param. Corpus `DECISION_LOG.md` row appended.
 
 ## 2026-06-16 · feat(nav): wire the CUSTOMER sidebar to the registry (consumption PR 2)
 

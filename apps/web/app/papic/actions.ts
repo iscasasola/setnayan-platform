@@ -6,6 +6,11 @@ import { createClient } from '@/lib/supabase/server';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
+import {
+  PAPIC_SAMPLER_PHOTO_CAP,
+  PAPIC_SAMPLER_CLIP_CAP,
+  PAPIC_SAMPLER_RETENTION_DAYS,
+} from '@/lib/papic-seats';
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -112,7 +117,7 @@ export async function recordSeatCapture(
   // the claimer — so resolving the seat by token doubles as the auth check.
   const { data: seat, error: seatError } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, event_id, revoked_at, claimer_user_id')
+    .select('seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler')
     .eq('claim_qr_token', cleanToken)
     .maybeSingle();
 
@@ -127,6 +132,26 @@ export async function recordSeatCapture(
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
 
+  // Free Papic sampler — per-seat caps (8 photos + 2 clips) + 30-day expiry.
+  // Paid/normal seats are uncapped and permanent (expires_at stays null). The
+  // count-then-check is fine here: one claimer = one phone per seat, so there's
+  // effectively no concurrency on a single seat's shutter.
+  let expiresAt: string | null = null;
+  if (seat.is_free_sampler) {
+    const { count: usedOfKind } = await supabase
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('paparazzi_seat_id', seat.seat_id)
+      .eq('photo_type', kind === 'clip' ? 'clip' : 'photo');
+    const cap = kind === 'clip' ? PAPIC_SAMPLER_CLIP_CAP : PAPIC_SAMPLER_PHOTO_CAP;
+    if ((usedOfKind ?? 0) >= cap) {
+      return { ok: false, error: kind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap' };
+    }
+    expiresAt = new Date(
+      Date.now() + PAPIC_SAMPLER_RETENTION_DAYS * 86_400_000,
+    ).toISOString();
+  }
+
   const insertWithoutPoster = () =>
     supabase
       .from('papic_photos')
@@ -135,6 +160,7 @@ export async function recordSeatCapture(
         paparazzi_seat_id: seat.seat_id,
         r2_object_key: cleanKey,
         photo_type: kind === 'clip' ? 'clip' : 'photo',
+        expires_at: expiresAt,
       })
       .select('photo_id')
       .single();
@@ -149,6 +175,7 @@ export async function recordSeatCapture(
           photo_type: 'clip',
           // The poster frame the NSFW screen classifies as the clip's proxy.
           poster_r2_key: cleanPoster,
+          expires_at: expiresAt,
         })
         .select('photo_id')
         .single()
@@ -173,8 +200,12 @@ export async function recordSeatCapture(
   // projects), THEN run the wall gate. ingestToWall never throws; a non-clean
   // or non-LIVE_WALL event is a silent no-op.
   after(async () => {
+    // NSFW screen ALWAYS runs (Apple 1.2 / corpus hard constraint) — even for the
+    // sampler. The wall gate + FaceBlock bake are SKIPPED for sampler captures:
+    // the free sampler is a private "try it", not the day-of live wall, so it
+    // stays self-contained (nothing to expire out of wall_feed either).
     await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});
-    if (insertedPhotoId) {
+    if (insertedPhotoId && !seat.is_free_sampler) {
       // P2 FaceBlock bake between the screen and the wall gate: a FaceBlock
       // event requires the baked blur derivative before ingest admits the
       // row. Cheap no-op on non-FaceBlock events; FAILS CLOSED on any error.

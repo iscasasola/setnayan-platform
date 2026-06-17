@@ -4,6 +4,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · PR #NEXT — /api/notify push webhook route
+
+**What landed:** `apps/web/app/api/notify/route.ts` — Supabase database webhook handler that fires on every `chat_messages` INSERT and delivers push notifications to the vendor side.
+
+**Route logic:**
+1. Verifies `x-webhook-secret` header against `SUPABASE_WEBHOOK_SECRET` env var (401 on mismatch).
+2. Filters to `INSERT` events on `chat_messages` only; skips `sender_role = 'vendor'` (no self-notify).
+3. Returns `200 { ok, queued: true }` immediately — all DB + push work deferred to `after()`.
+4. Inside `after()`: reads `chat_threads.last_push_notified_at` — skips if within 10-minute dedup window.
+5. Stamps `last_push_notified_at = now()` before any push attempt to collapse concurrent webhook fires.
+6. Reads vendor's active push tokens from `vendor_push_tokens WHERE is_active = true`.
+7. Delivers to all active tokens concurrently; sets `is_active = false` on permanent delivery failure.
+8. Push send is a **stub** in this PR (`sendPushToToken` logs + returns success) — Phase 2 wires FCM/APNs/Web Push.
+
+**Schema findings vs spec brief:**
+- `chat_messages.sender_user_id` (not `sender_id`) — FK to `users`.
+- `chat_messages.sender_role` enum `('couple','vendor','coordinator')` — used to skip vendor self-notifies.
+- `chat_messages.vendor_profile_id` is denormalized onto the message row — no extra join needed to find the recipient vendor.
+- `vendor_push_tokens.id` is `bigserial` (not UUID) — used for deactivation update.
+
+**New env var required (Supabase webhook config):**
+- `SUPABASE_WEBHOOK_SECRET` — shared secret set in both Supabase Dashboard → Database Webhooks and Vercel env vars.
+
+**SPEC IMPACT:** Push notification route per `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md` § 7 (End-to-end flow steps 3–8). Phase 2 FCM/APNs/Web Push wiring is noted as TODO in the route's JSDoc.
+
+---
+
 ## 2026-06-17 · feat(0011 Panood): upgraded YouTube live broadcast — foundation (step 1/3)
 
 Owner: build the "upgraded" Panood so Setnayan creates + runs the live broadcast on the couple's OWN YouTube channel and it auto-embeds on the event page (vs. the free tier, where they paste a YouTube link). This genuinely exercises the `youtube` scope — which makes it demo-able for Google verification (the free embed uses no scopes). Designed via a map+API-research+synthesis workflow (build plan in the session transcript). Backend foundation only here — no user-facing change yet:

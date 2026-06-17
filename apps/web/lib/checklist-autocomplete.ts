@@ -96,6 +96,8 @@ export type ChecklistSignals = {
   marriageLicenseReceived: boolean;
   /** event_paperwork PSA/CENOMAR row at status 'received'. */
   psaReceived: boolean;
+  /** events.date_status = 'locked' — the couple has committed to a specific date. */
+  dateStatusLocked: boolean;
 };
 
 /**
@@ -132,6 +134,7 @@ export function computeSatisfiedChecklistKeys(signals: ChecklistSignals): Set<st
   if (signals.monogramSet) done.add('monogram');
   if (signals.marriageLicenseReceived) done.add('marriage_license');
   if (signals.psaReceived) done.add('psa_cenomar');
+  if (signals.dateStatusLocked) done.add('set_date');
 
   return done;
 }
@@ -150,4 +153,5 @@ export const AUTO_COMPLETABLE_KEYS: ReadonlySet<string> = new Set<string>([
   'monogram',
   'marriage_license',
   'psa_cenomar',
+  'set_date',
 ]);

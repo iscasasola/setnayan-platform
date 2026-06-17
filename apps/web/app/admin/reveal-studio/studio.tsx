@@ -32,7 +32,6 @@ const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
   'two-flap-horizontal': 'Two-flap · top open',
   'church-doors': 'Church doors',
   'veil-sheer': 'Sheer bridal veil',
-  'veil-crown': 'Crown veil',
 };
 
 type SliderDef = { key: keyof VeilLook; label: string; min: number; max: number; step?: number };

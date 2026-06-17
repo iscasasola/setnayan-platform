@@ -30,9 +30,6 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
 });
-const VeilCrown = dynamic(() => import('@/app/[slug]/_components/reveal/veil-crown'), {
-  ssr: false,
-});
 
 function monogram(name: string): string {
   const p = name
@@ -104,8 +101,7 @@ export function RevealPreviewCard({
   // scrub open with scroll, firing onOpened when fully clear (RigidStage).
   const renderReveal = (t: RevealTemplate) => {
     if (isVeilTemplate(t)) {
-      const Veil = t === 'veil-crown' ? VeilCrown : VeilReveal;
-      return <Veil veilColor={veilColor} onRevealed={() => setRevealed(true)} />;
+      return <VeilReveal veilColor={veilColor} onRevealed={() => setRevealed(true)} />;
     }
     if (t === 'two-flap-vertical' || t === 'two-flap-horizontal' || t === 'church-doors') {
       return (

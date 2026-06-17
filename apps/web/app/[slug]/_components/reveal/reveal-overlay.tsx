@@ -40,7 +40,6 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig } from '@/lib/reveal-config';
 
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
-const VeilCrown = dynamic(() => import('./veil-crown'), { ssr: false });
 
 export type { RevealTemplate } from './reveal-templates';
 export type { WaxSealConfig } from '@/lib/wax-seal/types';
@@ -104,14 +103,13 @@ export function RevealOverlay({
   if (!active || !mounted || gone) return null;
 
   if (veil) {
-    const VeilComponent = template === 'veil-crown' ? VeilCrown : VeilReveal;
     return (
       <div
         className={`fixed inset-0 z-[60] overflow-hidden transition-opacity duration-500 ${
           open ? 'opacity-0' : 'opacity-100'
         }`}
       >
-        <VeilComponent
+        <VeilReveal
           veilColor={veilColor}
           petalsColor={petalsColor}
           look={config?.veil}

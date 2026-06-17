@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · chore(reveal): remove the Crown veil — the reveal library is now 5 templates
+
+Owner: *"remove crown veil so we only have 5 templates."* The Crown veil (`veil-crown`) was a separate, never-finished veil component — only the **Sheer bridal veil** got the 47-iteration design + the port + the Studio wiring; the Crown veil still ran an old gold/flower look and (since the studio PR) only carried unused prop-parity stubs. Removed it cleanly.
+
+**Reveal library is now 5:** Four-flap envelope · Two-flap (side) · Two-flap (top) · Church doors · Sheer bridal veil.
+
+- **`reveal-templates.ts`** — dropped `veil-crown` from the `RevealTemplate` union, `REVEAL_ALIASES` (`veil-crown` + `crown`), `REVEAL_LIBRARY`, and simplified `isVeilTemplate` to `t === 'veil-sheer'`. Header updated (7→5).
+- **`lib/reveal-config.ts`** — dropped `veil-crown` from `RevealTemplateId`, `REVEAL_TEMPLATE_IDS`, and `DEFAULT_REVEAL_CONFIG.templates`. (No DB migration: the config JSONB is merged through `mergeRevealConfig`, which now ignores a stored `veil-crown` and re-defaults a `veil-crown` default template to `veil-sheer`.)
+- **`reveal-overlay.tsx`** — removed the `VeilCrown` dynamic import and the `template === 'veil-crown' ? VeilCrown : VeilReveal` branch; the veil path renders `VeilReveal` directly.
+- **`admin/reveal-studio/studio.tsx`** — dropped the `veil-crown` label (the Studio now lists 5 templates).
+- **`dashboard/[eventId]/_components/reveal-preview-card.tsx`** — removed the `VeilCrown` import + branch (the couple's preview chooser now offers 5).
+- **Deleted `app/[slug]/_components/reveal/veil-crown.tsx`.** `veil-shared.ts` stays (the sheer veil still imports `MARK_PATH`); its `buildVeilTextures`/`makeVeilMaterial` helpers are now unused but harmless (kept for a possible future template).
+
+**Verification:** `tsc` clean · `next lint` clean · zero remaining `veil-crown`/`VeilCrown` references.
+
+**SPEC IMPACT:** iteration 0024 reveal library 7→5 (Crown veil retired by owner 2026-06-17). Corpus `DECISION_LOG.md` + spec `0024_Veil_Reveal_Spec_2026-06-17.md` + memory `[[project_setnayan_std_reveal_spec]]` updated.
 ## 2026-06-17 · feat(papic): close the face auto-tag loop end-to-end (PR #1616) — DORMANT
 
 The end-to-end Papic face loop the audit found broken. Shipped in #1616 (its CHANGELOG entry was deferred to dodge a merge-conflict deadlock — this is that follow-up). Everything is **dormant** until the owner hosts the face-api weights + `face-api.js` on R2 and sets `NEXT_PUBLIC_FACE_MODEL_URL` (`OWNER_ACTIONS.md`); until then every path is a clean no-op and photos still land untagged-still-delivered.

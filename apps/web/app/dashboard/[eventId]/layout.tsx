@@ -19,6 +19,8 @@ import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 type Props = {
   children: React.ReactNode;
@@ -144,6 +146,7 @@ export default async function EventLayout({ children, params }: Props) {
     unreadMessages,
     locale,
     profilePhotoUrl,
+    switcherData,
   ] = await Promise.all([
     getDashboardShell(user.id),
     (async () => {
@@ -215,6 +218,8 @@ export default async function EventLayout({ children, params }: Props) {
       );
       return null;
     }),
+    // AccountSwitcher panel data — graceful degrade to null on any error.
+    getSwitcherData().catch(() => null),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -338,13 +343,19 @@ export default async function EventLayout({ children, params }: Props) {
         />
         {/* (I) avatar = the ACCOUNT's profile photo (or initial fallback) —
             owner directive 2026-06-12. The event's monogram/logo belongs to
-            the event only and lives on the EventSwitcher chip at left. */}
-        <ProfileMenu
-          email={user.email ?? ''}
-          photoUrl={profilePhotoUrl}
-          ariaLabel={tr('common.profile')}
-          eventId={eventId}
-        />
+            the event only and lives on the EventSwitcher chip at left.
+            AccountSwitcher replaces ProfileMenu when data is available;
+            degrades to old ProfileMenu on fetch failure. */}
+        {switcherData ? (
+          <AccountSwitcher data={switcherData} />
+        ) : (
+          <ProfileMenu
+            email={user.email ?? ''}
+            photoUrl={profilePhotoUrl}
+            ariaLabel={tr('common.profile')}
+            eventId={eventId}
+          />
+        )}
       </div>
     </div>
   );

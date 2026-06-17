@@ -4,6 +4,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(vendor-quality): server-side score recomputation module
+
+**Context:** PR 5 of the vendor quality rating system (spec `02_Specifications/Vendor_Quality_Rating_System_2026-06-17.md`). Follows PR #1650 (migrations) which landed `vendor_activity_stats`, `vendor_push_tokens`, `vendor_partnerships`, and `chat_threads.last_push_notified_at`.
+
+**What changed:**
+- New file `apps/web/lib/vendor-activity.ts` — server-only score recomputation module.
+  - Pure helpers (all exported for testability, zero side effects):
+    - `computeBayesianReviewAvg(reviews, priorMean?, priorWeight?)` — Bayesian avg with prior mean=4.0, weight=10; scales to [1,5]
+    - `computeLoginDecayScore(lastLoginAt)` — linear 100→0 over 60 days; null → 100 (new account benefit-of-doubt)
+    - `computeCoupleTrustScore(params)` — 40% review + 30% reliability + 30% responsiveness
+    - `computePlatformHealthScore(params)` — 40% trust + 20% login-decay + 15% finalized + 15% inquiry-pct + 10% referral
+    - `computeQualityScore(coupleTrust, platformHealth)` — 70% / 30% composite
+  - `recomputeVendorActivityStats(vendorProfileId)` — full recompute + upsert into `vendor_activity_stats` using `createAdminClient()` (service-role, bypasses RLS)
+  - `triggerVendorActivityRecompute(vendorProfileId)` — fire-and-forget wrapper for `after()` / `waitUntil` use; catches and logs errors, never throws
+- Schema findings (actual column names discovered during build):
+  - `vendor_reviews`: `rating_communication`, `rating_quality`, `rating_value`, `rating_on_time` (NOT `communication_rating` etc.)
+  - `event_vendors` PK: `vendor_id` (not `event_vendor_id`)
+  - `force_majeure_flags.event_vendor_id` → `event_vendors.vendor_id` (two-step join for vendor cancellation count)
+  - `vendor_profiles.user_id` → `auth.users.id` (used to resolve `last_sign_in_at` via admin API)
+  - `vendor_activity_stats.last_active_at` (not `last_login_at`) — set from `auth.users.last_sign_in_at`
+- Stubbed with `// TODO:` comments:
+  - `avg_response_minutes` = 0 until `chat_threads` / `chat_messages` gets a `vendor_first_reply_at` column
+  - `inquiryToBookingPct` uses approximation (`finalized / total_threads`) until `chat_threads → event_vendors` join exists
+  - `referralScore` = 0 until vendor referral tracking is implemented
+
+**Files:** `apps/web/lib/vendor-activity.ts` (new)
+
+**SPEC IMPACT:** Implements §2–§5 of `Vendor_Quality_Rating_System_2026-06-17.md` (score formulas, recompute trigger architecture). No new DB schema. Three stubs (`avg_response_minutes`, `inquiry_to_booking` exact join, `referralScore`) noted in TODO comments — schema additions needed before those can be exact.
+
+---
+
 ## 2026-06-17 · feat(0011 Panood): upgraded YouTube live broadcast — foundation (step 1/3)
 
 Owner: build the "upgraded" Panood so Setnayan creates + runs the live broadcast on the couple's OWN YouTube channel and it auto-embeds on the event page (vs. the free tier, where they paste a YouTube link). This genuinely exercises the `youtube` scope — which makes it demo-able for Google verification (the free embed uses no scopes). Designed via a map+API-research+synthesis workflow (build plan in the session transcript). Backend foundation only here — no user-facing change yet:

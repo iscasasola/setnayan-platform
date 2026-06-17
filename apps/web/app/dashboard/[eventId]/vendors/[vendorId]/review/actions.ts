@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -12,12 +13,12 @@ import {
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
 
-const AXES: ReadonlyArray<ReviewAxis> = [
+/** Star-rated axes submitted by StarRatingInput (1–5 continuous). */
+const STAR_AXES: ReadonlyArray<ReviewAxis> = [
   'overall',
   'communication',
   'quality',
   'value',
-  'on_time',
 ];
 
 function parseRating(raw: FormDataEntryValue | null): number {
@@ -27,6 +28,22 @@ function parseRating(raw: FormDataEntryValue | null): number {
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1 || n > 5) {
     throw new Error('Each rating must be 1–5 stars.');
+  }
+  return n;
+}
+
+/**
+ * on_time is binary: the OnTimeBinaryInput posts 5 (Yes) or 1 (No).
+ * We accept only these two integers so the server enforces the same
+ * contract the UI expresses — never a mid-range value the toggle can't set.
+ */
+function parseOnTimeRating(raw: FormDataEntryValue | null): number {
+  if (typeof raw !== 'string' || raw === '') {
+    throw new Error('Please tell us if they arrived on time.');
+  }
+  const n = Number(raw);
+  if (n !== 5 && n !== 1) {
+    throw new Error('On-time answer must be Yes (5) or No (1).');
   }
   return n;
 }
@@ -56,16 +73,18 @@ export async function submitCoupleReview(formData: FormData) {
   }
 
   const ratings = {} as Record<ReviewAxis, number>;
-  for (const axis of AXES) {
+  for (const axis of STAR_AXES) {
     ratings[axis] = parseRating(formData.get(`rating_${axis}`));
   }
+  // on_time is binary: Yes=5, No=1 — enforced separately.
+  ratings['on_time'] = parseOnTimeRating(formData.get('rating_on_time'));
 
   const bodyRaw = formData.get('body');
   let body: string | null = null;
   if (typeof bodyRaw === 'string') {
     const trimmed = bodyRaw.trim();
-    if (trimmed.length > 4000) {
-      throw new Error('Review body must be 4000 characters or fewer.');
+    if (trimmed.length > 500) {
+      throw new Error('Review body must be 500 characters or fewer.');
     }
     body = trimmed.length > 0 ? trimmed : null;
   }
@@ -142,6 +161,20 @@ export async function submitCoupleReview(formData: FormData) {
       `[submitCoupleReview] review_received notify failed for vendor_profile_id=${vendorProfileId} event_id=${eventId}:`,
       e,
     );
+  }
+
+  // Update vendor quality scores (Vendor_Quality_Rating_System_2026-06-17.md §5).
+  // triggerVendorActivityRecompute is a fire-and-forget wrapper; it lives in
+  // lib/vendor-activity.ts which ships as a separate PR. The dynamic import +
+  // outer try/catch means this block is fully inert until the module lands —
+  // the review still succeeds, scores just don't refresh yet.
+  try {
+    const { triggerVendorActivityRecompute } = await import('@/lib/vendor-activity') as {
+      triggerVendorActivityRecompute: (id: string) => Promise<void>;
+    };
+    after(() => triggerVendorActivityRecompute(vendorProfileId));
+  } catch {
+    // vendor-activity.ts not yet merged — scores will be recomputed when it ships.
   }
 
   revalidatePath(`/dashboard/${eventId}/vendors`);

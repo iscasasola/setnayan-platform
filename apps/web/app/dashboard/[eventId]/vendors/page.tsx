@@ -43,7 +43,7 @@ import {
 import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
+import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { ShortlistCategories } from './_components/shortlist-categories';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
@@ -540,6 +540,88 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       </span>
     </Link>
   ) : null;
+  // ── Review status badges (PR12: couple post-event review flow) ──────────
+  // For completed vendors, determine whether to show "Leave a review" (open
+  // window, no review yet) or "Review submitted ✓" on their accordion card.
+  // Scope: only event_vendors where status = 'complete' — the handshake gate
+  // (completion-handshake.ts) already tracks the richer path (vendor marks
+  // complete → couple confirms), but the badge uses legacy status 'complete'
+  // as the cheapest proxy. Window: 30d–365d after events.event_date (server-
+  // enforced; the review page also enforces it on submit). Fail-soft: an
+  // error here never blocks the page from rendering.
+  const reviewStatusByVendorId = await (async (): Promise<Map<string, VendorReviewStatus>> => {
+    const m = new Map<string, VendorReviewStatus>();
+    try {
+      const completeVendors = vendors.filter((v) => v.status === 'complete');
+      if (completeVendors.length === 0) return m;
+
+      // Date window — must have an event_date in range [+30d, +365d].
+      if (!eventDate) return m;
+      const eventMs = new Date(eventDate).getTime();
+      if (!Number.isFinite(eventMs)) return m;
+      const now = Date.now();
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      const YEAR_DAYS = 365 * 24 * 60 * 60 * 1000;
+      // Window not open yet (< 30 days after event) or closed (> 365 days)
+      if (now < eventMs + THIRTY_DAYS || now > eventMs + YEAR_DAYS) return m;
+
+      // Resolve which complete vendors have a linked vendor_profile_id
+      // (via contact_email match — same lookup the review page uses).
+      const emailsToCheck = completeVendors
+        .map((v) => v.contact_email)
+        .filter((e): e is string => !!e);
+      if (emailsToCheck.length === 0) return m;
+
+      const admin = createAdminClient();
+      const { data: profiles } = await admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, contact_email')
+        .in('contact_email', emailsToCheck);
+
+      type ProfileRow = { vendor_profile_id: string; contact_email: string };
+      const profileByEmail = new Map<string, string>();
+      for (const p of (profiles ?? []) as ProfileRow[]) {
+        if (p.contact_email) {
+          profileByEmail.set(p.contact_email.toLowerCase(), p.vendor_profile_id);
+        }
+      }
+
+      const vendorIdToProfileId = new Map<string, string>();
+      for (const v of completeVendors) {
+        if (!v.contact_email) continue;
+        const pid = profileByEmail.get(v.contact_email.toLowerCase());
+        if (pid) vendorIdToProfileId.set(v.vendor_id, pid);
+      }
+      if (vendorIdToProfileId.size === 0) return m;
+
+      // Fetch existing reviews for this user + event + these vendor profiles.
+      const profileIds = Array.from(new Set(vendorIdToProfileId.values()));
+      const { data: existingReviews } = await supabase
+        .from('vendor_reviews')
+        .select('vendor_profile_id')
+        .eq('event_id', eventId)
+        .eq('couple_user_id', user.id)
+        .in('vendor_profile_id', profileIds);
+
+      type ReviewRow = { vendor_profile_id: string };
+      const reviewedProfileIds = new Set(
+        (existingReviews ?? []).map((r: ReviewRow) => r.vendor_profile_id),
+      );
+
+      // Build the status map: open (no review) or submitted (review exists).
+      for (const [vendorId, profileId] of vendorIdToProfileId) {
+        m.set(
+          vendorId,
+          reviewedProfileIds.has(profileId) ? 'submitted' : 'open',
+        );
+      }
+    } catch (e) {
+      // Fail-soft — never block the vendors page over a review badge fetch.
+      console.error('[vendors] review status fetch failed:', e);
+    }
+    return m;
+  })();
+
   // `services` = the legacy plan-group accordion. Still the KILL-SWITCH fallback
   // (BUDGET_BUILD_ENABLED=false → `return services`) and the Summary/Build/Lock
   // tabs keep the plan-group `model`. The takeover's Shortlist tab uses the new
@@ -547,7 +629,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const services = (
     <>
       {aiOfferBanner}
-      <PlanBudgetAccordion model={model} eventId={eventId} />
+      <PlanBudgetAccordion
+        model={model}
+        eventId={eventId}
+        reviewStatusByVendorId={reviewStatusByVendorId}
+      />
     </>
   );
 

@@ -367,43 +367,121 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — turns the wait into the pitch: holds the visitor on the story
-            (scroll locked) until every frame is in, then invites the swipe; fades on first scroll. */}
+        {/* Loading veil — feature showcase while frames preload; fades on first scroll. */}
         <div
           ref={loaderRef}
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center px-6"
-          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease' }}
+          className="pointer-events-none absolute inset-0"
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 clamp(24px, 6vw, 80px)' }}
         >
-          <div style={{ maxWidth: 600, textAlign: 'center' }}>
-            <div
-              className="m-mono"
-              style={{ fontSize: 10, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginBottom: 22 }}
-            >
-              Set na ’yan
+          <div style={{ width: '100%', maxWidth: 1100, display: 'flex', alignItems: 'center', gap: 'clamp(32px, 6vw, 80px)' }}>
+
+            {/* Left — copy + chips */}
+            <div style={{ flex: '1 1 0', minWidth: 0 }}>
+              <div className="m-mono" style={{ fontSize: 10, letterSpacing: '.26em', textTransform: 'uppercase', color: 'var(--m-orange-3)', marginBottom: 18 }}>
+                {/* Set na ’yan */}
+                Set na{' '}{'’'}yan
+              </div>
+              <p className="m-serif italic" style={{ color: '#1E2229', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', lineHeight: 1.22, margin: '0 0 8px' }}>
+                Everything for<br />your wedding.
+              </p>
+              <p style={{ color: 'rgba(30,34,41,.55)', fontSize: 'clamp(.9rem, 2vw, 1rem)', lineHeight: 1.5, margin: '0 0 28px' }}>
+                All in one place — beautifully organised.
+              </p>
+
+              {/* Feature chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 8px', marginBottom: 32 }}>
+                {[
+                  ['Online Planner', '#7C9EBF'],
+                  ['Checklist', '#9B7BB8'],
+                  ['Budget Tracker', '#7BAA80'],
+                  ['Guest List', '#C97B6E'],
+                  ['Seat Plan', '#7C9EBF'],
+                  ['Mood Board', '#B87BA0'],
+                  ['Save the Date', '#C9A96E'],
+                  ['RSVP', '#7BAA80'],
+                  ['Event Website', '#9B7BB8'],
+                  ['Editorial', '#C97B6E'],
+                  ['Papic', '#7C9EBF'],
+                  ['Panood', '#B87BA0'],
+                  ['Kwento', '#C9A96E'],
+                  ['Pakanta', '#9B7BB8'],
+                  ['and more →', '#8B8B8B'],
+                ].map(([label, color]) => (
+                  <span
+                    key={label}
+                    style={{
+                      display: 'inline-block',
+                      padding: '6px 14px',
+                      borderRadius: 999,
+                      border: `1px solid ${color}55`,
+                      background: `${color}18`,
+                      color,
+                      fontSize: 13,
+                      lineHeight: 1,
+                      whiteSpace: 'nowrap',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+
+              {/* Progress */}
+              <div style={{ height: 2, maxWidth: 200, borderRadius: 2, background: 'rgba(30,34,41,.12)', overflow: 'hidden', marginBottom: 12 }}>
+                <div ref={barRef} style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }} />
+              </div>
+              <div ref={statusRef} className="m-mono" style={{ fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(30,34,41,.45)', transition: 'color .5s ease, opacity .5s ease' }}>
+                Setting it up for you…
+              </div>
             </div>
-            <p
-              className="m-serif italic"
-              style={{ color: '#1E2229', fontSize: 'clamp(1.4rem, 4.4vw, 2.15rem)', lineHeight: 1.32, margin: '0 auto 14px', maxWidth: 560 }}
-            >
-              Ever felt buried by wedding planning — hundreds, even thousands of services to sift through, only to find most don’t fit your wedding?
-            </p>
-            <p style={{ color: 'rgba(30,34,41,.6)', fontSize: 'clamp(.95rem, 2.6vw, 1.05rem)', lineHeight: 1.5, margin: '0 auto 30px', maxWidth: 440 }}>
-              We’re setting it all up for you.
-            </p>
-            <div style={{ height: 2, maxWidth: 220, margin: '0 auto 16px', borderRadius: 2, background: 'rgba(30,34,41,.12)', overflow: 'hidden' }}>
-              <div
-                ref={barRef}
-                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
-              />
+
+            {/* Right — phone illustration (hidden on small screens) */}
+            <div className="hidden sm:flex" style={{ flex: '0 0 auto', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="220" height="440" viewBox="0 0 220 440" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 24px 48px rgba(30,34,41,.14))' }}>
+                {/* Phone body */}
+                <rect x="1" y="1" width="218" height="438" rx="30" fill="#1E2229" />
+                <rect x="6" y="6" width="208" height="428" rx="26" fill="#F0EDE8" />
+                {/* Notch */}
+                <rect x="75" y="14" width="70" height="14" rx="7" fill="#1E2229" />
+                {/* Screen */}
+                <rect x="10" y="36" width="200" height="388" rx="20" fill="#FFFFFF" />
+                {/* Header bar */}
+                <rect x="10" y="36" width="200" height="46" rx="0" fill="#1E2229" />
+                <rect x="10" y="36" width="200" height="10" rx="0" fill="#1E2229" />
+                <text x="22" y="67" fill="#C9A96E" fontFamily="monospace" fontSize="10" letterSpacing="2" fontWeight="600">SETNAYAN</text>
+                {/* Avatar */}
+                <circle cx="188" cy="59" r="13" fill="#C9A96E" />
+                <text x="183" y="64" fill="white" fontFamily="sans-serif" fontSize="12" fontWeight="700">A</text>
+                {/* Welcome card */}
+                <rect x="18" y="90" width="184" height="52" rx="8" fill="#F9F5EF" stroke="#E8D5B0" strokeWidth="1" />
+                <text x="28" y="111" fill="#1E2229" fontFamily="sans-serif" fontSize="10" fontWeight="600">Welcome back, Ana</text>
+                <text x="28" y="128" fill="rgba(30,34,41,0.5)" fontFamily="sans-serif" fontSize="9">Your wedding: 127 days away</text>
+                {/* Service tiles 3x2 */}
+                {[
+                  [0, 0, '#E8F0FF', 'Planner'],
+                  [1, 0, '#FFF0E8', 'Budget'],
+                  [2, 0, '#E8FFE8', 'Guests'],
+                  [0, 1, '#FFE8F0', 'Seat Plan'],
+                  [1, 1, '#F0E8FF', 'Papic'],
+                  [2, 1, '#FFFFE8', 'Mood Board'],
+                ].map(([col, row, bg, name]) => {
+                  const tx = 18 + (Number(col)) * 64;
+                  const ty = 152 + (Number(row)) * 70;
+                  return (
+                    <g key={String(name)}>
+                      <rect x={tx} y={ty} width="58" height="60" rx="8" fill={String(bg)} />
+                      <text x={tx + 8} y={ty + 36} fill="#1E2229" fontFamily="sans-serif" fontSize="9">{String(name)}</text>
+                    </g>
+                  );
+                })}
+                {/* Bottom nav */}
+                <rect x="10" y="390" width="200" height="34" fill="#1E2229" />
+                <circle cx="38" cy="405" r="3" fill="#C9A96E" />
+              </svg>
             </div>
-            <div
-              ref={statusRef}
-              className="m-mono"
-              style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(30,34,41,.5)', transition: 'color .5s ease, opacity .5s ease' }}
-            >
-              Setting it up for you…
-            </div>
+
           </div>
         </div>
       </div>

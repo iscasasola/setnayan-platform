@@ -315,9 +315,9 @@ export default async function EventLayout({ children, params }: Props) {
             room on routes where <CustomerSectionSubnav> docks a second floating
             pill above the bottom nav (see globals.css `html.subnav-docked`). */}
         <div data-shell-main className="pb-20 lg:pb-0">
-          <main className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
             {children}
-          </main>
+          </div>
         </div>
       </SidebarShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the

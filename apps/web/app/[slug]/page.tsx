@@ -867,6 +867,10 @@ type EventRow = {
   monogram_style?: string | null;
   monogram_font_key?: string | null;
   monogram_frame_key?: string | null;
+  // Couple's explicit monogram-text override (events.monogram_text, already in
+  // the SELECT) — the Save-the-Date film's monogram letters when set, else
+  // derived from the display name. See lib/save-the-date-content.ts (P2).
+  monogram_text?: string | null;
   // The couple's bespoke mark SVG (uploaded outranks AI/Cipher) — pressed into
   // the Save-the-Date reveal's wax seal (0024 §3). Sanitized at generation time.
   monogram_custom_svg?: string | null;
@@ -1280,6 +1284,11 @@ function PublicLanding({
           loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
           film={stdFilm}
+          monogramText={event.monogram_text}
+          musicUrl={bgMusicUrl}
+          galleryUrls={
+            ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+          }
         />
       ) : (
         <>
@@ -1807,6 +1816,11 @@ function InvitationSite({
             loveStory={event.love_story}
             showTextHero={false}
             film={stdFilm}
+            monogramText={event.monogram_text}
+            musicUrl={bgMusicUrl}
+            galleryUrls={
+              ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+            }
           />
         ) : (
           <>

@@ -23,21 +23,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Music, Pause, Play, RotateCcw, VolumeX } from 'lucide-react';
-
-export type StdFilmContent = {
-  monogram: string;
-  names: string;
-  dateBig: string | null;
-  dateLabel: string | null;
-  venueName?: string | null;
-  venueCity?: string | null;
-  storyTeaser?: string | null;
-  websiteUrl?: string | null;
-  gcalUrl?: string | null;
-  icsHref?: string | null;
-  icsFilename: string;
-  musicUrl?: string | null;
-};
+import { type StdFilmContent } from '@/lib/save-the-date-content';
 
 type Slide = { key: string; node: React.ReactNode; dur: number };
 
@@ -114,6 +100,30 @@ export function SaveTheDateFilm({ content }: { content: StdFilmContent }) {
         <div className="flex max-w-[15rem] flex-col items-center gap-2">
           <p className={LABEL}>Our story</p>
           <p className="font-display text-xl italic leading-snug text-ink/80">“{content.storyTeaser}”</p>
+        </div>
+      ),
+    });
+  }
+  if (content.gallery && content.gallery.length > 0) {
+    slides.push({
+      key: 'gallery',
+      dur: 4600,
+      node: (
+        <div className="flex w-full flex-col items-center gap-3">
+          <p className={LABEL}>Until then</p>
+          <div className="grid w-full max-w-[15rem] grid-cols-2 gap-1.5">
+            {content.gallery.slice(0, 6).map((src, i) => (
+              // Presigned URL — raw <img> (next/image would cache the expiry).
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={src}
+                alt=""
+                loading="lazy"
+                className="aspect-square w-full rounded-lg object-cover"
+              />
+            ))}
+          </div>
         </div>
       ),
     });

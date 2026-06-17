@@ -1,0 +1,135 @@
+/**
+ * resolveStdFilmContent — the Save-the-Date film's auto-fill resolver
+ * (build plan P2 · 0024_Save_the_Date_Build_Plan_2026-06-17.md).
+ *
+ * Assembles a StdFilmContent from the couple's EXISTING data, no new schema:
+ *   monogram (their explicit override or derived from the names) · names ·
+ *   the finalized date · the single venue · a love-story teaser ·
+ *   the couple's site music as the film's soundtrack ·
+ *   their curated photos as the closing gallery beat ·
+ *   the wedding calendar links.
+ *
+ * Every field is optional at the edges — a missing one just drops its beat
+ * (the couple builder, P4, later surfaces the gaps as "add your touches",
+ * and supplies the split ceremony/reception venue + Pakanta song + video,
+ * which need their own columns).
+ *
+ * Pure + isomorphic: the server page resolves the presigned media URLs (music,
+ * photos) and passes them in; this only shapes them — so it's unit-testable and
+ * safe to import from the client film component.
+ */
+import { formatEventDate } from '@/lib/events';
+import {
+  googleCalendarUrl,
+  buildWeddingIcs,
+  icsDataHref,
+} from '@/lib/calendar-links';
+
+/** The shape the SaveTheDateFilm renders. The single source of truth lives here
+ *  (the component imports the type) so the resolver and the view never drift. */
+export type StdFilmContent = {
+  monogram: string;
+  names: string;
+  /** Compact date for the big card (e.g. "06.12.27"); null when no date yet. */
+  dateBig: string | null;
+  /** Long-form date label (e.g. "June 12, 2027"); null when no date yet. */
+  dateLabel: string | null;
+  venueName?: string | null;
+  venueCity?: string | null;
+  storyTeaser?: string | null;
+  websiteUrl?: string | null;
+  gcalUrl?: string | null;
+  icsHref?: string | null;
+  icsFilename: string;
+  /** Presigned soundtrack URL (the couple's site music); null → silent film. */
+  musicUrl?: string | null;
+  /** Presigned photo URLs for the closing gallery beat; empty → no gallery beat. */
+  gallery?: string[];
+};
+
+export type ResolveStdFilmInput = {
+  displayName: string;
+  /** The couple's explicit monogram text (resolveMonogram().text); else derived. */
+  monogramText?: string | null;
+  dateIso: string | null;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  /** Raw events.love_story (unknown shape) — teaser extracted + truncated. */
+  loveStory?: unknown;
+  /** "See details" target; null → the button hides (P4 builder can set it). */
+  websiteUrl?: string | null;
+  publicId: string;
+  /** Presigned soundtrack URL (the couple's site music) — resolved server-side. */
+  musicUrl?: string | null;
+  /** Presigned photo URLs for the closing gallery — resolved server-side. */
+  galleryUrls?: string[];
+};
+
+const MONO_SPLIT = /\s*[&+]\s*|\s+and\s+/i;
+const MAX_GALLERY = 6;
+
+/** Two-initial monogram from a couple's display name, e.g. "Maria & Jose" → "M & J". */
+export function deriveMonogram(name: string): string {
+  const parts = name
+    .split(MONO_SPLIT)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]!.charAt(0)} & ${parts[1]!.charAt(0)}`.toUpperCase();
+  }
+  return (name.trim().charAt(0) || '✦').toUpperCase();
+}
+
+/** Compact "MM.DD.YY" for the date card; null on a missing/invalid date. */
+export function shortDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}.${dd}.${String(d.getFullYear()).slice(-2)}`;
+}
+
+/** A one-line love-story teaser (≤120 chars, ellipsized); null when absent. */
+function storyTeaserOf(loveStory: unknown): string | null {
+  if (typeof loveStory !== 'string') return null;
+  const s = loveStory.trim();
+  if (!s) return null;
+  return s.length > 120 ? s.slice(0, 118).trimEnd() + '…' : s;
+}
+
+export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmContent {
+  const monogram = (
+    input.monogramText?.trim() || deriveMonogram(input.displayName)
+  ).slice(0, 12);
+  const location =
+    [input.venueName, input.venueAddress].filter(Boolean).join(', ') || null;
+  const gcalUrl = googleCalendarUrl({
+    title: input.displayName,
+    dateIso: input.dateIso,
+    location,
+  });
+  const ics = buildWeddingIcs({
+    title: input.displayName,
+    dateIso: input.dateIso,
+    location,
+    uid: `wedding-${input.publicId}@setnayan.com`,
+  });
+  return {
+    monogram,
+    names: input.displayName,
+    dateBig: shortDate(input.dateIso),
+    dateLabel: input.dateIso ? formatEventDate(input.dateIso) : null,
+    venueName: input.venueName ?? null,
+    venueCity: input.venueAddress ?? null,
+    storyTeaser: storyTeaserOf(input.loveStory),
+    websiteUrl: input.websiteUrl ?? null,
+    gcalUrl,
+    icsHref: ics ? icsDataHref(ics) : null,
+    icsFilename: `${input.displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,
+    musicUrl: input.musicUrl ?? null,
+    gallery: (input.galleryUrls ?? [])
+      .filter((u): u is string => typeof u === 'string' && u.length > 0)
+      .slice(0, MAX_GALLERY),
+  };
+}

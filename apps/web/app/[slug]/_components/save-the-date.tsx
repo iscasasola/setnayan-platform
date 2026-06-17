@@ -18,27 +18,10 @@ import {
   buildWeddingIcs,
   icsDataHref,
 } from '@/lib/calendar-links';
+import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
-import { SaveTheDateFilm, type StdFilmContent } from './save-the-date-film';
-
-function deriveMonogram(name: string): string {
-  const parts = name
-    .split(/\s*[&+]\s*|\s+and\s+/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.length >= 2) return `${parts[0]!.charAt(0)} & ${parts[1]!.charAt(0)}`.toUpperCase();
-  return (name.trim().charAt(0) || '✦').toUpperCase();
-}
-
-function shortDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${mm}.${dd}.${String(d.getFullYear()).slice(-2)}`;
-}
+import { SaveTheDateFilm } from './save-the-date-film';
 
 type Props = {
   displayName: string;
@@ -57,6 +40,12 @@ type Props = {
   showTextHero: boolean;
   /** When true, render the auto-playing scrubbable "film" instead of the static section (PR4 P1, flag-gated). */
   film?: boolean;
+  /** Couple's explicit monogram text (resolveMonogram().text) — film only (P2). */
+  monogramText?: string | null;
+  /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
+  musicUrl?: string | null;
+  /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
+  galleryUrls?: string[];
 };
 
 export function SaveTheDateView({
@@ -68,6 +57,9 @@ export function SaveTheDateView({
   loveStory,
   showTextHero,
   film = false,
+  monogramText,
+  musicUrl,
+  galleryUrls,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -78,28 +70,23 @@ export function SaveTheDateView({
     uid: `wedding-${publicId}@setnayan.com`,
   });
 
-  // PR4 P1 — the auto-playing scrubbable film (flag-gated). Reuses the same
-  // event data; the couple's builder (P4) later supplies split venues + media.
+  // PR4 P1/P2 — the auto-playing scrubbable film (flag-gated). The resolver
+  // (lib/save-the-date-content) auto-fills from the couple's existing data:
+  // their monogram, names, date, venue, love story, the site music as the
+  // soundtrack, and curated photos as the closing gallery. The builder (P4)
+  // later supplies split venues, the Pakanta song, and video.
   if (film) {
-    const content: StdFilmContent = {
-      monogram: deriveMonogram(displayName),
-      names: displayName,
-      dateBig: shortDate(dateIso),
-      dateLabel: dateIso ? formatEventDate(dateIso) : null,
+    const content = resolveStdFilmContent({
+      displayName,
+      monogramText,
+      dateIso,
       venueName,
-      venueCity: venueAddress,
-      storyTeaser:
-        typeof loveStory === 'string' && loveStory.trim()
-          ? loveStory.length > 120
-            ? loveStory.slice(0, 118).trimEnd() + '…'
-            : loveStory.trim()
-          : null,
-      websiteUrl: null,
-      gcalUrl,
-      icsHref: ics ? icsDataHref(ics) : null,
-      icsFilename: `${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,
-      musicUrl: null,
-    };
+      venueAddress,
+      loveStory,
+      publicId,
+      musicUrl,
+      galleryUrls,
+    });
     return (
       <section className="py-2">
         <SaveTheDateFilm content={content} />

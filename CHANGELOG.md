@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(nav): unify customer desktop sidebar to match 5-tab mobile nav
+
+**Commit `7dacbe70` · PR [#1641](https://github.com/iscasasola/setnayan-platform/pull/1641)**
+
+Desktop sidebar previously showed 6 journey groups (Setnayan · Plan · Book · Design · Day-of · After) while the mobile bottom nav showed 5 flat tabs (Home · Guests · Explore · Studio · Budget) — a completely different IA at every breakpoint.
+
+- **`customer-nav-config.ts`** — rewritten from 6 journey groups to one header-less root group with 5 items matching the mobile tabs. Each item expands to its sub-pages: Home → Checklist/Schedule/Messages/Contracts; Guests → 5 journey stages + Event QR; Explore → leaf; Studio → Website/Mood Board/Monogram/Live Wall; Budget → Activity/Disputes.
+- **`sidebar-section.tsx`** — added header-less early return: when `group.label === ''`, renders just the items `<ul>` with no heading button.
+- **`customer-sidebar.tsx`** — updated `SIDEBAR_SLOT_KEYS` to 5 top-level tab keys; moved all sub-page items (schedule, messages, contracts, event-qr, website, mood-board, monogram, live, activity, disputes) into `CHILD_SLOT_KEYS`.
+
+SPEC IMPACT: Customer nav IA change (owner 2026-06-17 — unify to 5 tabs). No schema change. Logged in corpus `DECISION_LOG.md`. Memory `[[project_setnayan_nav_icon_menu_registry]]` updated.
+
+---
+
 ## 2026-06-17 · feat(marketing): make /our-story Google-OAuth-acceptable (explains the app's purpose) + privacy hygiene
 
 A previous Google OAuth verification attempt was rejected — *"Your home page does not explain the purpose of your app."* The homepage is a cinematic scroll-scrub video whose plain explanation is gated behind a "tap to learn more" reveal, so a reviewer sees a video + poetry, never a clear statement of what the app does. **Owner decided to KEEP the YouTube scopes and pursue verification** (vs. the alternative of dropping the unused scopes — see the heads-up below), and to satisfy the home-page check on **`/our-story`** rather than clutter the front-page hero (Google checks whatever URL is set as the consent screen's "Application home page", which can be a subpage).

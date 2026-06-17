@@ -4,6 +4,17 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): close the face auto-tag loop end-to-end (PR #1616) — DORMANT
+
+The end-to-end Papic face loop the audit found broken. Shipped in #1616 (its CHANGELOG entry was deferred to dodge a merge-conflict deadlock — this is that follow-up). Everything is **dormant** until the owner hosts the face-api weights + `face-api.js` on R2 and sets `NEXT_PUBLIC_FACE_MODEL_URL` (`OWNER_ACTIONS.md`); until then every path is a clean no-op and photos still land untagged-still-delivered.
+
+- **On-device embedder** — `lib/face-embed.ts`: `embedSingleFace` (selfie → 128-d descriptor) + `embedFaces` (photo → one per face), dlib via face-api.js. The RSVP selfie now stores `guest_face_enrollments.face_vector`. face-api.js is **runtime-loaded as a UMD from the R2 host** (not bundled) so it stays off `next build` — bundling it OOM-killed Vercel's 8 GB build machine (#1258); the lib is not an npm dep.
+- **Capture → matcher** — the matcher `autoTagCapture` (#1608) had **zero callers**. Both cameras now embed the just-shot frame and hand the vectors to it: crew seat via the new `autoTagSeatCapture` action (ownership-checked, `papic_photos`); guest camera appends `face_vectors` to its POST → `autoTagCapture` in `after()` (`papic_guest_captures`). Guest-camera shots became taggable for the first time.
+- **Register-if-not-yet** — cookie-auth `enrollGuestFace` + `DayOfFaceEnroll` card. The live day-of page prompts a guest with no active enrollment; the guest camera shows a dismissible in-camera fallback (swaps the rear stream for the front-camera enroll, then resumes). Owner-chosen placement.
+- **Guest-camera QR fallback** — new `papic_tag_guest_capture` SECURITY DEFINER RPC (migration `20270111577244`) + `/api/papic/guest-tag` + scan-to-tag UI ported from the seat camera. Completes "QR scan is the fallback" across both cameras.
+
+**SPEC IMPACT:** Advances iteration 0012 toward the spec's confidence-banded auto-face-tagging; the capture→matcher wire + guest-camera tag path (both audited as missing) now exist. Activates only on owner R2 hosting. QR scan is the manual fallback; face auto-tag is the primary path.
+
 ## 2026-06-17 · feat(wax-seal): WebGL2 renderer with height-field normal mapping (PR #1683)
 
 Upgrades the wax-seal painter from a Canvas-2D 3-pixel-shifted-copy emboss to a full WebGL2 Phong-lit pipeline.

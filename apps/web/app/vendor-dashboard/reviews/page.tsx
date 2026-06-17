@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { Star, Reply, Heart } from 'lucide-react';
+import { Star, Reply, Pencil, Flag, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
@@ -9,12 +9,14 @@ import {
   fetchReviewStats,
   formatStarRating,
   REVIEW_AXIS_LABEL,
+  VENDOR_REPLY_MAX_CHARS,
+  REVIEW_FLAG_REASON_LABEL,
   type ReviewAxis,
   type ReviewWithCouple,
   type ReviewStatsRow,
 } from '@/lib/reviews';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { postVendorReply } from './actions';
+import { postVendorReply, submitFlagAsFake } from './actions';
 
 export const metadata = { title: 'Reviews · Vendor' };
 
@@ -55,7 +57,7 @@ export default async function VendorReviewsPage() {
         <p className="max-w-prose text-base text-ink/65">
           Reviews from real Setnayan couples post-event. They&rsquo;re permanent per the
           Vendor Agreement &sect;&nbsp;3.10 — they can&rsquo;t be hidden, but you can
-          publicly reply once per review.
+          reply publicly and edit your response anytime.
         </p>
         {recommendingCouples > 0 ? (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-3 py-1 text-xs font-medium text-mulberry">
@@ -77,7 +79,10 @@ export default async function VendorReviewsPage() {
         <ul className="mt-8 space-y-4">
           {reviews.map((r) => (
             <li key={r.review_id}>
-              <VendorReviewCard review={r} />
+              <VendorReviewCard
+                review={r}
+                vendorName={profile.business_name ?? 'Your business'}
+              />
             </li>
           ))}
         </ul>
@@ -174,7 +179,13 @@ function StatsOverview({
   );
 }
 
-function VendorReviewCard({ review }: { review: ReviewWithCouple }) {
+function VendorReviewCard({
+  review,
+  vendorName,
+}: {
+  review: ReviewWithCouple;
+  vendorName: string;
+}) {
   const author =
     review.couple_display_name && review.couple_display_name.trim().length > 0
       ? review.couple_display_name
@@ -193,9 +204,12 @@ function VendorReviewCard({ review }: { review: ReviewWithCouple }) {
           <StarRow value={review.rating_overall} />
           <span className="text-sm font-medium text-ink">{author}</span>
         </div>
-        <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-          {dateLabel}
-        </time>
+        <div className="flex items-center gap-3">
+          <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+            {dateLabel}
+          </time>
+          <FlagForm reviewId={review.review_id} />
+        </div>
       </header>
 
       {review.body ? (
@@ -212,7 +226,7 @@ function VendorReviewCard({ review }: { review: ReviewWithCouple }) {
       </dl>
 
       {hasReply ? (
-        <ExistingReply review={review} />
+        <ExistingReplySection review={review} vendorName={vendorName} />
       ) : (
         <ReplyForm reviewId={review.review_id} />
       )}
@@ -220,7 +234,18 @@ function VendorReviewCard({ review }: { review: ReviewWithCouple }) {
   );
 }
 
-function ExistingReply({ review }: { review: ReviewWithCouple }) {
+/**
+ * Shows the existing reply with its timestamp and an inline "Edit response"
+ * form below. Since the DB trigger now allows edits, we render both the
+ * current reply and the edit form together.
+ */
+function ExistingReplySection({
+  review,
+  vendorName,
+}: {
+  review: ReviewWithCouple;
+  vendorName: string;
+}) {
   const repliedAt = review.vendor_reply_at
     ? new Date(review.vendor_reply_at).toLocaleDateString('en-PH', {
         year: 'numeric',
@@ -228,12 +253,64 @@ function ExistingReply({ review }: { review: ReviewWithCouple }) {
         day: 'numeric',
       })
     : null;
+
   return (
-    <div className="rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
-        Your reply {repliedAt ? `· ${repliedAt}` : null} · locked
-      </p>
-      <p className="mt-1 whitespace-pre-line text-sm text-ink/80">{review.vendor_reply}</p>
+    <div className="space-y-3">
+      {/* Current reply display */}
+      <div className="rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+          Response from {vendorName}
+          {repliedAt ? ` · ${repliedAt}` : null}
+        </p>
+        <p className="mt-1 whitespace-pre-line text-sm text-ink/80">{review.vendor_reply}</p>
+      </div>
+
+      {/* Inline edit form */}
+      <details className="group">
+        <summary className="inline-flex cursor-pointer select-none list-none items-center gap-1.5 text-[11px] font-medium text-ink/55 hover:text-ink/80">
+          <Pencil
+            aria-hidden
+            className="h-3.5 w-3.5 group-open:text-mulberry"
+            strokeWidth={2}
+          />
+          <span className="group-open:text-mulberry">Edit response</span>
+        </summary>
+        <form
+          action={postVendorReply}
+          className="mt-2 space-y-2 rounded-lg border border-ink/10 p-3"
+        >
+          <input type="hidden" name="review_id" value={review.review_id} />
+          <label
+            htmlFor={`edit_reply_${review.review_id}`}
+            className="block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+          >
+            Updated public response
+          </label>
+          <textarea
+            id={`edit_reply_${review.review_id}`}
+            name="reply"
+            required
+            rows={3}
+            maxLength={VENDOR_REPLY_MAX_CHARS}
+            defaultValue={review.vendor_reply ?? ''}
+            placeholder="Edit your public response…"
+            className="input-field min-h-[80px] py-2"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-ink/50">
+              Up to {VENDOR_REPLY_MAX_CHARS} characters. Visible to all couples on
+              your public profile.
+            </p>
+            <SubmitButton
+              className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+              pendingLabel="Saving…"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+              Save
+            </SubmitButton>
+          </div>
+        </form>
+      </details>
     </div>
   );
 }
@@ -253,13 +330,13 @@ function ReplyForm({ reviewId }: { reviewId: string }) {
         name="reply"
         required
         rows={3}
-        maxLength={2000}
-        placeholder="Reply in a single, public message. You can only do this once."
+        maxLength={VENDOR_REPLY_MAX_CHARS}
+        placeholder="Write a thoughtful public response visible to all couples on your profile…"
         className="input-field min-h-[80px] py-2"
       />
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-ink/50">
-          One-time reply, anchored under the review. Up to 2,000 characters.
+          Up to {VENDOR_REPLY_MAX_CHARS} characters. You can edit this later.
         </p>
         <SubmitButton
           className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
@@ -270,6 +347,60 @@ function ReplyForm({ reviewId }: { reviewId: string }) {
         </SubmitButton>
       </div>
     </form>
+  );
+}
+
+/**
+ * Flag-as-fake button that expands to a reason selector + submit.
+ * Uses <details> to avoid any client-side JavaScript for the toggle.
+ */
+function FlagForm({ reviewId }: { reviewId: string }) {
+  return (
+    <details className="group relative">
+      <summary
+        title="Flag review as fake"
+        className="inline-flex cursor-pointer select-none list-none items-center gap-1 text-[11px] text-ink/40 hover:text-rose-600"
+      >
+        <Flag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <span className="sr-only">Flag as fake</span>
+      </summary>
+      <div className="absolute right-0 top-6 z-10 w-72 rounded-xl border border-ink/10 bg-white p-3 shadow-lg">
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Flag review as fake
+        </p>
+        <form action={submitFlagAsFake} className="space-y-2">
+          <input type="hidden" name="review_id" value={reviewId} />
+          <select
+            name="reason"
+            required
+            className="input-field w-full py-1.5 text-xs"
+            defaultValue=""
+          >
+            <option value="" disabled>
+              Select a reason…
+            </option>
+            {(Object.entries(REVIEW_FLAG_REASON_LABEL) as Array<[string, string]>).map(
+              ([key, label]) => (
+                <option key={key} value={`${key}: ${label}`}>
+                  {label}
+                </option>
+              ),
+            )}
+          </select>
+          <p className="text-[10px] text-ink/45">
+            Setnayan HQ will review this within 48 hours. You can only flag a
+            review once.
+          </p>
+          <SubmitButton
+            className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-2 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+            pendingLabel="Flagging…"
+          >
+            <Flag className="h-3.5 w-3.5" strokeWidth={2} />
+            Submit flag
+          </SubmitButton>
+        </form>
+      </div>
+    </details>
   );
 }
 

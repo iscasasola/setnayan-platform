@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(0011 Panood): broadcast lifecycle actions + local-switcher runbook (P1 web half)
+
+Owner locked the upgraded Panood as a **NATIVE on-device switcher** (cameras → a director iPad over local WiFi → composite on-device → RTMP to the couple's YouTube → embed; ₱0 cloud — see DECISION_LOG). This ships the half I can build + verify (the web control plane) and hands off the native plugin (which can't be compiled here — it needs Xcode/Android Studio + real devices).
+
+- **`panood/setup/actions.ts`** — three server actions on the shipped foundation (#1645): `createBroadcast(eventId)` (create/reuse the YouTube liveBroadcast+liveStream on the couple's channel via `lib/panood-youtube.ts`, persist to `panood_broadcasts`, return the RTMP `ingestionUrl` + `streamKey` for the on-device encoder; idempotent — reuses an active broadcast; surfaces `channel_not_live_enabled`), `goLiveBroadcast` (transition→live, treat already-live as success, write `events.panood_watch_url` so the existing event-page embed lights up), `endBroadcast` (transition→complete, clear the embed). Gated by `requireHostMembership`; paid-add-on gate flagged TODO(GA).
+- **`apps/mobile/PANOOD_LOCAL_SWITCHER_RUNBOOK.md` (NEW)** — the native-build handoff: the lean split (web control plane vs the native hot path), the Capacitor plugin TS contract (`PanoodBroadcaster`), the P1 iOS (HaishinKit/Swift) + Android (RootEncoder/Kotlin) plugin spec, the web wiring (add `@capacitor/core`, the director page flow), the build+test loop, and the device/network kit lock (iPad director, dedicated 5GHz router, AC power).
+
+Also: **applied the #1645 foundation migration `20270110320012_panood_broadcasts` to prod** (table live, RLS on, ledger row recorded) — closing that PR's owner-action. `tsc` 0 · `next lint` clean.
+
+P1 is single-camera (the director device's own camera) → proves the native RTMP path end-to-end into the shipped YouTube + embed pipeline. Multi-cam WebRTC + on-device compositing = P2/P3. The native plugin build/test is the owner's (or a native dev's) Xcode loop.
+
+SPEC IMPACT: iteration 0011 — Panood upgraded tier = native on-device multi-cam switcher (₱0 cloud); the lifecycle actions + runbook are the P1 web half + native handoff. Logged in corpus `DECISION_LOG.md`.
+
 ## 2026-06-17 · feat(0011 Panood): upgraded YouTube live broadcast — foundation (step 1/3)
 
 Owner: build the "upgraded" Panood so Setnayan creates + runs the live broadcast on the couple's OWN YouTube channel and it auto-embeds on the event page (vs. the free tier, where they paste a YouTube link). This genuinely exercises the `youtube` scope — which makes it demo-able for Google verification (the free embed uses no scopes). Designed via a map+API-research+synthesis workflow (build plan in the session transcript). Backend foundation only here — no user-facing change yet:

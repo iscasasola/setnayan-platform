@@ -45,6 +45,17 @@ type Props = {
 };
 
 export function SidebarSection({ group, pathname: _pathname, children }: Props) {
+  // Header-less group (label === '') — render just the items list with no
+  // heading button. Used by the customer unified 5-tab layout which uses a
+  // single root group. Skips the collapsible toggle; items always render.
+  if (!group.label) {
+    return (
+      <section className="px-2 pb-2">
+        <ul className="flex flex-col gap-0.5">{children}</ul>
+      </section>
+    );
+  }
+
   // pathname is part of the public Props contract so callers can pass it
   // alongside the group without restructuring; the child <SidebarItem>s
   // are the only consumers today. Reserved for future per-section active

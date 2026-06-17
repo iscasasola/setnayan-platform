@@ -10,8 +10,34 @@ import {
   ShieldCheck,
   Sparkles,
   X,
+  ScanLine,
+  Users,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
+import { makeQrDetector } from '@/lib/qr-scan';
+
+const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+
+/** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
+ *  tag miss — these just steer the next scan. */
+function tagErrorMessage(error: string): string {
+  switch (error) {
+    case 'unrecognized':
+      return 'That’s not a guest or table QR — point at a place card or table sign.';
+    case 'guest_not_found':
+      return 'That guest QR isn’t from this wedding.';
+    case 'table_not_found':
+      return 'That table sign isn’t from this wedding.';
+    case 'cap_reached':
+      return `This photo already has ${TAG_CAP} tags — that’s the max.`;
+    case 'not_your_photo':
+      return 'You can only tag your own photos.';
+    case 'unavailable':
+      return 'Tagging isn’t available right now — your photo still saved.';
+    default:
+      return 'Couldn’t tag that — try again.';
+  }
+}
 
 // Papic · guest capture (client)
 //
@@ -83,6 +109,17 @@ export function PapicGuestCapture({
   const [enrolling, setEnrolling] = useState(false);
   const [enrolled, setEnrolled] = useState(false);
   const [promptDismissed, setPromptDismissed] = useState(false);
+
+  // Scan-to-tag (QR fallback) — after a shot, the guest can scan a place-card or
+  // table QR to mark who's in it, so it lands in that guest's "Photos of you".
+  // Mirrors the seat camera, on the same rear stream.
+  const [lastCaptureId, setLastCaptureId] = useState<string | null>(null);
+  const [tagging, setTagging] = useState(false);
+  const [tagCount, setTagCount] = useState(0);
+  const [taggedNames, setTaggedNames] = useState<string[]>([]);
+  const [tagNotice, setTagNotice] = useState<string | null>(null);
+  const tagBusyRef = useRef(false);
+  const lastScanRef = useRef<string>('');
 
   const exhausted = remaining <= 0;
 
@@ -219,6 +256,13 @@ export function PapicGuestCapture({
         setKwentoText('');
         setKwentoPhase('idle');
         setKwentoError(null);
+        // Arm scan-to-tag for the shot just saved (fresh tag state per photo).
+        setLastCaptureId(json.captureId);
+        setTagging(false);
+        setTagCount(0);
+        setTaggedNames([]);
+        setTagNotice(null);
+        lastScanRef.current = '';
       }
     } catch {
       setSaveError("That shot didn't save — check your signal and try again.");
@@ -226,6 +270,107 @@ export function PapicGuestCapture({
       setBusy(false);
     }
   }, [busy, ready, exhausted, accepted, blocked]);
+
+  // ---- scan-to-tag ---------------------------------------------------------
+
+  const startTagging = useCallback(() => {
+    if (!lastCaptureId) return;
+    lastScanRef.current = '';
+    tagBusyRef.current = false;
+    setTagNotice(null);
+    setTagging(true);
+  }, [lastCaptureId]);
+
+  const stopTagging = useCallback(() => setTagging(false), []);
+
+  // Act on one decoded QR: POST it to the guest-tag route (which classifies it
+  // as a guest or table code, confirms the capture is ours, and writes the tag
+  // within this event). The camera keeps running regardless — a miss only
+  // steers the next scan.
+  const handleScan = useCallback(
+    async (raw: string) => {
+      if (!lastCaptureId) return;
+      let r: Record<string, unknown>;
+      try {
+        const res = await fetch('/api/papic/guest-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ captureId: lastCaptureId, scanned: raw }),
+        });
+        r = (await res.json().catch(() => ({ ok: false, error: 'tag_failed' }))) as Record<
+          string,
+          unknown
+        >;
+      } catch {
+        r = { ok: false, error: 'tag_failed' };
+      }
+
+      if (!r.ok) {
+        setTagNotice(tagErrorMessage(String(r.error ?? 'tag_failed')));
+        // Retry a transient error by clearing the debounce so a held code
+        // self-heals; deterministic outcomes stay debounced.
+        if (r.error === 'tag_failed') lastScanRef.current = '';
+        return;
+      }
+
+      if (typeof navigator !== 'undefined') navigator.vibrate?.(60);
+      setTagCount(Number(r.tag_count ?? 0));
+      const names = Array.isArray(r.names) ? (r.names as string[]) : [];
+      const added = Number(r.added ?? 0);
+      if (added > 0) {
+        setTaggedNames((prev) => Array.from(new Set([...prev, ...names])));
+      }
+      if (r.kind === 'table') {
+        const label = typeof r.table_label === 'string' ? r.table_label : 'that table';
+        if (added === 0 && Number(r.total_at_table ?? 0) === 0) {
+          setTagNotice(`No one’s seated at ${label} yet.`);
+        } else if (r.truncated) {
+          setTagNotice(`${label}: added ${added}, but this photo hit the ${TAG_CAP}-tag limit.`);
+        } else if (added === 0) {
+          setTagNotice(`Everyone at ${label} is already tagged.`);
+        } else {
+          setTagNotice(null);
+        }
+      } else {
+        setTagNotice(r.already ? `${names[0] ?? 'They’re'} already tagged.` : null);
+      }
+    },
+    [lastCaptureId],
+  );
+
+  // Decode loop — runs only while the tag sheet is open, on the EXISTING rear
+  // stream. Serial + debounced on the raw payload so a held code fires once.
+  useEffect(() => {
+    if (!tagging) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    void (async () => {
+      const detect = await makeQrDetector();
+      if (!active) return;
+      const loop = async () => {
+        if (!active) return;
+        const video = videoRef.current;
+        if (video && !tagBusyRef.current) {
+          const raw = await detect(video).catch(() => null);
+          if (active && raw && raw !== lastScanRef.current) {
+            lastScanRef.current = raw;
+            tagBusyRef.current = true;
+            try {
+              await handleScan(raw);
+            } finally {
+              tagBusyRef.current = false;
+            }
+          }
+        }
+        if (active) timer = setTimeout(loop, 200);
+      };
+      void loop();
+    })();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [tagging, handleScan]);
 
   const sendKwento = async () => {
     if (!kwentoCaptureId || kwentoPhase === 'sending') return;
@@ -483,7 +628,7 @@ export function PapicGuestCapture({
           <button
             type="button"
             onClick={capture}
-            disabled={busy || !ready || exhausted}
+            disabled={busy || !ready || exhausted || tagging}
             aria-label="Take a photo"
             className="flex items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-40"
             style={{ height: '4.5rem', width: '4.5rem' }}
@@ -500,6 +645,58 @@ export function PapicGuestCapture({
             ? 'Your camera is all used up — enjoy the celebration.'
             : 'Every photo lands in the couple’s gallery in real time.'}
         </p>
+
+        {/* Scan-to-tag — the QR fallback so this shot reaches the right guest's
+            "Photos of you." Offered after a capture; opens a scanner on the live
+            rear stream. Tagging is optional — the photo already landed. */}
+        {lastCaptureId && !tagging ? (
+          <button
+            type="button"
+            onClick={startTagging}
+            className="mx-auto flex items-center justify-center gap-2 rounded-full bg-cream/10 px-4 py-2 text-sm font-medium text-cream transition hover:bg-cream/20"
+          >
+            <ScanLine aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Tag who&rsquo;s in it
+          </button>
+        ) : null}
+
+        {tagging ? (
+          <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
+            <div className="flex items-center justify-between">
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
+                <ScanLine aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
+                Point at a place card or table sign
+              </p>
+              <span className="font-mono text-[11px] text-cream/55">{tagCount}/{TAG_CAP}</span>
+            </div>
+            {taggedNames.length > 0 ? (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tagged guests">
+                {taggedNames.map((n) => (
+                  <li
+                    key={n}
+                    className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs text-cream"
+                  >
+                    <Users aria-hidden className="h-3 w-3" strokeWidth={2} />
+                    {n}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-cream/55">
+                Hold a guest&rsquo;s QR or a table sign in the frame — no tap needed.
+              </p>
+            )}
+            {tagNotice ? <p className="mt-2 text-xs text-cream/80">{tagNotice}</p> : null}
+            <button
+              type="button"
+              onClick={stopTagging}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-cream/15 px-4 py-2 text-sm font-medium text-cream hover:bg-cream/25"
+            >
+              <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+              Done tagging
+            </button>
+          </div>
+        ) : null}
 
         {kwentoCaptureId && kwentoPhase !== 'sent' && kwentoPhase !== 'held' ? (
           <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">

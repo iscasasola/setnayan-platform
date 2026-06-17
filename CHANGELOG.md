@@ -60,6 +60,15 @@ Verify: `tsc --noEmit` exit 0 · `next lint` clean on all five changed/new files
 
 SPEC IMPACT: None (code-internal; no behavior/visual change).
 ## 2026-06-17 · feat(papic): "register your face if you haven't yet" — day-of card + in-camera fallback
+## 2026-06-17 · feat(papic): extend QR-scan tagging to the GUEST camera
+
+The QR fallback (owner-confirmed) now works on **both** cameras. The seat camera already had scan-to-tag (`papic_tag_capture`), but it's keyed on a seat claim token + `auth.uid()` — the guest disposable camera has neither (cookie identity, captures in `papic_guest_captures`), so guest-camera shots were **untaggable by any method** (QR or face). This closes that gap.
+
+- **`supabase/migrations/20270111000000_papic_guest_qr_tagging.sql`** (new) — `papic_tag_guest_capture(p_guest_id, p_capture_id, p_guest_token, p_table_ref)`, a SECURITY DEFINER RPC mirroring the seat RPC's guest/table resolution + 10-tag cap + alphabetized fan-out, but keyed on **guest-capture ownership** (`papic_guest_captures.guest_id = p_guest_id`). Granted to `service_role` only — the route (which validated the guest-session cookie) is the gate; no `auth.uid()` backstop here.
+- **`app/api/papic/guest-tag/route.ts`** (new) — cookie-validated POST that parses the scan (`parsePapicTagScan`) and calls the RPC via the admin client. Returns the RPC's JSONB.
+- **`papic-guest-capture.tsx`** — ports the seat camera's scan-to-tag UX onto the rear stream: a "Tag who's in it" affordance after a capture → a scanner panel (decode loop on the live video, debounced, serial), tagged-name chips, `N/10` counter, friendly miss copy. The shutter is disabled while tagging. Untagged-still-delivered (the photo already landed).
+
+**SPEC IMPACT:** Adds the guest-camera tagging path the audit found entirely missing (the seat RPC hardcoded `source_table='papic_photos'`). Completes the owner-confirmed "QR scan is our fallback" doctrine across both cameras. New migration (additive, idempotent, RLS-neutral). Pairs with the face loop (prior entries) — face auto-tag is the primary path, QR scan the fallback.
 
 The catch for a guest who skipped the optional RSVP selfie: a one-tap enroll surfaced on the live day-of page **and** inside the guest camera, so their candid photos can auto-find them. Owner-chosen placement (day-of card + camera fallback).
 

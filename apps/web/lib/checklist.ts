@@ -494,7 +494,7 @@ export function groupChecklistByPhase(
 }
 
 /**
- * Three-tier budget priority for wedding planning.
+ * Three-tier budget priority — applies to every event type.
  *
  * Tier 1 — Reception venue.
  *   The date anchor and capacity ceiling. Everything else is scheduled around
@@ -505,14 +505,15 @@ export function groupChecklistByPhase(
  *   Together these account for 60–75 % of most PH wedding budgets. Booked
  *   immediately after the date is locked.
  *
- * Tier 3 — The rest of the taxonomy.
- *   Florist · HMUA · Cake · Band/DJ · Photobooth · Lights & Sound ·
- *   Bridal Car · and every other category the couple picks in setup.
+ * Tier 3 — The rest of the event-type taxonomy.
+ *   NOT a hardcoded list. Computed at runtime from the event's taxonomy
+ *   categories (the couple's `interested_categories` picks filtered through
+ *   the active event type's plan-group tree), minus whatever's already in
+ *   Tier 1 + Tier 2. Different event types (debut, birthday, corporate, etc.)
+ *   have different taxonomies → Tier 3 changes accordingly.
+ *   Use `checklistTier3PlanGroups()` to derive it.
  *
  * Paperwork costs are computed separately — see BUDGET_PAPERWORK_TASK_KEYS.
- *
- * The budget health-check reads this priority order when deciding which
- * uncovered categories to flag first.
  */
 export const CHECKLIST_BUDGET_TIERS = {
   /** plan-group IDs for Tier 1. Lock this before any other vendor. */
@@ -520,6 +521,24 @@ export const CHECKLIST_BUDGET_TIERS = {
   /** plan-group IDs for Tier 2 — the 4 Big. */
   tier2: ['ceremony_venue', 'catering', 'coordinator', 'photo_video'] as const,
 } as const;
+
+/** All plan-group IDs explicitly assigned to Tier 1 or Tier 2. */
+const TIER_1_2_IDS = new Set<string>([
+  ...CHECKLIST_BUDGET_TIERS.tier1,
+  ...CHECKLIST_BUDGET_TIERS.tier2,
+]);
+
+/**
+ * Derive Tier 3 plan-group IDs for a specific event — the portion of the
+ * event's taxonomy not already covered by Tier 1 or Tier 2.
+ *
+ * `interestedPlanGroups` is the couple's onboarding picks mapped to plan-group
+ * IDs (via `PICK_TO_GROUP` from `lib/onboarding-availability.ts`). Pass the
+ * full event-type plan-group list when no picks exist (pre-onboarding events).
+ */
+export function checklistTier3PlanGroups(interestedPlanGroups: string[]): string[] {
+  return interestedPlanGroups.filter((id) => !TIER_1_2_IDS.has(id));
+}
 
 /**
  * Template-task keys whose completion involves real out-of-pocket costs —

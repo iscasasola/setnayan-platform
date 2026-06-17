@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(papic): "Download all" — stream the whole gallery as a ZIP (no Google Drive needed)
+
+The bulk counterpart to per-photo Save (#1634/#1638): a couple can pull their entire Papic gallery to their phone/computer in one click, **without connecting Google Drive**.
+
+- **`gallery-zip/route.ts`** (new, Node runtime) — `GET /dashboard/[eventId]/add-ons/papic/gallery-zip`: couple-gated (auth + couple-membership, mirrors the magazine route), gathers the event's captures (photos + clip videos, not hidden / not NSFW-blocked, capped at 1000), and **streams** a ZIP: each R2 object is fetched + appended one at a time (bounded memory) via `archiver` in **store mode** (photos/videos already compressed → no CPU), piped to the client as it builds. Files named `YYYY-MM-DD-NNNN-id.jpg/.mp4`. A missing object is skipped, never aborting the whole download.
+- **`papic-gallery-grid.tsx`** — a **Download all** link under the filter chips (when `eventId` + photos exist) → the route, `download` attribute.
+- Deps: `archiver` + `@types/archiver`; lockfile updated.
+
+Complements the storage model: **Drive = the couple's auto-synced archive; "Download all" = a one-shot grab of everything**, and the per-photo Save = grab one. Real-device/large-gallery behaviour (Vercel `maxDuration`) tuned in a pilot. Clips zip their original video; the gallery's per-tile Save still uses the poster (separate follow-up).
+
+SPEC IMPACT: iteration 0012 — bulk gallery ZIP download as a Drive-free "keep everything" path. Logged in corpus DECISION_LOG.md.
+
 ## 2026-06-17 · feat(papic): "Save to phone" on the guest day-of wall + shared button (DRY)
 
 Extends the per-photo Save (#1634) to the guest side and de-duplicates the button.

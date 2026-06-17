@@ -46,6 +46,8 @@ type Props = {
   musicUrl?: string | null;
   /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
   galleryUrls?: string[];
+  /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
+  launchDateIso?: string | null;
 };
 
 export function SaveTheDateView({
@@ -60,6 +62,7 @@ export function SaveTheDateView({
   monogramText,
   musicUrl,
   galleryUrls,
+  launchDateIso,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -80,6 +83,7 @@ export function SaveTheDateView({
       displayName,
       monogramText,
       dateIso,
+      launchDateIso,
       venueName,
       venueAddress,
       loveStory,

@@ -12,6 +12,7 @@ import {
   shortDate,
   resolveStdFilmContent,
 } from './save-the-date-content';
+import { buildSaveTheDateIcs } from './calendar-links';
 
 const PUBLIC_ID = 'S89E-7H2K9MNP3Q';
 
@@ -152,4 +153,70 @@ test('resolveStdFilmContent: absent music + gallery degrade to silent + empty', 
   });
   assert.equal(c.musicUrl, null);
   assert.deepEqual(c.gallery, []);
+});
+
+// ---- launch date + dual add-to-calendar (P3) ------------------------------
+
+test('resolveStdFilmContent: a launch date sets launchLabel', () => {
+  const c = resolveStdFilmContent({
+    displayName: 'A & B',
+    dateIso: '2027-06-12',
+    launchDateIso: '2027-01-15',
+    publicId: PUBLIC_ID,
+  });
+  assert.ok(c.launchLabel && c.launchLabel.length > 0);
+});
+
+test('resolveStdFilmContent: no launch date → launchLabel null', () => {
+  const c = resolveStdFilmContent({
+    displayName: 'A & B',
+    dateIso: '2027-06-12',
+    publicId: PUBLIC_ID,
+  });
+  assert.equal(c.launchLabel, null);
+});
+
+function countVevents(ics: string | null): number {
+  if (!ics) return 0;
+  return ics.split('BEGIN:VEVENT').length - 1;
+}
+
+test('buildSaveTheDateIcs: wedding + launch → two VEVENTs', () => {
+  const ics = buildSaveTheDateIcs({
+    coupleName: 'Maria & Jose',
+    weddingDateIso: '2027-06-12',
+    launchDateIso: '2027-01-15',
+    publicId: PUBLIC_ID,
+  });
+  assert.equal(countVevents(ics), 2);
+  assert.ok(ics!.includes('invitation arrives'));
+  assert.ok(ics!.includes('Maria'));
+});
+
+test('buildSaveTheDateIcs: wedding only → one VEVENT', () => {
+  const ics = buildSaveTheDateIcs({
+    coupleName: 'Maria & Jose',
+    weddingDateIso: '2027-06-12',
+    publicId: PUBLIC_ID,
+  });
+  assert.equal(countVevents(ics), 1);
+  assert.ok(!ics!.includes('invitation arrives'));
+});
+
+test('buildSaveTheDateIcs: launch only → one VEVENT (the reminder)', () => {
+  const ics = buildSaveTheDateIcs({
+    coupleName: 'Maria & Jose',
+    weddingDateIso: null,
+    launchDateIso: '2027-01-15',
+    publicId: PUBLIC_ID,
+  });
+  assert.equal(countVevents(ics), 1);
+  assert.ok(ics!.includes('invitation arrives'));
+});
+
+test('buildSaveTheDateIcs: neither date → null', () => {
+  assert.equal(
+    buildSaveTheDateIcs({ coupleName: 'X', weddingDateIso: null, publicId: PUBLIC_ID }),
+    null,
+  );
 });

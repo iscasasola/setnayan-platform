@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-17 · feat(save-the-date): the end-of-film dual add-to-calendar (PR4 P3)
+
+The film now ends with a TWO-event calendar: the wedding **and** — when the couple set it in the builder (P4) — the day the **full invitation goes live**.
+
+- **`calendar-links.ts`** — new `buildSaveTheDateIcs({ coupleName, weddingDateIso, launchDateIso, location, publicId })` builds one RFC-5545 VCALENDAR with up to two all-day VEVENTs: the wedding (primary) + a gentle "[Names] — invitation arrives" reminder (stable UIDs so re-adds dedupe). _Built here, beside the existing `buildWeddingIcs`, rather than the build plan's standalone `lib/std-ics.ts` — it reuses the module-private RFC-5545 date/escape helpers instead of duplicating them._
+- **`save-the-date-content.ts`** — the resolver takes `launchDateIso`, builds the dual ics (replacing the wedding-only one), and exposes `launchLabel` (the formatted launch date) for the close beat. +6 unit tests (22 total).
+- **`save-the-date-film.tsx`** — the close beat shows "Arrives [launchLabel]" when set, and its **Add to calendar** now downloads the dual ics (the "add everything" moment) — both the wedding and the invite reminder land in one tap. The early date beat keeps its quick wedding-only Google add.
+- Threaded `events.std_invitation_launch_date` through `[slug]/page.tsx` (SELECT + `EventRow` + both mounts) → `save-the-date.tsx` → the resolver; the builder preview resolves it too.
+
+No schema (uses P4's `std_invitation_launch_date`, already on prod) · no migration. tsc 0 · `next lint` clean · 22/22 unit. PR pending (branch `claude/std-dual-calendar`, auto-merge).
+
+SPEC IMPACT iter 0024 — implements **P3** (the dual calendar the owner asked for: "place multiple calendars — invitation launch + wedding date"). → CHANGELOG + corpus build-plan + DECISION_LOG.
+
 ## 2026-06-17 · feat(save-the-date): the couple builder + the chosen opening persists (PR4 P4)
 
 Turns the Save-the-Date add-on from a read-only reveal *preview* into a real **builder**, and — for the first time — **persists the couple's chosen opening** so the live page honours it.

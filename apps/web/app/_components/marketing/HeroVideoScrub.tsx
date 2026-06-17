@@ -366,66 +366,66 @@ export function HeroVideoScrub({ frameUrls, ctaText, ctaHref }: Props) {
         >
           scroll ↓
         </div>
-        {/* Loading veil — feature list while frames preload; swaps to scroll prompt when ready. */}
+        {/* Loading veil — nugget + feature list while frames preload. */}
         <div
           ref={loaderRef}
           aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease' }}
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0"
+          style={{ background: '#F6F3EE', zIndex: 5, transition: 'opacity .8s ease', padding: '0 32px' }}
         >
-          {/* Loading content — fades out when ready */}
+          {/* Nugget: loading state */}
           <div
             ref={loadingContentRef}
-            className="flex flex-col items-center"
-            style={{ transition: 'opacity .5s ease', maxWidth: 520, width: '100%', padding: '0 32px', textAlign: 'center' }}
+            style={{ transition: 'opacity .4s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: '100%', maxWidth: 480 }}
           >
-            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.32em', color: 'var(--m-orange-3)', marginBottom: 40 }}>
-              SETNAYAN
+            {/* Loading pill */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1E2229', borderRadius: 999, padding: '8px 18px 8px 14px', marginBottom: 36 }}>
+              <span className="m-mono" style={{ fontSize: 9, letterSpacing: '.2em', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>Loading</span>
+              <div style={{ width: 100, height: 2, background: 'rgba(255,255,255,.15)', borderRadius: 1, overflow: 'hidden' }}>
+                <div ref={barRef} style={{ height: '100%', background: '#C9A96E', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }} />
+              </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 48px', marginBottom: 44, textAlign: 'left', width: '100%', maxWidth: 400 }}>
+
+            {/* Tagline */}
+            <div className="m-mono" style={{ fontSize: 11, letterSpacing: '.24em', color: '#C9A96E', marginBottom: 28 }}>
+              14 features &middot; 1 app
+            </div>
+
+            {/* Feature grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px 40px', width: '100%', maxWidth: 400 }}>
               {[
-                'Online Planner', 'Guest List',
-                'Budget Tracker', 'Seat Plan',
-                'Checklist',      'Mood Board',
-                'Save the Date',  'RSVP',
-                'Event Website',  'Papic',
-                'Panood',         'Pakanta',
+                'Online Planner',  'Guest List',
+                'Budget Tracker',  'Seat Plan',
+                'Checklist',       'Mood Board',
+                'Save the Date',   'RSVP',
+                'Event Website',   'Editorial',
+                'Papic',           'Panood',
+                'Kwento',          'Pakanta',
               ].map((f) => (
-                <div key={f} className="m-mono" style={{ fontSize: 10, letterSpacing: '.14em', color: '#1E2229', opacity: .55 }}>
+                <div key={f} className="m-mono" style={{ fontSize: 10, letterSpacing: '.12em', color: '#1E2229', opacity: .52 }}>
                   {f}
                 </div>
               ))}
             </div>
-            <div style={{ width: 160, height: 1, background: 'rgba(30,34,41,.12)', borderRadius: 1, overflow: 'hidden', marginBottom: 14 }}>
-              <div
-                ref={barRef}
-                style={{ height: '100%', background: 'var(--m-orange-3)', transformOrigin: 'left', transform: 'scaleX(0)', transition: 'transform .25s linear' }}
-              />
-            </div>
-            <div
-              ref={statusRef}
-              className="m-mono"
-              style={{ fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'rgba(30,34,41,.38)', transition: 'color .5s ease, opacity .5s ease' }}
-            >
-              Setting it up for you
-            </div>
           </div>
 
-          {/* Ready prompt — shown when loading completes */}
+          {/* Nugget: ready state — shown alongside the feature list */}
           <div
             ref={readyPromptRef}
-            className="absolute flex flex-col items-center gap-3"
-            style={{ opacity: 0, transition: 'opacity .6s ease', pointerEvents: 'none' }}
+            style={{ opacity: 0, transition: 'opacity .5s ease', position: 'absolute', top: 'clamp(32px, 8vh, 64px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
           >
-            <div style={{ fontSize: 28, color: 'var(--m-orange-3)', animation: 'stn-bounce-up 1.4s ease-in-out infinite' }}>
-              &#8593;
-            </div>
-            <div className="m-mono" style={{ fontSize: 10, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--m-orange-3)' }}>
-              Scroll up
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1E2229', borderRadius: 999, padding: '9px 22px 9px 16px' }}>
+              <span style={{ fontSize: 16, color: '#C9A96E', animation: 'stn-nudge-up 1.4s ease-in-out infinite', display: 'inline-block' }}>&#8593;</span>
+              <span className="m-mono" style={{ fontSize: 10, letterSpacing: '.24em', color: '#C9A96E', textTransform: 'uppercase' }}>Scroll up</span>
             </div>
           </div>
 
-          <style>{`@keyframes stn-bounce-up { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }`}</style>
+          <style>{`
+            @keyframes stn-nudge-up {
+              0%,100% { transform: translateY(0); }
+              50%      { transform: translateY(-5px); }
+            }
+          `}</style>
         </div>
       </div>
     </section>

@@ -1288,6 +1288,114 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
   }
 }
 
+/* Alaala Orb (/our-story Act 1 hero · AlaalaOrb.tsx) ─────────────────────────
+   Circular masked orb: animated CSS gradient (cold-start / always-on skin) +
+   crossfading Papic clips (≤5 s each). Cursor parallax + gyro tilt driven from
+   AlaalaOrb.tsx; CSS animations also respect prefers-reduced-motion below. */
+
+.alaala-orb-root {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.alaala-orb-motion {
+  position: absolute;
+  inset: 0;
+}
+
+.alaala-orb-glow {
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(197, 160, 89, 0.27) 0%,
+    rgba(197, 160, 89, 0.07) 52%,
+    transparent 70%
+  );
+  filter: blur(30px);
+  animation: alaala-glow-pulse 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.alaala-orb-body {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1.5px rgba(197, 160, 89, 0.2),
+    0 16px 80px rgba(14, 15, 18, 0.72),
+    0 0 0 10px rgba(197, 160, 89, 0.03);
+}
+
+.alaala-orb-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 38% 30%, #2c211a 0%, #181c24 44%, #0d0f13 100%);
+  animation: alaala-gradient-breathe 9s ease-in-out infinite alternate;
+}
+
+.alaala-orb-shimmer {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0%,
+    rgba(197, 160, 89, 0.055) 22%,
+    transparent 42%,
+    rgba(197, 160, 89, 0.038) 68%,
+    transparent 100%
+  );
+  animation: alaala-shimmer-rotate 22s linear infinite;
+}
+
+/* Top-left specular highlight — sells the sphere's 3D curvature */
+.alaala-orb-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 28% 22%,
+    rgba(255, 255, 255, 0.17) 0%,
+    rgba(255, 255, 255, 0.04) 36%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* Inner rim shadow — deepens the sphere illusion at the edge */
+.alaala-orb-vignette {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 56px rgba(14, 15, 18, 0.52);
+  pointer-events: none;
+}
+
+@keyframes alaala-glow-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%       { opacity: 0.9;  transform: scale(1.07); }
+}
+
+@keyframes alaala-gradient-breathe {
+  from { filter: brightness(1)    saturate(1); }
+  to   { filter: brightness(1.14) saturate(1.07); }
+}
+
+@keyframes alaala-shimmer-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alaala-orb-glow,
+  .alaala-orb-gradient,
+  .alaala-orb-shimmer {
+    animation: none;
+  }
+}
+
 /* Salamisim Live Photo Wall (0012 P1) — new-tile entrance on the venue
    projection: gold ring + gentle scale, 2s, then settles. */
 @keyframes wall-tile-enter {

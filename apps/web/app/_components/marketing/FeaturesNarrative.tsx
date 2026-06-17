@@ -3,7 +3,7 @@
 /**
  * FeaturesNarrative — the post-hero step-through experience.
  *
- * "Fourteen features. One home." → six free tools → eight paid →
+ * "Sixteen features. One home." → eight free tools → eight paid →
  * vendor marketplace → link to Our Story.
  *
  * Four panels, each advancing on button click. The section re-anchors
@@ -20,13 +20,15 @@ import { useRef, useState } from 'react';
 import { Blob } from './_motion';
 
 // ─── Panel 0 data ──────────────────────────────────────────────────────────
-// Abstract preview tiles for the "14 features" overview.
+// Abstract preview tiles for the "16 features" overview.
 const OVERVIEW_FREE = [
   'Guest List',
   'Seat Plan',
   'Budget',
   'Timeline',
   'Mood Board',
+  'Checklist',
+  'Save the Date',
   'Website',
 ];
 const OVERVIEW_PAID = [
@@ -36,12 +38,12 @@ const OVERVIEW_PAID = [
   'Panood',
   'Pakanta',
   'Contracts',
-  'Save the Date',
+  'Cinematic Reveal',
   'Patiktok',
 ];
 
 // ─── Panel 1 data ──────────────────────────────────────────────────────────
-type MockKind = 'guests' | 'seats' | 'budget' | 'timeline' | 'mood' | 'website';
+type MockKind = 'guests' | 'seats' | 'budget' | 'timeline' | 'mood' | 'checklist' | 'std' | 'website';
 
 const FREE_ROOMS: Array<{ mock: MockKind; name: string; line: string; ends: string }> = [
   {
@@ -75,9 +77,21 @@ const FREE_ROOMS: Array<{ mock: MockKind; name: string; line: string; ends: stri
     ends: 'Ends three Pinterest boards that disagree.',
   },
   {
+    mock: 'checklist',
+    name: 'Checklist',
+    line: 'An adaptive to-do list that walks you through every decision — step by step.',
+    ends: 'Ends the "what do we do next?" paralysis.',
+  },
+  {
+    mock: 'std',
+    name: 'Save the Date',
+    line: 'A self-playing content film that announces your wedding date in style.',
+    ends: 'Ends the forwarded group chat screenshot.',
+  },
+  {
     mock: 'website',
     name: 'Website',
-    line: 'A real wedding site with branded QR invitations.',
+    line: 'A 4-in-1 wedding site: RSVP · Event page · Editorial · with branded QR.',
     ends: 'Ends the "can you resend the details?" texts.',
   },
 ];
@@ -122,8 +136,8 @@ const PAID_FEATURES: Array<{ icon: string; name: string; line: string; tag: stri
   },
   {
     icon: '◉',
-    name: 'Save the Date',
-    line: 'A cinematic reveal film your guests will share before the wedding.',
+    name: 'Cinematic Reveal',
+    line: 'A premium opening that unveils your Save the Date like a film — sheer veils, doors, and more.',
     tag: 'Film',
   },
   {
@@ -254,7 +268,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           className="m-serif italic text-center"
           style={{ color: '#FBFBFA', fontSize: 'clamp(2.4rem, 6.5vw, 4.2rem)', lineHeight: 1.05, maxWidth: 740, marginBottom: 20 }}
         >
-          Fourteen features.{' '}
+          Sixteen features.{' '}
           <span style={{ color: 'var(--m-orange-3)' }}>One home.</span>
         </h2>
 
@@ -262,7 +276,7 @@ function PanelOverview({ onNext }: { onNext: () => void }) {
           className="text-center"
           style={{ color: 'rgba(251,251,250,.62)', fontSize: 'clamp(1rem, 2.4vw, 1.15rem)', lineHeight: 1.65, maxWidth: 540, marginBottom: 52 }}
         >
-          Six are free from the moment you sign up. Eight transform your wedding into
+          Eight are free from the moment you sign up. Eight more transform your wedding into
           something your guests will never forget. All on one platform.
         </p>
 
@@ -762,6 +776,47 @@ function RoomMock({ kind }: { kind: MockKind }) {
         {(['var(--m-mulberry)', 'var(--m-orange)', 'var(--m-sage)', 'var(--m-ink)', 'var(--m-orange-4)'] as string[]).map((c, i) => (
           <rect key={i} x={10 + i * 41} y={12} width={36} height={36} rx={8} fill={c} stroke="var(--m-line)" strokeWidth={i === 4 ? 1 : 0} />
         ))}
+      </svg>
+    );
+  }
+  if (kind === 'checklist') {
+    // Four checklist rows: first three checked, fourth pending.
+    return (
+      <svg width="100%" height={H} viewBox="0 0 220 60" aria-hidden>
+        {[9, 22, 35, 48].map((y, i) => (
+          <g key={y}>
+            <rect x={8} y={y} width={14} height={10} rx={3} fill={i < 3 ? 'var(--m-sage-deep)' : 'var(--m-paper)'} stroke={i < 3 ? 'var(--m-sage-deep)' : 'var(--m-line)'} strokeWidth={1.2} />
+            {i < 3 && (
+              <path d={`M${10} ${y + 5} l3 3 l5 -5`} fill="none" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+            )}
+            <rect x={28} y={y + 2} width={i < 3 ? 120 : 80} height={6} rx={3} fill={i < 3 ? 'var(--m-line)' : 'var(--m-orange-3)'} opacity={i < 3 ? 0.6 : 1} />
+          </g>
+        ))}
+      </svg>
+    );
+  }
+  if (kind === 'std') {
+    // A film-frame card with a date announcement.
+    return (
+      <svg width="100%" height={H} viewBox="0 0 220 60" aria-hidden>
+        <rect x={8} y={4} width={204} height={52} rx={8} fill="var(--m-ink)" />
+        <rect x={8} y={4} width={204} height={52} rx={8} fill="none" stroke="var(--m-orange)" strokeWidth={1.5} />
+        {/* Film sprocket holes */}
+        {[16, 32, 48].map((x) => (
+          <rect key={`t${x}`} x={x} y={7} width={6} height={5} rx={1.5} fill="var(--m-paper)" opacity={0.3} />
+        ))}
+        {[16, 32, 48].map((x) => (
+          <rect key={`b${x}`} x={x} y={48} width={6} height={5} rx={1.5} fill="var(--m-paper)" opacity={0.3} />
+        ))}
+        {[166, 182, 198].map((x) => (
+          <rect key={`tr${x}`} x={x} y={7} width={6} height={5} rx={1.5} fill="var(--m-paper)" opacity={0.3} />
+        ))}
+        {[166, 182, 198].map((x) => (
+          <rect key={`br${x}`} x={x} y={48} width={6} height={5} rx={1.5} fill="var(--m-paper)" opacity={0.3} />
+        ))}
+        {/* Date text area */}
+        <rect x={64} y={18} width={92} height={8} rx={4} fill="var(--m-orange-3)" opacity={0.9} />
+        <rect x={76} y={32} width={68} height={6} rx={3} fill="var(--m-paper)" opacity={0.25} />
       </svg>
     );
   }

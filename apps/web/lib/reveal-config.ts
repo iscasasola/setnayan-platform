@@ -22,8 +22,7 @@ export type RevealTemplateId =
   | 'two-flap-vertical'
   | 'two-flap-horizontal'
   | 'church-doors'
-  | 'veil-sheer'
-  | 'veil-crown';
+  | 'veil-sheer';
 
 export const REVEAL_TEMPLATE_IDS: readonly RevealTemplateId[] = [
   'four-flap',
@@ -31,7 +30,6 @@ export const REVEAL_TEMPLATE_IDS: readonly RevealTemplateId[] = [
   'two-flap-horizontal',
   'church-doors',
   'veil-sheer',
-  'veil-crown',
 ];
 
 /** The veil "look" knobs — the live slider panel. Mirrors the prototype's §6 table. */
@@ -110,7 +108,6 @@ export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
     'two-flap-horizontal': true,
     'church-doors': true,
     'veil-sheer': true,
-    'veil-crown': true,
   },
   features: { petals: true, logo: true, music: false },
   veilColorDefault: '#f3ece1',
